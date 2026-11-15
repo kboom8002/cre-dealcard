@@ -1,9 +1,80 @@
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBroker } from "@/lib/auth-guard";
-
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 import { createModuleLogger } from '@/lib/logger';
+
+export const maxDuration = 60;
+
 const log = createModuleLogger('route');
+const SAFE_BUILDING_SEGMENT_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+const HEIC_UNSUPPORTED_MESSAGE_KO =
+  "아이폰 HEIC 원본 형식은 지원되지 않습니다. 카메라 설정에서 호환성(JPG)으로 변경하거나 JPG/PNG로 업로드해주세요.";
+
+const HEIC_FTYP_BRANDS = new Set([
+  "heic",
+  "heix",
+  "hevc",
+  "hevx",
+  "heim",
+  "heis",
+  "hevm",
+  "hevs",
+  "mif1",
+  "msf1",
+]);
+
+function hasHeicMagicBytes(buf: Buffer): boolean {
+  if (!buf || buf.byteLength < 12) return false;
+  if (buf.subarray(4, 8).toString("ascii") !== "ftyp") return false;
+  const majorBrand = buf.subarray(8, 12).toString("ascii").toLowerCase();
+  if (HEIC_FTYP_BRANDS.has(majorBrand)) return true;
+  const boxLen = Math.min(buf.byteLength, Math.max(12, buf.readUInt32BE(0)));
+  for (let offset = 16; offset + 4 <= Math.min(boxLen, 64); offset += 4) {
+    const compat = buf.subarray(offset, offset + 4).toString("ascii").toLowerCase();
+    if (HEIC_FTYP_BRANDS.has(compat)) return true;
+  }
+  return false;
+}
+
+function isHeicOrHeifUpload(fileName: string, mimeType: string, buf: Buffer): boolean {
+  const lowerMime = (mimeType || "").toLowerCase().trim();
+  if (
+    lowerMime === "image/heic" ||
+    lowerMime === "image/heif" ||
+    lowerMime === "image/heic-sequence" ||
+    lowerMime === "image/heif-sequence"
+  ) {
+    return true;
+  }
+  const ext = (fileName || "").split(".").pop()?.toLowerCase() || "";
+  if (ext === "heic" || ext === "heif") {
+    return true;
+  }
+  return hasHeicMagicBytes(buf);
+}
+
+async function convertHeicBufferWithSharp(
+  rawBuffer: Buffer
+): Promise<{ buffer: Buffer; ext: string; contentType: string }> {
+  const pipeline = sharp(rawBuffer)
+    .rotate()
+    .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true });
+
+  if (typeof (pipeline as unknown as { webp?: unknown }).webp === "function") {
+    const webpBuf = await pipeline.webp({ quality: 84 }).toBuffer();
+    if (webpBuf && webpBuf.byteLength > 0) {
+      return { buffer: webpBuf, ext: "webp", contentType: "image/webp" };
+    }
+  }
+
+  const jpegBuf = await pipeline.jpeg({ quality: 84, mozjpeg: true }).toBuffer();
+  if (!jpegBuf || jpegBuf.byteLength === 0) {
+    throw new Error("Empty HEIC conversion output");
+  }
+  return { buffer: jpegBuf, ext: "jpg", contentType: "image/jpeg" };
+}
 
 
 async function ensureBucket(svc: ReturnType<typeof createServiceClient>, name: string) {
@@ -76,6 +147,24 @@ export async function POST(
       return guard.error;
     }
 
+    if (!id || !SAFE_BUILDING_SEGMENT_RE.test(id) || id.includes("..")) {
+      return NextResponse.json(
+        { ok: false, error: "유효하지 않은 매물 식별자입니다." },
+        { status: 400 },
+      );
+    }
+
+    const svc = createServiceClient();
+    if (svc && typeof svc.from === "function") {
+      const ownership = await assertBuildingOwner(svc, id, guard.user!.id, {
+        allowAdmin: true,
+        role: guard.role,
+      });
+      if (!ownership.ok) {
+        return ownership.response;
+      }
+    }
+
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
     const singleFile = formData.get("file") as File | null;
@@ -93,7 +182,6 @@ export async function POST(
 
     log.info(`[Photo Upload API] Processing ${allFiles.length} files for building ${id} by user ${guard.user?.id}`);
 
-    const svc = createServiceClient();
     await ensureBucket(svc, "building_photos");
 
     const uploadedUrls: string[] = [];
@@ -108,40 +196,73 @@ export async function POST(
           continue;
         }
 
+        const rawBuffer = Buffer.from(await file.arrayBuffer());
         const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
-        const ext = ["jpg", "jpeg", "png", "webp", "gif", "heic"].includes(rawExt) ? rawExt : "jpg";
-        
-        // Normalize content type for HEIC (some browsers report wrong MIME)
+        const isHeic = isHeicOrHeifUpload(file.name, file.type || "", rawBuffer);
+
+        let uploadBuffer: Buffer = rawBuffer;
+        let ext = ["jpg", "jpeg", "png", "webp", "gif"].includes(rawExt) ? rawExt : "jpg";
         let contentType = file.type || "image/jpeg";
-        if (ext === "heic" && (!contentType || contentType === "application/octet-stream")) {
-          contentType = "image/heic";
+
+        if (isHeic) {
+          try {
+            const converted = await convertHeicBufferWithSharp(rawBuffer);
+            uploadBuffer = converted.buffer;
+            ext = converted.ext;
+            contentType = converted.contentType;
+          } catch (heicErr) {
+            log.warn(`[Photo Upload API] HEIC conversion unsupported for ${file.name}:`, heicErr);
+            return NextResponse.json(
+              {
+                ok: false,
+                error: HEIC_UNSUPPORTED_MESSAGE_KO,
+                message: HEIC_UNSUPPORTED_MESSAGE_KO,
+              },
+              { status: 415 }
+            );
+          }
+        } else if (rawBuffer.byteLength > 350 * 1024) {
+          try {
+            const pipeline = sharp(rawBuffer)
+              .rotate()
+              .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true });
+            const optimized =
+              typeof (pipeline as unknown as { webp?: unknown }).webp === "function"
+                ? await pipeline.webp({ quality: 84 }).toBuffer()
+                : await pipeline.jpeg({ quality: 84, mozjpeg: true }).toBuffer();
+            if (optimized && optimized.byteLength > 0) {
+              uploadBuffer = optimized;
+              ext = typeof (pipeline as unknown as { webp?: unknown }).webp === "function" ? "webp" : "jpg";
+              contentType = ext === "webp" ? "image/webp" : "image/jpeg";
+            }
+          } catch {
+            // Keep original raster buffer if sharp optimization is skipped
+          }
         }
-        
+
         const safeKey = `${id}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${i}.${ext}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
 
-        log.info(`[Photo Upload API] Uploading file ${i + 1}/${allFiles.length}: ${file.name} (${(file.size / 1024).toFixed(0)}KB, ${contentType})`);
+        log.info(`[Photo Upload API] Uploading file ${i + 1}/${allFiles.length}: ${file.name} (${(uploadBuffer.byteLength / 1024).toFixed(0)}KB, ${contentType})`);
 
-        const result = await uploadFileWithRetry(svc, "building_photos", safeKey, buffer, contentType);
+        const result = await uploadFileWithRetry(svc, "building_photos", safeKey, uploadBuffer, contentType);
         
         if (result.url) {
           uploadedUrls.push(result.url);
         } else {
           log.error(`[Photo Upload API] Failed: ${file.name} -> ${result.error}`);
-          errors.push(`${file.name}: ${result.error}`);
+          errors.push(`${file.name}: 업로드 실패`);
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         log.error(`[Photo Upload API] Process error for ${file.name}:`, errMsg);
-        errors.push(`${file.name}: ${errMsg}`);
+        errors.push(`${file.name}: 처리 오류`);
       }
     }
 
     if (uploadedUrls.length === 0) {
-      const errorDetail = errors.join("; ");
-      log.error(`[Photo Upload API] All uploads failed for building ${id}:`, errorDetail);
+      log.error(`[Photo Upload API] All uploads failed for building ${id}:`, errors.join("; "));
       return NextResponse.json(
-        { error: `사진 업로드 실패: ${errorDetail}`, details: errors },
+        { error: "사진 업로드에 실패했습니다. 잠시 후 다시 시도해주세요." },
         { status: 500 }
       );
     }
@@ -159,7 +280,7 @@ export async function POST(
     const errMsg = err instanceof Error ? err.message : String(err);
     log.error("[Photo Upload API] Fatal error:", errMsg);
     return NextResponse.json(
-      { error: `사진 업로드 서버 오류: ${errMsg}` },
+      { error: "사진 업로드 서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }

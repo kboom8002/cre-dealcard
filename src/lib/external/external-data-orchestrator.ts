@@ -11,9 +11,11 @@ import type { LocationPoiData } from "./kakao-map-api";
 import type { RegistryData } from "./registry-api";
 import type { CommercialDistrictAnalysis } from "./semas-commercial-api";
 import { createServiceClient } from "@/lib/supabase/service";
-import { reconstructFromCache, enrichBuildingDataCore } from "./enrich-by-pnu";
+import { reconstructFromCache, enrichBuildingDataCore, isNonEmptyExternalPayload } from "./enrich-by-pnu";
 import { fetchCadastralMapImage } from "./vworld-wms-cadastral";
 import { createModuleLogger } from "@/lib/logger";
+
+export { isNonEmptyExternalPayload } from "./enrich-by-pnu";
 
 const log = createModuleLogger("external-data-orchestrator");
 
@@ -82,7 +84,26 @@ export async function enrichBuildingData(
         .filter(([_, ttlDays]) => cacheAge > (ttlDays as number) * 86400000)
         .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
 
-      if (staleSourcesInfo.length === 0) {
+      const missingSources: string[] = [];
+      if (!isNonEmptyExternalPayload("buildingRegister", data.building_register)) {
+        missingSources.push("building_register");
+      }
+      if (!isNonEmptyExternalPayload("landPrice", data.official_land_price)) {
+        missingSources.push("land_price");
+      }
+      if (!isNonEmptyExternalPayload("landUsePlan", data.land_use_plan)) {
+        missingSources.push("land_use_plan");
+      }
+      if (
+        (data.latitude != null &&
+          data.longitude != null &&
+          !isNonEmptyExternalPayload("locationPoi", data.location_poi)) ||
+        (data.location_poi != null && !isNonEmptyExternalPayload("locationPoi", data.location_poi))
+      ) {
+        missingSources.push("location_poi");
+      }
+
+      if (staleSourcesInfo.length === 0 && missingSources.length === 0) {
         log.info(`Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
         const result = reconstructFromCache(data);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
@@ -101,8 +122,8 @@ export async function enrichBuildingData(
         }
         return result;
       }
-      staleSources = staleSourcesInfo.map(s => s.source);
-      log.info(`${staleSources.length} sources stale, refreshing`, { staleSources });
+      staleSources = Array.from(new Set([...staleSourcesInfo.map(s => s.source), ...missingSources]));
+      log.info(`${staleSources.length} sources stale/empty, refreshing`, { staleSources });
     }
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
 

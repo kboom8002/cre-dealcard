@@ -236,11 +236,15 @@
 }
 
 @layer base {
+  html {
+    font-size: var(--font-scale-normal, 17px);
+  }
+
   body {
     background: var(--background);
     color: var(--foreground);
     font-family: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-    font-size: 17px; /* 한글 기본 사이즈 보정: 16px → 17px */
+    font-size: 1rem; /* 한글 기본 사이즈 보정: html 17px 기준 rem 동적 비례 스케일링 */
     letter-spacing: -0.01em; /* 한글 자간 미세 보정 */
     word-break: keep-all; /* 한글 단어 단위 줄바꿈 */
     overflow-wrap: break-word;
@@ -568,7 +572,7 @@
   background-image: var(--ios-canvas-mesh);
   background-attachment: fixed;
   color: var(--ios-label-primary) !important;
-  font-size: 17px;
+  font-size: 1rem;
   line-height: 1.65;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
@@ -1224,19 +1228,19 @@
     0 1px 1px 0 rgba(15, 23, 42, 0.04);
 }
 
-/* 10. Senior Typography Scaling & Touch Targets (WP-P2-01 — 100% Preserved) */
+/* 10. Senior Typography Scaling & Touch Targets (WP-P2-01 & Wave 5 WP-15) */
 [data-font-scale="compact"] {
   font-size: 15px;
-  --text-xs: 0.75rem;     /* 12px */
-  --text-sm: 0.875rem;    /* 14px */
-  --text-base: 0.9375rem; /* 15px */
-  --text-lg: 1.0625rem;   /* 17px */
-  --text-xl: 1.25rem;     /* 20px */
+  --text-xs: max(13px, 0.8125rem); /* 캡션 최소 13px 보장 (이중 축소 방지) */
+  --text-sm: max(14px, 0.9333rem); /* 14px */
+  --text-base: 1rem;               /* 15px */
+  --text-lg: 1.1333rem;            /* 17px */
+  --text-xl: 1.3333rem;            /* 20px */
 }
 [data-font-scale="compact"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
 [data-font-scale="compact"] textarea,
 [data-font-scale="compact"] select {
-  font-size: 15px !important;
+  font-size: max(16px, 1rem) !important;
 }
 [data-font-scale="normal"] {
   font-size: 17px;
@@ -1267,12 +1271,12 @@
 }
 
 .ws-caption-min {
-  font-size: 14px;
+  font-size: max(13px, 0.8235rem);
   line-height: 1.5;
 }
 
 .ws-input-senior {
-  font-size: 18px !important;
+  font-size: max(18px, 1.0588rem) !important;
   min-height: 48px;
   border-color: var(--ws-control-border) !important;
 }
@@ -1295,6 +1299,18 @@
 .ws-editor-unit-pulse {
   animation: ws-unit-pulse 1.5s cubic-bezier(0.16, 1, 0.3, 1) 1;
   border-radius: 0.875rem;
+}
+
+/* 12. Reduced Motion Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 

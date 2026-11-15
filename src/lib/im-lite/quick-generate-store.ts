@@ -4,6 +4,7 @@ import path from 'path';
 import type { BasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
+import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
 import {
   computeCard4Hash,
   generateAiOgHeadline,
@@ -475,9 +476,9 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
     facts,
   });
 
-  const gfaPyung = params.gfaSqm > 0 ? Math.max(1, Math.round(params.gfaSqm / 3.3058)) : 0;
+  const gfaPyung = params.gfaSqm > 0 ? Math.max(1, Math.round(m2ToPyeong(params.gfaSqm))) : 0;
   const landAreaPyung =
-    params.landAreaSqm > 0 ? Math.max(1, Math.round(params.landAreaSqm / 3.3058)) : 0;
+    params.landAreaSqm > 0 ? Math.max(1, Math.round(m2ToPyeong(params.landAreaSqm))) : 0;
   const mappedPosture: DealCardPosture =
     params.posture === 'value_add' || params.posture === 'development'
       ? 'value_add'

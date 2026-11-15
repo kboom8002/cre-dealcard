@@ -58,30 +58,76 @@ export function formatMagazineFromHeader(rawFrom: string | undefined, senderName
   return `"${cleanSender} 매거진" <${addr}>`;
 }
 
-export async function sendEmailProvider(input: EmailSendInput): Promise<ProviderResult> {
+export const PROVIDER_429_MAX_RETRIES = 2;
+export const PROVIDER_429_BASE_DELAY_MS = 350;
+
+export function isResendRateLimitError(err: unknown): boolean {
+  if (!err) return false;
+  if (typeof err === 'object') {
+    const rec = err as Record<string, unknown>;
+    if (rec.statusCode === 429 || rec.status === 429) return true;
+    const name = String(rec.name ?? '');
+    const msg = String(rec.message ?? '');
+    return /(?:^|\D)429(?:\D|$)|rate[_\s-]*limit|too\s+many\s+requests/i.test(`${name} ${msg}`);
+  }
+  return /(?:^|\D)429(?:\D|$)|rate[_\s-]*limit|too\s+many\s+requests/i.test(String(err));
+}
+
+export async function sendEmailProvider(
+  input: EmailSendInput,
+  opts?: { maxRetries?: number; retryBaseDelayMs?: number },
+): Promise<ProviderResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: 'NO_PROVIDER: RESEND_API_KEY missing' };
-  try {
-    const resend = new Resend(key);
-    const from = formatMagazineFromHeader(process.env.EMAIL_FROM, input.senderName ?? input.fromName);
-    const { data, error } = await resend.emails.send({
-      from,
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-      ...(input.text ? { text: input.text } : {}),
-      ...(input.headers ? { headers: input.headers } : {}),
-    });
-    if (error) {
-      log.error('Resend error sending magazine email', { message: error.message });
-      return { ok: false, error: error.message };
+
+  const maxRetries = opts?.maxRetries ?? PROVIDER_429_MAX_RETRIES;
+  const baseDelayMs = opts?.retryBaseDelayMs ?? PROVIDER_429_BASE_DELAY_MS;
+  const resend = new Resend(key);
+  const from = formatMagazineFromHeader(process.env.EMAIL_FROM, input.senderName ?? input.fromName);
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        ...(input.text ? { text: input.text } : {}),
+        ...(input.headers ? { headers: input.headers } : {}),
+      });
+      if (error) {
+        if (attempt < maxRetries && isResendRateLimitError(error)) {
+          const waitMs = baseDelayMs * Math.pow(2, attempt);
+          log.warn('Resend 429 rate-limit encountered, backing off before retry', {
+            attempt: attempt + 1,
+            waitMs,
+            message: error.message,
+          });
+          if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+          continue;
+        }
+        log.error('Resend error sending magazine email', { message: error.message });
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, messageId: data?.id ?? null };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (attempt < maxRetries && isResendRateLimitError(e)) {
+        const waitMs = baseDelayMs * Math.pow(2, attempt);
+        log.warn('Resend 429 exception encountered, backing off before retry', {
+          attempt: attempt + 1,
+          waitMs,
+          message,
+        });
+        if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+      log.error('Unexpected error sending magazine email', { message });
+      return { ok: false, error: message };
     }
-    return { ok: true, messageId: data?.id ?? null };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    log.error('Unexpected error sending magazine email', { message });
-    return { ok: false, error: message };
   }
+
+  return { ok: false, error: 'Resend rate-limit retries exhausted' };
 }
 
 export interface KakaoSendInput {

@@ -1,0 +1,664 @@
+import type { ListStatusTone } from "@/components/workspace/list/WorkspaceList";
+
+export type InboxFilterType =
+  | "todo"
+  | "views"
+  | "viewed"
+  | "vip"
+  | "buyer"
+  | "seller"
+  | "emailable"
+  | "clients"
+  | "all";
+
+export type InboxEditorTabType = "todo" | "message" | "history";
+
+export type InboxClientRole = "buyer" | "seller" | "tenant" | "partner";
+
+export type InboxEmailDeliveryStatus = "ok" | "bounced" | "complained";
+
+export type InboxTransactionalBasis =
+  | "im_request"
+  | "property_inquiry"
+  | "tour_booking"
+  | "broker_manual";
+
+export interface RecipientEvent {
+  id: string;
+  eventType: "open" | "dwell" | "gate_request" | "share";
+  description: string;
+  timestamp: string;
+  sectionName?: string;
+}
+
+export interface InboxDispatchHistoryItem {
+  id: string;
+  eventType: string;
+  channel: "email" | "kakao_copy" | "newsletter" | "alimtalk";
+  title: string;
+  status: "sent" | "delivered" | "bounced" | "complained";
+  createdAt: string;
+  bounceReason?: string;
+}
+
+export interface InboxThreadItem {
+  id: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string;
+  transactionalBasis?: InboxTransactionalBasis | null;
+  hasTransactionalBasis?: boolean;
+  clientCompany?: string;
+  clientGrade: "VIP" | "일반" | "잠재";
+  isVip?: boolean;
+  clientRole?: InboxClientRole;
+  preferredRegions?: string[];
+  budgetManwon?: number | null;
+  freeMemo?: string;
+  emailDeliveryStatus?: InboxEmailDeliveryStatus;
+  dispatchHistory?: InboxDispatchHistoryItem[];
+  buildingTitle: string;
+  buildingId: string;
+  latestEvent: string;
+  detail?: string;
+  cleanMessage?: string;
+  gateStatus?: "pending" | "approved" | "rejected" | "none";
+  memo?: string;
+  updatedAt: string;
+  openCount: number;
+  dwellSeconds?: number;
+  lastViewedAt?: string | null;
+  isRead: boolean;
+  status: "pending_gate" | "high_interest" | "active" | "revoked";
+  shareToken: string;
+  shareUrl?: string;
+  events: RecipientEvent[];
+  budget: string;
+  preferredRegion: string;
+  focusedSections?: string[];
+  hasCorrectionNotice?: boolean;
+  correctionMessage?: string;
+  newsletterSubscribed?: boolean;
+}
+
+export interface BrokerInventoryDeal {
+  buildingId: string;
+  title: string;
+  region: string;
+  priceBand: string;
+  askingPriceManwon: number;
+  capRatePct: number;
+}
+
+export interface InboxWorkspacePageProps {
+  initialThreads?: InboxThreadItem[];
+}
+
+export const INBOX_STORAGE_KEY_PREFIX = "credeal-w-inbox-v5";
+export const INBOX_LEGACY_STORAGE_KEYS = [
+  "credeal-w-inbox-v4",
+  "credeal-w-inbox-v3",
+  "credeal-w-inbox-v2",
+];
+
+export const ALIMTALK_EARLY_ACCESS_NOTICE =
+  "Pro 알림톡 정식 연동 오픈 예정 — 이메일 발송 또는 카톡 인사말+링크 1초 복사를 바로 이용하실 수 있습니다";
+
+export function formatPhoneKo(raw: string): string {
+  if (raw.includes("@")) return raw;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("01")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    if (digits.startsWith("02")) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 9 && digits.startsWith("02")) {
+    return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+  }
+  return raw;
+}
+
+export function sanitizeClientPhone(raw: unknown): string {
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  if (!trimmed || trimmed === "010-0000-0000" || trimmed === "01000000000") return "";
+  return formatPhoneKo(trimmed);
+}
+
+export function parsePreferredRegionsList(
+  raw: string | string[] | null | undefined
+): string[] {
+  if (Array.isArray(raw)) {
+    return Array.from(
+      new Set(
+        raw
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  return Array.from(
+    new Set(
+      raw
+        .split(/[,/]+/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0)
+    )
+  );
+}
+
+export function parseBudgetManwonValue(
+  raw: string | number | null | undefined
+): number | null {
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw > 0 ? Math.round(raw) : null;
+  }
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const cleaned = raw.replace(/,/g, "").trim();
+
+  // Range e.g. "100~130억" -> take upper target in 만원
+  const rangeEokMatch = cleaned.match(
+    /(\d+(?:\.\d+)?)\s*[~\-]\s*(\d+(?:\.\d+)?)\s*억/
+  );
+  if (rangeEokMatch) {
+    const upper = Number(rangeEokMatch[2]);
+    if (Number.isFinite(upper) && upper > 0) return Math.round(upper * 10_000);
+  }
+
+  // "85억 5000만" or "60억"
+  const eokMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*만?)?/);
+  if (eokMatch) {
+    const eok = Number(eokMatch[1]);
+    const man = eokMatch[2] ? Number(eokMatch[2]) : 0;
+    if (Number.isFinite(eok) && eok > 0) {
+      return Math.round(eok * 10_000 + (Number.isFinite(man) ? man : 0));
+    }
+  }
+
+  // "5000만원" or "5000만"
+  const manMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*만(?:원)?$/);
+  if (manMatch) {
+    const man = Number(manMatch[1]);
+    return Number.isFinite(man) && man > 0 ? Math.round(man) : null;
+  }
+
+  // Pure numeric 만원 e.g. "480000"
+  if (/^\d+$/.test(cleaned)) {
+    const num = Number(cleaned);
+    return Number.isFinite(num) && num > 0 ? Math.round(num) : null;
+  }
+
+  return null;
+}
+
+export function formatClientRoleLabel(role?: InboxClientRole): string {
+  if (role === "seller") return "매도";
+  if (role === "tenant") return "임차";
+  if (role === "partner") return "공동중개";
+  return "매수";
+}
+
+export function formatDispatchChannelLabel(
+  channel: InboxDispatchHistoryItem["channel"] | string
+): string {
+  if (channel === "email") return "이메일";
+  if (channel === "kakao_copy") return "카톡 복사";
+  if (channel === "newsletter") return "뉴스레터";
+  if (channel === "alimtalk") return "알림톡";
+  return "발송";
+}
+
+export function formatDispatchStatusBadge(
+  status: InboxDispatchHistoryItem["status"] | string
+): { label: string; cls: string } {
+  if (status === "bounced") {
+    return {
+      label: "⚠️ 이메일 반송됨",
+      cls: "border border-rose-300 bg-rose-100 text-rose-900",
+    };
+  }
+  if (status === "complained") {
+    return {
+      label: "수신차단",
+      cls: "border border-amber-300 bg-amber-100 text-amber-950",
+    };
+  }
+  if (status === "delivered") {
+    return {
+      label: "전달 완료",
+      cls: "border border-emerald-200 bg-emerald-100 text-emerald-900",
+    };
+  }
+  return {
+    label: "발송 완료",
+    cls: "border border-slate-200 bg-slate-100 text-slate-800",
+  };
+}
+
+export function parseRawGateReason(raw: unknown): {
+  requesterName?: string;
+  requesterPhone?: string;
+  requesterCompany?: string;
+  cleanMessage?: string;
+} {
+  if (typeof raw !== "string" || !raw.trim()) return {};
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      return {
+        requesterName:
+          typeof parsed.name === "string"
+            ? parsed.name.trim()
+            : typeof parsed.requesterName === "string"
+            ? parsed.requesterName.trim()
+            : undefined,
+        requesterPhone: sanitizeClientPhone(
+          parsed.phone || parsed.contact || parsed.requesterPhone
+        ),
+        requesterCompany:
+          typeof parsed.company === "string"
+            ? parsed.company.trim()
+            : typeof parsed.organization === "string"
+            ? parsed.organization.trim()
+            : undefined,
+        cleanMessage:
+          typeof parsed.message === "string"
+            ? parsed.message.trim()
+            : typeof parsed.reason === "string"
+            ? parsed.reason.trim()
+            : undefined,
+      };
+    } catch {
+      return { cleanMessage: trimmed };
+    }
+  }
+  const bracketMatch = trimmed.match(
+    /^\[신청자:\s*([^/\]\n]+?)(?:\s*\/\s*연락처:\s*([^\]\n]+?))?\]\s*(.*)$/
+  );
+  if (bracketMatch) {
+    return {
+      requesterName: bracketMatch[1]?.trim() || undefined,
+      requesterPhone: sanitizeClientPhone(bracketMatch[2]),
+      cleanMessage: bracketMatch[3]?.trim() || "IM 열람을 요청했습니다.",
+    };
+  }
+  const marketMatch = trimmed.match(
+    /성함\/기업명:\s*([^,\n]+?)(?:,\s*연락처:\s*([^\n]+))?$/
+  );
+  if (marketMatch) {
+    return {
+      requesterName: marketMatch[1]?.trim() || undefined,
+      requesterPhone: sanitizeClientPhone(marketMatch[2]),
+      cleanMessage: "IM 열람을 요청했습니다.",
+    };
+  }
+  return { cleanMessage: trimmed };
+}
+
+export function parseFilterParam(raw: string | null): InboxFilterType | null {
+  if (!raw) return null;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "todo") return "todo";
+  if (normalized === "viewing" || normalized === "views") return "views";
+  if (normalized === "viewed") return "viewed";
+  if (normalized === "vip") return "vip";
+  if (normalized === "buyer") return "buyer";
+  if (normalized === "seller") return "seller";
+  if (normalized === "emailable") return "emailable";
+  if (normalized === "clients" || normalized === "subscribers") return "clients";
+  if (normalized === "all") return "all";
+  return null;
+}
+
+export function matchesInboxThreadFilter(
+  thread: InboxThreadItem,
+  filter: InboxFilterType,
+  rawQuery: string
+): boolean {
+  const q = rawQuery.trim().toLowerCase();
+  if (q) {
+    const qDigits = q.replace(/\D/g, "");
+    const isPhoneLikeQuery = /^[\d\s\-+()]+$/.test(q) && qDigits.length >= 2;
+    const phoneDigits = thread.clientPhone.replace(/\D/g, "");
+    const regionsText = (thread.preferredRegions || []).join(" ").toLowerCase();
+    const callNotesText = [
+      thread.memo || "",
+      thread.freeMemo || "",
+      thread.cleanMessage || "",
+      thread.latestEvent || "",
+      ...thread.events.map((ev) => ev.description || ""),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    const matched =
+      thread.clientName.toLowerCase().includes(q) ||
+      thread.clientPhone.toLowerCase().includes(q) ||
+      ((isPhoneLikeQuery || qDigits.length >= 4) &&
+        qDigits.length > 0 &&
+        phoneDigits.includes(qDigits)) ||
+      (thread.clientCompany || "").toLowerCase().includes(q) ||
+      thread.buildingTitle.toLowerCase().includes(q) ||
+      thread.preferredRegion.toLowerCase().includes(q) ||
+      regionsText.includes(q) ||
+      callNotesText.includes(q);
+
+    if (!matched) return false;
+  }
+
+  if (filter === "todo") {
+    return (
+      thread.status === "pending_gate" ||
+      thread.status === "high_interest" ||
+      thread.openCount >= 3
+    );
+  }
+  if (filter === "views" || filter === "viewed") {
+    return (
+      thread.openCount > 0 ||
+      (thread.dwellSeconds ?? 0) > 0 ||
+      thread.status === "high_interest" ||
+      thread.id.startsWith("view_")
+    );
+  }
+  if (filter === "vip") {
+    return thread.isVip === true || thread.clientGrade === "VIP";
+  }
+  if (filter === "buyer") {
+    return (thread.clientRole || "buyer") === "buyer" && !thread.id.startsWith("view_");
+  }
+  if (filter === "seller") {
+    return thread.clientRole === "seller";
+  }
+  if (filter === "emailable") {
+    const email = (thread.clientEmail || "").trim();
+    return (
+      email.length > 0 &&
+      email.includes("@") &&
+      thread.emailDeliveryStatus !== "bounced" &&
+      thread.emailDeliveryStatus !== "complained"
+    );
+  }
+  if (filter === "clients") {
+    return (
+      thread.id.startsWith("custom_") ||
+      thread.id.startsWith("cli-") ||
+      thread.id.startsWith("sub_")
+    );
+  }
+  return true;
+}
+
+export function normalizeServerThread(raw: any): InboxThreadItem {
+  const parsedReason = parseRawGateReason(raw?.detail || raw?.reason || raw?.cleanMessage);
+  const rawStatus = String(raw?.status || "active");
+  const mappedStatus: InboxThreadItem["status"] =
+    rawStatus === "pending_gate"
+      ? "pending_gate"
+      : rawStatus === "revoked"
+      ? "revoked"
+      : rawStatus === "hot_lead" || rawStatus === "high_interest" || Number(raw?.openCount) >= 3
+      ? "high_interest"
+      : "active";
+
+  const phone = sanitizeClientPhone(
+    raw?.clientPhone || raw?.requesterPhone || parsedReason.requesterPhone
+  );
+  const clientName =
+    String(
+      raw?.clientName ||
+        raw?.requesterName ||
+        parsedReason.requesterName ||
+        "이름 미입력 고객"
+    ).trim() || "이름 미입력 고객";
+  const buildingTitle =
+    String(raw?.buildingTitle || raw?.building_label || "관심 매물").trim() || "관심 매물";
+  const buildingId = String(raw?.buildingId || raw?.building_id || "").trim();
+  const cleanMessage =
+    String(
+      raw?.cleanMessage ||
+        parsedReason.cleanMessage ||
+        raw?.latestEvent ||
+        "상세 자료를 열람했습니다."
+    ).trim() || "상세 자료를 열람했습니다.";
+
+  const focusedSections = Array.isArray(raw?.focusedSections)
+    ? raw.focusedSections.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+    : [];
+
+  const events: RecipientEvent[] =
+    Array.isArray(raw?.events) && raw.events.length > 0
+      ? raw.events.map((ev: any, idx: number) => ({
+          id: String(ev?.id || `ev-${raw?.id || idx}-${idx}`),
+          eventType:
+            ev?.eventType === "gate_request" ||
+            ev?.eventType === "dwell" ||
+            ev?.eventType === "share"
+              ? ev.eventType
+              : "open",
+          description:
+            parseRawGateReason(ev?.description).cleanMessage ||
+            String(ev?.description || "상세 자료를 열람했습니다."),
+          timestamp: String(ev?.timestamp || "방금"),
+          sectionName: typeof ev?.sectionName === "string" ? ev.sectionName : undefined,
+        }))
+      : [
+          {
+            id: `ev-${raw?.id || Date.now()}`,
+            eventType: mappedStatus === "pending_gate" ? "gate_request" : "open",
+            description:
+              mappedStatus === "pending_gate"
+                ? `IM 열람 요청: ${cleanMessage}`
+                : "상세 자료를 열람했습니다",
+            timestamp: String(raw?.updatedAt || "방금"),
+          },
+        ];
+
+  const shareToken = String(raw?.shareToken || "").trim();
+  const shareUrl =
+    typeof raw?.shareUrl === "string" && raw.shareUrl
+      ? raw.shareUrl
+      : buildingId
+      ? shareToken
+        ? `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`
+        : `/im-lite/${encodeURIComponent(buildingId)}`
+      : "";
+
+  const isVip =
+    typeof raw?.isVip === "boolean" ? raw.isVip : raw?.clientGrade === "VIP";
+  const clientGrade: InboxThreadItem["clientGrade"] =
+    raw?.clientGrade === "VIP" || isVip
+      ? "VIP"
+      : raw?.clientGrade === "잠재"
+      ? "잠재"
+      : "일반";
+
+  const clientRole: InboxClientRole =
+    raw?.clientRole === "seller" ||
+    raw?.clientRole === "tenant" ||
+    raw?.clientRole === "partner"
+      ? raw.clientRole
+      : "buyer";
+
+  const preferredRegions = Array.isArray(raw?.preferredRegions)
+    ? parsePreferredRegionsList(raw.preferredRegions)
+    : parsePreferredRegionsList(raw?.preferredRegion);
+
+  const preferredRegion =
+    String(raw?.preferredRegion || "").trim() || preferredRegions.join(", ");
+
+  const budget = String(raw?.budget || "").trim();
+  const budgetManwon =
+    typeof raw?.budgetManwon === "number" && Number.isFinite(raw.budgetManwon)
+      ? raw.budgetManwon
+      : parseBudgetManwonValue(budget);
+
+  const freeMemo = typeof raw?.freeMemo === "string" ? raw.freeMemo : "";
+
+  const emailDeliveryStatus: InboxEmailDeliveryStatus =
+    raw?.emailDeliveryStatus === "bounced" || raw?.emailDeliveryStatus === "complained"
+      ? raw.emailDeliveryStatus
+      : "ok";
+
+  const dispatchHistory: InboxDispatchHistoryItem[] = Array.isArray(raw?.dispatchHistory)
+    ? raw.dispatchHistory.map((d: any, idx: number) => ({
+        id: String(d?.id || `disp-${raw?.id || idx}-${idx}`),
+        eventType: String(d?.eventType || "inbox_outbound_copied"),
+        channel:
+          d?.channel === "email" ||
+          d?.channel === "kakao_copy" ||
+          d?.channel === "newsletter" ||
+          d?.channel === "alimtalk"
+            ? d.channel
+            : "kakao_copy",
+        title: String(d?.title || buildingTitle),
+        status:
+          d?.status === "bounced" ||
+          d?.status === "complained" ||
+          d?.status === "delivered"
+            ? d.status
+            : "sent",
+        createdAt: String(d?.createdAt || "방금"),
+        bounceReason: typeof d?.bounceReason === "string" ? d.bounceReason : undefined,
+      }))
+    : [];
+
+  return {
+    id: String(raw?.id || `thread-${Date.now()}`),
+    clientName,
+    clientPhone: phone,
+    clientEmail:
+      typeof raw?.clientEmail === "string"
+        ? raw.clientEmail.trim()
+        : typeof raw?.requester_email === "string"
+        ? raw.requester_email.trim()
+        : "",
+    transactionalBasis:
+      raw?.transactionalBasis === "im_request" ||
+      raw?.transactionalBasis === "property_inquiry" ||
+      raw?.transactionalBasis === "tour_booking" ||
+      raw?.transactionalBasis === "broker_manual"
+        ? raw.transactionalBasis
+        : mappedStatus === "pending_gate"
+        ? "im_request"
+        : null,
+    hasTransactionalBasis:
+      typeof raw?.hasTransactionalBasis === "boolean"
+        ? raw.hasTransactionalBasis
+        : Boolean(raw?.transactionalBasis) || mappedStatus === "pending_gate",
+    clientCompany:
+      raw?.clientCompany || raw?.requesterCompany || parsedReason.requesterCompany || undefined,
+    clientGrade,
+    isVip,
+    clientRole,
+    preferredRegions,
+    budgetManwon,
+    freeMemo,
+    emailDeliveryStatus,
+    dispatchHistory,
+    buildingTitle,
+    buildingId,
+    latestEvent:
+      mappedStatus === "pending_gate"
+        ? `IM 열람 요청: ${cleanMessage}`
+        : cleanMessage,
+    detail: cleanMessage,
+    cleanMessage,
+    gateStatus:
+      raw?.gateStatus === "pending" || mappedStatus === "pending_gate"
+        ? "pending"
+        : raw?.gateStatus === "approved"
+        ? "approved"
+        : raw?.gateStatus === "rejected"
+        ? "rejected"
+        : "none",
+    memo: typeof raw?.memo === "string" ? raw.memo : undefined,
+    updatedAt: String(raw?.updatedAt || "방금"),
+    openCount: Math.max(0, Number(raw?.openCount ?? 0)),
+    dwellSeconds: Math.max(0, Number(raw?.dwellSeconds ?? 0)),
+    lastViewedAt: typeof raw?.lastViewedAt === "string" ? raw.lastViewedAt : null,
+    isRead: Boolean(raw?.isRead),
+    status: mappedStatus,
+    shareToken,
+    shareUrl,
+    events,
+    budget,
+    preferredRegion,
+    focusedSections,
+    hasCorrectionNotice: Boolean(raw?.hasCorrectionNotice),
+    correctionMessage:
+      typeof raw?.correctionMessage === "string" ? raw.correctionMessage : undefined,
+    newsletterSubscribed: Boolean(raw?.newsletterSubscribed),
+  };
+}
+
+/** 목록 행 상태 배지 (간단히 · 자세히 보기 공통 문구) */
+export function getInboxStatusBadge(item: InboxThreadItem): {
+  text: string;
+  cls: string;
+  tone: ListStatusTone;
+} {
+  const isSubPendingConfirm =
+    item.id.startsWith("sub_") &&
+    !item.newsletterSubscribed &&
+    (item.cleanMessage || "").includes("수신 확인 대기");
+  if (item.status === "pending_gate") {
+    return {
+      text: "IM 요청 대기",
+      cls: "bg-amber-100 text-amber-900 border border-amber-300",
+      tone: "action",
+    };
+  }
+  if (item.status === "revoked") {
+    return {
+      text: "링크 잠김",
+      cls: "bg-rose-100 text-rose-800 border border-rose-200",
+      tone: "warn",
+    };
+  }
+  if (item.gateStatus === "rejected") {
+    return {
+      text: "요청 거절됨",
+      cls: "bg-slate-200 text-slate-700 border border-slate-300",
+      tone: "muted",
+    };
+  }
+  if (item.status === "high_interest" || item.openCount >= 3) {
+    return {
+      text: "관심 높음",
+      cls: "bg-blue-100 text-blue-900 border border-blue-200",
+      tone: "ready",
+    };
+  }
+  if (item.id.startsWith("sub_")) {
+    if (isSubPendingConfirm) {
+      return {
+        text: "수신 확인 대기",
+        cls: "bg-amber-100 text-amber-900 border border-amber-300",
+        tone: "action",
+      };
+    }
+    if (item.newsletterSubscribed) {
+      return {
+        text: "수신 동의 완료",
+        cls: "bg-emerald-100 text-emerald-900 border border-emerald-200",
+        tone: "sent",
+      };
+    }
+    return {
+      text: "수신 거부",
+      cls: "bg-slate-100 text-slate-700 border border-slate-200",
+      tone: "muted",
+    };
+  }
+  return {
+    text: item.openCount > 0 ? `${item.openCount}회 열람` : "등록 고객",
+    cls: "bg-slate-100 text-slate-700 border border-slate-200",
+    tone: "draft",
+  };
+}

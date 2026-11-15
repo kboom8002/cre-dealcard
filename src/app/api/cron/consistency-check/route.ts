@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createModuleLogger } from '@/lib/logger';
+import { acquireCronIdempotencySlot, verifyCronRequest } from '@/lib/security/cron-auth';
+
 const log = createModuleLogger('route');
 
-
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authFailure = verifyCronRequest(req);
+  if (authFailure) return authFailure;
 
   try {
     const { createServiceClient } = await import('@/lib/supabase/service');
     const supabase = createServiceClient();
+
+    const bucketKey = new Date().toISOString().slice(0, 10);
+    const slot = await acquireCronIdempotencySlot(supabase, 'consistency-check', bucketKey);
+    if (!slot.acquired) {
+      return NextResponse.json({ status: 'ok', skipped: 'DUPLICATE_SLOT', checked: 0, driftsFound: 0, drifts: [] });
+    }
+
     const drifts: Array<{ buildingId: string; field: string; ssotValue: unknown; imValue: unknown }> = [];
 
     // 최근 갱신된 published IM 문서 가져오기 (최대 50건)
@@ -44,10 +50,18 @@ export async function GET(req: NextRequest) {
 
       if (ssotErr || !row) continue;
 
-      const layers = (row.layers as any) || {};
+      const layers =
+        row.layers && typeof row.layers === 'object'
+          ? (row.layers as Record<string, unknown>)
+          : {};
+      const finance =
+        layers.finance && typeof layers.finance === 'object'
+          ? (layers.finance as Record<string, unknown>)
+          : undefined;
+
       const ssot = {
         address: row.raw_address,
-        asking_price_krw: layers.finance?.asking_price_krw,
+        asking_price_krw: finance?.asking_price_krw,
         land_area_pyung: layers.land_area_pyung,
         total_floor_area_pyung: layers.total_floor_area_pyung,
       };
@@ -69,8 +83,11 @@ export async function GET(req: NextRequest) {
       }
 
       // 매각가 drift 검사
-      if (ssot.asking_price_krw && heroCard.askingPriceKrw &&
-          Math.abs(Number(ssot.asking_price_krw) - Number(heroCard.askingPriceKrw)) > 1e6) {
+      if (
+        ssot.asking_price_krw &&
+        heroCard.askingPriceKrw &&
+        Math.abs(Number(ssot.asking_price_krw) - Number(heroCard.askingPriceKrw)) > 1e6
+      ) {
         drifts.push({
           buildingId: doc.building_id,
           field: 'askingPriceKrw',

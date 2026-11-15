@@ -10,7 +10,7 @@
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache, Suspense } from "react";
+import React, { cache, Suspense } from "react";
 import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
 import { DEMO_BUILDING_IDS } from "@/lib/demo/mobile-im-demo-data";
 import { MobileIMViewer } from "./mobile-im-viewer";
@@ -94,42 +94,70 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
     if (token) {
       return (
         <main
-          className="min-h-screen bg-[#F3F2EE] text-[#0F172A] flex items-center justify-center px-4 py-12"
+          className="min-h-screen bg-[#FAF9F6] text-stone-900 flex items-center justify-center px-4 py-12"
           data-testid="revoked-im-screen"
         >
-          <div className="max-w-md w-full bg-white rounded-3xl border-2 border-[#FECACA] p-6 sm:p-8 text-center space-y-4 shadow-md">
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FEE2E2] text-[#991B1B] rounded-full font-extrabold text-sm">
-              🚫 열람 제한 안내 · 링크 잠김
+          <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-full font-bold text-sm">
+              열람 종료 안내
             </div>
-            <h1 className="text-xl font-black text-[#0F172A] leading-snug">
-              담당 중개인에 의해 회수되었거나 잠긴 투자설명서(IM) 링크입니다
+            <h1 className="text-xl font-extrabold text-stone-900 leading-snug break-keep">
+              📋 매물 조건 업데이트 또는 거래 진행에 따라 열람이 종료된 링크입니다
             </h1>
-            <p className="text-base text-[#475569] leading-relaxed">
-              매매 조건 변경 또는 보안 정책에 따라 해당 공유 링크의 열람이 제한되었습니다. 최신 투자설명서 링크는 담당 공인중개사에게 문의해 주세요.
+            <p className="text-base text-stone-600 leading-relaxed break-keep">
+              최신 매물 상태나 수정된 자료가 필요하시면 담당 공인중개사에게 문의해 주세요.
             </p>
+            <div className="pt-1">
+              <a
+                href={`/dc/${buildingId}`}
+                className="inline-flex min-h-[48px] w-full sm:w-auto items-center justify-center rounded-xl bg-stone-900 px-5 py-3 text-base font-bold text-white hover:bg-stone-800 transition-colors cursor-pointer"
+              >
+                ← 매물 요약 딜카드 보기
+              </a>
+            </div>
           </div>
         </main>
       );
     }
+
+    const viewer = await getServerViewer();
+    const isAuthenticatedViewer = Boolean(
+      viewer?.userId || (viewer as { id?: string | null } | null)?.id
+    );
+
     return (
       <main
-        className="min-h-screen bg-[#F3F2EE] text-[#0F172A] flex items-center justify-center px-4 py-12"
+        className="min-h-screen bg-[#FAF9F6] text-stone-900 flex items-center justify-center px-4 py-12"
         data-testid="im-notfound-screen"
       >
-        <div className="max-w-md w-full bg-white rounded-3xl border border-[#CBD5E1] p-6 sm:p-8 text-center space-y-4 shadow-sm">
-          <div className="text-4xl">📋</div>
-          <h1 className="text-xl font-extrabold text-[#0F172A] leading-snug">
-            상세 투자설명서(IM)를 준비하고 있습니다
+        <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-full font-bold text-sm">
+            투자설명서 준비 안내
+          </div>
+          <h1 className="text-xl font-extrabold text-stone-900 leading-snug break-keep">
+            상세 투자설명서(IM) 준비 중인 매물입니다
           </h1>
-          <p className="text-base text-[#475569] leading-relaxed">
-            요청하신 매물의 모바일 투자설명서가 아직 발행되지 않았거나 주소가 변경되었습니다. 담당 공인중개사에게 최신 링크를 문의해 주세요.
+          <p className="text-base text-stone-600 leading-relaxed break-keep">
+            담당 공인중개사가 최신 임대차 및 수익 자료를 검수하고 있습니다. 매물 요약 딜카드에서 간편 문의를 남겨주시면 우선 안내해 드립니다.
           </p>
-          <a
-            href="/broker/w/im"
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-[#0F172A] px-5 py-3 text-base font-bold text-white hover:bg-[#1E293B] transition-colors cursor-pointer"
-          >
-            ← IM 작업공간으로 돌아가기
-          </a>
+          <div className="pt-1 space-y-2">
+            <a
+              href={`/dc/${buildingId}`}
+              className="inline-flex min-h-[48px] w-full sm:w-auto items-center justify-center rounded-xl bg-stone-900 px-5 py-3 text-base font-bold text-white hover:bg-stone-800 transition-colors cursor-pointer"
+            >
+              ← 매물 요약 딜카드 보기
+            </a>
+            {isAuthenticatedViewer && (
+              <div>
+                <a
+                  href="/broker/w/im"
+                  className="inline-flex min-h-[44px] items-center justify-center text-sm font-medium text-stone-500 hover:text-stone-800 underline underline-offset-4"
+                >
+                  IM 작업공간으로 이동
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     );

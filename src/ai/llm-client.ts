@@ -9,17 +9,38 @@ const log = createModuleLogger('llm-client');
 
 const providerRegistry = new Map<string, LLMProvider>();
 
-// 기본 OpenAI 제공자 등록 (환경 변수 및 테스트 모드에 따라 Mock 또는 실물 등록)
-const hasOpenAiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "mock_key";
-const isTestEnv = process.env.NODE_ENV === "test" && process.env.FORCE_REAL_LLM !== "true";
+function isTestEnvironment(): boolean {
+  return process.env.NODE_ENV === "test" && process.env.FORCE_REAL_LLM !== "true";
+}
 
-if (!hasOpenAiKey || isTestEnv) {
+export function resolveDefaultAllowMock(): boolean {
+  if (process.env.NODE_ENV === "test") {
+    return true;
+  }
+  return process.env.ALLOW_LLM_MOCK === "true";
+}
+
+// 기본 OpenAI 제공자 등록 (환경 변수 및 테스트 모드에 따라 Mock 또는 실물 등록)
+const rawOpenAiKey = process.env.OPENAI_API_KEY?.trim();
+const hasOpenAiKey =
+  !!rawOpenAiKey &&
+  rawOpenAiKey !== "mock_key" &&
+  rawOpenAiKey !== "not-configured";
+
+let openAiInitFailureReason: string | null = null;
+
+if (!hasOpenAiKey || isTestEnvironment()) {
+  if (!hasOpenAiKey) {
+    openAiInitFailureReason = "OPENAI_API_KEY 미설정 또는 mock_key";
+  }
   providerRegistry.set("openai", new MockOpenAIProvider());
 } else {
   try {
     providerRegistry.set("openai", new OpenAIProvider());
-  } catch (err) {
-    log.warn({ err: err }, "[llm-client] Failed to initialize OpenAIProvider, falling back to Mock:");
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    openAiInitFailureReason = `OpenAIProvider 초기화 실패: ${errMsg}`;
+    log.warn({ err }, "[llm-client] Failed to initialize OpenAIProvider:");
     providerRegistry.set("openai", new MockOpenAIProvider());
   }
 }
@@ -37,8 +58,42 @@ export function registerProvider(name: string, provider: LLMProvider) {
   providerRegistry.set(name, provider);
 }
 
-// 최대 회복탄력성을 위한 단순 인메모리 프롬프트 캐시 스토리지
+// 최대 회복탄력성을 위한 인메모리 프롬프트 LRU 캐시 스토리지 (상한 200개)
+export const MAX_LLM_CACHE_ENTRIES = 200;
 const inMemoryLlmCache = new Map<string, LLMChatResult>();
+
+function setLlmCacheEntry(key: string, value: LLMChatResult): void {
+  if (inMemoryLlmCache.has(key)) {
+    inMemoryLlmCache.delete(key);
+  }
+  while (inMemoryLlmCache.size >= MAX_LLM_CACHE_ENTRIES) {
+    const oldestKey = inMemoryLlmCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    inMemoryLlmCache.delete(oldestKey);
+  }
+  inMemoryLlmCache.set(key, value);
+}
+
+function getLlmCacheEntry(key: string): LLMChatResult | undefined {
+  const cached = inMemoryLlmCache.get(key);
+  if (!cached) return undefined;
+  // Refresh LRU recency
+  inMemoryLlmCache.delete(key);
+  inMemoryLlmCache.set(key, cached);
+  return cached;
+}
+
+export function getLlmCacheSize(): number {
+  return inMemoryLlmCache.size;
+}
+
+export function hasLlmCacheKey(key: string): boolean {
+  return inMemoryLlmCache.has(key);
+}
+
+export function clearLlmCache(): void {
+  inMemoryLlmCache.clear();
+}
 
 export interface CallLLMOptions {
   providers?: string[];             // fallback chain order (e.g. ['openai', 'google'])
@@ -47,8 +102,8 @@ export interface CallLLMOptions {
   signal?: AbortSignal;            // 외부 취소 신호
   deadlineMs?: number;             // 전체 완료 데드라인 타임스탬프
   /**
-   * 기본 true(기존 동작 불변). false이면 MockOpenAIProvider 응답(키 없음/쿼터 고갈/테스트 폴백)을
-   * 정상 응답으로 돌려주지 않고 `LLMMockNotAllowedError`를 던진다. (매거진 공개 콘텐츠용, DC-8)
+   * NODE_ENV === 'test' 에서는 기본 true, 그 외 운영/개발 환경에서는 ALLOW_LLM_MOCK === 'true' 가 아니면 기본 false.
+   * false이면 MockOpenAIProvider 응답(키 없음/초기화 실패/쿼터 고갈 폴백)을 차단하고 `LLMMockNotAllowedError`를 던진다.
    */
   allowMock?: boolean;
 }
@@ -67,7 +122,8 @@ export async function callLLM(
   params: LLMChatParams,
   options: CallLLMOptions = {},
 ): Promise<CallLLMResult> {
-  const allowMock = options.allowMock !== false;
+  const allowMock = options.allowMock ?? resolveDefaultAllowMock();
+  const isTestEnv = isTestEnvironment();
   // 기본 폴백 순서 설정
   const chain = options.providers ?? ["openai"];
   
@@ -80,7 +136,8 @@ export async function callLLM(
     const provider = providerRegistry.get(providerName);
     if (!provider) continue;
     if (!allowMock && provider instanceof MockOpenAIProvider) {
-      throw new LLMMockNotAllowedError(`provider '${providerName}' 가 Mock 입니다 (OPENAI_API_KEY 미설정 또는 테스트 환경)`);
+      const reason = openAiInitFailureReason ?? "OPENAI_API_KEY 미설정 또는 테스트/Mock 제공자 활성";
+      throw new LLMMockNotAllowedError(`provider '${providerName}' 가 Mock 입니다 (${reason})`);
     }
     
     const maxAttempts = 5; // 1 initial + 4 retries (exponential backoff: 1s, 2s, 4s, 8s)
@@ -115,9 +172,9 @@ export async function callLLM(
           options.signal.removeEventListener("abort", abortHandler);
         }
         
-        // 호출 성공 시 캐시 키가 주어졌다면 인메모리 캐시에 적재
+        // 호출 성공 시 캐시 키가 주어졌다면 인메모리 LRU 캐시에 적재 (최대 MAX_LLM_CACHE_ENTRIES)
         if (options.cacheKey) {
-          inMemoryLlmCache.set(options.cacheKey, result);
+          setLlmCacheEntry(options.cacheKey, result);
         }
         
         return provider instanceof MockOpenAIProvider ? { ...result, isMock: true } : result;
@@ -192,7 +249,7 @@ export async function callLLM(
 
   // 모든 제공자 호출에 실패했을 때, 캐시 키가 있다면 메모리 캐시에서 복원 시도 (안티프래질 폴백)
   if (options.cacheKey) {
-    const cachedResult = inMemoryLlmCache.get(options.cacheKey);
+    const cachedResult = getLlmCacheEntry(options.cacheKey);
     if (cachedResult) {
       log.warn(`[callLLM] All providers failed. Restored successful response from in-memory cache for key: ${options.cacheKey}`);
       return {
@@ -202,7 +259,7 @@ export async function callLLM(
     }
   }
 
-  // 429 Quota 고갈 또는 테스트 환경 시 MockOpenAIProvider로 안전 폴백 (안티프래질 고가용성 보장)
+  // 429 Quota 고갈 또는 테스트 환경 시 MockOpenAIProvider 폴백 검사 (운영 환경에서는 allowMock 기본 false로 차단)
   const isQuotaExhausted = lastError?.message?.includes("insufficient_quota") ||
     lastError?.message?.includes("credit_balance_exhausted") ||
     lastError?.message?.includes("no credits remaining") ||
@@ -224,6 +281,9 @@ export async function callLLM(
 
 export async function embedText(text: string): Promise<number[]> {
   const provider = providerRegistry.get("openai");
+  if (provider && provider instanceof MockOpenAIProvider && !resolveDefaultAllowMock()) {
+    throw new LLMMockNotAllowedError("임베딩 제공자 'openai' 가 Mock 입니다 (OPENAI_API_KEY 미설정 또는 초기화 실패)");
+  }
   if (provider && provider.embed) {
     return provider.embed(text);
   }

@@ -146,6 +146,21 @@ vi.mock('@/lib/supabase/service', () => {
                 },
                 order: () => builder,
                 limit: () => builder,
+                then: (resolve: any, reject?: any) => {
+                  try {
+                    const matched: any[] = [];
+                    for (const [, row] of mockDb.document_objects) {
+                      const match = filters.every((f) => {
+                        if (Array.isArray(f.val)) return f.val.includes(row[f.col]);
+                        return row[f.col] === f.val;
+                      });
+                      if (match) matched.push({ ...row });
+                    }
+                    resolve({ data: matched, error: null });
+                  } catch (e) {
+                    if (reject) reject(e);
+                  }
+                },
                 maybeSingle: async () => {
                   for (const [, row] of mockDb.document_objects) {
                     const match = filters.every((f) => {
@@ -234,6 +249,21 @@ vi.mock('@/lib/supabase/service', () => {
                 },
                 order: () => builder,
                 limit: () => builder,
+                then: (resolve: any, reject?: any) => {
+                  try {
+                    const matched: any[] = [];
+                    for (const [, row] of mockDb.gate_requests) {
+                      const match = filters.every((f) => {
+                        if (Array.isArray(f.val)) return f.val.includes(row[f.col]);
+                        return row[f.col] === f.val;
+                      });
+                      if (match) matched.push({ ...row });
+                    }
+                    resolve({ data: matched, error: null });
+                  } catch (e) {
+                    if (reject) reject(e);
+                  }
+                },
                 maybeSingle: async () => {
                   for (const [, row] of mockDb.gate_requests) {
                     const match = filters.every((f) => row[f.col] === f.val);
@@ -375,18 +405,18 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
     const testGrantId = 'grant-test-uuid-404';
 
     beforeEach(() => {
-      // Seed a pending grant in im_pro_grants
+      // Seed a pending grant in im_pro_grants with recorded requester identity
       mockDb.im_pro_grants.set(testGrantId, {
         id: testGrantId,
         building_id: 'bldg-404',
-        requester_name: '신청자',
-        requester_phone: '010-9999-8888',
+        requester_name: '홍길동',
+        requester_phone: '010-1234-5678',
         status: 'pending',
         nda_signed_at: null,
       });
     });
 
-    it('Positive Pair: valid payload activates grant with 200 OK, setting status and watermark', async () => {
+    it('Positive Pair: valid matching requester payload activates grant with 200 OK, setting status and watermark', async () => {
       const payload = {
         agreedToTerms: true,
         signerName: '홍길동',
@@ -416,6 +446,29 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       expect(updatedGrant.nda_signed_at).toBeDefined();
       expect(updatedGrant.requester_name).toBe('홍길동');
       expect(updatedGrant.watermark_seed).toContain('홍길동|5678');
+    });
+
+    it('Negative Pair E: mismatched phone / blind UUID attacker returns 403 and preserves recorded requester PII', async () => {
+      const payload = {
+        agreedToTerms: true,
+        signerName: '침입자',
+        signerPhone: '010-9999-0000',
+        signature: '침입자',
+      };
+
+      const req = new NextRequest(`http://localhost:3000/api/gate-requests/${testGrantId}/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const res = await postSignNda(req, { params: Promise.resolve({ id: testGrantId }) });
+      expect(res.status).toBe(403);
+
+      const grant = mockDb.im_pro_grants.get(testGrantId);
+      expect(grant.status).toBe('pending');
+      expect(grant.requester_name).toBe('홍길동');
+      expect(grant.requester_phone).toBe('010-1234-5678');
     });
 
     it('Negative Pair A: missing agreedToTerms returns 400 Bad Request', async () => {
@@ -512,6 +565,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
     beforeEach(() => {
       mockDb.im_pro_grants.set(grantId, {
         id: grantId,
+        broker_id: '00000000-0000-0000-0000-000000000001',
         status: 'pending',
         requester_name: '잠재투자자',
         requester_phone: '010-7777-8888',
@@ -625,10 +679,10 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       expect(html).toContain('선릉역 프라임 오피스빌딩 Pro IM');
       expect(html).toContain('핵심 투자 포인트');
 
-      // Output assertion for Feature 18: Column query must be document_type, NOT doc_type
+      // Output assertion for Feature 18: Column query must be document_type (excluding blind_teaser), NOT doc_type
       expect(mockDb.documentObjectsQueriedColumns).toContainEqual({
         filterCol: 'document_type',
-        filterVal: ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro'],
+        filterVal: ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro'],
       });
       const hasOldDocType = mockDb.documentObjectsQueriedColumns.some((q) => q.filterCol === 'doc_type');
       expect(hasOldDocType).toBe(false);

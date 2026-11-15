@@ -19,6 +19,12 @@ import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
+import {
+  buildAiUnavailable503Response,
+  enforceBrokerAiQuota,
+  enforceFeatureQuota,
+  isLLMMockNotAllowedError,
+} from '@/lib/ai-quota-guard';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -140,6 +146,14 @@ export async function POST(req: NextRequest) {
 
     const cleanPhotoUrls = sanitizePhotoUrls(input.photoUrls);
 
+    if (!input.existingBuildingId) {
+      const featureQuotaErr = await enforceFeatureQuota(user!.id, "deal_card_creation");
+      if (featureQuotaErr) return featureQuotaErr;
+    }
+
+    const aiQuotaErr = await enforceBrokerAiQuota(req, user!.id, "deal_card_from_memo");
+    if (aiQuotaErr) return aiQuotaErr;
+
     if (input.isAsync) {
       const jobId = crypto.randomUUID();
       const supabase = createServiceClient();
@@ -243,6 +257,10 @@ export async function POST(req: NextRequest) {
       constraintWarnings,
     });
   } catch (error) {
+    if (isLLMMockNotAllowedError(error)) {
+      log.warn("[deal-card/from-memo] Mock 응답 거부 (Zero-Mock Production):", error);
+      return buildAiUnavailable503Response();
+    }
     log.error("Deal Card Route Error:", error);
     return toApiError(error);
   }

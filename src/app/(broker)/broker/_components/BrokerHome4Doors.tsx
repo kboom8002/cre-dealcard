@@ -199,7 +199,20 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
         {doorList.map((door) => (
           <div
             key={door.config.id}
-            className="relative group rounded-3xl ios-glass-card bg-white/88 backdrop-blur-2xl backdrop-saturate-[180%] border border-slate-900/[0.085] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_28px_-8px_rgba(15,23,42,0.06)] hover:bg-white hover:border-[#007AFF]/30 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_18px_38px_-8px_rgba(0,122,255,0.10)] transition-all duration-200 overflow-hidden flex flex-col justify-between p-6 min-h-[196px]"
+            data-testid={`home-door-card-${door.config.id}`}
+            onClick={(e) => {
+              const target = e.target as HTMLElement | null;
+              if (target?.closest("a, button")) return;
+              router.push(door.config.href);
+            }}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                router.push(door.config.href);
+              }
+            }}
+            className="relative group cursor-pointer rounded-3xl ios-glass-card bg-white/88 backdrop-blur-2xl backdrop-saturate-[180%] border border-slate-900/[0.085] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_28px_-8px_rgba(15,23,42,0.06)] hover:bg-white hover:border-[#007AFF]/30 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_18px_38px_-8px_rgba(0,122,255,0.10)] transition-all duration-200 overflow-hidden flex flex-col justify-between p-6 min-h-[196px]"
           >
             {/* Subtle Ambient Top Radial Glow */}
             <div
@@ -208,7 +221,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
             />
 
             {/* Top Bar with Number Badge, Vector Module Icon & Clickable Live Status Badge */}
-            <div className="relative z-10 flex items-center justify-between gap-3 mb-5">
+            <div className="relative z-20 flex items-center justify-between gap-3 mb-5 pointer-events-none">
               <div className="flex items-center gap-2.5">
                 <span
                   className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base ${door.accentBg}`}
@@ -224,7 +237,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
               <Link
                 href={door.config.badge.href}
                 data-testid={door.badgeTestId}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 min-h-[38px] rounded-full border text-sm font-semibold transition-all backdrop-blur-md ${door.badgeClass}`}
+                className={`pointer-events-auto relative z-20 inline-flex items-center gap-1 px-3.5 py-2 min-h-[44px] rounded-full border text-sm font-semibold transition-all backdrop-blur-md ${door.badgeClass}`}
                 title={`${door.config.title} 목록 바로가기`}
               >
                 <span>{door.config.badge.label}</span>
@@ -232,13 +245,19 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
               </Link>
             </div>
 
-            {/* Door Main Action Link */}
+            {/* Door Main Action Link (stretched across full card surface) */}
             <div className="relative z-10">
               <Link
                 href={door.config.href}
                 data-testid={door.testId}
                 data-alias-testid={door.aliasTestId}
-                className="block group-hover:text-[#007AFF] transition-colors focus:outline-none focus:ring-2 focus:ring-[#007AFF] rounded-xl"
+                onKeyDown={(e) => {
+                  if (e.key === " ") {
+                    e.preventDefault();
+                    router.push(door.config.href);
+                  }
+                }}
+                className="block min-h-[44px] group-hover:text-[#007AFF] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] rounded-xl after:absolute after:inset-0 after:z-10 after:rounded-3xl after:content-['']"
               >
                 <h3 className="text-xl sm:text-2xl font-extrabold text-[#1D1D1F] group-hover:text-[#007AFF] transition-colors flex items-center justify-between tracking-tight">
                   <span>{door.config.title}</span>

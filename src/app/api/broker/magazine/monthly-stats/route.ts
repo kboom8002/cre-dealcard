@@ -19,6 +19,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function safeSupabaseRows<T>(query: PromiseLike<{ data: T[] | null }>): Promise<{ data: T[] | null }> {
+  try {
+    return await query;
+  } catch {
+    return { data: null };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { ctx, error } = await requireBrokerContext(request);
   if (error || !ctx) {
@@ -38,28 +46,28 @@ export async function GET(request: NextRequest) {
     const sixMonthsAgo = new Date(Date.now() - 185 * 86_400_000).toISOString().slice(0, 10);
 
     const [txRes, rentalRes, commRes, bokRes] = await Promise.all([
-      Promise.resolve(
+      safeSupabaseRows<DbTransactionRow>(
         supabase
           .from("external_transactions")
           .select("transaction_date, transaction_price, building_area, district, dong, address, raw_data")
           .gte("transaction_date", sixMonthsAgo)
           .order("transaction_date", { ascending: true })
           .limit(300),
-      ).catch(() => ({ data: null })),
-      Promise.resolve(
+      ),
+      safeSupabaseRows<DbRentalTrendRow>(
         supabase
           .from("rental_trend_data")
           .select("region, quarter, vacancy_rate, rental_index")
           .eq("region", regionKey)
           .order("quarter", { ascending: true })
           .limit(8),
-      ).catch(() => ({ data: null })),
-      Promise.resolve(
+      ),
+      safeSupabaseRows<DbCommercialDistrictRow>(
         supabase
           .from("commercial_district")
           .select("district_name, sales_volume_index, footfall_index")
           .limit(30),
-      ).catch(() => ({ data: null })),
+      ),
       fetchBokMonthlyLoanRates(6).catch(() => []),
     ]);
 
@@ -69,14 +77,15 @@ export async function GET(request: NextRequest) {
       return keywords.some((kw) => hay.includes(kw));
     });
 
-    // DB 적재가 아직 부족한 권역이면 국토부 실거래가 API 직접 조회로 보충 (통건물 필터링)
+    // DB 적재가 아직 부족한 권역이면 국토부 실거래가 API 직접 조회로 보충 (통건물 필터링 · 연면적/대지면적 분리 유지)
     if (matchedTxs.length < 2) {
       const liveMolit = await fetchMonthlyWholeBuildingTransactions(sigunguCodes, 6).catch(() => []);
       if (liveMolit.length > 0) {
         matchedTxs = liveMolit.map((m) => ({
           transaction_date: `${m.ym}-01`,
           transaction_price: m.dealAmountKrw,
-          building_area: m.landAreaM2 > 0 ? m.landAreaM2 : m.buildingAreaM2,
+          building_area: m.buildingAreaM2 > 0 ? m.buildingAreaM2 : null,
+          land_area: m.landAreaM2 > 0 ? m.landAreaM2 : null,
           district: m.sigunguCode,
           dong: m.dong,
           address: m.dong,

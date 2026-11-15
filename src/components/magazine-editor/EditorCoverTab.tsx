@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId } from "react";
+import React, { useId, useState } from "react";
 import { motion } from "motion/react";
 import { Info, Upload, Link2, X } from "lucide-react";
 import { editorToast } from "./editor-toaster";
@@ -50,6 +50,9 @@ export function EditorCoverTab({
   const briefingId = `${uid}-briefing`;
   const keywordsId = `${uid}-keywords`;
   const fileId = `${uid}-cover-file`;
+  const urlInputId = `${uid}-cover-url`;
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
 
   return (
     <div className="space-y-5">
@@ -245,8 +248,8 @@ export function EditorCoverTab({
             type="button"
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              const url = prompt("이미지 URL을 입력하세요:");
-              if (url) setCoverImageUrl(url);
+              setUrlDraft(coverImageUrl ?? "");
+              setShowUrlInput((prev) => !prev);
             }}
             className="flex min-h-11 items-center gap-1.5 text-label font-bold px-3.5 py-2 rounded-lg border border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100 transition-all"
           >
@@ -269,6 +272,41 @@ export function EditorCoverTab({
             </div>
           )}
         </div>
+        {showUrlInput && (
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <label htmlFor={urlInputId} className="sr-only">
+              이미지 주소
+            </label>
+            <input
+              id={urlInputId}
+              type="url"
+              value={urlDraft}
+              onChange={(e) => setUrlDraft(e.target.value)}
+              placeholder="https://example.com/cover.jpg"
+              className="flex-1 min-w-[200px] min-h-[44px] bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-[16px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/40"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const trimmed = urlDraft.trim();
+                if (trimmed) {
+                  setCoverImageUrl(trimmed);
+                }
+                setShowUrlInput(false);
+              }}
+              className="min-h-[44px] px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold transition-colors"
+            >
+              적용
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowUrlInput(false)}
+              className="min-h-[44px] px-3.5 py-2 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-bold transition-colors"
+            >
+              취소
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

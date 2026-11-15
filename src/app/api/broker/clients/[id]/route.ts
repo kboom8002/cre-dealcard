@@ -1,12 +1,16 @@
 /**
  * GET /api/broker/clients/[id] — 고객 상세 (연결된 건물/의향서 + 연락 이력)
- * PUT /api/broker/clients/[id] — 고객 정보 수정
+ * PUT / PATCH /api/broker/clients/[id] — 고객 정보 수정
  * DELETE /api/broker/clients/[id] — 고객 삭제
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { requireBroker } from '@/lib/auth-guard';
+import { createServiceClient } from '@/lib/supabase/service';
+import { createModuleLogger } from '@/lib/logger';
+
+const log = createModuleLogger('broker-clients-id');
+const SAFE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 const UpdateClientSchema = z.object({
   client_type: z.enum(['seller', 'buyer', 'both']).optional(),
@@ -26,75 +30,99 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const auth = await requireBroker(req);
-    if (auth.error) return auth.error;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const brokerId = guard.user!.id;
 
     const { id } = await params;
+    if (!id || !SAFE_ID_RE.test(id)) {
+      return NextResponse.json({ error: '유효하지 않은 고객 ID입니다.' }, { status: 400 });
+    }
 
-    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
-  const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
+    const supabase = createServiceClient();
 
-    // Fetch client
+    // Fetch client owned by caller
     const { data: client, error } = await supabase
       .from('broker_clients')
       .select('*')
       .eq('id', id)
-      .eq('broker_id', auth.user!.id)
-      .single();
+      .eq('broker_id', brokerId)
+      .maybeSingle();
 
     if (error || !client) {
       return NextResponse.json({ error: '고객을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // Fetch linked buildings
+    // Hydrate linked buildings strictly scoped to caller's owner_id
     let buildings: unknown[] = [];
-    if (client.linked_building_ids?.length > 0) {
+    if (Array.isArray(client.linked_building_ids) && client.linked_building_ids.length > 0) {
       const { data } = await supabase
         .from('building_ssot_lite')
         .select('id, area_signal, asset_type, price_band, status, created_at')
-        .in('id', client.linked_building_ids);
+        .in('id', client.linked_building_ids)
+        .eq('owner_id', brokerId);
       buildings = data ?? [];
     }
 
-    // Fetch linked buyer intents
-    let buyerIntents: unknown[] = [];
-    if (client.linked_buyer_intent_ids?.length > 0) {
+    // Hydrate linked buyer intents strictly scoped to caller's owner_id
+    let buyerIntents: Array<Record<string, unknown> & { id: string }> = [];
+    if (Array.isArray(client.linked_buyer_intent_ids) && client.linked_buyer_intent_ids.length > 0) {
       const { data } = await supabase
         .from('buyer_intent_lite')
         .select('id, buyer_type, budget_display, preferred_regions, purchase_purpose, created_at')
-        .in('id', client.linked_buyer_intent_ids);
-      buyerIntents = data ?? [];
+        .in('id', client.linked_buyer_intent_ids)
+        .eq('owner_id', brokerId);
+      buyerIntents = (data as Array<Record<string, unknown> & { id: string }> | null) ?? [];
     }
 
-    // Fetch contact history (last 20)
+    // Fetch contact history (last 20) strictly scoped to caller's broker_id
     const { data: contacts } = await supabase
       .from('contact_history')
       .select('*')
       .eq('client_id', id)
-      .eq('broker_id', auth.user!.id)
+      .eq('broker_id', brokerId)
       .order('created_at', { ascending: false })
       .limit(20);
 
-    // Fetch bookings linked to the client's buyer intents
+    // Fetch bookings ONLY for buyer intents verified as owned by caller
     let bookings: unknown[] = [];
-    if (client.linked_buyer_intent_ids?.length > 0) {
+    const ownedBuyerIntentIds = buyerIntents.map((bi) => bi.id).filter(Boolean);
+    if (ownedBuyerIntentIds.length > 0) {
       const { data } = await supabase
         .from('bookings')
         .select(`
-          id, status, created_at,
+          id, status, booked_by, created_at,
           slot:availability_slots(
+            owner_id,
             slot_start,
-            building:building_ssot_lite(id, area_signal)
+            building:building_ssot_lite(id, owner_id, area_signal)
           )
         `)
-        .in('buyer_intent_id', client.linked_buyer_intent_ids)
+        .in('buyer_intent_id', ownedBuyerIntentIds)
         .order('created_at', { ascending: false })
         .limit(10);
-      bookings = data ?? [];
+
+      bookings = ((data as any[] | null) ?? [])
+        .filter((b) => {
+          const slotOwner = b?.slot?.owner_id;
+          // Exclude bookings whose slot belongs to a different owner unless booked_by caller
+          if (slotOwner && slotOwner !== brokerId && b?.booked_by !== brokerId) {
+            return false;
+          }
+          return true;
+        })
+        .map(({ booked_by: _bookedBy, slot, ...rest }) => ({
+          ...rest,
+          slot: slot
+            ? {
+                slot_start: slot.slot_start,
+                building:
+                  slot.building && (!slot.building.owner_id || slot.building.owner_id === brokerId)
+                    ? { id: slot.building.id, area_signal: slot.building.area_signal }
+                    : null,
+              }
+            : null,
+        }));
     }
 
     return NextResponse.json({
@@ -107,10 +135,10 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error('[broker-clients-id-get] Error:', err);
+    log.error('[broker-clients-id-get] Error:', err);
     return NextResponse.json(
       { error: '요청 처리에 실패했습니다.' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -120,78 +148,152 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const auth = await requireBroker(req);
-    if (auth.error) return auth.error;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const brokerId = guard.user!.id;
 
     const { id } = await params;
-    const body = await req.json();
-    const parsed = UpdateClientSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+    if (!id || !SAFE_ID_RE.test(id)) {
+      return NextResponse.json({ error: '유효하지 않은 고객 ID입니다.' }, { status: 400 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
+    }
+
+    const parsed = UpdateClientSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: '입력 항목을 다시 확인해주세요.' }, { status: 400 });
+    }
+
+    const supabase = createServiceClient();
+
+    // Verify broker_clients row belongs to caller before updating
+    const { data: existingClient, error: checkErr } = await supabase
+      .from('broker_clients')
+      .select('id')
+      .eq('id', id)
+      .eq('broker_id', brokerId)
+      .maybeSingle();
+
+    if (checkErr) {
+      log.error('[broker-clients-id-put] Lookup error:', checkErr);
+      return NextResponse.json({ error: '고객 정보를 확인하지 못했습니다.' }, { status: 500 });
+    }
+    if (!existingClient) {
+      return NextResponse.json({ error: '고객을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    const updatePayload = { ...parsed.data };
+
+    // Filter linked_building_ids strictly to buildings owned by caller
+    if (updatePayload.linked_building_ids !== undefined) {
+      if (updatePayload.linked_building_ids.length > 0) {
+        const { data: ownedBuildings, error: bErr } = await supabase
+          .from('building_ssot_lite')
+          .select('id')
+          .in('id', updatePayload.linked_building_ids)
+          .eq('owner_id', brokerId);
+        if (bErr) {
+          log.error('[broker-clients-id-put] Building filter error:', bErr);
+          return NextResponse.json({ error: '매물 소유권 확인에 실패했습니다.' }, { status: 500 });
+        }
+        const ownedSet = new Set(((ownedBuildings as Array<{ id: string }> | null) ?? []).map((r) => r.id));
+        updatePayload.linked_building_ids = updatePayload.linked_building_ids.filter((bid) => ownedSet.has(bid));
+      } else {
+        updatePayload.linked_building_ids = [];
+      }
+    }
+
+    // Filter linked_buyer_intent_ids strictly to buyer intents owned by caller
+    if (updatePayload.linked_buyer_intent_ids !== undefined) {
+      if (updatePayload.linked_buyer_intent_ids.length > 0) {
+        const { data: ownedIntents, error: iErr } = await supabase
+          .from('buyer_intent_lite')
+          .select('id')
+          .in('id', updatePayload.linked_buyer_intent_ids)
+          .eq('owner_id', brokerId);
+        if (iErr) {
+          log.error('[broker-clients-id-put] Buyer intent filter error:', iErr);
+          return NextResponse.json({ error: '매수자 의향서 소유권 확인에 실패했습니다.' }, { status: 500 });
+        }
+        const ownedSet = new Set(((ownedIntents as Array<{ id: string }> | null) ?? []).map((r) => r.id));
+        updatePayload.linked_buyer_intent_ids = updatePayload.linked_buyer_intent_ids.filter((iid) => ownedSet.has(iid));
+      } else {
+        updatePayload.linked_buyer_intent_ids = [];
+      }
+    }
 
     const { data, error } = await supabase
       .from('broker_clients')
-      .update(parsed.data)
+      .update(updatePayload)
       .eq('id', id)
-      .eq('broker_id', auth.user!.id)
+      .eq('broker_id', brokerId)
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
-      console.error('[broker-clients-id-put] Update error:', error);
+    if (error) {
+      log.error('[broker-clients-id-put] Update error:', error);
       return NextResponse.json({ error: '수정에 실패했습니다.' }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ error: '고객을 찾을 수 없습니다.' }, { status: 404 });
     }
 
     return NextResponse.json({ data });
   } catch (err) {
-    console.error('[broker-clients-id-put] Error:', err);
+    log.error('[broker-clients-id-put] Error:', err);
     return NextResponse.json(
       { error: '요청 처리에 실패했습니다.' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
+
+export const PATCH = PUT;
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const auth = await requireBroker(req);
-    if (auth.error) return auth.error;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const brokerId = guard.user!.id;
 
     const { id } = await params;
+    if (!id || !SAFE_ID_RE.test(id)) {
+      return NextResponse.json({ error: '유효하지 않은 고객 ID입니다.' }, { status: 400 });
+    }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
+    const supabase = createServiceClient();
 
-    const { error } = await supabase
+    const { data: deletedRows, error } = await supabase
       .from('broker_clients')
       .delete()
       .eq('id', id)
-      .eq('broker_id', auth.user!.id);
+      .eq('broker_id', brokerId)
+      .select('id');
 
     if (error) {
-      console.error('[broker-clients-id-delete] Delete error:', error);
+      log.error('[broker-clients-id-delete] Delete error:', error);
       return NextResponse.json({ error: '삭제에 실패했습니다.' }, { status: 500 });
+    }
+
+    const matched = Array.isArray(deletedRows) ? deletedRows.length > 0 : Boolean(deletedRows);
+    if (!matched) {
+      return NextResponse.json({ error: '고객을 찾을 수 없습니다.' }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[broker-clients-id-delete] Error:', err);
+    log.error('[broker-clients-id-delete] Error:', err);
     return NextResponse.json(
       { error: '요청 처리에 실패했습니다.' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

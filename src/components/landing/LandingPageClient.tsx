@@ -3,115 +3,74 @@
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { COMPANY_LEGAL_CONFIG } from "@/config/company-legal";
 import { useHaptic } from "@/hooks/useHaptic";
 import {
   ChevronRight,
-  ShieldCheck,
-  Zap,
-  Sparkles,
   Building2,
-  Mic,
-  BarChart3,
-  Users,
-  Volume2,
+  FileSpreadsheet,
+  Newspaper,
+  Inbox,
+  Zap,
 } from "lucide-react";
 
 /* ──────────────────────────────────────────────────
-   7 Killer Features — immersive carousel content
+   4-Door Commercial Broker Workspace
    ────────────────────────────────────────────────── */
-const FEATURES = [
+const WORKSPACE_DOORS = [
   {
-    id: "memo",
-    icon: Mic,
-    emoji: "🎙️",
-    title: "유니버설 메모",
-    subtitle: "말 한마디가 딜이 됩니다",
-    description:
-      "음성이든 텍스트든, 메모만 던지세요.\nAI가 매물·매수자·메모를 자동 분류합니다.",
-    gradient: "from-violet-600 via-purple-600 to-indigo-700",
-    glowColor: "rgba(139,92,246,0.35)",
-    accentText: "text-violet-300",
-    tag: "CORE",
-  },
-  {
-    id: "dealcard",
+    id: "dealcards",
     icon: Zap,
     emoji: "⚡",
-    title: "30초 딜카드",
-    subtitle: "카톡 메모 → AI 구조화",
+    title: "매물 딜카드",
+    subtitle: "현장 메모 한 줄 → 블라인드 딜카드 즉시 발행",
     description:
-      "메모 한 줄을 붙여넣으면 AI가\n7섹션 블라인드 딜카드를 즉시 생성합니다.",
+      "주소와 현장 메모만 입력하면 공적장부 규격과\n핵심 투자 포인트를 정리한 공유 링크를 만듭니다.",
     gradient: "from-amber-600 via-orange-600 to-red-600",
     glowColor: "rgba(245,158,11,0.35)",
     accentText: "text-amber-300",
-    tag: "SIGNATURE",
-  },
-  {
-    id: "persona",
-    icon: Sparkles,
-    emoji: "🧠",
-    title: "AI 매수자 페르소나",
-    subtitle: "이 건물, 누가 사겠습니까?",
-    description:
-      "매물 신호를 분석해 3명의 가상 매수자 프로필과\n맞춤 접근 전략을 자동 생성합니다.",
-    gradient: "from-cyan-600 via-blue-600 to-indigo-600",
-    glowColor: "rgba(34,211,238,0.3)",
-    accentText: "text-cyan-300",
-    tag: "AI",
+    tag: "DOOR 1 · 딜카드",
   },
   {
     id: "im",
-    icon: Volume2,
+    icon: FileSpreadsheet,
     emoji: "📄",
-    title: "모바일 IM + 음성 브리핑",
-    subtitle: "프리미엄 투자설명서를 2분 만에",
+    title: "10섹션 모바일/PPTX IM",
+    subtitle: "Basic IM · Pro IM 투자설명서 원클릭 제작",
     description:
-      "7섹션 아코디언 IM을 자동 생성하고,\nTTS 음성 브리핑까지 한번에 제공합니다.",
+      "투자 포스처에 맞춘 10섹션 모바일 웹 IM과\n고품격 PPTX 투자설명서를 빠르게 완성합니다.",
     gradient: "from-emerald-600 via-teal-600 to-cyan-700",
     glowColor: "rgba(16,185,129,0.35)",
     accentText: "text-emerald-300",
-    tag: "PREMIUM",
+    tag: "DOOR 2 · IM 제작",
   },
   {
-    id: "matching",
-    icon: Users,
-    emoji: "🎯",
-    title: "6축 AI 정밀 매칭",
-    subtitle: "S/A/B/C 등급 자동 추천",
+    id: "newsletter",
+    icon: Newspaper,
+    emoji: "📰",
+    title: "주간/월간 빌딩 뉴스레터",
+    subtitle: "중개사 실명 브랜드로 정기 시장 브리핑 발송",
     description:
-      "권역·자산·규모·가격·목적·타이밍\n6가지 축으로 매물-매수자를 자동 매칭합니다.",
-    gradient: "from-blue-600 via-indigo-600 to-purple-700",
+      "권역 실거래 동향과 추천 매물을 엮어\n이메일·카카오 알림톡 매거진으로 전달합니다.",
+    gradient: "from-blue-600 via-indigo-600 to-violet-700",
     glowColor: "rgba(99,102,241,0.35)",
     accentText: "text-blue-300",
-    tag: "MATCHING",
+    tag: "DOOR 3 · 뉴스레터",
   },
   {
-    id: "blind",
-    icon: ShieldCheck,
-    emoji: "🔒",
-    title: "Gate 블라인드 보안",
-    subtitle: "상세주소는 승인 후에만 공개",
+    id: "inbox",
+    icon: Inbox,
+    emoji: "📬",
+    title: "고객 소통함",
+    subtitle: "열람 요청 · NDA 승인 · 구독 고객 통합 관리",
     description:
-      "매도자 정보는 철저히 가려지고,\n관심 매수자의 열람 요청을 중개인이 직접 통제합니다.",
-    gradient: "from-slate-600 via-zinc-700 to-neutral-800",
-    glowColor: "rgba(100,116,139,0.3)",
-    accentText: "text-slate-300",
-    tag: "SECURITY",
+      "블라인드 딜카드·IM 문의와 열람 승인 요청,\n매거진 구독 고객을 한 화면에서 응대합니다.",
+    gradient: "from-violet-600 via-purple-600 to-fuchsia-700",
+    glowColor: "rgba(139,92,246,0.35)",
+    accentText: "text-violet-300",
+    tag: "DOOR 4 · 소통함",
   },
-  {
-    id: "pipeline",
-    icon: BarChart3,
-    emoji: "📊",
-    title: "파이프라인 & ROI",
-    subtitle: "내 성과를 데이터로 관리",
-    description:
-      "8단계 딜 파이프라인, 체류 경고 시스템,\n주간 리포트로 딜 클로징 확률을 높입니다.",
-    gradient: "from-rose-600 via-pink-600 to-fuchsia-700",
-    glowColor: "rgba(244,63,94,0.3)",
-    accentText: "text-rose-300",
-    tag: "ANALYTICS",
-  },
-];
+] as const;
 
 const AUTO_PLAY_MS = 5000;
 
@@ -123,7 +82,6 @@ export function LandingPageClient() {
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startAutoPlay = useCallback(() => {
-    // Progress bar
     if (progressRef.current) clearInterval(progressRef.current);
     setProgress(0);
     const step = 100 / (AUTO_PLAY_MS / 50);
@@ -131,10 +89,9 @@ export function LandingPageClient() {
       setProgress((p) => Math.min(p + step, 100));
     }, 50);
 
-    // Slide advance
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % FEATURES.length);
+      setCurrentIndex((prev) => (prev + 1) % WORKSPACE_DOORS.length);
       setProgress(0);
     }, AUTO_PLAY_MS);
   }, []);
@@ -154,11 +111,10 @@ export function LandingPageClient() {
     startAutoPlay();
   };
 
-  const feat = FEATURES[currentIndex];
-  const Icon = feat.icon;
+  const feat = WORKSPACE_DOORS[currentIndex];
 
   return (
-    <main className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center p-5 relative overflow-hidden select-none">
+    <main className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center p-5 relative overflow-hidden">
       {/* ── Ambient blurs ── */}
       <div
         className="absolute w-[500px] h-[500px] rounded-full blur-[160px] pointer-events-none transition-all duration-[1200ms]"
@@ -187,33 +143,33 @@ export function LandingPageClient() {
         }}
       />
 
-      <div className="w-full max-w-md z-10 flex flex-col items-center">
-        {/* ── Logo ── */}
+      <div className="w-full max-w-md z-10 flex flex-col items-center py-6">
+        {/* ── Brand Logo ── */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-6 flex items-center gap-3"
+          className="mb-3 flex items-center gap-3"
         >
           <div className="w-11 h-11 bg-primary/20 rounded-2xl border border-primary/30 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.3)]">
             <Building2 className="w-5 h-5 text-primary" />
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">
-            DealCard
+            {COMPANY_LEGAL_CONFIG.serviceName}
           </h1>
         </motion.div>
 
-        {/* ── Tagline ── */}
+        {/* ── 4-Door Summary Tagline ── */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-xs text-slate-500 tracking-widest uppercase font-medium mb-6"
+          className="text-[14px] text-slate-300 text-center font-medium mb-6 leading-relaxed break-keep"
         >
-          AI-Powered CRE Deal Platform
+          매물 딜카드 · 10섹션 모바일/PPTX IM · 주간/월간 빌딩 뉴스레터 · 고객 소통함
         </motion.p>
 
-        {/* ── Feature Carousel ── */}
+        {/* ── 4-Door Feature Carousel ── */}
         <div className="w-full relative mb-3" style={{ minHeight: 260 }}>
           <AnimatePresence mode="wait">
             <motion.div
@@ -227,17 +183,17 @@ export function LandingPageClient() {
                 boxShadow: `0 20px 60px -15px ${feat.glowColor}, 0 0 0 1px rgba(255,255,255,0.05)`,
               }}
             >
-              <div className="rounded-3xl bg-black/40 backdrop-blur-xl p-6 flex flex-col items-center text-center min-h-[240px] justify-center relative overflow-hidden">
+              <div className="rounded-3xl bg-black/45 backdrop-blur-xl p-6 flex flex-col items-center text-center min-h-[248px] justify-center relative overflow-hidden">
                 {/* Tag badge */}
                 <span
-                  className={`absolute top-4 right-4 text-[9px] font-bold tracking-widest px-2.5 py-1 rounded-full border border-white/10 bg-white/5 ${feat.accentText}`}
+                  className={`absolute top-4 right-4 text-[11px] font-bold tracking-wide px-2.5 py-1 rounded-full border border-white/10 bg-white/5 ${feat.accentText}`}
                 >
                   {feat.tag}
                 </span>
 
                 {/* Number indicator */}
-                <span className="absolute top-4 left-4 text-[10px] font-mono text-white/20">
-                  {String(currentIndex + 1).padStart(2, "0")}/{String(FEATURES.length).padStart(2, "0")}
+                <span className="absolute top-4 left-4 text-xs font-mono text-white/30">
+                  {String(currentIndex + 1).padStart(2, "0")}/{String(WORKSPACE_DOORS.length).padStart(2, "0")}
                 </span>
 
                 {/* Icon */}
@@ -252,7 +208,9 @@ export function LandingPageClient() {
                   }}
                   className="mb-4 w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center shadow-lg backdrop-blur-sm"
                 >
-                  <span className="text-3xl">{feat.emoji}</span>
+                  <span className="text-3xl" aria-hidden="true">
+                    {feat.emoji}
+                  </span>
                 </motion.div>
 
                 {/* Title */}
@@ -270,7 +228,7 @@ export function LandingPageClient() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
-                  className={`text-xs font-semibold ${feat.accentText} mb-3`}
+                  className={`text-sm font-semibold ${feat.accentText} mb-3`}
                 >
                   {feat.subtitle}
                 </motion.p>
@@ -280,7 +238,7 @@ export function LandingPageClient() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25 }}
-                  className="text-[13px] text-slate-300/90 leading-relaxed whitespace-pre-line max-w-[280px]"
+                  className="text-[14px] text-slate-200/95 leading-relaxed whitespace-pre-line max-w-[300px]"
                 >
                   {feat.description}
                 </motion.p>
@@ -290,25 +248,25 @@ export function LandingPageClient() {
         </div>
 
         {/* ── Dot indicators + progress ── */}
-        <div className="flex items-center gap-1.5 mb-8">
-          {FEATURES.map((f, idx) => (
+        <div className="flex items-center gap-1.5 mb-5">
+          {WORKSPACE_DOORS.map((f, idx) => (
             <button
               key={f.id}
+              type="button"
               onClick={() => goToSlide(idx)}
-              className="relative p-0.5"
-              aria-label={`Go to ${f.title}`}
+              className="relative p-1"
+              aria-label={`${f.title} 슬라이드 보기`}
             >
               <div
                 className={`rounded-full transition-all duration-300 ${
                   currentIndex === idx
                     ? "w-7 h-2 bg-white"
-                    : "w-2 h-2 bg-white/15 hover:bg-white/30"
+                    : "w-2 h-2 bg-white/20 hover:bg-white/40"
                 }`}
               />
-              {/* Progress overlay on active dot */}
               {currentIndex === idx && (
                 <div
-                  className="absolute inset-0.5 rounded-full bg-white/40 origin-left"
+                  className="absolute inset-1 rounded-full bg-white/40 origin-left"
                   style={{
                     transform: `scaleX(${progress / 100})`,
                     transition: "transform 50ms linear",
@@ -319,37 +277,37 @@ export function LandingPageClient() {
           ))}
         </div>
 
-        {/* ── Mini feature strip (quick glance) ── */}
+        {/* ── 4-Door Quick Switcher Strip ── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="w-full flex gap-1 mb-6 overflow-x-auto scrollbar-none"
+          className="w-full grid grid-cols-4 gap-2 mb-6"
         >
-          {FEATURES.map((f, idx) => {
+          {WORKSPACE_DOORS.map((f, idx) => {
             const FIcon = f.icon;
             return (
               <button
                 key={f.id}
+                type="button"
                 onClick={() => goToSlide(idx)}
-                className={`shrink-0 flex flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all duration-200 ${
+                className={`min-h-[56px] flex flex-col items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl transition-all duration-200 ${
                   currentIndex === idx
-                    ? "bg-white/10 border border-white/15 scale-105"
-                    : "bg-white/[0.03] border border-transparent hover:bg-white/5"
+                    ? "bg-white/12 border border-white/20"
+                    : "bg-white/[0.04] border border-white/5 hover:bg-white/8"
                 }`}
-                style={{ minWidth: 52 }}
               >
                 <FIcon
-                  className={`w-3.5 h-3.5 transition-colors ${
-                    currentIndex === idx ? "text-white" : "text-white/30"
+                  className={`w-4 h-4 transition-colors ${
+                    currentIndex === idx ? "text-white" : "text-white/45"
                   }`}
                 />
                 <span
-                  className={`text-[8px] font-bold tracking-wide transition-colors ${
-                    currentIndex === idx ? "text-white/90" : "text-white/20"
+                  className={`text-[12px] font-bold tracking-tight transition-colors ${
+                    currentIndex === idx ? "text-white" : "text-white/55"
                   }`}
                 >
-                  {f.tag}
+                  {f.title.split(" ")[0]}
                 </span>
               </button>
             );
@@ -366,52 +324,68 @@ export function LandingPageClient() {
           <Link
             href="/login"
             onClick={() => haptic.medium()}
-            className="group w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-base font-bold py-4 rounded-2xl shadow-[0_4px_25px_rgba(59,130,246,0.35)] transition-all active:scale-[0.98]"
+            className="group w-full min-h-[54px] flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[16px] font-bold py-3.5 rounded-2xl shadow-[0_4px_25px_rgba(59,130,246,0.35)] transition-all active:scale-[0.98]"
           >
-            중개인 로그인 / 회원가입
+            중개사 워크스페이스 로그인
             <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
 
           <Link
-            href="/hub"
+            href="/signup"
             onClick={() => haptic.light()}
-            className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-sm font-semibold py-3.5 rounded-2xl transition-colors"
+            className="w-full min-h-[50px] flex items-center justify-center gap-2 bg-white/8 border border-white/15 hover:bg-white/12 text-white text-[16px] font-semibold py-3 rounded-2xl transition-colors"
           >
-            일반 사용자 홈으로 가기
+            무료 얼리액세스 회원가입
           </Link>
         </motion.div>
 
-        {/* ── Footer ── */}
-        <motion.div
+        {/* ── Legal & Operator Footer ── */}
+        <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="mt-6 flex items-center gap-4"
+          className="mt-8 w-full border-t border-white/10 pt-5 text-center space-y-2.5"
         >
-          <Link
-            href="/guide"
-            onClick={() => haptic.light()}
-            className="text-[10px] text-slate-600 hover:text-slate-400 underline underline-offset-4 transition-colors"
-          >
-            서비스 이용 가이드
-          </Link>
-          <span className="text-slate-800">•</span>
-          <Link
-            href="/explore"
-            onClick={() => haptic.light()}
-            className="text-[10px] text-slate-600 hover:text-slate-400 underline underline-offset-4 transition-colors"
-          >
-            매물 탐색
-          </Link>
-          <span className="text-slate-800">•</span>
-          <Link
-            href="/pulse"
-            onClick={() => haptic.light()}
-            className="text-[10px] text-slate-600 hover:text-slate-400 underline underline-offset-4 transition-colors"
-          >
-            시장 펄스
-          </Link>
-        </motion.div>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-[13px] text-slate-400">
+            <Link
+              href="/terms"
+              onClick={() => haptic.light()}
+              className="hover:text-white underline underline-offset-4 transition-colors py-1"
+            >
+              서비스 이용약관
+            </Link>
+            <span className="text-slate-700" aria-hidden="true">
+              ·
+            </span>
+            <Link
+              href="/privacy"
+              onClick={() => haptic.light()}
+              className="font-bold text-slate-200 hover:text-white underline underline-offset-4 transition-colors py-1"
+            >
+              개인정보처리방침
+            </Link>
+            <span className="text-slate-700" aria-hidden="true">
+              ·
+            </span>
+            <Link
+              href="/magazine"
+              onClick={() => haptic.light()}
+              className="hover:text-white underline underline-offset-4 transition-colors py-1"
+            >
+              빌딩 매거진
+            </Link>
+          </div>
+
+          <p className="text-[12px] text-slate-500 leading-relaxed">
+            {COMPANY_LEGAL_CONFIG.companyName} · {COMPANY_LEGAL_CONFIG.address}
+            {COMPANY_LEGAL_CONFIG.businessRegNumber
+              ? ` · 사업자등록번호 ${COMPANY_LEGAL_CONFIG.businessRegNumber}`
+              : ""}
+            <br />
+            고객지원: {COMPANY_LEGAL_CONFIG.supportEmail} · 개인정보문의:{" "}
+            {COMPANY_LEGAL_CONFIG.privacyContactEmail}
+          </p>
+        </motion.footer>
       </div>
     </main>
   );

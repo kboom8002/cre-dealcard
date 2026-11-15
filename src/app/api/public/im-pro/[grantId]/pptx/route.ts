@@ -6,11 +6,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import type { ReleaseTier } from '@/domain/building/im-core';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+const NON_PUBLIC_DOC_STATUSES = new Set(['draft', 'archived', 'deleted']);
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // Pro 24p 덱 + 이미지 최적화 대응
@@ -19,6 +21,18 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ grantId: string }> }
 ) {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
+  const rateAllowed = await checkRateLimit(ip, 'im_pro_pptx', 10, 60_000);
+  if (!rateAllowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', reason: '요청이 일시적으로 많습니다. 잠시 후 다시 시도해 주세요.' },
+      { status: 429 }
+    );
+  }
+
   const { grantId } = await params;
   const preset = req.nextUrl.searchParams.get('preset') || undefined;
 
@@ -45,6 +59,25 @@ export async function GET(
     return NextResponse.json({ error: 'Grant expired' }, { status: 410 });
   }
 
+  const maxDownloads =
+    typeof grant.max_downloads === 'number' && Number.isFinite(grant.max_downloads) && grant.max_downloads > 0
+      ? grant.max_downloads
+      : 20;
+  const grantDownloadCount =
+    typeof grant.download_count === 'number' && Number.isFinite(grant.download_count) && grant.download_count >= 0
+      ? grant.download_count
+      : 0;
+  if (grantDownloadCount >= maxDownloads) {
+    return NextResponse.json(
+      {
+        error: '다운로드 횟수 초과',
+        limit: maxDownloads,
+        used: grantDownloadCount,
+      },
+      { status: 429 }
+    );
+  }
+
   // 2. Resolve building_id from deal_id -> deals.asset_id (or direct building_id if available)
   let buildingId: string | null = grant.building_id || null;
   if (!buildingId && grant.deal_id) {
@@ -59,7 +92,7 @@ export async function GET(
     return NextResponse.json({ error: 'Cannot resolve building from grant' }, { status: 404 });
   }
 
-  // 3. Fetch IM document
+  // 3. Fetch IM document (strictly reject draft / archived / deleted)
   const { data: docRows } = await supabase
     .from('document_objects')
     .select('*')
@@ -68,19 +101,33 @@ export async function GET(
     .order('created_at', { ascending: false })
     .limit(5);
 
-  let doc: any = Array.isArray(docRows)
-    ? docRows.find(
+  const sectionDocs = Array.isArray(docRows)
+    ? docRows.filter(
         (d: any) =>
           Array.isArray(d?.body?.sections) &&
           d.body.sections.length > 0 &&
           !Array.isArray(d?.body?.slides)
       )
-    : null;
+    : [];
+
+  let doc: any =
+    sectionDocs.find((d: any) => {
+      const statusNorm = String(d?.status ?? '').trim().toLowerCase();
+      return statusNorm === 'published' || !NON_PUBLIC_DOC_STATUSES.has(statusNorm);
+    }) ?? null;
+
+  if (!doc && sectionDocs.length > 0) {
+    return NextResponse.json(
+      { error: 'IM document is not published for export' },
+      { status: 403 }
+    );
+  }
 
   if (!doc?.body) {
     const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
     const quickRec = await resolveOrSynthesizeQuickImRecord(grant.building_id || buildingId, supabase);
-    if (quickRec?.fullDocBody) {
+    const quickStatusNorm = String((quickRec as any)?.status ?? '').trim().toLowerCase();
+    if (quickRec?.fullDocBody && !NON_PUBLIC_DOC_STATUSES.has(quickStatusNorm)) {
       doc = {
         id: quickRec.documentId,
         building_id: quickRec.buildingId,
@@ -96,7 +143,7 @@ export async function GET(
     return NextResponse.json({ error: 'IM document not found' }, { status: 404 });
   }
 
-  // 4. Fetch building + broker
+  // 4. Fetch building + scrub Dangsan poison coordinates (Rule 46)
   const { data: buildingRow } = await supabase
     .from('building_ssot_lite')
     .select('*')
@@ -108,11 +155,46 @@ export async function GET(
     doc.body?.resolved_address ||
     doc.body?.address ||
     buildingRow?.raw_address ||
+    buildingRow?.address ||
     ''
   ).trim();
-  const coordLat = Number(doc.body?.coordinates?.lat ?? doc.body?.ssot_summary?.coordinates?.lat ?? buildingRow?.lat ?? 0) || null;
-  const coordLng = Number(doc.body?.coordinates?.lng ?? doc.body?.ssot_summary?.coordinates?.lng ?? buildingRow?.lng ?? 0) || null;
-  const resolvedPnu = String(doc.body?.ssot_summary?.pnu || doc.body?.pnu || buildingRow?.pnu || '').trim() || null;
+  let coordLat = Number(doc.body?.coordinates?.lat ?? doc.body?.ssot_summary?.coordinates?.lat ?? buildingRow?.lat ?? 0) || null;
+  let coordLng = Number(doc.body?.coordinates?.lng ?? doc.body?.ssot_summary?.coordinates?.lng ?? buildingRow?.lng ?? 0) || null;
+  let resolvedPnu = String(doc.body?.ssot_summary?.pnu || doc.body?.pnu || buildingRow?.pnu || '').trim() || null;
+
+  const isDangsanOrYeongdeungpoAddr = /당산|영등포/.test(rawAddr);
+  const isDangsanPoisonCoord =
+    coordLat != null &&
+    coordLng != null &&
+    Math.abs(coordLat - 37.534) < 0.002 &&
+    Math.abs(coordLng - 126.902) < 0.002;
+  const isDangsanPoisonPnu = resolvedPnu === '1156011500100110047';
+
+  if (!isDangsanOrYeongdeungpoAddr && (isDangsanPoisonCoord || isDangsanPoisonPnu)) {
+    coordLat = null;
+    coordLng = null;
+    if (isDangsanPoisonPnu) {
+      resolvedPnu = null;
+    }
+    if (doc.body && typeof doc.body === 'object') {
+      doc.body = { ...doc.body };
+      delete doc.body.coordinates;
+      if (doc.body.pnu === '1156011500100110047') {
+        delete doc.body.pnu;
+      }
+      if (doc.body.ssot_summary && typeof doc.body.ssot_summary === 'object') {
+        doc.body.ssot_summary = { ...doc.body.ssot_summary };
+        delete doc.body.ssot_summary.coordinates;
+        if (doc.body.ssot_summary.pnu === '1156011500100110047') {
+          delete doc.body.ssot_summary.pnu;
+        }
+      }
+      if (doc.body.enrichment && typeof doc.body.enrichment === 'object') {
+        doc.body.enrichment = { ...doc.body.enrichment };
+        delete doc.body.enrichment.cadastralMapImage;
+      }
+    }
+  }
 
   const building = buildingRow
     ? {
@@ -144,19 +226,25 @@ export async function GET(
   const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
   const broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId)) ?? null;
 
-  // 6. 다운로드 횟수 제한 (10회)
-  const MAX_DOWNLOADS = 10;
-  const { count } = await supabase
-    .from('activity_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('entity_id', grantId)
-    .eq('event_type', 'im_pro_pptx_exported'); // schema has entity_id column
+  // 6. 다운로드 횟수 제한 (grant.max_downloads ?? 20, grant.download_count + activity_events 병행 검증)
+  let eventCount = 0;
+  try {
+    const { count } = await supabase
+      .from('activity_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('entity_id', grantId)
+      .eq('event_type', 'im_pro_pptx_exported');
+    eventCount = count ?? 0;
+  } catch {
+    eventCount = 0;
+  }
 
-  if ((count ?? 0) >= MAX_DOWNLOADS) {
+  const effectiveUsed = Math.max(grantDownloadCount, eventCount);
+  if (effectiveUsed >= maxDownloads) {
     return NextResponse.json({
       error: '다운로드 횟수 초과',
-      limit: MAX_DOWNLOADS,
-      used: count,
+      limit: maxDownloads,
+      used: effectiveUsed,
     }, { status: 429 });
   }
 
@@ -209,33 +297,52 @@ export async function GET(
       logoUrl: body.logoUrl ?? (broker as any)?.logo_url,
     });
 
-    // 5. Upload to storage
+    // 5. Upload to storage (best-effort)
     const ts = Date.now();
     const filePath = `im-pptx/${buildingId}/pro_${grantId}_${ts}.pptx`;
-    
-    await supabase.storage
-      .from('Exports')
-      .upload(filePath, result.buffer, {
-        contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        upsert: true,
-      });
 
-    // 7. Log event
-    await supabase.from('activity_events').insert({
-      event_type: 'im_pro_pptx_exported',
-      entity_type: 'im_pro_grant',
-      entity_id: grantId,
-      building_ssot_lite_id: buildingId,
-      metadata: {
-        grant_id: grantId,
-        actor_name: grant.requester_name || '',
-        exportedAt: new Date().toISOString(),
-        slideCount: result.slideCount,
-        fileSizeBytes: result.fileSizeBytes,
-        userAgent: req.headers.get('user-agent'),
-      },
-      source_app: 'web'
-    });
+    try {
+      if (supabase.storage?.from) {
+        await supabase.storage
+          .from('Exports')
+          .upload(filePath, result.buffer, {
+            contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            upsert: true,
+          });
+      }
+    } catch {
+      // Non-blocking storage upload
+    }
+
+    // 7. Increment download_count on im_pro_grants (best-effort, Rule 26 try/catch) + log event
+    try {
+      await supabase
+        .from('im_pro_grants')
+        .update({ download_count: effectiveUsed + 1 })
+        .eq('id', grantId);
+    } catch {
+      // Best-effort download counter increment
+    }
+
+    try {
+      await supabase.from('activity_events').insert({
+        event_type: 'im_pro_pptx_exported',
+        entity_type: 'im_pro_grant',
+        entity_id: grantId,
+        building_ssot_lite_id: buildingId,
+        metadata: {
+          grant_id: grantId,
+          actor_name: grant.requester_name || '',
+          exportedAt: new Date().toISOString(),
+          slideCount: result.slideCount,
+          fileSizeBytes: result.fileSizeBytes,
+          userAgent: req.headers.get('user-agent'),
+        },
+        source_app: 'web'
+      });
+    } catch {
+      // Non-blocking event logging
+    }
 
     // 7. Return PPTX
     const buildingName = doc.title || doc.body?.buildingName || 'Mobile_IM';

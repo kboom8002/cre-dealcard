@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
 import { parseLegacyBand } from '@/lib/deal-card/price-band';
+import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,10 @@ export const PublicDealCardSchema = z.object({
     slug: z.string().nullable(),
     avatarUrl: z.string().nullable(),
     specialty: z.string().nullable(),
+    officeName: z.string().nullable(),
+    officeAddress: z.string().nullable(),
+    officeRegNumber: z.string().nullable(),
+    representativeName: z.string().nullable(),
     responseGuaranteeHours: z.number().nullable(),
     closedDeals: z.number().nullable(),
     isLicensed: z.boolean(),
@@ -110,10 +115,22 @@ export type PublicDealCard = z.infer<typeof PublicDealCardSchema>;
 
 export interface PublicDealCardBrokerInput {
   display_name?: string | null;
+  displayName?: string | null;
   phone?: string | null;
   slug?: string | null;
   avatar_url?: string | null;
   specialty?: string | null;
+  company?: string | null;
+  office_name?: string | null;
+  officeName?: string | null;
+  office_address?: string | null;
+  officeAddress?: string | null;
+  office_reg_number?: string | null;
+  registration_no?: string | null;
+  officeRegNumber?: string | null;
+  registrationNo?: string | null;
+  representative_name?: string | null;
+  representativeName?: string | null;
   response_guarantee_hours?: number | null;
   closed_deals?: number | null;
   is_licensed?: boolean | null;
@@ -388,7 +405,12 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     .map(clean);
 
   // ── Posture widget inputs (minimal, derived numbers only) ──
-  const parsedBand = parseLegacyBand(str(card4.priceBand) || str(teaserView.bandedPrice));
+  const parsedBand = parseLegacyBand(
+    str(card4.priceBand) ||
+      str(signalCard?.price_band) ||
+      str(safeBuilding.price_band) ||
+      str(teaserView.bandedPrice),
+  );
   const bandedMidKrw =
     parsedBand.minKrw > 0 && parsedBand.maxKrw > 0
       ? (parsedBand.minKrw + parsedBand.maxKrw) / 2
@@ -420,6 +442,48 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   };
 
   const disclosure = asRecord(safeBuilding.disclosure);
+  const pickBrokerStatutory = (
+    kind: 'name' | 'regNo' | 'officeName' | 'address' | 'phone',
+    ...candidates: Array<string | null | undefined>
+  ): string | null => {
+    for (const candidate of candidates) {
+      const sanitized = sanitizeStatutoryField(candidate, kind);
+      if (sanitized) return sanitized;
+    }
+    return null;
+  };
+
+  const sanitizedDisplayName = pickBrokerStatutory(
+    'name',
+    brokerProfile?.display_name,
+    brokerProfile?.displayName,
+  );
+  const sanitizedOfficeName = pickBrokerStatutory(
+    'officeName',
+    brokerProfile?.company,
+    brokerProfile?.office_name,
+    brokerProfile?.officeName,
+  );
+  const sanitizedOfficeAddress = pickBrokerStatutory(
+    'address',
+    brokerProfile?.office_address,
+    brokerProfile?.officeAddress,
+  );
+  const sanitizedOfficeRegNumber = pickBrokerStatutory(
+    'regNo',
+    brokerProfile?.office_reg_number,
+    brokerProfile?.registration_no,
+    brokerProfile?.officeRegNumber,
+    brokerProfile?.registrationNo,
+  );
+  const sanitizedRepresentativeName = pickBrokerStatutory(
+    'name',
+    brokerProfile?.representative_name,
+    brokerProfile?.representativeName,
+    brokerProfile?.display_name,
+    brokerProfile?.displayName,
+  );
+  const sanitizedPhone = pickBrokerStatutory('phone', brokerProfile?.phone);
 
   const dto: PublicDealCard = {
     id,
@@ -447,11 +511,15 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     dealPoints,
     postureWidget,
     broker: {
-      displayName: str(brokerProfile?.display_name) || '담당 중개사',
-      phone: strOrNull(brokerProfile?.phone),
+      displayName: sanitizedDisplayName || '담당 중개사',
+      phone: sanitizedPhone,
       slug: strOrNull(brokerProfile?.slug),
       avatarUrl: strOrNull(brokerProfile?.avatar_url),
       specialty: strOrNull(brokerProfile?.specialty),
+      officeName: sanitizedOfficeName,
+      officeAddress: sanitizedOfficeAddress,
+      officeRegNumber: sanitizedOfficeRegNumber,
+      representativeName: sanitizedRepresentativeName,
       responseGuaranteeHours: numOrNull(brokerProfile?.response_guarantee_hours),
       closedDeals: numOrNull(brokerProfile?.closed_deals),
       isLicensed: brokerProfile?.is_licensed ?? true,

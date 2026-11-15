@@ -571,6 +571,24 @@ describe("Monthly Top-2 Option A + Per-Client Attribution + Free/Paid Inbox Tier
     );
     expect(badEmailRes.status).toBe(400);
 
+    // Unconsented cold custom_* email is blocked by 정보통신망법 제50조 opt-in gate
+    const unconsentedEmailRes = await postInboxAction(
+      new NextRequest("http://localhost:3000/api/broker/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_inbox_email",
+          threadId: CLIENT_A_ID,
+          buildingId: BUILDING_ID,
+          buildingTitle: "강남구 역삼동 근생빌딩",
+          clientName: "김매수 대표",
+          clientEmail: "kim@alpha.co.kr",
+          assetKind: "im",
+        }),
+      })
+    );
+    expect(unconsentedEmailRes.status).toBe(403);
+
     const emailRes = await postInboxAction(
       new NextRequest("http://localhost:3000/api/broker/inbox/actions", {
         method: "POST",
@@ -583,6 +601,8 @@ describe("Monthly Top-2 Option A + Per-Client Attribution + Free/Paid Inbox Tier
           clientName: "김매수 대표",
           clientEmail: "kim@alpha.co.kr",
           assetKind: "im",
+          marketingConsentConfirmed: true,
+          nightSendConsent: true,
         }),
       })
     );

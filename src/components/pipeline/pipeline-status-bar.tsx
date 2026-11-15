@@ -5,6 +5,7 @@
  * Shows current deal pipeline stage and allows advancement
  */
 import { useState } from 'react';
+import { ConfirmDeleteModal } from '@/components/workspace/ConfirmDeleteModal';
 import {
   STAGE_LABELS,
   STAGE_ACTION_LABELS,
@@ -22,8 +23,14 @@ interface Props {
 }
 
 const STAGE_ORDER: DealStage[] = [
-  'memo_input','deal_card_created','gate_requested',
-  'im_created','buyer_meeting','loi','contract','closed',
+  'memo_input',
+  'deal_card_created',
+  'gate_requested',
+  'im_created',
+  'buyer_meeting',
+  'loi',
+  'contract',
+  'closed',
 ];
 
 export function PipelineStatusBar({
@@ -35,29 +42,30 @@ export function PipelineStatusBar({
 }: Props) {
   const [advancing, setAdvancing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingStage, setPendingStage] = useState<DealStage | null>(null);
 
   const allowedNext = VALID_TRANSITIONS[currentStage] ?? [];
   const activeNext = allowedNext.filter((s) => s !== 'failed');
   const holdWarning = holdDays >= 14 ? STAGE_HOLD_WARNINGS[currentStage] : null;
 
-  async function advanceTo(toStage: DealStage) {
-    // 💡 1) IM 작성 시작 클릭 시: 실제 IM 생성 시트 오픈 및 IM 탭 전환
+  function requestAdvanceTo(toStage: DealStage) {
+    // 1) IM 작성 시작 클릭 시: 실제 IM 생성 시트 오픈 및 IM 탭 전환
     if (toStage === 'im_created') {
       window.dispatchEvent(new CustomEvent('switch-deal-tab', { detail: 'im' }));
       window.dispatchEvent(new CustomEvent('open-mobile-im-sheet', { detail: { stage: 'basic' } }));
       return;
     }
 
-    // 💡 2) 자료 요청 접수 처리 클릭 시: 매수자/자료요청 탭 전환
+    // 2) 자료 요청 접수 처리 클릭 시: 매수자/자료요청 탭 전환
     if (toStage === 'gate_requested') {
       window.dispatchEvent(new CustomEvent('switch-deal-tab', { detail: 'buyers' }));
       return;
     }
 
-    if (!window.confirm(`파이프라인 단계를 '${STAGE_LABELS[toStage]}'로 전환하시겠습니까?`)) {
-      return;
-    }
-    
+    setPendingStage(toStage);
+  }
+
+  async function executeAdvanceTo(toStage: DealStage) {
     setAdvancing(true);
     setError(null);
     try {
@@ -106,17 +114,17 @@ export function PipelineStatusBar({
       {/* Stage progress */}
       <div className="pipeline-bar__steps">
         {STAGE_ORDER.map((stage, idx) => {
-          const isActive  = stage === currentStage;
-          const isDone    = idx < currentIdx;
-          const isFuture  = idx > currentIdx;
+          const isActive = stage === currentStage;
+          const isDone = idx < currentIdx;
+          const isFuture = idx > currentIdx;
           return (
             <div
               key={stage}
               className={[
                 'pipeline-bar__step',
-                isActive  && 'pipeline-bar__step--active',
-                isDone    && 'pipeline-bar__step--done',
-                isFuture  && 'pipeline-bar__step--future',
+                isActive && 'pipeline-bar__step--active',
+                isDone && 'pipeline-bar__step--done',
+                isFuture && 'pipeline-bar__step--future',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -141,9 +149,9 @@ export function PipelineStatusBar({
           {activeNext.map((next) => (
             <button
               key={next}
-              className="pipeline-bar__advance-btn"
+              className="pipeline-bar__advance-btn min-h-[44px]"
               disabled={advancing}
-              onClick={() => advanceTo(next)}
+              onClick={() => requestAdvanceTo(next)}
               type="button"
             >
               {advancing ? '처리 중...' : STAGE_ACTION_LABELS[next] || `→ ${STAGE_LABELS[next]}`}
@@ -153,6 +161,26 @@ export function PipelineStatusBar({
       )}
 
       {error && <p className="pipeline-bar__error">{error}</p>}
+
+      <ConfirmDeleteModal
+        isOpen={pendingStage !== null}
+        title="파이프라인 단계 전환"
+        description={
+          pendingStage
+            ? `파이프라인 단계를 '${STAGE_LABELS[pendingStage]}' 단계로 전환하시겠습니까?`
+            : undefined
+        }
+        confirmLabel="단계 전환"
+        cancelLabel="취소"
+        tone="primary"
+        onCancel={() => setPendingStage(null)}
+        onConfirm={() => {
+          if (!pendingStage) return;
+          const target = pendingStage;
+          setPendingStage(null);
+          void executeAdvanceTo(target);
+        }}
+      />
     </div>
   );
 }

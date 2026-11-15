@@ -38,6 +38,10 @@ import {
   formatAxiosTwoLineBrief,
 } from "@/domain/magazine/issue-clustering";
 import type { AxiosUnitIssue, MonthlyRegionalChart, PostItTone } from "@/domain/magazine/types";
+import {
+  extractSanitizedStatutoryItems,
+  sanitizeStatutoryField,
+} from "@/lib/legal/broker-statutory-disclosure";
 
 type AnyRec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -630,7 +634,18 @@ export function TaxClinicSection({
 
 // ── 중개사 프로필 (실적 0건 숨김, 사진 실패 시 이니셜 아바타, 60대 친화 직통번호·안내 포함) ──────────────
 export function BrokerProfileSection({
-  name, company, photoUrl, specialties, slug, dealCount, listingCount, bio, phone,
+  name,
+  company,
+  photoUrl,
+  specialties,
+  slug,
+  dealCount,
+  listingCount,
+  bio,
+  phone,
+  officeAddress,
+  officeRegNumber,
+  representativeName,
 }: {
   name: string;
   company?: string | null;
@@ -641,14 +656,19 @@ export function BrokerProfileSection({
   listingCount?: number;
   bio?: string | null;
   phone?: string | null;
+  officeAddress?: string | null;
+  officeRegNumber?: string | null;
+  representativeName?: string | null;
 }) {
   const stats = [
     dealCount && dealCount > 0 ? { label: "거래 실적", value: `${dealCount}건` } : null,
     listingCount && listingCount > 0 ? { label: "진행 매물", value: `${listingCount}건` } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
 
-  const formattedPhone = formatPhoneDisplay(phone);
-  const telDigits = sanitizeTelHref(phone);
+  const safeCompany = sanitizeStatutoryField(company, "officeName");
+  const safePhone = sanitizeStatutoryField(phone, "phone");
+  const formattedPhone = formatPhoneDisplay(safePhone);
+  const telDigits = sanitizeTelHref(safePhone);
 
   return (
     <div className="space-y-3.5 rounded-2xl border border-white/15 bg-white/[0.03] p-4" style={{ wordBreak: "keep-all" }}>
@@ -657,7 +677,7 @@ export function BrokerProfileSection({
         <BrokerAvatar name={name} photoUrl={photoUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body font-bold text-white">{name}</p>
-          {company && <p className="truncate text-caption text-slate-300">{company}</p>}
+          {safeCompany && <p className="truncate text-caption text-slate-300">{safeCompany}</p>}
           {formattedPhone && (
             <p className="mt-1 font-mono text-[17px] font-extrabold text-amber-300 tabular-nums">
               📞 {formattedPhone}
@@ -710,6 +730,70 @@ export function BrokerProfileSection({
           </a>
         )}
       </div>
+      <BrokerStatutoryFooter
+        company={company}
+        officeAddress={officeAddress}
+        officeRegNumber={officeRegNumber}
+        representativeName={representativeName}
+        displayName={name}
+        phone={phone}
+      />
+    </div>
+  );
+}
+
+// ── 뉴스레터 하단 법정 표시의무 안내 (공인중개사법 제18조의2 — 실제 입력 항목만 노출, 샘플 번호 제외) ──
+export function BrokerStatutoryFooter({
+  company,
+  officeAddress,
+  officeRegNumber,
+  representativeName,
+  displayName,
+  phone,
+}: {
+  company?: string | null;
+  officeAddress?: string | null;
+  officeRegNumber?: string | null;
+  representativeName?: string | null;
+  displayName?: string | null;
+  phone?: string | null;
+}) {
+  const hasExplicitTrigger = Boolean(
+    sanitizeStatutoryField(company, "officeName") ||
+      sanitizeStatutoryField(officeAddress, "address") ||
+      sanitizeStatutoryField(officeRegNumber, "regNo") ||
+      sanitizeStatutoryField(representativeName, "name") ||
+      sanitizeStatutoryField(phone, "phone"),
+  );
+  if (!hasExplicitTrigger) return null;
+
+  const formattedPhone = formatPhoneDisplay(sanitizeStatutoryField(phone, "phone"));
+  const statutory = extractSanitizedStatutoryItems({
+    company,
+    officeAddress,
+    officeRegNumber,
+    representativeName,
+    displayName: displayName && displayName !== "중개사" ? displayName : undefined,
+    phone: formattedPhone || phone,
+  });
+
+  if (!statutory.hasAny) return null;
+
+  return (
+    <div
+      data-testid="magazine-broker-statutory-disclosure"
+      className="rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3 text-caption text-slate-300 space-y-1"
+      style={{ wordBreak: "keep-all" }}
+    >
+      <p className="text-xs font-bold text-slate-400">중개사무소 법정 표시사항</p>
+      <dl className="space-y-0.5 text-xs">
+        {statutory.items.map((item) => (
+          <div key={item.key} className="flex flex-wrap items-baseline gap-x-2">
+            <dt className="shrink-0 font-semibold text-slate-400">{item.label}</dt>
+            <dd className="text-slate-200">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

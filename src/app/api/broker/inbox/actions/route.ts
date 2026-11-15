@@ -19,24 +19,36 @@ import {
   revokeShareLinkToken,
   type ShareLinkChannel,
 } from '@/lib/security/share-link-tokens';
+import { isRealProductionRuntime } from '@/lib/env';
 import { getBrokerSubscriptionTier } from '@/domain/subscription/tier-gate';
 import {
   buildInboxCopyBundle,
+  buildInboxUnsubscribeUrl,
   evaluateInboxAlimtalkAccess,
   normalizeClientEmail,
   normalizeTransactionalBasis,
   sendInboxClientEmail,
   sendInboxTransactionalAlimtalk,
   type InboxAlimtalkTemplateId,
+  type InboxEmailDeliveryPurpose,
 } from '@/domain/inbox/inbox-outbound';
 
 function getShareLinkHmacSecret(): string {
-  return (
-    process.env.SHARE_LINK_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    'credeal-share-link-hmac-secret-v1'
-  );
+  const shareLinkSecret = (process.env.SHARE_LINK_SECRET || '').trim();
+  if (shareLinkSecret.length >= 32) {
+    return shareLinkSecret;
+  }
+  const nextAuthSecret = (process.env.NEXTAUTH_SECRET || '').trim();
+  if (nextAuthSecret.length >= 32) {
+    return nextAuthSecret;
+  }
+  // WP-03 key separation invariant: NEVER fall back to SUPABASE_SERVICE_ROLE_KEY
+  if (isRealProductionRuntime()) {
+    throw new Error(
+      'FATAL: SHARE_LINK_SECRET (or NEXTAUTH_SECRET) of at least 32 characters must be configured in production.'
+    );
+  }
+  return shareLinkSecret || nextAuthSecret || 'credeal-share-link-hmac-secret-v1';
 }
 
 function decodeSignedShareToken(token: string): {
@@ -159,6 +171,83 @@ function isIgnorableSchemaError(err: any): boolean {
     return true;
   }
   return /relationship|does not exist|schema cache/i.test(String(err?.message || ''));
+}
+
+export type InboxCrmClientRole = 'buyer' | 'seller' | 'tenant' | 'partner';
+
+function normalizeClientRole(raw: unknown): InboxCrmClientRole | null {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (s === 'buyer' || s === '매수' || s === '매수자') return 'buyer';
+  if (s === 'seller' || s === 'owner' || s === '매도' || s === '매도자' || s === '소유주') {
+    return 'seller';
+  }
+  if (s === 'tenant' || s === 'lessee' || s === '임차' || s === '임차인') return 'tenant';
+  if (s === 'partner' || s === '공동중개' || s === '파트너') return 'partner';
+  return null;
+}
+
+function parsePreferredRegionsInput(rawArr: unknown, rawStr?: unknown): string[] {
+  const out = new Set<string>();
+  if (Array.isArray(rawArr)) {
+    for (const item of rawArr) {
+      const s = String(item ?? '').trim();
+      if (s) out.add(s);
+    }
+    return Array.from(out);
+  }
+  if (typeof rawStr === 'string' && rawStr.trim()) {
+    for (const part of rawStr.split(/[,/]+/)) {
+      const s = part.trim();
+      if (s) out.add(s);
+    }
+  }
+  return Array.from(out);
+}
+
+function parseBudgetManwonInput(rawManwon: unknown, rawText?: unknown): number | null {
+  if (rawManwon === null) return null;
+  if (typeof rawManwon === 'number' && Number.isFinite(rawManwon) && rawManwon >= 0) {
+    return Math.round(rawManwon);
+  }
+  if (typeof rawManwon === 'string' && rawManwon.trim()) {
+    const cleanNum = rawManwon.trim().replace(/,/g, '');
+    if (/^\d+$/.test(cleanNum)) {
+      return Math.round(Number(cleanNum));
+    }
+  }
+  if (typeof rawText === 'string' && rawText.trim()) {
+    const txt = rawText.trim().replace(/,/g, '');
+    const eokMatch = txt.match(/(\d+(?:\.\d+)?)\s*억/);
+    const manMatch = txt.match(/(\d+(?:\.\d+)?)\s*만/);
+    if (eokMatch || manMatch) {
+      const eokVal = eokMatch ? Number(eokMatch[1]) * 10000 : 0;
+      const manVal = manMatch ? Number(manMatch[1]) : 0;
+      const sum = Math.round(eokVal + manVal);
+      return Number.isFinite(sum) && sum > 0 ? sum : null;
+    }
+    if (/^\d+$/.test(txt)) {
+      return Math.round(Number(txt));
+    }
+  }
+  return null;
+}
+
+function formatBudgetManwonDisplay(manwon: number | null): string {
+  if (manwon === null || !Number.isFinite(manwon) || manwon <= 0) return '';
+  if (manwon >= 10000) {
+    const eok = manwon / 10000;
+    return Number.isInteger(eok) ? `${eok}억` : `${eok.toFixed(1).replace(/\.0$/, '')}억`;
+  }
+  return `${manwon.toLocaleString('ko-KR')}만`;
+}
+
+function extractFreeMemoFromLegacyNotes(notesRaw: unknown): string {
+  const text = typeof notesRaw === 'string' ? notesRaw.trim() : '';
+  if (!text) return '';
+  const isPureLegacyConcatenation =
+    /^(?:(?:예산|선호권역|관심매물|근거)\s*:[^/]+(?:\s*\/\s*)?)+$/i.test(text);
+  if (isPureLegacyConcatenation) return '';
+  return text;
 }
 
 async function verifyBrokerOwnership(params: {
@@ -839,12 +928,25 @@ export async function POST(req: NextRequest) {
           Promise.resolve(
             supabase.from('magazine_subscribers').select('*').in('broker_id', brokerKeys)
           ).catch(() => ({ data: null })),
-          Promise.resolve(
-            supabase
-              .from('broker_clients')
-              .select('id, display_name, phone, client_type, tier, tags, created_at')
-              .eq('broker_id', userId)
-          ).catch(() => ({ data: null })),
+          (async () => {
+            try {
+              const res = await supabase
+                .from('broker_clients')
+                .select(
+                  'id, display_name, phone, email, client_type, client_role, tier, is_vip, tags, email_delivery_status, created_at'
+                )
+                .eq('broker_id', userId);
+              if (res?.error && isIgnorableSchemaError(res.error)) {
+                return await supabase
+                  .from('broker_clients')
+                  .select('id, display_name, phone, client_type, tier, tags, created_at')
+                  .eq('broker_id', userId);
+              }
+              return res;
+            } catch {
+              return { data: null };
+            }
+          })(),
           Promise.resolve(
             isUuid(userId)
               ? supabase
@@ -916,8 +1018,12 @@ export async function POST(req: NextRequest) {
           ? (brokerClientsRes as any).data
           : [];
         for (const c of dbClientRows) {
+          const deliveryStatus = String(c?.email_delivery_status || 'ok').toLowerCase();
+          const isBouncedOrComplained =
+            deliveryStatus === 'bounced' || deliveryStatus === 'complained';
           const tags = Array.isArray(c?.tags) ? c.tags.map((t: unknown) => String(t)) : [];
           const isVip =
+            c?.is_vip === true ||
             String(c?.tier || '').toLowerCase() === 'vip' ||
             tags.includes('VIP') ||
             tags.includes('high_interest');
@@ -927,9 +1033,7 @@ export async function POST(req: NextRequest) {
           const hasExplicitOptOut = tags.some((t: string) =>
             /수신거부|해지|unsub/i.test(t)
           );
-          if (!hasExplicitOptIn && !hasExplicitOptOut) continue;
-
-          const rawType = String(c?.client_type || '').toLowerCase();
+          const rawType = String(c?.client_role || c?.client_type || '').toLowerCase();
           const isSellerTag = tags.some((t: string) =>
             /매도|보유|소유주|임대인|seller|owner/i.test(t)
           );
@@ -941,6 +1045,13 @@ export async function POST(req: NextRequest) {
               : 'buyer';
           const key = normalizeSubKey(c?.phone, c?.email, c?.display_name, c?.id);
           const ts = toSafeEpochMs(c?.created_at);
+          if (isBouncedOrComplained) {
+            applyConsentState(key, false, ts, isVip, cType);
+            const emailKey = normalizeSubKey(undefined, c?.email);
+            if (emailKey) applyConsentState(emailKey, false, ts, isVip, cType);
+            continue;
+          }
+          if (!hasExplicitOptIn && !hasExplicitOptOut) continue;
           applyConsentState(key, hasExplicitOptIn && !hasExplicitOptOut, ts, isVip, cType);
         }
 
@@ -951,8 +1062,13 @@ export async function POST(req: NextRequest) {
           const emailVal = s?.subscriber_email ?? s?.email;
           const nameVal = s?.subscriber_name ?? s?.name;
           const statusVal = String(s?.status ?? 'active').toLowerCase();
+          const deliveryStatus = String(s?.email_delivery_status ?? 'ok').toLowerCase();
+          const isBouncedOrComplained =
+            deliveryStatus === 'bounced' || deliveryStatus === 'complained';
           const confirmStatusVal = String(s?.confirm_status ?? '').toLowerCase();
-          const ts = toSafeEpochMs(s?.unsubscribed_at || s?.updated_at || s?.created_at);
+          const ts = toSafeEpochMs(
+            s?.email_bounced_at || s?.unsubscribed_at || s?.updated_at || s?.created_at
+          );
           const k = normalizeSubKey(phoneVal, emailVal, nameVal, s?.id);
           const segRaw = String(s?.segment || s?.client_type || '').toLowerCase();
           const cType: 'buyer' | 'seller' | 'both' =
@@ -961,7 +1077,7 @@ export async function POST(req: NextRequest) {
               : segRaw === 'both'
               ? 'both'
               : 'buyer';
-          if (statusVal === 'unsubscribed' || statusVal === 'inactive') {
+          if (statusVal === 'unsubscribed' || statusVal === 'inactive' || isBouncedOrComplained) {
             applyConsentState(k, false, ts, false, cType);
             const telKey = normalizeSubKey(phoneVal);
             const emailKey = normalizeSubKey(undefined, emailVal);
@@ -1473,38 +1589,386 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 7. Upsert / Update Custom Client (INBOX-08, INBOX-12 — never fabricates 010-0000-0000 or bld-01)
-    if (action === 'upsert_client' || action === 'update_client') {
-      const clientName = String(body?.clientName || '').trim();
+    // 7. Upsert / Update Custom Client & Structured CRM Profile (INBOX-08, INBOX-12, WP-18)
+    if (
+      action === 'upsert_client' ||
+      action === 'update_client' ||
+      action === 'update_client_profile'
+    ) {
+      const hasOwn = (prop: string) =>
+        Boolean(body && typeof body === 'object' && Object.prototype.hasOwnProperty.call(body, prop));
+
+      const lookupKey = clientId || threadId;
+      const rawLookupId = lookupKey.replace(/^(?:custom[-_]|cli-)/, '');
+
+      type ExistingClientSnapshot = {
+        id: string;
+        dbUuid: string | null;
+        clientName: string;
+        clientGrade: 'VIP' | '일반' | '잠재';
+        isVip: boolean;
+        clientRole: InboxCrmClientRole;
+        clientPhone: string;
+        clientEmail: string | null;
+        transactionalBasis: ReturnType<typeof normalizeTransactionalBasis>;
+        preferredRegions: string[];
+        preferredRegion: string;
+        budgetManwon: number | null;
+        budget: string;
+        freeMemo: string;
+        buildingId: string;
+        buildingTitle: string;
+        newsletterSubscribed: boolean;
+      };
+
+      let existingSnap: ExistingClientSnapshot | null = null;
+
+      if (lookupKey) {
+        const memMatch = (getInboxState().customClients || []).find(
+          (c) =>
+            c.ownerId === userId &&
+            (c.id === lookupKey ||
+              c.id === rawLookupId ||
+              c.id === `custom_${rawLookupId}` ||
+              c.id === `cli-${rawLookupId}`)
+        ) as Record<string, any> | undefined;
+
+        if (memMatch) {
+          const m = memMatch;
+          const memRegions = parsePreferredRegionsInput(m.preferredRegions, m.preferredRegion);
+          const memBudgetManwon = parseBudgetManwonInput(m.budgetManwon, m.budget);
+          const memGrade: 'VIP' | '일반' | '잠재' =
+            m.clientGrade === '일반' || m.clientGrade === '잠재' ? m.clientGrade : 'VIP';
+          existingSnap = {
+            id: String(m.id || lookupKey),
+            dbUuid: isUuid(rawLookupId) ? rawLookupId : null,
+            clientName: String(m.clientName || ''),
+            clientGrade: memGrade,
+            isVip: typeof m.isVip === 'boolean' ? m.isVip : memGrade === 'VIP',
+            clientRole: normalizeClientRole(m.clientRole) || 'buyer',
+            clientPhone: String(m.clientPhone || ''),
+            clientEmail: normalizeClientEmail(m.clientEmail),
+            transactionalBasis: normalizeTransactionalBasis(m.transactionalBasis),
+            preferredRegions: memRegions,
+            preferredRegion: String(m.preferredRegion || memRegions.join(', ')),
+            budgetManwon: memBudgetManwon,
+            budget: String(m.budget || formatBudgetManwonDisplay(memBudgetManwon)),
+            freeMemo: typeof m.freeMemo === 'string' ? m.freeMemo : '',
+            buildingId: String(m.buildingId || ''),
+            buildingTitle: String(m.buildingTitle || ''),
+            newsletterSubscribed: Boolean(m.newsletterSubscribed),
+          };
+        }
+
+        if (isUuid(userId)) {
+          try {
+            const supabase = createServiceClient();
+            if (isUuid(rawLookupId)) {
+              const cliQ: any = supabase
+                .from('broker_clients')
+                .select('*')
+                .eq('id', rawLookupId)
+                .eq('broker_id', userId);
+              const cliRes =
+                typeof cliQ?.maybeSingle === 'function'
+                  ? await cliQ.maybeSingle()
+                  : await cliQ?.single?.();
+              const dbRow = cliRes?.data;
+              if (dbRow) {
+                const dbTags = Array.isArray(dbRow.tags)
+                  ? dbRow.tags.map((t: unknown) => String(t))
+                  : [];
+                const dbTier = String(dbRow.tier || '').toLowerCase();
+                const dbIsVip =
+                  typeof dbRow.is_vip === 'boolean'
+                    ? dbRow.is_vip
+                    : dbTier === 'vip' || dbTags.includes('VIP');
+                const dbGrade: 'VIP' | '일반' | '잠재' = dbIsVip
+                  ? 'VIP'
+                  : dbTier === 'potential'
+                  ? '잠재'
+                  : '일반';
+                const dbRole =
+                  normalizeClientRole(dbRow.client_role ?? dbRow.client_type) || 'buyer';
+                const dbRegions = parsePreferredRegionsInput(dbRow.preferred_regions);
+                const dbBudgetManwon = parseBudgetManwonInput(dbRow.budget_manwon);
+                const dbFreeMemo =
+                  typeof dbRow.free_memo === 'string'
+                    ? dbRow.free_memo
+                    : extractFreeMemoFromLegacyNotes(dbRow.notes);
+                const linkedIds = Array.isArray(dbRow.linked_building_ids)
+                  ? dbRow.linked_building_ids.map((id: unknown) => String(id))
+                  : [];
+
+                existingSnap = {
+                  id: existingSnap?.id || lookupKey,
+                  dbUuid: String(dbRow.id),
+                  clientName: String(
+                    dbRow.display_name || dbRow.name || existingSnap?.clientName || ''
+                  ),
+                  clientGrade: dbGrade,
+                  isVip: dbIsVip,
+                  clientRole: dbRole,
+                  clientPhone: String(dbRow.phone || existingSnap?.clientPhone || ''),
+                  clientEmail:
+                    normalizeClientEmail(dbRow.email) ?? existingSnap?.clientEmail ?? null,
+                  transactionalBasis: existingSnap?.transactionalBasis ?? null,
+                  preferredRegions:
+                    dbRegions.length > 0 ? dbRegions : existingSnap?.preferredRegions || [],
+                  preferredRegion:
+                    dbRegions.length > 0
+                      ? dbRegions.join(', ')
+                      : existingSnap?.preferredRegion || '',
+                  budgetManwon: dbBudgetManwon ?? existingSnap?.budgetManwon ?? null,
+                  budget:
+                    formatBudgetManwonDisplay(dbBudgetManwon ?? existingSnap?.budgetManwon ?? null) ||
+                    existingSnap?.budget ||
+                    '',
+                  freeMemo: dbFreeMemo || existingSnap?.freeMemo || '',
+                  buildingId: linkedIds[0] || existingSnap?.buildingId || '',
+                  buildingTitle: existingSnap?.buildingTitle || '',
+                  newsletterSubscribed:
+                    dbTags.some((t: string) => /뉴스레터구독|newsletter/i.test(t)) ||
+                    Boolean(existingSnap?.newsletterSubscribed),
+                };
+              }
+            }
+
+            let evQ: any = supabase
+              .from('activity_events')
+              .select('id, event_type, metadata, created_at');
+            if (typeof evQ?.eq === 'function') {
+              evQ = evQ.eq('actor_id', userId).eq('event_type', 'custom_client_upserted');
+            }
+            if (typeof evQ?.order === 'function') {
+              evQ = evQ.order('created_at', { ascending: true });
+            }
+            const evRes = await evQ;
+            const evRows = [...(Array.isArray(evRes?.data) ? evRes.data : [])].sort(
+              (a, b) => toSafeEpochMs(a?.created_at) - toSafeEpochMs(b?.created_at)
+            );
+            for (const ev of evRows) {
+              const meta = (
+                ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}
+              ) as Record<string, any>;
+              const evClientId = String(meta.client_id || '').trim();
+              const evRawId = evClientId.replace(/^(?:custom[-_]|cli-)/, '');
+              if (
+                evClientId !== lookupKey &&
+                evRawId !== rawLookupId &&
+                String(meta.raw_client_id || '') !== rawLookupId
+              ) {
+                continue;
+              }
+              const evRegions = parsePreferredRegionsInput(
+                meta.preferred_regions,
+                meta.preferred_region
+              );
+              const evBudgetManwon = parseBudgetManwonInput(meta.budget_manwon, meta.budget);
+              const evGrade: 'VIP' | '일반' | '잠재' =
+                meta.client_grade === '일반' || meta.client_grade === '잠재'
+                  ? meta.client_grade
+                  : 'VIP';
+              const evIsVip =
+                typeof meta.is_vip === 'boolean' ? meta.is_vip : evGrade === 'VIP';
+              const evRole =
+                normalizeClientRole(meta.client_role) || existingSnap?.clientRole || 'buyer';
+              const evFreeMemo =
+                typeof meta.free_memo === 'string'
+                  ? meta.free_memo
+                  : existingSnap?.freeMemo ?? '';
+
+              existingSnap = {
+                id: evClientId || existingSnap?.id || lookupKey,
+                dbUuid:
+                  existingSnap?.dbUuid || (isUuid(evRawId) ? evRawId : null),
+                clientName: String(meta.client_name || existingSnap?.clientName || ''),
+                clientGrade: evGrade,
+                isVip: evIsVip,
+                clientRole: evRole,
+                clientPhone: String(meta.client_phone ?? existingSnap?.clientPhone ?? ''),
+                clientEmail:
+                  normalizeClientEmail(meta.client_email) ?? existingSnap?.clientEmail ?? null,
+                transactionalBasis:
+                  normalizeTransactionalBasis(meta.transactional_basis) ??
+                  existingSnap?.transactionalBasis ??
+                  null,
+                preferredRegions:
+                  evRegions.length > 0 ? evRegions : existingSnap?.preferredRegions || [],
+                preferredRegion: String(
+                  meta.preferred_region ||
+                    evRegions.join(', ') ||
+                    existingSnap?.preferredRegion ||
+                    ''
+                ),
+                budgetManwon: evBudgetManwon ?? existingSnap?.budgetManwon ?? null,
+                budget: String(
+                  meta.budget ||
+                    formatBudgetManwonDisplay(evBudgetManwon) ||
+                    existingSnap?.budget ||
+                    ''
+                ),
+                freeMemo: evFreeMemo,
+                buildingId: String(meta.building_id ?? existingSnap?.buildingId ?? ''),
+                buildingTitle: String(meta.building_title ?? existingSnap?.buildingTitle ?? ''),
+                newsletterSubscribed:
+                  typeof meta.newsletter_subscribed === 'boolean'
+                    ? meta.newsletter_subscribed
+                    : Boolean(existingSnap?.newsletterSubscribed),
+              };
+            }
+          } catch {
+            // ignore pre-read failures in offline / injected-error test scenarios
+          }
+        }
+      }
+
+      const incomingName =
+        hasOwn('clientName') || hasOwn('display_name')
+          ? String(body?.clientName ?? body?.display_name ?? '').trim()
+          : '';
+      const clientName = incomingName || existingSnap?.clientName || '';
       if (!clientName) {
         return NextResponse.json(
           { ok: false, error: '고객 성함을 입력해 주세요.' },
           { status: 400 }
         );
       }
-      const clientGrade = (body?.clientGrade as 'VIP' | '일반' | '잠재') || 'VIP';
-      const rawPhone = String(body?.clientPhone || '').trim();
+
+      const explicitIsVip =
+        typeof body?.isVip === 'boolean'
+          ? body.isVip
+          : typeof body?.is_vip === 'boolean'
+          ? body.is_vip
+          : undefined;
+      const explicitGradeRaw =
+        typeof body?.clientGrade === 'string' && body.clientGrade.trim()
+          ? (body.clientGrade.trim() as 'VIP' | '일반' | '잠재')
+          : undefined;
+
+      let resolvedIsVip: boolean;
+      let clientGrade: 'VIP' | '일반' | '잠재';
+      if (explicitIsVip !== undefined) {
+        resolvedIsVip = explicitIsVip;
+        clientGrade =
+          explicitGradeRaw ||
+          (explicitIsVip
+            ? 'VIP'
+            : existingSnap?.clientGrade === '잠재'
+            ? '잠재'
+            : '일반');
+      } else if (explicitGradeRaw !== undefined) {
+        clientGrade = explicitGradeRaw;
+        resolvedIsVip = explicitGradeRaw === 'VIP';
+      } else if (existingSnap) {
+        resolvedIsVip = existingSnap.isVip;
+        clientGrade = existingSnap.clientGrade;
+      } else {
+        clientGrade = 'VIP';
+        resolvedIsVip = true;
+      }
+
+      const parsedRole = normalizeClientRole(
+        body?.clientRole ?? body?.client_role ?? body?.clientType ?? body?.client_type
+      );
+      const resolvedClientRole: InboxCrmClientRole =
+        parsedRole ?? existingSnap?.clientRole ?? 'buyer';
+
+      const hasPhoneProp = hasOwn('clientPhone') || hasOwn('phone');
+      const rawPhone = hasPhoneProp
+        ? String(body?.clientPhone ?? body?.phone ?? '').trim()
+        : existingSnap?.clientPhone || '';
       const clientPhone =
         rawPhone === '010-0000-0000' || rawPhone === '01000000000' ? '' : rawPhone;
-      const rawClientEmail = typeof body?.clientEmail === 'string' ? body.clientEmail.trim() : '';
-      const clientEmail = rawClientEmail ? normalizeClientEmail(rawClientEmail) : null;
-      if (rawClientEmail && !clientEmail) {
+
+      const hasEmailProp = hasOwn('clientEmail') || hasOwn('email');
+      const rawClientEmail = hasEmailProp
+        ? String(body?.clientEmail ?? body?.email ?? '').trim()
+        : '';
+      const parsedIncomingEmail = rawClientEmail ? normalizeClientEmail(rawClientEmail) : null;
+      if (hasEmailProp && rawClientEmail && !parsedIncomingEmail) {
         return NextResponse.json(
           { ok: false, error: '올바른 이메일 주소 형식을 입력해 주세요.' },
           { status: 400 }
         );
       }
-      const transactionalBasis = normalizeTransactionalBasis(body?.transactionalBasis);
-      const budget = String(body?.budget || '').trim();
-      const preferredRegion = String(body?.preferredRegion || '').trim();
+      const clientEmail = hasEmailProp
+        ? parsedIncomingEmail
+        : existingSnap?.clientEmail ?? null;
+
+      const transactionalBasis = hasOwn('transactionalBasis')
+        ? normalizeTransactionalBasis(body?.transactionalBasis)
+        : existingSnap?.transactionalBasis ?? null;
+
+      const hasRegionsProp =
+        hasOwn('preferredRegions') ||
+        hasOwn('preferred_regions') ||
+        hasOwn('preferredRegion') ||
+        hasOwn('preferred_region');
+      const resolvedPreferredRegions = hasRegionsProp
+        ? parsePreferredRegionsInput(
+            body?.preferredRegions ?? body?.preferred_regions,
+            body?.preferredRegion ?? body?.preferred_region
+          )
+        : existingSnap?.preferredRegions ?? [];
+      const preferredRegion =
+        typeof body?.preferredRegion === 'string' && body.preferredRegion.trim()
+          ? body.preferredRegion.trim()
+          : resolvedPreferredRegions.length > 0
+          ? resolvedPreferredRegions.join(', ')
+          : hasRegionsProp
+          ? ''
+          : existingSnap?.preferredRegion ?? '';
+
+      const hasBudgetProp =
+        hasOwn('budgetManwon') || hasOwn('budget_manwon') || hasOwn('budget');
+      let resolvedBudgetManwon: number | null;
+      if (hasBudgetProp) {
+        if (
+          (body?.budgetManwon === null || body?.budget_manwon === null) &&
+          !body?.budget
+        ) {
+          resolvedBudgetManwon = null;
+        } else {
+          resolvedBudgetManwon = parseBudgetManwonInput(
+            body?.budgetManwon ?? body?.budget_manwon,
+            body?.budget
+          );
+        }
+      } else {
+        resolvedBudgetManwon = existingSnap?.budgetManwon ?? null;
+      }
+      const budget =
+        typeof body?.budget === 'string' && body.budget.trim()
+          ? body.budget.trim()
+          : formatBudgetManwonDisplay(resolvedBudgetManwon) ||
+            (!hasBudgetProp ? existingSnap?.budget ?? '' : '');
+
+      const hasFreeMemoProp =
+        hasOwn('freeMemo') ||
+        hasOwn('free_memo') ||
+        hasOwn('memo') ||
+        hasOwn('notes');
+      const resolvedFreeMemo = hasFreeMemoProp
+        ? String(body?.freeMemo ?? body?.free_memo ?? body?.memo ?? body?.notes ?? '').trim()
+        : existingSnap?.freeMemo ?? '';
+
+      const resolvedBuildingId = hasOwn('buildingId')
+        ? buildingId
+        : buildingId || existingSnap?.buildingId || '';
       const buildingTitle = String(
-        body?.buildingTitle || (buildingId ? '관심 매물' : '관심 매물 미지정')
+        body?.buildingTitle ||
+          existingSnap?.buildingTitle ||
+          (resolvedBuildingId ? '관심 매물' : '관심 매물 미지정')
       ).trim();
       const newsletterSubscribed =
-        typeof body?.newsletterSubscribed === 'boolean' ? body.newsletterSubscribed : false;
+        typeof body?.newsletterSubscribed === 'boolean'
+          ? body.newsletterSubscribed
+          : Boolean(existingSnap?.newsletterSubscribed);
 
-      let resolvedClientId = clientId || threadId || `custom_${Date.now()}`;
-      const rawClientUuidCandidate = resolvedClientId.replace(/^(?:custom[-_]|cli-)/, '');
+      let resolvedClientId = lookupKey || `custom_${Date.now()}`;
+      const rawClientUuidCandidate =
+        existingSnap?.dbUuid || resolvedClientId.replace(/^(?:custom[-_]|cli-)/, '');
 
       try {
         const supabase = createServiceClient();
@@ -1513,61 +1977,94 @@ export async function POST(req: NextRequest) {
           일반: 'normal',
           잠재: 'potential',
         };
-        const tagsPayload = [
-          preferredRegion,
-          budget,
-          newsletterSubscribed ? '뉴스레터구독' : '',
-        ].filter(Boolean);
-        const notesPayload = [
-          budget ? `예산: ${budget}` : '',
-          preferredRegion ? `선호권역: ${preferredRegion}` : '',
-          buildingTitle ? `관심매물: ${buildingTitle}` : '',
-          transactionalBasis ? `근거: ${transactionalBasis}` : '',
-        ]
-          .filter(Boolean)
-          .join(' / ');
+        const resolvedTier: 'vip' | 'normal' | 'potential' = resolvedIsVip
+          ? 'vip'
+          : tierMap[clientGrade] === 'vip'
+          ? 'normal'
+          : tierMap[clientGrade] || 'normal';
+        const roleTag =
+          resolvedClientRole === 'seller'
+            ? '매도'
+            : resolvedClientRole === 'tenant'
+            ? '임차'
+            : resolvedClientRole === 'partner'
+            ? '공동중개'
+            : '';
+        const tagsPayload = Array.from(
+          new Set(
+            [
+              ...resolvedPreferredRegions,
+              preferredRegion && !resolvedPreferredRegions.includes(preferredRegion)
+                ? preferredRegion
+                : '',
+              budget,
+              roleTag,
+              newsletterSubscribed ? '뉴스레터구독' : '',
+            ].filter(Boolean)
+          )
+        );
+        const legacyClientType: 'buyer' | 'seller' =
+          resolvedClientRole === 'seller' ? 'seller' : 'buyer';
 
         let dbWriteRes: any = null;
         if (isUuid(userId)) {
-          if (action === 'update_client' && isUuid(rawClientUuidCandidate)) {
-            const baseUpdatePayload = {
+          if (isUuid(rawClientUuidCandidate)) {
+            const legacyUpdatePayload = {
+              client_type: legacyClientType,
               display_name: clientName,
               phone: clientPhone || null,
-              tier: tierMap[clientGrade] || 'vip',
+              tier: resolvedTier,
               tags: tagsPayload,
-              notes: notesPayload,
-              linked_building_ids: buildingId && isUuid(buildingId) ? [buildingId] : [],
+              notes: resolvedFreeMemo,
+              linked_building_ids:
+                resolvedBuildingId && isUuid(resolvedBuildingId) ? [resolvedBuildingId] : [],
+            };
+            const structuredUpdatePayload = {
+              ...legacyUpdatePayload,
+              ...(clientEmail !== undefined ? { email: clientEmail } : {}),
+              is_vip: resolvedIsVip,
+              client_role: resolvedClientRole,
+              preferred_regions: resolvedPreferredRegions,
+              budget_manwon: resolvedBudgetManwon,
+              free_memo: resolvedFreeMemo,
             };
             dbWriteRes = await supabase
               .from('broker_clients')
-              .update({
-                ...baseUpdatePayload,
-                ...(clientEmail !== undefined ? { email: clientEmail } : {}),
-              })
+              .update(structuredUpdatePayload)
               .eq('id', rawClientUuidCandidate)
               .eq('broker_id', userId);
             if (dbWriteRes?.error && isIgnorableSchemaError(dbWriteRes.error)) {
               dbWriteRes = await supabase
                 .from('broker_clients')
-                .update(baseUpdatePayload)
+                .update(legacyUpdatePayload)
                 .eq('id', rawClientUuidCandidate)
                 .eq('broker_id', userId);
             }
           } else if (action === 'upsert_client' && !isUuid(rawClientUuidCandidate)) {
-            const baseInsertPayload = {
+            const legacyInsertPayload = {
               broker_id: userId,
-              client_type: 'buyer' as const,
+              client_type: legacyClientType,
               display_name: clientName,
               phone: clientPhone || null,
-              tier: tierMap[clientGrade] || 'vip',
+              tier: resolvedTier,
               tags: tagsPayload,
-              notes: notesPayload,
-              linked_building_ids: buildingId && isUuid(buildingId) ? [buildingId] : [],
+              notes: resolvedFreeMemo,
+              linked_building_ids:
+                resolvedBuildingId && isUuid(resolvedBuildingId) ? [resolvedBuildingId] : [],
             };
-            const runInsert = async (includeEmail: boolean) => {
+            const runInsert = async (includeStructured: boolean) => {
               const insQuery: any = supabase.from('broker_clients').insert({
-                ...baseInsertPayload,
-                ...(includeEmail && clientEmail ? { email: clientEmail } : {}),
+                ...legacyInsertPayload,
+                ...(includeStructured
+                  ? {
+                      ...(clientEmail ? { email: clientEmail } : {}),
+                      is_vip: resolvedIsVip,
+                      client_role: resolvedClientRole,
+                      preferred_regions: resolvedPreferredRegions,
+                      budget_manwon: resolvedBudgetManwon,
+                      free_memo: resolvedFreeMemo,
+                    }
+                  : {}),
               });
               return typeof insQuery?.select === 'function'
                 ? await insQuery.select('id').single()
@@ -1586,17 +2083,26 @@ export async function POST(req: NextRequest) {
             actor_id: userId,
             event_type: 'custom_client_upserted',
             entity_type: 'building',
-            entity_id: buildingId && isUuid(buildingId) ? buildingId : userId,
+            entity_id:
+              resolvedBuildingId && isUuid(resolvedBuildingId) ? resolvedBuildingId : userId,
             metadata: {
               client_id: resolvedClientId,
+              raw_client_id: isUuid(rawClientUuidCandidate)
+                ? rawClientUuidCandidate
+                : resolvedClientId.replace(/^(?:custom[-_]|cli-)/, ''),
               client_name: clientName,
               client_grade: clientGrade,
+              is_vip: resolvedIsVip,
+              client_role: resolvedClientRole,
               client_phone: clientPhone,
               client_email: clientEmail || '',
               transactional_basis: transactionalBasis || '',
-              budget,
+              preferred_regions: resolvedPreferredRegions,
               preferred_region: preferredRegion,
-              building_id: buildingId,
+              budget_manwon: resolvedBudgetManwon,
+              budget,
+              free_memo: resolvedFreeMemo,
+              building_id: resolvedBuildingId,
               building_title: buildingTitle,
               newsletter_subscribed: newsletterSubscribed,
             },
@@ -1631,13 +2137,27 @@ export async function POST(req: NextRequest) {
         transactionalBasis,
         budget,
         preferredRegion,
-        buildingId,
+        buildingId: resolvedBuildingId,
         buildingTitle,
         newsletterSubscribed,
       });
 
-      const ownSavedClient =
-        state.customClients.find((c) => c.id === resolvedClientId && c.ownerId === userId) || {
+      const matchedMem = state.customClients.find(
+        (c) => c.id === resolvedClientId && c.ownerId === userId
+      );
+      if (matchedMem) {
+        Object.assign(matchedMem as Record<string, any>, {
+          isVip: resolvedIsVip,
+          clientRole: resolvedClientRole,
+          preferredRegions: resolvedPreferredRegions,
+          budgetManwon: resolvedBudgetManwon,
+          freeMemo: resolvedFreeMemo,
+        });
+        saveInboxState(state);
+      }
+
+      const ownSavedClient = {
+        ...(matchedMem || {
           id: resolvedClientId,
           ownerId: userId,
           clientName,
@@ -1647,11 +2167,17 @@ export async function POST(req: NextRequest) {
           transactionalBasis,
           budget,
           preferredRegion,
-          buildingId,
+          buildingId: resolvedBuildingId,
           buildingTitle,
           newsletterSubscribed,
           createdAt: new Date().toISOString(),
-        };
+        }),
+        isVip: resolvedIsVip,
+        clientRole: resolvedClientRole,
+        preferredRegions: resolvedPreferredRegions,
+        budgetManwon: resolvedBudgetManwon,
+        freeMemo: resolvedFreeMemo,
+      };
 
       return NextResponse.json({
         ok: true,
@@ -1742,8 +2268,17 @@ export async function POST(req: NextRequest) {
     if (
       action === 'prepare_copy_bundle' ||
       action === 'send_inbox_email' ||
-      action === 'send_inbox_alimtalk'
+      action === 'send_client_email' ||
+      action === 'send_email' ||
+      action === 'send_inbox_alimtalk' ||
+      action === 'send_alimtalk'
     ) {
+      const isEmailAction =
+        action === 'send_inbox_email' ||
+        action === 'send_client_email' ||
+        action === 'send_email';
+      const isAlimtalkAction =
+        action === 'send_inbox_alimtalk' || action === 'send_alimtalk';
       const origin =
         req.nextUrl?.origin ||
         process.env.NEXT_PUBLIC_SITE_URL ||
@@ -1765,9 +2300,24 @@ export async function POST(req: NextRequest) {
       const buildingTitle = String(body?.buildingTitle || '추천 빌딩').trim();
       const headline = typeof body?.headline === 'string' ? body.headline.trim() : '';
 
+      const precheckedEmail = isEmailAction
+        ? normalizeClientEmail(body?.clientEmail ?? body?.toEmail ?? body?.email)
+        : null;
+      if (isEmailAction && !precheckedEmail) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: '수신 가능한 이메일 주소를 먼저 등록·입력해 주세요.',
+          },
+          { status: 400 }
+        );
+      }
+
       let brokerName = '담당 중개인';
       let brokerCompany = '';
       let brokerPhone = '';
+      let brokerAddress = '';
+      let brokerRegNumber = '';
       let brokerSlug = '';
       let subscriptionInfo: {
         tier: 'free' | 'pro' | 'premium';
@@ -1782,30 +2332,408 @@ export async function POST(req: NextRequest) {
         // default free tier on test/offline DB
       }
 
-      try {
-        if (isUuid(userId)) {
-          const { data: bp } = await supabase
-            .from('broker_profiles')
-            .select('display_name, company, phone, slug')
-            .eq('user_id', userId)
-            .maybeSingle();
-          if (bp) {
-            brokerName = String((bp as any).display_name || brokerName).trim();
-            brokerCompany = String((bp as any).company || '').trim();
-            brokerPhone = String((bp as any).phone || '').trim();
-            brokerSlug = String((bp as any).slug || '').trim();
+      if (isUuid(userId)) {
+        try {
+          const pfQuery: any = supabase
+            .from('profiles')
+            .select('display_name, company, phone')
+            .eq('id', userId);
+          const pfRes =
+            typeof pfQuery?.maybeSingle === 'function'
+              ? await pfQuery.maybeSingle()
+              : await pfQuery?.single?.();
+          const pf = pfRes?.data;
+          if (pf) {
+            if (pf.display_name) {
+              brokerName = String(pf.display_name).trim() || brokerName;
+            }
+            if (pf.company) {
+              brokerCompany = String(pf.company).trim();
+            }
+            if (pf.phone) {
+              brokerPhone = String(pf.phone).trim();
+            }
           }
+        } catch {
+          // fallback defaults if profiles unavailable
         }
-      } catch {
-        // fallback defaults
+
+        try {
+          const bpQuery: any = supabase
+            .from('broker_profiles')
+            .select('office_address, office_reg_number, slug')
+            .eq('user_id', userId);
+          const bpRes =
+            typeof bpQuery?.maybeSingle === 'function'
+              ? await bpQuery.maybeSingle()
+              : await bpQuery?.single?.();
+          const bp = bpRes?.data;
+          if (bp) {
+            if ((bp as any).office_address) {
+              brokerAddress = String((bp as any).office_address).trim();
+            }
+            if ((bp as any).office_reg_number) {
+              brokerRegNumber = String((bp as any).office_reg_number).trim();
+            }
+            if ((bp as any).slug) {
+              brokerSlug = String((bp as any).slug).trim();
+            }
+            if (brokerName === '담당 중개인' && (bp as any).display_name) {
+              brokerName = String((bp as any).display_name).trim() || brokerName;
+            }
+            if (!brokerCompany && (bp as any).company) {
+              brokerCompany = String((bp as any).company).trim();
+            }
+            if (!brokerPhone && (bp as any).phone) {
+              brokerPhone = String((bp as any).phone).trim();
+            }
+          }
+        } catch {
+          // fallback defaults if broker_profiles unavailable
+        }
       }
 
-      const channel: ShareLinkChannel =
-        action === 'send_inbox_email'
-          ? 'email'
-          : action === 'send_inbox_alimtalk'
-            ? 'alimtalk'
-            : 'copy';
+      // Pre-send recipient bounce/complaint suppression + opt-out / consent resolution for email actions
+      let activeSubscriberRow: Record<string, any> | null = null;
+      let hasVerifiedInquiryRecord = false;
+      let hasExplicitCrmOptIn = false;
+
+      if (isEmailAction && precheckedEmail) {
+        const brokerKeys = Array.from(new Set([userId, brokerSlug].filter(Boolean)));
+        const rawTargetId = (recipientRef || '').replace(/^(?:srv-|custom[-_]|cli-|sub_)/, '');
+        let bouncedOrComplained = false;
+        let unsubscribedBySubscriber = false;
+        let subscriberUnsubTs = 0;
+
+        try {
+          let subQuery: any = supabase
+            .from('magazine_subscribers')
+            .select(
+              'id, broker_id, subscriber_email, status, confirm_status, unsubscribed_at, night_consent, email_delivery_status, email_bounced_at, email_bounce_reason, created_at'
+            );
+          if (typeof subQuery?.in === 'function' && brokerKeys.length > 0) {
+            subQuery = subQuery.in('broker_id', brokerKeys);
+          } else if (typeof subQuery?.eq === 'function') {
+            subQuery = subQuery.eq('broker_id', userId);
+          }
+          let subRes = await subQuery;
+          if (subRes?.error && isIgnorableSchemaError(subRes.error)) {
+            let fallbackSubQ: any = supabase
+              .from('magazine_subscribers')
+              .select('id, broker_id, subscriber_email, status, confirm_status, unsubscribed_at, created_at');
+            if (typeof fallbackSubQ?.in === 'function' && brokerKeys.length > 0) {
+              fallbackSubQ = fallbackSubQ.in('broker_id', brokerKeys);
+            } else if (typeof fallbackSubQ?.eq === 'function') {
+              fallbackSubQ = fallbackSubQ.eq('broker_id', userId);
+            }
+            subRes = await fallbackSubQ;
+          }
+
+          const subRows = Array.isArray(subRes?.data) ? subRes.data : [];
+          for (const s of subRows) {
+            const rowBroker = String(s?.broker_id || '').trim();
+            if (rowBroker && brokerKeys.length > 0 && !brokerKeys.includes(rowBroker)) {
+              continue;
+            }
+            const rowEmail = normalizeClientEmail(s?.subscriber_email ?? s?.email);
+            const matchesEmail = rowEmail === precheckedEmail;
+            const matchesSubId =
+              Boolean(recipientRef?.startsWith('sub_')) &&
+              Boolean(rawTargetId) &&
+              String(s?.id || '') === rawTargetId;
+            if (!matchesEmail && !matchesSubId) continue;
+
+            const deliveryLower = String(s?.email_delivery_status ?? 'ok').toLowerCase();
+            if (deliveryLower === 'bounced' || deliveryLower === 'complained') {
+              bouncedOrComplained = true;
+            }
+
+            const statusLower = String(s?.status ?? 'active').toLowerCase();
+            const confirmLower = String(s?.confirm_status ?? 'confirmed').toLowerCase();
+            if (statusLower === 'unsubscribed' || statusLower === 'inactive' || Boolean(s?.unsubscribed_at)) {
+              unsubscribedBySubscriber = true;
+              subscriberUnsubTs = Math.max(
+                subscriberUnsubTs,
+                toSafeEpochMs(s?.unsubscribed_at || s?.updated_at || s?.created_at) || 1
+              );
+            } else if (statusLower === 'active' && confirmLower !== 'pending') {
+              activeSubscriberRow = s;
+            }
+          }
+
+          if (!bouncedOrComplained) {
+            const globalSubBounceQ: any = supabase
+              .from('magazine_subscribers')
+              .select('id, subscriber_email, email_delivery_status')
+              .eq('subscriber_email', precheckedEmail);
+            const globalSubRes = await globalSubBounceQ;
+            if (!globalSubRes?.error && Array.isArray(globalSubRes?.data)) {
+              for (const gs of globalSubRes.data) {
+                const ds = String(gs?.email_delivery_status ?? 'ok').toLowerCase();
+                if (ds === 'bounced' || ds === 'complained') {
+                  bouncedOrComplained = true;
+                  break;
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore if magazine_subscribers unavailable in mock
+        }
+
+        // Check bounce/complaint events in activity_events (including webhook actor_id = null rows)
+        if (!bouncedOrComplained) {
+          try {
+            let bounceEvQ: any = supabase
+              .from('activity_events')
+              .select('id, actor_id, entity_id, event_type, metadata, created_at');
+            if (typeof bounceEvQ?.in === 'function') {
+              bounceEvQ = bounceEvQ.in('event_type', ['email_bounced', 'email_complained']);
+            }
+            const bounceEvRes = await bounceEvQ;
+            const bounceRows = Array.isArray(bounceEvRes?.data) ? bounceEvRes.data : [];
+            for (const ev of bounceRows) {
+              if (ev?.actor_id && String(ev.actor_id) !== userId) continue;
+              const meta = (
+                ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}
+              ) as Record<string, any>;
+              const evEmail = normalizeClientEmail(
+                String(
+                  meta.email ||
+                    meta.to_email ||
+                    meta.client_email ||
+                    meta.subscriber_email ||
+                    ''
+                )
+              );
+              const matchesEmail = evEmail === precheckedEmail;
+              const matchesThread =
+                Boolean(recipientRef) &&
+                (meta.client_id === recipientRef ||
+                  meta.thread_id === recipientRef ||
+                  (Boolean(rawTargetId) &&
+                    (meta.raw_client_id === rawTargetId ||
+                      meta.subscriber_id === rawTargetId ||
+                      ev.entity_id === rawTargetId)));
+              if (matchesEmail || matchesThread) {
+                bouncedOrComplained = true;
+                break;
+              }
+            }
+          } catch {
+            // ignore if activity_events unavailable in mock
+          }
+        }
+
+        let latestEventSubscribed: boolean | null = null;
+        let latestUpsertOptIn: boolean | null = null;
+        let latestEventTs = 0;
+        try {
+          let evQuery: any = supabase
+            .from('activity_events')
+            .select('id, actor_id, entity_id, event_type, metadata, created_at');
+          if (typeof evQuery?.eq === 'function') {
+            evQuery = evQuery.eq('actor_id', userId);
+          }
+          if (typeof evQuery?.in === 'function') {
+            evQuery = evQuery.in('event_type', [
+              'newsletter_subscription_toggled',
+              'magazine_unsubscribed',
+              'magazine_subscribed',
+              'custom_client_upserted',
+              'inbox_custom_client_upserted',
+            ]);
+          }
+          if (typeof evQuery?.order === 'function') {
+            evQuery = evQuery.order('created_at', { ascending: true });
+          }
+          const evRes = await evQuery;
+          const evRows = [...(Array.isArray(evRes?.data) ? evRes.data : [])].sort(
+            (a, b) => toSafeEpochMs(a?.created_at) - toSafeEpochMs(b?.created_at)
+          );
+
+          for (const ev of evRows) {
+            if (ev?.actor_id && String(ev.actor_id) !== userId) continue;
+            const meta = (
+              ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}
+            ) as Record<string, any>;
+            const evEmail = normalizeClientEmail(
+              String(
+                meta.client_email ||
+                  meta.subscriber_email ||
+                  meta.to_email ||
+                  meta.email ||
+                  ''
+              )
+            );
+            const matchesEmail = evEmail === precheckedEmail;
+            const matchesThread =
+              Boolean(recipientRef) &&
+              (meta.client_id === recipientRef ||
+                meta.thread_id === recipientRef ||
+                (Boolean(rawTargetId) &&
+                  (meta.raw_client_id === rawTargetId ||
+                    meta.subscriber_id === rawTargetId ||
+                    ev.entity_id === rawTargetId)));
+
+            if (!matchesEmail && !matchesThread) continue;
+            const ts = toSafeEpochMs(ev?.created_at) || latestEventTs + 1;
+
+            if (ev?.event_type === 'newsletter_subscription_toggled') {
+              const rawSub = meta.subscribed ?? meta.newsletter_subscribed;
+              if (rawSub === false) {
+                latestEventSubscribed = false;
+                latestEventTs = ts;
+              } else if (rawSub === true) {
+                latestEventSubscribed = true;
+                latestEventTs = ts;
+              }
+            } else if (ev?.event_type === 'magazine_unsubscribed') {
+              latestEventSubscribed = false;
+              latestEventTs = ts;
+            } else if (ev?.event_type === 'magazine_subscribed') {
+              latestEventSubscribed = true;
+              latestEventTs = ts;
+            } else if (
+              ev?.event_type === 'custom_client_upserted' ||
+              ev?.event_type === 'inbox_custom_client_upserted'
+            ) {
+              if (meta.newsletter_subscribed === true || meta.subscribed === true) {
+                latestUpsertOptIn = true;
+              } else if (meta.newsletter_subscribed === false || meta.subscribed === false) {
+                latestUpsertOptIn = false;
+              }
+            }
+          }
+        } catch {
+          // ignore if activity_events unavailable in mock
+        }
+
+        let unsubscribedByClientTag = false;
+        let optedInByClientTag = false;
+        try {
+          let cliRes: any = await supabase
+            .from('broker_clients')
+            .select('id, email, tags, email_delivery_status')
+            .eq('broker_id', userId);
+          if (cliRes?.error && isIgnorableSchemaError(cliRes.error)) {
+            cliRes = await supabase
+              .from('broker_clients')
+              .select('id, tags')
+              .eq('broker_id', userId);
+          }
+          const cliRows = Array.isArray(cliRes?.data) ? cliRes.data : [];
+          for (const c of cliRows) {
+            const matchesId = Boolean(rawTargetId) && String(c?.id || '') === rawTargetId;
+            const matchesEmail = normalizeClientEmail(c?.email) === precheckedEmail;
+            if (!matchesId && !matchesEmail) continue;
+
+            const deliveryLower = String(c?.email_delivery_status ?? 'ok').toLowerCase();
+            if (deliveryLower === 'bounced' || deliveryLower === 'complained') {
+              bouncedOrComplained = true;
+            }
+            const tags = Array.isArray(c?.tags)
+              ? c.tags.map((t: unknown) => String(t))
+              : [];
+            if (tags.some((t: string) => /수신거부|해지|unsub/i.test(t))) {
+              unsubscribedByClientTag = true;
+            } else if (tags.some((t: string) => /뉴스레터구독|수신동의/i.test(t))) {
+              optedInByClientTag = true;
+            }
+          }
+        } catch {
+          // ignore if broker_clients unavailable
+        }
+
+        if (bouncedOrComplained) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: 'RECIPIENT_BOUNCED_OR_COMPLAINED',
+              blockedReason: 'RECIPIENT_BOUNCED_OR_COMPLAINED',
+              error:
+                '이전에 반송(수신 불가)되거나 스팸 신고된 이메일 주소이므로 발송이 자동 차단되었습니다.',
+            },
+            { status: 422 }
+          );
+        }
+
+        const isRecipientUnsubscribed =
+          unsubscribedBySubscriber ||
+          latestEventSubscribed === false ||
+          (unsubscribedByClientTag && latestEventSubscribed !== true);
+
+        if (isRecipientUnsubscribed) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: 'RECIPIENT_UNSUBSCRIBED',
+              error: '수신거부(해지)를 요청한 고객에게는 이메일을 발송할 수 없습니다.',
+            },
+            { status: 403 }
+          );
+        }
+
+        let optedInByCustomClientState = false;
+        const inboxCustomClients = getInboxState().customClients || [];
+        for (const c of inboxCustomClients) {
+          if (!c || c.ownerId !== userId) continue;
+          const matchesId =
+            Boolean(recipientRef) &&
+            (c.id === recipientRef ||
+              (Boolean(rawTargetId) &&
+                (c.id === rawTargetId || c.id === `custom_${rawTargetId}`)));
+          const matchesEmail = normalizeClientEmail(c.clientEmail) === precheckedEmail;
+          if ((matchesId || matchesEmail) && c.newsletterSubscribed === true) {
+            optedInByCustomClientState = true;
+            break;
+          }
+        }
+
+        hasExplicitCrmOptIn =
+          latestEventSubscribed === true ||
+          optedInByClientTag ||
+          optedInByCustomClientState ||
+          (latestUpsertOptIn === true && latestEventSubscribed === null);
+
+        const isCustomOrSubThread =
+          !recipientRef ||
+          recipientRef.startsWith('custom_') ||
+          recipientRef.startsWith('custom-') ||
+          recipientRef.startsWith('cli-') ||
+          recipientRef.startsWith('sub_') ||
+          recipientRef.startsWith('view_');
+
+        if (!isCustomOrSubThread && rawTargetId) {
+          const inquiryTables: Array<[string, string]> = [
+            ['gate_requests', 'id, building_id, status'],
+            ['im_inquiry_requests', 'id, building_id, status'],
+            ['inquiries', 'id, status'],
+            ['im_pro_grants', 'id, building_id, status'],
+          ];
+          for (const [tbl, cols] of inquiryTables) {
+            try {
+              const q: any = supabase.from(tbl).select(cols).eq('id', rawTargetId);
+              const r =
+                typeof q?.maybeSingle === 'function'
+                  ? await q.maybeSingle()
+                  : await q?.single?.();
+              if (!r?.error && r?.data?.id) {
+                hasVerifiedInquiryRecord = true;
+                break;
+              }
+            } catch {
+              // table may not exist in all environments
+            }
+          }
+        }
+      }
+
+      const channel: ShareLinkChannel = isEmailAction
+        ? 'email'
+        : isAlimtalkAction
+          ? 'alimtalk'
+          : 'copy';
 
       let resolvedRelativeShareUrl =
         typeof body?.shareUrl === 'string' && body.shareUrl.trim()
@@ -1885,34 +2813,94 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (action === 'send_inbox_email') {
-        const clientEmail = normalizeClientEmail(body?.clientEmail);
-        if (!clientEmail) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: '수신 가능한 이메일 주소를 먼저 등록·입력해 주세요.',
-            },
-            { status: 400 }
-          );
-        }
+      if (isEmailAction) {
+        const clientEmail = precheckedEmail!;
+        const isCustomOrSubThread =
+          !recipientRef ||
+          recipientRef.startsWith('custom_') ||
+          recipientRef.startsWith('custom-') ||
+          recipientRef.startsWith('cli-') ||
+          recipientRef.startsWith('sub_') ||
+          recipientRef.startsWith('view_');
+
+        const rawEmailBasis = normalizeTransactionalBasis(body?.transactionalBasis);
+        const hasThreadBackedBasis =
+          !isCustomOrSubThread &&
+          (rawEmailBasis === 'im_request' ||
+            rawEmailBasis === 'property_inquiry' ||
+            rawEmailBasis === 'tour_booking');
+
+        const deliveryPurpose: InboxEmailDeliveryPurpose =
+          body?.deliveryPurpose === 'marketing_outreach' ||
+          assetKind === 'magazine' ||
+          rawEmailBasis === 'broker_manual' ||
+          isCustomOrSubThread
+            ? 'marketing_outreach'
+            : hasVerifiedInquiryRecord || hasThreadBackedBasis
+              ? 'transactional_reply'
+              : 'marketing_outreach';
+
+        const hasActiveMagazineOptIn = Boolean(activeSubscriberRow);
+        const marketingOptIn =
+          body?.marketingConsentConfirmed === true ||
+          body?.marketingOptIn === true ||
+          hasActiveMagazineOptIn ||
+          hasExplicitCrmOptIn;
+        const nightSendConsent =
+          body?.nightSendConsent === true || Boolean(activeSubscriberRow?.night_consent === true);
+
+        const rawClientId = (recipientRef || '').replace(/^(?:srv-|custom[-_]|cli-|sub_)/, '');
+        const resolvedUnsubscribeUrl =
+          deliveryPurpose === 'marketing_outreach'
+            ? (typeof body?.unsubscribeUrl === 'string' && body.unsubscribeUrl.trim()) ||
+              buildInboxUnsubscribeUrl({
+                origin,
+                brokerId: brokerSlug || userId,
+                subscriberId: activeSubscriberRow?.id
+                  ? String(activeSubscriberRow.id)
+                  : rawClientId || 'inbox-client',
+                toEmail: clientEmail,
+              })
+            : null;
 
         const emailRes = await sendInboxClientEmail({
           toEmail: clientEmail,
           brokerName,
           brokerCompany,
           brokerPhone,
+          brokerAddress,
+          brokerId: brokerSlug || userId,
+          subscriberId: activeSubscriberRow?.id ? String(activeSubscriberRow.id) : undefined,
           clientName,
           buildingTitle,
           shareUrl: fullShareUrl,
           headline,
           assetKind,
+          deliveryPurpose,
+          transactionalBasis: rawEmailBasis,
+          hasInquiryRecord: hasVerifiedInquiryRecord || hasThreadBackedBasis,
+          marketingOptIn,
+          nightSendConsent,
+          unsubscribeUrl: resolvedUnsubscribeUrl,
         });
 
         if (!emailRes.ok) {
+          const status =
+            emailRes.blockedReason === 'INVALID_EMAIL'
+              ? 400
+              : emailRes.blockedReason === 'OPT_IN_REQUIRED' ||
+                  emailRes.blockedReason === 'QUIET_HOURS_KST'
+                ? 403
+                : 502;
           return NextResponse.json(
-            { ok: false, error: emailRes.error || '이메일 발송에 실패했습니다.' },
-            { status: 502 }
+            {
+              ok: false,
+              blockedReason: emailRes.blockedReason,
+              code: emailRes.blockedReason,
+              subject: emailRes.subject,
+              error: emailRes.error || '이메일 발송에 실패했습니다.',
+            },
+            { status }
           );
         }
 
@@ -1928,6 +2916,8 @@ export async function POST(req: NextRequest) {
                 building_id: buildingId || null,
                 to_email: clientEmail,
                 asset_kind: assetKind,
+                delivery_purpose: emailRes.deliveryPurpose || deliveryPurpose,
+                broker_reg_number: brokerRegNumber || null,
                 share_token: resolvedShareToken || null,
                 simulated: Boolean(emailRes.simulated),
               },
@@ -1942,15 +2932,17 @@ export async function POST(req: NextRequest) {
           action,
           simulated: Boolean(emailRes.simulated),
           messageId: emailRes.messageId,
+          deliveryPurpose: emailRes.deliveryPurpose || deliveryPurpose,
           toEmail: clientEmail,
           subject: emailRes.subject,
+          unsubscribeUrl: emailRes.unsubscribeUrl || undefined,
           shareToken: resolvedShareToken || undefined,
           shareUrl: resolvedRelativeShareUrl,
           fullShareUrl,
         });
       }
 
-      // action === 'send_inbox_alimtalk'
+      // action === 'send_inbox_alimtalk' | 'send_alimtalk'
       const clientPhone = String(body?.clientPhone || '').trim();
       const rawBasis =
         normalizeTransactionalBasis(body?.transactionalBasis) ||
@@ -2015,6 +3007,27 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const earlyAccessGuidance =
+        'Pro 알림톡 정식 연동 오픈 예정입니다. 이메일 발송 또는 카톡 인사말+링크 1초 복사 기능을 이용해 주세요.';
+
+      if (alimRes.simulated) {
+        return NextResponse.json({
+          ok: true,
+          action,
+          simulated: true,
+          earlyAccess: true,
+          dispatched: false,
+          messageId: null,
+          message: earlyAccessGuidance,
+          guidance: earlyAccessGuidance,
+          templateId: alimRes.templateId,
+          previewText: alimRes.previewText,
+          shareToken: resolvedShareToken || undefined,
+          shareUrl: resolvedRelativeShareUrl,
+          fullShareUrl,
+        });
+      }
+
       try {
         if (isUuid(userId)) {
           await supabase.from('activity_events').insert({
@@ -2028,7 +3041,7 @@ export async function POST(req: NextRequest) {
               template_id: templateId,
               transactional_basis: rawBasis,
               share_token: resolvedShareToken || null,
-              simulated: Boolean(alimRes.simulated),
+              simulated: false,
             },
           });
         }
@@ -2039,7 +3052,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         action,
-        simulated: Boolean(alimRes.simulated),
+        simulated: false,
+        earlyAccess: false,
+        dispatched: true,
         messageId: alimRes.messageId,
         templateId: alimRes.templateId,
         previewText: alimRes.previewText,

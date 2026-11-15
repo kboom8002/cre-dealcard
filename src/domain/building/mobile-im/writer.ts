@@ -72,6 +72,27 @@ function computeImJudgeScore(sections: MobileIMSection[]): number {
   return Math.round((total / sections.length) * 10) / 10;
 }
 
+export function shouldIndexGoldenRagSections(params: {
+  sections: MobileIMSection[];
+  publishBlocked?: boolean;
+  imJudgeScore?: number;
+}): boolean {
+  if (!Array.isArray(params.sections) || params.sections.length === 0) return false;
+  if (params.publishBlocked === true) return false;
+  const hasFlaggedSection = params.sections.some(
+    (s) =>
+      s.confidence === 'needs_check' ||
+      (s as any).hasHallucination === true ||
+      Boolean((s as any).hallucinationFlags?.length),
+  );
+  if (hasFlaggedSection) return false;
+  const score =
+    typeof params.imJudgeScore === 'number'
+      ? params.imJudgeScore
+      : computeImJudgeScore(params.sections);
+  return score >= 4.0;
+}
+
 // ─── 메인 생성 함수 ───────────────────────────────────────────────────────────
 export async function generateMobileIM(input: MobileIMWriterInput): Promise<MobileIMWriterOutput> {
   const { building_ssot_lite, external_data } = input;
@@ -436,6 +457,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
   let publishBlocked = false;
   let publishBlockReasons: string[] = [];
+  const hasNeedsCheckOrHallucination = sections.some(
+    (s) =>
+      s.confidence === 'needs_check' ||
+      (s as any).hasHallucination === true ||
+      Boolean((s as any).hallucinationFlags?.length),
+  );
+  const imJudgeScore = computeImJudgeScore(sections);
   try {
     const gateCtx: import('./quality-gates-v02').GateContext = {
       salePrice: ctx.purchasePriceKrw,
@@ -444,14 +472,14 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       dataGrade: String(input.dataGrade ?? 'C'),
       // D37 P0-8: 실값 전환 — 하드코딩 해소
       crossValidationPassed: crossValidationPassed,
-      // 할루시네이션: 섹션 중 하나라도 confidence='needs_check'이면 true
-      hasHallucination: sections.some(s => s.confidence === 'needs_check'),
+      // 할루시네이션: 섹션 중 하나라도 confidence='needs_check' 또는 할루시네이션 플래그가 있으면 true
+      hasHallucination: hasNeedsCheckOrHallucination,
       // PII: 섹션 마크다운에 개인정보 패턴이 없는지 검사
       piiRemoved: !sections.some(s => /\d{3}-\d{4}-\d{4}|주민등록|resident\s*registration/i.test(s.markdown || '')),
       // 위험 표현: 섹션 중 boundary_note가 있으면 true
       hasRiskExpression: sections.some(s => !!(s.boundary_note && s.boundary_note.length > 0)),
       // IM Judge 점수: 평균 confidence 기반 (high=5, medium=3, low=1, needs_check=0)
-      imJudgeScore: computeImJudgeScore(sections),
+      imJudgeScore,
       threeAxisConfirmed: !!(ctx.assetIdentity.asset_type),
       dcfGradeGatePassed: input.dcfEligible ?? false,
       // 임대차보호법 확인: DA에 렌트롤이 있어야 확인 가능
@@ -489,22 +517,35 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     log.warn({ e: e }, '[mobile-im] Publish gates failed:');
   }
 
-  // ── 4. RAG 인덱싱 ──
-  try {
-    const sb = createServiceClient();
-    const buildingId = String(building_ssot_lite.id ?? "");
-    if (buildingId) {
-      await indexIMSections(sb, buildingId, sections, {
-        assetType: String(ctx.assetIdentity.asset_type ?? ""),
-        address: String(ctx.marketLocation.address ?? ""),
-        promptVariant: ctx.promptVariantId,
-        generatedAt: new Date().toISOString(),
-        status: "published",
-        brokerApproved: true,
-      });
+  // ── 4. RAG 인덱싱 (Golden RAG Gate: 발행차단·할루시네이션·저품질 초안 인덱싱 원천 차단) ──
+  const shouldIndexGoldenRag = shouldIndexGoldenRagSections({
+    sections,
+    publishBlocked,
+    imJudgeScore,
+  });
+
+  if (shouldIndexGoldenRag) {
+    try {
+      const sb = createServiceClient();
+      const buildingId = String(building_ssot_lite.id ?? "");
+      if (buildingId) {
+        await indexIMSections(sb, buildingId, sections, {
+          assetType: String(ctx.assetIdentity.asset_type ?? ""),
+          address: String(ctx.marketLocation.address ?? ""),
+          promptVariant: ctx.promptVariantId,
+          generatedAt: new Date().toISOString(),
+          status: "published",
+          brokerApproved: true,
+        });
+      }
+    } catch (indexErr) {
+      log.warn({ indexErr: indexErr }, "[mobile-im-writer] IM indexing failed (non-blocking):");
     }
-  } catch (indexErr) {
-    log.warn({ indexErr: indexErr }, "[mobile-im-writer] IM indexing failed (non-blocking):");
+  } else {
+    log.info(
+      { publishBlocked, hasNeedsCheckOrHallucination, imJudgeScore },
+      "[mobile-im-writer] Skipping Golden RAG indexIMSections due to quality/hallucination gate",
+    );
   }
 
   // ── 5. Hero Card 구축 ──

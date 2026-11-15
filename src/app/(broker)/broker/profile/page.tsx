@@ -6,6 +6,7 @@ import { logout } from '@/app/actions/auth';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
 import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
+import { validateBrokerStatutoryFields } from '@/lib/legal/broker-statutory-disclosure';
 
 /* ─── Tag option constants ─── */
 
@@ -73,20 +74,22 @@ interface ProfileData {
     youtube_url: string | null;
     linkedin_url: string | null;
     avatar_url: string | null;
+    representative_name?: string | null;
+    office_address?: string | null;
   } | null;
 }
 
 /* ─── CSS class helpers ─── */
 
 const inputClass =
-  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[16px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors';
+  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[max(16px,1rem)] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors';
 
 const selectClass =
-  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[16px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors appearance-none';
+  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[max(16px,1rem)] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors appearance-none';
 
 const sectionClass = 'space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm';
 
-const sectionTitleClass = 'text-[18px] font-extrabold text-foreground tracking-tight';
+const sectionTitleClass = 'text-lg font-extrabold text-foreground tracking-tight';
 
 /* ─── Component ─── */
 
@@ -101,10 +104,16 @@ export default function BrokerProfilePage() {
 
   // Section 1: 기본 정보
   const [displayName, setDisplayName] = useState('');
+  const [representativeName, setRepresentativeName] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
+  const [officeAddress, setOfficeAddress] = useState('');
   const [tagline, setTagline] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [statutoryFieldError, setStatutoryFieldError] = useState<{
+    field: string;
+    message: string;
+  } | null>(null);
 
   // Section 2: 자격/등록 정보
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -137,7 +146,30 @@ export default function BrokerProfilePage() {
 
   // Section 6: 자기소개
   const [bio, setBio] = useState('');
-  const [vibeStatus, setVibeStatus] = useState<'uploading' | 'analyzing' | 'done' | null>(null);
+  const [vibeStatus, setVibeStatus] = useState<'uploading' | 'done' | null>(null);
+
+  /* ─── 공인중개사법 제18조의2 필수 5항목 점검 ─── */
+  const statutoryCheck = useMemo(
+    () =>
+      validateBrokerStatutoryFields({
+        company,
+        office_address: officeAddress,
+        phone,
+        office_reg_number: officeRegNumber,
+        license_number: licenseNumber,
+        representative_name: representativeName,
+        display_name: displayName,
+      }),
+    [
+      company,
+      officeAddress,
+      phone,
+      officeRegNumber,
+      licenseNumber,
+      representativeName,
+      displayName,
+    ],
+  );
 
   /* ─── Profile completeness calculation ─── */
 
@@ -195,8 +227,10 @@ export default function BrokerProfilePage() {
 
       // Section 1
       setDisplayName(data.display_name ?? '');
+      setRepresentativeName(data.broker?.representative_name ?? '');
       setPhone(data.phone ?? '');
       setCompany(data.company ?? '');
+      setOfficeAddress(data.broker?.office_address ?? '');
       setTagline(data.tagline ?? '');
       setAvatarUrl(data.broker?.avatar_url ?? data.broker?.photo_url ?? data.photo_url ?? '');
 
@@ -252,6 +286,7 @@ export default function BrokerProfilePage() {
     setSaving(true);
     setSaved(false);
     setError(null);
+    setStatutoryFieldError(null);
     try {
       // 전화번호 자동 포맷팅: 하이픈 없이 입력해도 정상 저장되도록
       let formattedPhone = phone;
@@ -262,6 +297,22 @@ export default function BrokerProfilePage() {
         }
       }
 
+      // 클라이언트 선행 검증: 샘플 등록번호/성명 저장 차단
+      const validation = validateBrokerStatutoryFields({
+        company,
+        office_address: officeAddress,
+        phone: formattedPhone,
+        office_reg_number: officeRegNumber,
+        license_number: licenseNumber,
+        representative_name: representativeName,
+        display_name: displayName,
+      });
+      if (!validation.ok) {
+        setStatutoryFieldError({ field: validation.field, message: validation.message });
+        setError(validation.message);
+        return;
+      }
+
       const res = await fetch('/api/broker/profile', {
         method: 'PUT',
         headers: {
@@ -270,8 +321,10 @@ export default function BrokerProfilePage() {
         },
         body: JSON.stringify({
           display_name: displayName || undefined,
+          representative_name: representativeName,
           phone: formattedPhone || undefined,
           company: company || undefined,
+          office_address: officeAddress,
           tagline: tagline || undefined,
           specialty_regions: selectedRegions.length > 0 ? selectedRegions : undefined,
           specialty_assets: selectedAssets.length > 0 ? selectedAssets : undefined,
@@ -298,6 +351,9 @@ export default function BrokerProfilePage() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        if (errorData.field && typeof errorData.error === 'string') {
+          setStatutoryFieldError({ field: errorData.field, message: errorData.error });
+        }
         // 사용자 친화적 에러 메시지 변환
         if (errorData.error?.fieldErrors) {
           const fieldErrors = errorData.error.fieldErrors;
@@ -309,6 +365,9 @@ export default function BrokerProfilePage() {
               languages: '소통 언어',
               phone: '연락처',
               display_name: '이름',
+              representative_name: '개업공인중개사(대표자) 성명',
+              office_address: '중개사무소 소재지',
+              office_reg_number: '중개사무소 개설등록번호',
               bio: '자기소개',
             };
             const label = fieldLabels[field] || field;
@@ -375,8 +434,10 @@ export default function BrokerProfilePage() {
           },
           body: JSON.stringify({
             display_name: displayName || undefined,
+            representative_name: representativeName,
             phone: phone || undefined,
             company: company || undefined,
+            office_address: officeAddress,
             tagline: tagline || undefined,
             specialty_regions: selectedRegions.length > 0 ? selectedRegions : undefined,
             specialty_assets: selectedAssets.length > 0 ? selectedAssets : undefined,
@@ -434,7 +495,7 @@ export default function BrokerProfilePage() {
           key={item}
           type="button"
           onClick={() => toggleTag(selected, setSelected, item)}
-          className={`px-3.5 py-2 min-h-[40px] rounded-xl text-[14px] font-bold border transition-all ${
+          className={`px-3.5 py-2 min-h-[44px] rounded-xl text-sm font-bold border transition-all ${
             selected.includes(item)
               ? 'bg-primary/15 text-primary border-primary/50 shadow-xs'
               : 'bg-background text-muted-foreground border-border hover:border-primary/30'
@@ -470,11 +531,11 @@ export default function BrokerProfilePage() {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="space-y-1">
-            <h1 className="text-[26px] font-black tracking-tight">내 프로필 · 중개사무소 설정</h1>
-            <p className="text-[15px] text-muted-foreground font-medium">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">내 프로필 · 중개사무소 설정</h1>
+            <p className="text-base text-muted-foreground font-medium">
               로그인 계정: {profile?.email}
               {profile?.broker?.is_verified && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-[14px] font-bold">
+                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-sm font-bold">
                   ✓ 공인중개사 인증됨
                 </span>
               )}
@@ -484,32 +545,81 @@ export default function BrokerProfilePage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-[15px] shadow-sm transition-colors disabled:opacity-60"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-base shadow-sm transition-colors disabled:opacity-60"
             data-testid="save-profile-top-btn"
           >
             {saving ? '저장 중...' : '💾 변경사항 저장'}
           </button>
         </div>
 
+        {/* 공인중개사법 제18조의2 필수 표기 5항목 점검 배너 */}
+        <section
+          data-testid="statutory-disclosure-check-banner"
+          className={`rounded-2xl border-2 p-5 space-y-3 shadow-xs ${
+            statutoryCheck.completeness.isComplete
+              ? 'border-emerald-500/40 bg-emerald-500/10'
+              : 'border-amber-500/50 bg-amber-500/10'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-extrabold text-foreground">
+                공인중개사법 제18조의2 필수 표기 5항목 점검
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                딜카드·모바일 IM·뉴스레터 등 온라인 중개대상물 안내 시 법정 의무 표기 항목입니다.
+              </p>
+            </div>
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-extrabold ${
+                statutoryCheck.completeness.isComplete
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-500 text-slate-950'
+              }`}
+            >
+              {statutoryCheck.completeness.filledCount} / {statutoryCheck.completeness.totalCount} 완료
+            </span>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            {statutoryCheck.completeness.items.map((item) => (
+              <li
+                key={item.key}
+                data-testid={`statutory-item-${item.key}`}
+                data-filled={item.filled ? 'true' : 'false'}
+                className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5"
+              >
+                <span className="font-bold text-foreground">{item.label}</span>
+                <span
+                  className={`text-sm font-extrabold shrink-0 ${
+                    item.filled ? 'text-emerald-600' : 'text-amber-600'
+                  }`}
+                >
+                  {item.filled ? '✓ 입력됨' : '미입력'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!statutoryCheck.ok && (
+            <p className="text-sm font-bold text-destructive">
+              ⚠️ {statutoryCheck.message}
+            </p>
+          )}
+        </section>
+
         {/* 60대 중개인 친화 안내 배너: 어디에 인쇄/표시되는지 명확히 설명 */}
         <div data-testid="profile-where-it-shows-banner">
           <FieldCoachBanner
             headline="🏛️ 중개사무소 정보 인쇄 위치 및 명함 등록 안내"
             guidance={
-              <ul className="space-y-1 text-[14px] text-slate-800 leading-relaxed">
-                <li>• <strong>PPTX Slide 01 표지 &amp; Slide 10 문의/유의사항</strong>: 대표자 성함, 직통 연락처, 상호, 개설등록번호 자동 인쇄</li>
-                <li>• <strong>카카오톡 딜카드 하단 명함 &amp; 주간 고객 소식지 상단 헤더</strong>: 대표님 프로필 사진과 직통 전화 연결 배지로 표시</li>
+              <ul className="space-y-1 text-sm text-slate-800 leading-relaxed">
+                <li>• <strong>PPTX Slide 01 표지 &amp; Slide 10 문의/유의사항</strong>: 대표자 성함, 소재지, 직통 연락처, 상호, 개설등록번호 자동 인쇄</li>
+                <li>• <strong>카카오톡 딜카드 하단 명함 &amp; 주간 고객 소식지 하단</strong>: 법정 5대 중개사무소 표시정보와 직통 전화 연결 배지로 표시</li>
                 <li>• 한 번만 정확히 등록해 두시면 모든 제안서와 고객용 화면에 법정 표시 규격으로 자동 반영됩니다.</li>
               </ul>
             }
-            sampleText="[표준 공인중개사무소 프로필 예시]&#10;상호: JS 부동산중개법인 (대표: 홍길동)&#10;직통전화: 010-1234-5678 (사무실: 02-555-1234)&#10;개설등록번호: 제 11560-2015-00123 호&#10;자격증번호: 2008-11-05432"
-            sampleButtonLabel="✨ 표준 양식 1초 예시 채우기"
+            sampleText="[표준 공인중개사무소 프로필 작성 가이드]&#10;상호: 양평 삼성 공인중개사사무소 (대표자: 김중개)&#10;소재지: 서울특별시 영등포구 양평로 00길 00, 1층&#10;직통전화: 본인 휴대폰 또는 사무실 대표번호&#10;개설등록번호: 개설등록증에 기재된 실제 등록번호 입력 (샘플 번호 저장 불가)"
+            sampleButtonLabel="✨ 한줄 소개 문구 예시 채우기"
             onApplySample={() => {
-              if (!displayName) setDisplayName("홍길동 대표공인중개사");
-              if (!phone) setPhone("010-1234-5678");
-              if (!company) setCompany("JS 부동산중개법인");
-              if (!officeRegNumber) setOfficeRegNumber("제 11560-2015-00123 호");
-              if (!licenseNumber) setLicenseNumber("2008-11-05432");
               if (!tagline) setTagline("강남·서초 꼬마빌딩 및 사옥 전문 20년 베테랑 중개");
             }}
             mistakeWarning="개설등록번호나 직통 연락처 오타가 나면 제안서를 받은 고객이 전화를 걸지 못하거나 공인중개사법상 표시광고 위반 소지가 생길 수 있으니, 등록증상의 번호와 정확히 일치하는지 한 번 더 확인해 주세요."
@@ -519,12 +629,12 @@ export default function BrokerProfilePage() {
 
         {/* Error / Success */}
         {error && (
-          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-[15px] font-semibold text-destructive">
+          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-base font-semibold text-destructive">
             {error}
           </div>
         )}
         {saved && (
-          <div className="p-4 bg-success/10 border border-success/30 rounded-xl text-[15px] font-bold text-success">
+          <div className="p-4 bg-success/10 border border-success/30 rounded-xl text-base font-bold text-success">
             ✓ 내 프로필과 중개사무소 정보가 저장되었습니다.
           </div>
         )}
@@ -534,11 +644,11 @@ export default function BrokerProfilePage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className={sectionTitleClass}>프로필 신뢰도 완성 점수</h2>
-              <p className="text-[14px] text-muted-foreground mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 70% 이상 채우시면 고객에게 보여지는 명함과 소식지의 신뢰도가 크게 높아집니다.
               </p>
             </div>
-            <span className={`text-[22px] font-black ${completenessTextColor}`}>
+            <span className={`text-2xl font-black ${completenessTextColor}`}>
               {completeness}%
             </span>
           </div>
@@ -548,7 +658,7 @@ export default function BrokerProfilePage() {
               style={{ width: `${completeness}%` }}
             />
           </div>
-          <div className="text-[14px] text-muted-foreground space-y-0.5 pt-1">
+          <div className="text-sm text-muted-foreground space-y-0.5 pt-1">
             <p>• 필수 기본정보(이름 +5% · 연락처 +5% · 사진 +10%) · 자격증번호(+15%) · 개업연도(+10%)</p>
             <p>• 전문지역 3곳 이상(+10%) · 전문자산 2개 이상(+10%) · 거래실적(+15%) · 거래금액대(+10%) · 자기소개 100자+(+10%)</p>
           </div>
@@ -558,12 +668,12 @@ export default function BrokerProfilePage() {
         <section className="space-y-5 rounded-2xl border-2 border-amber-500/40 bg-card p-6 shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-[14px] font-extrabold">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-sm font-extrabold">
                 가장 중요 · 필수 입력
               </span>
-              <h2 className={sectionTitleClass}>① 기본 명함 정보 (이름 · 연락처 · 상호 · 사진)</h2>
+              <h2 className={sectionTitleClass}>① 기본 명함 정보 (이름 · 연락처 · 상호 · 소재지 · 사진)</h2>
             </div>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               딜카드, PPTX 제안서(IM) 표지, 고객 소식지에 대표님의 명함으로 바로 인쇄되는 항목입니다.
             </p>
           </div>
@@ -580,14 +690,14 @@ export default function BrokerProfilePage() {
             </div>
             <div className="flex-1 min-w-[200px] space-y-2">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="text-[15px] font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
+                <p className="text-base font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
                 <SeniorTermTooltip termKey="프로필 사진 인쇄 위치" />
               </div>
-              <p className="text-[14px] text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 밝게 웃으시는 정장 사진이나 사무소 로고를 등록하시면 고객 소식지와 모바일 명함 상단에 표시됩니다.
               </p>
               <div>
-                <label className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[14px] font-extrabold cursor-pointer transition-colors">
+                <label className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-sm font-extrabold cursor-pointer transition-colors">
                   <span>📷 내 컴퓨터/폰에서 사진 선택하기</span>
                   <input
                     type="file"
@@ -609,11 +719,7 @@ export default function BrokerProfilePage() {
                         const data = await res.json();
                         if (data.url) {
                           setAvatarUrl(data.url);
-                          setVibeStatus('analyzing');
-                          setTimeout(() => {
-                            setVibeStatus('done');
-                            setTimeout(() => setVibeStatus(null), 4000);
-                          }, 3000);
+                          setVibeStatus('done');
                         } else {
                           throw new Error(data.error || "업로드 실패");
                         }
@@ -625,22 +731,19 @@ export default function BrokerProfilePage() {
                   />
                 </label>
               </div>
-              {/* ─── Vibe 분석 피드백 ─── */}
+              {/* ─── 사진 업로드 피드백 ─── */}
               {vibeStatus === 'uploading' && (
-                <p className="text-[14px] text-blue-500 font-semibold animate-pulse">📤 사진을 올리고 있습니다...</p>
-              )}
-              {vibeStatus === 'analyzing' && (
-                <p className="text-[14px] text-violet-500 font-semibold animate-pulse">🤖 명함에 어울리게 사진을 다듬고 있습니다...</p>
+                <p className="text-sm text-blue-500 font-semibold animate-pulse">📤 사진을 올리고 있습니다...</p>
               )}
               {vibeStatus === 'done' && (
-                <p className="text-[14px] text-emerald-500 font-bold">✅ 사진 등록 완료! 아래 [프로필 저장] 버튼을 꼭 눌러주세요.</p>
+                <p className="text-sm text-emerald-500 font-bold">✅ 사진 등록 완료! 아래 [프로필 저장] 버튼을 꼭 눌러주세요.</p>
               )}
             </div>
           </div>
 
           <div className="space-y-1.5 mt-2">
             <div className="flex items-center justify-between">
-              <label htmlFor="profile-display-name" className="block text-[16px] font-bold">
+              <label htmlFor="profile-display-name" className="block text-base font-bold">
                 성함 (직함 포함 가능) <span className="text-rose-500">*</span>
               </label>
               <SeniorTermTooltip termKey="대표자 성함 인쇄 위치" />
@@ -648,19 +751,54 @@ export default function BrokerProfilePage() {
             <input
               type="text"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => {
+                setDisplayName(e.target.value);
+                if (statutoryFieldError?.field === 'display_name') setStatutoryFieldError(null);
+              }}
               className={inputClass}
-              placeholder="예: 홍길동 대표공인중개사"
+              placeholder="예: 김중개"
               id="profile-display-name"
             />
-            <p className="text-[14px] text-muted-foreground">
+            {statutoryFieldError?.field === 'display_name' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
               제안서(IM) 표지 하단과 카카오톡 명함에 표시될 성함입니다.
             </p>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="profile-phone" className="block text-[16px] font-bold">
+              <label htmlFor="profile-representative-name" className="block text-base font-bold">
+                개업공인중개사(대표자) 성명
+              </label>
+            </div>
+            <input
+              type="text"
+              value={representativeName}
+              onChange={(e) => {
+                setRepresentativeName(e.target.value);
+                if (statutoryFieldError?.field === 'representative_name') setStatutoryFieldError(null);
+              }}
+              className={inputClass}
+              placeholder="예: 김중개"
+              id="profile-representative-name"
+            />
+            {statutoryFieldError?.field === 'representative_name' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              본인이 대표 공인중개사인 경우 비워두면 이름과 동일하게 표시됩니다
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-phone" className="block text-base font-bold">
                 휴대폰 또는 사무실 전화번호 <span className="text-rose-500">*</span>
               </label>
               <SeniorTermTooltip termKey="직통 연락처 인쇄 위치" />
@@ -681,14 +819,14 @@ export default function BrokerProfilePage() {
               placeholder="예: 010-1234-5678 (숫자만 입력하셔도 자동 변환됩니다)"
               id="profile-phone"
             />
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               고객이 딜카드나 제안서에서 [전화 문의하기] 버튼을 누르면 이 번호로 바로 연결됩니다.
             </p>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="profile-company" className="block text-[16px] font-bold">
+              <label htmlFor="profile-company" className="block text-base font-bold">
                 중개사무소 상호 (회사명) <span className="text-rose-500">*</span>
               </label>
               <SeniorTermTooltip termKey="중개법인 상호 인쇄 위치" />
@@ -701,13 +839,30 @@ export default function BrokerProfilePage() {
               placeholder="예: 양평 삼성 공인중개사사무소 / JS 부동산중개법인"
               id="profile-company"
             />
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               PPTX 투자설명서(IM) 첫 장 표지와 매수자용 웹 화면 상단에 인쇄됩니다.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-tagline" className="block text-[16px] font-bold">
+            <label htmlFor="profile-office-address" className="block text-base font-bold">
+              중개사무소 소재지 (도로명 주소) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={officeAddress}
+              onChange={(e) => setOfficeAddress(e.target.value)}
+              className={inputClass}
+              placeholder="예: 서울특별시 강남구 테헤란로 152, 3층"
+              id="profile-office-address"
+            />
+            <p className="text-sm text-muted-foreground">
+              공인중개사법 제18조의2에 따라 딜카드·IM·뉴스레터 하단에 중개사무소 소재지로 표시됩니다. (매물의 지번은 비공개로 안전하게 보호됩니다.)
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="profile-tagline" className="block text-base font-bold">
               명함 한줄 소개 문구 (카카오톡 공유 제목)
             </label>
             <input
@@ -718,7 +873,7 @@ export default function BrokerProfilePage() {
               placeholder="예: 영등포·당산·양평 꼬마빌딩·수익형 빌딩 20년 전문 중개"
               id="profile-tagline"
             />
-            <p className="text-[14px] text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               카카오톡으로 명함이나 소식지를 보낼 때 성함 옆에 따라붙는 한줄 소개글입니다.
             </p>
           </div>
@@ -728,43 +883,61 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>② 공인중개사 자격 및 사무소 등록 정보</h2>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               자격증 번호와 등록번호를 입력해 두시면 법인·자산가 고객이 제안서를 열람할 때 공식 등록 중개사무소로 표시되어 신뢰도가 높아집니다.
             </p>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="profile-license-number" className="block text-[16px] font-bold">공인중개사 자격증 번호</label>
+              <label htmlFor="profile-license-number" className="block text-base font-bold">공인중개사 자격증 번호</label>
               <SeniorTermTooltip termKey="공인중개사 자격증 번호" />
             </div>
             <input
               type="text"
               value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
+              onChange={(e) => {
+                setLicenseNumber(e.target.value);
+                if (statutoryFieldError?.field === 'license_number') setStatutoryFieldError(null);
+              }}
               className={inputClass}
-              placeholder="예: 2008-11-05432"
+              placeholder="예: 자격증에 기재된 실제 번호 입력"
               id="profile-license-number"
             />
+            {statutoryFieldError?.field === 'license_number' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="profile-office-reg-number" className="block text-[16px] font-bold">중개사무소 개설등록번호</label>
+              <label htmlFor="profile-office-reg-number" className="block text-base font-bold">
+                중개사무소 개설등록번호 <span className="text-rose-500">*</span>
+              </label>
               <SeniorTermTooltip termKey="개설등록번호 인쇄 위치" />
             </div>
             <input
               type="text"
               value={officeRegNumber}
-              onChange={(e) => setOfficeRegNumber(e.target.value)}
+              onChange={(e) => {
+                setOfficeRegNumber(e.target.value);
+                if (statutoryFieldError?.field === 'office_reg_number') setStatutoryFieldError(null);
+              }}
               className={inputClass}
-              placeholder="예: 제 11560-2015-00123 호"
+              placeholder="예: 등록증 기재 번호 입력 (샘플 번호 저장 불가)"
               id="profile-office-reg-number"
             />
+            {statutoryFieldError?.field === 'office_reg_number' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-association" className="block text-[16px] font-bold">소속 협회</label>
+            <label htmlFor="profile-association" className="block text-base font-bold">소속 협회</label>
             <select
               value={association}
               onChange={(e) => setAssociation(e.target.value)}
@@ -779,7 +952,7 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-career-start-year" className="block text-[16px] font-bold">부동산 중개 시작 연도 (개업 연도)</label>
+            <label htmlFor="profile-career-start-year" className="block text-base font-bold">부동산 중개 시작 연도 (개업 연도)</label>
             <div className="flex items-center gap-3">
               <input
                 type="number"
@@ -792,12 +965,12 @@ export default function BrokerProfilePage() {
                 id="profile-career-start-year"
               />
               {careerYears !== null && (
-                <span className="text-[16px] text-primary font-extrabold whitespace-nowrap px-3 py-2 rounded-xl bg-primary/10">
+                <span className="text-base text-primary font-extrabold whitespace-nowrap px-3 py-2 rounded-xl bg-primary/10">
                   경력 {careerYears}년차
                 </span>
               )}
             </div>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               시작 연도를 입력하시면 &apos;경력 O년차&apos;가 자동으로 계산되어 프로필에 표시됩니다.
             </p>
           </div>
@@ -807,7 +980,7 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div>
             <h2 className={sectionTitleClass}>③ 주로 활동하시는 전문 지역 (3곳 이상 선택 권장)</h2>
-            <p className="text-[14px] text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               해당하는 지역 버튼을 마우스로 클릭해 주세요. 한 번 더 누르면 선택이 해제됩니다.
             </p>
           </div>
@@ -818,7 +991,7 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div>
             <h2 className={sectionTitleClass}>④ 주로 취급하시는 건물·자산 종류 (2개 이상 선택 권장)</h2>
-            <p className="text-[14px] text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               꼬마빌딩, 근린상가, 오피스빌딩 등 주로 중개하시는 물건 종류를 눌러 선택해 주세요.
             </p>
           </div>
@@ -829,13 +1002,13 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>⑤ 누적 거래 경험 및 주요 고객층</h2>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               대략적인 누적 중개 건수와 주요 금액대를 선택해 두시면 AI 자기소개 작성 시 큰 도움이 됩니다.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-total-deal-count" className="block text-[16px] font-bold">누적 매매·임대 중개 건수 (어림숫자 가능)</label>
+            <label htmlFor="profile-total-deal-count" className="block text-base font-bold">누적 매매·임대 중개 건수 (어림숫자 가능)</label>
             <input
               type="number"
               value={totalDealCount}
@@ -848,7 +1021,7 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-deal-size-range" className="block text-[16px] font-bold">주로 중개하시는 매물 금액대</label>
+            <label htmlFor="profile-deal-size-range" className="block text-base font-bold">주로 중개하시는 매물 금액대</label>
             <select
               value={dealSizeRange}
               onChange={(e) => setDealSizeRange(e.target.value)}
@@ -863,17 +1036,17 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-[16px] font-bold">주로 다루시는 거래 목적 (복수 선택 가능)</label>
+            <label className="block text-base font-bold">주로 다루시는 거래 목적 (복수 선택 가능)</label>
             {renderChips(DEAL_SPECIALTIES, dealSpecialty, setDealSpecialty, 'deal-spec')}
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-[16px] font-bold">주로 상담하시는 매수 고객층 (복수 선택 가능)</label>
+            <label className="block text-base font-bold">주로 상담하시는 매수 고객층 (복수 선택 가능)</label>
             {renderChips(BUYER_TYPES, buyerTypes, setBuyerTypes, 'buyer-type')}
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-preferred-price-range" className="block text-[16px] font-bold">가장 자신 있는 주력 매물 규모</label>
+            <label htmlFor="profile-preferred-price-range" className="block text-base font-bold">가장 자신 있는 주력 매물 규모</label>
             <select
               value={preferredPriceRange}
               onChange={(e) => setPreferredPriceRange(e.target.value)}
@@ -892,13 +1065,13 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>⑥ 고객 상담 방식 및 수수료 안내</h2>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               고객이 어떤 방법으로 연락하면 좋은지 안내하는 항목입니다.
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="block text-[16px] font-bold">중개보수(수수료) 안내 기준</label>
+            <label className="block text-base font-bold">중개보수(수수료) 안내 기준</label>
             <div className="flex flex-wrap gap-4">
               {(['법정수수료 준수', '별도 협의'] as const).map((option) => (
                 <label key={option} className="flex items-center gap-2.5 cursor-pointer px-3.5 py-2.5 rounded-xl border border-border bg-background">
@@ -910,19 +1083,19 @@ export default function BrokerProfilePage() {
                     onChange={(e) => setFeePolicy(e.target.value)}
                     className="accent-primary w-4 h-4"
                   />
-                  <span className="text-[15px] font-semibold">{option}</span>
+                  <span className="text-base font-semibold">{option}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-[16px] font-bold">선호하는 고객 상담 방식 (복수 선택 가능)</label>
+            <label className="block text-base font-bold">선호하는 고객 상담 방식 (복수 선택 가능)</label>
             {renderChips(CONSULT_METHODS, consultMethods, setConsultMethods, 'consult')}
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-response-time" className="block text-[16px] font-bold">문의 접수 시 평균 연락(응답) 시간</label>
+            <label htmlFor="profile-response-time" className="block text-base font-bold">문의 접수 시 평균 연락(응답) 시간</label>
             <select
               value={responseTimeHours}
               onChange={(e) => setResponseTimeHours(e.target.value ? Number(e.target.value) : '')}
@@ -937,7 +1110,7 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-[16px] font-bold">상담 가능 언어</label>
+            <label className="block text-base font-bold">상담 가능 언어</label>
             {renderChips(LANGUAGES, languages, setLanguages, 'lang')}
           </div>
         </section>
@@ -946,13 +1119,13 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>⑦ 블로그 · 유튜브 · 카카오톡 채널 (선택사항)</h2>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               운영하시는 네이버 블로그나 유튜브가 있으실 때만 적어주시면 됩니다. 없으시면 비워두셔도 전혀 지장 없습니다.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-kakao-channel" className="block text-[16px] font-bold">카카오톡 채널 아이디 (있으실 경우)</label>
+            <label htmlFor="profile-kakao-channel" className="block text-base font-bold">카카오톡 채널 아이디 (있으실 경우)</label>
             <input
               type="text"
               value={kakaoChannel}
@@ -964,7 +1137,7 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-naver-blog" className="block text-[16px] font-bold">네이버 블로그 주소 (있으실 경우)</label>
+            <label htmlFor="profile-naver-blog" className="block text-base font-bold">네이버 블로그 주소 (있으실 경우)</label>
             <input
               type="url"
               value={naverBlogUrl}
@@ -976,7 +1149,7 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-youtube" className="block text-[16px] font-bold">유튜브 채널 주소 (있으실 경우)</label>
+            <label htmlFor="profile-youtube" className="block text-base font-bold">유튜브 채널 주소 (있으실 경우)</label>
             <input
               type="url"
               value={youtubeUrl}
@@ -988,7 +1161,7 @@ export default function BrokerProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="profile-linkedin" className="block text-[16px] font-bold">기타 홈페이지 / 링크드인 주소 (선택)</label>
+            <label htmlFor="profile-linkedin" className="block text-base font-bold">기타 홈페이지 / 링크드인 주소 (선택)</label>
             <input
               type="url"
               value={linkedinUrl}
@@ -1004,7 +1177,7 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>⑧ 고객에게 전하는 인사말 (자기소개)</h2>
-            <p className="text-[14px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               직접 쓰기 막막하시다면 위에서 선택하신 지역·경력을 바탕으로 아래 <strong>[✨ AI로 자기소개 자동 작성하기]</strong> 버튼을 눌러보세요!
             </p>
           </div>
@@ -1022,7 +1195,7 @@ export default function BrokerProfilePage() {
               type="button"
               onClick={handleGenerateBio}
               disabled={generatingBio}
-              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-[14px] font-extrabold border border-primary/40 text-primary bg-primary/10 hover:bg-primary/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-extrabold border border-primary/40 text-primary bg-primary/10 hover:bg-primary/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               id="generate-bio-btn"
             >
               {generatingBio ? (
@@ -1034,7 +1207,7 @@ export default function BrokerProfilePage() {
                 '✨ AI로 자기소개 자동 작성하기 (추천)'
               )}
             </button>
-            <p className="text-[14px] font-medium text-muted-foreground">{bio.length} / 1,000자</p>
+            <p className="text-sm font-medium text-muted-foreground">{bio.length} / 1,000자</p>
           </div>
         </section>
 
@@ -1043,7 +1216,7 @@ export default function BrokerProfilePage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-2xl px-5 py-4 min-h-[56px] text-[18px] shadow-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-2xl px-5 py-4 min-h-[56px] text-lg shadow-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           id="save-profile-btn"
         >
           {saving ? '저장 중...' : '💾 내 프로필 · 사무소 정보 저장하기'}
@@ -1053,7 +1226,7 @@ export default function BrokerProfilePage() {
         <form action={logout}>
           <button
             type="submit"
-            className="w-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 rounded-xl px-4 py-3.5 min-h-[48px] text-[15px] font-semibold transition-colors"
+            className="w-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 rounded-xl px-4 py-3.5 min-h-[48px] text-base font-semibold transition-colors"
             id="logout-btn"
           >
             로그아웃

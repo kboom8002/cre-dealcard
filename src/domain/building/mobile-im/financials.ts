@@ -619,31 +619,50 @@ ${rows.join('\n')}
 class TradingFinancialStrategy implements PostureFinancialStrategy {
   calculate(inputs: FinancialInputs): FinancialOutputs {
     const purchasePrice = inputs.purchasePriceKrw || 0;
-    
+
     const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
       ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
     const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
-    const comparablePricePerPyeong = inputs.comparablePricePerPyeongKrw
-      ? Math.round(inputs.comparablePricePerPyeongKrw / 10000)
-      : (pricePerPyeong ? Math.round((pricePerPyeong / 10000) * 1.15) : null);
-
-    const marketDiscountPct = (pricePerPyeong && comparablePricePerPyeong && comparablePricePerPyeong > 0)
-      ? parseFloat((((comparablePricePerPyeong * 10000 - pricePerPyeong) / (comparablePricePerPyeong * 10000)) * 100).toFixed(1))
+    const hasExplicitComp =
+      typeof inputs.comparablePricePerPyeongKrw === 'number' &&
+      Number.isFinite(inputs.comparablePricePerPyeongKrw) &&
+      inputs.comparablePricePerPyeongKrw > 0;
+    const comparablePricePerPyeong = hasExplicitComp
+      ? Math.round(inputs.comparablePricePerPyeongKrw! / 10000)
       : null;
 
-    const targetExitPrice = inputs.targetExitPriceKrw ?? (purchasePrice > 0 ? purchasePrice * 1.2 : 0);
-    const targetCapitalGainKrw = targetExitPrice - purchasePrice;
-    const targetCapitalGainBil = targetCapitalGainKrw > 0 ? parseFloat((targetCapitalGainKrw / 1e8).toFixed(1)) : null;
+    const explicitMarketDiscount =
+      typeof inputs.marketDiscountPct === 'number' && Number.isFinite(inputs.marketDiscountPct)
+        ? parseFloat(inputs.marketDiscountPct.toFixed(1))
+        : null;
+
+    const marketDiscountPct = explicitMarketDiscount
+      ?? ((pricePerPyeong && comparablePricePerPyeong && comparablePricePerPyeong > 0)
+        ? parseFloat((((comparablePricePerPyeong * 10000 - pricePerPyeong) / (comparablePricePerPyeong * 10000)) * 100).toFixed(1))
+        : null);
+
+    const hasExplicitTargetExit =
+      typeof inputs.targetExitPriceKrw === 'number' &&
+      Number.isFinite(inputs.targetExitPriceKrw) &&
+      inputs.targetExitPriceKrw > 0;
+    const targetExitPrice = hasExplicitTargetExit ? inputs.targetExitPriceKrw! : null;
+    const targetCapitalGainKrw = targetExitPrice !== null && purchasePrice > 0 ? targetExitPrice - purchasePrice : 0;
+    const targetCapitalGainBil = (targetExitPrice !== null && targetCapitalGainKrw > 0)
+      ? parseFloat((targetCapitalGainKrw / 1e8).toFixed(1))
+      : null;
 
     const loanKrw = (inputs.loanAmountManwon ?? 0) * 10000;
     const equityKrw = purchasePrice - loanKrw;
-    const targetHprPct = (equityKrw > 0 && targetCapitalGainKrw > 0)
+    const targetHprPct = (targetExitPrice !== null && equityKrw > 0 && targetCapitalGainKrw > 0)
       ? parseFloat(((targetCapitalGainKrw / equityKrw) * 100).toFixed(1))
       : null;
 
     const loanAmountBil = loanKrw > 0 ? parseFloat((loanKrw / 1e8).toFixed(1)) : null;
     const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : null;
+
+    const hasGroundedTradingInputs = marketDiscountPct !== null || targetCapitalGainBil !== null;
+    const tradingMissingNote = '실거래 비교사례·목표 매각가 입력 시 산출';
 
     return {
       posture: 'trading',
@@ -653,7 +672,9 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
       pricePerSqm,
       pricePerPyeong,
       landValueRatio: null,
-      landValueRatioNote: "단기매매형 자산 — 비교사례 및 마켓 갭(할인율) 분석 적용",
+      landValueRatioNote: hasGroundedTradingInputs
+        ? "단기매매형 자산 — 비교사례 및 마켓 갭(할인율) 분석 적용"
+        : tradingMissingNote,
       yieldOnCost: null,
       totalDepositBil: null,
       loanAmountBil,
@@ -664,7 +685,9 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
       marketDiscountPct,
       targetHprPct,
       targetCapitalGainBil,
-      disclaimer: 'AI 매매 시세차익 추정값 (참고용). 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.',
+      disclaimer: hasGroundedTradingInputs
+        ? 'AI 매매 시세차익 추정값 (참고용). 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.'
+        : `${tradingMissingNote}. 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.`,
       grossYieldOnEquity: null,
       grossYieldStabilized: null,
       annualRentBil: null,
@@ -673,10 +696,25 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
 
   formatMarkdown(f: FinancialOutputs): string {
     const rows: string[] = [];
+    const hasAnyMetric =
+      f.pricePerPyeong != null ||
+      f.marketDiscountPct != null ||
+      f.targetCapitalGainBil != null ||
+      f.targetHprPct != null ||
+      f.equityRequired != null;
+    if (!hasAnyMetric) return '';
+
     if (f.pricePerPyeong != null) rows.push(`| **평당 매매 희망가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 희망가 기준 |`);
-    if (f.marketDiscountPct != null) rows.push(`| **인근 시세 대비 할인율(저평가 갭)** | **${f.marketDiscountPct}%** | 주변 거래사례 대비 |`);
-    if (f.targetCapitalGainBil != null) rows.push(`| **목표 시세차익** | **약 ${f.targetCapitalGainBil}억 원** | 목표 매각가 기준 |`);
+    if (f.marketDiscountPct != null) {
+      rows.push(`| **인근 시세 대비 할인율(저평가 갭)** | **${f.marketDiscountPct}%** | 주변 거래사례 대비 |`);
+    }
+    if (f.targetCapitalGainBil != null) {
+      rows.push(`| **목표 시세차익** | **약 ${f.targetCapitalGainBil}억 원** | 목표 매각가 기준 |`);
+    }
     if (f.targetHprPct != null) rows.push(`| **자기자본 수익률(HPR)** | **${f.targetHprPct}%** | 보유기간 총수익률 |`);
+    if (f.marketDiscountPct == null && f.targetCapitalGainBil == null) {
+      rows.push(`| **비교사례·목표차익** | 확인 필요 | 실거래 비교사례·목표 매각가 입력 시 산출 |`);
+    }
     if (f.equityRequired != null) rows.push(`| **필요 실투자금(자기자본)** | **약 ${f.equityRequired}억 원** | 초기 투입 자금 |`);
 
     if (rows.length === 0) return '';
@@ -817,24 +855,52 @@ export function calculateOwnerOccupiedFinancials(args: {
  */
 export function calculateTradingFinancials(args: {
   askingPriceKrw: number;
-  manualComps?: any;
+  totalAreaSqm?: number;
+  comparablePricePerPyeongKrw?: number;
+  targetExitPriceKrw?: number;
+  manualComps?: {
+    comparablePricePerPyeongKrw?: number;
+    targetExitPriceKrw?: number;
+    totalAreaSqm?: number;
+  } | any;
 }) {
-  if (!args.manualComps) {
+  const compPricePerPyeong =
+    args.comparablePricePerPyeongKrw ?? args.manualComps?.comparablePricePerPyeongKrw;
+  const targetExitPriceKrw =
+    args.targetExitPriceKrw ?? args.manualComps?.targetExitPriceKrw;
+  const totalAreaSqm =
+    args.totalAreaSqm ?? args.manualComps?.totalAreaSqm;
+
+  const hasCompInput =
+    (typeof compPricePerPyeong === 'number' && compPricePerPyeong > 0) ||
+    (typeof targetExitPriceKrw === 'number' && targetExitPriceKrw > 0);
+
+  if (!args.manualComps && !hasCompInput) {
     return {
+      marketDiscountPct: null,
       targetExitPriceBil: null,
+      targetCapitalGainBil: null,
       expectedReturnPct: null,
       expectedHprPct: null,
+      note: '실거래 비교사례·목표 매각가 입력 시 산출',
     };
   }
   const res = calculateFinancials({
     posture: 'trading',
     purchasePriceKrw: args.askingPriceKrw,
+    totalAreaSqm,
+    comparablePricePerPyeongKrw: compPricePerPyeong,
+    targetExitPriceKrw,
   });
   return {
     ...res,
     targetExitPriceBil: res.targetCapitalGainBil,
     expectedReturnPct: res.targetHprPct,
     expectedHprPct: res.targetHprPct,
+    note:
+      res.marketDiscountPct == null && res.targetCapitalGainBil == null
+        ? '실거래 비교사례·목표 매각가 입력 시 산출'
+        : undefined,
   };
 }
 

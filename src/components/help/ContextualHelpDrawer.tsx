@@ -89,10 +89,10 @@ export function ContextualHelpDrawer() {
         {/* Top Drawer Header */}
         <div className="px-5 py-4 bg-white border-b border-slate-300 flex items-center justify-between gap-3 shrink-0">
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-[13px] font-extrabold">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold">
               🎬 화면 이동 없이 바로 보는 20초 도우미 ({currentModule.moduleNumber})
             </span>
-            <h2 className="text-[19px] sm:text-[21px] font-black text-slate-900 mt-1 leading-snug">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-1 leading-snug">
               {currentModule.shortTitle}
             </h2>
           </div>
@@ -100,7 +100,7 @@ export function ContextualHelpDrawer() {
             type="button"
             onClick={closeHelpDrawer}
             data-testid="close-contextual-help-drawer"
-            className="px-4 py-2 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 text-[15px] font-extrabold shrink-0 cursor-pointer"
+            className="px-4 py-2 min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 text-base font-extrabold shrink-0 cursor-pointer"
           >
             ✕ 닫기
           </button>
@@ -109,7 +109,7 @@ export function ContextualHelpDrawer() {
         {/* Module Switcher Pills & Sub-tabs */}
         <div className="px-5 py-3 bg-white/90 border-b border-slate-200 space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <label htmlFor="drawer-module-select" className="text-[13px] font-extrabold text-slate-700 shrink-0">
+            <label htmlFor="drawer-module-select" className="text-sm font-extrabold text-slate-700 shrink-0">
               다른 기능 설명 보기:
             </label>
             <select
@@ -119,7 +119,7 @@ export function ContextualHelpDrawer() {
                 setSelectedModuleId(e.target.value);
                 setActiveTab("steps");
               }}
-              className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-[14px] font-extrabold text-slate-900"
+              className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] text-[max(16px,1rem)] font-extrabold text-slate-900"
             >
               {BROKER_TUTORIAL_MODULES.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -133,7 +133,7 @@ export function ContextualHelpDrawer() {
             <button
               type="button"
               onClick={() => setActiveTab("steps")}
-              className={`py-2 px-2 rounded-lg text-[14px] font-extrabold transition-colors cursor-pointer ${
+              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-extrabold transition-colors cursor-pointer ${
                 activeTab === "steps"
                   ? "bg-blue-700 text-white shadow-2xs"
                   : "text-slate-700 hover:bg-white"
@@ -144,7 +144,7 @@ export function ContextualHelpDrawer() {
             <button
               type="button"
               onClick={() => setActiveTab("faq")}
-              className={`py-2 px-2 rounded-lg text-[14px] font-extrabold transition-colors cursor-pointer ${
+              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-extrabold transition-colors cursor-pointer ${
                 activeTab === "faq"
                   ? "bg-blue-700 text-white shadow-2xs"
                   : "text-slate-700 hover:bg-white"
@@ -155,7 +155,7 @@ export function ContextualHelpDrawer() {
             <button
               type="button"
               onClick={() => setActiveTab("glossary")}
-              className={`py-2 px-2 rounded-lg text-[14px] font-extrabold transition-colors cursor-pointer ${
+              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-extrabold transition-colors cursor-pointer ${
                 activeTab === "glossary"
                   ? "bg-blue-700 text-white shadow-2xs"
                   : "text-slate-700 hover:bg-white"
@@ -172,10 +172,10 @@ export function ContextualHelpDrawer() {
             <>
               {/* Summary Box */}
               <div className="rounded-2xl border-2 border-blue-300 bg-white p-4 space-y-2 shadow-2xs">
-                <p className="text-[15px] font-black text-blue-950">
+                <p className="text-base font-black text-blue-950">
                   📌 이 화면 3줄 핵심 요약 ({currentModule.duration})
                 </p>
-                <ul className="space-y-1.5 text-[15px] text-slate-800 font-medium leading-relaxed">
+                <ul className="space-y-1.5 text-base text-slate-800 font-medium leading-relaxed">
                   {currentModule.summaryPoints.map((pt, idx) => (
                     <li key={idx} className="flex items-start gap-2">
                       <span className="text-blue-700 font-black">•</span>
@@ -188,7 +188,7 @@ export function ContextualHelpDrawer() {
               {/* 20-Sec Follow-Along Video */}
               {currentModule.videoUrl && (
                 <div className="rounded-2xl border border-slate-300 bg-white p-4 space-y-2 shadow-2xs">
-                  <p className="text-[15px] font-extrabold text-slate-900">
+                  <p className="text-base font-extrabold text-slate-900">
                     {currentModule.videoTitle}
                   </p>
                   <video
@@ -210,10 +210,10 @@ export function ContextualHelpDrawer() {
                     className="rounded-2xl border border-slate-300 bg-white p-4 sm:p-5 space-y-3 shadow-2xs"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-blue-700 text-white text-[13px] font-black">
+                      <span className="px-3 py-1 rounded-full bg-blue-700 text-white text-sm font-black">
                         {step.stepNumber}
                       </span>
-                      <h3 className="text-[17px] font-black text-slate-900 leading-snug">
+                      <h3 className="text-lg font-black text-slate-900 leading-snug">
                         {step.title}
                       </h3>
                     </div>
@@ -226,13 +226,13 @@ export function ContextualHelpDrawer() {
                           alt={step.imageCaption}
                           className="w-full rounded-xl border border-slate-300"
                         />
-                        <p className="text-[13px] text-slate-600 font-semibold">
+                        <p className="text-sm text-slate-600 font-semibold">
                           ▲ {step.imageCaption}
                         </p>
                       </div>
                     )}
 
-                    <div className="space-y-2 text-[15px] leading-relaxed">
+                    <div className="space-y-2 text-base leading-relaxed">
                       <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-3">
                         <span className="font-black text-blue-950">👆 어디를 누르나요?: </span>
                         <span className="text-slate-900 font-semibold">{step.whereToClick}</span>
@@ -256,7 +256,7 @@ export function ContextualHelpDrawer() {
 
           {activeTab === "faq" && (
             <div className="space-y-3">
-              <p className="text-[15px] font-extrabold text-slate-700">
+              <p className="text-base font-extrabold text-slate-700">
                 대표님들이 현장에서 가장 자주 물어보시는 질문과 10초 해결법입니다.
               </p>
               {BROKER_FAQ_LIST.slice(0, 12).map((faq) => (
@@ -265,15 +265,15 @@ export function ContextualHelpDrawer() {
                   className="rounded-2xl border border-slate-300 bg-white p-4 space-y-2 shadow-2xs"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-[12px] font-black">
+                    <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-xs font-black">
                       {faq.qNumber} · {faq.category}
                     </span>
                   </div>
-                  <p className="text-[16px] font-black text-slate-900 leading-snug">
+                  <p className="text-base font-black text-slate-900 leading-snug">
                     Q. {faq.question}
                   </p>
-                  <p className="text-[15px] text-slate-800 leading-relaxed">{faq.answer}</p>
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-[14px] text-emerald-950 font-bold">
+                  <p className="text-base text-slate-800 leading-relaxed">{faq.answer}</p>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-sm text-emerald-950 font-bold">
                     👉 바로 해결: {faq.actionTip}
                   </div>
                 </div>
@@ -283,7 +283,7 @@ export function ContextualHelpDrawer() {
 
           {activeTab === "glossary" && (
             <div className="space-y-3">
-              <p className="text-[15px] font-extrabold text-slate-700">
+              <p className="text-base font-extrabold text-slate-700">
                 어려운 영어·부동산 용어를 60대 대표님 눈높이에 맞춰 쉽게 풀었습니다.
               </p>
               {BROKER_GLOSSARY_LIST.map((item) => (
@@ -291,11 +291,11 @@ export function ContextualHelpDrawer() {
                   key={item.term}
                   className="rounded-2xl border border-slate-300 bg-white p-4 space-y-1.5 shadow-2xs"
                 >
-                  <p className="text-[16px] font-black text-blue-950">{item.term}</p>
-                  <p className="text-[15px] text-slate-900 font-medium leading-relaxed">
+                  <p className="text-base font-black text-blue-950">{item.term}</p>
+                  <p className="text-base text-slate-900 font-medium leading-relaxed">
                     {item.easyMeaning}
                   </p>
-                  <p className="text-[13px] text-slate-600 font-semibold">
+                  <p className="text-sm text-slate-600 font-semibold">
                     📍 나오는 곳: {item.whereUsed}
                   </p>
                 </div>
@@ -309,14 +309,14 @@ export function ContextualHelpDrawer() {
           <Link
             href="/broker/tutorial"
             onClick={closeHelpDrawer}
-            className="text-[14px] font-extrabold text-blue-700 hover:underline"
+            className="text-sm font-extrabold text-blue-700 hover:underline"
           >
             📖 전체 큰글씨 설명서 · 인쇄 화면으로 이동 →
           </Link>
           <a
             href="/tutorials/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
             download="CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
-            className="px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[13px] font-extrabold"
+            className="px-3.5 py-2 min-h-[44px] inline-flex items-center rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold"
           >
             📥 PDF 매뉴얼 받기
           </a>

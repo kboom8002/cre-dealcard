@@ -15,7 +15,7 @@ export const TEST_SCHEMA: Record<string, readonly string[]> = {
   ],
   broker_profiles: ['id', 'user_id', 'slug', 'name', 'contact_email', 'specialty_regions', 'specialty_assets'],
   profiles: ['id', 'role', 'display_name', 'phone', 'company'],
-  user_subscriptions: ['id', 'user_id', 'tier', 'status'],
+  user_subscriptions: ['id', 'user_id', 'tier', 'status', 'current_period_start', 'current_period_end', 'updated_at'],
   activity_events: ['id', 'actor_id', 'actor_role', 'event_type', 'entity_type', 'metadata', 'created_at'],
   magazine_dispatch_logs: [
     'id', 'idempotency_key', 'edition_id', 'broker_id', 'broker_user_id', 'subscriber_id', 'channel', 'kind', 'status',

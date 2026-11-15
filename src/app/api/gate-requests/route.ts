@@ -9,6 +9,10 @@
 import { z } from "zod/v4";
 import { createGateRequest } from "@/domain/gate/gate-request";
 import { toApiError } from "@/lib/api-error";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
+
+const MAX_BODY_BYTES = 16 * 1024;
 
 const GateRequestCreateSchema = z.object({
   buildingId: z.string().min(1).max(120).optional(),
@@ -24,7 +28,65 @@ const GateRequestCreateSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const json = await req.json();
+    const ip = getClientIp(req) ?? "unknown";
+    const allowed = await checkRateLimit(ip, "public_gate_requests", 20, 10 * 60 * 1000);
+    if (!allowed) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+          },
+        },
+        { status: 429 },
+      );
+    }
+
+    const declaredLen = Number(req.headers.get("content-length"));
+    if (Number.isFinite(declaredLen) && declaredLen > MAX_BODY_BYTES) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "요청 본문이 너무 큽니다.",
+          },
+        },
+        { status: 413 },
+      );
+    }
+
+    const rawText = await req.text();
+    if (Buffer.byteLength(rawText, "utf8") > MAX_BODY_BYTES) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "요청 본문이 너무 큽니다.",
+          },
+        },
+        { status: 413 },
+      );
+    }
+
+    let json: unknown;
+    try {
+      json = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "요청 형식이 올바르지 않습니다.",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
     const input = GateRequestCreateSchema.parse(json);
     const effectiveBuildingId = (input.buildingId || input.building_id || "").trim();
     if (!effectiveBuildingId) {

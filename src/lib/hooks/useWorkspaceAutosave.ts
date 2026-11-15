@@ -26,11 +26,14 @@ export interface UseWorkspaceAutosaveOptions<T> {
   debounceMs?: number;
   /** Periodic save interval if dirty in ms (defaults to 30000ms / 30 seconds) */
   intervalMs?: number;
+  /** Flush unsaved dirty changes with keepalive on unmount / pagehide / hidden tab (defaults to true) */
+  keepaliveOnUnload?: boolean;
   /** Async function to perform server save */
   onSave: (payload: {
     id: string;
     data: T;
     expectedVersion?: number | string | null;
+    keepalive?: boolean;
   }) => Promise<{ version?: number | string | null; savedData?: T } | void>;
   /** Callback triggered when a 409 conflict is detected */
   onConflict?: (serverVersion?: number | string | null) => void;
@@ -74,6 +77,7 @@ export function useWorkspaceAutosave<T>(
     expectedVersion = null,
     debounceMs = 3000,
     intervalMs = 30000,
+    keepaliveOnUnload = true,
     onSave,
     onConflict,
     onError,
@@ -96,6 +100,7 @@ export function useWorkspaceAutosave<T>(
   const readyRef = useRef<boolean>(ready);
   const enabledRef = useRef<boolean>(enabled);
   const debounceMsRef = useRef<number>(debounceMs);
+  const keepaliveOnUnloadRef = useRef<boolean>(keepaliveOnUnload);
   const expectedVersionRef = useRef<number | string | null>(expectedVersion);
   const onSaveRef = useRef(onSave);
   const onConflictRef = useRef(onConflict);
@@ -116,9 +121,14 @@ export function useWorkspaceAutosave<T>(
   const inFlightPromiseRef = useRef<Promise<boolean> | null>(null);
   const isMountedRef = useRef<boolean>(true);
 
-  // Synchronously track active key during render so async completions never contaminate another item
+  // Synchronously track active key & latest data during render so <900ms unmount / item switch never loses edits
   activeKeyRef.current = id;
   idRef.current = id;
+  dataRef.current = data;
+  readyRef.current = ready;
+  enabledRef.current = enabled;
+  keepaliveOnUnloadRef.current = keepaliveOnUnload;
+  onSaveRef.current = onSave;
   if (id && !cancelledKeysRef.current.has(id)) {
     latestDataByIdRef.current.set(id, data);
   }
@@ -137,21 +147,12 @@ export function useWorkspaceAutosave<T>(
     readyRef.current = ready;
     enabledRef.current = enabled;
     debounceMsRef.current = debounceMs;
+    keepaliveOnUnloadRef.current = keepaliveOnUnload;
     expectedVersionRef.current = expectedVersion;
     onSaveRef.current = onSave;
     onConflictRef.current = onConflict;
     onErrorRef.current = onError;
   });
-
-  // Track mounted status
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (pendingSaveTimerRef.current) clearTimeout(pendingSaveTimerRef.current);
-      if (intervalTimerRef.current) clearInterval(intervalTimerRef.current);
-    };
-  }, []);
 
   const currentJson = JSON.stringify(data);
   const hasFailedCurrentKey = Boolean(id && failedSavesByKeyRef.current.has(id));
@@ -165,7 +166,8 @@ export function useWorkspaceAutosave<T>(
       ignoreConflict: boolean = false,
       overrideId?: string | null,
       overrideData?: T,
-      overrideExpectedVersion?: number | string | null
+      overrideExpectedVersion?: number | string | null,
+      keepalive: boolean = false
     ): Promise<boolean> => {
       const flushedKey = overrideId ?? activeKeyRef.current;
       if (!flushedKey || !readyRef.current || !enabledRef.current) {
@@ -250,6 +252,7 @@ export function useWorkspaceAutosave<T>(
             id: flushedKey,
             data: payloadData,
             expectedVersion: versionToSend,
+            ...(keepalive ? { keepalive: true } : {}),
           });
 
           if (cancelledKeysRef.current.has(flushedKey)) {
@@ -268,12 +271,14 @@ export function useWorkspaceAutosave<T>(
           if (res?.version !== undefined && res.version !== null) {
             expectedVersionByKeyRef.current.set(flushedKey, res.version);
           }
+          if (activeKeyRef.current === flushedKey) {
+            lastSavedJsonRef.current = resolvedSavedJson;
+          }
 
           if (!isMountedRef.current) return true;
 
           // Only update visible UI status if flushedKey is STILL the currently selected item!
           if (activeKeyRef.current === flushedKey) {
-            lastSavedJsonRef.current = resolvedSavedJson;
             if (
               pendingSaveTimerRef.current &&
               pendingTimerKeyRef.current === flushedKey &&
@@ -335,6 +340,79 @@ export function useWorkspaceAutosave<T>(
     []
   );
 
+  // Flush unsaved dirty payload with keepalive on <debounceMs unmount, pagehide, or hidden tab
+  const flushDirtyWithKeepalive = useCallback(() => {
+    const key = pendingTimerKeyRef.current ?? activeKeyRef.current;
+    const hadPendingTimer = pendingSaveTimerRef.current !== null;
+    if (pendingSaveTimerRef.current) {
+      clearTimeout(pendingSaveTimerRef.current);
+      pendingSaveTimerRef.current = null;
+      pendingTimerKeyRef.current = null;
+    }
+    if (!keepaliveOnUnloadRef.current) return;
+    if (!key || !readyRef.current || !enabledRef.current) return;
+    if (cancelledKeysRef.current.has(key)) return;
+    if (failedSavesByKeyRef.current.get(key)?.isConflict) return;
+
+    const latestData =
+      key === activeKeyRef.current
+        ? dataRef.current
+        : latestDataByIdRef.current.get(key) ?? dataRef.current;
+    const baselineJson =
+      key === activeKeyRef.current
+        ? lastSavedJsonRef.current
+        : lastSavedJsonByKeyRef.current.get(key) ?? null;
+    const latestJson = JSON.stringify(latestData);
+
+    if (
+      baselineJson !== null &&
+      baselineJson !== latestJson &&
+      (hadPendingTimer || !failedSavesByKeyRef.current.has(key))
+    ) {
+      const ver =
+        key === activeKeyRef.current
+          ? expectedVersionRef.current
+          : expectedVersionByKeyRef.current.get(key) ?? null;
+      void executeSave(false, key, latestData, ver, true);
+    }
+  }, [executeSave]);
+
+  // Track mounted status + <900ms unmount flush + pagehide / visibilitychange flush
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const handlePageHide = () => {
+      flushDirtyWithKeepalive();
+    };
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        flushDirtyWithKeepalive();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', handlePageHide);
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      isMountedRef.current = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('pagehide', handlePageHide);
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      if (intervalTimerRef.current) {
+        clearInterval(intervalTimerRef.current);
+        intervalTimerRef.current = null;
+      }
+      flushDirtyWithKeepalive();
+    };
+  }, [flushDirtyWithKeepalive]);
+
   // Manual flush method (retries active key's pending or failed payload)
   const flush = useCallback(async (): Promise<boolean> => {
     if (pendingSaveTimerRef.current) {
@@ -347,6 +425,11 @@ export function useWorkspaceAutosave<T>(
 
   // Mark clean (e.g. after initial fetch)
   const markClean = useCallback(() => {
+    if (pendingSaveTimerRef.current) {
+      clearTimeout(pendingSaveTimerRef.current);
+      pendingSaveTimerRef.current = null;
+      pendingTimerKeyRef.current = null;
+    }
     const cleanJson = JSON.stringify(dataRef.current);
     lastSavedJsonRef.current = cleanJson;
     if (activeKeyRef.current) {

@@ -11,7 +11,7 @@ import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('auth-guard');
 
-type AllowedRole = 'broker' | 'admin' | 'expert' | 'public_user';
+type AllowedRole = 'broker' | 'admin' | 'expert' | 'public_user' | 'vendor';
 
 export interface AuthGuardResult {
   user: { id: string; email?: string } | null;
@@ -180,56 +180,70 @@ export async function requireRole(
 
 /**
  * Convenience: require broker or admin role.
- * ALPHA: 알파 테스트 기간 동안 인증된 모든 사용자 허용.
- * role이 null이거나 프로파일이 없는 경우 broker로 자동 업그레이드.
  *
- * P0-SEC (SEC-1): 'public_user'·'expert' 는 더 이상 통과시키지 않는다(브로커 API 전용 가드).
- * 두 역할은 알파 자동 업그레이드 대상에서도 제외해 403 으로 차단한다 — 업그레이드를 허용하면
- * 프로필이 broker 로 영구 변경되어 결과적으로 같은 우회가 되기 때문이다.
- * (가입·온보딩은 모두 profiles.role='broker' 로 저장하며, 00053 마이그레이션이 기존 public_user 를 broker 로 이관했다.)
+ * Security invariants (P0-SEC / WP-02):
+ *  - Explicit non-broker roles ('vendor', 'public_user', 'expert', or any non-null role outside
+ *    ['broker', 'admin']) are NEVER auto-upgraded and always receive 403.
+ *  - In production (`NODE_ENV === 'production'`), `ALLOW_ALPHA_ROLE_UPGRADE` defaults to OFF
+ *    unless `process.env.ALLOW_ALPHA_ROLE_UPGRADE === 'true'` is explicitly set.
+ *  - In non-production (`test` / `development`), missing-profile (`role === null`) auto-upgrade
+ *    remains enabled unless `process.env.ALLOW_ALPHA_ROLE_UPGRADE === 'false'`.
+ *  - The final resolved role MUST explicitly be in `['broker', 'admin']`.
  */
 const BROKER_ALLOWED_ROLES = ['broker', 'admin'] as const;
-const BROKER_DENIED_ROLES = ['public_user', 'expert'] as const;
+const BROKER_DENIED_ROLES = ['vendor', 'public_user', 'expert'] as const;
+
+function isAlphaRoleUpgradeAllowed(): boolean {
+  const flag = process.env.ALLOW_ALPHA_ROLE_UPGRADE;
+  if (flag === 'false') return false;
+  if (flag === 'true') return true;
+  return process.env.NODE_ENV !== 'production';
+}
+
+function forbiddenBrokerResult(result: AuthGuardResult): AuthGuardResult {
+  return {
+    ...result,
+    error: NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: '중개사(broker) 또는 관리자(admin) 권한이 필요합니다.',
+        },
+      },
+      { status: 403 },
+    ),
+  };
+}
 
 export async function requireBroker(req: NextRequest): Promise<AuthGuardResult> {
   const result = await verifyAuth(req);
   if (result.error) return result; // 미인증만 차단
 
-  if (result.role && (BROKER_DENIED_ROLES as readonly string[]).includes(result.role)) {
+  // Explicit non-broker roles ('vendor', 'public_user', 'expert', or any non-null non-allowed role)
+  // are NEVER auto-upgraded to 'broker'.
+  if (
+    result.role &&
+    ((BROKER_DENIED_ROLES as readonly string[]).includes(result.role) ||
+      !(BROKER_ALLOWED_ROLES as readonly string[]).includes(result.role))
+  ) {
     log.warn('requireBroker denied non-broker role', { userId: result.user?.id, role: result.role });
-    return {
-      ...result,
-      error: NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: 'FORBIDDEN',
-            message: '중개사(broker) 또는 관리자(admin) 권한이 필요합니다.',
-          },
-        },
-        { status: 403 },
-      ),
-    };
+    return forbiddenBrokerResult(result);
   }
 
-  // ALPHA: role이 없거나 null이면 자동으로 broker 업그레이드 (ALLOW_ALPHA_ROLE_UPGRADE=false 시 엄격 차단)
-  if (!result.role || !(BROKER_ALLOWED_ROLES as readonly string[]).includes(result.role)) {
-    if (process.env.ALLOW_ALPHA_ROLE_UPGRADE === 'false') {
-      return {
-        ...result,
-        error: NextResponse.json(
-          {
-            ok: false,
-            error: {
-              code: 'FORBIDDEN',
-              message: '중개사(broker) 또는 관리자(admin) 권한이 필요합니다.',
-            },
-          },
-          { status: 403 },
-        ),
-      };
+  let resolvedResult: AuthGuardResult = result;
+
+  // Missing profile / null role: only upgrade when alpha auto-upgrade is explicitly permitted
+  if (!resolvedResult.role) {
+    if (!isAlphaRoleUpgradeAllowed()) {
+      log.warn('requireBroker denied missing role (alpha upgrade disabled)', {
+        userId: result.user?.id,
+        nodeEnv: process.env.NODE_ENV,
+      });
+      return forbiddenBrokerResult(result);
     }
-    log.warn('[ALPHA] Auto-upgrading user to broker', {
+
+    log.warn('[ALPHA] Auto-upgrading user with missing role to broker', {
       userId: result.user?.id,
       fromRole: result.role,
     });
@@ -237,16 +251,19 @@ export async function requireBroker(req: NextRequest): Promise<AuthGuardResult> 
     const { env } = await import('@/lib/env');
     if (serviceKey && result.user?.id) {
       const serviceClient = createClient(env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, { auth: { persistSession: false } });
-      // upsert: 프로파일이 없으면 생성, 있으면 role 업데이트
       await serviceClient.from('profiles')
         .upsert({ id: result.user.id, role: 'broker', display_name: result.user.email?.split('@')[0] ?? 'user' })
         .eq('id', result.user.id);
     }
-    // 업그레이드 후 허용
-    return { ...result, role: 'broker', error: null };
+    resolvedResult = { ...result, role: 'broker', error: null };
   }
 
-  return result;
+  // Final strict allowlist assertion: resolved role MUST be in ['broker', 'admin']
+  if (!resolvedResult.role || !(BROKER_ALLOWED_ROLES as readonly string[]).includes(resolvedResult.role)) {
+    return forbiddenBrokerResult(resolvedResult);
+  }
+
+  return resolvedResult;
 }
 
 /**

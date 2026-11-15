@@ -3,6 +3,7 @@
 import React, { useRef, useState } from "react";
 // SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
 import * as XLSX from "xlsx";
+import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { calculateEfficiencyRatio } from "@/types/im";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
 import {
@@ -82,6 +83,10 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
   // V12(면적 단위 의심) 해제 사유 — 입력 중 초안 / 확정(적용)된 사유
   const [overrideDraft, setOverrideDraft] = useState("");
   const [overrideReason, setOverrideReason] = useState<string | null>(null);
+  const [overwriteApproved, setOverwriteApproved] = useState(false);
+  const [pendingOverwrite, setPendingOverwrite] = useState<
+    { kind: "text" } | { kind: "file"; file: File } | null
+  >(null);
 
   const [parsedPreview, setParsedPreview] = useState<{
     rows: PreviewRow[];
@@ -159,8 +164,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
     } : null);
   };
 
-  const handleTextParse = async () => {
-    if (hasExistingData && !window.confirm('기존 렌트롤 데이터가 있습니다. 새 데이터로 덮어쓰시겠습니까?')) return;
+  const executeTextParse = async () => {
     if (!textInput.trim() || textInput.trim().length < 5) {
       setIsError(true);
       setResult("❌ 최소 5자 이상의 텍스트를 입력해 주세요.");
@@ -217,15 +221,15 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (hasExistingData && !window.confirm('기존 렌트롤 데이터가 있습니다. 새 데이터로 덮어쓰시겠습니까?')) {
-      if (fileInputRef.current) fileInputRef.current.value = "";
+  const handleTextParse = async () => {
+    if (hasExistingData && !overwriteApproved) {
+      setPendingOverwrite({ kind: "text" });
       return;
     }
+    await executeTextParse();
+  };
 
+  const processSelectedFile = async (file: File) => {
     // SECURITY: Validate file size to prevent DoS attacks via malicious large xlsx files
     if (file.size > 5 * 1024 * 1024) {
       setIsError(true);
@@ -306,6 +310,19 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (hasExistingData && !overwriteApproved) {
+      setPendingOverwrite({ kind: "file", file });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    await processSelectedFile(file);
   };
 
   return (
@@ -757,6 +774,29 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={pendingOverwrite !== null}
+        title="기존 임대 현황 덮어쓰기"
+        description="기존에 입력된 임대 현황 데이터가 있습니다. 새 데이터로 덮어쓰시겠습니까?"
+        confirmLabel="덮어쓰기 확인"
+        cancelLabel="취소"
+        tone="primary"
+        onCancel={() => {
+          setPendingOverwrite(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }}
+        onConfirm={() => {
+          const action = pendingOverwrite;
+          setPendingOverwrite(null);
+          setOverwriteApproved(true);
+          if (action?.kind === "text") {
+            void executeTextParse();
+          } else if (action?.kind === "file") {
+            void processSelectedFile(action.file);
+          }
+        }}
+      />
     </div>
   );
 }

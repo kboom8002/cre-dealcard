@@ -74,8 +74,17 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
   const updatedAtRef = useRef<string | null>(initialUpdatedAt);
   const savedSignatureRef = useRef<string | null>(null);
   const inFlightRef = useRef<Promise<boolean> | null>(null);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastUnloadedSignatureRef = useRef<string | null>(null);
   const statusRef = useRef<AutosaveStatus>('idle');
   const mountedRef = useRef(true);
+
+  // 렌더 시점 즉시 동기화 (<3초 고속 이탈/언마운트 시 최신 서명·페이로드 보장)
+  signatureRef.current = signature;
+  getPayloadRef.current = getPayload;
+  editionIdRef.current = editionId;
+  enabledRef.current = enabled;
+  readyRef.current = ready;
 
   useEffect(() => {
     signatureRef.current = signature;
@@ -99,12 +108,57 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
     setStatusBoth('saved');
   }, [setStatusBoth]);
 
+  // pagehide / 언마운트 시 <3초 미저장 변경분 keepalive 즉시 전송
+  const flushKeepaliveOnExit = useCallback(() => {
+    const id = editionIdRef.current;
+    const hadPendingTimer = pendingTimerRef.current !== null;
+    if (pendingTimerRef.current) {
+      clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+    }
+    if (
+      !id ||
+      !readyRef.current ||
+      !enabledRef.current ||
+      savedSignatureRef.current === null ||
+      savedSignatureRef.current === signatureRef.current ||
+      statusRef.current === 'conflict' ||
+      statusRef.current === 'locked' ||
+      statusRef.current === 'saving' ||
+      (!hadPendingTimer && statusRef.current === 'error') ||
+      lastUnloadedSignatureRef.current === signatureRef.current
+    ) {
+      return;
+    }
+
+    lastUnloadedSignatureRef.current = signatureRef.current;
+    try {
+      const payload = getPayloadRef.current();
+      const body: Record<string, unknown> = {
+        id,
+        ...payload,
+        expected_updated_at: updatedAtRef.current,
+      };
+      Promise.resolve(
+        fetch('/api/magazine/editions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          keepalive: true,
+        }),
+      ).catch(() => {});
+    } catch {
+      // 언마운트/이탈 중 예외 무시
+    }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      flushKeepaliveOnExit();
     };
-  }, []);
+  }, [flushKeepaliveOnExit]);
 
   // 초기 updated_at 반영
   useEffect(() => {
@@ -112,7 +166,7 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
   }, [initialUpdatedAt]);
 
   const runSave = useCallback(
-    async (force: boolean): Promise<boolean> => {
+    async (force: boolean, keepalive: boolean = false): Promise<boolean> => {
       const id = editionIdRef.current;
       if (!id || !readyRef.current || !enabledRef.current) return false;
       // 이미 저장 중이면 그 결과를 기다린 뒤 변경분이 남았으면 한 번 더
@@ -130,19 +184,23 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
 
       const exec = (async (): Promise<boolean> => {
         setStatusBoth('saving');
-        setErrorKind(null);
-        setErrorMessage(null);
+        if (mountedRef.current) {
+          setErrorKind(null);
+          setErrorMessage(null);
+        }
         let httpStatus = 0;
         let json: SaveResponse = {};
         try {
           const payload = getPayloadRef.current();
           const body: Record<string, unknown> = { id, ...payload };
           if (!force) body.expected_updated_at = updatedAtRef.current;
-          const res = await fetch('/api/magazine/editions', {
+          const init: RequestInit = {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-          });
+            ...(keepalive ? { keepalive: true } : {}),
+          };
+          const res = await fetch('/api/magazine/editions', init);
           httpStatus = res.status;
           try {
             json = (await res.json()) as SaveResponse;
@@ -153,6 +211,7 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
             const next = json.edition?.updated_at ?? null;
             updatedAtRef.current = next;
             savedSignatureRef.current = sigAtStart;
+            lastUnloadedSignatureRef.current = null;
             if (mountedRef.current) setLastSavedAt(new Date());
             // 저장 중 추가 입력이 있었다면 다시 dirty
             setStatusBoth(signatureRef.current === sigAtStart ? 'saved' : 'dirty');
@@ -196,7 +255,12 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
 
   const markClean = useCallback(
     (sig?: string) => {
+      if (pendingTimerRef.current) {
+        clearTimeout(pendingTimerRef.current);
+        pendingTimerRef.current = null;
+      }
       savedSignatureRef.current = sig ?? signatureRef.current;
+      lastUnloadedSignatureRef.current = null;
       setStatusBoth('idle');
     },
     [setStatusBoth],
@@ -216,11 +280,19 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
     }
     // 충돌/잠금 상태에서는 자동 저장을 멈추고 사용자가 선택하게 한다
     if (statusRef.current === 'conflict' || statusRef.current === 'locked') return;
+    lastUnloadedSignatureRef.current = null;
     setStatusBoth('dirty');
     const t = setTimeout(() => {
+      pendingTimerRef.current = null;
       void runSave(false);
     }, AUTOSAVE_DEBOUNCE_MS);
-    return () => clearTimeout(t);
+    pendingTimerRef.current = t;
+    return () => {
+      clearTimeout(t);
+      if (pendingTimerRef.current === t) {
+        pendingTimerRef.current = null;
+      }
+    };
   }, [signature, ready, enabled, editionId, runSave, setStatusBoth, clearFailure]);
 
   // ── 30초 주기: 변경분이 있을 때만 (실패 후 재시도 포함) ──
@@ -235,7 +307,7 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
     return () => clearInterval(timer);
   }, [ready, enabled, editionId, runSave]);
 
-  // ── 탭 숨김/이탈 시 flush + 이탈 경고 ──
+  // ── 탭 숨김/pagehide 이탈 시 keepalive flush + 이탈 경고 ──
   useEffect(() => {
     if (!ready || !enabled || !editionId) return;
     const onVisibility = () => {
@@ -246,9 +318,12 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
           statusRef.current !== 'conflict' &&
           statusRef.current !== 'locked'
         ) {
-          void runSave(false);
+          void runSave(false, true);
         }
       }
+    };
+    const onPageHide = () => {
+      flushKeepaliveOnExit();
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (savedSignatureRef.current !== null && savedSignatureRef.current !== signatureRef.current) {
@@ -257,12 +332,14 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onPageHide);
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
-  }, [ready, enabled, editionId, runSave]);
+  }, [ready, enabled, editionId, runSave, flushKeepaliveOnExit]);
 
   const dirty = status === 'dirty' || status === 'saving' || status === 'error' || status === 'conflict';
 

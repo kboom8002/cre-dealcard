@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import sharp from "sharp";
 import heicConvert from "heic-convert";
-import { requireBroker } from "@/lib/auth-guard";
+import { requireBroker, type AuthGuardResult } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("im-upload-photo");
+const SAFE_BUILDING_SEGMENT_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+
+export const maxDuration = 60;
+
+const HEIC_UNSUPPORTED_MESSAGE_KO =
+  "아이폰 HEIC 원본 형식은 지원되지 않습니다. 카메라 설정에서 호환성(JPG)으로 변경하거나 JPG/PNG로 업로드해주세요.";
+
+class HeicUnsupportedError extends Error {
+  constructor(causeMessage?: string) {
+    super(causeMessage || HEIC_UNSUPPORTED_MESSAGE_KO);
+    this.name = "HeicUnsupportedError";
+  }
+}
 
 const BUCKET_NAME = "building_photos";
 const MAX_DECODED_BYTES = 8 * 1024 * 1024; // 8 MB ceiling for inline JSON base64 uploads
@@ -112,24 +129,44 @@ async function normalizePhotoBufferForStorage(
   kind: SupportedImageKind
 ): Promise<{ buffer: Buffer; ext: string; contentType: string }> {
   if (kind === "heic") {
-    const decodedRaw = await heicConvert({
-      buffer: rawBuffer,
-      format: "JPEG",
-      quality: 0.86,
-    });
-    const jpegBuf = Buffer.isBuffer(decodedRaw)
-      ? decodedRaw
-      : Buffer.from(decodedRaw as ArrayBuffer);
-    if (!jpegBuf || jpegBuf.byteLength === 0) {
-      throw new Error("HEIC 이미지 변환 결과가 비어 있습니다.");
+    // 1차: libheif가 포함된 Sharp 빌드로 직접 변환 시도 (max 1920px, quality 84)
+    try {
+      const sharpDecoded = await sharp(rawBuffer)
+        .rotate()
+        .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 84, mozjpeg: true })
+        .toBuffer();
+      if (sharpDecoded && sharpDecoded.byteLength > 0) {
+        return { buffer: sharpDecoded, ext: "jpg", contentType: "image/jpeg" };
+      }
+    } catch {
+      // Sharp 빌드에 libheif 미포함 시 heic-convert 폴백 시도
     }
-    const resized = await sharp(jpegBuf)
-      .rotate()
-      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 84, mozjpeg: true })
-      .toBuffer()
-      .catch(() => jpegBuf);
-    return { buffer: resized, ext: "jpg", contentType: "image/jpeg" };
+
+    try {
+      const decodedRaw = await heicConvert({
+        buffer: rawBuffer,
+        format: "JPEG",
+        quality: 0.84,
+      });
+      const jpegBuf = Buffer.isBuffer(decodedRaw)
+        ? decodedRaw
+        : Buffer.from(decodedRaw as ArrayBuffer);
+      if (!jpegBuf || jpegBuf.byteLength === 0) {
+        throw new HeicUnsupportedError("HEIC 이미지 변환 결과가 비어 있습니다.");
+      }
+      const resized = await sharp(jpegBuf)
+        .rotate()
+        .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 84, mozjpeg: true })
+        .toBuffer()
+        .catch(() => jpegBuf);
+      return { buffer: resized, ext: "jpg", contentType: "image/jpeg" };
+    } catch (heicErr) {
+      throw new HeicUnsupportedError(
+        heicErr instanceof Error ? heicErr.message : String(heicErr)
+      );
+    }
   }
 
   const baseMime = mimeForKind(kind);
@@ -137,7 +174,7 @@ async function normalizePhotoBufferForStorage(
   if (rawBuffer.byteLength > 350 * 1024) {
     const optimized = await sharp(rawBuffer)
       .rotate()
-      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 84, mozjpeg: true })
       .toBuffer()
       .catch(() => null);
@@ -148,10 +185,44 @@ async function normalizePhotoBufferForStorage(
   return { buffer: rawBuffer, ...baseMime };
 }
 
+function isSafeBuildingSegment(rawBuildingId: string): boolean {
+  return SAFE_BUILDING_SEGMENT_RE.test(rawBuildingId) && !rawBuildingId.includes("..");
+}
+
 function resolveSafeFolder(rawBuildingId: string, userId?: string): string {
-  return rawBuildingId && /^[a-zA-Z0-9_-]{3,80}$/.test(rawBuildingId)
+  const safeUser = userId && SAFE_BUILDING_SEGMENT_RE.test(userId) ? userId : "broker";
+  return rawBuildingId && isSafeBuildingSegment(rawBuildingId)
     ? rawBuildingId
-    : `draft-${userId || "broker"}`;
+    : `draft-${safeUser}`;
+}
+
+/**
+ * When `rawBuildingId` is supplied, verify path-segment safety AND check `building_ssot_lite`.
+ * Pre-creation draft IDs not yet in `building_ssot_lite` (404) are permitted, while existing
+ * buildings owned by another broker (or with null owner_id) fail closed with 403.
+ */
+async function guardBuildingIdForUpload(
+  svc: ReturnType<typeof createServiceClient>,
+  rawBuildingId: string,
+  auth: AuthGuardResult
+): Promise<NextResponse | null> {
+  if (!rawBuildingId) return null;
+  if (!isSafeBuildingSegment(rawBuildingId)) {
+    return NextResponse.json(
+      { ok: false, error: "INVALID_BUILDING_ID", message: "유효하지 않은 매물 식별자입니다." },
+      { status: 400 }
+    );
+  }
+  if (svc && typeof svc.from === "function" && auth.user?.id) {
+    const ownership = await assertBuildingOwner(svc, rawBuildingId, auth.user.id, {
+      allowAdmin: true,
+      role: auth.role,
+    });
+    if (!ownership.ok && ownership.status !== 404) {
+      return ownership.response;
+    }
+  }
+  return null;
 }
 
 async function uploadBufferAndGetPublicUrl(
@@ -178,11 +249,14 @@ async function uploadBufferAndGetPublicUrl(
   }
 
   if (upErr || !upData?.path) {
+    if (upErr?.message) {
+      log.error("Storage upload failed", { storagePath, error: upErr.message });
+    }
     return {
       ok: false as const,
       status: 502,
       error: "STORAGE_UPLOAD_FAILED",
-      message: upErr?.message || "사진 저장소 업로드에 실패했습니다.",
+      message: "사진 저장소 업로드에 실패했습니다.",
     };
   }
 
@@ -233,6 +307,13 @@ export async function POST(req: NextRequest) {
 
     const blob = fileEntry as File;
     const rawBuildingId = String(formData.get("buildingId") || "").trim();
+    if (rawBuildingId && !isSafeBuildingSegment(rawBuildingId)) {
+      return NextResponse.json(
+        { ok: false, error: "INVALID_BUILDING_ID", message: "유효하지 않은 매물 식별자입니다." },
+        { status: 400 }
+      );
+    }
+
     const fileName = String(formData.get("name") || blob.name || "").trim();
     const rawBuffer = Buffer.from(await blob.arrayBuffer());
 
@@ -260,10 +341,13 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      const svc = createServiceClient();
+      const bldGuardErr = await guardBuildingIdForUpload(svc, rawBuildingId, auth);
+      if (bldGuardErr) return bldGuardErr;
+
       const normalized = await normalizePhotoBufferForStorage(rawBuffer, resolvedKind);
       const safeFolder = resolveSafeFolder(rawBuildingId, auth.user?.id);
       const storagePath = `${safeFolder}/im-photos/${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${normalized.ext}`;
-      const svc = createServiceClient();
       const uploaded = await uploadBufferAndGetPublicUrl(
         svc,
         storagePath,
@@ -283,16 +367,17 @@ export async function POST(req: NextRequest) {
         convertedFromHeic: resolvedKind === "heic",
       });
     } catch (err: unknown) {
+      log.error("Multipart upload failed", { error: err instanceof Error ? err.message : String(err) });
+      const isHeicFailure = resolvedKind === "heic" || err instanceof HeicUnsupportedError;
       return NextResponse.json(
         {
           ok: false,
-          error: resolvedKind === "heic" ? "HEIC_CONVERT_FAILED" : "INTERNAL_ERROR",
-          message:
-            err instanceof Error
-              ? err.message
-              : "사진 변환 및 업로드 처리 중 오류가 발생했습니다.",
+          error: isHeicFailure ? "HEIC_UNSUPPORTED" : "INTERNAL_ERROR",
+          message: isHeicFailure
+            ? HEIC_UNSUPPORTED_MESSAGE_KO
+            : "사진 변환 및 업로드 처리 중 오류가 발생했습니다.",
         },
-        { status: resolvedKind === "heic" ? 422 : 500 }
+        { status: isHeicFailure ? 415 : 500 }
       );
     }
   }
@@ -310,6 +395,12 @@ export async function POST(req: NextRequest) {
 
   const action = typeof body.action === "string" ? body.action.trim() : "";
   const rawBuildingId = typeof body.buildingId === "string" ? body.buildingId.trim() : "";
+  if (rawBuildingId && !isSafeBuildingSegment(rawBuildingId)) {
+    return NextResponse.json(
+      { ok: false, error: "INVALID_BUILDING_ID", message: "유효하지 않은 매물 식별자입니다." },
+      { status: 400 }
+    );
+  }
   const rawFileName = typeof body.name === "string" ? body.name.trim() : "";
   const safeFolder = resolveSafeFolder(rawBuildingId, auth.user?.id);
 
@@ -327,17 +418,23 @@ export async function POST(req: NextRequest) {
     const tempPath = `${safeFolder}/im-raw-tmp/${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${rawExt}`;
     try {
       const svc = createServiceClient();
+      const bldGuardErr = await guardBuildingIdForUpload(svc, rawBuildingId, auth);
+      if (bldGuardErr) return bldGuardErr;
+
       let signedRes = await svc.storage.from(BUCKET_NAME).createSignedUploadUrl(tempPath);
       if (signedRes.error && /bucket|not found/i.test(signedRes.error.message || "")) {
         await svc.storage.createBucket(BUCKET_NAME, { public: true }).catch(() => null);
         signedRes = await svc.storage.from(BUCKET_NAME).createSignedUploadUrl(tempPath);
       }
       if (signedRes.error || !signedRes.data?.signedUrl) {
+        if (signedRes.error?.message) {
+          log.error("Signed URL creation failed", { error: signedRes.error.message });
+        }
         return NextResponse.json(
           {
             ok: false,
             error: "SIGNED_URL_FAILED",
-            message: signedRes.error?.message || "대용량 사진 업로드 경로 생성에 실패했습니다.",
+            message: "대용량 사진 업로드 경로 생성에 실패했습니다.",
           },
           { status: 502 }
         );
@@ -349,11 +446,12 @@ export async function POST(req: NextRequest) {
         tempPath,
       });
     } catch (err: unknown) {
+      log.error("Signed URL exception", { error: err instanceof Error ? err.message : String(err) });
       return NextResponse.json(
         {
           ok: false,
           error: "INTERNAL_ERROR",
-          message: err instanceof Error ? err.message : "업로드 URL 발급 중 오류가 발생했습니다.",
+          message: "업로드 URL 발급 중 오류가 발생했습니다.",
         },
         { status: 500 }
       );
@@ -371,6 +469,9 @@ export async function POST(req: NextRequest) {
     }
     try {
       const svc = createServiceClient();
+      const bldGuardErr = await guardBuildingIdForUpload(svc, rawBuildingId, auth);
+      if (bldGuardErr) return bldGuardErr;
+
       const { data: dlBlob, error: dlErr } = await svc.storage.from(BUCKET_NAME).download(tempPath);
       await svc.storage.from(BUCKET_NAME).remove([tempPath]).catch(() => null);
       if (dlErr || !dlBlob) {
@@ -415,13 +516,17 @@ export async function POST(req: NextRequest) {
         convertedFromHeic: resolvedKind === "heic",
       });
     } catch (err: unknown) {
+      log.error("Finalize uploaded raw failed", { error: err instanceof Error ? err.message : String(err) });
+      const isHeicFailure = err instanceof HeicUnsupportedError;
       return NextResponse.json(
         {
           ok: false,
-          error: "FINALIZE_FAILED",
-          message: err instanceof Error ? err.message : "사진 변환 마무리 중 오류가 발생했습니다.",
+          error: isHeicFailure ? "HEIC_UNSUPPORTED" : "FINALIZE_FAILED",
+          message: isHeicFailure
+            ? HEIC_UNSUPPORTED_MESSAGE_KO
+            : "사진 변환 마무리 중 오류가 발생했습니다.",
         },
-        { status: 500 }
+        { status: isHeicFailure ? 415 : 500 }
       );
     }
   }
@@ -491,9 +596,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const svc = createServiceClient();
+    const bldGuardErr = await guardBuildingIdForUpload(svc, rawBuildingId, auth);
+    if (bldGuardErr) return bldGuardErr;
+
     const normalized = await normalizePhotoBufferForStorage(buffer, resolvedKind);
     const storagePath = `${safeFolder}/im-photos/${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${normalized.ext}`;
-    const svc = createServiceClient();
     const uploaded = await uploadBufferAndGetPublicUrl(
       svc,
       storagePath,
@@ -514,13 +622,17 @@ export async function POST(req: NextRequest) {
       convertedFromHeic: resolvedKind === "heic",
     });
   } catch (err: unknown) {
+    log.error("Inline dataUrl upload failed", { error: err instanceof Error ? err.message : String(err) });
+    const isHeicFailure = resolvedKind === "heic" || err instanceof HeicUnsupportedError;
     return NextResponse.json(
       {
         ok: false,
-        error: resolvedKind === "heic" ? "HEIC_CONVERT_FAILED" : "INTERNAL_ERROR",
-        message: err instanceof Error ? err.message : "사진 업로드 처리 중 오류가 발생했습니다.",
+        error: isHeicFailure ? "HEIC_UNSUPPORTED" : "INTERNAL_ERROR",
+        message: isHeicFailure
+          ? HEIC_UNSUPPORTED_MESSAGE_KO
+          : "사진 업로드 처리 중 오류가 발생했습니다.",
       },
-      { status: resolvedKind === "heic" ? 422 : 500 }
+      { status: isHeicFailure ? 415 : 500 }
     );
   }
 }

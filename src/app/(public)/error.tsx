@@ -3,6 +3,10 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
+import {
+  generateErrorReferenceCode,
+  reportClientOrServerError,
+} from '@/lib/observability/error-reporter';
 
 export default function PublicError({
   error,
@@ -11,41 +15,45 @@ export default function PublicError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const refCode = generateErrorReferenceCode(error);
+
   useEffect(() => {
-    console.error('[PublicError] Unhandled public route error:', error);
+    void reportClientOrServerError(error, {
+      boundary: 'public',
+      digest: error?.digest,
+    });
   }, [error]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6 bg-background">
       <div className="max-w-md w-full text-center space-y-6 bg-card border border-border rounded-2xl p-8 shadow-sm">
         <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-          <AlertCircle className="w-6 h-6" />
+          <AlertCircle className="w-6 h-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-foreground">문제가 발생했습니다</h2>
-          <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-            {error.message || '페이지를 불러오는 데 실패했습니다. 일시적인 장애일 수 있으니 다시 시도해 주세요.'}
+          <h2 className="text-xl font-bold text-foreground">페이지를 불러오지 못했습니다</h2>
+          <p className="text-muted-foreground text-base mt-2 leading-relaxed">
+            일시적인 화면 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
           </p>
-          {error.digest && (
-            <p className="text-xs font-mono text-muted-foreground/70 mt-3">
-              Code: {error.digest}
-            </p>
-          )}
+          <p className="text-xs font-mono text-muted-foreground/80 mt-3">
+            오류 참조코드: {refCode}
+          </p>
         </div>
-        <div className="flex gap-3 justify-center pt-2">
+        <div className="flex flex-wrap gap-3 justify-center pt-2">
           <button
+            type="button"
             onClick={() => reset()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:opacity-90 transition-opacity"
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity"
           >
-            <RefreshCw className="w-4 h-4" />
-            다시 시도
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            다시 시도하기
           </button>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-secondary text-secondary-foreground rounded-lg font-medium text-sm hover:bg-secondary/80 transition-colors"
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 px-5 py-2.5 bg-secondary text-secondary-foreground rounded-xl font-medium text-sm hover:bg-secondary/80 transition-colors"
           >
-            <Home className="w-4 h-4" />
-            홈으로 가기
+            <Home className="w-4 h-4" aria-hidden="true" />
+            홈으로 이동
           </Link>
         </div>
       </div>

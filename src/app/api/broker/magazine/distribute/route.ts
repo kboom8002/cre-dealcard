@@ -9,6 +9,7 @@ const log = createModuleLogger("api-broker-magazine-distribute");
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const TARGETS = ["all", "buyer", "seller"] as const;
 

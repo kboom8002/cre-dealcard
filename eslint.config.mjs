@@ -8,7 +8,10 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // eslint-config-next 가 jsx-a11y 플러그인을 이미 등록하므로 recommended 의 rules 만 병합한다
   // ("Cannot redefine plugin jsx-a11y" ConfigError 방지).
-  { rules: jsxA11y.flatConfigs.recommended.rules },
+  {
+    files: ["**/*.{js,jsx,mjs,ts,tsx}"],
+    rules: jsxA11y.flatConfigs.recommended.rules,
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

@@ -2,8 +2,15 @@
 // Ported from cre-fullim — resolves Korean address strings into PNU codes,
 // coordinates, and building management numbers for downstream public API calls.
 
-import { FALLBACK_DONG_MAP, geocodeAddress } from "@/domain/verification/address-resolver";
+import {
+  geocodeAddress,
+  isEligibleForSeoulFallback,
+  isMountainLotAddress,
+  lookupSeoulFallbackDong,
+} from "@/domain/verification/address-resolver";
 import { createModuleLogger } from "@/lib/logger";
+
+export { isEligibleForSeoulFallback } from "@/domain/verification/address-resolver";
 
 const logger = createModuleLogger("address-resolver");
 
@@ -12,6 +19,7 @@ export interface ResolvedAddress {
   legalDongCode: string;          // 법정동 10자리
   sigunguCd: string;              // 시군구 5자리 (건축물대장 API 파라미터)
   bjdongCd: string;               // 법정동 5자리
+  platGbCd?: '0' | '1';           // 대지구분코드 ('0': 대지, '1': 산)
   bun: string;                    // 본번 4자리
   ji: string;                     // 부번 4자리
   roadAddress: string;            // 정규화된 도로명주소
@@ -29,26 +37,41 @@ export function padNumber(numStr: string | number): string {
   return String(num).padStart(4, "0");
 }
 
-function getMockLegalDongCode(address: string): string {
-  for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
-    if (address.includes(key)) return codes.sigunguCd + codes.bjdongCd;
+function getMockLegalDongCode(address: string, dongHint?: string): string {
+  if (!isEligibleForSeoulFallback(address)) {
+    return ''; // 비서울 주소는 서울 FALLBACK_DONG_MAP 매칭 원천 차단
   }
-  return ''; // 법정동 코드 미식별 — PNU 생성 중단
+  const found = lookupSeoulFallbackDong(address, dongHint);
+  return found ? found.sigunguCd + found.bjdongCd : '';
 }
 
 /**
- * W-1.2 + W-1.3: 지번주소에서 본번/부번/산 여부를 추출
- * "영등포구 당산동5가 11-47" → { bun: "11", ji: "47", isMount: false }
- * "관악구 남현동 산 1-1"    → { bun: "1",  ji: "1",  isMount: true }
+ * W-1.2 + W-1.3: 지번주소에서 본번/부번/산 여부/대지구분코드(platGbCd)를 추출
+ * "영등포구 당산동5가 11-47" → { bun: "11", ji: "47", isMount: false, platGbCd: "0" }
+ * "관악구 남현동 산 1-1"    → { bun: "1",  ji: "1",  isMount: true,  platGbCd: "1" }
+ * "서울 종로구 평창동 산12"  → { bun: "12", ji: "0",  isMount: true,  platGbCd: "1" }
  */
-export function parseJibunAddress(jibunAddr: string): { bun: string; ji: string; isMount: boolean } | null {
+export function parseJibunAddress(
+  jibunAddr: string
+): { bun: string; ji: string; isMount: boolean; platGbCd: '0' | '1' } | null {
   if (!jibunAddr) return null;
-  const isMount = /산\s*\d/.test(jibunAddr);
+  const isMount = isMountainLotAddress(jibunAddr);
   // Match parcel number after dong/ri/ro/gil/san or take the trailing number block
-  const matchWithPrefix = jibunAddr.match(/(?:동\d*가?|로|길|리|읍|면)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
-  const match = matchWithPrefix || jibunAddr.match(/(?:산\s*)?(\d+)(?:-(\d+))?$/) || jibunAddr.match(/(\d+)(?:-(\d+))?/);
+  const matchMount = jibunAddr.match(/(?:^|[\s,(])산\s*(\d+)(?:-(\d+))?(?:번지)?(?:\s|$|,|\))/);
+  const matchWithPrefix = jibunAddr.match(/(?:동\d*가?|로\d*가?|길|리|읍|면)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
+  const match =
+    matchMount ||
+    matchWithPrefix ||
+    jibunAddr.match(/(?:^|\s)(?:산\s*)?(\d+)(?:-(\d+))?$/) ||
+    jibunAddr.match(/(\d+)(?:-(\d+))?/);
   if (!match) return null;
-  return { bun: match[1], ji: match[2] || '0', isMount };
+  const mountFlag = Boolean(matchMount) || isMount;
+  return {
+    bun: match[1],
+    ji: match[2] || '0',
+    isMount: mountFlag,
+    platGbCd: mountFlag ? '1' : '0',
+  };
 }
 
 /**
@@ -217,13 +240,14 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
 
         const bun = pnu.substring(11, 15) || "0000";
         const ji = pnu.substring(15, 19) || "0000";
+        const platGbCd: '0' | '1' = pnu.charAt(10) === '2' ? '1' : '0';
 
         // W-3.2: 하드코딩 폴백 좌표 제거 — 재시도 후 null 허용
         const geo = await geocodeWithRetry(cleanAddr);
         const allPnus = buildMultiParcelPnus(pnu, legalDongCode, secondaryLots);
 
         return {
-          pnu, legalDongCode, sigunguCd, bjdongCd, bun, ji,
+          pnu, legalDongCode, sigunguCd, bjdongCd, platGbCd, bun, ji,
           roadAddress, jibunAddress,
           lat: geo?.lat ?? null,
           lng: geo?.lng ?? null,
@@ -237,29 +261,34 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
     }
   }
 
-  // REGEX FALLBACK
-  // W-1.3: 산지 주소 지원
-  const isMount = /산\s*\d/.test(cleanAddr);
-  const jibunMatch = cleanAddr.match(/(?:동\d*가?|로|길)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
-
-  let bun: string = "";
-  let ji: string = "0000";
-  if (jibunMatch) {
-    bun = padNumber(jibunMatch[1]);
-    ji = padNumber(jibunMatch[2] || "0");
+  // REGEX FALLBACK (서울 FALLBACK_DONG_MAP 한정 — 비서울 오매칭 원천 차단)
+  if (!isEligibleForSeoulFallback(cleanAddr)) {
+    logger.warn(`Non-Seoul address rejected from Seoul FALLBACK_DONG_MAP: ${cleanAddr}`);
+    return null;
   }
 
-  if (!bun) {
+  // W-1.3: 산지 주소 지원 ('산 12-3', '산12' → platGbCd='1', PNU 11번째 자리 '2')
+  const parsedJibun = parseJibunAddress(cleanAddr);
+  if (!parsedJibun) {
     logger.warn(`No jibun found in: ${cleanAddr}`);
     return null;
   }
 
-  const legalDongCode = getMockLegalDongCode(cleanAddr);
+  const dongHintMatch = cleanAddr.match(/([가-힣0-9]+)\s+(?:산\s*)?\d+/);
+  const dongHint = dongHintMatch ? dongHintMatch[1] : undefined;
+  const legalDongCode = getMockLegalDongCode(cleanAddr, dongHint);
+  if (legalDongCode.length !== 10) {
+    logger.warn(`Could not resolve 10-digit Seoul legalDongCode for: ${cleanAddr}`);
+    return null;
+  }
+
   const sigunguCd = legalDongCode.substring(0, 5);
   const bjdongCd = legalDongCode.substring(5, 10);
-  // W-1.3: 산지 대지구분 '2' 적용 (법정동 코드 10자리 확인 시에만 19자리 PNU 생성, 9자리 불완전 PNU 생성 차단)
-  const landCategory = isMount ? '2' : '1';
-  const pnu = legalDongCode.length === 10 ? `${legalDongCode}${landCategory}${bun}${ji}` : "";
+  const bun = padNumber(parsedJibun.bun);
+  const ji = padNumber(parsedJibun.ji);
+  const platGbCd: '0' | '1' = parsedJibun.platGbCd;
+  const landCategory = parsedJibun.isMount ? '2' : '1';
+  const pnu = `${legalDongCode}${landCategory}${bun}${ji}`;
   const allPnus = buildMultiParcelPnus(pnu, legalDongCode, secondaryLots);
 
   // W-3.2: 하드코딩 폴백 좌표 제거
@@ -270,6 +299,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
     legalDongCode,
     sigunguCd,
     bjdongCd,
+    platGbCd,
     bun,
     ji,
     roadAddress: cleanAddr,

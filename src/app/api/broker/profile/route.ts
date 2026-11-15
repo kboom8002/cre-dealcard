@@ -16,6 +16,10 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { getBrokerSubscriptionTier } from '@/domain/subscription/tier-gate';
 import { validateSlug } from '@/lib/magazine/slug';
 import { jsonError } from '@/lib/magazine/authz';
+import {
+  computeBrokerStatutoryCompleteness,
+  validateBrokerStatutoryFields,
+} from '@/lib/legal/broker-statutory-disclosure';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -23,6 +27,7 @@ const log = createModuleLogger('route');
 
 const ProfileUpdateSchema = z.object({
   display_name: z.string().min(1).max(50).optional(),
+  representative_name: z.string().max(50).nullable().optional(),
   phone: z.string().max(30).optional(),
   company: z.string().max(100).optional(),
   specialty_regions: z.array(z.string()).max(30).optional(),
@@ -87,6 +92,7 @@ const VALID_BROKER_COLUMNS = new Set([
   'kakao_channel', 'naver_blog_url', 'youtube_url', 'linkedin_url',
   'seo_summary', 'is_public',
   'office_address', 'office_district', 'office_dong',
+  'representative_name',
 ]);
 
 /** 테이블/컬럼이 아직 없는 오류(마이그레이션 미적용) */
@@ -245,6 +251,16 @@ export async function GET(req: NextRequest) {
     user!.id
   );
 
+  const rawBroker = brokerProfile as Record<string, unknown> | null;
+  const statutoryCompleteness = computeBrokerStatutoryCompleteness({
+    company: (profile?.company as string | null | undefined) ?? null,
+    office_address: (rawBroker?.office_address as string | null | undefined) ?? null,
+    phone: (profile?.phone as string | null | undefined) ?? null,
+    office_reg_number: (rawBroker?.office_reg_number as string | null | undefined) ?? null,
+    representative_name: (rawBroker?.representative_name as string | null | undefined) ?? null,
+    display_name: (profile?.display_name as string | null | undefined) ?? null,
+  });
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -252,12 +268,17 @@ export async function GET(req: NextRequest) {
       broker: brokerProfile
         ? {
             ...brokerProfile,
+            representative_name:
+              (rawBroker?.representative_name as string | null | undefined) ?? null,
+            office_address:
+              (rawBroker?.office_address as string | null | undefined) ?? null,
             avatar_url:
-              (brokerProfile as Record<string, unknown>).avatar_url ||
+              rawBroker?.avatar_url ||
               profile?.photo_url ||
               null,
           }
         : null,
+      statutoryCompleteness,
       email: user!.email,
       magazine_title: magazineTitle,
       magazine_theme_color: magazineThemeColor,
@@ -286,6 +307,27 @@ export async function PUT(req: NextRequest) {
     const parsed = ProfileUpdateSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: z.flattenError(parsed.error) }, { status: 400 });
+    }
+
+    // 0-A. 공인중개사법 제18조의2 샘플 등록번호/성명 저장 차단 (쓰기 전 선행 검증)
+    const statutoryValidation = validateBrokerStatutoryFields({
+      company: parsed.data.company,
+      office_address: parsed.data.office_address,
+      phone: parsed.data.phone,
+      office_reg_number: parsed.data.office_reg_number,
+      license_number: parsed.data.license_number,
+      representative_name: parsed.data.representative_name,
+      display_name: parsed.data.display_name,
+    });
+    if (!statutoryValidation.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: statutoryValidation.message,
+          field: statutoryValidation.field,
+        },
+        { status: 400 },
+      );
     }
   
     const supabase = createServiceClient();
@@ -367,19 +409,38 @@ export async function PUT(req: NextRequest) {
         .maybeSingle();
   
       if (existing) {
-        const { error } = await supabase
+        let { error } = await supabase
           .from('broker_profiles')
           .update(brokerUpdate)
           .eq('user_id', user!.id);
+        if (error && isNotMigrated(error) && 'representative_name' in brokerUpdate) {
+          const { representative_name: _omitted, ...withoutRepresentativeName } = brokerUpdate;
+          if (Object.keys(withoutRepresentativeName).length > 1) {
+            const retry = await supabase
+              .from('broker_profiles')
+              .update(withoutRepresentativeName)
+              .eq('user_id', user!.id);
+            error = retry.error;
+          } else {
+            error = null;
+          }
+        }
         if (error) {
           if (error.code === '23505') return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
           log.error('[Profile PUT] broker_profiles update error:', error);
           return NextResponse.json({ error: `전문 프로필 저장 오류: ${error.message}` }, { status: 500 });
         }
       } else {
-        const { error } = await supabase
+        let { error } = await supabase
           .from('broker_profiles')
           .insert(brokerUpdate);
+        if (error && isNotMigrated(error) && 'representative_name' in brokerUpdate) {
+          const { representative_name: _omitted, ...withoutRepresentativeName } = brokerUpdate;
+          const retry = await supabase
+            .from('broker_profiles')
+            .insert(withoutRepresentativeName);
+          error = retry.error;
+        }
         if (error) {
           if (error.code === '23505') return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
           log.error('[Profile PUT] broker_profiles insert error:', error);

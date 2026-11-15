@@ -177,17 +177,32 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
       expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     });
 
-    it('renders version switcher and opens visual diff modal with yellow highlights', async () => {
+    it('hides version switcher without previousVersion, and renders visual diff modal when real previousVersion exists', async () => {
       const rawFacts = {
         title: '서초동 오피스',
         address: '서울특별시 서초구 서초동 1364-28',
         posture: 'core_income',
         asking_price_manwon: 2300000,
       };
-      const doc = buildBasicImDocument(extractPureBuildingFacts(rawFacts));
+      const docWithoutPrev = buildBasicImDocument(extractPureBuildingFacts(rawFacts));
 
       await act(async () => {
-        root.render(<MobileIMViewer document={doc as any} buildingId="bld-test-03" />);
+        root.render(<MobileIMViewer document={docWithoutPrev as any} buildingId="bld-test-03" />);
+      });
+
+      // Without previousVersion, synthetic v1 diff bar must NOT be fabricated
+      expect(container.querySelector('[data-testid="version-diff-btn"]')).toBeNull();
+
+      const prevDoc = buildBasicImDocument(
+        extractPureBuildingFacts({
+          ...rawFacts,
+          asking_price_manwon: 2400000,
+        })
+      );
+      const docWithPrev = { ...docWithoutPrev, previousVersion: prevDoc };
+
+      await act(async () => {
+        root.render(<MobileIMViewer document={docWithPrev as any} buildingId="bld-test-03" />);
       });
 
       const versionSelect = container.querySelector('[data-testid="version-switcher"]') as HTMLSelectElement;

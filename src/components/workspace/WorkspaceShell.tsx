@@ -5,8 +5,140 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav";
 import { SAVE_STATE_LABELS, formatRelativeKo, type HonestSaveState } from "@/lib/ux/lexicon";
-import { FontScaleToggle } from "./FontScaleToggle";
+import {
+  FontScaleToggle,
+  FONT_SCALE_STORAGE_KEY,
+  LEGACY_FONT_SCALE_STORAGE_KEY,
+  FONT_SCALE_EVENT,
+  isValidFontScale,
+  type UiFontScale,
+} from "./FontScaleToggle";
 import { QaFeedbackPinWidget } from "./QaFeedbackPinWidget";
+import { UndoToastProvider, useUndoToast } from "./UndoConfirmToast";
+
+const FONT_SCALE_ORDER: readonly UiFontScale[] = [
+  "compact",
+  "normal",
+  "large",
+  "xlarge",
+];
+
+const FONT_SCALE_LABELS: Record<UiFontScale, string> = {
+  compact: "표준 글씨",
+  normal: "큰글씨",
+  large: "더 크게",
+  xlarge: "아주 크게",
+};
+
+function EnsureUndoToastProvider({ children }: { children: React.ReactNode }) {
+  let hasAncestorProvider = false;
+  try {
+    useUndoToast();
+    hasAncestorProvider = true;
+  } catch {
+    hasAncestorProvider = false;
+  }
+  if (hasAncestorProvider) {
+    return <>{children}</>;
+  }
+  return <UndoToastProvider>{children}</UndoToastProvider>;
+}
+
+function MobileFontScaleButton() {
+  const [fontScale, setFontScale] = useState<UiFontScale>("normal");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const htmlEl = document.documentElement;
+    let resolved: UiFontScale | null = null;
+    try {
+      const saved =
+        window.localStorage.getItem(FONT_SCALE_STORAGE_KEY) ||
+        window.localStorage.getItem(LEGACY_FONT_SCALE_STORAGE_KEY);
+      if (isValidFontScale(saved)) {
+        resolved = saved;
+      }
+    } catch {
+      // ignore storage failure
+    }
+    if (!resolved) {
+      const currentAttr = htmlEl.dataset.fontScale;
+      if (isValidFontScale(currentAttr)) {
+        resolved = currentAttr;
+      }
+    }
+    if (resolved) {
+      setFontScale(resolved);
+    }
+
+    const onSync = (e: Event) => {
+      const next = (e as CustomEvent<UiFontScale>).detail;
+      if (isValidFontScale(next)) {
+        setFontScale(next);
+      }
+    };
+    window.addEventListener(FONT_SCALE_EVENT, onSync);
+
+    let observer: MutationObserver | null = null;
+    if (typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        const attr = htmlEl.dataset.fontScale;
+        if (isValidFontScale(attr)) {
+          setFontScale((prev) => (prev === attr ? prev : attr));
+        }
+      });
+      observer.observe(htmlEl, {
+        attributes: true,
+        attributeFilter: ["data-font-scale"],
+      });
+    }
+
+    return () => {
+      window.removeEventListener(FONT_SCALE_EVENT, onSync);
+      observer?.disconnect();
+    };
+  }, []);
+
+  const handleCycleFontScale = useCallback(() => {
+    const idx = FONT_SCALE_ORDER.indexOf(fontScale);
+    const nextScale = FONT_SCALE_ORDER[(idx + 1) % FONT_SCALE_ORDER.length];
+    setFontScale(nextScale);
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.fontScale = nextScale;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
+        window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, nextScale);
+      } catch {
+        // ignore storage failure
+      }
+      try {
+        window.dispatchEvent(
+          new CustomEvent<UiFontScale>(FONT_SCALE_EVENT, { detail: nextScale })
+        );
+      } catch {
+        // ignore CustomEvent failure
+      }
+    }
+  }, [fontScale]);
+
+  const currentLabel = FONT_SCALE_LABELS[fontScale];
+
+  return (
+    <button
+      type="button"
+      onClick={handleCycleFontScale}
+      data-testid="workspace-mobile-font-scale-btn"
+      data-font-scale={fontScale}
+      aria-label={`글자 크기 조절 (현재: ${currentLabel})`}
+      title={`글자 크기 조절 (현재: ${currentLabel})`}
+      className="md:hidden inline-flex items-center justify-center gap-0.5 px-2.5 py-1.5 min-h-[44px] min-w-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-[15px] font-bold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+    >
+      <span>가+</span>
+    </button>
+  );
+}
 
 const COL_WIDTHS_STORAGE_KEY = "credeal-workspace-col-widths-v1";
 const DEFAULT_LIST_WIDTH = 310;
@@ -514,91 +646,95 @@ export function WorkspaceShell({
   };
 
   return (
-    <div
-      data-testid="workspace-shell"
-      data-workspace={workspace}
-      className="flex flex-col h-[100dvh] bg-[#F5F5F7] text-[#1D1D1F] overflow-hidden"
-    >
-      {/* ── Aria Live Announcement Region ── */}
-      <div className="sr-only" role="status" aria-live="polite">
-        {ariaAnnouncement || (activeBuildingId && !selectedLabel ? `선택된 매물: ${activeBuildingId}` : "")}
-      </div>
-
-      {/* ── Fixed 56px Topbar (Apple iOS Floating Frosted Chrome) ── */}
-      <header
-        data-testid="workspace-topbar"
-        className="h-14 shrink-0 ios-glass-chrome bg-white/75 backdrop-blur-2xl backdrop-saturate-[190%] border-b border-slate-900/[0.075] px-2.5 sm:px-4 flex items-center justify-between gap-2 z-30 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_20px_-4px_rgba(15,23,42,0.04)]"
+    <EnsureUndoToastProvider>
+      <div
+        data-testid="workspace-shell"
+        data-workspace={workspace}
+        className="flex flex-col h-[100dvh] bg-[#F5F5F7] text-[#1D1D1F] overflow-hidden"
       >
-        <nav
-          aria-label="작업공간 메뉴"
-          className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1 bg-[#767680]/[0.08] p-1 rounded-2xl border border-white/60 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] max-w-fit"
-        >
-          {WS_TOPBAR_LINKS.map((link) => {
-            const isActive =
-              link.id === workspace ||
-              (link.id === "home" && pathname === "/broker") ||
-              (link.id === "magazine" &&
-                (pathname.startsWith("/broker/magazine-editor") ||
-                  pathname.startsWith("/broker/w/magazine") ||
-                  pathname.startsWith("/broker/w/newsletter"))) ||
-              (link.id !== "home" && pathname.startsWith(link.href));
-            const badge = link.id !== "home" ? effectiveBadges[link.id as "dealcards" | "im" | "magazine" | "inbox"] : undefined;
-
-            return (
-              <Link
-                key={link.id}
-                href={link.href}
-                prefetch={false}
-                data-testid={`workspace-nav-${link.id}`}
-                data-active-pill={isActive ? "true" : undefined}
-                aria-current={isActive ? "page" : undefined}
-                className={`relative px-2.5 sm:px-3.5 py-1.5 min-h-[42px] sm:min-h-[44px] rounded-xl text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap shrink-0 ${
-                  isActive
-                    ? "bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(0,122,255,0.28)]"
-                    : "text-[#3A3A3C] hover:text-[#1D1D1F] hover:bg-white/60"
-                }`}
-              >
-                {link.label}
-                {badge && badge > 0 ? (
-                  <span
-                    data-testid={`workspace-nav-badge-${link.id}`}
-                    aria-label={`처리할 일 ${badge}건`}
-                    className="min-w-[22px] h-5 sm:h-6 px-1.5 rounded-full bg-gradient-to-b from-[#FF3B5C] to-[#FF2D55] text-white text-sm font-bold shadow-[0_2px_6px_rgba(255,45,85,0.35)] flex items-center justify-center"
-                  >
-                    {badge > 99 ? "99+" : badge}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Right tools / indicators (Translucent Glass Pills) */}
-        <div className="hidden sm:flex items-center gap-2 shrink-0">
-          {/* Font Density Toggle (표준 15px / 큰글씨 17px / 아주 크게 21px) */}
-          <FontScaleToggle className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60 shrink-0" />
-
-          {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
-          <button
-            type="button"
-            onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
-            data-testid="workspace-preview-toggle-btn"
-            aria-expanded={isPreviewDrawerOpen}
-            className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
-          </button>
-
-          <Link
-            href="/broker/profile"
-            prefetch={false}
-            data-testid="workspace-nav-profile"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all whitespace-nowrap"
-          >
-            <span>내 프로필</span>
-          </Link>
+        {/* ── Aria Live Announcement Region ── */}
+        <div className="sr-only" role="status" aria-live="polite">
+          {ariaAnnouncement || (activeBuildingId && !selectedLabel ? `선택된 매물: ${activeBuildingId}` : "")}
         </div>
-      </header>
+
+        {/* ── Fixed 56px Topbar (Apple iOS Floating Frosted Chrome) ── */}
+        <header
+          data-testid="workspace-topbar"
+          className="h-14 shrink-0 ios-glass-chrome bg-white/75 backdrop-blur-2xl backdrop-saturate-[190%] border-b border-slate-900/[0.075] px-2.5 sm:px-4 flex items-center justify-between gap-1.5 sm:gap-2 z-30 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_20px_-4px_rgba(15,23,42,0.04)]"
+        >
+          <nav
+            aria-label="작업공간 메뉴"
+            className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1 bg-[#767680]/[0.08] p-1 rounded-2xl border border-white/60 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] max-w-fit"
+          >
+            {WS_TOPBAR_LINKS.map((link) => {
+              const isActive =
+                link.id === workspace ||
+                (link.id === "home" && pathname === "/broker") ||
+                (link.id === "magazine" &&
+                  (pathname.startsWith("/broker/magazine-editor") ||
+                    pathname.startsWith("/broker/w/magazine") ||
+                    pathname.startsWith("/broker/w/newsletter"))) ||
+                (link.id !== "home" && pathname.startsWith(link.href));
+              const badge = link.id !== "home" ? effectiveBadges[link.id as "dealcards" | "im" | "magazine" | "inbox"] : undefined;
+
+              return (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  prefetch={false}
+                  data-testid={`workspace-nav-${link.id}`}
+                  data-active-pill={isActive ? "true" : undefined}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative px-2.5 sm:px-3.5 py-1.5 min-h-[42px] sm:min-h-[44px] rounded-xl text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap shrink-0 ${
+                    isActive
+                      ? "bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(0,122,255,0.28)]"
+                      : "text-[#3A3A3C] hover:text-[#1D1D1F] hover:bg-white/60"
+                  }`}
+                >
+                  {link.label}
+                  {badge && badge > 0 ? (
+                    <span
+                      data-testid={`workspace-nav-badge-${link.id}`}
+                      aria-label={`처리할 일 ${badge}건`}
+                      className="min-w-[22px] h-5 sm:h-6 px-1.5 rounded-full bg-gradient-to-b from-[#FF3B5C] to-[#FF2D55] text-white text-sm font-bold shadow-[0_2px_6px_rgba(255,45,85,0.35)] flex items-center justify-center"
+                    >
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Right tools / indicators (Translucent Glass Pills — accessible on both <768px mobile & desktop) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mobile <768px compact font-scale cycling button (min-h-[44px]) */}
+            <MobileFontScaleButton />
+
+            {/* Desktop >=768px Font Density Toggle (표준 15px / 큰글씨 17px / 더 크게 19px / 아주 크게 21px) */}
+            <FontScaleToggle className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60 shrink-0" />
+
+            {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
+            <button
+              type="button"
+              onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
+              data-testid="workspace-preview-toggle-btn"
+              aria-expanded={isPreviewDrawerOpen}
+              className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
+            </button>
+
+            <Link
+              href="/broker/profile"
+              prefetch={false}
+              data-testid="workspace-nav-profile"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-[15px] sm:text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all whitespace-nowrap shrink-0"
+            >
+              <span>내 프로필</span>
+            </Link>
+          </div>
+        </header>
 
       {/* ── 3-Column Workspace Body ── */}
       <div
@@ -982,16 +1118,17 @@ export function WorkspaceShell({
         </aside>
       </div>
 
-      {/* ── Mobile 5-Tab Bottom Navigation (<1024px) ── */}
-      <WorkspaceBottomNav
-        tabs={bottomTabs}
-        activeTabId={workspace}
-        hideOnDetail={mobileView !== "list"}
-      />
+        {/* ── Mobile 5-Tab Bottom Navigation (<1024px) ── */}
+        <WorkspaceBottomNav
+          tabs={bottomTabs}
+          activeTabId={workspace}
+          hideOnDetail={mobileView !== "list"}
+        />
 
-      {/* ── In-App QA Pin Widget (?qa=1 또는 검수 모드 활성화 시 표시) ── */}
-      <QaFeedbackPinWidget workspace={workspace} />
-    </div>
+        {/* ── In-App QA Pin Widget (?qa=1 검수 세션에서만 표시) ── */}
+        <QaFeedbackPinWidget workspace={workspace} />
+      </div>
+    </EnsureUndoToastProvider>
   );
 }
 

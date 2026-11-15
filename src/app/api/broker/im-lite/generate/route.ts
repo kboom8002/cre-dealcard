@@ -11,6 +11,13 @@ import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
 import { getServerFeatureFlag } from "@/lib/flags";
+import {
+  buildAiUnavailable503Response,
+  enforceBrokerAiQuota,
+  enforceFeatureQuota,
+  isLLMMockNotAllowedError,
+} from "@/lib/ai-quota-guard";
+import { toApiError } from "@/lib/api-error";
 
 // IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
 // thresholds.ts IM_HARD_TIMEOUT_MS = 180_000 (180초)에 정렬
@@ -57,6 +64,14 @@ export async function POST(req: NextRequest) {
     tier = body.tier || 'basic';
 
     if (ffMobileCorePackage) {
+      const featureQuotaErr = await enforceFeatureQuota(user!.id, "im_generation");
+      if (featureQuotaErr) return featureQuotaErr;
+
+      const aiQuotaErr = await enforceBrokerAiQuota(req, user!.id, "im_lite_generate", {
+        perMinute: 10,
+      });
+      if (aiQuotaErr) return aiQuotaErr;
+
       // ─── Modern Pipeline Branch (CIM-0504)
       return NextResponse.json({
         ok: true,
@@ -81,40 +96,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  // ─── 월간 IM 생성 한도 및 일간/분당 AI 쿼터 검증
+  const featureQuotaErr = await enforceFeatureQuota(user!.id, "im_generation");
+  if (featureQuotaErr) return featureQuotaErr;
+
+  const aiQuotaErr = await enforceBrokerAiQuota(req, user!.id, "im_lite_generate", {
+    perMinute: 10,
+  });
+  if (aiQuotaErr) return aiQuotaErr;
+
   // ─── 핸들러 호출
-  const result = await generateMobileIMHandler({
-    buildingId,
-    userId: user!.id,
-    actorRole: guard.role, // P0-SEC: handler 가 building_ssot_lite.owner_id 로 소유권 판정 (admin 우회만 허용)
-    supplemental,
-    skipApproval,
-    directData,
-    identity,
-    tier,
-  });
+  try {
+    const result = await generateMobileIMHandler({
+      buildingId,
+      userId: user!.id,
+      actorRole: guard.role, // P0-SEC: handler 가 building_ssot_lite.owner_id 로 소유권 판정 (admin 우회만 허용)
+      supplemental,
+      skipApproval,
+      directData,
+      identity,
+      tier,
+    });
 
-  if (!result.ok) {
-    const status = result.statusCode || 500;
-    return NextResponse.json(
-      {
-        error: result.error,
-        score: result.score,
-        threshold: result.threshold,
-        missing: result.missing,
-        hint: result.hint,
-      },
-      { status }
-    );
+    if (!result.ok) {
+      if (typeof result.error === "string" && result.error.includes("LLMMockNotAllowedError")) {
+        return buildAiUnavailable503Response();
+      }
+      const status = result.statusCode || 500;
+      return NextResponse.json(
+        {
+          error: result.error,
+          score: result.score,
+          threshold: result.threshold,
+          missing: result.missing,
+          hint: result.hint,
+        },
+        { status }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      im_lite_id: result.im_lite_id,
+      url: result.url,
+      readiness_score: result.readiness_score,
+      ai_used: result.ai_used,
+      sections_count: result.sections_count,
+      external_data_loaded: result.external_data_loaded,
+      message: result.message,
+    });
+  } catch (error: unknown) {
+    if (isLLMMockNotAllowedError(error)) {
+      return buildAiUnavailable503Response();
+    }
+    return toApiError(error);
   }
-
-  return NextResponse.json({
-    ok: true,
-    im_lite_id: result.im_lite_id,
-    url: result.url,
-    readiness_score: result.readiness_score,
-    ai_used: result.ai_used,
-    sections_count: result.sections_count,
-    external_data_loaded: result.external_data_loaded,
-    message: result.message,
-  });
 }

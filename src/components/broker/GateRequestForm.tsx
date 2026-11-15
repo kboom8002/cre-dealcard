@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 
 export interface GateRequestFormProps {
   buildingId: string;
@@ -18,6 +18,12 @@ export default function GateRequestForm({
   userId,
   onSubmitRequest,
 }: GateRequestFormProps) {
+  const uid = useId();
+  const nameId = `${uid}-gate-req-name`;
+  const contactId = `${uid}-gate-req-contact`;
+  const companyId = `${uid}-gate-req-company`;
+  const reasonId = `${uid}-gate-req-reason`;
+
   const [status, setStatus] = useState(initialStatus);
   const [reason, setReason] = useState('');
   const [name, setName] = useState('');
@@ -37,7 +43,7 @@ export default function GateRequestForm({
         </p>
         <a
           href={`/im-lite/${buildingId}`}
-          className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-6 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-emerald-700"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-6 py-3 text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-emerald-700"
         >
           상세 IM 바로 열람하기 →
         </a>
@@ -52,7 +58,7 @@ export default function GateRequestForm({
           담당 중개인이 IM 열람 요청을 확인 중입니다
         </div>
         <p className="text-sm text-amber-700">
-          승인이 완료되면 입력하신 연락처로 전용 링크를 안내해 드립니다.
+          승인이 완료되면 입력하신 연락처로 안내 링크를 전달해 드립니다.
         </p>
       </div>
     );
@@ -141,52 +147,52 @@ export default function GateRequestForm({
         <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label
-              htmlFor="gate-req-name"
+              htmlFor={nameId}
               className="mb-1 block text-sm font-semibold text-slate-700"
             >
               성함 (필수)
             </label>
             <input
-              id="gate-req-name"
+              id={nameId}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="예: 홍길동 대표"
+              placeholder="성함을 입력해 주세요"
               required
-              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-slate-900 focus:outline-none"
+              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
             />
           </div>
           <div>
             <label
-              htmlFor="gate-req-contact"
+              htmlFor={contactId}
               className="mb-1 block text-sm font-semibold text-slate-700"
             >
               연락처 (필수)
             </label>
             <input
-              id="gate-req-contact"
+              id={contactId}
               type="tel"
               value={contact}
               onChange={(e) => setContact(e.target.value)}
-              placeholder="예: 010-1234-5678"
+              placeholder="010-0000-0000"
               required
-              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-slate-900 focus:outline-none"
+              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
             />
           </div>
           <div className="sm:col-span-2">
             <label
-              htmlFor="gate-req-company"
+              htmlFor={companyId}
               className="mb-1 block text-sm font-semibold text-slate-700"
             >
               소속 / 법인명 (선택)
             </label>
             <input
-              id="gate-req-company"
+              id={companyId}
               type="text"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              placeholder="예: (주)메디컬파트너스"
-              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-slate-900 focus:outline-none"
+              placeholder="법인명 또는 소속을 입력해 주세요"
+              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
             />
           </div>
         </div>
@@ -194,25 +200,25 @@ export default function GateRequestForm({
 
       <div className="mb-3">
         <label
-          htmlFor="gate-req-reason"
+          htmlFor={reasonId}
           className="mb-1 block text-sm font-semibold text-slate-700"
         >
           관심 사유 및 검토 목적 (선택)
         </label>
         <textarea
-          id="gate-req-reason"
+          id={reasonId}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="예: 사옥 이전 검토 중입니다. 상세 임대 현황과 수지분석표를 확인하고 싶습니다."
           rows={2}
-          className="w-full rounded-lg border border-slate-300 bg-white p-3 text-base text-slate-900 focus:border-slate-900 focus:outline-none"
+          className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white p-3 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
         />
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="min-h-[48px] w-full rounded-lg bg-slate-900 px-5 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-50"
+        className="min-h-[48px] w-full rounded-lg bg-slate-900 px-5 py-3 text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-50"
       >
         {loading ? '요청 전송 중...' : '상세 IM 열람 요청하기'}
       </button>

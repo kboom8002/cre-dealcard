@@ -25,7 +25,22 @@ import {
 
 const log = createModuleLogger('magazine-send-batch');
 
-export const BATCH_CONCURRENCY = 5;
+export const BATCH_CONCURRENCY = 2;
+export const BATCH_PACE_MS = 250;
+export const BATCH_429_MAX_RETRIES = 2;
+export const BATCH_429_BASE_DELAY_MS = 300;
+
+export interface RunTargetsOptions {
+  concurrency?: number;
+  paceMs?: number;
+  maxRetries?: number;
+  retryBaseDelayMs?: number;
+}
+
+export function isRateLimitErrorDetail(detail: string | null | undefined): boolean {
+  if (!detail) return false;
+  return /(?:^|\D)429(?:\D|$)|rate[_\s-]*limit|too\s+many\s+requests/i.test(detail);
+}
 
 export const SUBSCRIBER_COLUMNS =
   'id, subscriber_phone, subscriber_name, subscriber_email, segment, channel, interest_profile, client_id, status, ' +
@@ -246,7 +261,13 @@ function renderFor(ctx: RunContext, t: PlannedTarget, unsubscribeUrl: string): G
   };
 }
 
-async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number | undefined, tally: Tally): Promise<void> {
+async function runOne(
+  ctx: RunContext,
+  t: PlannedTarget,
+  dailyCap: number | undefined,
+  tally: Tally,
+  opts?: RunTargetsOptions,
+): Promise<void> {
   tally.total += 1;
   const bucket = t.channel === 'email' ? tally.email : tally.kakao;
 
@@ -285,7 +306,10 @@ async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number | unde
     ? buildIdempotencyKey(ctx.editionKey, recipientHash, t.channel)
     : undefined;
 
-  const res = await sendGate(
+  const maxRetries = opts?.maxRetries ?? BATCH_429_MAX_RETRIES;
+  const retryBaseDelayMs = opts?.retryBaseDelayMs ?? BATCH_429_BASE_DELAY_MS;
+
+  let res = await sendGate(
     {
       subscriber: t.sub,
       channel: t.channel,
@@ -300,6 +324,53 @@ async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number | unde
     },
     { supabase: ctx.supabase, ...ctx.gateDeps },
   );
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (res.ok || !(res.failed || res.blocked === 'PROVIDER_FAILED') || !isRateLimitErrorDetail(res.detail)) {
+      break;
+    }
+
+    // Reopen transient 429 dispatch ledger row from 'failed' -> 'blocked' so sendGate reclaims it cleanly
+    if (idempotencyKey) {
+      try {
+        await ctx.supabase
+          .from('magazine_dispatch_logs')
+          .update({ status: 'blocked', blocked_reason: 'RATE_LIMITED_RETRY' })
+          .eq('idempotency_key', idempotencyKey)
+          .eq('status', 'failed');
+      } catch (reclaimErr) {
+        log.warn('Failed to reopen dispatch ledger row for 429 retry', {
+          error: reclaimErr instanceof Error ? reclaimErr.message : String(reclaimErr),
+        });
+      }
+    }
+
+    const waitMs = retryBaseDelayMs * Math.pow(2, attempt);
+    log.warn('Rate-limit (429) detected in send-batch, retrying after backoff', {
+      channel: t.channel,
+      attempt: attempt + 1,
+      waitMs,
+    });
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+
+    res = await sendGate(
+      {
+        subscriber: t.sub,
+        channel: t.channel,
+        editionId: ctx.editionId,
+        editionKey: ctx.editionKey,
+        idempotencyKey,
+        brokerId: ctx.broker.slug,
+        brokerUserId: ctx.broker.userId,
+        kind: ctx.kind,
+        rendered,
+        dailyCap,
+      },
+      { supabase: ctx.supabase, ...ctx.gateDeps },
+    );
+  }
 
   if (res.ok) {
     if (res.dryRun) {
@@ -319,13 +390,21 @@ async function runOne(ctx: RunContext, t: PlannedTarget, dailyCap: number | unde
   addBlocked(tally, res.blocked);
 }
 
-/** 타깃을 BATCH_CONCURRENCY씩 병렬 처리하고 집계한다. 예외는 failed로 센다(삼키지 않고 로그). */
-export async function runTargets(ctx: RunContext, targets: PlannedTarget[], tally: Tally): Promise<void> {
+/** 타깃을 BATCH_CONCURRENCY씩 페이싱 처리하고 집계한다(Resend >2 req/s 플랜 제한 보호). 예외는 failed로 센다. */
+export async function runTargets(
+  ctx: RunContext,
+  targets: PlannedTarget[],
+  tally: Tally,
+  opts?: RunTargetsOptions,
+): Promise<void> {
   // 속보(flash / special)는 당일 추가 배포가 차단되지 않도록 dailyCap을 생략(undefined), 일반 배포는 당일 재발송/정정 허용을 위해 targets.length * 3
   const dailyCap = ctx.kind === 'flash' ? undefined : targets.length * 3;
-  for (let i = 0; i < targets.length; i += BATCH_CONCURRENCY) {
-    const batch = targets.slice(i, i + BATCH_CONCURRENCY);
-    const results = await Promise.allSettled(batch.map((t) => runOne(ctx, t, dailyCap, tally)));
+  const concurrency = Math.max(1, Math.min(4, opts?.concurrency ?? BATCH_CONCURRENCY));
+  const paceMs = Math.max(0, opts?.paceMs ?? BATCH_PACE_MS);
+
+  for (let i = 0; i < targets.length; i += concurrency) {
+    const batch = targets.slice(i, i + concurrency);
+    const results = await Promise.allSettled(batch.map((t) => runOne(ctx, t, dailyCap, tally, opts)));
     results.forEach((r, idx) => {
       if (r.status === 'rejected') {
         log.error('send target threw', { error: r.reason instanceof Error ? r.reason.message : String(r.reason) });
@@ -333,5 +412,8 @@ export async function runTargets(ctx: RunContext, targets: PlannedTarget[], tall
         (batch[idx].channel === 'email' ? tally.email : tally.kakao).failed += 1;
       }
     });
+    if (paceMs > 0 && i + concurrency < targets.length) {
+      await new Promise((resolve) => setTimeout(resolve, paceMs));
+    }
   }
 }

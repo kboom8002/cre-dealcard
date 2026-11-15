@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createModuleLogger } from '@/lib/logger';
+import { acquireCronIdempotencySlot, verifyCronRequest } from '@/lib/security/cron-auth';
+
 const log = createModuleLogger('route');
 
-
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authFailure = verifyCronRequest(req);
+  if (authFailure) return authFailure;
 
   try {
     const { createServiceClient } = await import('@/lib/supabase/service');
     const supabase = createServiceClient();
+
+    const bucketKey = new Date().toISOString().slice(0, 10);
+    const slot = await acquireCronIdempotencySlot(supabase, 'data-hygiene', bucketKey);
+    if (!slot.acquired) {
+      return NextResponse.json({ status: 'ok', skipped: 'DUPLICATE_SLOT', results: {} });
+    }
+
     const results: Record<string, unknown> = {};
 
     // 1. 30일 이상 draft 상태인 IM 문서 경고 목록 추출
@@ -33,8 +39,6 @@ export async function GET(req: NextRequest) {
     results.staleDrafts = staleDrafts?.length ?? 0;
 
     // 2. pending_confirmation 상태 14일 초과 OCR 데이터 만료 처리
-    // TODO: ocr_status column does not exist on building_ssot_lite. 
-    // This cron job section is non-functional and should be redesigned.
     results.expiredOcrRecords = 0;
 
     // 3. 비활성 골든셋 중 90일 이상 미사용 건 정리

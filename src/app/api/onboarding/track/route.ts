@@ -4,36 +4,67 @@
  * Analytics event ingestion endpoint.
  * Body: { session_token?: string, event_name: string, event_data?: Record<string, unknown> }
  *
- * Always returns { ok: true } — errors are logged but not surfaced.
- * Public endpoint (no auth required).
+ * Public endpoint with IP rate limiting and body size cap.
  */
 
 import { NextRequest } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
-
 import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { getClientIp } from '@/lib/magazine/public-guard';
 
-
-// ── Route handler ─────────────────────────────────────────────────────────────
+const log = createModuleLogger('onboarding-track-route');
+const MAX_BODY_BYTES = 16 * 1024;
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as {
+    const ip = getClientIp(req) ?? 'unknown';
+    const allowed = await checkRateLimit(ip, 'public_onboarding_track', 60, 60_000);
+    if (!allowed) {
+      return Response.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' },
+        { status: 429 }
+      );
+    }
+
+    const declaredLen = Number(req.headers.get('content-length'));
+    if (Number.isFinite(declaredLen) && declaredLen > MAX_BODY_BYTES) {
+      return Response.json(
+        { ok: false, error: '요청 내용이 너무 큽니다.' },
+        { status: 413 }
+      );
+    }
+
+    const rawText = await req.text();
+    if (Buffer.byteLength(rawText, 'utf8') > MAX_BODY_BYTES) {
+      return Response.json(
+        { ok: false, error: '요청 내용이 너무 큽니다.' },
+        { status: 413 }
+      );
+    }
+
+    let body: {
       session_token?: unknown;
       event_name?: unknown;
       event_data?: unknown;
-    };
+    } = {};
+    try {
+      body = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return Response.json({ ok: false, error: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
+    }
 
-    const eventName = typeof body.event_name === 'string' ? body.event_name.trim() : null;
+    const eventName =
+      typeof body.event_name === 'string'
+        ? body.event_name.trim().slice(0, 100)
+        : null;
     if (!eventName) {
-      // Still return ok:true — bad event names are silently dropped
       return Response.json({ ok: true });
     }
 
     const sessionToken =
-      typeof body.session_token === 'string' && body.session_token.length > 0
-        ? body.session_token
+      typeof body.session_token === 'string' && body.session_token.trim().length > 0
+        ? body.session_token.trim().slice(0, 200)
         : null;
 
     const eventData =
@@ -52,7 +83,7 @@ export async function POST(req: NextRequest) {
         .from('onboarding_sessions')
         .select('id')
         .eq('session_token', sessionToken)
-        .single();
+        .maybeSingle();
       sessionId = session?.id ?? null;
     }
 
@@ -64,11 +95,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      log.error('[onboarding/track] DB insert error:', error);
+      log.warn('[onboarding/track] DB insert degraded', { code: error.code || 'UNKNOWN' });
     }
 
     // 온보딩 완료 이벤트 수신 시 onboarding_sessions.completed_at 업데이트 (안전망)
-    // save-profile이 호출되지 않은 경우를 대비한 보조 경로
     if (eventName === 'onboard_complete' && sessionId) {
       await supabase
         .from('onboarding_sessions')
@@ -78,11 +108,12 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', sessionId)
-        .is('completed_at', null); // 이미 완료된 경우 덮어쓰지 않음
+        .is('completed_at', null);
     }
   } catch (err) {
-    // Never let analytics break the caller
-    log.error('[onboarding/track] Unexpected error:', err);
+    log.warn('[onboarding/track] Unexpected error', {
+      message: err instanceof Error ? err.message.slice(0, 120) : 'unknown',
+    });
   }
 
   return Response.json({ ok: true });

@@ -285,7 +285,16 @@ describe("Wave 3 Adversarial Challenge Suite", () => {
         );
       });
 
-      // 1) 초기 상태: '카카오톡으로 받기' 선택 (기본값)
+      // 1) 초기 상태: '이메일' 기본값 확인 후 '카카오톡' 탭 전환 (NO_EMAIL_CONFIRM_CHANNEL 검증)
+      expect(container.querySelector<HTMLInputElement>('input[type="email"]')).not.toBeNull();
+      const kakaoTabBtn = Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '카카오톡'
+      );
+      expect(kakaoTabBtn).toBeDefined();
+      await act(async () => {
+        kakaoTabBtn?.click();
+      });
+
       const phoneInput = container.querySelector<HTMLInputElement>('input[type="tel"]');
       expect(phoneInput).not.toBeNull();
 

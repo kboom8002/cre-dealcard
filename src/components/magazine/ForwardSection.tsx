@@ -13,6 +13,7 @@ import { Gift } from "lucide-react";
 import { toast } from "sonner";
 import { resolvePublicBaseUrl } from "@/lib/magazine/share-urls";
 import { useViewerTrack } from "@/components/magazine/viewer-track";
+import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 
 export function ForwardSection({
   brokerId,
@@ -44,17 +45,17 @@ export function ForwardSection({
     return `${base}/magazine/${encodeURIComponent(brokerId)}`;
   };
 
-  const copyText = async (url: string, kind: "issue" | "subscribe", via: "share" | "copy") => {
-    try {
-      await navigator.clipboard.writeText(url);
+  const handleCopyUrl = async (url: string, kind: "issue" | "subscribe", via: "share" | "copy") => {
+    const ok = await copyText(url);
+    if (ok) {
       setCopiedKind(kind);
       toast.success("주소가 복사되었습니다. 카카오톡 창에 붙여넣기 하세요.");
       onTrack("referral_copy", { via, kind });
       setTimeout(() => {
         setCopiedKind((prev) => (prev === kind ? null : prev));
       }, 8000);
-    } catch {
-      toast.error("링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.");
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
     }
   };
 
@@ -74,7 +75,7 @@ export function ForwardSection({
         if ((err as { name?: string } | null)?.name === "AbortError") return;
       }
     }
-    await copyText(url, "issue", "share");
+    await handleCopyUrl(url, "issue", "share");
   };
 
   const handleShareSubscribe = async () => {
@@ -93,7 +94,7 @@ export function ForwardSection({
         if ((err as { name?: string } | null)?.name === "AbortError") return;
       }
     }
-    await copyText(url, "subscribe", "copy");
+    await handleCopyUrl(url, "subscribe", "copy");
   };
 
   const COPIED_MSG = "✓ 주소가 복사되었습니다 (카톡 창에 붙여넣기 하세요)";

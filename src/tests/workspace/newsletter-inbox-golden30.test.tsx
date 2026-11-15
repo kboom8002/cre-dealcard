@@ -440,9 +440,21 @@ describe("Newsletter & Inbox 30-Item Golden Test Dry-Run (NL-G01~08, IB-G01~16, 
         setInputValue(msgInput, "투심위 상정용 렌트롤 및 상세 IM 요청드립니다");
       });
 
+      const consentCheckbox = container.querySelector(
+        '[data-testid="contact-gate-privacy-consent"]'
+      ) as HTMLInputElement;
+      expect(consentCheckbox).not.toBeNull();
+
       const submitBtn = container.querySelector(
         '[data-testid="contact-gate-submit-btn"]'
       ) as HTMLButtonElement;
+      expect(submitBtn.disabled).toBe(true);
+
+      await act(async () => {
+        consentCheckbox.click();
+      });
+      expect(submitBtn.disabled).toBe(false);
+
       await act(async () => {
         submitBtn.click();
       });

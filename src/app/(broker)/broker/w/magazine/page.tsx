@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, Suspense } from "react";
+import React, { useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export interface FeaturedDealItem {
@@ -28,19 +28,33 @@ export interface MagazineIssueItem {
   featuredDeals: FeaturedDealItem[];
 }
 
+export function buildCanonicalMagazineRedirectUrl(
+  searchParamsStr?: string | null,
+  windowLocationSearch?: string | null
+): string {
+  const fromHook = (searchParamsStr || "").replace(/^\?/, "").trim();
+  const fromWindow = (windowLocationSearch || "").replace(/^\?/, "").trim();
+  const resolvedQuery = fromHook || fromWindow;
+  return resolvedQuery
+    ? `/broker/magazine-editor?${resolvedQuery}`
+    : "/broker/magazine-editor";
+}
+
 function MagazineWorkspaceRedirectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const lastRedirectTargetRef = useRef<string | null>(null);
+  const qs = searchParams?.toString() ?? "";
 
   useEffect(() => {
-    const qs = searchParams?.toString();
-    const search = qs
-      ? `?${qs}`
-      : typeof window !== "undefined" && window.location.search
-        ? window.location.search
-        : "";
-    router.replace(`/broker/magazine-editor${search}`);
-  }, [router, searchParams]);
+    const target = buildCanonicalMagazineRedirectUrl(
+      qs,
+      typeof window !== "undefined" ? window.location.search : ""
+    );
+    if (lastRedirectTargetRef.current === target) return;
+    lastRedirectTargetRef.current = target;
+    router.replace(target);
+  }, [router, qs]);
 
   return (
     <div

@@ -210,8 +210,8 @@ describe('IM Error Paths API Routes', () => {
     expect(data.error).toContain('Pro IM은 B등급(완성도 60%) 이상의 데이터가 필요합니다.');
   });
 
-  // EP07: PUT save-sections on published document → 400
-  test('EP07: PUT save-sections on published document returns 400', async () => {
+  // EP07: PUT save-sections on published document → 409 (SEALED_VERSION_IMMUTABLE)
+  test('EP07: PUT save-sections on published document returns 409', async () => {
     mockDocumentData = {
       id: 'pub-doc',
       owner_id: '00000000-0000-0000-0000-000000000001',
@@ -225,7 +225,7 @@ describe('IM Error Paths API Routes', () => {
     });
     const params = Promise.resolve({ id: 'pub-doc' });
     const res = await putSaveSectionsIM(req, { params });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
   });
 
   // EP08: PUT save-sections with invalid section format → 400
@@ -295,10 +295,8 @@ describe('IM Error Paths API Routes', () => {
     expect(res.status).toBe(200);
   });
 
-  // EP12: GET public viewer for draft doc → 200 (if automatically resolved in the same query)
-  // Note: the route queries `document_type: ['mobile_im', 'im_lite_draft', 'blind_teaser']`. 
-  // It does not filter out draft docs if they have sections. We test that it succeeds and returns data.
-  test('EP12: GET public viewer for draft doc returns 200 with data', async () => {
+  // EP12: GET public viewer for draft doc without owner auth → 404 (P0-SEC / WP-03 published-only enforcement)
+  test('EP12: GET public viewer for draft doc without auth returns 404', async () => {
     mockDocumentData = {
       id: 'draft-doc-123',
       owner_id: 'mock-user-id',
@@ -309,9 +307,7 @@ describe('IM Error Paths API Routes', () => {
     const req = new NextRequest('http://localhost:3000/api/public/im-lite/b-123');
     const params = Promise.resolve({ buildingId: 'b-123' });
     const res = await getPublicIMLite(req, { params });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.data.sections.length).toBe(1);
+    expect(res.status).toBe(404);
   });
 
   // EP13: POST generate-async with missing building_id → 400

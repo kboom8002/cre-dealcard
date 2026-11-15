@@ -26,6 +26,9 @@ export interface BlindGuardOptions {
   region?: string;
   assetType?: string;
   buildingCountInRegion?: number;
+  floorCount?: number;
+  areaPyung?: number;
+  areaBand?: string;
 }
 
 export interface BlindValidationResult {
@@ -37,22 +40,105 @@ export interface BlindValidationResult {
   suggestedRegion?: string;
 }
 
-// Rare asset types that have high re-identification risk at the Dong level
-const RARE_ASSET_TYPES = new Set([
+// Rare asset types that have high single-building identification risk at the Dong level
+export const RARE_ASSET_TYPES = new Set([
   '호텔',
   '모텔',
   '숙박시설',
+  '의료시설',
   '병원',
+  '의원',
   '메디컬빌딩',
+  '종교시설',
+  '주유소',
+  '자동차관련시설',
   '물류센터',
   '창고',
   '지식산업센터',
   '공장',
   'hotel',
   'hospital',
+  'clinic',
+  'medical',
+  'religious',
+  'gas_station',
+  'auto_facility',
   'logistics',
   'knowledge_industry',
 ]);
+
+const RARE_ASSET_SUBSTRINGS = [
+  '의료시설',
+  '병원',
+  '의원',
+  '메디컬빌딩',
+  '종교시설',
+  '주유소',
+  '자동차관련시설',
+  '호텔',
+  '모텔',
+  '숙박시설',
+  '물류센터',
+  '창고',
+  '지식산업센터',
+  '공장',
+];
+
+const STANDALONE_DONG_TO_GU: Readonly<Record<string, string>> = {
+  신사동: '강남구',
+  역삼동: '강남구',
+  논현동: '강남구',
+  청담동: '강남구',
+  삼성동: '강남구',
+  대치동: '강남구',
+  도곡동: '강남구',
+  서초동: '서초구',
+  반포동: '서초구',
+  잠원동: '서초구',
+  방배동: '서초구',
+  양재동: '서초구',
+  성수동: '성동구',
+  성수동1가: '성동구',
+  성수동2가: '성동구',
+  왕십리동: '성동구',
+  자양동: '광진구',
+  화양동: '광진구',
+  당산동: '영등포구',
+  당산동1가: '영등포구',
+  당산동2가: '영등포구',
+  당산동3가: '영등포구',
+  당산동4가: '영등포구',
+  당산동5가: '영등포구',
+  당산동6가: '영등포구',
+  양평동: '영등포구',
+  양평동1가: '영등포구',
+  양평동2가: '영등포구',
+  양평동3가: '영등포구',
+  양평동4가: '영등포구',
+  양평동5가: '영등포구',
+  양평동6가: '영등포구',
+  여의도동: '영등포구',
+  문래동: '영등포구',
+  서교동: '마포구',
+  동교동: '마포구',
+  합정동: '마포구',
+  연남동: '마포구',
+  공덕동: '마포구',
+  한남동: '용산구',
+  이태원동: '용산구',
+  갈월동: '용산구',
+  을지로동: '중구',
+  명동: '중구',
+  종로1가: '종로구',
+};
+
+export function isRareAssetType(assetType?: string | null): boolean {
+  if (!assetType || typeof assetType !== 'string') return false;
+  const normalized = assetType.toLowerCase().trim();
+  if (!normalized) return false;
+  if (RARE_ASSET_TYPES.has(normalized)) return true;
+  return RARE_ASSET_SUBSTRINGS.some((kw) => normalized.includes(kw));
+}
 
 // Generic terms that are SAFE even if they end in 빌딩/타워
 const GENERIC_BUILDING_TERMS = new Set([
@@ -302,16 +388,54 @@ export function suggestFallbackRegion(region?: string): string {
   if (!region || typeof region !== 'string') return '서울시';
   const trimmed = region.trim();
 
-  // Pattern: "서울특별시 강남구 신사동", "서울시 강남구 역삼동", or "강남구 신사동"
+  // Pattern: "서울특별시 강남구 신사동", "서울 강남구 신사동", "서울시 강남구 역삼동", or "강남구 신사동"
   const match = trimmed.match(
-    /^((?:[가-힣]+(?:특별시|광역시|특별자치시|특별자치도|시|도)\s*)*[가-힣]+(?:구|군|시))\s+[가-힣0-9]+(?:동|읍|면|가|리)/,
+    /^((?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[가-힣]+(?:특별시|광역시|특별자치시|특별자치도|시|도))\s+)*[가-힣]+(?:구|군|시))\s+[가-힣0-9]+(?:동(?:\d+가)?|읍|면|가|리)/,
   );
   if (match) {
     return match[1];
   }
 
+  // Standalone Dong fallback (e.g. "신사동" -> "강남구", "당산동" -> "영등포구")
+  const cleanToken = trimmed.replace(/\s*인근$/, '').trim();
+  if (STANDALONE_DONG_TO_GU[cleanToken]) {
+    return STANDALONE_DONG_TO_GU[cleanToken];
+  }
+  if (/^[가-힣0-9]{2,8}(?:동(?:\d+가)?|읍|면|리)$/.test(cleanToken)) {
+    return '서울시';
+  }
+
   // If already at Gu level or cannot parse dong
   return trimmed;
+}
+
+function hasExactFloorOrNarrowAreaSpec(
+  points: readonly string[],
+  options?: BlindGuardOptions,
+): boolean {
+  if (typeof options?.floorCount === 'number' && options.floorCount > 0) return true;
+  if (typeof options?.areaPyung === 'number' && options.areaPyung > 0) return true;
+  if (typeof options?.areaBand === 'string' && options.areaBand.trim()) {
+    const bandMatch = options.areaBand.match(/(\d+(?:\.\d+)?)\s*[~-]\s*(\d+(?:\.\d+)?)/);
+    if (bandMatch) {
+      const span = Math.abs(parseFloat(bandMatch[2]) - parseFloat(bandMatch[1]));
+      if (span <= 50) return true;
+    } else if (/\d+(?:\.\d+)?\s*(?:평|㎡)/.test(options.areaBand)) {
+      return true;
+    }
+  }
+
+  const joined = points.join(' ');
+  const hasExactFloor = /(?:지상|지하|B\d+\s*[~-]\s*|\b)\d{1,2}\s*(?:층|F)(?![가-힣])/i.test(joined);
+  if (hasExactFloor) return true;
+
+  const bandInText = joined.match(/(\d+(?:\.\d+)?)\s*[~-]\s*(\d+(?:\.\d+)?)\s*평/);
+  if (bandInText) {
+    const span = Math.abs(parseFloat(bandInText[2]) - parseFloat(bandInText[1]));
+    if (span <= 50) return true;
+  }
+  const hasExactArea = /(?:대지|연면적|전용)?\s*(?:약\s*)?\d{2,5}(?:\.\d+)?\s*(?:평|㎡)(?![가-힣~-])/.test(joined);
+  return hasExactArea;
 }
 
 /**
@@ -321,18 +445,18 @@ export function checkAreaKAnonymity(
   region?: string,
   assetType?: string,
   buildingCountInRegion?: number,
+  hasSpecificScale?: boolean,
 ): { shouldFallback: boolean; suggestedRegion: string; notice?: string } {
   const suggestedRegion = suggestFallbackRegion(region);
-  const normalizedAsset = (assetType || '').toLowerCase().trim();
-
-  const isRareAsset = RARE_ASSET_TYPES.has(normalizedAsset);
+  const isRareAsset = isRareAssetType(assetType);
   const isLowDensity = typeof buildingCountInRegion === 'number' && buildingCountInRegion < 5;
 
   if (isRareAsset) {
+    const scaleDetail = hasSpecificScale ? ' (층수·면적 병기 시 단일 건물 특정 우려)' : '';
     return {
       shouldFallback: true,
       suggestedRegion,
-      notice: `희소 용도(${assetType || '특수용도'})는 동 단위로 적으면 건물이 특정될 수 있어 구 단위(${suggestedRegion}) 표기를 권장합니다.`,
+      notice: `희소 용도(${assetType || '특수용도'})${scaleDetail}는 동 단위로 적으면 건물이 특정될 수 있어 구 단위(${suggestedRegion}) 표기를 권장합니다.`,
     };
   }
 
@@ -365,8 +489,33 @@ export function validateBlindPoints(
     violations.push(...pointViolations);
   });
 
-  const cleanedPoints = cleanBlindPoints(trimmedPoints);
-  const kAnon = checkAreaKAnonymity(options?.region, options?.assetType, options?.buildingCountInRegion);
+  const joinedText = trimmedPoints.join(' ');
+  const detectedRareInPoints = RARE_ASSET_SUBSTRINGS.find((kw) => joinedText.includes(kw));
+  const hasSpecificScale = hasExactFloorOrNarrowAreaSpec(trimmedPoints, options);
+  const effectiveAssetType =
+    options?.assetType && isRareAssetType(options.assetType)
+      ? options.assetType
+      : detectedRareInPoints && hasSpecificScale
+        ? detectedRareInPoints
+        : options?.assetType;
+
+  const kAnon = checkAreaKAnonymity(
+    options?.region,
+    effectiveAssetType,
+    options?.buildingCountInRegion,
+    hasSpecificScale,
+  );
+
+  let cleanedPoints = cleanBlindPoints(trimmedPoints);
+  if (kAnon.shouldFallback && hasSpecificScale && isRareAssetType(effectiveAssetType)) {
+    const guOnly = kAnon.suggestedRegion.replace(/^.*?\s+([가-힣]+(?:구|군|시))$/, '$1');
+    cleanedPoints = cleanedPoints.map((pt) =>
+      pt.replace(
+        /([가-힣0-9]{2,8}(?:동(?:\d+가)?|읍|면|리))(?=\s|$|[·,])/g,
+        (dongToken) => (dongToken.endsWith('구') ? dongToken : guOnly),
+      ),
+    );
+  }
 
   return {
     isValid: violations.length === 0,

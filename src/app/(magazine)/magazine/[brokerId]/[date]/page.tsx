@@ -1,4 +1,4 @@
-import { cache, Suspense } from "react";
+import React, { cache } from "react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
@@ -11,6 +11,7 @@ import {
   findLatestIssueDate,
   maskPublicAddresses,
   resolvePublicBroker,
+  resolvePublicBrokerStatutoryProfile,
   resolvePublicDisplayName,
   type MagazineContent,
 } from "@/lib/magazine/public-page-data";
@@ -34,7 +35,7 @@ function readPreviewParams(sp: { preview?: string | string[]; edition?: string |
 }
 
 const BROKER_COLUMNS =
-  "user_id, slug, name, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url, specialty_regions, specialty_assets, bio";
+  "user_id, slug, name, office_address, office_reg_number, representative_name, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url, specialty_regions, specialty_assets, bio";
 
 type PageState =
   | { kind: "no-broker" }
@@ -74,18 +75,37 @@ const loadPage = cache(async (brokerParam: string, date: string, editionId?: str
   if (isUnpublishedContent(issue)) return unpublished("draft");
 
   // 중개사 이름 SSOT: 발행 스냅샷(data.broker.name)이 아니라 구독 페이지와 같은 공개 표시명을 쓴다.
-  const displayName = await resolvePublicDisplayName(supabase, broker);
+  const [displayName, statutoryProfile] = await Promise.all([
+    resolvePublicDisplayName(supabase, broker),
+    resolvePublicBrokerStatutoryProfile(supabase, broker),
+  ]);
   const masked = maskPublicAddresses(issue);
   const snapshotBroker = (masked.broker && typeof masked.broker === "object" ? masked.broker : {}) as Record<string, unknown>;
+  const statutoryPatch: Record<string, unknown> = {
+    ...(statutoryProfile.company ? { company: statutoryProfile.company } : {}),
+    ...(statutoryProfile.phone ? { phone: statutoryProfile.phone } : {}),
+    ...(statutoryProfile.officeAddress ? { officeAddress: statutoryProfile.officeAddress } : {}),
+    ...(statutoryProfile.officeRegNumber ? { officeRegNumber: statutoryProfile.officeRegNumber } : {}),
+    ...(statutoryProfile.representativeName ? { representativeName: statutoryProfile.representativeName } : {}),
+  };
   const data: MagazineContent = displayName
-    ? { ...masked, broker: { ...snapshotBroker, name: displayName } }
-    : masked;
+    ? { ...masked, broker: { ...snapshotBroker, name: displayName, ...statutoryPatch } }
+    : Object.keys(statutoryPatch).length > 0
+      ? { ...masked, broker: { ...snapshotBroker, ...statutoryPatch } }
+      : masked;
 
   return {
     kind: "ok",
     data,
     brokerSlug: broker.slug,
-    brokerVibe: broker,
+    brokerVibe: {
+      ...broker,
+      ...(statutoryProfile.company ? { company: statutoryProfile.company } : {}),
+      ...(statutoryProfile.phone ? { phone: statutoryProfile.phone } : {}),
+      ...(statutoryProfile.officeAddress ? { office_address: statutoryProfile.officeAddress } : {}),
+      ...(statutoryProfile.officeRegNumber ? { office_reg_number: statutoryProfile.officeRegNumber } : {}),
+      ...(statutoryProfile.representativeName ? { representative_name: statutoryProfile.representativeName } : {}),
+    },
   };
 });
 
@@ -213,9 +233,9 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
         target={sp.target !== undefined ? parseViewerTarget(sp.target) : undefined}
       />
       {showPublicQaPin && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <QaFeedbackPinWidget workspace="public-newsletter" requireExplicitQueryParam />
-        </Suspense>
+        </React.Suspense>
       )}
     </>
   );

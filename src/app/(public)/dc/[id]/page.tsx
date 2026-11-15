@@ -28,6 +28,7 @@ import { PublicPolicyBlock } from '@/components/teaser/PublicPolicyBlock';
 import { CTALadder } from '@/components/teaser/CTALadder';
 import { TrustLine } from '@/components/teaser/TrustLine';
 import { PoweredByBadge } from '@/components/ui/PoweredByBadge';
+import { ReaderFontScaleToggle } from '@/components/ui/ReaderFontScaleToggle';
 
 import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
@@ -78,26 +79,31 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
       },
     },
     brokerProfile: (quickRec.brokerProfile || quickRec.basicImDoc?.facts?.brokerOffice
-      ? {
-          display_name:
-            quickRec.brokerProfile?.displayName ||
-            quickRec.basicImDoc?.facts?.brokerOffice?.representative ||
-            "담당 중개사",
-          phone:
-            quickRec.brokerProfile?.phone ||
-            (quickRec.basicImDoc?.facts?.brokerOffice?.phone !== "-"
-              ? quickRec.basicImDoc?.facts?.brokerOffice?.phone
-              : null),
-          specialty:
-            quickRec.brokerProfile?.company ||
-            quickRec.basicImDoc?.facts?.brokerOffice?.name ||
-            "검증 공인중개사",
-          avatar_url: quickRec.brokerProfile?.photoUrl || null,
-          is_licensed: Boolean(quickRec.brokerProfile?.registrationNo),
-          response_guarantee_hours: null,
-          closed_deals: null,
-          slug: quickRec.brokerProfile?.slug || null,
-        }
+      ? (() => {
+          const bp = (quickRec.brokerProfile ?? {}) as Record<string, any>;
+          const bo = (quickRec.basicImDoc?.facts?.brokerOffice ?? {}) as Record<string, any>;
+          return {
+            display_name: bp.displayName || bo.representative || "담당 중개사",
+            phone: bp.phone || (bo.phone !== "-" ? bo.phone : null),
+            specialty: bp.company || bo.name || "검증 공인중개사",
+            company: bp.company || bp.officeName || bo.name || null,
+            office_address:
+              bp.officeAddress || bp.office_address || bo.address || bo.officeAddress || null,
+            office_reg_number:
+              bp.registrationNo || bp.office_reg_number || bo.registrationNo || null,
+            representative_name:
+              bp.representativeName ||
+              bp.representative_name ||
+              bo.representative ||
+              bp.displayName ||
+              null,
+            avatar_url: bp.photoUrl || null,
+            is_licensed: Boolean(bp.registrationNo || bp.office_reg_number || bo.registrationNo),
+            response_guarantee_hours: null,
+            closed_deals: null,
+            slug: bp.slug || null,
+          };
+        })()
       : null) as Record<string, any> | null,
     hasImDoc: true,
     isPptxApproved: true,
@@ -220,7 +226,10 @@ const getDealCardData = cache(async (id: string) => {
       return buildDealCardDataFromQuickRecord(quickRec);
     }
 
-    return { ...emptyData, buildingStatus: "archived" };
+    const rawIdStr = String(id);
+    if (rawIdStr.startsWith("bld-") || rawIdStr.startsWith("quick-")) {
+      return { ...emptyData, buildingStatus: "archived" };
+    }
   }
 
   let targetBuildingId = id;
@@ -381,10 +390,12 @@ const getDealCardData = cache(async (id: string) => {
 
   let brokerProfile: Record<string, any> | null = null;
   if (ownerId) {
-    const [{ data: bProfile }, { data: baseProfile }] = await Promise.all([
+    const [bProfileRes, { data: baseProfile }] = await Promise.all([
       supabase
         .from("broker_profiles")
-        .select("*")
+        .select(
+          "user_id, slug, name, avatar_url, specialty, license_number, office_reg_number, office_address, representative_name, response_time_hours, total_deal_count_self"
+        )
         .eq("user_id", ownerId)
         .maybeSingle(),
       supabase
@@ -394,6 +405,17 @@ const getDealCardData = cache(async (id: string) => {
         .maybeSingle(),
     ]);
 
+    let bProfile: Record<string, any> | null =
+      (bProfileRes.data as Record<string, any> | null) ?? null;
+    if (bProfileRes.error) {
+      const fallbackRes = await supabase
+        .from("broker_profiles")
+        .select("*")
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      bProfile = (fallbackRes.data as Record<string, any> | null) ?? null;
+    }
+
     const avatarUrl =
       (bProfile as any)?.avatar_url ||
       baseProfile?.photo_url ||
@@ -402,8 +424,13 @@ const getDealCardData = cache(async (id: string) => {
     const displayName =
       baseProfile?.display_name || (bProfile as any)?.name || (bProfile as any)?.display_name || "담당 중개사";
     const phone = baseProfile?.phone || (bProfile as any)?.phone || null;
-    const specialty =
+    const company =
       baseProfile?.company ||
+      (bProfile as any)?.office_name ||
+      (bProfile as any)?.company ||
+      null;
+    const specialty =
+      company ||
       (bProfile as any)?.specialty ||
       ((baseProfile as any)?.tagline ? (baseProfile as any).tagline : "검증 공인중개사");
 
@@ -411,6 +438,14 @@ const getDealCardData = cache(async (id: string) => {
       display_name: displayName,
       phone,
       specialty,
+      company,
+      office_address: (bProfile as any)?.office_address ?? null,
+      office_reg_number: (bProfile as any)?.office_reg_number ?? null,
+      representative_name:
+        (bProfile as any)?.representative_name ??
+        baseProfile?.display_name ??
+        (bProfile as any)?.name ??
+        null,
       avatar_url: avatarUrl,
       is_licensed: Boolean((bProfile as any)?.license_number || (bProfile as any)?.office_reg_number),
       response_guarantee_hours:
@@ -545,7 +580,18 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
       <TeaserEventTracker teaserConfigId={card.teaserConfigId} />
       <PostureMeta input={card.postureWidget} />
 
-      <div className="max-w-[420px] mx-auto px-4 pt-5 space-y-4">
+      <div className="max-w-[420px] mx-auto px-4 pt-4 space-y-4">
+        {/* 상단 글자 크기 조절 바 (60~70대 매수인 배려) */}
+        <div
+          data-testid="public-dealcard-top-bar"
+          className="flex items-center justify-between gap-2"
+        >
+          <span className="text-sm font-bold text-slate-200 tracking-tight">
+            매물 핵심 요약
+          </span>
+          <ReaderFontScaleToggle variant="dark" />
+        </div>
+
         {/* 상단 4항목 요약 (지역 · 용도 · 면적 · 가격) + 한 줄 제목 */}
         <section
           data-testid="public-dealcard-4fact-header"
@@ -649,6 +695,10 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           brokerSlug={broker.slug ?? undefined}
           brokerAvatarUrl={broker.avatarUrl ?? undefined}
           specialty={broker.specialty ?? undefined}
+          officeName={broker.officeName ?? undefined}
+          officeAddress={broker.officeAddress ?? undefined}
+          officeRegNumber={broker.officeRegNumber ?? undefined}
+          representativeName={broker.representativeName ?? undefined}
           responseGuaranteeHours={broker.responseGuaranteeHours ?? undefined}
           closedDeals={broker.closedDeals ?? undefined}
           isLicensed={broker.isLicensed}

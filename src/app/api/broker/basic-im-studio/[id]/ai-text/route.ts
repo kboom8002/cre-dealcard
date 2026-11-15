@@ -28,6 +28,12 @@ import {
   validateImGeneratedCopy,
 } from '@/domain/building/mobile-im/workspace-ai-enhancer';
 import { createModuleLogger } from '@/lib/logger';
+import {
+  buildAiUnavailable503Response,
+  enforceBrokerAiQuota,
+  isLLMMockNotAllowedError,
+} from '@/lib/ai-quota-guard';
+import { toApiError } from '@/lib/api-error';
 
 const log = createModuleLogger('basic-im-studio-ai-text');
 
@@ -541,6 +547,13 @@ export async function POST(
     );
 
     if (!isTestBypass && !isDeterministicLLMMode()) {
+      const quotaErr = await enforceBrokerAiQuota(
+        req,
+        studioGuard?.user?.id ?? '',
+        'basic_im_studio_ai_text',
+      );
+      if (quotaErr) return quotaErr;
+
       try {
         const llmRefined = await tryRefineWithSotaLlm({
           dataKey,
@@ -562,7 +575,7 @@ export async function POST(
           });
         }
       } catch (llmErr: unknown) {
-        if (llmErr instanceof LLMMockNotAllowedError) {
+        if (llmErr instanceof LLMMockNotAllowedError || isLLMMockNotAllowedError(llmErr)) {
           log.warn('[studio/ai-text] LLM Mock 거부 — 결정론적 SSOT 폴백 전환');
         } else {
           log.warn('[studio/ai-text] LLM 정제 실패 — 결정론적 SSOT 폴백 전환:', llmErr);
@@ -578,10 +591,9 @@ export async function POST(
       source: 'deterministic_fallback',
     });
   } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : 'AI 문구 다듬기에 실패했습니다.';
-    return NextResponse.json(
-      { ok: false, error: errMsg },
-      { status: 500 },
-    );
+    if (isLLMMockNotAllowedError(err)) {
+      return buildAiUnavailable503Response();
+    }
+    return toApiError(err);
   }
 }

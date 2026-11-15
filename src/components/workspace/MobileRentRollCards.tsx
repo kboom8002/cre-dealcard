@@ -127,7 +127,7 @@ export function MobileRentRollCards({
               key={row.id || idx}
               type="button"
               onClick={() => setActiveFloorIndex(idx)}
-              className={`min-h-[48px] px-4 py-2 rounded-xl text-[16px] font-bold border transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              className={`min-h-[48px] px-4 py-2 rounded-xl text-base font-bold border transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 isActive
                   ? "bg-[#0F172A] text-white border-[#0F172A] shadow-sm"
                   : isVacant
@@ -137,7 +137,7 @@ export function MobileRentRollCards({
             >
               <span>{row.floor}</span>
               <span
-                className={`text-[14px] px-1.5 py-0.5 rounded ${
+                className={`text-sm px-1.5 py-0.5 rounded ${
                   isActive ? "bg-white/20 text-white" : "bg-[#F3F2EE] text-[#475569]"
                 }`}
               >
@@ -151,7 +151,7 @@ export function MobileRentRollCards({
           <button
             type="button"
             onClick={onAddFloor}
-            className="min-h-[48px] px-3 py-2 rounded-xl text-[15px] font-semibold text-[#1D4ED8] bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-[#DBEAFE] cursor-pointer whitespace-nowrap"
+            className="min-h-[48px] px-3 py-2 rounded-xl text-base font-semibold text-[#1D4ED8] bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-[#DBEAFE] cursor-pointer whitespace-nowrap"
           >
             + 층 추가
           </button>
@@ -163,10 +163,10 @@ export function MobileRentRollCards({
         <div className="bg-white rounded-2xl border-2 border-[#CBD5E1] p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
             <div className="flex items-center gap-2">
-              <span className="text-[20px] font-extrabold text-[#0F172A]">
+              <span className="text-xl font-extrabold text-[#0F172A]">
                 {currentFloor.floor} 층 입력
               </span>
-              <span className="text-[14px] text-[#475569]">
+              <span className="text-sm text-[#475569]">
                 ({safeFloorIndex + 1} / {rows.length})
               </span>
             </div>
@@ -175,7 +175,7 @@ export function MobileRentRollCards({
               <button
                 type="button"
                 onClick={() => handleDeleteRow(safeFloorIndex)}
-                className="text-[14px] font-semibold text-[#991B1B] hover:underline cursor-pointer min-h-[48px] px-2 flex items-center"
+                className="text-sm font-semibold text-[#991B1B] hover:underline cursor-pointer min-h-[48px] px-2 flex items-center"
               >
                 삭제
               </button>
@@ -184,7 +184,7 @@ export function MobileRentRollCards({
 
           {/* Status selector 3 pills */}
           <div>
-            <label className="block text-[15px] font-bold text-[#0F172A] mb-2">
+            <label className="block text-base font-bold text-[#0F172A] mb-2">
               임대 현황 (상태)
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -196,7 +196,7 @@ export function MobileRentRollCards({
                     key={st}
                     type="button"
                     onClick={() => handleStatusChange(safeFloorIndex, st)}
-                    className={`min-h-[48px] py-2.5 px-3 rounded-xl text-[16px] font-bold border transition-all cursor-pointer ${
+                    className={`min-h-[48px] py-2.5 px-3 rounded-xl text-base font-bold border transition-all cursor-pointer ${
                       isSelected
                         ? "bg-[#0F172A] text-white border-[#0F172A] shadow-sm"
                         : "bg-[#FAF9F5] text-[#334155] border-[#CBD5E1] hover:bg-white"
@@ -212,32 +212,32 @@ export function MobileRentRollCards({
           {/* Floor & Unit */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[14px] font-semibold text-[#334155] mb-1">
+              <label className="block text-sm font-semibold text-[#334155] mb-1">
                 층 표기
               </label>
               <input
                 type="text"
                 value={currentFloor.floor}
                 onChange={(e) => handleUpdateRow(safeFloorIndex, { floor: e.target.value })}
-                className="w-full min-h-[48px] px-3 text-[17px] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+                className="w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
             </div>
             <div>
-              <label className="block text-[14px] font-semibold text-[#334155] mb-1">
+              <label className="block text-sm font-semibold text-[#334155] mb-1">
                 호수/위치
               </label>
               <input
                 type="text"
                 value={currentFloor.unit}
                 onChange={(e) => handleUpdateRow(safeFloorIndex, { unit: e.target.value })}
-                className="w-full min-h-[48px] px-3 text-[17px] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+                className="w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
             </div>
           </div>
 
           {/* Use / Tenant */}
           <div>
-            <label className="block text-[14px] font-semibold text-[#334155] mb-1">
+            <label className="block text-sm font-semibold text-[#334155] mb-1">
               업종 또는 임차인명
             </label>
             <input
@@ -246,7 +246,7 @@ export function MobileRentRollCards({
               value={currentFloor.use}
               placeholder={currentFloor.status === "vacant" ? "공실 (입력 불필요)" : "예: 카페, 의원, 사무실"}
               onChange={(e) => handleUpdateRow(safeFloorIndex, { use: e.target.value })}
-              className={`w-full min-h-[48px] px-3 text-[17px] rounded-xl border outline-none ${
+              className={`w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border outline-none ${
                 currentFloor.status === "vacant"
                   ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
                   : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
@@ -258,10 +258,10 @@ export function MobileRentRollCards({
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[14px] font-semibold text-[#334155]">
+                <label className="text-sm font-semibold text-[#334155]">
                   보증금 (만 원)
                 </label>
-                <span className="text-[14px] font-bold text-[#1D4ED8]">
+                <span className="text-sm font-bold text-[#1D4ED8]">
                   {formatKoreanCurrencyReadout(currentFloor.depositManwon)}
                 </span>
               </div>
@@ -293,16 +293,16 @@ export function MobileRentRollCards({
                     depositManwon: parseManwonCellValue(e.target.value),
                   });
                 }}
-                className="w-full min-h-[48px] px-3 text-[18px] font-semibold text-right tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+                className="w-full min-h-[48px] px-3 text-[max(16px,1.125rem)] font-semibold text-right tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[14px] font-semibold text-[#334155]">
+                <label className="text-sm font-semibold text-[#334155]">
                   월 임대료 (만 원)
                 </label>
-                <span className="text-[14px] font-bold text-[#1D4ED8]">
+                <span className="text-sm font-bold text-[#1D4ED8]">
                   {formatKoreanCurrencyReadout(currentFloor.status === "vacant" ? 0 : currentFloor.monthlyRentManwon)}
                 </span>
               </div>
@@ -337,7 +337,7 @@ export function MobileRentRollCards({
                     monthlyRentManwon: parseManwonCellValue(e.target.value),
                   });
                 }}
-                className={`w-full min-h-[48px] px-3 text-[18px] font-semibold text-right tabular-nums rounded-xl border outline-none ${
+                className={`w-full min-h-[48px] px-3 text-[max(16px,1.125rem)] font-semibold text-right tabular-nums rounded-xl border outline-none ${
                   currentFloor.status === "vacant"
                     ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
                     : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
@@ -347,10 +347,10 @@ export function MobileRentRollCards({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[14px] font-semibold text-[#334155]">
+                <label className="text-sm font-semibold text-[#334155]">
                   월 관리비 (만 원)
                 </label>
-                <span className="text-[14px] font-bold text-[#1D4ED8]">
+                <span className="text-sm font-bold text-[#1D4ED8]">
                   {formatKoreanCurrencyReadout(currentFloor.status === "vacant" ? 0 : currentFloor.maintenanceManwon)}
                 </span>
               </div>
@@ -385,7 +385,7 @@ export function MobileRentRollCards({
                     maintenanceManwon: parseManwonCellValue(e.target.value),
                   });
                 }}
-                className={`w-full min-h-[48px] px-3 text-[18px] font-semibold text-right tabular-nums rounded-xl border outline-none ${
+                className={`w-full min-h-[48px] px-3 text-[max(16px,1.125rem)] font-semibold text-right tabular-nums rounded-xl border outline-none ${
                   currentFloor.status === "vacant"
                     ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
                     : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
@@ -397,11 +397,11 @@ export function MobileRentRollCards({
           {/* Lease Expiry */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[14px] font-semibold text-[#334155]">
+              <label className="text-sm font-semibold text-[#334155]">
                 계약 만기일
               </label>
               {currentFloor.isExpired && (
-                <span className="text-[14px] font-bold text-[#991B1B]">
+                <span className="text-sm font-bold text-[#991B1B]">
                   ⚠️ 만기 지남, 연장 확인
                 </span>
               )}
@@ -412,7 +412,7 @@ export function MobileRentRollCards({
               value={currentFloor.leaseExpiry}
               placeholder="예: 2027.05, 27년 5월, 만기 2년"
               onChange={(e) => handleExpiryChange(safeFloorIndex, e.target.value)}
-              className={`w-full min-h-[48px] px-3 text-[17px] rounded-xl border outline-none ${
+              className={`w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border outline-none ${
                 currentFloor.status === "vacant"
                   ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
                   : currentFloor.isExpired
@@ -421,7 +421,7 @@ export function MobileRentRollCards({
               }`}
             />
             {currentFloor.normalizedExpiry && !currentFloor.isExpired && (
-              <p className="text-[14px] text-[#475569] mt-1">
+              <p className="text-sm text-[#475569] mt-1">
                 정규화: {currentFloor.normalizedExpiry}
               </p>
             )}
@@ -433,7 +433,7 @@ export function MobileRentRollCards({
               type="button"
               disabled={safeFloorIndex === 0}
               onClick={() => setActiveFloorIndex(Math.max(0, safeFloorIndex - 1))}
-              className={`min-h-[48px] px-4 py-2 rounded-xl text-[15px] font-semibold cursor-pointer ${
+              className={`min-h-[48px] px-4 py-2 rounded-xl text-base font-semibold cursor-pointer ${
                 safeFloorIndex === 0
                   ? "text-[#94A3B8] cursor-not-allowed"
                   : "text-[#334155] hover:bg-[#F3F2EE]"
@@ -446,7 +446,7 @@ export function MobileRentRollCards({
               <button
                 type="button"
                 onClick={() => setActiveFloorIndex(Math.min(rows.length - 1, safeFloorIndex + 1))}
-                className="min-h-[48px] px-5 py-2.5 rounded-xl text-[16px] font-bold bg-[#1D4ED8] text-white hover:bg-[#1E40AF] cursor-pointer shadow-sm"
+                className="min-h-[48px] px-5 py-2.5 rounded-xl text-base font-bold bg-[#1D4ED8] text-white hover:bg-[#1E40AF] cursor-pointer shadow-sm"
               >
                 다음 층 ›
               </button>
@@ -454,7 +454,7 @@ export function MobileRentRollCards({
               <button
                 type="button"
                 onClick={onAddFloor}
-                className="min-h-[48px] px-5 py-2.5 rounded-xl text-[16px] font-bold bg-[#065F46] text-white hover:bg-[#047857] cursor-pointer shadow-sm"
+                className="min-h-[48px] px-5 py-2.5 rounded-xl text-base font-bold bg-[#065F46] text-white hover:bg-[#047857] cursor-pointer shadow-sm"
               >
                 + 새 층 추가
               </button>

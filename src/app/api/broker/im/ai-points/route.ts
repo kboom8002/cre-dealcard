@@ -16,6 +16,12 @@ import { requireBroker } from '@/lib/auth-guard';
 import { findNumbersNotInContext } from '@/lib/magazine/ai-comment-schema';
 import { createModuleLogger } from '@/lib/logger';
 import {
+  buildAiUnavailable503Response,
+  enforceBrokerAiQuota,
+  isLLMMockNotAllowedError,
+} from '@/lib/ai-quota-guard';
+import { toApiError } from '@/lib/api-error';
+import {
   buildAuthoritativeImFactSheet,
   buildDeterministicImPointsFallback,
   buildImRepairFeedback,
@@ -194,17 +200,29 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const factSheet = buildAuthoritativeImFactSheet(input);
-  const deterministicFallback = buildDeterministicImPointsFallback(input, factSheet);
+  const quotaErr = await enforceBrokerAiQuota(req, auth.user?.id ?? '', 'im_ai_points');
+  if (quotaErr) return quotaErr;
 
-  const refBlock = await fetchDynamicImReferenceBlock({
-    assetType: factSheet.inferredAssetType,
-    priceBand: factSheet.goldenPriceBand,
-    posture: factSheet.canonicalPosture,
-    sectionType: 'investment_thesis',
-    address: input.address,
-    buildingName: input.title,
-  });
+  let factSheet;
+  let deterministicFallback: Array<{ title: string; body: string }>;
+  let refBlock;
+  try {
+    factSheet = buildAuthoritativeImFactSheet(input);
+    deterministicFallback = buildDeterministicImPointsFallback(input, factSheet);
+    refBlock = await fetchDynamicImReferenceBlock({
+      assetType: factSheet.inferredAssetType,
+      priceBand: factSheet.goldenPriceBand,
+      posture: factSheet.canonicalPosture,
+      sectionType: 'investment_thesis',
+      address: input.address,
+      buildingName: input.title,
+    });
+  } catch (prepErr) {
+    if (isLLMMockNotAllowedError(prepErr)) {
+      return buildAiUnavailable503Response();
+    }
+    return toApiError(prepErr);
+  }
 
   const systemPrompt = buildImAiPointsSystemPrompt(refBlock);
   const baseUserPrompt = [

@@ -18,6 +18,7 @@ import {
   COMMERCIAL_MORTGAGE,
   CONSTRUCTION_COST_PER_PYUNG,
   DEVELOPMENT_DEFAULTS,
+  DEVELOPMENT_PF,
   OPERATING_DEFAULTS,
 } from '@/domain/ontology/market-defaults';
 import type { BokMonthlyLoanRatePoint } from '@/lib/external/bok-ecos-api';
@@ -378,6 +379,11 @@ function buildBokBuyerImplication(params: {
   return `${params.primaryDistrict} 기대 임대수익률(연 ${params.expectedYieldPct.toFixed(1)}%)이 은행 대출금리(연 ${params.loanRatePct.toFixed(2)}%)보다 연 ${absGap}% 낮아, 현금 비중을 60% 이상 두고 접근해야 매달 이자 역전 부담을 피할 수 있습니다.`;
 }
 
+export const BOK_INSUFFICIENT_DATA_NOTE =
+  '한국은행 ECOS 기준금리 실시간 연동 대기 (표본 부족)';
+export const MOLIT_BAND_INSUFFICIENT_DATA_NOTE =
+  '실거래 표본 부족 (최소 3건 이상 시 비중 산출)';
+
 function buildBokLoanRateChart(
   regionKey: MonthlyRegionKey,
   regionLabel: string,
@@ -385,7 +391,10 @@ function buildBokLoanRateChart(
 ): MonthlyRegionalChart {
   const meta = REGION_BENCHMARK_META[regionKey];
   const hasLiveRates = Array.isArray(rates) && rates.length >= 2;
+  const singleLivePoint = Array.isArray(rates) && rates.length === 1 ? rates[0] : null;
+  const basePolicyRatePct = 3.25;
 
+  // bokLoanRates < 2 일 때 임의의 4개월 시계열(+0.15/+0.08) 창작 금지: 정적 시장 기준치 횡단면만 표시
   const series: MonthlyChartSeriesPoint[] = hasLiveRates
     ? rates!.slice(-6).map((pt) => ({
         label: pt.periodLabel,
@@ -396,36 +405,40 @@ function buildBokLoanRateChart(
       }))
     : [
         {
-          label: '3개월 전',
-          primaryValue: Math.round((COMMERCIAL_MORTGAGE.interestRatePct + 0.15) * 100) / 100,
+          label: '한은 기준금리',
+          primaryValue: basePolicyRatePct,
           secondaryValue: meta.capRatePct,
-          displayPrimary: `연 ${(COMMERCIAL_MORTGAGE.interestRatePct + 0.15).toFixed(2)}%`,
-          displaySecondary: `기대 ${meta.capRatePct.toFixed(1)}%`,
+          displayPrimary: `연 ${basePolicyRatePct.toFixed(2)}%`,
+          displaySecondary: '정책 기준',
         },
         {
-          label: '2개월 전',
-          primaryValue: Math.round((COMMERCIAL_MORTGAGE.interestRatePct + 0.08) * 100) / 100,
+          label: '권역 기대수익률',
+          primaryValue: meta.capRatePct,
           secondaryValue: meta.capRatePct,
-          displayPrimary: `연 ${(COMMERCIAL_MORTGAGE.interestRatePct + 0.08).toFixed(2)}%`,
-          displaySecondary: `기대 ${meta.capRatePct.toFixed(1)}%`,
+          displayPrimary: `연 ${meta.capRatePct.toFixed(1)}%`,
+          displaySecondary: '선택 권역',
         },
         {
-          label: '1개월 전',
-          primaryValue: COMMERCIAL_MORTGAGE.interestRatePct,
+          label: singleLivePoint ? `${singleLivePoint.periodLabel} 대출` : '상업담보 기준',
+          primaryValue: singleLivePoint
+            ? singleLivePoint.corporateLoanRatePct
+            : COMMERCIAL_MORTGAGE.interestRatePct,
           secondaryValue: meta.capRatePct,
-          displayPrimary: `연 ${COMMERCIAL_MORTGAGE.interestRatePct.toFixed(2)}%`,
-          displaySecondary: `기대 ${meta.capRatePct.toFixed(1)}%`,
+          displayPrimary: `연 ${(singleLivePoint ? singleLivePoint.corporateLoanRatePct : COMMERCIAL_MORTGAGE.interestRatePct).toFixed(2)}%`,
+          displaySecondary: singleLivePoint ? '단일월 관측' : '시장 참고치',
         },
         {
-          label: '최근월 기준',
-          primaryValue: COMMERCIAL_MORTGAGE.interestRatePct,
+          label: '신축 본PF 기준',
+          primaryValue: DEVELOPMENT_PF.mainPF.interestRatePct,
           secondaryValue: meta.capRatePct,
-          displayPrimary: `연 ${COMMERCIAL_MORTGAGE.interestRatePct.toFixed(2)}%`,
-          displaySecondary: `선택 권역`,
+          displayPrimary: `연 ${DEVELOPMENT_PF.mainPF.interestRatePct.toFixed(2)}%`,
+          displaySecondary: '개발 참고치',
         },
       ];
 
-  const latestRate = series[series.length - 1]?.primaryValue ?? COMMERCIAL_MORTGAGE.interestRatePct;
+  const latestRate = hasLiveRates
+    ? (series[series.length - 1]?.primaryValue ?? COMMERCIAL_MORTGAGE.interestRatePct)
+    : (singleLivePoint?.corporateLoanRatePct ?? COMMERCIAL_MORTGAGE.interestRatePct);
   const gapPct = Math.round((meta.capRatePct - latestRate) * 100) / 100;
 
   return {
@@ -433,14 +446,18 @@ function buildBokLoanRateChart(
     regionKey,
     regionLabel,
     chartType: 'bok_loan_rate_cap_spread',
-    title: `${meta.primaryDistrict} 은행 대출금리 추이 vs 기대 임대수익률`,
-    subtitle: '한국은행 예금은행 대출금리(%)와 권역 기대 임대수익률 기준선 비교',
+    title: hasLiveRates
+      ? `${meta.primaryDistrict} 은행 대출금리 추이 vs 기대 임대수익률`
+      : `${meta.primaryDistrict} 조달금리 기준 참고치 vs 기대 임대수익률`,
+    subtitle: hasLiveRates
+      ? '한국은행 예금은행 대출금리(%)와 권역 기대 임대수익률 기준선 비교'
+      : BOK_INSUFFICIENT_DATA_NOTE,
     authorityLabel: hasLiveRates
       ? '한국은행 ECOS 경제통계시스템 · 권역 기대수익률 비교'
-      : '한국은행 예금은행 대출금리 · 권역 수익률 기준 참고치',
+      : `${BOK_INSUFFICIENT_DATA_NOTE} · 시장 기준 참고치`,
     asOf: hasLiveRates
       ? `${series[series.length - 1].label} 한국은행 발표`
-      : '2026 하반기 시장 기준 참고치',
+      : BOK_INSUFFICIENT_DATA_NOTE,
     unit: '%',
     highlightMetric: {
       label: `${meta.primaryDistrict} 대출금리 · 기대수익률`,
@@ -463,6 +480,7 @@ function buildBokLoanRateChart(
       expectedYieldPct: meta.capRatePct,
     }),
     isPlaceholder: false,
+    ...(hasLiveRates ? {} : { placeholderNotice: BOK_INSUFFICIENT_DATA_NOTE }),
     sourceMode: hasLiveRates ? 'public_db' : 'reference_benchmark',
   };
 }
@@ -482,28 +500,62 @@ function buildPriceBandMixChart(
   let b50To100 = 0;
   let bOver100 = 0;
 
-  if (hasLive) {
-    for (const r of validRows) {
-      const p = Number(r.transaction_price);
-      if (p < 5_000_000_000) bUnder50 += 1;
-      else if (p <= 10_000_000_000) b50To100 += 1;
-      else bOver100 += 1;
-    }
-  } else {
-    // 지역별 참고 비중
-    if (regionKey === 'gbd') {
-      bUnder50 = 20;
-      b50To100 = 38;
-      bOver100 = 42;
-    } else if (regionKey === 'ybd' || regionKey === 'cbd') {
-      bUnder50 = 28;
-      b50To100 = 40;
-      bOver100 = 32;
-    } else {
-      bUnder50 = 36;
-      b50To100 = 44;
-      bOver100 = 20;
-    }
+  for (const r of validRows) {
+    const p = Number(r.transaction_price);
+    if (p < 5_000_000_000) bUnder50 += 1;
+    else if (p <= 10_000_000_000) b50To100 += 1;
+    else bOver100 += 1;
+  }
+
+  // 표본이 3건 미만일 때 20% / 38% / 42% 등 임의 비중(%) 창작 금지 — 실제 관측 건수 또는 빈 배열만 반환
+  if (!hasLive) {
+    const observedCount = validRows.length;
+    const observedSeries: MonthlyChartSeriesPoint[] =
+      observedCount === 0
+        ? []
+        : [
+            {
+              label: '50억 미만',
+              primaryValue: bUnder50,
+              displayPrimary: `${bUnder50}건`,
+              displaySecondary: '표본 부족',
+            },
+            {
+              label: '50억~100억',
+              primaryValue: b50To100,
+              displayPrimary: `${b50To100}건`,
+              displaySecondary: '표본 부족',
+            },
+            {
+              label: '100억 이상',
+              primaryValue: bOver100,
+              displayPrimary: `${bOver100}건`,
+              displaySecondary: '표본 부족',
+            },
+          ];
+
+    return {
+      id: `${regionKey}-molit_price_band_mix`,
+      regionKey,
+      regionLabel,
+      chartType: 'molit_price_band_mix',
+      title: `${meta.primaryDistrict} 금액대별 통건물 실거래 비중`,
+      subtitle: MOLIT_BAND_INSUFFICIENT_DATA_NOTE,
+      authorityLabel: '국토교통부 실거래가 공개시스템 (표본 대기)',
+      asOf: MOLIT_BAND_INSUFFICIENT_DATA_NOTE,
+      unit: '건',
+      highlightMetric: {
+        label: '실거래 표본 현황',
+        value: observedCount > 0 ? `관측 ${observedCount}건 (비중 산출 보류)` : '관측 0건 (표본 부족)',
+        deltaText: MOLIT_BAND_INSUFFICIENT_DATA_NOTE,
+        tone: 'neutral',
+      },
+      series: observedSeries,
+      buyerImplication: `${MOLIT_BAND_INSUFFICIENT_DATA_NOTE} — 당월 통건물 실거래가 3건 이상 확인되면 금액대별 실제 거래 비중(%)이 산출됩니다.`,
+      isPlaceholder: true,
+      placeholderNotice: MOLIT_BAND_INSUFFICIENT_DATA_NOTE,
+      sourceMode: 'reference_benchmark',
+    };
   }
 
   const total = Math.max(1, bUnder50 + b50To100 + bOver100);
@@ -515,23 +567,23 @@ function buildPriceBandMixChart(
     {
       label: '50억 미만',
       primaryValue: pctUnder50,
-      ...(hasLive ? { secondaryValue: bUnder50 } : {}),
+      secondaryValue: bUnder50,
       displayPrimary: `${pctUnder50}%`,
-      displaySecondary: hasLive ? `${bUnder50}건` : '소형 입문',
+      displaySecondary: `${bUnder50}건`,
     },
     {
       label: '50억~100억',
       primaryValue: pct50To100,
-      ...(hasLive ? { secondaryValue: b50To100 } : {}),
+      secondaryValue: b50To100,
       displayPrimary: `${pct50To100}%`,
-      displaySecondary: hasLive ? `${b50To100}건` : '주력 거래',
+      displaySecondary: `${b50To100}건`,
     },
     {
       label: '100억 이상',
       primaryValue: pctOver100,
-      ...(hasLive ? { secondaryValue: bOver100 } : {}),
+      secondaryValue: bOver100,
       displayPrimary: `${pctOver100}%`,
-      displaySecondary: hasLive ? `${bOver100}건` : '사옥·법인',
+      displaySecondary: `${bOver100}건`,
     },
   ];
 
@@ -544,21 +596,19 @@ function buildPriceBandMixChart(
     chartType: 'molit_price_band_mix',
     title: `${meta.primaryDistrict} 금액대별 통건물 실거래 비중`,
     subtitle: '50억 미만 · 50억~100억 · 100억 이상 매매 비중(%)',
-    authorityLabel: hasLive
-      ? '국토교통부 실거래가 공개시스템 DB 집계'
-      : '국토교통부 실거래 금액대 분포 기준 참고치',
-    asOf: hasLive ? `통건물 ${total}건 실측 기준` : '2026 하반기 권역 기준 참고치',
+    authorityLabel: '국토교통부 실거래가 공개시스템 DB 집계',
+    asOf: `통건물 ${total}건 실측 기준`,
     unit: '%',
     highlightMetric: {
       label: '가장 거래가 활발한 금액대',
       value: `${topBand.label} (${topBand.displayPrimary})`,
-      deltaText: hasLive ? `총 ${total}건 통건물 분석` : '권역 평균 분포 참고치',
+      deltaText: `총 ${total}건 통건물 분석`,
       tone: 'positive',
     },
     series,
     buyerImplication: `${meta.primaryDistrict}에서는 ${topBand.label} 매물이 전체 거래의 ${topBand.displayPrimary}를 차지해 환금성과 매수 대기자 층이 가장 두텁습니다.`,
     isPlaceholder: false,
-    sourceMode: hasLive ? 'public_db' : 'reference_benchmark',
+    sourceMode: 'public_db',
   };
 }
 
@@ -621,6 +671,7 @@ export interface DbTransactionRow {
   transaction_date?: string | null;
   transaction_price?: number | null;
   building_area?: number | null;
+  land_area?: number | null;
   district?: string | null;
   dong?: string | null;
   address?: string | null;
@@ -671,40 +722,63 @@ export function hydrateMonthlyChartsFromDbRows(
       ? ['molit_tx_price_trend', 'reb_vacancy_cap_spread']
       : ['molit_tx_price_trend', 'bok_loan_rate_cap_spread']);
 
-  // 1. 통건물 실거래 월별 집계 (최소 2개 월 이상 데이터가 있을 때 실측 차트 생성 · 평당가 중앙값)
+  // 1. 통건물 실거래 월별 집계 (최소 2개 월 이상 데이터가 있을 때 실측 차트 생성 · 연면적/대지면적 엄격 분리)
   let liveTxChart: MonthlyRegionalChart | null = null;
   const rawTxRows = Array.isArray(input.transactions) ? input.transactions : [];
   const txRows = rawTxRows.filter(isWholeBuildingDbRow);
   if (txRows.length >= 2) {
-    const bucket = new Map<string, { count: number; pyeongPrices: number[] }>();
+    const bucket = new Map<
+      string,
+      { count: number; gfaPyeongPrices: number[]; landPyeongPrices: number[] }
+    >();
+    let totalGfaSamples = 0;
+    let totalLandSamples = 0;
+
     for (const r of txRows) {
       const ym = typeof r.transaction_date === 'string' ? r.transaction_date.slice(0, 7) : '';
       const price = typeof r.transaction_price === 'number' ? r.transaction_price : 0;
       if (!/^\d{4}-\d{2}$/.test(ym) || price <= 0) continue;
-      const cur = bucket.get(ym) ?? { count: 0, pyeongPrices: [] };
+      const cur = bucket.get(ym) ?? { count: 0, gfaPyeongPrices: [], landPyeongPrices: [] };
       cur.count += 1;
-      const area = typeof r.building_area === 'number' ? r.building_area : 0;
-      if (area > 0) {
-        const pyeong = area * 0.3025;
-        if (pyeong > 0) {
-          cur.pyeongPrices.push(Math.round(price / pyeong / 10_000));
+
+      const bldgArea = typeof r.building_area === 'number' ? r.building_area : 0;
+      if (bldgArea > 0) {
+        const gfaPyeong = bldgArea * 0.3025;
+        if (gfaPyeong > 0) {
+          cur.gfaPyeongPrices.push(Math.round(price / gfaPyeong / 10_000));
+          totalGfaSamples += 1;
         }
       }
+
+      const landArea = typeof r.land_area === 'number' ? r.land_area : 0;
+      if (landArea > 0) {
+        const landPyeong = landArea * 0.3025;
+        if (landPyeong > 0) {
+          cur.landPyeongPrices.push(Math.round(price / landPyeong / 10_000));
+          totalLandSamples += 1;
+        }
+      }
+
       bucket.set(ym, cur);
     }
 
     const sortedMonths = Array.from(bucket.keys()).sort().slice(-6);
     if (sortedMonths.length >= 2) {
+      // 연면적(building_area > 0) 우선 사용, 연면적 표본이 전혀 없고 대지면적(land_area > 0)만 있을 때만 '대지 평당가'로 명시 분리 (혼합 평균·중앙값 절대 금지)
+      const useLandBasis = totalGfaSamples === 0 && totalLandSamples > 0;
+      const unitBasisLabel = useLandBasis ? '대지 평당가' : '연면적 평당가';
+
       const series: MonthlyChartSeriesPoint[] = sortedMonths.map((ym) => {
         const b = bucket.get(ym)!;
-        const medianPyeongManwon = computeMedianNumber(b.pyeongPrices);
+        const targetSamples = useLandBasis ? b.landPyeongPrices : b.gfaPyeongPrices;
+        const medianPyeongManwon = computeMedianNumber(targetSamples);
         return {
           label: `${Number(ym.slice(5, 7))}월`,
           primaryValue: b.count,
           ...(medianPyeongManwon ? { secondaryValue: medianPyeongManwon } : {}),
           displayPrimary: `${b.count}건`,
           ...(medianPyeongManwon
-            ? { displaySecondary: `중앙 ${medianPyeongManwon.toLocaleString()}만` }
+            ? { displaySecondary: `${unitBasisLabel} 중앙 ${medianPyeongManwon.toLocaleString()}만` }
             : {}),
         };
       });
@@ -716,14 +790,14 @@ export function hydrateMonthlyChartsFromDbRows(
         regionKey,
         regionLabel: preset.label,
         chartType: 'molit_tx_price_trend',
-        title: `${meta.primaryDistrict} 통건물 월별 실거래량 · 평당가 중앙값`,
-        subtitle: '국토부 일반(통건물) 매매 신고 집계 · 직전월 신고분 집계중 반영',
-        authorityLabel: '국토교통부 실거래가 공개시스템 (통건물 중앙값)',
+        title: `${meta.primaryDistrict} 통건물 월별 실거래량 · ${unitBasisLabel} 중앙값`,
+        subtitle: `국토부 일반(통건물) 매매 신고 집계 · ${unitBasisLabel} 기준 분리 산출`,
+        authorityLabel: `국토교통부 실거래가 공개시스템 (통건물 ${unitBasisLabel} 중앙값)`,
         asOf: `${sortedMonths[sortedMonths.length - 1]} 집계 · 직전월 신고 집계중`,
         unit: '건',
         secondaryUnit: '만원/평',
         highlightMetric: {
-          label: '최근 집계 거래건수 · 중앙 평당가',
+          label: `최근 집계 거래건수 · 중앙 ${unitBasisLabel}`,
           value: latest.displaySecondary
             ? `${latest.displayPrimary} · ${latest.displaySecondary}`
             : latest.displayPrimary,
@@ -736,7 +810,7 @@ export function hydrateMonthlyChartsFromDbRows(
           tone: diff >= 0 ? 'positive' : 'neutral',
         },
         series,
-        buyerImplication: `${meta.primaryDistrict} 통건물 실거래가 최근 월 ${latest.displayPrimary} 체결되며 소수 고가·저가 거래 왜곡을 뺀 평당가 중앙값 흐름을 확인하실 수 있습니다.`,
+        buyerImplication: `${meta.primaryDistrict} 통건물 실거래가 최근 월 ${latest.displayPrimary} 체결되며 소수 고가·저가 거래 왜곡을 뺀 ${unitBasisLabel} 중앙값 흐름을 확인하실 수 있습니다.`,
         isPlaceholder: false,
         sourceMode: 'public_db',
       };
@@ -831,23 +905,18 @@ export function hydrateMonthlyChartsFromDbRows(
     };
   }
 
-  const liveBokChart =
-    Array.isArray(input.bokLoanRates) && input.bokLoanRates.length >= 2
-      ? buildBokLoanRateChart(regionKey, preset.label, input.bokLoanRates)
-      : null;
-
-  const liveBandChart =
-    txRows.length >= 3 ? buildPriceBandMixChart(regionKey, preset.label, txRows) : null;
+  const bokChart = buildBokLoanRateChart(regionKey, preset.label, input.bokLoanRates);
+  const bandChart = buildPriceBandMixChart(regionKey, preset.label, txRows);
 
   const pickChart = (type: MonthlyChartType): MonthlyRegionalChart => {
     if (type === 'molit_tx_price_trend') {
       return liveTxChart ?? buildReferenceChartByType(regionKey, type);
     }
     if (type === 'bok_loan_rate_cap_spread') {
-      return liveBokChart ?? buildReferenceChartByType(regionKey, type);
+      return bokChart;
     }
     if (type === 'molit_price_band_mix') {
-      return liveBandChart ?? buildReferenceChartByType(regionKey, type);
+      return bandChart;
     }
     if (type === 'reb_vacancy_cap_spread') {
       return liveRentalChart ?? buildReferenceChartByType(regionKey, type);

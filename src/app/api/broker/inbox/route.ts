@@ -192,6 +192,109 @@ function formatKrPhoneDisplay(rawPhone: unknown, fallbackE164: unknown, fallback
   return typeof fallbackEmail === "string" ? fallbackEmail.trim() : "";
 }
 
+export type InboxCrmClientRole = "buyer" | "seller" | "tenant" | "partner";
+export type InboxEmailDeliveryStatus = "ok" | "bounced" | "complained";
+
+export interface InboxDispatchHistoryItem {
+  id: string;
+  eventType: string;
+  channel: string;
+  title: string;
+  status: string;
+  createdAt: string;
+  bounceReason?: string;
+}
+
+function normalizeClientRole(raw: unknown): InboxCrmClientRole | null {
+  const s = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (s === "buyer" || s === "매수" || s === "매수자") return "buyer";
+  if (
+    s === "seller" ||
+    s === "owner" ||
+    s === "매도" ||
+    s === "매도자" ||
+    s === "소유주"
+  ) {
+    return "seller";
+  }
+  if (s === "tenant" || s === "lessee" || s === "임차" || s === "임차인") {
+    return "tenant";
+  }
+  if (s === "partner" || s === "공동중개" || s === "파트너") return "partner";
+  return null;
+}
+
+function parsePreferredRegionsInput(rawArr: unknown, rawStr?: unknown): string[] {
+  const out = new Set<string>();
+  if (Array.isArray(rawArr)) {
+    for (const item of rawArr) {
+      const s = String(item ?? "").trim();
+      if (s) out.add(s);
+    }
+    if (out.size > 0) return Array.from(out);
+  }
+  if (typeof rawStr === "string" && rawStr.trim()) {
+    for (const part of rawStr.split(/[,/]+/)) {
+      const s = part.trim();
+      if (s) out.add(s);
+    }
+  }
+  return Array.from(out);
+}
+
+function parseBudgetManwonInput(rawManwon: unknown, rawText?: unknown): number | null {
+  if (rawManwon === null) return null;
+  if (typeof rawManwon === "number" && Number.isFinite(rawManwon) && rawManwon >= 0) {
+    return Math.round(rawManwon);
+  }
+  if (typeof rawManwon === "string" && rawManwon.trim()) {
+    const cleanNum = rawManwon.trim().replace(/,/g, "");
+    if (/^\d+$/.test(cleanNum)) {
+      return Math.round(Number(cleanNum));
+    }
+  }
+  if (typeof rawText === "string" && rawText.trim()) {
+    const txt = rawText.trim().replace(/,/g, "");
+    const eokMatch = txt.match(/(\d+(?:\.\d+)?)\s*억/);
+    const manMatch = txt.match(/(\d+(?:\.\d+)?)\s*만/);
+    if (eokMatch || manMatch) {
+      const eokVal = eokMatch ? Number(eokMatch[1]) * 10000 : 0;
+      const manVal = manMatch ? Number(manMatch[1]) : 0;
+      const sum = Math.round(eokVal + manVal);
+      return Number.isFinite(sum) && sum > 0 ? sum : null;
+    }
+    if (/^\d+$/.test(txt)) {
+      return Math.round(Number(txt));
+    }
+  }
+  return null;
+}
+
+function formatBudgetManwonDisplay(manwon: number | null): string {
+  if (manwon === null || !Number.isFinite(manwon) || manwon <= 0) return "";
+  if (manwon >= 10000) {
+    const eok = manwon / 10000;
+    return Number.isInteger(eok) ? `${eok}억` : `${eok.toFixed(1).replace(/\.0$/, "")}억`;
+  }
+  return `${manwon.toLocaleString("ko-KR")}만`;
+}
+
+function extractFreeMemoFromLegacyNotes(notesRaw: unknown): string {
+  const text = typeof notesRaw === "string" ? notesRaw.trim() : "";
+  if (!text) return "";
+  const isPureLegacyConcatenation =
+    /^(?:(?:예산|선호권역|관심매물|근거)\s*:[^/]+(?:\s*\/\s*)?)+$/i.test(text);
+  if (isPureLegacyConcatenation) return "";
+  return text;
+}
+
+function normalizeEmailDeliveryStatus(raw: unknown): InboxEmailDeliveryStatus {
+  const s = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (s === "complained") return "complained";
+  if (s === "bounced") return "bounced";
+  return "ok";
+}
+
 /**
  * GET /api/broker/inbox
  * 소통함 통합 조회 (IB-01, IB-02, IB-09, INBOX-06, Pillar-B S0/S1 Hardening)
@@ -209,7 +312,7 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
-  const filter = url.searchParams.get("filter") || "all";
+  const filter = (url.searchParams.get("filter") || "all").trim().toLowerCase();
   const includeArchived = url.searchParams.get("includeArchived") === "1";
   const parsedLimit = Number.parseInt(url.searchParams.get("limit") || "50", 10);
   const limit = Number.isFinite(parsedLimit)
@@ -242,26 +345,46 @@ export async function GET(req: NextRequest) {
         ok: true,
         userId,
         items: [],
-        threads: ownCustomClients.map((c) => ({
-          id: c.id.startsWith("custom_") ? c.id : `custom_${c.id}`,
-          clientName: c.clientName,
-          clientGrade: c.clientGrade || "VIP",
-          clientPhone: c.clientPhone || "",
-          budget: c.budget || "",
-          preferredRegion: c.preferredRegion || "",
-          buildingId: c.buildingId || "",
-          buildingTitle: c.buildingTitle || "관심 매물 상담",
-          shareUrl: buildThreadShareUrl(c.buildingId || "", ""),
-          shareToken: "",
-          status: "active",
-          gateStatus: "none",
-          newsletterSubscribed: Boolean(c.newsletterSubscribed),
-          openCount: 0,
-          dwellTime: "-",
-          lastViewedAt: "-",
-          createdAt: c.createdAt,
-          events: [],
-        })),
+        threads: ownCustomClients.map((c) => {
+          const cm = c as Record<string, any>;
+          const grade = c.clientGrade || "VIP";
+          const isVip = typeof cm.isVip === "boolean" ? cm.isVip : grade === "VIP";
+          const clientRole = normalizeClientRole(cm.clientRole) || "buyer";
+          const preferredRegions = parsePreferredRegionsInput(
+            cm.preferredRegions,
+            c.preferredRegion
+          );
+          const budgetManwon = parseBudgetManwonInput(cm.budgetManwon, c.budget);
+          const freeMemo = typeof cm.freeMemo === "string" ? cm.freeMemo : "";
+          return {
+            id: c.id.startsWith("custom_") ? c.id : `custom_${c.id}`,
+            clientName: c.clientName,
+            clientGrade: grade,
+            isVip,
+            clientRole,
+            clientPhone: c.clientPhone || "",
+            clientEmail: normalizeClientEmail(c.clientEmail) || "",
+            budget: c.budget || formatBudgetManwonDisplay(budgetManwon),
+            budgetManwon,
+            preferredRegion: c.preferredRegion || preferredRegions.join(", "),
+            preferredRegions,
+            freeMemo,
+            emailDeliveryStatus: "ok" as InboxEmailDeliveryStatus,
+            dispatchHistory: [] as InboxDispatchHistoryItem[],
+            buildingId: c.buildingId || "",
+            buildingTitle: c.buildingTitle || "관심 매물 상담",
+            shareUrl: buildThreadShareUrl(c.buildingId || "", ""),
+            shareToken: "",
+            status: "active",
+            gateStatus: "none",
+            newsletterSubscribed: Boolean(c.newsletterSubscribed),
+            openCount: 0,
+            dwellTime: "-",
+            lastViewedAt: "-",
+            createdAt: c.createdAt,
+            events: [],
+          };
+        }),
         inventory: [],
         gateRequests: [],
         inquiries: [],
@@ -492,7 +615,7 @@ export async function GET(req: NextRequest) {
 
   // ── 1. Gate Requests (IM 열람 요청) — Fail-Closed ──
   let gateItems: any[] = [];
-  if (filter === "all" || filter === "requests") {
+  if (filter !== "views") {
     const uuidOwnedIds = isUuid(userId)
       ? allOwnedBuildingIds.filter((id) => isUuid(id))
       : allOwnedBuildingIds;
@@ -693,7 +816,7 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Activity Events (열람 기록 — D-S1-04 system magazine_view & magazine_to_im_click 포함) ──
   let viewItems: any[] = [];
-  if (filter === "all" || filter === "views") {
+  if (filter !== "requests") {
     try {
       const viewEventTypes = [
         "mobile_im_view",
@@ -820,6 +943,18 @@ export async function GET(req: NextRequest) {
           recipientId:
             typeof meta.recipient_id === "string" && meta.recipient_id.trim()
               ? meta.recipient_id.trim()
+              : null,
+          gateRequestId:
+            typeof meta.gate_request_id === "string" && meta.gate_request_id.trim()
+              ? meta.gate_request_id.trim()
+              : typeof meta.request_id === "string" && meta.request_id.trim()
+              ? meta.request_id.trim()
+              : null,
+          shareToken:
+            typeof meta.share_token === "string" && meta.share_token.trim()
+              ? meta.share_token.trim()
+              : typeof meta.token === "string" && meta.token.trim()
+              ? meta.token.trim()
               : null,
           shareTokenChannel:
             typeof meta.share_token_channel === "string"
@@ -977,7 +1112,7 @@ export async function GET(req: NextRequest) {
       const cliQ: any = supabase
         .from("broker_clients")
         .select(
-          "id, broker_id, display_name, phone, email, tier, tags, notes, linked_building_ids, created_at"
+          "id, broker_id, display_name, phone, email, client_type, client_role, tier, is_vip, preferred_regions, budget_manwon, free_memo, email_delivery_status, email_bounced_at, email_bounce_reason, tags, notes, linked_building_ids, created_at"
         )
         .eq("broker_id", userId);
       let cliRes =
@@ -1043,7 +1178,7 @@ export async function GET(req: NextRequest) {
     }
 
     const subSelectCols =
-      "id, broker_id, subscriber_name, subscriber_email, subscriber_phone, phone_e164, status, confirm_status, unsubscribed_at, interest_profile, segment, created_at";
+      "id, broker_id, subscriber_name, subscriber_email, subscriber_phone, phone_e164, status, confirm_status, unsubscribed_at, interest_profile, segment, email_delivery_status, email_bounced_at, email_bounce_reason, created_at";
     const seenSubRowIds = new Set<string>();
     const pushSubRows = (rows: unknown) => {
       if (!Array.isArray(rows)) return;
@@ -1176,6 +1311,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const rawDispatchAuditEvents: Array<Record<string, any>> = [];
+
   if (userId) {
     try {
       let govActQuery: any = supabase
@@ -1192,6 +1329,8 @@ export async function GET(req: NextRequest) {
           "im_link_sent",
           "link_revoked",
           "link_restored",
+          "thread_link_revoked",
+          "thread_link_restored",
           "correction_notice_published",
           "correction_notice_cleared",
           "custom_client_upserted",
@@ -1247,8 +1386,12 @@ export async function GET(req: NextRequest) {
 
       for (const act of govActs || []) {
         const meta = (act.metadata as Record<string, any>) || {};
-        const tKey = String(meta.thread_id || meta.request_id || "").trim();
-        const rawKey = String(meta.request_id || meta.raw_client_id || "").trim();
+        const tKey = String(
+          meta.thread_id || meta.gate_request_id || meta.request_id || ""
+        ).trim();
+        const rawKey = String(
+          meta.gate_request_id || meta.request_id || meta.raw_client_id || ""
+        ).trim();
         const bKey = String(
           meta.building_id || (act.entity_id !== userId ? act.entity_id : "") || ""
         ).trim();
@@ -1284,17 +1427,44 @@ export async function GET(req: NextRequest) {
           const existingIdx = inboxState.customClients.findIndex(
             (c) => c.id === cId || (c.clientName === cName && c.clientPhone === cPhone)
           );
+          const resolvedGrade: "VIP" | "일반" | "잠재" =
+            meta.client_grade === "일반" || meta.client_grade === "잠재"
+              ? meta.client_grade
+              : meta.is_vip === false
+              ? "일반"
+              : "VIP";
+          const resolvedIsVip =
+            typeof meta.is_vip === "boolean" ? meta.is_vip : resolvedGrade === "VIP";
+          const resolvedRole = normalizeClientRole(meta.client_role) || "buyer";
+          const resolvedRegions = parsePreferredRegionsInput(
+            meta.preferred_regions,
+            meta.preferred_region
+          );
+          const resolvedBudgetManwon = parseBudgetManwonInput(
+            meta.budget_manwon,
+            meta.budget
+          );
+          const resolvedFreeMemo =
+            typeof meta.free_memo === "string" ? meta.free_memo : "";
+
           const upsertedObj = {
             id: cId,
             ownerId: userId,
             clientName: cName,
-            clientGrade: (meta.client_grade as "VIP" | "일반" | "잠재") || "VIP",
+            clientGrade: resolvedGrade,
+            isVip: resolvedIsVip,
+            clientRole: resolvedRole,
             clientPhone: cPhone,
             clientEmail: normalizeClientEmail(meta.client_email) || undefined,
             transactionalBasis:
               normalizeTransactionalBasis(meta.transactional_basis) || undefined,
-            budget: String(meta.budget || ""),
-            preferredRegion: String(meta.preferred_region || ""),
+            budget: String(meta.budget || formatBudgetManwonDisplay(resolvedBudgetManwon)),
+            budgetManwon: resolvedBudgetManwon,
+            preferredRegion: String(
+              meta.preferred_region || resolvedRegions.join(", ")
+            ),
+            preferredRegions: resolvedRegions,
+            freeMemo: resolvedFreeMemo,
             buildingId: String(meta.building_id || ""),
             buildingTitle: String(meta.building_title || "관심 매물 상담"),
             newsletterSubscribed: Boolean(meta.newsletter_subscribed),
@@ -1304,10 +1474,10 @@ export async function GET(req: NextRequest) {
             const memTs = toSafeEpochMs(inboxState.customClients[existingIdx].createdAt);
             const actTs = toSafeEpochMs(act.created_at);
             if (actTs >= memTs) {
-              inboxState.customClients[existingIdx] = upsertedObj;
+              inboxState.customClients[existingIdx] = upsertedObj as any;
             }
           } else {
-            inboxState.customClients.push(upsertedObj);
+            inboxState.customClients.push(upsertedObj as any);
           }
         } else if (act.event_type === "newsletter_subscription_toggled") {
           const subVal = Boolean(meta.newsletter_subscribed ?? meta.subscribed);
@@ -1377,19 +1547,37 @@ export async function GET(req: NextRequest) {
           }
           if (tKey) applyDbDecision(tKey, dec, tok, act.created_at);
           if (rawKey) applyDbDecision(rawKey, dec, tok, act.created_at);
+        } else if (
+          act.event_type === "thread_link_revoked" ||
+          act.event_type === "thread_link_restored"
+        ) {
+          const isRev = act.event_type === "thread_link_revoked";
+          const tok = typeof meta.share_token === "string" ? meta.share_token : undefined;
+          for (const k of new Set([tKey, rawKey].filter(Boolean))) {
+            if (!seenRevokeThread.has(k)) {
+              seenRevokeThread.add(k);
+              revokedByThreadId.set(k, {
+                revoked: isRev,
+                revokedAt: act.created_at,
+                shareToken: tok,
+              });
+            }
+          }
         } else if (act.event_type === "link_revoked" || act.event_type === "link_restored") {
           const isRev = act.event_type === "link_revoked";
           const tok = typeof meta.share_token === "string" ? meta.share_token : undefined;
           if (!isRev && tok && tKey && !issuedTokenByThreadId.has(tKey)) {
             issuedTokenByThreadId.set(tKey, tok);
           }
-          if (tKey && !seenRevokeThread.has(tKey)) {
-            seenRevokeThread.add(tKey);
-            revokedByThreadId.set(tKey, {
-              revoked: isRev,
-              revokedAt: act.created_at,
-              shareToken: tok,
-            });
+          for (const k of new Set([tKey, rawKey].filter(Boolean))) {
+            if (!seenRevokeThread.has(k)) {
+              seenRevokeThread.add(k);
+              revokedByThreadId.set(k, {
+                revoked: isRev,
+                revokedAt: act.created_at,
+                shareToken: tok,
+              });
+            }
           }
           if (bKey && !tok && !seenRevokeBuilding.has(bKey)) {
             seenRevokeBuilding.add(bKey);
@@ -1470,6 +1658,71 @@ export async function GET(req: NextRequest) {
     } catch {
       // ignore if activity_events unavailable
     }
+
+    // WP-18: Outbound & email-delivery audit trail query for right-pane Tab 3 `기록`
+    try {
+      const seenDispatchIds = new Set<string>();
+      const pushDispatchRows = (rows: unknown, allowNullActor: boolean) => {
+        if (!Array.isArray(rows)) return;
+        for (const ev of rows) {
+          const id = String((ev as any)?.id || "");
+          if (!id || seenDispatchIds.has(id)) continue;
+          const actor = (ev as any)?.actor_id ? String((ev as any).actor_id) : null;
+          if (actor && actor !== userId) continue;
+          if (!actor && !allowNullActor) continue;
+          seenDispatchIds.add(id);
+          rawDispatchAuditEvents.push(ev as Record<string, any>);
+        }
+      };
+
+      let ownDispQ: any = supabase
+        .from("activity_events")
+        .select("id, actor_id, event_type, entity_id, metadata, created_at")
+        .eq("actor_id", userId);
+      if (typeof ownDispQ.in === "function") {
+        ownDispQ = ownDispQ.in("event_type", [
+          "inbox_email_sent",
+          "inbox_outbound_copied",
+          "inbox_alimtalk_sent",
+          "magazine_sent",
+          "dealcard_sent",
+          "im_link_sent",
+          "email_delivered",
+          "email_bounced",
+          "email_complained",
+          "contacts_bulk_imported",
+        ]);
+      }
+      if (typeof ownDispQ.order === "function") {
+        ownDispQ = ownDispQ.order("created_at", { ascending: false });
+      }
+      if (typeof ownDispQ.limit === "function") {
+        ownDispQ = ownDispQ.limit(250);
+      }
+      const ownDispRes = await ownDispQ;
+      pushDispatchRows(ownDispRes?.data, false);
+
+      let webhookDispQ: any = supabase
+        .from("activity_events")
+        .select("id, actor_id, event_type, entity_id, metadata, created_at");
+      if (typeof webhookDispQ.in === "function") {
+        webhookDispQ = webhookDispQ.in("event_type", [
+          "email_delivered",
+          "email_bounced",
+          "email_complained",
+        ]);
+      }
+      if (typeof webhookDispQ.order === "function") {
+        webhookDispQ = webhookDispQ.order("created_at", { ascending: false });
+      }
+      if (typeof webhookDispQ.limit === "function") {
+        webhookDispQ = webhookDispQ.limit(200);
+      }
+      const webhookDispRes = await webhookDispQ;
+      pushDispatchRows(webhookDispRes?.data, true);
+    } catch {
+      // ignore if activity_events unavailable
+    }
   }
 
   function parseClientNotesMeta(notesRaw: unknown): {
@@ -1508,14 +1761,28 @@ export async function GET(req: NextRequest) {
   function aggregateThreadViews(
     tid: string,
     bIdStr: string,
-    allowUnscopedBuildingFallback: boolean
+    allowUnscopedBuildingFallback: boolean,
+    threadShareToken = ""
   ) {
     const strippedId = tid.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, "");
-    const taggedViews = viewItems.filter(
-      (v) =>
+    const taggedViews = viewItems.filter((v) => {
+      if (
         v.recipientId &&
         (v.recipientId === tid || (strippedId && v.recipientId === strippedId))
-    );
+      ) {
+        return true;
+      }
+      if (
+        v.gateRequestId &&
+        (v.gateRequestId === tid || (strippedId && v.gateRequestId === strippedId))
+      ) {
+        return true;
+      }
+      if (threadShareToken && v.shareToken && v.shareToken === threadShareToken) {
+        return true;
+      }
+      return false;
+    });
     const scopedViews =
       taggedViews.length > 0
         ? taggedViews
@@ -1609,13 +1876,35 @@ export async function GET(req: NextRequest) {
     const isRevoked =
       threadRevokeState?.revoked === true ||
       (threadRevokeState?.revoked !== false &&
-        (recipientLink?.status === "revoked" ||
+        (gr.status === "revoked" ||
+          recipientLink?.status === "revoked" ||
           Boolean(recipientLink?.revoked_at) ||
           Boolean(
             gr.building_id && inboxState.revokedBuildings?.[String(gr.building_id)]?.revoked
           )));
 
-    const viewStats = aggregateThreadViews(tid, String(gr.building_id || ""), true);
+    const resolvedShareToken =
+      isApproved && !isRevoked
+        ? decisionOverride?.shareToken ||
+          issuedTokenByThreadId.get(tid) ||
+          recipientLink?.token ||
+          ""
+        : isRevoked
+        ? recipientLink?.token ||
+          threadRevokeState?.shareToken ||
+          decisionOverride?.shareToken ||
+          ""
+        : "";
+    const resolvedShareUrl =
+      isApproved && !isRevoked ? buildThreadShareUrl(bIdStr, resolvedShareToken) : "";
+
+    // WP-18: allowUnscopedBuildingFallback = false so anonymous public views NEVER inflate named customer threads
+    const viewStats = aggregateThreadViews(
+      tid,
+      String(gr.building_id || ""),
+      false,
+      resolvedShareToken
+    );
     const focusedSections = viewStats.focusedSections;
 
     const threadCallNotes = callNotesByThreadId.get(tid) || [];
@@ -1670,21 +1959,6 @@ export async function GET(req: NextRequest) {
     const lastActivityAt =
       threadCallNotes[0]?.createdAt || decisionOverride?.createdAt || gr.created_at || "";
 
-    const resolvedShareToken =
-      isApproved && !isRevoked
-        ? decisionOverride?.shareToken ||
-          issuedTokenByThreadId.get(tid) ||
-          recipientLink?.token ||
-          ""
-        : isRevoked
-        ? recipientLink?.token ||
-          threadRevokeState?.shareToken ||
-          decisionOverride?.shareToken ||
-          ""
-        : "";
-    const resolvedShareUrl =
-      isApproved && !isRevoked ? buildThreadShareUrl(bIdStr, resolvedShareToken) : "";
-
     const phoneDigits = normalizeKrPhoneDigits(gr.requesterPhone || gr.requester_phone || "");
     const nlDecision =
       newsletterStateByKey.get(tid) ||
@@ -1715,6 +1989,8 @@ export async function GET(req: NextRequest) {
       requesterCompany: gr.requesterCompany || gr.requester_company || "",
       cleanMessage: baseRequestMsg,
       clientGrade: "일반" as const,
+      isVip: false,
+      clientRole: "buyer" as InboxCrmClientRole,
       buildingTitle: resolvedBuildingTitle,
       buildingId: bIdStr,
       latestEvent: latestEventText,
@@ -1747,11 +2023,56 @@ export async function GET(req: NextRequest) {
       hasCorrectionNotice: Boolean(corrMsg),
       correctionMessage: corrMsg,
       budget: "",
+      budgetManwon: null as number | null,
       preferredRegion: "",
+      preferredRegions: [] as string[],
+      freeMemo: "",
       focusedSections,
       newsletterSubscribed: Boolean(nlDecision?.subscribed),
       events: threadEvents,
     });
+  }
+
+  // Build DB client lookup by stripped UUID and normalized email for structured CRM & bounce status
+  const dbClientById = new Map<string, Record<string, any>>();
+  const deliveryStatusByEmail = new Map<string, InboxEmailDeliveryStatus>();
+  const deliveryStatusById = new Map<string, InboxEmailDeliveryStatus>();
+
+  const promoteDeliveryStatus = (
+    prev: InboxEmailDeliveryStatus | undefined,
+    next: InboxEmailDeliveryStatus
+  ): InboxEmailDeliveryStatus => {
+    if (prev === "complained" || next === "complained") return "complained";
+    if (prev === "bounced" || next === "bounced") return "bounced";
+    return "ok";
+  };
+
+  for (const dbc of dbClients) {
+    const cid = String(dbc?.id || "").trim();
+    if (cid) dbClientById.set(cid, dbc);
+    const ds = normalizeEmailDeliveryStatus(dbc?.email_delivery_status);
+    if (cid && ds !== "ok") {
+      deliveryStatusById.set(cid, promoteDeliveryStatus(deliveryStatusById.get(cid), ds));
+      deliveryStatusById.set(`custom_${cid}`, promoteDeliveryStatus(deliveryStatusById.get(`custom_${cid}`), ds));
+      deliveryStatusById.set(`cli-${cid}`, promoteDeliveryStatus(deliveryStatusById.get(`cli-${cid}`), ds));
+    }
+    const em = normalizeClientEmail(dbc?.email);
+    if (em && ds !== "ok") {
+      deliveryStatusByEmail.set(em, promoteDeliveryStatus(deliveryStatusByEmail.get(em), ds));
+    }
+  }
+
+  for (const sub of subscriberRows) {
+    const sid = String(sub?.id || "").trim();
+    const ds = normalizeEmailDeliveryStatus(sub?.email_delivery_status);
+    if (sid && ds !== "ok") {
+      deliveryStatusById.set(sid, promoteDeliveryStatus(deliveryStatusById.get(sid), ds));
+      deliveryStatusById.set(`sub_${sid}`, promoteDeliveryStatus(deliveryStatusById.get(`sub_${sid}`), ds));
+    }
+    const em = normalizeClientEmail(sub?.subscriber_email ?? sub?.email);
+    if (em && ds !== "ok") {
+      deliveryStatusByEmail.set(em, promoteDeliveryStatus(deliveryStatusByEmail.get(em), ds));
+    }
   }
 
   // Add custom clients (including cold-start customClients restored from activity_events — B-S1-09, INBOX-06, INBOX-12)
@@ -1777,22 +2098,131 @@ export async function GET(req: NextRequest) {
     ) {
       continue;
     }
+
+    const dbSupplemental = strippedId ? dbClientById.get(strippedId) : undefined;
+    const parsedMeta = parseClientNotesMeta(row.notes ?? dbSupplemental?.notes);
+
+    const rowGradeRaw =
+      row.tier === "vip" ||
+      row.tier === "VIP" ||
+      row.clientGrade === "VIP" ||
+      dbSupplemental?.tier === "vip"
+        ? ("VIP" as const)
+        : row.tier === "potential" ||
+          row.clientGrade === "잠재" ||
+          dbSupplemental?.tier === "potential"
+        ? ("잠재" as const)
+        : ("일반" as const);
+    const resolvedIsVip =
+      typeof row.isVip === "boolean"
+        ? row.isVip
+        : typeof row.is_vip === "boolean"
+        ? row.is_vip
+        : typeof dbSupplemental?.is_vip === "boolean"
+        ? dbSupplemental.is_vip
+        : rowGradeRaw === "VIP";
+    const resolvedClientGrade: "VIP" | "일반" | "잠재" = resolvedIsVip
+      ? "VIP"
+      : rowGradeRaw === "VIP"
+      ? "일반"
+      : rowGradeRaw;
+
+    const tags = Array.isArray(row.tags)
+      ? row.tags.map((t: unknown) => String(t))
+      : Array.isArray(dbSupplemental?.tags)
+      ? dbSupplemental.tags.map((t: unknown) => String(t))
+      : [];
+    const roleFromTags: InboxCrmClientRole | null = tags.some((t: string) =>
+      /매도|소유주|seller|owner/i.test(t)
+    )
+      ? "seller"
+      : tags.some((t: string) => /임차|tenant|lessee/i.test(t))
+      ? "tenant"
+      : tags.some((t: string) => /공동중개|파트너|partner/i.test(t))
+      ? "partner"
+      : null;
+    const resolvedClientRole: InboxCrmClientRole =
+      normalizeClientRole(
+        row.clientRole ??
+          row.client_role ??
+          dbSupplemental?.client_role ??
+          row.client_type ??
+          dbSupplemental?.client_type
+      ) ||
+      roleFromTags ||
+      "buyer";
+
+    const resolvedPreferredRegions = parsePreferredRegionsInput(
+      row.preferredRegions ?? row.preferred_regions ?? dbSupplemental?.preferred_regions,
+      row.preferred_region || row.preferredRegion || parsedMeta.preferredRegion
+    );
+    const preferredRegion = String(
+      row.preferred_region ||
+        row.preferredRegion ||
+        parsedMeta.preferredRegion ||
+        resolvedPreferredRegions.join(", ") ||
+        ""
+    ).trim();
+
+    const resolvedBudgetManwon = parseBudgetManwonInput(
+      row.budgetManwon ?? row.budget_manwon ?? dbSupplemental?.budget_manwon,
+      row.budget || parsedMeta.budget
+    );
+    const budget = String(
+      row.budget ||
+        parsedMeta.budget ||
+        formatBudgetManwonDisplay(resolvedBudgetManwon) ||
+        ""
+    ).trim();
+
+    const resolvedFreeMemo =
+      typeof row.freeMemo === "string"
+        ? row.freeMemo
+        : typeof row.free_memo === "string"
+        ? row.free_memo
+        : typeof dbSupplemental?.free_memo === "string"
+        ? dbSupplemental.free_memo
+        : extractFreeMemoFromLegacyNotes(row.notes ?? dbSupplemental?.notes);
+
+    // If CRM profile action updated an existing gate_requests / inquiry thread, merge structured fields onto it without duplicating
+    if (strippedId && seenThreadIds.has(strippedId)) {
+      const existingGateThread = threads.find((t) => t.id === strippedId);
+      if (existingGateThread) {
+        existingGateThread.isVip = resolvedIsVip;
+        existingGateThread.clientGrade = resolvedClientGrade;
+        existingGateThread.clientRole = resolvedClientRole;
+        existingGateThread.preferredRegions = resolvedPreferredRegions;
+        existingGateThread.preferredRegion = preferredRegion || existingGateThread.preferredRegion;
+        existingGateThread.budgetManwon = resolvedBudgetManwon;
+        existingGateThread.budget = budget || existingGateThread.budget;
+        existingGateThread.freeMemo = resolvedFreeMemo;
+        const upEmail = normalizeClientEmail(row.email || row.clientEmail || dbSupplemental?.email);
+        if (upEmail && !existingGateThread.clientEmail) {
+          existingGateThread.clientEmail = upEmail;
+        }
+      }
+      continue;
+    }
+
     if (seenThreadIds.has(tid) || seenThreadIds.has(rawId) || isThreadArchived(tid)) continue;
 
-    const name = String(row.display_name || row.name || row.clientName || "").trim();
+    const name = String(
+      row.display_name || row.name || row.clientName || dbSupplemental?.display_name || ""
+    ).trim();
     if (!name) continue;
-    const phone = String(row.phone || row.clientPhone || "").trim();
+    const phone = String(row.phone || row.clientPhone || dbSupplemental?.phone || "").trim();
     const phoneDigits = normalizeKrPhoneDigits(phone);
     const identityKey = `${name.toLowerCase()}::${phoneDigits}`;
     if (seenCustomClientIdentity.has(identityKey)) continue;
     seenCustomClientIdentity.add(identityKey);
     seenThreadIds.add(tid);
 
-    const parsedMeta = parseClientNotesMeta(row.notes);
     let bId = String(
       row.building_id ||
         row.buildingId ||
         (Array.isArray(row.linked_building_ids) && row.linked_building_ids[0]) ||
+        (Array.isArray(dbSupplemental?.linked_building_ids) &&
+          dbSupplemental.linked_building_ids[0]) ||
         ""
     ).trim();
     if (bId && (forbiddenBuildingSet.has(bId) || deletedBuildingSet.has(bId))) {
@@ -1819,11 +2249,6 @@ export async function GET(req: NextRequest) {
       (bId ? buildingTitleById.get(bId) : "") ||
       (bId ? quickInventory.find((q) => q.buildingId === bId)?.title : "") ||
       "관심 매물 상담";
-
-    const budget = String(row.budget || parsedMeta.budget || "").trim();
-    const preferredRegion = String(
-      row.preferred_region || row.preferredRegion || parsedMeta.preferredRegion || ""
-    ).trim();
 
     const notesList =
       callNotesByThreadId.get(tid) ||
@@ -1854,7 +2279,6 @@ export async function GET(req: NextRequest) {
     const resolvedShareUrl =
       !isRevoked && bId ? buildThreadShareUrl(bId, resolvedShareToken) : "";
 
-    const tags = Array.isArray(row.tags) ? row.tags.map((t: unknown) => String(t)) : [];
     const hasNewsletterTag =
       tags.some((t: string) => /뉴스레터|구독|newsletter|subscribe/i.test(t)) &&
       !tags.some((t: string) => /수신거부|해지|unsub/i.test(t));
@@ -1879,11 +2303,12 @@ export async function GET(req: NextRequest) {
       ]
         .filter(Boolean)
         .join(" · ") ||
+      resolvedFreeMemo ||
       (!parsedMeta.isStructuredMeta && row.notes ? String(row.notes) : "직접 등록한 고객입니다.");
 
-    const customViewStats = aggregateThreadViews(tid, bId, false);
+    const customViewStats = aggregateThreadViews(tid, bId, false, resolvedShareToken);
     const resolvedClientEmail =
-      normalizeClientEmail(row.email || row.clientEmail) || "";
+      normalizeClientEmail(row.email || row.clientEmail || dbSupplemental?.email) || "";
     const resolvedBasis =
       normalizeTransactionalBasis(
         row.transactionalBasis || parsedMeta.transactionalBasis
@@ -1911,12 +2336,9 @@ export async function GET(req: NextRequest) {
       hasTransactionalBasis: Boolean(resolvedBasis),
       requesterCompany: "",
       cleanMessage: summaryCleanMessage,
-      clientGrade:
-        row.tier === "vip" || row.tier === "VIP" || row.clientGrade === "VIP"
-          ? ("VIP" as const)
-          : row.tier === "potential" || row.clientGrade === "잠재"
-          ? ("잠재" as const)
-          : ("일반" as const),
+      clientGrade: resolvedClientGrade,
+      isVip: resolvedIsVip,
+      clientRole: resolvedClientRole,
       buildingTitle: bTitle,
       buildingId: bId,
       latestEvent: notesList[0]?.description || summaryCleanMessage,
@@ -1937,7 +2359,10 @@ export async function GET(req: NextRequest) {
       hasCorrectionNotice: Boolean(corrMsg),
       correctionMessage: corrMsg,
       budget,
+      budgetManwon: resolvedBudgetManwon,
       preferredRegion,
+      preferredRegions: resolvedPreferredRegions,
+      freeMemo: resolvedFreeMemo,
       focusedSections: customViewStats.focusedSections,
       newsletterSubscribed: resolvedNewsletterSubscribed,
       events: [
@@ -2041,9 +2466,9 @@ export async function GET(req: NextRequest) {
     const matchedExisting = threads.find((t) => {
       const tPhoneDigits = normalizeKrPhoneDigits(t.clientPhone || "");
       if (phoneDigits.length >= 9 && tPhoneDigits === phoneDigits) return true;
-      const tEmail = String(t.clientPhone || "").includes("@")
-        ? String(t.clientPhone).trim().toLowerCase()
-        : "";
+      const tEmail = normalizeClientEmail(
+        t.clientEmail || (String(t.clientPhone || "").includes("@") ? t.clientPhone : "")
+      );
       if (emailNorm && tEmail === emailNorm) return true;
       return false;
     });
@@ -2055,6 +2480,13 @@ export async function GET(req: NextRequest) {
       }
       if (!matchedExisting.preferredRegion && regions.length > 0) {
         matchedExisting.preferredRegion = regions.join(", ");
+      }
+      if (
+        Array.isArray(matchedExisting.preferredRegions) &&
+        matchedExisting.preferredRegions.length === 0 &&
+        regions.length > 0
+      ) {
+        matchedExisting.preferredRegions = [...regions];
       }
       continue;
     }
@@ -2106,6 +2538,8 @@ export async function GET(req: NextRequest) {
       (subNotes[0] as any)?.createdAt || row?.created_at || "";
 
     const subViewStats = aggregateThreadViews(subTid, "", false);
+    const subRole: InboxCrmClientRole =
+      normalizeClientRole(row?.segment) || "buyer";
 
     threads.push({
       id: subTid,
@@ -2117,6 +2551,8 @@ export async function GET(req: NextRequest) {
       requesterCompany: "",
       cleanMessage: subSummaryMessage,
       clientGrade: "일반" as const,
+      isVip: false,
+      clientRole: subRole,
       buildingTitle:
         assetTypes.length > 0
           ? `관심 유형: ${assetTypes.join(", ")}`
@@ -2136,7 +2572,10 @@ export async function GET(req: NextRequest) {
       hasCorrectionNotice: false,
       correctionMessage: "",
       budget: "",
+      budgetManwon: null as number | null,
       preferredRegion: regions.join(", "),
+      preferredRegions: [...regions],
+      freeMemo: "",
       tags: allSelectedTags,
       focusedSections: subViewStats.focusedSections,
       newsletterSubscribed: effectiveSubscribed,
@@ -2158,9 +2597,18 @@ export async function GET(req: NextRequest) {
   }
 
   // Group remaining view events by building + viewer (separating anonymous viewers by visitorFp — C-4)
+  const ownedShareTokenSet = new Set<string>(
+    threads.map((t) => String(t.shareToken || "").trim()).filter(Boolean)
+  );
   const viewGroups = new Map<string, any[]>();
   for (const v of viewItems) {
     if (v.recipientId && seenThreadIds.has(v.recipientId)) {
+      continue;
+    }
+    if (v.gateRequestId && seenThreadIds.has(v.gateRequestId)) {
+      continue;
+    }
+    if (v.shareToken && ownedShareTokenSet.has(v.shareToken)) {
       continue;
     }
     const isAnon = !v.viewerName || v.viewerName === "익명 열람객";
@@ -2233,6 +2681,8 @@ export async function GET(req: NextRequest) {
       requesterCompany: "",
       cleanMessage: "상세 자료를 열람했습니다",
       clientGrade: "일반" as const,
+      isVip: false,
+      clientRole: "buyer" as InboxCrmClientRole,
       buildingTitle:
         buildingTitleById.get(bIdStr) ||
         first.sub_label ||
@@ -2262,7 +2712,10 @@ export async function GET(req: NextRequest) {
       hasCorrectionNotice: Boolean(corrMsg),
       correctionMessage: corrMsg,
       budget: "",
+      budgetManwon: null as number | null,
       preferredRegion: "",
+      preferredRegions: [] as string[],
+      freeMemo: "",
       focusedSections,
       newsletterSubscribed: Boolean(newsletterStateByKey.get(tid)?.subscribed),
       events: [
@@ -2285,8 +2738,280 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // WP-18: Attach dispatchHistory (newest-first) + emailDeliveryStatus onto every thread
+  const toDispatchHistoryEntry = (ev: Record<string, any>): InboxDispatchHistoryItem => {
+    const meta = (
+      ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}
+    ) as Record<string, any>;
+    const eventType = String(ev?.event_type || "");
+    const createdAt = String(ev?.created_at || "");
+    const assetKind = String(meta.asset_kind || "").toLowerCase();
+
+    if (eventType === "inbox_email_sent") {
+      const fallbackTitle =
+        assetKind === "magazine"
+          ? "뉴스레터 이메일 발송"
+          : assetKind === "dealcard"
+          ? "딜카드 이메일 발송"
+          : "IM 자료 이메일 발송";
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "email",
+        title:
+          typeof meta.subject === "string" && meta.subject.trim()
+            ? meta.subject.trim()
+            : fallbackTitle,
+        status: "sent",
+        createdAt,
+      };
+    }
+    if (eventType === "inbox_outbound_copied") {
+      const title =
+        assetKind === "magazine"
+          ? "카톡 인사말+뉴스레터 링크 복사"
+          : assetKind === "dealcard"
+          ? "카톡 인사말+딜카드 링크 복사"
+          : "카톡 인사말+IM 링크 복사";
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "copy",
+        title,
+        status: "copied",
+        createdAt,
+      };
+    }
+    if (eventType === "inbox_alimtalk_sent") {
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "alimtalk",
+        title: "카카오 정보성 알림톡 발송",
+        status: "sent",
+        createdAt,
+      };
+    }
+    if (eventType === "magazine_sent") {
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: String(meta.channel || "newsletter"),
+        title:
+          typeof meta.headline === "string" && meta.headline.trim()
+            ? `뉴스레터 발송: ${meta.headline.trim()}`
+            : "뉴스레터 발송",
+        status: "sent",
+        createdAt,
+      };
+    }
+    if (eventType === "dealcard_sent" || eventType === "im_link_sent") {
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: String(meta.channel || "link"),
+        title: eventType === "dealcard_sent" ? "딜카드 링크 발송" : "IM 전용 링크 발송",
+        status: "sent",
+        createdAt,
+      };
+    }
+    if (eventType === "email_delivered") {
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "email",
+        title: "이메일 수신 서버 전달 완료",
+        status: "delivered",
+        createdAt,
+      };
+    }
+    if (eventType === "email_bounced") {
+      const reason =
+        typeof meta.reason === "string" && meta.reason.trim()
+          ? meta.reason.trim()
+          : undefined;
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "email",
+        title: "이메일 반송 (수신 불가)",
+        status: "bounced",
+        createdAt,
+        ...(reason ? { bounceReason: reason } : {}),
+      };
+    }
+    if (eventType === "email_complained") {
+      const reason =
+        typeof meta.reason === "string" && meta.reason.trim()
+          ? meta.reason.trim()
+          : undefined;
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "email",
+        title: "스팸 신고 접수 (발송 자동 차단)",
+        status: "complained",
+        createdAt,
+        ...(reason ? { bounceReason: reason } : {}),
+      };
+    }
+    if (eventType === "contacts_bulk_imported") {
+      return {
+        id: String(ev.id),
+        eventType,
+        channel: "import",
+        title: "연락처 일괄 등록",
+        status: "imported",
+        createdAt,
+      };
+    }
+    return {
+      id: String(ev.id),
+      eventType,
+      channel: String(meta.channel || "system"),
+      title: eventType,
+      status: "logged",
+      createdAt,
+    };
+  };
+
+  for (const t of threads) {
+    const tid = String(t.id || "");
+    const strippedTid = tid.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, "");
+    const tEmail = normalizeClientEmail(
+      t.clientEmail || (String(t.clientPhone || "").includes("@") ? t.clientPhone : "")
+    );
+    const tShareToken = String(t.shareToken || "").trim();
+
+    let deliveryStatus: InboxEmailDeliveryStatus = "ok";
+    if (tid && deliveryStatusById.has(tid)) {
+      deliveryStatus = promoteDeliveryStatus(deliveryStatus, deliveryStatusById.get(tid)!);
+    }
+    if (strippedTid && deliveryStatusById.has(strippedTid)) {
+      deliveryStatus = promoteDeliveryStatus(
+        deliveryStatus,
+        deliveryStatusById.get(strippedTid)!
+      );
+    }
+    if (tEmail && deliveryStatusByEmail.has(tEmail)) {
+      deliveryStatus = promoteDeliveryStatus(deliveryStatus, deliveryStatusByEmail.get(tEmail)!);
+    }
+
+    const matchedDispatches: InboxDispatchHistoryItem[] = [];
+    for (const ev of rawDispatchAuditEvents) {
+      const meta = (
+        ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}
+      ) as Record<string, any>;
+      const evType = String(ev?.event_type || "");
+      const evThreadId = String(
+        meta.thread_id || meta.client_id || meta.recipient_id || meta.subscriber_id || ""
+      ).trim();
+      const evRawId = String(
+        meta.raw_client_id || evThreadId.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, "")
+      ).trim();
+      const evEmail = normalizeClientEmail(
+        meta.to_email || meta.email || meta.client_email || meta.subscriber_email
+      );
+      const evToken = String(meta.share_token || "").trim();
+
+      const matchesById =
+        Boolean(evThreadId && evThreadId === tid) ||
+        Boolean(
+          strippedTid &&
+            (evThreadId === strippedTid ||
+              evRawId === strippedTid ||
+              (ev?.entity_id && String(ev.entity_id) === strippedTid))
+        );
+      const matchesByEmail = Boolean(tEmail && evEmail && evEmail === tEmail);
+      const matchesByToken = Boolean(tShareToken && evToken && evToken === tShareToken);
+
+      let matchesBroadcastOrImport = false;
+      if (!matchesById && !matchesByEmail && !matchesByToken) {
+        if (evType === "magazine_sent" && !evThreadId && t.newsletterSubscribed === true) {
+          const seg = String(meta.segment || "all").toLowerCase();
+          if (
+            seg === "all" ||
+            (seg === "vip" && t.isVip === true) ||
+            (seg === "seller" && t.clientRole === "seller") ||
+            (seg === "buyer" && t.clientRole === "buyer")
+          ) {
+            matchesBroadcastOrImport = true;
+          }
+        } else if (evType === "contacts_bulk_imported") {
+          const importedIds = Array.isArray(meta.client_ids)
+            ? meta.client_ids.map((x: unknown) => String(x))
+            : [];
+          const importedEmails = Array.isArray(meta.emails)
+            ? meta.emails
+                .map((x: unknown) => normalizeClientEmail(typeof x === "string" ? x : null))
+                .filter((x: string | null): x is string => Boolean(x))
+            : [];
+          if (
+            importedIds.includes(tid) ||
+            (strippedTid && importedIds.includes(strippedTid)) ||
+            (tEmail && importedEmails.includes(tEmail))
+          ) {
+            matchesBroadcastOrImport = true;
+          }
+        }
+      }
+
+      if (!matchesById && !matchesByEmail && !matchesByToken && !matchesBroadcastOrImport) {
+        continue;
+      }
+
+      if (evType === "email_complained") {
+        deliveryStatus = promoteDeliveryStatus(deliveryStatus, "complained");
+      } else if (evType === "email_bounced") {
+        deliveryStatus = promoteDeliveryStatus(deliveryStatus, "bounced");
+      }
+
+      matchedDispatches.push(toDispatchHistoryEntry(ev));
+    }
+
+    matchedDispatches.sort((a, b) => toSafeEpochMs(b.createdAt) - toSafeEpochMs(a.createdAt));
+
+    t.emailDeliveryStatus = deliveryStatus;
+    t.dispatchHistory = matchedDispatches;
+  }
+
   // Sort threads deterministically by latest activity timestamp descending (B-S1-08)
   threads.sort((a, b) => toSafeEpochMs(b.lastActivityAt) - toSafeEpochMs(a.lastActivityAt));
+
+  // WP-18: Optional structured CRM & workflow filter (?filter=all|todo|viewed|vip|buyer|seller|emailable)
+  const filteredThreads = threads.filter((t) => {
+    const isAnonView = String(t.id || "").startsWith("view_");
+    switch (filter) {
+      case "all":
+      case "":
+        return true;
+      case "todo":
+      case "requests":
+        return t.status === "pending_gate" || t.gateStatus === "pending" || !t.isRead;
+      case "viewed":
+      case "views":
+        return (
+          (t.openCount ?? 0) > 0 ||
+          (t.dwellSeconds ?? 0) > 0 ||
+          t.status === "high_interest" ||
+          isAnonView
+        );
+      case "vip":
+        return t.isVip === true || t.clientGrade === "VIP";
+      case "buyer":
+        return !isAnonView && t.clientRole === "buyer";
+      case "seller":
+        return !isAnonView && t.clientRole === "seller";
+      case "tenant":
+        return !isAnonView && t.clientRole === "tenant";
+      case "partner":
+        return !isAnonView && t.clientRole === "partner";
+      case "emailable":
+        return !isAnonView && Boolean(t.clientEmail) && t.emailDeliveryStatus === "ok";
+      default:
+        return true;
+    }
+  });
 
   // ── 5. 통합 & 정렬 ──
   const allItems = [...gateItems, ...inquiryItems, ...viewItems, ...notifItems]
@@ -2306,7 +3031,7 @@ export async function GET(req: NextRequest) {
       isPaid: subscriptionInfo.isPaid,
       status: subscriptionInfo.status,
     },
-    threads,
+    threads: filteredThreads,
     items: allItems,
     gateRequests: gateItems,
     activityEvents: viewItems,

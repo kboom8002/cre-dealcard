@@ -4,6 +4,50 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
+import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+
+/**
+ * 카카오톡·라인·인스타그램·페이스북 등 인앱 WebView 감지 (순수 함수)
+ */
+export function isInAppWebView(ua: string): boolean {
+  if (typeof ua !== "string" || !ua) return false;
+  return /KAKAOTALK|Line|Instagram|FBAN|FBAV/i.test(ua);
+}
+
+/**
+ * 인앱 WebView에서 외부 브라우저(Safari/Chrome) 1-클릭 오픈 스킴 생성.
+ * - Android: Chrome intent:// 스킴
+ * - KakaoTalk iOS (및 기타 KakaoTalk): kakaotalk://web/openExternal?url=...
+ * - 그 외(일반 브라우저 또는 전용 스킴 미지원 iOS 인앱): null 반환 (호출부에서 copyText 폴백)
+ */
+export function buildKakaoExternalOpenUrl(
+  currentUrl: string,
+  ua: string
+): string | null {
+  if (typeof currentUrl !== "string") return null;
+  const trimmedUrl = currentUrl.trim();
+  if (!/^https?:\/\//i.test(trimmedUrl)) return null;
+  if (!isInAppWebView(ua)) return null;
+
+  if (/Android/i.test(ua)) {
+    const schemeMatch = trimmedUrl.match(/^(https?):\/\//i);
+    const scheme = (schemeMatch?.[1] || "https").toLowerCase();
+    const withoutScheme = trimmedUrl.replace(/^https?:\/\//i, "");
+    return `intent://${withoutScheme}#Intent;scheme=${scheme};package=com.android.chrome;end`;
+  }
+
+  if (/KAKAOTALK/i.test(ua)) {
+    return `kakaotalk://web/openExternal?url=${encodeURIComponent(trimmedUrl)}`;
+  }
+
+  return null;
+}
+
+export function isExplicitKakaoChannelUrl(raw: unknown): raw is string {
+  if (typeof raw !== "string") return false;
+  const trimmed = raw.trim();
+  return /^https?:\/\/(?:open\.kakao\.com|pf\.kakao\.com)\//i.test(trimmed);
+}
 
 export function ShareButton({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
@@ -13,13 +57,18 @@ export function ShareButton({ title }: { title: string }) {
     if (navigator.share) {
       try {
         await navigator.share({ title, url });
-      } catch {
-        // User cancelled
+        return;
+      } catch (err) {
+        if ((err as { name?: string } | null)?.name === "AbortError") return;
       }
-    } else {
-      await navigator.clipboard.writeText(url);
+    }
+    const ok = await copyText(url);
+    if (ok) {
       setCopied(true);
+      toast.success("링크가 클립보드에 복사되었습니다.");
       setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
     }
   };
 
@@ -146,6 +195,7 @@ interface FloatingActionBarProps {
   docId?: string;
   tier?: "basic" | "pro";
   brokerPhone?: string;
+  kakaoChannelUrl?: string | null;
   onInquire?: () => void;
   isBroker?: boolean;
   doc?: MobileIMDocument | null;
@@ -157,6 +207,7 @@ export function FloatingActionBar({
   docId,
   tier = "basic",
   brokerPhone,
+  kakaoChannelUrl,
   onInquire,
   isBroker = false,
   doc,
@@ -169,7 +220,27 @@ export function FloatingActionBar({
   );
   const [isPresetMenuOpen, setIsPresetMenuOpen] = useState(false);
   const [pptxLoading, setPptxLoading] = useState(false);
+  const [inAppWebView, setInAppWebView] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && isInAppWebView(navigator.userAgent)) {
+      setInAppWebView(true);
+    }
+  }, []);
+
+  const validKakaoChannelUrl = useMemo(() => {
+    const candidates = [
+      kakaoChannelUrl,
+      (doc?.broker as any)?.kakaoChannelUrl,
+      (doc?.broker as any)?.kakaoUrl,
+      (doc?.broker as any)?.kakao_url,
+    ];
+    for (const c of candidates) {
+      if (isExplicitKakaoChannelUrl(c)) return c.trim();
+    }
+    return null;
+  }, [kakaoChannelUrl, doc]);
 
   // 모든 10종 프리셋을 Basic/Pro IM 스튜디오 및 다운로드에서 사용 가능
   const availablePresets = useMemo(() =>
@@ -215,7 +286,27 @@ export function FloatingActionBar({
     }
   }, []);
 
-  const handleKakaoShare = () => {
+  const handleOpenExternalBrowser = async () => {
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const extUrl = buildKakaoExternalOpenUrl(currentUrl, ua);
+    if (extUrl) {
+      try {
+        window.location.assign(extUrl);
+        return;
+      } catch {
+        // Fall through to copyText fallback
+      }
+    }
+    const ok = await copyText(currentUrl);
+    if (ok) {
+      toast.success("링크가 복사되었습니다. Safari 또는 Chrome 주소창에 붙여넣어 열어주세요.");
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
+    }
+  };
+
+  const handleKakaoShare = async () => {
     const currentUrl =
       typeof window !== "undefined"
         ? window.location.href
@@ -269,11 +360,15 @@ export function FloatingActionBar({
       }
     }
 
-    // Fallback: Copy link
-    navigator.clipboard.writeText(currentUrl);
-    setCopied(true);
-    toast.success("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
-    setTimeout(() => setCopied(false), 2000);
+    // Fallback: Copy link via WebView-safe copyText
+    const ok = await copyText(currentUrl);
+    if (ok) {
+      setCopied(true);
+      toast.success("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
+    }
   };
 
   const handleShare = async () => {
@@ -282,14 +377,18 @@ export function FloatingActionBar({
       try {
         await navigator.share({ title, url });
         return;
-      } catch {
-        // Fall through
+      } catch (err) {
+        if ((err as { name?: string } | null)?.name === "AbortError") return;
       }
     }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.success("링크가 클립보드에 복사되었습니다.");
-    setTimeout(() => setCopied(false), 2000);
+    const ok = await copyText(url);
+    if (ok) {
+      setCopied(true);
+      toast.success("링크가 클립보드에 복사되었습니다.");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
+    }
   };
 
   const handlePdf = () => {
@@ -305,10 +404,30 @@ export function FloatingActionBar({
   const handlePptxDownload = (presetKey?: string) => {
     setPptxLoading(true);
     const preset = presetKey || selectedPreset;
-    const targetUrl = `/api/public/im-lite/${buildingId}/pptx?preset=${preset}${
-      docId ? `&doc_id=${docId}&tier=${tier}` : `&tier=${tier}`
-    }`;
-    window.open(targetUrl, "_blank", "noopener");
+    const prebuiltUrl = (doc as any)?.pptxDownloadUrl;
+    const grantId = (doc as any)?.grantId;
+    const targetUrl =
+      typeof prebuiltUrl === "string" && prebuiltUrl.trim()
+        ? prebuiltUrl.trim()
+        : typeof grantId === "string" && grantId.trim()
+        ? `/api/public/im-pro/${encodeURIComponent(grantId.trim())}/pptx`
+        : `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?preset=${encodeURIComponent(preset)}${
+            docId ? `&doc_id=${encodeURIComponent(docId)}&tier=${tier}` : `&tier=${tier}`
+          }`;
+
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    if (isInAppWebView(ua)) {
+      setInAppWebView(true);
+      toast.info(
+        "앱 내 브라우저에서는 파일 다운로드가 제한될 수 있습니다. 외부 브라우저(Safari/Chrome)로 열기를 이용해 주세요."
+      );
+    }
+
+    try {
+      window.location.assign(targetUrl);
+    } catch {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    }
     setIsPresetMenuOpen(false);
     setTimeout(() => setPptxLoading(false), 500);
   };
@@ -342,7 +461,23 @@ export function FloatingActionBar({
     availablePresets.find((p) => p.id === selectedPreset) || availablePresets[0];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom shadow-2xl">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl">
+      {inAppWebView && (
+        <div
+          data-testid="fab-inapp-webview-banner"
+          className="bg-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-100 max-w-2xl mx-auto"
+        >
+          <span>앱 내 브라우저에서는 PPTX 파일 저장이 차단될 수 있습니다.</span>
+          <button
+            type="button"
+            onClick={() => void handleOpenExternalBrowser()}
+            className="px-2.5 py-1 rounded-lg bg-amber-400 text-neutral-950 font-extrabold hover:bg-amber-300 transition-colors cursor-pointer"
+          >
+            외부 브라우저(Safari/Chrome)로 열기
+          </button>
+        </div>
+      )}
+
       {/* Broker mode switcher bar */}
       {isBroker && (
         <div className="bg-neutral-950/90 border-b border-neutral-800 px-4 py-1.5 flex items-center justify-between text-xs max-w-2xl mx-auto">
@@ -388,7 +523,7 @@ export function FloatingActionBar({
           <>
             {/* 카카오톡 공유 버튼 */}
             <button
-              onClick={handleKakaoShare}
+              onClick={() => void handleKakaoShare()}
               className="flex items-center justify-center gap-1.5 px-3 py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-xs sm:text-sm font-black rounded-xl transition-all shadow-md active:scale-95 shrink-0"
               title="카카오톡으로 모바일 IM 공유"
             >
@@ -527,13 +662,24 @@ export function FloatingActionBar({
                 📞 직통 전화
               </a>
             )}
-            {onInquire && (
-              <button
-                onClick={onInquire}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl transition-colors shadow-sm"
+            {validKakaoChannelUrl ? (
+              <a
+                href={validKakaoChannelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-bold rounded-xl transition-colors shadow-sm"
               >
-                💬 비밀 상담
-              </button>
+                💬 카톡 상담
+              </a>
+            ) : (
+              onInquire && (
+                <button
+                  onClick={onInquire}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl transition-colors shadow-sm"
+                >
+                  📩 간편 문의 · 자료 요청
+                </button>
+              )
             )}
             <button
               onClick={handlePdf}

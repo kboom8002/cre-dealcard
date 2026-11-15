@@ -26,6 +26,18 @@ import {
   type ViewerTarget,
 } from "@/lib/magazine/view-helpers";
 import { clipDescription, type KakaoLike } from "@/lib/magazine/kakao-share";
+import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+
+function isExplicitKakaoChannelUrl(raw: unknown): boolean {
+  if (typeof raw !== "string") return false;
+  return /^https?:\/\/(?:open\.kakao\.com|pf\.kakao\.com)\//i.test(raw.trim());
+}
+
+function resolveActionDisplayLabel(action: ViewerBarAction, kakaoUrl: unknown): string {
+  if (action.kind !== "contact") return action.label;
+  if (isExplicitKakaoChannelUrl(kakaoUrl)) return "💬 카톡 상담";
+  return "간편 문의";
+}
 
 interface ViewerBottomBarProps {
   phone?: unknown;
@@ -138,9 +150,10 @@ export function ViewerBottomBar({
         kakao: (window as unknown as { Kakao?: KakaoLike }).Kakao ?? null,
         appKey: process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? null,
         share: typeof navigator.share === "function" ? (d) => navigator.share(d) : null,
-        writeClipboard: navigator.clipboard?.writeText
-          ? (t) => navigator.clipboard.writeText(t)
-          : null,
+        writeClipboard: async (t) => {
+          const ok = await copyText(t);
+          if (!ok) throw new Error("clipboard copy failed");
+        },
       },
     );
     if (outcome === "copied") {
@@ -148,7 +161,7 @@ export function ViewerBottomBar({
       toast.success("링크를 복사했어요");
       setTimeout(() => setCopied(false), 2500);
     } else if (outcome === "failed") {
-      toast.error("링크를 복사하지 못했어요. 주소창의 링크를 직접 복사해 주세요.");
+      toast.error(COPY_FAILED_MESSAGE);
     }
   };
 
@@ -164,7 +177,7 @@ export function ViewerBottomBar({
             className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 text-sm font-bold text-ink-muted"
           >
             <ActionIcon kind={a.kind} />
-            {a.label}
+            {resolveActionDisplayLabel(a, kakaoUrl)}
           </span>
         ))}
       </div>
@@ -190,7 +203,7 @@ export function ViewerBottomBar({
       <nav
         aria-label="상담·공유 바로가기"
         data-magazine-bottom-bar=""
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/15 bg-[#090d1a]/95 px-2.5 py-1 backdrop-blur-xl print:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/15 bg-[#090d1a]/95 px-2.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl print:hidden"
       >
         <div className="mx-auto flex max-w-lg items-center gap-1.5">
           {primary && (
@@ -200,7 +213,7 @@ export function ViewerBottomBar({
               className="inline-flex h-12 min-h-12 flex-[1.25] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-600 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-500 active:scale-[0.99]"
             >
               <ActionIcon kind={primary.kind} />
-              <span>{primary.label}</span>
+              <span>{resolveActionDisplayLabel(primary, kakaoUrl)}</span>
             </a>
           )}
           {rest.map((a) =>
@@ -216,7 +229,7 @@ export function ViewerBottomBar({
                 ) : (
                   <ActionIcon kind="share" />
                 )}
-                <span>{copied ? "복사됨" : a.label}</span>
+                <span>{copied ? "복사됨" : resolveActionDisplayLabel(a, kakaoUrl)}</span>
               </button>
             ) : (
               <a
@@ -226,7 +239,7 @@ export function ViewerBottomBar({
                 className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.06] px-2.5 text-sm font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
               >
                 <ActionIcon kind={a.kind} />
-                <span>{a.label}</span>
+                <span>{resolveActionDisplayLabel(a, kakaoUrl)}</span>
               </a>
             ),
           )}

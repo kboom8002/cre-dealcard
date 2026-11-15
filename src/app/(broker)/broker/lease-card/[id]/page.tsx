@@ -4,6 +4,7 @@ import React, { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface LeaseSpaceDetail {
@@ -78,6 +79,7 @@ export default function LeaseCardDetailPage({
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [boosting, setBoosting] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const handleBoost = async () => {
     if (boosting) return;
@@ -191,12 +193,9 @@ export default function LeaseCardDetailPage({
             <h1 className="text-lg font-bold text-white">임대차 딜카드 상세</h1>
           </div>
           <button
-            onClick={() => {
-              if (confirm("임대 카드를 완전히 삭제하시겠습니까?")) {
-                fetch(`/api/broker/lease-card/${id}`, { method: "DELETE" }).then(() => router.push("/broker"));
-              }
-            }}
-            className="text-xs text-red-400 hover:text-red-300 hover:underline"
+            type="button"
+            onClick={() => setIsDeleteOpen(true)}
+            className="min-h-[44px] px-2 text-xs text-red-400 hover:text-red-300 hover:underline"
           >
             🗑️ 삭제
           </button>
@@ -444,6 +443,21 @@ export default function LeaseCardDetailPage({
           )}
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={isDeleteOpen}
+        title="임대 카드를 삭제할까요?"
+        description="삭제한 임대 딜카드는 복구할 수 없습니다."
+        confirmLabel="삭제하기"
+        cancelLabel="취소"
+        onCancel={() => setIsDeleteOpen(false)}
+        onConfirm={() => {
+          setIsDeleteOpen(false);
+          fetch(`/api/broker/lease-card/${id}`, { method: "DELETE" }).then(() =>
+            router.push("/broker")
+          );
+        }}
+      />
 
       <BrokerBottomNav />
     </main>

@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Phone, MessageSquare, Mail, User, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface FlatProfileCardProps {
   name: string;
@@ -82,12 +83,7 @@ export function FlatProfileCard({
       window.open(kakaoUrl, '_blank', 'noopener,noreferrer');
     } else {
       // kakaoUrl 미설정 시 전화로 폴백하지 않고 안내 표시
-      try {
-        const { toast } = require("sonner");
-        toast.info("카카오톡 채널이 등록되지 않았습니다. 전화 연결을 이용해주세요.");
-      } catch {
-        alert("카카오톡 채널이 등록되지 않았습니다. 전화 연결을 이용해주세요.");
-      }
+      toast.info("카카오톡 채널이 등록되지 않았습니다. 전화 연결을 이용해주세요.");
     }
   };
 

@@ -1,29 +1,228 @@
 /**
- * API: POST /api/spaces/[spaceId]/inquiries — 문의 접수 + AI 분류
- * API: GET  /api/spaces/[spaceId]/inquiries — 문의 목록 조회 (관리용)
+ * API: POST /api/spaces/[spaceId]/inquiries — 공개 문의 접수 + AI 분류 (IP 레이트리밋 + 입력 길이 제한)
+ * API: GET  /api/spaces/[spaceId]/inquiries — 문의 목록 조회 (브로커 소유자 전용)
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireBroker } from "@/lib/auth-guard";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import { PublicInquiryInputSchema } from "@/contracts/inquiry";
 import { runInquiryQualifierAgent } from "@/ai/agents/inquiry-qualifier-agent";
 import { pyeongToSqm } from "@/lib/utils/area-conversion";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
-
+const log = createModuleLogger("space-inquiries-route");
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// ── POST: 문의 접수 ──────────────────────────────────────────────
+const MAX_INQUIRY_BODY_BYTES = 16 * 1024;
+const MAX_QUESTION_LENGTH = 2000;
+const MAX_NAME_LENGTH = 100;
+const MAX_COMPANY_LENGTH = 120;
+const MAX_PHONE_LENGTH = 40;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_TIMING_LENGTH = 100;
+const MAX_FACILITY_ITEMS = 20;
+const MAX_FACILITY_ITEM_LENGTH = 60;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function assertSpaceOwnership(
+  supabase: ReturnType<typeof createServiceClient>,
+  spaceId: string,
+  userId: string,
+  role: string | null,
+): Promise<{ ok: true; space: any } | { ok: false; response: NextResponse }> {
+  if (!spaceId || typeof spaceId !== "string" || !spaceId.trim()) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "유효하지 않은 공간 ID입니다." }, { status: 400 }),
+    };
+  }
+
+  const { data: space, error: spaceErr } = await supabase
+    .from("spaces")
+    .select("id, created_by, building_ssot_lite_id")
+    .eq("id", spaceId)
+    .maybeSingle();
+
+  if (spaceErr) {
+    log.error("[spaces-authz] space lookup error:", spaceErr.message);
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "공간 권한을 확인하지 못했습니다." }, { status: 500 }),
+    };
+  }
+
+  if (!space) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "공간을 찾을 수 없습니다." }, { status: 404 }),
+    };
+  }
+
+  const directOwnerId =
+    (space.created_by as string | null | undefined) ??
+    ((space as Record<string, unknown>).owner_id as string | null | undefined) ??
+    ((space as Record<string, unknown>).broker_id as string | null | undefined) ??
+    null;
+
+  if (directOwnerId && directOwnerId === userId) {
+    return { ok: true, space };
+  }
+
+  if (!directOwnerId) {
+    if (typeof space.building_ssot_lite_id === "string" && space.building_ssot_lite_id) {
+      const bOwn = await assertBuildingOwner(supabase, space.building_ssot_lite_id, userId, {
+        allowAdmin: true,
+        role,
+      });
+      if (bOwn.ok) return { ok: true, space };
+      if (bOwn.status === 500) return { ok: false, response: bOwn.response };
+    }
+
+    const { data: leaseSpace, error: lsErr } = await supabase
+      .from("lease_spaces")
+      .select("id, broker_id, building_id")
+      .eq("aipage_space_id", spaceId)
+      .limit(1)
+      .maybeSingle();
+
+    if (lsErr) {
+      log.error("[spaces-authz] lease_spaces lookup error:", lsErr.message);
+      return {
+        ok: false,
+        response: NextResponse.json({ error: "공간 권한을 확인하지 못했습니다." }, { status: 500 }),
+      };
+    }
+
+    if (leaseSpace?.broker_id && leaseSpace.broker_id === userId) {
+      return { ok: true, space };
+    }
+
+    if (!leaseSpace?.broker_id && typeof leaseSpace?.building_id === "string" && leaseSpace.building_id) {
+      const lbOwn = await assertBuildingOwner(supabase, leaseSpace.building_id, userId, {
+        allowAdmin: true,
+        role,
+      });
+      if (lbOwn.ok) return { ok: true, space };
+      if (lbOwn.status === 500) return { ok: false, response: lbOwn.response };
+    }
+  }
+
+  if (role === "admin") {
+    return { ok: true, space };
+  }
+
+  return {
+    ok: false,
+    response: NextResponse.json({ error: "이 공간에 대한 권한이 없습니다." }, { status: 403 }),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function validateInquiryBounds(body: Record<string, any>): string | null {
+  if (typeof body.question_text === "string" && body.question_text.length > MAX_QUESTION_LENGTH) {
+    return "문의 내용은 2,000자 이내로 입력해 주세요.";
+  }
+
+  const prospect = body.prospect;
+  if (prospect && typeof prospect === "object") {
+    if (typeof prospect.display_name === "string" && prospect.display_name.length > MAX_NAME_LENGTH) {
+      return "이름 입력 길이가 허용 범위를 초과했습니다.";
+    }
+    if (typeof prospect.company_name === "string" && prospect.company_name.length > MAX_COMPANY_LENGTH) {
+      return "업체명 입력 길이가 허용 범위를 초과했습니다.";
+    }
+    const contact = prospect.contact_internal;
+    if (contact && typeof contact === "object") {
+      if (typeof contact.phone === "string" && contact.phone.length > MAX_PHONE_LENGTH) {
+        return "연락처 입력 길이가 허용 범위를 초과했습니다.";
+      }
+      if (typeof contact.email === "string" && contact.email.length > MAX_EMAIL_LENGTH) {
+        return "이메일 입력 길이가 허용 범위를 초과했습니다.";
+      }
+    }
+    if (typeof prospect.phone === "string" && prospect.phone.length > MAX_PHONE_LENGTH) {
+      return "연락처 입력 길이가 허용 범위를 초과했습니다.";
+    }
+    if (typeof prospect.email === "string" && prospect.email.length > MAX_EMAIL_LENGTH) {
+      return "이메일 입력 길이가 허용 범위를 초과했습니다.";
+    }
+  }
+
+  const requirement = body.requirement;
+  if (requirement && typeof requirement === "object") {
+    if (typeof requirement.move_in_timing === "string" && requirement.move_in_timing.length > MAX_TIMING_LENGTH) {
+      return "희망 입주 시기 입력 길이가 허용 범위를 초과했습니다.";
+    }
+    if (Array.isArray(requirement.required_facilities)) {
+      if (requirement.required_facilities.length > MAX_FACILITY_ITEMS) {
+        return "필수 시설 항목 수가 허용 범위를 초과했습니다.";
+      }
+      if (
+        requirement.required_facilities.some(
+          (item: unknown) => typeof item === "string" && item.length > MAX_FACILITY_ITEM_LENGTH,
+        )
+      ) {
+        return "필수 시설 항목 길이가 허용 범위를 초과했습니다.";
+      }
+    }
+  }
+
+  return null;
+}
+
+// ── POST: 문의 접수 (공개 리드 폼) ───────────────────────────────
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string }> },
 ) {
   try {
+    const clientIp = getClientIp(req) ?? "unknown";
+    const allowed = await checkRateLimit(clientIp, "space_inquiries_post", 10, 10 * 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "문의 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 },
+      );
+    }
+
     const { spaceId } = await params;
-    const body = await req.json();
+    if (!spaceId || spaceId.length > 64) {
+      return NextResponse.json({ error: "유효하지 않은 공간 ID입니다." }, { status: 400 });
+    }
+
+    const declaredLength = Number(req.headers.get("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_INQUIRY_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "요청 크기가 허용 한도를 초과했습니다." },
+        { status: 413 },
+      );
+    }
+
+    const rawText = await req.text();
+    if (Buffer.byteLength(rawText, "utf8") > MAX_INQUIRY_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "요청 크기가 허용 한도를 초과했습니다." },
+        { status: 413 },
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: Record<string, any>;
+    try {
+      const parsedJson = rawText.length > 0 ? JSON.parse(rawText) : null;
+      if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
+        return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
+      }
+      body = parsedJson;
+    } catch {
+      return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
+    }
 
     // Privacy consent 확인
     if (!body.consent?.privacy_consent_given) {
@@ -33,14 +232,19 @@ export async function POST(
       );
     }
 
-    // Validate input
+    const boundsError = validateInquiryBounds(body);
+    if (boundsError) {
+      return NextResponse.json({ error: boundsError }, { status: 400 });
+    }
+
+    // Validate input schema
     const parsed = PublicInquiryInputSchema.safeParse({
       ...body,
       space_id: spaceId,
     });
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "입력 형식이 올바르지 않습니다.", issues: parsed.error.issues },
+        { error: "입력 형식이 올바르지 않습니다." },
         { status: 400 },
       );
     }
@@ -64,7 +268,7 @@ export async function POST(
       .single();
 
     if (insertError) {
-      log.error("[inquiries] insert error:", insertError);
+      log.error("[inquiries] insert error:", insertError.message);
       return NextResponse.json({ error: "문의 저장에 실패했습니다." }, { status: 500 });
     }
 
@@ -79,7 +283,6 @@ export async function POST(
     if (space) {
       (async () => {
         try {
-          // 1. AI 적합성 판정
           const qualification = await runInquiryQualifierAgent({
             space_ssot: space,
             inquiry: {
@@ -105,12 +308,12 @@ export async function POST(
               ai_generated: true,
             });
 
-            // 2. broker_clients 자동 등록 (문의자 → CRM 고객)
             const prospect = parsed.data.prospect as {
               display_name?: string;
               company_name?: string;
               phone?: string;
               email?: string;
+              contact_internal?: { phone?: string; email?: string };
             };
             const requirement = parsed.data.requirement as {
               tenant_category?: string;
@@ -123,29 +326,32 @@ export async function POST(
               must_haves?: string[];
             };
 
-            // Space owner (broker) lookup
             const brokerId = space.created_by;
+            const phone = prospect.contact_internal?.phone ?? prospect.phone ?? null;
+            const email = prospect.contact_internal?.email ?? prospect.email ?? null;
+
             if (brokerId && prospect?.display_name) {
-              // Upsert broker_client
               const { data: client } = await supabase
                 .from("broker_clients")
-                .upsert({
-                  broker_id: brokerId,
-                  display_name: prospect.display_name,
-                  company: prospect.company_name ?? null,
-                  phone: prospect.phone ?? null,
-                  email: prospect.email ?? null,
-                  source: "leasing_inquiry",
-                  tier: qualification.output.fit_estimate === "high" ? "A" : "B",
-                  tags: [requirement?.tenant_category ?? "미확인"].filter(Boolean),
-                }, {
-                  onConflict: "broker_id,phone",
-                  ignoreDuplicates: false,
-                })
+                .upsert(
+                  {
+                    broker_id: brokerId,
+                    display_name: prospect.display_name,
+                    company: prospect.company_name ?? null,
+                    phone,
+                    email,
+                    source: "leasing_inquiry",
+                    tier: qualification.output.fit_estimate === "high" ? "A" : "B",
+                    tags: [requirement?.tenant_category ?? "미확인"].filter(Boolean),
+                  },
+                  {
+                    onConflict: "broker_id,phone",
+                    ignoreDuplicates: false,
+                  },
+                )
                 .select("id")
                 .single();
 
-              // 3. tenant_intent 자동 생성
               if (client?.id) {
                 const areaPy = requirement?.desired_area_py_min;
                 const areaSqmMin = areaPy ? pyeongToSqm(areaPy) : null;
@@ -172,7 +378,6 @@ export async function POST(
                   .select("id")
                   .single();
 
-                // 4. leasing_inquiries에 CRM 연결
                 if (intent?.id) {
                   await supabase
                     .from("leasing_inquiries")
@@ -183,12 +388,10 @@ export async function POST(
                     })
                     .eq("id", inquiry.id);
 
-                  // 5. lease auto-matcher 트리거 (연결된 lease_space가 있으면)
                   try {
                     const { runLeaseAutoMatcher } = await import(
                       "@/domain/matching/lease-auto-matcher"
                     );
-                    // 이 space에 연결된 모든 lease_spaces에 대해 매칭 재실행
                     const { data: linkedLeases } = await supabase
                       .from("lease_spaces")
                       .select("id")
@@ -216,37 +419,52 @@ export async function POST(
       message: "문의가 접수되었습니다. 브로커가 곧 연락드립니다.",
     });
   } catch (error) {
+    log.error(
+      "[inquiries] POST error:",
+      error instanceof Error ? error.message : String(error),
+    );
     return NextResponse.json(
-      { error: "문의 접수에 실패했습니다.", detail: String(error) },
+      { error: "문의 접수에 실패했습니다." },
       { status: 500 },
     );
   }
 }
 
-// ── GET: 문의 목록 (관리용) ──────────────────────────────────────
+// ── GET: 문의 목록 (브로커 소유자 전용) ──────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ spaceId: string }> },
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+
   try {
     const { spaceId } = await params;
     const supabase = createServiceClient();
 
+    const access = await assertSpaceOwnership(supabase, spaceId, guard.user!.id, guard.role);
+    if (!access.ok) return access.response;
+
     const { data: inquiries, error } = await supabase
       .from("leasing_inquiries")
-      .select("id, status, source_channel, question_text, created_at, requirement")
+      .select("id, status, source_channel, question_text, prospect, created_at, requirement")
       .eq("space_id", spaceId)
       .order("created_at", { ascending: false });
 
     if (error) {
+      log.error("[inquiries] GET error:", error.message);
       return NextResponse.json({ error: "조회에 실패했습니다." }, { status: 500 });
     }
 
     return NextResponse.json({ inquiries: inquiries ?? [] });
   } catch (error) {
+    log.error(
+      "[inquiries] GET unexpected error:",
+      error instanceof Error ? error.message : String(error),
+    );
     return NextResponse.json(
-      { error: "조회에 실패했습니다.", detail: String(error) },
+      { error: "조회에 실패했습니다." },
       { status: 500 },
     );
   }

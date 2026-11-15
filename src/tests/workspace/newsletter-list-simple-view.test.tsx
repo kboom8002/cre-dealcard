@@ -212,7 +212,7 @@ describe("뉴스레터 편집 화면 상단 — 선택 항목 작업(SelectedIte
     expect(screen.getByTestId(`magazine-edition-item-${WEEKLY_ID}`).getAttribute("aria-current")).toBeNull();
   });
 
-  it("삭제하기는 기존 삭제 흐름(서버 DELETE + 되돌리기 안내)을 그대로 거친다", async () => {
+  it("삭제하기는 확인 모달을 거쳐 기존 삭제 흐름(서버 DELETE + 되돌리기 안내)을 그대로 수행한다", async () => {
     await renderAndWaitForRows();
 
     await act(async () => {
@@ -222,6 +222,11 @@ describe("뉴스레터 편집 화면 상단 — 선택 항목 작업(SelectedIte
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("ws-selected-delete-btn"));
+    });
+
+    const confirmBtn = await screen.findByTestId("confirm-delete-confirm-btn");
+    await act(async () => {
+      fireEvent.click(confirmBtn);
     });
 
     await waitFor(() =>

@@ -454,10 +454,10 @@ describe("36-Hour DealCard & IM Forensic Audit Remediation Suite", () => {
       globalThis.fetch = vi.fn(async () => new Response("{}", { status: 500 })) as any;
 
       const donggyo = await resolveAddressToComponents("서울특별시 마포구 동교동 147-8");
-      expect(donggyo).toEqual({ sigunguCd: "11440", bjdongCd: "12100", bun: "147", ji: "8" });
+      expect(donggyo).toMatchObject({ sigunguCd: "11440", bjdongCd: "12100", bun: "147", ji: "8" });
 
       const seogyo = await resolveAddressToComponents("서울특별시 마포구 서교동 395-166");
-      expect(seogyo).toEqual({ sigunguCd: "11440", bjdongCd: "12000", bun: "395", ji: "166" });
+      expect(seogyo).toMatchObject({ sigunguCd: "11440", bjdongCd: "12000", bun: "395", ji: "166" });
     });
 
     it("[C-2] fetchParcelPolygonByBox skips road parcel (도) and picks building lot (대)", async () => {

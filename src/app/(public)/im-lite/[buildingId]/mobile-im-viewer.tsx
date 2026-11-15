@@ -12,10 +12,15 @@ import {
 } from "@/domain/building/im-core/basic-im-document";
 import {
   extractPureBuildingFacts,
-  extractTransactionFacts,
   extractValuationFacts,
   type PureBuildingFacts,
 } from "@/domain/building/im-core/facts";
+import {
+  resolveLeaseOccupancy,
+  summarizeLeaseOccupancy,
+  sumLeasedRentRoll,
+} from "@/domain/building/mobile-im/lease-vacancy";
+import { buildYieldSetFromBody } from "@/domain/building/mobile-im/yield-set";
 import { FlatProfileCard } from "@/components/broker/flat-profile-card";
 import { HeroCard } from "./hero-card";
 import { DCFHeatmap } from "./dcf-heatmap";
@@ -29,6 +34,20 @@ import {
   FloatingActionBar,
   ShareButton,
 } from "./components";
+import {
+  isInAppWebView,
+  buildKakaoExternalOpenUrl,
+  isExplicitKakaoChannelUrl,
+} from "./components/floating-action-bar";
+import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { toast } from "sonner";
+import {
+  BROKER_VIEWER_PLACEHOLDERS,
+  sanitizeStatutoryField,
+} from "@/lib/legal/broker-statutory-disclosure";
+import { ReaderFontScaleToggle } from "@/components/ui/ReaderFontScaleToggle";
+
+export { isInAppWebView, buildKakaoExternalOpenUrl };
 
 interface Props {
   document: (MobileIMDocument & { basicImDocument?: BasicImDocument }) | BasicImDocument | any | null;
@@ -51,24 +70,6 @@ const CANONICAL_SECTION_CHIPS = [
   { id: "09_photos", label: "09 사진" },
   { id: "10_contact", label: "10 문의" },
 ] as const;
-
-const BROKER_VIEWER_PLACEHOLDERS = new Set([
-  "",
-  "-",
-  "—",
-  "담당 공인중개사",
-  "담당 중개인",
-  "담당 중개법인 (확인 중)",
-  "담당 중개법인",
-  "전담 중개법인",
-  "전담 중개사무소",
-  "김대표",
-  "미등록",
-  "11680-2024-00123",
-  "11680-2024-00001",
-  "02-555-1234",
-  "02-1234-5678",
-]);
 
 const VIEWER_CATEGORY_KO: Record<string, string> = {
   exterior: "외관",
@@ -137,10 +138,14 @@ export function normalizeViewerGalleryPhoto(p: any, idx: number) {
   };
 }
 
-function cleanViewerBrokerField(val?: unknown): string {
+function cleanViewerBrokerField(
+  val?: unknown,
+  kind?: "name" | "regNo" | "officeName" | "address" | "phone"
+): string {
   if (!val || typeof val !== "string") return "";
   const cleaned = val.replace(/\s*\(확인\s*중\)/g, "").trim();
-  return BROKER_VIEWER_PLACEHOLDERS.has(cleaned) ? "" : cleaned;
+  if (BROKER_VIEWER_PLACEHOLDERS.has(cleaned)) return "";
+  return sanitizeStatutoryField(cleaned, kind) || "";
 }
 
 export function MobileIMViewer({
@@ -151,15 +156,24 @@ export function MobileIMViewer({
   isBroker = true,
   shareToken,
 }: Props) {
-  // Version state: v1 <-> v2
+  // Version state: v1 <-> v2 (only active when real previousVersion history exists)
   const [selectedVersion, setSelectedVersion] = useState<"v1" | "v2">("v2");
   const [showDiffModal, setShowDiffModal] = useState<boolean>(false);
+  const [showAllRentRows, setShowAllRentRows] = useState<boolean>(false);
   const [activeSectionId, setActiveSectionId] = useState<string>("01_cover");
   const [showInquiry, setShowInquiry] = useState<boolean>(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState<boolean>(false);
+  const [inAppWebView, setInAppWebView] = useState<boolean>(false);
+  const [dismissedWebViewBanner, setDismissedWebViewBanner] = useState<boolean>(false);
   const mountedAtRef = useRef<number>(Date.now());
   const activeSectionRef = useRef<string>("01_cover");
   const dwellSentRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && isInAppWebView(navigator.userAgent)) {
+      setInAppWebView(true);
+    }
+  }, []);
 
   useEffect(() => {
     activeSectionRef.current = activeSectionId;
@@ -218,17 +232,113 @@ export function MobileIMViewer({
     };
   }, [buildingId, isBroker, shareToken]);
 
+  const resolvedPptxDownloadUrl = useMemo(() => {
+    const prebuiltUrl = (initialDoc as any)?.pptxDownloadUrl;
+    if (typeof prebuiltUrl === "string" && prebuiltUrl.trim()) {
+      return prebuiltUrl.trim();
+    }
+    const grantId = (initialDoc as any)?.grantId;
+    if (typeof grantId === "string" && grantId.trim()) {
+      return `/api/public/im-pro/${encodeURIComponent(grantId.trim())}/pptx`;
+    }
+    return `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?direct=1${
+      docId ? `&doc_id=${encodeURIComponent(docId)}` : ""
+    }`;
+  }, [initialDoc, buildingId, docId]);
+
+  const hasDirectPrebuiltPptxUrl = Boolean(
+    (typeof (initialDoc as any)?.pptxDownloadUrl === "string" &&
+      (initialDoc as any).pptxDownloadUrl.trim()) ||
+      (typeof (initialDoc as any)?.grantId === "string" && (initialDoc as any).grantId.trim())
+  );
+
+  const handleOpenExternalBrowser = useCallback(async () => {
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const externalUrl = buildKakaoExternalOpenUrl(currentUrl, ua);
+    if (externalUrl) {
+      try {
+        window.location.assign(externalUrl);
+        return;
+      } catch {
+        // Fall through to copyText link fallback
+      }
+    }
+    const ok = await copyText(currentUrl);
+    if (ok) {
+      toast.success("링크가 복사되었습니다. Safari 또는 Chrome 주소창에 붙여넣어 열어주세요.");
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
+    }
+  }, []);
+
+  const handleCopyViewerLink = useCallback(async () => {
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const ok = await copyText(currentUrl);
+    if (ok) {
+      toast.success("링크가 복사되었습니다. 외부 브라우저 주소창에 붙여넣어 주세요.");
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
+    }
+  }, []);
+
   const handleMobilePptxDownload = useCallback(
     async (e: React.MouseEvent<HTMLAnchorElement>) => {
       e.preventDefault();
       if (isDownloadingPptx) return;
-      const url = `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?direct=1${
-        docId ? `&doc_id=${encodeURIComponent(docId)}` : ""
-      }`;
+
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+      const inWebView = isInAppWebView(ua);
+
+      if (inWebView) {
+        setInAppWebView(true);
+        setDismissedWebViewBanner(false);
+        toast.info(
+          "카카오톡 등 앱 내 브라우저에서는 파일 저장이 차단될 수 있습니다. 외부 브라우저(Safari/Chrome)로 열기를 이용해 주세요.",
+          {
+            action: {
+              label: "외부 브라우저(Safari/Chrome)로 열기",
+              onClick: () => {
+                void handleOpenExternalBrowser();
+              },
+            },
+          }
+        );
+        try {
+          window.location.assign(resolvedPptxDownloadUrl);
+        } catch {
+          toast.error("다운로드 창을 열지 못했습니다. 상단 '외부 브라우저로 열기'를 눌러주세요.");
+        }
+        return;
+      }
+
+      if (hasDirectPrebuiltPptxUrl || /iPhone|iPad|iPod|Android/i.test(ua)) {
+        try {
+          window.location.assign(resolvedPptxDownloadUrl);
+        } catch {
+          toast.error("PPTX 파일 다운로드를 시작하지 못했습니다.");
+        }
+        return;
+      }
+
       setIsDownloadingPptx(true);
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) return;
+        const res = await fetch(resolvedPptxDownloadUrl, { cache: "no-store" });
+        if (!res.ok) {
+          let errMsg = "PPTX 자료를 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+          try {
+            const errJson = await res.json();
+            if (typeof errJson?.reason === "string" && errJson.reason.trim()) {
+              errMsg = errJson.reason.trim();
+            } else if (typeof errJson?.error === "string" && errJson.error.trim()) {
+              errMsg = errJson.error.trim();
+            }
+          } catch {
+            // Non-JSON error body
+          }
+          toast.error(errMsg);
+          return;
+        }
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -239,12 +349,18 @@ export function MobileIMViewer({
         a.remove();
         window.setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
       } catch {
-        // non-blocking
+        toast.error("PPTX 다운로드 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       } finally {
         setIsDownloadingPptx(false);
       }
     },
-    [buildingId, docId, isDownloadingPptx]
+    [
+      buildingId,
+      hasDirectPrebuiltPptxUrl,
+      handleOpenExternalBrowser,
+      isDownloadingPptx,
+      resolvedPptxDownloadUrl,
+    ]
   );
 
   // Base (v2) canonical BasicImDocument from real document/SSoT payload (Rule 26 & 34: zero hardcoded building fallbacks)
@@ -308,32 +424,10 @@ export function MobileIMViewer({
       legacyRentSec?.data?.rows ||
       legacyRentSec?.data?.units;
 
-    const explicitRentSumManwon =
+    const normalizedLeaseRows =
       Array.isArray(explicitUnits) && explicitUnits.length > 0
-        ? explicitUnits.reduce((sum: number, u: any) => {
-            const isVacant =
-              u?.status === "vacant" ||
-              u?.is_vacant === true ||
-              u?.lease_state === "공실" ||
-              u?.tenant_name === "공실" ||
-              u?.use === "공실";
-            if (isVacant) return sum;
-            const r =
-              u?.monthlyRentManwon ??
-              u?.rent_manwon ??
-              (u?.rentKrw !== undefined
-                ? Math.round(Number(u.rentKrw) / 10000)
-                : u?.rent_krw !== undefined
-                ? Math.round(Number(u.rent_krw) / 10000)
-                : 0);
-            return sum + Number(r || 0);
-          }, 0)
-        : undefined;
-
-    const explicitDepositSumManwon =
-      Array.isArray(explicitUnits) && explicitUnits.length > 0
-        ? explicitUnits.reduce((sum: number, u: any) => {
-            const d =
+        ? explicitUnits.map((u: any, idx: number) => {
+            const depMan =
               u?.depositManwon ??
               u?.deposit_manwon ??
               (u?.depositKrw !== undefined
@@ -341,12 +435,78 @@ export function MobileIMViewer({
                 : u?.deposit_krw !== undefined
                 ? Math.round(Number(u.deposit_krw) / 10000)
                 : 0);
-            return sum + Number(d || 0);
-          }, 0)
-        : undefined;
+            const rentMan =
+              u?.monthlyRentManwon ??
+              u?.rent_manwon ??
+              (u?.rentKrw !== undefined
+                ? Math.round(Number(u.rentKrw) / 10000)
+                : u?.rent_krw !== undefined
+                ? Math.round(Number(u.rent_krw) / 10000)
+                : 0);
+            const rawText = [
+              u?.lease_state,
+              u?.leaseState,
+              u?.tenant_type,
+              u?.tenantType,
+              u?.use,
+              u?.tenantName,
+              u?.tenant_name,
+              u?.tenant,
+            ]
+              .filter(Boolean)
+              .join(" ");
+            const hasFutureTransition = /입주\s*예정|전환\s*예정|명도\s*후\s*사옥|사옥\s*사용\s*가능/i.test(
+              rawText
+            );
+            const hasPositiveRent = Number(rentMan) > 0;
+            const explicitOwnerKeyword =
+              !hasFutureTransition &&
+              (u?.status === "owner" ||
+                u?.lease_state === "자가사용" ||
+                u?.lease_state === "자가" ||
+                (!hasPositiveRent &&
+                  /(?:^|[\s/()·])(?:자가사용|자가|사옥)(?:$|[\s/()·])/.test(rawText)));
+            const explicitVacantKeyword =
+              u?.status === "vacant" ||
+              u?.is_vacant === true ||
+              u?.lease_state === "공실" ||
+              /(?:^|[\s/()·])공실(?:$|[\s/()·])/.test(rawText);
+            const rawExpiry = String(
+              u?.leaseExpiry ?? u?.expiryDate ?? u?.expiry_date ?? u?.lease_end ?? ""
+            ).trim();
+            const normalizedCandidate = {
+              ...u,
+              floor: u?.floor || `${idx + 1}F`,
+              lease_state: explicitVacantKeyword
+                ? "공실"
+                : explicitOwnerKeyword
+                ? "자가사용"
+                : u?.lease_state ?? u?.leaseState,
+              tenant_name: u?.tenantName ?? u?.tenant_name ?? u?.use ?? "",
+              tenant_type: u?.tenantType ?? u?.tenant_type ?? u?.use ?? "",
+              use: u?.use ?? u?.tenantName ?? u?.tenant_name ?? "",
+              deposit_manwon: Number(depMan) || 0,
+              rent_manwon: Number(rentMan) || 0,
+              monthly_rent_manwon: Number(rentMan) || 0,
+              is_vacant: Boolean(explicitVacantKeyword),
+              lease_end: rawExpiry && rawExpiry !== "-" ? rawExpiry : "",
+            };
+            const occ = resolveLeaseOccupancy(normalizedCandidate);
+            return {
+              ...normalizedCandidate,
+              resolvedOccupancy: occ,
+              cleanExpiry: rawExpiry && rawExpiry !== "-" ? rawExpiry : "-",
+            };
+          })
+        : null;
+
+    const leasedSums = normalizedLeaseRows ? sumLeasedRentRoll(normalizedLeaseRows) : null;
+    const leaseOccSummary = normalizedLeaseRows
+      ? summarizeLeaseOccupancy(normalizedLeaseRows)
+      : null;
 
     const monthlyRentManwon =
-      explicitRentSumManwon ??
+      leasedSums?.monthlyRentManwon ??
       ssotSummary?.monthly_rent_total_manwon ??
       (ssotSummary?.monthly_rent_total_krw
         ? Math.round(Number(ssotSummary.monthly_rent_total_krw) / 10000)
@@ -358,7 +518,7 @@ export function MobileIMViewer({
       0;
 
     const depositManwon =
-      explicitDepositSumManwon ??
+      leasedSums?.depositManwon ??
       ssotSummary?.total_deposit_manwon ??
       (ssotSummary?.total_deposit_krw
         ? Math.round(Number(ssotSummary.total_deposit_krw) / 10000)
@@ -367,25 +527,17 @@ export function MobileIMViewer({
       0;
 
     const synthesizedRentRoll = (() => {
-      if (Array.isArray(explicitUnits) && explicitUnits.length > 0) {
-        return explicitUnits.map((u: any, idx: number) => {
-          const isVacant =
-            u.status === "vacant" ||
-            u.is_vacant === true ||
-            u.lease_state === "공실" ||
-            u.tenant_name === "공실" ||
-            u.use === "공실";
-          const isOwner =
-            u.status === "owner" ||
-            u.lease_state === "자가사용" ||
-            u.use === "자가사용";
+      if (normalizedLeaseRows && normalizedLeaseRows.length > 0) {
+        return normalizedLeaseRows.map((u: any) => {
+          const isVacant = u.resolvedOccupancy === "공실";
+          const isOwner = u.resolvedOccupancy === "자가사용";
           const label =
             u.use ||
             [u.tenantName || u.tenant_name, u.tenant_type].filter(Boolean).join(" / ") ||
             u.tenant ||
-            (isVacant ? "공실" : "임대중");
+            (isVacant ? "공실" : isOwner ? "자가사용" : "임대중");
           return {
-            floor: u.floor || `${idx + 1}F`,
+            floor: u.floor,
             tenant_name: label,
             use: label,
             area_sqm:
@@ -393,26 +545,17 @@ export function MobileIMViewer({
                 u.area_sqm ??
                   u.area_m2 ??
                   u.areaSqm ??
-                  (u.area_pyeong ? Number(u.area_pyeong) * 3.305785 : u.areaPyeong ? Number(u.areaPyeong) * 3.305785 : 0)
+                  (u.area_pyeong
+                    ? Number(u.area_pyeong) * 3.305785
+                    : u.areaPyeong
+                    ? Number(u.areaPyeong) * 3.305785
+                    : 0)
               ) || undefined,
-            deposit_manwon:
-              u.depositManwon ??
-              u.deposit_manwon ??
-              (u.depositKrw !== undefined
-                ? Math.round(Number(u.depositKrw) / 10000)
-                : u.deposit_krw !== undefined
-                ? Math.round(Number(u.deposit_krw) / 10000)
-                : 0),
-            rent_manwon:
-              u.monthlyRentManwon ??
-              u.rent_manwon ??
-              (u.rentKrw !== undefined
-                ? Math.round(Number(u.rentKrw) / 10000)
-                : u.rent_krw !== undefined
-                ? Math.round(Number(u.rent_krw) / 10000)
-                : 0),
-            status: isVacant ? "vacant" : isOwner ? "owner" : u.status || "occupied",
-            expiry_date: u.leaseExpiry || u.expiryDate || u.expiry_date || u.lease_end || "2027-12",
+            deposit_manwon: u.deposit_manwon,
+            rent_manwon: u.rent_manwon,
+            lease_state: u.resolvedOccupancy,
+            status: isVacant ? "vacant" : isOwner ? "owner" : "occupied",
+            expiry_date: u.cleanExpiry !== "-" ? u.cleanExpiry : undefined,
           };
         });
       }
@@ -444,17 +587,55 @@ export function MobileIMViewer({
       return maxBelow;
     })();
 
+    const topBrokerProfile = (initialDoc as any)?.brokerProfile;
+    const ssotBrokerProfile = (ssotData as any)?.brokerProfile || (ssotData as any)?.broker;
     const brokerInfo = {
       name:
-        cleanViewerBrokerField(initialDoc?.broker?.office) ||
-        cleanViewerBrokerField(initialDoc?.broker?.company) ||
+        cleanViewerBrokerField(initialDoc?.broker?.office, "officeName") ||
+        cleanViewerBrokerField(initialDoc?.broker?.company, "officeName") ||
+        cleanViewerBrokerField(initialDoc?.broker?.officeName, "officeName") ||
+        cleanViewerBrokerField(topBrokerProfile?.company, "officeName") ||
+        cleanViewerBrokerField(topBrokerProfile?.officeName, "officeName") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.company, "officeName") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.officeName, "officeName") ||
         "전담 중개사무소",
       representative:
-        cleanViewerBrokerField(initialDoc?.broker?.name) ||
-        cleanViewerBrokerField(initialDoc?.broker?.displayName) ||
+        cleanViewerBrokerField(initialDoc?.broker?.representativeName, "name") ||
+        cleanViewerBrokerField(initialDoc?.broker?.representative_name, "name") ||
+        cleanViewerBrokerField(initialDoc?.broker?.name, "name") ||
+        cleanViewerBrokerField(initialDoc?.broker?.displayName, "name") ||
+        cleanViewerBrokerField(topBrokerProfile?.representativeName, "name") ||
+        cleanViewerBrokerField(topBrokerProfile?.representative_name, "name") ||
+        cleanViewerBrokerField(topBrokerProfile?.displayName, "name") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.representativeName, "name") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.representative_name, "name") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.displayName, "name") ||
         "담당 공인중개사",
-      registrationNo: cleanViewerBrokerField(initialDoc?.broker?.registrationNo) || "-",
-      phone: cleanViewerBrokerField(initialDoc?.broker?.phone) || "-",
+      registrationNo:
+        cleanViewerBrokerField(initialDoc?.broker?.registrationNo, "regNo") ||
+        cleanViewerBrokerField(initialDoc?.broker?.officeRegNumber, "regNo") ||
+        cleanViewerBrokerField(initialDoc?.broker?.office_reg_number, "regNo") ||
+        cleanViewerBrokerField(topBrokerProfile?.registrationNo, "regNo") ||
+        cleanViewerBrokerField(topBrokerProfile?.officeRegNumber, "regNo") ||
+        cleanViewerBrokerField(topBrokerProfile?.office_reg_number, "regNo") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.registrationNo, "regNo") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.officeRegNumber, "regNo") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.office_reg_number, "regNo") ||
+        "-",
+      address:
+        cleanViewerBrokerField(initialDoc?.broker?.officeAddress, "address") ||
+        cleanViewerBrokerField(initialDoc?.broker?.office_address, "address") ||
+        cleanViewerBrokerField(initialDoc?.broker?.address, "address") ||
+        cleanViewerBrokerField(topBrokerProfile?.officeAddress, "address") ||
+        cleanViewerBrokerField(topBrokerProfile?.office_address, "address") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.officeAddress, "address") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.office_address, "address") ||
+        undefined,
+      phone:
+        cleanViewerBrokerField(initialDoc?.broker?.phone, "phone") ||
+        cleanViewerBrokerField(topBrokerProfile?.phone, "phone") ||
+        cleanViewerBrokerField(ssotBrokerProfile?.phone, "phone") ||
+        "-",
     };
 
     const rawFacts = {
@@ -550,7 +731,7 @@ export function MobileIMViewer({
         br.elevators ??
         br.rideUseElvtCnt ??
         layers?.public_data?.elevators ??
-        1,
+        0,
       main_usage:
         ssotSummary?.main_usage ??
         br.main_usage ??
@@ -558,13 +739,13 @@ export function MobileIMViewer({
         br.mainPurpsCdNm ??
         layers?.public_data?.main_usage ??
         initialDoc?.assetType ??
-        "제1·2종 근린생활시설",
+        "-",
       structure:
         ssotSummary?.structure ??
         br.structure ??
         br.strctCdNm ??
         layers?.public_data?.structure ??
-        "철근콘크리트구조",
+        "-",
       completion_date:
         ssotSummary?.completion_date ??
         br.completion_date ??
@@ -572,9 +753,25 @@ export function MobileIMViewer({
         br.useAprDay ??
         layers?.public_data?.completion_date ??
         "-",
+      pnu:
+        (initialDoc as any)?.pnu ??
+        ssotSummary?.pnu ??
+        enrichment?.pnu ??
+        (ssotData as any)?.pnu ??
+        undefined,
+      enrichment,
+      financials: initialDoc?.financials,
+      heroCard: hero,
+      ssot_summary: ssotSummary,
       monthly_rent_total_manwon: monthlyRentManwon,
       deposit_total_manwon: depositManwon,
       rent_roll: synthesizedRentRoll,
+      comps:
+        (initialDoc as any)?.comps ||
+        (initialDoc as any)?.comparable_transactions ||
+        (initialDoc as any)?.comparableTransactions ||
+        (initialDoc as any)?.broker_extras?.market_comps ||
+        undefined,
       points: Array.isArray(hero.keyPoints) ? hero.keyPoints : undefined,
       photos:
         Array.isArray((initialDoc as any)?.photos_v2) && (initialDoc as any).photos_v2.length > 0
@@ -591,55 +788,86 @@ export function MobileIMViewer({
     };
 
     const facts = extractPureBuildingFacts(rawFacts);
+
+    // Align occupancy with lease-vacancy SSoT (Rule 75: excluding self-use & non-leasable from vacancy denominator)
+    if (leaseOccSummary && leaseOccSummary.total > 0) {
+      const occPct =
+        leaseOccSummary.vacancyPct != null
+          ? Math.max(0, Math.round((100 - leaseOccSummary.vacancyPct) * 10) / 10)
+          : facts.rent.occupancyRatePct;
+      facts.rent = {
+        ...facts.rent,
+        unitCount: leaseOccSummary.total,
+        occupiedCount: leaseOccSummary.leased + leaseOccSummary.ownerUse,
+        ...(leaseOccSummary.ownerUse > 0 ? { ownerOccupiedCount: leaseOccSummary.ownerUse } : {}),
+        vacantCount: leaseOccSummary.vacant,
+        occupancyRatePct: occPct,
+      };
+    }
+
+    // Align Cap Rate / NOI / Gross Yield with FinancialCalculator / YieldSet SSoT when claims exist
+    if (initialDoc?.financials || initialDoc?.heroCard) {
+      const yieldSet = buildYieldSetFromBody({
+        ...(initialDoc || {}),
+        asking_price_manwon: baseAskingManwon || undefined,
+        floor_leases: normalizedLeaseRows || (initialDoc as any)?.floor_leases,
+        ssot_summary: {
+          ...ssotSummary,
+          asking_price_manwon: ssotSummary?.asking_price_manwon ?? (baseAskingManwon || undefined),
+          total_deposit_manwon: ssotSummary?.total_deposit_manwon ?? depositManwon,
+          monthly_rent_total_krw:
+            ssotSummary?.monthly_rent_total_krw ?? monthlyRentManwon * 10000,
+        },
+      });
+      const heroNoiKrw =
+        typeof hero?.noiBaseBil === "number" && Number.isFinite(hero.noiBaseBil)
+          ? Math.round(hero.noiBaseBil * 1e8)
+          : null;
+      const heroCapPct =
+        typeof hero?.capRateBase === "number" && Number.isFinite(hero.capRateBase)
+          ? hero.capRateBase
+          : null;
+      facts.valuation = extractValuationFacts(
+        facts.transaction.askingPriceKrw,
+        facts.rent.depositTotalKrw,
+        facts.rent.monthlyRentTotalKrw,
+        facts.rent.maintenanceFeeMonthlyKrw,
+        facts.transaction.expectedLoanKrw,
+        4.5,
+        {
+          noiBaseKrw: yieldSet.noiBaseKrw ?? heroNoiKrw,
+          capRatePct: yieldSet.noiCapRate ?? heroCapPct,
+          grossYieldPct: yieldSet.grossYieldNetOfDeposit,
+          grossYieldOnPricePct: yieldSet.grossYieldOnPrice,
+          cashOnCashPct:
+            typeof initialDoc?.financials?.leveragedYield === "number"
+              ? initialDoc.financials.leveragedYield
+              : null,
+        }
+      );
+    }
+
     return buildBasicImDocument(facts);
   }, [initialDoc, ssotData, buildingId]);
 
-  // Version 1 comparison reference document (derived ONCE from v2Doc base asking price)
-  const v1Doc = useMemo<BasicImDocument>(() => {
-    const v2AskingManwon = v2Doc.facts.transaction.askingPriceManwon || 1000000;
-    const v1AskingManwon = Math.round(v2AskingManwon * 1.03);
-    const v1RentManwon = Math.max(
-      100,
-      Math.round((v2Doc.facts.rent.monthlyRentTotalManwon || 3000) * 0.95)
-    );
-    const v1DepositManwon = Math.max(
-      1000,
-      Math.round((v2Doc.facts.rent.depositTotalManwon || 25000) * 0.95)
-    );
-    const v1RentKrw = v1RentManwon * 10000;
-    const v1DepositKrw = v1DepositManwon * 10000;
+  // Real previous version document ONLY when document.previousVersion history exists (zero synthetic v1 math)
+  const v1Doc = useMemo<BasicImDocument | null>(() => {
+    const prev = (initialDoc as any)?.previousVersion;
+    if (!prev || typeof prev !== "object") return null;
+    if (prev.basicImDocument && prev.basicImDocument.facts) {
+      return prev.basicImDocument as BasicImDocument;
+    }
+    if ("schemaVersion" in prev && prev.schemaVersion === "3.0" && prev.facts) {
+      return prev as BasicImDocument;
+    }
+    if (prev.facts && prev.facts.transaction) {
+      return buildBasicImDocument(prev.facts as PureBuildingFacts);
+    }
+    return buildBasicImDocument(extractPureBuildingFacts(prev));
+  }, [initialDoc]);
 
-    const v1Transaction = extractTransactionFacts(
-      { asking_price_manwon: v1AskingManwon },
-      v2Doc.facts.land.landAreaPyeong,
-      v2Doc.facts.building.totalGrossAreaPyeong,
-      v1DepositKrw
-    );
-    const v1Valuation = extractValuationFacts(
-      v1Transaction.askingPriceKrw,
-      v1DepositKrw,
-      v1RentKrw,
-      v2Doc.facts.rent.maintenanceFeeMonthlyKrw,
-      v1Transaction.expectedLoanKrw
-    );
-    const v1Facts: PureBuildingFacts = {
-      ...v2Doc.facts,
-      rent: {
-        ...v2Doc.facts.rent,
-        depositTotalKrw: v1DepositKrw,
-        depositTotalManwon: v1DepositManwon,
-        monthlyRentTotalKrw: v1RentKrw,
-        monthlyRentTotalManwon: v1RentManwon,
-        annualRentKrw: v1RentKrw * 12,
-      },
-      transaction: v1Transaction,
-      valuation: v1Valuation,
-    };
-    return buildBasicImDocument(v1Facts);
-  }, [v2Doc]);
-
-  // Active document switches cleanly between v2 (latest) and v1 (draft snapshot)
-  const basicDoc = selectedVersion === "v1" ? v1Doc : v2Doc;
+  // Active document switches between v2 (latest) and real v1 (when previousVersion exists)
+  const basicDoc = selectedVersion === "v1" && v1Doc ? v1Doc : v2Doc;
 
   const docHash = basicDoc.docHash;
 
@@ -772,7 +1000,7 @@ export function MobileIMViewer({
   const landAreaPyeong = landSec?.data?.landAreaPyeong ?? basicDoc.facts.land.landAreaPyeong;
   const landZoning = landSec?.data?.zoning || basicDoc.facts.land.zoning;
   const landTerrainShape =
-    landSec?.data?.terrainShape || basicDoc.facts.land.terrainShape || "세로장방형 평지";
+    landSec?.data?.terrainShape || basicDoc.facts.land.terrainShape || "공적장부 확인 필요";
   const multiParcels: any[] = useMemo(() => {
     const raw =
       (initialDoc as any)?.parcels ||
@@ -793,14 +1021,123 @@ export function MobileIMViewer({
       (officialLandPriceWonSqm > 0 ? Math.round(officialLandPriceWonSqm * 3.305785) : 0)
   );
 
+  // SSoT Leased Rent-Roll & Occupancy summary (Rule 75: excluding 공실 and 사옥/자가사용 rows)
+  const leasedRentRollSummary = useMemo(() => {
+    if (!Array.isArray(rentRows) || rentRows.length === 0) return null;
+    const normalized = rentRows.map((r: any) => {
+      const rawText = [
+        r?.lease_state,
+        r?.leaseState,
+        r?.tenant_type,
+        r?.tenantType,
+        r?.use,
+        r?.tenantName,
+        r?.tenant_name,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const hasFuture = /입주\s*예정|전환\s*예정|명도\s*후\s*사옥|사옥\s*사용\s*가능/i.test(rawText);
+      const isVacant =
+        r?.status === "vacant" ||
+        r?.is_vacant === true ||
+        r?.lease_state === "공실" ||
+        /(?:^|[\s/()·])공실(?:$|[\s/()·])/.test(rawText);
+      const depMan =
+        r?.depositManwon !== undefined
+          ? Number(r.depositManwon)
+          : r?.deposit_manwon !== undefined
+          ? Number(r.deposit_manwon)
+          : Math.round((Number(r?.depositKrw) || 0) / 10000);
+      const rentMan =
+        r?.monthlyRentManwon !== undefined
+          ? Number(r.monthlyRentManwon)
+          : r?.rent_manwon !== undefined
+          ? Number(r.rent_manwon)
+          : Math.round((Number(r?.rentKrw) || 0) / 10000);
+      const hasPositiveRent = Number(rentMan) > 0;
+      const isOwner =
+        !isVacant &&
+        !hasFuture &&
+        (r?.status === "owner" ||
+          r?.lease_state === "자가사용" ||
+          r?.lease_state === "자가" ||
+          (!hasPositiveRent &&
+            /(?:^|[\s/()·])(?:자가사용|자가|사옥)(?:$|[\s/()·])/.test(rawText)));
+      return {
+        ...r,
+        lease_state: isVacant ? "공실" : isOwner ? "자가사용" : r?.lease_state,
+        tenant_name: r?.tenantName ?? r?.tenant_name ?? r?.use ?? "",
+        tenant_type: r?.tenantType ?? r?.tenant_type ?? r?.use ?? "",
+        use: r?.use ?? r?.tenantName ?? r?.tenant_name ?? "",
+        deposit_manwon: Number(depMan) || 0,
+        rent_manwon: Number(rentMan) || 0,
+        monthly_rent_manwon: Number(rentMan) || 0,
+      };
+    });
+    return {
+      sums: sumLeasedRentRoll(normalized),
+      occupancy: summarizeLeaseOccupancy(normalized),
+    };
+  }, [rentRows]);
+
+  const monthlyRentDisplayManwon =
+    leasedRentRollSummary != null
+      ? leasedRentRollSummary.sums.monthlyRentManwon
+      : basicDoc.facts.rent.monthlyRentTotalManwon;
+
+  const ssotYieldSet = useMemo(() => {
+    if (!initialDoc?.financials && !initialDoc?.heroCard) return null;
+    const ssotSummary = (initialDoc as any)?.ssot_summary || (initialDoc as any)?.ssotSummary || {};
+    return buildYieldSetFromBody({
+      ...(initialDoc || {}),
+      asking_price_manwon: askingManwon || undefined,
+      ssot_summary: {
+        ...ssotSummary,
+        asking_price_manwon: ssotSummary?.asking_price_manwon ?? (askingManwon || undefined),
+        total_deposit_manwon:
+          ssotSummary?.total_deposit_manwon ??
+          (leasedRentRollSummary?.sums.depositManwon ?? basicDoc.facts.rent.depositTotalManwon),
+        monthly_rent_total_krw:
+          ssotSummary?.monthly_rent_total_krw ?? monthlyRentDisplayManwon * 10000,
+      },
+    });
+  }, [initialDoc, askingManwon, leasedRentRollSummary, basicDoc.facts.rent.depositTotalManwon, monthlyRentDisplayManwon]);
+
   const annualRentKrw =
-    yieldSec?.data?.annualRentKrw ?? basicDoc.facts.rent.annualRentKrw ?? 0;
+    leasedRentRollSummary != null
+      ? leasedRentRollSummary.sums.monthlyRentManwon * 12 * 10000
+      : yieldSec?.data?.annualRentKrw ?? basicDoc.facts.rent.annualRentKrw ?? 0;
   const netAnnualOperatingIncomeKrw =
+    ssotYieldSet?.noiBaseKrw ??
+    (typeof initialDoc?.heroCard?.noiBaseBil === "number"
+      ? Math.round(initialDoc.heroCard.noiBaseBil * 1e8)
+      : undefined) ??
     yieldSec?.data?.netAnnualOperatingIncomeKrw ??
     basicDoc.facts.valuation.netAnnualOperatingIncomeKrw ??
     0;
   const capRatePct =
-    yieldSec?.data?.capRatePct ?? basicDoc.facts.valuation.capRatePct ?? 0;
+    ssotYieldSet?.noiCapRate ??
+    (typeof initialDoc?.heroCard?.capRateBase === "number"
+      ? initialDoc.heroCard.capRateBase
+      : undefined) ??
+    yieldSec?.data?.capRatePct ??
+    basicDoc.facts.valuation.capRatePct ??
+    0;
+  const estimatedEquityKrw =
+    (typeof initialDoc?.financials?.equityRequired === "number"
+      ? Math.round(initialDoc.financials.equityRequired * 1e8)
+      : undefined) ??
+    (typeof initialDoc?.heroCard?.equityRequiredBil === "number"
+      ? Math.round(initialDoc.heroCard.equityRequiredBil * 1e8)
+      : undefined) ??
+    yieldSec?.data?.estimatedEquityKrw ??
+    basicDoc.facts.transaction.estimatedEquityKrw;
+  const occupancyRatePct =
+    leasedRentRollSummary?.occupancy.vacancyPct != null
+      ? Math.max(0, Math.round((100 - leasedRentRollSummary.occupancy.vacancyPct) * 10) / 10)
+      : typeof initialDoc?.heroCard?.occPct === "number"
+      ? initialDoc.heroCard.occPct
+      : yieldSec?.data?.occupancyRatePct ?? basicDoc.facts.rent.occupancyRatePct;
   const pricePerPyeongLandWon = Number(
     yieldSec?.data?.pricePerPyeongLandWon ??
       basicDoc.facts.transaction.pricePerPyeongLandWon ??
@@ -813,6 +1150,42 @@ export function MobileIMViewer({
   );
 
   const compsList: any[] = compsSec?.data?.comparableTransactions || [];
+  const hasVerifiedPublicLedger = useMemo(() => {
+    const pnuCandidates = [
+      basicDoc.facts.land.pnu,
+      (initialDoc as any)?.pnu,
+      (initialDoc as any)?.ssotSummary?.pnu,
+      (initialDoc as any)?.ssot_summary?.pnu,
+      (initialDoc as any)?.enrichment?.pnu,
+      (ssotData as any)?.pnu,
+    ];
+    const hasValidPnu = pnuCandidates.some(
+      (v) => typeof v === "string" && /^\d{19}$/.test(v.trim())
+    );
+
+    const brObj =
+      (initialDoc as any)?.enrichment?.buildingRegister ||
+      (initialDoc as any)?.buildingRegister ||
+      (ssotData as any)?.enrichment?.buildingRegister;
+    const hasBuildingRegister = Boolean(
+      (brObj &&
+        typeof brObj === "object" &&
+        (Number(brObj.totalArea || brObj.total_gross_area_sqm || 0) > 0 ||
+          Number(brObj.grndFlrCnt || brObj.floors_above || 0) > 0 ||
+          Boolean(brObj.mainPurpsCdNm || brObj.useAprDay))) ||
+        (initialDoc as any)?.ssotSummary?.building_register_verified === true ||
+        (initialDoc as any)?.ssot_summary?.building_register_verified === true
+    );
+
+    const hasOfficialLandPrice =
+      officialLandPriceWonSqm > 0 ||
+      Number((initialDoc as any)?.enrichment?.officialLandPrice?.pricePerSqm || 0) > 0 ||
+      Number((initialDoc as any)?.enrichment?.landPriceHistory?.latestPricePerSqm || 0) > 0;
+
+    const hasVerifiedComps = Array.isArray(compsList) && compsList.length > 0;
+
+    return Boolean(hasValidPnu || hasBuildingRegister || hasOfficialLandPrice || hasVerifiedComps);
+  }, [basicDoc.facts.land.pnu, initialDoc, ssotData, officialLandPriceWonSqm, compsList]);
   const subjectLandPricePerPyeongWon = Number(
     compsSec?.data?.subjectLandPricePerPyeongWon ?? pricePerPyeongLandWon
   );
@@ -832,57 +1205,185 @@ export function MobileIMViewer({
     photosSec?.data?.handoverCondition ||
     "일반 매매 · 잔금 일정 및 명도 조건 협의 가능";
 
+  const legacyCustomSections = useMemo<MobileIMSection[]>(() => {
+    if (
+      !initialDoc ||
+      initialDoc.basicImDocument ||
+      ("schemaVersion" in initialDoc && initialDoc.schemaVersion === "3.0") ||
+      !Array.isArray(initialDoc.sections)
+    ) {
+      return [];
+    }
+    return (initialDoc.sections as MobileIMSection[]).filter(
+      (s: any) =>
+        s &&
+        typeof s.sectionId === "string" &&
+        !CANONICAL_SECTION_CHIPS.some((c) => c.id === s.sectionId),
+    );
+  }, [initialDoc]);
+
+  const isIncomeSectionLocked = useMemo(
+    () =>
+      legacyCustomSections.some(
+        (s) => (s.sectionId === "income_analysis" || s.sectionId === "04_finance") && Boolean(s.locked),
+      ),
+    [legacyCustomSections],
+  );
+
+  const [openLegacySections, setOpenLegacySections] = useState<Record<string, boolean>>(() => {
+    const first = Array.isArray(initialDoc?.sections) ? initialDoc.sections[0]?.sectionId : undefined;
+    return first ? { [first]: true, income_analysis: true } : { income_analysis: true };
+  });
+
   // [A2-02] Sanitized per-field broker contact info (never let a placeholder in one layer shadow real profile fields)
   const contactBrokerObj = contactSec?.data?.brokerOffice;
-  const factsBrokerObj = basicDoc.facts.brokerOffice;
+  const factsBrokerObj = basicDoc.facts.brokerOffice as Record<string, any> | undefined;
+  const initialBrokerProfile = (initialDoc as any)?.brokerProfile;
   const legacyBrokerContact = (initialDoc as any)?.broker_contact;
   const topBrokerObj = initialDoc?.broker;
+  const ssotBrokerProfileObj =
+    (ssotData as any)?.brokerProfile ||
+    (ssotData as any)?.broker ||
+    (ssotData as any)?.broker_office;
 
   const realBrokerOfficeName =
-    cleanViewerBrokerField(contactBrokerObj?.name) ||
-    cleanViewerBrokerField(contactBrokerObj?.office) ||
-    cleanViewerBrokerField(contactBrokerObj?.company) ||
-    cleanViewerBrokerField(factsBrokerObj?.name) ||
-    cleanViewerBrokerField(legacyBrokerContact?.brokerageName) ||
-    cleanViewerBrokerField(topBrokerObj?.company) ||
-    cleanViewerBrokerField(topBrokerObj?.office);
+    cleanViewerBrokerField(contactBrokerObj?.name, "officeName") ||
+    cleanViewerBrokerField(contactBrokerObj?.office, "officeName") ||
+    cleanViewerBrokerField(contactBrokerObj?.company, "officeName") ||
+    cleanViewerBrokerField(contactBrokerObj?.officeName, "officeName") ||
+    cleanViewerBrokerField(factsBrokerObj?.name, "officeName") ||
+    cleanViewerBrokerField(factsBrokerObj?.company, "officeName") ||
+    cleanViewerBrokerField(initialBrokerProfile?.company, "officeName") ||
+    cleanViewerBrokerField(initialBrokerProfile?.officeName, "officeName") ||
+    cleanViewerBrokerField(initialBrokerProfile?.office_name, "officeName") ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerageName, "officeName") ||
+    cleanViewerBrokerField(topBrokerObj?.company, "officeName") ||
+    cleanViewerBrokerField(topBrokerObj?.office, "officeName") ||
+    cleanViewerBrokerField(topBrokerObj?.officeName, "officeName") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.company, "officeName") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.officeName, "officeName") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.name, "officeName") ||
+    cleanViewerBrokerField((ssotData as any)?.broker_company, "officeName") ||
+    cleanViewerBrokerField((ssotData as any)?.office_name, "officeName");
   const brokerOfficeName = realBrokerOfficeName || "전담 중개사무소";
 
   const realBrokerRepresentative =
-    cleanViewerBrokerField(contactBrokerObj?.representative) ||
-    cleanViewerBrokerField(contactBrokerObj?.displayName) ||
-    cleanViewerBrokerField(factsBrokerObj?.representative) ||
-    cleanViewerBrokerField(legacyBrokerContact?.brokerName) ||
-    cleanViewerBrokerField(topBrokerObj?.displayName) ||
-    cleanViewerBrokerField(topBrokerObj?.name);
+    cleanViewerBrokerField(contactBrokerObj?.representativeName, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.representative_name, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.representative, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.displayName, "name") ||
+    cleanViewerBrokerField(factsBrokerObj?.representativeName, "name") ||
+    cleanViewerBrokerField(factsBrokerObj?.representative_name, "name") ||
+    cleanViewerBrokerField(factsBrokerObj?.representative, "name") ||
+    cleanViewerBrokerField(initialBrokerProfile?.representativeName, "name") ||
+    cleanViewerBrokerField(initialBrokerProfile?.representative_name, "name") ||
+    cleanViewerBrokerField(initialBrokerProfile?.displayName, "name") ||
+    cleanViewerBrokerField(initialBrokerProfile?.display_name, "name") ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerName, "name") ||
+    cleanViewerBrokerField(topBrokerObj?.representativeName, "name") ||
+    cleanViewerBrokerField(topBrokerObj?.representative_name, "name") ||
+    cleanViewerBrokerField(topBrokerObj?.displayName, "name") ||
+    cleanViewerBrokerField(topBrokerObj?.name, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.representativeName, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.representative_name, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.displayName, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.display_name, "name") ||
+    cleanViewerBrokerField((ssotData as any)?.representative_name, "name");
   const brokerRepresentative = realBrokerRepresentative || "담당 공인중개사";
 
   const realBrokerRegistrationNo =
-    cleanViewerBrokerField(contactBrokerObj?.registrationNo) ||
-    cleanViewerBrokerField(factsBrokerObj?.registrationNo) ||
-    cleanViewerBrokerField(legacyBrokerContact?.registrationNo) ||
-    cleanViewerBrokerField(legacyBrokerContact?.officeRegNumber) ||
-    cleanViewerBrokerField(topBrokerObj?.registrationNo);
+    cleanViewerBrokerField(contactBrokerObj?.registrationNo, "regNo") ||
+    cleanViewerBrokerField(contactBrokerObj?.officeRegNumber, "regNo") ||
+    cleanViewerBrokerField(contactBrokerObj?.office_reg_number, "regNo") ||
+    cleanViewerBrokerField(factsBrokerObj?.registrationNo, "regNo") ||
+    cleanViewerBrokerField(factsBrokerObj?.officeRegNumber, "regNo") ||
+    cleanViewerBrokerField(factsBrokerObj?.office_reg_number, "regNo") ||
+    cleanViewerBrokerField(initialBrokerProfile?.registrationNo, "regNo") ||
+    cleanViewerBrokerField(initialBrokerProfile?.officeRegNumber, "regNo") ||
+    cleanViewerBrokerField(initialBrokerProfile?.office_reg_number, "regNo") ||
+    cleanViewerBrokerField(legacyBrokerContact?.registrationNo, "regNo") ||
+    cleanViewerBrokerField(legacyBrokerContact?.officeRegNumber, "regNo") ||
+    cleanViewerBrokerField(topBrokerObj?.registrationNo, "regNo") ||
+    cleanViewerBrokerField(topBrokerObj?.officeRegNumber, "regNo") ||
+    cleanViewerBrokerField(topBrokerObj?.office_reg_number, "regNo") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.registrationNo, "regNo") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.officeRegNumber, "regNo") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.office_reg_number, "regNo") ||
+    cleanViewerBrokerField((ssotData as any)?.office_reg_number, "regNo");
   const brokerRegistrationNo = realBrokerRegistrationNo || "-";
 
+  const realBrokerOfficeAddress =
+    cleanViewerBrokerField(contactBrokerObj?.officeAddress, "address") ||
+    cleanViewerBrokerField(contactBrokerObj?.office_address, "address") ||
+    cleanViewerBrokerField(contactBrokerObj?.address, "address") ||
+    cleanViewerBrokerField(factsBrokerObj?.officeAddress, "address") ||
+    cleanViewerBrokerField(factsBrokerObj?.office_address, "address") ||
+    cleanViewerBrokerField(factsBrokerObj?.address, "address") ||
+    cleanViewerBrokerField(initialBrokerProfile?.officeAddress, "address") ||
+    cleanViewerBrokerField(initialBrokerProfile?.office_address, "address") ||
+    cleanViewerBrokerField(legacyBrokerContact?.officeAddress, "address") ||
+    cleanViewerBrokerField(legacyBrokerContact?.office_address, "address") ||
+    cleanViewerBrokerField(topBrokerObj?.officeAddress, "address") ||
+    cleanViewerBrokerField(topBrokerObj?.office_address, "address") ||
+    cleanViewerBrokerField(topBrokerObj?.address, "address") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.officeAddress, "address") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.office_address, "address") ||
+    cleanViewerBrokerField((ssotData as any)?.office_address, "address") ||
+    cleanViewerBrokerField((ssotData as any)?.officeAddress, "address");
+
   const realBrokerPhone =
-    cleanViewerBrokerField(contactBrokerObj?.phone) ||
-    cleanViewerBrokerField(factsBrokerObj?.phone) ||
-    cleanViewerBrokerField(legacyBrokerContact?.brokerPhone) ||
-    cleanViewerBrokerField(topBrokerObj?.phone);
+    cleanViewerBrokerField(contactBrokerObj?.phone, "phone") ||
+    cleanViewerBrokerField(factsBrokerObj?.phone, "phone") ||
+    cleanViewerBrokerField(initialBrokerProfile?.phone, "phone") ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerPhone, "phone") ||
+    cleanViewerBrokerField(topBrokerObj?.phone, "phone") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.phone, "phone") ||
+    cleanViewerBrokerField((ssotData as any)?.broker_phone, "phone");
   const brokerPhone = realBrokerPhone || "-";
-  const isMissingBrokerContact = !realBrokerOfficeName || !realBrokerPhone;
+  const isMissingBrokerContact =
+    !realBrokerOfficeName ||
+    !realBrokerPhone ||
+    !realBrokerRegistrationNo ||
+    !realBrokerOfficeAddress;
   const contactDisclaimer =
     contactSec?.data?.disclaimer ||
     initialDoc?.disclaimer ||
     "본 자료는 고객 검토용으로 작성되었으며 법적 구속력을 갖지 않습니다.";
 
-  // [A2-05] Version diff delta in 억 원
-  const diffEok = (
-    ((basicDoc.facts.transaction.askingPriceManwon || 0) -
-      (v1Doc.facts.transaction.askingPriceManwon || 0)) /
-    10000
-  ).toFixed(1);
+  // [A2-05] Version diff delta in 억 원 (only meaningful when real v1Doc exists)
+  const diffEok = v1Doc
+    ? (
+        ((v2Doc.facts.transaction.askingPriceManwon || 0) -
+          (v1Doc.facts.transaction.askingPriceManwon || 0)) /
+        10000
+      ).toFixed(1)
+    : "0.0";
+
+  const realKakaoChannelUrl = useMemo(() => {
+    const candidates = [
+      (contactBrokerObj as any)?.kakaoChannelUrl,
+      (contactBrokerObj as any)?.kakaoUrl,
+      (initialBrokerProfile as any)?.kakaoChannelUrl,
+      (initialBrokerProfile as any)?.kakaoUrl,
+      (topBrokerObj as any)?.kakaoChannelUrl,
+      (topBrokerObj as any)?.kakaoUrl,
+      (topBrokerObj as any)?.kakao_url,
+      (ssotBrokerProfileObj as any)?.kakaoChannelUrl,
+      (ssotBrokerProfileObj as any)?.kakaoUrl,
+      (initialDoc as any)?.kakaoChannelUrl,
+      (initialDoc as any)?.kakaoUrl,
+    ];
+    for (const c of candidates) {
+      if (isExplicitKakaoChannelUrl(c)) return c.trim();
+    }
+    return null;
+  }, [
+    contactBrokerObj,
+    initialBrokerProfile,
+    topBrokerObj,
+    ssotBrokerProfileObj,
+    initialDoc,
+  ]);
 
   const isRevoked = Boolean((initialDoc as any)?.isRevoked);
   const correctionNotice = (initialDoc as any)?.correctionNotice as
@@ -896,17 +1397,17 @@ export function MobileIMViewer({
         className="min-h-screen bg-[#F3F2EE] text-[#0F172A] flex items-center justify-center px-4 py-12"
         data-testid="revoked-im-screen"
       >
-        <div className="max-w-md w-full bg-white rounded-3xl border-2 border-[#FECACA] p-6 sm:p-8 text-center space-y-4 shadow-md">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FEE2E2] text-[#991B1B] rounded-full font-extrabold text-[13px]">
-            🚫 404 · 열람 권한 회수됨
+        <div className="max-w-md w-full bg-white rounded-3xl border border-[#CBD5E1] p-6 sm:p-8 text-center space-y-4 shadow-md">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#F1F5F9] text-[#334155] rounded-full font-extrabold text-sm">
+            🔒 열람 기간 만료 · 최신 자료 안내
           </div>
-          <h1 className="text-[22px] font-black text-[#0F172A] leading-snug">
-            담당 중개인에 의해 회수된 투자설명서(IM) 링크입니다
+          <h1 className="text-2xl font-black text-[#0F172A] leading-snug">
+            매물 조건 업데이트로 이전 안내 링크의 열람이 종료되었습니다
           </h1>
-          <p className="text-[15px] text-[#475569] leading-relaxed">
-            매매 조건 변경, 가격 조정 또는 보안 정책에 따라 이전 공유 링크의 열람이 중단되었습니다. 최신 투자설명서 링크는 담당 공인중개사에게 요청해 주세요.
+          <p className="text-base text-[#475569] leading-relaxed">
+            매매 조건 변경 또는 최신 자료 반영에 따라 기존 공유 링크는 더 이상 열람하실 수 없습니다. 최신 투자설명서(IM)는 담당 공인중개사에게 편하게 요청해 주세요.
           </p>
-          <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] text-left space-y-1 text-[14px]">
+          <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] text-left space-y-1 text-sm">
             <p className="font-bold text-[#0F172A]">
               담당: {brokerRepresentative} ({brokerOfficeName})
             </p>
@@ -917,7 +1418,7 @@ export function MobileIMViewer({
           {brokerPhone && brokerPhone !== "-" && (
             <a
               href={`tel:${brokerPhone}`}
-              className="w-full min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#1E293B] cursor-pointer text-[15px]"
+              className="w-full min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#1E293B] cursor-pointer text-base"
             >
               📞 담당 중개사에게 최신본 요청하기
             </a>
@@ -940,49 +1441,59 @@ export function MobileIMViewer({
               <>
                 <Link
                   href="/broker/w/im"
-                  className="text-[14px] font-bold text-[#475569] hover:text-[#0F172A] flex items-center gap-0.5 shrink-0"
+                  className="text-sm font-bold text-[#475569] hover:text-[#0F172A] flex items-center gap-0.5 shrink-0"
                 >
                   ‹ IM
                 </Link>
                 <span className="text-[#CBD5E1]">|</span>
               </>
             ) : (
-              <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-1 rounded-lg border border-[#BFDBFE] shrink-0">
+              <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-1 rounded-lg border border-[#BFDBFE] shrink-0">
                 📊 투자설명서
               </span>
             )}
-            <span className="text-[14px] font-extrabold text-[#0F172A] truncate max-w-[165px] sm:max-w-[280px]">
+            <span className="text-sm font-extrabold text-[#0F172A] truncate max-w-[165px] sm:max-w-[280px]">
               {basicDoc.metadata.title}
             </span>
           </div>
 
-          {/* Version Switcher Dropdown (Broker Preview Only — WP-P4b-03 / P0-META-IMLITE-PUBLIC-06) */}
-          {isBroker ? (
-            <div className="flex items-center gap-2" data-testid="version-switcher-bar">
-              <select
-                value={selectedVersion}
-                onChange={(e) => setSelectedVersion(e.target.value as "v1" | "v2")}
-                className="min-h-[38px] px-2.5 py-1 text-[14px] font-bold bg-[#FAF9F5] border border-[#64748B] rounded-lg text-[#0F172A] outline-none cursor-pointer"
-                data-testid="version-switcher"
-              >
-                <option value="v1">v1 (초안)</option>
-                <option value="v2">v2 (최신 공개본 ★)</option>
-              </select>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <ReaderFontScaleToggle variant="light" />
 
-              <button
-                type="button"
-                onClick={() => setShowDiffModal(true)}
-                className="min-h-[38px] px-2.5 py-1 text-[14px] font-bold text-[#92400E] bg-[#FEF3C7] border border-[#FDE68A] hover:bg-[#FDE68A] rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                data-testid="version-diff-btn"
-              >
-                🔍 v1↔v2 비교
-              </button>
-            </div>
-          ) : (
-            <span className="text-[14px] font-bold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-1 rounded-lg shrink-0">
-              ✓ 검증 완료
-            </span>
-          )}
+            {/* Version Switcher Dropdown (Broker Preview Only when real previousVersion exists) */}
+            {isBroker ? (
+              v1Doc ? (
+                <div className="flex items-center gap-2" data-testid="version-switcher-bar">
+                  <select
+                    value={selectedVersion}
+                    onChange={(e) => setSelectedVersion(e.target.value as "v1" | "v2")}
+                    className="min-h-[44px] px-2.5 py-1 text-[max(16px,1rem)] font-bold bg-[#FAF9F5] border border-[#64748B] rounded-lg text-[#0F172A] outline-none cursor-pointer"
+                    data-testid="version-switcher"
+                  >
+                    <option value="v1">v1 (이전 버전)</option>
+                    <option value="v2">v2 (최신 공개본 ★)</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDiffModal(true)}
+                    className="min-h-[44px] px-2.5 py-1 text-sm font-bold text-[#92400E] bg-[#FEF3C7] border border-[#FDE68A] hover:bg-[#FDE68A] rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    data-testid="version-diff-btn"
+                  >
+                    🔍 v1↔v2 비교
+                  </button>
+                </div>
+              ) : null
+            ) : hasVerifiedPublicLedger ? (
+              <span className="text-sm font-bold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-1 rounded-lg shrink-0">
+                ✓ 공적장부·실거래 검증필
+              </span>
+            ) : (
+              <span className="text-sm font-semibold text-[#475569] bg-[#F8FAFC] border border-[#CBD5E1] px-2.5 py-1 rounded-lg shrink-0">
+                중개인 입력 기준 · 공적장부 대조 예정
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── Sticky Top Section Navigation Chips (WP-P4b-01) ── */}
@@ -999,7 +1510,7 @@ export function MobileIMViewer({
                 key={chip.id}
                 type="button"
                 onClick={() => scrollToSection(chip.id)}
-                className={`min-h-[38px] px-3 py-1 rounded-full text-[14px] font-bold whitespace-nowrap border transition-all cursor-pointer ${
+                className={`min-h-[38px] px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap border transition-all cursor-pointer ${
                   isActive
                     ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs scale-105"
                     : "bg-white text-[#475569] border-[#CBD5E1] hover:border-[#64748B]"
@@ -1021,12 +1532,12 @@ export function MobileIMViewer({
           role="status"
         >
           <div className="max-w-2xl mx-auto flex items-start gap-2.5">
-            <span className="text-[18px] leading-none pt-0.5">⚠️</span>
+            <span className="text-lg leading-none pt-0.5">⚠️</span>
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] sm:text-[15px] font-extrabold text-[#92400E]">
+              <p className="text-sm sm:text-base font-extrabold text-[#92400E]">
                 매물 정보가 정정되었습니다
               </p>
-              <p className="text-[14px] text-[#78350F] mt-0.5 leading-snug">
+              <p className="text-sm text-[#78350F] mt-0.5 leading-snug">
                 {correctionNotice.message}
               </p>
             </div>
@@ -1044,13 +1555,25 @@ export function MobileIMViewer({
           data-doc-hash={docHash}
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               01 표지
             </span>
-            <span className="text-[14px] font-bold text-[#065F46]">
-              ✓ 공적장부·실거래 검증필
-            </span>
+            {hasVerifiedPublicLedger ? (
+              <span
+                className="text-sm font-bold text-[#065F46]"
+                data-testid="public-ledger-verified-badge"
+              >
+                ✓ 공적장부·실거래 검증필
+              </span>
+            ) : (
+              <span
+                className="text-sm font-semibold text-[#64748B]"
+                data-testid="public-ledger-pending-badge"
+              >
+                중개인 입력 기준 · 공적장부 대조 예정
+              </span>
+            )}
           </div>
 
           {/* Cover photo or dark gradient box locked to dark theme */}
@@ -1068,10 +1591,10 @@ export function MobileIMViewer({
             )}
             <div className="relative z-10 flex flex-col items-center justify-center">
               <span className="text-4xl mb-2">🏢</span>
-              <h1 className="text-[22px] sm:text-[26px] font-black leading-tight text-white">
+              <h1 className="text-2xl sm:text-3xl font-black leading-tight text-white">
                 {coverSec?.data?.title || basicDoc.metadata.title}
               </h1>
-              <p className="text-[15px] text-[#CBD5E1] mt-1">
+              <p className="text-base text-[#CBD5E1] mt-1">
                 {coverSec?.data?.address || basicDoc.metadata.address}
               </p>
             </div>
@@ -1079,23 +1602,23 @@ export function MobileIMViewer({
 
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">매매 희망가</span>
-              <strong className="text-[20px] font-extrabold text-[#0F172A] tabular-nums">
+              <span className="text-sm font-semibold text-[#64748B] block">매매 희망가</span>
+              <strong className="text-xl font-extrabold text-[#0F172A] tabular-nums">
                 {priceLabel}
               </strong>
             </div>
             <div className="p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               {(coverSec?.data?.grossYieldPct ?? basicDoc.facts.valuation.grossYieldPct) > 0 ? (
                 <>
-                  <span className="text-[14px] font-semibold text-[#64748B] block">예상 총수익률</span>
-                  <strong className="text-[20px] font-extrabold text-[#065F46] tabular-nums">
+                  <span className="text-sm font-semibold text-[#64748B] block">예상 총수익률</span>
+                  <strong className="text-xl font-extrabold text-[#065F46] tabular-nums">
                     {(coverSec?.data?.grossYieldPct ?? basicDoc.facts.valuation.grossYieldPct).toFixed(2)}%
                   </strong>
                 </>
               ) : (
                 <>
-                  <span className="text-[14px] font-semibold text-[#64748B] block">토지 평당가</span>
-                  <strong className="text-[20px] font-extrabold text-[#065F46] tabular-nums">
+                  <span className="text-sm font-semibold text-[#64748B] block">토지 평당가</span>
+                  <strong className="text-xl font-extrabold text-[#065F46] tabular-nums">
                     {Math.round(pricePerPyeongLandWon / 10000).toLocaleString()}만원/평
                   </strong>
                 </>
@@ -1113,13 +1636,13 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               02 투자 하이라이트
             </span>
-            <span className="text-[14px] font-bold text-[#475569]">핵심 요약</span>
+            <span className="text-sm font-bold text-[#475569]">핵심 요약</span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">
+          <h2 className="text-xl font-extrabold text-[#0F172A]">
             핵심 투자 지표 (6대 메트릭스)
           </h2>
 
@@ -1129,8 +1652,8 @@ export function MobileIMViewer({
                 m.label === "매매 희망가" && askingManwon > 0 ? priceLabel : m.value;
               return (
                 <div key={idx} className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-center">
-                  <span className="text-[14px] font-semibold text-[#64748B] block mb-0.5">{m.label}</span>
-                  <strong className="text-[16px] font-extrabold text-[#0F172A] tabular-nums block">
+                  <span className="text-sm font-semibold text-[#64748B] block mb-0.5">{m.label}</span>
+                  <strong className="text-base font-extrabold text-[#0F172A] tabular-nums block">
                     {displayMetricVal}
                   </strong>
                 </div>
@@ -1139,8 +1662,8 @@ export function MobileIMViewer({
           </div>
 
           <div className="p-4 bg-[#F8FAFC] rounded-md border border-[#E2E8F0] space-y-2">
-            <h3 className="text-[15px] font-bold text-[#0F172A]">투자 포인트</h3>
-            <ul className="space-y-1.5 text-[15px] text-[#334155]">
+            <h3 className="text-base font-bold text-[#0F172A]">투자 포인트</h3>
+            <ul className="space-y-1.5 text-base text-[#334155]">
               {(summarySec?.data?.investmentPoints || []).map((pt: string, idx: number) => (
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-[#1D4ED8] font-bold">✓</span>
@@ -1160,14 +1683,14 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               03 건축물 기본 정보
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">건축물 개요</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">건축물 개요</h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[15px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-base">
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
               <span className="text-[#64748B]">소재지</span>
               <span className="font-bold text-[#0F172A]">
@@ -1189,7 +1712,9 @@ export function MobileIMViewer({
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
               <span className="text-[#64748B]">층수</span>
               <span className="font-bold text-[#0F172A]">
-                지상 {basicDoc.facts.building.floorsAbove}층 / 지하 {basicDoc.facts.building.floorsBelow}층
+                {basicDoc.facts.building.floorsAbove > 0 || basicDoc.facts.building.floorsBelow > 0
+                  ? `지상 ${basicDoc.facts.building.floorsAbove}층 / 지하 ${basicDoc.facts.building.floorsBelow}층`
+                  : "공적장부 확인 필요"}
               </span>
             </div>
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
@@ -1230,23 +1755,23 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               04 입지 분석
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">교통 및 입지 환경</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">교통 및 입지 환경</h2>
           <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-2.5">
-            <p className="text-[15px] font-semibold text-[#0F172A]">
+            <p className="text-base font-semibold text-[#0F172A]">
               {basicDoc.facts.address} · {locationTransport}
             </p>
             {locationRoad && (
-              <p className="text-[14px] text-[#334155]">
+              <p className="text-sm text-[#334155]">
                 도로 여건: <strong className="text-[#0F172A]">{locationRoad}</strong>
               </p>
             )}
             {legacyLocationContent && (
-              <p className="text-[14px] text-[#475569] leading-relaxed">
+              <p className="text-sm text-[#475569] leading-relaxed">
                 {legacyLocationContent}
               </p>
             )}
@@ -1255,7 +1780,7 @@ export function MobileIMViewer({
                 {locationPoiList.map((poi, idx) => (
                   <span
                     key={idx}
-                    className="px-2.5 py-1 rounded-md bg-white border border-[#CBD5E1] text-[14px] font-semibold text-[#0F172A]"
+                    className="px-2.5 py-1 rounded-md bg-white border border-[#CBD5E1] text-sm font-semibold text-[#0F172A]"
                   >
                     📍 {poi}
                   </span>
@@ -1274,38 +1799,38 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               05 토지 및 도시계획
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">토지 이용 계획</h2>
-          <div className="grid grid-cols-2 gap-3 text-[15px]">
+          <h2 className="text-xl font-extrabold text-[#0F172A]">토지 이용 계획</h2>
+          <div className="grid grid-cols-2 gap-3 text-base">
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">
+              <span className="text-sm font-semibold text-[#64748B] block">
                 {multiParcels.length >= 2 ? `대지면적 (${multiParcels.length}필지 합계)` : "대지면적"}
               </span>
-              <strong className="text-[16px] text-[#0F172A] tabular-nums">
+              <strong className="text-base text-[#0F172A] tabular-nums">
                 {Number(landAreaSqm).toLocaleString()}㎡ ({Number(landAreaPyeong).toLocaleString()}평)
               </strong>
             </div>
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">용도지역</span>
-              <strong className="text-[16px] text-[#0F172A]">{landZoning}</strong>
+              <span className="text-sm font-semibold text-[#64748B] block">용도지역</span>
+              <strong className="text-base text-[#0F172A]">{landZoning}</strong>
             </div>
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">
+              <span className="text-sm font-semibold text-[#64748B] block">
                 {multiParcels.length >= 2 ? "지목 구성" : "지형·형상"}
               </span>
-              <strong className="text-[15px] text-[#0F172A]">
+              <strong className="text-base text-[#0F172A]">
                 {multiParcels.length >= 2 ? landCategoryLabel : landTerrainShape}
               </strong>
             </div>
             <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              <span className="text-[14px] font-semibold text-[#64748B] block">
+              <span className="text-sm font-semibold text-[#64748B] block">
                 {multiParcels.length >= 2 ? "개별공시지가 (가중평균)" : "개별공시지가"}
               </span>
-              <strong className="text-[15px] text-[#0F172A] tabular-nums">
+              <strong className="text-base text-[#0F172A] tabular-nums">
                 {officialLandPriceWonSqm > 0
                   ? `㎡당 ${officialLandPriceWonSqm.toLocaleString()}원 (평당 약 ${Math.round(
                       officialLandPricePyeong / 10000
@@ -1320,7 +1845,7 @@ export function MobileIMViewer({
               data-testid="mobile-im-multiparcel-table"
               className="overflow-x-auto rounded-md border border-[#CBD5E1]"
             >
-              <table className="w-full text-left text-[13px]">
+              <table className="w-full text-left text-sm">
                 <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
                   <tr>
                     <th className="py-2 px-3">필지(지번)</th>
@@ -1371,19 +1896,25 @@ export function MobileIMViewer({
           data-doc-hash={docHash}
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+          {rentRows.length > 10 && (
+            <style>{`@media print { [data-rentroll-extra-row="true"] { display: table-row !important; } }`}</style>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               06 층별 임대차 상세
             </span>
-            <span className="text-[14px] text-[#065F46] font-bold">
-              월 수익 합계: {basicDoc.facts.rent.monthlyRentTotalManwon.toLocaleString()}만원
+            <span className="text-sm text-[#065F46] font-bold">
+              월 수익 합계: {monthlyRentDisplayManwon.toLocaleString()}만원
+              {typeof occupancyRatePct === "number" && rentRows.length > 0
+                ? ` · 임대율 ${occupancyRatePct.toFixed(1).replace(/\.0$/, "")}%`
+                : ""}
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">렌트롤 현황</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">렌트롤 현황</h2>
 
           <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
-            <table className="w-full text-left text-[14px]">
+            <table className="w-full text-left text-sm">
               <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
                 <tr>
                   <th className="py-2 px-2 sm:px-3 whitespace-nowrap">층</th>
@@ -1396,15 +1927,21 @@ export function MobileIMViewer({
               <tbody className="divide-y divide-[#E2E8F0]">
                 {rentRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-[14px] text-[#64748B]">
+                    <td colSpan={5} className="py-8 text-center text-sm text-[#64748B]">
                       등록된 호실 임대차 정보가 없습니다.
                     </td>
                   </tr>
                 ) : (
-                  rentRows.slice(0, 10).map((r: any, idx: number) => {
+                  rentRows.map((r: any, idx: number) => {
                     const floorLabel = r.floor || "-";
                     const useLabel =
-                      r.use || r.tenantName || (r.status === "vacant" ? "공실" : "임대중");
+                      r.use ||
+                      r.tenantName ||
+                      (r.status === "vacant"
+                        ? "공실"
+                        : r.status === "owner"
+                        ? "자가사용"
+                        : "임대중");
                     const depManwon =
                       r.depositManwon !== undefined
                         ? Number(r.depositManwon)
@@ -1413,11 +1950,25 @@ export function MobileIMViewer({
                       r.monthlyRentManwon !== undefined
                         ? Number(r.monthlyRentManwon)
                         : Math.round((Number(r.rentKrw) || 0) / 10000);
-                    const rawExpiry = String(r.leaseExpiry || r.expiryDate || "-");
-                    const expiryLabel = rawExpiry.replace(/^20(\d{2})-(\d{2})$/, "$1.$2");
+                    const rawExpiry = String(
+                      r.leaseExpiry ?? r.expiryDate ?? r.expiry_date ?? r.lease_end ?? ""
+                    ).trim();
+                    const expiryLabel =
+                      !rawExpiry || rawExpiry === "-"
+                        ? "-"
+                        : rawExpiry.replace(/^20(\d{2})-(\d{2})$/, "$1.$2");
+                    const isCollapsedOnScreen = idx >= 10 && !showAllRentRows;
 
                     return (
-                      <tr key={idx} className="hover:bg-[#F8FAFC]">
+                      <tr
+                        key={idx}
+                        data-rentroll-extra-row={idx >= 10 ? "true" : undefined}
+                        className={
+                          isCollapsedOnScreen
+                            ? "hidden print:table-row hover:bg-[#F8FAFC]"
+                            : "hover:bg-[#F8FAFC]"
+                        }
+                      >
                         <td className="py-2 px-2 sm:px-3 font-bold text-[#0F172A] whitespace-nowrap">{floorLabel}</td>
                         <td className="py-2 px-2 sm:px-3 text-[#334155] break-keep">{useLabel}</td>
                         <td className="py-2 px-2 sm:px-3 text-right tabular-nums font-semibold text-[#0F172A] whitespace-nowrap">
@@ -1434,6 +1985,19 @@ export function MobileIMViewer({
               </tbody>
             </table>
           </div>
+
+          {rentRows.length > 10 && (
+            <button
+              type="button"
+              onClick={() => setShowAllRentRows((prev) => !prev)}
+              data-testid="rentroll-toggle-btn"
+              className="w-full min-h-[44px] py-2.5 px-4 rounded-md border border-[#CBD5E1] bg-[#FAF9F5] hover:bg-[#F1F5F9] text-sm font-bold text-[#1D4ED8] transition-colors cursor-pointer no-print"
+            >
+              {showAllRentRows
+                ? "10개 호실만 접기"
+                : `전체 ${rentRows.length}개 호실 모두 보기`}
+            </button>
+          )}
         </section>
 
         {/* Section 07: Cash Flow / Yield (A23) */}
@@ -1445,26 +2009,34 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               07 수지 분석
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">수익률 산출 내역</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">수익률 산출 내역</h2>
           <div className="p-4 bg-[#F0FDF4] rounded-md border border-[#BBF7D0] space-y-2">
-            <div className="flex justify-between text-[15px]">
+            <div className="flex justify-between text-base">
               <span className="text-[#334155]">연간 총 임대수익</span>
               <strong className="text-[#0F172A] tabular-nums">
                 {(annualRentKrw / 10000).toLocaleString()}만 원
               </strong>
             </div>
-            <div className="flex justify-between text-[15px]">
+            <div className="flex justify-between text-base">
               <span className="text-[#334155]">연간 순임대수익</span>
               <strong className="text-[#0F172A] tabular-nums">
                 {(netAnnualOperatingIncomeKrw / 10000).toLocaleString()}만 원
               </strong>
             </div>
-            <div className="flex justify-between text-[16px] font-extrabold pt-2 border-t border-[#86EFAC]">
+            {!isIncomeSectionLocked && typeof estimatedEquityKrw === "number" && estimatedEquityKrw > 0 && (
+              <div className="flex justify-between text-base">
+                <span className="text-[#334155]">예상 자기자본 (실투자금)</span>
+                <strong className="text-[#0F172A] tabular-nums">
+                  {Math.round(estimatedEquityKrw / 10000).toLocaleString()}만 원
+                </strong>
+              </div>
+            )}
+            <div className="flex justify-between text-base font-extrabold pt-2 border-t border-[#86EFAC]">
               <span className="text-[#065F46]">연 환산 수익률</span>
               <span className="text-[#065F46] tabular-nums">
                 {capRatePct.toFixed(2)}%
@@ -1473,16 +2045,16 @@ export function MobileIMViewer({
           </div>
 
           {(pricePerPyeongLandWon > 0 || pricePerPyeongGfaWon > 0) && (
-            <div className="grid grid-cols-2 gap-3 text-[14px]">
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-                <span className="text-[14px] font-semibold text-[#64748B] block">토지 평당 단가</span>
-                <strong className="text-[15px] text-[#0F172A] tabular-nums">
+                <span className="text-sm font-semibold text-[#64748B] block">토지 평당 단가</span>
+                <strong className="text-base text-[#0F172A] tabular-nums">
                   {Math.round(pricePerPyeongLandWon / 10000).toLocaleString()}만 원/평
                 </strong>
               </div>
               <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-                <span className="text-[14px] font-semibold text-[#64748B] block">연면적 평당 단가</span>
-                <strong className="text-[15px] text-[#0F172A] tabular-nums">
+                <span className="text-sm font-semibold text-[#64748B] block">연면적 평당 단가</span>
+                <strong className="text-base text-[#0F172A] tabular-nums">
                   {Math.round(pricePerPyeongGfaWon / 10000).toLocaleString()}만 원/평
                 </strong>
               </div>
@@ -1499,24 +2071,24 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               08 상권 및 배후 수요
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">인근 시장 거래 시세</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">인근 시장 거래 시세</h2>
 
           {(subjectLandPricePerPyeongWon > 0 || subjectGfaPricePerPyeongWon > 0) && (
-            <div className="grid grid-cols-2 gap-3 text-[14px]">
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-                <span className="text-[14px] font-semibold text-[#64748B] block">본건 토지 평당가</span>
-                <strong className="text-[15px] text-[#0F172A] tabular-nums">
+                <span className="text-sm font-semibold text-[#64748B] block">본건 토지 평당가</span>
+                <strong className="text-base text-[#0F172A] tabular-nums">
                   {Math.round(subjectLandPricePerPyeongWon / 10000).toLocaleString()}만 원/평
                 </strong>
               </div>
               <div className="p-3 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-                <span className="text-[14px] font-semibold text-[#64748B] block">본건 연면적 평당가</span>
-                <strong className="text-[15px] text-[#0F172A] tabular-nums">
+                <span className="text-sm font-semibold text-[#64748B] block">본건 연면적 평당가</span>
+                <strong className="text-base text-[#0F172A] tabular-nums">
                   {Math.round(subjectGfaPricePerPyeongWon / 10000).toLocaleString()}만 원/평
                 </strong>
               </div>
@@ -1525,7 +2097,7 @@ export function MobileIMViewer({
 
           {compsList.length > 0 ? (
             <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
-              <table className="w-full text-left text-[14px]">
+              <table className="w-full text-left text-sm">
                 <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
                   <tr>
                     <th className="py-2.5 px-3">거리/위치</th>
@@ -1565,7 +2137,7 @@ export function MobileIMViewer({
               </table>
             </div>
           ) : (
-            <p className="text-[14px] text-[#475569] p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
+            <p className="text-sm text-[#475569] p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
               본건 대지·연면적 평당 단가 및 개별공시지가 기준 밸류에이션 지표를 참조해 주십시오.
             </p>
           )}
@@ -1580,13 +2152,13 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               09 매각 조건 및 사진
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">거래 조건 및 갤러리</h2>
-          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-[15px] text-[#334155]">
+          <h2 className="text-xl font-extrabold text-[#0F172A]">거래 조건 및 갤러리</h2>
+          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] text-base text-[#334155]">
             매각 방식: {handoverCondition}
           </div>
 
@@ -1610,18 +2182,23 @@ export function MobileIMViewer({
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               10 담당자 및 면책조항
             </span>
           </div>
 
-          <h2 className="text-[20px] font-extrabold text-[#0F172A]">담당 중개사무소</h2>
-          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1.5 text-[15px]">
+          <h2 className="text-xl font-extrabold text-[#0F172A]">담당 중개사무소</h2>
+          <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1.5 text-base">
             <p className="font-extrabold text-[#0F172A]">{brokerOfficeName}</p>
             <p className="text-[#475569]">
-              대표: {brokerRepresentative}
+              대표 공인중개사: {brokerRepresentative}
               {realBrokerRegistrationNo ? ` · 등록번호: ${realBrokerRegistrationNo}` : ""}
             </p>
+            {realBrokerOfficeAddress && (
+              <p className="text-[#475569]" data-testid="mobile-im-broker-office-address">
+                소재지: {realBrokerOfficeAddress}
+              </p>
+            )}
             <p className="text-[#1D4ED8] font-bold">
               연락처:{" "}
               {realBrokerPhone ? (
@@ -1635,9 +2212,9 @@ export function MobileIMViewer({
             {isBroker && isMissingBrokerContact && (
               <div
                 data-testid="mobile-im-broker-profile-nudge"
-                className="mt-2 pt-2 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 text-[14px] text-[#475569]"
+                className="mt-2 pt-2 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 text-sm text-[#475569]"
               >
-                <span>중개사무소 상호·연락처·등록번호를 입력하면 고객 열람본에 자동 반영됩니다.</span>
+                <span>중개사무소 상호·소재지·등록번호·대표자·연락처를 입력하면 고객 열람본에 자동 반영됩니다.</span>
                 <Link
                   href="/broker/profile"
                   className="font-bold text-[#1D4ED8] hover:underline shrink-0"
@@ -1648,14 +2225,66 @@ export function MobileIMViewer({
             )}
           </div>
 
-          <p className="text-[14px] text-[#64748B] leading-relaxed pt-2">
+          <p className="text-sm text-[#64748B] leading-relaxed pt-2">
             {contactDisclaimer}
           </p>
         </section>
+
+        {/* Legacy / Pro IM Custom Sections & Gated Financial Charts */}
+        {legacyCustomSections.length > 0 && (
+          <div className="space-y-4" data-testid="mobile-im-legacy-custom-sections">
+            {legacyCustomSections.map((sec, idx) => {
+              const isOpen = Boolean(openLegacySections[sec.sectionId] ?? idx === 0);
+              return (
+                <div key={sec.sectionId || idx} className="space-y-3">
+                  <SectionCard
+                    section={sec}
+                    index={idx}
+                    isOpen={isOpen}
+                    onToggle={() =>
+                      setOpenLegacySections((prev) => ({
+                        ...prev,
+                        [sec.sectionId]: !isOpen,
+                      }))
+                    }
+                  />
+                  {!sec.locked && sec.sectionId === "income_analysis" && (
+                    <>
+                      {initialDoc?.financials && (
+                        <LeverageChart
+                          equityBil={Number(
+                            initialDoc.financials.equityRequiredBil ??
+                              initialDoc.financials.equityRequired ??
+                              0,
+                          )}
+                          depositBil={Number(initialDoc.financials.totalDepositBil ?? 0)}
+                          loanBil={Number(initialDoc.financials.loanAmountBil ?? 0)}
+                          leveragedYieldPct={
+                            initialDoc.financials.leveragedYieldPct ??
+                            initialDoc.financials.leveragedYield ??
+                            null
+                          }
+                        />
+                      )}
+                      {initialDoc?.dcf10Year &&
+                        Array.isArray(initialDoc.dcf10Year.sensitivityMatrix) &&
+                        initialDoc.dcf10Year.sensitivityMatrix.length > 0 && (
+                          <DCFHeatmap
+                            dcfOutputs={initialDoc.dcf10Year}
+                            waccBase={Number(initialDoc?.financials?.waccPct ?? 5.5) / 100}
+                          />
+                        )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
-      {/* ── Version Diff Modal (WP-P4b-03) ── */}
-      {showDiffModal && (
+      {/* ── Version Diff Modal (Only rendered when real previousVersion history exists) ── */}
+      {showDiffModal && v1Doc && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1664,34 +2293,41 @@ export function MobileIMViewer({
         >
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border-2 border-[#CBD5E1]">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-[18px] font-extrabold text-[#0F172A]">
+              <h3 className="text-lg font-extrabold text-[#0F172A]">
                 🔍 IM 버전 차이 비교 (v1 ↔ v2)
               </h3>
               <button
                 type="button"
                 onClick={() => setShowDiffModal(false)}
-                className="text-[16px] font-bold text-[#64748B] hover:text-[#0F172A] p-1 cursor-pointer"
+                className="text-base font-bold text-[#64748B] hover:text-[#0F172A] p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-[15px]">
-              <p className="text-[14px] text-[#475569]">
+            <div className="space-y-3 text-base">
+              <p className="text-sm text-[#475569]">
                 수정 및 변경된 항목은 <span className="bg-[#FEF08A] text-[#854D0E] font-bold px-1.5 py-0.5 rounded">노란색</span>으로 강조 표시됩니다.
               </p>
 
               <div className="rounded-2xl border border-[#CBD5E1] overflow-hidden">
-                <table className="w-full text-left text-[14px]">
+                <table className="w-full text-left text-sm">
                   <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold">
                     <tr>
                       <th className="p-3">항목</th>
-                      <th className="p-3">v1 (초안)</th>
+                      <th className="p-3">v1 (이전 버전)</th>
                       <th className="p-3">v2 (현재본)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E2E8F0]">
-                    <tr className="bg-[#FEF9C3]">
+                    <tr
+                      className={
+                        v1Doc.facts.transaction.askingPriceManwon !==
+                        v2Doc.facts.transaction.askingPriceManwon
+                          ? "bg-[#FEF9C3]"
+                          : undefined
+                      }
+                    >
                       <td className="p-3 font-semibold">매매 희망가</td>
                       <td className="p-3">
                         {((v1Doc.facts.transaction.askingPriceManwon || 0) / 10000)
@@ -1700,32 +2336,45 @@ export function MobileIMViewer({
                         억 원
                       </td>
                       <td className="p-3 font-bold text-[#1D4ED8]">
-                        {((basicDoc.facts.transaction.askingPriceManwon || 0) / 10000)
+                        {((v2Doc.facts.transaction.askingPriceManwon || 0) / 10000)
                           .toFixed(1)
                           .replace(/\.0$/, "")}
-                        억 원 ({diffEok}억 조정)
+                        억 원 ({diffEok}억 변동)
                       </td>
                     </tr>
-                    <tr className="bg-[#FEF9C3]">
+                    <tr
+                      className={
+                        v1Doc.facts.valuation.grossYieldPct !== v2Doc.facts.valuation.grossYieldPct
+                          ? "bg-[#FEF9C3]"
+                          : undefined
+                      }
+                    >
                       <td className="p-3 font-semibold">예상 수익률</td>
                       <td className="p-3">{v1Doc.facts.valuation.grossYieldPct.toFixed(2)}%</td>
                       <td className="p-3 font-bold text-[#065F46]">
-                        {basicDoc.facts.valuation.grossYieldPct.toFixed(2)}% (개선)
+                        {v2Doc.facts.valuation.grossYieldPct.toFixed(2)}%
                       </td>
                     </tr>
-                    <tr className="bg-[#FEF9C3]">
+                    <tr
+                      className={
+                        v1Doc.facts.rent.monthlyRentTotalManwon !==
+                        v2Doc.facts.rent.monthlyRentTotalManwon
+                          ? "bg-[#FEF9C3]"
+                          : undefined
+                      }
+                    >
                       <td className="p-3 font-semibold">월 임대수익</td>
                       <td className="p-3">
                         {v1Doc.facts.rent.monthlyRentTotalManwon.toLocaleString()}만 원
                       </td>
                       <td className="p-3 font-bold text-[#1D4ED8]">
-                        {basicDoc.facts.rent.monthlyRentTotalManwon.toLocaleString()}만 원
+                        {v2Doc.facts.rent.monthlyRentTotalManwon.toLocaleString()}만 원
                       </td>
                     </tr>
                     <tr>
                       <td className="p-3 font-semibold">연면적</td>
                       <td className="p-3">{v1Doc.facts.building.totalGrossAreaSqm.toLocaleString()}㎡</td>
-                      <td className="p-3">{basicDoc.facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (동일)</td>
+                      <td className="p-3">{v2Doc.facts.building.totalGrossAreaSqm.toLocaleString()}㎡</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1772,31 +2421,83 @@ export function MobileIMViewer({
         </div>
       )}
 
-      {/* ── Fixed Bottom Action Bar (64px) ── */}
+      {/* ── Fixed Bottom Action Bar (Safe-Area Aware) ── */}
       <footer
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#CBD5E1] shadow-lg no-print"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#CBD5E1] shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] no-print"
         data-testid="floating-action-bar"
       >
-        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-2.5">
+        {inAppWebView && !dismissedWebViewBanner && (
+          <div
+            data-testid="inapp-webview-banner"
+            className="bg-[#FFFBEB] border-b border-[#FDE68A] px-4 py-2 text-[#92400E]"
+          >
+            <div className="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-semibold">
+                카카오톡 등 앱 내 브라우저에서는 PPTX 파일 저장이 제한될 수 있습니다.
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-testid="open-external-browser-btn"
+                  onClick={() => void handleOpenExternalBrowser()}
+                  className="px-2.5 py-1 rounded-lg bg-[#0F172A] text-white font-bold hover:bg-[#1E293B] transition-colors cursor-pointer"
+                >
+                  외부 브라우저(Safari/Chrome)로 열기
+                </button>
+                <button
+                  type="button"
+                  data-testid="copy-im-link-btn"
+                  onClick={() => void handleCopyViewerLink()}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-[#F59E0B] text-[#92400E] font-bold hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                >
+                  링크 복사
+                </button>
+                <button
+                  type="button"
+                  aria-label="배너 닫기"
+                  onClick={() => setDismissedWebViewBanner(true)}
+                  className="px-1.5 py-1 text-[#92400E] hover:text-[#78350F] font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-2xl mx-auto px-4 pt-2 min-h-14 flex items-center justify-between gap-2.5">
           <a
             href={brokerPhone && brokerPhone !== "-" ? `tel:${brokerPhone}` : "#10_contact"}
-            className="flex-1 min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[15px] whitespace-nowrap"
+            className="flex-1 min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-base whitespace-nowrap"
           >
             <span>📞</span> 전화 문의
           </a>
-          <button
-            type="button"
-            onClick={() => setShowInquiry(true)}
-            className="flex-1 min-h-[48px] bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-[15px] whitespace-nowrap"
-          >
-            <span>💬</span> 카톡 문의
-          </button>
+          {realKakaoChannelUrl ? (
+            <a
+              href={realKakaoChannelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-h-[48px] bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-base whitespace-nowrap"
+            >
+              <span>💬</span> 카톡 상담
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowInquiry(true)}
+              className="flex-1 min-h-[48px] bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-base whitespace-nowrap"
+            >
+              <span>📩</span> 간편 문의 · 자료 요청
+            </button>
+          )}
           <a
-            href={`/api/public/im-lite/${buildingId}/pptx?direct=1${docId ? `&doc_id=${encodeURIComponent(docId)}` : ""}`}
+            href={resolvedPptxDownloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             data-testid="mobile-im-download-pptx-btn"
             aria-busy={isDownloadingPptx}
             onClick={handleMobilePptxDownload}
-            className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-[14px] whitespace-nowrap shrink-0"
+            className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
             title="PPTX 투자설명서 다운로드"
           >
             <span>{isDownloadingPptx ? "⏳ 생성 중" : "📥 PPTX"}</span>
@@ -1805,7 +2506,7 @@ export function MobileIMViewer({
             <Link
               href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
               data-testid="mobile-im-open-studio-btn"
-              className="min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-[14px] whitespace-nowrap shrink-0"
+              className="min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
               title="10면 발표자료(PPT) 꾸미기"
             >
               <span>📐 스튜디오</span>
@@ -1814,7 +2515,7 @@ export function MobileIMViewer({
           <button
             type="button"
             onClick={() => window.print()}
-            className="min-h-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-[15px] shrink-0"
+            className="min-h-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-base shrink-0"
             title="A4 인쇄 및 PDF 내보내기"
           >
             <span>🖨️</span>

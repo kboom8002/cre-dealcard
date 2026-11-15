@@ -148,12 +148,12 @@ export function runApprovalGate(
     });
   }
 
-  // 4. 할루시네이션
+  // 4. 할루시네이션 (검출 시 승인 차단)
   if (options?.hasHallucination) {
     blockers.push({
       id: 'approval.hallucination',
-      description: '할루시네이션 검출됨. 검토 필요.',
-      severity: 'warn',
+      description: '할루시네이션 검출됨 — 사실 검증 전 승인 불가.',
+      severity: 'block',
     });
   }
 

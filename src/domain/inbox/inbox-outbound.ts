@@ -1,6 +1,13 @@
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
 import { createModuleLogger } from '@/lib/logger';
+import { isRealProductionRuntime } from '@/lib/env';
+import { isQuietHoursKst } from '@/lib/magazine/kst';
+import {
+  buildListUnsubscribeHeaders,
+  buildUnsubscribeUrl,
+  issueUnsubToken,
+} from '@/domain/magazine/unsub-token';
 import type { SubscriptionTier } from '@/domain/subscription/tier-gate';
 
 const log = createModuleLogger('inbox-outbound');
@@ -10,6 +17,13 @@ export type InboxTransactionalBasis =
   | 'property_inquiry'
   | 'tour_booking'
   | 'broker_manual';
+
+export type InboxEmailDeliveryPurpose = 'transactional_reply' | 'marketing_outreach';
+
+export type InboxEmailBlockedReason =
+  | 'INVALID_EMAIL'
+  | 'OPT_IN_REQUIRED'
+  | 'QUIET_HOURS_KST';
 
 export const TRANSACTIONAL_BASIS_LABELS: Record<InboxTransactionalBasis, string> = {
   im_request: '고객 IM 열람 요청',
@@ -119,22 +133,115 @@ export function buildInboxCopyBundle(input: InboxCopyBundleInput): InboxCopyBund
   };
 }
 
+export function resolveInboxEmailDeliveryPurpose(input: {
+  deliveryPurpose?: InboxEmailDeliveryPurpose | null;
+  transactionalBasis?: InboxTransactionalBasis | string | null;
+  hasInquiryRecord?: boolean;
+}): InboxEmailDeliveryPurpose {
+  if (
+    input.deliveryPurpose === 'transactional_reply' ||
+    input.deliveryPurpose === 'marketing_outreach'
+  ) {
+    return input.deliveryPurpose;
+  }
+  if (input.hasInquiryRecord === true) {
+    return 'transactional_reply';
+  }
+  const basis = normalizeTransactionalBasis(input.transactionalBasis);
+  if (
+    basis === 'im_request' ||
+    basis === 'property_inquiry' ||
+    basis === 'tour_booking'
+  ) {
+    return 'transactional_reply';
+  }
+  return 'marketing_outreach';
+}
+
+export function buildInboxUnsubscribeUrl(params: {
+  origin?: string | null;
+  brokerId?: string | null;
+  subscriberId?: string | null;
+  toEmail: string;
+}): string | null {
+  const baseOrigin = (
+    params.origin?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    'https://credeal.net'
+  ).replace(/\/+$/, '');
+
+  const rawSub = (params.subscriberId || '').trim().replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 100);
+  const rawBroker = (params.brokerId || 'broker')
+    .trim()
+    .replace(/[^A-Za-z0-9_-]/g, '-')
+    .slice(0, 100);
+  const subId =
+    rawSub ||
+    `em-${crypto
+      .createHash('sha256')
+      .update(params.toEmail.trim().toLowerCase())
+      .digest('hex')
+      .slice(0, 24)}`;
+  const brokerKey = rawBroker || 'broker';
+
+  if (process.env.UNSUBSCRIBE_SECRET) {
+    try {
+      const token = issueUnsubToken({ subscriberId: subId, brokerId: brokerKey });
+      return buildUnsubscribeUrl(baseOrigin, token);
+    } catch {
+      // fall through to deterministic HMAC fallback if ID format rejected
+    }
+  }
+
+  const fallbackSecret =
+    (process.env.SHARE_LINK_SECRET || '').trim() ||
+    (process.env.NEXTAUTH_SECRET || '').trim() ||
+    (!isRealProductionRuntime() ? 'credeal-inbox-unsub-hmac-v1' : '');
+
+  if (!fallbackSecret) {
+    return null;
+  }
+
+  const exp = Math.floor(Date.now() / 1000) + 365 * 86400;
+  const payloadB64 = Buffer.from(`v2.${subId}.${brokerKey}.${exp}`, 'utf8').toString('base64url');
+  const sigB64 = crypto
+    .createHmac('sha256', fallbackSecret)
+    .update(payloadB64)
+    .digest('base64url');
+  return buildUnsubscribeUrl(baseOrigin, `${payloadB64}.${sigB64}`);
+}
+
 export interface SendInboxClientEmailInput {
   toEmail: string;
   brokerName: string;
   brokerCompany?: string | null;
   brokerPhone?: string | null;
+  brokerAddress?: string | null;
+  brokerId?: string | null;
+  subscriberId?: string | null;
   clientName: string;
   buildingTitle: string;
   shareUrl: string;
   headline?: string | null;
   assetKind?: 'im' | 'dealcard' | 'magazine';
+  deliveryPurpose?: InboxEmailDeliveryPurpose;
+  transactionalBasis?: InboxTransactionalBasis | string | null;
+  hasInquiryRecord?: boolean;
+  marketingOptIn?: boolean;
+  nightSendConsent?: boolean;
+  unsubscribeUrl?: string | null;
+  now?: Date;
 }
 
 export interface SendInboxClientEmailResult {
   ok: boolean;
   simulated?: boolean;
   messageId?: string | null;
+  blockedReason?: InboxEmailBlockedReason;
+  deliveryPurpose?: InboxEmailDeliveryPurpose;
+  headers?: Record<string, string>;
+  html?: string;
+  unsubscribeUrl?: string | null;
   error?: string;
   subject: string;
   text: string;
@@ -144,6 +251,12 @@ export async function sendInboxClientEmail(
   input: SendInboxClientEmailInput
 ): Promise<SendInboxClientEmailResult> {
   const normalizedEmail = normalizeClientEmail(input.toEmail);
+  const deliveryPurpose = resolveInboxEmailDeliveryPurpose({
+    deliveryPurpose: input.deliveryPurpose,
+    transactionalBasis: input.transactionalBasis,
+    hasInquiryRecord: input.hasInquiryRecord,
+  });
+
   const bundle = buildInboxCopyBundle({
     brokerName: input.brokerName,
     brokerPhone: input.brokerPhone,
@@ -154,90 +267,224 @@ export async function sendInboxClientEmail(
     assetKind: input.assetKind,
   });
 
+  const baseSubject = bundle.subject.trim();
+  const subject =
+    deliveryPurpose === 'marketing_outreach'
+      ? baseSubject.startsWith('(광고)')
+        ? baseSubject
+        : `(광고) ${baseSubject}`
+      : baseSubject;
+
   if (!normalizedEmail) {
     return {
       ok: false,
+      blockedReason: 'INVALID_EMAIL',
+      deliveryPurpose,
       error: '수신 가능한 이메일 주소를 올바르게 입력해 주세요.',
-      subject: bundle.subject,
+      subject,
       text: bundle.messageText,
     };
   }
 
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    log.info('[Email STUB] Simulated transactional inbox email', {
-      to: normalizedEmail,
-      subject: bundle.subject,
-    });
-    return {
-      ok: true,
-      simulated: true,
-      messageId: `sim-email-${Date.now()}`,
-      subject: bundle.subject,
-      text: bundle.messageText,
-    };
+  const brokerNameClean = (input.brokerName || '담당 중개인').trim();
+  const brokerCompanyClean = (input.brokerCompany || '').trim();
+  const brokerPhoneClean = (input.brokerPhone || '').trim();
+  const brokerAddressClean = (input.brokerAddress || '').trim();
+  const senderIdentity = brokerCompanyClean || brokerNameClean;
+
+  let shareOrigin: string | null = null;
+  try {
+    if (/^https?:\/\//i.test(input.shareUrl)) {
+      shareOrigin = new URL(input.shareUrl).origin;
+    }
+  } catch {
+    shareOrigin = null;
   }
+
+  const resolvedUnsubscribeUrl =
+    deliveryPurpose === 'marketing_outreach'
+      ? input.unsubscribeUrl?.trim() ||
+        buildInboxUnsubscribeUrl({
+          origin: shareOrigin,
+          brokerId: input.brokerId,
+          subscriberId: input.subscriberId,
+          toEmail: normalizedEmail,
+        })
+      : null;
+
+  const text =
+    deliveryPurpose === 'marketing_outreach'
+      ? [
+          bundle.messageText,
+          '',
+          '---',
+          `발신자: ${senderIdentity}`,
+          ...(brokerPhoneClean ? [`연락처: ${brokerPhoneClean}`] : []),
+          ...(brokerAddressClean ? [`소재지: ${brokerAddressClean}`] : []),
+          '본 메일은 정보통신망법에 따라 수신에 동의하신 고객님께 발송된 안내 메일입니다.',
+          ...(resolvedUnsubscribeUrl
+            ? [`무료 수신거부: ${resolvedUnsubscribeUrl}`]
+            : ['무료 수신거부: 회신으로 수신거부를 요청하시면 즉시 처리됩니다.']),
+        ].join('\n')
+      : bundle.messageText;
+
+  if (deliveryPurpose === 'marketing_outreach') {
+    if (input.marketingOptIn === false) {
+      return {
+        ok: false,
+        blockedReason: 'OPT_IN_REQUIRED',
+        deliveryPurpose,
+        error:
+          '수신 동의가 확인되지 않은 직접 등록 고객에게는 광고성 이메일 일괄/즉시 발송이 제한됩니다. 요청 답변 건이거나 수신 동의 확인 후 발송해주세요.',
+        subject,
+        text,
+      };
+    }
+
+    const effectiveNow = input.now ?? new Date();
+    if (isQuietHoursKst(effectiveNow) && input.nightSendConsent !== true) {
+      return {
+        ok: false,
+        blockedReason: 'QUIET_HOURS_KST',
+        deliveryPurpose,
+        error:
+          '야간 시간대(21:00~08:00)에는 정보통신망법에 따라 별도 야간 수신 동의가 없는 고객에게 광고성 이메일을 발송할 수 없습니다. 오전 8시 이후 발송하거나 1:1 안내 문구 복사를 이용해주세요.',
+        subject,
+        text,
+      };
+    }
+
+    if (input.marketingOptIn !== true) {
+      return {
+        ok: false,
+        blockedReason: 'OPT_IN_REQUIRED',
+        deliveryPurpose,
+        error:
+          '수신 동의가 확인되지 않은 직접 등록 고객에게는 광고성 이메일 일괄/즉시 발송이 제한됩니다. 요청 답변 건이거나 수신 동의 확인 후 발송해주세요.',
+        subject,
+        text,
+      };
+    }
+  }
+
+  const headers =
+    deliveryPurpose === 'marketing_outreach' && resolvedUnsubscribeUrl
+      ? buildListUnsubscribeHeaders(resolvedUnsubscribeUrl)
+      : undefined;
 
   const safeClient = escapeHtml((input.clientName || '고객').trim());
-  const safeBroker = escapeHtml((input.brokerName || '담당 중개인').trim());
-  const safeCompany = escapeHtml((input.brokerCompany || '전속 중개법인').trim());
+  const safeBroker = escapeHtml(brokerNameClean);
+  const safeCompany = brokerCompanyClean ? escapeHtml(brokerCompanyClean) : '';
+  const safeSenderIdentity = escapeHtml(senderIdentity);
   const safeTitle = escapeHtml((input.buildingTitle || '추천 매물').trim());
   const safeHeadline = input.headline?.trim() ? escapeHtml(input.headline.trim()) : '';
-  const safePhone = input.brokerPhone?.trim() ? escapeHtml(input.brokerPhone.trim()) : '';
+  const safePhone = brokerPhoneClean ? escapeHtml(brokerPhoneClean) : '';
+  const safeAddress = brokerAddressClean ? escapeHtml(brokerAddressClean) : '';
   const safeUrl = escapeHtml(input.shareUrl);
+  const safeUnsubUrl = resolvedUnsubscribeUrl ? escapeHtml(resolvedUnsubscribeUrl) : '';
+  const headerBrandLine = safeCompany ? `${safeCompany} · ${safeBroker}` : safeBroker;
+
+  const footerHtml =
+    deliveryPurpose === 'marketing_outreach'
+      ? `<div style="margin:0;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.7;color:#64748b;">
+      <p style="margin:0 0 6px;">
+        발신자: ${safeSenderIdentity}${safePhone ? ` · 연락처: ${safePhone}` : ''}${safeAddress ? ` · 소재지: ${safeAddress}` : ''}
+      </p>
+      <p style="margin:0;">
+        본 메일은 정보통신망법에 따라 수신에 동의하신 고객님께 발송된 광고성 안내 메일입니다.${
+          safeUnsubUrl
+            ? `<br/><a href="${safeUnsubUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">무료 수신거부 (1클릭 해지)</a>`
+            : ''
+        }
+      </p>
+    </div>`
+      : `<p style="margin:0;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.6;color:#64748b;">
+      발신: ${safeBroker}${safeCompany ? ` (${safeCompany})` : ''}${safePhone ? ` · ${safePhone}` : ''}${safeAddress ? ` · ${safeAddress}` : ''}<br/>
+      본 메일은 상담·자료 요청 고객님께 1:1로 전달된 매물 안내 메일입니다.
+    </p>`;
 
   const html = `<!doctype html>
 <html lang="ko">
 <body style="margin:0;padding:24px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;color:#0f172a;">
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;">
-    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#2563eb;">${safeCompany} · ${safeBroker}</p>
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#2563eb;">${headerBrandLine}</p>
     <h1 style="margin:0 0 16px;font-size:20px;line-height:1.45;color:#0f172a;">${safeClient}님, [${safeTitle}] 자료를 보내드립니다</h1>
     ${safeHeadline ? `<p style="margin:0 0 16px;padding:12px 14px;background:#f1f5f9;border-radius:10px;font-size:15px;line-height:1.6;color:#1e293b;">${safeHeadline}</p>` : ''}
     <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">아래 버튼을 누르시면 회원가입이나 별도 앱 설치 없이 모바일·PC에서 바로 확인하실 수 있습니다.</p>
     <div style="margin:0 0 24px;">
       <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:12px;font-size:16px;font-weight:700;">매물 자료 바로 보기 →</a>
     </div>
-    <p style="margin:0;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.6;color:#64748b;">
-      발신: ${safeBroker} (${safeCompany})${safePhone ? ` · ${safePhone}` : ''}<br/>
-      본 메일은 상담·자료 요청 고객님께 1:1로 전달된 매물 안내 메일입니다.
-    </p>
+    ${footerHtml}
   </div>
 </body>
 </html>`;
+
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    log.info('[Email STUB] Simulated inbox email', {
+      to: normalizedEmail,
+      subject,
+      deliveryPurpose,
+    });
+    return {
+      ok: true,
+      simulated: true,
+      messageId: `sim-email-${Date.now()}`,
+      deliveryPurpose,
+      headers,
+      html,
+      unsubscribeUrl: resolvedUnsubscribeUrl,
+      subject,
+      text,
+    };
+  }
 
   try {
     const resend = new Resend(key);
     const { data, error } = await resend.emails.send({
       from: formatInboxEmailFromHeader(input.brokerName, process.env.EMAIL_FROM),
       to: normalizedEmail,
-      subject: bundle.subject,
+      subject,
       html,
-      text: bundle.messageText,
+      text,
+      ...(headers ? { headers } : {}),
     });
     if (error) {
       log.error('Resend inbox email error', { message: error.message });
       return {
         ok: false,
+        deliveryPurpose,
+        headers,
+        html,
+        unsubscribeUrl: resolvedUnsubscribeUrl,
         error: error.message,
-        subject: bundle.subject,
-        text: bundle.messageText,
+        subject,
+        text,
       };
     }
     return {
       ok: true,
       simulated: false,
       messageId: data?.id ?? null,
-      subject: bundle.subject,
-      text: bundle.messageText,
+      deliveryPurpose,
+      headers,
+      html,
+      unsubscribeUrl: resolvedUnsubscribeUrl,
+      subject,
+      text,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('Unexpected error sending inbox email', { message });
     return {
       ok: false,
+      deliveryPurpose,
+      headers,
+      html,
+      unsubscribeUrl: resolvedUnsubscribeUrl,
       error: message,
-      subject: bundle.subject,
-      text: bundle.messageText,
+      subject,
+      text,
     };
   }
 }
@@ -295,7 +542,7 @@ export function evaluateInboxAlimtalkAccess(params: {
       allowed: false,
       code: 'PLAN_UPGRADE_REQUIRED',
       reason:
-        '카카오 알림톡 원클릭 발송은 Pro 유료 플랜 기능입니다. 무료 플랜에서는 문구·링크 복사 및 이메일 발송을 제한 없이 사용하실 수 있습니다.',
+        'Pro 오픈 예정 · 이메일 발송 또는 카톡 인사말+링크 1초 복사 기능을 바로 이용하실 수 있습니다',
     };
   }
 

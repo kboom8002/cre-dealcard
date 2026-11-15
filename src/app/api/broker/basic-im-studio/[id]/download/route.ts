@@ -9,6 +9,8 @@ import { resolveOrSynthesizeQuickImRecord } from '@/lib/im-lite/quick-generate-s
 import { createServiceClient } from '@/lib/supabase/service';
 import type { ReleaseTier } from '@/domain/building/im-core/release-tier';
 
+export const maxDuration = 300;
+
 const isUuid = (v: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 

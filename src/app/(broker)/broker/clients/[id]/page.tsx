@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
+import { ConfirmDeleteModal } from '@/components/workspace/ConfirmDeleteModal';
 
 interface ClientDetail {
   id: string;
@@ -86,6 +87,7 @@ export default function ClientDetailPage() {
   const [editSummary, setEditSummary] = useState<string>('');
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
+  const [pendingDeleteContactId, setPendingDeleteContactId] = useState<string | null>(null);
 
   const fetchClient = useCallback(async () => {
     try {
@@ -181,8 +183,11 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleDeleteContact = async (contactId: string) => {
-    if (!confirm('정말 이 연락 이력을 삭제하시겠습니까?')) return;
+  const handleDeleteContact = (contactId: string) => {
+    setPendingDeleteContactId(contactId);
+  };
+
+  const executeDeleteContact = async (contactId: string) => {
     try {
       const res = await fetch(`/api/broker/clients/${params.id}/contacts/${contactId}`, {
         method: 'DELETE',
@@ -578,6 +583,21 @@ export default function ClientDetailPage() {
           )}
         </section>
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={pendingDeleteContactId !== null}
+        title="연락 이력을 삭제할까요?"
+        description="선택한 통화·미팅 기록이 삭제됩니다."
+        confirmLabel="삭제하기"
+        cancelLabel="취소"
+        onCancel={() => setPendingDeleteContactId(null)}
+        onConfirm={() => {
+          if (!pendingDeleteContactId) return;
+          const targetId = pendingDeleteContactId;
+          setPendingDeleteContactId(null);
+          void executeDeleteContact(targetId);
+        }}
+      />
 
       <BrokerBottomNav />
     </main>

@@ -16,6 +16,15 @@ import { AxiosClusterOutputSchema } from "@/ai/schemas/magazine-taskflow";
 import type { AxiosUnitIssue } from "@/domain/magazine/types";
 import { requireBroker } from "@/lib/auth-guard";
 import { createModuleLogger } from "@/lib/logger";
+import {
+  AI_SERVER_UNAVAILABLE_KO,
+  buildAiUnavailable503Response,
+  enforceBrokerAiQuota,
+  isLLMMockNotAllowedError,
+} from "@/lib/ai-quota-guard";
+import { toApiError } from "@/lib/api-error";
+
+export const maxDuration = 60;
 
 const log = createModuleLogger("ai-news-cluster");
 
@@ -104,6 +113,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const quotaErr = await enforceBrokerAiQuota(req, auth.user?.id ?? "", "studio_ai_news_cluster");
+  if (quotaErr) return quotaErr;
+
   const preferredRegions = normalizePreferredRegions(parsed.data.preferredRegions);
   const preferredChannels = normalizePreferredChannels(parsed.data.preferredChannels);
   const dealTitles = parsed.data.dealTitles ?? [];
@@ -189,24 +201,34 @@ export async function POST(req: NextRequest) {
       usedFallback: false,
     });
   } catch (err) {
-    if (err instanceof LLMMockNotAllowedError) {
+    const isMockBlocked = err instanceof LLMMockNotAllowedError || isLLMMockNotAllowedError(err);
+    if (isMockBlocked) {
       log.info("[ai-news-cluster] LLM mock blocked, returning TF8 deterministic AXIOS cluster");
     } else {
       log.warn("[ai-news-cluster] LLM call failed, returning TF8 deterministic AXIOS cluster:", err);
     }
 
-    const fallbackRepaired = repairAxiosClusterOutputBlock(
-      baselineClusters,
-      baselineClusters,
-      factBookContext,
-    );
+    try {
+      const fallbackRepaired = repairAxiosClusterOutputBlock(
+        baselineClusters,
+        baselineClusters,
+        factBookContext,
+      );
 
-    return NextResponse.json({
-      ok: true,
-      unitIssues: fallbackRepaired.unitIssues,
-      warnings: fallbackRepaired.warnings,
-      envelope: fallbackRepaired.envelope,
-      usedFallback: true,
-    });
+      return NextResponse.json({
+        ok: true,
+        unitIssues: fallbackRepaired.unitIssues,
+        warnings: isMockBlocked
+          ? [...fallbackRepaired.warnings, AI_SERVER_UNAVAILABLE_KO]
+          : fallbackRepaired.warnings,
+        envelope: fallbackRepaired.envelope,
+        usedFallback: true,
+      });
+    } catch (fallbackErr) {
+      if (isMockBlocked) {
+        return buildAiUnavailable503Response();
+      }
+      return toApiError(fallbackErr);
+    }
   }
 }

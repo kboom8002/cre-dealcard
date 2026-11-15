@@ -3,10 +3,13 @@
  * @description Server-synced QA Workbench persistence (A-1), Live Auto-Verifier Probe (A-2),
  * and 1-Click Axis 4~6 Test Lead & Subscriber Fixture Seeder (A-3) for /newsletter-inbox-test.
  */
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBroker } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { isRealProductionRuntime } from "@/lib/env";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import {
   verifyShareLinkToken,
   isBuildingShareLinkRevoked,
@@ -252,16 +255,57 @@ function tryCreateServiceClient(): any | null {
 
 async function resolveOptionalBrokerUser(
   req: NextRequest
-): Promise<{ id: string; email?: string } | null> {
+): Promise<{ id: string; email?: string; role?: string } | null> {
   try {
     const guard = await requireBroker(req);
     if (!guard.error && guard.user?.id) {
-      return guard.user;
+      return guard.user as { id: string; email?: string; role?: string };
     }
     return null;
   } catch {
     return null;
   }
+}
+
+function sanitizePinForViewer(
+  pin: QaFeedbackPin,
+  isAuthenticated: boolean
+): QaFeedbackPin {
+  if (isAuthenticated) return pin;
+  return {
+    ...pin,
+    authorEmail: null,
+    screenshotDataUrl: null,
+  };
+}
+
+function hasQaWriteAuthorization(
+  req: NextRequest,
+  brokerUser: { id: string } | null
+): boolean {
+  if (process.env.NODE_ENV !== "production" || !isRealProductionRuntime()) {
+    return true;
+  }
+  if (brokerUser?.id) {
+    return true;
+  }
+  const configuredKey = (process.env.QA_ACCESS_KEY || "").trim();
+  const headerKey = (req.headers.get("x-qa-access-key") || "").trim();
+  if (configuredKey && headerKey && configuredKey.length === headerKey.length) {
+    try {
+      if (
+        crypto.timingSafeEqual(
+          Buffer.from(configuredKey),
+          Buffer.from(headerKey)
+        )
+      ) {
+        return true;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return false;
 }
 
 function parseSafeSameOriginUrl(
@@ -450,14 +494,31 @@ function hasUnmaskedAddressString(val: string): boolean {
  * Recover latest synced or submitted QA workbench session.
  */
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV !== "test") {
+    const ip = getClientIp(req) ?? "anonymous";
+    const allowed = await checkRateLimit(ip, "public_qa_workbench_get", 60, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "요청 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+        },
+        { status: 429 }
+      );
+    }
+  }
+
   const queryMode = (req.nextUrl.searchParams.get("mode") || "").trim();
   const sessionId = (req.nextUrl.searchParams.get("sessionId") || "").trim();
 
   if (queryMode === "pins") {
+    const brokerUser = await resolveOptionalBrokerUser(req);
+    const isAuthenticated = Boolean(brokerUser?.id);
     const supabase = tryCreateServiceClient();
     const filterSid =
       sessionId && SESSION_ID_RE.test(sessionId) ? sessionId : undefined;
-    const pins = await loadMergedQaPins(supabase, filterSid);
+    const rawPins = await loadMergedQaPins(supabase, filterSid);
+    const pins = rawPins.map((p) => sanitizePinForViewer(p, isAuthenticated));
     return NextResponse.json({
       ok: true,
       pins,
@@ -652,8 +713,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     if (process.env.NODE_ENV !== "test") {
-      const ip =
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+      const ip = getClientIp(req) ?? "anonymous";
       const allowed = await checkRateLimit(ip, "public_qa_workbench", 60, 60_000);
       if (!allowed) {
         return NextResponse.json(
@@ -727,6 +787,15 @@ export async function POST(req: NextRequest) {
 
       const summary = computeWorkbenchSummary(safeRecords, workbenchId);
       const brokerUser = await resolveOptionalBrokerUser(req);
+      if (!hasQaWriteAuthorization(req, brokerUser)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "운영 환경에서 QA 세션 동기화는 로그인 또는 QA 액세스 키가 필요합니다.",
+          },
+          { status: 401 }
+        );
+      }
       const actorUuid =
         brokerUser?.id && isUuid(brokerUser.id) ? brokerUser.id : null;
       const syncedAt = new Date().toISOString();
@@ -840,6 +909,24 @@ export async function POST(req: NextRequest) {
 
       const supabase = tryCreateServiceClient();
       const brokerUser = await resolveOptionalBrokerUser(req);
+      const callerBrokerKeys: string[] = [];
+      if (brokerUser?.id) {
+        callerBrokerKeys.push(brokerUser.id);
+        if (supabase) {
+          try {
+            const { data: callerBp } = await supabase
+              .from("broker_profiles")
+              .select("slug")
+              .eq("user_id", brokerUser.id)
+              .maybeSingle();
+            if (callerBp?.slug) {
+              callerBrokerKeys.push(String(callerBp.slug));
+            }
+          } catch {
+            // non-blocking
+          }
+        }
+      }
 
       // ── 2A. Newsletter Check ──
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -853,10 +940,9 @@ export async function POST(req: NextRequest) {
             validUrl: false,
             existsAndPublished: false,
             addressBlindPass: false,
+            offendingCount: 0,
             brokerPhonePass: false,
             noRawUuidPass: false,
-            offendingAddresses: [],
-            offendingUuidTitles: [],
             error: parsedRes.error,
           };
         } else {
@@ -867,10 +953,9 @@ export async function POST(req: NextRequest) {
               validUrl: false,
               existsAndPublished: false,
               addressBlindPass: false,
+              offendingCount: 0,
               brokerPhonePass: false,
               noRawUuidPass: false,
-              offendingAddresses: [],
-              offendingUuidTitles: [],
               error:
                 "/magazine/<중개사슬러그>/<발행일> (또는 /m/<슬러그>/<발행일>) 형식의 공개 뉴스레터 URL을 입력해 주세요.",
             };
@@ -899,10 +984,11 @@ export async function POST(req: NextRequest) {
             let existsAndPublished = false;
             let rawContent: MagazineContent | null = null;
             let rowTitle: string | null = null;
+            let editionOwnerBrokerId: string | null = null;
 
             if (supabase) {
               const editionSelect =
-                "id, status, edition_type, edition_label, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at";
+                "id, broker_id, status, edition_type, edition_label, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at";
 
               // 1) If ?edition= is provided, inspect that edition first
               if (editionId) {
@@ -919,6 +1005,8 @@ export async function POST(req: NextRequest) {
                     const merged = mergeEditionContent(edRow);
                     rawContent = merged;
                     rowTitle = typeof edRow.title === "string" ? edRow.title : null;
+                    editionOwnerBrokerId =
+                      typeof edRow.broker_id === "string" ? edRow.broker_id : null;
                     existsAndPublished =
                       edRow.status === "published" && !isUnpublishedContent(merged);
                   }
@@ -932,7 +1020,7 @@ export async function POST(req: NextRequest) {
                 try {
                   const { data: issRows } = await supabase
                     .from("magazine_issues")
-                    .select("id, content, updated_at")
+                    .select("id, broker_id, content, updated_at")
                     .in("broker_id", keys)
                     .eq("issue_date", issueDate)
                     .order("updated_at", { ascending: false })
@@ -941,6 +1029,8 @@ export async function POST(req: NextRequest) {
                   if (issRow?.content && typeof issRow.content === "object") {
                     const c = issRow.content as MagazineContent;
                     rawContent = c.id ? c : { ...c, id: issRow.id };
+                    editionOwnerBrokerId =
+                      typeof issRow.broker_id === "string" ? issRow.broker_id : null;
                     existsAndPublished =
                       !isUnpublishedContent(rawContent) &&
                       (!rawContent.status || rawContent.status === "published");
@@ -964,6 +1054,8 @@ export async function POST(req: NextRequest) {
                     const merged = mergeEditionContent(lblRow);
                     rawContent = merged;
                     rowTitle = typeof lblRow.title === "string" ? lblRow.title : null;
+                    editionOwnerBrokerId =
+                      typeof lblRow.broker_id === "string" ? lblRow.broker_id : null;
                     existsAndPublished =
                       lblRow.status === "published" && !isUnpublishedContent(merged);
                   }
@@ -991,6 +1083,8 @@ export async function POST(req: NextRequest) {
                     const merged = mergeEditionContent(pubRow);
                     rawContent = merged;
                     rowTitle = typeof pubRow.title === "string" ? pubRow.title : null;
+                    editionOwnerBrokerId =
+                      typeof pubRow.broker_id === "string" ? pubRow.broker_id : null;
                     existsAndPublished =
                       pubRow.status === "published" && !isUnpublishedContent(merged);
                   }
@@ -1008,10 +1102,9 @@ export async function POST(req: NextRequest) {
                 editionId,
                 existsAndPublished: false,
                 addressBlindPass: false,
+                offendingCount: 0,
                 brokerPhonePass: false,
                 noRawUuidPass: false,
-                offendingAddresses: [],
-                offendingUuidTitles: [],
                 error: "해당 경로의 발행된 뉴스레터를 찾을 수 없습니다.",
               };
             } else {
@@ -1064,6 +1157,16 @@ export async function POST(req: NextRequest) {
               const offendingUuidTitles = Array.from(uuidOffendingSet);
               const noRawUuidPass = offendingUuidTitles.length === 0;
 
+              const ownsNewsletterEdition = Boolean(
+                brokerUser?.id &&
+                  (brokerUser.role === "admin" ||
+                    resolvedNewsletterBrokerKeys.some((k) =>
+                      callerBrokerKeys.includes(k)
+                    ) ||
+                    (editionOwnerBrokerId &&
+                      callerBrokerKeys.includes(editionOwnerBrokerId)))
+              );
+
               newsletterCheck = {
                 validUrl: true,
                 brokerSlug,
@@ -1071,10 +1174,12 @@ export async function POST(req: NextRequest) {
                 editionId,
                 existsAndPublished,
                 addressBlindPass,
-                offendingAddresses,
+                offendingCount: offendingAddresses.length,
+                ...(ownsNewsletterEdition
+                  ? { offendingAddresses, offendingUuidTitles }
+                  : {}),
                 brokerPhonePass,
                 noRawUuidPass,
-                offendingUuidTitles,
                 dealCount: rawDeals.length,
               };
             }
@@ -1282,155 +1387,143 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ── 2C. Subscriber Check (Zero Third-Party PII Leak) ──
+      // ── 2C. Subscriber Check (Zero Third-Party PII Leak — Auth Required) ──
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let subscriberCheck: Record<string, any> | null = null;
       if (rawClientContact) {
-        const isEmailInput = rawClientContact.includes("@");
-        const emailNorm = isEmailInput ? rawClientContact.toLowerCase() : null;
-        const krDigits = !isEmailInput
-          ? normalizeKrPhone(rawClientContact) || rawClientContact.replace(/\D/g, "")
-          : null;
-        const krDashed = krDigits ? formatDashedKrPhone(krDigits) : null;
-        const krE164 = krDigits ? toE164Kr(krDigits) : null;
+        if (!brokerUser?.id) {
+          subscriberCheck = {
+            checked: false,
+            reason: "AUTH_REQUIRED",
+          };
+        } else {
+          const isEmailInput = rawClientContact.includes("@");
+          const emailNorm = isEmailInput ? rawClientContact.toLowerCase() : null;
+          const krDigits = !isEmailInput
+            ? normalizeKrPhone(rawClientContact) || rawClientContact.replace(/\D/g, "")
+            : null;
+          const krDashed = krDigits ? formatDashedKrPhone(krDigits) : null;
+          const krE164 = krDigits ? toE164Kr(krDigits) : null;
 
-        let foundInMagazineSubscribers = false;
-        let confirmStatus: string | null = null;
-        let subscriberStatus: string | null = null;
-        let foundInBrokerClients = false;
+          let foundInMagazineSubscribers = false;
+          let confirmStatus: string | null = null;
+          let subscriberStatus: string | null = null;
+          let foundInBrokerClients = false;
 
-        if (supabase && (emailNorm || (krDigits && krDigits.length >= 8))) {
-          let scopedBrokerKeys: string[] = [];
-          if (brokerUser?.id) {
-            scopedBrokerKeys.push(brokerUser.id);
+          if (supabase && (emailNorm || (krDigits && krDigits.length >= 8))) {
+            const scopedBrokerKeys =
+              callerBrokerKeys.length > 0 ? callerBrokerKeys : [brokerUser.id];
+
+            // Check magazine_subscribers strictly scoped to authenticated broker
             try {
-              const { data: bp } = await supabase
-                .from("broker_profiles")
-                .select("slug")
-                .eq("user_id", brokerUser.id)
-                .maybeSingle();
-              if (bp?.slug) scopedBrokerKeys.push(String(bp.slug));
-            } catch {
-              // ignore
-            }
-          } else if (resolvedNewsletterBrokerKeys.length > 0) {
-            scopedBrokerKeys = resolvedNewsletterBrokerKeys;
-          }
+              const candidateSubRows: Array<Record<string, unknown>> = [];
+              const phoneCandidates = Array.from(
+                new Set([krDigits, krDashed].filter((x): x is string => Boolean(x)))
+              );
 
-          // Check magazine_subscribers
-          try {
-            const candidateSubRows: Array<Record<string, unknown>> = [];
-            const phoneCandidates = Array.from(
-              new Set([krDigits, krDashed].filter((x): x is string => Boolean(x)))
-            );
-
-            if (emailNorm) {
-              let q = supabase
-                .from("magazine_subscribers")
-                .select("status, confirm_status, unsubscribed_at")
-                .eq("subscriber_email", emailNorm);
-              if (scopedBrokerKeys.length > 0) {
-                q = q.in("broker_id", scopedBrokerKeys);
-              }
-              const { data } = await q.limit(5);
-              if (Array.isArray(data)) candidateSubRows.push(...data);
-            }
-
-            if (phoneCandidates.length > 0) {
-              let q = supabase
-                .from("magazine_subscribers")
-                .select("status, confirm_status, unsubscribed_at")
-                .in("subscriber_phone", phoneCandidates);
-              if (scopedBrokerKeys.length > 0) {
-                q = q.in("broker_id", scopedBrokerKeys);
-              }
-              const { data } = await q.limit(5);
-              if (Array.isArray(data)) candidateSubRows.push(...data);
-
-              if (candidateSubRows.length === 0 && krE164) {
-                let qE164 = supabase
+              if (emailNorm) {
+                const { data } = await supabase
                   .from("magazine_subscribers")
                   .select("status, confirm_status, unsubscribed_at")
-                  .eq("phone_e164", krE164);
-                if (scopedBrokerKeys.length > 0) {
-                  qE164 = qE164.in("broker_id", scopedBrokerKeys);
-                }
-                const { data: e164Data } = await qE164.limit(5);
-                if (Array.isArray(e164Data)) candidateSubRows.push(...e164Data);
+                  .eq("subscriber_email", emailNorm)
+                  .in("broker_id", scopedBrokerKeys)
+                  .limit(5);
+                if (Array.isArray(data)) candidateSubRows.push(...data);
               }
-            }
 
-            if (candidateSubRows.length > 0) {
-              const primary =
-                candidateSubRows.find((r) => r.status === "active") ||
-                candidateSubRows[0];
-              foundInMagazineSubscribers = true;
-              subscriberStatus =
-                typeof primary.status === "string" ? primary.status : null;
-              confirmStatus =
-                typeof primary.confirm_status === "string"
-                  ? primary.confirm_status
-                  : subscriberStatus;
-            }
-          } catch {
-            // ignore
-          }
+              if (phoneCandidates.length > 0) {
+                const { data } = await supabase
+                  .from("magazine_subscribers")
+                  .select("status, confirm_status, unsubscribed_at")
+                  .in("subscriber_phone", phoneCandidates)
+                  .in("broker_id", scopedBrokerKeys)
+                  .limit(5);
+                if (Array.isArray(data)) candidateSubRows.push(...data);
 
-          // Check broker_clients & broker_custom_clients ONLY when broker is authenticated (strictly scoped to brokerUser.id)
-          if (brokerUser?.id && isUuid(brokerUser.id)) {
-            try {
-              const { data: cliRows } = await supabase
-                .from("broker_clients")
-                .select("phone, notes")
-                .eq("broker_id", brokerUser.id)
-                .limit(100);
-              if (Array.isArray(cliRows)) {
-                foundInBrokerClients = cliRows.some((r: Record<string, unknown>) => {
-                  const pDigits =
-                    typeof r.phone === "string" ? r.phone.replace(/\D/g, "") : "";
-                  if (krDigits && pDigits && pDigits === krDigits) return true;
-                  if (
-                    emailNorm &&
-                    typeof r.notes === "string" &&
-                    r.notes.toLowerCase().includes(emailNorm)
-                  ) {
-                    return true;
-                  }
-                  return false;
-                });
+                if (candidateSubRows.length === 0 && krE164) {
+                  const { data: e164Data } = await supabase
+                    .from("magazine_subscribers")
+                    .select("status, confirm_status, unsubscribed_at")
+                    .eq("phone_e164", krE164)
+                    .in("broker_id", scopedBrokerKeys)
+                    .limit(5);
+                  if (Array.isArray(e164Data)) candidateSubRows.push(...e164Data);
+                }
+              }
+
+              if (candidateSubRows.length > 0) {
+                const primary =
+                  candidateSubRows.find((r) => r.status === "active") ||
+                  candidateSubRows[0];
+                foundInMagazineSubscribers = true;
+                subscriberStatus =
+                  typeof primary.status === "string" ? primary.status : null;
+                confirmStatus =
+                  typeof primary.confirm_status === "string"
+                    ? primary.confirm_status
+                    : subscriberStatus;
               }
             } catch {
               // ignore
             }
 
-            if (!foundInBrokerClients) {
+            // Check broker_clients & broker_custom_clients (strictly scoped to brokerUser.id)
+            if (isUuid(brokerUser.id)) {
               try {
-                const { data: customRows } = await supabase
-                  .from("broker_custom_clients")
-                  .select("phone")
+                const { data: cliRows } = await supabase
+                  .from("broker_clients")
+                  .select("phone, notes")
                   .eq("broker_id", brokerUser.id)
                   .limit(100);
-                if (Array.isArray(customRows) && krDigits) {
-                  foundInBrokerClients = customRows.some(
-                    (r: Record<string, unknown>) =>
-                      typeof r.phone === "string" &&
-                      r.phone.replace(/\D/g, "") === krDigits
-                  );
+                if (Array.isArray(cliRows)) {
+                  foundInBrokerClients = cliRows.some((r: Record<string, unknown>) => {
+                    const pDigits =
+                      typeof r.phone === "string" ? r.phone.replace(/\D/g, "") : "";
+                    if (krDigits && pDigits && pDigits === krDigits) return true;
+                    if (
+                      emailNorm &&
+                      typeof r.notes === "string" &&
+                      r.notes.toLowerCase().includes(emailNorm)
+                    ) {
+                      return true;
+                    }
+                    return false;
+                  });
                 }
               } catch {
                 // ignore
               }
+
+              if (!foundInBrokerClients) {
+                try {
+                  const { data: customRows } = await supabase
+                    .from("broker_custom_clients")
+                    .select("phone")
+                    .eq("broker_id", brokerUser.id)
+                    .limit(100);
+                  if (Array.isArray(customRows) && krDigits) {
+                    foundInBrokerClients = customRows.some(
+                      (r: Record<string, unknown>) =>
+                        typeof r.phone === "string" &&
+                        r.phone.replace(/\D/g, "") === krDigits
+                    );
+                  }
+                } catch {
+                  // ignore
+                }
+              }
             }
           }
-        }
 
-        subscriberCheck = {
-          foundInMagazineSubscribers,
-          status: subscriberStatus,
-          confirmStatus,
-          foundInBrokerClients,
-          brokerAuthenticated: Boolean(brokerUser?.id),
-        };
+          subscriberCheck = {
+            checked: true,
+            foundInMagazineSubscribers,
+            status: subscriberStatus,
+            confirmStatus,
+            foundInBrokerClients,
+            brokerAuthenticated: true,
+          };
+        }
       }
 
       // ── 2D. DealCard Check (/dc/[id]) ──
@@ -1448,6 +1541,7 @@ export async function POST(req: NextRequest) {
             dealId: "",
             exists: false,
             addressBlindPass: false,
+            offendingCount: 0,
             brokerPhonePass: false,
             statusLabel: "URL 형식 오류",
             error: parsedRes.error,
@@ -1460,6 +1554,7 @@ export async function POST(req: NextRequest) {
               dealId: "",
               exists: false,
               addressBlindPass: false,
+              offendingCount: 0,
               brokerPhonePass: false,
               statusLabel: "URL 경로 오류 (/dc/<id> 필요)",
               error: "/dc/<딜카드ID> 형식의 링크 또는 ID를 입력해 주세요.",
@@ -1469,6 +1564,7 @@ export async function POST(req: NextRequest) {
             let exists = false;
             let addressBlindPass = true;
             let brokerPhonePass = true;
+            let dealCardOwnerId: string | null = null;
             const offendingTexts: string[] = [];
 
             if (supabase) {
@@ -1506,6 +1602,7 @@ export async function POST(req: NextRequest) {
                     }
                     const ownerId =
                       typeof ssot?.owner_id === "string" ? ssot.owner_id : null;
+                    dealCardOwnerId = ownerId;
                     if (ownerId) {
                       const { data: prof } = await supabase
                         .from("profiles")
@@ -1523,7 +1620,7 @@ export async function POST(req: NextRequest) {
                 } else {
                   const { data: evRows } = await supabase
                     .from("activity_events")
-                    .select("metadata")
+                    .select("actor_id, metadata")
                     .in("event_type", ["dealcard_saved", "dealcard_created"])
                     .order("created_at", { ascending: false })
                     .limit(40);
@@ -1535,6 +1632,14 @@ export async function POST(req: NextRequest) {
                       );
                       if (cardId !== dealId) continue;
                       exists = true;
+                      dealCardOwnerId =
+                        typeof row?.actor_id === "string"
+                          ? row.actor_id
+                          : typeof meta.ownerId === "string"
+                          ? meta.ownerId
+                          : typeof meta.brokerId === "string"
+                          ? meta.brokerId
+                          : null;
                       const c4 = (meta.card4 || {}) as Record<string, unknown>;
                       const pts = Array.isArray(c4.points) ? c4.points : [];
                       for (const val of [c4.headline, c4.region, ...pts]) {
@@ -1556,13 +1661,20 @@ export async function POST(req: NextRequest) {
               exists = true;
             }
 
+            const ownsDealCard = Boolean(
+              brokerUser?.id &&
+                (brokerUser.role === "admin" ||
+                  (dealCardOwnerId && dealCardOwnerId === brokerUser.id))
+            );
+
             dealCardCheck = {
               validUrl: true,
               dealId,
               exists,
               addressBlindPass,
               brokerPhonePass,
-              offendingTexts,
+              offendingCount: offendingTexts.length,
+              ...(ownsDealCard ? { offendingTexts } : {}),
               statusLabel: !exists
                 ? "생성 기록 미확인 (로컬 전용이거나 미저장)"
                 : addressBlindPass && brokerPhonePass
@@ -1913,6 +2025,16 @@ export async function POST(req: NextRequest) {
           : null;
 
       const brokerUser = await resolveOptionalBrokerUser(req);
+      const isAuthenticated = Boolean(brokerUser?.id);
+      if (!hasQaWriteAuthorization(req, brokerUser)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "운영 환경에서 글로벌 QA 핀 또는 스크린샷 저장은 로그인 또는 QA 액세스 키가 필요합니다.",
+          },
+          { status: 401 }
+        );
+      }
       const actorUuid =
         brokerUser?.id && isUuid(brokerUser.id) ? brokerUser.id : null;
       const createdAt = new Date().toISOString();
@@ -1975,11 +2097,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const pins = await loadMergedQaPins(supabase);
+      const rawPins = await loadMergedQaPins(supabase);
+      const pins = rawPins.map((p) => sanitizePinForViewer(p, isAuthenticated));
       return NextResponse.json({
         ok: true,
         persistedToDb,
-        pin,
+        pin: sanitizePinForViewer(pin, isAuthenticated),
         pins,
       });
     }

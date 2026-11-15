@@ -25,6 +25,7 @@ const publicEnvSchema = z.object({
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
+  SHARE_LINK_SECRET: z.string().min(32).optional(),
   AI_DEFAULT_MODEL: z.string().default("gpt-5.6-terra"),
   AI_MODEL_SOL: z.string().default("gpt-5.6-sol"),
   AI_MODEL_TERRA: z.string().default("gpt-5.6-terra"),
@@ -35,6 +36,17 @@ const serverEnvSchema = z.object({
   MOLIT_API_KEY: z.string().optional(),
   JUSO_CONFIRM_KEY: z.string().optional(),
 });
+
+export { serverEnvSchema as serverSchema };
+
+export function isRealProductionRuntime(): boolean {
+  return (
+    process.env.NODE_ENV === "production" &&
+    !process.env.CI &&
+    !String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").includes("mock.supabase.co") &&
+    process.env.NEXT_PHASE !== "phase-production-build"
+  );
+}
 
 // For testing or build environments, we might have partial environment variables.
 // In such cases, if we are in next build or test, we can allow fallback/mock values or handle validation gracefully.
@@ -76,6 +88,7 @@ export function getServerEnv() {
       cleanEnvValue(process.env.OPENAI_API_KEY) ||
       cleanEnvValue(process.env.GEMINI_API_KEY) ||
       "not-configured",
+    SHARE_LINK_SECRET: cleanEnvValue(process.env.SHARE_LINK_SECRET),
     AI_DEFAULT_MODEL: cleanEnvValue(process.env.AI_DEFAULT_MODEL) || "gpt-5.6-terra",
     AI_MODEL_SOL: cleanEnvValue(process.env.AI_MODEL_SOL) || "gpt-5.6-sol",
     AI_MODEL_TERRA: cleanEnvValue(process.env.AI_MODEL_TERRA) || "gpt-5.6-terra",

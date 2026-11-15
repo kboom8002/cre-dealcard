@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 
 export const FONT_SCALE_STORAGE_KEY = "credeal-workspace-font-scale-v1";
-const FONT_SCALE_EVENT = "credeal:font-scale-change";
+export const LEGACY_FONT_SCALE_STORAGE_KEY = "cre-font-scale";
+export const FONT_SCALE_EVENT = "credeal:font-scale-change";
 
-export type UiFontScale = "compact" | "normal" | "xlarge";
+export type UiFontScale = "compact" | "normal" | "large" | "xlarge";
 
-function isValidFontScale(val: unknown): val is UiFontScale {
-  return val === "compact" || val === "normal" || val === "xlarge";
+export function isValidFontScale(val: unknown): val is UiFontScale {
+  return val === "compact" || val === "normal" || val === "large" || val === "xlarge";
 }
 
 export interface FontScaleToggleProps {
@@ -16,7 +17,11 @@ export interface FontScaleToggleProps {
 }
 
 /**
- * Shared 3-step workspace & broker home font size switcher synced across tabs and views.
+ * Shared 4-step workspace & broker home font size switcher synced across tabs and views.
+ * - compact (15px): 표준 글씨
+ * - normal  (17px): 큰글씨
+ * - large   (19px): 더 크게
+ * - xlarge  (21px): 아주 크게
  */
 export function FontScaleToggle({ className }: FontScaleToggleProps) {
   const [fontScale, setFontScale] = useState<UiFontScale>("normal");
@@ -24,16 +29,32 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const htmlEl = document.documentElement;
-    const currentAttr = htmlEl.dataset.fontScale;
-    if (isValidFontScale(currentAttr)) {
-      setFontScale(currentAttr);
-    } else {
+    let resolved: UiFontScale | null = null;
+
+    try {
+      const saved =
+        window.localStorage.getItem(FONT_SCALE_STORAGE_KEY) ||
+        window.localStorage.getItem(LEGACY_FONT_SCALE_STORAGE_KEY);
+      if (isValidFontScale(saved)) {
+        resolved = saved;
+      }
+    } catch {
+      // ignore storage failure
+    }
+
+    if (!resolved) {
+      const currentAttr = htmlEl.dataset.fontScale;
+      if (isValidFontScale(currentAttr)) {
+        resolved = currentAttr;
+      }
+    }
+
+    if (resolved) {
+      setFontScale(resolved);
+      htmlEl.dataset.fontScale = resolved;
       try {
-        const saved = window.localStorage.getItem(FONT_SCALE_STORAGE_KEY);
-        if (isValidFontScale(saved)) {
-          setFontScale(saved);
-          htmlEl.dataset.fontScale = saved;
-        }
+        window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, resolved);
+        window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, resolved);
       } catch {
         // ignore storage failure
       }
@@ -72,6 +93,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
     if (typeof window !== "undefined") {
       try {
         window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
+        window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, nextScale);
       } catch {
         // ignore storage failure
       }
@@ -88,6 +110,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
   const options: Array<{ id: UiFontScale; label: string }> = [
     { id: "compact", label: "표준 글씨" },
     { id: "normal", label: "큰글씨" },
+    { id: "large", label: "더 크게" },
     { id: "xlarge", label: "아주 크게" },
   ];
 

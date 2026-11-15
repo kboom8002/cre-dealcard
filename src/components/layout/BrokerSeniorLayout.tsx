@@ -86,10 +86,10 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
                   data-active-pill={isActive ? "true" : undefined}
                   className={
                     isActive
-                      ? "relative px-3.5 py-1.5 min-h-[40px] inline-flex items-center rounded-xl text-sm sm:text-base font-semibold text-white transition-all whitespace-nowrap"
+                      ? "relative px-3.5 py-2 min-h-[44px] inline-flex items-center rounded-xl text-sm sm:text-base font-semibold text-white transition-all whitespace-nowrap"
                       : isPaperMode
-                      ? "relative px-3.5 py-1.5 min-h-[40px] inline-flex items-center rounded-xl text-sm sm:text-base font-semibold text-[#3A3A3C] hover:text-[#1D1D1F] hover:bg-white/60 transition-all whitespace-nowrap"
-                      : "relative px-3.5 py-1.5 min-h-[40px] inline-flex items-center rounded-xl text-sm sm:text-base font-semibold text-slate-200 hover:bg-slate-800 transition-all whitespace-nowrap"
+                      ? "relative px-3.5 py-2 min-h-[44px] inline-flex items-center rounded-xl text-sm sm:text-base font-semibold text-[#3A3A3C] hover:text-[#1D1D1F] hover:bg-white/60 transition-all whitespace-nowrap"
+                      : "relative px-3.5 py-2 min-h-[44px] inline-flex items-center rounded-xl text-sm sm:text-base font-semibold text-slate-200 hover:bg-slate-800 transition-all whitespace-nowrap"
                   }
                 >
                   {isActive && (
@@ -115,8 +115,8 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
                 data-testid="broker-contextual-help-btn"
                 className={
                   isPaperMode
-                    ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer"
-                    : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-blue-950/60 hover:bg-blue-900/60 text-blue-200 border border-blue-500/40 transition-colors cursor-pointer"
+                    ? "px-3 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer"
+                    : "px-3 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-blue-950/60 hover:bg-blue-900/60 text-blue-200 border border-blue-500/40 transition-colors cursor-pointer"
                 }
                 title="페이지를 이동하지 않고 지금 보고 계신 화면의 20초 동영상과 따라하기 사진을 바로 엽니다"
               >
@@ -132,8 +132,8 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               data-testid="broker-feedback-btn"
               className={
                 isPaperMode
-                  ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer"
-                  : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-amber-950/60 hover:bg-amber-900/60 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
+                  ? "px-3 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer"
+                  : "px-3 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-amber-950/60 hover:bg-amber-900/60 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
               }
               title="사용 중 불편하신 점이나 개선 건의 사항을 10초 만에 복사하여 제보합니다"
             >
@@ -149,9 +149,9 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               className={
                 helperEnabled
                   ? isPaperMode
-                    ? "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[14px] font-semibold bg-[#FF9500]/12 hover:bg-[#FF9500]/18 text-[#8A4B00] border border-[#FF9500]/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-all cursor-pointer"
-                    : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[14px] font-semibold bg-amber-950/50 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
-                  : "px-3 py-2 min-h-[42px] inline-flex items-center gap-1 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/70 text-[#515154] border border-slate-900/[0.08] transition-all cursor-pointer"
+                    ? "px-3 py-2 min-h-[44px] inline-flex items-center gap-1 rounded-xl text-[14px] font-semibold bg-[#FF9500]/12 hover:bg-[#FF9500]/18 text-[#8A4B00] border border-[#FF9500]/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-all cursor-pointer"
+                    : "px-3 py-2 min-h-[44px] inline-flex items-center gap-1 rounded-xl text-[14px] font-semibold bg-amber-950/50 text-amber-200 border border-amber-500/40 transition-colors cursor-pointer"
+                  : "px-3 py-2 min-h-[44px] inline-flex items-center gap-1 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/70 text-[#515154] border border-slate-900/[0.08] transition-all cursor-pointer"
               }
               title="화면 곳곳의 쉬운 용어 설명(❓)과 예시 도우미를 켜거나 끕니다"
             >
@@ -166,10 +166,10 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               data-active-pill={pathname.startsWith("/broker/tutorial") ? "true" : undefined}
               className={
                 pathname.startsWith("/broker/tutorial")
-                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold bg-gradient-to-b from-[#24B63E] to-[#188C2C] text-white shadow-sm transition-all"
+                  ? "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold bg-gradient-to-b from-[#24B63E] to-[#188C2C] text-white shadow-sm transition-all"
                   : isPaperMode
-                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all"
-                  : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 transition-colors"
+                  ? "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all"
+                  : "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] sm:text-[15px] font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 transition-colors"
               }
               title="화면 캡처와 동영상으로 배우는 단계별 사용 설명서"
             >
@@ -184,8 +184,8 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               data-testid="broker-theme-toggle-btn"
               className={
                 isPaperMode
-                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all shrink-0 cursor-pointer"
-                  : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 transition-colors shrink-0 cursor-pointer"
+                  ? "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all shrink-0 cursor-pointer"
+                  : "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 transition-colors shrink-0 cursor-pointer"
               }
               title="눈이 편안한 밝은 종이 화면과 어두운 화면을 전환합니다"
             >
@@ -197,10 +197,10 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               data-active-pill={pathname.startsWith("/broker/profile") ? "true" : undefined}
               className={
                 pathname.startsWith("/broker/profile")
-                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-sm transition-all"
+                  ? "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-sm transition-all"
                   : isPaperMode
-                  ? "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all"
-                  : "px-3.5 py-2 min-h-[42px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition-colors"
+                  ? "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold ios-glass-pill bg-white/78 hover:bg-white/95 text-[#1D1D1F] border border-slate-900/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all"
+                  : "px-3.5 py-2 min-h-[44px] inline-flex items-center gap-1.5 rounded-xl text-[14px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition-colors"
               }
             >
               <span>👤 내 프로필</span>

@@ -15,8 +15,11 @@ export interface QaFeedbackPinWidgetProps {
   workspace: string;
   /** 공개 산출물(/dc, /im-lite, /magazine)에서는 URL에 ?qa=1 이 명시된 최상위 창에서만 활성화 */
   requireExplicitQueryParam?: boolean;
+  /** 검수 테스트 등에서 강제 표시가 필요한 경우 */
+  forceVisible?: boolean;
 }
 
+export const QA_MODE_SESSION_STORAGE_KEY = "credeal_qa_mode";
 const QA_PIN_ACTIVE_STORAGE_KEY = "credeal-qa-pin-active";
 const QA_PIN_ROLE_STORAGE_KEY = "credeal-qa-pin-role";
 const QA_SIGNOFF_SESSION_STORAGE_KEY = "credeal-qa-signoff-session-v1";
@@ -117,6 +120,7 @@ async function captureCompactScreenshot(): Promise<string | null> {
 export function QaFeedbackPinWidget({
   workspace,
   requireExplicitQueryParam = false,
+  forceVisible = false,
 }: QaFeedbackPinWidgetProps) {
   const pathname = usePathname() || "/broker/w";
   const searchParams = useSearchParams();
@@ -126,7 +130,7 @@ export function QaFeedbackPinWidget({
     [buildInfo]
   );
 
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState<boolean>(() => Boolean(forceVisible));
   const [panelOpen, setPanelOpen] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
   const [targetSelector, setTargetSelector] = useState("viewport");
@@ -145,7 +149,15 @@ export function QaFeedbackPinWidget({
   } | null>(null);
 
   useEffect(() => {
-    const qaParam = searchParams?.get("qa");
+    const fromHook = searchParams?.get("qa");
+    const fromLocation =
+      typeof window !== "undefined" && window.location?.search
+        ? new URLSearchParams(window.location.search).get("qa")
+        : null;
+    const qaParam = (fromHook ?? fromLocation)?.toLowerCase() ?? null;
+    const isQaExplicitOn = qaParam === "1" || qaParam === "true";
+    const isQaExplicitOff = qaParam === "0" || qaParam === "false";
+
     try {
       const savedRole = window.localStorage.getItem(QA_PIN_ROLE_STORAGE_KEY);
       if (savedRole === "broker" || savedRole === "tester") {
@@ -155,31 +167,39 @@ export function QaFeedbackPinWidget({
       // ignore storage errors
     }
 
+    if (forceVisible) {
+      setEnabled(true);
+      return;
+    }
+
     if (requireExplicitQueryParam) {
       const isTopFrame =
         typeof window === "undefined" || window.self === window.top;
-      setEnabled(qaParam === "1" && isTopFrame);
+      setEnabled(isQaExplicitOn && isTopFrame);
       return;
     }
 
     try {
-      if (qaParam === "1") {
-        window.localStorage.setItem(QA_PIN_ACTIVE_STORAGE_KEY, "1");
-        setEnabled(true);
-        return;
-      }
-      if (qaParam === "0") {
+      if (isQaExplicitOff) {
+        window.sessionStorage.removeItem(QA_MODE_SESSION_STORAGE_KEY);
         window.localStorage.removeItem(QA_PIN_ACTIVE_STORAGE_KEY);
         setEnabled(false);
         return;
       }
-      if (window.localStorage.getItem(QA_PIN_ACTIVE_STORAGE_KEY) === "1") {
+      if (isQaExplicitOn) {
+        window.sessionStorage.setItem(QA_MODE_SESSION_STORAGE_KEY, "1");
         setEnabled(true);
+        return;
       }
+      if (window.sessionStorage.getItem(QA_MODE_SESSION_STORAGE_KEY) === "1") {
+        setEnabled(true);
+        return;
+      }
+      setEnabled(false);
     } catch {
-      if (qaParam === "1") setEnabled(true);
+      setEnabled(isQaExplicitOn);
     }
-  }, [requireExplicitQueryParam, searchParams]);
+  }, [forceVisible, requireExplicitQueryParam, searchParams]);
 
   useEffect(() => {
     if (!isPicking) return;
@@ -229,6 +249,7 @@ export function QaFeedbackPinWidget({
   const handleTurnOff = useCallback(() => {
     if (!requireExplicitQueryParam) {
       try {
+        window.sessionStorage.removeItem(QA_MODE_SESSION_STORAGE_KEY);
         window.localStorage.removeItem(QA_PIN_ACTIVE_STORAGE_KEY);
       } catch {
         // ignore storage errors

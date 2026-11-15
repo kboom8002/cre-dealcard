@@ -26,9 +26,11 @@ import {
   FieldNoteSection,
   NewsSection,
   BrokerProfileSection,
+  BrokerStatutoryFooter,
 } from "@/components/magazine/viewer-sections";
 import type { AxiosUnitIssue, MonthlyRegionalChart } from "@/domain/magazine/types";
 import { formatKoreanDate } from "@/lib/magazine/kst";
+import { sanitizeStatutoryField } from "@/lib/legal/broker-statutory-disclosure";
 import {
   buildMagazineTitle,
   cleanScoreText,
@@ -77,6 +79,30 @@ export function MagazineView({
 }: MagazineViewProps) {
   const broker = (data.broker as Record<string, any>) ?? {}; // eslint-disable-line @typescript-eslint/no-explicit-any
   const brokerName: string = typeof broker.name === "string" && broker.name.trim() ? broker.name : "중개사";
+  const brokerCompany =
+    sanitizeStatutoryField(broker.company, "officeName") ||
+    sanitizeStatutoryField(broker.officeName, "officeName") ||
+    sanitizeStatutoryField(brokerVibe?.company, "officeName") ||
+    sanitizeStatutoryField(brokerVibe?.office_name, "officeName");
+  const brokerOfficeAddress =
+    sanitizeStatutoryField(broker.officeAddress, "address") ||
+    sanitizeStatutoryField(broker.office_address, "address") ||
+    sanitizeStatutoryField(brokerVibe?.office_address, "address") ||
+    sanitizeStatutoryField(brokerVibe?.officeAddress, "address");
+  const brokerOfficeRegNumber =
+    sanitizeStatutoryField(broker.officeRegNumber, "regNo") ||
+    sanitizeStatutoryField(broker.office_reg_number, "regNo") ||
+    sanitizeStatutoryField(broker.registrationNo, "regNo") ||
+    sanitizeStatutoryField(brokerVibe?.office_reg_number, "regNo") ||
+    sanitizeStatutoryField(brokerVibe?.officeRegNumber, "regNo");
+  const brokerRepresentativeName =
+    sanitizeStatutoryField(broker.representativeName, "name") ||
+    sanitizeStatutoryField(broker.representative_name, "name") ||
+    sanitizeStatutoryField(brokerVibe?.representative_name, "name") ||
+    sanitizeStatutoryField(brokerVibe?.representativeName, "name");
+  const brokerPhone =
+    sanitizeStatutoryField(broker.phone, "phone") ||
+    sanitizeStatutoryField(brokerVibe?.phone, "phone");
   const dateLabel = dateLabelProp ?? formatKoreanDate(date);
   void (targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment));
   const scoreEvidence = hasScoreEvidence(data);
@@ -467,13 +493,16 @@ export function MagazineView({
           <Section>
             <BrokerProfileSection
               name={brokerName}
-              company={broker.company ?? null}
+              company={brokerCompany ?? null}
               photoUrl={broker.photoUrl ?? null}
               specialties={specialties}
               slug={brokerVibe?.slug ?? brokerSlug}
               dealCount={broker.totalDeals ?? 0}
               listingCount={broker.activeDeals ?? 0}
-              phone={typeof broker.phone === "string" ? broker.phone : null}
+              phone={brokerPhone ?? null}
+              officeAddress={brokerOfficeAddress ?? null}
+              officeRegNumber={brokerOfficeRegNumber ?? null}
+              representativeName={brokerRepresentativeName ?? null}
             />
           </Section>
         );
@@ -594,8 +623,18 @@ export function MagazineView({
           </div>
         )}
 
-        {/* ── Footer: 추적·개인정보 고지 + 브랜딩 ───────────────── */}
+        {/* ── Footer: 법정 표시의무 + 추적·개인정보 고지 + 브랜딩 ───────────────── */}
         <footer className="mt-6 space-y-3">
+          {!renderedIdSet.has("broker_profile") && (
+            <BrokerStatutoryFooter
+              company={brokerCompany}
+              officeAddress={brokerOfficeAddress}
+              officeRegNumber={brokerOfficeRegNumber}
+              representativeName={brokerRepresentativeName}
+              displayName={brokerName}
+              phone={brokerPhone}
+            />
+          )}
           {!renderedIdSet.has("subscribe_cta") && <TrackingNotice />}
           <div className="pt-1">
             <PoweredByBadge variant="subtle" context="magazine" brokerId={brokerId} />
@@ -606,7 +645,7 @@ export function MagazineView({
       {!preview && (
         <DealInquirySheet
           brokerName={brokerName}
-          brokerPhone={typeof broker.phone === "string" ? broker.phone : null}
+          brokerPhone={brokerPhone ?? null}
           brokerSlug={brokerVibe?.slug ?? brokerSlug ?? brokerId}
         />
       )}

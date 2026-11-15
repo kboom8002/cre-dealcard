@@ -17,6 +17,44 @@ export interface LandPriceData {
   _isFallback?: boolean;
 }
 
+/**
+ * DATA_GO_KR_API_KEY → PUBLIC_DATA_API_KEY 순으로 공공데이터포털 API 키를 안전하게 반환합니다.
+ */
+export function getPublicDataApiKey(): string {
+  return (process.env.DATA_GO_KR_API_KEY || process.env.PUBLIC_DATA_API_KEY || '').trim();
+}
+
+/**
+ * 공시지가 응답 배열에서 기준년도(`stdrYear`) 및 기준월(`stdrMt`) 내림차순으로
+ * 가장 최신 유효 레코드를 결정론적으로 선택합니다.
+ */
+export function selectLatestLandPriceRecord(rawItems: unknown): Record<string, any> | null {
+  const list = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+  const valid = list.filter((it): it is Record<string, any> => {
+    if (!it || typeof it !== 'object') return false;
+    const price = parseFloat(String((it as any).pblntfPclnd ?? (it as any).pclndVal ?? '0'));
+    return Number.isFinite(price) && price > 0;
+  });
+
+  if (valid.length === 0) return null;
+
+  valid.sort((a, b) => {
+    const aYear = parseInt(String(a.stdrYear ?? '0').trim(), 10) || 0;
+    const bYear = parseInt(String(b.stdrYear ?? '0').trim(), 10) || 0;
+    if (aYear !== bYear) return bYear - aYear;
+
+    const aMonth = parseInt(String(a.stdrMt ?? '0').trim(), 10) || 0;
+    const bMonth = parseInt(String(b.stdrMt ?? '0').trim(), 10) || 0;
+    if (aMonth !== bMonth) return bMonth - aMonth;
+
+    const aPrice = parseFloat(String(a.pblntfPclnd ?? a.pclndVal ?? '0')) || 0;
+    const bPrice = parseFloat(String(b.pblntfPclnd ?? b.pclndVal ?? '0')) || 0;
+    return bPrice - aPrice;
+  });
+
+  return valid[0] ?? null;
+}
+
 export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null> {
   // ═══════════════════════════════════════════════════════════
   // 1차: 브이월드 토지특성속성조회 (getLandCharacteristics)
@@ -28,7 +66,7 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
 
     for (const stdrYear of yearsToTry) {
       try {
-        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
+        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&domain=${encodeURIComponent(getVWorldDomain())}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=10&pageNo=1`;
         const res = await fetchWithRetry(url, {
           timeoutMs: 15_000,
           maxRetries: 2,
@@ -36,16 +74,21 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
         });
         if (res.ok) {
           const data = await res.json();
-          const items = data?.landCharacteristicss?.field;
-          const item = Array.isArray(items) ? items[0] : items;
+          const items = data?.landCharacteristicss?.field ?? data?.indvdLandPrices?.field;
+          const item = selectLatestLandPriceRecord(items);
 
-          if (item && parseFloat(item.pblntfPclnd || "0") > 0) {
-            logger.info(`V-World 공시지가 조회 성공 (${stdrYear}): ${Number(item.pblntfPclnd).toLocaleString()}원/㎡ (PNU: ${pnu})`);
+          if (item) {
+            const price = parseFloat(String(item.pblntfPclnd ?? item.pclndVal));
+            const resolvedYear =
+              String(item.stdrYear ?? '').trim() ||
+              stdrYear ||
+              (item.lastUpdtDt ? String(item.lastUpdtDt).substring(0, 4) : String(currentYear));
+            logger.info(`V-World 공시지가 조회 성공 (${resolvedYear}): ${price.toLocaleString()}원/㎡ (PNU: ${pnu})`);
             return {
-              pricePerSqm: parseFloat(item.pblntfPclnd),
-              baseYear: item.lastUpdtDt ? String(item.lastUpdtDt).substring(0, 4) : stdrYear,
+              pricePerSqm: price,
+              baseYear: resolvedYear,
               landCategory: String(item.lndcgrCodeNm || "대"),
-              landArea: item.lndpclAr ? parseFloat(item.lndpclAr) : undefined,
+              landArea: item.lndpclAr ? parseFloat(String(item.lndpclAr)) : undefined,
               _source: 'vworld',
             };
           } else {
@@ -62,9 +105,47 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // 2차: data.go.kr 개별공시지가 (레거시 폴백)
+  // 2차: data.go.kr 개별공시지가 폴백 (DATA_GO_KR_API_KEY / PUBLIC_DATA_API_KEY)
   // ═══════════════════════════════════════════════════════════
-  logger.warn('data.go.kr 개별공시지가 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다. (폴백 생략)');
+  const publicApiKey = getPublicDataApiKey();
+  if (publicApiKey) {
+    try {
+      const fallbackUrl =
+        `https://apis.data.go.kr/1611000/nsdi/IndvdLandPriceService/attr/getIndvdLandPriceAttr` +
+        `?ServiceKey=${encodeURIComponent(publicApiKey)}&pnu=${pnu}&format=json&numOfRows=30&pageNo=1`;
+      const res = await fetchWithRetry(fallbackUrl, {
+        timeoutMs: 10_000,
+        maxRetries: 1,
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        const rawItems =
+          data?.indvdLandPrices?.field ??
+          data?.response?.body?.items?.item ??
+          data?.landCharacteristicss?.field;
+        const latest = selectLatestLandPriceRecord(rawItems);
+        if (latest) {
+          const price = parseFloat(String(latest.pblntfPclnd ?? latest.pclndVal));
+          const resolvedYear =
+            String(latest.stdrYear ?? '').trim() ||
+            (latest.lastUpdtDt ? String(latest.lastUpdtDt).substring(0, 4) : String(new Date().getFullYear()));
+          logger.info(`data.go.kr 공시지가 폴백 조회 성공 (${resolvedYear}): ${price.toLocaleString()}원/㎡ (PNU: ${pnu})`);
+          return {
+            pricePerSqm: price,
+            baseYear: resolvedYear,
+            landCategory: String(latest.lndcgrCodeNm || "대"),
+            ...(latest.lndpclAr ? { landArea: parseFloat(String(latest.lndpclAr)) } : {}),
+            _source: 'data_go_kr',
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn('data.go.kr 공시지가 폴백 호출 실패', { err });
+    }
+  } else {
+    logger.warn('공시지가 API 키(VWORLD_API_KEY / DATA_GO_KR_API_KEY / PUBLIC_DATA_API_KEY) 미설정 — 공시지가 생략');
+  }
+
   return null;
 }
 

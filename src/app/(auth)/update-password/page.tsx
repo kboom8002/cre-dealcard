@@ -1,20 +1,74 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { COMPANY_LEGAL_CONFIG } from '@/config/company-legal';
 import { createClient } from '@/lib/supabase/client';
 
-export default function UpdatePasswordPage() {
+function UpdatePasswordContent() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [linkExpired, setLinkExpired] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // 직접 ?code= 쿼리 또는 만료 에러 파라미터로 진입한 경우 마운트 시 처리
+  useEffect(() => {
+    const queryCode =
+      searchParams?.get('code') ||
+      (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('code') : null);
+    const queryError =
+      searchParams?.get('error') ||
+      (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('error') : null);
+    const hashStr = typeof window !== 'undefined' ? window.location.hash : '';
+
+    if (queryError || hashStr.includes('error=')) {
+      setLinkExpired(true);
+      setError('비밀번호 재설정 링크가 만료되었거나 이미 사용되었습니다. 새 링크를 요청해주세요.');
+      return;
+    }
+
+    if (!queryCode) return;
+
+    let cancelled = false;
+    setVerifyingCode(true);
+    const supabase = createClient();
+
+    (async () => {
+      try {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(queryCode);
+        if (cancelled) return;
+        if (exchangeError) {
+          setLinkExpired(true);
+          setError('비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다. 다시 요청해주세요.');
+        } else {
+          router.replace('/update-password');
+        }
+      } catch {
+        if (!cancelled) {
+          setLinkExpired(true);
+          setError('인증 세션 확인 중 오류가 발생했습니다. 재설정 링크를 다시 요청해주세요.');
+        }
+      } finally {
+        if (!cancelled) {
+          setVerifyingCode(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      setError('비밀번호는 6자 이상이어야 합니다.');
+    if (password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 합니다.');
       return;
     }
     if (password !== confirm) {
@@ -26,10 +80,11 @@ export default function UpdatePasswordPage() {
     setError('');
 
     const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      setError('비밀번호 변경 실패. 링크가 만료되었을 수 있습니다. 다시 시도해주세요.');
+    if (updateError) {
+      setLinkExpired(true);
+      setError('비밀번호를 변경할 수 없습니다. 재설정 링크가 만료되었거나 이미 사용되었을 수 있습니다.');
       setLoading(false);
     } else {
       router.push('/broker');
@@ -39,55 +94,101 @@ export default function UpdatePasswordPage() {
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 shadow-2xl">
       <div className="mb-8">
+        <p className="text-xs font-bold tracking-wider text-primary mb-1.5">
+          {COMPANY_LEGAL_CONFIG.serviceName}
+        </p>
         <h1 className="text-2xl font-black text-white mb-1">새 비밀번호 설정</h1>
-        <p className="text-sm text-neutral-400">새로운 비밀번호를 입력해주세요.</p>
+        <p className="text-[15px] text-neutral-400">8자 이상의 새로운 비밀번호를 입력해주세요.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {error && (
-          <div className="p-3 bg-red-900/30 border border-red-800/50 rounded-lg text-sm text-red-300">
-            {error}
-          </div>
-        )}
+      {verifyingCode && (
+        <div className="mb-5 p-3.5 bg-neutral-950 border border-neutral-800 rounded-lg text-[15px] text-neutral-300">
+          재설정 링크의 보안 인증을 확인하고 있습니다...
+        </div>
+      )}
 
+      {error && (
+        <div
+          role="alert"
+          className="mb-5 p-4 bg-red-900/30 border border-red-800/50 rounded-xl space-y-3"
+        >
+          <p className="text-[15px] text-red-200 leading-relaxed">{error}</p>
+          {linkExpired && (
+            <Link
+              href="/reset-password"
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 px-4 py-2.5 text-[15px] font-bold text-white transition-colors"
+            >
+              비밀번호 재설정 링크 다시 받기 →
+            </Link>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-semibold text-neutral-300">
+          <label htmlFor="password" className="block text-[15px] font-semibold text-neutral-200">
             새 비밀번호
           </label>
           <input
             id="password"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            placeholder="6자 이상 입력"
-            className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+            minLength={8}
+            placeholder="8자 이상 입력"
+            className="w-full min-h-[48px] bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-[16px] text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="confirm" className="block text-sm font-semibold text-neutral-300">
-            비밀번호 확인
+          <label htmlFor="confirm" className="block text-[15px] font-semibold text-neutral-200">
+            새 비밀번호 확인
           </label>
           <input
             id="confirm"
             type="password"
+            autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
+            minLength={8}
             placeholder="비밀번호 다시 입력"
-            className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+            className="w-full min-h-[48px] bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-[16px] text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
           />
         </div>
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-black rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          disabled={loading || verifyingCode}
+          className="w-full min-h-[52px] bg-primary hover:bg-primary/90 text-primary-foreground font-black rounded-lg px-4 py-3 text-[16px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? '변경 중...' : '비밀번호 변경'}
         </button>
       </form>
+
+      <div className="mt-6 flex items-center justify-center gap-4 text-[14px] text-neutral-400">
+        <Link href="/reset-password" className="hover:text-primary transition-colors py-1">
+          재설정 링크 다시 받기
+        </Link>
+        <span className="text-neutral-700">·</span>
+        <Link href="/login" className="hover:text-primary transition-colors py-1">
+          로그인 화면
+        </Link>
+      </div>
     </div>
+  );
+}
+
+export default function UpdatePasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 shadow-2xl min-h-[360px]" />
+      }
+    >
+      <UpdatePasswordContent />
+    </Suspense>
   );
 }

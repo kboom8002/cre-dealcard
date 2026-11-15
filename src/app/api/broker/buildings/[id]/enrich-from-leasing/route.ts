@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/service'
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { NextRequest, NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { requireBroker } from '@/lib/auth-guard';
-
+import { assertBuildingOwner } from '@/lib/authz/assert-owner';
+import { createModuleLogger } from '@/lib/logger';
 import { z } from 'zod';
+
+const log = createModuleLogger('enrich-from-leasing');
+const SAFE_BUILDING_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 const patchSchema = z.object({
   source: z.literal('js-space-ai-page'),
@@ -20,10 +23,10 @@ export async function PATCH(
   const guard = await requireBroker(req);
   if (guard.error) return guard.error;
 
-  const { id } = await params
-  
-  if (!id) {
-    return NextResponse.json({ ok: false, error: 'Missing building id' }, { status: 400 })
+  const { id } = await params;
+
+  if (!id || !SAFE_BUILDING_ID_RE.test(id) || id.includes('..')) {
+    return NextResponse.json({ ok: false, error: '유효하지 않은 매물 식별자입니다.' }, { status: 400 });
   }
 
   try {
@@ -33,45 +36,52 @@ export async function PATCH(
       payload = patchSchema.parse(raw);
     } catch (e) {
       if (e instanceof z.ZodError) {
-        return NextResponse.json({ ok: false, error: 'Validation failed', details: e.issues }, { status: 400 });
+        return NextResponse.json({ ok: false, error: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
       }
       return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
     }
 
-    const supabase = createServiceClient()
-    
-    // Fetch current ssot lite
-    const result = await readWithMigration(id);
-    const building = result.data as any;
-    const fetchErr = Object.keys(building || {}).length === 0 ? new Error("Not found") : null;
-      
-    if (fetchErr || !building) {
-      return NextResponse.json({ ok: false, error: 'Building not found' }, { status: 404 })
+    const supabase = createServiceClient();
+
+    // Enforce strict building ownership (or explicit admin bypass) BEFORE reading/updating building_ssot_lite
+    const ownership = await assertBuildingOwner<Record<string, any>>(
+      supabase,
+      id,
+      guard.user!.id,
+      {
+        allowAdmin: true,
+        role: guard.role,
+        select: 'id, owner_id, current_use_signal, fit_summary, layers',
+      },
+    );
+    if (!ownership.ok) {
+      return ownership.response;
     }
 
-    const signals = payload.leasing_signals || {}
-    
+    const building = ownership.row;
+    const signals = payload.leasing_signals || {};
+
     // Enrich layers
-    const layers = building.layers || {}
-    const leaseIncome = layers.lease_income || {}
-    const buyerFit = layers.buyer_fit || {}
-    
+    const layers = { ...(building.layers || {}) };
+    const leaseIncome = { ...(layers.lease_income || {}) };
+    const buyerFit = { ...(layers.buyer_fit || {}) };
+
     // Update fields based on signals
-    let current_use_signal = building.current_use_signal
-    let fit_summary = building.fit_summary
-    
+    let current_use_signal = building.current_use_signal;
+    let fit_summary = building.fit_summary;
+
     if (signals.inquiry_count && signals.inquiry_count > 0) {
-      current_use_signal = `현재 임대 마케팅 진행 중 (최근 문의 ${signals.inquiry_count}건)`
+      current_use_signal = `현재 임대 마케팅 진행 중 (최근 문의 ${signals.inquiry_count}건)`;
     }
-    
+
     if (signals.top_tenant_types && signals.top_tenant_types.length > 0) {
-      fit_summary = `${fit_summary ? fit_summary + ' / ' : ''}임차 관심 업종: ${signals.top_tenant_types.join(', ')}`
-      buyerFit.tenant_interest = signals.top_tenant_types
+      fit_summary = `${fit_summary ? fit_summary + ' / ' : ''}임차 관심 업종: ${signals.top_tenant_types.join(', ')}`;
+      buyerFit.tenant_interest = signals.top_tenant_types;
     }
-    
-    layers.lease_income = leaseIncome
-    layers.buyer_fit = buyerFit
-    
+
+    layers.lease_income = leaseIncome;
+    layers.buyer_fit = buyerFit;
+
     // Save enriched
     const { error: updateErr } = await supabase
       .from('building_ssot_lite')
@@ -81,15 +91,20 @@ export async function PATCH(
         layers,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('id', id);
 
     if (updateErr) {
-      throw new Error(updateErr.message)
+      log.error('Failed to update building_ssot_lite', { id, error: updateErr.message });
+      return NextResponse.json(
+        { ok: false, error: '매물 임대 시그널 반영에 실패했습니다.' },
+        { status: 500 },
+      );
     }
 
     // Record event
     await supabase.from('activity_events').insert({
-      actor_role: 'system',
+      actor_id: guard.user!.id,
+      actor_role: guard.role || 'broker',
       event_type: 'building_ssot_enriched_from_leasing',
       entity_type: 'building_ssot_lite',
       entity_id: id,
@@ -97,11 +112,11 @@ export async function PATCH(
       metadata: {
         leasing_signals: signals
       }
-    })
+    });
 
-    return NextResponse.json({ ok: true, data: { current_use_signal, fit_summary } })
-
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ ok: true, data: { current_use_signal, fit_summary } });
+  } catch (err: unknown) {
+    log.error('enrich-from-leasing unexpected error', { id, error: err instanceof Error ? err.message : String(err) });
+    return NextResponse.json({ ok: false, error: '요청 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

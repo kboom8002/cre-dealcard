@@ -1,23 +1,28 @@
 import { NextResponse } from 'next/server';
 
 import { createModuleLogger } from '@/lib/logger';
+import { acquireCronIdempotencySlot, verifyCronRequest } from '@/lib/security/cron-auth';
+
 const log = createModuleLogger('route');
 
-
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const SCORE_DROP_THRESHOLD = 0.5;
-const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authFailure = verifyCronRequest(req);
+  if (authFailure) return authFailure;
+
   try {
     const { createServiceClient } = await import('@/lib/supabase/service');
     const supabase = createServiceClient();
+
+    const bucketKey = new Date().toISOString().slice(0, 13);
+    const slot = await acquireCronIdempotencySlot(supabase, 'ai-quality-monitor', bucketKey);
+    if (!slot.acquired) {
+      return NextResponse.json({ ok: true, skipped: 'DUPLICATE_SLOT' }, { status: 200 });
+    }
 
     // 이번 주 점수 조회 (최근 7일)
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -74,21 +79,24 @@ export async function GET(req: Request) {
         result.alert = true;
         log.warn(
           `[ai-quality-monitor] ⚠️ AI Judge score dropped by ${drop.toFixed(2)} ` +
-          `(${lastWeekAvg.toFixed(2)} → ${thisWeekAvg.toFixed(2)})`,
+            `(${lastWeekAvg.toFixed(2)} → ${thisWeekAvg.toFixed(2)})`,
         );
 
         // Slack Webhook 알림
-        if (WEBHOOK_URL) {
+        const webhookUrl = process.env.SLACK_WEBHOOK_URL?.trim();
+        if (webhookUrl) {
           try {
-            await fetch(WEBHOOK_URL, {
+            await fetch(webhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                text: `🔴 *AI Judge 품질 경고*\n` +
+                text:
+                  `🔴 *AI Judge 품질 경고*\n` +
                   `점수 하락: ${lastWeekAvg.toFixed(2)} → ${thisWeekAvg.toFixed(2)} (▼${drop.toFixed(2)})\n` +
                   `이번 주 샘플: ${thisWeekScores?.length ?? 0}건\n` +
                   `지난 주 샘플: ${lastWeekScores?.length ?? 0}건`,
               }),
+              signal: AbortSignal.timeout(2500),
             });
           } catch (webhookErr) {
             log.error('[ai-quality-monitor] Webhook notification failed:', webhookErr);

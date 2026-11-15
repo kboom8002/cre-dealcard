@@ -15,54 +15,12 @@ import {
   resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+import { loadOgFonts } from "@/lib/magazine/og-fonts";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
-
-export const runtime = "nodejs";
-
-let fontBuffer: ArrayBuffer | null = null;
-let fallbackFontBuffer: ArrayBuffer | null = null;
-
-async function getFontData(): Promise<ArrayBuffer | null> {
-  if (fontBuffer) return fontBuffer;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(
-      "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Bold.otf",
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (!res.ok) throw new Error(`Font fetch failed: ${res.status}`);
-    fontBuffer = await res.arrayBuffer();
-    return fontBuffer;
-  } catch (err) {
-    log.error("[OG] Pretendard font loading failed, trying fallback:", err);
-    return null;
-  }
-}
-
-async function getFallbackFont(): Promise<ArrayBuffer | null> {
-  if (fallbackFontBuffer) return fallbackFontBuffer;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    // Google Fonts Noto Sans KR Bold — 한글 지원 보장
-    const res = await fetch(
-      "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA-vvnIzzuoyeLGC5nwmHfxB5pVN.otf",
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (!res.ok) throw new Error(`Fallback font fetch failed: ${res.status}`);
-    fallbackFontBuffer = await res.arrayBuffer();
-    return fallbackFontBuffer;
-  } catch (err) {
-    log.error("[OG] Fallback font loading also failed:", err);
-    return null;
-  }
-}
+export const runtime = 'nodejs';
 
 export async function GET(
   request: Request,
@@ -287,29 +245,37 @@ export async function GET(
     .trim();
   const cleanedSub = sanitizeOgText(normalizedSub, `${regionLabel} ${assetType} 핵심 투자 기회`);
 
-  const displayMain = mainHeadline.length > 36 ? mainHeadline.slice(0, 36) + "..." : mainHeadline;
-  const displaySub = cleanedSub.length > 60 ? cleanedSub.slice(0, 58) + "..." : cleanedSub;
+  const fontData = await loadOgFonts();
+  const fonts = fontData.fonts.map((f) => ({
+    name: f.name,
+    data: f.data,
+    weight: f.weight,
+    style: f.style,
+  }));
+  const safeText = (text: string, fallback: string) => {
+    if (!fontData.glyphs) return text || fallback;
+    let out = "";
+    for (const ch of text) {
+      if (/\s/.test(ch) || fontData.glyphs.has(ch.codePointAt(0)!)) out += ch;
+    }
+    return out.replace(/\s+/g, " ").trim() || fallback;
+  };
 
-  // Hero tiles: 유효한 매각가와 권역 표시 보장
+  const rawDisplayMain = mainHeadline.length > 36 ? mainHeadline.slice(0, 36) + "..." : mainHeadline;
+  const rawDisplaySub = cleanedSub.length > 60 ? cleanedSub.slice(0, 58) + "..." : cleanedSub;
+
+  const displayMain = safeText(rawDisplayMain, "CRE Deal");
+  const displaySub = rawDisplaySub ? safeText(rawDisplaySub, "") : "";
+  const safePostureLabel = safeText(postureLabel, "Income");
+  const safeRegionLabel = safeText(regionLabel, "Seoul");
+  const safeAssetType = assetType ? safeText(assetType, "") : "";
+  const safeBandedPrice = safeText(bandedPrice, "Price TBD");
+
+  // Hero tiles: 유효한 매각가와 권역 표시 보장 (이모지 CDN 호출 제거)
   const displayTiles = [
-    { emoji: "💰", label: "매각가", value: bandedPrice },
-    { emoji: "📍", label: "권역", value: regionLabel }
+    { label: "매각가", value: safeBandedPrice },
+    { label: "권역", value: safeRegionLabel },
   ];
-
-  let fontData: ArrayBuffer | null = null;
-  let fallbackFont: ArrayBuffer | null = null;
-  try {
-    [fontData, fallbackFont] = await Promise.all([
-      getFontData(),
-      getFallbackFont(),
-    ]);
-  } catch (err) {
-    log.error("Font loading failed:", err);
-  }
-  
-  // 폰트 우선순위: Pretendard → Noto Sans KR → sans-serif
-  const activeFontName = fontData ? "Pretendard" : fallbackFont ? "NotoSansKR" : "sans-serif";
-  const hasFontData = !!(fontData || fallbackFont);
 
   // Adjust font size based on text length — 2x larger for mobile thumbnail readability
   const headlineFontSize = displayMain.length > 28 ? 56 : displayMain.length > 18 ? 64 : 72;
@@ -326,7 +292,7 @@ export async function GET(
           padding: "40px 56px",
           background: "linear-gradient(135deg, #030712 0%, #0F172A 55%, #020617 100%)",
           color: "white",
-          fontFamily: activeFontName,
+          fontFamily: '"Noto Sans KR", sans-serif',
           position: "relative",
           boxSizing: "border-box",
           overflow: "hidden",
@@ -341,6 +307,7 @@ export async function GET(
             right: 0,
             height: "8px",
             background: "linear-gradient(90deg, #D4A853 0%, #F3EBDA 50%, #B98A2E 100%)",
+            display: "flex",
           }}
         />
 
@@ -379,7 +346,7 @@ export async function GET(
               display: "flex",
             }}
           >
-            {postureLabel}
+            {safePostureLabel}
           </div>
           <div
             style={{
@@ -393,9 +360,9 @@ export async function GET(
               display: "flex",
             }}
           >
-            {regionLabel}
+            {safeRegionLabel}
           </div>
-          {assetType ? (
+          {safeAssetType ? (
             <div
               style={{
                 background: "rgba(148, 163, 184, 0.15)",
@@ -408,7 +375,7 @@ export async function GET(
                 display: "flex",
               }}
             >
-              {assetType}
+              {safeAssetType}
             </div>
           ) : null}
           {urgencyTag === 'urgent' ? (
@@ -424,7 +391,7 @@ export async function GET(
                 display: "flex",
               }}
             >
-              🔥 급매
+              급매
             </div>
           ) : null}
         </div>
@@ -484,7 +451,7 @@ export async function GET(
           }}
         >
           <div style={{ display: "flex", gap: "24px" }}>
-            {displayTiles.map((tile: any, i: number) => (
+            {displayTiles.map((tile: { label: string; value: string }, i: number) => (
               <div
                 key={i}
                 style={{
@@ -498,10 +465,10 @@ export async function GET(
                   minWidth: "260px",
                 }}
               >
-                <span style={{ fontSize: 28, color: "#9AA7B5", fontWeight: 600 }}>
-                  {tile.emoji} {tile.label}
+                <span style={{ display: "flex", fontSize: 28, color: "#9AA7B5", fontWeight: 600 }}>
+                  {tile.label}
                 </span>
-                <span style={{ fontSize: 52, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
+                <span style={{ display: "flex", fontSize: 52, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
                   {tile.value}
                 </span>
               </div>
@@ -529,16 +496,7 @@ export async function GET(
     {
       width: 1200,
       height: 630,
-      fonts: (() => {
-        const fontList: { name: string; data: ArrayBuffer; weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900; style: "normal" | "italic" }[] = [];
-        if (fontData) {
-          fontList.push({ name: "Pretendard", data: fontData, weight: 700, style: "normal" });
-        }
-        if (fallbackFont) {
-          fontList.push({ name: "NotoSansKR", data: fallbackFont, weight: 700, style: "normal" });
-        }
-        return fontList.length > 0 ? fontList : undefined;
-      })(),
+      fonts: fonts.length > 0 ? fonts : undefined,
       headers: {
         "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
       },

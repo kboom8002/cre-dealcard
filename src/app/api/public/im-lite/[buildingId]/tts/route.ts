@@ -1,31 +1,44 @@
 /**
  * /api/public/im-lite/[buildingId]/tts
  *
- * GPT-5.4로 지능형 브리핑 스크립트 생성 → OpenAI TTS-1-HD 음성 변환.
- * 1~2분 내외의 한국어 투자 브리핑 음성을 audio/mpeg로 반환합니다.
- *
- * Pipeline: IM 섹션 마크다운 → GPT-5.4 스크립트 → TTS-1-HD → MP3
+ * 지능형 브리핑 스크립트 생성 → OpenAI TTS-1-HD 음성 변환.
+ * 1~2분 내외의 투자 브리핑 음성을 audio/mpeg로 반환합니다.
  */
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getDemoMobileIM, type MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
+import { createModuleLogger } from "@/lib/logger";
+import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
+import {
+  verifyShareLinkToken,
+  isBuildingShareLinkRevoked,
+} from "@/lib/security/share-link-tokens";
+import { getInboxState } from "@/lib/im-lite/quick-generate-store";
 
-import { createModuleLogger } from '@/lib/logger';
-import { createServiceClient } from '@/lib/supabase/service';
-const log = createModuleLogger('route');
+const log = createModuleLogger("im-lite-tts-route");
 
+const ALLOWED_LANGUAGES = new Set(["ko", "en", "ja", "zh"]);
+const SAFE_BUILDING_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 
-// ─── Cache ─────────────────────────────────────────────────────────
+const VOICE_MAP: Record<string, string> = {
+  ko: "nova",
+  en: "alloy",
+  zh: "echo",
+  ja: "shimmer",
+};
 
 // ─── LLM 기반 브리핑 스크립트 생성 ─────────────────────────────────
 function getBriefingSystemPrompt(lang: string) {
-  const langInstructions = lang === 'ko'
-    ? '한국어로 작성하세요.'
-    : lang === 'en'
-    ? 'Write the briefing script in professional English.'
-    : lang === 'zh'
-    ? '用专业中文撰写简报稿。'
-    : '日本語で専門的なブリーフィングスクリプトを書いてください。';
+  const langInstructions =
+    lang === "ko"
+      ? "한국어로 작성하세요."
+      : lang === "en"
+      ? "Write the briefing script in professional English."
+      : lang === "zh"
+      ? "用专业中文撰写简报稿。"
+      : "日本語で専門的なブリーフィングスクリプトを書いてください。";
 
   return `당신은 상업용 부동산(CRE) 전문 투자 브리핑 아나운서입니다.
 투자설명서(IM) 데이터를 기반으로, 투자자가 차 안에서 듣기 좋은 자연스럽고 전문적인 음성 브리핑 스크립트를 작성합니다.
@@ -59,34 +72,30 @@ async function generateBriefingScriptWithLLM(
   doc: MobileIMDocument,
   lang: string
 ): Promise<string> {
-  const cacheKey = `${doc.buildingId}_${lang}`;
-  
-  // P4 #8: Supabase DB 캐시 확인
   const supabase = createServiceClient();
   try {
     const { data: cached } = await supabase
-      .from('document_objects')
-      .select('body, created_at')
-      .eq('building_id', doc.buildingId)
-      .eq('document_type', 'tts_script')
-      .eq('title', lang)
+      .from("document_objects")
+      .select("body, created_at")
+      .eq("building_id", doc.buildingId)
+      .eq("document_type", "tts_script")
+      .eq("title", lang)
       .maybeSingle();
-      
-    if (cached?.body && typeof cached.body === 'object' && 'script' in cached.body) {
+
+    if (cached?.body && typeof cached.body === "object" && "script" in cached.body) {
       const createdAt = new Date(cached.created_at).getTime();
-      if (Date.now() - createdAt < 60 * 60 * 1000) { // 1시간 TTL
-        return (cached.body as any).script;
+      if (Date.now() - createdAt < 60 * 60 * 1000) {
+        return (cached.body as Record<string, any>).script;
       }
     }
   } catch (err) {
-    log.warn('[TTS] Script cache read failed:', err);
+    log.warn("[TTS] Script cache read failed:", err);
   }
 
-  // 섹션 데이터를 구조화
   const sectionsText = (doc.sections || [])
     .filter((s) => !s.locked)
     .map((s) => {
-      const content = (s.content ?? '').trim();
+      const content = (s.content ?? (s as any).markdown ?? "").trim();
       if (!content || content === "데이터 없음") return null;
       return `### ${s.title}\n${content}`;
     })
@@ -101,7 +110,7 @@ async function generateBriefingScriptWithLLM(
 - 자산 유형: ${doc.assetType}
 - 매각 희망가: ${doc.priceBand}
 - 규모: ${doc.sizeSignal}
-- 담당 중개인: ${doc.broker?.displayName ?? '담당 중개인'} (${doc.broker?.company ?? ''})
+- 담당 중개인: ${doc.broker?.displayName ?? "담당 중개인"} (${doc.broker?.company ?? ""})
 - SSoT 완성도: ${doc.completenessScore}점/100점
 
 **섹션별 상세 데이터:**
@@ -125,15 +134,18 @@ ${sectionsText}
 
   if (script.length > 50) {
     try {
-      await supabase.from('document_objects').upsert({
-        building_id: doc.buildingId,
-        document_type: 'tts_script',
-        title: lang,
-        body: { script },
-        created_at: new Date().toISOString()
-      }, { onConflict: 'building_id,document_type,title' });
+      await supabase.from("document_objects").upsert(
+        {
+          building_id: doc.buildingId,
+          document_type: "tts_script",
+          title: lang,
+          body: { script },
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "building_id,document_type,title" }
+      );
     } catch (err) {
-      log.warn('[TTS] Script cache write failed:', err);
+      log.warn("[TTS] Script cache write failed:", err);
     }
   }
 
@@ -146,15 +158,19 @@ function generateFallbackScript(doc: MobileIMDocument): string {
   const lines: string[] = [];
 
   lines.push(
-    `안녕하세요. ${doc.areaSignal} 소재 ${doc.assetType}에 대한 투자 브리핑을 시작합니다.`,
+    `안녕하세요. ${doc.areaSignal} 소재 ${doc.assetType}에 대한 투자 브리핑을 시작합니다.`
   );
   lines.push(`이 매물의 매각 희망가는 ${doc.priceBand}이며, ${doc.sizeSignal} 규모입니다.`);
 
   for (const section of sections) {
-    if (!section.content || section.content.length < 20) continue;
-    const firstLine = section.content
+    const rawContent = section.content ?? (section as any).markdown ?? "";
+    if (!rawContent || rawContent.length < 20) continue;
+    const firstLine = rawContent
       .split("\n")
-      .find((l) => l.length > 15 && !l.startsWith("|") && !l.startsWith("#") && !l.startsWith("-"));
+      .find(
+        (l: string) =>
+          l.length > 15 && !l.startsWith("|") && !l.startsWith("#") && !l.startsWith("-")
+      );
     if (firstLine) {
       const cleaned = firstLine.replace(/\*\*/g, "").replace(/[#>]/g, "").trim();
       if (cleaned.length > 10 && cleaned.length < 200) {
@@ -164,7 +180,9 @@ function generateFallbackScript(doc: MobileIMDocument): string {
   }
 
   lines.push("이상 브리핑을 마치겠습니다.");
-  lines.push(`담당 중개인 ${doc.broker?.displayName ?? '담당 중개인'}에게 직접 문의도 가능합니다. 감사합니다.`);
+  lines.push(
+    `담당 중개인 ${doc.broker?.displayName ?? "담당 중개인"}에게 직접 문의도 가능합니다. 감사합니다.`
+  );
 
   return lines.filter((l) => l.length > 0).join(" ");
 }
@@ -172,81 +190,171 @@ function generateFallbackScript(doc: MobileIMDocument): string {
 // ─── GET Handler ────────────────────────────────────────────────────
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ buildingId: string }> },
+  { params }: { params: Promise<{ buildingId: string }> }
 ) {
-  const { buildingId } = await params;
-  const lang = request.nextUrl.searchParams.get('language') || 'ko';
-  const VOICE_MAP: Record<string, string> = {
-    ko: 'nova', en: 'alloy', zh: 'echo', ja: 'shimmer',
-  };
-  const voice = VOICE_MAP[lang] || 'nova';
-
-  const cacheKey = `${buildingId}_${lang}`;
-  const BUCKET_NAME = 'tts-cache';
-  const FILE_NAME = `${cacheKey}.mp3`;
-  const supabase = createServiceClient();
-
-  // 1. 오디오 캐시 확인 (Supabase Storage)
   try {
-    const { data: fileData, error: downloadError } = await supabase.storage.from(BUCKET_NAME).download(FILE_NAME);
-    if (fileData) {
-      const buffer = await fileData.arrayBuffer();
-      return new NextResponse(new Uint8Array(buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": "audio/mpeg",
-          "Content-Length": String(buffer.byteLength),
-          "Cache-Control": "public, max-age=3600",
-          "X-TTS-Source": "cache",
-        },
-      });
+    // 1. Strict IP Rate Limiting (10 req / 10 min per IP)
+    const ip = getClientIp(request) ?? "unknown";
+    const isAllowed = await checkRateLimit(ip, "im_lite_tts", 10, 10 * 60 * 1000);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 }
+      );
     }
-  } catch (err) {
-    log.warn('[TTS] Audio cache read failed:', err);
-  }
 
-  // 2. IM 데이터 로드
-  let doc: MobileIMDocument | null = getDemoMobileIM(buildingId) || null;
+    const { buildingId } = await params;
+    if (!buildingId || !SAFE_BUILDING_ID_RE.test(buildingId)) {
+      return NextResponse.json({ error: "Invalid buildingId" }, { status: 400 });
+    }
 
-  if (!doc) {
-    // P-C3 fix: self-fetch 대신 직접 DB 조회 (Vercel 서버리스 데드락 방지)
+    // 2. Validate ?language= strictly BEFORE constructing cacheKey (blocks cache-bypass cost amplification)
+    const rawLang = request.nextUrl.searchParams.get("language");
+    const lang = rawLang === null || rawLang === "" ? "ko" : rawLang.trim();
+    if (!ALLOWED_LANGUAGES.has(lang)) {
+      return NextResponse.json(
+        { error: "Invalid language. Use: ko, en, ja, zh" },
+        { status: 400 }
+      );
+    }
+
+    // 3. Share-link token & building-level revocation guard
+    const token = request.nextUrl.searchParams.get("token")?.trim() || null;
+    if (token) {
+      const tokenCheck = await verifyShareLinkToken({ token, buildingId });
+      if (!tokenCheck.valid) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "담당 중개인에 의해 회수되었거나 유효하지 않은 공유 링크입니다.",
+          },
+          { status: tokenCheck.reason === "revoked" ? 410 : 403 }
+        );
+      }
+    }
+
+    const inboxRevoked = getInboxState().revokedBuildings?.[buildingId]?.revoked;
+    if (inboxRevoked || isBuildingShareLinkRevoked(buildingId)) {
+      return NextResponse.json(
+        { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
+        { status: 410 }
+      );
+    }
+
+    const supabase = createServiceClient();
+
+    // Check DB governance revocation events when available
     try {
-      const { data: dbDoc } = await supabase
-        .from('document_objects')
-        .select('body, title')
-        .eq('building_id', buildingId)
-        .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (dbDoc?.body) {
-        doc = dbDoc.body as MobileIMDocument;
+      const govQuery: any = supabase
+        .from("activity_events")
+        .select("event_type, entity_id, metadata, created_at")
+        .in("event_type", ["link_revoked", "link_restored"])
+        .order("created_at", { ascending: false })
+        .limit(100);
+      const govRes = await govQuery;
+      if (Array.isArray(govRes?.data)) {
+        for (const row of govRes.data) {
+          const meta =
+            row?.metadata && typeof row.metadata === "object"
+              ? (row.metadata as Record<string, unknown>)
+              : {};
+          const evBldId = String(meta.building_id || row?.entity_id || "").trim();
+          if (evBldId !== buildingId) continue;
+          if (row.event_type === "link_revoked") {
+            return NextResponse.json(
+              { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
+              { status: 410 }
+            );
+          }
+          if (row.event_type === "link_restored") {
+            break;
+          }
+        }
       }
     } catch {
-      // DB 조회 실패 시 무시
+      // Non-blocking if activity_events unavailable
     }
-  }
 
-  if (!doc) {
-    return NextResponse.json(
-      { error: "Building not found or IM not generated" },
-      { status: 404 },
-    );
-  }
+    // 4. Load published IM document BEFORE serving audio cache (prevents draft/revoked leakage via cache)
+    let doc: MobileIMDocument | null = getDemoMobileIM(buildingId) || null;
 
-  // 3. OpenAI 키 확인
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "TTS service not configured" },
-      { status: 503 },
-    );
-  }
+    if (!doc) {
+      try {
+        const { data: dbDoc } = await supabase
+          .from("document_objects")
+          .select("body, title, status, document_type, building_id")
+          .eq("building_id", buildingId)
+          .eq("status", "published")
+          .in("document_type", ["mobile_im", "im_lite", "im_lite_draft", "blind_teaser"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-  try {
+        if (
+          dbDoc?.body &&
+          dbDoc.status === "published" &&
+          (!dbDoc.building_id || String(dbDoc.building_id) === buildingId)
+        ) {
+          if ((dbDoc.body as Record<string, unknown>).is_revoked === true) {
+            return NextResponse.json(
+              { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
+              { status: 410 }
+            );
+          }
+          doc = dbDoc.body as MobileIMDocument;
+          if (!doc.buildingId) {
+            doc = { ...doc, buildingId };
+          }
+        }
+      } catch {
+        // DB query failure falls through to 404 below
+      }
+    }
+
+    if (!doc) {
+      return NextResponse.json(
+        { error: "Building not found or IM not generated" },
+        { status: 404 }
+      );
+    }
+
+    const voice = VOICE_MAP[lang] || "nova";
+    const cacheKey = `${buildingId}_${lang}`;
+    const BUCKET_NAME = "tts-cache";
+    const FILE_NAME = `${cacheKey}.mp3`;
+
+    // 5. Audio cache check (Supabase Storage)
+    try {
+      const { data: fileData } = await supabase.storage
+        .from(BUCKET_NAME)
+        .download(FILE_NAME);
+      if (fileData) {
+        const buffer = await fileData.arrayBuffer();
+        return new NextResponse(new Uint8Array(buffer), {
+          status: 200,
+          headers: {
+            "Content-Type": "audio/mpeg",
+            "Content-Length": String(buffer.byteLength),
+            "Cache-Control": "public, max-age=3600",
+            "X-TTS-Source": "cache",
+          },
+        });
+      }
+    } catch (err) {
+      log.warn("[TTS] Audio cache read failed:", err);
+    }
+
+    // 6. OpenAI key check
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "TTS service not configured" },
+        { status: 503 }
+      );
+    }
+
     const openai = new OpenAI({ apiKey });
 
-    // 4. GPT-5.4로 브리핑 스크립트 생성 (실패 시 폴백)
     let script: string;
     let scriptSource = "gpt-5.6-terra";
     try {
@@ -260,7 +368,6 @@ export async function GET(
       scriptSource = "fallback";
     }
 
-    // 5. OpenAI TTS-1-HD로 음성 변환
     const mp3 = await openai.audio.speech.create({
       model: "tts-1-hd",
       voice: voice as any,
@@ -273,16 +380,18 @@ export async function GET(
     const buffer = Buffer.from(arrayBuffer);
     const uint8 = new Uint8Array(arrayBuffer);
 
-    // 6. 캐시 저장 (Supabase Storage)
     try {
-      // 버킷이 없을 수 있으므로 무시하고 생성 시도
-      await supabase.storage.createBucket(BUCKET_NAME, { public: false }).catch(() => {});
+      try {
+        await supabase.storage.createBucket(BUCKET_NAME, { public: false });
+      } catch {
+        // Ignore if bucket already exists
+      }
       await supabase.storage.from(BUCKET_NAME).upload(FILE_NAME, buffer, {
-        contentType: 'audio/mpeg',
-        upsert: true
+        contentType: "audio/mpeg",
+        upsert: true,
       });
     } catch (err) {
-      log.warn('[TTS] Audio cache write failed:', err);
+      log.warn("[TTS] Audio cache write failed:", err);
     }
 
     return new NextResponse(uint8, {
@@ -297,10 +406,12 @@ export async function GET(
       },
     });
   } catch (error) {
-    log.error("[TTS] Error generating speech:", error);
+    log.error("[TTS] Error generating speech", {
+      message: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+    });
     return NextResponse.json(
       { error: "Failed to generate voice briefing" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

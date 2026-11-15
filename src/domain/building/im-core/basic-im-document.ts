@@ -98,9 +98,13 @@ export function buildBasicImDocument(
       posture: facts.posture,
       askingPriceManwon: facts.transaction.askingPriceManwon,
       grossYieldPct: facts.valuation.grossYieldPct,
+      capRatePct: facts.valuation.capRatePct,
+      netAnnualOperatingIncomeKrw: facts.valuation.netAnnualOperatingIncomeKrw,
+      occupancyRatePct: facts.rent.occupancyRatePct,
       totalGrossAreaPyeong: facts.building.totalGrossAreaPyeong,
       primaryPhotoUrl: facts.photos?.[0]?.url,
       brokerOffice: facts.brokerOffice,
+      pnu: facts.land.pnu,
     },
   };
 
@@ -108,6 +112,12 @@ export function buildBasicImDocument(
   const hasRentIncome = facts.rent.monthlyRentTotalManwon > 0 && facts.valuation.grossYieldPct > 0;
   const landPricePerPyeongManwon = Math.round(facts.transaction.pricePerPyeongLandWon / 10000);
   const gfaPricePerPyeongManwon = Math.round(facts.transaction.pricePerPyeongGfaWon / 10000);
+  const hasVerifiedZoning =
+    Boolean(facts.land.zoning) &&
+    facts.land.zoning !== '공적장부 확인 필요' &&
+    facts.land.zoning !== '-';
+  const hasVerifiedFloors =
+    facts.building.floorsAbove > 0 || facts.building.floorsBelow > 0;
   const summarySection: BasicImSection = {
     id: '02_summary',
     order: 2,
@@ -116,6 +126,14 @@ export function buildBasicImDocument(
     title: '투자 하이라이트 및 핵심 지표',
     subtitle: 'Executive Summary',
     data: {
+      askingPriceManwon: facts.transaction.askingPriceManwon,
+      grossYieldPct: facts.valuation.grossYieldPct,
+      capRatePct: facts.valuation.capRatePct,
+      netAnnualOperatingIncomeKrw: facts.valuation.netAnnualOperatingIncomeKrw,
+      estimatedEquityKrw: facts.transaction.estimatedEquityKrw,
+      depositTotalManwon: facts.rent.depositTotalManwon,
+      monthlyRentTotalManwon: facts.rent.monthlyRentTotalManwon,
+      occupancyRatePct: facts.rent.occupancyRatePct,
       metrics: hasRentIncome
         ? [
             { label: '매매 희망가', value: `${facts.transaction.askingPriceManwon.toLocaleString()}만원`, unit: '원', raw: facts.transaction.askingPriceKrw },
@@ -129,6 +147,7 @@ export function buildBasicImDocument(
             { label: '매매 희망가', value: `${facts.transaction.askingPriceManwon.toLocaleString()}만원`, unit: '원', raw: facts.transaction.askingPriceKrw },
             { label: '토지 평당가', value: `${landPricePerPyeongManwon.toLocaleString()}만원/평`, unit: '만원/평', raw: facts.transaction.pricePerPyeongLandWon },
             { label: '연면적 평당가', value: `${gfaPricePerPyeongManwon.toLocaleString()}만원/평`, unit: '만원/평', raw: facts.transaction.pricePerPyeongGfaWon },
+            { label: '현행 임대수익률', value: '-', unit: '%', raw: 0 },
             { label: '연면적', value: `${facts.building.totalGrossAreaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`, unit: '평', raw: facts.building.totalGrossAreaPyeong },
             { label: '대지면적', value: `${facts.land.landAreaSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평)`, unit: '평', raw: facts.land.landAreaPyeong },
             { label: '건폐율 / 용적률', value: `${facts.building.buildingCoverageRatioPct}% / ${facts.building.floorAreaRatioPct}%`, unit: '%', raw: facts.building.floorAreaRatioPct },
@@ -136,10 +155,14 @@ export function buildBasicImDocument(
       investmentPoints: facts.points && facts.points.length > 0
         ? facts.points
         : [
-            `${facts.land.zoning} 입지의 우수한 자산 가치 보존성`,
+            hasVerifiedZoning
+              ? `${facts.land.zoning} 입지의 우수한 자산 가치 보존성`
+              : '우수한 입지 여건 및 자산 가치 보존성',
             hasRentIncome
               ? `현재 연 임대수익 ${(facts.rent.annualRentKrw / 10000).toLocaleString()}만원 기반의 안정적 현금흐름`
-              : `지상 ${facts.building.floorsAbove}층·지하 ${facts.building.floorsBelow}층 단독 사옥 및 밸류애드 활용 적격 스펙`,
+              : hasVerifiedFloors
+              ? `지상 ${facts.building.floorsAbove}층·지하 ${facts.building.floorsBelow}층 단독 사옥 및 밸류애드 활용 적격 스펙`
+              : '단독 사옥 및 밸류애드 활용 적격 스펙',
             `향후 리포지셔닝 및 임대료 현실화 잠재력`,
           ],
     },
@@ -162,7 +185,9 @@ export function buildBasicImDocument(
       totalGrossAreaPyeong: facts.building.totalGrossAreaPyeong,
       structure: facts.building.structure,
       mainUsage: facts.building.mainUsage,
-      floors: `지상 ${facts.building.floorsAbove}층 / 지하 ${facts.building.floorsBelow}층`,
+      floors: hasVerifiedFloors
+        ? `지상 ${facts.building.floorsAbove}층 / 지하 ${facts.building.floorsBelow}층`
+        : '공적장부 확인 필요',
       buildingCoverageRatioPct: facts.building.buildingCoverageRatioPct,
       floorAreaRatioPct: facts.building.floorAreaRatioPct,
       parkingSpaces: facts.building.parkingSpaces,
@@ -262,13 +287,18 @@ export function buildBasicImDocument(
       netInvestmentKrw: Math.max(0, facts.transaction.askingPriceKrw - facts.rent.depositTotalKrw),
       annualRentKrw: facts.rent.annualRentKrw,
       monthlyRentKrw: facts.rent.monthlyRentTotalKrw,
+      netAnnualOperatingIncomeKrw: facts.valuation.netAnnualOperatingIncomeKrw,
       grossYieldPct: facts.valuation.grossYieldPct,
+      grossYieldOnPricePct: facts.valuation.grossYieldOnPricePct,
       capRatePct: facts.valuation.capRatePct,
       netYieldPct: facts.valuation.netYieldPct,
       pricePerPyeongLandWon: facts.transaction.pricePerPyeongLandWon,
       pricePerPyeongGfaWon: facts.transaction.pricePerPyeongGfaWon,
       expectedLoanKrw: facts.transaction.expectedLoanKrw,
+      estimatedEquityKrw: facts.transaction.estimatedEquityKrw,
+      acquisitionTaxEstimateKrw: facts.transaction.acquisitionTaxEstimateKrw,
       cashOnCashPct: facts.valuation.cashOnCashPct,
+      occupancyRatePct: facts.rent.occupancyRatePct,
     },
   };
 

@@ -53,55 +53,151 @@ function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
 }
 
-// ─── Geocode: 주소 → 좌표 변환 (Kakao Local API, 한국 주소 정확도 높음) ────────
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  if (!address) return null;
+// ─── Geocode: 주소 → 좌표 변환 (SSR ≤ 1.5s 데드라인 + 1시간 메모리 캐시) ────────
+const MAX_GEOCODE_CACHE_ENTRIES = 200;
+const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
+const SSR_GEOCODE_DEADLINE_MS = 1400; // 전체 지오코딩 최대 1.4초 (≤ 1.5s 보장)
+
+const geocodeMemoryCache = new Map<
+  string,
+  { coords: { lat: number; lng: number }; expiresAt: number }
+>();
+
+export function clearGeocodeCacheForTests(): void {
+  geocodeMemoryCache.clear();
+}
+
+function getCachedGeocode(normalizedAddress: string): { lat: number; lng: number } | null {
+  const entry = geocodeMemoryCache.get(normalizedAddress);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    geocodeMemoryCache.delete(normalizedAddress);
+    return null;
+  }
+  // Refresh LRU order
+  geocodeMemoryCache.delete(normalizedAddress);
+  geocodeMemoryCache.set(normalizedAddress, entry);
+  return { ...entry.coords };
+}
+
+function setCachedGeocode(normalizedAddress: string, coords: { lat: number; lng: number }): void {
+  if (geocodeMemoryCache.has(normalizedAddress)) {
+    geocodeMemoryCache.delete(normalizedAddress);
+  } else if (geocodeMemoryCache.size >= MAX_GEOCODE_CACHE_ENTRIES) {
+    const oldestKey = geocodeMemoryCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      geocodeMemoryCache.delete(oldestKey);
+    }
+  }
+  geocodeMemoryCache.set(normalizedAddress, {
+    coords: { lat: coords.lat, lng: coords.lng },
+    expiresAt: Date.now() + GEOCODE_CACHE_TTL_MS,
+  });
+}
+
+async function fetchJsonWithinBudget(
+  url: string,
+  headers: Record<string, string>,
+  maxStepMs: number,
+  deadlineAt: number
+): Promise<any | null> {
+  const remainingMs = deadlineAt - Date.now();
+  if (remainingMs < 120) return null;
+  const timeoutMs = Math.max(100, Math.min(maxStepMs, remainingMs));
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const hardTimeoutPromise = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs + 25);
+    if (typeof (timer as any)?.unref === "function") {
+      (timer as any).unref();
+    }
+  });
+
+  try {
+    return await Promise.race([
+      (async () => {
+        const res = await fetch(url, {
+          headers,
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        if (!res || !res.ok) return null;
+        return await res.json();
+      })(),
+      hardTimeoutPromise,
+    ]);
+  } catch (err) {
+    console.warn("[fetch-im-data]", err);
+    return null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const normalizedAddress = typeof address === "string" ? address.trim().replace(/\s+/g, " ") : "";
+  if (!normalizedAddress) return null;
+
+  const cached = getCachedGeocode(normalizedAddress);
+  if (cached) return cached;
+
+  const deadlineAt = Date.now() + SSR_GEOCODE_DEADLINE_MS;
   const KAKAO_KEY = process.env.KAKAO_REST_API_KEY;
+
   if (KAKAO_KEY) {
-    try {
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` }, signal: AbortSignal.timeout(3000) }
-      );
-      const data = await res.json();
-      if (data.documents?.[0]) {
-        const lat = parseFloat(data.documents[0].y);
-        const lng = parseFloat(data.documents[0].x);
-        if (isValidKoreanCoord(lat, lng)) {
-          return { lat, lng };
-        }
+    const kakaoHeaders = { Authorization: `KakaoAK ${KAKAO_KEY}` };
+    const data = await fetchJsonWithinBudget(
+      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(normalizedAddress)}`,
+      kakaoHeaders,
+      1000,
+      deadlineAt
+    );
+    if (data?.documents?.[0]) {
+      const lat = parseFloat(data.documents[0].y);
+      const lng = parseFloat(data.documents[0].x);
+      if (isValidKoreanCoord(lat, lng)) {
+        const coords = { lat, lng };
+        setCachedGeocode(normalizedAddress, coords);
+        return coords;
       }
-      // 주소 검색 실패 시 키워드 검색 fallback
-      const res2 = await fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(address)}`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` }, signal: AbortSignal.timeout(3000) }
+    }
+
+    // 주소 검색 실패 시 잔여 예산 내에서만 키워드 검색 fallback (최대 800ms)
+    if (deadlineAt - Date.now() >= 150) {
+      const data2 = await fetchJsonWithinBudget(
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(normalizedAddress)}`,
+        kakaoHeaders,
+        800,
+        deadlineAt
       );
-      const data2 = await res2.json();
-      if (data2.documents?.[0]) {
+      if (data2?.documents?.[0]) {
         const lat = parseFloat(data2.documents[0].y);
         const lng = parseFloat(data2.documents[0].x);
         if (isValidKoreanCoord(lat, lng)) {
-          return { lat, lng };
+          const coords = { lat, lng };
+          setCachedGeocode(normalizedAddress, coords);
+          return coords;
         }
       }
-    } catch (err) { console.warn('[fetch-im-data]', err); }
-  }
-  // Kakao 실패 시 Nominatim fallback
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=kr`,
-      { headers: { 'User-Agent': 'credeal.net/1.0' }, signal: AbortSignal.timeout(8000) }
+    }
+  } else if (deadlineAt - Date.now() >= 400) {
+    // KAKAO_REST_API_KEY 미설정 환경에 한해 500ms 상한으로만 경량 폴백 (8초 블로킹 제거)
+    const data = await fetchJsonWithinBudget(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalizedAddress)}&format=json&limit=1&countrycodes=kr`,
+      { "User-Agent": "credeal.net/1.0" },
+      500,
+      deadlineAt
     );
-    if (!res.ok) return null;
-    const data = await res.json();
     if (data?.[0]?.lat && data?.[0]?.lon) {
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
       if (isValidKoreanCoord(lat, lng)) {
-        return { lat, lng };
+        const coords = { lat, lng };
+        setCachedGeocode(normalizedAddress, coords);
+        return coords;
       }
     }
-  } catch (err) { console.warn('[fetch-im-data]', err); }
+  }
+
   return null;
 }
 
@@ -225,33 +321,33 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
     const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     slug = `${slugBase}-${ownerId.substring(0, 6)}`;
     
-    // broker_profiles 자동 생성 (비블로킹)
-    void supabase
-      .from("broker_profiles")
-      .upsert({
-        user_id: ownerId,
-        name: profile.display_name || "중개인",
-        slug,
-        photo_url: profile.photo_url || null,
-      }, { onConflict: "user_id" })
-      .then(
-        () => {},
-        (e: any) => console.error('[fetch-im-data] broker_profiles upsert failed:', e)
-      );
+    // broker_profiles 자동 생성 (비블로킹, read-only mock 방어)
+    const bpTable = supabase.from("broker_profiles") as any;
+    if (typeof bpTable?.upsert === "function") {
+      void Promise.resolve(
+        bpTable.upsert(
+          {
+            user_id: ownerId,
+            name: profile.display_name || "중개인",
+            slug,
+            photo_url: profile.photo_url || null,
+          },
+          { onConflict: "user_id" },
+        ),
+      ).catch((e: any) => console.error("[fetch-im-data] broker_profiles upsert failed:", e));
+    }
   } else if (brokerProfile && !slug) {
     // broker_profiles는 있지만 slug가 없는 경우
     const baseName = (profile?.display_name || brokerProfile?.name || ownerId.substring(0, 8)) as string;
     const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     slug = `${slugBase}-${ownerId.substring(0, 6)}`;
-    
-    void supabase
-      .from("broker_profiles")
-      .update({ slug })
-      .eq("user_id", ownerId)
-      .then(
-        () => {},
-        (e: any) => console.error('[fetch-im-data] broker_profiles slug update failed:', e)
-      );
+
+    const bpTable = supabase.from("broker_profiles") as any;
+    if (typeof bpTable?.update === "function") {
+      void Promise.resolve(
+        bpTable.update({ slug }).eq("user_id", ownerId),
+      ).catch((e: any) => console.error("[fetch-im-data] broker_profiles slug update failed:", e));
+    }
   }
 
   // profiles + broker_profiles 병합 (phone, company, tagline은 profiles에서)
@@ -640,8 +736,11 @@ export async function fetchIMData(
   const dbGovernance: DbGovernanceOverlay = {};
   if (supabase) {
     try {
-      // 1) Low-frequency governance events (never evicted by high-frequency im_upserted autosaves — S1-1/S1-2)
-      const { data: govEvents } = await supabase
+      const safePostgrestToken = /^[A-Za-z0-9_.:-]+$/.test(buildingId);
+
+      // 1) Low-frequency governance events + 2) IM lifecycle events queried concurrently
+      //    with defensive PostgREST pushdown (Rule 26 & mock-chain safe).
+      let govQuery: any = supabase
         .from("activity_events")
         .select("event_type, entity_id, metadata, created_at")
         .in("event_type", [
@@ -649,9 +748,47 @@ export async function fetchIMData(
           "link_restored",
           "correction_notice_published",
           "correction_notice_cleared",
-        ])
-        .order("created_at", { ascending: false })
-        .limit(200);
+        ]);
+      let govFilteredSql = false;
+      if (isUuid(buildingId) && typeof govQuery.or === "function") {
+        govQuery = govQuery.or(`entity_id.eq.${buildingId},metadata->>building_id.eq.${buildingId}`);
+        govFilteredSql = true;
+      } else if (safePostgrestToken && typeof govQuery.or === "function") {
+        govQuery = govQuery.or(`metadata->>building_id.eq.${buildingId}`);
+        govFilteredSql = true;
+      } else if (typeof govQuery.contains === "function") {
+        govQuery = govQuery.contains("metadata", { building_id: buildingId });
+        govFilteredSql = true;
+      }
+
+      let imQuery: any = supabase
+        .from("activity_events")
+        .select("event_type, entity_id, metadata, created_at")
+        .in("event_type", [
+          "im_upserted",
+          "im_deleted",
+          "im_restored",
+        ]);
+      let imFilteredSql = false;
+      if (isUuid(buildingId) && typeof imQuery.or === "function") {
+        imQuery = imQuery.or(
+          `entity_id.eq.${buildingId},metadata->>building_id.eq.${buildingId},metadata->>im_id.eq.${buildingId},metadata->im_item->>id.eq.${buildingId},metadata->im_item->>buildingId.eq.${buildingId}`
+        );
+        imFilteredSql = true;
+      } else if (safePostgrestToken && typeof imQuery.or === "function") {
+        imQuery = imQuery.or(
+          `metadata->>building_id.eq.${buildingId},metadata->>im_id.eq.${buildingId},metadata->im_item->>id.eq.${buildingId},metadata->im_item->>buildingId.eq.${buildingId}`
+        );
+        imFilteredSql = true;
+      } else if (typeof imQuery.contains === "function") {
+        imQuery = imQuery.contains("metadata", { building_id: buildingId });
+        imFilteredSql = true;
+      }
+
+      const [{ data: govEvents }, { data: imEvents }] = await Promise.all([
+        govQuery.order("created_at", { ascending: false }).limit(govFilteredSql ? 20 : 200),
+        imQuery.order("created_at", { ascending: false }).limit(imFilteredSql ? 20 : 200),
+      ]);
 
       if (Array.isArray(govEvents)) {
         let decidedRevoke = false;
@@ -685,18 +822,6 @@ export async function fetchIMData(
           if (decidedRevoke && decidedCorrection) break;
         }
       }
-
-      // 2) IM lifecycle events
-      const { data: imEvents } = await supabase
-        .from("activity_events")
-        .select("event_type, entity_id, metadata, created_at")
-        .in("event_type", [
-          "im_upserted",
-          "im_deleted",
-          "im_restored",
-        ])
-        .order("created_at", { ascending: false })
-        .limit(200);
 
       if (Array.isArray(imEvents)) {
         let decidedDeleted = false;
@@ -859,6 +984,14 @@ export async function fetchIMData(
       .limit(1)
       .maybeSingle();
     document = res.data;
+    if (
+      document &&
+      document.status &&
+      !isImDocStatusPublic(document.status) &&
+      !isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id)
+    ) {
+      document = null;
+    }
   }
 
   const rawDocSections = document?.body?.sections || document?.body?.basicImDocument?.sections;
@@ -868,8 +1001,10 @@ export async function fetchIMData(
 
     const ssotSummary = document.body.ssot_summary || {};
     const brokerObj = buildBrokerObject(brokerProfile);
-    await injectLatestMagazine(supabase, brokerObj);
-    await injectBrokerStats(supabase, brokerObj);
+    await Promise.all([
+      injectLatestMagazine(supabase, brokerObj),
+      injectBrokerStats(supabase, brokerObj),
+    ]);
     const defaultBlindName = `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`;
     
     const enriched = resolveEnrichment(document.body);
@@ -1503,8 +1638,10 @@ export async function fetchIMData(
   const layers = (ssot.layers as Record<string, any>) || {};
 
   const brokerObj2 = buildBrokerObject(brokerProfile);
-  await injectLatestMagazine(supabase, brokerObj2);
-  await injectBrokerStats(supabase, brokerObj2);
+  await Promise.all([
+    injectLatestMagazine(supabase, brokerObj2),
+    injectBrokerStats(supabase, brokerObj2),
+  ]);
 
   return attachInboxGovernanceOverlay({
     buildingId: ssot.id,

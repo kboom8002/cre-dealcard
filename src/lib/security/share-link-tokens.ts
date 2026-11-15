@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { createServiceClient } from '@/lib/supabase/service';
 import { setBuildingRevokedState } from '@/lib/im-lite/quick-generate-store';
+import { isRealProductionRuntime } from '@/lib/env';
 
 export type ShareLinkKind = 'im' | 'dealcard';
 export type ShareLinkChannel = 'copy' | 'email' | 'alimtalk' | 'kakao_share';
@@ -123,12 +124,21 @@ declare global {
 }
 
 function getHmacSecret(): string {
-  return (
-    process.env.SHARE_LINK_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    'credeal-share-link-hmac-secret-v1'
-  );
+  const shareLinkSecret = (process.env.SHARE_LINK_SECRET || '').trim();
+  if (shareLinkSecret.length >= 32) {
+    return shareLinkSecret;
+  }
+  const nextAuthSecret = (process.env.NEXTAUTH_SECRET || '').trim();
+  if (nextAuthSecret.length >= 32) {
+    return nextAuthSecret;
+  }
+  // NEVER fall back to SUPABASE_SERVICE_ROLE_KEY in ANY environment (key separation invariant)
+  if (isRealProductionRuntime()) {
+    throw new Error(
+      'FATAL: SHARE_LINK_SECRET (or NEXTAUTH_SECRET) of at least 32 characters must be configured in production.'
+    );
+  }
+  return 'credeal-share-link-hmac-secret-v1';
 }
 
 function createEmptyStore(): ShareTokenStoreState {
@@ -403,6 +413,117 @@ export async function revokeShareLinkToken(
 
   const revokedAt = new Date().toISOString();
 
+  // Sync revocation to Supabase im_share_links AND activity_events (S0-4 & S1-3)
+  let durablePersisted = false;
+  let supabaseClientConfigured = false;
+  try {
+    const supabase = createServiceClient();
+    if (supabase && typeof supabase.from === 'function') {
+      supabaseClientConfigured = true;
+      const table: any = supabase.from('im_share_links');
+      if (rawToken && table) {
+        let tokenSaved = false;
+        if (typeof table.update === 'function') {
+          try {
+            const updRes = await table
+              .update({
+                status: 'revoked',
+                revoked_at: revokedAt,
+                revoked_reason: reason,
+              })
+              .eq('token', rawToken);
+            if (!updRes?.error) {
+              tokenSaved = true;
+              durablePersisted = true;
+            }
+          } catch {
+            // Fall through to upsert attempt
+          }
+        }
+        if (!tokenSaved && resolvedBuildingId && typeof table.upsert === 'function') {
+          try {
+            const upRes = await table.upsert(
+              {
+                token: rawToken,
+                building_id: resolvedBuildingId,
+                broker_id: brokerId,
+                status: 'revoked',
+                expires_at:
+                  existingMem?.expiresAt ||
+                  new Date(Date.now() + 86_400_000).toISOString(),
+                revoked_at: revokedAt,
+                revoked_reason: reason,
+              },
+              { onConflict: 'token' }
+            );
+            if (!upRes?.error) {
+              durablePersisted = true;
+            }
+          } catch {
+            // Handled below
+          }
+        }
+      }
+      if (resolvedBuildingId && table && typeof table.update === 'function') {
+        try {
+          const bldRes = await table
+            .update({
+              status: 'revoked',
+              revoked_at: revokedAt,
+              revoked_reason: reason,
+            })
+            .eq('building_id', resolvedBuildingId);
+          if (!bldRes?.error) {
+            durablePersisted = true;
+          }
+        } catch {
+          // Handled below
+        }
+      }
+      const evTable: any = supabase.from('activity_events');
+      if (evTable && typeof evTable.insert === 'function') {
+        try {
+          const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const entityId =
+            resolvedBuildingId && uuidRe.test(resolvedBuildingId)
+              ? resolvedBuildingId
+              : brokerId && uuidRe.test(brokerId)
+              ? brokerId
+              : '00000000-0000-4000-8000-000000000000';
+          const evRes = await evTable.insert({
+            actor_id: brokerId && uuidRe.test(brokerId) ? brokerId : entityId,
+            event_type: 'link_revoked',
+            entity_type: 'building',
+            entity_id: entityId,
+            metadata: {
+              thread_id: rawThreadId || null,
+              building_id: resolvedBuildingId || null,
+              share_token: rawToken || null,
+              reason,
+              revoked: true,
+            },
+          });
+          if (!evRes?.error) {
+            durablePersisted = true;
+          }
+        } catch {
+          // Handled below
+        }
+      }
+    }
+  } catch {
+    // Non-blocking fallback when Supabase service client is unavailable in dev/test
+  }
+
+  if (supabaseClientConfigured && !durablePersisted && isRealProductionRuntime()) {
+    return {
+      ok: false,
+      revoked: false,
+      status: 500,
+      error: '링크 잠금 상태를 서버에 저장하지 못했습니다.',
+    };
+  }
+
   if (rawToken) {
     store.revokedTokens[rawToken] = {
       token: rawToken,
@@ -451,55 +572,6 @@ export async function revokeShareLinkToken(
   }
 
   persistTokenStore(store);
-
-  // Sync revocation to Supabase im_share_links AND activity_events (S0-4 & S1-3)
-  try {
-    const supabase = createServiceClient();
-    const table: any = supabase.from('im_share_links');
-    if (rawToken && table && typeof table.update === 'function') {
-      await table
-        .update({
-          status: 'revoked',
-          revoked_at: revokedAt,
-          revoked_reason: reason,
-        })
-        .eq('token', rawToken);
-    }
-    if (resolvedBuildingId && table && typeof table.update === 'function') {
-      await table
-        .update({
-          status: 'revoked',
-          revoked_at: revokedAt,
-          revoked_reason: reason,
-        })
-        .eq('building_id', resolvedBuildingId);
-    }
-    const evTable: any = supabase.from('activity_events');
-    if (evTable && typeof evTable.insert === 'function') {
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const entityId =
-        resolvedBuildingId && uuidRe.test(resolvedBuildingId)
-          ? resolvedBuildingId
-          : brokerId && uuidRe.test(brokerId)
-          ? brokerId
-          : '00000000-0000-4000-8000-000000000000';
-      await evTable.insert({
-        actor_id: brokerId && uuidRe.test(brokerId) ? brokerId : entityId,
-        event_type: 'link_revoked',
-        entity_type: 'building',
-        entity_id: entityId,
-        metadata: {
-          thread_id: rawThreadId || null,
-          building_id: resolvedBuildingId || null,
-          share_token: rawToken || null,
-          reason,
-          revoked: true,
-        },
-      });
-    }
-  } catch {
-    // Non-blocking fallback
-  }
 
   return {
     ok: true,
@@ -755,6 +827,9 @@ export async function verifyShareLinkToken(
   if (!token) {
     return { valid: false, reason: 'invalid' };
   }
+
+  // Enforce production secret configuration invariant before any verification path
+  getHmacSecret();
 
   const store = getTokenStore();
 

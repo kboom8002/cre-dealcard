@@ -19,7 +19,11 @@ import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-documen
 import { Card4Schema, computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { formatPriceRange } from '@/lib/deal-card/price-band';
-import { saveQuickImRecord, resolveKnownTestAssetUrl } from '@/lib/im-lite/quick-generate-store';
+import {
+  saveQuickImRecord,
+  getQuickImRecord,
+  resolveKnownTestAssetUrl,
+} from '@/lib/im-lite/quick-generate-store';
 import {
   applyBrokerExtrasToSections,
   parseBrokerExtras,
@@ -35,7 +39,11 @@ import { indexIMSections } from '@/domain/building/mobile-im/im-embedding-indexe
 import { polishImCopyWithLexiconSync } from '@/domain/building/mobile-im/workspace-ai-enhancer';
 import { padNumber, splitMultiParcelAddress } from '@/lib/external/address-resolver';
 
-// In-memory idempotency cache for quick-generate calls
+// In-memory idempotency cache for quick-generate calls (scoped per user, bounded to prevent OOM)
+export const maxDuration = 120;
+
+const MAX_IDEMPOTENCY_CACHE_SIZE = 200;
+const LARGE_INLINE_PHOTO_THRESHOLD_CHARS = 32 * 1024; // 32KB threshold for offloading inline base64 photos to Supabase Storage
 const IDEMPOTENCY_CACHE = new Map<string, any>();
 
 interface KnownParcelInfo {
@@ -340,6 +348,15 @@ export async function POST(req: NextRequest) {
     return auth.error;
   }
 
+  const userId = auth.user?.id || '';
+  if (!userId) {
+    return NextResponse.json(
+      { ok: false, error: '인증이 필요합니다.' },
+      { status: 401 }
+    );
+  }
+  const isAdmin = auth.role === 'admin';
+
   const idempotencyKey =
     req.headers.get('idempotency-key') ||
     req.headers.get('x-idempotency-key') ||
@@ -355,9 +372,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const effectiveIdempotencyKey = idempotencyKey || body.idempotencyKey;
-  if (effectiveIdempotencyKey && IDEMPOTENCY_CACHE.has(effectiveIdempotencyKey)) {
-    return NextResponse.json(IDEMPOTENCY_CACHE.get(effectiveIdempotencyKey), {
+  const rawIdempotencyKey =
+    typeof (idempotencyKey || body?.idempotencyKey) === 'string'
+      ? String(idempotencyKey || body.idempotencyKey).trim()
+      : '';
+  const scopedIdempotencyKey = rawIdempotencyKey ? `${userId}:${rawIdempotencyKey}` : '';
+  if (scopedIdempotencyKey && IDEMPOTENCY_CACHE.has(scopedIdempotencyKey)) {
+    return NextResponse.json(IDEMPOTENCY_CACHE.get(scopedIdempotencyKey), {
       status: 200,
       headers: { 'X-Cache-Lookup': 'HIT' },
     });
@@ -485,45 +506,82 @@ export async function POST(req: NextRequest) {
       ? { lat: Number(rawLat), lng: Number(rawLng) }
       : undefined;
 
+  // Cross-tenant IDOR guard: when requestedBuildingId is supplied, verify ownership BEFORE any mutation
+  let existingOwnerId: string | null = null;
+  if (requestedBuildingId) {
+    const existingMemRecord = getQuickImRecord(requestedBuildingId);
+    if (existingMemRecord?.ownerId) {
+      if (existingMemRecord.ownerId !== userId && !isAdmin) {
+        return NextResponse.json(
+          { ok: false, error: '이 매물에 대한 권한이 없습니다.', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+      existingOwnerId = existingMemRecord.ownerId;
+    }
+
+    let existingBldRow: Record<string, any> | null = null;
+    try {
+      const { createServiceClient } = await import('@/lib/supabase/service');
+      const supabase = createServiceClient();
+      if (supabase && typeof supabase.from === 'function') {
+        const { data: bRow } = await supabase
+          .from('building_ssot_lite')
+          .select('id, owner_id, pnu, raw_address, layers')
+          .eq('id', requestedBuildingId)
+          .maybeSingle();
+        existingBldRow = (bRow as Record<string, any> | null) ?? null;
+      }
+    } catch {
+      // Non-blocking if Supabase client is unavailable in offline test environments
+    }
+
+    if (existingBldRow) {
+      const rowOwnerId = (existingBldRow.owner_id as string | null | undefined) ?? null;
+      if (!isAdmin && (!rowOwnerId || rowOwnerId !== userId)) {
+        return NextResponse.json(
+          { ok: false, error: '이 매물에 대한 권한이 없습니다.', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+      if (rowOwnerId) {
+        existingOwnerId = rowOwnerId;
+      }
+
+      if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+        const bLayers = (existingBldRow.layers as Record<string, any>) || {};
+        const sameBldAddr =
+          !existingBldRow.raw_address ||
+          normalizeAddrCompare(existingBldRow.raw_address) === normalizeAddrCompare(cleanAddress);
+        if (sameBldAddr) {
+          if (isValidPnuForAddress(existingBldRow.pnu)) existingPnu = existingBldRow.pnu;
+          else if (isValidPnuForAddress(bLayers.location?.pnu)) existingPnu = bLayers.location.pnu;
+          else if (isValidPnuForAddress(bLayers.location?.canonical_pnu))
+            existingPnu = bLayers.location.canonical_pnu;
+          if (isValidCoordsForAddress(bLayers.coordinates)) {
+            existingCoords = {
+              lat: Number(bLayers.coordinates.lat),
+              lng: Number(bLayers.coordinates.lng),
+            };
+          }
+        }
+      }
+    }
+  }
+
   if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
     if (requestedBuildingId) {
       try {
         const { createServiceClient } = await import('@/lib/supabase/service');
         const supabase = createServiceClient();
         if (supabase && typeof supabase.from === 'function') {
-          const [{ data: bRow }, { data: docRows }] = await Promise.all([
-            supabase
-              .from('building_ssot_lite')
-              .select('pnu, raw_address, layers')
-              .eq('id', requestedBuildingId)
-              .maybeSingle(),
-            supabase
-              .from('document_objects')
-              .select('body')
-              .eq('building_id', requestedBuildingId)
-              .eq('document_type', 'mobile_im')
-              .order('created_at', { ascending: false })
-              .limit(3),
-          ]);
-
-          if (bRow) {
-            const bLayers = (bRow.layers as Record<string, any>) || {};
-            const sameBldAddr =
-              !bRow.raw_address ||
-              normalizeAddrCompare(bRow.raw_address) === normalizeAddrCompare(cleanAddress);
-            if (sameBldAddr) {
-              if (isValidPnuForAddress(bRow.pnu)) existingPnu = bRow.pnu;
-              else if (isValidPnuForAddress(bLayers.location?.pnu)) existingPnu = bLayers.location.pnu;
-              else if (isValidPnuForAddress(bLayers.location?.canonical_pnu))
-                existingPnu = bLayers.location.canonical_pnu;
-              if (isValidCoordsForAddress(bLayers.coordinates)) {
-                existingCoords = {
-                  lat: Number(bLayers.coordinates.lat),
-                  lng: Number(bLayers.coordinates.lng),
-                };
-              }
-            }
-          }
+          const { data: docRows } = await supabase
+            .from('document_objects')
+            .select('body')
+            .eq('building_id', requestedBuildingId)
+            .eq('document_type', 'mobile_im')
+            .order('created_at', { ascending: false })
+            .limit(3);
 
           for (const dRow of docRows || []) {
             const dBody = (dRow?.body as Record<string, any>) || {};
@@ -1097,38 +1155,105 @@ export async function POST(req: NextRequest) {
       ? existingRealPhotos
       : [];
 
-  // Upload any data:image/... URIs to Supabase Storage (building_photos) so DB persistence keeps valid URLs
+  // Offload large (>32KB) data:image/...;base64,... strings to Supabase Storage (`building-photos` bucket)
+  // before writing document_objects / building_ssot_lite so JSONB rows never bloat to 18MB.
+  const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
   if (
-    process.env.NODE_ENV !== 'test' &&
-    !process.env.VITEST &&
-    defaultPhotos.some((p: any) => typeof p.url === 'string' && p.url.startsWith('data:image/'))
+    !isTestEnv &&
+    defaultPhotos.some(
+      (p: any) =>
+        typeof p?.url === 'string' &&
+        p.url.startsWith('data:image/') &&
+        p.url.length > LARGE_INLINE_PHOTO_THRESHOLD_CHARS
+    )
   ) {
     try {
       const { createServiceClient } = await import('@/lib/supabase/service');
       const svc = createServiceClient();
       if (svc && typeof svc.storage?.from === 'function') {
+        const sharpMod = await import('sharp').catch(() => null);
+        const sharpFn: any = sharpMod?.default ?? sharpMod;
+        const safeUserSeg = String(userId || 'broker').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const safeBldSeg = String(buildingId || 'draft').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        const uploadCompressedToBucket = async (
+          bucketName: string,
+          storagePath: string,
+          buf: Buffer,
+          contentType: string
+        ): Promise<string | null> => {
+          let upRes = await svc.storage.from(bucketName).upload(storagePath, buf, {
+            contentType,
+            upsert: true,
+          });
+          if (upRes.error && /bucket|not found/i.test(upRes.error.message || '')) {
+            try {
+              await svc.storage.createBucket(bucketName, { public: true });
+              upRes = await svc.storage.from(bucketName).upload(storagePath, buf, {
+                contentType,
+                upsert: true,
+              });
+            } catch {
+              // ignore bucket creation error and allow fallback
+            }
+          }
+          if (!upRes.error && upRes.data?.path) {
+            const { data: pubData } = svc.storage.from(bucketName).getPublicUrl(upRes.data.path);
+            if (pubData?.publicUrl) return pubData.publicUrl;
+          }
+          return null;
+        };
+
         const uploaded = await Promise.race([
           Promise.all(
-            defaultPhotos.map(async (photo: any, idx: number) => {
-              if (!photo?.url?.startsWith('data:image/')) return photo;
+            defaultPhotos.map(async (photo: any) => {
+              if (
+                typeof photo?.url !== 'string' ||
+                !photo.url.startsWith('data:image/') ||
+                photo.url.length <= LARGE_INLINE_PHOTO_THRESHOLD_CHARS
+              ) {
+                return photo;
+              }
               const match = photo.url.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
               if (!match) return photo;
-              const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-              const buf = Buffer.from(match[2], 'base64');
-              const storagePath = `${buildingId}/quick-im/${Date.now()}_${idx}.${ext}`;
-              const { data: upData, error: upErr } = await svc.storage
-                .from('building_photos')
-                .upload(storagePath, buf, {
-                  contentType: `image/${match[1]}`,
-                  upsert: true,
-                });
-              if (!upErr && upData?.path) {
-                const { data: pubData } = svc.storage
-                  .from('building_photos')
-                  .getPublicUrl(upData.path);
-                if (pubData?.publicUrl) {
-                  return { ...photo, url: pubData.publicUrl };
+
+              const rawBuf = Buffer.from(match[2], 'base64');
+              let outBuf: Buffer = rawBuf;
+              let outExt = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+              let outContentType = `image/${match[1].toLowerCase()}`;
+
+              if (typeof sharpFn === 'function') {
+                try {
+                  const pipeline = sharpFn(rawBuf)
+                    .rotate()
+                    .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true });
+                  if (typeof pipeline.webp === 'function') {
+                    const webpBuf = await pipeline.webp({ quality: 84 }).toBuffer();
+                    if (webpBuf && webpBuf.byteLength > 0) {
+                      outBuf = webpBuf;
+                      outExt = 'webp';
+                      outContentType = 'image/webp';
+                    }
+                  } else if (typeof pipeline.jpeg === 'function') {
+                    const jpgBuf = await pipeline.jpeg({ quality: 84 }).toBuffer();
+                    if (jpgBuf && jpgBuf.byteLength > 0) {
+                      outBuf = jpgBuf;
+                      outExt = 'jpg';
+                      outContentType = 'image/jpeg';
+                    }
+                  }
+                } catch {
+                  // Fall back to raw decoded buffer if sharp compression is unavailable
                 }
+              }
+
+              const storagePath = `${safeUserSeg}/${safeBldSeg}/${crypto.randomUUID()}.${outExt}`;
+              const publicUrl =
+                (await uploadCompressedToBucket('building-photos', storagePath, outBuf, outContentType)) ||
+                (await uploadCompressedToBucket('building_photos', storagePath, outBuf, outContentType));
+
+              if (publicUrl) {
+                return { ...photo, url: publicUrl };
               }
               return photo;
             })
@@ -1140,7 +1265,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch {
-      // Graceful fallback: keep in-memory Data URI
+      // Graceful fallback: keep in-memory Data URI if Storage bucket is unavailable in test/dev
     }
   }
 
@@ -1770,9 +1895,11 @@ export async function POST(req: NextRequest) {
       markdown: [
         `- **소재지**: ${cleanAddress} (${resolvedRoadAddress})`,
         liveLocationPoi?.nearestStation?.name
-          ? `- **대중교통 접근성**: ${liveLocationPoi.nearestStation.name} 약 ${Number(
-              liveLocationPoi.nearestStation.distanceM || 0
-            ).toLocaleString()}m${
+          ? `- **대중교통 접근성**: ${liveLocationPoi.nearestStation.name}${
+              liveLocationPoi.nearestStation.distanceM != null
+                ? ` 약 ${Number(liveLocationPoi.nearestStation.distanceM).toLocaleString()}m`
+                : ''
+            }${
               liveLocationPoi.nearestStation.walkMinutes
                 ? ` (도보 약 ${liveLocationPoi.nearestStation.walkMinutes}분)`
                 : ''
@@ -2018,10 +2145,12 @@ export async function POST(req: NextRequest) {
     approved_at: nowIso,
   };
 
+  const persistedOwnerId = existingOwnerId || userId;
+
   saveQuickImRecord({
     buildingId,
     documentId,
-    ownerId: auth.user?.id,
+    ownerId: persistedOwnerId,
     address: cleanAddress,
     buildingName: resolvedTitle,
     askingPriceManwon: priceNum,
@@ -2080,7 +2209,7 @@ export async function POST(req: NextRequest) {
           (async () => {
             const buildSsotPayload = (includeIndexPnu: boolean) => ({
               id: buildingId,
-              owner_id: auth.user?.id || null,
+              owner_id: persistedOwnerId,
               created_by_role: 'broker' as const,
               input_type: 'manual_form' as const,
               raw_input: cleanAddress,
@@ -2156,7 +2285,7 @@ export async function POST(req: NextRequest) {
                       p &&
                       typeof p.url === 'string' &&
                       p.url.startsWith('data:') &&
-                      p.url.length < 1_500_000
+                      p.url.length <= LARGE_INLINE_PHOTO_THRESHOLD_CHARS
                   )
                   .slice(0, 12)
               : [];
@@ -2249,8 +2378,13 @@ export async function POST(req: NextRequest) {
     created_at: nowIso,
   };
 
-  if (effectiveIdempotencyKey) {
-    IDEMPOTENCY_CACHE.set(effectiveIdempotencyKey, responsePayload);
+  if (scopedIdempotencyKey) {
+    while (IDEMPOTENCY_CACHE.size >= MAX_IDEMPOTENCY_CACHE_SIZE) {
+      const oldestKey = IDEMPOTENCY_CACHE.keys().next().value;
+      if (oldestKey === undefined) break;
+      IDEMPOTENCY_CACHE.delete(oldestKey);
+    }
+    IDEMPOTENCY_CACHE.set(scopedIdempotencyKey, responsePayload);
   }
 
   return NextResponse.json(responsePayload, { status: 201 });

@@ -1,0 +1,592 @@
+"use client";
+
+import React from "react";
+import type {
+  BrokerInventoryDeal,
+  InboxClientRole,
+  InboxTransactionalBasis,
+} from "./inbox-types";
+
+export interface InboxClientFormValues {
+  name: string;
+  phone: string;
+  email: string;
+  basis: "" | InboxTransactionalBasis;
+  grade: "VIP" | "일반" | "잠재";
+  role: InboxClientRole;
+  buildingTitle: string;
+  budget: string;
+  region: string;
+  freeMemo: string;
+  newsletterOptIn: boolean;
+}
+
+export interface InboxNewClientModalProps {
+  open: boolean;
+  values: InboxClientFormValues;
+  inventory: BrokerInventoryDeal[];
+  busyAction: string | null;
+  onChange: (patch: Partial<InboxClientFormValues>) => void;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}
+
+export function InboxNewClientModal({
+  open,
+  values,
+  inventory,
+  busyAction,
+  onChange,
+  onClose,
+  onSubmit,
+}: InboxNewClientModalProps) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inbox-new-client-dialog-title"
+        data-testid="inbox-new-client-dialog"
+        onClick={(e) => e.stopPropagation()}
+        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h2
+            id="inbox-new-client-dialog-title"
+            className="text-lg font-extrabold text-slate-900"
+          >
+            고객 직접 등록
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-[48px] items-center justify-center rounded-lg px-3 text-sm font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+          >
+            닫기
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
+          <div>
+            <label
+              htmlFor="new-client-name"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              고객 성함 (필수)
+            </label>
+            <input
+              id="new-client-name"
+              data-testid="new-client-name-input"
+              type="text"
+              required
+              value={values.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder="예: 홍길동 대표"
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="new-client-phone"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                연락처 (선택)
+              </label>
+              <input
+                id="new-client-phone"
+                data-testid="new-client-phone-input"
+                type="tel"
+                value={values.phone}
+                onChange={(e) => onChange({ phone: e.target.value })}
+                placeholder="예: 010-1234-5678"
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="new-client-email"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                이메일 (선택)
+              </label>
+              <input
+                id="new-client-email"
+                data-testid="new-client-email-input"
+                type="email"
+                value={values.email}
+                onChange={(e) => onChange({ email: e.target.value })}
+                placeholder="예: buyer@company.co.kr"
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="new-client-role"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                거래 역할
+              </label>
+              <select
+                id="new-client-role"
+                data-testid="new-client-role-select"
+                value={values.role}
+                onChange={(e) =>
+                  onChange({ role: e.target.value as InboxClientRole })
+                }
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="buyer">매수</option>
+                <option value="seller">매도</option>
+                <option value="tenant">임차</option>
+                <option value="partner">공동중개</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="new-client-grade"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                고객 등급
+              </label>
+              <select
+                id="new-client-grade"
+                data-testid="new-client-grade-select"
+                value={values.grade}
+                onChange={(e) =>
+                  onChange({ grade: e.target.value as "VIP" | "일반" | "잠재" })
+                }
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="VIP">VIP</option>
+                <option value="일반">일반</option>
+                <option value="잠재">잠재</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="new-client-basis"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              상담·안내 근거 (선택)
+            </label>
+            <select
+              id="new-client-basis"
+              data-testid="new-client-basis-select"
+              value={values.basis}
+              onChange={(e) =>
+                onChange({
+                  basis: e.target.value as "" | InboxTransactionalBasis,
+                })
+              }
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="">미확인 (상담 전)</option>
+              <option value="im_request">고객 IM 열람 요청</option>
+              <option value="property_inquiry">고객 매물 문의 접수</option>
+              <option value="tour_booking">현장 임장·미팅 예약</option>
+              <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="new-client-building"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              관심 매물명 (선택)
+            </label>
+            <input
+              id="new-client-building"
+              list="inbox-inventory-buildings"
+              type="text"
+              value={values.buildingTitle}
+              onChange={(e) => onChange({ buildingTitle: e.target.value })}
+              placeholder="예: 역삼동 코너 근생빌딩"
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+            {inventory.length > 0 && (
+              <datalist id="inbox-inventory-buildings">
+                {inventory.map((deal) => (
+                  <option key={deal.buildingId} value={deal.title} />
+                ))}
+              </datalist>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="new-client-budget"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                희망 예산 (선택)
+              </label>
+              <input
+                id="new-client-budget"
+                data-testid="new-client-budget-input"
+                type="text"
+                value={values.budget}
+                onChange={(e) => onChange({ budget: e.target.value })}
+                placeholder="예: 100~130억"
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="new-client-region"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                선호 권역 (선택)
+              </label>
+              <input
+                id="new-client-region"
+                data-testid="new-client-region-input"
+                type="text"
+                value={values.region}
+                onChange={(e) => onChange({ region: e.target.value })}
+                placeholder="예: 강남구, 영등포구"
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="new-client-free-memo"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              상담 메모 (선택)
+            </label>
+            <textarea
+              id="new-client-free-memo"
+              data-testid="new-client-free-memo-input"
+              rows={2}
+              value={values.freeMemo}
+              onChange={(e) => onChange({ freeMemo: e.target.value })}
+              placeholder="예: 보유 건물 매각 후 대토 매입 검토 중"
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+            <input
+              id="new-client-newsletter"
+              data-testid="new-client-newsletter-checkbox"
+              type="checkbox"
+              checked={values.newsletterOptIn}
+              onChange={(e) => onChange({ newsletterOptIn: e.target.checked })}
+              className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label
+              htmlFor="new-client-newsletter"
+              className="text-sm font-semibold text-slate-800 cursor-pointer"
+            >
+              시장 브리핑 뉴스레터 수신에 동의한 고객입니다 (선택)
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              data-testid="submit-new-client-btn"
+              disabled={Boolean(busyAction)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+            >
+              고객 등록하기
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export interface InboxEditClientModalProps {
+  open: boolean;
+  values: Omit<InboxClientFormValues, "newsletterOptIn">;
+  busyAction: string | null;
+  onChange: (patch: Partial<Omit<InboxClientFormValues, "newsletterOptIn">>) => void;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}
+
+export function InboxEditClientModal({
+  open,
+  values,
+  busyAction,
+  onChange,
+  onClose,
+  onSubmit,
+}: InboxEditClientModalProps) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inbox-edit-client-dialog-title"
+        data-testid="inbox-edit-client-dialog"
+        onClick={(e) => e.stopPropagation()}
+        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h2
+            id="inbox-edit-client-dialog-title"
+            className="text-lg font-extrabold text-slate-900"
+          >
+            고객 정보 수정
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-[48px] items-center justify-center rounded-lg px-3 text-sm font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+          >
+            닫기
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
+          <div>
+            <label
+              htmlFor="edit-client-name"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              고객 성함 (필수)
+            </label>
+            <input
+              id="edit-client-name"
+              data-testid="edit-client-name-input"
+              type="text"
+              required
+              value={values.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="edit-client-phone"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                연락처
+              </label>
+              <input
+                id="edit-client-phone"
+                data-testid="edit-client-phone-input"
+                type="tel"
+                value={values.phone}
+                onChange={(e) => onChange({ phone: e.target.value })}
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="edit-client-email"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                이메일 (선택)
+              </label>
+              <input
+                id="edit-client-email"
+                data-testid="edit-client-email-input"
+                type="email"
+                value={values.email}
+                onChange={(e) => onChange({ email: e.target.value })}
+                placeholder="예: buyer@company.co.kr"
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="edit-client-role"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                거래 역할
+              </label>
+              <select
+                id="edit-client-role"
+                data-testid="edit-client-role-select"
+                value={values.role}
+                onChange={(e) =>
+                  onChange({ role: e.target.value as InboxClientRole })
+                }
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="buyer">매수</option>
+                <option value="seller">매도</option>
+                <option value="tenant">임차</option>
+                <option value="partner">공동중개</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="edit-client-grade"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                고객 등급
+              </label>
+              <select
+                id="edit-client-grade"
+                data-testid="edit-client-grade-select"
+                value={values.grade}
+                onChange={(e) =>
+                  onChange({ grade: e.target.value as "VIP" | "일반" | "잠재" })
+                }
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="VIP">VIP</option>
+                <option value="일반">일반</option>
+                <option value="잠재">잠재</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="edit-client-basis"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              상담·안내 근거
+            </label>
+            <select
+              id="edit-client-basis"
+              data-testid="edit-client-basis-select"
+              value={values.basis}
+              onChange={(e) =>
+                onChange({
+                  basis: e.target.value as "" | InboxTransactionalBasis,
+                })
+              }
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="">미확인 (상담 전)</option>
+              <option value="im_request">고객 IM 열람 요청</option>
+              <option value="property_inquiry">고객 매물 문의 접수</option>
+              <option value="tour_booking">현장 임장·미팅 예약</option>
+              <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="edit-client-building"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              관심 매물명
+            </label>
+            <input
+              id="edit-client-building"
+              list="inbox-inventory-buildings"
+              type="text"
+              value={values.buildingTitle}
+              onChange={(e) => onChange({ buildingTitle: e.target.value })}
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="edit-client-budget"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                희망 예산
+              </label>
+              <input
+                id="edit-client-budget"
+                data-testid="edit-client-budget-input"
+                type="text"
+                value={values.budget}
+                onChange={(e) => onChange({ budget: e.target.value })}
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="edit-client-region"
+                className="mb-1 block text-sm font-bold text-slate-800"
+              >
+                선호 권역
+              </label>
+              <input
+                id="edit-client-region"
+                data-testid="edit-client-region-input"
+                type="text"
+                value={values.region}
+                onChange={(e) => onChange({ region: e.target.value })}
+                className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="edit-client-free-memo"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              상담 메모
+            </label>
+            <textarea
+              id="edit-client-free-memo"
+              data-testid="edit-client-free-memo-input"
+              rows={2}
+              value={values.freeMemo}
+              onChange={(e) => onChange({ freeMemo: e.target.value })}
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              data-testid="submit-edit-client-btn"
+              disabled={Boolean(busyAction)}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+            >
+              저장하기
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

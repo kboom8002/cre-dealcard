@@ -44,6 +44,7 @@ function isRealPhotoUrl(url: unknown): url is string {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const IssueBodySchema = z.object({
   editionId: z.string().max(100).nullable().optional(),

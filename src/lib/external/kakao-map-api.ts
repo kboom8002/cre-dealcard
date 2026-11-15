@@ -9,7 +9,7 @@ export interface PoiSpot {
   name: string;
   lat: number;
   lng: number;
-  distanceM: number;
+  distanceM: number | null;
   category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping' | 'public';
   /** 카카오 category_name 원문 (예: "교통,수송 > 지하철,전철 > 수도권9호선") — POI 정밀 선별용 */
   categoryName?: string;
@@ -20,8 +20,8 @@ export interface LocationPoiData {
     name: string;
     lat: number;
     lng: number;
-    distanceM: number;
-    walkMinutes: number;
+    distanceM: number | null;
+    walkMinutes: number | null;
   } | null;
   poiCounts: {
     subway: number;
@@ -41,6 +41,77 @@ export interface LocationPoiData {
   _isFallback?: boolean;
 }
 
+export const KAKAO_POI_CACHE_TTL_MS = 15 * 60 * 1000; // 15분
+export const KAKAO_POI_CACHE_MAX_ENTRIES = 300;
+
+interface LocationPoiCacheEntry {
+  value: LocationPoiData;
+  expiresAt: number;
+}
+
+const locationPoiCache = new Map<string, LocationPoiCacheEntry>();
+
+export function buildKakaoPoiCacheKey(lat: number, lng: number): string {
+  return `${lat.toFixed(5)},${lng.toFixed(5)}`;
+}
+
+export function clearLocationPoiCache(): void {
+  locationPoiCache.clear();
+}
+
+function readLocationPoiCache(key: string): LocationPoiData | null {
+  const entry = locationPoiCache.get(key);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    locationPoiCache.delete(key);
+    return null;
+  }
+  // LRU 순서 갱신
+  locationPoiCache.delete(key);
+  locationPoiCache.set(key, entry);
+  return structuredClone(entry.value);
+}
+
+function writeLocationPoiCache(key: string, value: LocationPoiData): void {
+  const now = Date.now();
+  if (locationPoiCache.size >= KAKAO_POI_CACHE_MAX_ENTRIES) {
+    for (const [k, v] of locationPoiCache.entries()) {
+      if (now >= v.expiresAt) locationPoiCache.delete(k);
+    }
+    while (locationPoiCache.size >= KAKAO_POI_CACHE_MAX_ENTRIES) {
+      const oldestKey = locationPoiCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      locationPoiCache.delete(oldestKey);
+    }
+  }
+  locationPoiCache.set(key, {
+    value: structuredClone(value),
+    expiresAt: now + KAKAO_POI_CACHE_TTL_MS,
+  });
+}
+
+/**
+ * 카카오 로컬 API `distance` 문자열 정규화.
+ * - `""` (좌표 미지정 등) 또는 `NaN`은 `null`로 처리 (절대 `0`이나 `500`으로 날조하지 않음)
+ * - 오직 `distance === '0'` (또는 숫자 `0`)인 경우에만 `0`을 허용
+ */
+export function parseKakaoDistanceM(rawDistance: unknown): number | null {
+  if (rawDistance === null || rawDistance === undefined) return null;
+  if (typeof rawDistance === 'number') {
+    if (!Number.isFinite(rawDistance) || rawDistance < 0) return null;
+    return rawDistance === 0 ? 0 : Math.round(rawDistance);
+  }
+  if (typeof rawDistance === 'string') {
+    const trimmed = rawDistance.trim();
+    if (trimmed === '') return null;
+    if (trimmed === '0') return 0;
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || Number.isNaN(num) || num <= 0) return null;
+    return Math.round(num);
+  }
+  return null;
+}
+
 export async function fetchLocationPoi(lat: number, lng: number): Promise<LocationPoiData | null> {
   if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)
       || lat < 33 || lat > 43 || lng < 124 || lng > 132) {
@@ -49,6 +120,15 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
   }
 
   const restKey = process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+  if (!restKey || restKey === "") {
+    return null;
+  }
+
+  const cacheKey = buildKakaoPoiCacheKey(lat, lng);
+  const cached = readLocationPoiCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
   if (restKey && restKey !== "") {
     try {
@@ -79,7 +159,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
       for (const s of stations) {
         const sLat = parseFloat(s.y);
         const sLng = parseFloat(s.x);
-        const distanceM = parseInt(s.distance, 10) || 500;
+        const distanceM = parseKakaoDistanceM(s.distance);
         if (!isNaN(sLat) && !isNaN(sLng)) {
           // "선유도역 9호선"처럼 이미 '역'을 포함한 이름에 '역'을 중복 부착하지 않음
           const rawName = String(s.place_name);
@@ -90,21 +170,23 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
             distanceM,
             category: 'subway',
           });
-          candidateSpots.push({
-            name: rawName,
-            lat: sLat,
-            lng: sLng,
-            distanceM,
-            category: 'subway',
-            categoryName: s.category_name ? String(s.category_name) : undefined,
-          });
+          if (distanceM !== null) {
+            candidateSpots.push({
+              name: rawName,
+              lat: sLat,
+              lng: sLng,
+              distanceM,
+              category: 'subway',
+              categoryName: s.category_name ? String(s.category_name) : undefined,
+            });
+          }
         }
       }
 
       if (stations.length > 0) {
         const topStation = stations[0];
-        const distanceM = parseInt(topStation.distance, 10) || 500;
-        const walkMinutes = Math.max(1, Math.round(distanceM / 80));
+        const distanceM = parseKakaoDistanceM(topStation.distance);
+        const walkMinutes = distanceM !== null ? Math.max(1, Math.round(distanceM / 80)) : null;
         nearestStation = {
           name: String(topStation.place_name),
           lat: parseFloat(topStation.y) || lat,
@@ -176,16 +258,18 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
             for (const doc of docs) {
               const dLat = parseFloat(doc.y);
               const dLng = parseFloat(doc.x);
-              const distanceM = parseInt(doc.distance, 10) || 500;
+              const distanceM = parseKakaoDistanceM(doc.distance);
               if (!isNaN(dLat) && !isNaN(dLng)) {
-                candidateSpots.push({
-                  name: String(doc.place_name),
-                  lat: dLat,
-                  lng: dLng,
-                  distanceM,
-                  category: lm.category,
-                  categoryName: doc.category_name ? String(doc.category_name) : undefined,
-                });
+                if (distanceM !== null) {
+                  candidateSpots.push({
+                    name: String(doc.place_name),
+                    lat: dLat,
+                    lng: dLng,
+                    distanceM,
+                    category: lm.category,
+                    categoryName: doc.category_name ? String(doc.category_name) : undefined,
+                  });
+                }
                 // 대학교만 필터 (초/중/고 제외)
                 if (lm.code === 'SC4') {
                   const name = String(doc.place_name);
@@ -227,8 +311,8 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
             for (const doc of docs) {
               const dLat = parseFloat(doc.y);
               const dLng = parseFloat(doc.x);
-              const distanceM = parseInt(doc.distance, 10) || 500;
-              if (!isNaN(dLat) && !isNaN(dLng) && distanceM <= 2500) {
+              const distanceM = parseKakaoDistanceM(doc.distance);
+              if (!isNaN(dLat) && !isNaN(dLng) && (distanceM === null || distanceM <= 2500)) {
                 keySpots.push({
                   name: String(doc.place_name),
                   lat: dLat,
@@ -236,14 +320,16 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
                   distanceM,
                   category: 'landmark' as const,
                 });
-                candidateSpots.push({
-                  name: String(doc.place_name),
-                  lat: dLat,
-                  lng: dLng,
-                  distanceM,
-                  category: 'landmark' as const,
-                  categoryName: doc.category_name ? String(doc.category_name) : undefined,
-                });
+                if (distanceM !== null) {
+                  candidateSpots.push({
+                    name: String(doc.place_name),
+                    lat: dLat,
+                    lng: dLng,
+                    distanceM,
+                    category: 'landmark' as const,
+                    categoryName: doc.category_name ? String(doc.category_name) : undefined,
+                  });
+                }
               }
             }
           } catch {
@@ -269,8 +355,8 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         for (const doc of docs) {
           const dLat = parseFloat(doc.y);
           const dLng = parseFloat(doc.x);
-          const distanceM = parseInt(doc.distance, 10);
-          if (isNaN(dLat) || isNaN(dLng) || !Number.isFinite(distanceM)) continue;
+          const distanceM = parseKakaoDistanceM(doc.distance);
+          if (isNaN(dLat) || isNaN(dLng) || distanceM === null) continue;
           candidateSpots.push({
             name: String(doc.place_name),
             lat: dLat,
@@ -319,7 +405,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
           if (!exists) acc.push(spot);
           return acc;
         }, [] as PoiSpot[])
-        .sort((a, b) => a.distanceM - b.distanceM)
+        .sort((a, b) => (a.distanceM ?? Number.POSITIVE_INFINITY) - (b.distanceM ?? Number.POSITIVE_INFINITY))
         .slice(0, 60);
 
       const uniqueSpots = keySpots.reduce((acc, spot) => {
@@ -331,11 +417,11 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
       // 카테고리 쿼터제: 지하철 max 2개 + 비지하철 min 3개 보장
       const subways = uniqueSpots.filter(s => s.category === 'subway').slice(0, 2);
       const others = uniqueSpots.filter(s => s.category !== 'subway')
-        .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
+        .sort((a, b) => (a.distanceM ?? Number.POSITIVE_INFINITY) - (b.distanceM ?? Number.POSITIVE_INFINITY))
         .slice(0, 4);
       const balancedSpots = [...subways, ...others].slice(0, 5);
 
-      return {
+      const poiResult: LocationPoiData = {
         nearestStation,
         poiCounts: {
           subway: counts.subway, busStop: counts.busStop, cafe: counts.cafe,
@@ -344,6 +430,17 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         keySpots: balancedSpots,
         candidateSpots: uniqueCandidates,
       };
+
+      const hasMeaningfulPoi =
+        nearestStation !== null ||
+        balancedSpots.length > 0 ||
+        uniqueCandidates.length > 0 ||
+        Object.values(counts).some((v) => v > 0);
+      if (hasMeaningfulPoi) {
+        writeLocationPoiCache(cacheKey, poiResult);
+      }
+
+      return poiResult;
     } catch (err) {
       log.warn({ err: err }, "[kakao-map-api] API failed, returning null to prevent hallucination:");
     }

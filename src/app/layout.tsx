@@ -19,9 +19,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "이 건물, 딜 될까? | JS Building SSoT",
+  title: {
+    default: "크리딜 (CREDEAL) | 상업용 부동산 중개사 AI 워크스페이스",
+    template: "%s | 크리딜 (CREDEAL)",
+  },
   description:
-    "주소나 매물 메모 하나로 건물 딜카드를 만들어보세요. AI 기반 CRE 딜 어시스턴트.",
+    "매물 딜카드, 10섹션 모바일/PPTX IM, 주간/월간 빌딩 뉴스레터, 고객 소통함까지 하나로 연결된 상업용 부동산 중개사 전용 워크스페이스.",
 };
 
 export const viewport: Viewport = {
@@ -29,6 +32,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
 };
+
+const FONT_SCALE_INIT_SCRIPT = `(function(){try{var k1='credeal-workspace-font-scale-v1',k2='cre-font-scale';var v=localStorage.getItem(k1)||localStorage.getItem(k2);if(v==='compact'||v==='normal'||v==='large'||v==='xlarge'){document.documentElement.dataset.fontScale=v;localStorage.setItem(k1,v);localStorage.setItem(k2,v);}}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -38,10 +43,12 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
+      data-font-scale="normal"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_INIT_SCRIPT }} />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link
           rel="stylesheet"

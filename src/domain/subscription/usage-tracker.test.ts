@@ -1,19 +1,35 @@
-import { describe, it, expect } from "vitest";
-import { getCurrentBillingMonth, getMonthlyUsage, incrementUsage } from "./usage-tracker";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  getCurrentBillingMonth,
+  getCurrentKstDailyKey,
+  resolveBillingPeriodKey,
+  getMonthlyUsage,
+  incrementUsage,
+} from "./usage-tracker";
 import { checkFeatureAccess } from "./tier-gate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Usage Tracker & Tier Gate", () => {
-  describe("getCurrentBillingMonth", () => {
-    it("should return monthly string in YYYY-MM format", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  describe("getCurrentBillingMonth & KST Daily Key", () => {
+    it("should return monthly string in YYYY-MM format using KST (Asia/Seoul)", () => {
       const billingMonth = getCurrentBillingMonth();
       expect(billingMonth).toMatch(/^\d{4}-\d{2}$/);
+
+      // 2026-11-30T15:30:00Z is 2026-12-01T00:30:00+09:00 in KST
+      const utcLateNight = new Date("2026-11-30T15:30:00.000Z");
+      expect(getCurrentBillingMonth(utcLateNight)).toBe("2026-12");
+      expect(getCurrentKstDailyKey(utcLateNight)).toBe("daily:2026-12-01");
+      expect(resolveBillingPeriodKey("ai_generation_daily", utcLateNight)).toBe("daily:2026-12-01");
+      expect(resolveBillingPeriodKey("deal_card_creation", utcLateNight)).toBe("2026-12");
     });
   });
 
   describe("getMonthlyUsage", () => {
     it("should return correct limit and access status when under limit", async () => {
-      // 당월 누적 카운터 조회 시 1회 사용으로 모의
       const mockQueryBuilder: any = {
         select: () => mockQueryBuilder,
         eq: () => mockQueryBuilder,
@@ -28,11 +44,10 @@ describe("Usage Tracker & Tier Gate", () => {
       
       expect(result.currentCount).toBe(1);
       expect(result.maxLimit).toBe(3);
-      expect(result.hasAccess).toBe(true); // 1 < 3 이므로 억세스 허용
+      expect(result.hasAccess).toBe(true);
     });
 
     it("should reject access when limit is reached", async () => {
-      // 3회 가득 채운 것으로 모의
       const mockQueryBuilder: any = {
         select: () => mockQueryBuilder,
         eq: () => mockQueryBuilder,
@@ -46,23 +61,58 @@ describe("Usage Tracker & Tier Gate", () => {
       const result = await getMonthlyUsage(mockSupabase, "user-123", "deal_card_creation", 3);
       
       expect(result.currentCount).toBe(3);
-      expect(result.hasAccess).toBe(false); // 3 == 3 이므로 추가 차단
+      expect(result.hasAccess).toBe(false);
+    });
+
+    it("supports daily AI usage tracking with daily:YYYY-MM-DD billing key", async () => {
+      const observedEqCalls: Array<[string, unknown]> = [];
+      const mockQueryBuilder: any = {
+        select: () => mockQueryBuilder,
+        eq: (col: string, val: unknown) => {
+          observedEqCalls.push([col, val]);
+          return mockQueryBuilder;
+        },
+        maybeSingle: () =>
+          Promise.resolve({ data: { current_count: 12, max_limit: 100 }, error: null }),
+      };
+
+      let rpcArgs: Record<string, unknown> | null = null;
+      const mockSupabase = {
+        from: () => mockQueryBuilder,
+        rpc: (_fn: string, args: Record<string, unknown>) => {
+          rpcArgs = args;
+          return Promise.resolve({ error: null });
+        },
+      } as unknown as SupabaseClient;
+
+      const dailyUsage = await getMonthlyUsage(
+        mockSupabase,
+        "user-123",
+        "ai_generation_daily",
+        100
+      );
+      expect(dailyUsage.currentCount).toBe(12);
+      expect(dailyUsage.maxLimit).toBe(100);
+      expect(dailyUsage.hasAccess).toBe(true);
+      const billingFilter = observedEqCalls.find(([c]) => c === "billing_month");
+      expect(String(billingFilter?.[1] ?? "")).toMatch(/^daily:\d{4}-\d{2}-\d{2}$/);
+
+      const incremented = await incrementUsage(mockSupabase, "user-123", "ai_generation_daily");
+      expect(incremented).toBe(true);
+      expect(String(rpcArgs?.["p_billing_month"] ?? "")).toMatch(/^daily:\d{4}-\d{2}-\d{2}$/);
     });
   });
 
   describe("checkFeatureAccess", () => {
-    it("should integrate with tier limitations and dynamic ROI values", async () => {
-      // 1. 유저 티어 조회 (free)
-      // 2. 당월 누적 사용량 조회 (2건)
-      // 3. 당월 누적 절약 금액(ROI) 조회 (2 * 1.5시간 = 3.0시간 -> ₩105,000)
+    it("should integrate with Early-Access tier limitations and dynamic ROI values (zero fake 175k)", async () => {
       const mockQueryData = [
-        { tier: "free" },                                  // 1회차: user_subscriptions tier 조회
-        { current_count: 2, max_limit: 3 },                // 2회차: usage_counters 조회
-        { data: null, error: null },                       // 3회차 (ROI): broker_profiles 조회
-        { count: 2, data: [], error: null },               // 4회차 (ROI): deal_card_creation 횟수 조회
-        { count: 0, data: [], error: null },               // 5회차 (ROI): buyer_intent_created 조회
-        { count: 0, data: [], error: null },               // 6회차 (ROI): match_results 조회
-        { count: 0, data: [], error: null },               // 7회차 (ROI): im_lite_generated 조회
+        { tier: "free", status: "active", current_period_end: null }, // 1회차: user_subscriptions 조회
+        { current_count: 2, max_limit: 50 },                          // 2회차: usage_counters 조회
+        { data: null, error: null },                                  // 3회차 (ROI): broker_profiles 조회
+        { count: 2, data: [], error: null },                          // 4회차 (ROI): deal_card_creation 횟수 조회
+        { count: 0, data: [], error: null },                          // 5회차 (ROI): buyer_intent_created 조회
+        { count: 0, data: [], error: null },                          // 6회차 (ROI): match_results 조회
+        { count: 0, data: [], error: null },                          // 7회차 (ROI): im_lite_generated 조회
       ];
       
       let queryIdx = 0;
@@ -71,7 +121,6 @@ describe("Usage Tracker & Tier Gate", () => {
         eq: () => mockQueryBuilder,
         gte: () => mockQueryBuilder,
         maybeSingle: () => Promise.resolve({ data: mockQueryData[queryIdx++], error: null }),
-        // Promise.resolve 형태의 chain 지원
         then: (resolve: any) => {
           const val = mockQueryData[queryIdx++];
           resolve(val);
@@ -86,11 +135,34 @@ describe("Usage Tracker & Tier Gate", () => {
 
       expect(result.tier).toBe("free");
       expect(result.currentCount).toBe(2);
-      expect(result.maxLimit).toBe(3);
-      expect(result.hasAccess).toBe(true); // 2 < 3 이므로 허용
-      
-      // 2건의 딜카드 생성 * 1.5시간 * ₩35,000 = ₩105,000 절약 가치 연동 성공!
+      expect(result.maxLimit).toBe(50);
+      expect(result.hasAccess).toBe(true);
       expect(result.estimatedSavingsMoney).toBe(105000);
+    });
+
+    it("returns 0 estimatedSavingsMoney instead of fabricated 175000 when broker has 0 saved activity", async () => {
+      const mockQueryData = [
+        { tier: "free", status: "active", current_period_end: null },
+        { current_count: 0, max_limit: 50 },
+        { data: null, error: null },
+        { count: 0, data: [], error: null },
+        { count: 0, data: [], error: null },
+        { count: 0, data: [], error: null },
+        { count: 0, data: [], error: null },
+      ];
+
+      let queryIdx = 0;
+      const mockQueryBuilder: any = {
+        select: () => mockQueryBuilder,
+        eq: () => mockQueryBuilder,
+        gte: () => mockQueryBuilder,
+        maybeSingle: () => Promise.resolve({ data: mockQueryData[queryIdx++], error: null }),
+        then: (resolve: any) => resolve(mockQueryData[queryIdx++]),
+      };
+
+      const mockSupabase = { from: () => mockQueryBuilder } as unknown as SupabaseClient;
+      const result = await checkFeatureAccess(mockSupabase, "user-zero", "deal_card_creation");
+      expect(result.estimatedSavingsMoney).toBe(0);
     });
   });
 });

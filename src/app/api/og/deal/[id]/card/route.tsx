@@ -14,33 +14,12 @@ import {
   resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+import { loadOgFonts } from "@/lib/magazine/og-fonts";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
-
-export const runtime = "nodejs";
-
-let fontBuffer: ArrayBuffer | null = null;
-
-async function getFontData(): Promise<ArrayBuffer | null> {
-  if (fontBuffer) return fontBuffer;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(
-      "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Bold.otf",
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      fontBuffer = await res.arrayBuffer();
-    }
-  } catch (e) {
-    log.warn("[OG/card] Font fetch failed, falling back to system fonts", e);
-  }
-  return fontBuffer;
-}
+export const runtime = 'nodejs';
 
 export async function GET(
   request: Request,
@@ -183,8 +162,25 @@ export async function GET(
     log.warn("QR generation failed, will show URL text instead", err);
   }
 
-  const fontData = await getFontData();
-  const fontsList: any[] = fontData ? [{ name: "Pretendard", data: fontData, style: "normal", weight: 700 }] : [];
+  const fontData = await loadOgFonts();
+  const fonts = fontData.fonts.map((f) => ({
+    name: f.name,
+    data: f.data,
+    weight: f.weight,
+    style: f.style,
+  }));
+  const safeText = (text: string, fallback: string) => {
+    if (!fontData.glyphs) return text || fallback;
+    let out = "";
+    for (const ch of text) {
+      if (/\s/.test(ch) || fontData.glyphs.has(ch.codePointAt(0)!)) out += ch;
+    }
+    return out.replace(/\s+/g, " ").trim() || fallback;
+  };
+
+  const safePostureLabel = safeText(postureLabel, "Income");
+  const safeRegionSubtitle = safeText(`${regionDisplay} · 블라인드 부동산 티저`, "Seoul CRE Teaser");
+  const safeHookCopy = safeText(hookCopy, "CRE Deal");
 
   // Theme Gradients based on Investment Posture
   let bgGradient = "linear-gradient(180deg, #182232 0%, #0F1622 50%, #0B0F14 100%)";
@@ -201,6 +197,8 @@ export async function GET(
     accentColor = "#F59E0B";
   }
 
+  const cacheControl = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400";
+
   const jsx = (
       <div
         style={{
@@ -211,7 +209,7 @@ export async function GET(
           justifyContent: "space-between",
           background: bgGradient,
           color: "#E7ECF2",
-          fontFamily: "'Pretendard', sans-serif",
+          fontFamily: '"Noto Sans KR", sans-serif',
           padding: "72px 64px",
           boxSizing: "border-box",
           position: "relative",
@@ -245,6 +243,7 @@ export async function GET(
             <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
               <span
                 style={{
+                  display: "flex",
                   fontSize: "36px",
                   fontWeight: 900,
                   letterSpacing: "2px",
@@ -255,6 +254,7 @@ export async function GET(
               </span>
               <span
                 style={{
+                  display: "flex",
                   fontSize: "20px",
                   fontWeight: 700,
                   background: accentColor,
@@ -263,11 +263,11 @@ export async function GET(
                   borderRadius: "8px",
                 }}
               >
-                {postureLabel}
+                {safePostureLabel}
               </span>
             </div>
-            <span style={{ fontSize: "22px", color: "#9AA7B5", fontWeight: 500 }}>
-              📍 {regionDisplay} · 블라인드 부동산 티저
+            <span style={{ display: "flex", fontSize: "22px", color: "#9AA7B5", fontWeight: 500 }}>
+              {safeRegionSubtitle}
             </span>
           </div>
 
@@ -275,12 +275,12 @@ export async function GET(
           {qrDataUrl ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#FFFFFF", padding: "16px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
               <img src={qrDataUrl} width={150} height={150} alt="QR Code" />
-              <span style={{ fontSize: "14px", fontWeight: 700, color: "#0B0F14", marginTop: "8px" }}>스캔 시 NDA/상세 열람</span>
+              <span style={{ display: "flex", fontSize: "14px", fontWeight: 700, color: "#0B0F14", marginTop: "8px" }}>스캔 시 NDA/상세 열람</span>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.1)", padding: "16px 24px", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.2)" }}>
-              <span style={{ fontSize: "18px", fontWeight: 700, color: "#FFFFFF" }}>credeal.net</span>
-              <span style={{ fontSize: "14px", color: "#9AA7B5", marginTop: "4px" }}>에서 상세 요청</span>
+              <span style={{ display: "flex", fontSize: "18px", fontWeight: 700, color: "#FFFFFF" }}>credeal.net</span>
+              <span style={{ display: "flex", fontSize: "14px", color: "#9AA7B5", marginTop: "4px" }}>에서 상세 요청</span>
             </div>
           )}
         </div>
@@ -291,6 +291,7 @@ export async function GET(
             <div style={{ display: "flex" }}>
               <span
                 style={{
+                  display: "flex",
                   fontSize: "20px",
                   fontWeight: 800,
                   color: "#EF4444",
@@ -300,13 +301,14 @@ export async function GET(
                   borderRadius: "30px",
                 }}
               >
-                🔥 급매물 (빠른 의사결정 필요)
+                급매물 (빠른 의사결정 필요)
               </span>
             </div>
           )}
 
           <h1
             style={{
+              display: "flex",
               fontSize: "64px",
               fontWeight: 900,
               lineHeight: 1.3,
@@ -315,10 +317,10 @@ export async function GET(
               letterSpacing: "-1px",
             }}
           >
-            {hookCopy}
+            {safeHookCopy}
           </h1>
 
-          <p style={{ fontSize: "28px", color: "#9AA7B5", lineHeight: 1.5, margin: 0 }}>
+          <p style={{ display: "flex", fontSize: "28px", color: "#9AA7B5", lineHeight: 1.5, margin: 0 }}>
             매도자 요청으로 지번 및 소유자는 보호됩니다. 비밀유지약정(NDA) 체결 후 상세 자료가 공개됩니다.
           </p>
         </div>
@@ -347,8 +349,9 @@ export async function GET(
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-                <span style={{ fontSize: "28px" }}>{tile.emoji}</span>
-                <span style={{ fontSize: "26px", color: "#9AA7B5", fontWeight: 600 }}>{tile.label}</span>
+                <span style={{ display: "flex", fontSize: "26px", color: "#9AA7B5", fontWeight: 600 }}>
+                  {safeText(String(tile.label || ""), "지표")}
+                </span>
               </div>
 
               <div
@@ -359,7 +362,7 @@ export async function GET(
                   color: i === 0 ? "#5EEAD4" : "#FFFFFF",
                 }}
               >
-                {tile.value}
+                {safeText(String(tile.value || ""), "-")}
               </div>
             </div>
           ))}
@@ -379,14 +382,14 @@ export async function GET(
           }}
         >
           <div style={{ display: "flex", fontSize: "24px", fontWeight: 800, color: accentColor }}>
-            💎 투자 핵심 포인트 (Deal Points)
+            투자 핵심 포인트 (Deal Points)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {dealPoints.slice(0, 2).map((point: string, i: number) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
-                <span style={{ fontSize: "30px", color: accentColor }}>•</span>
-                <span style={{ fontSize: "30px", fontWeight: 600, color: "#E7ECF2", lineHeight: 1.4 }}>
-                  {point}
+                <span style={{ display: "flex", fontSize: "30px", color: accentColor }}>·</span>
+                <span style={{ display: "flex", fontSize: "30px", fontWeight: 600, color: "#E7ECF2", lineHeight: 1.4 }}>
+                  {safeText(point, "-")}
                 </span>
               </div>
             ))}
@@ -407,12 +410,20 @@ export async function GET(
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <span style={{ fontSize: "32px" }}>🛡️</span>
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                background: accentColor,
+                display: "flex",
+              }}
+            />
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "26px", fontWeight: 800, color: "#FFFFFF" }}>
+              <span style={{ display: "flex", fontSize: "26px", fontWeight: 800, color: "#FFFFFF" }}>
                 크리딜 검증 전담 공인중개사
               </span>
-              <span style={{ fontSize: "22px", color: "#9AA7B5" }}>
+              <span style={{ display: "flex", fontSize: "22px", color: "#9AA7B5" }}>
                 비밀유지약정(NDA) 체결 후 정밀 IM 수지분석서 제공
               </span>
             </div>
@@ -434,12 +445,19 @@ export async function GET(
       </div>
   );
 
-  const imageResponse = new ImageResponse(jsx, { width: 1080, height: 1920, fonts: fontsList });
+  const imageResponse = new ImageResponse(jsx, {
+    width: 1080,
+    height: 1920,
+    fonts: fonts.length > 0 ? fonts : undefined,
+    headers: {
+      "Cache-Control": cacheControl,
+    },
+  });
   return new Response(imageResponse.body, {
     headers: {
-      'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=86400',
-      'Content-Disposition': `attachment; filename="deal_card_${id}_teaser.png"`,
+      "Content-Type": "image/png",
+      "Cache-Control": cacheControl,
+      "Content-Disposition": `attachment; filename="deal_card_${id}_teaser.png"`,
     },
   });
 }

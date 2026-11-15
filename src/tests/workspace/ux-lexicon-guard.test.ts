@@ -35,24 +35,48 @@ const FILES: string[] = [
   'src/components/workspace/preview-sync/PreviewPregenerationCard.tsx',
   'src/components/workspace/preview-sync/PreviewEditableUnit.tsx',
   'src/components/workspace/QaFeedbackPinWidget.tsx',
+  'src/app/(public)/im-lite/[buildingId]/page.tsx',
+  'src/app/(public)/dc/[id]/not-found.tsx',
+  'src/app/(public)/dc/[id]/GateRequestForm.tsx',
+  'src/app/(public)/im-lite/[buildingId]/components/im-inquiry-bottom-sheet.tsx',
+  'src/components/magazine/DealInquirySheet.tsx',
+  'src/components/workspace/ConfirmDeleteModal.tsx',
+  'src/components/broker/deal-card/MemoImportModal.tsx',
+  'src/app/(broker)/broker/_components/BrokerHome4Doors.tsx',
 ];
 
-function magazineEditorComponents(): string[] {
-  const dir = path.join(ROOT, 'src/components/magazine-editor');
-  if (!fs.existsSync(dir)) return [];
-  const out: string[] = [];
-  const walk = (d: string) => {
-    for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
-      const p = path.join(d, ent.name);
-      if (ent.isDirectory()) {
-        if (ent.name === '__tests__') continue;
-        walk(p);
-      } else if (/\.tsx?$/.test(ent.name) && !/\.test\.tsx?$/.test(ent.name)) {
-        out.push(path.relative(ROOT, p));
-      }
+function walkTsSources(dir: string, out: string[]): void {
+  if (!fs.existsSync(dir)) return;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      if (ent.name === '__tests__') continue;
+      walkTsSources(p, out);
+    } else if (/\.tsx?$/.test(ent.name) && !/\.test\.tsx?$/.test(ent.name)) {
+      out.push(path.relative(ROOT, p).replace(/\\/g, '/'));
     }
-  };
-  walk(dir);
+  }
+}
+
+function magazineEditorComponents(): string[] {
+  const out: string[] = [];
+  walkTsSources(path.join(ROOT, 'src/components/magazine-editor'), out);
+  return out;
+}
+
+const WORKSPACE_MODULE_ROOTS: readonly string[] = [
+  'src/app/(broker)/broker/w/im',
+  'src/app/(broker)/broker/w/inbox',
+  'src/app/(broker)/broker/w/dealcards',
+  'src/app/(broker)/broker/magazine-editor',
+];
+
+function workspaceExtractedModules(): string[] {
+  const out: string[] = [];
+  for (const wsRoot of WORKSPACE_MODULE_ROOTS) {
+    walkTsSources(path.join(ROOT, wsRoot, '_components'), out);
+    walkTsSources(path.join(ROOT, wsRoot, '_hooks'), out);
+  }
   return out;
 }
 
@@ -66,9 +90,13 @@ export function stripNonUiCode(src: string): string {
 }
 
 describe('UX lexicon guard (사용자 대면 금지어)', () => {
-  const targets = [...FILES, ...magazineEditorComponents()].filter((f) =>
-    fs.existsSync(path.join(ROOT, f)),
-  );
+  const targets = Array.from(
+    new Set([
+      ...FILES,
+      ...magazineEditorComponents(),
+      ...workspaceExtractedModules(),
+    ]),
+  ).filter((f) => fs.existsSync(path.join(ROOT, f)));
 
   it('has target files to scan', () => {
     expect(targets.length).toBeGreaterThan(5);

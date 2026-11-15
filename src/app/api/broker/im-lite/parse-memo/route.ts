@@ -20,6 +20,11 @@ import {
   MEMO_PARSER_PROMPT_ID,
 } from "@/ai/prompts/broker-deal-card";
 import { getModel } from "@/ai/model-selector";
+import {
+  AI_SERVER_UNAVAILABLE_KO,
+  enforceBrokerAiQuota,
+  isLLMMockNotAllowedError,
+} from "@/lib/ai-quota-guard";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -105,6 +110,11 @@ export async function POST(req: NextRequest) {
       memoPrompt += `\n[Context] Investment Posture: ${body.investmentPosture}`;
     }
 
+    const quotaErr = await enforceBrokerAiQuota(req, guard.user?.id ?? "", "im_lite_parse_memo", {
+      perMinute: 30,
+    });
+    if (quotaErr) return quotaErr;
+
     const result = await callLLM({
       model,
       systemPrompt: MEMO_PARSER_SYSTEM,
@@ -174,6 +184,20 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    if (isLLMMockNotAllowedError(err)) {
+      log.warn("[parse-memo] Mock 응답 거부 (Zero-Mock Production):", err);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "LLM_UNAVAILABLE",
+            message: AI_SERVER_UNAVAILABLE_KO,
+          },
+        },
+        { status: 503 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
     log.error("[parse-memo] Error:", message);
 

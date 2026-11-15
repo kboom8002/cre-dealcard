@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { AccessibleTabs } from "@/components/ui/accessible-tabs";
+import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -131,6 +134,13 @@ export default function GoldenAdminPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'golden' | 'terminology' | 'analytics' | 'market'>('golden');
   const [stats, setStats] = useState<Stats | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    tone?: 'danger' | 'primary';
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
 
   // ── Tab 4: Market Defaults States ──
   const [marketForm, setMarketForm] = useState({
@@ -303,11 +313,18 @@ export default function GoldenAdminPage() {
     fetchStats();
   };
 
-  const handleDeleteGolden = async (id: string) => {
-    if (!confirm('이 골든셋을 비활성화하시겠습니까?')) return;
-    await fetch(`/api/admin/golden-sets/${id}`, { method: 'DELETE' });
-    fetchGoldenRows();
-    fetchStats();
+  const handleDeleteGolden = (id: string) => {
+    setConfirmDialog({
+      title: '골든셋 비활성화',
+      description: '이 골든셋을 비활성화하시겠습니까?',
+      confirmLabel: '비활성화',
+      tone: 'danger',
+      onConfirm: async () => {
+        await fetch(`/api/admin/golden-sets/${id}`, { method: 'DELETE' });
+        fetchGoldenRows();
+        fetchStats();
+      },
+    });
   };
 
   const handleExportFewShot = async () => {
@@ -360,11 +377,18 @@ export default function GoldenAdminPage() {
     fetchStats();
   };
 
-  const handleDeleteTerm = async (id: string) => {
-    if (!confirm('이 규칙을 비활성화하시겠습니까?')) return;
-    await fetch(`/api/admin/terminology/${id}`, { method: 'DELETE' });
-    fetchTerminologyRows();
-    fetchStats();
+  const handleDeleteTerm = (id: string) => {
+    setConfirmDialog({
+      title: '용어 규칙 비활성화',
+      description: '이 용어 규칙을 비활성화하시겠습니까?',
+      confirmLabel: '비활성화',
+      tone: 'danger',
+      onConfirm: async () => {
+        await fetch(`/api/admin/terminology/${id}`, { method: 'DELETE' });
+        fetchTerminologyRows();
+        fetchStats();
+      },
+    });
   };
 
   const handleOpenTermModal = (rule: TerminologyRule | null) => {
@@ -419,21 +443,28 @@ export default function GoldenAdminPage() {
     setTermSaving(false);
   };
 
-  const handleSeedTerminology = async () => {
-    if (!confirm('시스템 기본 용어 규칙 46개를 DB에 시딩하시겠습니까? (이미 있으면 중단됨)')) return;
-    try {
-      const res = await fetch('/api/admin/terminology/seed', { method: 'POST' });
-      const json = await res.json();
-      if (res.ok) {
-        toast.success(`시딩 성공! ${json.inserted_count}개 규칙이 등록되었습니다.`);
-        fetchTerminologyRows();
-        fetchStats();
-      } else {
-        toast.error(`시딩 실패: ${json.error}`);
-      }
-    } catch (err: any) {
-      toast.error(`오류 발생: ${err.message}`);
-    }
+  const handleSeedTerminology = () => {
+    setConfirmDialog({
+      title: '기본 용어 규칙 시드 로드',
+      description: '시스템 기본 용어 규칙 46개를 DB에 시딩하시겠습니까? (이미 있으면 중단됨)',
+      confirmLabel: '시드 로드',
+      tone: 'primary',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/terminology/seed', { method: 'POST' });
+          const json = await res.json();
+          if (res.ok) {
+            toast.success(`시딩 성공! ${json.inserted_count}개 규칙이 등록되었습니다.`);
+            fetchTerminologyRows();
+            fetchStats();
+          } else {
+            toast.error(`시딩 실패: ${json.error}`);
+          }
+        } catch (err: any) {
+          toast.error(`오류 발생: ${err.message}`);
+        }
+      },
+    });
   };
 
   return (
@@ -472,40 +503,18 @@ export default function GoldenAdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-neutral-800 gap-1 mb-6">
-        <button
-          onClick={() => setActiveTab('golden')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
-            activeTab === 'golden' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          🏆 Few-shot 퓨샷 관리
-        </button>
-        <button
-          onClick={() => setActiveTab('terminology')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
-            activeTab === 'terminology' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          📖 용어 사전 관리
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
-            activeTab === 'analytics' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          📊 효과 & 품질 Analytics
-        </button>
-        <button
-          onClick={() => setActiveTab('market')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
-            activeTab === 'market' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          💹 시장 기본값 관리
-        </button>
-      </div>
+      <AccessibleTabs
+        ariaLabel="지식 엔진 관리 탭"
+        value={activeTab}
+        onValueChange={setActiveTab}
+        tabs={[
+          { id: 'golden', label: '🏆 Few-shot 퓨샷 관리' },
+          { id: 'terminology', label: '📖 용어 사전 관리' },
+          { id: 'analytics', label: '📊 효과 & 품질 Analytics' },
+          { id: 'market', label: '💹 시장 기본값 관리' },
+        ]}
+        className="border-b border-neutral-800 pb-2 mb-6"
+      />
 
       {/* ─── TAB 1: GOLDEN SETS ─── */}
       {activeTab === 'golden' && (
@@ -1076,190 +1085,198 @@ export default function GoldenAdminPage() {
       )}
 
       {/* ── Create Golden Modal ── */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
-          <div
-            className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold mb-4">골든셋 수동 추가</h2>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">섹션 타입</label>
-                <select
-                  value={createForm.section_type}
-                  onChange={e => setCreateForm(f => ({ ...f, section_type: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
-                >
-                  {Object.entries(SECTION_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">자산 유형</label>
-                  <Input
-                    value={createForm.asset_type}
-                    onChange={e => setCreateForm(f => ({ ...f, asset_type: e.target.value }))}
-                    placeholder="오피스, 꼬마빌딩..."
-                    className="bg-neutral-800 border-neutral-700"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">가격대</label>
-                  <Input
-                    value={createForm.price_band}
-                    onChange={e => setCreateForm(f => ({ ...f, price_band: e.target.value }))}
-                    placeholder="10~30억"
-                    className="bg-neutral-800 border-neutral-700"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">마크다운 본문 (최소 50자)</label>
-                <textarea
-                  value={createForm.markdown}
-                  onChange={e => setCreateForm(f => ({ ...f, markdown: e.target.value }))}
-                  placeholder="골든셋으로 사용할 마크다운 내용을 입력하세요..."
-                  rows={8}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y"
-                />
-                <span className="text-[10px] text-muted-foreground">{createForm.markdown.length}자</span>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">품질 점수: {createForm.judge_score}</label>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  step="0.1"
-                  value={createForm.judge_score}
-                  onChange={e => setCreateForm(f => ({ ...f, judge_score: parseFloat(e.target.value) }))}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">태그 (쉼표 구분)</label>
-                <Input
-                  value={createForm.tags}
-                  onChange={e => setCreateForm(f => ({ ...f, tags: e.target.value }))}
-                  placeholder="오피스, 강남, 50억이상"
-                  className="bg-neutral-800 border-neutral-700"
-                />
-              </div>
+      <Modal
+        open={showCreate}
+        onOpenChange={setShowCreate}
+        title="골든셋 수동 추가"
+        size="lg"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">섹션 타입</label>
+            <select
+              value={createForm.section_type}
+              onChange={e => setCreateForm(f => ({ ...f, section_type: e.target.value }))}
+              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+            >
+              {Object.entries(SECTION_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">자산 유형</label>
+              <Input
+                value={createForm.asset_type}
+                onChange={e => setCreateForm(f => ({ ...f, asset_type: e.target.value }))}
+                placeholder="오피스, 꼬마빌딩..."
+                className="bg-neutral-800 border-neutral-700"
+              />
             </div>
-
-            <div className="flex gap-2 mt-6">
-              <Button onClick={handleCreateGolden} disabled={creating} className="flex-1 bg-primary text-primary-foreground">
-                {creating ? '등록 중...' : '등록'}
-              </Button>
-              <Button onClick={() => setShowCreate(false)} variant="outline" className="flex-1">
-                취소
-              </Button>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">가격대</label>
+              <Input
+                value={createForm.price_band}
+                onChange={e => setCreateForm(f => ({ ...f, price_band: e.target.value }))}
+                placeholder="10~30억"
+                className="bg-neutral-800 border-neutral-700"
+              />
             </div>
           </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">마크다운 본문 (최소 50자)</label>
+            <textarea
+              value={createForm.markdown}
+              onChange={e => setCreateForm(f => ({ ...f, markdown: e.target.value }))}
+              placeholder="골든셋으로 사용할 마크다운 내용을 입력하세요..."
+              rows={8}
+              className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y"
+            />
+            <span className="text-[10px] text-muted-foreground">{createForm.markdown.length}자</span>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">품질 점수: {createForm.judge_score}</label>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="0.1"
+              value={createForm.judge_score}
+              onChange={e => setCreateForm(f => ({ ...f, judge_score: parseFloat(e.target.value) }))}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">태그 (쉼표 구분)</label>
+            <Input
+              value={createForm.tags}
+              onChange={e => setCreateForm(f => ({ ...f, tags: e.target.value }))}
+              placeholder="오피스, 강남, 50억이상"
+              className="bg-neutral-800 border-neutral-700"
+            />
+          </div>
         </div>
-      )}
+
+        <div className="flex gap-2 mt-6">
+          <Button onClick={handleCreateGolden} disabled={creating} className="flex-1 min-h-[44px] bg-primary text-primary-foreground">
+            {creating ? '등록 중...' : '등록'}
+          </Button>
+          <Button onClick={() => setShowCreate(false)} variant="outline" className="flex-1 min-h-[44px]">
+            취소
+          </Button>
+        </div>
+      </Modal>
 
       {/* ── Create / Edit Terminology Modal ── */}
-      {showTermModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setShowTermModal(false)}>
-          <div
-            className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold mb-4">{editingTerm ? '용어 규칙 수정' : '용어 규칙 추가'}</h2>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">카테고리</label>
-                <select
-                  value={termForm.category}
-                  onChange={e => setTermForm(f => ({ ...f, category: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
-                >
-                  {TERM_CATEGORIES.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                  <option value="general">기타</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">매칭 패턴 (Regex 또는 일반 텍스트)</label>
-                <Input
-                  value={termForm.pattern}
-                  onChange={e => setTermForm(f => ({ ...f, pattern: e.target.value }))}
-                  placeholder="예: 근저당\s*많 또는 급매"
-                  className="bg-neutral-800 border-neutral-700 font-mono text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">치환 단어 / 함수 (fn:형식 가능)</label>
-                <Input
-                  value={termForm.replacement}
-                  onChange={e => setTermForm(f => ({ ...f, replacement: e.target.value }))}
-                  placeholder="예: 선순위 채권 부담이 큰 또는 fn:pyeongToSqm"
-                  className="bg-neutral-800 border-neutral-700 font-mono text-sm"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">우선순위 (낮을수록 선실행)</label>
-                  <Input
-                    type="number"
-                    value={termForm.priority}
-                    onChange={e => setTermForm(f => ({ ...f, priority: parseInt(e.target.value) || 100 }))}
-                    className="bg-neutral-800 border-neutral-700"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">매칭 방식</label>
-                  <select
-                    value={String(termForm.is_regex)}
-                    onChange={e => setTermForm(f => ({ ...f, is_regex: e.target.value === 'true' }))}
-                    className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
-                  >
-                    <option value="true">Regex (정규표현식)</option>
-                    <option value="false">일반 텍스트 정확 매치</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">설명 / 메모</label>
-                <textarea
-                  value={termForm.note}
-                  onChange={e => setTermForm(f => ({ ...f, note: e.target.value }))}
-                  placeholder="규칙에 대한 설명이나 목적을 기록하세요..."
-                  rows={3}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y"
-                />
-              </div>
-              <div className="flex items-center gap-3 pt-2">
-                <label className="text-xs text-muted-foreground">활성 여부</label>
-                <button
-                  onClick={() => setTermForm(f => ({ ...f, is_active: !f.is_active }))}
-                  className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                    termForm.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-700 text-neutral-400'
-                  }`}
-                >
-                  {termForm.is_active ? '활성' : '비활성'}
-                </button>
-              </div>
+      <Modal
+        open={showTermModal}
+        onOpenChange={setShowTermModal}
+        title={editingTerm ? '용어 규칙 수정' : '용어 규칙 추가'}
+        size="lg"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">카테고리</label>
+            <select
+              value={termForm.category}
+              onChange={e => setTermForm(f => ({ ...f, category: e.target.value }))}
+              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+            >
+              {TERM_CATEGORIES.map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+              <option value="general">기타</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">매칭 패턴 (Regex 또는 일반 텍스트)</label>
+            <Input
+              value={termForm.pattern}
+              onChange={e => setTermForm(f => ({ ...f, pattern: e.target.value }))}
+              placeholder="예: 근저당\s*많 또는 급매"
+              className="bg-neutral-800 border-neutral-700 font-mono text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">치환 단어 / 함수 (fn:형식 가능)</label>
+            <Input
+              value={termForm.replacement}
+              onChange={e => setTermForm(f => ({ ...f, replacement: e.target.value }))}
+              placeholder="예: 선순위 채권 부담이 큰 또는 fn:pyeongToSqm"
+              className="bg-neutral-800 border-neutral-700 font-mono text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">우선순위 (낮을수록 선실행)</label>
+              <Input
+                type="number"
+                value={termForm.priority}
+                onChange={e => setTermForm(f => ({ ...f, priority: parseInt(e.target.value) || 100 }))}
+                className="bg-neutral-800 border-neutral-700"
+              />
             </div>
-
-            <div className="flex gap-2 mt-6">
-              <Button onClick={handleSaveTerm} disabled={termSaving} className="flex-1 bg-primary text-primary-foreground">
-                {termSaving ? '저장 중...' : '저장'}
-              </Button>
-              <Button onClick={() => setShowTermModal(false)} variant="outline" className="flex-1">
-                취소
-              </Button>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">매칭 방식</label>
+              <select
+                value={String(termForm.is_regex)}
+                onChange={e => setTermForm(f => ({ ...f, is_regex: e.target.value === 'true' }))}
+                className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+              >
+                <option value="true">Regex (정규표현식)</option>
+                <option value="false">일반 텍스트 정확 매치</option>
+              </select>
             </div>
           </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">설명 / 메모</label>
+            <textarea
+              value={termForm.note}
+              onChange={e => setTermForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="규칙에 대한 설명이나 목적을 기록하세요..."
+              rows={3}
+              className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y"
+            />
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <label className="text-xs text-muted-foreground">활성 여부</label>
+            <button
+              type="button"
+              onClick={() => setTermForm(f => ({ ...f, is_active: !f.is_active }))}
+              className={`min-h-[44px] text-xs px-3 py-1 rounded-full transition-colors ${
+                termForm.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-700 text-neutral-400'
+              }`}
+            >
+              {termForm.is_active ? '활성' : '비활성'}
+            </button>
+          </div>
         </div>
-      )}
+
+        <div className="flex gap-2 mt-6">
+          <Button onClick={handleSaveTerm} disabled={termSaving} className="flex-1 min-h-[44px] bg-primary text-primary-foreground">
+            {termSaving ? '저장 중...' : '저장'}
+          </Button>
+          <Button onClick={() => setShowTermModal(false)} variant="outline" className="flex-1 min-h-[44px]">
+            취소
+          </Button>
+        </div>
+      </Modal>
+
+      <ConfirmDeleteModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        description={confirmDialog?.description}
+        confirmLabel={confirmDialog?.confirmLabel ?? '확인'}
+        cancelLabel="취소"
+        tone={confirmDialog?.tone ?? 'danger'}
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          if (action) void action();
+        }}
+      />
     </div>
   );
 }

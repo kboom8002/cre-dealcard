@@ -13,32 +13,12 @@ import {
   resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+import { loadOgFonts } from "@/lib/magazine/og-fonts";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("og-kakao");
 
-export const runtime = "nodejs";
-
-let fontBuffer: ArrayBuffer | null = null;
-
-async function getFontData(): Promise<ArrayBuffer | null> {
-  if (fontBuffer) return fontBuffer;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // reduced timeout for crawler
-    const res = await fetch(
-      "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Bold.otf",
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      fontBuffer = await res.arrayBuffer();
-    }
-  } catch (e) {
-    log.warn("[OG/kakao] Font fetch failed, falling back to system fonts", e);
-  }
-  return fontBuffer;
-}
+export const runtime = 'nodejs';
 
 export async function GET(
   request: Request,
@@ -236,10 +216,30 @@ export async function GET(
 
   const isVerified = safeBuilding.verification_status === "VERIFIED" || safeBuilding.is_verified === true;
 
-  const fontData = await getFontData();
-  const fontsList: any[] = fontData
-    ? [{ name: "Pretendard", data: fontData, style: "normal", weight: 700 }]
-    : [];
+  const fontData = await loadOgFonts();
+  const fonts = fontData.fonts.map((f) => ({
+    name: f.name,
+    data: f.data,
+    weight: f.weight,
+    style: f.style,
+  }));
+  const safeText = (text: string, fallback: string) => {
+    if (!fontData.glyphs) return text || fallback;
+    let out = "";
+    for (const ch of text) {
+      if (/\s/.test(ch) || fontData.glyphs.has(ch.codePointAt(0)!)) out += ch;
+    }
+    return out.replace(/\s+/g, " ").trim() || fallback;
+  };
+
+  const safePostureLabel = safeText(postureLabel, "Income");
+  const safeRegionAsset = safeText(`${regionDisplay} · ${assetTypeDisplay}`, "Seoul CRE");
+  const safeBrokerName = safeText(brokerName, "CRE Broker");
+  const safeBrokerCompany = safeText(`(${brokerCompany})`, "(CREDEAL)");
+  const truncatedHook = hookCopy.length > 32 ? hookCopy.slice(0, 32) + "..." : hookCopy;
+  const safeHookCopy = safeText(truncatedHook, "CRE Deal");
+  const safePriceDisplay = safeText(priceDisplay, "Price TBD");
+  const safeCtaText = safeText("모바일 딜카드 열람 탭", "View DealCard");
 
   return new ImageResponse(
     (
@@ -252,7 +252,7 @@ export async function GET(
           justifyContent: "space-between",
           background: "linear-gradient(135deg, #0d131f 0%, #080b12 60%, #05070a 100%)",
           color: "#FFFFFF",
-          fontFamily: "'Pretendard', sans-serif",
+          fontFamily: '"Noto Sans KR", sans-serif',
           padding: "48px 56px",
           boxSizing: "border-box",
           position: "relative",
@@ -268,6 +268,7 @@ export async function GET(
             height: "500px",
             background: "radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, transparent 70%)",
             borderRadius: "50%",
+            display: "flex",
           }}
         />
 
@@ -284,6 +285,7 @@ export async function GET(
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span
               style={{
+                display: "flex",
                 fontSize: "16px",
                 fontWeight: 800,
                 color: "#10b981",
@@ -293,10 +295,11 @@ export async function GET(
                 borderRadius: "8px",
               }}
             >
-              {postureLabel}
+              {safePostureLabel}
             </span>
             <span
               style={{
+                display: "flex",
                 fontSize: "16px",
                 color: "#94a3b8",
                 background: "rgba(255, 255, 255, 0.05)",
@@ -304,16 +307,16 @@ export async function GET(
                 borderRadius: "8px",
               }}
             >
-              {regionDisplay} · {assetTypeDisplay}
+              {safeRegionAsset}
             </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "16px", fontWeight: 700, color: "#cbd5e1" }}>
-              {brokerName}
+            <span style={{ display: "flex", fontSize: "16px", fontWeight: 700, color: "#cbd5e1" }}>
+              {safeBrokerName}
             </span>
-            <span style={{ fontSize: "14px", color: "#64748b" }}>
-              ({brokerCompany})
+            <span style={{ display: "flex", fontSize: "14px", color: "#64748b" }}>
+              {safeBrokerCompany}
             </span>
           </div>
         </div>
@@ -324,6 +327,7 @@ export async function GET(
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <span
               style={{
+                display: "flex",
                 fontSize: "36px",
                 fontWeight: 900,
                 color: "#FFFFFF",
@@ -331,20 +335,21 @@ export async function GET(
                 marginBottom: "12px",
               }}
             >
-              {hookCopy.length > 32 ? hookCopy.slice(0, 32) + "..." : hookCopy}
+              {safeHookCopy}
             </span>
 
             <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
-              <span style={{ fontSize: "20px", color: "#94a3b8" }}>희망 매각가</span>
+              <span style={{ display: "flex", fontSize: "20px", color: "#94a3b8" }}>희망 매각가</span>
               <span
                 style={{
+                  display: "flex",
                   fontSize: "52px",
                   fontWeight: 900,
                   color: "#34d399",
                   letterSpacing: "-0.5px",
                 }}
               >
-                {priceDisplay}
+                {safePriceDisplay}
               </span>
             </div>
           </div>
@@ -366,10 +371,11 @@ export async function GET(
                   minWidth: "120px",
                 }}
               >
-                <span style={{ fontSize: "24px", marginBottom: "6px" }}>{tile.emoji}</span>
-                <span style={{ fontSize: "14px", color: "#94a3b8" }}>{tile.label}</span>
-                <span style={{ fontSize: "18px", fontWeight: 800, color: "#f1f5f9", marginTop: "4px" }}>
-                  {tile.value}
+                <span style={{ display: "flex", fontSize: "14px", color: "#94a3b8" }}>
+                  {safeText(String(tile.label || ""), "지표")}
+                </span>
+                <span style={{ display: "flex", fontSize: "18px", fontWeight: 800, color: "#f1f5f9", marginTop: "6px" }}>
+                  {safeText(String(tile.value || ""), "-")}
                 </span>
               </div>
             ))}
@@ -389,19 +395,35 @@ export async function GET(
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {isVerified ? (
               <>
-                <span style={{ fontSize: "16px" }}>🛡️</span>
-                <span style={{ fontSize: "15px", color: "#6ee7b7", fontWeight: 700 }}>
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: "#6ee7b7",
+                    display: "flex",
+                  }}
+                />
+                <span style={{ display: "flex", fontSize: "15px", color: "#6ee7b7", fontWeight: 700 }}>
                   Data Verified by CREDEAL
                 </span>
-                <span style={{ fontSize: "14px", color: "#475569" }}>|</span>
-                <span style={{ fontSize: "14px", color: "#64748b" }}>
+                <span style={{ display: "flex", fontSize: "14px", color: "#475569" }}>|</span>
+                <span style={{ display: "flex", fontSize: "14px", color: "#64748b" }}>
                   공적장부 교차검증 완료 · 매도자 정보 보안 처리
                 </span>
               </>
             ) : (
               <>
-                <span style={{ fontSize: "16px" }}>🔒</span>
-                <span style={{ fontSize: "14px", color: "#64748b" }}>
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: "#64748b",
+                    display: "flex",
+                  }}
+                />
+                <span style={{ display: "flex", fontSize: "14px", color: "#64748b" }}>
                   매도자 정보 보안 처리
                 </span>
               </>
@@ -410,6 +432,7 @@ export async function GET(
 
           <span
             style={{
+              display: "flex",
               fontSize: "15px",
               fontWeight: 800,
               color: "#38bdf8",
@@ -418,7 +441,7 @@ export async function GET(
               borderRadius: "10px",
             }}
           >
-            모바일 딜카드 열람 탭 →
+            {safeCtaText}
           </span>
         </div>
       </div>
@@ -426,7 +449,7 @@ export async function GET(
     {
       width: 1200,
       height: 630,
-      fonts: fontsList,
+      fonts: fonts.length > 0 ? fonts : undefined,
       headers: {
         "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
       },

@@ -1,9 +1,42 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 import { Sun, Moon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
+
+export function isFixedLightPaperRoute(
+  pathname: string | null | undefined
+): boolean {
+  if (!pathname) return false;
+  return (
+    pathname === "/dc" ||
+    pathname.startsWith("/dc/") ||
+    pathname === "/im-lite" ||
+    pathname.startsWith("/im-lite/") ||
+    pathname === "/terms" ||
+    pathname.startsWith("/terms/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/")
+  );
+}
+
+export function PublicContentShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const hideBottomGap =
+    isFixedLightPaperRoute(pathname) ||
+    Boolean(pathname?.startsWith("/d/") || pathname?.startsWith("/deal/"));
+  return (
+    <div className={hideBottomGap ? undefined : "pb-16 md:pb-0"}>
+      {children}
+    </div>
+  );
+}
 
 interface ThemeToggleProps {
   className?: string;
@@ -11,6 +44,7 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className, size = "md" }: ThemeToggleProps) {
+  const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
   // Prevent hydration mismatch (서버/첫 하이드레이션은 false, 클라이언트 이후 true)
   const mounted = useSyncExternalStore(
@@ -18,6 +52,10 @@ export function ThemeToggle({ className, size = "md" }: ThemeToggleProps) {
     () => true,
     () => false,
   );
+
+  if (isFixedLightPaperRoute(pathname)) {
+    return null;
+  }
 
   if (!mounted) {
     return (

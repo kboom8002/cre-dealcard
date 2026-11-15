@@ -21,6 +21,101 @@ vi.mock('@/domain/team/circle-matching-service', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/authz/assert-owner', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/authz/assert-owner')>();
+  return {
+    ...actual,
+    assertBuildingOwner: vi.fn().mockImplementation(async (_supabase: unknown, _bId: string, userId: string) => ({
+      ok: true,
+      ownerId: userId,
+    })),
+  };
+});
+
+vi.mock('@/lib/supabase/service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/supabase/service')>();
+  return {
+    ...actual,
+    createServiceClient: () => {
+      const realClient = actual.createServiceClient();
+      return new Proxy(realClient as any, {
+        get(target, prop, receiver) {
+          if (prop === 'from') {
+            return (table: string) => {
+              const realQuery = target.from(table);
+              if (table === 'buyer_intent_lite') {
+                return new Proxy(realQuery, {
+                  get(qTarget, qProp, qReceiver) {
+                    if (qProp === 'select') {
+                      return (...sArgs: unknown[]) => {
+                        const selected = qTarget.select(...sArgs);
+                        return new Proxy(selected, {
+                          get(sTarget, sProp, sReceiver) {
+                            if (sProp === 'eq') {
+                              return (col: string, val: string) => {
+                                if (col === 'id' && val === 'b1111111-1111-1111-1111-111111111111') {
+                                  return {
+                                    maybeSingle: async () => ({
+                                      data: {
+                                        id: val,
+                                        owner_id: '00000000-0000-0000-0000-000000000001',
+                                      },
+                                      error: null,
+                                    }),
+                                    single: async () => ({
+                                      data: {
+                                        id: val,
+                                        buyer_type: '개인투자자',
+                                        budget_display: '40~60억',
+                                        preferred_regions: ['강남구'],
+                                        asset_types: ['중소형빌딩'],
+                                        purchase_purpose: '투자',
+                                        must_have: [],
+                                        nice_to_have: [],
+                                        risk_tolerance: 'moderate',
+                                        financing_note: null,
+                                      },
+                                      error: null,
+                                    }),
+                                  };
+                                }
+                                return sTarget.eq(col, val);
+                              };
+                            }
+                            return Reflect.get(sTarget, sProp, sReceiver);
+                          },
+                        });
+                      };
+                    }
+                    return Reflect.get(qTarget, qProp, qReceiver);
+                  },
+                });
+              }
+              return realQuery;
+            };
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      });
+    },
+  };
+});
+
+vi.mock('@/domain/buyer/buyer-memo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/domain/buyer/buyer-memo')>();
+  return {
+    ...actual,
+    generateBuyerMemo: vi.fn().mockResolvedValue({
+      documentId: 'doc-memo-e2e-001',
+      fitReasons: ['강남구 역삼동 선호 권역 및 예산 조건 부합'],
+      cautionReasons: ['기존 임차인 만기 일정 사전 확인 권장'],
+      missingData: [],
+      recommendedNextAction: '현장 답사 일정 조율',
+      kakaoMessage: '안녕하세요 대표님, 강남구 역삼동 추천 빌딩 브리핑 전달드립니다.',
+    }),
+  };
+});
+
 // Genuine Next.js Route Handlers
 import { POST as matchPost } from '@/app/api/broker/match/route';
 import { POST as leaseMatchPost } from '@/app/api/broker/lease-match/route';

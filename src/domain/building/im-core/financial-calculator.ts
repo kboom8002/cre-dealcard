@@ -744,26 +744,45 @@ function calculateTradingPosture(inputs: FinancialInputs): FinancialOutputs {
     ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
   const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
-  const comparablePricePerPyeong = inputs.comparablePricePerPyeongKrw
-    ? Math.round(inputs.comparablePricePerPyeongKrw / 10000)
-    : (pricePerPyeong ? Math.round((pricePerPyeong / 10000) * 1.15) : null);
-
-  const marketDiscountPct = (pricePerPyeong && comparablePricePerPyeong && comparablePricePerPyeong > 0)
-    ? parseFloat((((comparablePricePerPyeong * 10000 - pricePerPyeong) / (comparablePricePerPyeong * 10000)) * 100).toFixed(1))
+  const hasExplicitComp =
+    typeof inputs.comparablePricePerPyeongKrw === 'number' &&
+    Number.isFinite(inputs.comparablePricePerPyeongKrw) &&
+    inputs.comparablePricePerPyeongKrw > 0;
+  const comparablePricePerPyeong = hasExplicitComp
+    ? Math.round(inputs.comparablePricePerPyeongKrw! / 10000)
     : null;
 
-  const targetExitPrice = inputs.targetExitPriceKrw ?? (purchasePrice > 0 ? purchasePrice * 1.2 : 0);
-  const targetCapitalGainKrw = targetExitPrice - purchasePrice;
-  const targetCapitalGainBil = targetCapitalGainKrw > 0 ? parseFloat((targetCapitalGainKrw / 1e8).toFixed(1)) : null;
+  const explicitMarketDiscount =
+    typeof inputs.marketDiscountPct === 'number' && Number.isFinite(inputs.marketDiscountPct)
+      ? parseFloat(inputs.marketDiscountPct.toFixed(1))
+      : null;
+
+  const marketDiscountPct = explicitMarketDiscount
+    ?? ((pricePerPyeong && comparablePricePerPyeong && comparablePricePerPyeong > 0)
+      ? parseFloat((((comparablePricePerPyeong * 10000 - pricePerPyeong) / (comparablePricePerPyeong * 10000)) * 100).toFixed(1))
+      : null);
+
+  const hasExplicitTargetExit =
+    typeof inputs.targetExitPriceKrw === 'number' &&
+    Number.isFinite(inputs.targetExitPriceKrw) &&
+    inputs.targetExitPriceKrw > 0;
+  const targetExitPrice = hasExplicitTargetExit ? inputs.targetExitPriceKrw! : null;
+  const targetCapitalGainKrw = targetExitPrice !== null && purchasePrice > 0 ? targetExitPrice - purchasePrice : 0;
+  const targetCapitalGainBil = (targetExitPrice !== null && targetCapitalGainKrw > 0)
+    ? parseFloat((targetCapitalGainKrw / 1e8).toFixed(1))
+    : null;
 
   const loanKrw = (inputs.loanAmountManwon ?? 0) * 10000;
   const equityKrw = purchasePrice - loanKrw;
-  const targetHprPct = (equityKrw > 0 && targetCapitalGainKrw > 0)
+  const targetHprPct = (targetExitPrice !== null && equityKrw > 0 && targetCapitalGainKrw > 0)
     ? parseFloat(((targetCapitalGainKrw / equityKrw) * 100).toFixed(1))
     : null;
 
   const loanAmountBil = loanKrw > 0 ? parseFloat((loanKrw / 1e8).toFixed(1)) : null;
   const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : null;
+
+  const hasGroundedTradingInputs = marketDiscountPct !== null || targetCapitalGainBil !== null;
+  const tradingMissingNote = '실거래 비교사례·목표 매각가 입력 시 산출';
 
   return {
     posture: 'trading',
@@ -773,7 +792,9 @@ function calculateTradingPosture(inputs: FinancialInputs): FinancialOutputs {
     pricePerSqm,
     pricePerPyeong,
     landValueRatio: null,
-    landValueRatioNote: "단기매매형 자산 — 비교사례 및 마켓 갭(할인율) 분석 적용",
+    landValueRatioNote: hasGroundedTradingInputs
+      ? "단기매매형 자산 — 비교사례 및 마켓 갭(할인율) 분석 적용"
+      : tradingMissingNote,
     yieldOnCost: null,
     totalDepositBil: null,
     loanAmountBil,
@@ -784,7 +805,9 @@ function calculateTradingPosture(inputs: FinancialInputs): FinancialOutputs {
     marketDiscountPct,
     targetHprPct,
     targetCapitalGainBil,
-    disclaimer: 'AI 매매 시세차익 추정값 (참고용). 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.',
+    disclaimer: hasGroundedTradingInputs
+      ? 'AI 매매 시세차익 추정값 (참고용). 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.'
+      : `${tradingMissingNote}. 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.`,
     grossYieldOnEquity: null,
     grossYieldStabilized: null,
     annualRentBil: null,

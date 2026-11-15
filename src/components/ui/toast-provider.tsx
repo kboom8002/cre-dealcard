@@ -16,7 +16,7 @@ export function ToastProvider() {
           border: '1px solid #2d3748',
           color: '#e7ecf2',
           fontFamily: 'Pretendard, sans-serif',
-          fontSize: '14px',
+          fontSize: '0.875rem',
         },
       }}
     />

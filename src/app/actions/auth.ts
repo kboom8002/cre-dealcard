@@ -1,9 +1,11 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod/v4';
+import { COMPANY_LEGAL_CONFIG } from '@/config/company-legal';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-
+import { PURGE_STORAGE_COOKIE_NAME } from '@/lib/workspace/storage-namespace';
 
 // ─── Validation Schemas ──────────────────────────────────────────────────────
 
@@ -27,6 +29,22 @@ export type AuthFormState =
   | { errors?: Record<string, string[]>; message?: string }
   | undefined;
 
+function resolveSafeRedirectTarget(raw: FormDataEntryValue | null | undefined, fallback = '/broker'): string {
+  if (typeof raw !== 'string') return fallback;
+  const trimmed = raw.trim();
+  if (
+    trimmed.length > 0 &&
+    trimmed.startsWith('/') &&
+    !trimmed.startsWith('//') &&
+    !trimmed.includes('\\') &&
+    trimmed !== '/login' &&
+    trimmed !== '/signup'
+  ) {
+    return trimmed;
+  }
+  return fallback;
+}
+
 // ─── Signup ─────────────────────────────────────────────────────────────────
 
 export async function signup(
@@ -40,12 +58,41 @@ export async function signup(
     role: formData.get('role') ?? 'broker',
   };
 
+  const agreeTerms = formData.get('agreeTerms') === 'on';
+  const agreePrivacy = formData.get('agreePrivacy') === 'on';
+  const agreeMarketing = formData.get('agreeMarketing') === 'on';
+
+  const consentErrors: Record<string, string[]> = {};
+  if (!agreeTerms) {
+    consentErrors.agreeTerms = ['만 14세 이상 확인 및 서비스 이용약관(필수)에 동의해주세요.'];
+  }
+  if (!agreePrivacy) {
+    consentErrors.agreePrivacy = ['개인정보 수집·이용(필수)에 동의해주세요.'];
+  }
+
   const parsed = SignupSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { errors: parsed.error.flatten().fieldErrors };
+  if (!parsed.success || !agreeTerms || !agreePrivacy) {
+    const fieldErrors: Record<string, string[]> = {
+      ...(parsed.success ? {} : parsed.error.flatten().fieldErrors),
+      ...consentErrors,
+    };
+    const consentMessage =
+      !agreeTerms && !agreePrivacy
+        ? '필수 이용약관 및 개인정보 수집·이용에 모두 동의해주세요.'
+        : !agreeTerms
+          ? '만 14세 이상 확인 및 서비스 이용약관(필수)에 동의해주세요.'
+          : !agreePrivacy
+            ? '개인정보 수집·이용(필수)에 동의해주세요.'
+            : undefined;
+
+    return {
+      errors: fieldErrors,
+      ...(consentMessage ? { message: consentMessage } : {}),
+    };
   }
 
   const { displayName, email, password, role } = parsed.data;
+  const nowIso = new Date().toISOString();
 
   const supabase = await createServerSupabaseClient();
   const { data: signUpData, error } = await supabase.auth.signUp({
@@ -57,6 +104,10 @@ export async function signup(
         name: displayName,
         full_name: displayName,
         requested_role: role,
+        terms_agreed_at: nowIso,
+        privacy_agreed_at: nowIso,
+        marketing_opt_in: agreeMarketing,
+        consent_version: COMPANY_LEGAL_CONFIG.consentVersion,
       },
     },
   });
@@ -74,7 +125,7 @@ export async function signup(
     try {
       const { createServiceClient } = await import('@/lib/supabase/service');
       const serviceClient = createServiceClient();
-      
+
       const { error: pErr } = await serviceClient
         .from('profiles')
         .upsert({
@@ -86,16 +137,20 @@ export async function signup(
 
       const { error: bpErr } = await serviceClient
         .from('broker_profiles')
-        .upsert({
-          user_id: newUserId,
-        }, { onConflict: 'user_id' });
+        .upsert(
+          {
+            user_id: newUserId,
+          },
+          { onConflict: 'user_id' },
+        );
       if (bpErr) console.error('[Signup] broker_profiles upsert failed:', bpErr);
     } catch (upsertErr) {
       console.warn('[Signup] Profile upsert warning:', upsertErr);
     }
   }
 
-  redirect('/broker');
+  const safeTarget = resolveSafeRedirectTarget(formData.get('redirectTo'), '/broker');
+  redirect(safeTarget);
 }
 
 // ─── Login ───────────────────────────────────────────────────────────────────
@@ -123,7 +178,11 @@ export async function login(
     return { message: '이메일 또는 비밀번호가 올바르지 않습니다.' };
   }
 
-  redirect('/broker');
+  const safeTarget = resolveSafeRedirectTarget(
+    formData.get('redirectTo') ?? formData.get('next'),
+    '/broker',
+  );
+  redirect(safeTarget);
 }
 
 // ─── Logout ──────────────────────────────────────────────────────────────────
@@ -131,5 +190,16 @@ export async function login(
 export async function logout() {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(PURGE_STORAGE_COOKIE_NAME, '1', {
+      path: '/',
+      maxAge: 60,
+      httpOnly: false,
+      sameSite: 'lax',
+    });
+  } catch {
+    // Ignore cookie mutation errors outside active request context
+  }
   redirect('/login');
 }

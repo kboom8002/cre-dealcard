@@ -17,6 +17,15 @@ import {
 } from "@/lib/magazine/ai-comment-schema";
 
 import { createModuleLogger } from "@/lib/logger";
+import {
+  AI_SERVER_UNAVAILABLE_KO,
+  enforceBrokerAiQuota,
+  isLLMMockNotAllowedError,
+} from "@/lib/ai-quota-guard";
+import { toApiError } from "@/lib/api-error";
+
+export const maxDuration = 60;
+
 const log = createModuleLogger("route");
 
 function fail(status: number, code: string, message: string) {
@@ -43,6 +52,9 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return fail(400, "BAD_REQUEST", parsed.error.issues[0]?.message ?? "코멘트 내용이 필요합니다.");
   }
+
+  const quotaErr = await enforceBrokerAiQuota(req, auth.user?.id ?? "", "studio_ai_comment");
+  if (quotaErr) return quotaErr;
   const { comment, mode, draftText, cadence } = parsed.data;
   const isBriefingMode = mode === "market_briefing";
   const groundingContext = [draftText ?? "", comment].filter(Boolean).join(" ");
@@ -91,11 +103,11 @@ export async function POST(req: NextRequest) {
     };
     return NextResponse.json(body);
   } catch (error: unknown) {
-    if (error instanceof LLMMockNotAllowedError) {
-      log.warn("[studio/ai-comment] Mock 응답 거부:", error.message);
-      return fail(502, "LLM_UNAVAILABLE", "AI가 잠시 쉬고 있어요. 잠시 후 다시 눌러 주세요.");
+    if (error instanceof LLMMockNotAllowedError || isLLMMockNotAllowedError(error)) {
+      log.warn("[studio/ai-comment] Mock 응답 거부:", error instanceof Error ? error.message : error);
+      return fail(503, "LLM_UNAVAILABLE", AI_SERVER_UNAVAILABLE_KO);
     }
     log.error("[studio/ai-comment] Error:", error);
-    return fail(500, "SERVER_ERROR", "AI 추천글 작성 중 문제가 생겼어요. 잠시 후 다시 눌러 주세요.");
+    return toApiError(error);
   }
 }

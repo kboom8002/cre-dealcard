@@ -51,6 +51,84 @@ export function filterWholeBuildingTransactions(items: readonly ComparableTransa
   });
 }
 
+const VALID_MOLIT_RESULT_CODES = new Set(['00', '000', '0000']);
+
+function parsePositiveFinite(raw: unknown): number {
+  const num = parseFloat(String(raw ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(num) && num > 0 ? num : 0;
+}
+
+function extractXmlTag(xml: string, tag: string): string {
+  const m = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return m ? m[1].trim() : '';
+}
+
+function parseXmlItems(xml: string): Record<string, unknown>[] | null {
+  const resultCode = extractXmlTag(xml, 'resultCode') || extractXmlTag(xml, 'returnReasonCode');
+  if (resultCode && !VALID_MOLIT_RESULT_CODES.has(resultCode)) {
+    return null;
+  }
+  if (/<cmmMsgHeader>/i.test(xml) && /<errMsg>/i.test(xml) && !resultCode) {
+    return null;
+  }
+  const items: Record<string, unknown>[] = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = itemRe.exec(xml)) !== null) {
+    const block = match[1];
+    const obj: Record<string, unknown> = {};
+    const tagRe = /<([A-Za-z0-9_]+)>([\s\S]*?)<\/\1>/g;
+    let tagMatch: RegExpExecArray | null;
+    while ((tagMatch = tagRe.exec(block)) !== null) {
+      obj[tagMatch[1]] = tagMatch[2].trim();
+    }
+    items.push(obj);
+  }
+  return items;
+}
+
+async function parseMolitItemsFromResponse(res: Response): Promise<Record<string, unknown>[] | null> {
+  if (!res || !res.ok || (typeof res.status === 'number' && (res.status < 200 || res.status >= 300))) {
+    return null;
+  }
+
+  let data: any = null;
+  if (typeof res.text === 'function') {
+    const rawText = (await res.text()).trim();
+    if (!rawText) return [];
+    if (rawText.startsWith('<')) {
+      return parseXmlItems(rawText);
+    }
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      return null;
+    }
+  } else if (typeof res.json === 'function') {
+    data = await res.json().catch(() => null);
+  }
+
+  if (!data || typeof data !== 'object') return null;
+
+  const headerCode = String(
+    data?.response?.header?.resultCode ??
+      data?.OpenAPI_ServiceResponse?.cmmMsgHeader?.returnReasonCode ??
+      '',
+  ).trim();
+  if (headerCode && !VALID_MOLIT_RESULT_CODES.has(headerCode)) {
+    return null;
+  }
+
+  const rawItem = data?.response?.body?.items?.item;
+  if (Array.isArray(rawItem)) {
+    return rawItem.filter((x): x is Record<string, unknown> => Boolean(x && typeof x === 'object'));
+  }
+  if (rawItem && typeof rawItem === 'object') {
+    return [rawItem as Record<string, unknown>];
+  }
+  return [];
+}
+
 /**
  * 현재 월 기준 직전 3개월 실거래 데이터를 조회합니다.
  * 국토부 API는 특정 월만 조회 가능하므로, 최근 3개월을 병렬 조회 후 병합합니다.
@@ -72,10 +150,12 @@ export async function fetchComparableTransactions(
         const url = `https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?ServiceKey=${encodeURIComponent(apiKey)}&LAWD_CD=${sigunguCd}&DEAL_YMD=${ym}&numOfRows=10&pageNo=1&_type=json`;
         const res = await fetchWithRetry(url, { timeoutMs: 10_000, maxRetries: 1 });
         if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
-        const data = await res.json();
 
-        const item = data?.response?.body?.items?.item;
-        const itemsArray: any[] = Array.isArray(item) ? item : item ? [item] : [];
+        const itemsArray = await parseMolitItemsFromResponse(res);
+        if (!itemsArray) {
+          logger.warn(`MOLIT response rejected (invalid resultCode or malformed body) for ${ym}`);
+          return;
+        }
 
         if (itemsArray.length > 0) {
           const parsed: ComparableTransaction[] = itemsArray
@@ -86,25 +166,32 @@ export async function fetchComparableTransactions(
 
               const dealAmtTenThousand = parseInt(String(t.dealAmount || "0").replace(/,/g, "").trim(), 10) || 0;
               const dealAmount = dealAmtTenThousand * 10000;
-              if (dealAmount <= 0) return null;
+              if (!Number.isFinite(dealAmount) || dealAmount <= 0) return null;
 
-              const plottageSqm = parseFloat(String(t.plottageAr || "0"));
-              const hasPlottage = Number.isFinite(plottageSqm) && plottageSqm > 0;
+              const plottageSqm = parsePositiveFinite(t.plottageAr);
+              const hasPlottage = plottageSqm > 0;
 
-              // 국토부 상업업무용 API: buildingAr(건물면적) 우선, 없으면 plottageAr(대지면적)
-              const rawArea = parseFloat(String(t.buildingAr || t.bldgArea || t.plottageAr || t.totArea || t.area || "0"));
-              if (!rawArea || isNaN(rawArea) || rawArea <= 0) return null;
+              // 연면적(buildingAr)과 대지면적(plottageAr) 엄격 분리: 연면적 단가는 buildingArea로만 산출
+              const buildingAreaSqm = parsePositiveFinite(
+                t.buildingAr ?? t.bldgArea ?? t.totArea ?? t.area,
+              );
+              if (buildingAreaSqm <= 0) return null;
 
-              const area = rawArea;
+              const area = buildingAreaSqm;
               const pricePerSqm = dealAmount / area;
               const pricePerPyeong = Math.round(pricePerSqm * SQM_RATIO);
+              if (!Number.isFinite(pricePerSqm) || !Number.isFinite(pricePerPyeong)) return null;
 
               // 비정상 이상치(평당 50만원 미만 또는 평당 5억원 초과) 필터링
               if (pricePerPyeong < 500_000 || pricePerPyeong > 500_000_000) return null;
 
-              const landPricePerPyeongManwon = hasPlottage
-                ? Math.round((dealAmtTenThousand / (plottageSqm / SQM_RATIO)))
+              const rawLandPricePerPyeongManwon = hasPlottage
+                ? Math.round(dealAmtTenThousand / (plottageSqm / SQM_RATIO))
                 : undefined;
+              const landPricePerPyeongManwon =
+                rawLandPricePerPyeongManwon !== undefined && Number.isFinite(rawLandPricePerPyeongManwon)
+                  ? rawLandPricePerPyeongManwon
+                  : undefined;
 
               const sgg = String(t.sggNm || t.sigungu || "").trim();
               const umd = String(t.umdNm || t.dong || "").trim();
@@ -114,9 +201,9 @@ export async function fetchComparableTransactions(
 
               return {
                 address: address || "서울시 인근 상업용 자산",
-                dealYear: parseInt(String(t.dealYear || "2025"), 10),
-                dealMonth: parseInt(String(t.dealMonth || "1"), 10),
-                dealDay: parseInt(String(t.dealDay || "1"), 10),
+                dealYear: parseInt(String(t.dealYear || "2025"), 10) || 2025,
+                dealMonth: parseInt(String(t.dealMonth || "1"), 10) || 1,
+                dealDay: parseInt(String(t.dealDay || "1"), 10) || 1,
                 dealAmount,
                 area,
                 pricePerSqm: Math.round(pricePerSqm),
@@ -124,7 +211,7 @@ export async function fetchComparableTransactions(
                 buildingUse: String(t.buildingUse || "근린생활"),
                 floors: parseInt(String(t.floor || t.flr || "0").trim(), 10) || 0,
                 ...(bldgType ? { buildingType: bldgType } : {}),
-                ...(hasPlottage ? { landAreaSqm: plottageSqm, landPricePerPyeongManwon } : {}),
+                ...(hasPlottage ? { landAreaSqm: plottageSqm, ...(landPricePerPyeongManwon !== undefined ? { landPricePerPyeongManwon } : {}) } : {}),
                 _isFallback: false
               };
             })
@@ -215,15 +302,8 @@ export async function fetchMonthlyWholeBuildingTransactions(
           const url = `https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?ServiceKey=${encodeURIComponent(apiKey)}&LAWD_CD=${encodeURIComponent(sigunguCode)}&DEAL_YMD=${ym}&numOfRows=200&pageNo=1&_type=json`;
           const res = await fetchWithRetry(url, { timeoutMs: 5000, maxRetries: 0 });
           if (!res.ok) return;
-          const data = (await res.json().catch(() => null)) as {
-            response?: { body?: { items?: { item?: unknown } } };
-          } | null;
-          const rawItem = data?.response?.body?.items?.item;
-          const itemsArray: Record<string, unknown>[] = Array.isArray(rawItem)
-            ? rawItem
-            : rawItem && typeof rawItem === 'object'
-              ? [rawItem as Record<string, unknown>]
-              : [];
+          const itemsArray = await parseMolitItemsFromResponse(res);
+          if (!itemsArray) return;
 
           for (const t of itemsArray) {
             if (String(t.cdealType || '').trim() === 'O') continue;
@@ -233,10 +313,12 @@ export async function fetchMonthlyWholeBuildingTransactions(
               parseInt(String(t.dealAmount || '0').replace(/,/g, '').trim(), 10) || 0;
             if (dealAmtManwon <= 0) continue;
             const dealAmountKrw = dealAmtManwon * 10_000;
+            if (!Number.isFinite(dealAmountKrw) || dealAmountKrw <= 0) continue;
 
-            const landAreaM2 = parseFloat(String(t.plottageAr || '0')) || 0;
-            const buildingAreaM2 =
-              parseFloat(String(t.buildingAr || t.bldgArea || t.totArea || t.area || '0')) || 0;
+            const landAreaM2 = parsePositiveFinite(t.plottageAr);
+            const buildingAreaM2 = parsePositiveFinite(
+              t.buildingAr ?? t.bldgArea ?? t.totArea ?? t.area,
+            );
             if (landAreaM2 <= 0 && buildingAreaM2 <= 0) continue;
 
             const dealYear = parseInt(String(t.dealYear || ym.slice(0, 4)), 10);

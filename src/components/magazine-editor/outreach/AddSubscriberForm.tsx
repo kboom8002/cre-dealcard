@@ -4,6 +4,7 @@ import React, { useId, useState, useMemo } from 'react';
 import { Mail, MessageCircle, Send, Loader2, Users, UserPlus, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '@/components/ui/modal';
+import { ContactBulkImportModal } from '@/components/workspace/inbox/ContactBulkImportModal';
 import { formatKrPhoneInput, isPlausiblePhoneDigits } from '@/lib/magazine/phone-input';
 import {
   CHANNEL_LABEL,
@@ -26,7 +27,7 @@ const CHANNELS: Array<{ key: AddChannel; label: string; icon: typeof Mail }> = [
 
 type FieldErrors = AddFieldErrors;
 
-interface AddSubscriberFormProps {
+export interface AddSubscriberFormProps {
   open: boolean;
   onClose: () => void;
   onAdded: () => void;
@@ -121,6 +122,7 @@ export function parseBulkLine(line: string): ParsedBulkItem | null {
 export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormProps) {
   const uid = useId();
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
+  const [bulkWizardOpen, setBulkWizardOpen] = useState(false);
 
   // 단건 입력 상태
   const [form, setForm] = useState<AddSubscriberInput>({ name: '', phone: '', email: '', channel: 'kakao', attested: false });
@@ -239,6 +241,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
   }
 
   return (
+    <>
     <Modal
       open={open}
       onOpenChange={(o) => {
@@ -284,6 +287,15 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
             여러 명 일괄 붙여넣기
           </button>
         </div>
+
+        <button
+          type="button"
+          data-testid="open-bulk-subscriber-import-btn"
+          onClick={() => setBulkWizardOpen(true)}
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-900/50"
+        >
+          📋 엑셀·명단 한 번에 등록
+        </button>
 
         {mode === 'single' ? (
           <form onSubmit={handleSubmit} noValidate className="space-y-3">
@@ -494,5 +506,15 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
         )}
       </div>
     </Modal>
+    <ContactBulkImportModal
+      open={bulkWizardOpen}
+      onOpenChange={setBulkWizardOpen}
+      defaultNewsletterSync={true}
+      onImported={() => {
+        setBulkWizardOpen(false);
+        onAdded();
+      }}
+    />
+    </>
   );
 }

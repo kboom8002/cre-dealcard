@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { readBuilding } from '@/domain/building/im-core/read-building';
+import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
 import { createServiceClient } from '@/lib/supabase/service';
 import { loadOgFonts } from '@/lib/magazine/og-fonts';
 import {
@@ -15,7 +16,6 @@ import {
   getQuickImRecord,
   isDealCardDeleted,
   isUuid,
-  updateQuickImCard4,
 } from '@/lib/im-lite/quick-generate-store';
 import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
 import { createModuleLogger } from '@/lib/logger';
@@ -182,10 +182,6 @@ export async function GET(
           const memVer = typeof bodyCard4?.card4_version === 'number' ? bodyCard4.card4_version : 0;
           if (!bodyCard4 || !quickRec?.ownerId || actVer >= memVer) {
             bodyCard4 = actCard4;
-            updateQuickImCard4(id, bodyCard4, {
-              ownerId: matched.actor_id,
-              brokerProfile: matched.metadata.broker_profile,
-            });
           }
         }
       } catch {
@@ -293,10 +289,6 @@ export async function GET(
         const matched = forBuilding.find((a: any) => a?.metadata?.card4);
         if (matched?.metadata?.card4) {
           bodyCard4 = matched.metadata.card4 as Card4Data;
-          updateQuickImCard4(id, bodyCard4, {
-            ownerId: matched.actor_id,
-            brokerProfile: matched.metadata.broker_profile,
-          });
         }
       } catch {
         // ignore if activity_events unavailable
@@ -354,13 +346,13 @@ export async function GET(
     typeof safeBuilding.total_floor_area_pyung === 'number'
       ? safeBuilding.total_floor_area_pyung
       : typeof safeBuilding.gross_floor_area_sqm === 'number'
-      ? Math.round(safeBuilding.gross_floor_area_sqm / 3.3058)
+      ? Math.round(m2ToPyeong(safeBuilding.gross_floor_area_sqm))
       : undefined;
   const fallbackLandPyung =
     typeof safeBuilding.land_area_pyung === 'number'
       ? safeBuilding.land_area_pyung
       : typeof safeBuilding.land_area_sqm === 'number'
-      ? Math.round(safeBuilding.land_area_sqm / 3.3058)
+      ? Math.round(m2ToPyeong(safeBuilding.land_area_sqm))
       : undefined;
 
   const areaLabel = resolveCard4AreaLabel(
@@ -379,16 +371,13 @@ export async function GET(
     }
   );
 
-  // WP-P1-07: OG v2 cache versioning check (?v=card4_hash)
+  // WP-14: Zero-redirect 200 ImageResponse for Kakao scraper integrity
   const url = new URL(request.url);
   const versionParam = url.searchParams.get('v');
-
-  // If ?v is missing or mismatched, 302 redirect to current version
-  if (!versionParam || versionParam !== card4Hash) {
-    const redirectUrl = new URL(request.url);
-    redirectUrl.searchParams.set('v', card4Hash);
-    return NextResponse.redirect(redirectUrl.toString(), 302);
-  }
+  const cacheControl =
+    versionParam && versionParam === card4Hash
+      ? 'public, max-age=31536000, immutable'
+      : 'public, max-age=60, s-maxage=300, stale-while-revalidate=600';
 
   // Load local bundled font (zero remote CDN fetch during render)
   const fontData = await loadOgFonts();
@@ -398,9 +387,19 @@ export async function GET(
     weight: f.weight,
     style: f.style,
   }));
+  const safeText = (text: string, fallback = '-') => {
+    if (!fontData.glyphs) return text || fallback;
+    let out = '';
+    for (const ch of text) {
+      if (/\s/.test(ch) || fontData.glyphs.has(ch.codePointAt(0)!)) out += ch;
+    }
+    return out.replace(/\s+/g, ' ').trim() || fallback;
+  };
 
-  const displayRegion = cleanBlindPoints([region])[0] || '—';
-  const displayUse = cleanBlindPoints([use])[0] || '—';
+  const displayRegion = safeText(cleanBlindPoints([region])[0] || '—', '-');
+  const displayUse = safeText(cleanBlindPoints([use])[0] || '—', '-');
+  const displayArea = safeText(areaLabel || '—', '-');
+  const displayPriceBand = safeText(priceBand || '—', '-');
 
   return new ImageResponse(
     (
@@ -507,7 +506,7 @@ export async function GET(
                 letterSpacing: '-0.02em',
               }}
             >
-              {areaLabel || '—'}
+              {displayArea}
             </span>
           </div>
 
@@ -532,7 +531,7 @@ export async function GET(
                 letterSpacing: '-0.02em',
               }}
             >
-              {priceBand || '—'}
+              {displayPriceBand}
             </span>
           </div>
         </div>
@@ -543,7 +542,8 @@ export async function GET(
       height: 630,
       fonts: ogFonts.length > 0 ? ogFonts : undefined,
       headers: {
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': cacheControl,
+        'X-Card4-Hash': card4Hash,
         'X-Content-Type-Options': 'nosniff',
       },
     }

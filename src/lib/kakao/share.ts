@@ -72,11 +72,11 @@ export interface KakaoFeedShareInput {
   title: string;
   /** 설명 — 피드백에 따라 기본은 비움 */
   description?: string;
-  /** 절대 URL 썸네일 */
+  /** 썸네일 URL (절대 URL 또는 `/`로 시작하는 상대 경로 — 자동 정규화됨) */
   imageUrl: string;
   imageWidth?: number;
   imageHeight?: number;
-  /** 열릴 페이지 (절대 URL) */
+  /** 열릴 페이지 (절대 URL 또는 `/`로 시작하는 상대 경로 — 자동 정규화됨) */
   url: string;
   /** 버튼 문구 (기본 '자세히 보기') */
   buttonTitle?: string;
@@ -86,7 +86,45 @@ export interface KakaoFeedShareInput {
 
 export type KakaoShareResult = 'kakao' | 'copied' | 'failed';
 
+/** 사이트 절대 URL (OG/공유용) */
+export function getSiteOrigin(): string {
+  if (
+    typeof window !== 'undefined' &&
+    window.location?.origin &&
+    window.location.origin !== 'null'
+  ) {
+    return window.location.origin.replace(/\/$/, '');
+  }
+  return (process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net').replace(/\/$/, '');
+}
+
+/** 상대 경로(`/...`, `//...`)를 사이트 절대 URL로 정규화한다. */
+export function normalizeKakaoShareUrl(rawUrl: string): string {
+  const trimmed = (rawUrl ?? '').trim();
+  const origin = getSiteOrigin();
+  if (!trimmed) return origin;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
+  try {
+    return new URL(trimmed, `${origin}/`).toString();
+  } catch {
+    return `${origin}/${trimmed}`;
+  }
+}
+
 export async function shareKakaoFeed(input: KakaoFeedShareInput): Promise<KakaoShareResult> {
+  const normalizedImageUrl = normalizeKakaoShareUrl(input.imageUrl);
+  const normalizedUrl = normalizeKakaoShareUrl(input.url);
+  const imageWidth =
+    typeof input.imageWidth === 'number' && Number.isFinite(input.imageWidth) && input.imageWidth > 0
+      ? input.imageWidth
+      : 1200;
+  const imageHeight =
+    typeof input.imageHeight === 'number' && Number.isFinite(input.imageHeight) && input.imageHeight > 0
+      ? input.imageHeight
+      : 630;
+
   const ready = await ensureKakaoSdk();
   const k = getKakao();
   if (ready && k?.Share?.sendDefault) {
@@ -96,15 +134,15 @@ export async function shareKakaoFeed(input: KakaoFeedShareInput): Promise<KakaoS
         content: {
           title: input.title,
           description: input.description ?? '',
-          imageUrl: input.imageUrl,
-          imageWidth: input.imageWidth ?? 1200,
-          imageHeight: input.imageHeight ?? 630,
-          link: { webUrl: input.url, mobileWebUrl: input.url },
+          imageUrl: normalizedImageUrl,
+          imageWidth,
+          imageHeight,
+          link: { webUrl: normalizedUrl, mobileWebUrl: normalizedUrl },
         },
         buttons: [
           {
             title: input.buttonTitle ?? '자세히 보기',
-            link: { webUrl: input.url, mobileWebUrl: input.url },
+            link: { webUrl: normalizedUrl, mobileWebUrl: normalizedUrl },
           },
         ],
       });
@@ -113,12 +151,6 @@ export async function shareKakaoFeed(input: KakaoFeedShareInput): Promise<KakaoS
       // fall through to copy
     }
   }
-  const copied = await copyText(input.fallbackText ?? `${input.title}\n${input.url}`);
+  const copied = await copyText(input.fallbackText ?? `${input.title}\n${normalizedUrl}`);
   return copied ? 'copied' : 'failed';
-}
-
-/** 사이트 절대 URL (OG/공유용) */
-export function getSiteOrigin(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-  return process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
 }

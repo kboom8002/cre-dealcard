@@ -2,12 +2,13 @@
  * GET /api/og/broker/[slug]
  *
  * Dynamic Open Graph image for broker profile pages.
- * Renders a 1200×630 PNG with broker info + DealCard branding.
+ * Renders a 1200×630 PNG with broker info + CREDEAL · 크리딜 branding.
  */
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadOgFonts } from "@/lib/magazine/og-fonts";
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function GET(
   _request: Request,
@@ -80,10 +81,34 @@ export async function GET(
     // Fall back to generic
   }
 
-  const regionsText =
+  const rawRegionsText =
     specialtyRegions.length > 0
       ? specialtyRegions.join(" · ")
       : "서울 전역";
+
+  const fontData = await loadOgFonts();
+  const fonts = fontData.fonts.map((f) => ({
+    name: f.name,
+    data: f.data,
+    weight: f.weight,
+    style: f.style,
+  }));
+  const headers = {
+    'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',
+  };
+
+  const safeText = (text: string, fallback: string) => {
+    if (!fontData.glyphs) return text || fallback;
+    let out = "";
+    for (const ch of text) {
+      if (/\s/.test(ch) || fontData.glyphs.has(ch.codePointAt(0)!)) out += ch;
+    }
+    return out.replace(/\s+/g, " ").trim() || fallback;
+  };
+
+  const safeBrokerName = safeText(brokerName, "CRE Broker");
+  const regionsText = safeText(rawRegionsText, "Seoul");
+  const avatarInitial = safeBrokerName.charAt(0) || "C";
 
   return new ImageResponse(
     (
@@ -98,7 +123,7 @@ export async function GET(
           background:
             "linear-gradient(135deg, #0b0f19 0%, #1a2333 50%, #0f1729 100%)",
           color: "white",
-          fontFamily: "sans-serif",
+          fontFamily: '"Noto Sans KR", sans-serif',
         }}
       >
         {/* Top: badge */}
@@ -118,9 +143,20 @@ export async function GET(
               fontSize: 20,
               color: "#c4b5fd",
               display: "flex",
+              alignItems: "center",
+              gap: "10px",
             }}
           >
-            🏢 CRE 전문 중개사
+            <div
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "#a78bfa",
+                display: "flex",
+              }}
+            />
+            <span>CRE 전문 중개사</span>
           </div>
         </div>
 
@@ -142,11 +178,11 @@ export async function GET(
                 fontWeight: 700,
               }}
             >
-              {brokerName.charAt(0)}
+              {avatarInitial}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <div style={{ fontSize: 48, fontWeight: 700, display: "flex" }}>
-                {brokerName}
+                {safeBrokerName}
               </div>
             </div>
           </div>
@@ -178,7 +214,7 @@ export async function GET(
                 등록 딜
               </div>
               <div style={{ fontSize: 22, color: "#6ee7b7", display: "flex" }}>
-                {dealCount}건
+                {`${dealCount}건`}
               </div>
             </div>
           </div>
@@ -194,15 +230,14 @@ export async function GET(
         >
           <div
             style={{
-              fontSize: 32,
+              fontSize: 30,
               fontWeight: 700,
-              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-              backgroundClip: "text",
-              color: "transparent",
+              color: "#e2e8f0",
               display: "flex",
+              alignItems: "center",
             }}
           >
-            DealCard
+            CREDEAL · 크리딜
           </div>
           <div
             style={{
@@ -219,6 +254,8 @@ export async function GET(
     {
       width: 1200,
       height: 630,
+      fonts: fonts.length > 0 ? fonts : undefined,
+      headers,
     },
   );
 }

@@ -18,6 +18,28 @@ export interface NaverSearchResponse {
   items: NaverSearchItem[];
 }
 
+/**
+ * 네이버 검색 API 응답 문자열 정제:
+ * - `<b>`, `</b>` 등 HTML 태그 제거
+ * - `&quot;`, `&amp;`, `&lt;`, `&gt;`, `&#39;` 등 HTML 엔티티 디코드
+ * - 엔티티 디코드 후 생성된 잔여 HTML 태그 재제거
+ * - 제어문자(`\u0000`–`\u001F`, `\u007F`–`\u009F`) 제거 및 공백 정규화
+ */
+export function sanitizeNaverText(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const withoutTags = stripTags(raw);
+  const decoded = decodeEntities(withoutTags)
+    .replace(/&#0*39;/g, "'")
+    .replace(/&apos;/gi, "'");
+  return decoded
+    .replace(/<\/?[a-zA-Z][^>]*>/g, "")
+    .replace(/[\t\r\n]+/g, " ")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function searchNaverNews(query: string, display: number = 10): Promise<NaverSearchItem[]> {
   const clientId = process.env.NAVER_CLIENT_ID;
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
@@ -46,13 +68,10 @@ export async function searchNaverNews(query: string, display: number = 10): Prom
     const data = (await res.json()) as NaverSearchResponse;
     if (!data.items) return [];
     
-    // 네이버 API는 검색어 하이라이트를 <b> 태그로 반환하므로 제거 + 엔티티 디코드 (공용 유틸, M2-17 중복 구현 통일)
-    const cleanHtml = (text: string): string => decodeEntities(stripTags(text ?? "")).trim();
-    
     return data.items.map(item => ({
       ...item,
-      title: cleanHtml(item.title),
-      description: cleanHtml(item.description)
+      title: sanitizeNaverText(item.title),
+      description: sanitizeNaverText(item.description)
     }));
   } catch (error) {
     log.error("Failed to fetch Naver News", error, { query });

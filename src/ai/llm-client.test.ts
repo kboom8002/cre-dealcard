@@ -1,5 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { callLLM, registerProvider } from "./llm-client";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  callLLM,
+  registerProvider,
+  LLMMockNotAllowedError,
+  MAX_LLM_CACHE_ENTRIES,
+  getLlmCacheSize,
+  hasLlmCacheKey,
+  clearLlmCache,
+} from "./llm-client";
+import { MockOpenAIProvider } from "./providers/mock-openai";
 import type { LLMProvider, LLMChatParams, LLMChatResult } from "./providers/types";
 
 describe("LLM Abstraction & Fallback Cache", () => {
@@ -140,5 +149,63 @@ describe("LLM Abstraction & Fallback Cache", () => {
     const elapsed = Date.now() - start;
     // Should terminate fast around deadline instead of sleeping 5 attempts
     expect(elapsed).toBeLessThan(1500);
+  });
+
+  describe("Zero-Mock Production Default & LRU Cache Cap", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      clearLlmCache();
+    });
+
+    it("throws LLMMockNotAllowedError by default in NODE_ENV='production' when provider is MockOpenAIProvider", async () => {
+      registerProvider("openai", new MockOpenAIProvider());
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("ALLOW_LLM_MOCK", "");
+
+      await expect(
+        callLLM({
+          systemPrompt: "sys",
+          userPrompt: "user",
+          model: "gpt-5.6-terra",
+        })
+      ).rejects.toBeInstanceOf(LLMMockNotAllowedError);
+    });
+
+    it("remains compatible in NODE_ENV='test' (allowMock defaults to true) unless allowMock: false", async () => {
+      registerProvider("openai", new MockOpenAIProvider());
+      vi.stubEnv("NODE_ENV", "test");
+
+      const testResult = await callLLM({
+        systemPrompt: "sys",
+        userPrompt: "user",
+        model: "gpt-5.6-terra",
+      });
+      expect(testResult.isMock).toBe(true);
+
+      await expect(
+        callLLM(
+          { systemPrompt: "sys", userPrompt: "user", model: "gpt-5.6-terra" },
+          { allowMock: false }
+        )
+      ).rejects.toBeInstanceOf(LLMMockNotAllowedError);
+    });
+
+    it("enforces MAX_LLM_CACHE_ENTRIES = 200 LRU cap and evicts oldest keys", async () => {
+      clearLlmCache();
+      expect(MAX_LLM_CACHE_ENTRIES).toBe(200);
+
+      for (let i = 0; i < MAX_LLM_CACHE_ENTRIES + 5; i++) {
+        await callLLM(
+          { systemPrompt: "sys", userPrompt: `prompt_${i}`, model: "gpt-5.6-terra" },
+          { providers: ["openai"], cacheKey: `lru_key_${i}` }
+        );
+      }
+
+      expect(getLlmCacheSize()).toBe(MAX_LLM_CACHE_ENTRIES);
+      expect(hasLlmCacheKey("lru_key_0")).toBe(false);
+      expect(hasLlmCacheKey("lru_key_4")).toBe(false);
+      expect(hasLlmCacheKey("lru_key_5")).toBe(true);
+      expect(hasLlmCacheKey(`lru_key_${MAX_LLM_CACHE_ENTRIES + 4}`)).toBe(true);
+    });
   });
 });

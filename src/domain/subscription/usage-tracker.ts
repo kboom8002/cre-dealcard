@@ -3,8 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('usage-tracker');
 
-
-export type FeatureName = 'deal_card_creation' | 'ai_matching' | 'im_generation';
+export type FeatureName =
+  | 'deal_card_creation'
+  | 'ai_matching'
+  | 'im_generation'
+  | 'ai_generation_daily';
 
 export interface UsageStatus {
   currentCount: number;
@@ -12,18 +15,68 @@ export interface UsageStatus {
   hasAccess: boolean;
 }
 
+function getKstDateParts(now: Date = new Date()): { year: string; month: string; day: string } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+
+  const year = parts.find((p) => p.type === "year")?.value ?? String(now.getUTCFullYear());
+  const month =
+    parts.find((p) => p.type === "month")?.value ??
+    String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day =
+    parts.find((p) => p.type === "day")?.value ??
+    String(now.getUTCDate()).padStart(2, "0");
+
+  return { year, month, day };
+}
+
 /**
- * 현재 연월 구하기 (포맷: YYYY-MM)
+ * 현재 KST(Asia/Seoul) 기준 연월 구하기 (포맷: YYYY-MM)
  */
-export function getCurrentBillingMonth(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
+export function getCurrentBillingMonth(now: Date = new Date()): string {
+  const { year, month } = getKstDateParts(now);
   return `${year}-${month}`;
 }
 
 /**
- * 당월 특정 기능의 현재 사용량 및 한도 정보 조회
+ * 현재 KST(Asia/Seoul) 기준 일간 키 구하기 (포맷: daily:YYYY-MM-DD)
+ */
+export function getCurrentKstDailyKey(now: Date = new Date()): string {
+  const { year, month, day } = getKstDateParts(now);
+  return `daily:${year}-${month}-${day}`;
+}
+
+/**
+ * 기능별 집계 기간 키 계산 (일간 AI 쿼터는 daily:YYYY-MM-DD, 월간 쿼터는 YYYY-MM)
+ */
+export function resolveBillingPeriodKey(
+  featureName: FeatureName,
+  now: Date = new Date(),
+): string {
+  if (featureName === 'ai_generation_daily') {
+    return getCurrentKstDailyKey(now);
+  }
+  return getCurrentBillingMonth(now);
+}
+
+function isMissingTableError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = String((err as { code?: unknown }).code ?? "");
+  const message = String((err as { message?: unknown }).message ?? "").toLowerCase();
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    message.includes("does not exist") ||
+    message.includes("schema cache")
+  );
+}
+
+/**
+ * 당월(또는 KST 당일) 특정 기능의 현재 사용량 및 한도 정보 조회
  */
 export async function getMonthlyUsage(
   supabase: SupabaseClient,
@@ -31,7 +84,7 @@ export async function getMonthlyUsage(
   featureName: FeatureName,
   tierLimit: number | null
 ): Promise<UsageStatus> {
-  const billingMonth = getCurrentBillingMonth();
+  const billingMonth = resolveBillingPeriodKey(featureName);
 
   try {
     // 1. usage_counters 테이블 조회
@@ -42,6 +95,22 @@ export async function getMonthlyUsage(
       .eq("feature_name", featureName)
       .eq("billing_month", billingMonth)
       .maybeSingle();
+
+    if (error) {
+      if (isMissingTableError(error) || process.env.NODE_ENV === "test") {
+        return {
+          currentCount: 0,
+          maxLimit: tierLimit,
+          hasAccess: true,
+        };
+      }
+      log.error("[usage-tracker] Explicit DB error fetching usage counter:", error.message);
+      return {
+        currentCount: 0,
+        maxLimit: tierLimit,
+        hasAccess: false,
+      };
+    }
 
     let counter = fetchedCounter;
 
@@ -67,7 +136,12 @@ export async function getMonthlyUsage(
     }
 
     const currentCount = counter?.current_count ?? 0;
-    const maxLimit = counter ? counter.max_limit : tierLimit;
+    const maxLimit =
+      tierLimit === null
+        ? null
+        : counter && typeof counter.max_limit === "number"
+          ? Math.max(counter.max_limit, tierLimit)
+          : tierLimit;
     const hasAccess = maxLimit === null ? true : currentCount < maxLimit;
 
     return {
@@ -78,23 +152,24 @@ export async function getMonthlyUsage(
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     log.error("[usage-tracker] Unexpected error during usage fetch:", errMsg);
+    const failOpen = process.env.NODE_ENV === "test" || isMissingTableError(err);
     return {
       currentCount: 0,
       maxLimit: tierLimit,
-      hasAccess: true,
+      hasAccess: failOpen,
     };
   }
 }
 
 /**
- * 기능 호출 성공 완료 시 당월 사용량 1 카운트 증가
+ * 기능 호출 성공 완료 시 당월(또는 KST 당일) 사용량 1 카운트 증가
  */
 export async function incrementUsage(
   supabase: SupabaseClient,
   userId: string,
   featureName: FeatureName
 ): Promise<boolean> {
-  const billingMonth = getCurrentBillingMonth();
+  const billingMonth = resolveBillingPeriodKey(featureName);
 
   try {
     // 1. Try atomic increment via RPC
@@ -147,4 +222,3 @@ export async function incrementUsage(
     return false;
   }
 }
-

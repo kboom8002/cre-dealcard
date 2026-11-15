@@ -20,8 +20,49 @@ export interface PureBuildingSpecs {
   completionDate: string;
 }
 
+const UNVERIFIED_LEDGER_LABEL = '공적장부 확인 필요';
+
+function cleanBuildingLedgerString(val: unknown): string | null {
+  if (typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  if (
+    !trimmed ||
+    trimmed === '-' ||
+    trimmed === '미상' ||
+    trimmed === '확인 중' ||
+    trimmed === '분석 중' ||
+    trimmed === '수집 중'
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
+function normalizeCompletionDate(val: unknown): string | null {
+  if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+    const numStr = String(Math.trunc(val));
+    if (/^\d{8}$/.test(numStr)) {
+      return `${numStr.slice(0, 4)}-${numStr.slice(4, 6)}-${numStr.slice(6, 8)}`;
+    }
+    return numStr;
+  }
+  const str = cleanBuildingLedgerString(val);
+  if (!str) return null;
+  if (/^\d{8}$/.test(str)) {
+    return `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 8)}`;
+  }
+  return str;
+}
+
 export function extractBuildingSpecs(raw: Record<string, any>): PureBuildingSpecs {
   const ssot = raw?.ssot_summary || raw?.layers?.building || raw || {};
+  const enrichment = raw?.enrichment && typeof raw.enrichment === 'object' ? raw.enrichment : null;
+  const br =
+    (enrichment?.buildingRegister && typeof enrichment.buildingRegister === 'object'
+      ? enrichment.buildingRegister
+      : null) ||
+    (raw?.buildingRegister && typeof raw.buildingRegister === 'object' ? raw.buildingRegister : null) ||
+    (raw?.building_register && typeof raw.building_register === 'object' ? raw.building_register : null);
 
   const totalGrossAreaSqm = Number(
     raw?.total_gross_area_sqm ??
@@ -30,6 +71,7 @@ export function extractBuildingSpecs(raw: Record<string, any>): PureBuildingSpec
     ssot?.gross_floor_area_sqm ??
     ssot?.total_area ??
     raw?.gross_floor_area_sqm ??
+    br?.totalArea ??
     0
   );
 
@@ -50,6 +92,8 @@ export function extractBuildingSpecs(raw: Record<string, any>): PureBuildingSpec
     ssot?.building_coverage_ratio ??
     ssot?.bcr_pct ??
     ssot?.bcr ??
+    br?.bcRat ??
+    br?.bcrPct ??
     0
   );
 
@@ -61,58 +105,81 @@ export function extractBuildingSpecs(raw: Record<string, any>): PureBuildingSpec
     ssot?.floor_area_ratio ??
     ssot?.far_pct ??
     ssot?.far ??
+    br?.vlRat ??
+    br?.farPct ??
     0
   );
 
-  const floorsAbove = Number(
+  const rawFloorsAbove = Number(
     raw?.floors_above ??
+    raw?.floorsAbove ??
     ssot?.floors_above ??
     ssot?.grnd_flr_cnt ??
-    1
+    br?.grndFlrCnt ??
+    0
   );
+  const floorsAbove = Number.isFinite(rawFloorsAbove) && rawFloorsAbove >= 0 ? rawFloorsAbove : 0;
 
-  const floorsBelow = Number(
+  const rawFloorsBelow = Number(
     raw?.floors_below ??
+    raw?.floorsBelow ??
     ssot?.floors_below ??
     ssot?.ugrnd_flr_cnt ??
+    br?.ugrndFlrCnt ??
     0
   );
+  const floorsBelow = Number.isFinite(rawFloorsBelow) && rawFloorsBelow >= 0 ? rawFloorsBelow : 0;
 
-  const structure = String(
-    raw?.structure ??
-    ssot?.structure ??
-    ssot?.strct_cd_nm ??
-    '철근콘크리트구조'
-  );
+  const structure =
+    cleanBuildingLedgerString(
+      raw?.structure ??
+      ssot?.structure ??
+      ssot?.strct_cd_nm ??
+      br?.strctCdNm
+    ) ?? UNVERIFIED_LEDGER_LABEL;
 
-  const mainUsage = String(
-    raw?.main_usage ??
-    ssot?.main_usage ??
-    ssot?.main_purps_cd_nm ??
-    '제1·2종 근린생활시설'
-  );
+  const mainUsage =
+    cleanBuildingLedgerString(
+      raw?.main_usage ??
+      raw?.mainUsage ??
+      ssot?.main_usage ??
+      ssot?.main_purps_cd_nm ??
+      ssot?.asset_type ??
+      br?.mainPurpsCdNm
+    ) ?? UNVERIFIED_LEDGER_LABEL;
 
-  const parkingSpaces = Number(
+  const rawParking = Number(
     raw?.parking_spaces ??
+    raw?.parkingSpaces ??
     ssot?.parking_spaces ??
     ssot?.parking_total ??
+    br?.totPkngCnt ??
+    br?.parkingTotal ??
     0
   );
+  const parkingSpaces = Number.isFinite(rawParking) && rawParking >= 0 ? rawParking : 0;
 
-  const elevators = Number(
+  const rawElevators = Number(
     raw?.elevators ??
+    raw?.elevator_count ??
     ssot?.elevators ??
     ssot?.elevator_total ??
-    (floorsAbove >= 5 ? 1 : 0)
+    ssot?.elevator_count ??
+    br?.rideUseElvtCnt ??
+    br?.elevatorTotal ??
+    0
   );
+  const elevators = Number.isFinite(rawElevators) && rawElevators >= 0 ? rawElevators : 0;
 
-  const completionDate = String(
-    raw?.completion_date ??
-    ssot?.completion_date ??
-    ssot?.use_apr_day ??
-    ssot?.completion_year ??
-    '2015-06-01'
-  );
+  const completionDate =
+    normalizeCompletionDate(
+      raw?.completion_date ??
+      raw?.completionDate ??
+      ssot?.completion_date ??
+      ssot?.use_apr_day ??
+      ssot?.completion_year ??
+      br?.useAprDay
+    ) ?? UNVERIFIED_LEDGER_LABEL;
 
   return {
     totalGrossAreaSqm: Math.round(totalGrossAreaSqm * 100) / 100,

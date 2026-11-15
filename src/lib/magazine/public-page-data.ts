@@ -6,6 +6,7 @@
  */
 import { addDays, formatKoreanDate, parseIssueDate, toKstDate, todayKst } from '@/lib/magazine/kst';
 import { SLUG_RE, isUuid } from '@/lib/magazine/slug';
+import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
@@ -16,19 +17,47 @@ export interface PublicBrokerRow {
   [k: string]: unknown;
 }
 
+function isMissingBrokerColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === 'PGRST204') return true;
+  const msg = String(error.message ?? '');
+  return /does not exist|schema cache/i.test(msg);
+}
+
 /** URL 파라미터가 uuid/slug 형식일 때만 DB에 질의. 그 외 형식은 null (notFound 처리). */
 export async function resolvePublicBroker(
   supabase: Db,
   param: string,
   columns: string,
 ): Promise<PublicBrokerRow | null> {
-  let q = supabase.from('broker_profiles').select(columns);
-  if (isUuid(param)) q = q.eq('user_id', param);
-  else if (SLUG_RE.test(param)) q = q.eq('slug', param);
-  else return null;
-  const { data, error } = await q.maybeSingle();
-  if (error) throw new Error(`broker lookup failed: ${error.message}`);
-  return (data as PublicBrokerRow | null) ?? null;
+  const runSelect = async (cols: string) => {
+    let q = supabase.from('broker_profiles').select(cols);
+    if (isUuid(param)) q = q.eq('user_id', param);
+    else if (SLUG_RE.test(param)) q = q.eq('slug', param);
+    else return { skipped: true as const, data: null, error: null };
+    const { data, error } = await q.maybeSingle();
+    return { skipped: false as const, data, error };
+  };
+
+  const first = await runSelect(columns);
+  if (first.skipped) return null;
+  if (first.error) {
+    if (
+      isMissingBrokerColumnError(first.error) &&
+      /\b(?:representative_name|office_address)\b/.test(columns)
+    ) {
+      const fallbackCols = columns
+        .split(',')
+        .map((c) => c.trim())
+        .filter((c) => c !== 'representative_name' && c !== 'office_address')
+        .join(', ');
+      const retry = await runSelect(fallbackCols);
+      if (retry.error) throw new Error(`broker lookup failed: ${retry.error.message}`);
+      return (retry.data as PublicBrokerRow | null) ?? null;
+    }
+    throw new Error(`broker lookup failed: ${first.error.message}`);
+  }
+  return (first.data as PublicBrokerRow | null) ?? null;
 }
 
 /** uuid로 접근했고 slug가 있으면 slug URL이 정규. 이미 정규이면 null. */
@@ -477,4 +506,66 @@ export async function resolvePublicDisplayName(
   const { data, error } = await supabase.from('profiles').select('display_name').eq('id', broker.user_id).maybeSingle();
   if (error) throw new Error(`profile lookup failed: ${error.message}`);
   return publicBrokerDisplayName(null, (data as { display_name?: unknown } | null)?.display_name);
+}
+
+export interface PublicBrokerStatutoryProfile {
+  company: string | null;
+  officeAddress: string | null;
+  officeRegNumber: string | null;
+  representativeName: string | null;
+  phone: string | null;
+}
+
+/**
+ * 공인중개사법 제18조의2에 따른 중개사무소 5대 법정 표시 정보 조회·정제.
+ * `profiles`(company, phone, display_name)와 `broker_profiles`(office_address, office_reg_number, representative_name, name)를 결합한다.
+ */
+export async function resolvePublicBrokerStatutoryProfile(
+  supabase: Db,
+  broker: {
+    user_id: string;
+    name?: unknown;
+    company?: unknown;
+    office_name?: unknown;
+    office_address?: unknown;
+    office_reg_number?: unknown;
+    representative_name?: unknown;
+    phone?: unknown;
+  },
+): Promise<PublicBrokerStatutoryProfile> {
+  let profileRow: { display_name?: unknown; phone?: unknown; company?: unknown } | null = null;
+  try {
+    const res = await supabase
+      .from('profiles')
+      .select('display_name, phone, company')
+      .eq('id', broker.user_id)
+      .maybeSingle();
+    if (!res?.error && res?.data && typeof res.data === 'object') {
+      profileRow = res.data as { display_name?: unknown; phone?: unknown; company?: unknown };
+    }
+  } catch {
+    // profiles 테이블이 목킹되지 않은 스텁 환경에서는 broker_profiles 만으로 정제
+  }
+
+  const company =
+    sanitizeStatutoryField(profileRow?.company, 'officeName') ||
+    sanitizeStatutoryField(broker.company, 'officeName') ||
+    sanitizeStatutoryField(broker.office_name, 'officeName');
+  const officeAddress = sanitizeStatutoryField(broker.office_address, 'address');
+  const officeRegNumber = sanitizeStatutoryField(broker.office_reg_number, 'regNo');
+  const representativeName =
+    sanitizeStatutoryField(broker.representative_name, 'name') ||
+    sanitizeStatutoryField(broker.name, 'name') ||
+    sanitizeStatutoryField(profileRow?.display_name, 'name');
+  const phone =
+    sanitizeStatutoryField(profileRow?.phone, 'phone') ||
+    sanitizeStatutoryField(broker.phone, 'phone');
+
+  return {
+    company: company ?? null,
+    officeAddress: officeAddress ?? null,
+    officeRegNumber: officeRegNumber ?? null,
+    representativeName: representativeName ?? null,
+    phone: phone ?? null,
+  };
 }

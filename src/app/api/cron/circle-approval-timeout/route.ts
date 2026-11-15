@@ -1,16 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { expireStaleApprovals } from "@/domain/team/circle-matching-service";
+import { NextRequest, NextResponse } from 'next/server';
+import { expireStaleApprovals } from '@/domain/team/circle-matching-service';
+import { createModuleLogger } from '@/lib/logger';
+import { verifyCronRequest } from '@/lib/security/cron-auth';
+
+const log = createModuleLogger('route');
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authFailure = verifyCronRequest(req);
+  if (authFailure) return authFailure;
+
   try {
     const expiredCount = await expireStaleApprovals();
     return NextResponse.json({ ok: true, expiredCount });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    log.error('[circle-approval-timeout] Unexpected error:', err);
+    return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
   }
 }

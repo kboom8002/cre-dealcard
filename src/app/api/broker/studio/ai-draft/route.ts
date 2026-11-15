@@ -22,6 +22,14 @@ import {
   findNumbersNotInContext,
 } from "@/lib/magazine/ai-comment-schema";
 import { createModuleLogger } from "@/lib/logger";
+import {
+  AI_SERVER_UNAVAILABLE_KO,
+  enforceBrokerAiQuota,
+  isLLMMockNotAllowedError,
+} from "@/lib/ai-quota-guard";
+import { toApiError } from "@/lib/api-error";
+
+export const maxDuration = 60;
 
 const log = createModuleLogger("route");
 
@@ -159,6 +167,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const quotaErr = await enforceBrokerAiQuota(req, auth.user?.id ?? "", "studio_ai_draft");
+  if (quotaErr) return quotaErr;
+
   const input = parsedReq.data;
   const preferredRegions = normalizePreferredRegions([
     ...(input.preferredRegions ?? []),
@@ -264,11 +275,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(responseBody);
   } catch (error: unknown) {
-    if (error instanceof LLMMockNotAllowedError) {
-      log.warn("[studio/ai-draft] Mock 응답 거부:", error.message);
-      return fail(502, "LLM_UNAVAILABLE", "AI가 잠시 쉬고 있어요. 잠시 후 다시 눌러 주세요.");
+    if (error instanceof LLMMockNotAllowedError || isLLMMockNotAllowedError(error)) {
+      log.warn("[studio/ai-draft] Mock 응답 거부:", error instanceof Error ? error.message : error);
+      return fail(503, "LLM_UNAVAILABLE", AI_SERVER_UNAVAILABLE_KO);
     }
     log.error("[studio/ai-draft] Error:", error);
-    return fail(500, "SERVER_ERROR", "AI 초안 작성 중 문제가 생겼어요. 잠시 후 다시 눌러 주세요.");
+    return toApiError(error);
   }
 }

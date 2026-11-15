@@ -5,6 +5,11 @@ import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { ReleaseTier } from '@/domain/building/im-core/release-tier';
 
+export const maxDuration = 300;
+
+const isUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,11 +71,12 @@ export async function GET(
         .maybeSingle();
       doc = docRow;
 
-      if (doc?.building_id) {
+      const targetBuildingId = doc?.building_id || (isUuid(project.dealId) ? project.dealId : null);
+      if (targetBuildingId) {
         const { data: bldg } = await supabase
-          .from('buildings')
+          .from('building_ssot_lite')
           .select('*')
-          .eq('id', doc.building_id)
+          .eq('id', targetBuildingId)
           .maybeSingle();
         building = bldg;
       }

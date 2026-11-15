@@ -13,6 +13,18 @@
     "src/app/api/broker/im/upload-photo/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/broker/buildings/[id]/photos/upload/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/broker/magazine/distribute/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/broker/basic-im-studio/[id]/download/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/broker/pptx-studio/projects/[id]/download/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/public/im-lite/[buildingId]/pptx/route.ts": {
       "maxDuration": 300
     },
@@ -25,8 +37,20 @@
     "src/app/api/magazine/issues/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/morning-briefing/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/weekly-magazine/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/ai-quality-monitor/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/consistency-check/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/subscription-expiry/route.ts": {
+      "maxDuration": 60
     },
     "src/app/api/pulse/generate/route.ts": {
       "maxDuration": 300
@@ -56,6 +80,18 @@
     {
       "path": "/api/cron/circle-approval-timeout",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/ai-quality-monitor",
+      "schedule": "30 */6 * * *"
+    },
+    {
+      "path": "/api/cron/consistency-check",
+      "schedule": "15 19 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-expiry",
+      "schedule": "5 15 * * *"
     }
   ]
 }

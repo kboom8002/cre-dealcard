@@ -12,6 +12,7 @@
  */
 
 import type { Card4Data, DealCardGenerationSource, DealCardPosture } from "./card4-schema";
+import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import { cleanBlindPoints, validateBlindPoints } from "./blind-guard";
 import {
   deriveDealCardHeadline,
@@ -262,14 +263,14 @@ export function parseMemoIntoCard4(
   const toPyung = (rawNum: string, unit: string): number | undefined => {
     const n = parseFloat(rawNum.replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return undefined;
-    if (/㎡|m2/i.test(unit)) return Math.round(n / 3.3058);
+    if (/㎡|m2/i.test(unit)) return Math.round(m2ToPyeong(n));
     return Math.round(n);
   };
 
   const toExactPyungFloat = (rawNum: string, unit: string): number | undefined => {
     const n = parseFloat(rawNum.replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return undefined;
-    return /㎡|m2/i.test(unit) ? n / 3.3058 : n;
+    return /㎡|m2/i.test(unit) ? m2ToPyeong(n) : n;
   };
 
   const gfaTotalMatch =

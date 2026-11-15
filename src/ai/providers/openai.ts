@@ -5,10 +5,14 @@ export class OpenAIProvider implements LLMProvider {
   readonly name = "openai";
   private openai: OpenAI;
 
-  constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("[OpenAIProvider] process.env.OPENAI_API_KEY is not defined");
+  constructor(client?: OpenAI) {
+    if (client) {
+      this.openai = client;
+      return;
+    }
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey || apiKey === "mock_key" || apiKey === "not-configured") {
+      throw new Error("[OpenAIProvider] process.env.OPENAI_API_KEY is not defined or invalid");
     }
     this.openai = new OpenAI({ apiKey });
   }
@@ -16,7 +20,6 @@ export class OpenAIProvider implements LLMProvider {
   async chat(params: LLMChatParams): Promise<LLMChatResult> {
     const startTime = Date.now();
     const model = params.model || "gpt-5.6-terra";
-    console.log("[OpenAIProvider] model is:", model);
 
     const isReasoningModel =
       model.includes("o1") ||
@@ -32,17 +35,18 @@ export class OpenAIProvider implements LLMProvider {
       : (params.maxTokens ?? 4096);
 
     const attemptChat = async (tokenBudget: number) => {
+      const requestBody: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+        model,
+        messages: [
+          { role: "system", content: params.systemPrompt },
+          { role: "user", content: params.userPrompt },
+        ],
+        response_format: params.responseFormat === "json_object" ? { type: "json_object" } : undefined,
+        temperature: isReasoningModel ? 1 : (params.temperature ?? 0.7),
+        max_completion_tokens: tokenBudget,
+      };
       const response = await this.openai.chat.completions.create(
-        {
-          model,
-          messages: [
-            { role: "system", content: params.systemPrompt },
-            { role: "user", content: params.userPrompt },
-          ],
-          response_format: params.responseFormat === "json_object" ? { type: "json_object" } : undefined,
-          temperature: isReasoningModel ? 1 : (params.temperature ?? 0.7),
-          max_completion_tokens: tokenBudget,
-        },
+        requestBody,
         {
           signal: params.signal,
         }

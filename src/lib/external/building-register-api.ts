@@ -40,7 +40,12 @@ export interface BuildingRegisterData {
   heatMethod?: string;        // 난방 방식
   mainPnu?: string;           // 대표지번(표제부가 존재하는 필지) PNU — resolveMainLotPnu 결과 (프롬프트 제외 대상)
   attachedLots?: string[];    // 대표지번에 딸린 부속지번 PNU 목록 (getBrAtchJibunInfo)
+  mgmBldrgstPk?: string;      // 관리건축물대장PK
   _isFallback?: boolean;
+}
+
+function getBuildingRegisterApiKey(): string {
+  return (process.env.DATA_GO_KR_API_KEY || process.env.PUBLIC_DATA_API_KEY || '').trim();
 }
 
 /** 0/NaN/Infinity 는 undefined (0을 사실처럼 노출하지 않는다 — Rule 37) */
@@ -113,7 +118,7 @@ export async function fetchBuildingFloors(
   platGbCd?: string,
   targetPk?: string | number,
 ): Promise<BuildingRegisterFloor[]> {
-  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  const apiKey = getBuildingRegisterApiKey();
   if (!apiKey) return [];
 
   const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrFlrOulnInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=100&pageNo=1&_type=json`;
@@ -232,6 +237,79 @@ const SIGUNGU_CODE_ALIASES: Record<string, string[]> = {
   '41190': ['41190', '41192', '41194', '41196', '41195', '41197', '41199'],
 };
 
+const RESIDENTIAL_USES = ['공동주택', '단독주택', '아파트', '연립주택', '다세대주택', '다가구주택'];
+
+/**
+ * 다동 필지에서 주건축물(`mainAtchGbCd === '0'` / `'주건축물'`) 및 최대 연면적(`totArea`) 기준으로
+ * 대표 표제부 행을 결정론적으로 선택합니다 (`items[0]`가 12㎡ 부속건축물/화장실인 오선택 차단).
+ */
+export function selectPrimaryBuildingTitleRow(
+  items: Array<Record<string, unknown>>,
+  hintBuildingUse?: string
+): Record<string, unknown> | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  const positiveAreaItems = items.filter(
+    (it) => it && parseFloat(String(it.totArea ?? '0')) > 0
+  );
+  const candidates =
+    positiveAreaItems.length > 0
+      ? positiveAreaItems
+      : items.filter(
+          (it) =>
+            it &&
+            (parseFloat(String(it.platArea ?? '0')) > 0 ||
+              String(it.mgmBldrgstPk ?? '').trim().length > 0 ||
+              String(it.mainPurpsCdNm ?? '').trim().length > 0)
+        );
+  if (candidates.length === 0) return null;
+
+  // 1) 명시적 주건축물(mainAtchGbCd === '0' | '주건축물') 우선, 2) 미지정(부속 아닌 동), 3) 부속건축물 최후순위
+  const explicitPrimary = candidates.filter((it) => {
+    const cd = String(it.mainAtchGbCd ?? '').trim();
+    const nm = String(it.mainAtchGbCdNm ?? '').trim();
+    return cd === '0' || nm === '주건축물';
+  });
+  const nonAnnex = candidates.filter((it) => {
+    const cd = String(it.mainAtchGbCd ?? '').trim();
+    const nm = String(it.mainAtchGbCdNm ?? '').trim();
+    return cd !== '1' && nm !== '부속건축물';
+  });
+
+  const selectionPool =
+    explicitPrimary.length > 0
+      ? explicitPrimary
+      : nonAnnex.length > 0
+        ? nonAnnex
+        : candidates;
+
+  const trimmedHint = hintBuildingUse?.trim() || '';
+
+  const sorted = [...selectionPool].sort((a, b) => {
+    if (trimmedHint) {
+      const aPurp = String(a.mainPurpsCdNm ?? '');
+      const bPurp = String(b.mainPurpsCdNm ?? '');
+      const aHint = aPurp.length > 0 && (aPurp.includes(trimmedHint) || trimmedHint.includes(aPurp)) ? 1 : 0;
+      const bHint = bPurp.length > 0 && (bPurp.includes(trimmedHint) || trimmedHint.includes(bPurp)) ? 1 : 0;
+      if (aHint !== bHint) return bHint - aHint;
+    }
+
+    const aNonRes = !RESIDENTIAL_USES.includes(String(a.mainPurpsCdNm ?? '').trim()) ? 1 : 0;
+    const bNonRes = !RESIDENTIAL_USES.includes(String(b.mainPurpsCdNm ?? '').trim()) ? 1 : 0;
+    if (aNonRes !== bNonRes) return bNonRes - aNonRes;
+
+    const aTot = parseFloat(String(a.totArea ?? '0')) || 0;
+    const bTot = parseFloat(String(b.totArea ?? '0')) || 0;
+    if (aTot !== bTot) return bTot - aTot;
+
+    const aPlat = parseFloat(String(a.platArea ?? '0')) || 0;
+    const bPlat = parseFloat(String(b.platArea ?? '0')) || 0;
+    return bPlat - aPlat;
+  });
+
+  return sorted[0] ?? null;
+}
+
 /**
  * @param hintBuildingUse 딜카드에서 입력된 건물 용도 (선택). 다동 필지에서 올바른 동을 선택하는 데 사용.
  */
@@ -243,7 +321,7 @@ export async function fetchBuildingRegister(
   hintBuildingUse?: string,
   platGbCd?: string
 ): Promise<BuildingRegisterData | null> {
-  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  const apiKey = getBuildingRegisterApiKey();
 
   if (apiKey && apiKey !== "") {
     const candidateSigunguCodes = SIGUNGU_CODE_ALIASES[sigunguCd] || [sigunguCd];
@@ -270,61 +348,18 @@ export async function fetchBuildingRegister(
         const data = await res.json();
 
         const item = data?.response?.body?.items?.item;
-        const items = Array.isArray(item) ? item : item ? [item] : [];
-        const validItems = items.filter((it: Record<string, unknown>) => it && parseFloat(String(it.totArea || "0")) > 0);
-        if (validItems.length === 0) continue;
+        const items: Array<Record<string, unknown>> = Array.isArray(item) ? item : item ? [item] : [];
+        const targetItem = selectPrimaryBuildingTitleRow(items, hintBuildingUse);
+        if (!targetItem) continue;
 
-        // 다동 필지에서 올바른 동 선택 (D17 QA-SANITY-03 해소)
-        // ① hintBuildingUse와 mainPurpsCdNm이 일치하는 동 우선
-        // ② 일치하는 동이 없으면 비주거 용도(공동주택·단독주택 제외) 중 연면적 최대 선택
-        // ③ 그래도 없으면 연면적 최대 선택
-        const RESIDENTIAL_USES = ['공동주택', '단독주택', '아파트', '연립주택', '다세대주택', '다가구주택'];
-        
-        // 주건축물 우선 필터링
-        const primaryBuildings = validItems.filter((it: Record<string, unknown>) =>
-          String(it.mainAtchGbCd || '') === '0' || String(it.mainAtchGbCdNm || '') === '주건축물'
-        );
-        const selectionPool = primaryBuildings.length > 0 ? primaryBuildings : validItems;
-        let targetItem = selectionPool[0];
-
-        if (selectionPool.length > 1) {
-          // 1단계: hint 용도와 매칭
-          if (hintBuildingUse) {
-            const hintMatched = selectionPool.filter((it: Record<string, unknown>) =>
-              String(it.mainPurpsCdNm || "").includes(hintBuildingUse) ||
-              hintBuildingUse.includes(String(it.mainPurpsCdNm || ""))
-            );
-            if (hintMatched.length > 0) {
-              targetItem = hintMatched.reduce((a: Record<string, unknown>, b: Record<string, unknown>) =>
-                parseFloat(String(a.totArea || "0")) >= parseFloat(String(b.totArea || "0")) ? a : b
-              );
-            } else {
-              // 2단계: 비주거 용도 중 연면적 최대
-              const nonResidential = selectionPool.filter((it: Record<string, unknown>) =>
-                !RESIDENTIAL_USES.includes(String(it.mainPurpsCdNm || ""))
-              );
-              const pool = nonResidential.length > 0 ? nonResidential : selectionPool;
-              targetItem = pool.reduce((a: Record<string, unknown>, b: Record<string, unknown>) =>
-                parseFloat(String(a.totArea || "0")) >= parseFloat(String(b.totArea || "0")) ? a : b
-              );
-            }
-          } else {
-            // hint 없으면: 비주거 중 연면적 최대 → 전체 연면적 최대
-            const nonResidential = selectionPool.filter((it: Record<string, unknown>) =>
-              !RESIDENTIAL_USES.includes(String(it.mainPurpsCdNm || ""))
-            );
-            const pool = nonResidential.length > 0 ? nonResidential : selectionPool;
-            targetItem = pool.reduce((a: Record<string, unknown>, b: Record<string, unknown>) =>
-              parseFloat(String(a.totArea || "0")) >= parseFloat(String(b.totArea || "0")) ? a : b
-            );
-          }
-          logger.info(`${selectionPool.length}동 중 "${String(targetItem.mainPurpsCdNm)}" (${String(targetItem.totArea)}㎡) 선택`);
+        if (items.length > 1) {
+          logger.info(`${items.length}동 중 "${String(targetItem.mainPurpsCdNm)}" (${String(targetItem.totArea)}㎡) 선택`);
         }
 
         // 대지면적 폴백: 선택 동에 0이면 다른 동에서 승계
         let platArea = parseFloat(String(targetItem.platArea || '0'));
         if (platArea === 0) {
-          const donor = validItems.find((it: Record<string, unknown>) => parseFloat(String(it.platArea || '0')) > 0);
+          const donor = items.find((it: Record<string, unknown>) => it && parseFloat(String(it.platArea || '0')) > 0);
           if (donor) platArea = parseFloat(String(donor.platArea || '0'));
         }
 
@@ -359,6 +394,7 @@ export async function fetchBuildingRegister(
           bcRat: parseFloat(String(targetItem.bcRat || "0")),
           vlRat: parseFloat(String(targetItem.vlRat || "0")),
           buildingName: String(targetItem.bldNm || ""),
+          ...(targetPk ? { mgmBldrgstPk: targetPk } : {}),
           ...(platPlc ? { platPlc } : {}),
           ...(newPlatPlc ? { newPlatPlc } : {}),
           ...(floors.length > 0 ? { floors } : {}),
@@ -391,7 +427,7 @@ export async function fetchBuildingAttachedLots(
   ji: string,
   platGbCd?: string
 ): Promise<string[]> {
-  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  const apiKey = getBuildingRegisterApiKey();
   if (!apiKey) return [];
   const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrAtchJibunInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=50&pageNo=1&_type=json`;
   try {
@@ -435,12 +471,12 @@ export async function fetchBuildingRecap(
   bun: string,
   ji: string
 ): Promise<BuildingRecapData | null> {
-  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  const apiKey = getBuildingRegisterApiKey();
 
   if (apiKey && apiKey !== "") {
     const endpoints = [
-      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
-      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=10&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=10&pageNo=1&_type=json`,
     ];
 
     for (const url of endpoints) {
@@ -450,7 +486,15 @@ export async function fetchBuildingRecap(
         const data = await res.json();
 
         const item = data?.response?.body?.items?.item;
-        const row = Array.isArray(item) ? item[0] : item;
+        const rows: Array<Record<string, any>> = Array.isArray(item) ? item : item ? [item] : [];
+        const sortedRows = rows
+          .filter((r) => r && parseFloat(String(r.archArea || '0')) > 0)
+          .sort((a, b) => {
+            const aTot = parseFloat(String(a.totArea || a.archArea || '0')) || 0;
+            const bTot = parseFloat(String(b.totArea || b.archArea || '0')) || 0;
+            return bTot - aTot;
+          });
+        const row = sortedRows[0];
 
         if (row && row.archArea) {
           return {

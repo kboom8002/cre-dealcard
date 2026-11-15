@@ -16,7 +16,47 @@ import { getInboxState, isUuid, resolveOrSynthesizeQuickImRecord } from "@/lib/i
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 import { getServerViewer } from "@/lib/server-viewer";
 import { isOwnerOrAdmin } from "@/domain/public-projection/access";
-import { isImDocStatusPublic } from "@/domain/public-projection/visibility";
+import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
+
+function coarsenCoordinates(
+  coords: unknown,
+): { lat: number; lng: number } | null {
+  if (!coords || typeof coords !== "object") return null;
+  const lat = Number((coords as Record<string, unknown>).lat);
+  const lng = Number((coords as Record<string, unknown>).lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return {
+    lat: Math.round(lat * 200) / 200,
+    lng: Math.round(lng * 200) / 200,
+  };
+}
+
+function applyBlindCoordinateGuard<T extends Record<string, any>>(
+  imDoc: T,
+  isPrivilegedViewer: boolean,
+): T {
+  if (isPrivilegedViewer) return imDoc;
+  const stripsLot =
+    Array.isArray(imDoc.protectedFieldsRemoved) &&
+    imDoc.protectedFieldsRemoved.includes("상세 지번");
+  const isBlindTeaser = stripsLot && !imDoc.basicImDocument;
+  if (!isBlindTeaser) return imDoc;
+  const coarsened = coarsenCoordinates(imDoc.coordinates);
+  const nextSsot =
+    imDoc.ssot_summary &&
+    typeof imDoc.ssot_summary === "object" &&
+    imDoc.ssot_summary.coordinates
+      ? {
+          ...imDoc.ssot_summary,
+          coordinates: coarsenCoordinates(imDoc.ssot_summary.coordinates),
+        }
+      : imDoc.ssot_summary;
+  return {
+    ...imDoc,
+    coordinates: coarsened,
+    ...(nextSsot !== undefined ? { ssot_summary: nextSsot } : {}),
+  };
+}
 
 export async function GET(
   req: NextRequest,
@@ -139,8 +179,8 @@ export async function GET(
       viewer = null;
     }
 
-    // Non-UUID buildingId (e.g. bld-01, quick-*): delegate to fetchIMData / QuickImStore
-    if (!isUuid(buildingId)) {
+    // Synthetic workspace IDs (bld-*, quick-*): delegate directly to fetchIMData / QuickImStore
+    if (buildingId.startsWith("bld-") || buildingId.startsWith("quick-")) {
       const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
       if (fallbackIm) {
         if ((fallbackIm as any).isRevoked) {
@@ -156,7 +196,11 @@ export async function GET(
           );
         }
         return NextResponse.json(
-          { ok: true, data: fallbackIm, source: "im_workspace" },
+          {
+            ok: true,
+            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, null)),
+            source: "im_workspace",
+          },
           { status: 200 },
         );
       }
@@ -172,9 +216,20 @@ export async function GET(
       .eq("id", buildingId)
       .maybeSingle();
     const buildingOwnerId: string | null = buildingAccess?.owner_id ?? null;
+    if (
+      buildingAccess &&
+      !isBuildingStatusPublic(buildingAccess.status) &&
+      !isOwnerOrAdmin(viewer, buildingOwnerId)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
 
     // ── 2a. Auto-resolve docId if not provided ──────────────────────
-    let resolvedDocId = docId && isUuid(docId) ? docId : null;
+    const SAFE_DOC_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+    let resolvedDocId = docId && SAFE_DOC_ID_RE.test(docId) ? docId : null;
     if (!resolvedDocId) {
       const allowedStatuses = isOwnerOrAdmin(viewer, buildingOwnerId)
         ? ["published", "broker_reviewed", "draft"]
@@ -200,14 +255,16 @@ export async function GET(
     if (resolvedDocId) {
       const { data: document, error: docError } = await supabase
         .from("document_objects")
-        .select("body, owner_id, created_at, updated_at, status")
+        .select("body, owner_id, created_at, updated_at, status, document_type")
         .eq("id", resolvedDocId)
         .eq("building_id", buildingId)
         .single();
 
       const isAllowedDoc =
         document &&
-        (isImDocStatusPublic(document.status) || isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id));
+        (!document.status ||
+          isImDocStatusPublic(document.status) ||
+          isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id));
 
       if (!docError && isAllowedDoc && document.body?.sections) {
         const dbTime = Date.parse(document.updated_at || document.created_at || "") || 0;
@@ -228,7 +285,11 @@ export async function GET(
               );
             }
             return NextResponse.json(
-              { ok: true, data: fallbackIm, source: "im_workspace" },
+              {
+                ok: true,
+                data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, buildingOwnerId)),
+                source: "im_workspace",
+              },
               { status: 200 },
             );
           }
@@ -292,6 +353,24 @@ export async function GET(
           : [];
         const docPhotos = rawDocPhotos.filter((p: any) => p && p.excluded !== true && p.url);
 
+        const isPrivilegedDocViewer = isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id);
+        const isBlindDocResponse =
+          !isPrivilegedDocViewer &&
+          (document.document_type === "blind_teaser" ||
+            document.body.is_blind === true ||
+            !document.body.basicImDocument);
+        const rawDocCoords = document.body.coordinates || ssotSummary.coordinates || null;
+        const safeDocCoords = isBlindDocResponse
+          ? coarsenCoordinates(rawDocCoords)
+          : rawDocCoords;
+        const safeSsotSummary =
+          isBlindDocResponse && ssotSummary?.coordinates
+            ? {
+                ...ssotSummary,
+                coordinates: coarsenCoordinates(ssotSummary.coordinates),
+              }
+            : ssotSummary;
+
         const doc = {
           buildingId,
           blindName: document.body.buildingName || `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
@@ -313,8 +392,8 @@ export async function GET(
           protectedFieldsRemoved: ["상세 지번", "소유주명"],
           photos: docPhotos,
           photos_v2: docPhotos,
-          coordinates: document.body.coordinates || ssotSummary.coordinates || null,
-          ssot_summary: ssotSummary,
+          coordinates: safeDocCoords,
+          ssot_summary: safeSsotSummary,
           heroCard: document.body.heroCard || undefined,
           rent_roll: document.body.rent_roll || document.body.floor_leases || ssotSummary.floor_leases || [],
           floor_leases: document.body.floor_leases || document.body.rent_roll || ssotSummary.floor_leases || [],
@@ -347,7 +426,11 @@ export async function GET(
           );
         }
         return NextResponse.json(
-          { ok: true, data: fallbackIm, source: "im_workspace" },
+          {
+            ok: true,
+            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, buildingOwnerId)),
+            source: "im_workspace",
+          },
           { status: 200 },
         );
       }
@@ -380,10 +463,25 @@ export async function GET(
           );
         }
         return NextResponse.json(
-          { ok: true, data: fallbackIm, source: "im_workspace" },
+          {
+            ok: true,
+            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, buildingOwnerId)),
+            source: "im_workspace",
+          },
           { status: 200 },
         );
       }
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
+
+    // Fallback #3: Explicitly exclude archived and draft building_ssot_lite rows when no published document_objects exists
+    if (
+      !isOwnerOrAdmin(viewer, ssot.owner_id) &&
+      (ssot.status === "archived" || ssot.status === "draft")
+    ) {
       return NextResponse.json(
         { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
         { status: 404 },
@@ -407,7 +505,11 @@ export async function GET(
           );
         }
         return NextResponse.json(
-          { ok: true, data: fallbackIm, source: "im_workspace" },
+          {
+            ok: true,
+            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, ssot.owner_id)),
+            source: "im_workspace",
+          },
           { status: 200 },
         );
       }
@@ -530,6 +632,16 @@ export async function GET(
     ];
 
     const layers = (ssot.layers as Record<string, any>) || {};
+    const isPrivilegedSsotViewer = isOwnerOrAdmin(viewer, ssot.owner_id);
+    const protectedFieldsRemoved =
+      !isPrivilegedSsotViewer || ssot.disclosure?.guard_checked
+        ? ["상세 지번", "소유주명"]
+        : [];
+    const rawSsotCoords = layers.coordinates || null;
+    const safeSsotCoords =
+      protectedFieldsRemoved.includes("상세 지번") && !isPrivilegedSsotViewer
+        ? coarsenCoordinates(rawSsotCoords)
+        : rawSsotCoords;
 
     const doc = {
       buildingId: ssot.id,
@@ -549,9 +661,9 @@ export async function GET(
         label: "상세 투자설명서(IM) 요청",
         description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
       },
-      protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "소유주명"] : [],
+      protectedFieldsRemoved,
       photos: layers.photos || [],
-      coordinates: layers.coordinates || null,
+      coordinates: safeSsotCoords,
     };
 
     return NextResponse.json(

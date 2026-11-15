@@ -1,8 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import Link from "next/link";
-import { AlertCircle } from "lucide-react";
+import React, { useEffect } from 'react';
+import Link from 'next/link';
+import { AlertCircle, RefreshCw, Home } from 'lucide-react';
+import {
+  generateErrorReferenceCode,
+  reportClientOrServerError,
+} from '@/lib/observability/error-reporter';
 
 export default function DealCardError({
   error,
@@ -11,34 +15,44 @@ export default function DealCardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const refCode = generateErrorReferenceCode(error);
+
   useEffect(() => {
-    console.error("[DealCard] Page error:", error);
+    void reportClientOrServerError(error, {
+      boundary: 'broker-deal-card',
+      digest: error?.digest,
+    });
   }, [error]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] p-6 text-center">
       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
-        <AlertCircle className="w-8 h-8 text-red-600" />
+        <AlertCircle className="w-8 h-8 text-red-600" aria-hidden="true" />
       </div>
       <h2 className="text-2xl font-bold text-slate-900 mb-2">
         데이터를 불러오는 중 문제가 발생했습니다
       </h2>
-      <p className="text-slate-500 max-w-md mb-8">
-        일시적인 네트워크 오류이거나 데이터가 존재하지 않을 수 있습니다. 
-        계속해서 문제가 발생하면 고객센터로 문의해 주세요.
+      <p className="text-slate-600 text-base max-w-md mb-3 leading-relaxed">
+        일시적인 화면 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
       </p>
-      <div className="flex gap-4">
+      <p className="text-xs font-mono text-slate-500 mb-8">
+        오류 참조코드: {refCode}
+      </p>
+      <div className="flex flex-wrap gap-3 justify-center">
         <button
+          type="button"
           onClick={() => reset()}
-          className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-colors"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 transition-colors"
         >
-          다시 시도
+          <RefreshCw className="w-4 h-4" aria-hidden="true" />
+          다시 시도하기
         </button>
         <Link
-          href="/broker/buildings"
-          className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors"
+          href="/"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition-colors"
         >
-          목록으로 돌아가기
+          <Home className="w-4 h-4" aria-hidden="true" />
+          홈으로 이동
         </Link>
       </div>
     </div>

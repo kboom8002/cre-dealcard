@@ -7,7 +7,7 @@
 import type { Metadata, Viewport } from "next";
 import { serializeJsonLd, organization, website } from "@/lib/schema-org";
 import { PublicBottomNav } from "@/components/layout/PublicBottomNav";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { ThemeToggle, PublicContentShell } from "@/components/ui/ThemeToggle";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
@@ -107,10 +107,10 @@ export default function PublicLayout({
         <ThemeToggle size="sm" />
       </div>
 
-      {/* Page content — padding-bottom accounts for mobile bottom nav */}
-      <div className="pb-16 md:pb-0">
+      {/* Page content — padding-bottom accounts for mobile bottom nav when visible */}
+      <PublicContentShell>
         {children}
-      </div>
+      </PublicContentShell>
 
       {/* Mobile bottom navigation */}
       <PublicBottomNav />

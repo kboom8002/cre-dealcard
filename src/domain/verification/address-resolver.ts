@@ -43,6 +43,9 @@ export interface AddressComponents {
   bjdongCd: string;
   bun: string;
   ji: string;
+  platGbCd?: '0' | '1';
+  isMount?: boolean;
+  pnu?: string;
 }
 
 export type ResolveKind = 'exact' | 'ambiguous' | 'partial' | 'failed';
@@ -84,6 +87,8 @@ export const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: st
   "여의도":   { sigunguCd: "11560", bjdongCd: "11000" },
   "성수":     { sigunguCd: "11200", bjdongCd: "11400" },
   "충무로":   { sigunguCd: "11140", bjdongCd: "10700" },
+  "평창동":   { sigunguCd: "11110", bjdongCd: "18300" },
+  "평창":     { sigunguCd: "11110", bjdongCd: "18300" },
   "종로":     { sigunguCd: "11110", bjdongCd: "11500" },
   "용산":     { sigunguCd: "11170", bjdongCd: "10100" },
   "마포":     { sigunguCd: "11440", bjdongCd: "10100" },
@@ -98,6 +103,57 @@ export const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: st
   "광화문":   { sigunguCd: "11110", bjdongCd: "14000" },
   "테헤란":   { sigunguCd: "11680", bjdongCd: "10100" },
 };
+
+const SEOUL_AUTONOMOUS_DISTRICTS = new Set([
+  "강남구", "강동구", "강북구", "강서구", "관악구",
+  "광진구", "구로구", "금천구", "노원구", "도봉구",
+  "동대문구", "동작구", "마포구", "서대문구", "서초구",
+  "성동구", "성북구", "송파구", "양천구", "영등포구",
+  "용산구", "은평구", "종로구", "중구", "중랑구",
+]);
+
+const NON_SEOUL_REGION_PREFIX_RE =
+  /^(?:부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|충청|전북|전남|전라|경북|경남|경상|제주|성남|수원|용인|고양|화성|부천|안양|안산|남양주|평택|의정부|파주|시흥|김포|광명|하남|군포|오산|이천|구리|안성|포천|의왕|양주|여주|과천|창원|천안|청주|전주|포항|김해|구미|진주|원주|춘천|강릉|목포|여수|순천|익산|군산|경주|양산|거제|아산)(?:특별시|광역시|특별자치시|특별자치도|도|시|군)?(?:\s|$)/;
+
+/**
+ * FALLBACK_DONG_MAP(서울 전용 정적 법정동 코드표) 적용 허용 여부 검증.
+ * - 명시적 '서울' / '서울시' / '서울특별시' 접두어가 있으면 허용
+ * - 비서울 광역시/도/시/군 또는 비서울 자치구(예: 분당구, 서구, 해운대구)가 포함되면 즉시 차단
+ */
+export function isEligibleForSeoulFallback(address: string | null | undefined): boolean {
+  if (!address) return false;
+  const trimmed = address.trim();
+  if (!trimmed) return false;
+
+  if (/^서울(?:특별시|시)?(?:\s|$)/.test(trimmed)) {
+    return true;
+  }
+
+  if (NON_SEOUL_REGION_PREFIX_RE.test(trimmed)) {
+    return false;
+  }
+
+  // 비서울 도/광역시/시/군 토큰 존재 시 차단 ("경기도 ...", "성남시 ...", "양평군 ...")
+  const tokens = trimmed.split(/\s+/);
+  for (const token of tokens) {
+    if (/^(?!서울)[가-힣]+(?:광역시|특별자치시|특별자치도|도|시|군)$/.test(token)) {
+      return false;
+    }
+    if (/^[가-힣]+구$/.test(token) && !SEOUL_AUTONOMOUS_DISTRICTS.has(token)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * 지번 문자열 내 임야(산지) 지번 여부 판정 ("산 12-3", "산12" → true, "독산1동 100" → false)
+ */
+export function isMountainLotAddress(address: string | null | undefined): boolean {
+  if (!address) return false;
+  return /(?:^|[\s,(])산\s*\d+(?:-\d+)?(?:\s*번지)?(?:\s|$|,|\))/.test(address.trim());
+}
 
 // ── API 호출 ─────────────────────────────────────────────────────────────
 
@@ -312,17 +368,41 @@ export function extractCleanKoreanAddress(rawText: string | null | undefined): s
 export function hasValidBuildingNumber(addr: string | null | undefined): boolean {
   if (!addr) return false;
   // 행정동 구분 숫자(예: 당산동5가, 종로3가, 한강로2가)를 건물번호로 오인하지 않도록 방지
-  // 1. "동/로/길/가/리/면/읍" 뒤에 반드시 공백과 함께 지번/건물번호 숫자가 올 것
-  // 2. 또는 주소 끝부분에 공백과 함께 숫자가 올 것
-  return /(?:동|로|길|가|리|면|읍)\s+\d+(?:-\d+)?(?:번지)?(?:\s|$)/.test(addr) ||
-         /\s+\d+(?:-\d+)?(?:번지)?$/.test(addr);
+  // 1. "동/로/길/가/리/면/읍" 뒤에 반드시 공백과 함께 지번/건물번호 숫자(임야 '산' 포함)가 올 것
+  // 2. 또는 주소 끝부분에 공백과 함께 숫자(임야 '산' 포함)가 올 것
+  return /(?:동|로|길|가|리|면|읍)\s+(?:산\s*)?\d+(?:-\d+)?(?:번지)?(?:\s|$)/.test(addr) ||
+         /\s+(?:산\s*)?\d+(?:-\d+)?(?:번지)?$/.test(addr);
+}
+
+function buildAddressComponents(
+  sigunguCd: string,
+  bjdongCd: string,
+  bun: string,
+  ji: string,
+  isMount: boolean
+): AddressComponents {
+  const platGbCd: '0' | '1' = isMount ? '1' : '0';
+  const landDigit = isMount ? '2' : '1';
+  const pnu =
+    sigunguCd.length === 5 && bjdongCd.length === 5
+      ? `${sigunguCd}${bjdongCd}${landDigit}${String(bun).padStart(4, '0')}${String(ji).padStart(4, '0')}`
+      : undefined;
+  return {
+    sigunguCd,
+    bjdongCd,
+    bun,
+    ji,
+    platGbCd,
+    isMount,
+    ...(pnu ? { pnu } : {}),
+  };
 }
 
 /**
  * 주소 문자열에서 건축물대장 조회에 필요한 시군구코드/법정동코드/번/지를 추출합니다.
  *
  * 1순위: 도로명주소 API로 정확한 행정코드 획득
- * 2순위: API 실패 시 하드코딩 폴백 매핑으로 최선의 추정
+ * 2순위: API 실패 시 하드코딩 폴백 매핑으로 최선의 추정 (서울 한정)
  */
 export async function resolveAddressToComponents(
   address: string,
@@ -339,82 +419,122 @@ export async function resolveAddressToComponents(
       const sigunguCd = admCd.substring(0, 5);
       const bjdongCd = admCd.substring(5, 10);
 
-      // 지번 주소에서 번-지 추출
-      const { bun, ji } = extractBunJi(result.jibunAddr || address);
+      // 지번 주소에서 번-지 및 산지 여부 추출
+      const targetAddr = result.jibunAddr || address;
+      const { bun, ji, isMount: parsedMount } = extractBunJi(targetAddr);
+      const isMount = parsedMount || result.pnu?.charAt(10) === '2' || isMountainLotAddress(address);
 
-      return { sigunguCd, bjdongCd, bun, ji };
+      return buildAddressComponents(sigunguCd, bjdongCd, bun, ji, isMount);
     }
   }
 
-  // 2순위: 폴백 — 하드코딩 법정동 매핑
+  // 2순위: 폴백 — 하드코딩 법정동 매핑 (서울 주소 한정)
   return fallbackParseAddress(address);
 }
 
 /**
- * 주소 문자열에서 번-지를 추출합니다.
- * 예: "서울특별시 강남구 역삼동 742-1" → { bun: "742", ji: "1" }
+ * 주소 문자열에서 번-지 및 산지 여부를 추출합니다.
+ * 예: "서울특별시 강남구 역삼동 742-1" → { bun: "742", ji: "1", isMount: false }
+ * 예: "서울 종로구 평창동 산 12-3" → { bun: "12", ji: "3", isMount: true }
  */
-function extractBunJi(address: string): { bun: string; ji: string } {
-  const regex = /(\d{1,4})(?:-(\d{1,4}))?(?:\s|$)/;
-  // 주소 뒷부분에서 번지를 찾기 위해 뒤에서부터 매칭
-  const parts = address.split(/\s+/);
+function extractBunJi(address: string): { bun: string; ji: string; isMount: boolean } {
+  const isMount = isMountainLotAddress(address);
+  const mountMatch = address.match(/(?:^|\s)산\s*(\d{1,4})(?:-(\d{1,4}))?(?:번지)?(?:\s|$)/);
+  if (mountMatch) {
+    return { bun: mountMatch[1], ji: mountMatch[2] || "0", isMount: true };
+  }
+
+  const regex = /^(\d{1,4})(?:-(\d{1,4}))?(?:번지)?$/;
+  const parts = address.trim().split(/\s+/);
   for (let i = parts.length - 1; i >= 0; i--) {
     const match = parts[i].match(regex);
     if (match) {
-      return { bun: match[1], ji: match[2] || "0" };
+      return { bun: match[1], ji: match[2] || "0", isMount };
     }
   }
-  return { bun: "0", ji: "0" };
+  return { bun: "0", ji: "0", isMount };
 }
 
 /**
- * 하드코딩 폴백: 주소에서 동이름을 매칭하여 코드를 반환합니다.
+ * 서울 주소 문자열에서 FALLBACK_DONG_MAP 기반 법정동 코드(sigunguCd, bjdongCd)를 조회합니다.
+ * 비서울 주소는 절대 매칭하지 않고 null을 반환합니다.
+ */
+export function lookupSeoulFallbackDong(
+  address: string,
+  dongHint?: string
+): { sigunguCd: string; bjdongCd: string } | null {
+  if (!isEligibleForSeoulFallback(address)) {
+    return null;
+  }
+
+  if (dongHint) {
+    const rawDong = dongHint.trim();
+    const dongName = rawDong.replace(/(?:동\d+가|[동로가])$/, "");
+
+    if (FALLBACK_DONG_MAP[rawDong]) {
+      return FALLBACK_DONG_MAP[rawDong];
+    }
+    for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
+      const cleanKey = key.trim().replace(/(?:동\d+가|[동로가])$/, "");
+      if (dongName.length >= 2 && cleanKey === dongName) {
+        return codes;
+      }
+    }
+    if (dongName.length >= 2) {
+      for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
+        const cleanKey = key.trim();
+        if (dongName.includes(cleanKey) || cleanKey.includes(dongName)) {
+          return codes;
+        }
+      }
+    }
+  }
+
+  // 도로명 또는 전체 주소에서 매핑 시도 — 더 긴 키 우선 + 자치구명("종로구" 내 "종로") 오매칭 방지
+  const sortedEntries = Object.entries(FALLBACK_DONG_MAP).sort(
+    (a, b) => b[0].trim().length - a[0].trim().length,
+  );
+  const addressWithoutGu = address.replace(/[가-힣]+구(?=\s)/g, "").trim();
+  for (const [key, codes] of sortedEntries) {
+    const cleanKey = key.trim();
+    if (cleanKey && addressWithoutGu.includes(cleanKey)) {
+      return codes;
+    }
+  }
+  for (const [key, codes] of sortedEntries) {
+    const cleanKey = key.trim();
+    if (cleanKey && address.includes(cleanKey)) {
+      return codes;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 하드코딩 폴백: 서울 주소에서 동이름을 매칭하여 코드를 반환합니다.
+ * 비서울 주소('부산 중구 신사동', '성남시 분당구 정자동' 등)는 null을 반환합니다.
  */
 function fallbackParseAddress(address: string): AddressComponents | null {
-  // 지번 패턴 (예: "역삼동 742-1", "당산동5가 11-47")
-  const regex = /([가-힣0-9]+)\s+(\d{1,4})(?:-(\d{1,4}))?/;
+  if (!isEligibleForSeoulFallback(address)) {
+    return null;
+  }
+
+  // 지번 패턴 (예: "역삼동 742-1", "당산동5가 11-47", "평창동 산 12-3", "평창동 산12")
+  const regex = /([가-힣0-9]+)\s+(산\s*)?(\d{1,4})(?:-(\d{1,4}))?(?:번지)?/;
   const match = address.match(regex);
 
   if (!match) return null;
 
   const rawDong = match[1].trim();
-  const dongName = rawDong.replace(/(?:동\d+가|[동로가])$/, ""); // 말미 접미사만 제거 ("동교동" → "동교")
-  const bun = match[2];
-  const ji = match[3] || "0";
+  const isMount = Boolean(match[2]) || isMountainLotAddress(address);
+  const bun = match[3];
+  const ji = match[4] || "0";
 
-  // 1차: 정확 일치 (원본 동명 또는 말미 제거 어간 일치 우선)
-  if (FALLBACK_DONG_MAP[rawDong]) {
-    const codes = FALLBACK_DONG_MAP[rawDong];
-    return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
-  }
-  for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
-    const cleanKey = key.trim().replace(/(?:동\d+가|[동로가])$/, "");
-    if (dongName.length >= 2 && cleanKey === dongName) {
-      return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
-    }
-  }
+  const codes = lookupSeoulFallbackDong(address, rawDong);
+  if (!codes) return null;
 
-  // 2차: 부분 일치 (최소 2글자 이상 어간만 허용)
-  if (dongName.length >= 2) {
-    for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
-      const cleanKey = key.trim();
-      if (dongName.includes(cleanKey) || cleanKey.includes(dongName)) {
-        return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
-      }
-    }
-  }
-
-  // 3차: 도로명에서 매핑 시도 (예: "테헤란로 152") — 더 긴 키 우선 매칭
-  const sortedEntries = Object.entries(FALLBACK_DONG_MAP).sort(
-    (a, b) => b[0].trim().length - a[0].trim().length,
-  );
-  for (const [key, codes] of sortedEntries) {
-    if (address.includes(key.trim())) {
-      return { sigunguCd: codes.sigunguCd, bjdongCd: codes.bjdongCd, bun, ji };
-    }
-  }
-
-  return null;
+  return buildAddressComponents(codes.sigunguCd, codes.bjdongCd, bun, ji, isMount);
 }
 
 /**
@@ -483,15 +603,18 @@ export async function resolveMultiParcelAddress(address: string): Promise<Resolv
     const alternatives: AddressComponents[] = [];
     for (let i = 1; i < segments.length; i++) {
       const seg = segments[i];
-      // 1. Check if it's just a parcel number in the same dong: e.g. "742-2" or "11-48" or "743"
-      const parcelMatch = seg.match(/^(\d{1,4})(?:-(\d{1,4}))?$/);
+      // 1. Check if it's just a parcel number in the same dong: e.g. "742-2" or "산 12-3" or "산12"
+      const parcelMatch = seg.match(/^(산\s*)?(\d{1,4})(?:-(\d{1,4}))?$/);
       if (parcelMatch) {
-        alternatives.push({
-          sigunguCd: primaryResult.sigunguCd,
-          bjdongCd: primaryResult.bjdongCd,
-          bun: parcelMatch[1],
-          ji: parcelMatch[2] || "0",
-        });
+        alternatives.push(
+          buildAddressComponents(
+            primaryResult.sigunguCd,
+            primaryResult.bjdongCd,
+            parcelMatch[2],
+            parcelMatch[3] || "0",
+            Boolean(parcelMatch[1])
+          )
+        );
       } else {
         // 2. Try resolving as full address
         const altResult = await resolveAddressToComponents(seg);
@@ -501,12 +624,15 @@ export async function resolveMultiParcelAddress(address: string): Promise<Resolv
           // 3. Extract bun-ji and inherit primary's sigunguCd/bjdongCd
           const bunJi = extractBunJi(seg);
           if (bunJi.bun !== "0") {
-            alternatives.push({
-              sigunguCd: primaryResult.sigunguCd,
-              bjdongCd: primaryResult.bjdongCd,
-              bun: bunJi.bun,
-              ji: bunJi.ji,
-            });
+            alternatives.push(
+              buildAddressComponents(
+                primaryResult.sigunguCd,
+                primaryResult.bjdongCd,
+                bunJi.bun,
+                bunJi.ji,
+                bunJi.isMount
+              )
+            );
           }
         }
       }

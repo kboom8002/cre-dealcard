@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { assertBuildingOwner } from "@/lib/authz/assert-owner";
+import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import {
   computeCard4Hash,
   generateAiOgHeadline,
@@ -557,8 +558,8 @@ export async function GET(request: NextRequest) {
       repairedPoints[2] || "안정적 임대수익 기대",
     ];
     const hash = bodyCard4?.card4_hash || computeCard4Hash({ region, use, priceBand, points });
-    const gfaPyung = bodyCard4?.gfaPyung || (gfaSqmRaw > 0 ? Math.round(gfaSqmRaw / 3.3058) : undefined);
-    const landAreaPyung = bodyCard4?.landAreaPyung || (landSqmRaw > 0 ? Math.round(landSqmRaw / 3.3058) : undefined);
+    const gfaPyung = bodyCard4?.gfaPyung || (gfaSqmRaw > 0 ? Math.round(m2ToPyeong(gfaSqmRaw)) : undefined);
+    const landAreaPyung = bodyCard4?.landAreaPyung || (landSqmRaw > 0 ? Math.round(m2ToPyeong(landSqmRaw)) : undefined);
     const area = resolveCard4AreaLabel(
       { ...bodyCard4, posture, gfaPyung, landAreaPyung },
       { gfaPyung, landAreaPyung }

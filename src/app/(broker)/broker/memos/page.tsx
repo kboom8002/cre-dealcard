@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { AccessibleTabs } from "@/components/ui/accessible-tabs";
+import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 
 /* ───── Types ───── */
 interface Memo {
@@ -94,6 +96,7 @@ export default function BrokerMemosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -139,10 +142,13 @@ export default function BrokerMemosPage() {
   };
 
   /* ── Delete ── */
-  const handleDelete = async (id: string) => {
-    if (!confirm("정말 이 메모를 삭제하시겠습니까?")) return;
-    setMemos((prev) => prev.filter((m) => m.id !== id));
+  const handleDelete = (id: string) => {
     setOpenMenuId(null);
+    setPendingDeleteId(id);
+  };
+
+  const executeDeleteMemo = async (id: string) => {
+    setMemos((prev) => prev.filter((m) => m.id !== id));
     try {
       const res = await fetch(`/api/broker/memo/${id}`, { method: "DELETE" });
       if (!res.ok) fetchMemos();
@@ -300,26 +306,28 @@ export default function BrokerMemosPage() {
           </div>
 
           {/* ── Filter Tabs ── */}
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide -mx-1 px-1">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => handleTabChange(tab.key)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  activeTab === tab.key
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {tab.label}
-                {activeTab === "all" && (
-                  <span className="ml-1 opacity-70">
-                    {tabCounts[tab.key] || 0}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <AccessibleTabs
+            ariaLabel="메모 분류 필터"
+            value={activeTab}
+            onValueChange={handleTabChange}
+            tabs={TABS.map((tab) => ({
+              id: tab.key,
+              label: (
+                <span>
+                  {tab.label}
+                  {activeTab === "all" && (
+                    <span className="ml-1 opacity-70">
+                      {tabCounts[tab.key] || 0}
+                    </span>
+                  )}
+                </span>
+              ),
+            }))}
+            className="scrollbar-hide -mx-1 px-1"
+            tabClassName="rounded-full text-xs"
+            activeTabClassName="bg-primary text-primary-foreground border-primary shadow-sm"
+            inactiveTabClassName="border-transparent text-muted-foreground hover:bg-muted"
+          />
         </div>
       </div>
 
@@ -424,6 +432,21 @@ export default function BrokerMemosPage() {
           </>
         )}
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={pendingDeleteId !== null}
+        title="메모를 삭제할까요?"
+        description="선택한 메모가 삭제됩니다."
+        confirmLabel="삭제하기"
+        cancelLabel="취소"
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          if (!pendingDeleteId) return;
+          const id = pendingDeleteId;
+          setPendingDeleteId(null);
+          void executeDeleteMemo(id);
+        }}
+      />
     </main>
   );
 }

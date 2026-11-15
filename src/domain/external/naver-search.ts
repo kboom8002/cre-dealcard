@@ -29,18 +29,26 @@ const COMMUNITY_KEYWORDS = [
 // ─── 공용 텍스트 정제 / 규칙 (market-crawlers 에서도 사용) ─────────────────────────
 
 /**
- * 뉴스 텍스트 정제: 태그 제거 → 엔티티 디코드(`&quot;` 등, M2-17) → 디코드로 생긴 태그 재제거 → 공백 정리.
+ * 뉴스 텍스트 정제: 태그(`<b>`, `</b>` 등) 제거 → 엔티티 디코드(`&quot;`, `&amp;`, `&lt;`, `&gt;`, `&#39;` 등, M2-17)
+ * → 디코드로 생긴 태그 재제거 → 제어문자 제거 → 공백 정리.
  * 결과는 "텍스트"이므로 HTML에 넣을 때는 반드시 escapeHtml 을 다시 거친다.
  */
 export function cleanNewsText(s: string | null | undefined): string {
   if (!s) return "";
   const stripped = stripTags(s);
-  const decoded = decodeEntities(stripped);
+  const decoded = decodeEntities(stripped)
+    .replace(/&#0*39;/g, "'")
+    .replace(/&apos;/gi, "'");
   return decoded
     .replace(/<\/?[a-zA-Z][^>]*>/g, "")
+    .replace(/[\t\r\n]+/g, " ")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
+
+export const sanitizeNaverText = cleanNewsText;
 
 /** 수집 대상 권역 코드 판정 (제목+내용 키워드 기반 규칙). 해당 없으면 ["all"]. */
 export function detectRegions(text: string): string[] {

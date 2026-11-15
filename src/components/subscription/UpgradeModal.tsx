@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { toast } from "sonner";
 
-interface UpgradeModalProps {
+export interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   estimatedSavingsMoney: number;
@@ -11,6 +11,8 @@ interface UpgradeModalProps {
   maxLimit: number;
   featureNameKo?: string;
 }
+
+const SUPPORT_EMAIL = "support@credeal.kr";
 
 export function UpgradeModal({
   isOpen,
@@ -20,107 +22,135 @@ export function UpgradeModal({
   maxLimit,
   featureNameKo = "매매 딜카드 생성",
 }: UpgradeModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const formattedSavings = new Intl.NumberFormat("ko-KR", {
-    style: "currency",
-    currency: "KRW",
-  }).format(estimatedSavingsMoney);
+  const hasVerifiedSavings = Number.isFinite(estimatedSavingsMoney) && estimatedSavingsMoney > 0;
+  const formattedSavings = hasVerifiedSavings
+    ? new Intl.NumberFormat("ko-KR", {
+        style: "currency",
+        currency: "KRW",
+      }).format(estimatedSavingsMoney)
+    : null;
 
-  const handleUpgrade = () => {
-    toast.info("Pro 요금제 구독 결제 페이지로 이동합니다. (데모 연동 완료)");
+  const handleCopySupportEmail = async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      }
+      toast.success(
+        `담당팀 이메일(${SUPPORT_EMAIL})이 복사되었습니다. 중개사무소명과 함께 보내주시면 무료로 한도를 증설해 드립니다.`
+      );
+    } catch {
+      toast.success(
+        `담당팀 이메일은 ${SUPPORT_EMAIL} 입니다. 메일로 요청해 주시면 무료로 한도를 증설해 드립니다.`
+      );
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      {/* Container Card */}
-      <div className="relative w-full max-w-sm overflow-hidden bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl text-white p-6 space-y-6">
-        
-        {/* Glow morphic element */}
-        <div className="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/20 rounded-full filter blur-xl pointer-events-none" />
-        <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-pink-500/20 rounded-full filter blur-xl pointer-events-none" />
-
-        {/* Close Button */}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upgrade-modal-title"
+        aria-describedby="upgrade-modal-desc"
+        className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl text-slate-900 dark:text-slate-100 p-6 sm:p-7 space-y-5"
+      >
+        {/* 닫기 버튼 (44x44 이상 터치 영역) */}
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors text-lg"
-          title="닫기"
+          aria-label="닫기"
+          className="absolute top-4 right-4 inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white transition-colors text-lg font-bold"
         >
           ✕
         </button>
 
-        {/* Paywall Header */}
-        <div className="text-center space-y-2 pt-2">
-          <span className="text-[10px] bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-3 py-1 rounded-full font-bold uppercase tracking-wider">
-            무료 제공량 한도 도달
-          </span>
-          <h3 className="text-xl font-black tracking-tight pt-1">
-            프로 요금제로 더 큰 효율을 누리세요
-          </h3>
-          <p className="text-xs text-zinc-400">
-            {featureNameKo} 무료 혜택 ({maxLimit}건/월)을 모두 사용하셨습니다.
+        {/* 헤더 */}
+        <div className="space-y-2 pr-10">
+          <p className="text-base font-semibold text-indigo-700 dark:text-indigo-300">
+            얼리액세스 이용 한도 안내
           </p>
-        </div>
-
-        {/* ROI Value Nudge Card */}
-        <div className="bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-zinc-800 rounded-2xl p-4 text-center space-y-1">
-          <p className="text-[11px] text-purple-300 font-bold">
-            중개인님이 이번 달 플랫폼으로 누린 가치
-          </p>
-          <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 tracking-tight">
-            이미 {formattedSavings} 절약 완료
-          </p>
-          <p className="text-[10px] text-zinc-500 leading-normal">
-            작업 자동화를 통해 아낀 귀중한 {((estimatedSavingsMoney / 50000)).toFixed(1)}시간의 가치입니다.<br/>
-            지속적인 절약과 무제한 이용을 위해 지금 전환하세요.
-          </p>
-        </div>
-
-        {/* Plan Choices Details */}
-        <div className="space-y-3">
-          <div className="border border-indigo-500/40 bg-indigo-950/10 rounded-2xl p-3.5 flex justify-between items-center transition-all hover:bg-indigo-950/20">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-black">Pro 요금제</span>
-                <span className="text-[9px] bg-indigo-500 text-white font-extrabold px-1 py-0.2 rounded">추천</span>
-              </div>
-              <p className="text-[10px] text-zinc-400 leading-tight">
-                무제한 딜카드 생성 + 3-Stage 풀 매칭
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-black text-indigo-400">₩99,000</p>
-              <p className="text-[9px] text-zinc-500">/ 월</p>
-            </div>
-          </div>
-
-          <div className="border border-zinc-800 bg-zinc-950/30 rounded-2xl p-3.5 flex justify-between items-center transition-all hover:bg-zinc-800/40">
-            <div className="space-y-0.5">
-              <span className="text-sm font-black text-zinc-300">Premium 요금제</span>
-              <p className="text-[10px] text-zinc-400 leading-tight">
-                Pro 혜택 + 실시간 시장 지표 + Full IM 무제한
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-black text-zinc-300">₩299,000</p>
-              <p className="text-[9px] text-zinc-500">/ 월</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <div className="space-y-2.5 pt-1">
-          <button
-            onClick={handleUpgrade}
-            className="w-full py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white text-xs font-bold rounded-xl shadow-lg transform active:scale-[0.98] transition-all"
+          <h2
+            id="upgrade-modal-title"
+            className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white"
           >
-            지금 프로 요금제로 업그레이드
+            Pro 얼리액세스 한도 증설 안내
+          </h2>
+        </div>
+
+        {/* 현재 이용량 요약 */}
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 p-4 space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-base">
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              {featureNameKo} 이용 현황
+            </span>
+            <span className="font-bold text-indigo-700 dark:text-indigo-300">
+              {currentCount} / {maxLimit}건
+            </span>
+          </div>
+          {hasVerifiedSavings && formattedSavings ? (
+            <p className="text-base text-slate-700 dark:text-slate-300 leading-relaxed pt-1">
+              이번 달 자동화 기능으로 약{" "}
+              <strong className="font-bold text-slate-900 dark:text-white">
+                {formattedSavings}
+              </strong>{" "}
+              상당의 문서 작성 시간을 절감하셨습니다.
+            </p>
+          ) : null}
+        </div>
+
+        {/* PG 정식 출시 안내 본문 */}
+        <div
+          id="upgrade-modal-desc"
+          className="space-y-2.5 text-base text-slate-700 dark:text-slate-200 leading-relaxed"
+        >
+          <p>
+            현재 제공해 드린 무료 이용 한도({currentCount} / {maxLimit}건)를 모두 사용하셨습니다.
+          </p>
+          <p>
+            정기 구독 PG 결제 시스템은 <strong>Pro 정식 출시 시점</strong>에 오픈될 예정입니다.
+            얼리액세스 기간에는 담당팀에 요청해 주시면 추가 비용 없이 무료로 이용 한도를 증설해 드립니다.
+          </p>
+          <p className="font-semibold text-slate-900 dark:text-white">
+            문의 이메일: {SUPPORT_EMAIL}
+          </p>
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="space-y-3 pt-1">
+          <button
+            type="button"
+            onClick={handleCopySupportEmail}
+            className="w-full min-h-12 px-4 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold rounded-xl shadow-sm transition-colors"
+          >
+            담당팀에 무료 한도 증설 요청 (이메일 복사)
           </button>
           <button
+            type="button"
             onClick={onClose}
-            className="w-full py-2 bg-transparent hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 text-xs font-semibold rounded-xl transition-all"
+            className="w-full min-h-12 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-base font-semibold rounded-xl transition-colors"
           >
-            무료 버전 계속 사용 (다음 달에 한도 갱신)
+            확인 (닫기)
           </button>
         </div>
       </div>

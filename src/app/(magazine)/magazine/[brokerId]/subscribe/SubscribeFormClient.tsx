@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  ConsentCheckboxes, EMPTY_CONSENT, allConsented, toConsentPayload, type ConsentState,
+  ConsentCheckboxes, EMPTY_CONSENT, PRIVACY_POLICY_HREF, allConsented, toConsentPayload, type ConsentState,
 } from '@/components/magazine/ConsentCheckboxes';
 import { TrackingNotice } from '@/components/magazine/TrackingNotice';
 import { postSubscribe } from '@/components/magazine/subscribe-api';
@@ -31,10 +31,10 @@ interface SubscribeFormClientProps {
 const REGION_OPTIONS: readonly string[] = REGION_LABELS;
 const ASSET_OPTIONS: readonly string[] = ASSET_LABELS;
 
-// 입력은 16px(text-base) 이상 — iOS 확대 방지 및 60대 가독성 보장.
+// 입력은 16px(text-[16px]) 이상 — iOS 확대 방지 및 60대 가독성 보장.
 const INPUT_CLS =
-  'w-full min-h-12 bg-slate-950 border border-slate-500 rounded-xl px-3.5 py-2.5 text-base text-white placeholder:text-slate-300 focus:outline-none focus:border-indigo-400';
-const CHIP_BASE = 'min-h-12 text-[15px] px-3.5 py-2.5 rounded-xl border transition-colors';
+  'w-full min-h-[48px] bg-slate-950 border border-slate-500 rounded-xl px-3.5 py-2.5 text-[16px] text-white placeholder:text-slate-300 focus:outline-none focus:border-indigo-400';
+const CHIP_BASE = 'min-h-[48px] text-[15px] px-3.5 py-2.5 rounded-xl border transition-colors';
 
 type FormResult = {
   status: 'pending' | 'confirmed';
@@ -209,7 +209,7 @@ export function SubscribeFormClient({
                   value={followUpEmail}
                   onChange={e => setFollowUpEmail(e.target.value)}
                   required
-                  className="w-full min-h-12 rounded-xl border-2 border-amber-400 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-amber-700"
+                  className="w-full min-h-[48px] rounded-xl border-2 border-amber-400 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-amber-700"
                 />
               </div>
               {followUpError && (
@@ -365,6 +365,18 @@ export function SubscribeFormClient({
 
       {/* 4. 필수 동의 3종 + 추적/개인정보 고지 */}
       <ConsentCheckboxes value={consent} onChange={setConsent} idPrefix="sub-page" />
+      <p className="text-[14px] text-slate-300 leading-snug break-keep">
+        수집된 정보의 처리 및 보유 기준은{' '}
+        <a
+          href={PRIVACY_POLICY_HREF}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-indigo-200 hover:text-white font-semibold"
+        >
+          개인정보 처리방침 보기 (새 창)
+        </a>
+        에서 확인하실 수 있습니다.
+      </p>
       <TrackingNotice />
 
       {!consentOk && (

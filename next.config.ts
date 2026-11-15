@@ -124,6 +124,10 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
+    const isDevRuntime = process.env.NODE_ENV !== "production";
+    const allowedOriginPattern = isDevRuntime
+      ? '(?<origin>https://(?:www\\.)?credeal\\.net|https://(?:www\\.)?dealcard\\.kr|http://localhost:\\d+)'
+      : '(?<origin>https://(?:www\\.)?credeal\\.net|https://(?:www\\.)?dealcard\\.kr)';
     return [
       // Default CORS baseline for /api/* (must precede conditional `has: Origin` rule because later matching Next.js header rules override earlier keys)
       {
@@ -143,7 +147,7 @@ const nextConfig: NextConfig = {
           {
             type: 'header',
             key: 'Origin',
-            value: '(?<origin>https://(?:www\\.)?credeal\\.net|https://(?:www\\.)?dealcard\\.kr|http://localhost:\\d+)',
+            value: allowedOriginPattern,
           },
         ],
         headers: [

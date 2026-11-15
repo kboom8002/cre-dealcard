@@ -2,11 +2,16 @@
 // R11: 중개인 비교사례(인근 시세) 주소 기반 공공데이터·카카오 로컬 자동 보강 API
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireBroker } from '@/lib/auth-guard';
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { createModuleLogger } from '@/lib/logger';
 import { resolveAddress } from '@/lib/external/address-resolver';
 import { fetchLandUsePlan } from '@/lib/external/land-use-api';
 import { fetchBuildingRegister } from '@/lib/external/building-register-api';
 import { resolveMergedStations } from '@/domain/building/mobile-im/pptx/station-lines';
 import type { MarketCompItem } from '@/domain/building/mobile-im/comps-paste-parser';
+
+const log = createModuleLogger('comps-enrich');
 
 const PYEONG_TO_SQM = 3.305785;
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -273,6 +278,24 @@ export async function enrichCompByAddress(
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireBroker(req);
+  if (guard.error) {
+    return guard.error;
+  }
+
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip')?.trim() ||
+    'unknown';
+  const rateLimitSubject = guard.user?.id || ip;
+  const allowed = await checkRateLimit(rateLimitSubject, 'broker_comps_enrich', 30, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+      { status: 429 },
+    );
+  }
+
   try {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object') {
@@ -293,8 +316,9 @@ export async function POST(req: NextRequest) {
     const item = await enrichCompByAddress({ address, price_eok: priceEok, kind });
     return NextResponse.json({ ok: true, item });
   } catch (err) {
+    log.error('comps-enrich POST failed', { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : '자동 보강 중 오류가 발생했습니다.' },
+      { ok: false, error: '자동 보강 중 오류가 발생했습니다.' },
       { status: 500 },
     );
   }

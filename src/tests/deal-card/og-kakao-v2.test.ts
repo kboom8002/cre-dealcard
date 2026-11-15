@@ -68,37 +68,46 @@ vi.mock('@/lib/magazine/og-fonts', () => ({
 
 import { GET } from '@/app/api/og/deal/[id]/kakao-v2/route';
 
-describe('WP-P1-06 & WP-P1-07: KakaoTalk OG v2 & Cache Versioning', () => {
-  it('redirects 302 to URL with ?v={card4_hash} when ?v is missing', async () => {
+describe('WP-P1-06 & WP-P1-07 & WP-14: KakaoTalk OG v2 & Zero-Redirect Cache Versioning', () => {
+  it('returns 200 image/png directly with short revalidating cache and X-Card4-Hash when ?v is missing (zero 302 redirect)', async () => {
     const req = new NextRequest('http://localhost:3000/api/og/deal/bldg-og-1/kakao-v2');
     const res = await GET(req, { params: Promise.resolve({ id: 'bldg-og-1' }) });
 
-    expect(res.status).toBe(302);
-    const location = res.headers.get('location');
-    expect(location).toBeDefined();
-    expect(location).toContain(`?v=${expectedHash}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('content-type')).toContain('image/png');
+    const cacheControl = res.headers.get('cache-control');
+    expect(cacheControl).toContain('public');
+    expect(cacheControl).toContain('s-maxage=300');
+    expect(cacheControl).not.toContain('immutable');
+    expect(res.headers.get('x-card4-hash')).toBe(expectedHash);
   });
 
-  it('redirects 302 to URL with ?v={card4_hash} when ?v is mismatched', async () => {
+  it('returns 200 image/png directly with short revalidating cache and X-Card4-Hash when ?v is mismatched', async () => {
     const req = new NextRequest('http://localhost:3000/api/og/deal/bldg-og-1/kakao-v2?v=stale_old_hash');
     const res = await GET(req, { params: Promise.resolve({ id: 'bldg-og-1' }) });
 
-    expect(res.status).toBe(302);
-    const location = res.headers.get('location');
-    expect(location).toContain(`?v=${expectedHash}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('content-type')).toContain('image/png');
+    const cacheControl = res.headers.get('cache-control');
+    expect(cacheControl).toContain('public');
+    expect(cacheControl).toContain('s-maxage=300');
+    expect(cacheControl).not.toContain('immutable');
+    expect(res.headers.get('x-card4-hash')).toBe(expectedHash);
   });
 
-  it('responds with immutable cache header when ?v={card4_hash} matches', async () => {
+  it('responds with 200 image/png and immutable cache header when ?v={card4_hash} matches', async () => {
     const req = new NextRequest(
       `http://localhost:3000/api/og/deal/bldg-og-1/kakao-v2?v=${expectedHash}`
     );
     const res = await GET(req, { params: Promise.resolve({ id: 'bldg-og-1' }) });
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('image/png');
     const cacheControl = res.headers.get('cache-control');
-    expect(cacheControl).toContain('public');
-    expect(cacheControl).toContain('max-age=31536000');
-    expect(cacheControl).toContain('immutable');
+    expect(cacheControl).toBe('public, max-age=31536000, immutable');
+    expect(res.headers.get('x-card4-hash')).toBe(expectedHash);
   });
 
   it('returns 404 if building does not exist', async () => {
@@ -140,12 +149,14 @@ describe('WP-P1-06 & WP-P1-07: KakaoTalk OG v2 & Cache Versioning', () => {
       expect(code).not.toContain('상세 정보 열람하기');
     });
 
-    it('contains zero DB write mutations (insert/update/delete/upsert) on GET path', () => {
+    it('contains zero DB write mutations (insert/update/delete/upsert) and zero server memory mutations on GET path', () => {
       const code = fs.readFileSync(routePath, 'utf8');
       expect(code).not.toMatch(/\.from\([^)]+\)\.insert/);
       expect(code).not.toMatch(/\.from\([^)]+\)\.update/);
       expect(code).not.toMatch(/\.from\([^)]+\)\.delete/);
       expect(code).not.toMatch(/\.from\([^)]+\)\.upsert/);
+      expect(code).not.toContain('updateQuickImCard4');
+      expect(code).not.toContain('NextResponse.redirect');
     });
   });
 });

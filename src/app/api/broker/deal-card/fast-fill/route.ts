@@ -4,6 +4,7 @@ import { requireBroker } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { readBuilding } from '@/domain/building/im-core/read-building';
+import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import {
@@ -14,9 +15,68 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { isUuid, getQuickImRecord } from '@/lib/im-lite/quick-generate-store';
+import { LLMMockNotAllowedError } from '@/ai/llm-client';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('deal-card-fast-fill');
+
+export const NON_YIELD_POSITIONING_COPY = '사옥·실사용 및 밸류애드 검토 적합 자산';
+
+const ZERO_OR_UNGROUNDED_YIELD_RE =
+  /수익률\s*0(?:\.0+)?\s*%|연\s*0(?:\.0+)?\s*%|0(?:\.0+)?\s*%\s*수준|임대수익\s*기반\s*안정적\s*현금흐름/;
+
+function extractPositiveYieldState(building: Record<string, any>): {
+  capRate: number | null;
+  hasPositiveYield: boolean;
+} {
+  const rawCapRate =
+    building.cap_rate ??
+    building.layers?.financial?.cap_rate ??
+    building.layers?.finance?.cap_rate ??
+    building.layers?.deal_terms?.cap_rate;
+  const parsedCap =
+    rawCapRate !== undefined && rawCapRate !== null && rawCapRate !== ''
+      ? Number(rawCapRate)
+      : NaN;
+  const capRate = Number.isFinite(parsedCap) ? parsedCap : null;
+
+  const rawRent =
+    building.monthly_rent ??
+    building.monthly_rent_total_krw ??
+    building.monthly_rent_manwon ??
+    building.layers?.financial?.monthly_rent ??
+    building.layers?.financial?.monthly_rent_krw ??
+    building.layers?.finance?.monthly_rent ??
+    building.layers?.finance?.monthly_rent_manwon ??
+    building.layers?.deal_terms?.monthly_rent_manwon;
+  const hasExplicitZeroRent =
+    rawRent !== undefined && rawRent !== null && rawRent !== '' && Number(rawRent) <= 0;
+
+  const hasPositiveYield = capRate !== null && capRate > 0 && !hasExplicitZeroRent;
+  return { capRate, hasPositiveYield };
+}
+
+export function sanitizeZeroYieldLine(line: string, hasPositiveYield: boolean): string {
+  const trimmed = String(line ?? '').trim();
+  if (!trimmed) return '';
+  if (ZERO_OR_UNGROUNDED_YIELD_RE.test(trimmed)) {
+    return NON_YIELD_POSITIONING_COPY;
+  }
+  if (!hasPositiveYield && /(?:임대수익|안정적\s*현금흐름|안정\s*수익|수익형)/.test(trimmed)) {
+    return NON_YIELD_POSITIONING_COPY;
+  }
+  return trimmed;
+}
+
+export function buildFastFillPositioningSummary(opts: {
+  capRate?: number | null;
+  hasPositiveYield: boolean;
+}): string {
+  if (opts.hasPositiveYield && typeof opts.capRate === 'number' && opts.capRate > 0) {
+    return `연 ${opts.capRate.toFixed(1)}% 수준의 임대수익 검토 자산`;
+  }
+  return NON_YIELD_POSITIONING_COPY;
+}
 
 const FastFillInputSchema = z.object({
   buildingId: z.string().optional(),
@@ -55,7 +115,10 @@ function extractUseFromBuilding(building: Record<string, any>): string {
   if (purpose.includes('업무') || purpose.includes('오피스')) return '업무시설';
   if (purpose.includes('주거') || purpose.includes('주택')) return '주거복합';
   if (purpose.includes('숙박') || purpose.includes('호텔')) return '숙박시설';
-  if (purpose.includes('의료') || purpose.includes('병원')) return '의료시설';
+  if (purpose.includes('의료') || purpose.includes('병원') || purpose.includes('의원')) return '의료시설';
+  if (purpose.includes('종교') || purpose.includes('교회') || purpose.includes('성당')) return '종교시설';
+  if (purpose.includes('주유소')) return '주유소';
+  if (purpose.includes('자동차')) return '자동차관련시설';
   return purpose;
 }
 
@@ -73,6 +136,10 @@ function extractPostureFromBuilding(building: Record<string, any>): DealCardPost
   if (raw.includes('owner') || raw.includes('사옥')) {
     return 'owner_occupied';
   }
+  const { hasPositiveYield } = extractPositiveYieldState(building);
+  if (!hasPositiveYield) {
+    return 'owner_occupied';
+  }
   return 'income';
 }
 
@@ -85,9 +152,9 @@ function extractScaleFromBuilding(building: Record<string, any>): {
     building.layers?.land_area_pyung ??
     building.layers?.land?.land_area_pyung ??
     (building.layers?.building_register?.land_area_sqm
-      ? Number(building.layers.building_register.land_area_sqm) / 3.3058
+      ? m2ToPyeong(Number(building.layers.building_register.land_area_sqm))
       : undefined) ??
-    (building.land_area_sqm ? Number(building.land_area_sqm) / 3.3058 : undefined);
+    (building.land_area_sqm ? m2ToPyeong(Number(building.land_area_sqm)) : undefined);
 
   const rawGfaPyung =
     building.total_floor_area_pyung ??
@@ -95,9 +162,9 @@ function extractScaleFromBuilding(building: Record<string, any>): {
     building.layers?.total_floor_area_pyung ??
     building.layers?.building?.total_floor_area_pyung ??
     (building.layers?.building_register?.gross_floor_area_sqm
-      ? Number(building.layers.building_register.gross_floor_area_sqm) / 3.3058
+      ? m2ToPyeong(Number(building.layers.building_register.gross_floor_area_sqm))
       : undefined) ??
-    (building.gross_floor_area_sqm ? Number(building.gross_floor_area_sqm) / 3.3058 : undefined);
+    (building.gross_floor_area_sqm ? m2ToPyeong(Number(building.gross_floor_area_sqm)) : undefined);
 
   const landAreaPyung =
     typeof rawLandPyung === 'number' && Number.isFinite(rawLandPyung) && rawLandPyung > 0
@@ -151,6 +218,7 @@ function extractPriceBandFromBuilding(building: Record<string, any>): string {
 
 function extractPointsFromBuilding(building: Record<string, any>): [string, string, string] {
   const points: string[] = [];
+  const { capRate, hasPositiveYield } = extractPositiveYieldState(building);
 
   // Point 1: Location & Road contact
   const roadContact = building.layers?.location?.road_contact || building.road_contact;
@@ -176,15 +244,10 @@ function extractPointsFromBuilding(building: Record<string, any>): [string, stri
   } else if (landArea) {
     points.push(`대지 약 ${Math.round(landArea)}평 규모의 알짜 매물`);
   } else {
-    points.push('수익형 근생 최적화 건물 규모');
+    points.push(hasPositiveYield ? '수익형 근생 최적화 건물 규모' : '사옥·실사용 활용도 높은 건물 규모');
   }
 
-  // Point 3: Financial yield or building age
-  const capRate =
-    building.cap_rate ||
-    building.layers?.financial?.cap_rate ||
-    building.layers?.finance?.cap_rate ||
-    building.layers?.deal_terms?.cap_rate;
+  // Point 3: Financial yield (ONLY when capRate > 0 and rent is not zero) or self-use/value-add framing
   const rawCompletionDate =
     building.layers?.building_register?.completion_date ||
     building.completion_date;
@@ -198,16 +261,18 @@ function extractPointsFromBuilding(building: Record<string, any>): [string, stri
     building.layers?.building_register?.completion_year ||
     parsedCompletionYear;
 
-  if (capRate && typeof capRate === 'number' && capRate > 0) {
+  if (hasPositiveYield && capRate !== null && capRate > 0) {
     points.push(`안정적 임대수익률 연 ${capRate.toFixed(1)}% 수준`);
-  } else if (completionYear && typeof completionYear === 'number' && completionYear > 1900) {
+  } else if (capRate === null && completionYear && typeof completionYear === 'number' && completionYear > 1900) {
     points.push(`${completionYear}년 준공 관리 상태 우수`);
   } else {
-    points.push('공실 리스크 낮은 안정적 임차 구성');
+    points.push('사옥·실사용 밸류애드 적합 자산');
   }
 
-  const cleaned = cleanBlindPoints(points);
-  return [cleaned[0] || '우수 입지', cleaned[1] || '근생 매물', cleaned[2] || '안정 수익'];
+  const sanitized = points.map((p) => sanitizeZeroYieldLine(p, hasPositiveYield));
+  const cleaned = cleanBlindPoints(sanitized);
+  const point3Fallback = hasPositiveYield ? '안정 수익' : '사옥·실사용 밸류애드 적합';
+  return [cleaned[0] || '우수 입지', cleaned[1] || '근생 매물', cleaned[2] || point3Fallback];
 }
 
 function parseMemoFast(memo: string): {
@@ -218,10 +283,12 @@ function parseMemoFast(memo: string): {
   landAreaPyung?: number;
   priceBand: string;
   points: [string, string, string];
+  capRate: number | null;
+  hasPositiveYield: boolean;
 } {
   // Extract region: Gu + Dong, or standalone Dong, or Gu
   let region = '서울시';
-  const guDongMatch = memo.match(/([가-힣]+(?:구|시))\s+([가-힣0-9]+(?:동|가|읍|면))/);
+  const guDongMatch = memo.match(/([가-힣]+(?:구|시))\s+([가-힣0-9]+(?:동(?:\d+가)?|가|읍|면))/);
   if (guDongMatch) {
     region = `${guDongMatch[1]} ${guDongMatch[2]}`;
   } else {
@@ -239,12 +306,26 @@ function parseMemoFast(memo: string): {
   if (/오피스|사옥|업무/.test(memo)) use = '업무시설';
   else if (/호텔|모텔|숙박/.test(memo)) use = '숙박시설';
   else if (/주거|주택|다가구/.test(memo)) use = '주거복합';
-  else if (/메디컬|병원/.test(memo)) use = '의료시설';
+  else if (/메디컬|병원|의원|의료/.test(memo)) use = '의료시설';
+  else if (/종교|교회|성당/.test(memo)) use = '종교시설';
+  else if (/주유소/.test(memo)) use = '주유소';
+  else if (/자동차관련|정비공장|세차장/.test(memo)) use = '자동차관련시설';
+
+  // Detect yield / rent grounding in memo
+  const yieldMatch = memo.match(/(?:수익률|연)\s*(\d+(?:\.\d+)?)\s*%/);
+  const parsedCapRate = yieldMatch ? parseFloat(yieldMatch[1]) : null;
+  const capRate = parsedCapRate !== null && Number.isFinite(parsedCapRate) ? parsedCapRate : null;
+  const hasExplicitZeroRent =
+    /월세\s*0\s*(?:원|만원|만)?|임대료\s*(?:없음|0)|전층\s*공실|공실\s*100\s*%/.test(memo) ||
+    ZERO_OR_UNGROUNDED_YIELD_RE.test(memo);
+  const hasExplicitPositiveRent =
+    /(?:월세|임대료)\s*[1-9]\d*/.test(memo) || (capRate !== null && capRate > 0);
+  const hasPositiveYield = !hasExplicitZeroRent && hasExplicitPositiveRent;
 
   // Extract posture
-  let posture: DealCardPosture = 'income';
+  let posture: DealCardPosture = hasPositiveYield ? 'income' : 'owner_occupied';
   if (/신축|재건축|나대지|개발|리모델링/.test(memo)) posture = 'value_add';
-  else if (/사옥|자가사용/.test(memo)) posture = 'owner_occupied';
+  else if (/사옥|자가사용|실사용/.test(memo)) posture = 'owner_occupied';
 
   // Extract scale (평)
   const landMatch = memo.match(/(?:대지|토지)(?:면적)?\s*(?:약\s*)?(\d+(?:\.\d+)?)\s*평/);
@@ -260,17 +341,23 @@ function parseMemoFast(memo: string): {
     priceBand = formatPriceRange(eok * 1_0000_0000);
   }
 
-  // Extract candidate bullet points from memo sentences
+  // Extract candidate bullet points from memo sentences (stripping 0.0% / ungrounded yield praise)
   const sentences = memo
     .split(/[\n,.]/)
     .map((s) => s.trim())
-    .filter((s) => s.length >= 6 && s.length <= 40);
+    .filter((s) => s.length >= 6 && s.length <= 40)
+    .filter((s) => !ZERO_OR_UNGROUNDED_YIELD_RE.test(s))
+    .map((s) => sanitizeZeroYieldLine(s, hasPositiveYield));
 
   const rawPoints = sentences.slice(0, 3);
   while (rawPoints.length < 3) {
-    if (rawPoints.length === 0) rawPoints.push('역세권 중심지 입지 우수');
-    else if (rawPoints.length === 1) rawPoints.push('안정적 임차 수요 확보');
-    else rawPoints.push('추천 수익형 근생 빌딩');
+    if (rawPoints.length === 0) {
+      rawPoints.push('역세권 중심지 입지 우수');
+    } else if (rawPoints.length === 1) {
+      rawPoints.push(hasPositiveYield ? '안정적 임차 수요 확보' : '사옥·실사용 밸류애드 적합 자산');
+    } else {
+      rawPoints.push(hasPositiveYield ? '추천 수익형 근생 빌딩' : '입지·토지가치 우수 건물');
+    }
   }
 
   const cleaned = cleanBlindPoints(rawPoints);
@@ -282,10 +369,142 @@ function parseMemoFast(memo: string): {
     landAreaPyung,
     priceBand,
     points: [cleaned[0], cleaned[1], cleaned[2]],
+    capRate,
+    hasPositiveYield,
+  };
+}
+
+export function buildDeterministicFastFillResponse(extracted: {
+  region: string;
+  use: string;
+  posture: DealCardPosture;
+  area?: string;
+  gfaPyung?: number;
+  landAreaPyung?: number;
+  priceBand: string;
+  points: [string, string, string];
+  provenanceSource: 'public' | 'broker';
+  capRate: number | null;
+  hasPositiveYield: boolean;
+  floorCount?: number;
+}) {
+  const sanitizedInputPoints = extracted.points.map((pt) =>
+    sanitizeZeroYieldLine(pt, extracted.hasPositiveYield),
+  );
+
+  // Blind-guard check & auto-cleaning (generalizes Dong -> Gu for rare assets + scale)
+  const validation = validateBlindPoints(sanitizedInputPoints, {
+    region: extracted.region,
+    assetType: extracted.use,
+    floorCount: extracted.floorCount,
+    areaPyung: extracted.gfaPyung ?? extracted.landAreaPyung,
+  });
+
+  const effectiveRegion =
+    validation.requiresDongToGuFallback && validation.suggestedRegion
+      ? validation.suggestedRegion
+      : extracted.region;
+
+  const point3Fallback = extracted.hasPositiveYield ? '안정 수익' : '사옥·실사용 밸류애드 적합';
+
+  // 18자 SSOT: 블라인드 정리 후 어절 경계 교정 (하드 절단·말줄임 금지)
+  const finalPoints: [string, string, string] = [
+    repairDealCardLine(
+      sanitizeZeroYieldLine(validation.cleanedPoints[0], extracted.hasPositiveYield),
+      { fallback: '우수 입지' },
+    ) || '우수 입지',
+    repairDealCardLine(
+      sanitizeZeroYieldLine(validation.cleanedPoints[1], extracted.hasPositiveYield),
+      { fallback: '추천 매물' },
+    ) || '추천 매물',
+    repairDealCardLine(
+      sanitizeZeroYieldLine(validation.cleanedPoints[2], extracted.hasPositiveYield),
+      { fallback: point3Fallback },
+    ) || point3Fallback,
+  ];
+
+  const posture: DealCardPosture =
+    !extracted.hasPositiveYield && extracted.posture === 'income'
+      ? 'owner_occupied'
+      : extracted.posture || 'owner_occupied';
+
+  const area = resolveCard4AreaLabel(
+    {
+      posture,
+      area: extracted.area,
+      gfaPyung: extracted.gfaPyung,
+      landAreaPyung: extracted.landAreaPyung,
+    },
+    {
+      gfaPyung: extracted.gfaPyung,
+      landAreaPyung: extracted.landAreaPyung,
+    },
+  );
+
+  const headline = deriveDealCardHeadline({ posture, points: finalPoints });
+  const summary = buildFastFillPositioningSummary({
+    capRate: extracted.capRate,
+    hasPositiveYield: extracted.hasPositiveYield,
+  });
+
+  const card4: Card4Data = {
+    headline,
+    posture,
+    region: effectiveRegion,
+    use: extracted.use,
+    ...(area ? { area } : {}),
+    ...(extracted.gfaPyung ? { gfaPyung: extracted.gfaPyung } : {}),
+    ...(extracted.landAreaPyung ? { landAreaPyung: extracted.landAreaPyung } : {}),
+    priceBand: extracted.priceBand,
+    points: finalPoints,
+    provenance: {
+      points: [
+        extracted.provenanceSource,
+        extracted.provenanceSource,
+        extracted.provenanceSource,
+      ],
+    },
+    card4_version: 1,
+    card4_hash: computeCard4Hash({
+      region: effectiveRegion,
+      use: extracted.use,
+      priceBand: extracted.priceBand,
+      points: finalPoints,
+      area,
+      headline,
+    }),
+  };
+
+  return {
+    success: true,
+    card4,
+    summary,
+    validation: {
+      isValid: validation.isValid,
+      violations: validation.violations,
+      requiresDongToGuFallback: validation.requiresDongToGuFallback,
+      fallbackRegionNotice: validation.fallbackRegionNotice,
+      suggestedRegion: validation.suggestedRegion,
+    },
   };
 }
 
 export async function POST(req: NextRequest) {
+  let extracted: {
+    region: string;
+    use: string;
+    posture: DealCardPosture;
+    area?: string;
+    gfaPyung?: number;
+    landAreaPyung?: number;
+    priceBand: string;
+    points: [string, string, string];
+    provenanceSource: 'public' | 'broker';
+    capRate: number | null;
+    hasPositiveYield: boolean;
+    floorCount?: number;
+  } | null = null;
+
   try {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
@@ -294,18 +513,6 @@ export async function POST(req: NextRequest) {
     const input = FastFillInputSchema.parse(body);
 
     const supabase = createServiceClient();
-
-    let extracted: {
-      region: string;
-      use: string;
-      posture: DealCardPosture;
-      area?: string;
-      gfaPyung?: number;
-      landAreaPyung?: number;
-      priceBand: string;
-      points: [string, string, string];
-      provenanceSource: 'public' | 'broker';
-    };
 
     if (input.buildingId) {
       // 1. Verify ownership only when buildingId is a valid UUID (skip DB query for local/demo draft IDs)
@@ -337,6 +544,13 @@ export async function POST(req: NextRequest) {
         const { landAreaPyung, gfaPyung } = extractScaleFromBuilding(building);
         const priceBand = extractPriceBandFromBuilding(building);
         const points = extractPointsFromBuilding(building);
+        const { capRate, hasPositiveYield } = extractPositiveYieldState(building);
+        const rawFloors = Number(
+          building.above_ground_floors ??
+            building.floors ??
+            building.layers?.building_register?.above_ground_floors ??
+            0,
+        );
 
         extracted = {
           region,
@@ -347,18 +561,29 @@ export async function POST(req: NextRequest) {
           priceBand,
           points,
           provenanceSource: 'public',
+          capRate,
+          hasPositiveYield,
+          ...(Number.isFinite(rawFloors) && rawFloors > 0 ? { floorCount: rawFloors } : {}),
         };
       } else {
+        const joinedQuick = (quickRec!.card4.points ?? []).join(' ');
+        const quickYieldMatch = joinedQuick.match(/(\d+(?:\.\d+)?)\s*%/);
+        const quickCapRate = quickYieldMatch ? parseFloat(quickYieldMatch[1]) : null;
+        const quickHasPositiveYield =
+          quickCapRate !== null && quickCapRate > 0 && !ZERO_OR_UNGROUNDED_YIELD_RE.test(joinedQuick);
+
         extracted = {
           region: quickRec!.card4.region,
           use: quickRec!.card4.use,
-          posture: quickRec!.card4.posture || 'income',
+          posture: quickRec!.card4.posture || (quickHasPositiveYield ? 'income' : 'owner_occupied'),
           area: quickRec!.card4.area,
           gfaPyung: quickRec!.card4.gfaPyung,
           landAreaPyung: quickRec!.card4.landAreaPyung,
           priceBand: quickRec!.card4.priceBand,
           points: quickRec!.card4.points,
           provenanceSource: 'public',
+          capRate: quickCapRate,
+          hasPositiveYield: quickHasPositiveYield,
         };
       }
     } else if (input.memo) {
@@ -374,74 +599,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Blind-guard check & auto-cleaning
-    const validation = validateBlindPoints(extracted.points, {
-      region: extracted.region,
-      assetType: extracted.use,
-    });
-
-    // 18자 SSOT: 블라인드 정리 후 어절 경계 교정 (하드 절단·말줄임 금지)
-    const finalPoints: [string, string, string] = [
-      repairDealCardLine(validation.cleanedPoints[0], { fallback: '우수 입지' }) || '우수 입지',
-      repairDealCardLine(validation.cleanedPoints[1], { fallback: '추천 매물' }) || '추천 매물',
-      repairDealCardLine(validation.cleanedPoints[2], { fallback: '안정 수익' }) || '안정 수익',
-    ];
-    const posture: DealCardPosture = extracted.posture || 'income';
-    const area = resolveCard4AreaLabel(
-      {
-        posture,
-        area: extracted.area,
-        gfaPyung: extracted.gfaPyung,
-        landAreaPyung: extracted.landAreaPyung,
-      },
-      {
-        gfaPyung: extracted.gfaPyung,
-        landAreaPyung: extracted.landAreaPyung,
-      }
-    );
-    // 한 줄 제목은 편집기 입력과 같은 필드(card4.headline)에 채워 내려준다 (근거 기반 파생).
-    const headline = deriveDealCardHeadline({ posture, points: finalPoints });
-
-    const card4: Card4Data = {
-      headline,
-      posture,
-      region: extracted.region,
-      use: extracted.use,
-      ...(area ? { area } : {}),
-      ...(extracted.gfaPyung ? { gfaPyung: extracted.gfaPyung } : {}),
-      ...(extracted.landAreaPyung ? { landAreaPyung: extracted.landAreaPyung } : {}),
-      priceBand: extracted.priceBand,
-      points: finalPoints,
-      provenance: {
-        points: [
-          extracted.provenanceSource,
-          extracted.provenanceSource,
-          extracted.provenanceSource,
-        ],
-      },
-      card4_version: 1,
-      card4_hash: computeCard4Hash({
-        region: extracted.region,
-        use: extracted.use,
-        priceBand: extracted.priceBand,
-        points: finalPoints,
-        area,
-        headline,
-      }),
-    };
-
-    return NextResponse.json({
-      success: true,
-      card4,
-      validation: {
-        isValid: validation.isValid,
-        violations: validation.violations,
-        requiresDongToGuFallback: validation.requiresDongToGuFallback,
-        fallbackRegionNotice: validation.fallbackRegionNotice,
-        suggestedRegion: validation.suggestedRegion,
-      },
-    });
+    return NextResponse.json(buildDeterministicFastFillResponse(extracted));
   } catch (err: any) {
+    if (
+      extracted &&
+      (err instanceof LLMMockNotAllowedError || err?.name === 'LLMMockNotAllowedError')
+    ) {
+      log.warn('[fast-fill] LLMMockNotAllowedError fallback to deterministic template:', err.message);
+      return NextResponse.json({
+        ...buildDeterministicFastFillResponse(extracted),
+        source: 'deterministic_fallback',
+      });
+    }
     log.error('Fast-fill failed:', err);
     return NextResponse.json({ error: err.message || 'Fast-fill failed' }, { status: 400 });
   }

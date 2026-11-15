@@ -22,6 +22,163 @@ export type { MainLotResolution } from "./main-lot-resolver";
 const logger = createModuleLogger("enrich-by-pnu");
 const CACHE_TTL_DAYS = 30;
 
+export type ExternalPayloadSource =
+  | "buildingRegister"
+  | "building_register"
+  | "landPrice"
+  | "land_price"
+  | "official_land_price"
+  | "landUsePlan"
+  | "land_use_plan"
+  | "locationPoi"
+  | "location_poi"
+  | "comparableTransactions"
+  | "comparable_transactions"
+  | "registryData"
+  | "registry_data"
+  | "commercialDistrict"
+  | "commercial_district";
+
+/**
+ * Guards against `{}` empty-object 30-day cache poisoning in `external_data_cache`.
+ * Returns true ONLY when the payload contains meaningful domain fields for that source.
+ */
+export function isNonEmptyExternalPayload(
+  source: ExternalPayloadSource | string,
+  payload: unknown
+): boolean {
+  if (payload === null || payload === undefined || typeof payload !== "object") {
+    return false;
+  }
+
+  if (source === "comparableTransactions" || source === "comparable_transactions") {
+    return Array.isArray(payload) && payload.length > 0;
+  }
+
+  if (Array.isArray(payload)) {
+    return false;
+  }
+
+  const record = payload as Record<string, any>;
+  if (Object.keys(record).length === 0) {
+    return false;
+  }
+
+  switch (source) {
+    case "buildingRegister":
+    case "building_register": {
+      const pk = String(record.mgmBldrgstPk ?? "").trim();
+      const totArea = Number(record.totArea ?? record.totalArea ?? 0);
+      const platArea = Number(record.platArea ?? 0);
+      const purpsNm = String(record.mainPurpsCdNm ?? "").trim();
+      const mainPurpose = String(record.mainPurpose ?? "").trim();
+      const bldNm = String(record.bldNm ?? record.buildingName ?? "").trim();
+      const platPlc = String(record.platPlc ?? record.newPlatPlc ?? "").trim();
+      return (
+        pk.length > 0 ||
+        (Number.isFinite(totArea) && totArea > 0) ||
+        (Number.isFinite(platArea) && platArea > 0) ||
+        (purpsNm.length > 0 && purpsNm !== "[용도 미기재]") ||
+        (mainPurpose.length > 0 && mainPurpose !== "[용도 미기재]") ||
+        bldNm.length > 0 ||
+        platPlc.length > 0
+      );
+    }
+
+    case "landPrice":
+    case "land_price":
+    case "official_land_price": {
+      const officialLandPrice = Number(record.officialLandPrice ?? 0);
+      const pricePerSqm = Number(record.pricePerSqm ?? record.officialPricePerM2 ?? record.pblntfPclnd ?? 0);
+      const hasHistory = Array.isArray(record.history) && record.history.length > 0;
+      return (
+        (Number.isFinite(officialLandPrice) && officialLandPrice > 0) ||
+        (Number.isFinite(pricePerSqm) && pricePerSqm > 0) ||
+        hasHistory
+      );
+    }
+
+    case "landUsePlan":
+    case "land_use_plan": {
+      const zoningDistrict = String(record.zoningDistrict ?? "").trim();
+      const jibunAddress = String(record.jibunAddress ?? "").trim();
+      const hasZoneTypes = Array.isArray(record.zoneTypes) && record.zoneTypes.length > 0;
+      const hasItems = Array.isArray(record.items) && record.items.length > 0;
+      const hasAllZones = Array.isArray(record.allZones) && record.allZones.length > 0;
+      const hasRegulations = Array.isArray(record.regulations) && record.regulations.length > 0;
+      return (
+        zoningDistrict.length > 0 ||
+        jibunAddress.length > 0 ||
+        hasZoneTypes ||
+        hasItems ||
+        hasAllZones ||
+        hasRegulations
+      );
+    }
+
+    case "locationPoi":
+    case "location_poi": {
+      const hasNearestStation = Boolean(
+        record.nearestStation &&
+          typeof record.nearestStation === "object" &&
+          String(record.nearestStation.name ?? "").trim().length > 0
+      );
+      const hasNearbyStations = Array.isArray(record.nearbyStations) && record.nearbyStations.length > 0;
+      const hasStations = Array.isArray(record.stations) && record.stations.length > 0;
+      const hasPois = Array.isArray(record.pois) && record.pois.length > 0;
+      const hasFacilities = Array.isArray(record.nearbyFacilities) && record.nearbyFacilities.length > 0;
+      const cs = record.commercialSummary;
+      const hasCommercialCounts =
+        cs &&
+        typeof cs === "object" &&
+        (Number(cs.convenienceCount) > 0 ||
+          Number(cs.cafeCount) > 0 ||
+          Number(cs.bankCount) > 0 ||
+          Number(cs.restaurantCount) > 0);
+      return (
+        hasNearestStation ||
+        hasNearbyStations ||
+        hasStations ||
+        hasPois ||
+        hasFacilities ||
+        Boolean(hasCommercialCounts)
+      );
+    }
+
+    case "registryData":
+    case "registry_data": {
+      if (record.source === "fallback_mock" || record.encumbranceRisk === "unavailable") {
+        return false;
+      }
+      if (record.checked === false) {
+        return false;
+      }
+      const ownerName = String(record.ownerName ?? "").trim();
+      const hasMortgages = Array.isArray(record.mortgages) && record.mortgages.length > 0;
+      const hasAttachments = Array.isArray(record.attachments) && record.attachments.length > 0;
+      const hasEncumbrances = Array.isArray(record.encumbrances) && record.encumbrances.length > 0;
+      return (
+        record.checked === true ||
+        ownerName.length > 0 ||
+        hasMortgages ||
+        hasAttachments ||
+        hasEncumbrances
+      );
+    }
+
+    default: {
+      return Object.values(record).some(
+        (v) =>
+          v !== null &&
+          v !== undefined &&
+          v !== "" &&
+          (!Array.isArray(v) || v.length > 0) &&
+          (typeof v !== "object" || Array.isArray(v) || Object.keys(v).length > 0)
+      );
+    }
+  }
+}
+
 /**
  * 공통 코어: ResolvedAddress가 확정된 후, 7개 API를 병렬 호출하고 캐시에 저장.
  * enrichBuildingDataByPNU와 enrichBuildingData(orchestrator) 양쪽에서 공유.
@@ -56,7 +213,14 @@ export async function enrichBuildingDataCore(
 
   await Promise.all([
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'building_register', 'buildingRegister')) { buildingRegister = cachedData.building_register; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'building_register', 'buildingRegister') &&
+        isNonEmptyExternalPayload('buildingRegister', cachedData.building_register)
+      ) {
+        buildingRegister = cachedData.building_register;
+        return;
+      }
       // 대표지번 해석 단계에서 이미 조회한 대장이면 재호출하지 않는다 (동일 인자: hint 없음, platGbCd)
       if (mainLot && mainLot.mainPnu === pnu) { buildingRegister = { ...mainLot.register }; return; }
       try { 
@@ -66,37 +230,85 @@ export async function enrichBuildingDataCore(
       catch (e: unknown) { errors.push({ api: "building-register", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'land_price', 'land_price_vworld', 'landPrice')) { landPrice = cachedData.official_land_price; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'land_price', 'land_price_vworld', 'landPrice') &&
+        isNonEmptyExternalPayload('landPrice', cachedData.official_land_price)
+      ) {
+        landPrice = cachedData.official_land_price;
+        return;
+      }
       try { landPrice = await fetchLandPrice(pnu); }
       catch (e: unknown) { errors.push({ api: "land-price", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'land_use_plan', 'land_use_plan_vworld', 'landUse', 'landUsePlan')) { landUsePlan = cachedData.land_use_plan; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'land_use_plan', 'land_use_plan_vworld', 'landUse', 'landUsePlan') &&
+        isNonEmptyExternalPayload('landUsePlan', cachedData.land_use_plan)
+      ) {
+        landUsePlan = cachedData.land_use_plan;
+        return;
+      }
       try { landUsePlan = await fetchLandUsePlan(pnu); }
       catch (e: unknown) { errors.push({ api: "land-use", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'comparable_tx', 'comparableTransactions', 'comparableTx')) { comparableTransactions = cachedData.comparable_transactions || []; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'comparable_tx', 'comparableTransactions', 'comparableTx') &&
+        isNonEmptyExternalPayload('comparableTransactions', cachedData.comparable_transactions)
+      ) {
+        comparableTransactions = cachedData.comparable_transactions;
+        return;
+      }
       try { comparableTransactions = await fetchComparableTransactions(sigunguCd); }
       catch (e: unknown) { errors.push({ api: "real-transaction", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'location_poi', 'locationPoi')) { locationPoi = cachedData.location_poi; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'location_poi', 'locationPoi') &&
+        isNonEmptyExternalPayload('locationPoi', cachedData.location_poi)
+      ) {
+        locationPoi = cachedData.location_poi;
+        return;
+      }
       try { if (lat != null && lng != null) { locationPoi = await fetchLocationPoi(lat, lng); } }
       catch (e: unknown) { errors.push({ api: "kakao-map-local", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'registry', 'registryData')) { registryData = cachedData.registry_data; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'registry', 'registryData') &&
+        isNonEmptyExternalPayload('registryData', cachedData.registry_data)
+      ) {
+        registryData = cachedData.registry_data;
+        return;
+      }
       try { registryData = await fetchRegistryData(rawAddress, pnu); }
       catch (e: unknown) { errors.push({ api: "registry", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'building_register', 'buildingRegister', 'building_recap', 'buildingRecap')) { return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'building_register', 'buildingRegister', 'building_recap', 'buildingRecap') &&
+        isNonEmptyExternalPayload('buildingRegister', cachedData.building_register)
+      ) {
+        return;
+      }
       try { recapData = await fetchBuildingRecap(sigunguCd, bjdongCd, bun, ji); }
       catch (e: unknown) { errors.push({ api: "building-recap", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'commercial_district', 'commercialDistrict')) { commercialDistrict = cachedData.commercial_district; return; }
+      if (
+        cachedData &&
+        !isSourceStale(staleSources, 'commercial_district', 'commercialDistrict') &&
+        isNonEmptyExternalPayload('commercialDistrict', cachedData.commercial_district)
+      ) {
+        commercialDistrict = cachedData.commercial_district;
+        return;
+      }
       try { if (pnu) commercialDistrict = await fetchCommercialDistrictFull(createServiceClient(), pnu); }
       catch (e: unknown) { errors.push({ api: "semas-commercial", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
@@ -216,23 +428,53 @@ export async function enrichBuildingDataCore(
     resolvedAddress.jibunAddress = authenticJibun;
   }
 
+  const validBuildingRegister = isNonEmptyExternalPayload("buildingRegister", buildingRegister)
+    ? buildingRegister
+    : null;
+  const validLandPrice = isNonEmptyExternalPayload("landPrice", landPrice) ? landPrice : null;
+  const validLandUsePlan = isNonEmptyExternalPayload("landUsePlan", landUsePlan) ? landUsePlan : null;
+  const validComparableTransactions = isNonEmptyExternalPayload(
+    "comparableTransactions",
+    comparableTransactions
+  )
+    ? comparableTransactions
+    : [];
+  const validLocationPoi = isNonEmptyExternalPayload("locationPoi", locationPoi) ? locationPoi : null;
+  const validRegistryData = isNonEmptyExternalPayload("registryData", registryData)
+    ? registryData
+    : null;
+  const validCommercialDistrict = isNonEmptyExternalPayload(
+    "commercialDistrict",
+    commercialDistrict
+  )
+    ? commercialDistrict
+    : null;
+
   const enrichmentResult: ExternalDataEnrichmentResult = {
     resolvedAddress,
-    buildingRegister,
-    landPrice,
-    landUsePlan,
-    comparableTransactions,
-    locationPoi,
+    buildingRegister: validBuildingRegister,
+    landPrice: validLandPrice,
+    landUsePlan: validLandUsePlan,
+    comparableTransactions: validComparableTransactions,
+    locationPoi: validLocationPoi,
     mapImageUrl,
-    registryData,
-    commercialDistrict,
+    registryData: validRegistryData,
+    commercialDistrict: validCommercialDistrict,
     cadastralMapImage: (cadastralMapImage as any)?.base64 ?? null,
     secondaryParcels,
     enrichedAt: new Date().toISOString(),
     errors,
   };
 
-  // ─── 캐시 저장
+  // ─── 캐시 저장 (빈 객체 `{}` 영속화 금지 — 모든 소스 실패 시 신규 row 삽입 생략)
+  const hasAnyValidPayload =
+    validBuildingRegister !== null ||
+    validLandPrice !== null ||
+    validLandUsePlan !== null ||
+    validComparableTransactions.length > 0 ||
+    validLocationPoi !== null ||
+    validRegistryData !== null;
+
   try {
     const supabase = createServiceClient();
 
@@ -242,33 +484,116 @@ export async function enrichBuildingDataCore(
       .eq("building_ssot_lite_id", buildingSsotLiteId)
       .maybeSingle();
 
-    const cacheData = {
-      building_ssot_lite_id: buildingSsotLiteId,
-      pnu: resolvedAddress.pnu,
-      legal_dong_code: resolvedAddress.legalDongCode,
-      road_address: resolvedAddress.roadAddress,
-      jibun_address: resolvedAddress.jibunAddress,
-      latitude: resolvedAddress.lat,
-      longitude: resolvedAddress.lng,
-      building_register: buildingRegister || {},
-      building_register_fetched_at: buildingRegister ? new Date().toISOString() : null,
-      official_land_price: landPrice || {},
-      land_price_fetched_at: landPrice ? new Date().toISOString() : null,
-      land_use_plan: landUsePlan || {},
-      land_use_fetched_at: landUsePlan ? new Date().toISOString() : null,
-      comparable_transactions: comparableTransactions,
-      transactions_fetched_at: comparableTransactions.length > 0 ? new Date().toISOString() : null,
-      location_poi: locationPoi || {},
-      location_fetched_at: locationPoi ? new Date().toISOString() : null,
-      registry_data: registryData || {},
-      registry_fetched_at: registryData ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    };
+    const nowIso = new Date().toISOString();
 
     if (existing) {
-      await supabase.from("external_data_cache").update(cacheData).eq("id", existing.id);
+      const updatePatch: Record<string, any> = {
+        pnu: resolvedAddress.pnu,
+        legal_dong_code: resolvedAddress.legalDongCode,
+        road_address: resolvedAddress.roadAddress,
+        jibun_address: resolvedAddress.jibunAddress,
+        latitude: resolvedAddress.lat,
+        longitude: resolvedAddress.lng,
+        updated_at: nowIso,
+      };
+
+      if (validBuildingRegister !== null) {
+        updatePatch.building_register = validBuildingRegister;
+        updatePatch.building_register_fetched_at = nowIso;
+      } else if (
+        cachedData &&
+        cachedData.building_register != null &&
+        !isNonEmptyExternalPayload("buildingRegister", cachedData.building_register)
+      ) {
+        updatePatch.building_register = null;
+        updatePatch.building_register_fetched_at = null;
+      }
+
+      if (validLandPrice !== null) {
+        updatePatch.official_land_price = validLandPrice;
+        updatePatch.land_price_fetched_at = nowIso;
+      } else if (
+        cachedData &&
+        cachedData.official_land_price != null &&
+        !isNonEmptyExternalPayload("landPrice", cachedData.official_land_price)
+      ) {
+        updatePatch.official_land_price = null;
+        updatePatch.land_price_fetched_at = null;
+      }
+
+      if (validLandUsePlan !== null) {
+        updatePatch.land_use_plan = validLandUsePlan;
+        updatePatch.land_use_fetched_at = nowIso;
+      } else if (
+        cachedData &&
+        cachedData.land_use_plan != null &&
+        !isNonEmptyExternalPayload("landUsePlan", cachedData.land_use_plan)
+      ) {
+        updatePatch.land_use_plan = null;
+        updatePatch.land_use_fetched_at = null;
+      }
+
+      if (validComparableTransactions.length > 0) {
+        updatePatch.comparable_transactions = validComparableTransactions;
+        updatePatch.transactions_fetched_at = nowIso;
+      }
+
+      if (validLocationPoi !== null) {
+        updatePatch.location_poi = validLocationPoi;
+        updatePatch.location_fetched_at = nowIso;
+      } else if (
+        cachedData &&
+        cachedData.location_poi != null &&
+        !isNonEmptyExternalPayload("locationPoi", cachedData.location_poi)
+      ) {
+        updatePatch.location_poi = null;
+        updatePatch.location_fetched_at = null;
+      }
+
+      if (validRegistryData !== null) {
+        updatePatch.registry_data = validRegistryData;
+        updatePatch.registry_fetched_at = nowIso;
+      } else if (
+        cachedData &&
+        cachedData.registry_data != null &&
+        !isNonEmptyExternalPayload("registryData", cachedData.registry_data)
+      ) {
+        updatePatch.registry_data = null;
+        updatePatch.registry_fetched_at = null;
+      }
+
+      if (hasAnyValidPayload || Object.keys(updatePatch).length > 7) {
+        await supabase.from("external_data_cache").update(updatePatch).eq("id", existing.id);
+      }
+    } else if (hasAnyValidPayload) {
+      const insertData = {
+        building_ssot_lite_id: buildingSsotLiteId,
+        pnu: resolvedAddress.pnu,
+        legal_dong_code: resolvedAddress.legalDongCode,
+        road_address: resolvedAddress.roadAddress,
+        jibun_address: resolvedAddress.jibunAddress,
+        latitude: resolvedAddress.lat,
+        longitude: resolvedAddress.lng,
+        building_register: validBuildingRegister,
+        building_register_fetched_at: validBuildingRegister ? nowIso : null,
+        official_land_price: validLandPrice,
+        land_price_fetched_at: validLandPrice ? nowIso : null,
+        land_use_plan: validLandUsePlan,
+        land_use_fetched_at: validLandUsePlan ? nowIso : null,
+        comparable_transactions: validComparableTransactions,
+        transactions_fetched_at: validComparableTransactions.length > 0 ? nowIso : null,
+        location_poi: validLocationPoi,
+        location_fetched_at: validLocationPoi ? nowIso : null,
+        registry_data: validRegistryData,
+        registry_fetched_at: validRegistryData ? nowIso : null,
+        updated_at: nowIso,
+      };
+      await supabase.from("external_data_cache").insert([insertData]);
     } else {
-      await supabase.from("external_data_cache").insert([cacheData]);
+      logger.warn("Skipping external_data_cache insert because all external sources returned empty/failed", {
+        buildingSsotLiteId,
+        pnu: resolvedAddress.pnu,
+      });
     }
   } catch (dbErr) {
     logger.error("Failed to write cache to DB", { dbErr });
@@ -331,17 +656,21 @@ export async function enrichBuildingDataByPNU(
       const staleSourcesInfo = Object.entries(CACHE_TTL_BY_SOURCE)
         .filter(([_, ttlDays]) => cacheAge > (ttlDays as number) * 86400000)
         .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
-      // 과거 조회 실패로 빈 대장({})이나 빈 공시지가/토지이용계획({})이 캐시된 경우 자동 재조회
-      const registerMissing = !(Number((cached.building_register as any)?.totalArea) > 0);
-      const landPriceMissing = !(Number((cached.official_land_price as any)?.pricePerSqm) > 0);
-      const landUseMissing = !((cached.land_use_plan as any)?.zoningDistrict || (cached.land_use_plan as any)?.jibunAddress);
+      // 과거 조회 실패로 빈 대장({})이나 빈 공시지가/토지이용계획/주변POI({})이 캐시된 경우 자동 재조회
+      const registerMissing = !isNonEmptyExternalPayload("buildingRegister", cached.building_register);
+      const landPriceMissing = !isNonEmptyExternalPayload("landPrice", cached.official_land_price);
+      const landUseMissing = !isNonEmptyExternalPayload("landUsePlan", cached.land_use_plan);
+      const locationPoiMissing =
+        (cached.latitude != null && cached.longitude != null && !isNonEmptyExternalPayload("locationPoi", cached.location_poi)) ||
+        (cached.location_poi != null && !isNonEmptyExternalPayload("locationPoi", cached.location_poi));
 
-      if (staleSourcesInfo.length > 0 || registerMissing || landPriceMissing || landUseMissing) {
-        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}${registerMissing ? ' (+building_register empty)' : ''}${landPriceMissing ? ' (+land_price empty)' : ''}${landUseMissing ? ' (+land_use empty)' : ''}`);
+      if (staleSourcesInfo.length > 0 || registerMissing || landPriceMissing || landUseMissing || locationPoiMissing) {
+        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}${registerMissing ? ' (+building_register empty)' : ''}${landPriceMissing ? ' (+land_price empty)' : ''}${landUseMissing ? ' (+land_use empty)' : ''}${locationPoiMissing ? ' (+location_poi empty)' : ''}`);
         const staleSources = staleSourcesInfo.map(s => s.source);
         if (registerMissing && !staleSources.includes('building_register')) staleSources.push('building_register');
         if (landPriceMissing && !staleSources.includes('land_price')) staleSources.push('land_price');
         if (landUseMissing && !staleSources.includes('land_use_plan')) staleSources.push('land_use_plan');
+        if (locationPoiMissing && !staleSources.includes('location_poi')) staleSources.push('location_poi');
         const needRegister = isSourceStale(staleSources, 'building_register', 'buildingRegister');
         const mainLot = needRegister ? await resolveLotsSafe() : null;
         const staleLotPnu = mainLot?.mainPnu ?? primaryPnu;
@@ -443,14 +772,28 @@ export function reconstructFromCache(cached: any): ExternalDataEnrichmentResult 
       roadAddress: cached.road_address, jibunAddress: cached.jibun_address,
       lat: cached.latitude, lng: cached.longitude, buildingMgtNo: cached.pnu + "000000",
     },
-    buildingRegister: cached.building_register || null,
-    landPrice: cached.official_land_price || null,
-    landUsePlan: cached.land_use_plan || null,
-    comparableTransactions: cached.comparable_transactions || [],
-    locationPoi: cached.location_poi || null,
+    buildingRegister: isNonEmptyExternalPayload("buildingRegister", cached.building_register)
+      ? cached.building_register
+      : null,
+    landPrice: isNonEmptyExternalPayload("landPrice", cached.official_land_price)
+      ? cached.official_land_price
+      : null,
+    landUsePlan: isNonEmptyExternalPayload("landUsePlan", cached.land_use_plan)
+      ? cached.land_use_plan
+      : null,
+    comparableTransactions: Array.isArray(cached.comparable_transactions)
+      ? cached.comparable_transactions
+      : [],
+    locationPoi: isNonEmptyExternalPayload("locationPoi", cached.location_poi)
+      ? cached.location_poi
+      : null,
     mapImageUrl,
-    registryData: cached.registry_data || null,
-    commercialDistrict: cached.commercial_district || null,
+    registryData: isNonEmptyExternalPayload("registryData", cached.registry_data)
+      ? cached.registry_data
+      : null,
+    commercialDistrict: isNonEmptyExternalPayload("commercialDistrict", cached.commercial_district)
+      ? cached.commercial_district
+      : null,
     cadastralMapImage: null, // WMS 이미지는 캐시에 저장하지 않음 — 재호출 필요. WMS image should be re-fetched by the caller if valid coordinates exist.
     enrichedAt: cached.updated_at,
     errors: cached.errors ? (typeof cached.errors === 'string' ? JSON.parse(cached.errors) : cached.errors) : [],

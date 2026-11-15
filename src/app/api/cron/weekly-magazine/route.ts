@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { randomUUID, timingSafeEqual } from "crypto";
+import { randomUUID } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateWeeklyMagazine } from "@/domain/magazine/weekly-generator";
 import { isMagazineCronGenerateEnabled } from "@/lib/magazine/send-flags";
 import { isoWeekLabel, todayKst } from "@/lib/magazine/kst";
 import { createModuleLogger } from "@/lib/logger";
+import { verifyCronRequest } from "@/lib/security/cron-auth";
 
 const log = createModuleLogger("cron-weekly-magazine");
 
@@ -28,17 +29,6 @@ interface BrokerRun {
   duration_ms: number;
 }
 
-/** CRON_SECRET timing-safe 비교 (S2-25). secret 없으면 항상 거부 */
-function isAuthorized(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const given = request.headers.get("authorization") ?? "";
-  const expected = Buffer.from(`Bearer ${secret}`);
-  const actual = Buffer.from(given);
-  if (actual.length !== expected.length) return false;
-  return timingSafeEqual(actual, expected);
-}
-
 function isTableMissing(err: { code?: string; message?: string } | null): boolean {
   return !!err && (err.code === "42P01" || err.code === "PGRST205" || /does not exist|schema cache/i.test(err.message ?? ""));
 }
@@ -54,8 +44,9 @@ function isTableMissing(err: { code?: string; message?: string } | null): boolea
  *  - 브로커별 try/catch 격리, 동시성 3, 결과는 `magazine_cron_runs`에 기록(테이블 없으면 로그만).
  */
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authFailure = verifyCronRequest(request);
+  if (authFailure) {
+    return authFailure;
   }
   if (!isMagazineCronGenerateEnabled()) {
     return NextResponse.json({ ok: true, skipped: "DISABLED" });
