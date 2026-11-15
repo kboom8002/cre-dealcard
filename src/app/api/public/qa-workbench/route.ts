@@ -279,20 +279,66 @@ function sanitizePinForViewer(
   };
 }
 
-function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
-  const configuredKey = (process.env.QA_ACCESS_KEY || "").trim();
-  const headerKey = (req.headers.get("x-qa-access-key") || "").trim();
-  if (!configuredKey || !headerKey || configuredKey.length !== headerKey.length) {
+type QaKeyRole = "master" | "tester" | "broker" | "none";
+
+function timingSafeMatchKey(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) {
     return false;
   }
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(configuredKey),
-      Buffer.from(headerKey)
-    );
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
   } catch {
     return false;
   }
+}
+
+function resolveQaKeyRole(req: NextRequest): QaKeyRole {
+  const headerKey = (req.headers.get("x-qa-access-key") || "").trim();
+  if (!headerKey) return "none";
+
+  const masterKey = (process.env.QA_ACCESS_KEY || "").trim();
+  const testerKey = (process.env.QA_TESTER_ACCESS_KEY || "").trim();
+  const brokerKey = (process.env.QA_BROKER_ACCESS_KEY || "").trim();
+
+  if (timingSafeMatchKey(masterKey, headerKey)) return "master";
+  if (timingSafeMatchKey(testerKey, headerKey)) return "tester";
+  if (timingSafeMatchKey(brokerKey, headerKey)) return "broker";
+  return "none";
+}
+
+function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
+  return resolveQaKeyRole(req) !== "none";
+}
+
+function classifyQaSessionOwner(
+  sessionId: string
+): "tester" | "broker" | "shared" {
+  const normalized = sessionId.trim().toLowerCase();
+  if (!normalized) return "shared";
+  if (normalized.includes("broker") && !normalized.includes("tester")) {
+    return "broker";
+  }
+  if (normalized.includes("tester") && !normalized.includes("broker")) {
+    return "tester";
+  }
+  return "shared";
+}
+
+function checkRoleSessionForbidden(
+  keyRole: QaKeyRole,
+  sessionId: string
+): string | null {
+  if (keyRole !== "tester" && keyRole !== "broker") {
+    return null;
+  }
+  const owner = classifyQaSessionOwner(sessionId);
+  if (keyRole === "tester" && owner === "broker") {
+    return "테스터 키로는 중개인 검수 세션을 수정할 수 없습니다. (/qa-tester 포털을 이용해 주세요)";
+  }
+  if (keyRole === "broker" && owner === "tester") {
+    return "중개인 키로는 테스터 리허설 세션을 수정할 수 없습니다. (/qa-broker 포털을 이용해 주세요)";
+  }
+  return null;
 }
 
 function hasQaWriteAuthorization(
@@ -796,6 +842,25 @@ export async function POST(req: NextRequest) {
           { status: 401 }
         );
       }
+      const keyRole = resolveQaKeyRole(req);
+      const forbiddenReason = checkRoleSessionForbidden(keyRole, sessionId);
+      if (forbiddenReason) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "FORBIDDEN_QA_ROLE",
+            error: forbiddenReason,
+          },
+          { status: 403 }
+        );
+      }
+      const resolvedSyncActorRole = brokerUser
+        ? "broker"
+        : keyRole === "broker"
+        ? "qa_broker"
+        : keyRole === "master"
+        ? "qa_master"
+        : "qa_tester";
       const actorUuid =
         brokerUser?.id && isUuid(brokerUser.id) ? brokerUser.id : null;
       const syncedAt = new Date().toISOString();
@@ -822,7 +887,7 @@ export async function POST(req: NextRequest) {
 
       const eventPayload = {
         actor_id: actorUuid,
-        actor_role: "qa_tester",
+        actor_role: resolvedSyncActorRole,
         event_type:
           mode === "submit" ? "qa_workbench_submitted" : "qa_workbench_synced",
         entity_type: "qa_workbench",
@@ -2005,7 +2070,7 @@ export async function POST(req: NextRequest) {
         typeof body.userAgent === "string" && body.userAgent.trim()
           ? body.userAgent.trim().slice(0, 240)
           : null;
-      const authorRole: "tester" | "broker" =
+      const requestedAuthorRole: "tester" | "broker" =
         body.authorRole === "broker" ? "broker" : "tester";
       const pinMode: "issue" | "redpen" =
         body.pinMode === "redpen" ? "redpen" : "issue";
@@ -2034,6 +2099,22 @@ export async function POST(req: NextRequest) {
           { status: 401 }
         );
       }
+      const keyRole = resolveQaKeyRole(req);
+      const forbiddenReason = checkRoleSessionForbidden(keyRole, sessionId);
+      if (forbiddenReason) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "FORBIDDEN_QA_ROLE",
+            error: forbiddenReason,
+          },
+          { status: 403 }
+        );
+      }
+      const authorRole: "tester" | "broker" =
+        keyRole === "tester" || keyRole === "broker"
+          ? keyRole
+          : requestedAuthorRole;
       const isAuthenticated =
         Boolean(brokerUser?.id) || hasValidQaAccessKeyHeader(req);
       const actorUuid =
@@ -2072,7 +2153,11 @@ export async function POST(req: NextRequest) {
         try {
           const pinEvent = {
             actor_id: actorUuid,
-            actor_role: brokerUser ? "broker" : "qa_tester",
+            actor_role: brokerUser
+              ? "broker"
+              : authorRole === "broker"
+              ? "qa_broker"
+              : "qa_tester",
             event_type: "qa_pin_created",
             entity_type: "qa_pin",
             entity_id: actorUuid,

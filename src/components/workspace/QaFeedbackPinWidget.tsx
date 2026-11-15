@@ -7,9 +7,11 @@ import {
   getBuildStampInfo,
 } from "@/lib/qa/build-stamp";
 import {
-  appendQaParamsToHref,
   buildQaAuthHeaders,
+  getQaSignoffHrefForRole,
+  resolveQaPortalRole,
   syncQaKeyFromSearchParams,
+  type QaPortalRole,
 } from "@/lib/qa/qa-client-auth";
 
 export type QaPinSeverity = "critical" | "major" | "minor";
@@ -317,8 +319,20 @@ export function QaFeedbackPinWidget({
   const [isPicking, setIsPicking] = useState(false);
   const [targetSelector, setTargetSelector] = useState("viewport");
   const [targetLabel, setTargetLabel] = useState("현재 화면 전체");
+  const resolvedPortalRole = useMemo<QaPortalRole>(() => {
+    const explicitRole = searchParams?.get("qaRole");
+    return resolveQaPortalRole(pathname, explicitRole);
+  }, [pathname, searchParams]);
+  const lockedRole: QaPinAuthorRole | null =
+    resolvedPortalRole === "tester" || resolvedPortalRole === "broker"
+      ? resolvedPortalRole
+      : null;
+
   const [severity, setSeverity] = useState<QaPinSeverity>("major");
-  const [authorRole, setAuthorRole] = useState<QaPinAuthorRole>("tester");
+  const [authorRole, setAuthorRole] = useState<QaPinAuthorRole>(
+    lockedRole ?? "tester"
+  );
+  const effectiveAuthorRole: QaPinAuthorRole = lockedRole ?? authorRole;
   const [pinMode, setPinMode] = useState<QaPinMode>("issue");
   const [originalText, setOriginalText] = useState("");
   const [suggestedText, setSuggestedText] = useState("");
@@ -333,7 +347,7 @@ export function QaFeedbackPinWidget({
   } | null>(null);
 
   useEffect(() => {
-    syncQaKeyFromSearchParams(searchParams);
+    syncQaKeyFromSearchParams(searchParams, resolvedPortalRole);
     const fromHook = searchParams?.get("qa");
     const fromLocation =
       typeof window !== "undefined" && window.location?.search
@@ -384,7 +398,7 @@ export function QaFeedbackPinWidget({
     } catch {
       setEnabled(isQaExplicitOn);
     }
-  }, [forceVisible, requireExplicitQueryParam, searchParams]);
+  }, [forceVisible, requireExplicitQueryParam, resolvedPortalRole, searchParams]);
 
   useEffect(() => {
     if (!isPicking) return;
@@ -491,10 +505,24 @@ export function QaFeedbackPinWidget({
     setIsSubmitting(true);
     setFeedback(null);
 
-    let sessionId = "qa-pin-global";
+    let sessionId =
+      lockedRole === "tester"
+        ? "qa-signoff-tester-r2"
+        : lockedRole === "broker"
+        ? "qa-signoff-broker"
+        : "qa-pin-global";
     try {
       const saved = window.localStorage.getItem(QA_SIGNOFF_SESSION_STORAGE_KEY);
-      if (saved && saved.trim()) sessionId = saved.trim();
+      if (saved && saved.trim()) {
+        const trimmedSaved = saved.trim();
+        if (
+          !lockedRole ||
+          (lockedRole === "tester" && trimmedSaved.includes("tester")) ||
+          (lockedRole === "broker" && trimmedSaved.includes("broker"))
+        ) {
+          sessionId = trimmedSaved;
+        }
+      }
     } catch {
       // ignore storage errors
     }
@@ -514,7 +542,7 @@ export function QaFeedbackPinWidget({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...buildQaAuthHeaders(),
+          ...buildQaAuthHeaders(lockedRole ?? resolvedPortalRole),
         },
         body: JSON.stringify({
           mode: "pin",
@@ -537,7 +565,7 @@ export function QaFeedbackPinWidget({
           builtAt: buildInfo.builtAt,
           userAgent:
             typeof navigator !== "undefined" ? navigator.userAgent : "",
-          authorRole,
+          authorRole: effectiveAuthorRole,
           pinMode,
           originalText: pinMode === "redpen" ? trimmedOriginal : undefined,
           suggestedText: pinMode === "redpen" ? trimmedSuggested : undefined,
@@ -593,12 +621,17 @@ export function QaFeedbackPinWidget({
             </span>
             <div className="flex items-center gap-1.5">
               <a
-                href={appendQaParamsToHref("/qa-signoff")}
+                href={getQaSignoffHrefForRole(lockedRole ?? resolvedPortalRole)}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-testid="qa-pin-hub-link"
                 className="min-h-[44px] inline-flex items-center px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-[15px] font-bold whitespace-nowrap"
               >
-                검수 허브 ↗
+                {lockedRole === "tester"
+                  ? "테스터 허브 ↗"
+                  : lockedRole === "broker"
+                  ? "중개인 보드 ↗"
+                  : "검수 허브 ↗"}
               </a>
               <button
                 type="button"
@@ -627,26 +660,37 @@ export function QaFeedbackPinWidget({
             aria-label="작성자 역할 선택"
             className="grid grid-cols-2 gap-1.5"
           >
-            {(
-              [
-                { id: "tester", label: "🧪 테스터" },
-                { id: "broker", label: "👔 중개인" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                data-testid={`qa-pin-role-${opt.id}`}
-                onClick={() => handleRoleChange(opt.id)}
-                className={`min-h-[44px] px-2 rounded-xl text-[15px] font-bold border transition cursor-pointer whitespace-nowrap ${
-                  authorRole === opt.id
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-slate-50 text-slate-800 border-slate-300 hover:bg-slate-100"
-                }`}
+            {lockedRole ? (
+              <div
+                data-testid="qa-pin-role-locked"
+                className="col-span-2 min-h-[44px] flex items-center justify-center rounded-xl border border-slate-300 bg-slate-100 px-3 text-[15px] font-extrabold text-slate-900"
               >
-                {opt.label}
-              </button>
-            ))}
+                {lockedRole === "tester"
+                  ? "🧪 일반 테스터 전용 모드 (역할 고정)"
+                  : "👔 중개인 감수 전용 모드 (역할 고정)"}
+              </div>
+            ) : (
+              (
+                [
+                  { id: "tester", label: "🧪 테스터" },
+                  { id: "broker", label: "👔 중개인" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  data-testid={`qa-pin-role-${opt.id}`}
+                  onClick={() => handleRoleChange(opt.id)}
+                  className={`min-h-[44px] px-2 rounded-xl text-[15px] font-bold border transition cursor-pointer whitespace-nowrap ${
+                    authorRole === opt.id
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-slate-50 text-slate-800 border-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))
+            )}
           </div>
 
           <div

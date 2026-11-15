@@ -33,6 +33,12 @@ import {
   setStoredQaAccessKey,
   syncQaKeyFromSearchParams,
 } from "@/lib/qa/qa-client-auth";
+import {
+  QA_BROKER_SHOWCASE_SESSION_ID,
+  QA_TESTER_SIGNOFF_SESSION_ID,
+  ROUND1_REMEDIATION_28_ITEMS,
+  ROUND2_CORE_MISSIONS_6,
+} from "@/lib/qa/round2-verification-data";
 
 const SAMPLE_M1_MEMO =
   "강남구 역삼동 724-12 코너 꼬마빌딩 / 매각가 148억 / 대지 112평 연면적 368평 / 보증금 5.2억 월세 3,850만원 / 2021년 리모델링 / 임대수익용 추천";
@@ -290,6 +296,93 @@ export default function QaSignoffHubPage() {
   const [prereqCopied, setPrereqCopied] = useState(false);
   const [brokerSaving, setBrokerSaving] = useState(false);
   const [brokerNotice, setBrokerNotice] = useState<string | null>(null);
+  const [dualPortalSummary, setDualPortalSummary] = useState<{
+    r1PassCount: number;
+    r2PassCount: number;
+    brokerDecidedCount: number;
+    brokerPassCount: number;
+  }>({
+    r1PassCount: 0,
+    r2PassCount: 0,
+    brokerDecidedCount: 0,
+    brokerPassCount: 0,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDualPortalSummary() {
+      try {
+        const [testerRes, brokerRes] = await Promise.all([
+          fetch(
+            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+              QA_TESTER_SIGNOFF_SESSION_ID
+            )}`,
+            { cache: "no-store" }
+          ),
+          fetch(
+            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+              QA_BROKER_SHOWCASE_SESSION_ID
+            )}`,
+            { cache: "no-store" }
+          ),
+        ]);
+
+        let r1PassCount = 0;
+        let r2PassCount = 0;
+        let brokerDecidedCount = 0;
+        let brokerPassCount = 0;
+
+        if (testerRes?.ok) {
+          const j = (await testerRes.json().catch(() => null)) as {
+            found?: boolean;
+            session?: {
+              records?: {
+                r1States?: Record<string, { status?: string }>;
+                r2States?: Record<string, { status?: string }>;
+              };
+            };
+          } | null;
+          const recs = j?.session?.records;
+          if (j?.found && recs) {
+            r1PassCount = ROUND1_REMEDIATION_28_ITEMS.filter(
+              (item) => recs.r1States?.[item.id]?.status === "pass"
+            ).length;
+            r2PassCount = ROUND2_CORE_MISSIONS_6.filter(
+              (m) => recs.r2States?.[m.id]?.status === "pass"
+            ).length;
+          }
+        }
+
+        if (brokerRes?.ok) {
+          const j = (await brokerRes.json().catch(() => null)) as {
+            found?: boolean;
+            session?: { records?: Record<string, { status?: string }> };
+          } | null;
+          const recs = j?.session?.records;
+          if (j?.found && recs && typeof recs === "object") {
+            const values = Object.values(recs);
+            brokerDecidedCount = values.filter((v) => Boolean(v?.status)).length;
+            brokerPassCount = values.filter((v) => v?.status === "PASS").length;
+          }
+        }
+
+        if (!cancelled) {
+          setDualPortalSummary({
+            r1PassCount,
+            r2PassCount,
+            brokerDecidedCount,
+            brokerPassCount,
+          });
+        }
+      } catch {
+        // non-blocking
+      }
+    }
+    void loadDualPortalSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchPins = useCallback(async () => {
     setPinsLoading(true);
@@ -1063,6 +1156,80 @@ export default function QaSignoffHubPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* PM 통합 관제 · v5.0 이중 포털 바로가기 */}
+        <section
+          data-testid="pm-dual-portal-overview"
+          className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-xs space-y-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="inline-block px-2.5 py-0.5 rounded-lg bg-indigo-900 text-white text-[13px] font-extrabold">
+                PM 통합 관제 (v5.0)
+              </span>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-950 mt-1">
+                일반 테스터 · 중개인 완전 분리 포털 현황
+              </h2>
+            </div>
+            <span className="text-[14px] font-bold text-slate-600">
+              이중 인증키 격리(403 Forbidden) 적용됨
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[15px] font-extrabold text-indigo-950">
+                  🧪 일반 테스터 전용 포털
+                </span>
+                <span className="text-[13px] font-extrabold text-indigo-800">
+                  1차 28건 {dualPortalSummary.r1PassCount}/28 · 2차 미션{" "}
+                  {dualPortalSummary.r2PassCount}/6
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={appendQaParamsToHref("/qa-tester/signoff", "master")}
+                  className="min-h-[40px] inline-flex items-center rounded-xl bg-indigo-700 hover:bg-indigo-800 px-3 text-[14px] font-extrabold text-white"
+                >
+                  테스터 리허설 허브 ↗
+                </Link>
+                <Link
+                  href={appendQaParamsToHref("/qa-tester/showcase", "master")}
+                  className="min-h-[40px] inline-flex items-center rounded-xl border border-indigo-300 bg-white hover:bg-indigo-100 px-3 text-[14px] font-extrabold text-indigo-950"
+                >
+                  테스터 검수 쇼룸 ↗
+                </Link>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[15px] font-extrabold text-slate-950">
+                  👔 중개인 전용 포털
+                </span>
+                <span className="text-[13px] font-extrabold text-slate-800">
+                  22종 판정 {dualPortalSummary.brokerDecidedCount}/22 (PASS{" "}
+                  {dualPortalSummary.brokerPassCount})
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={appendQaParamsToHref("/qa-broker/signoff", "master")}
+                  className="min-h-[40px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3 text-[14px] font-extrabold text-white"
+                >
+                  중개인 감수 미팅 보드 ↗
+                </Link>
+                <Link
+                  href={appendQaParamsToHref("/qa-broker/showcase", "master")}
+                  className="min-h-[40px] inline-flex items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3 text-[14px] font-extrabold text-slate-900"
+                >
+                  중개인 산출물 쇼룸 ↗
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {seedNotice && (
           <div
             role="status"
