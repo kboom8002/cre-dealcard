@@ -7,6 +7,7 @@ import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
 import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 import { validateBrokerStatutoryFields } from '@/lib/legal/broker-statutory-disclosure';
+import { formatKrPhoneInput } from '@/lib/format/phone';
 
 /* ─── Tag option constants ─── */
 
@@ -545,7 +546,7 @@ export default function BrokerProfilePage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-base shadow-sm transition-colors disabled:opacity-60"
+            className="bg-primary hover:bg-primary/90 active:scale-[0.98] active:translate-y-[1px] active:brightness-95 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-base shadow-sm transition-all disabled:opacity-60 cursor-pointer"
             data-testid="save-profile-top-btn"
           >
             {saving ? '저장 중...' : '💾 변경사항 저장'}
@@ -806,15 +807,7 @@ export default function BrokerProfilePage() {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => {
-                const raw = e.target.value;
-                const digits = raw.replace(/[^\d]/g, '');
-                if (digits.length === 11 && digits.startsWith('010')) {
-                  setPhone(`${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`);
-                } else {
-                  setPhone(raw);
-                }
-              }}
+              onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
               className={inputClass}
               placeholder="예: 010-1234-5678 (숫자만 입력하셔도 자동 변환됩니다)"
               id="profile-phone"
@@ -1216,7 +1209,7 @@ export default function BrokerProfilePage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-2xl px-5 py-4 min-h-[56px] text-lg shadow-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-primary hover:bg-primary/90 active:scale-[0.985] active:translate-y-[1px] active:brightness-95 text-primary-foreground font-extrabold rounded-xl px-5 py-4 min-h-[56px] text-lg shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           id="save-profile-btn"
         >
           {saving ? '저장 중...' : '💾 내 프로필 · 사무소 정보 저장하기'}
@@ -1226,7 +1219,7 @@ export default function BrokerProfilePage() {
         <form action={logout}>
           <button
             type="submit"
-            className="w-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 rounded-xl px-4 py-3.5 min-h-[48px] text-base font-semibold transition-colors"
+            className="w-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 active:scale-[0.985] active:translate-y-[1px] active:bg-slate-200/60 rounded-xl px-4 py-3.5 min-h-[48px] text-base font-semibold transition-all cursor-pointer"
             id="logout-btn"
           >
             로그아웃

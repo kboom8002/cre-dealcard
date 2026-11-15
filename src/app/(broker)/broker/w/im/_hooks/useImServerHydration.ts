@@ -14,9 +14,11 @@ import {
   IM_STORAGE_KEY,
   INITIAL_IM_IDS,
   INITIAL_IM_LIST,
+  SAMPLE_SEED_IDS,
   UUID_REGEX,
   buildImItemFromDealCardRecord,
   cleanBrokerPlaceholder,
+  createBlankImItem,
   formatPhoneHyphen,
   resolveKnownTestAssetUrl,
   type ImListItem,
@@ -55,6 +57,7 @@ export function tryBuildImItemFromDealCardCache(
 
 export interface UseImServerHydrationOptions {
   buildingIdParam: string | null;
+  isFreshParam?: boolean;
   initialHydrationDoneRef: React.MutableRefObject<boolean>;
   currentUserIdRef: React.MutableRefObject<string | null>;
   hydratedUserIdRef: React.MutableRefObject<string | null>;
@@ -82,6 +85,7 @@ export interface UseImServerHydrationOptions {
 
 export function useImServerHydration({
   buildingIdParam,
+  isFreshParam = false,
   initialHydrationDoneRef,
   currentUserIdRef,
   hydratedUserIdRef,
@@ -193,6 +197,14 @@ export function useImServerHydration({
     hydratedUserIdRef.current = initialUid;
     const initialQueryId = buildingIdParam;
     let initialTargetId: string | null = null;
+    const freshStarterItem: ImListItem | null = isFreshParam
+      ? createBlankImItem({
+          ownerUserId: initialUid,
+          brokerName: profileDefaultsRef.current.brokerName,
+          brokerageName: profileDefaultsRef.current.brokerageName,
+          brokerPhone: profileDefaultsRef.current.brokerPhone,
+        })
+      : null;
     try {
       const rawParsed = readScopedWorkspaceJson<ImListItem[]>(
         IM_STORAGE_KEY,
@@ -204,7 +216,15 @@ export function useImServerHydration({
             (i) => !(i?.ownerUserId && initialUid && i.ownerUserId !== initialUid)
           )
         : [];
-      if (parsed.length > 0) {
+      if (freshStarterItem) {
+        const workingList = [freshStarterItem, ...parsed];
+        itemsRef.current = workingList;
+        setItems(workingList);
+        initialTargetId = freshStarterItem.id;
+        selectedIdRef.current = freshStarterItem.id;
+        setSelectedId(freshStarterItem.id);
+        applyItemToFormState(freshStarterItem);
+      } else if (parsed.length > 0) {
         const explicitMatch = initialQueryId
           ? parsed.find(
               (i: ImListItem) =>
@@ -553,18 +573,34 @@ export function useImServerHydration({
                       cleanBrokerPlaceholder(it.brokerPhone) ||
                       profileDefaultsRef.current.brokerPhone,
                   }));
-            itemsRef.current = resolvedList;
+            itemsRef.current = freshStarterItem && !resolvedList.some((r) => r.id === freshStarterItem.id)
+              ? [freshStarterItem, ...resolvedList]
+              : resolvedList;
 
+            const activeResolvedList = itemsRef.current;
             if (!userInteractedRef.current) {
+              const isInitialTargetSample = Boolean(
+                initialTargetId && SAMPLE_SEED_IDS.has(initialTargetId)
+              );
+              const firstServerUserDraft = srvItems.find(
+                (i) =>
+                  !SAMPLE_SEED_IDS.has(i.id || "") &&
+                  !SAMPLE_SEED_IDS.has(i.buildingId || "")
+              );
+              const initialTargetMatch =
+                initialTargetId && (!isInitialTargetSample || !firstServerUserDraft)
+                  ? activeResolvedList.find(
+                      (i) => i.id === initialTargetId || i.buildingId === initialTargetId
+                    )
+                  : undefined;
               const targetMatch =
+                freshStarterItem ||
                 synthesizedSrvItem ||
                 explicitSrvMatch ||
-                (initialTargetId &&
-                  resolvedList.find(
-                    (i) =>
-                      i.id === initialTargetId || i.buildingId === initialTargetId
-                  )) ||
-                resolvedList[0];
+                (!initialQueryId && isInitialTargetSample ? firstServerUserDraft : undefined) ||
+                initialTargetMatch ||
+                (!initialQueryId ? firstServerUserDraft : undefined) ||
+                activeResolvedList[0];
               if (targetMatch) {
                 if ((synthesizedSrvItem || explicitSrvMatch) && initialQueryId) {
                   lastAppliedQueryIdRef.current = initialQueryId;
@@ -573,7 +609,7 @@ export function useImServerHydration({
                 setSelectedId(targetMatch.id);
                 applyItemToFormState(targetMatch);
               }
-            } else if (!resolvedList.some((i) => i.id === selectedIdRef.current)) {
+            } else if (!activeResolvedList.some((i) => i.id === selectedIdRef.current)) {
               const prevSelectedBldId = safePrev.find(
                 (p) => p.id === selectedIdRef.current
               )?.buildingId;
@@ -608,20 +644,25 @@ export function useImServerHydration({
             scopedLocalForResolvedUser.length === 0 && initialQueryId
               ? tryBuildImItemFromDealCardCache(initialQueryId, resolvedUid)
               : null;
-          const nextItems = fromDcCache
+          const nextItemsBase = fromDcCache
             ? [fromDcCache]
             : scopedLocalForResolvedUser.length > 0
             ? scopedLocalForResolvedUser
             : INITIAL_IM_LIST;
+          const nextItems =
+            freshStarterItem && !nextItemsBase.some((i) => i.id === freshStarterItem.id)
+              ? [freshStarterItem, ...nextItemsBase]
+              : nextItemsBase;
           itemsRef.current = nextItems;
           setItems(nextItems);
           if (scopedLocalForResolvedUser.length > 0 || fromDcCache) {
             persistImItems(nextItems, resolvedUid);
           }
-          if (nextItems[0] && !userInteractedRef.current) {
-            selectedIdRef.current = nextItems[0].id;
-            setSelectedId(nextItems[0].id);
-            applyItemToFormState(nextItems[0]);
+          const nextTarget = freshStarterItem || nextItems[0];
+          if (nextTarget && !userInteractedRef.current) {
+            selectedIdRef.current = nextTarget.id;
+            setSelectedId(nextTarget.id);
+            applyItemToFormState(nextTarget);
           }
         }
       })

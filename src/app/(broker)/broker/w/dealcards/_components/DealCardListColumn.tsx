@@ -56,6 +56,7 @@ export interface DealCardListColumnProps {
   onDeleteItem: (item: BuildingListItem, e: React.MouseEvent) => void;
   onGenerateFromMemo: (memo: UnconvertedMemoItem) => void;
   onDeleteUnconvertedMemo: (memo: UnconvertedMemoItem, e: React.MouseEvent) => void;
+  isSingleUntouchedStarter?: boolean;
 }
 
 export function DealCardListColumn({
@@ -87,6 +88,7 @@ export function DealCardListColumn({
   onDeleteItem,
   onGenerateFromMemo,
   onDeleteUnconvertedMemo,
+  isSingleUntouchedStarter = false,
 }: DealCardListColumnProps) {
   const includeMemosInSimpleList =
     originGroupFilter === "unconverted_memo" ||
@@ -294,7 +296,7 @@ export function DealCardListColumn({
                   onClick={(e) => onDeleteItem(item, e)}
                   className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
                 >
-                  삭제
+                  {isSingleUntouchedStarter ? "입력 비우기" : "삭제"}
                 </button>
               </div>
             </div>

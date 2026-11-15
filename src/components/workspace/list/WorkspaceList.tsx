@@ -79,13 +79,13 @@ export function ListViewToggle({ mode, onChange }: ListViewToggleProps) {
     { id: "detailed", label: "자세히" },
   ];
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
       <span className="text-sm font-semibold text-[#3A3A3C] whitespace-nowrap">보기</span>
       <div
         role="group"
         aria-label="목록 보기 방식"
         data-testid="ws-list-view-toggle"
-        className="inline-flex items-center rounded-xl border border-slate-300 bg-slate-100 p-0.5"
+        className="inline-flex max-w-full items-center rounded-lg border border-slate-300 bg-slate-100 p-0.5"
       >
         {options.map((opt) => {
           const active = mode === opt.id;
@@ -96,7 +96,7 @@ export function ListViewToggle({ mode, onChange }: ListViewToggleProps) {
               aria-pressed={active}
               data-testid={`ws-list-view-${opt.id}`}
               onClick={() => onChange(opt.id)}
-              className={`min-h-[44px] rounded-[10px] px-3 text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
+              className={`min-h-[44px] rounded-md px-2.5 sm:px-3 text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
                 active
                   ? "bg-white text-[#0040DD] shadow-[0_1px_3px_rgba(15,23,42,0.18)]"
                   : "text-[#3A3A3C] hover:text-[#1D1D1F]"

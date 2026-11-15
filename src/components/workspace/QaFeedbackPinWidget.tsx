@@ -6,6 +6,11 @@ import {
   formatBuildStampBadge,
   getBuildStampInfo,
 } from "@/lib/qa/build-stamp";
+import {
+  appendQaParamsToHref,
+  buildQaAuthHeaders,
+  syncQaKeyFromSearchParams,
+} from "@/lib/qa/qa-client-auth";
 
 export type QaPinSeverity = "critical" | "major" | "minor";
 export type QaPinAuthorRole = "tester" | "broker";
@@ -63,12 +68,115 @@ function describeElement(el: HTMLElement): {
   return { selector, label, sampleText };
 }
 
-async function captureCompactScreenshot(): Promise<string | null> {
+function replaceModernColorFunctions(input: string): string {
+  if (!input || !/(?:oklch|oklab|lab|lch|color-mix)\s*\(/i.test(input)) {
+    return input;
+  }
+  const fnRe = /\b(?:oklch|oklab|lab|lch|color-mix)\s*\(/gi;
+  let out = "";
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = fnRe.exec(input)) !== null) {
+    out += input.slice(cursor, match.index);
+    let idx = fnRe.lastIndex;
+    let depth = 1;
+    while (idx < input.length && depth > 0) {
+      const ch = input[idx];
+      if (ch === "(") depth += 1;
+      else if (ch === ")") depth -= 1;
+      idx += 1;
+    }
+    out += "#334155";
+    cursor = idx;
+    fnRe.lastIndex = idx;
+  }
+  out += input.slice(cursor);
+  return out;
+}
+
+function renderDiagnosticCaptureCanvas(opts: {
+  pathname: string;
+  targetLabel: string;
+  targetSelector: string;
+  targetRect?: DOMRect | null;
+  buildSha: string;
+}): string | null {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.fillStyle = "#F8FAFC";
+    ctx.fillRect(0, 0, 640, 360);
+    ctx.fillStyle = "#0F172A";
+    ctx.fillRect(0, 0, 640, 48);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 16px sans-serif";
+    ctx.fillText(`CRE DealCard QA Capture · #${opts.buildSha}`, 16, 30);
+
+    ctx.fillStyle = "#1E293B";
+    ctx.font = "bold 14px sans-serif";
+    ctx.fillText(`경로: ${opts.pathname}`.slice(0, 68), 20, 82);
+    ctx.font = "14px sans-serif";
+    ctx.fillText(`대상: ${opts.targetLabel}`.slice(0, 68), 20, 108);
+    ctx.fillStyle = "#475569";
+    ctx.fillText(`선택자: ${opts.targetSelector}`.slice(0, 72), 20, 134);
+
+    if (opts.targetRect && opts.targetRect.width > 0 && opts.targetRect.height > 0) {
+      const vw = Math.max(320, window.innerWidth || 1280);
+      const vh = Math.max(320, window.innerHeight || 720);
+      const boxX = 20;
+      const boxY = 156;
+      const boxW = 600;
+      const boxH = 180;
+      ctx.strokeStyle = "#CBD5E1";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+      const rx = boxX + Math.max(0, Math.min(boxW - 8, (opts.targetRect.left / vw) * boxW));
+      const ry = boxY + Math.max(0, Math.min(boxH - 8, (opts.targetRect.top / vh) * boxH));
+      const rw = Math.max(12, Math.min(boxW - (rx - boxX), (opts.targetRect.width / vw) * boxW));
+      const rh = Math.max(12, Math.min(boxH - (ry - boxY), (opts.targetRect.height / vh) * boxH));
+      ctx.strokeStyle = "#EF4444";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(rx, ry, rw, rh);
+    }
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+    return dataUrl.length <= MAX_SCREENSHOT_DATA_URL_CHARS ? dataUrl : null;
+  } catch {
+    return null;
+  }
+}
+
+async function captureCompactScreenshot(options?: {
+  targetSelector?: string;
+  targetLabel?: string;
+  pathname?: string;
+  buildSha?: string;
+}): Promise<string | null> {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return null;
   }
   const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
   if (/jsdom/i.test(ua)) return null;
+
+  const targetSelector = options?.targetSelector || "viewport";
+  const targetLabel = options?.targetLabel || "현재 화면 전체";
+  const pathname = options?.pathname || window.location.pathname || "/";
+  const buildSha = options?.buildSha || "local";
+
+  let targetRect: DOMRect | null = null;
+  if (targetSelector !== "viewport") {
+    try {
+      const el = document.querySelector(targetSelector);
+      if (el) targetRect = el.getBoundingClientRect();
+    } catch {
+      targetRect = null;
+    }
+  }
 
   try {
     const capturePromise = (async () => {
@@ -76,10 +184,33 @@ async function captureCompactScreenshot(): Promise<string | null> {
       const html2canvas = mod.default;
       const vw = Math.max(320, window.innerWidth || 1280);
       const vh = Math.max(320, window.innerHeight || 720);
+
+      let sanitizedSheetCss = "";
+      try {
+        const chunks: string[] = [];
+        for (const sheet of Array.from(document.styleSheets || [])) {
+          try {
+            const rules = sheet.cssRules;
+            if (!rules) continue;
+            for (const rule of Array.from(rules)) {
+              chunks.push(rule.cssText);
+            }
+          } catch {
+            // ignore cross-origin stylesheet restrictions
+          }
+        }
+        if (chunks.length > 0) {
+          sanitizedSheetCss = replaceModernColorFunctions(chunks.join("\n"));
+        }
+      } catch {
+        sanitizedSheetCss = "";
+      }
+
       const rawCanvas = await html2canvas(document.body, {
         logging: false,
         useCORS: true,
-        foreignObjectRendering: true,
+        foreignObjectRendering: false,
+        backgroundColor: "#F8FAFC",
         removeContainer: true,
         scale: 0.75,
         x: window.scrollX || 0,
@@ -90,6 +221,44 @@ async function captureCompactScreenshot(): Promise<string | null> {
         windowHeight: vh,
         ignoreElements: (el) =>
           el?.getAttribute?.("data-qa-pin-widget") === "true",
+        onclone: (clonedDoc) => {
+          try {
+            if (sanitizedSheetCss) {
+              clonedDoc
+                .querySelectorAll('link[rel="stylesheet"]')
+                .forEach((lnk) => lnk.remove());
+              const injected = clonedDoc.createElement("style");
+              injected.setAttribute("data-qa-sanitized", "true");
+              injected.textContent = sanitizedSheetCss;
+              clonedDoc.head?.appendChild(injected);
+            }
+            clonedDoc.querySelectorAll("style").forEach((styleEl) => {
+              if (styleEl.getAttribute("data-qa-sanitized") === "true") return;
+              if (styleEl.textContent) {
+                styleEl.textContent = replaceModernColorFunctions(styleEl.textContent);
+              }
+            });
+            clonedDoc.querySelectorAll("[style]").forEach((el) => {
+              const raw = el.getAttribute("style");
+              if (raw && /(?:oklch|oklab|lab|lch|color-mix)\s*\(/i.test(raw)) {
+                el.setAttribute("style", replaceModernColorFunctions(raw));
+              }
+            });
+            if (targetSelector !== "viewport") {
+              try {
+                const picked = clonedDoc.querySelector(targetSelector) as HTMLElement | null;
+                if (picked) {
+                  picked.style.outline = "3px solid #EF4444";
+                  picked.style.outlineOffset = "2px";
+                }
+              } catch {
+                // ignore invalid selector in clone
+              }
+            }
+          } catch {
+            // non-blocking clone sanitization
+          }
+        },
       });
       if (!rawCanvas || rawCanvas.width <= 0 || rawCanvas.height <= 0) {
         return null;
@@ -103,18 +272,30 @@ async function captureCompactScreenshot(): Promise<string | null> {
       const ctx = outCanvas.getContext("2d");
       if (!ctx) return null;
       ctx.drawImage(rawCanvas, 0, 0, targetWidth, targetHeight);
-      const dataUrl = outCanvas.toDataURL("image/jpeg", 0.55);
+      let dataUrl = outCanvas.toDataURL("image/jpeg", 0.55);
+      if (dataUrl.length > MAX_SCREENSHOT_DATA_URL_CHARS) {
+        dataUrl = outCanvas.toDataURL("image/jpeg", 0.4);
+      }
       if (dataUrl.length > MAX_SCREENSHOT_DATA_URL_CHARS) return null;
       return dataUrl;
     })().catch(() => null);
 
     const timeoutPromise = new Promise<null>((resolve) =>
-      window.setTimeout(() => resolve(null), 800)
+      window.setTimeout(() => resolve(null), 4500)
     );
-    return await Promise.race([capturePromise, timeoutPromise]);
+    const rendered = await Promise.race([capturePromise, timeoutPromise]);
+    if (rendered) return rendered;
   } catch {
-    return null;
+    // fall through to diagnostic canvas fallback
   }
+
+  return renderDiagnosticCaptureCanvas({
+    pathname,
+    targetLabel,
+    targetSelector,
+    targetRect,
+    buildSha,
+  });
 }
 
 export function QaFeedbackPinWidget({
@@ -131,6 +312,7 @@ export function QaFeedbackPinWidget({
   );
 
   const [enabled, setEnabled] = useState<boolean>(() => Boolean(forceVisible));
+  const [minimized, setMinimized] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
   const [targetSelector, setTargetSelector] = useState("viewport");
@@ -141,6 +323,8 @@ export function QaFeedbackPinWidget({
   const [originalText, setOriginalText] = useState("");
   const [suggestedText, setSuggestedText] = useState("");
   const [attachScreenshot, setAttachScreenshot] = useState(true);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [capturingPreview, setCapturingPreview] = useState(false);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -149,6 +333,7 @@ export function QaFeedbackPinWidget({
   } | null>(null);
 
   useEffect(() => {
+    syncQaKeyFromSearchParams(searchParams);
     const fromHook = searchParams?.get("qa");
     const fromLocation =
       typeof window !== "undefined" && window.location?.search
@@ -219,8 +404,28 @@ export function QaFeedbackPinWidget({
         setOriginalText(info.sampleText);
       }
       setIsPicking(false);
+      setMinimized(false);
       setPanelOpen(true);
       setFeedback(null);
+
+      const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+      if (attachScreenshot && !/jsdom/i.test(ua)) {
+        setCapturingPreview(true);
+        window.setTimeout(() => {
+          void captureCompactScreenshot({
+            targetSelector: info.selector,
+            targetLabel: info.label,
+            pathname,
+            buildSha: buildInfo.shortSha,
+          })
+            .then((shot) => {
+              setPreviewDataUrl(shot);
+            })
+            .finally(() => {
+              setCapturingPreview(false);
+            });
+        }, 80);
+      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -235,7 +440,7 @@ export function QaFeedbackPinWidget({
       document.removeEventListener("click", handleCaptureClick, true);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isPicking]);
+  }, [attachScreenshot, buildInfo.shortSha, isPicking, pathname]);
 
   const handleRoleChange = useCallback((nextRole: QaPinAuthorRole) => {
     setAuthorRole(nextRole);
@@ -295,13 +500,22 @@ export function QaFeedbackPinWidget({
     }
 
     const screenshotDataUrl = attachScreenshot
-      ? await captureCompactScreenshot()
+      ? previewDataUrl ||
+        (await captureCompactScreenshot({
+          targetSelector,
+          targetLabel,
+          pathname,
+          buildSha: buildInfo.shortSha,
+        }))
       : null;
 
     try {
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildQaAuthHeaders(),
+        },
         body: JSON.stringify({
           mode: "pin",
           sessionId,
@@ -342,6 +556,7 @@ export function QaFeedbackPinWidget({
       setNote("");
       setOriginalText("");
       setSuggestedText("");
+      setPreviewDataUrl(null);
       setFeedback({
         kind: "ok",
         text: "검수 허브에 화면 메모를 저장했습니다.",
@@ -362,12 +577,14 @@ export function QaFeedbackPinWidget({
     <div
       data-qa-pin-widget="true"
       data-testid="qa-pin-widget-root"
-      className="fixed bottom-20 lg:bottom-5 left-4 z-50 flex flex-col items-start gap-2 print:hidden"
+      className="fixed bottom-24 sm:bottom-5 left-4 z-50 flex flex-col items-start gap-2 print:hidden"
     >
       {panelOpen && (
         <form
           onSubmit={handleSubmit}
           data-testid="qa-pin-panel"
+          data-theme-lock="light"
+          style={{ backgroundColor: "#FFFFFF", color: "#0F172A" }}
           className="w-[min(360px,calc(100vw-2rem))] max-h-[80vh] overflow-y-auto rounded-2xl border-2 border-[#007AFF] bg-white p-4 shadow-2xl space-y-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -376,13 +593,24 @@ export function QaFeedbackPinWidget({
             </span>
             <div className="flex items-center gap-1.5">
               <a
-                href="/qa-signoff"
+                href={appendQaParamsToHref("/qa-signoff")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-h-[44px] inline-flex items-center px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-[15px] font-bold whitespace-nowrap"
               >
                 검수 허브 ↗
               </a>
+              <button
+                type="button"
+                data-testid="qa-pin-panel-minimize-btn"
+                onClick={() => {
+                  setPanelOpen(false);
+                  setMinimized(true);
+                }}
+                className="min-h-[44px] px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[15px] font-bold cursor-pointer whitespace-nowrap"
+              >
+                접기
+              </button>
               <button
                 type="button"
                 data-testid="qa-pin-disable-btn"
@@ -577,6 +805,47 @@ export function QaFeedbackPinWidget({
             </span>
           </button>
 
+          {attachScreenshot && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[14px] font-bold text-slate-700">
+                  {capturingPreview
+                    ? "화면 캡처 중…"
+                    : previewDataUrl
+                    ? "캡처 미리보기 준비 완료"
+                    : "제출 시 현재 화면을 자동 캡처해 첨부합니다"}
+                </span>
+                <button
+                  type="button"
+                  data-testid="qa-pin-preview-refresh-btn"
+                  disabled={capturingPreview}
+                  onClick={() => {
+                    setCapturingPreview(true);
+                    void captureCompactScreenshot({
+                      targetSelector,
+                      targetLabel,
+                      pathname,
+                      buildSha: buildInfo.shortSha,
+                    })
+                      .then((shot) => setPreviewDataUrl(shot))
+                      .finally(() => setCapturingPreview(false));
+                  }}
+                  className="min-h-[36px] px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-[13px] font-bold text-slate-800 cursor-pointer whitespace-nowrap"
+                >
+                  📷 미리보기
+                </button>
+              </div>
+              {previewDataUrl && (
+                <img
+                  src={previewDataUrl}
+                  alt="검수 핀 캡처 미리보기"
+                  data-testid="qa-pin-screenshot-preview"
+                  className="w-full max-h-28 object-contain rounded-lg border border-slate-300 bg-white"
+                />
+              )}
+            </div>
+          )}
+
           {feedback && (
             <p
               role="status"
@@ -596,6 +865,7 @@ export function QaFeedbackPinWidget({
             type="submit"
             disabled={isSubmitting}
             data-testid="qa-pin-submit-btn"
+            style={{ backgroundColor: "#0F172A", color: "#FFFFFF" }}
             className="w-full min-h-[48px] rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-base font-extrabold cursor-pointer transition"
           >
             {isSubmitting ? "캡처·저장 중…" : "검수 허브로 보내기"}
@@ -603,35 +873,97 @@ export function QaFeedbackPinWidget({
         </form>
       )}
 
-      <div className="flex flex-col items-start gap-1.5">
-        <span
-          data-testid="qa-build-stamp-badge"
-          className="px-3 py-1 rounded-full bg-slate-900/90 text-white text-[15px] font-bold shadow-md border border-slate-700"
-        >
-          {buildBadgeText}
-        </span>
+      <div
+        data-theme-lock="dark"
+        className="flex flex-col items-start gap-1.5"
+      >
+        <div className="flex items-center gap-1.5">
+          <span
+            data-testid="qa-build-stamp-badge"
+            style={{
+              backgroundColor: "#0F172A",
+              color: "#FFFFFF",
+              borderColor: "#334155",
+            }}
+            className="px-3 py-1 rounded-full bg-slate-900 text-white text-[15px] font-bold shadow-md border border-slate-700 whitespace-nowrap"
+          >
+            {buildBadgeText}
+          </span>
 
-        <button
-          type="button"
-          data-testid="qa-pin-fab"
-          onClick={() => {
-            if (isPicking) {
-              setIsPicking(false);
-              setPanelOpen(true);
-              return;
-            }
-            setPanelOpen((prev) => !prev);
-          }}
-          className={`min-h-[48px] px-4 rounded-full shadow-lg border-2 text-[15px] font-extrabold cursor-pointer transition whitespace-nowrap ${
-            isPicking
-              ? "bg-amber-500 border-amber-700 text-slate-950 animate-pulse"
-              : "bg-slate-900 border-slate-700 text-white hover:bg-slate-800"
-          }`}
-        >
-          {isPicking
-            ? "🎯 화면에서 불편한 곳을 클릭하세요 (취소)"
-            : "📌 화면 검수 핀"}
-        </button>
+          {minimized && (
+            <button
+              type="button"
+              data-testid="qa-pin-minimize-btn"
+              onClick={() => setMinimized(false)}
+              style={{
+                backgroundColor: "#0F172A",
+                color: "#FFFFFF",
+                borderColor: "#334155",
+              }}
+              className="min-h-[36px] px-3 rounded-full shadow-md border text-[14px] font-bold cursor-pointer whitespace-nowrap"
+            >
+              📌 핀 펼치기
+            </button>
+          )}
+        </div>
+
+        {!minimized && (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-testid="qa-pin-fab"
+              onClick={() => {
+                if (isPicking) {
+                  setIsPicking(false);
+                  setPanelOpen(true);
+                  return;
+                }
+                setPanelOpen((prev) => !prev);
+              }}
+              style={
+                isPicking
+                  ? {
+                      backgroundColor: "#F59E0B",
+                      color: "#0F172A",
+                      borderColor: "#B45309",
+                    }
+                  : {
+                      backgroundColor: "#0F172A",
+                      color: "#FFFFFF",
+                      borderColor: "#334155",
+                    }
+              }
+              className={`min-h-[48px] px-4 rounded-full shadow-lg border-2 text-[15px] font-extrabold cursor-pointer transition whitespace-nowrap ${
+                isPicking
+                  ? "bg-amber-500 border-amber-700 text-slate-950 animate-pulse"
+                  : "bg-slate-900 border-slate-700 text-white hover:bg-slate-800"
+              }`}
+            >
+              {isPicking
+                ? "🎯 화면에서 불편한 곳을 클릭하세요 (취소)"
+                : "📌 화면 검수 핀"}
+            </button>
+
+            <button
+              type="button"
+              data-testid="qa-pin-minimize-btn"
+              onClick={() => {
+                setIsPicking(false);
+                setPanelOpen(false);
+                setMinimized(true);
+              }}
+              aria-label="검수 핀 접기"
+              style={{
+                backgroundColor: "#1E293B",
+                color: "#F8FAFC",
+                borderColor: "#475569",
+              }}
+              className="min-h-[48px] px-3 rounded-full shadow-lg border text-[14px] font-bold cursor-pointer transition whitespace-nowrap"
+            >
+              접기
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

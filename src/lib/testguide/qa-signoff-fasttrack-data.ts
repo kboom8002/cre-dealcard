@@ -143,67 +143,75 @@ export interface TesterMissionItem {
 export const TESTER_MISSIONS_8: readonly TesterMissionItem[] = [
   {
     id: "M1",
-    title: "첫 로그인 → 메모로 딜카드 만들기 → 카톡 공유",
+    title: "홈 [1. 딜카드] → 매물 메모 입력 후 [메모로 딜카드 생성하기] → 카톡 복사·공유",
     targetMin: 5,
     mandatoryEveryCycle: false,
     targetHref: "/broker/w/dealcards?qa=1",
-    observationPoint: "도움 없이 첫 버튼을 찾는 데 걸리는 시간과 지번 블라인드 이해 여부",
+    observationPoint:
+      "도움 없이 [1. 딜카드]에서 생성 버튼을 찾는 데 걸리는 시간과 지번·상호 블라인드 이해 여부 확인",
   },
   {
     id: "M2",
-    title: "아이폰 사진 5장(HEIC 포함) + 엑셀 렌트롤로 IM 만들고 공유",
+    title: "IM 제작: 샘플 사진(JPG·WebP·PNG) 5장 + 샘플 렌트롤(CSV/엑셀) 올리고 PPTX 내려받기",
     targetMin: 15,
     mandatoryEveryCycle: false,
     targetHref: "/broker/w/im?qa=1",
-    observationPoint: "업로드 중 대기 불안감, HEIC 자동 변환 성공 여부 및 PPTX 다운로드 확인",
+    observationPoint:
+      "아래 샘플 키트 다운로드 후 업로드 진행 안내 문구가 이해되는지 및 PPTX 정상 열림 여부 확인",
   },
   {
     id: "M3",
-    title: "월간 뉴스레터: 제목 고르기 → 브리핑 2줄 입력 → AI 다듬기 → 발행 → 독자 화면",
+    title: "월간 뉴스레터: [① 제목] 고르기 → [② 내용] 시장 요약 쓰기 → AI 다듬기 → [③ 보내기] 발행 → 독자 화면",
     targetMin: 10,
     mandatoryEveryCycle: false,
     targetHref: "/broker/magazine-editor?qa=1",
-    observationPoint: "미리보기 클릭 → 왼쪽 편집 위치 이동 직관성과 상단 통계 2선 가독성",
+    observationPoint:
+      "오른쪽 미리보기 클릭 시 왼쪽 [① 제목]/[② 내용] 편집 위치 이동 직관성과 상단 통계 2줄 가독성 확인",
   },
   {
     id: "M4",
-    title: "소통함: 고객 등록(이메일·근거) → 인사말+링크 복사 → 이메일 발송 → 두 번째 폰 열람",
+    title: "소통함: 고객 등록(이메일·근거) → 인사말+링크 복사 → 이메일 발송 → 다른 기기·시크릿창 열람 확인",
     targetMin: 3,
     mandatoryEveryCycle: false,
     targetHref: "/broker/w/inbox?qa=1",
-    observationPoint: "이메일 실제 수신 화면과 두 번째 폰 열람 후 고객별 반응 배지 증가 신뢰성",
+    observationPoint:
+      "이메일 실제 수신 화면과 다른 기기(또는 시크릿창) 열람 후 고객별 반응 '열람' 배지 숫자 증가 확인",
   },
   {
     id: "M5",
-    title: "글자 '아주 크게'로 4개 작업실 전체 둘러보기",
+    title: "상단 메뉴 4곳(딜카드 · IM · 뉴스레터 · 소통함) 모두 글자 [아주 크게]로 둘러보기",
     targetMin: 5,
     mandatoryEveryCycle: false,
     targetHref: "/broker/w/dealcards?qa=1",
-    observationPoint: "작은 글씨, 버튼 줄바꿈 깨짐, 모바일 가로 넘침 여부",
+    observationPoint:
+      "글자를 [아주 크게]로 키웠을 때 작은 글씨, 버튼 줄바꿈 깨짐, 휴대폰 가로 밀림이 없는지 확인",
   },
   {
     id: "M6",
-    title: "[필수] 작성 중 새로고침 · 뒤로가기 · 와이파이 끄기 후 내용 보존 확인",
+    title: "[필수] 입력칸(매물 메모 · 표지 제목 · 시장 요약 등) 작성 중 새로고침 · 뒤로가기 후 내용 보존 확인",
     targetMin: 5,
     mandatoryEveryCycle: true,
     targetHref: "/broker/w/im?qa=1",
-    observationPoint: "서버리스 재기동 또는 새로고침 후 입력한 메모·수정 내용이 유실되지 않는지",
+    observationPoint:
+      "작성 중인 입력칸에 글을 쓴 뒤 새로고침하거나 뒤로 갔다가 돌아와도 방금 입력한 내용이 남는지 확인",
   },
   {
     id: "M7",
-    title: "[필수] PC에서 작성하던 초안을 휴대폰에서 열어 이어 쓰기",
+    title: "[필수] PC에서 작성하던 초안을 휴대폰(또는 다른 브라우저)에서 열어 이어 쓰기",
     targetMin: 5,
     mandatoryEveryCycle: true,
-    targetHref: "/broker/magazine-editor?qa=1",
-    observationPoint: "기기 간 저장 동기화 지연·충돌 여부",
+    targetHref: "/broker/w/im?qa=1",
+    observationPoint:
+      "같은 계정으로 다른 기기에서 열었을 때 최신 저장 초안이 목록 맨 위에 바로 이어지는지 확인",
   },
   {
     id: "M8",
-    title: "무료 계정으로 알림톡 버튼 누르기 → 업그레이드 안내 이해 (실발송 금지)",
+    title: "[카카오 알림톡 보내기 · PRO] 버튼 눌러 안전 모드 업그레이드 안내 창 확인하기",
     targetMin: 2,
     mandatoryEveryCycle: false,
     targetHref: "/broker/w/inbox?qa=1",
-    observationPoint: "거부감 없는 유료 전환 안내 인지 여부 및 실발송 없이 드라이런 유지 확인",
+    observationPoint:
+      "현재 안전 모드로 실제 카톡 발송은 자동 차단되어 있으니 안심하고 [카카오 알림톡 보내기 · PRO] 버튼을 직접 눌러 안내 창만 확인",
   },
 ] as const;
 
@@ -216,33 +224,33 @@ export interface ReadinessGateItem {
 export const BROKER_READINESS_GATE_6: readonly ReadinessGateItem[] = [
   {
     id: "RG-01",
-    label: "자동 게이트(tsc · Vitest · 빌드 · 골든 E2E · UX 물리 위반 0) 통과",
-    ownerLabel: "AI",
+    label: "자동 검증(코드·타입·오류·여백 깨짐 0건) 통과",
+    ownerLabel: "AI 자동",
   },
   {
     id: "RG-02",
-    label: "실제 사이트(credeal.net)에서 패키지의 모든 링크와 미리보기·OG가 정상 열림",
-    ownerLabel: "AI",
+    label: "실제 사이트(credeal.net)에서 패키지의 모든 링크·미리보기·카톡 카드 정상 열림",
+    ownerLabel: "AI 자동",
   },
   {
     id: "RG-03",
-    label: "직전 미팅 요구사항(BR) 전부에 상태 표시(완료/일부/보류 + 사유)",
-    ownerLabel: "AI",
+    label: "직전 미팅 요청사항(BR) 전부에 상태 표시(완료/일부/보류 + 사유)",
+    ownerLabel: "AI 자동",
   },
   {
     id: "RG-04",
-    label: "테스터 리허설 패스 완료 및 막힘(blocker) 0건 확인",
-    ownerLabel: "테스터",
+    label: "테스터가 실제 화면 8가지 미션을 완주했고 진행 막힘(0건) 확인",
+    ownerLabel: "테스터 확인",
   },
   {
     id: "RG-05",
-    label: "실제 화면 하단 빌드 번호(#SHA)와 패키지에 적힌 빌드 번호 일치 확인",
-    ownerLabel: "AI·테스터",
+    label: "화면 왼쪽 아래 검은 버전 번호(#...)가 안내표의 최신 번호와 같은지 눈으로 확인",
+    ownerLabel: "테스터 확인",
   },
   {
     id: "RG-06",
-    label: "중개인 세션 24시간 전까지 테스트·피드백 요청 패키지 전달 완료",
-    ownerLabel: "AI",
+    label: "중개인 세션 24시간 전까지 테스트·피드백 요청 패키지 전달 준비 완료",
+    ownerLabel: "AI 자동",
   },
 ] as const;
 
@@ -282,9 +290,9 @@ export const BROKER_SESSIONS_4: readonly BrokerSessionSpec[] = [
       },
       {
         id: "S1-T2",
-        title: "수익형·사옥·밸류애드·블라인드 엣지 딜카드 8종 쇼룸 판정 (/qa-showcase?tab=dealcard)",
+        title: "임대수익용 · 사옥용 · 신축·개발용 · 블라인드 엣지 딜카드 8종 쇼룸 판정 (/qa-showcase?tab=dealcard)",
         promptQuestion:
-          "포스처 3종과 대지0·무사진·민감상호 블라인드·지오코딩 폴백 8종에서 번지·상호·연락처 누출이 없고 카톡 OG 카드가 클릭하고 싶게 나오나요?",
+          "포스처 3종과 대지0·초단문 메모 폴백·민감상호 블라인드·지오코딩 폴백 8종(무사진 블라인드 원칙)에서 번지·상호·연락처 누출이 없고 카톡 OG 카드가 클릭하고 싶게 나오나요?",
         targetHref: "/qa-showcase?tab=dealcard",
       },
     ],

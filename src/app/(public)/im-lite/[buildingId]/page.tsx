@@ -77,8 +77,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   }
 
   return {
-    title: "IM Lite — 모바일 투자설명서",
-    description: "AI 기반 상업용 부동산 모바일 투자설명서",
+    title: { absolute: "모바일 투자설명서 | 크리딜" },
+    description: "상업용 부동산 비공개 모바일 투자설명서 (IM Lite)",
   };
 }
 

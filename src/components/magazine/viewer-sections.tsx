@@ -785,11 +785,11 @@ export function BrokerStatutoryFooter({
       className="rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3 text-caption text-slate-300 space-y-1"
       style={{ wordBreak: "keep-all" }}
     >
-      <p className="text-xs font-bold text-slate-400">중개사무소 법정 표시사항</p>
+      <p className="text-xs font-bold text-slate-200">중개사무소 법정 표시사항</p>
       <dl className="space-y-0.5 text-xs">
         {statutory.items.map((item) => (
           <div key={item.key} className="flex flex-wrap items-baseline gap-x-2">
-            <dt className="shrink-0 font-semibold text-slate-400">{item.label}</dt>
+            <dt className="shrink-0 font-semibold text-slate-300">{item.label}</dt>
             <dd className="text-slate-200">{item.value}</dd>
           </div>
         ))}

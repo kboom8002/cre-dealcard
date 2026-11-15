@@ -144,12 +144,12 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap sm:items-center gap-2.5 w-full sm:w-auto min-w-0">
           <FontScaleToggle />
           <Link
             href="/broker/profile"
             data-testid="home-profile-settings-btn"
-            className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-2xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.09] text-[#1D1D1F] font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2px_8px_rgba(15,23,42,0.05)] transition-all whitespace-nowrap shrink-0"
+            className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.09] text-[#1D1D1F] font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2px_8px_rgba(15,23,42,0.05)] transition-all active:scale-[0.98] whitespace-nowrap"
           >
             <UserCog className="w-4 h-4 text-[#007AFF] shrink-0" aria-hidden="true" />
             <span>내 프로필 · 사무소 설정</span>

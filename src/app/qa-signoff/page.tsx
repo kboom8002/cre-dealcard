@@ -26,6 +26,121 @@ import {
   parseCompactDeviceLabel,
   QA_OUTBOUND_CHANNEL_POLICY,
 } from "@/lib/qa/build-stamp";
+import {
+  appendQaParamsToHref,
+  buildQaAuthHeaders,
+  getStoredQaAccessKey,
+  setStoredQaAccessKey,
+  syncQaKeyFromSearchParams,
+} from "@/lib/qa/qa-client-auth";
+
+const SAMPLE_M1_MEMO =
+  "강남구 역삼동 724-12 코너 꼬마빌딩 / 매각가 148억 / 대지 112평 연면적 368평 / 보증금 5.2억 월세 3,850만원 / 2021년 리모델링 / 임대수익용 추천";
+
+const MISSION_REFERENCE_EXAMPLES: Record<
+  string,
+  {
+    badge: string;
+    title: string;
+    passCue: string;
+    rows: ReadonlyArray<{ label: string; value: string; accent?: boolean }>;
+  }
+> = {
+  M1: {
+    badge: "M1 합격 화면 예시",
+    title: "딜카드 카톡 카드에서 지번·상호가 가려진 정상 화면",
+    passCue:
+      "구·동·용도·면적·가격대 4칸만 또렷하게 보이고, 상세 번지(724-12)·연락처(010-...)·가게 상호는 숨겨져 있으면 합격입니다.",
+    rows: [
+      { label: "권역", value: "서울 강남구 역삼동 (지번 비공개)" },
+      { label: "추천 용도", value: "임대수익용", accent: true },
+      { label: "규모", value: "대지 112평 · 연면적 368평" },
+      { label: "가격대", value: "매각가 140억대 (상세 협의)" },
+    ],
+  },
+  M2: {
+    badge: "M2 합격 화면 예시",
+    title: "IM 사진·엑셀 업로드 진행 표시 및 PPTX 내려받기 정상 화면",
+    passCue:
+      "업로드 중 '사진 N장 처리 중' 문구가 보이다가 썸네일이 뜨고, [PPTX 다운로드] 클릭 시 파일이 정상 열리면 합격입니다.",
+    rows: [
+      { label: "업로드 사진", value: "외관·전경·입구·로비 4~5장 썸네일 표시됨" },
+      { label: "임대현황(렌트롤)", value: "CSV/엑셀 표에 호실·월세 숫자 정상 반영" },
+      { label: "PPTX 파일", value: "슬라이드 깨짐·겹침 없이 열림", accent: true },
+    ],
+  },
+  M3: {
+    badge: "M3 합격 화면 예시",
+    title: "뉴스레터 3단계(① 제목 → ② 내용 → ③ 보내기) & 상단 통계 2줄",
+    passCue:
+      "오른쪽 미리보기 문단을 누르면 왼쪽 입력 칸으로 바로 이동하고, 발행 화면 맨 위 통계 2줄이 두 줄 깔끔하게 읽히면 합격입니다.",
+    rows: [
+      { label: "상단 탭", value: "① 제목 → ② 내용 → ③ 보내기 순서 명확" },
+      { label: "상단 통계 2줄", value: "1줄(기준금리·국고채) / 2줄(평균 수익률)", accent: true },
+      { label: "독자 화면", value: "글자 깨짐·가로 스크롤 없이 읽힘" },
+    ],
+  },
+  M4: {
+    badge: "M4 합격 화면 예시",
+    title: "다른 기기·시크릿창 열람 후 소통함 '열람' 숫자 증가",
+    passCue:
+      "새 시크릿창에서 메일 링크를 연 뒤 소통함을 새로고침했을 때 해당 고객의 열람 배지가 1회 이상으로 올라가면 합격입니다.",
+    rows: [
+      { label: "고객 반응 배지", value: "열람 1회 · 최근 열람 방금 전", accent: true },
+      { label: "이메일 본문", value: "중개사 이름·전화번호 정상 표기" },
+    ],
+  },
+  M5: {
+    badge: "M5 합격 화면 예시",
+    title: "상단 메뉴 4곳 모두 [아주 크게] 글자 상태에서 깨짐 0건",
+    passCue:
+      "휴대폰(390px) 폭에서 오른쪽으로 삐져나가 가로 스크롤바가 생기지 않고, 버튼 글자가 두 줄로 겹치지 않으면 합격입니다.",
+    rows: [
+      { label: "적용 메뉴", value: "딜카드 · IM · 뉴스레터 · 소통함 4곳" },
+      { label: "판정 기준", value: "가로 스크롤 없음 · 버튼 겹침 없음", accent: true },
+    ],
+  },
+  M6: {
+    badge: "M6 합격 화면 예시",
+    title: "작성 중 새로고침(F5)·뒤로가기 후 입력 내용 유지",
+    passCue:
+      "매물 메모나 표지 제목 입력 후 새로고침(F5)을 눌렀을 때 방금 친 글자가 지워지지 않고 남아 있으면 합격입니다.",
+    rows: [
+      { label: "저장 상태", value: "상단 '자동 저장됨' 표시 확인" },
+      { label: "새로고침 후", value: "입력했던 제목·메모 그대로 복원", accent: true },
+    ],
+  },
+  M7: {
+    badge: "M7 합격 화면 예시",
+    title: "PC에서 저장한 최신 초안이 휴대폰 목록 맨 위에 표시",
+    passCue:
+      "PC에서 제목을 수정해 저장한 뒤 휴대폰에서 같은 계정으로 열었을 때 샘플이 아닌 내 최신 초안이 바로 열리면 합격입니다.",
+    rows: [
+      { label: "휴대폰 첫 화면", value: "방금 PC에서 수정한 제목이 최상단에 노출", accent: true },
+    ],
+  },
+  M8: {
+    badge: "M8 합격 화면 예시",
+    title: "안전 모드에서 [카카오 알림톡 보내기 · PRO] 안내 창 확인",
+    passCue:
+      "실제 카톡은 발송되지 않고 'Pro 플랜에서 사용 가능합니다(테스트 안전 모드 차단)' 안내 창만 깔끔하게 뜨면 합격입니다.",
+    rows: [
+      { label: "실제 카톡 발송", value: "자동 차단됨 (0건 발송)", accent: true },
+      { label: "안내 창", value: "업그레이드 안내 문구 자연스럽게 표시" },
+    ],
+  },
+  GATE: {
+    badge: "게이트 RG-04 · RG-05 확인 예시",
+    title: "화면 왼쪽 아래 검은 버전 번호(#...)와 정상 완주 확인",
+    passCue:
+      "검수 대상 화면(?qa=1) 왼쪽 아래에 검은 알약 배지 [빌드 #xxxxxxx · ...]가 보이고, 안내받은 최신 번호와 같으면 RG-05 체크!",
+    rows: [
+      { label: "위치", value: "화면 왼쪽 맨 아래 (검은색 알약 모양 배지)" },
+      { label: "표시 형식", value: "빌드 #xxxxxxx · yy.mm.dd", accent: true },
+      { label: "모바일 여백", value: "하단 메뉴와 겹치지 않고 위쪽에 떠 있음" },
+    ],
+  },
+};
 
 interface AutoProbeCheckItem {
   id: string;
@@ -138,6 +253,13 @@ export default function QaSignoffHubPage() {
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [qaKeyInput, setQaKeyInput] = useState("");
+  const [hasQaKey, setHasQaKey] = useState(false);
+  const [qaKeyPanelOpen, setQaKeyPanelOpen] = useState(false);
+  const [memoCopiedNotice, setMemoCopiedNotice] = useState(false);
+  const [refExampleKey, setRefExampleKey] = useState<string | null>(null);
+  const [lightboxPin, setLightboxPin] = useState<QaPinRow | null>(null);
+  const [summaryCopiedNotice, setSummaryCopiedNotice] = useState(false);
 
   // Track 2: 테스터 미션 8종 & 준비 완료 게이트 6조건
   const [gateChecks, setGateChecks] = useState<Record<string, boolean>>({});
@@ -174,6 +296,7 @@ export default function QaSignoffHubPage() {
     try {
       const res = await fetch("/api/public/qa-workbench?mode=pins", {
         cache: "no-store",
+        headers: { ...buildQaAuthHeaders() },
       });
       const json = await res.json().catch(() => null);
       if (res.ok && json?.ok && Array.isArray(json.pins)) {
@@ -187,6 +310,11 @@ export default function QaSignoffHubPage() {
   }, []);
 
   useEffect(() => {
+    const syncedKey = syncQaKeyFromSearchParams() || getStoredQaAccessKey();
+    if (syncedKey) {
+      setQaKeyInput(syncedKey);
+      setHasQaKey(true);
+    }
     let resolvedId = "signoff-default";
     try {
       const existing = window.localStorage.getItem(SIGNOFF_SESSION_KEY);
@@ -335,7 +463,10 @@ export default function QaSignoffHubPage() {
       try {
         const res = await fetch("/api/public/qa-workbench", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...buildQaAuthHeaders(),
+          },
           body: JSON.stringify({
             mode,
             workbenchId: QA_SIGNOFF_WORKBENCH_ID,
@@ -351,7 +482,7 @@ export default function QaSignoffHubPage() {
         if (res.ok && json?.ok) {
           setSyncNotice(
             mode === "submit"
-              ? "최종 검수 판정을 서버에 저장했습니다."
+              ? "리허설·최종 검수 판정을 서버에 저장했습니다. (별도 메일 발송 불필요)"
               : "진행 상황이 자동 동기화되었습니다."
           );
         }
@@ -405,7 +536,10 @@ export default function QaSignoffHubPage() {
     try {
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildQaAuthHeaders(),
+        },
         body: JSON.stringify({ mode: "auto_probe_all" }),
       });
       const json = await res.json().catch(() => null);
@@ -415,7 +549,19 @@ export default function QaSignoffHubPage() {
         );
         return;
       }
-      setProbeSummary(json as AutoProbeSummary);
+      const summary = json as AutoProbeSummary;
+      setProbeSummary(summary);
+      if (summary.totalCount > 0 && summary.passedCount === summary.totalCount) {
+        const nextGateChecks: Record<string, boolean> = {
+          ...gateChecks,
+          "RG-01": true,
+          "RG-02": true,
+          "RG-03": true,
+          "RG-06": true,
+        };
+        setGateChecks(nextGateChecks);
+        persistTesterTrack(nextGateChecks, missionStates);
+      }
     } catch {
       setProbeError("네트워크 오류로 자동 점검에 실패했습니다.");
     } finally {
@@ -429,7 +575,10 @@ export default function QaSignoffHubPage() {
     try {
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildQaAuthHeaders(),
+        },
         body: JSON.stringify({ mode: "seed_axis456" }),
       });
       const json = await res.json().catch(() => null);
@@ -456,7 +605,53 @@ export default function QaSignoffHubPage() {
     } catch {
       // ignore storage errors
     }
-    window.open(href, "_blank", "noopener,noreferrer");
+    window.open(appendQaParamsToHref(href), "_blank", "noopener,noreferrer");
+  };
+
+  const handleSaveQaKey = (nextRawKey: string) => {
+    const trimmed = nextRawKey.trim();
+    setStoredQaAccessKey(trimmed);
+    setQaKeyInput(trimmed);
+    setHasQaKey(Boolean(trimmed));
+    setQaKeyPanelOpen(false);
+    void fetchPins();
+  };
+
+  const handleCopyM1Memo = async () => {
+    try {
+      await navigator.clipboard.writeText(SAMPLE_M1_MEMO);
+    } catch {
+      // non-blocking clipboard fallback
+    }
+    setMemoCopiedNotice(true);
+    window.setTimeout(() => setMemoCopiedNotice(false), 3000);
+  };
+
+  useEffect(() => {
+    if (!refExampleKey && !lightboxPin) return;
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        setRefExampleKey(null);
+        setLightboxPin(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxPin, refExampleKey]);
+
+  const handleCopyKakaoSummary = async () => {
+    const summaryText = [
+      `[크리딜 QA 검수 완료 · #${buildStamp.shortSha}]`,
+      `1. 검수자: ${testerName.trim() || "미입력"} (${testerOrg.trim() || "QA"}) · 통과 ${testerGateStats.passCount}/${TESTER_MISSIONS_8.length} · 게이트 ${testerGateStats.checkedCount}/${testerGateStats.totalGates} · 막힘 ${testerGateStats.blockerCount}건 · 핀 ${pins.length}건`,
+      `2. 소견: ${overallComment.trim() || "특이사항 없음 (서버 제출 완료)"}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(summaryText);
+    } catch {
+      // non-blocking clipboard fallback
+    }
+    setSummaryCopiedNotice(true);
+    window.setTimeout(() => setSummaryCopiedNotice(false), 3500);
   };
 
   const handleSaveTesterTrack = async () => {
@@ -478,7 +673,10 @@ export default function QaSignoffHubPage() {
     try {
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildQaAuthHeaders(),
+        },
         body: JSON.stringify({
           mode: "submit",
           workbenchId: QA_TESTER_MISSIONS_WORKBENCH_ID,
@@ -532,7 +730,10 @@ export default function QaSignoffHubPage() {
     try {
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildQaAuthHeaders(),
+        },
         body: JSON.stringify({
           mode: "submit",
           workbenchId: QA_BROKER_SESSION_WORKBENCH_ID,
@@ -716,7 +917,54 @@ export default function QaSignoffHubPage() {
                 >
                   {QA_OUTBOUND_CHANNEL_POLICY.summaryLabel}
                 </span>
+                <button
+                  type="button"
+                  data-testid="qa-key-status-btn"
+                  onClick={() => setQaKeyPanelOpen((prev) => !prev)}
+                  className={`min-h-[36px] px-2.5 py-1 rounded-lg border text-[15px] font-bold cursor-pointer transition whitespace-nowrap ${
+                    hasQaKey
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                      : "bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100"
+                  }`}
+                >
+                  {hasQaKey ? "🔑 인증키 연결됨" : "🔑 검수 인증키 입력"}
+                </button>
               </div>
+
+              {qaKeyPanelOpen && (
+                <div
+                  data-testid="qa-key-drawer"
+                  className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 p-2.5"
+                >
+                  <input
+                    type="password"
+                    aria-label="검수 인증키 입력"
+                    data-testid="qa-key-input"
+                    value={qaKeyInput}
+                    onChange={(e) => setQaKeyInput(e.target.value)}
+                    placeholder="전달받은 ?qaKey=... 인증키 붙여넣기"
+                    className="min-h-[40px] flex-1 min-w-[200px] rounded-lg border border-slate-300 bg-white px-3 text-[15px] text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    data-testid="qa-key-save-btn"
+                    onClick={() => handleSaveQaKey(qaKeyInput)}
+                    className="min-h-[40px] px-3 rounded-lg bg-slate-900 text-white text-[15px] font-bold cursor-pointer whitespace-nowrap"
+                  >
+                    저장
+                  </button>
+                  {hasQaKey && (
+                    <button
+                      type="button"
+                      data-testid="qa-key-clear-btn"
+                      onClick={() => handleSaveQaKey("")}
+                      className="min-h-[40px] px-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-[15px] font-bold cursor-pointer whitespace-nowrap"
+                    >
+                      해제
+                    </button>
+                  )}
+                </div>
+              )}
 
               <p className="text-[15px] text-slate-600 break-keep">
                 1단계 AI 자동 점검 → 2단계 테스터 실기기 검증·리허설 → 3단계 중개인(화·목) 전문가 판정 순으로 진행합니다.
@@ -786,7 +1034,7 @@ export default function QaSignoffHubPage() {
             className="flex flex-wrap items-center gap-2 pt-1"
           >
             <Link
-              href="/qa-showcase"
+              href={appendQaParamsToHref("/qa-showcase")}
               data-testid="open-qa-showcase-btn"
               className="min-h-[44px] inline-flex items-center px-3.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 border border-indigo-700 text-[15px] font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
             >
@@ -893,7 +1141,7 @@ export default function QaSignoffHubPage() {
                 id="fasttrack-heading"
                 className="text-base sm:text-lg font-extrabold text-slate-950"
               >
-                2단계 · 인간 테스터 20분 고속 감수 (4개 작업실 + 시니어 UX)
+                2단계 · 인간 테스터 20분 고속 감수 (상단 메뉴 4곳 · 시니어 UX)
               </h2>
               <span className="text-[15px] font-semibold text-slate-600">
                 완료: {stats.passCount} / {stats.total} 단계
@@ -1024,35 +1272,90 @@ export default function QaSignoffHubPage() {
                 </span>
               </div>
 
-              <div className="space-y-2">
-                {BROKER_READINESS_GATE_6.map((g) => {
-                  const checked = Boolean(gateChecks[g.id]);
-                  return (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[15px] font-extrabold text-slate-800">
+                      🤖 AI 자동 검증 항목 (4건 — 상단 1클릭 자동 점검 시 자동 체크)
+                    </p>
+                  </div>
+                  {BROKER_READINESS_GATE_6.filter((g) =>
+                    ["RG-01", "RG-02", "RG-03", "RG-06"].includes(g.id)
+                  ).map((g) => {
+                    const checked = Boolean(gateChecks[g.id]);
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        data-testid={`readiness-gate-btn-${g.id}`}
+                        onClick={() => {
+                          const next = { ...gateChecks, [g.id]: !checked };
+                          setGateChecks(next);
+                          persistTesterTrack(next, missionStates);
+                        }}
+                        className={`w-full min-h-[48px] px-4 py-2.5 rounded-xl border text-left text-[15px] font-bold flex flex-wrap items-center justify-between gap-2 cursor-pointer transition whitespace-normal ${
+                          checked
+                            ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                            : "bg-slate-50 border-slate-300 text-slate-900 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="break-keep">
+                          {checked ? "✅ " : "⬜ "}
+                          [{g.id}] {g.label}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-md bg-white border border-slate-300 text-[15px] font-extrabold text-slate-700 shrink-0">
+                          담당: {g.ownerLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-2 rounded-xl border border-indigo-200 bg-indigo-50/40 p-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[15px] font-extrabold text-indigo-950">
+                      👀 테스터 직접 눈으로 확인 (2건)
+                    </p>
                     <button
-                      key={g.id}
                       type="button"
-                      data-testid={`readiness-gate-btn-${g.id}`}
-                      onClick={() => {
-                        const next = { ...gateChecks, [g.id]: !checked };
-                        setGateChecks(next);
-                        persistTesterTrack(next, missionStates);
-                      }}
-                      className={`w-full min-h-[48px] px-4 py-2.5 rounded-xl border text-left text-[15px] font-bold flex flex-wrap items-center justify-between gap-2 cursor-pointer transition whitespace-normal ${
-                        checked
-                          ? "bg-emerald-50 border-emerald-300 text-emerald-950"
-                          : "bg-slate-50 border-slate-300 text-slate-900 hover:bg-slate-100"
-                      }`}
+                      data-testid="gate-example-btn"
+                      onClick={() => setRefExampleKey("GATE")}
+                      className="min-h-[38px] px-3 rounded-lg border border-indigo-300 bg-white hover:bg-indigo-50 text-[14px] font-bold text-indigo-900 cursor-pointer whitespace-nowrap"
                     >
-                      <span className="break-keep">
-                        {checked ? "✅ " : "⬜ "}
-                        [{g.id}] {g.label}
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-md bg-white border border-slate-300 text-[15px] font-extrabold text-slate-700 shrink-0">
-                        담당: {g.ownerLabel}
-                      </span>
+                      🖼️ 정상 화면 예시 보기
                     </button>
-                  );
-                })}
+                  </div>
+                  {BROKER_READINESS_GATE_6.filter((g) =>
+                    ["RG-04", "RG-05"].includes(g.id)
+                  ).map((g) => {
+                    const checked = Boolean(gateChecks[g.id]);
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        data-testid={`readiness-gate-btn-${g.id}`}
+                        onClick={() => {
+                          const next = { ...gateChecks, [g.id]: !checked };
+                          setGateChecks(next);
+                          persistTesterTrack(next, missionStates);
+                        }}
+                        className={`w-full min-h-[48px] px-4 py-2.5 rounded-xl border text-left text-[15px] font-bold flex flex-wrap items-center justify-between gap-2 cursor-pointer transition whitespace-normal ${
+                          checked
+                            ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                            : "bg-white border-indigo-200 text-slate-900 hover:bg-indigo-50"
+                        }`}
+                      >
+                        <span className="break-keep">
+                          {checked ? "✅ " : "⬜ "}
+                          [{g.id}] {g.label}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-md bg-white border border-slate-300 text-[15px] font-extrabold text-slate-700 shrink-0">
+                          담당: {g.ownerLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -1111,6 +1414,59 @@ export default function QaSignoffHubPage() {
                         className="min-h-[44px] px-3.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#0040DD] text-[15px] font-extrabold cursor-pointer whitespace-normal sm:whitespace-nowrap shrink-0"
                       >
                         화면 열기 (?qa=1) ↗
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {m.id === "M1" && (
+                        <button
+                          type="button"
+                          data-testid="m1-copy-sample-memo-btn"
+                          onClick={() => void handleCopyM1Memo()}
+                          className="min-h-[40px] px-3 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-[14px] font-extrabold text-indigo-950 cursor-pointer whitespace-nowrap"
+                        >
+                          {memoCopiedNotice
+                            ? "✅ 표준 매물 메모 복사됨!"
+                            : "📋 표준 매물 메모 1클릭 복사"}
+                        </button>
+                      )}
+                      {m.id === "M2" && (
+                        <>
+                          <a
+                            href="/api/public/qa-sample-kit"
+                            download="credeal_qa_sample_kit_v4.zip"
+                            data-testid="m2-download-kit-btn"
+                            className="min-h-[40px] inline-flex items-center px-3 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-[14px] font-extrabold text-indigo-950 whitespace-nowrap"
+                          >
+                            📦 IM 샘플 키트(.zip) 다운로드
+                          </a>
+                          <a
+                            href="/api/public/qa-sample-kit?format=csv"
+                            download="credeal_sample_rentroll.csv"
+                            data-testid="m2-download-csv-btn"
+                            className="min-h-[40px] inline-flex items-center px-3 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-[14px] font-bold text-slate-900 whitespace-nowrap"
+                          >
+                            📊 샘플 렌트롤(.csv) 다운로드
+                          </a>
+                        </>
+                      )}
+                      {m.id === "M4" && (
+                        <a
+                          href="/api/public/qa-sample-kit?format=contacts"
+                          download="credeal_sample_contacts_10.csv"
+                          data-testid="m4-download-contacts-btn"
+                          className="min-h-[40px] inline-flex items-center px-3 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-[14px] font-extrabold text-indigo-950 whitespace-nowrap"
+                        >
+                          👥 샘플 연락처 10명(.csv) 다운로드
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        data-testid={`mission-example-btn-${m.id}`}
+                        onClick={() => setRefExampleKey(m.id)}
+                        className="min-h-[40px] px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-[14px] font-bold text-slate-800 cursor-pointer whitespace-nowrap"
+                      >
+                        🖼️ 정상 화면 예시 보기
                       </button>
                     </div>
 
@@ -1819,17 +2175,24 @@ export default function QaSignoffHubPage() {
                   </p>
 
                   {pin.screenshotDataUrl && (
-                    <details className="rounded-lg border border-slate-200 bg-white p-2">
-                      <summary className="text-[15px] font-bold text-slate-800 cursor-pointer py-1">
-                        📷 첨부 스크린샷 보기
-                      </summary>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={pin.screenshotDataUrl}
-                        alt={`${pin.targetLabel} 현장 캡처`}
-                        className="mt-2 max-h-64 rounded-lg border border-slate-200 object-contain"
-                      />
-                    </details>
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        data-testid={`qa-pin-thumb-${pin.id}`}
+                        onClick={() => setLightboxPin(pin)}
+                        className="group inline-flex flex-col items-start gap-1.5 rounded-xl border border-slate-300 bg-white p-2 hover:border-[#007AFF] cursor-pointer transition"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pin.screenshotDataUrl}
+                          alt={`${pin.targetLabel} 현장 캡처`}
+                          className="h-28 w-auto max-w-full rounded-lg border border-slate-200 object-contain bg-slate-50"
+                        />
+                        <span className="text-[14px] font-bold text-[#0040DD] group-hover:underline">
+                          🔍 클릭하여 원본 화면 크게 보기
+                        </span>
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -1837,17 +2200,22 @@ export default function QaSignoffHubPage() {
           )}
         </section>
 
-        {/* 4. 최종 승인 서명 & 제출 */}
+        {/* 4. 최종 승인 서명 & 단일 서버 제출 */}
         <section
           aria-labelledby="signoff-submit-heading"
           className="rounded-2xl border border-slate-300 bg-white p-5 shadow-xs space-y-4"
         >
-          <h2
-            id="signoff-submit-heading"
-            className="text-base sm:text-lg font-extrabold text-slate-950"
-          >
-            3단계 · 최종 검수 서명 및 서버 제출
-          </h2>
+          <div className="space-y-1">
+            <h2
+              id="signoff-submit-heading"
+              className="text-base sm:text-lg font-extrabold text-slate-950"
+            >
+              3단계 · 리허설·최종 검수 결과 단일 서버 제출
+            </h2>
+            <p className="text-[15px] text-slate-600 break-keep">
+              아래 제출 버튼 한 번만 누르면 체크한 미션·쉬움 점수·준비 게이트·현장 핀·의견이 서버에 통합 저장됩니다. (별도 이메일·엑셀 보고서 발송 불필요)
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -1920,16 +2288,145 @@ export default function QaSignoffHubPage() {
             </p>
           )}
 
-          <button
-            type="button"
-            disabled={submitLoading}
-            data-testid="signoff-submit-btn"
-            onClick={() => void syncToServer("submit", records)}
-            className="w-full min-h-[52px] rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-base font-extrabold cursor-pointer transition"
-          >
-            {submitLoading ? "제출 중…" : "☁️ 최종 출시 검수 결과 서버 제출"}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <button
+              type="button"
+              disabled={submitLoading}
+              data-testid="signoff-submit-btn"
+              onClick={() => {
+                void syncToServer("submit", records);
+                if (
+                  Object.keys(missionStates).length > 0 ||
+                  Object.keys(gateChecks).length > 0
+                ) {
+                  void handleSaveTesterTrack();
+                }
+              }}
+              className="flex-1 min-h-[52px] rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 px-4 text-white text-base font-extrabold cursor-pointer transition"
+            >
+              {submitLoading
+                ? "제출 중…"
+                : "☁️ 리허설·최종 검수 결과 서버 제출 완료 (별도 메일 불필요)"}
+            </button>
+            <button
+              type="button"
+              data-testid="copy-kakao-summary-btn"
+              onClick={() => void handleCopyKakaoSummary()}
+              className="min-h-[52px] px-4 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-900 text-[15px] font-extrabold cursor-pointer whitespace-nowrap transition"
+            >
+              {summaryCopiedNotice
+                ? "✅ 3줄 요약 복사 완료!"
+                : "💬 카카오톡 공유용 3줄 요약 자동 복사"}
+            </button>
+          </div>
         </section>
+
+        {/* 정상 화면 예시 모달 */}
+        {refExampleKey && MISSION_REFERENCE_EXAMPLES[refExampleKey] && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qa-ref-example-title"
+            data-testid="qa-reference-example-modal"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+            onClick={() => setRefExampleKey(null)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl border-2 border-slate-900 bg-white p-5 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 text-[14px] font-extrabold">
+                    {MISSION_REFERENCE_EXAMPLES[refExampleKey].badge}
+                  </span>
+                  <h3
+                    id="qa-ref-example-title"
+                    className="text-lg font-extrabold text-slate-950 break-keep"
+                  >
+                    {MISSION_REFERENCE_EXAMPLES[refExampleKey].title}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRefExampleKey(null)}
+                  className="min-h-[40px] px-3 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-900 text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
+                >
+                  ✕ 닫기
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2">
+                {MISSION_REFERENCE_EXAMPLES[refExampleKey].rows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 border border-slate-200"
+                  >
+                    <span className="text-[14px] font-bold text-slate-600">
+                      {row.label}
+                    </span>
+                    <span
+                      className={`text-[15px] font-extrabold ${
+                        row.accent ? "text-emerald-700" : "text-slate-950"
+                      }`}
+                    >
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-[15px] font-bold text-blue-950 break-keep">
+                💡 합격 판정 기준: {MISSION_REFERENCE_EXAMPLES[refExampleKey].passCue}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 현장 핀 스크린샷 확대 Lightbox */}
+        {lightboxPin && lightboxPin.screenshotDataUrl && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qa-pin-lightbox-title"
+            data-testid="qa-pin-screenshot-lightbox"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
+            onClick={() => setLightboxPin(null)}
+          >
+            <div
+              className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-slate-700 bg-white p-5 shadow-2xl space-y-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3
+                    id="qa-pin-lightbox-title"
+                    className="text-lg font-extrabold text-slate-950"
+                  >
+                    {lightboxPin.workspace} · {lightboxPin.targetLabel}
+                  </h3>
+                  <p className="text-[14px] text-slate-600">
+                    {lightboxPin.note}
+                    {lightboxPin.buildSha ? ` · #${lightboxPin.buildSha}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLightboxPin(null)}
+                  className="min-h-[40px] px-3 rounded-xl bg-slate-900 text-white text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
+                >
+                  ✕ 닫기
+                </button>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={lightboxPin.screenshotDataUrl}
+                alt={`${lightboxPin.targetLabel} 확대 캡처`}
+                className="w-full max-h-[70vh] object-contain rounded-xl border border-slate-300 bg-slate-50"
+              />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

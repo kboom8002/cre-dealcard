@@ -205,7 +205,7 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
         user_agent_hash: visitorHash,
         ...(editionId ? { edition_id: editionId } : {}),
         ...(legacy ? { legacy_issue_id: legacy.issueId } : {}),
-        ...(subscriber ? { subscriber_id: subscriber.id } : {}),
+        ...(subscriber ? { subscriber_id: subscriber.id, recipient_id: subscriber.id } : {}),
       },
       created_at: new Date().toISOString(),
     });

@@ -348,7 +348,7 @@ export function MagazineView({
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-xs text-slate-300 block font-medium">매매가</span>
-                        <span className="text-[17px] font-extrabold font-mono" style={{ color: accent }}>
+                        <span className="text-[17px] font-extrabold font-mono text-indigo-200">
                           {priceDisplay}
                         </span>
                       </div>
@@ -596,9 +596,19 @@ export function MagazineView({
             </h1>
 
             {strArray(broker.specialtyRegions).length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 {strArray(broker.specialtyRegions).map((r, i) => (
-                  <span key={i} className="rounded-full px-2.5 py-0.5 text-sm font-bold" style={{ color: accent, background: `${accent}15`, border: `1px solid ${accent}30` }}>{r}</span>
+                  <span
+                    key={i}
+                    className="rounded-lg px-3 py-1 text-sm font-bold tracking-tight"
+                    style={{
+                      color: "#FFFFFF",
+                      background: "rgba(99, 102, 241, 0.36)",
+                      border: "1px solid rgba(199, 210, 254, 0.65)",
+                    }}
+                  >
+                    {r}
+                  </span>
                 ))}
               </div>
             )}

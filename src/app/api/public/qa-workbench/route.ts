@@ -279,6 +279,22 @@ function sanitizePinForViewer(
   };
 }
 
+function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
+  const configuredKey = (process.env.QA_ACCESS_KEY || "").trim();
+  const headerKey = (req.headers.get("x-qa-access-key") || "").trim();
+  if (!configuredKey || !headerKey || configuredKey.length !== headerKey.length) {
+    return false;
+  }
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(configuredKey),
+      Buffer.from(headerKey)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function hasQaWriteAuthorization(
   req: NextRequest,
   brokerUser: { id: string } | null
@@ -289,23 +305,7 @@ function hasQaWriteAuthorization(
   if (brokerUser?.id) {
     return true;
   }
-  const configuredKey = (process.env.QA_ACCESS_KEY || "").trim();
-  const headerKey = (req.headers.get("x-qa-access-key") || "").trim();
-  if (configuredKey && headerKey && configuredKey.length === headerKey.length) {
-    try {
-      if (
-        crypto.timingSafeEqual(
-          Buffer.from(configuredKey),
-          Buffer.from(headerKey)
-        )
-      ) {
-        return true;
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return false;
+  return hasValidQaAccessKeyHeader(req);
 }
 
 function parseSafeSameOriginUrl(
@@ -513,7 +513,7 @@ export async function GET(req: NextRequest) {
 
   if (queryMode === "pins") {
     const brokerUser = await resolveOptionalBrokerUser(req);
-    const isAuthenticated = Boolean(brokerUser?.id);
+    const isAuthenticated = Boolean(brokerUser?.id) || hasValidQaAccessKeyHeader(req);
     const supabase = tryCreateServiceClient();
     const filterSid =
       sessionId && SESSION_ID_RE.test(sessionId) ? sessionId : undefined;
@@ -2025,7 +2025,6 @@ export async function POST(req: NextRequest) {
           : null;
 
       const brokerUser = await resolveOptionalBrokerUser(req);
-      const isAuthenticated = Boolean(brokerUser?.id);
       if (!hasQaWriteAuthorization(req, brokerUser)) {
         return NextResponse.json(
           {
@@ -2035,6 +2034,8 @@ export async function POST(req: NextRequest) {
           { status: 401 }
         );
       }
+      const isAuthenticated =
+        Boolean(brokerUser?.id) || hasValidQaAccessKeyHeader(req);
       const actorUuid =
         brokerUser?.id && isUuid(brokerUser.id) ? brokerUser.id : null;
       const createdAt = new Date().toISOString();

@@ -508,20 +508,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   // P0-SEC: 비공개(archived / internal_only) 딜카드는 크롤러에 어떤 내용도 노출하지 않는다.
   if (!isPublicDealCard(data)) {
-    return { title: "크리딜 DealCard", robots: { index: false, follow: false } };
+    return {
+      title: { absolute: "비공개 매물 안내 | 크리딜" },
+      description: "담당 중개사가 비공개로 전환한 매물 안내입니다.",
+      robots: { index: false, follow: false },
+    };
   }
 
   const { og } = projectPublic(id, data);
   const ogTitle = og.title;
+  const ogDescription = og.description || "상업용 부동산 비공개 매각 티저 — 담당 중개사 직통 문의";
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
   const card4Hash = (data.teaserDoc?.body as Record<string, any> | undefined)?.card4?.card4_hash;
   const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao-v2${card4Hash ? `?v=${encodeURIComponent(card4Hash)}` : ''}`;
 
   return {
-    title: `${ogTitle} | 크리딜 DealCard`,
+    title: { absolute: `${ogTitle} | 크리딜 DealCard` },
+    description: ogDescription,
     openGraph: {
       title: ogTitle,
+      description: ogDescription,
       type: "article",
       images: [
         {
@@ -535,6 +542,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
+      description: ogDescription,
       images: [absoluteOgImage],
     },
   };
@@ -595,19 +603,19 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
         {/* 상단 4항목 요약 (지역 · 용도 · 면적 · 가격) + 한 줄 제목 */}
         <section
           data-testid="public-dealcard-4fact-header"
-          className="rounded-2xl bg-[#141A21] border border-slate-800 p-4 space-y-3 shadow-md"
+          className="rounded-xl bg-[#141A21] border border-slate-800 p-4 space-y-3 shadow-md"
         >
           <div className="grid grid-cols-2 gap-2 text-center text-base font-extrabold">
-            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-white break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-white break-keep">
               {hero.regionLabel || "—"}
             </div>
-            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-sky-400 break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-sky-400 break-keep">
               {useDisplay}
             </div>
-            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-slate-200 break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-slate-200 break-keep">
               {areaDisplay}
             </div>
-            <div className="py-2.5 px-3 rounded-xl bg-slate-800/90 text-amber-400 break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-amber-400 break-keep">
               {hero.bandedPrice || "—"}
             </div>
           </div>
@@ -649,7 +657,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           return dp.length > 0 ? (
             <div
               data-testid="public-dealcard-points"
-              className="rounded-2xl bg-slate-900/90 border border-slate-700/70 p-4 space-y-3"
+              className="rounded-xl bg-slate-900/90 border border-slate-700/70 p-4 space-y-3"
             >
               <div className="flex items-center justify-between">
                 <p className="text-base font-extrabold text-amber-400 tracking-wide">
@@ -666,7 +674,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
                       key={i}
                       data-testid={`public-dealcard-postit-${i}`}
                       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
-                      className="rounded-xl border border-l-4 px-4 py-3.5 shadow-sm text-slate-900 flex items-center gap-3"
+                      className="rounded-lg border border-l-4 px-4 py-3.5 shadow-sm text-slate-900 flex items-center gap-3"
                     >
                       <span
                         style={{ backgroundColor: tone.badgeBg, color: tone.badgeText }}

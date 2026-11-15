@@ -25,7 +25,7 @@ import { MagazineView, type MagazineData } from "./magazine-view";
 interface PageProps {
   params: Promise<{ brokerId: string; date: string }>;
   /** ?target= 은 서버에서 읽어 내려준다 — 클라이언트가 location 을 읽으면 hydration 불일치 (U-05). `preview`/`edition` 은 에디터 iframe 미리보기. */
-  searchParams: Promise<{ target?: string | string[]; preview?: string | string[]; edition?: string | string[]; qa?: string | string[] }>;
+  searchParams: Promise<{ target?: string | string[]; preview?: string | string[]; edition?: string | string[]; qa?: string | string[]; sid?: string | string[] }>;
 }
 
 /** 에디터 iframe 미리보기 쿼리(`?preview=1&edition=`) 해석 — 배열이면 첫 값 */
@@ -184,6 +184,8 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
     if (rawTarget) qs.set("target", rawTarget);
     const rawQa = Array.isArray(sp.qa) ? sp.qa[0] : sp.qa;
     if (rawQa) qs.set("qa", rawQa);
+    const rawSidRedirect = Array.isArray(sp.sid) ? sp.sid[0] : sp.sid;
+    if (rawSidRedirect) qs.set("sid", rawSidRedirect);
     const suffix = qs.toString();
     permanentRedirect(`/magazine/${state.slug}/${date}${suffix ? `?${suffix}` : ""}`);
   }
@@ -220,6 +222,42 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
   const dateLabel = formatKoreanDate(date);
   const rawQa = Array.isArray(sp.qa) ? sp.qa[0] : sp.qa;
   const showPublicQaPin = rawQa === "1" && !isPreview;
+  const rawSid = ((Array.isArray(sp.sid) ? sp.sid[0] : sp.sid) || "").trim();
+  const brokerUserId =
+    typeof state.brokerVibe?.user_id === "string"
+      ? state.brokerVibe.user_id.trim()
+      : "";
+  if (
+    !isPreview &&
+    rawSid &&
+    rawSid.length <= 120 &&
+    /^[a-zA-Z0-9:_-]+$/.test(rawSid) &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      brokerUserId
+    )
+  ) {
+    try {
+      const svc = createServiceClient();
+      await svc.from("activity_events").insert({
+        actor_id: brokerUserId,
+        actor_role: "system",
+        event_type: "magazine_view",
+        entity_type: "building_ssot_lite",
+        entity_id: brokerUserId,
+        metadata: {
+          broker_id: brokerUserId,
+          viewer_role: "subscriber",
+          recipient_id: rawSid,
+          subscriber_id: rawSid.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, ""),
+          issue_date: date,
+          source: "sid_link",
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      // Non-blocking magazine view tracking
+    }
+  }
 
   return (
     <>

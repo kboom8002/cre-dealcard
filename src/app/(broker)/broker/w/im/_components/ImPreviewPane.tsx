@@ -142,7 +142,7 @@ export function ImPreviewPane({
   renderSlideCard,
 }: ImPreviewPaneProps) {
   return (
-    <div className="p-3.5 space-y-3.5 max-w-sm mx-auto" data-testid="im-preview-slot">
+    <div className="w-full min-w-0 max-w-sm mx-auto p-3 sm:p-3.5 space-y-3.5 overflow-x-hidden" data-testid="im-preview-slot">
       <div className="sticky top-0 z-20 bg-[#F5F5F7]/95 backdrop-blur-md py-1 -my-1">
         <PreviewCausalityBar
           lifecycle={previewLifecycle}

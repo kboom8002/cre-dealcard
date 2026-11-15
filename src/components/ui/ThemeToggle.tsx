@@ -13,8 +13,16 @@ export function isFixedLightPaperRoute(
   return (
     pathname === "/dc" ||
     pathname.startsWith("/dc/") ||
+    pathname === "/d" ||
+    pathname.startsWith("/d/") ||
+    pathname === "/deal" ||
+    pathname.startsWith("/deal/") ||
     pathname === "/im-lite" ||
     pathname.startsWith("/im-lite/") ||
+    pathname === "/im-pro" ||
+    pathname.startsWith("/im-pro/") ||
+    pathname === "/magazine" ||
+    pathname.startsWith("/magazine/") ||
     pathname === "/terms" ||
     pathname.startsWith("/terms/") ||
     pathname === "/privacy" ||

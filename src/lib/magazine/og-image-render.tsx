@@ -305,23 +305,37 @@ export function NeutralImage({ width, height }: { width: number; height: number 
 }
 
 export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; width: number; height: number }) {
-  const headline = clip(t(m.headline, 'CRE Market Briefing'), 60);
+  const headline = clip(t(m.headline, 'CRE Market Briefing'), 58);
   return (
     <PageBg width={width} height={height}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '44px 56px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, padding: '48px 60px' }}>
+        {/* 1. 발행일자 + 매거진 헤더 (260px 말풍선 고대비) */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <BrandMark size={18} />
-            <span style={{ color: '#c7d2fe', fontSize: '24px', fontWeight: 800, letterSpacing: '2px' }}>
+            <BrandMark size={20} />
+            <span style={{ color: '#E2E8F0', fontSize: '26px', fontWeight: 800, letterSpacing: '1.5px' }}>
               {t('CRE 매거진', 'CRE MAGAZINE')}
             </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-            <span style={{ color: '#fff', fontSize: '26px', fontWeight: 700 }}>{m.dateLabel}</span>
-            <span style={{ color: '#cbd5e1', fontSize: '18px' }}>{t(m.dateKorean) === m.dateKorean ? m.dateKorean : ''}</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(199,210,254,0.45)',
+              borderRadius: '14px',
+              padding: '10px 20px',
+            }}
+          >
+            <span style={{ color: '#FFFFFF', fontSize: '28px', fontWeight: 800 }}>{m.dateLabel}</span>
+            {t(m.dateKorean) === m.dateKorean && m.dateKorean ? (
+              <span style={{ color: '#E0E7FF', fontSize: '22px', fontWeight: 600 }}>({m.dateKorean})</span>
+            ) : null}
           </div>
         </div>
 
+        {/* 2. 대형 2줄 타이틀 (복잡한 배지·통계 제거) */}
         <div
           style={{
             display: 'flex',
@@ -329,20 +343,27 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
             flex: 1,
             justifyContent: 'center',
             alignItems: 'flex-start',
-            gap: '18px',
+            paddingTop: '12px',
+            paddingBottom: '12px',
           }}
         >
-          <TempBadge m={m} t={t} size={24} />
-          <div style={{ display: 'flex', fontSize: '54px', fontWeight: 900, lineHeight: 1.28, letterSpacing: '-1px', wordBreak: 'keep-all' }}>
+          <div
+            style={{
+              display: 'flex',
+              color: '#FFFFFF',
+              fontSize: '60px',
+              fontWeight: 900,
+              lineHeight: 1.28,
+              letterSpacing: '-1px',
+              wordBreak: 'keep-all',
+            }}
+          >
             {headline}
           </div>
-          <Keywords m={m} t={t} size={20} />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Stats m={m} t={t} size={24} />
-          <BrokerFooter m={m} t={t} scale={1} />
-        </div>
+        {/* 3. 보낸사람 (중개사 · 사무소 · 연락처) */}
+        <BrokerFooter m={m} t={t} scale={1.08} />
       </div>
     </PageBg>
   );

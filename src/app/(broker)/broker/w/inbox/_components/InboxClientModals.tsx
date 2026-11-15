@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { formatKrPhoneInput } from "@/lib/format/phone";
 import type {
   BrokerInventoryDeal,
   InboxClientRole,
@@ -104,7 +105,7 @@ export function InboxNewClientModal({
                 data-testid="new-client-phone-input"
                 type="tel"
                 value={values.phone}
-                onChange={(e) => onChange({ phone: e.target.value })}
+                onChange={(e) => onChange({ phone: formatKrPhoneInput(e.target.value) })}
                 placeholder="예: 010-1234-5678"
                 className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
               />
@@ -402,7 +403,7 @@ export function InboxEditClientModal({
                 data-testid="edit-client-phone-input"
                 type="tel"
                 value={values.phone}
-                onChange={(e) => onChange({ phone: e.target.value })}
+                onChange={(e) => onChange({ phone: formatKrPhoneInput(e.target.value) })}
                 className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
               />
             </div>

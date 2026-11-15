@@ -141,6 +141,7 @@ function ImWorkspaceInner() {
   }, []);
 
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
+  const isFreshParam = searchParams.get("fresh") === "1";
 
   const persistImItems = useCallback(
     (next: ImListItem[], explicitUserId?: string | null) => {
@@ -442,6 +443,7 @@ function ImWorkspaceInner() {
 
   useImServerHydration({
     buildingIdParam,
+    isFreshParam,
     initialHydrationDoneRef,
     currentUserIdRef,
     hydratedUserIdRef,
@@ -528,9 +530,36 @@ function ImWorkspaceInner() {
     debounceMs: 900,
     onSave: async ({ data: draftItem }) => {
       if (!draftItem) return;
+      const hasMeaningfulTitle = Boolean(
+        draftItem.title?.trim() && draftItem.title.trim() !== "새 IM"
+      );
+      const hasMeaningfulHighlights = Boolean(
+        draftItem.axiosHighlights?.some(
+          (h) => Boolean(h?.headline?.trim() || h?.brief?.trim())
+        )
+      );
+      const hasMeaningfulPhotos = Boolean(
+        Array.isArray(draftItem.photos) && draftItem.photos.length > 0
+      );
+      const hasMeaningfulRentRoll = Boolean(
+        Array.isArray(draftItem.rentRoll) &&
+          draftItem.rentRoll.some((r) =>
+            Boolean(
+              r?.tenantName?.trim() ||
+                (r?.depositManwon ?? 0) > 0 ||
+                (r?.monthlyRentManwon ?? 0) > 0 ||
+                (r?.areaSqm ?? 0) > 0
+            )
+          )
+      );
       if (
         !draftItem.address?.trim() &&
         !((draftItem.askingPriceManwon ?? 0) > 0) &&
+        !hasMeaningfulTitle &&
+        !draftItem.handoverNote?.trim() &&
+        !hasMeaningfulHighlights &&
+        !hasMeaningfulPhotos &&
+        !hasMeaningfulRentRoll &&
         draftItem.status !== "published"
       ) {
         return;

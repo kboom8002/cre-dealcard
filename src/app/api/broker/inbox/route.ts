@@ -943,6 +943,8 @@ export async function GET(req: NextRequest) {
           recipientId:
             typeof meta.recipient_id === "string" && meta.recipient_id.trim()
               ? meta.recipient_id.trim()
+              : typeof meta.subscriber_id === "string" && meta.subscriber_id.trim()
+              ? meta.subscriber_id.trim()
               : null,
           gateRequestId:
             typeof meta.gate_request_id === "string" && meta.gate_request_id.trim()

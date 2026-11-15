@@ -7,11 +7,13 @@ export function parseMemoToObservations(rawMemoText: string): MemoObservationSet
   const observations: MemoObservation[] = [];
   const memoRawHash = 'sha256:' + createHash('sha256').update(rawMemoText, 'utf-8').digest('hex');
 
-  // 1. Asking price pattern (e.g., "120억", "85억 5천", "12,000,000,000원")
-  const priceMatch = rawMemoText.match(/(\d+(?:[.,]\d+)?)\s*억(?:\s*(\d+)\s*천)?/);
+  const parseNum = (raw: string) => parseFloat(raw.replace(/,/g, ''));
+
+  // 1. Asking price pattern (e.g., "120억", "2,000억", "85억 5천")
+  const priceMatch = rawMemoText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*억(?:\s*(\d+)\s*천)?/);
   if (priceMatch) {
-    const eok = parseFloat(priceMatch[1]) * 100000000;
-    const cheon = priceMatch[2] ? parseFloat(priceMatch[2]) * 10000000 : 0;
+    const eok = parseNum(priceMatch[1]) * 100000000;
+    const cheon = priceMatch[2] ? parseNum(priceMatch[2]) * 10000000 : 0;
     const value = eok + cheon;
     observations.push({
       id: randomUUID(),
@@ -23,10 +25,10 @@ export function parseMemoToObservations(rawMemoText: string): MemoObservationSet
     });
   }
 
-  // 2. Land area pattern (e.g., "대지 100평", "대지 330.5㎡", "토지 420m2")
-  const landMatch = rawMemoText.match(/(?:대지|토지)\s*(\d+(?:[.,]\d+)?)\s*(평|㎡|m2)/i);
+  // 2. Land area pattern (e.g., "대지 100평", "대지 1,250.5㎡", "토지 420m2")
+  const landMatch = rawMemoText.match(/(?:대지|토지)\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*(평|㎡|m2)/i);
   if (landMatch) {
-    const num = parseFloat(landMatch[1]);
+    const num = parseNum(landMatch[1]);
     const unit = landMatch[2].toLowerCase();
     const sqm = unit === '평' ? Math.round(pyeongToSqm(num) * 10) / 10 : num;
     observations.push({

@@ -55,6 +55,27 @@ import { DealCardListColumn } from "./_components/DealCardListColumn";
 import { DealCardEditorColumn } from "./_components/DealCardEditorColumn";
 import { DealCardPreviewColumn } from "./_components/DealCardPreviewColumn";
 
+function isBlankStarterDealCard(item: BuildingListItem | null | undefined): boolean {
+  if (!item) return false;
+  const hasTitle = Boolean(item.title?.trim() && item.title.trim() !== "새 딜카드");
+  const hasTopFields = Boolean(
+    item.region?.trim() ||
+      item.use?.trim() ||
+      item.priceBand?.trim() ||
+      item.memoText?.trim()
+  );
+  const c4 = item.card4;
+  const hasCard4Fields = Boolean(
+    c4?.region?.trim() ||
+      c4?.use?.trim() ||
+      c4?.area?.trim() ||
+      c4?.priceBand?.trim() ||
+      c4?.headline?.trim() ||
+      c4?.points?.some((p) => Boolean(p?.trim()))
+  );
+  return !hasTitle && !hasTopFields && !hasCard4Fields;
+}
+
 function DealCardsWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,6 +86,7 @@ function DealCardsWorkspaceInner() {
   const rawMemoIdParam = searchParams.get("memoId");
   const memoIdParam = rawMemoIdParam ? rawMemoIdParam.trim() || null : null;
   const isNewParam = searchParams.get("new") === "true";
+  const isFreshParam = searchParams.get("fresh") === "1";
 
   const [items, setItems] = useState<BuildingListItem[]>(INITIAL_BUILDINGS);
   const [unconvertedMemos, setUnconvertedMemos] = useState<ScopedUnconvertedMemoItem[]>([]);
@@ -99,6 +121,7 @@ function DealCardsWorkspaceInner() {
   const memoTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const memoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasHandledNewRef = useRef(false);
+  const initialFreshParamRef = useRef<boolean>(isFreshParam);
   const initialBuildingIdParamRef = useRef<string | null>(buildingIdParam);
   const initialMemoIdParamRef = useRef<string | null>(memoIdParam);
   const lastSyncedQueryIdRef = useRef<string | null>(null);
@@ -251,7 +274,7 @@ function DealCardsWorkspaceInner() {
         const ownedLocal = parsed.filter(
           (it) => !(it?.ownerUserId && initialUid && it.ownerUserId !== initialUid)
         );
-        if (ownedLocal.length > 0) {
+        if (ownedLocal.length > 0 && !initialFreshParamRef.current) {
           const hydratedLocal = ownedLocal.map((it: BuildingListItem) =>
             it?.card4 ? hydrateItem(it) : it
           );
@@ -390,11 +413,20 @@ function DealCardsWorkspaceInner() {
           }
 
           setItems((prev) => {
+            const activeFreshItem = initialFreshParamRef.current
+              ? prev.find((p) => p.id === resolvedActiveIdRef.current)
+              : undefined;
             const rawLocalBase =
               scopedItemsForResolvedUser !== null
-                ? scopedItemsForResolvedUser.map((it) =>
-                    it?.card4 ? hydrateItem(it) : it
-                  )
+                ? [
+                    ...(activeFreshItem &&
+                    !scopedItemsForResolvedUser.some((s) => s.id === activeFreshItem.id)
+                      ? [activeFreshItem]
+                      : []),
+                    ...scopedItemsForResolvedUser.map((it) =>
+                      it?.card4 ? hydrateItem(it) : it
+                    ),
+                  ]
                 : prev;
             const safePrev = rawLocalBase.filter(
               (loc) => !(loc.ownerUserId && resolvedUid && loc.ownerUserId !== resolvedUid)
@@ -1226,10 +1258,12 @@ function DealCardsWorkspaceInner() {
       awaitingMemoGeneration: true,
     };
     userInteractedRef.current = true;
+    resolvedActiveIdRef.current = newId;
     setSelectedMemoOnlyId(null);
     setMemoSaveStatus("idle");
     setItems((prev) => {
       const next = [newItem, ...prev];
+      itemsRef.current = next;
       persistItems(next);
       return next;
     });
@@ -1358,11 +1392,11 @@ function DealCardsWorkspaceInner() {
   );
 
   useEffect(() => {
-    if (isNewParam && !hasHandledNewRef.current) {
+    if ((isNewParam || isFreshParam) && !hasHandledNewRef.current) {
       hasHandledNewRef.current = true;
       handleCreateNew();
     }
-  }, [isNewParam, handleCreateNew]);
+  }, [isNewParam, isFreshParam, handleCreateNew]);
 
   const handleDuplicateItem = (source: BuildingListItem, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1422,12 +1456,53 @@ function DealCardsWorkspaceInner() {
 
     const prevSnapshot = [...items];
     const remaining = items.filter((it) => it.id !== target.id);
+    const isDeletingOnlyBlankStarter =
+      remaining.length === 0 && isBlankStarterDealCard(target);
+    const isDeletingOnlyPopulated =
+      remaining.length === 0 && !isDeletingOnlyBlankStarter;
+
+    if (isDeletingOnlyBlankStarter) {
+      const clearedCard: BuildingListItem = {
+        ...target,
+        title: "새 딜카드",
+        region: "",
+        use: "",
+        priceBand: "",
+        status: "draft",
+        updatedAt: new Date().toISOString(),
+        card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
+        memoText: "",
+        pairedMemoId: undefined,
+        generationSource: "ai_memo",
+        awaitingMemoGeneration: true,
+      };
+      const clearedList = [clearedCard];
+      userInteractedRef.current = true;
+      userEditedIdsRef.current.delete(target.id);
+      itemsRef.current = clearedList;
+      setItems(clearedList);
+      persistItems(clearedList);
+      setSelectedMemoOnlyId(null);
+      setSelectedId(clearedCard.id);
+      setCurrentCard4(clearedCard.card4);
+      setSyncedBuildingId(clearedCard.id);
+      setMemoSaveStatus("idle");
+      showUndoToast({
+        message: "빈 작성 화면으로 초기화했습니다.",
+        variant: "success",
+      });
+      return;
+    }
+
     const nextList: BuildingListItem[] =
       remaining.length > 0
         ? remaining
         : [
             {
               id: `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              ...(currentUserIdRef.current
+                ? { ownerUserId: currentUserIdRef.current }
+                : {}),
               title: "새 딜카드",
               region: "",
               use: "",
@@ -1441,6 +1516,7 @@ function DealCardsWorkspaceInner() {
             },
           ];
     userInteractedRef.current = true;
+    itemsRef.current = nextList;
     setItems(nextList);
     persistItems(nextList);
     void fetch("/api/broker/workspace/summary", {
@@ -1454,6 +1530,7 @@ function DealCardsWorkspaceInner() {
 
     if (target.id === resolvedActiveId && nextList[0]) {
       const nextActive = nextList[0];
+      resolvedActiveIdRef.current = nextActive.id;
       setSelectedId(nextActive.id);
       setCurrentCard4(nextActive.card4);
       setSyncedBuildingId(nextActive.id);
@@ -1463,9 +1540,12 @@ function DealCardsWorkspaceInner() {
     }
 
     showUndoToast({
-      message: `'${target.title}' 딜카드를 삭제했어요`,
+      message: isDeletingOnlyPopulated
+        ? `'${target.title || "새 딜카드"}' 삭제 완료 — 새 딜카드 입력 화면으로 초기화되었습니다.`
+        : `'${target.title}' 딜카드를 삭제했어요`,
       undoAction: () => {
         userInteractedRef.current = true;
+        itemsRef.current = prevSnapshot;
         setItems(prevSnapshot);
         persistItems(prevSnapshot);
         setSelectedMemoOnlyId(null);
@@ -1494,6 +1574,10 @@ function DealCardsWorkspaceInner() {
 
   const handleDeleteItem = (target: BuildingListItem, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (items.length === 1 && isBlankStarterDealCard(target)) {
+      executeDeleteItem(target);
+      return;
+    }
     setPendingDeleteModal({ kind: "dealcard", target });
   };
 
@@ -1646,6 +1730,10 @@ function DealCardsWorkspaceInner() {
     !effectiveCard4.use?.trim() &&
     !effectiveCard4.priceBand?.trim();
 
+  const isSingleUntouchedStarter = Boolean(
+    items.length === 1 && items[0] && isBlankStarterDealCard(items[0])
+  );
+
   const isAwaitingMemoGeneration = Boolean(
     selectedMemoOnly || activeItem?.awaitingMemoGeneration
   );
@@ -1714,6 +1802,7 @@ function DealCardsWorkspaceInner() {
       resolvedActiveId={resolvedActiveId}
       selectedMemoOnly={selectedMemoOnly}
       syncedServerIds={syncedServerIds}
+      isSingleUntouchedStarter={isSingleUntouchedStarter}
       onCreateNew={handleCreateNew}
       onSearchChange={setSearchQuery}
       onViewModeChange={setViewMode}
@@ -1747,6 +1836,7 @@ function DealCardsWorkspaceInner() {
       memoTextareaRef={memoTextareaRef}
       editorTargetId={editorTargetId}
       effectiveCard4={effectiveCard4}
+      isSingleUntouchedStarter={isSingleUntouchedStarter}
       onCreateNew={handleCreateNew}
       onFillSample={handleFillSample}
       onMemoTextChange={handleMemoTextChange}

@@ -1498,7 +1498,7 @@ export async function GET(request: NextRequest) {
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase();
-  for (const [, customImEntry] of customImUpsertedByKey.entries()) {
+  for (const [, customImEntry] of [...customImUpsertedByKey.entries()].reverse()) {
     const it = customImEntry.item;
     if (!it || (!it.id && !it.buildingId)) continue;
     const idx = imList.findIndex(
@@ -1535,10 +1535,9 @@ export async function GET(request: NextRequest) {
       updatedAt: formatRelativeTime(customImEntry.updatedAt),
     };
     if (idx >= 0) {
-      imList[idx] = mergedIm as any;
-    } else {
-      imList.unshift(mergedIm as any);
+      imList.splice(idx, 1);
     }
+    imList.unshift(mergedIm as any);
   }
 
   const seenSummaryImIds = new Set<string>();

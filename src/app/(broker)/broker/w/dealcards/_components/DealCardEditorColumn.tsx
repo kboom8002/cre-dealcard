@@ -36,6 +36,7 @@ export interface DealCardEditorColumnProps {
   onDeleteItem: (item: BuildingListItem, e: React.MouseEvent) => void;
   onDeleteUnconvertedMemo: (memo: UnconvertedMemoItem, e: React.MouseEvent) => void;
   onOpenImForBuilding: (buildingId: string) => void;
+  isSingleUntouchedStarter?: boolean;
 }
 
 export function DealCardEditorColumn({
@@ -65,6 +66,7 @@ export function DealCardEditorColumn({
   onDeleteItem,
   onDeleteUnconvertedMemo,
   onOpenImForBuilding,
+  isSingleUntouchedStarter = false,
 }: DealCardEditorColumnProps) {
   return (
     <div className="space-y-4">
@@ -79,6 +81,7 @@ export function DealCardEditorColumn({
             itemLabel={activeItem.title || "새 딜카드"}
             onDuplicate={(e) => onDuplicateItem(activeItem, e)}
             onDelete={(e) => onDeleteItem(activeItem, e)}
+            deleteLabel={isSingleUntouchedStarter ? "입력 비우기" : "삭제하기"}
           />
         ) : null)}
 

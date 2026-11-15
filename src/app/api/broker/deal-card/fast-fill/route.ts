@@ -275,7 +275,7 @@ function extractPointsFromBuilding(building: Record<string, any>): [string, stri
   return [cleaned[0] || '우수 입지', cleaned[1] || '근생 매물', cleaned[2] || point3Fallback];
 }
 
-function parseMemoFast(memo: string): {
+export function parseMemoFast(memo: string): {
   region: string;
   use: string;
   posture: DealCardPosture;
@@ -327,23 +327,29 @@ function parseMemoFast(memo: string): {
   if (/신축|재건축|나대지|개발|리모델링/.test(memo)) posture = 'value_add';
   else if (/사옥|자가사용|실사용/.test(memo)) posture = 'owner_occupied';
 
-  // Extract scale (평)
-  const landMatch = memo.match(/(?:대지|토지)(?:면적)?\s*(?:약\s*)?(\d+(?:\.\d+)?)\s*평/);
-  const gfaMatch = memo.match(/연면적\s*(?:약\s*)?(\d+(?:\.\d+)?)\s*평/);
-  const landAreaPyung = landMatch ? Math.round(parseFloat(landMatch[1])) : undefined;
-  const gfaPyung = gfaMatch ? Math.round(parseFloat(gfaMatch[1])) : undefined;
+  const parseNumericToken = (raw: string) => parseFloat(raw.replace(/,/g, ''));
 
-  // Extract price
+  // Extract scale (평) — preserve thousands commas inside numeric values (e.g. "연 4,313평")
+  const landMatch = memo.match(
+    /(?:대지|토지)(?:면적)?\s*(?:약\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*평/
+  );
+  const gfaMatch = memo.match(
+    /(?:연면적|연)\s*(?:약\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*평/
+  );
+  const landAreaPyung = landMatch ? Math.round(parseNumericToken(landMatch[1])) : undefined;
+  const gfaPyung = gfaMatch ? Math.round(parseNumericToken(gfaMatch[1])) : undefined;
+
+  // Extract price — support thousands commas (e.g. "2,000억") without truncating to "000억"
   let priceBand = '가격 협의';
-  const priceMatch = memo.match(/(\d+(?:\.\d+)?)\s*억/);
+  const priceMatch = memo.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*억/);
   if (priceMatch) {
-    const eok = parseFloat(priceMatch[1]);
+    const eok = parseNumericToken(priceMatch[1]);
     priceBand = formatPriceRange(eok * 1_0000_0000);
   }
 
-  // Extract candidate bullet points from memo sentences (stripping 0.0% / ungrounded yield praise)
+  // Extract candidate bullet points without splitting on thousands commas ("4,313평") or decimal dots ("7.5%")
   const sentences = memo
-    .split(/[\n,.]/)
+    .split(/\n+|(?<!\d),(?!\d)|(?<!\d)\.(?!\d)/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 6 && s.length <= 40)
     .filter((s) => !ZERO_OR_UNGROUNDED_YIELD_RE.test(s))

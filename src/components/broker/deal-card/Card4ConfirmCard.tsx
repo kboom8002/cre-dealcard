@@ -519,7 +519,7 @@ export function Card4ConfirmCard({
        * ══════════════════════════════════════════════════════════════════ */}
       <section
         data-testid="card4-section-posture"
-        className="bg-white rounded-2xl border-2 border-slate-300 shadow-xs overflow-hidden"
+        className="bg-white rounded-xl border-2 border-slate-300 shadow-xs overflow-hidden"
       >
         <div className="bg-slate-100 border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
@@ -539,7 +539,7 @@ export function Card4ConfirmCard({
                   aria-pressed={active}
                   data-testid={`card4-posture-chip-${id}`}
                   onClick={() => handlePostureChange(id)}
-                  className={`min-h-[64px] px-4 py-3.5 rounded-xl border-2 text-left transition cursor-pointer ${
+                  className={`min-h-[64px] px-4 py-3.5 rounded-lg border-2 text-left transition cursor-pointer ${
                     active
                       ? 'bg-blue-700 text-white border-blue-700 shadow-sm'
                       : 'bg-slate-50 text-slate-800 border-slate-300 hover:bg-slate-100'
@@ -567,7 +567,7 @@ export function Card4ConfirmCard({
        * ══════════════════════════════════════════════════════════════════ */}
       <section
         data-testid="card4-section-og-editor"
-        className="bg-white rounded-2xl border-2 border-blue-300 shadow-xs overflow-hidden"
+        className="bg-white rounded-xl border-2 border-blue-300 shadow-xs overflow-hidden"
       >
         <div className="bg-blue-50/90 border-b border-blue-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
@@ -768,7 +768,7 @@ export function Card4ConfirmCard({
        * ══════════════════════════════════════════════════════════════════ */}
       <section
         data-testid="card4-section-detail-points"
-        className="bg-white rounded-2xl border-2 border-indigo-300 shadow-xs overflow-hidden"
+        className="bg-white rounded-xl border-2 border-indigo-300 shadow-xs overflow-hidden"
       >
         <div className="bg-indigo-50/90 border-b border-indigo-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
@@ -840,7 +840,7 @@ export function Card4ConfirmCard({
                   backgroundColor: toneStyle.bgHex,
                   borderColor: toneStyle.borderHex,
                 }}
-                className="rounded-xl border border-l-4 p-3.5 space-y-2 shadow-2xs transition-colors"
+                className="rounded-lg border border-l-4 p-3.5 space-y-2 shadow-2xs transition-colors"
               >
                 <div className="flex items-center gap-2.5">
                   <label

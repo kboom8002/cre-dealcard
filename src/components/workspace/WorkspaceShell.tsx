@@ -944,7 +944,7 @@ export function WorkspaceShell({
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
                 {renderedSaveStatus && (
                   <div
                     data-testid="workspace-save-status"
@@ -1064,7 +1064,7 @@ export function WorkspaceShell({
                 {previewTitle}
               </h2>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
               {previewTabSlot}
               {isPreviewDrawerOpen && (
                 <button

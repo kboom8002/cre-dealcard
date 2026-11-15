@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useId, useState } from 'react';
+import { formatKrPhoneInput } from '@/lib/format/phone';
 
 export interface GateRequestFormProps {
   buildingId: string;
@@ -173,7 +174,7 @@ export default function GateRequestForm({
               id={contactId}
               type="tel"
               value={contact}
-              onChange={(e) => setContact(e.target.value)}
+              onChange={(e) => setContact(formatKrPhoneInput(e.target.value))}
               placeholder="010-0000-0000"
               required
               className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"

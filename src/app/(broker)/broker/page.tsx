@@ -5,7 +5,7 @@ import { getAggregatedBrokerHomeData } from "@/domain/broker/home-aggregated";
 import { BrokerHome4Doors } from "./_components/BrokerHome4Doors";
 
 export const metadata: Metadata = {
-  title: "JS 1분 딜카드 | 중개 업무 홈",
+  title: { absolute: "중개사 홈 | 크리딜" },
   description: "중개인 전용 4대 업무 허브 — 딜카드, 기본 IM, 뉴스레터, 고객 소통함을 한눈에.",
 };
 

@@ -26,6 +26,11 @@ import {
   type ShowcaseManifest,
   type ShowcaseScenarioUnion,
 } from "@/lib/qa/output-showcase-scenarios";
+import {
+  appendQaParamsToHref,
+  buildQaAuthHeaders,
+  syncQaKeyFromSearchParams,
+} from "@/lib/qa/qa-client-auth";
 
 type BrokerVerdictStatus = "PASS" | "NEEDS_POLISH" | "FAIL";
 
@@ -162,6 +167,10 @@ function QaShowcaseInner() {
   const initialTabParam = searchParams.get("tab");
   const initialCaseParam = searchParams.get("case");
 
+  useEffect(() => {
+    syncQaKeyFromSearchParams(searchParams);
+  }, [searchParams]);
+
   const resolvedInitialCategory: ShowcaseCategory = useMemo(() => {
     if (initialCaseParam) {
       const matched = OUTPUT_SHOWCASE_SCENARIOS.find((s) => s.id === initialCaseParam);
@@ -195,7 +204,11 @@ function QaShowcaseInner() {
   const [mobileOrOgMode, setMobileOrOgMode] = useState<MobileOrOgMode>("mobile");
   const [imViewMode, setImViewMode] = useState<ImViewMode>("grid");
   const [selectedSlideIdx, setSelectedSlideIdx] = useState<number>(0);
+  const [lightboxSlideIdx, setLightboxSlideIdx] = useState<number | null>(null);
   const [fontScale, setFontScale] = useState<ShowcaseFontScale>("normal");
+  const [pptxDownloading, setPptxDownloading] = useState<boolean>(false);
+  const [pptxDownloadStatus, setPptxDownloadStatus] = useState<string>("");
+  const [pptxDownloadError, setPptxDownloadError] = useState<boolean>(false);
 
   const [verdicts, setVerdicts] = useState<Record<string, ShowcaseVerdictRecord>>({});
   const [syncMessage, setSyncMessage] = useState<string>("");
@@ -267,14 +280,17 @@ function QaShowcaseInner() {
     [verdicts]
   );
 
-  const applyFontScale = useCallback((scale: ShowcaseFontScale) => {
-    setFontScale(scale);
+  // 쇼룸 부모 창(header/패널)은 항상 표준 17px로 고정하고, 하단 390px 미리보기 iframe 내부에만 글자 배율을 적용한다.
+  useEffect(() => {
     try {
-      window.localStorage.setItem("cre-font-scale", scale);
-      document.documentElement.setAttribute("data-font-scale", scale);
+      document.documentElement.setAttribute("data-font-scale", "normal");
     } catch {
       // non-blocking
     }
+  }, []);
+
+  const applyFontScale = useCallback((scale: ShowcaseFontScale) => {
+    setFontScale(scale);
     try {
       const iframeDoc = iframeRef.current?.contentDocument;
       if (iframeDoc?.documentElement) {
@@ -299,6 +315,66 @@ function QaShowcaseInner() {
       // ignore
     }
   }, [fontScale]);
+
+  useEffect(() => {
+    if (lightboxSlideIdx === null || slideUrls.length === 0) return;
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        setLightboxSlideIdx(null);
+      } else if (ev.key === "ArrowLeft") {
+        setLightboxSlideIdx((prev) =>
+          prev === null ? null : Math.max(0, prev - 1)
+        );
+      } else if (ev.key === "ArrowRight") {
+        setLightboxSlideIdx((prev) =>
+          prev === null ? null : Math.min(slideUrls.length - 1, prev + 1)
+        );
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxSlideIdx, slideUrls.length]);
+
+  const handleDownloadPptx = useCallback(async () => {
+    if (!activeLiveEntry.pptxDownloadUrl || pptxDownloading) return;
+    setPptxDownloading(true);
+    setPptxDownloadError(false);
+    setPptxDownloadStatus(
+      "다운로드 중입니다... (.pptx 파일을 생성하고 있습니다. 잠시만 기다려 주세요)"
+    );
+    try {
+      const res = await fetch(activeLiveEntry.pptxDownloadUrl);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("content-disposition") || "";
+      const utfMatch = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      const plainMatch = cd.match(/filename="?([^";]+)"?/i);
+      const resolvedFilename = utfMatch?.[1]
+        ? decodeURIComponent(utfMatch[1])
+        : plainMatch?.[1] || `${activeScenario.id}_CREDEAL_IM.pptx`;
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = resolvedFilename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+      setPptxDownloadStatus(
+        `✅ '${resolvedFilename}' 다운로드가 시작되었습니다. 브라우저 다운로드함을 확인해 주세요.`
+      );
+    } catch {
+      setPptxDownloadError(true);
+      setPptxDownloadStatus(
+        "PPTX 다운로드 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      );
+    } finally {
+      setPptxDownloading(false);
+    }
+  }, [activeLiveEntry.pptxDownloadUrl, activeScenario.id, pptxDownloading]);
 
   useEffect(() => {
     try {
@@ -373,6 +449,11 @@ function QaShowcaseInner() {
     setActiveCategory(nextCategory);
     setActiveCaseId(first.id);
     setSelectedSlideIdx(0);
+    setLightboxSlideIdx(null);
+    setImViewMode("grid");
+    setMobileOrOgMode("mobile");
+    setPptxDownloadStatus("");
+    setPptxDownloadError(false);
     setPinTargetLabel(`${first.id} · 전체 화면`);
     setPinFeedback("");
     if (first.category === "newsletter") {
@@ -387,6 +468,11 @@ function QaShowcaseInner() {
       setActiveCategory(scenario.category);
       setActiveCaseId(scenario.id);
       setSelectedSlideIdx(0);
+      setLightboxSlideIdx(null);
+      setImViewMode("grid");
+      setMobileOrOgMode("mobile");
+      setPptxDownloadStatus("");
+      setPptxDownloadError(false);
       setPinTargetLabel(`${scenario.id} · 전체 화면`);
       setPinFeedback("");
       if (scenario.category === "newsletter") {
@@ -412,7 +498,10 @@ function QaShowcaseInner() {
 
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildQaAuthHeaders(),
+        },
         body: JSON.stringify({
           mode,
           workbenchId: QA_OUTPUT_SHOWCASE_WORKBENCH_ID,
@@ -514,7 +603,10 @@ function QaShowcaseInner() {
         const isRedPen = Boolean(trimmedOrig || trimmedSuggested);
         const res = await fetch("/api/public/qa-workbench", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...buildQaAuthHeaders(),
+          },
           body: JSON.stringify({
             mode: "pin",
             sessionId: SESSION_ID,
@@ -580,7 +672,7 @@ function QaShowcaseInner() {
               </h1>
             </div>
             <Link
-              href="/qa-signoff"
+              href={appendQaParamsToHref("/qa-signoff")}
               data-testid="showcase-back-to-signoff"
               className="min-h-[44px] inline-flex items-center justify-center rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 px-4 text-[15px] font-bold text-slate-900"
             >
@@ -721,7 +813,7 @@ function QaShowcaseInner() {
             </div>
 
             <a
-              href={activeLiveEntry.liveUrl}
+              href={appendQaParamsToHref(activeLiveEntry.liveUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="min-h-[44px] inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-4 text-[15px] font-bold text-slate-900"
@@ -935,16 +1027,32 @@ function QaShowcaseInner() {
               </div>
 
               {activeLiveEntry.pptxDownloadUrl ? (
-                <a
-                  href={activeLiveEntry.pptxDownloadUrl}
+                <button
+                  type="button"
                   data-testid="showcase-pptx-download-btn"
-                  download
-                  className="min-h-[44px] inline-flex items-center justify-center rounded-xl border border-emerald-700 bg-emerald-700 hover:bg-emerald-800 px-4 text-[15px] font-extrabold text-white"
+                  disabled={pptxDownloading}
+                  onClick={handleDownloadPptx}
+                  className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-70 px-4 text-[15px] font-extrabold text-white cursor-pointer transition active:scale-[0.98]"
                 >
-                  ⬇ 실물 .pptx 다운로드
-                </a>
+                  {pptxDownloading ? "⏳ 다운로드 중입니다..." : "⬇ 실물 .pptx 다운로드"}
+                </button>
               ) : null}
             </div>
+
+            {pptxDownloadStatus ? (
+              <div
+                data-testid="showcase-pptx-download-status"
+                role="status"
+                aria-live="polite"
+                className={`rounded-xl border px-3.5 py-2.5 text-[15px] font-bold ${
+                  pptxDownloadError
+                    ? "border-rose-300 bg-rose-50 text-rose-900"
+                    : "border-emerald-300 bg-emerald-50 text-emerald-950"
+                }`}
+              >
+                {pptxDownloadStatus}
+              </div>
+            ) : null}
 
             {imViewMode === "grid" ? (
               slideUrls.length > 0 ? (
@@ -960,23 +1068,30 @@ function QaShowcaseInner() {
                           슬라이드 {String(idx + 1).padStart(2, "0")}
                         </span>
                         <span className="text-[15px] text-slate-600">
-                          16:9 LibreOffice 렌더
+                          클릭하면 크게 보기
                         </span>
                       </div>
-                      <img
-                        data-testid={`showcase-slide-img-${idx + 1}`}
-                        src={url}
-                        alt={`${activeScenario.id} 슬라이드 ${idx + 1}`}
-                        className="block w-full aspect-[16/9] object-contain rounded-lg border border-slate-300 bg-white"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setLightboxSlideIdx(idx)}
+                        aria-label={`슬라이드 ${idx + 1} 크게 보기`}
+                        className="group relative block w-full cursor-zoom-in rounded-lg overflow-hidden border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      >
+                        <img
+                          data-testid={`showcase-slide-img-${idx + 1}`}
+                          src={url}
+                          alt={`${activeScenario.id} 슬라이드 ${idx + 1}`}
+                          className="block w-full aspect-[16/9] object-contain transition-transform group-hover:scale-[1.01]"
+                        />
+                        <span className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-slate-900/80 px-2 py-0.5 text-xs font-bold text-white opacity-90 group-hover:opacity-100">
+                          🔍 클릭해 확대
+                        </span>
+                      </button>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedSlideIdx(idx);
-                            setImViewMode("single");
-                          }}
-                          className="min-h-[44px] flex-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3 text-[15px] font-bold text-slate-900"
+                          onClick={() => setLightboxSlideIdx(idx)}
+                          className="min-h-[44px] flex-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3 text-[15px] font-bold text-slate-900 cursor-pointer"
                         >
                           크게 보기
                         </button>
@@ -984,7 +1099,7 @@ function QaShowcaseInner() {
                           type="button"
                           data-testid={`showcase-slide-pin-btn-${idx + 1}`}
                           onClick={() => handlePinSlide(idx)}
-                          className="min-h-[44px] flex-1 rounded-xl border border-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 text-[15px] font-extrabold text-indigo-900"
+                          className="min-h-[44px] flex-1 rounded-xl border border-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 text-[15px] font-extrabold text-indigo-900 cursor-pointer"
                         >
                           ✏️ 이 슬라이드 의견
                         </button>
@@ -1044,12 +1159,19 @@ function QaShowcaseInner() {
                       </button>
                     </div>
                   </div>
-                  <img
-                    data-testid="showcase-single-slide-img"
-                    src={slideUrls[safeSlideIdx]}
-                    alt={`${activeScenario.id} 슬라이드 ${safeSlideIdx + 1} 확대`}
-                    className="block w-full aspect-[16/9] object-contain rounded-xl border border-slate-300 bg-white"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setLightboxSlideIdx(safeSlideIdx)}
+                    aria-label="슬라이드 전체 화면 확대 보기"
+                    className="block w-full cursor-zoom-in rounded-xl overflow-hidden border border-slate-300 bg-white"
+                  >
+                    <img
+                      data-testid="showcase-single-slide-img"
+                      src={slideUrls[safeSlideIdx]}
+                      alt={`${activeScenario.id} 슬라이드 ${safeSlideIdx + 1} 확대`}
+                      className="block w-full aspect-[16/9] object-contain"
+                    />
+                  </button>
                 </div>
               ) : (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[15px] text-amber-950">
@@ -1131,17 +1253,103 @@ function QaShowcaseInner() {
                           </button>
                         </div>
                       </div>
-                      <img
-                        src={slideUrls[safeSlideIdx]}
-                        alt={`${activeScenario.id} PPTX 슬라이드 ${safeSlideIdx + 1}`}
-                        className="block w-full aspect-[16/9] object-contain rounded-xl border border-slate-300 bg-white"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setLightboxSlideIdx(safeSlideIdx)}
+                        aria-label="슬라이드 크게 보기"
+                        className="block w-full cursor-zoom-in rounded-xl overflow-hidden border border-slate-300 bg-white"
+                      >
+                        <img
+                          src={slideUrls[safeSlideIdx]}
+                          alt={`${activeScenario.id} PPTX 슬라이드 ${safeSlideIdx + 1}`}
+                          className="block w-full aspect-[16/9] object-contain"
+                        />
+                      </button>
                     </>
                   ) : (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[15px] text-amber-950">
                       연결된 PPTX PNG가 없습니다.
                     </div>
                   )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* 슬라이드 클릭 전체 화면 라이트박스 모달 */}
+            {lightboxSlideIdx !== null && slideUrls[lightboxSlideIdx] ? (
+              <div
+                data-testid="showcase-slide-lightbox"
+                role="dialog"
+                aria-modal="true"
+                aria-label={`${activeScenario.id} 슬라이드 ${lightboxSlideIdx + 1} 확대 보기`}
+                onClick={() => setLightboxSlideIdx(null)}
+                className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-3 sm:p-6"
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-6xl space-y-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-white">
+                    <span className="text-base sm:text-lg font-extrabold">
+                      {activeScenario.id} · 슬라이드{" "}
+                      {String(lightboxSlideIdx + 1).padStart(2, "0")} /{" "}
+                      {String(slideUrls.length).padStart(2, "0")}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={lightboxSlideIdx <= 0}
+                        onClick={() =>
+                          setLightboxSlideIdx((prev) =>
+                            prev === null ? null : Math.max(0, prev - 1)
+                          )
+                        }
+                        className="min-h-[44px] rounded-xl border border-white/25 bg-white/10 hover:bg-white/20 disabled:opacity-40 px-4 text-[15px] font-bold text-white cursor-pointer"
+                      >
+                        ← 이전
+                      </button>
+                      <button
+                        type="button"
+                        disabled={lightboxSlideIdx >= slideUrls.length - 1}
+                        onClick={() =>
+                          setLightboxSlideIdx((prev) =>
+                            prev === null
+                              ? null
+                              : Math.min(slideUrls.length - 1, prev + 1)
+                          )
+                        }
+                        className="min-h-[44px] rounded-xl border border-white/25 bg-white/10 hover:bg-white/20 disabled:opacity-40 px-4 text-[15px] font-bold text-white cursor-pointer"
+                      >
+                        다음 →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetIdx = lightboxSlideIdx;
+                          setLightboxSlideIdx(null);
+                          handlePinSlide(targetIdx);
+                        }}
+                        className="min-h-[44px] rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 text-[15px] font-extrabold text-white cursor-pointer"
+                      >
+                        ✏️ 이 슬라이드 의견 남기기
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="showcase-lightbox-close"
+                        onClick={() => setLightboxSlideIdx(null)}
+                        className="min-h-[44px] rounded-xl bg-white text-slate-900 hover:bg-slate-200 px-4 text-[15px] font-extrabold cursor-pointer"
+                      >
+                        ✕ 닫기
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-xl overflow-hidden bg-white border border-white/20 shadow-2xl">
+                    <img
+                      src={slideUrls[lightboxSlideIdx]}
+                      alt={`${activeScenario.id} 슬라이드 ${lightboxSlideIdx + 1} 전체 화면`}
+                      className="block w-full max-h-[78vh] object-contain"
+                    />
+                  </div>
                 </div>
               </div>
             ) : null}

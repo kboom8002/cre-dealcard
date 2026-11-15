@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useId, useState } from "react";
+import { formatKrPhoneInput } from "@/lib/format/phone";
 
 export default function GateRequestForm({ buildingId }: { buildingId: string }) {
   const uid = useId();
@@ -91,7 +92,7 @@ export default function GateRequestForm({ buildingId }: { buildingId: string }) 
             placeholder="010-0000-0000"
             className="min-h-[48px] w-full bg-[#0b0f19] border border-slate-800 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
             value={contact}
-            onChange={(e) => setContact(e.target.value)}
+            onChange={(e) => setContact(formatKrPhoneInput(e.target.value))}
             disabled={isSubmitting}
           />
         </div>

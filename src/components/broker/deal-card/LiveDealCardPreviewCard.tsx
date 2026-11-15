@@ -159,7 +159,7 @@ export function LiveDealCardPreviewCard({
 
   return (
     <>
-      <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-b from-card via-card to-primary/[0.03] p-5 shadow-xl space-y-4 relative overflow-hidden">
+      <div className="rounded-xl border-2 border-primary/40 bg-gradient-to-b from-card via-card to-primary/[0.03] p-5 shadow-xl space-y-4 relative overflow-hidden">
         {/* Top Tag & Status */}
         <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
           <div className="flex items-center gap-2">
@@ -188,7 +188,7 @@ export function LiveDealCardPreviewCard({
         {/* 📱 Real KakaoTalk OG Card Style Preview */}
         <div
           data-theme-lock="dark"
-          className="rounded-xl border border-border/80 bg-neutral-950 overflow-hidden shadow-inner space-y-0 group"
+          className="rounded-lg border border-border/80 bg-neutral-950 overflow-hidden shadow-inner space-y-0 group"
         >
           {/* OG Image Preview */}
           <div
@@ -231,7 +231,7 @@ export function LiveDealCardPreviewCard({
 
         {/* Key Deal Points Preview Chips */}
         {dealPoints.length > 0 && (
-          <div className="bg-primary/[0.04] border border-primary/20 rounded-xl p-3 space-y-1.5">
+          <div className="bg-primary/[0.04] border border-primary/20 rounded-lg p-3 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-primary flex items-center gap-1">
                 <span>⭐ 핵심 딜 포인트 (Top 3 우선 노출)</span>

@@ -2,6 +2,7 @@
 
 import React, { useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
+import { formatKrPhoneInput } from "@/lib/format/phone";
 
 interface IMInquiryBottomSheetProps {
   buildingId: string;
@@ -143,7 +144,7 @@ export function IMInquiryBottomSheet({
                 type="tel"
                 maxLength={20}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
                 placeholder="010-0000-0000"
                 className="w-full min-h-[48px] bg-neutral-800 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white placeholder-neutral-500 focus:outline-none focus:border-primary"
               />

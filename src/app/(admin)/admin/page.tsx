@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "관리자 콘솔 | JS Building SSoT",
+  title: { absolute: "관리자 콘솔 | 크리딜" },
   description: "전문가 노트, 게이트 요청, 분석 대시보드를 관리합니다.",
 };
 

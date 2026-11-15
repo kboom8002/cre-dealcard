@@ -278,7 +278,7 @@ export function ImEditorPanels({
                 onClearActionAlert();
                 onChangeEditorTab(tab.id);
               }}
-              className={`min-h-[56px] px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer min-w-0 overflow-hidden ${
+              className={`min-h-[56px] px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer min-w-0 overflow-hidden ${
                 isActive
                   ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-white/90 text-slate-800 hover:bg-white"
@@ -387,7 +387,7 @@ export function ImEditorPanels({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onChangePosture(opt.id)}
-                  className={`min-h-[56px] px-4 py-3 rounded-xl border-2 text-left transition cursor-pointer ${
+                  className={`min-h-[56px] px-4 py-3 rounded-lg border-2 text-left transition cursor-pointer ${
                     active
                       ? "bg-blue-700 text-white border-blue-700 shadow-xs"
                       : "bg-white text-slate-900 border-slate-300 hover:bg-slate-50"

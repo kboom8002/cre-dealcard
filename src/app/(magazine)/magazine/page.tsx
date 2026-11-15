@@ -8,7 +8,26 @@ import { getServerViewer } from "@/lib/server-viewer";
  * 소통함 [뉴스레터 보내기] 또는 직접 진입 시 404가 발생하지 않도록
  * 로그인한 중개사 본인의 매거진 허브(/magazine/[brokerSlug]) 또는 최신 발행호로 연결합니다 (L-03 404 방지).
  */
-export default async function MagazineRootPage() {
+export default async function MagazineRootPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    sid?: string | string[];
+    qa?: string | string[];
+    target?: string | string[];
+    edition?: string | string[];
+  }>;
+} = {}) {
+  const sp = searchParams ? await searchParams : {};
+  const firstParam = (v: string | string[] | undefined) =>
+    (Array.isArray(v) ? v[0] : v) || "";
+  const qs = new URLSearchParams();
+  for (const key of ["sid", "qa", "target", "edition"] as const) {
+    const val = firstParam(sp[key]).trim();
+    if (val) qs.set(key, val);
+  }
+  const querySuffix = qs.toString() ? `?${qs.toString()}` : "";
+
   try {
     const supabase = createServiceClient();
     const viewer = await getServerViewer().catch(() => null);
@@ -31,11 +50,11 @@ export default async function MagazineRootPage() {
 
       if (myLatest?.broker_id && myLatest?.issue_date) {
         redirect(
-          `/magazine/${encodeURIComponent(String(myLatest.broker_id))}/${encodeURIComponent(String(myLatest.issue_date))}`
+          `/magazine/${encodeURIComponent(String(myLatest.broker_id))}/${encodeURIComponent(String(myLatest.issue_date))}${querySuffix}`
         );
       }
       if (profile?.slug) {
-        redirect(`/magazine/${encodeURIComponent(String(profile.slug))}`);
+        redirect(`/magazine/${encodeURIComponent(String(profile.slug))}${querySuffix}`);
       }
     }
 
@@ -48,7 +67,7 @@ export default async function MagazineRootPage() {
 
     if (latestIssue?.broker_id && latestIssue?.issue_date) {
       redirect(
-        `/magazine/${encodeURIComponent(String(latestIssue.broker_id))}/${encodeURIComponent(String(latestIssue.issue_date))}`
+        `/magazine/${encodeURIComponent(String(latestIssue.broker_id))}/${encodeURIComponent(String(latestIssue.issue_date))}${querySuffix}`
       );
     }
   } catch (err: unknown) {

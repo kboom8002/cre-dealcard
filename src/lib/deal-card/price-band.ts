@@ -83,12 +83,12 @@ export function formatPriceRange(priceKrw: number, bandType: PriceBandType = 'st
 
   // If both lower and upper are whole 억 (and lower > 0):
   if (lower % EOK === 0 && upper % EOK === 0 && lower > 0) {
-    return `${lowerEok}~${upperEok}억`;
+    return `${lowerEok.toLocaleString('ko-KR')}~${upperEok.toLocaleString('ko-KR')}억`;
   }
 
   // If lower is 0 and upper is eok:
   if (lower === 0 && upper % EOK === 0) {
-    return `${upperEok}억 미만`;
+    return `${upperEok.toLocaleString('ko-KR')}억 미만`;
   }
 
   // Under 1억: both are whole 만
