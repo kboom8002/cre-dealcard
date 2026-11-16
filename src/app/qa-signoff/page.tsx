@@ -35,9 +35,11 @@ import {
 } from "@/lib/qa/qa-client-auth";
 import {
   QA_BROKER_SHOWCASE_SESSION_ID,
+  QA_BROKER_SIGNOFF_SESSION_ID,
   QA_TESTER_SIGNOFF_SESSION_ID,
   ROUND1_REMEDIATION_28_ITEMS,
   ROUND2_CORE_MISSIONS_6,
+  V6_PHYSICAL_DEVICE_MISSIONS_5,
 } from "@/lib/qa/round2-verification-data";
 
 const SAMPLE_M1_MEMO =
@@ -299,20 +301,28 @@ export default function QaSignoffHubPage() {
   const [dualPortalSummary, setDualPortalSummary] = useState<{
     r1PassCount: number;
     r2PassCount: number;
+    v6PassCount: number;
+    v6BlockerCount: number;
     brokerDecidedCount: number;
     brokerPassCount: number;
+    brokerTimeAttackDone: boolean;
+    brokerRubricRatedCount: number;
   }>({
     r1PassCount: 0,
     r2PassCount: 0,
+    v6PassCount: 0,
+    v6BlockerCount: 0,
     brokerDecidedCount: 0,
     brokerPassCount: 0,
+    brokerTimeAttackDone: false,
+    brokerRubricRatedCount: 0,
   });
 
   useEffect(() => {
     let cancelled = false;
     async function loadDualPortalSummary() {
       try {
-        const [testerRes, brokerRes] = await Promise.all([
+        const [testerRes, brokerRes, brokerSignoffRes] = await Promise.all([
           fetch(
             `/api/public/qa-workbench?sessionId=${encodeURIComponent(
               QA_TESTER_SIGNOFF_SESSION_ID
@@ -325,20 +335,31 @@ export default function QaSignoffHubPage() {
             )}`,
             { cache: "no-store" }
           ),
+          fetch(
+            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+              QA_BROKER_SIGNOFF_SESSION_ID
+            )}`,
+            { cache: "no-store" }
+          ),
         ]);
 
         let r1PassCount = 0;
         let r2PassCount = 0;
+        let v6PassCount = 0;
+        let v6BlockerCount = 0;
         let brokerDecidedCount = 0;
         let brokerPassCount = 0;
+        let brokerTimeAttackDone = false;
+        let brokerRubricRatedCount = 0;
 
         if (testerRes?.ok) {
           const j = (await testerRes.json().catch(() => null)) as {
             found?: boolean;
             session?: {
-              records?: {
+              records?: Record<string, unknown> & {
                 r1States?: Record<string, { status?: string }>;
                 r2States?: Record<string, { status?: string }>;
+                v6States?: Record<string, { status?: string }>;
               };
             };
           } | null;
@@ -350,6 +371,16 @@ export default function QaSignoffHubPage() {
             r2PassCount = ROUND2_CORE_MISSIONS_6.filter(
               (m) => recs.r2States?.[m.id]?.status === "pass"
             ).length;
+            for (const m of V6_PHYSICAL_DEVICE_MISSIONS_5) {
+              const entry = (recs.v6States?.[m.id] ??
+                (recs as Record<string, { status?: string }>)[m.id]) as
+                | { status?: string }
+                | undefined;
+              if (entry?.status === "pass") v6PassCount += 1;
+              else if (entry?.status === "blocker" || entry?.status === "fail") {
+                v6BlockerCount += 1;
+              }
+            }
           }
         }
 
@@ -366,12 +397,37 @@ export default function QaSignoffHubPage() {
           }
         }
 
+        if (brokerSignoffRes?.ok) {
+          const j = (await brokerSignoffRes.json().catch(() => null)) as {
+            found?: boolean;
+            session?: {
+              records?: {
+                timeAttackCompleted?: unknown;
+                rubricScores?: Record<string, unknown>;
+              };
+            };
+          } | null;
+          const recs = j?.session?.records;
+          if (j?.found && recs && typeof recs === "object") {
+            brokerTimeAttackDone = Boolean(recs.timeAttackCompleted);
+            if (recs.rubricScores && typeof recs.rubricScores === "object") {
+              brokerRubricRatedCount = Object.values(recs.rubricScores).filter(
+                (v) => typeof v === "number" && v >= 1 && v <= 5
+              ).length;
+            }
+          }
+        }
+
         if (!cancelled) {
           setDualPortalSummary({
             r1PassCount,
             r2PassCount,
+            v6PassCount,
+            v6BlockerCount,
             brokerDecidedCount,
             brokerPassCount,
+            brokerTimeAttackDone,
+            brokerRubricRatedCount,
           });
         }
       } catch {
@@ -1156,7 +1212,7 @@ export default function QaSignoffHubPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* PM 통합 관제 · v5.0 이중 포털 바로가기 */}
+        {/* PM 통합 관제 · v6.0 4-Gate 릴레이 & 이중 포털 바로가기 */}
         <section
           data-testid="pm-dual-portal-overview"
           className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-xs space-y-4"
@@ -1164,7 +1220,7 @@ export default function QaSignoffHubPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="inline-block px-2.5 py-0.5 rounded-lg bg-indigo-900 text-white text-[13px] font-extrabold">
-                PM 통합 관제 (v5.0)
+                PM 통합 관제 (v6.0 · 4-Gate 릴레이)
               </span>
               <h2 className="text-base sm:text-lg font-extrabold text-slate-950 mt-1">
                 일반 테스터 · 중개인 완전 분리 포털 현황
@@ -1175,6 +1231,46 @@ export default function QaSignoffHubPage() {
             </span>
           </div>
 
+          <div
+            data-testid="pm-v6-4gate-strip"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"
+          >
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-0.5">
+              <p className="text-[13px] font-extrabold text-emerald-950">
+                Gate 1 · AI 사전 완결
+              </p>
+              <p className="text-[13px] font-bold text-emerald-800">
+                ✅ 48뷰·골든E2E 통과
+              </p>
+            </div>
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 space-y-0.5">
+              <p className="text-[13px] font-extrabold text-indigo-950">
+                Gate 2 · 테스터 실기기
+              </p>
+              <p className="text-[13px] font-bold text-indigo-800">
+                v6.0 {dualPortalSummary.v6PassCount}/5 · 막힘{" "}
+                {dualPortalSummary.v6BlockerCount}건
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 space-y-0.5">
+              <p className="text-[13px] font-extrabold text-slate-950">
+                Gate 3 · 중개인 감수
+              </p>
+              <p className="text-[13px] font-bold text-slate-800">
+                22종 {dualPortalSummary.brokerDecidedCount}/22 · 5분체험{" "}
+                {dualPortalSummary.brokerTimeAttackDone ? "완료" : "대기"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 space-y-0.5">
+              <p className="text-[13px] font-extrabold text-sky-950">
+                Gate 4 · PM 최종 판정
+              </p>
+              <p className="text-[13px] font-bold text-sky-800">
+                6대기준 {dualPortalSummary.brokerRubricRatedCount}/6
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
@@ -1182,7 +1278,8 @@ export default function QaSignoffHubPage() {
                   🧪 일반 테스터 전용 포털
                 </span>
                 <span className="text-[13px] font-extrabold text-indigo-800">
-                  1차 28건 {dualPortalSummary.r1PassCount}/28 · 2차 미션{" "}
+                  v6.0 실기기 {dualPortalSummary.v6PassCount}/5 · 1차{" "}
+                  {dualPortalSummary.r1PassCount}/28 · 2차{" "}
                   {dualPortalSummary.r2PassCount}/6
                 </span>
               </div>
@@ -1208,8 +1305,9 @@ export default function QaSignoffHubPage() {
                   👔 중개인 전용 포털
                 </span>
                 <span className="text-[13px] font-extrabold text-slate-800">
-                  22종 판정 {dualPortalSummary.brokerDecidedCount}/22 (PASS{" "}
-                  {dualPortalSummary.brokerPassCount})
+                  22종 {dualPortalSummary.brokerDecidedCount}/22 (PASS{" "}
+                  {dualPortalSummary.brokerPassCount}) · 5분체험{" "}
+                  {dualPortalSummary.brokerTimeAttackDone ? "완료" : "대기"}
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">

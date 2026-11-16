@@ -38,6 +38,7 @@ import QaBrokerSignoffPage from "@/app/qa-broker/signoff/page";
 import {
   ROUND1_REMEDIATION_28_ITEMS,
   ROUND2_CORE_MISSIONS_6,
+  V6_PHYSICAL_DEVICE_MISSIONS_5,
 } from "@/lib/qa/round2-verification-data";
 
 (
@@ -511,5 +512,111 @@ describe("Round-2 Dual-Portal Separation & Dual-Key Isolation (R2-WP-01 ~ R2-WP-
     expect(container.textContent).not.toContain("slk.");
     expect(container.textContent).not.toContain("OpenXML");
     expect(container.textContent).not.toContain("(/qa-showcase");
+  });
+
+  it("6. Wires v6.0 5 physical missions (V6-P1~P5), 39-step workbench summary, and broker 5-minute time-attack completion", async () => {
+    expect(V6_PHYSICAL_DEVICE_MISSIONS_5).toHaveLength(5);
+
+    process.env.QA_ACCESS_KEY = "pm-master-key-2026";
+    process.env.QA_TESTER_ACCESS_KEY = "tester-key-2026";
+    process.env.QA_BROKER_ACCESS_KEY = "broker-key-2026";
+
+    const fetchSpy = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, found: false, pins: [] }),
+    }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await act(async () => {
+      root.render(<QaTesterSignoffPage />);
+    });
+
+    const v6PassBtn = container.querySelector(
+      '[data-testid="v6-mission-pass-V6-P1"]'
+    ) as HTMLButtonElement | null;
+    expect(v6PassBtn).not.toBeNull();
+
+    await act(async () => {
+      v6PassBtn!.click();
+    });
+
+    const postCall = fetchSpy.mock.calls.find((call) => {
+      const url = String(call[0]);
+      const init = (call[1] || {}) as { method?: string };
+      return url.includes("/api/public/qa-workbench") && init.method === "POST";
+    });
+    expect(postCall).toBeDefined();
+    const sentBody = JSON.parse(String((postCall![1] as { body: string }).body));
+    expect(sentBody.records.v6States["V6-P1"].status).toBe("pass");
+    expect(sentBody.records["V6-P1"].status).toBe("pass");
+
+    const wbRes = await POST(
+      buildPost(
+        {
+          mode: "sync",
+          workbenchId: "qa-tester-round2-v5",
+          sessionId: "qa-signoff-tester-r2",
+          records: {
+            "V6-P1": { status: "pass" },
+            v6States: { "V6-P1": { status: "pass" } },
+          },
+        },
+        "tester-key-2026"
+      )
+    );
+    expect(wbRes.status).toBe(200);
+    const wbJson = await wbRes.json();
+    expect(wbJson.summary?.completedCount).toBe(1);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("sessionId=qa-signoff-tester-r2")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              found: true,
+              session: {
+                records: {
+                  v6States: { "V6-P1": { status: "pass" } },
+                },
+              },
+            }),
+          };
+        }
+        return {
+          ok: true,
+          json: async () => ({ ok: true, found: false, pins: [] }),
+        };
+      })
+    );
+
+    await act(async () => {
+      root.render(<QaBrokerSignoffPage />);
+    });
+
+    const handoffBadge = container.querySelector(
+      '[data-testid="broker-signoff-tester-status-badge"]'
+    );
+    expect(handoffBadge?.textContent).toContain("테스터 사전 기술검증 완료");
+
+    const doneBtn = container.querySelector(
+      '[data-testid="broker-v6-timeattack-done-btn"]'
+    ) as HTMLButtonElement | null;
+    expect(doneBtn).not.toBeNull();
+    expect(doneBtn!.getAttribute("aria-pressed")).toBe("false");
+
+    await act(async () => {
+      doneBtn!.click();
+    });
+
+    expect(doneBtn!.getAttribute("aria-pressed")).toBe("true");
+    expect(doneBtn!.textContent).toContain("5분 체험 완료됨");
+    expect(container.textContent).not.toContain("Gate 1");
+    expect(container.textContent).not.toContain("Blocker");
+    expect(container.textContent).not.toContain("R1-01");
+    expect(container.textContent).not.toContain("V6-P1");
   });
 });

@@ -74,6 +74,7 @@ interface QaPinRecord {
 interface TesterSignoffPersistedState {
   r1States: Record<string, { status: R1Status; memo?: string }>;
   r2States: Record<string, { status: R2MissionStatus; memo?: string }>;
+  v6States: Record<string, { status: R2MissionStatus; memo?: string }>;
   confirmations: {
     versionMatched: boolean;
     mobileKakaoChecked: boolean;
@@ -89,6 +90,7 @@ function readInitialState(): TesterSignoffPersistedState {
   const empty: TesterSignoffPersistedState = {
     r1States: {},
     r2States: {},
+    v6States: {},
     confirmations: {
       versionMatched: false,
       mobileKakaoChecked: false,
@@ -105,6 +107,7 @@ function readInitialState(): TesterSignoffPersistedState {
     return {
       r1States: parsed.r1States ?? {},
       r2States: parsed.r2States ?? {},
+      v6States: parsed.v6States ?? {},
       confirmations: {
         versionMatched: Boolean(parsed.confirmations?.versionMatched),
         mobileKakaoChecked: Boolean(parsed.confirmations?.mobileKakaoChecked),
@@ -204,10 +207,14 @@ function QaTesterSignoffInner() {
               const serverR2 =
                 (recs.r2States as TesterSignoffPersistedState["r2States"]) ??
                 {};
+              const serverV6 =
+                (recs.v6States as TesterSignoffPersistedState["v6States"]) ??
+                {};
               return {
                 ...prev,
                 r1States: { ...serverR1, ...prev.r1States },
                 r2States: { ...serverR2, ...prev.r2States },
+                v6States: { ...serverV6, ...prev.v6States },
               };
             });
           }
@@ -267,6 +274,14 @@ function QaTesterSignoffInner() {
           memo: next.r2States[mission.id]?.memo,
         };
       }
+      for (const mission of V6_PHYSICAL_DEVICE_MISSIONS_5) {
+        const st = next.v6States[mission.id]?.status ?? "pending";
+        flatRecords[mission.id] = {
+          status:
+            st === "pass" ? "pass" : st === "blocker" ? "fail" : "pending",
+          memo: next.v6States[mission.id]?.memo,
+        };
+      }
 
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
@@ -284,6 +299,7 @@ function QaTesterSignoffInner() {
             ...flatRecords,
             r1States: next.r1States,
             r2States: next.r2States,
+            v6States: next.v6States,
             confirmations: next.confirmations,
             finalMemo: next.finalMemo,
           },
@@ -319,6 +335,18 @@ function QaTesterSignoffInner() {
       r2States: {
         ...state.r2States,
         [id]: { ...state.r2States[id], status },
+      },
+    };
+    persistLocal(next);
+    void syncToServer(next, "sync").catch(() => undefined);
+  };
+
+  const handleSetV6Status = (id: string, status: R2MissionStatus) => {
+    const next: TesterSignoffPersistedState = {
+      ...state,
+      v6States: {
+        ...state.v6States,
+        [id]: { ...state.v6States[id], status },
       },
     };
     persistLocal(next);
@@ -377,7 +405,7 @@ function QaTesterSignoffInner() {
     try {
       await syncToServer(state, "submit");
       setSubmitMessage(
-        "☁️ 2차 리허설 결과(28건 재검증 + 6대 미션 + 확인 체크)가 테스터 전용 서버 세션에 제출되었습니다."
+        "☁️ v6.0 실기기 5대 미션 및 회귀 리허설 결과가 테스터 전용 서버 세션에 제출되었습니다."
       );
     } catch (err) {
       setSubmitMessage(
@@ -422,6 +450,17 @@ function QaTesterSignoffInner() {
     return { pass, blocker, total: ROUND2_CORE_MISSIONS_6.length };
   }, [state.r2States]);
 
+  const v6Stats = useMemo(() => {
+    let pass = 0;
+    let blocker = 0;
+    for (const m of V6_PHYSICAL_DEVICE_MISSIONS_5) {
+      const st = state.v6States[m.id]?.status;
+      if (st === "pass") pass += 1;
+      else if (st === "blocker") blocker += 1;
+    }
+    return { pass, blocker, total: V6_PHYSICAL_DEVICE_MISSIONS_5.length };
+  }, [state.v6States]);
+
   const filteredR1Items = useMemo(() => {
     return ROUND1_REMEDIATION_28_ITEMS.filter((item) => {
       if (r1Filter === "all") return true;
@@ -438,14 +477,16 @@ function QaTesterSignoffInner() {
     const autoText = probeSummary
       ? `AI ${probeSummary.passedCount}/${probeSummary.totalCount}`
       : "AI 미실행";
-    const summary = `[크리딜 2차 테스터 리허설 보고] ${buildStamp.shortSha} (${state.testerName})\n1) 1차 28건 재검증: 해결 ${r1Stats.pass}/28 · 재발 ${r1Stats.fail}건\n2) 2차 6대 실기기 미션: 완료 ${r2Stats.pass}/6 · 막힘 ${r2Stats.blocker}건 (${autoText})\n3) 현장 결함 핀 ${pins.length}건 · 중개인 인계: ${
-      r1Stats.fail === 0 && r2Stats.blocker === 0 ? "기술검증 통과 가능" : "보완 필요"
+    const summary = `[크리딜 테스터 v6.0 실기기 리허설 완료 · ${buildStamp.shortSha}] (${state.testerName})\n1) 실기기 25분 미션(V6-P1~P5): 통과 ${v6Stats.pass}/5 · 보완 ${v6Stats.blocker}건 | 기존 회귀(1차 ${r1Stats.pass}/28 · 2차 ${r2Stats.pass}/6 · ${autoText})\n2) 핀 등록 화면: ${pins.length}건${state.finalMemo.trim() ? ` (${state.finalMemo.trim()})` : ""}\n3) 중개인 이관 의견: ${
+      v6Stats.blocker === 0 && r1Stats.fail === 0 && r2Stats.blocker === 0
+        ? "즉시 실습 가능"
+        : "보완 후 이관 권장"
     }`;
     void handleCopyText(summary, "💬 카카오톡 보고용 3줄 요약을 복사했습니다.");
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen max-w-full overflow-x-clip bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-2xs">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -508,7 +549,7 @@ function QaTesterSignoffInner() {
               data-testid="tester-progress-summary-badge"
               className="inline-flex items-center min-h-[38px] rounded-xl border border-emerald-300 bg-emerald-50 px-3 text-[14px] font-extrabold text-emerald-950"
             >
-              1차 재검증 {r1Stats.pass}/28 · 2차 미션 {r2Stats.pass}/6
+              v6.0 실기기 {v6Stats.pass}/5 · 1차 재검증 {r1Stats.pass}/28 · 2차 미션 {r2Stats.pass}/6
             </span>
           </div>
 
@@ -554,6 +595,100 @@ function QaTesterSignoffInner() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Step v6.0 · 실기기 25분 집중 미션 5선 (AI 헤드리스 브라우저 제외 영역) */}
+        <section
+          data-testid="tester-v6-physical-missions"
+          className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-5 space-y-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-lg bg-indigo-800 text-white text-sm font-extrabold">
+                  v6.0 실기기 25분 집중
+                </span>
+                <h2 className="text-lg font-extrabold text-slate-950">
+                  AI 자동 점검 제외 영역 · 실물 스마트폰·PC 교차 미션 5선
+                </h2>
+              </div>
+              <p className="text-sm text-slate-700">
+                렌더링·콤마·하이픈·금지어·PPTX 무결성은 AI가 100% 사전 통과했습니다. 테스터께서는 실물 기기 감각만 집중 검증해 주세요.
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full border border-indigo-300 bg-white text-sm font-extrabold text-indigo-950">
+              완료 {v6Stats.pass}/5 · 보완 {v6Stats.blocker}건
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {V6_PHYSICAL_DEVICE_MISSIONS_5.map((m) => {
+              const st = state.v6States[m.id]?.status ?? "pending";
+              return (
+                <article
+                  key={m.id}
+                  data-testid={`v6-mission-${m.id}`}
+                  className={`rounded-xl border p-3.5 space-y-2 flex flex-col justify-between ${
+                    st === "pass"
+                      ? "border-emerald-300 bg-emerald-50/60"
+                      : st === "blocker"
+                      ? "border-rose-300 bg-rose-50"
+                      : "border-indigo-200 bg-white"
+                  }`}
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-900 text-white text-sm font-extrabold">
+                        {m.id} · {m.targetMin}분
+                      </span>
+                    </div>
+                    <h3 className="text-base font-extrabold text-slate-950 break-keep">
+                      {m.order}. {m.title}
+                    </h3>
+                    <p className="text-sm text-slate-700 leading-relaxed break-keep">
+                      {m.checkFocus}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      data-testid={`v6-mission-pass-${m.id}`}
+                      onClick={() => handleSetV6Status(m.id, "pass")}
+                      aria-pressed={st === "pass"}
+                      className={`min-h-[44px] rounded-xl border px-3 text-sm font-extrabold cursor-pointer ${
+                        st === "pass"
+                          ? "border-emerald-700 bg-emerald-700 text-white"
+                          : "border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-50"
+                      }`}
+                    >
+                      ✓ 통과
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`v6-mission-blocker-${m.id}`}
+                      onClick={() => handleSetV6Status(m.id, "blocker")}
+                      aria-pressed={st === "blocker"}
+                      className={`min-h-[44px] rounded-xl border px-3 text-sm font-extrabold cursor-pointer ${
+                        st === "blocker"
+                          ? "border-rose-700 bg-rose-700 text-white"
+                          : "border-rose-300 bg-white text-rose-950 hover:bg-rose-50"
+                      }`}
+                    >
+                      ✕ 보완 필요
+                    </button>
+                    <a
+                      href={appendQaParamsToHref(m.targetHref, "tester")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[44px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 text-sm font-extrabold text-white"
+                    >
+                      🚀 바로 확인하기 ↗
+                    </a>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Step A: 1차 감수 28건 전수 재검증 */}
         <section
           data-testid="tester-step-a-r1-28"
@@ -808,62 +943,6 @@ function QaTesterSignoffInner() {
                 </article>
               );
             })}
-          </div>
-        </section>
-
-        {/* Step B+ · v6.0 실기기 집중 미션 5선 (AI 헤드리스 브라우저 제외 영역 · 25분) */}
-        <section
-          data-testid="tester-v6-physical-missions"
-          className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-5 space-y-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-lg bg-indigo-800 text-white text-sm font-extrabold">
-                  v6.0 실기기 25분 집중
-                </span>
-                <h2 className="text-lg font-extrabold text-slate-950">
-                  AI 자동 점검 제외 영역 · 실물 스마트폰·PC 교차 미션 5선
-                </h2>
-              </div>
-              <p className="text-sm text-slate-700">
-                렌더링·콤마·하이픈·금지어·PPTX 무결성은 AI가 100% 사전 통과했습니다. 테스터께서는 실물 기기 감각만 집중 검증해 주세요.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {V6_PHYSICAL_DEVICE_MISSIONS_5.map((m) => (
-              <article
-                key={m.id}
-                data-testid={`v6-mission-${m.id}`}
-                className="rounded-xl border border-indigo-200 bg-white p-3.5 space-y-2 flex flex-col justify-between"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-900 text-white text-sm font-extrabold">
-                      {m.id} · {m.targetMin}분
-                    </span>
-                  </div>
-                  <h3 className="text-base font-extrabold text-slate-950 break-keep">
-                    {m.order}. {m.title}
-                  </h3>
-                  <p className="text-sm text-slate-700 leading-relaxed break-keep">
-                    {m.checkFocus}
-                  </p>
-                </div>
-                <div className="pt-1">
-                  <a
-                    href={appendQaParamsToHref(m.targetHref, "tester")}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-h-[44px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 text-sm font-extrabold text-white"
-                  >
-                    🚀 바로 확인하기 ↗
-                  </a>
-                </div>
-              </article>
-            ))}
           </div>
         </section>
 

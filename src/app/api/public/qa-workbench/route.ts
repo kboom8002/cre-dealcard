@@ -53,6 +53,7 @@ import {
   QA_ROUND2_WORKBENCH_ID,
   ROUND1_REMEDIATION_28_ITEMS,
   ROUND2_CORE_MISSIONS_6,
+  V6_PHYSICAL_DEVICE_MISSIONS_5,
 } from "@/lib/qa/round2-verification-data";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
@@ -455,6 +456,10 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
           ...ROUND2_CORE_MISSIONS_6.map((m) => ({
             key: m.id,
             severity: m.mandatoryEveryCycle ? "S0" : "S1",
+          })),
+          ...V6_PHYSICAL_DEVICE_MISSIONS_5.map((m) => ({
+            key: m.id,
+            severity: "S0",
           })),
         ]
       : workbenchId.startsWith("dealcard-im")

@@ -30,6 +30,7 @@ import {
   QA_TESTER_SIGNOFF_SESSION_ID,
   ROUND1_REMEDIATION_28_ITEMS,
   ROUND2_CORE_MISSIONS_6,
+  V6_PHYSICAL_DEVICE_MISSIONS_5,
 } from "@/lib/qa/round2-verification-data";
 import {
   BROKER_PREREQ_REQUEST_TEMPLATE,
@@ -77,6 +78,7 @@ interface BrokerSignoffPersistedState {
   brokerDrafts: BrokerDraftRequest[];
   brokerName: string;
   overallComment: string;
+  timeAttackCompleted?: boolean;
 }
 
 interface TesterHandoffSummary {
@@ -95,6 +97,7 @@ function readInitialBrokerState(): BrokerSignoffPersistedState {
     brokerDrafts: [],
     brokerName: "감수 중개인",
     overallComment: "",
+    timeAttackCompleted: false,
   };
   if (typeof window === "undefined") return empty;
   try {
@@ -111,6 +114,7 @@ function readInitialBrokerState(): BrokerSignoffPersistedState {
         : [],
       brokerName: parsed.brokerName || empty.brokerName,
       overallComment: parsed.overallComment || "",
+      timeAttackCompleted: Boolean(parsed.timeAttackCompleted),
     };
   } catch {
     return empty;
@@ -264,6 +268,7 @@ function QaBrokerSignoffInner() {
           records?: Record<string, unknown> & {
             r1States?: Record<string, { status?: string }>;
             missionStates?: Record<string, { status?: string }>;
+            v6States?: Record<string, { status?: string }>;
           };
         };
       };
@@ -284,6 +289,17 @@ function QaBrokerSignoffInner() {
             : {};
         for (const m of ROUND2_CORE_MISSIONS_6) {
           const entry = (nestedM[m.id] ?? raw[m.id]) as
+            | { status?: string }
+            | undefined;
+          if (entry?.status === "pass") passChecks += 1;
+          if (entry?.status === "blocker" || entry?.status === "fail") {
+            issueChecks += 1;
+          }
+        }
+        const nestedV6 =
+          raw.v6States && typeof raw.v6States === "object" ? raw.v6States : {};
+        for (const m of V6_PHYSICAL_DEVICE_MISSIONS_5) {
+          const entry = (nestedV6[m.id] ?? raw[m.id]) as
             | { status?: string }
             | undefined;
           if (entry?.status === "pass") passChecks += 1;
@@ -340,6 +356,8 @@ function QaBrokerSignoffInner() {
               ...((recs.agendaChecks as Record<string, boolean>) ?? {}),
               ...prev.agendaChecks,
             },
+            timeAttackCompleted:
+              prev.timeAttackCompleted || Boolean(recs.timeAttackCompleted),
           }));
         }
         if (res.nextPins) setBrokerPins(res.nextPins);
@@ -388,6 +406,12 @@ function QaBrokerSignoffInner() {
           };
         }
       }
+      if (next.timeAttackCompleted) {
+        flatStatuses.v6_timeattack = {
+          status: "pass",
+          memo: "5분 실매물 체험 완료",
+        };
+      }
 
       const res = await fetch("/api/public/qa-workbench", {
         method: "POST",
@@ -409,6 +433,7 @@ function QaBrokerSignoffInner() {
             agendaChecks: next.agendaChecks,
             brokerDrafts: next.brokerDrafts,
             overallComment: next.overallComment,
+            timeAttackCompleted: Boolean(next.timeAttackCompleted),
           },
         }),
       });
@@ -423,6 +448,15 @@ function QaBrokerSignoffInner() {
     },
     []
   );
+
+  const handleToggleTimeAttack = () => {
+    const next: BrokerSignoffPersistedState = {
+      ...state,
+      timeAttackCompleted: !state.timeAttackCompleted,
+    };
+    persistLocal(next);
+    void syncToServer(next, "sync").catch(() => undefined);
+  };
 
   const handleSetRubric = (criterionId: string, score: number) => {
     const next: BrokerSignoffPersistedState = {
@@ -548,7 +582,7 @@ function QaBrokerSignoffInner() {
     const lines = [
       `[크리딜 중개인 감수 요약 · ${activeSession.label} (${state.brokerName.trim() || "감수 중개인"})]`,
       `1) 22종 산출물 판정: ${showcaseStats.decided}/${showcaseStats.total}건 (바로사용 ${showcaseStats.pass} · 다듬기 ${showcaseStats.polish} · 보완필요 ${showcaseStats.fail})`,
-      `2) 6대 실무 기준: ${rubricStats.label} · 추가 요청 ${state.brokerDrafts.length}건 · 화면 코멘트 ${brokerPins.length}건`,
+      `2) 6대 실무 기준: ${rubricStats.label} · 5분 체험 ${state.timeAttackCompleted ? "완료" : "전"} · 추가 요청 ${state.brokerDrafts.length}건 · 화면 코멘트 ${brokerPins.length}건`,
       `3) 총평: ${state.overallComment.trim() || "(별도 총평 없음)"}`,
     ].join("\n");
 
@@ -819,15 +853,32 @@ function QaBrokerSignoffInner() {
               ① 딜카드 [30초 빠른 시작] → ② IM 상단 [발행 준비도 5/5] 칩 눌러 빈 칸 채우기 → ③ 소통함 [첫 전달 · 미팅 제안 · 방문 안내] 인사말 1초 복사 순서로 보실 수 있습니다.
             </p>
           </div>
-          <Link
-            href={appendQaParamsToHref("/broker/w/dealcards?qa=1&qaRole=broker&fresh=1", "broker")}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="broker-open-timeattack-link"
-            className="min-h-[44px] max-w-full shrink-0 inline-flex items-center justify-center rounded-xl bg-emerald-800 hover:bg-emerald-900 px-4 py-2 text-sm font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
-          >
-            ⚡ 5분 실습 바로 시작 ↗
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
+            <Link
+              href={appendQaParamsToHref("/broker/w/dealcards?qa=1&qaRole=broker&fresh=1", "broker")}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="broker-open-timeattack-link"
+              className="min-h-[44px] max-w-full inline-flex items-center justify-center rounded-xl bg-emerald-800 hover:bg-emerald-900 px-4 py-2 text-sm font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
+            >
+              ⚡ 5분 실습 바로 시작 ↗
+            </Link>
+            <button
+              type="button"
+              data-testid="broker-v6-timeattack-done-btn"
+              aria-pressed={Boolean(state.timeAttackCompleted)}
+              onClick={handleToggleTimeAttack}
+              className={`min-h-[44px] max-w-full rounded-xl border px-3.5 py-2 text-sm font-extrabold cursor-pointer whitespace-normal sm:whitespace-nowrap ${
+                state.timeAttackCompleted
+                  ? "border-emerald-800 bg-white text-emerald-950"
+                  : "border-emerald-300 bg-white/90 hover:bg-white text-emerald-950"
+              }`}
+            >
+              {state.timeAttackCompleted
+                ? "✅ 5분 체험 완료됨"
+                : "✓ 5분 체험 완료 표시"}
+            </button>
+          </div>
         </section>
 
         {/* 카드 2: 화·목 1~4회차 안건 & 기요청 12건 반영 확인표 */}
