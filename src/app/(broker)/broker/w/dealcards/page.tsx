@@ -645,6 +645,97 @@ function DealCardsWorkspaceInner() {
     autosaveRef.current = autosave;
   });
 
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const manualSyncBusyRef = useRef(false);
+  const lastAutoSyncPullAtRef = useRef(0);
+
+  const handleManualSync = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (manualSyncBusyRef.current) return;
+      manualSyncBusyRef.current = true;
+      if (!opts?.silent) setIsManualSyncing(true);
+      try {
+        if (autosaveRef.current.dirty) {
+          await autosaveRef.current.flush();
+        }
+        const res = await fetch("/api/broker/workspace/summary", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (!data?.ok || !Array.isArray(data.dealcards)) return;
+
+        const uid = currentUserIdRef.current;
+        const serverList: BuildingListItem[] = data.dealcards.map(
+          (rawSrv: BuildingListItem) => {
+            const hydrated = rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv;
+            return uid ? { ...hydrated, ownerUserId: uid } : hydrated;
+          }
+        );
+        const serverMap = new Map(serverList.map((s) => [s.id, s]));
+        const mergedNext: BuildingListItem[] = [];
+        const localMap = new Map(itemsRef.current.map((l) => [l.id, l]));
+        for (const srv of serverList) {
+          const loc = localMap.get(srv.id);
+          const keepLocal = Boolean(
+            loc &&
+              (loc.card4.card4_version || 1) > (srv.card4.card4_version || 1) &&
+              userEditedIdsRef.current.has(srv.id)
+          );
+          mergedNext.push(keepLocal ? loc! : srv);
+        }
+        for (const loc of itemsRef.current) {
+          if (!serverMap.has(loc.id) && !INITIAL_IDS.has(loc.id)) {
+            mergedNext.push(loc);
+          }
+        }
+        if (mergedNext.length > 0) {
+          itemsRef.current = mergedNext;
+          setItems(mergedNext);
+          persistItems(mergedNext, uid);
+          if (!autosaveRef.current.dirty && resolvedActiveIdRef.current) {
+            const matched = mergedNext.find((m) => m.id === resolvedActiveIdRef.current);
+            if (matched) {
+              setCurrentCard4(matched.card4);
+              setSyncedBuildingId(matched.id);
+            }
+          }
+        }
+      } catch {
+        // ignore manual sync fallback
+      } finally {
+        manualSyncBusyRef.current = false;
+        setIsManualSyncing(false);
+      }
+    },
+    [persistItems]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (/jsdom/i.test(navigator.userAgent || "")) return;
+    const pullIfIdle = () => {
+      if (document.visibilityState === "hidden") return;
+      if (autosaveRef.current.dirty) return;
+      const nowMs = Date.now();
+      if (nowMs - lastAutoSyncPullAtRef.current < 2500) return;
+      lastAutoSyncPullAtRef.current = nowMs;
+      void handleManualSync({ silent: true });
+    };
+    const handleStorage = (ev: StorageEvent) => {
+      if (!ev.key || !ev.key.startsWith(DEALCARDS_STORAGE_KEY)) return;
+      void handleManualSync({ silent: true });
+    };
+    document.addEventListener("visibilitychange", pullIfIdle);
+    window.addEventListener("focus", pullIfIdle);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      document.removeEventListener("visibilitychange", pullIfIdle);
+      window.removeEventListener("focus", pullIfIdle);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [handleManualSync]);
+
   useEffect(() => {
     if (!resolvedActiveId) return;
     if (syncedBuildingId !== resolvedActiveId) {
@@ -1646,24 +1737,41 @@ function DealCardsWorkspaceInner() {
     []
   );
 
-  const filteredDealCards = items.filter((it) => {
-    const searchable = [
-      it.title,
-      it.region,
-      it.use,
-      it.priceBand,
-      it.card4.region || "",
-      it.card4.use || "",
-      it.card4.priceBand || "",
-      it.card4.headline || "",
-      it.card4.points.join(" "),
-      it.memoText || "",
-    ]
-      .join(" ")
-      .toLowerCase();
-    const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
-    return matchesQuery && matchesDealCardPostureTab(it, postureFilter);
-  });
+  const filteredDealCards = items
+    .filter((it) => {
+      const searchable = [
+        it.title,
+        it.region,
+        it.use,
+        it.priceBand,
+        it.card4.region || "",
+        it.card4.use || "",
+        it.card4.priceBand || "",
+        it.card4.headline || "",
+        it.card4.points.join(" "),
+        it.memoText || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
+      return matchesQuery && matchesDealCardPostureTab(it, postureFilter);
+    })
+    .slice()
+    .sort((a, b) => {
+      const getTier = (it: BuildingListItem) => {
+        const isPureSample =
+          INITIAL_IDS.has(it.id) &&
+          (it.card4?.card4_version || 1) <= 1 &&
+          it.status !== "sent";
+        if (isPureSample) return 2;
+        return it.status === "sent" ? 1 : 0;
+      };
+      const tierDiff = getTier(a) - getTier(b);
+      if (tierDiff !== 0) return tierDiff;
+      const tb = Date.parse(b.updatedAt || "") || 0;
+      const ta = Date.parse(a.updatedAt || "") || 0;
+      return tb - ta;
+    });
 
   const handleDealCardPostureFilterChange = (
     nextFilter: "all" | "income" | "owner_value"
@@ -1923,6 +2031,10 @@ function DealCardsWorkspaceInner() {
         onRetrySave={() => {
           void handleFlushSave();
         }}
+        onManualSync={() => {
+          void handleManualSync();
+        }}
+        isSyncing={isManualSyncing}
         selectedBuildingId={resolvedActiveId || ""}
         selectedLabel={
           selectedMemoOnly

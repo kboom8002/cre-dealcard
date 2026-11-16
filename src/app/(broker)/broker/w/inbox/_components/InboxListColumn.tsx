@@ -67,6 +67,8 @@ export function InboxListColumn({
   onOpenNewClientModal,
   onOpenBulkImportModal,
 }: InboxListColumnProps) {
+  const [mobileExtraOpen, setMobileExtraOpen] = React.useState(false);
+
   const listControls = (
     <>
       {/* 한 줄 할 일 막대: 누르면 '할 일' 필터 적용 */}
@@ -122,12 +124,12 @@ export function InboxListColumn({
         )}
       </div>
 
-      {/* 1열 기본 필터 탭 3개: 할 일 · 열람 · 전체 고객 (IB-12 — iOS Segmented Control) */}
+      {/* 1열 기본 필터 탭 3개: 할 일 · 열람 · 전체 고객 (IB-12 — iOS Segmented Control, 동심원 12px/9px) */}
       <div
         role="tablist"
         aria-label="고객 소통함 필터"
         data-testid="inbox-filter-tabs"
-        className="flex flex-wrap gap-1 rounded-2xl border border-white/60 ios-segmented-track bg-[#767680]/[0.11] p-1"
+        className="ios-segmented-track flex flex-wrap gap-1 rounded-[12px] border border-white/60 bg-[#767680]/[0.11] p-[3px] overflow-hidden"
       >
         {(
           [
@@ -153,7 +155,7 @@ export function InboxListColumn({
               aria-selected={isSelected}
               data-testid={`inbox-filter-chip-${flt.key}`}
               onClick={() => onFilterChange(flt.key)}
-              className={`min-h-[44px] flex-1 min-w-[78px] rounded-xl px-2 py-2 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
+              className={`min-h-[44px] flex-1 min-w-[78px] rounded-[9px] px-2 py-2 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
                 isSelected
                   ? "ios-segmented-pill bg-white text-[#007AFF]"
                   : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
@@ -165,12 +167,39 @@ export function InboxListColumn({
         })}
       </div>
 
+      {/* 검색창 */}
+      <div>
+        <label htmlFor="inbox-search-input" className="sr-only">
+          고객명, 연락처, 회사명, 매물명 또는 상담 메모 검색
+        </label>
+        <input
+          id="inbox-search-input"
+          type="search"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="고객명, 연락처, 회사명, 매물 검색"
+          className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
+        />
+      </div>
+
+      {/* 모바일(1024px 미만)에서 상단 높이 절약용 접이식 토글 — DOM은 유지하고 CSS로만 접음 */}
+      <button
+        type="button"
+        data-testid="inbox-mobile-controls-toggle"
+        aria-expanded={mobileExtraOpen}
+        onClick={() => setMobileExtraOpen((prev) => !prev)}
+        className="flex lg:hidden min-h-[44px] w-full items-center justify-between rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+      >
+        <span>고객 등록 · 세부 필터 · 보기 전환</span>
+        <span aria-hidden="true">{mobileExtraOpen ? "접기 ▲" : "열기 ▼"}</span>
+      </button>
+
       {/* 구조화 CRM 세부 필터 칩: 전체 · ⭐ VIP · 매수 · 매도 · 이메일 가능 */}
       <div
         role="group"
         aria-label="고객 조건 필터"
         data-testid="inbox-crm-filter-chips"
-        className="flex flex-wrap items-center gap-1.5"
+        className={`${mobileExtraOpen ? "flex" : "hidden lg:flex"} flex-wrap items-center gap-1.5`}
       >
         {CRM_FILTER_CHIPS.map((chip) => {
           const isPressed = activeFilter === chip.key;
@@ -193,23 +222,8 @@ export function InboxListColumn({
         })}
       </div>
 
-      {/* 검색창 */}
-      <div>
-        <label htmlFor="inbox-search-input" className="sr-only">
-          고객명, 연락처, 회사명, 매물명 또는 상담 메모 검색
-        </label>
-        <input
-          id="inbox-search-input"
-          type="search"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="고객명, 연락처, 회사명, 매물 검색"
-          className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
-        />
-      </div>
-
       {/* 상단 고객 등록 액션 바 (직접 등록 + 3-Way 엑셀·명단 대량 등록) */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`${mobileExtraOpen ? "flex" : "hidden lg:flex"} flex-wrap items-center gap-2`}>
         <button
           type="button"
           onClick={onOpenBulkImportModal}
@@ -228,7 +242,9 @@ export function InboxListColumn({
         </button>
       </div>
 
-      <ListToolbar viewMode={viewMode} onViewModeChange={onViewModeChange} />
+      <div className={mobileExtraOpen ? "block" : "hidden lg:block"}>
+        <ListToolbar viewMode={viewMode} onViewModeChange={onViewModeChange} />
+      </div>
     </>
   );
 

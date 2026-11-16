@@ -39,9 +39,13 @@ function getBandWidth(priceKrw: number, bandType: PriceBandType = 'standard'): n
   return 50 * EOK;                           // 50억 (300억+)
 }
 
+function fmtInt(val: number): string {
+  return Math.trunc(val).toLocaleString('ko-KR');
+}
+
 /**
  * Helper to format a single amount in clean Korean without "원" suffix for ranges.
- * E.g., 90_0000_0000 -> "90", 100_0000_0000 -> "100" (if unit is 억).
+ * E.g., 90_0000_0000 -> "90억", 2000_0000_0000 -> "2,000억".
  */
 function formatAmountWithoutWon(val: number): string {
   if (val === 0) return '0';
@@ -51,17 +55,17 @@ function formatAmountWithoutWon(val: number): string {
   const rest = remainder % MAN;
 
   if (eokPart > 0 && manPart > 0) {
-    return `${eokPart}억 ${manPart.toLocaleString('ko-KR')}만`;
+    return `${fmtInt(eokPart)}억 ${fmtInt(manPart)}만`;
   }
   if (eokPart > 0) {
-    if (rest > 0) return `${eokPart}억 ${rest.toLocaleString('ko-KR')}`;
-    return `${eokPart}억`;
+    if (rest > 0) return `${fmtInt(eokPart)}억 ${fmtInt(rest)}`;
+    return `${fmtInt(eokPart)}억`;
   }
   if (manPart > 0) {
-    if (rest > 0) return `${manPart.toLocaleString('ko-KR')}만 ${rest.toLocaleString('ko-KR')}`;
-    return `${manPart.toLocaleString('ko-KR')}만`;
+    if (rest > 0) return `${fmtInt(manPart)}만 ${fmtInt(rest)}`;
+    return `${fmtInt(manPart)}만`;
   }
-  return rest.toLocaleString('ko-KR');
+  return fmtInt(rest);
 }
 
 /**
@@ -144,13 +148,13 @@ export function formatKrw(val: number): string {
   const parts: string[] = [];
 
   if (eokPart > 0) {
-    parts.push(`${eokPart}억`);
+    parts.push(`${fmtInt(eokPart)}억`);
   }
   if (manPart > 0) {
-    parts.push(`${manPart.toLocaleString('ko-KR')}만`);
+    parts.push(`${fmtInt(manPart)}만`);
   }
   if (rest > 0) {
-    parts.push(`${rest.toLocaleString('ko-KR')}원`);
+    parts.push(`${fmtInt(rest)}원`);
   } else if (parts.length > 0) {
     // End with Korean unit (e.g. 100억 or 1억 5,000만)
   }
@@ -159,11 +163,44 @@ export function formatKrw(val: number): string {
 }
 
 /**
+ * Normalizes a manual price-band string (e.g. "2000~2010억" -> "2,000~2,010억",
+ * "1500억" -> "1,500억", "1500억 이상" -> "1,500억 이상") without changing
+ * the user's intended range or wording.
+ */
+export function normalizePriceBandInput(raw?: string | null): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes('협의') || trimmed.includes('미정')) return trimmed;
+
+  const stripped = trimmed.replace(/(\d),(?=\d{3}(?:\D|$))/g, '$1');
+
+  const rangeMatch = stripped.match(/^(\d+)\s*(?:억)?\s*([~-])\s*(\d+)\s*억(.*)$/);
+  if (rangeMatch) {
+    const minNum = parseInt(rangeMatch[1], 10);
+    const sep = rangeMatch[2];
+    const maxNum = parseInt(rangeMatch[3], 10);
+    const tail = rangeMatch[4] ?? '';
+    return `${fmtInt(minNum)}${sep}${fmtInt(maxNum)}억${tail}`;
+  }
+
+  const singleSuffixMatch = stripped.match(/^(\d+)\s*억(.*)$/);
+  if (singleSuffixMatch) {
+    const num = parseInt(singleSuffixMatch[1], 10);
+    const tail = singleSuffixMatch[2] ?? '';
+    return `${fmtInt(num)}억${tail}`;
+  }
+
+  return trimmed;
+}
+
+/**
  * Parses legacy band string safely into numeric range and normalized label.
  * NEVER throws runtime errors.
  * Examples:
  * - "90억대" -> { minKrw: 9000000000, maxKrw: 10000000000, label: "90~100억" }
  * - "50~60억원대", "50~60억" -> { minKrw: 5000000000, maxKrw: 6000000000, label: "50~60억" }
+ * - "2000~2010억" -> { minKrw: 200000000000, maxKrw: 201000000000, label: "2,000~2,010억" }
  * - "100억 이상" -> { minKrw: 10000000000, maxKrw: 15000000000, label: "100억 이상" }
  * - "30억 미만" -> { minKrw: 0, maxKrw: 3000000000, label: "30억 미만" }
  * - "가격 협의", null, "" -> { minKrw: 0, maxKrw: 0, label: "가격 협의" }
@@ -180,7 +217,7 @@ export function parseLegacyBand(raw?: string | null): ParsedPriceBand {
     return { minKrw: 0, maxKrw: 0, label: '가격 협의' };
   }
 
-  // Pattern 1: Range like "50~60억", "50~60억원대", "50-60억"
+  // Pattern 1: Range like "50~60억", "50~60억원대", "50-60억", "2000~2010억"
   const rangeMatch = text.match(/(\d+)\s*(?:억)?\s*[~-]\s*(\d+)\s*억/);
   if (rangeMatch) {
     const minEok = parseInt(rangeMatch[1], 10);
@@ -188,7 +225,7 @@ export function parseLegacyBand(raw?: string | null): ParsedPriceBand {
     return {
       minKrw: minEok * EOK,
       maxKrw: maxEok * EOK,
-      label: `${minEok}~${maxEok}억`,
+      label: `${fmtInt(minEok)}~${fmtInt(maxEok)}억`,
     };
   }
 
@@ -207,25 +244,25 @@ export function parseLegacyBand(raw?: string | null): ParsedPriceBand {
     };
   }
 
-  // Pattern 3: "100억 이상"
+  // Pattern 3: "100억 이상", "2000억 이상"
   const aboveMatch = text.match(/(\d+)\s*억(?:원)?\s*이상/);
   if (aboveMatch) {
     const minEok = parseInt(aboveMatch[1], 10);
     return {
       minKrw: minEok * EOK,
       maxKrw: Math.round(minEok * 1.5) * EOK,
-      label: `${minEok}억 이상`,
+      label: `${fmtInt(minEok)}억 이상`,
     };
   }
 
-  // Pattern 4: "30억 미만"
+  // Pattern 4: "30억 미만", "2000억 미만"
   const underMatch = text.match(/(\d+)\s*억(?:원)?\s*미만/);
   if (underMatch) {
     const maxEok = parseInt(underMatch[1], 10);
     return {
       minKrw: 0,
       maxKrw: maxEok * EOK,
-      label: `${maxEok}억 미만`,
+      label: `${fmtInt(maxEok)}억 미만`,
     };
   }
 

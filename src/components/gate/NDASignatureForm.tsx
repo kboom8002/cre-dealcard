@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatKrPhoneInput } from "@/lib/magazine/phone-input";
 
 export interface NDASignatureFormProps {
   requestId: string;
@@ -130,7 +131,7 @@ export default function NDASignatureForm({
             placeholder="010-0000-0000"
             className="w-full bg-[#0b0f19] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-colors"
             value={signerPhone}
-            onChange={(e) => setSignerPhone(e.target.value)}
+            onChange={(e) => setSignerPhone(formatKrPhoneInput(e.target.value))}
             disabled={isSubmitting}
             data-testid="input-signer-phone"
           />

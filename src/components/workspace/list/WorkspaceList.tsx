@@ -42,7 +42,7 @@ export function WorkspaceListPanel({
     <div data-testid={testId} className={`-m-3 flex min-h-full flex-col ${className}`}>
       <div
         data-testid="ws-list-control-zone"
-        className="sticky -top-3 z-10 space-y-2.5 border-b-2 border-slate-300 bg-white px-3 pb-3 pt-3 shadow-[0_8px_14px_-10px_rgba(15,23,42,0.28)]"
+        className="lg:sticky lg:-top-3 z-10 -mx-3 -mt-3 mb-2 space-y-2.5 border-b-2 border-slate-300 bg-white px-3 pb-3 pt-3 shadow-[0_8px_14px_-10px_rgba(15,23,42,0.28)]"
       >
         {controls}
       </div>
@@ -85,7 +85,7 @@ export function ListViewToggle({ mode, onChange }: ListViewToggleProps) {
         role="group"
         aria-label="목록 보기 방식"
         data-testid="ws-list-view-toggle"
-        className="inline-flex max-w-full items-center rounded-lg border border-slate-300 bg-slate-100 p-0.5"
+        className="inline-flex max-w-full items-center ios-segmented-track rounded-[12px] border border-slate-300 bg-slate-100 p-[3px] overflow-hidden"
       >
         {options.map((opt) => {
           const active = mode === opt.id;
@@ -96,9 +96,9 @@ export function ListViewToggle({ mode, onChange }: ListViewToggleProps) {
               aria-pressed={active}
               data-testid={`ws-list-view-${opt.id}`}
               onClick={() => onChange(opt.id)}
-              className={`min-h-[44px] rounded-md px-2.5 sm:px-3 text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
+              className={`min-h-[44px] rounded-[9px] px-2.5 sm:px-3 text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
                 active
-                  ? "bg-white text-[#0040DD] shadow-[0_1px_3px_rgba(15,23,42,0.18)]"
+                  ? "ios-segmented-pill bg-white text-[#0040DD] shadow-[0_1px_3px_rgba(15,23,42,0.18)]"
                   : "text-[#3A3A3C] hover:text-[#1D1D1F]"
               }`}
             >

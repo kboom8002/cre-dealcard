@@ -42,6 +42,7 @@ import {
   IM_STORAGE_KEY,
   INITIAL_IM_LIST,
   SAMPLE_SEED_IDS,
+  sortImWorkspaceItems,
   UUID_REGEX,
   buildBasicImSlides,
   buildFallbackImHighlights,
@@ -744,15 +745,114 @@ function ImWorkspaceInner() {
     []
   );
 
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const manualSyncBusyRef = useRef(false);
+  const lastAutoSyncPullAtRef = useRef(0);
+  const autosaveRef = useRef(autosave);
+  useEffect(() => {
+    autosaveRef.current = autosave;
+  });
+
+  const handleManualSync = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (manualSyncBusyRef.current) return;
+      manualSyncBusyRef.current = true;
+      if (!opts?.silent) setIsManualSyncing(true);
+      try {
+        if (autosaveRef.current.dirty) {
+          await autosaveRef.current.flush();
+        }
+        const res = await fetch("/api/broker/workspace/summary", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) return;
+        const serverList =
+          Array.isArray(data.ims) && data.ims.length > 0
+            ? (data.ims as ImListItem[])
+            : Array.isArray(data.imList) && data.imList.length > 0
+            ? (data.imList as ImListItem[])
+            : [];
+        if (serverList.length === 0) return;
+
+        const uid = currentUserIdRef.current;
+        const serverMap = new Map(serverList.map((s) => [s.id, s]));
+        const baseLocal = itemsRef.current;
+        const localMap = new Map(baseLocal.map((l) => [l.id, l]));
+        const nextList: ImListItem[] = [];
+        for (const srv of serverList) {
+          const loc = localMap.get(srv.id);
+          const srvTime = Date.parse(srv.updatedAt || "") || 0;
+          const locTime = Date.parse(loc?.updatedAt || "") || 0;
+          const keepLocal = Boolean(
+            loc && (loc.isDirty || loc.hasUnpublishedEdits || locTime > srvTime)
+          );
+          nextList.push(keepLocal ? loc! : { ...srv, ...(uid ? { ownerUserId: uid } : {}) });
+        }
+        for (const loc of baseLocal) {
+          if (!serverMap.has(loc.id) && !SAMPLE_SEED_IDS.has(loc.id)) {
+            nextList.push(loc);
+          }
+        }
+        const sortedNext = sortImWorkspaceItems(nextList);
+        itemsRef.current = sortedNext;
+        setItems(sortedNext);
+        persistImItems(sortedNext, uid);
+        if (!autosaveRef.current.dirty) {
+          const updatedSelected = sortedNext.find(
+            (it) => it.id === selectedIdRef.current
+          );
+          if (updatedSelected && !updatedSelected.isDirty) {
+            applyItemToFormState(updatedSelected);
+          }
+        }
+      } catch {
+        // ignore manual sync network fallback
+      } finally {
+        manualSyncBusyRef.current = false;
+        setIsManualSyncing(false);
+      }
+    },
+    [applyItemToFormState, persistImItems]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (/jsdom/i.test(navigator.userAgent || "")) return;
+    const pullIfIdle = () => {
+      if (document.visibilityState === "hidden") return;
+      if (autosaveRef.current.dirty) return;
+      const nowMs = Date.now();
+      if (nowMs - lastAutoSyncPullAtRef.current < 2500) return;
+      lastAutoSyncPullAtRef.current = nowMs;
+      void handleManualSync({ silent: true });
+    };
+    const handleStorage = (ev: StorageEvent) => {
+      if (!ev.key || !ev.key.startsWith(IM_STORAGE_KEY)) return;
+      void handleManualSync({ silent: true });
+    };
+    document.addEventListener("visibilitychange", pullIfIdle);
+    window.addEventListener("focus", pullIfIdle);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      document.removeEventListener("visibilitychange", pullIfIdle);
+      window.removeEventListener("focus", pullIfIdle);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [handleManualSync]);
+
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const displayTitle = item.title || "새 IM";
-      const matchQuery =
-        !searchQuery ||
-        displayTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.address || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchQuery && matchesImPostureTab(item, postureFilter);
-    });
+    return sortImWorkspaceItems(
+      items.filter((item) => {
+        const displayTitle = item.title || "새 IM";
+        const matchQuery =
+          !searchQuery ||
+          displayTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (item.address || "").toLowerCase().includes(searchQuery.toLowerCase());
+        return matchQuery && matchesImPostureTab(item, postureFilter);
+      })
+    );
   }, [items, searchQuery, postureFilter, matchesImPostureTab]);
 
   const handleImPostureFilterChange = useCallback(
@@ -2519,6 +2619,10 @@ function ImWorkspaceInner() {
         onRetrySave={() => {
           void autosave.flush();
         }}
+        onManualSync={() => {
+          void handleManualSync();
+        }}
+        isSyncing={isManualSyncing}
         selectedBuildingId={selectedId}
         selectedLabel={imTitle || currentItem?.title || "새 IM"}
         onBuildingSelect={(id) => selectImItem(id)}

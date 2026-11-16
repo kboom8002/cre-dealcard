@@ -7,6 +7,7 @@ import { useOnboarding } from '@/lib/onboarding/onboarding-state';
 import type { ExpertSpecialty, Region } from '@/lib/onboarding/onboarding-types';
 import { SPECIALTY_LABELS, REGION_LABELS } from '@/lib/onboarding/onboarding-types';
 import { trackOnboardingEvent } from '@/lib/onboarding/onboarding-tracker';
+import { formatKrPhoneInput } from '@/lib/magazine/phone-input';
 import { hapticMedium, hapticLight } from './HapticFeedback';
 
 interface StageLoginProps {
@@ -192,7 +193,7 @@ export function StageLogin({ onComplete, onSkip }: StageLoginProps) {
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
                     placeholder="010-1234-5678"
                     className="w-full rounded-xl border border-neutral-700 bg-neutral-900 py-3.5 pl-10 pr-4 text-sm text-white placeholder-neutral-600 focus:border-amber-500/50 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   />

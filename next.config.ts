@@ -96,7 +96,6 @@ const nextConfig: NextConfig = {
       "./node_modules/typescript/**",
       "./node_modules/vitest/**",
       "./CREDEAL_IM_MODERNIZATION/**",
-      "./public/test-images/**",
       "./public/vibe-bg/**",
     ],
   },
@@ -104,6 +103,7 @@ const nextConfig: NextConfig = {
     // OG/이미지 라우트가 fs.readFile 로 읽는 번들 한글 폰트(Noto Sans KR, OFL) — src/lib/magazine/og-fonts.ts
     "/api/og/**": ["./public/fonts/**"],
     "/api/magazine/**": ["./public/fonts/**"],
+    "/api/public/qa-sample-kit": ["./public/test-images/**", "./public/CREDEAL_rentroll_template_v1.5.xlsx"],
     "/api/**": ["./credeal/ssot/**"],
   },
   async redirects() {

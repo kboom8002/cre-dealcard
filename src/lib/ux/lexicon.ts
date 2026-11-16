@@ -73,7 +73,7 @@ export const TERMS = {
   sendKakao: '카톡으로 보내기',
   copyLink: '링크 복사',
   recipientCallCta: '전화하기',
-  recipientImRequestCta: 'IM 요청하기',
+  recipientImRequestCta: '상세 제안서(IM) 요청',
   previewBubbleTab: '카톡 말풍선',
   previewRecipientTab: '받는 화면',
   statusSent: '보냄',

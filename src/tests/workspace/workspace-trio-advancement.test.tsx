@@ -112,7 +112,7 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       );
       expect(mobileDetailScroll).not.toBeNull();
       expect(mobileDetailScroll?.textContent).toContain('전화하기');
-      expect(mobileDetailScroll?.textContent).toContain('IM 요청하기');
+      expect(mobileDetailScroll?.textContent).toContain('상세 제안서(IM) 요청');
 
       // Verify single-line title elements exist
       const singleLineTitles = container.querySelectorAll('[data-single-line-title="true"]');

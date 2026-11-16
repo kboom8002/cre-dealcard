@@ -268,6 +268,9 @@ function MagazineEditorWorkspace() {
   );
   const [isWorkspaceHydrated, setIsWorkspaceHydrated] = useState<boolean>(false);
   const [hasUserEditedDraft, setHasUserEditedDraft] = useState<boolean>(false);
+  const [isManualSyncing, setIsManualSyncing] = useState<boolean>(false);
+  const manualSyncBusyRef = useRef<boolean>(false);
+  const lastAutoSyncPullAtRef = useRef<number>(0);
 
   const hydratedRef = useRef(false);
   const restoredLocalIssuesRef = useRef(false);
@@ -3557,6 +3560,67 @@ function MagazineEditorWorkspace() {
     </button>
   );
 
+  const handleManualSync = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (manualSyncBusyRef.current) return;
+      manualSyncBusyRef.current = true;
+      if (!opts?.silent) setIsManualSyncing(true);
+      try {
+        if (!isPublished && isUuidLike(editionId)) {
+          await autosave.saveNow();
+        }
+        const res = await fetch("/api/magazine/editions?broker_id=me&type=all&limit=50", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const edJson = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        if (!edJson) return;
+        if (typeof edJson.subscriberCount === "number") {
+          setSubscriberCount(edJson.subscriberCount);
+        }
+        if (typeof edJson.highInterestCount === "number") {
+          setHighInterestCount(edJson.highInterestCount);
+        }
+        if (Array.isArray(edJson.editions)) {
+          const currentSlug = brokerSlug || "";
+          const mapped: SavedEditionSummary[] = edJson.editions
+            .filter(
+              (row): row is Record<string, unknown> => !!row && typeof row === "object"
+            )
+            .map((row) =>
+              mapServerEditionRowToSummary(row, currentSlug, buildSafePublicUrl)
+            );
+          setEditions(mapped);
+        }
+      } catch {
+        // ignore manual sync error
+      } finally {
+        manualSyncBusyRef.current = false;
+        setIsManualSyncing(false);
+      }
+    },
+    [autosave, brokerSlug, editionId, isPublished]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (/jsdom/i.test(navigator.userAgent || "")) return;
+    const pullIfIdle = () => {
+      if (document.visibilityState === "hidden") return;
+      if (savingLockRef.current || saveState === "saving") return;
+      const nowMs = Date.now();
+      if (nowMs - lastAutoSyncPullAtRef.current < 2500) return;
+      lastAutoSyncPullAtRef.current = nowMs;
+      void handleManualSync({ silent: true });
+    };
+    document.addEventListener("visibilitychange", pullIfIdle);
+    window.addEventListener("focus", pullIfIdle);
+    return () => {
+      document.removeEventListener("visibilitychange", pullIfIdle);
+      window.removeEventListener("focus", pullIfIdle);
+    };
+  }, [handleManualSync, saveState]);
+
   return (
     <div data-local-draft-mode={localStorageMode}>
       <WorkspaceShell
@@ -3574,6 +3638,10 @@ function MagazineEditorWorkspace() {
           }
           void handleServerSave({ saveAsDraft: !isPublished });
         }}
+        onManualSync={() => {
+          void handleManualSync();
+        }}
+        isSyncing={isManualSyncing}
         primaryActionSlot={primaryActionSlot}
         listSlot={listSlot}
         editorSlot={editorSlot}

@@ -69,6 +69,43 @@ async function tryReadPublicFile(relPath: string): Promise<Buffer | null> {
   }
 }
 
+async function buildSyntheticBuildingPhotoJpeg(
+  label: string,
+  accentHex: string
+): Promise<Buffer> {
+  const safeLabel = label.replace(/[<>&"']/g, "");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#0F172A"/>
+        <stop offset="100%" stop-color="${accentHex}"/>
+      </linearGradient>
+    </defs>
+    <rect width="800" height="600" fill="url(#bg)"/>
+    <rect x="240" y="110" width="320" height="400" rx="12" fill="#E2E8F0" fill-opacity="0.18" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="4"/>
+    <rect x="275" y="150" width="70" height="55" rx="6" fill="#F8FAFC" fill-opacity="0.4"/>
+    <rect x="365" y="150" width="70" height="55" rx="6" fill="#F8FAFC" fill-opacity="0.4"/>
+    <rect x="455" y="150" width="70" height="55" rx="6" fill="#F8FAFC" fill-opacity="0.4"/>
+    <rect x="275" y="230" width="70" height="55" rx="6" fill="#F8FAFC" fill-opacity="0.4"/>
+    <rect x="365" y="230" width="70" height="55" rx="6" fill="#F8FAFC" fill-opacity="0.4"/>
+    <rect x="455" y="230" width="70" height="55" rx="6" fill="#F8FAFC" fill-opacity="0.4"/>
+    <text x="400" y="555" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="24" font-weight="bold">CREDEAL SAMPLE - ${safeLabel}</text>
+  </svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 84 }).toBuffer();
+}
+
+async function resolveSamplePhotoBuffer(
+  candidates: readonly string[],
+  fallbackLabel: string,
+  accentHex: string
+): Promise<Buffer> {
+  for (const rel of candidates) {
+    const found = await tryReadPublicFile(rel);
+    if (found && found.byteLength > 0) return found;
+  }
+  return buildSyntheticBuildingPhotoJpeg(fallbackLabel, accentHex);
+}
+
 export async function GET(req: NextRequest) {
   const format = (req.nextUrl.searchParams.get("format") || "zip").trim().toLowerCase();
 
@@ -101,7 +138,7 @@ export async function GET(req: NextRequest) {
   zip.file(
     "README.txt",
     [
-      "CRE DealCard 검수용 표준 샘플 키트 (v4.0)",
+      "CRE DealCard 검수용 표준 샘플 키트 (v5.1)",
       "============================================",
       "",
       "1. memos/",
@@ -114,7 +151,7 @@ export async function GET(req: NextRequest) {
       "   - credeal_sample_rentroll.csv         : 바로 업로드 가능한 샘플 CSV (UTF-8 BOM)",
       "",
       "3. photos/",
-      "   - 01_exterior.jpg, 02_aerial.jpg, 03_entrance.jpg, 04_lobby.jpg",
+      "   - 01_exterior.jpg, 02_aerial.jpg, 03_entrance.jpg, 04_lobby.jpg, 05_parking.jpg",
       "   - 01_exterior.webp, 01_exterior.png (JPG/WebP/PNG 호환성 교차 검수용)",
       "",
       "4. contacts/",
@@ -134,20 +171,58 @@ export async function GET(req: NextRequest) {
     zip.file("rentroll/CREDEAL_rentroll_template_v1.5.xlsx", xlsxBuf);
   }
 
-  const photoNames = [
-    "test-images/01_exterior.jpg",
-    "test-images/02_aerial.jpg",
-    "test-images/03_entrance.jpg",
-    "test-images/04_lobby.jpg",
+  const photoSpecs: ReadonlyArray<{
+    outName: string;
+    candidates: readonly string[];
+    label: string;
+    accentHex: string;
+  }> = [
+    {
+      outName: "01_exterior.jpg",
+      candidates: ["test-images/dangsan/01_exterior.jpg", "test-images/01_exterior.jpg"],
+      label: "01 Exterior",
+      accentHex: "#1D4ED8",
+    },
+    {
+      outName: "02_aerial.jpg",
+      candidates: ["test-images/dangsan/02_aerial.jpg", "test-images/02_aerial.jpg"],
+      label: "02 Aerial",
+      accentHex: "#0369A1",
+    },
+    {
+      outName: "03_entrance.jpg",
+      candidates: ["test-images/dangsan/03_entrance.jpg", "test-images/03_entrance.jpg"],
+      label: "03 Entrance",
+      accentHex: "#0F766E",
+    },
+    {
+      outName: "04_lobby.jpg",
+      candidates: ["test-images/dangsan/04_lobby.jpg", "test-images/04_lobby.jpg"],
+      label: "04 Lobby",
+      accentHex: "#4338CA",
+    },
+    {
+      outName: "05_parking.jpg",
+      candidates: [
+        "test-images/dangsan/07_parking.jpg",
+        "test-images/dangsan/05_parking.jpg",
+        "test-images/07_parking.jpg",
+        "test-images/05_parking.jpg",
+      ],
+      label: "05 Parking",
+      accentHex: "#334155",
+    },
   ];
 
-  for (const rel of photoNames) {
-    const buf = await tryReadPublicFile(rel);
-    if (!buf) continue;
-    const baseName = path.basename(rel);
-    zip.file(`photos/${baseName}`, buf);
+  for (const spec of photoSpecs) {
+    const buf = await resolveSamplePhotoBuffer(
+      spec.candidates,
+      spec.label,
+      spec.accentHex
+    );
+    zip.file(`photos/${spec.outName}`, buf);
 
-    if (baseName === "01_exterior.jpg") {
+    if (spec.outName === "01_exterior.jpg") {
       try {
         const webpBuf = await sharp(buf).webp({ quality: 82 }).toBuffer();
         zip.file("photos/01_exterior.webp", webpBuf);

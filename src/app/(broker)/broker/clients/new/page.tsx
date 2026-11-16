@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
+import { formatKrPhoneInput } from '@/lib/magazine/phone-input';
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -165,7 +166,7 @@ export default function NewClientPage() {
               <input
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
                 className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors"
                 placeholder="010-0000-0000"
                 id="client-phone"

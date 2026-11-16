@@ -144,7 +144,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       const primaryBtn = container.querySelector(
         '[data-testid="public-dealcard-im-request-btn"]'
       ) as HTMLButtonElement;
-      expect(primaryBtn.textContent).toContain("IM 요청하기");
+      expect(primaryBtn.textContent).toContain("상세 제안서(IM) 요청");
 
       await act(async () => {
         primaryBtn.click();
@@ -237,7 +237,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       const submittedView = container.querySelector('[data-testid="contact-gate-submitted"]');
       expect(submittedView).not.toBeNull();
       expect(submittedView?.textContent).toContain(
-        "담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처로 전용 링크를 안내해 드립니다."
+        "담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처(010-3333-4444)로 전용 링크를 안내해 드립니다."
       );
       // tel: call CTA rendered, preview button (/im-lite redirect trigger) omitted
       const callLink = container.querySelector('[data-testid="contact-gate-call-btn"]') as HTMLAnchorElement;

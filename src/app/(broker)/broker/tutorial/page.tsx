@@ -27,6 +27,27 @@ function BrokerTutorialInner() {
   const [extraLargeText, setExtraLargeText] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const [activeStepByMod, setActiveStepByMod] = useState<Record<string, number>>({});
+  const [stepViewMode, setStepViewMode] = useState<"interactive" | "all">("interactive");
+  const [videoSpeed, setVideoSpeed] = useState<0.5 | 0.65 | 1>(0.65);
+
+  const applyVideoSpeed = (nextSpeed: 0.5 | 0.65 | 1) => {
+    setVideoSpeed(nextSpeed);
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("video").forEach((v) => {
+        try {
+          v.playbackRate = nextSpeed;
+        } catch {
+          // ignore media playbackRate restriction
+        }
+      });
+    }
+  };
+
+  const setModuleActiveStep = (modId: string, nextIdx: number, totalSteps: number) => {
+    const clamped = Math.max(0, Math.min(totalSteps - 1, nextIdx));
+    setActiveStepByMod((prev) => ({ ...prev, [modId]: clamped }));
+  };
 
   const toggleChecklistItem = (id: string) => {
     setCheckedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -276,136 +297,289 @@ function BrokerTutorialInner() {
                 </ul>
               </div>
 
-              {/* 따라하기 동영상 플레이어 (인쇄 시 숨김) */}
+              {/* 따라하기 동영상 플레이어 + 60대 맞춤형 재생속도 제어 (기본 0.65x 천천히) */}
               {mod.steps.length > 0 && (
                 <div className="rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 sm:p-5 space-y-3 print:hidden">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[16px] font-extrabold text-slate-900">
                       {mod.videoTitle}
                     </p>
-                    <a
-                      href={mod.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[14px] font-bold text-blue-700 hover:underline"
-                    >
-                      새 창에서 크게 틀기 ↗
-                    </a>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div
+                        role="group"
+                        aria-label="동영상 재생 속도"
+                        className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-300 bg-white p-1"
+                      >
+                        {(
+                          [
+                            { rate: 0.5, label: "🐢 아주 천천히 0.5x" },
+                            { rate: 0.65, label: "🚶 천천히 0.65x (기본)" },
+                            { rate: 1, label: "▶ 보통 1.0x" },
+                          ] as const
+                        ).map((opt) => {
+                          const isSpeedActive = videoSpeed === opt.rate;
+                          return (
+                            <button
+                              key={opt.rate}
+                              type="button"
+                              data-testid={`tutorial-video-speed-${mod.id}-${opt.rate}`}
+                              aria-pressed={isSpeedActive}
+                              onClick={() => applyVideoSpeed(opt.rate)}
+                              className={`min-h-[40px] rounded-lg px-2.5 text-[14px] font-extrabold cursor-pointer transition ${
+                                isSpeedActive
+                                  ? "bg-blue-700 text-white shadow-xs"
+                                  : "bg-slate-50 text-slate-800 hover:bg-slate-100"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <a
+                        href={mod.videoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[14px] font-bold text-blue-700 hover:underline whitespace-nowrap"
+                      >
+                        새 창에서 크게 틀기 ↗
+                      </a>
+                    </div>
                   </div>
                   <video
                     controls
                     preload="none"
+                    data-default-playback-rate={videoSpeed}
+                    onLoadedMetadata={(e) => {
+                      try {
+                        e.currentTarget.playbackRate = videoSpeed;
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    onPlay={(e) => {
+                      try {
+                        e.currentTarget.playbackRate = videoSpeed;
+                      } catch {
+                        // ignore
+                      }
+                    }}
                     className="w-full max-h-[520px] rounded-xl border border-slate-300 bg-slate-900 shadow-inner"
                     src={mod.videoUrl}
                   >
+                    <track kind="captions" srcLang="ko" label="한국어 안내" />
                     브라우저가 동영상을 지원하지 않습니다.
                   </video>
                 </div>
               )}
 
-              {/* 스텝별 상세 카드 목록 */}
+              {/* 스텝별 인터랙티브 단계 내비게이터 (기본 1단계씩 크게 보기 · 인쇄 시 전체 자동 펼침) */}
               {mod.steps.length > 0 && (
-                <div className="space-y-8 pt-2">
-                  {mod.steps.map((step) => (
+                <div className="space-y-5 pt-2">
+                  {!isPrintMode && (
                     <div
-                      key={step.id}
-                      id={step.id}
-                      className="rounded-2xl border-2 border-slate-200 bg-[#F8FAFC] p-5 sm:p-6 space-y-5 break-inside-avoid"
+                      data-testid={`tutorial-interactive-nav-${mod.id}`}
+                      className="rounded-2xl border-2 border-blue-200 bg-blue-50/60 p-4 space-y-3 print:hidden"
                     >
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-[16px]">
-                          {step.stepNumber}
-                        </span>
-                        <h3 className="text-[20px] sm:text-[22px] font-black text-slate-900">
-                          {step.title}
-                        </h3>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[16px] font-black text-blue-950">
+                          👆 단계 번호를 누르거나 아래 [다음 단계 ▶] 버튼으로 1단계씩 크게 따라해 보세요 (총 {mod.steps.length}단계)
+                        </p>
+                        <button
+                          type="button"
+                          data-testid={`tutorial-view-mode-${mod.id}`}
+                          onClick={() =>
+                            setStepViewMode((prev) =>
+                              prev === "interactive" ? "all" : "interactive"
+                            )
+                          }
+                          className="min-h-[44px] rounded-xl border border-blue-300 bg-white hover:bg-blue-100 px-3.5 text-[14px] font-extrabold text-blue-900 cursor-pointer whitespace-nowrap"
+                        >
+                          {stepViewMode === "interactive"
+                            ? "📃 전체 단계 한꺼번에 펼치기"
+                            : "👆 1단계씩 크게 따라하기 (기본)"}
+                        </button>
                       </div>
 
-                      {/* 캡처 이미지 */}
-                      <figure className="space-y-2">
-                        <div className="overflow-hidden rounded-2xl border-2 border-slate-300 bg-white shadow-sm">
-                          <img
-                            src={step.imageUrl}
-                            alt={step.imageCaption}
-                            className="w-full h-auto object-contain max-h-[680px] mx-auto"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </div>
-                        <figcaption className="text-[14px] font-bold text-slate-600 text-center px-2">
-                          ▲ [화면 안내] {step.imageCaption}
-                        </figcaption>
-                      </figure>
+                      <div className="flex flex-wrap gap-2">
+                        {mod.steps.map((step, stepIdx) => {
+                          const activeIdx = activeStepByMod[mod.id] ?? 0;
+                          const isCurrent =
+                            stepViewMode === "interactive" && activeIdx === stepIdx;
+                          return (
+                            <button
+                              key={`pill-${step.id}`}
+                              type="button"
+                              data-testid={`tutorial-step-pill-${step.id}`}
+                              aria-pressed={isCurrent}
+                              onClick={() => {
+                                setStepViewMode("interactive");
+                                setModuleActiveStep(mod.id, stepIdx, mod.steps.length);
+                              }}
+                              className={`min-h-[44px] inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[15px] font-extrabold cursor-pointer transition ${
+                                isCurrent
+                                  ? "border-amber-600 bg-amber-500 text-slate-950 shadow-sm"
+                                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                              }`}
+                            >
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white text-[13px] font-black">
+                                {stepIdx + 1}
+                              </span>
+                              <span>{step.stepNumber}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-                      {/* 설명 박스: 어디를 누르나요? / 무엇이 바뀌나요? / 왜 중요한가요? / 자주 하는 실수 / 복사 예시 */}
-                      <div className="grid grid-cols-1 gap-3.5">
-                        <div className="rounded-xl border border-blue-200 bg-white p-4">
-                          <p className="text-[15px] font-extrabold text-blue-800 mb-1">
-                            👆 1. 어디를 누르거나 입력하나요?
-                          </p>
-                          <p className="text-slate-900 font-medium whitespace-pre-line">
-                            {step.whereToClick}
-                          </p>
+                  {mod.steps.map((step, stepIdx) => {
+                    const activeIdx = activeStepByMod[mod.id] ?? 0;
+                    const isFocused =
+                      isPrintMode ||
+                      stepViewMode === "all" ||
+                      activeIdx === stepIdx;
+                    return (
+                      <div
+                        key={step.id}
+                        id={step.id}
+                        data-testid={`tutorial-step-card-${step.id}`}
+                        className={`${
+                          isFocused ? "block" : "hidden print:block"
+                        } rounded-2xl border-2 border-slate-200 bg-[#F8FAFC] p-5 sm:p-6 space-y-5 break-inside-avoid`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-[16px]">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white text-[14px] font-black">
+                                {stepIdx + 1}
+                              </span>
+                              <span>{step.stepNumber}</span>
+                            </span>
+                            <h3 className="text-[20px] sm:text-[22px] font-black text-slate-900">
+                              {step.title}
+                            </h3>
+                          </div>
+                          <span className="rounded-full bg-slate-900 px-3 py-1 text-[13px] font-extrabold text-white">
+                            {stepIdx + 1} / {mod.steps.length} 단계
+                          </span>
                         </div>
 
-                        <div className="rounded-xl border border-emerald-200 bg-white p-4">
-                          <p className="text-[15px] font-extrabold text-emerald-800 mb-1">
-                            ✅ 2. 화면에서 무엇이 바뀌나요?
-                          </p>
-                          <p className="text-slate-900 font-medium whitespace-pre-line">
-                            {step.whatChanges}
-                          </p>
-                        </div>
+                        {/* 캡처 이미지 + v5 라이트 테마 핵심 위치 하이라이트 바 */}
+                        <figure className="space-y-2.5">
+                          <div className="overflow-hidden rounded-2xl border-2 border-slate-300 bg-white shadow-sm">
+                            <img
+                              src={step.imageUrl}
+                              alt={step.imageCaption}
+                              className="w-full h-auto object-contain max-h-[680px] mx-auto"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                          <figcaption className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-bold text-slate-700 text-center">
+                            ▲ [화면 안내 {stepIdx + 1}/{mod.steps.length}] {step.imageCaption}
+                          </figcaption>
+                        </figure>
 
-                        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-                          <p className="text-[15px] font-extrabold text-amber-900 mb-1">
-                            💡 3. 왜 이 기능이 중요한가요? (중개 실무 포인트)
-                          </p>
-                          <p className="text-slate-900 font-medium whitespace-pre-line">
-                            {step.whyItMatters}
-                          </p>
-                          {step.tip && (
-                            <p className="mt-2 pt-2 border-t border-amber-200/80 text-[15px] font-bold text-amber-950">
-                              📌 따라하기 꿀팁: {step.tip}
+                        {/* 설명 박스: 어디를 누르나요? / 무엇이 바뀌나요? / 왜 중요한가요? / 자주 하는 실수 / 복사 예시 */}
+                        <div className="grid grid-cols-1 gap-3.5">
+                          <div className="rounded-xl border border-blue-200 bg-white p-4">
+                            <p className="text-[15px] font-extrabold text-blue-800 mb-1">
+                              👆 1. 어디를 누르거나 입력하나요?
                             </p>
+                            <p className="text-slate-900 font-medium whitespace-pre-line">
+                              {step.whereToClick}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                            <p className="text-[15px] font-extrabold text-emerald-800 mb-1">
+                              ✅ 2. 화면에서 무엇이 바뀌나요?
+                            </p>
+                            <p className="text-slate-900 font-medium whitespace-pre-line">
+                              {step.whatChanges}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                            <p className="text-[15px] font-extrabold text-amber-900 mb-1">
+                              💡 3. 왜 이 기능이 중요한가요? (중개 실무 포인트)
+                            </p>
+                            <p className="text-slate-900 font-medium whitespace-pre-line">
+                              {step.whyItMatters}
+                            </p>
+                            {step.tip && (
+                              <p className="mt-2 pt-2 border-t border-amber-200/80 text-[15px] font-bold text-amber-950">
+                                📌 따라하기 꿀팁: {step.tip}
+                              </p>
+                            )}
+                          </div>
+
+                          {step.commonMistake && (
+                            <div className="rounded-xl border border-rose-300 bg-rose-50/70 p-4">
+                              <p className="text-[15px] font-extrabold text-rose-900 mb-1">
+                                ⚠️ 4. 자주 하시는 실수 & 안심 예방법
+                              </p>
+                              <p className="text-slate-900 font-medium whitespace-pre-line">
+                                {step.commonMistake}
+                              </p>
+                            </div>
+                          )}
+
+                          {step.copySample && (
+                            <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-[15px] font-extrabold text-indigo-950">
+                                  📋 바로 복사해서 따라 해보는 실전 문구 예시
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyText(step.id, step.copySample!.text)}
+                                  className="px-3.5 py-2 min-h-[40px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[14px] font-extrabold shadow-xs print:hidden transition-colors"
+                                >
+                                  {copiedId === step.id
+                                    ? "✅ 복사 완료! (입력창에 Ctrl+V 하세요)"
+                                    : `📋 ${step.copySample.label}`}
+                                </button>
+                              </div>
+                              <pre className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-white p-3.5 text-[15px] font-semibold text-slate-900 font-sans">
+                                {step.copySample.text}
+                              </pre>
+                            </div>
                           )}
                         </div>
 
-                        {step.commonMistake && (
-                          <div className="rounded-xl border border-rose-300 bg-rose-50/70 p-4">
-                            <p className="text-[15px] font-extrabold text-rose-900 mb-1">
-                              ⚠️ 4. 자주 하시는 실수 & 안심 예방법
-                            </p>
-                            <p className="text-slate-900 font-medium whitespace-pre-line">
-                              {step.commonMistake}
-                            </p>
-                          </div>
-                        )}
-
-                        {step.copySample && (
-                          <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-[15px] font-extrabold text-indigo-950">
-                                📋 바로 복사해서 따라 해보는 실전 문구 예시
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyText(step.id, step.copySample!.text)}
-                                className="px-3.5 py-2 min-h-[40px] rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[14px] font-extrabold shadow-xs print:hidden transition-colors"
-                              >
-                                {copiedId === step.id
-                                  ? "✅ 복사 완료! (입력창에 Ctrl+V 하세요)"
-                                  : `📋 ${step.copySample.label}`}
-                              </button>
-                            </div>
-                            <pre className="whitespace-pre-wrap rounded-xl border border-indigo-200 bg-white p-3.5 text-[15px] font-semibold text-slate-900 font-sans">
-                              {step.copySample.text}
-                            </pre>
+                        {stepViewMode === "interactive" && !isPrintMode && (
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200 print:hidden">
+                            <button
+                              type="button"
+                              disabled={stepIdx === 0}
+                              data-testid={`tutorial-prev-step-${step.id}`}
+                              onClick={() =>
+                                setModuleActiveStep(mod.id, stepIdx - 1, mod.steps.length)
+                              }
+                              className="min-h-[52px] flex-1 min-w-[140px] rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 px-4 text-[16px] font-extrabold text-slate-900 cursor-pointer"
+                            >
+                              ◀ 이전 단계
+                            </button>
+                            <button
+                              type="button"
+                              disabled={stepIdx >= mod.steps.length - 1}
+                              data-testid={`tutorial-next-step-${step.id}`}
+                              onClick={() =>
+                                setModuleActiveStep(mod.id, stepIdx + 1, mod.steps.length)
+                              }
+                              className="min-h-[52px] flex-1 min-w-[160px] rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-40 px-4 text-[16px] font-extrabold text-white shadow-sm cursor-pointer"
+                            >
+                              {stepIdx >= mod.steps.length - 1
+                                ? "✅ 이 장의 마지막 단계입니다"
+                                : `다음 단계 (${stepIdx + 2}/${mod.steps.length}) ▶`}
+                            </button>
                           </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

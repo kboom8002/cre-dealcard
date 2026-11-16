@@ -62,10 +62,6 @@ function parseKoreanRelative(raw: string, now: Date): number | null {
   return now.getTime() - ms;
 }
 
-function isRelativeKoreanString(value: ListDateValue): value is string {
-  return typeof value === "string" && parseKoreanRelative(value, new Date()) !== null;
-}
-
 /**
  * Converts any supported list date value into epoch ms (or null when unknown).
  * Bare `YYYY-MM-DD` strings are interpreted as local midnight (not UTC) so a
@@ -98,32 +94,32 @@ export function toListTime(value: ListDateValue, now: Date = new Date()): number
   return Number.isFinite(t) ? t : null;
 }
 
-function formatKoreanTime(d: Date): string {
-  const h = d.getHours();
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const meridiem = h < 12 ? "오전" : "오후";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${meridiem} ${h12}:${mm}`;
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
-/** Formats a list date for the simple list row (right-aligned date column). */
+function formatDateYyMmDd(d: Date): string {
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${yy}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function formatDateTimeYyMmDdHhMmSs(d: Date): string {
+  return `${formatDateYyMmDd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+/** Formats a list date for the simple list row (exact YY-MM-DD HH:mm:ss or bare date YY-MM-DD). */
 export function formatListDate(value: ListDateValue, now: Date = new Date()): string {
   if (value === null || value === undefined || (typeof value === "string" && !value.trim())) {
     return "날짜 없음";
-  }
-  // Legacy relative strings are already human-friendly — show them verbatim.
-  if (typeof value === "string" && isRelativeKoreanString(value.trim())) {
-    return value.trim();
   }
   const t = toListTime(value, now);
   if (t === null) return typeof value === "string" ? value.trim() : "날짜 없음";
 
   const d = new Date(t);
-  const todayStart = startOfDay(now);
-  if (t >= todayStart && t < todayStart + DAY) return formatKoreanTime(d);
-  if (t >= todayStart - DAY && t < todayStart) return "어제";
-  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}월 ${d.getDate()}일`;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+  if (typeof value === "string" && /^\d{4}[-./]\d{1,2}[-./]\d{1,2}\.?$/.test(value.trim())) {
+    return formatDateYyMmDd(d);
+  }
+  return formatDateTimeYyMmDdHhMmSs(d);
 }
 
 /** Buckets a list date into 오늘 / 어제 / 이번 주 / 이전 / 날짜 없음. */

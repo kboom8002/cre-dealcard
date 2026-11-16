@@ -40,14 +40,14 @@ export function ImPreviewTabSwitcher({
     <div
       role="tablist"
       aria-label="IM 미리보기 방식"
-      className="inline-flex rounded-xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60 p-0.5 shrink-0"
+      className="inline-flex rounded-[12px] ios-segmented-track bg-[#767680]/[0.11] border border-white/60 p-[3px] overflow-hidden shrink-0"
     >
       <button
         type="button"
         role="tab"
         aria-selected={previewTab === "mobile"}
         onClick={() => onChangePreviewTab("mobile")}
-        className={`min-h-[44px] px-3.5 py-1 text-sm font-semibold rounded-[10px] transition-all cursor-pointer shrink-0 ${
+        className={`min-h-[44px] px-3.5 py-1 text-sm font-semibold rounded-[9px] transition-all cursor-pointer shrink-0 ${
           previewTab === "mobile"
             ? "ios-segmented-pill bg-white text-[#007AFF]"
             : "text-[#3A3A3C] hover:text-[#1D1D1F]"
@@ -60,7 +60,7 @@ export function ImPreviewTabSwitcher({
         role="tab"
         aria-selected={previewTab === "pptx"}
         onClick={() => onChangePreviewTab("pptx")}
-        className={`min-h-[44px] px-3.5 py-1 text-sm font-semibold rounded-[10px] transition-all cursor-pointer shrink-0 ${
+        className={`min-h-[44px] px-3.5 py-1 text-sm font-semibold rounded-[9px] transition-all cursor-pointer shrink-0 ${
           previewTab === "pptx"
             ? "ios-segmented-pill bg-white text-[#007AFF]"
             : "text-[#3A3A3C] hover:text-[#1D1D1F]"

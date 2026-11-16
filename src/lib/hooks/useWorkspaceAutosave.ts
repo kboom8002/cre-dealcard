@@ -22,7 +22,7 @@ export interface UseWorkspaceAutosaveOptions<T> {
   data: T;
   /** Concurrency control: expected version number or updatedAt string */
   expectedVersion?: number | string | null;
-  /** Debounce delay in ms (defaults to 3000ms / 3 seconds) */
+  /** Debounce delay in ms (defaults to 1200ms) */
   debounceMs?: number;
   /** Periodic save interval if dirty in ms (defaults to 30000ms / 30 seconds) */
   intervalMs?: number;
@@ -75,7 +75,7 @@ export function useWorkspaceAutosave<T>(
     enabled = true,
     data,
     expectedVersion = null,
-    debounceMs = 3000,
+    debounceMs = 1200,
     intervalMs = 30000,
     keepaliveOnUnload = true,
     onSave,

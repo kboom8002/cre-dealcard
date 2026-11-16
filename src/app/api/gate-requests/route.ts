@@ -22,6 +22,7 @@ const GateRequestCreateSchema = z.object({
   reason: z.string().max(2000).optional(),
   name: z.string().max(60).optional(),
   phone: z.string().max(30).optional(),
+  email: z.string().trim().max(120).optional(),
   company: z.string().max(100).optional(),
   message: z.string().max(1000).optional(),
 });
@@ -98,11 +99,12 @@ export async function POST(req: Request) {
 
     const effectiveReason =
       input.reason ||
-      (input.name || input.phone
+      (input.name || input.phone || input.email
         ? JSON.stringify({
             type: "anonymous_lead",
             name: input.name?.trim(),
             phone: input.phone?.trim(),
+            email: input.email?.trim() || undefined,
             company: input.company?.trim() || undefined,
             message: input.message?.trim() || "상세 IM 열람을 요청합니다.",
           })

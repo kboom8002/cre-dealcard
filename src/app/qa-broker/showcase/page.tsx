@@ -19,6 +19,8 @@ import {
 import {
   QA_BROKER_SHOWCASE_SESSION_ID,
   QA_TESTER_SHOWCASE_SESSION_ID,
+  QA_TESTER_SIGNOFF_SESSION_ID,
+  ROUND1_REMEDIATION_28_ITEMS,
 } from "@/lib/qa/round2-verification-data";
 
 type BrokerVerdictStatus = "PASS" | "NEEDS_POLISH" | "FAIL";
@@ -104,7 +106,7 @@ export default function QaBrokerShowcasePage() {
     let cancelled = false;
     async function loadBrokerAndTesterStatus() {
       try {
-        const [brokerRes, testerRes] = await Promise.all([
+        const [brokerRes, testerRes, signoffRes] = await Promise.all([
           fetch(
             `/api/public/qa-workbench?sessionId=${encodeURIComponent(
               QA_BROKER_SHOWCASE_SESSION_ID
@@ -114,6 +116,12 @@ export default function QaBrokerShowcasePage() {
           fetch(
             `/api/public/qa-workbench?sessionId=${encodeURIComponent(
               QA_TESTER_SHOWCASE_SESSION_ID
+            )}`,
+            { cache: "no-store" }
+          ),
+          fetch(
+            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+              QA_TESTER_SIGNOFF_SESSION_ID
             )}`,
             { cache: "no-store" }
           ),
@@ -130,6 +138,7 @@ export default function QaBrokerShowcasePage() {
           }
         }
 
+        let explicitTesterRecs: Record<string, TesterTechRecord> = {};
         if (!cancelled && testerRes.ok) {
           const json = (await testerRes.json()) as {
             found?: boolean;
@@ -137,8 +146,65 @@ export default function QaBrokerShowcasePage() {
           };
           const recs = json?.session?.records;
           if (json?.found && recs && typeof recs === "object") {
-            setTesterTechRecords(recs);
+            explicitTesterRecs = recs;
           }
+        }
+
+        const derivedFromR2Signoff: Record<string, TesterTechRecord> = {};
+        if (!cancelled && signoffRes.ok) {
+          const signoffJson = (await signoffRes.json()) as {
+            found?: boolean;
+            session?: {
+              records?: Record<string, unknown> & {
+                r1States?: Record<
+                  string,
+                  { status?: string; updatedAt?: string }
+                >;
+              };
+            };
+          };
+          const rawRecords = signoffJson?.session?.records;
+          if (signoffJson?.found && rawRecords && typeof rawRecords === "object") {
+            const nestedR1 =
+              rawRecords.r1States && typeof rawRecords.r1States === "object"
+                ? rawRecords.r1States
+                : {};
+            for (const item of ROUND1_REMEDIATION_28_ITEMS) {
+              if (
+                item.area !== "showcase" ||
+                !item.relatedScenarioIds?.length
+              ) {
+                continue;
+              }
+              const entry = (nestedR1[item.id] ?? rawRecords[item.id]) as
+                | { status?: string; updatedAt?: string }
+                | undefined;
+              const rawStatus = entry?.status;
+              if (rawStatus !== "pass" && rawStatus !== "fail") continue;
+              const mappedStatus: "PASS" | "ISSUE" =
+                rawStatus === "fail" ? "ISSUE" : "PASS";
+              for (const scenarioId of item.relatedScenarioIds) {
+                if (explicitTesterRecs[scenarioId]?.status) continue;
+                const prevStatus = derivedFromR2Signoff[scenarioId]?.status;
+                if (prevStatus === "ISSUE") continue;
+                derivedFromR2Signoff[scenarioId] = {
+                  status: mappedStatus,
+                  updatedAt: entry?.updatedAt,
+                };
+              }
+            }
+          }
+        }
+
+        if (
+          !cancelled &&
+          (Object.keys(explicitTesterRecs).length > 0 ||
+            Object.keys(derivedFromR2Signoff).length > 0)
+        ) {
+          setTesterTechRecords({
+            ...derivedFromR2Signoff,
+            ...explicitTesterRecs,
+          });
         }
       } catch {
         // non-blocking

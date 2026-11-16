@@ -98,7 +98,7 @@ describe('WP-P1-05 & WP-P1-08 & WP-P1-09: Deal Card UI Components (Static HTML R
       expect(html).toContain('대로변 코너 각지 위치');
       expect(html).toContain('preview-broker-profile-card');
       expect(html).toContain('전화하기');
-      expect(html).toContain('IM 요청하기');
+      expect(html).toContain('상세 제안서(IM) 요청');
     });
   });
 

@@ -265,15 +265,51 @@ async function captureCompactScreenshot(options?: {
       if (!rawCanvas || rawCanvas.width <= 0 || rawCanvas.height <= 0) {
         return null;
       }
-      const targetWidth = Math.min(640, rawCanvas.width);
-      const ratio = targetWidth / rawCanvas.width;
-      const targetHeight = Math.max(1, Math.round(rawCanvas.height * ratio));
+      const scaleX = rawCanvas.width / vw;
+      const scaleY = rawCanvas.height / vh;
+      let sx = 0;
+      let sy = 0;
+      let sw = rawCanvas.width;
+      let sh = rawCanvas.height;
+
+      if (
+        targetSelector !== "viewport" &&
+        targetRect &&
+        targetRect.width > 0 &&
+        targetRect.height > 0
+      ) {
+        const padPx = 200;
+        const cropLeft = Math.max(0, targetRect.left - padPx);
+        const cropTop = Math.max(0, targetRect.top - padPx);
+        const cropRight = Math.min(vw, targetRect.right + padPx);
+        const cropBottom = Math.min(vh, targetRect.bottom + padPx);
+        const candX = Math.max(0, Math.floor(cropLeft * scaleX));
+        const candY = Math.max(0, Math.floor(cropTop * scaleY));
+        const candW = Math.min(
+          rawCanvas.width - candX,
+          Math.ceil((cropRight - cropLeft) * scaleX)
+        );
+        const candH = Math.min(
+          rawCanvas.height - candY,
+          Math.ceil((cropBottom - cropTop) * scaleY)
+        );
+        if (candW >= 40 && candH >= 40) {
+          sx = candX;
+          sy = candY;
+          sw = candW;
+          sh = candH;
+        }
+      }
+
+      const targetWidth = Math.min(640, sw);
+      const ratio = targetWidth / sw;
+      const targetHeight = Math.max(1, Math.round(sh * ratio));
       const outCanvas = document.createElement("canvas");
       outCanvas.width = targetWidth;
       outCanvas.height = targetHeight;
       const ctx = outCanvas.getContext("2d");
       if (!ctx) return null;
-      ctx.drawImage(rawCanvas, 0, 0, targetWidth, targetHeight);
+      ctx.drawImage(rawCanvas, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
       let dataUrl = outCanvas.toDataURL("image/jpeg", 0.55);
       if (dataUrl.length > MAX_SCREENSHOT_DATA_URL_CHARS) {
         dataUrl = outCanvas.toDataURL("image/jpeg", 0.4);
@@ -314,6 +350,7 @@ export function QaFeedbackPinWidget({
   );
 
   const [enabled, setEnabled] = useState<boolean>(() => Boolean(forceVisible));
+  const [dockedOff, setDockedOff] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
@@ -339,12 +376,22 @@ export function QaFeedbackPinWidget({
   const [attachScreenshot, setAttachScreenshot] = useState(true);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [capturingPreview, setCapturingPreview] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
     kind: "ok" | "err";
     text: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (!zoomOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomOpen(false);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [zoomOpen]);
 
   useEffect(() => {
     syncQaKeyFromSearchParams(searchParams, resolvedPortalRole);
@@ -357,6 +404,14 @@ export function QaFeedbackPinWidget({
     const isQaExplicitOn = qaParam === "1" || qaParam === "true";
     const isQaExplicitOff = qaParam === "0" || qaParam === "false";
 
+    const readDockedState = () => {
+      try {
+        return window.sessionStorage.getItem("credeal_qa_pin_docked") === "1";
+      } catch {
+        return false;
+      }
+    };
+
     try {
       const savedRole = window.localStorage.getItem(QA_PIN_ROLE_STORAGE_KEY);
       if (savedRole === "broker" || savedRole === "tester") {
@@ -368,35 +423,44 @@ export function QaFeedbackPinWidget({
 
     if (forceVisible) {
       setEnabled(true);
+      setDockedOff(readDockedState());
       return;
     }
 
     if (requireExplicitQueryParam) {
       const isTopFrame =
         typeof window === "undefined" || window.self === window.top;
-      setEnabled(isQaExplicitOn && isTopFrame);
+      const on = isQaExplicitOn && isTopFrame;
+      setEnabled(on);
+      setDockedOff(on ? readDockedState() : false);
       return;
     }
 
     try {
       if (isQaExplicitOff) {
         window.sessionStorage.removeItem(QA_MODE_SESSION_STORAGE_KEY);
+        window.sessionStorage.removeItem("credeal_qa_pin_docked");
         window.localStorage.removeItem(QA_PIN_ACTIVE_STORAGE_KEY);
         setEnabled(false);
+        setDockedOff(false);
         return;
       }
       if (isQaExplicitOn) {
         window.sessionStorage.setItem(QA_MODE_SESSION_STORAGE_KEY, "1");
         setEnabled(true);
+        setDockedOff(readDockedState());
         return;
       }
       if (window.sessionStorage.getItem(QA_MODE_SESSION_STORAGE_KEY) === "1") {
         setEnabled(true);
+        setDockedOff(readDockedState());
         return;
       }
       setEnabled(false);
+      setDockedOff(false);
     } catch {
       setEnabled(isQaExplicitOn);
+      setDockedOff(false);
     }
   }, [forceVisible, requireExplicitQueryParam, resolvedPortalRole, searchParams]);
 
@@ -466,18 +530,27 @@ export function QaFeedbackPinWidget({
   }, []);
 
   const handleTurnOff = useCallback(() => {
-    if (!requireExplicitQueryParam) {
-      try {
-        window.sessionStorage.removeItem(QA_MODE_SESSION_STORAGE_KEY);
-        window.localStorage.removeItem(QA_PIN_ACTIVE_STORAGE_KEY);
-      } catch {
-        // ignore storage errors
-      }
+    try {
+      window.sessionStorage.setItem("credeal_qa_pin_docked", "1");
+    } catch {
+      // ignore storage errors
     }
     setIsPicking(false);
     setPanelOpen(false);
-    setEnabled(false);
-  }, [requireExplicitQueryParam]);
+    setZoomOpen(false);
+    setDockedOff(true);
+  }, []);
+
+  const handleReenable = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem("credeal_qa_pin_docked");
+    } catch {
+      // ignore storage errors
+    }
+    setDockedOff(false);
+    setMinimized(false);
+    setPanelOpen(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,6 +658,7 @@ export function QaFeedbackPinWidget({
       setOriginalText("");
       setSuggestedText("");
       setPreviewDataUrl(null);
+      setZoomOpen(false);
       setFeedback({
         kind: "ok",
         text: "검수 허브에 화면 메모를 저장했습니다.",
@@ -600,6 +674,30 @@ export function QaFeedbackPinWidget({
   };
 
   if (!enabled) return null;
+
+  if (dockedOff) {
+    return (
+      <div
+        data-qa-pin-widget="true"
+        data-testid="qa-pin-widget-root"
+        className="fixed bottom-24 sm:bottom-5 left-4 z-50 print:hidden"
+      >
+        <button
+          type="button"
+          data-testid="qa-pin-reenable-btn"
+          onClick={handleReenable}
+          style={{
+            backgroundColor: "#0F172A",
+            color: "#FFFFFF",
+            borderColor: "#334155",
+          }}
+          className="min-h-[40px] px-3.5 rounded-full shadow-lg border-2 text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
+        >
+          📌 핀 켜기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -876,16 +974,27 @@ export function QaFeedbackPinWidget({
                   }}
                   className="min-h-[36px] px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-[13px] font-bold text-slate-800 cursor-pointer whitespace-nowrap"
                 >
-                  📷 미리보기
+                  🔄 다시 캡처
                 </button>
               </div>
               {previewDataUrl && (
-                <img
-                  src={previewDataUrl}
-                  alt="검수 핀 캡처 미리보기"
-                  data-testid="qa-pin-screenshot-preview"
-                  className="w-full max-h-28 object-contain rounded-lg border border-slate-300 bg-white"
-                />
+                <button
+                  type="button"
+                  data-testid="qa-pin-preview-zoom-btn"
+                  onClick={() => setZoomOpen(true)}
+                  aria-label="캡처 미리보기 크게 보기"
+                  className="group block w-full rounded-lg border border-slate-300 bg-white overflow-hidden cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
+                >
+                  <img
+                    src={previewDataUrl}
+                    alt="검수 핀 캡처 미리보기"
+                    data-testid="qa-pin-screenshot-preview"
+                    className="w-full max-h-28 object-contain bg-white"
+                  />
+                  <span className="block w-full py-1 text-center text-[12px] font-bold text-slate-600 bg-slate-100/90 group-hover:text-slate-900">
+                    🔍 눌러서 크게 보기
+                  </span>
+                </button>
               )}
             </div>
           )}
@@ -915,6 +1024,37 @@ export function QaFeedbackPinWidget({
             {isSubmitting ? "캡처·저장 중…" : "검수 허브로 보내기"}
           </button>
         </form>
+      )}
+
+      {zoomOpen && previewDataUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="검수 핀 캡처 확대 보기"
+          data-testid="qa-pin-zoom-modal"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-4xl rounded-2xl border border-slate-700 bg-white p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-extrabold text-slate-900">
+                🔍 캡처 미리보기 확대 ({targetLabel})
+              </span>
+              <button
+                type="button"
+                data-testid="qa-pin-zoom-close-btn"
+                onClick={() => setZoomOpen(false)}
+                className="min-h-[36px] px-3 rounded-lg bg-slate-900 text-white text-xs font-extrabold cursor-pointer hover:bg-slate-800"
+              >
+                ✕ 닫기 (ESC)
+              </button>
+            </div>
+            <img
+              src={previewDataUrl}
+              alt="검수 핀 캡처 확대 미리보기"
+              className="w-full max-h-[75vh] object-contain rounded-xl border border-slate-200 bg-slate-50"
+            />
+          </div>
+        </div>
       )}
 
       <div

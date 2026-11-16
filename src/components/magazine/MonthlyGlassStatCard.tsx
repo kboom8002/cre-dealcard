@@ -272,7 +272,7 @@ export function MonthlyGlassStatCard({
               </div>
             )}
             <div
-              className="grid items-end gap-2 pt-2"
+              className={`grid items-end pt-2 ${colCount >= 5 ? "gap-1 sm:gap-2" : "gap-2"}`}
               style={{
                 gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
                 minHeight: isPreview ? "7.5rem" : "8.5rem",
@@ -287,18 +287,23 @@ export function MonthlyGlassStatCard({
                 const isFocal =
                   pt.displaySecondary === "선택 권역" || idx === series.length - 1;
                 const primaryText = pt.displayPrimary || String(pt.primaryValue);
-                const secondaryText =
+                const rawSecondaryText =
                   pt.displaySecondary ||
                   (pt.secondaryValue !== undefined ? String(pt.secondaryValue) : "");
+                // 이미 발행·저장된 과거 데이터에 긴 접두어("연면적 평당가 중앙 ")가 남아있어도 막대 아래에선 숫자만 깔끔히 표기
+                const secondaryText =
+                  colCount >= 5
+                    ? rawSecondaryText.replace(/^(?:연면적|대지)\s*평당가\s*중앙\s*/g, "").trim()
+                    : rawSecondaryText;
 
                 return (
                   <div
                     key={`${pt.label}-${idx}`}
                     data-testid="monthly-stat-bar"
-                    className="flex flex-col items-center justify-end gap-1 text-center"
+                    className="flex min-w-0 flex-col items-center justify-end gap-1 text-center"
                   >
                     <span
-                      className="text-sm font-extrabold tabular-nums leading-tight"
+                      className={`${colCount >= 5 && isPreview ? "text-xs sm:text-sm" : "text-sm"} max-w-full truncate font-extrabold tabular-nums leading-tight whitespace-nowrap`}
                       style={{ color: isFocal ? theme.pillInk : "#0F172A" }}
                     >
                       {primaryText}
@@ -312,14 +317,15 @@ export function MonthlyGlassStatCard({
                       }}
                     />
                     <span
-                      className="mt-0.5 text-sm font-bold leading-tight break-keep"
+                      className={`mt-0.5 ${colCount >= 5 && isPreview ? "text-xs sm:text-sm" : "text-sm"} max-w-full truncate font-bold leading-tight whitespace-nowrap`}
                       style={{ color: "#1E293B" }}
                     >
                       {pt.label}
                     </span>
                     {secondaryText && (
                       <span
-                        className="text-sm font-semibold tabular-nums leading-tight break-keep"
+                        title={rawSecondaryText}
+                        className={`${colCount >= 5 ? "text-[11px] sm:text-xs" : "text-sm"} max-w-full truncate font-semibold tabular-nums leading-tight whitespace-nowrap`}
                         style={{ color: isFocal ? theme.focalLabelInk : "#475569" }}
                       >
                         {secondaryText}

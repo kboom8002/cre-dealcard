@@ -57,6 +57,8 @@ export function SubscribeCard({
     message?: string;
     notice?: string;
     pendingReason?: 'NO_EMAIL_CONFIRM_CHANNEL';
+    submittedEmail?: string;
+    submittedPhone?: string;
   }>({ status: 'pending' });
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -102,12 +104,16 @@ export function SubscribeCard({
       consent: toConsentPayload(consent),
     });
 
+    const submittedEmailVal = needEmail ? email.trim() || undefined : undefined;
+    const submittedPhoneVal = needPhone ? phone.trim() || undefined : undefined;
     if (outcome.ok) {
       setDone({
         status: outcome.status,
         message: outcome.message,
         notice: outcome.notice,
         pendingReason: outcome.pendingReason,
+        submittedEmail: submittedEmailVal,
+        submittedPhone: submittedPhoneVal,
       });
       setStatus('success');
       if (outcome.pendingReason !== 'NO_EMAIL_CONFIRM_CHANNEL') {
@@ -136,6 +142,7 @@ export function SubscribeCard({
     setErrorMsg('');
     setStatus('loading');
     const refParam = getRefParam();
+    const submittedPhoneVal = isPlausiblePhoneDigits(phone) ? phone.trim() : undefined;
     const outcome = await postSubscribe({
       brokerId,
       phone: isPlausiblePhoneDigits(phone) ? digitsOnly(phone) : undefined,
@@ -153,6 +160,8 @@ export function SubscribeCard({
         message: outcome.message,
         notice: outcome.notice,
         pendingReason: outcome.pendingReason,
+        submittedEmail: trimmedEmail,
+        submittedPhone: submittedPhoneVal,
       });
       setStatus('success');
       if (outcome.pendingReason !== 'NO_EMAIL_CONFIRM_CHANNEL') {
@@ -225,14 +234,29 @@ export function SubscribeCard({
           <div
             role="status"
             data-testid="minimal-subscribe-success"
-            className="rounded-xl border border-emerald-400/50 bg-emerald-950/70 p-4 text-[15px] font-semibold text-emerald-100 leading-relaxed space-y-1"
+            className="rounded-xl border border-emerald-400/50 bg-emerald-950/70 p-4 text-[15px] font-semibold text-emerald-100 leading-relaxed space-y-2"
           >
-            <p>
-              {done.status === 'pending'
-                ? '뉴스레터 신청이 접수되었습니다. 확인 후 발송됩니다.'
-                : '뉴스레터 신청이 완료되었습니다.'}
-            </p>
+            {(done.submittedEmail || done.submittedPhone) && (
+              <p data-testid="subscribe-submitted-address" className="text-emerald-200 font-bold break-all">
+                {done.submittedEmail || done.submittedPhone} 로 신청이 접수되었습니다.
+              </p>
+            )}
+            {!(done.submittedEmail || done.submittedPhone) && (
+              <p>
+                {done.status === 'pending'
+                  ? '뉴스레터 신청이 접수되었습니다. 확인 후 발송됩니다.'
+                  : '뉴스레터 신청이 완료되었습니다.'}
+              </p>
+            )}
             {done.message && <p className="text-emerald-200">{done.message}</p>}
+            <button
+              type="button"
+              data-testid="subscribe-reset-btn"
+              onClick={() => setStatus('idle')}
+              className="mt-1 inline-flex min-h-[40px] items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-900/60 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-800/80 cursor-pointer"
+            >
+              메일·연락처 다시 입력하기
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubscribe} className="space-y-3" noValidate>
@@ -451,15 +475,32 @@ export function SubscribeCard({
           </a>
         </div>
       ) : status === 'success' ? (
-        <div role="status" className="bg-emerald-950 border border-emerald-400 text-emerald-100 rounded-xl p-4 text-center text-[16px] font-semibold leading-relaxed space-y-1.5">
+        <div role="status" className="bg-emerald-950 border border-emerald-400 text-emerald-100 rounded-xl p-4 text-center text-[16px] font-semibold leading-relaxed space-y-2">
+          {(done.submittedEmail || done.submittedPhone) && (
+            <p data-testid="subscribe-submitted-address" className="text-[15px] font-bold text-emerald-200 break-all">
+              {done.submittedEmail || done.submittedPhone} 로 신청이 접수되었습니다.
+            </p>
+          )}
           <p>
-            {done.status === 'pending'
-              ? '구독 신청이 접수되었습니다. 확인 후 발송이 시작됩니다.'
-              : '구독이 완료되었습니다.'}{' '}
-            {MAGAZINE_SEND_DAY_LABEL} 발송됩니다.
+            {done.status === 'pending' && !done.message?.includes('확인 후')
+              ? '구독 신청이 접수되었습니다. 확인 후 발송이 시작됩니다. '
+              : done.status === 'confirmed' && !done.message?.includes('완료')
+              ? '구독이 완료되었습니다. '
+              : ''}
+            {!done.message?.includes('발송') && `${MAGAZINE_SEND_DAY_LABEL} 발송됩니다.`}
           </p>
           {done.message && <p className="text-[15px] font-normal text-emerald-200">{done.message}</p>}
           {done.notice && <p className="text-[15px] font-bold text-amber-200">{done.notice}</p>}
+          <div className="pt-1">
+            <button
+              type="button"
+              data-testid="subscribe-reset-btn"
+              onClick={() => setStatus('idle')}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-900/60 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-800/80 cursor-pointer"
+            >
+              메일·연락처 다시 입력하기
+            </button>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubscribe} className="space-y-3.5" noValidate>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { formatKrPhoneInput } from "@/lib/magazine/phone-input";
 
 interface Props {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function ContactGateModal({
 }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [message, setMessage] = useState("");
   const [privacyConsent, setPrivacyConsent] = useState(false);
@@ -51,6 +53,12 @@ export function ContactGateModal({
       return;
     }
 
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setErrorMessage("이메일 주소를 올바른 형식(예: name@company.com)으로 입력해 주세요.");
+      return;
+    }
+
     if (!privacyConsent) {
       setErrorMessage("개인정보 수집·이용에 동의해 주세요.");
       return;
@@ -61,10 +69,12 @@ export function ContactGateModal({
       const defaultMsg = hasImDoc
         ? "상세 IM 열람을 요청합니다."
         : "매물 상세 자료를 요청합니다.";
+      const formattedPhone = formatKrPhoneInput(phone.trim()) || phone.trim();
       const payloadReason = JSON.stringify({
         type: "anonymous_lead",
         name: name.trim(),
-        phone: phone.trim(),
+        phone: formattedPhone,
+        email: trimmedEmail || undefined,
         company: company.trim() || undefined,
         message: message.trim() || defaultMsg,
       });
@@ -77,6 +87,7 @@ export function ContactGateModal({
             buildingId,
             requestedLevel: "G1",
             requestedFields: ["im_lite_request"],
+            email: trimmedEmail || undefined,
             reason: payloadReason,
           }),
         }),
@@ -88,13 +99,15 @@ export function ContactGateModal({
             eventType: "intent.pro_im_request",
             eventData: {
               name: name.trim(),
-              phone: phone.trim(),
+              phone: formattedPhone,
+              email: trimmedEmail || undefined,
               company: company.trim() || undefined,
               message: message.trim() || undefined,
             },
             metadata: {
               name: name.trim(),
-              phone: phone.trim(),
+              phone: formattedPhone,
+              email: trimmedEmail || undefined,
               company: company.trim() || undefined,
               message: message.trim() || undefined,
             },
@@ -154,8 +167,8 @@ export function ContactGateModal({
               </h3>
               <p className="text-sm text-slate-300 leading-relaxed break-keep">
                 {hasImDoc
-                  ? `담당 중개사가 신청 내용을 확인한 뒤 입력하신 연락처(${phone})로 전용 열람 링크를 보내드립니다.`
-                  : "담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처로 전용 링크를 안내해 드립니다."}
+                  ? `담당 중개사가 신청 내용을 확인한 뒤 입력하신 연락처(${formatKrPhoneInput(phone.trim()) || phone}${email.trim() ? ` · ${email.trim()}` : ""})로 전용 열람 링크를 보내드립니다.`
+                  : `담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처(${formatKrPhoneInput(phone.trim()) || phone}${email.trim() ? ` · ${email.trim()}` : ""})로 전용 링크를 안내해 드립니다.`}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
@@ -192,10 +205,10 @@ export function ContactGateModal({
           <>
             <div className="space-y-1.5 pr-10">
               <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-white">
-                {hasImDoc ? "IM 자료 요청하기" : "상세 자료 요청하기"}
+                {hasImDoc ? "상세 투자설명서(IM) 요청하기" : "상세 자료 요청하기"}
               </h3>
               <p className="text-sm text-slate-300 leading-relaxed break-keep">
-                이름과 연락처를 남겨 주시면 담당 중개사가 확인 후 상세 자료를 보내드립니다.
+                성함과 연락처를 남겨 주시면 담당 중개사가 확인 후 상세 자료를 보내드립니다.
               </p>
             </div>
 
@@ -235,10 +248,30 @@ export function ContactGateModal({
                     required
                     placeholder="010-8888-7777"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
                     className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="contact-gate-email"
+                  className="block text-sm font-bold text-slate-200 mb-1.5"
+                >
+                  이메일 (선택 · PDF/링크 수신용)
+                </label>
+                <input
+                  id="contact-gate-email"
+                  data-testid="contact-gate-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="예: buyer@company.com (입력 시 중개사 이메일 발송 가능)"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
+                />
               </div>
 
               <div>

@@ -34,27 +34,27 @@ import {
 const NOW = new Date(2026, 10, 13, 15, 0, 0);
 
 describe("list-date (P0)", () => {
-  it("formats today as 오전/오후 time, yesterday as 어제, this year as M월 D일, older as YYYY. M. D.", () => {
-    expect(formatListDate(new Date(2026, 10, 13, 14, 20), NOW)).toBe("오후 2:20");
-    expect(formatListDate(new Date(2026, 10, 13, 0, 5), NOW)).toBe("오전 12:05");
-    expect(formatListDate(new Date(2026, 10, 13, 12, 0), NOW)).toBe("오후 12:00");
-    expect(formatListDate(new Date(2026, 10, 12, 23, 59), NOW)).toBe("어제");
-    expect(formatListDate(new Date(2026, 10, 10, 9, 0), NOW)).toBe("11월 10일");
-    expect(formatListDate(new Date(2025, 2, 4, 9, 0), NOW)).toBe("2025. 3. 4.");
+  it("formats datetimes as exact YY-MM-DD HH:mm:ss and bare dates as YY-MM-DD", () => {
+    expect(formatListDate(new Date(2026, 10, 13, 14, 20), NOW)).toBe("26-11-13 14:20:00");
+    expect(formatListDate(new Date(2026, 10, 13, 0, 5), NOW)).toBe("26-11-13 00:05:00");
+    expect(formatListDate(new Date(2026, 10, 13, 12, 0), NOW)).toBe("26-11-13 12:00:00");
+    expect(formatListDate(new Date(2026, 10, 12, 23, 59), NOW)).toBe("26-11-12 23:59:00");
+    expect(formatListDate(new Date(2026, 10, 10, 9, 0), NOW)).toBe("26-11-10 09:00:00");
+    expect(formatListDate(new Date(2025, 2, 4, 9, 0), NOW)).toBe("25-03-04 09:00:00");
   });
 
   it("treats bare YYYY-MM-DD / YYYY.MM.DD as a local date (no UTC day shift) and parses ISO with milliseconds", () => {
-    expect(formatListDate("2026-11-10", NOW)).toBe("11월 10일");
-    expect(formatListDate("2026.11.10", NOW)).toBe("11월 10일");
+    expect(formatListDate("2026-11-10", NOW)).toBe("26-11-10");
+    expect(formatListDate("2026.11.10", NOW)).toBe("26-11-10");
     expect(getListDateBucket("2026-11-13", NOW)).toBe("today");
-    const isoMs = new Date(2026, 10, 13, 9, 30).toISOString(); // e.g. 2026-11-13T00:30:00.000Z
+    const isoMs = new Date(2026, 10, 13, 9, 30, 5).toISOString(); // e.g. 2026-11-13T00:30:05.000Z
     expect(isoMs).toContain(".000Z");
-    expect(formatListDate(isoMs, NOW)).toBe("오전 9:30");
+    expect(formatListDate(isoMs, NOW)).toBe("26-11-13 09:30:05");
   });
 
-  it("[Negative] shows legacy relative strings verbatim, and unparseable/empty values safely", () => {
-    expect(formatListDate("방금", NOW)).toBe("방금");
-    expect(formatListDate("3분 전", NOW)).toBe("3분 전");
+  it("[Negative] resolves legacy relative strings to exact YY-MM-DD HH:mm:ss, and unparseable/empty values safely", () => {
+    expect(formatListDate("방금", NOW)).toBe("26-11-13 15:00:00");
+    expect(formatListDate("3분 전", NOW)).toBe("26-11-13 14:57:00");
     expect(formatListDate("", NOW)).toBe("날짜 없음");
     expect(formatListDate(null, NOW)).toBe("날짜 없음");
     expect(formatListDate("알수없음", NOW)).toBe("알수없음");
@@ -215,7 +215,7 @@ describe("Workspace list components (P0)", () => {
     expect(rowA.textContent).toContain("선택됨");
     expect(rowB.getAttribute("aria-current")).toBeNull();
     expect(rowB.textContent).not.toContain("✓");
-    expect(container.querySelector('[data-testid="dealcard-item-a-date"]')?.textContent).toBe("오후 2:20");
+    expect(container.querySelector('[data-testid="dealcard-item-a-date"]')?.textContent).toBe("26-11-13 14:20:00");
     expect(container.querySelector('[data-testid="dealcard-status-badge-a"]')?.textContent).toContain("준비됨");
     // Negative: no destructive buttons inside simple rows
     expect(rowA.querySelectorAll("button").length).toBe(0);

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { toast } from "sonner";
+import { formatKrPhoneInput } from "@/lib/magazine/phone-input";
 
 interface ReverseOnboardingFormProps {
   buildingId: string;
@@ -89,7 +90,7 @@ export function ReverseOnboardingForm({
             required
             placeholder="연락처 (휴대폰)"
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, phone: formatKrPhoneInput(e.target.value) })}
             className="w-full text-xs px-3 py-2.5 rounded-lg border border-border bg-card focus:outline-none focus:border-primary/50 text-foreground"
           />
         </div>

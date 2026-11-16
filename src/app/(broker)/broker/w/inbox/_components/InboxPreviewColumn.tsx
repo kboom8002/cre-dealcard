@@ -217,14 +217,14 @@ export function InboxPreviewColumn({
             </div>
           )}
 
-          {/* 무료(문구·링크 복사 + 이메일) · 유료(카카오 알림톡) 발송 채널 선택 바 */}
+          {/* 무료(인사말·링크 복사 + 이메일) · 유료(카카오 알림톡 PRO) 자료 전달 카드 */}
           <div
             data-testid="inbox-outbound-channel-bar"
-            className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
+            className="space-y-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-base font-extrabold text-slate-900">
-                발송 채널 선택
+                자료 전달 방법
               </h3>
               <span
                 className={`rounded-md px-2.5 py-1 text-sm font-bold ${
@@ -233,17 +233,33 @@ export function InboxPreviewColumn({
                     : "border border-blue-200 bg-blue-50 text-blue-800"
                 }`}
               >
-                {subscriptionTier === "free" ? "무료 플랜" : "PRO 플랜"}
+                {subscriptionTier === "free" ? "무료 플랜 · 바로 이용" : "PRO 플랜"}
               </span>
             </div>
 
-            <div className="space-y-2.5">
+            <p className="text-sm leading-relaxed text-slate-600 break-keep">
+              별도 설정 없이 아래 버튼으로 인사말·링크를 복사해 카톡이나 문자로 바로 보내실 수 있습니다.
+            </p>
+
+            {/* 1순위 무료 액션: 인사말 + 링크 복사 */}
+            <button
+              type="button"
+              data-testid="inbox-copy-bundle-btn"
+              disabled={Boolean(busyAction)}
+              onClick={onPrepareCopyBundle}
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-center text-sm font-extrabold text-slate-900 whitespace-normal transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+            >
+              📋 인사말 + 전용 링크 복사 (카톡·문자 붙여넣기)
+            </button>
+
+            {/* 2순위 무료 액션: 이메일 바로 보내기 */}
+            <div className="space-y-2 rounded-xl border border-blue-100 bg-blue-50/40 p-3">
               <div>
                 <label
                   htmlFor="inbox-client-email-input"
-                  className="mb-1 block text-sm font-bold text-slate-700"
+                  className="mb-1 block text-sm font-bold text-slate-800"
                 >
-                  수신 이메일 (무료 발송)
+                  받을 이메일 주소 (이메일 보유 고객)
                 </label>
                 <input
                   id="inbox-client-email-input"
@@ -251,38 +267,51 @@ export function InboxPreviewColumn({
                   type="email"
                   value={outboundEmail}
                   onChange={(e) => onOutboundEmailChange(e.target.value)}
-                  placeholder="예: buyer@company.co.kr"
+                  placeholder="예: buyer@company.co.kr (전화 접수 시 직접 입력)"
                   className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="inbox-client-basis-select"
-                  className="mb-1 block text-sm font-bold text-slate-700"
-                >
-                  알림톡 안내 근거 (PRO)
-                </label>
-                <select
-                  id="inbox-client-basis-select"
-                  data-testid="inbox-client-basis-select"
-                  value={outboundBasis}
-                  onChange={(e) =>
-                    onOutboundBasisChange(
-                      e.target.value as "" | InboxTransactionalBasis
-                    )
-                  }
-                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="">고객 요청·상담 근거 선택</option>
-                  <option value="im_request">고객 IM 열람 요청</option>
-                  <option value="property_inquiry">고객 매물 문의 접수</option>
-                  <option value="tour_booking">현장 임장·미팅 예약</option>
-                  <option value="broker_manual">기존 상담 고객 1:1 안내</option>
-                </select>
-              </div>
+              <button
+                type="button"
+                data-testid="inbox-send-email-btn"
+                disabled={Boolean(busyAction)}
+                onClick={onSendInboxEmail}
+                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-center text-sm font-bold text-blue-900 whitespace-normal transition hover:bg-blue-100 disabled:opacity-50 cursor-pointer"
+              >
+                ✉️ 이메일로 제안서 바로 보내기
+              </button>
+            </div>
 
-              {subscriptionTier !== "free" && (
+            {/* PRO 전용 알림톡 옵션 (무료 플랜에서는 드롭다운을 숨겨 복잡도 제거) */}
+            {subscriptionTier !== "free" && (
+              <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+                <div>
+                  <label
+                    htmlFor="inbox-client-basis-select"
+                    className="mb-1 block text-sm font-bold text-slate-700"
+                  >
+                    알림톡 안내 근거 (PRO)
+                  </label>
+                  <select
+                    id="inbox-client-basis-select"
+                    data-testid="inbox-client-basis-select"
+                    value={outboundBasis}
+                    onChange={(e) =>
+                      onOutboundBasisChange(
+                        e.target.value as "" | InboxTransactionalBasis
+                      )
+                    }
+                    className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  >
+                    <option value="">고객 요청·상담 근거 선택</option>
+                    <option value="im_request">고객 IM 열람 요청</option>
+                    <option value="property_inquiry">고객 매물 문의 접수</option>
+                    <option value="tour_booking">현장 임장·미팅 예약</option>
+                    <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+                  </select>
+                </div>
+
                 <div>
                   <label
                     htmlFor="inbox-alimtalk-template-select"
@@ -307,28 +336,10 @@ export function InboxPreviewColumn({
                     <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
                   </select>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            <div className="grid grid-cols-1 gap-2 pt-1">
-              <button
-                type="button"
-                data-testid="inbox-copy-bundle-btn"
-                disabled={Boolean(busyAction)}
-                onClick={onPrepareCopyBundle}
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-center text-sm font-bold text-slate-900 whitespace-normal transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-              >
-                📋 인사말 + 추적 링크 복사 (무료)
-              </button>
-              <button
-                type="button"
-                data-testid="inbox-send-email-btn"
-                disabled={Boolean(busyAction)}
-                onClick={onSendInboxEmail}
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-center text-sm font-bold text-blue-900 whitespace-normal transition hover:bg-blue-100 disabled:opacity-50 cursor-pointer"
-              >
-                ✉️ 이메일로 자료 보내기 (무료)
-              </button>
+            <div className="space-y-2 border-t border-slate-100 pt-2.5">
               <button
                 type="button"
                 data-testid="inbox-send-alimtalk-btn"
@@ -336,16 +347,16 @@ export function InboxPreviewColumn({
                 onClick={onSendInboxAlimtalk}
                 className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-center text-sm font-extrabold text-amber-950 whitespace-normal transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
               >
-                💬 카카오 알림톡 안내 · PRO (오픈 예정)
+                💬 카카오 알림톡 자동 발송 · PRO (사후 오픈 예정)
               </button>
-            </div>
 
-            <p
-              data-testid="inbox-alimtalk-early-access-hint"
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700"
-            >
-              {ALIMTALK_EARLY_ACCESS_NOTICE}
-            </p>
+              <p
+                data-testid="inbox-alimtalk-early-access-hint"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700"
+              >
+                {ALIMTALK_EARLY_ACCESS_NOTICE}
+              </p>
+            </div>
 
             {copiedBundlePreview && (
               <div
@@ -436,7 +447,7 @@ export function InboxPreviewColumn({
                 <dt className="shrink-0 font-semibold text-slate-500">이메일</dt>
                 <dd className="min-w-0 text-right font-bold text-slate-900">
                   <span className="break-all">
-                    {activeThread.clientEmail || "이메일 미등록"}
+                    {activeThread.clientEmail || "전화 접수 (이메일 직접 입력 가능)"}
                   </span>
                   {activeThread.emailDeliveryStatus === "bounced" && (
                     <span

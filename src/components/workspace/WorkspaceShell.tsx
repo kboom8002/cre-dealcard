@@ -174,6 +174,10 @@ export interface WorkspaceShellProps {
   lastSavedAt?: Date | string | number | null;
   /** Retry handler shown when saveState === 'error' */
   onRetrySave?: () => void;
+  /** Optional manual sync handler to pull latest server state across open tabs/devices */
+  onManualSync?: () => Promise<void> | void;
+  /** True while manual sync is running */
+  isSyncing?: boolean;
   /** Optional preview tab toggle buttons (e.g. '[카톡 | 받는 화면]') */
   previewTabSlot?: React.ReactNode;
   /** Optional active building ID override */
@@ -227,6 +231,8 @@ export function WorkspaceShell({
   saveState,
   lastSavedAt,
   onRetrySave,
+  onManualSync,
+  isSyncing = false,
   previewTabSlot,
   selectedBuildingId,
   selectedLabel,
@@ -712,7 +718,7 @@ export function WorkspaceShell({
             <MobileFontScaleButton />
 
             {/* Desktop >=768px Font Density Toggle (표준 15px / 큰글씨 17px / 더 크게 19px / 아주 크게 21px) */}
-            <FontScaleToggle className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60 shrink-0" />
+            <FontScaleToggle className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0" />
 
             {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
             <button
@@ -957,6 +963,19 @@ export function WorkspaceShell({
                   </div>
                 )}
 
+                {onManualSync && (
+                  <button
+                    type="button"
+                    data-testid="workspace-manual-sync-btn"
+                    disabled={isSyncing}
+                    onClick={() => void onManualSync()}
+                    title="다른 창이나 모바일에서 수정한 최신 내용 불러오기"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/80 hover:bg-white border border-slate-900/[0.08] text-sm font-semibold text-[#1D1D1F] transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
+                  >
+                    <span>{isSyncing ? "🔄 동기화 중..." : "🔄 동기화"}</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   data-testid="workspace-editor-preview-drawer-btn"
@@ -968,13 +987,13 @@ export function WorkspaceShell({
                 </button>
 
                 {mobileView === "editor" && (
-                  <div className="lg:hidden flex items-center ios-segmented-track bg-[#767680]/[0.11] p-0.5 rounded-xl border border-white/60 shrink-0">
+                  <div className="lg:hidden flex items-center ios-segmented-track bg-[#767680]/[0.11] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0">
                     <button
                       type="button"
                       data-testid="mobile-tab-editor"
                       onClick={() => handleSelectTab("editor")}
                       aria-pressed={true}
-                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
                     >
                       {mobileTabLabels.editor}
                     </button>
@@ -983,7 +1002,7 @@ export function WorkspaceShell({
                       data-testid="mobile-tab-preview"
                       onClick={() => handleSelectTab("preview")}
                       aria-pressed={false}
-                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
+                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all text-[#3A3A3C]"
                     >
                       {mobileTabLabels.preview}
                     </button>
@@ -1077,13 +1096,13 @@ export function WorkspaceShell({
                 </button>
               )}
               {mobileView === "preview" && (
-                <div className="lg:hidden flex items-center ios-segmented-track bg-[#767680]/[0.11] p-0.5 rounded-xl border border-white/60 shrink-0">
+                <div className="lg:hidden flex items-center ios-segmented-track bg-[#767680]/[0.11] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0">
                   <button
                     type="button"
                     data-testid="mobile-tab-editor"
                     onClick={() => handleSelectTab("editor")}
                     aria-pressed={false}
-                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all text-[#3A3A3C]"
+                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all text-[#3A3A3C]"
                   >
                     {mobileTabLabels.editor}
                   </button>
@@ -1092,7 +1111,7 @@ export function WorkspaceShell({
                     data-testid="mobile-tab-preview"
                     onClick={() => handleSelectTab("preview")}
                     aria-pressed={true}
-                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[10px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
                   >
                     {mobileTabLabels.preview}
                   </button>

@@ -41,6 +41,8 @@ type FormResult = {
   message?: string;
   notice?: string;
   pendingReason?: 'NO_EMAIL_CONFIRM_CHANNEL';
+  submittedEmail?: string;
+  submittedPhone?: string;
 };
 
 export function SubscribeFormClient({
@@ -107,11 +109,15 @@ export function SubscribeFormClient({
       toast.error(outcome.message);
       return;
     }
+    const submittedEmailTrim = emailTrim || undefined;
+    const submittedPhoneRaw = isPlausiblePhoneDigits(phone) ? phone.trim() : undefined;
     setResult({
       status: outcome.status,
       message: outcome.message,
       notice: outcome.notice,
       pendingReason: outcome.pendingReason,
+      submittedEmail: submittedEmailTrim,
+      submittedPhone: submittedPhoneRaw,
     });
     toast.success('구독 신청이 접수되었습니다.');
   }
@@ -155,6 +161,8 @@ export function SubscribeFormClient({
       message: outcome.message,
       notice: outcome.notice,
       pendingReason: outcome.pendingReason,
+      submittedEmail: trimmedEmail,
+      submittedPhone: isPlausiblePhoneDigits(phone) ? phone.trim() : undefined,
     });
     toast.success('확인용 이메일이 등록되었습니다. 이메일함을 확인해 주세요.');
   }
@@ -167,6 +175,8 @@ export function SubscribeFormClient({
   if (result) {
     const pending = result.status === 'pending';
     const isNoEmailConfirm = result.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL';
+    const targetAddr = result.submittedEmail || result.submittedPhone;
+    const messageHasSchedule = Boolean(result.message?.includes('발송'));
     return (
       <div role="status" className="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center mx-auto">
@@ -176,15 +186,33 @@ export function SubscribeFormClient({
           <h2 className="text-[20px] font-bold text-white">
             {pending ? '구독 신청이 접수되었습니다' : '구독이 완료되었습니다'}
           </h2>
+          {targetAddr && (
+            <p
+              data-testid="subscribe-submitted-address"
+              className="text-[15px] font-bold text-emerald-200 break-all"
+            >
+              수신 주소: {targetAddr}
+            </p>
+          )}
           <p className="text-[16px] text-slate-200 leading-relaxed break-keep">
-            {pending
+            {pending && !result.message?.includes('확인 후')
               ? '확인 후 발송이 시작됩니다. '
               : ''}
-            {brokerName} 중개사의 매거진은 {MAGAZINE_SEND_DAY_LABEL} 발송됩니다.
+            {!messageHasSchedule && `${brokerName} 중개사의 매거진은 ${MAGAZINE_SEND_DAY_LABEL} 발송됩니다.`}
           </p>
           {/* 서버가 내려준 안내는 가공 없이 그대로 표시 (B2 계약: message / pendingReason) */}
           {result.message && <p className="text-[15px] text-slate-200 leading-relaxed break-keep">{result.message}</p>}
           {result.notice && <p className="text-[15px] font-bold text-amber-200 leading-relaxed break-keep">{result.notice}</p>}
+          <div className="pt-1">
+            <button
+              type="button"
+              data-testid="subscribe-reset-btn"
+              onClick={() => setResult(null)}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-3.5 py-2 text-sm font-bold text-slate-100 hover:bg-slate-700 cursor-pointer"
+            >
+              메일·연락처 다시 입력하기
+            </button>
+          </div>
         </div>
 
         {isNoEmailConfirm && (

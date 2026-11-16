@@ -49,6 +49,11 @@ import {
   QA_OUTPUT_SHOWCASE_WORKBENCH_ID,
   OUTPUT_SHOWCASE_SCENARIOS,
 } from "@/lib/qa/output-showcase-scenarios";
+import {
+  QA_ROUND2_WORKBENCH_ID,
+  ROUND1_REMEDIATION_28_ITEMS,
+  ROUND2_CORE_MISSIONS_6,
+} from "@/lib/qa/round2-verification-data";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
@@ -441,6 +446,17 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
           key: s.id,
           severity: "S1",
         }))
+      : workbenchId === QA_ROUND2_WORKBENCH_ID
+      ? [
+          ...ROUND1_REMEDIATION_28_ITEMS.map((r) => ({
+            key: r.id,
+            severity: "S1",
+          })),
+          ...ROUND2_CORE_MISSIONS_6.map((m) => ({
+            key: m.id,
+            severity: m.mandatoryEveryCycle ? "S0" : "S1",
+          })),
+        ]
       : workbenchId.startsWith("dealcard-im")
       ? CLICK_THROUGH_STEPS.map((s) => ({
           key: s.id,

@@ -778,7 +778,7 @@ export function hydrateMonthlyChartsFromDbRows(
           ...(medianPyeongManwon ? { secondaryValue: medianPyeongManwon } : {}),
           displayPrimary: `${b.count}건`,
           ...(medianPyeongManwon
-            ? { displaySecondary: `${unitBasisLabel} 중앙 ${medianPyeongManwon.toLocaleString()}만` }
+            ? { displaySecondary: `${medianPyeongManwon.toLocaleString()}만` }
             : {}),
         };
       });
@@ -791,7 +791,7 @@ export function hydrateMonthlyChartsFromDbRows(
         regionLabel: preset.label,
         chartType: 'molit_tx_price_trend',
         title: `${meta.primaryDistrict} 통건물 월별 실거래량 · ${unitBasisLabel} 중앙값`,
-        subtitle: `국토부 일반(통건물) 매매 신고 집계 · ${unitBasisLabel} 기준 분리 산출`,
+        subtitle: `막대: 월 거래건수(건) · 하단 수치: ${unitBasisLabel} 중앙값(만원/평)`,
         authorityLabel: `국토교통부 실거래가 공개시스템 (통건물 ${unitBasisLabel} 중앙값)`,
         asOf: `${sortedMonths[sortedMonths.length - 1]} 집계 · 직전월 신고 집계중`,
         unit: '건',
@@ -799,7 +799,7 @@ export function hydrateMonthlyChartsFromDbRows(
         highlightMetric: {
           label: `최근 집계 거래건수 · 중앙 ${unitBasisLabel}`,
           value: latest.displaySecondary
-            ? `${latest.displayPrimary} · ${latest.displaySecondary}`
+            ? `${latest.displayPrimary} · ${unitBasisLabel} 중앙 ${latest.displaySecondary}`
             : latest.displayPrimary,
           deltaText:
             diff > 0

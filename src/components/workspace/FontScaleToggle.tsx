@@ -121,7 +121,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
       data-testid="workspace-font-scale-toggle"
       className={
         className ||
-        "inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-0.5 rounded-xl border border-white/60 shrink-0"
+        "inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0"
       }
     >
       {options.map((opt) => {
@@ -133,7 +133,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
             data-testid={`workspace-font-scale-${opt.id}`}
             aria-pressed={active}
             onClick={() => handleSelect(opt.id)}
-            className={`px-2.5 min-h-[44px] rounded-[10px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`px-2.5 min-h-[44px] rounded-[9px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               active
                 ? "ios-segmented-pill bg-white text-[#007AFF]"
                 : "text-[#3A3A3C] hover:text-[#1D1D1F]"

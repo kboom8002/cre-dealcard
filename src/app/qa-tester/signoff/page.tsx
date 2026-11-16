@@ -27,7 +27,18 @@ import {
 
 type R1Status = "pending" | "pass" | "fail";
 type R2MissionStatus = "pending" | "pass" | "blocker";
-type R1Filter = "all" | Round1Area | "unresolved";
+type R1Filter = "all" | Round1Area | "unresolved" | "r3_delta";
+
+const R3_DELTA_R1_IDS = new Set<string>([
+  "R1-01",
+  "R1-02",
+  "R1-09",
+  "R1-16",
+  "R1-22",
+  "R1-23",
+  "R1-25",
+  "R1-26",
+]);
 
 interface AutoProbeCheck {
   id: string;
@@ -413,6 +424,7 @@ function QaTesterSignoffInner() {
   const filteredR1Items = useMemo(() => {
     return ROUND1_REMEDIATION_28_ITEMS.filter((item) => {
       if (r1Filter === "all") return true;
+      if (r1Filter === "r3_delta") return R3_DELTA_R1_IDS.has(item.id);
       if (r1Filter === "unresolved") {
         const st = state.r1States[item.id]?.status ?? "pending";
         return st !== "pass";
@@ -559,6 +571,7 @@ function QaTesterSignoffInner() {
               {(
                 [
                   { id: "all", label: "전체 28" },
+                  { id: "r3_delta", label: "🔥 3차 델타 8선" },
                   { id: "showcase", label: "쇼룸 16" },
                   { id: "hub_workspace", label: "허브·작업실 12" },
                   { id: "unresolved", label: "미확인·재발" },

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { formatKrPhoneInput } from "@/lib/magazine/phone-input";
 
 const USER_GOAL_OPTIONS = [
   { value: "my_building", label: "내 건물 매각 검토", emoji: "🏢" },
@@ -206,7 +207,7 @@ function ExpertNoteRequestContent() {
               placeholder="전화번호 (예: 010-1234-5678)"
               value={form.phone}
               onChange={(e) =>
-                setForm((p) => ({ ...p, phone: e.target.value }))
+                setForm((p) => ({ ...p, phone: formatKrPhoneInput(e.target.value) }))
               }
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none ring-0 focus:border-primary transition-colors"
             />

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { checkConsentGate, getRequiredConsentTier } from '@/domain/building/consent-chain';
+import { formatKrPhoneInput } from '@/lib/magazine/phone-input';
 
 interface ProIMData {
   ok: boolean;
@@ -97,7 +98,7 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
             />
             <input
               type="tel" placeholder="연락처 (선택)"
-              value={ndaForm.phone} onChange={e => setNdaForm(p => ({ ...p, phone: e.target.value }))}
+              value={ndaForm.phone} onChange={e => setNdaForm(p => ({ ...p, phone: formatKrPhoneInput(e.target.value) }))}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-primary"
             />
             <label className="flex items-start gap-2 cursor-pointer">

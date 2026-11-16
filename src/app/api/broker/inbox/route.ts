@@ -34,6 +34,7 @@ function formatImSectionLabel(sectionId?: string | null): string | undefined {
 export interface ParsedGateReason {
   requesterName: string | null;
   requesterPhone: string | null;
+  requesterEmail?: string | null;
   requesterCompany: string | null;
   cleanMessage: string;
   buildingTitle: string;
@@ -53,6 +54,7 @@ export function parseGateRequestReason(
     return {
       requesterName: null,
       requesterPhone: null,
+      requesterEmail: null,
       requesterCompany: null,
       cleanMessage: "IM 열람을 요청했습니다.",
       buildingTitle,
@@ -77,6 +79,14 @@ export function parseGateRequestReason(
           : typeof parsed.requesterPhone === "string" && parsed.requesterPhone.trim()
           ? parsed.requesterPhone.trim()
           : null;
+      const requesterEmail =
+        typeof parsed.email === "string" && parsed.email.trim()
+          ? parsed.email.trim()
+          : typeof parsed.requester_email === "string" && parsed.requester_email.trim()
+          ? parsed.requester_email.trim()
+          : typeof parsed.requesterEmail === "string" && parsed.requesterEmail.trim()
+          ? parsed.requesterEmail.trim()
+          : null;
       const requesterCompany =
         typeof parsed.company === "string" && parsed.company.trim()
           ? parsed.company.trim()
@@ -93,6 +103,7 @@ export function parseGateRequestReason(
       return {
         requesterName,
         requesterPhone,
+        requesterEmail,
         requesterCompany,
         cleanMessage,
         buildingTitle,
@@ -696,7 +707,7 @@ export async function GET(req: NextRequest) {
             requesterPhone,
             requester_company: requesterCompany || null,
             requesterCompany,
-            requester_email: gr.requester?.email || null,
+            requester_email: gr.requester?.email || parsedReason.requesterEmail || null,
             requested_level: gr.requested_level,
             reason: cleanMessage,
             cleanMessage,
@@ -801,7 +812,7 @@ export async function GET(req: NextRequest) {
           requesterPhone,
           requester_company: requesterCompany || null,
           requesterCompany,
-          requester_email: meta.requester_email || meta.email || null,
+          requester_email: meta.requester_email || meta.email || parsedReason.requesterEmail || null,
           requested_level: meta.requested_level || "G1",
           reason: cleanMessage,
           cleanMessage,
@@ -1076,7 +1087,7 @@ export async function GET(req: NextRequest) {
           requesterPhone: rPhone,
           requester_company: parsed.requesterCompany || null,
           requesterCompany: parsed.requesterCompany || "",
-          requester_email: inq.requester_email || null,
+          requester_email: inq.requester_email || parsed.requesterEmail || null,
           requested_level: "G2",
           reason: cMsg,
           cleanMessage: cMsg,

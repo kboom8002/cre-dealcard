@@ -18,6 +18,7 @@ import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy
 import { POSTIT_TONE_STYLES } from '@/components/broker/deal-card/Card4ConfirmCard';
 import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
 import { PreviewEditableUnit } from '@/components/workspace/preview-sync/PreviewEditableUnit';
+import { normalizePriceBandInput } from '@/lib/deal-card/price-band';
 import { TERMS } from '@/lib/ux/lexicon';
 
 export interface KakaoBubblePreviewProps {
@@ -74,7 +75,7 @@ export function KakaoBubblePreview({
   const resolvedArea =
     card4.area !== undefined ? card4.area.trim() : resolveCard4AreaLabel(card4);
   const areaText = resolvedArea || '—';
-  const priceText = card4.priceBand?.trim() || '—';
+  const priceText = normalizePriceBandInput(card4.priceBand) || '—';
 
   const hasCardContent = Boolean(
     card4.region?.trim() ||
@@ -133,7 +134,7 @@ export function KakaoBubblePreview({
         <div
           role="tablist"
           aria-label="미리보기 화면 전환"
-          className="inline-flex max-w-full overflow-x-auto no-scrollbar rounded-xl bg-slate-200 p-1 border border-slate-300 text-sm"
+          className="inline-flex max-w-full overflow-hidden rounded-[12px] bg-slate-200 p-[3px] border border-slate-300 text-sm"
         >
           <button
             type="button"
@@ -141,7 +142,7 @@ export function KakaoBubblePreview({
             aria-selected={viewFilter === 'all'}
             data-testid="preview-mode-all"
             onClick={() => setViewFilter('all')}
-            className={`min-h-[44px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-[9px] font-bold transition cursor-pointer ${
               viewFilter === 'all'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -155,7 +156,7 @@ export function KakaoBubblePreview({
             aria-selected={viewFilter === 'bubble'}
             data-testid="preview-mode-kakao"
             onClick={() => setViewFilter('bubble')}
-            className={`min-h-[44px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-[9px] font-bold transition cursor-pointer ${
               viewFilter === 'bubble'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -169,7 +170,7 @@ export function KakaoBubblePreview({
             aria-selected={viewFilter === 'detail'}
             data-testid="preview-mode-postit"
             onClick={() => setViewFilter('detail')}
-            className={`min-h-[44px] px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-[9px] font-bold transition cursor-pointer ${
               viewFilter === 'detail'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'

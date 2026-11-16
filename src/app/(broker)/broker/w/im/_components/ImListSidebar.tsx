@@ -106,7 +106,7 @@ export function ImListSidebar({
                   role="tablist"
                   aria-label="매물 유형별 IM 보기"
                   data-testid="im-posture-switcher"
-                  className="grid grid-cols-4 gap-1 p-1 rounded-2xl ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
+                  className="grid grid-cols-4 gap-1 p-[3px] rounded-[12px] overflow-hidden ios-segmented-track bg-[#767680]/[0.11] border border-white/60"
                 >
                   {IM_POSTURE_FILTER_TABS.map((tab) => {
                     const active = postureFilter === tab.id;
@@ -118,7 +118,7 @@ export function ImListSidebar({
                         aria-selected={active}
                         data-testid={`im-posture-tab-${tab.id}`}
                         onClick={() => onPostureFilterChange(tab.id)}
-                        className={`min-h-[44px] px-1.5 py-1 rounded-xl text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
+                        className={`min-h-[44px] px-1.5 py-1 rounded-[9px] text-sm font-semibold flex items-center justify-center transition-all cursor-pointer ${
                           active
                             ? "ios-segmented-pill bg-white text-[#007AFF]"
                             : "text-[#3A3A3C] hover:text-[#1D1D1F]"

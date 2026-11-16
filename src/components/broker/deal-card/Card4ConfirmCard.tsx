@@ -29,6 +29,7 @@ import {
   repairDealCardLine,
 } from '@/lib/deal-card/copy-limits';
 import { POSTURE_LABELS, TERMS } from '@/lib/ux/lexicon';
+import { normalizePriceBandInput } from '@/lib/deal-card/price-band';
 import { showUndoToast } from '@/components/workspace/UndoConfirmToast';
 
 /**
@@ -680,6 +681,12 @@ export function Card4ConfirmCard({
                 data-testid="card4-priceband-input"
                 value={card4.priceBand}
                 onChange={(e) => handleFieldChange('priceBand', e.target.value)}
+                onBlur={() => {
+                  const norm = normalizePriceBandInput(card4.priceBand);
+                  if (norm && norm !== card4.priceBand) {
+                    handleFieldChange('priceBand', norm);
+                  }
+                }}
                 className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-amber-300 bg-slate-900/90 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
                 placeholder="예: 80~90억"
               />

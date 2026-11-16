@@ -109,7 +109,7 @@ export const INITIAL_BUILDINGS: BuildingListItem[] = [
     use: "근린생활시설",
     priceBand: "90~100억",
     status: "draft",
-    updatedAt: "방금",
+    updatedAt: "2026-11-01T09:00:00.000Z",
     card4: SAMPLE_CARD4,
     memoText: SAMPLE_MEMO_TEXT,
     generationSource: "ai_memo",

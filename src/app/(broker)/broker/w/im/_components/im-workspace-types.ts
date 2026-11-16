@@ -1,4 +1,5 @@
 import { generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
+import { toListTime } from "@/lib/workspace/list-date";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import {
   formatKoreanCurrencyReadout,
@@ -135,7 +136,7 @@ export const INITIAL_IM_LIST: ImListItem[] = [
     grossYieldPct: 4.2,
     status: "draft",
     versionLabel: "작성 중",
-    updatedAt: "방금",
+    updatedAt: "2026-11-01T09:00:00.000Z",
     investmentPosture: "core_income",
     gfaSqm: "1450.2",
     completionDate: "2018-06-15",
@@ -206,6 +207,35 @@ export function isSampleSeedImItem(
   if (!matchesId) return false;
   const addr = item.address || "";
   return addr.includes("서교동") || addr.includes("양평동");
+}
+
+function getImSortTier(item: ImListItem): number {
+  if (isSampleSeedImItem(item)) return 2;
+  const isDraftOrUnpublished =
+    item.status !== "published" ||
+    Boolean(item.hasUnpublishedEdits) ||
+    Boolean(item.isDirty);
+  return isDraftOrUnpublished ? 0 : 1;
+}
+
+/**
+ * Sorts IM workspace items deterministically:
+ *  Tier 0: User drafts & unpublished edits (newest first)
+ *  Tier 1: User clean published IMs (newest first)
+ *  Tier 2: Sample seeds (always at bottom)
+ */
+export function sortImWorkspaceItems(items: ImListItem[]): ImListItem[] {
+  return items
+    .map((item, idx) => ({ item, idx }))
+    .sort((a, b) => {
+      const tierDiff = getImSortTier(a.item) - getImSortTier(b.item);
+      if (tierDiff !== 0) return tierDiff;
+      const tb = toListTime(b.item.updatedAt) ?? 0;
+      const ta = toListTime(a.item.updatedAt) ?? 0;
+      if (tb !== ta) return tb - ta;
+      return a.idx - b.idx;
+    })
+    .map(({ item }) => item);
 }
 
 export function createBlankImItem(options?: {
