@@ -411,3 +411,63 @@ export function getRound1ItemsForScenario(
     item.relatedScenarioIds.includes(caseId)
   );
 }
+
+export interface V6PhysicalMission {
+  id: string;
+  order: number;
+  title: string;
+  targetMin: number;
+  checkFocus: string;
+  targetHref: string;
+}
+
+/**
+ * v6.0 인간 테스터 25분 실기기 집중 미션 5선 (AI 헤드리스 브라우저 대체 불가 영역만 수록)
+ */
+export const V6_PHYSICAL_DEVICE_MISSIONS_5: readonly V6PhysicalMission[] = [
+  {
+    id: "V6-P1",
+    order: 1,
+    title: "실물 스마트폰 카카오톡 '나와의 채팅방' OG · 인앱 열기 · 문자 앱 호출",
+    targetMin: 6,
+    checkFocus:
+      "DC-06·NL-M1 링크를 실제 카톡 채팅방에 붙여넣어 OG 썸네일을 보고, 카톡 인앱에서 열었을 때 [외부 브라우저로 열기], [💬 문자 문의 남기기(sms:)], [📋 연락처 복사]가 OS와 연동되는지 확인해 주세요.",
+    targetHref: "/qa-tester/showcase?tab=dealcard&case=DC-06",
+  },
+  {
+    id: "V6-P2",
+    order: 2,
+    title: "실제 스마트폰 카메라 사진(HEIC·고화소) & 엑셀 임대현황표 업로드",
+    targetMin: 5,
+    checkFocus:
+      "아이폰·갤럭시 앨범의 실제 건물 사진을 IM 작업실 4단계에 올렸을 때 자동 회전·리사이즈·썸네일 표시가 막힘없이 되는지 확인해 주세요.",
+    targetHref: "/broker/w/im?qa=1&qaRole=tester",
+  },
+  {
+    id: "V6-P3",
+    order: 3,
+    title: "신규 고도화 UX 3대 터치 체감 (빠른 시작 카드 · 5/5 준비도 · 3종 카톡 인사말)",
+    targetMin: 5,
+    checkFocus:
+      "딜카드·IM 첫 빈 화면의 [30초 빠른 시작] 큰 버튼 3개, IM 미리보기 상단 [발행 준비도 N/5] 칩 점프, 소통함 [🔥 먼저 연락] 배지·[첫 전달|미팅 제안|방문 안내] 탭 전환을 모바일 손가락으로 확인해 주세요.",
+    targetHref: "/broker/w/dealcards?qa=1&qaRole=tester&fresh=1",
+  },
+  {
+    id: "V6-P4",
+    order: 4,
+    title: "실물 PC ↔ 스마트폰 2기기 동시 접속 [🔄 동기화] 1초 이어쓰기",
+    targetMin: 5,
+    checkFocus:
+      "PC 크롬에서 작성한 딜카드·IM 초안이 스마트폰 동일 계정 화면 상단 [🔄 동기화] 시 최상단에 바로 복원되는지 확인해 주세요.",
+    targetHref: "/broker/w/im?qa=1&qaRole=tester",
+  },
+  {
+    id: "V6-P5",
+    order: 5,
+    title: "실무형 오타·줄임말 현장 메모 & 지하·엘리베이터 느린 통신망 방어력",
+    targetMin: 4,
+    checkFocus:
+      "'당산역3번출구옆 72-1 92억대지125평연398평 월2600 01099998888' 같은 거친 메모 입력 및 네트워크 지연 시 오류 없이 안전하게 안내되는지 확인해 주세요.",
+    targetHref: "/broker/w/dealcards?qa=1&qaRole=tester&fresh=1",
+  },
+] as const;

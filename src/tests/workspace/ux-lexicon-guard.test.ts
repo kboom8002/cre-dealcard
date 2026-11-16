@@ -43,6 +43,9 @@ const FILES: string[] = [
   'src/components/workspace/ConfirmDeleteModal.tsx',
   'src/components/broker/deal-card/MemoImportModal.tsx',
   'src/app/(broker)/broker/_components/BrokerHome4Doors.tsx',
+  'src/components/workspace/ZeroBlankStarterCard.tsx',
+  'src/app/qa-broker/showcase/page.tsx',
+  'src/app/qa-broker/signoff/page.tsx',
 ];
 
 function walkTsSources(dir: string, out: string[]): void {

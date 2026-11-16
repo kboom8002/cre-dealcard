@@ -13,6 +13,7 @@ import { formatListDate } from "@/lib/workspace/list-date";
 import {
   type InboxFilterType,
   type InboxThreadItem,
+  computePriorityContactSignal,
   formatClientRoleLabel,
   formatPhoneKo,
   getInboxStatusBadge,
@@ -311,13 +312,19 @@ export function InboxListColumn({
             ariaLabel="고객 목록"
             renderRow={(item) => {
               const statusBadge = getInboxStatusBadge(item);
+              const prioritySignal =
+                item.gateStatus !== "pending" ? computePriorityContactSignal(item) : null;
               return (
                 <SimpleListRow
                   testId={`inbox-thread-row-${item.id}`}
                   title={item.clientName}
                   date={item.updatedAt}
                   status={{ label: statusBadge.text, tone: statusBadge.tone }}
-                  meta={item.buildingTitle}
+                  meta={
+                    prioritySignal?.isPriority
+                      ? `${item.buildingTitle} · 🔥 먼저 연락`
+                      : item.buildingTitle
+                  }
                   selected={activeThread?.id === item.id}
                   onSelect={() => onSelectThread(item.id)}
                   dataAttrs={{ "data-unread": item.isRead ? "false" : "true" }}
@@ -329,6 +336,8 @@ export function InboxListColumn({
           filteredThreads.map((item) => {
             const isSelected = activeThread?.id === item.id;
             const statusBadge = getInboxStatusBadge(item);
+            const prioritySignal =
+              item.gateStatus !== "pending" ? computePriorityContactSignal(item) : null;
             const showVipBadge = item.isVip === true || item.clientGrade === "VIP";
             const showRoleBadge =
               item.clientRole && item.clientRole !== "buyer" && !item.id.startsWith("view_");
@@ -374,6 +383,14 @@ export function InboxListColumn({
                         {showVipBadge && (
                           <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-sm font-bold text-amber-900">
                             ⭐ VIP
+                          </span>
+                        )}
+                        {prioritySignal?.isPriority && (
+                          <span
+                            data-testid={`inbox-priority-badge-${item.id}`}
+                            className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-sm font-bold text-amber-900"
+                          >
+                            🔥 먼저 연락
                           </span>
                         )}
                         {showRoleBadge && (

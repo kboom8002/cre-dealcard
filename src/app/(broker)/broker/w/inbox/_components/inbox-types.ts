@@ -104,6 +104,97 @@ export const INBOX_LEGACY_STORAGE_KEYS = [
 export const ALIMTALK_EARLY_ACCESS_NOTICE =
   "Pro 알림톡 정식 연동 오픈 예정 — 이메일 발송 또는 카톡 인사말+링크 1초 복사를 바로 이용하실 수 있습니다";
 
+export type KakaoOutreachPresetKind = "intro" | "followup_meeting" | "tour_guide";
+
+export const KAKAO_OUTREACH_PRESET_OPTIONS: ReadonlyArray<{
+  kind: KakaoOutreachPresetKind;
+  label: string;
+  shortLabel: string;
+}> = [
+  { kind: "intro", label: "첫 자료 전달", shortLabel: "첫 전달" },
+  { kind: "followup_meeting", label: "검토 후 미팅 제안", shortLabel: "미팅 제안" },
+  { kind: "tour_guide", label: "현장 방문 안내", shortLabel: "방문 안내" },
+];
+
+export interface PriorityContactSignal {
+  isPriority: boolean;
+  badgeLabel: string;
+  detailLabel: string;
+}
+
+/**
+ * 열람 요청 대기 중이거나 2회 이상 열람·60초 이상 체류한 고객에게
+ * '먼저 연락할 타이밍' 신호를 계산한다.
+ */
+export function computePriorityContactSignal(
+  thread: InboxThreadItem | null | undefined
+): PriorityContactSignal | null {
+  if (!thread || thread.status === "revoked") return null;
+  if (thread.gateStatus === "pending") {
+    return {
+      isPriority: true,
+      badgeLabel: "🔔 자료 요청 대기",
+      detailLabel: "고객이 상세 자료 열람을 요청했습니다 — 지금 승인·전달해 주세요",
+    };
+  }
+  const dwell = Math.max(0, Number(thread.dwellSeconds ?? 0));
+  if (thread.openCount >= 2 || dwell >= 60) {
+    const dwellText = dwell > 0 ? ` · 체류 ${dwell}초` : "";
+    return {
+      isPriority: true,
+      badgeLabel: "🔥 집중 열람 · 먼저 연락",
+      detailLabel: `열람 ${thread.openCount}회${dwellText} — 검토 온도가 높아 안부 연락 적기입니다`,
+    };
+  }
+  return null;
+}
+
+/**
+ * 선임 중개사가 고객에게 카톡·문자로 바로 붙여넣는 3가지 상황별 인사말을 생성한다.
+ * 서버가 발급한 개인별 추적 링크(?sid=...)를 그대로 보존한다.
+ */
+export function buildKakaoOutreachPreset(
+  kind: KakaoOutreachPresetKind,
+  params: {
+    clientName?: string;
+    buildingTitle?: string;
+    shareUrl: string;
+    headline?: string;
+  }
+): string {
+  const rawName = String(params.clientName ?? "")
+    .trim()
+    .replace(/님$/, "");
+  const nameLabel = rawName ? `${rawName}님` : "고객님";
+  const buildingLabel = String(params.buildingTitle ?? "").trim() || "검토 매물";
+  const urlLine = String(params.shareUrl ?? "").trim();
+  const headlineLine = String(params.headline ?? "").trim();
+
+  if (kind === "followup_meeting") {
+    return [
+      `${nameLabel}, 안녕하세요. 보내드린 [${buildingLabel}] 자료는 잘 살펴보셨는지요.`,
+      "궁금하실 만한 임대현황과 수익 세부 내역을 간단히 정리해 두었습니다.",
+      `▼ 자료 다시 보기\n${urlLine}`,
+      "편하신 시간에 차 한잔 나누며 상세 내용을 직접 브리핑해 드리겠습니다.",
+    ].join("\n\n");
+  }
+
+  if (kind === "tour_guide") {
+    return [
+      `${nameLabel}, 안녕하세요. [${buildingLabel}] 현장 동선과 층별 구성을 직접 보실 수 있도록 방문 일정을 안내드립니다.`,
+      `▼ 위치·제원 요약 보기\n${urlLine}`,
+      "원하시는 요일과 시간대를 알려주시면 건물 내·외부를 편히 보실 수 있게 미리 준비하겠습니다.",
+    ].join("\n\n");
+  }
+
+  return [
+    `${nameLabel}, 안녕하세요. 검토 요청하신 [${buildingLabel}] 요약 자료를 보내드립니다.`,
+    ...(headlineLine ? [headlineLine] : []),
+    `▼ 자료 바로 보기\n${urlLine}`,
+    "살펴보시고 궁금하신 점이나 현장 확인이 필요하시면 편히 답장 주십시오.",
+  ].join("\n\n");
+}
+
 export function formatPhoneKo(raw: string): string {
   if (raw.includes("@")) return raw;
   const digits = raw.replace(/\D/g, "");

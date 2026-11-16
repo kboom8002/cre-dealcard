@@ -22,6 +22,7 @@ import {
   QA_TESTER_SIGNOFF_SESSION_ID,
   ROUND1_REMEDIATION_28_ITEMS,
   ROUND2_CORE_MISSIONS_6,
+  V6_PHYSICAL_DEVICE_MISSIONS_5,
   type Round1Area,
 } from "@/lib/qa/round2-verification-data";
 
@@ -807,6 +808,62 @@ function QaTesterSignoffInner() {
                 </article>
               );
             })}
+          </div>
+        </section>
+
+        {/* Step B+ · v6.0 실기기 집중 미션 5선 (AI 헤드리스 브라우저 제외 영역 · 25분) */}
+        <section
+          data-testid="tester-v6-physical-missions"
+          className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-5 space-y-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-lg bg-indigo-800 text-white text-sm font-extrabold">
+                  v6.0 실기기 25분 집중
+                </span>
+                <h2 className="text-lg font-extrabold text-slate-950">
+                  AI 자동 점검 제외 영역 · 실물 스마트폰·PC 교차 미션 5선
+                </h2>
+              </div>
+              <p className="text-sm text-slate-700">
+                렌더링·콤마·하이픈·금지어·PPTX 무결성은 AI가 100% 사전 통과했습니다. 테스터께서는 실물 기기 감각만 집중 검증해 주세요.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {V6_PHYSICAL_DEVICE_MISSIONS_5.map((m) => (
+              <article
+                key={m.id}
+                data-testid={`v6-mission-${m.id}`}
+                className="rounded-xl border border-indigo-200 bg-white p-3.5 space-y-2 flex flex-col justify-between"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-900 text-white text-sm font-extrabold">
+                      {m.id} · {m.targetMin}분
+                    </span>
+                  </div>
+                  <h3 className="text-base font-extrabold text-slate-950 break-keep">
+                    {m.order}. {m.title}
+                  </h3>
+                  <p className="text-sm text-slate-700 leading-relaxed break-keep">
+                    {m.checkFocus}
+                  </p>
+                </div>
+                <div className="pt-1">
+                  <a
+                    href={appendQaParamsToHref(m.targetHref, "tester")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[44px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 text-sm font-extrabold text-white"
+                  >
+                    🚀 바로 확인하기 ↗
+                  </a>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
 

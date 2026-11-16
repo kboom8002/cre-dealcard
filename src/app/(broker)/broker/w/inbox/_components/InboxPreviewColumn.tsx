@@ -6,6 +6,9 @@ import {
   ALIMTALK_EARLY_ACCESS_NOTICE,
   type InboxThreadItem,
   type InboxTransactionalBasis,
+  type KakaoOutreachPresetKind,
+  KAKAO_OUTREACH_PRESET_OPTIONS,
+  computePriorityContactSignal,
   formatClientRoleLabel,
   formatPhoneKo,
 } from "./inbox-types";
@@ -25,6 +28,7 @@ export interface InboxPreviewColumnProps {
   outboundEmail: string;
   outboundBasis: "" | InboxTransactionalBasis;
   alimtalkTemplateId: InboxAlimtalkTemplateId;
+  kakaoPresetKind?: KakaoOutreachPresetKind;
   copiedBundlePreview: string | null;
   showAlimtalkUpgradeSheet: boolean;
   confirmLockOpen: boolean;
@@ -37,6 +41,7 @@ export interface InboxPreviewColumnProps {
   onOutboundEmailChange: (next: string) => void;
   onOutboundBasisChange: (next: "" | InboxTransactionalBasis) => void;
   onAlimtalkTemplateChange: (next: InboxAlimtalkTemplateId) => void;
+  onKakaoPresetChange?: (kind: KakaoOutreachPresetKind) => void;
   onPrepareCopyBundle: () => void;
   onSendInboxEmail: () => void;
   onSendInboxAlimtalk: () => void;
@@ -65,6 +70,7 @@ export function InboxPreviewColumn({
   outboundEmail,
   outboundBasis,
   alimtalkTemplateId,
+  kakaoPresetKind = "intro",
   copiedBundlePreview,
   showAlimtalkUpgradeSheet,
   confirmLockOpen,
@@ -77,6 +83,7 @@ export function InboxPreviewColumn({
   onOutboundEmailChange,
   onOutboundBasisChange,
   onAlimtalkTemplateChange,
+  onKakaoPresetChange,
   onPrepareCopyBundle,
   onSendInboxEmail,
   onSendInboxAlimtalk,
@@ -95,6 +102,7 @@ export function InboxPreviewColumn({
   onPublishCorrectionNotice,
   onClearCorrectionNotice,
 }: InboxPreviewColumnProps) {
+  const prioritySignal = computePriorityContactSignal(activeThread);
   return (
     <div className="space-y-4" data-testid="inbox-preview-slot">
       {!activeThread ? (
@@ -159,6 +167,20 @@ export function InboxPreviewColumn({
               </button>
             </div>
           </div>
+
+          {prioritySignal?.isPriority && activeThread.gateStatus !== "pending" && (
+            <div
+              data-testid="inbox-priority-contact-banner"
+              className="rounded-xl border border-amber-300 bg-amber-50/90 px-3.5 py-2.5 space-y-0.5"
+            >
+              <p className="text-sm font-extrabold text-amber-950">
+                {prioritySignal.badgeLabel}
+              </p>
+              <p className="text-sm text-amber-900 break-keep">
+                {prioritySignal.detailLabel}
+              </p>
+            </div>
+          )}
 
           {/* 전용 링크 즉시 복사 버튼 — 카톡 공유 옆 상시 노출 (INBOX-04) */}
           {Boolean(activeThread.shareUrl) && activeThread.status !== "revoked" && (
@@ -238,8 +260,37 @@ export function InboxPreviewColumn({
             </div>
 
             <p className="text-sm leading-relaxed text-slate-600 break-keep">
-              별도 설정 없이 아래 버튼으로 인사말·링크를 복사해 카톡이나 문자로 바로 보내실 수 있습니다.
+              상황에 맞는 인사말을 고른 뒤 버튼을 누르면 인사말과 추적 링크가 한 번에 복사됩니다.
             </p>
+
+            {/* 상황별 3종 인사말 선택 (동심원 12px / 3px / 9px) */}
+            <div
+              role="tablist"
+              aria-label="카톡 인사말 상황 선택"
+              data-testid="inbox-kakao-preset-tabs"
+              className="ios-segmented-track grid grid-cols-3 gap-1 rounded-[12px] border border-white/60 bg-[#767680]/[0.11] p-[3px] overflow-hidden"
+            >
+              {KAKAO_OUTREACH_PRESET_OPTIONS.map((opt) => {
+                const isSelected = kakaoPresetKind === opt.kind;
+                return (
+                  <button
+                    key={opt.kind}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    data-testid={`inbox-kakao-preset-${opt.kind}`}
+                    onClick={() => onKakaoPresetChange?.(opt.kind)}
+                    className={`min-h-[44px] rounded-[9px] px-2 py-1.5 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
+                      isSelected
+                        ? "ios-segmented-pill bg-white text-[#007AFF]"
+                        : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
+                    }`}
+                  >
+                    {opt.shortLabel}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* 1순위 무료 액션: 인사말 + 링크 복사 */}
             <button

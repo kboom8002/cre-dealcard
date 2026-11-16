@@ -3,6 +3,7 @@
 import React from "react";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
 import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
+import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
 import { SelectedItemActions } from "@/components/workspace/list/WorkspaceList";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import type { Card4Data, DealCardGenerationSource } from "@/lib/deal-card/card4-schema";
@@ -110,6 +111,48 @@ export function DealCardEditorColumn({
           </button>
         </div>
       )}
+
+      {(isBlankCard || isAwaitingMemoGeneration) &&
+        !activeMemoText.trim() &&
+        !isSampleCard && (
+          <ZeroBlankStarterCard
+            testId="dealcard-zero-blank-starter"
+            heading="어떻게 시작하시겠어요? 가장 편한 방법 1가지를 누르세요"
+            subheading="빈 칸이 부담스러우면 아래 3가지 중 하나만 고르시면 바로 이어집니다."
+            options={[
+              {
+                id: "paste_memo",
+                badge: "가장 빠름",
+                title: "📋 내 메모 붙여넣기로 10초 시작",
+                subtitle: "카톡·문자·수첩 메모를 넣으면 4칸 요약과 문구를 자동 정리합니다",
+                testId: "dealcard-starter-paste-btn",
+                onClick: () => {
+                  memoTextareaRef.current?.focus();
+                  memoTextareaRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
+                },
+              },
+              {
+                id: "manual_4fields",
+                badge: "직접 입력",
+                title: "✍️ 메모 없이 직접 4칸 채우기",
+                subtitle: "지역·용도·면적·가격대만 간단히 적고 바로 시작합니다",
+                testId: "dealcard-starter-manual-btn",
+                onClick: onSkipMemoManual,
+              },
+              {
+                id: "try_sample",
+                badge: "둘러보기",
+                title: "✨ 연습 예시 넣어보기",
+                subtitle: "샘플 매물로 딜카드 화면이 어떻게 나오는지 먼저 확인합니다",
+                testId: "dealcard-starter-sample-btn",
+                onClick: onFillSample,
+              },
+            ]}
+          />
+        )}
 
       <PairedMemoTopCard
         mode={isAwaitingMemoGeneration ? "capture" : "paired"}

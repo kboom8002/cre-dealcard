@@ -23,6 +23,7 @@ import {
   sanitizeTextHygiene,
 } from './terminology-normalizer';
 import { maskFabricatedBrands } from './tenant-name-policy';
+import { humanizeSeniorBrokerTone } from './broker-sales-tone-lexicon';
 
 const PYEONG_FACTOR = 3.305785;
 
@@ -792,16 +793,18 @@ export function polishImCopyWithLexiconSync(
   working = harmonizeReplacedPostpositions(normalizeTerminology(working).text);
 
   if (opts.preserveLinesAndMarkdown) {
-    return working
+    const markdownReady = working
       .split('\n')
       .map((line) => line.replace(/[ \t]+$/g, ''))
       .join('\n')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
+    return humanizeSeniorBrokerTone(markdownReady);
   }
 
   const cleaned = sanitizeTextHygiene(working);
-  return opts.isCompactHeadline ? stripCompactHeadlineGlosses(cleaned) : cleaned;
+  const humanized = humanizeSeniorBrokerTone(cleaned);
+  return opts.isCompactHeadline ? stripCompactHeadlineGlosses(humanized) : humanized;
 }
 
 /**

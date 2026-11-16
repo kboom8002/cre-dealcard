@@ -84,7 +84,9 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
           const bo = (quickRec.basicImDoc?.facts?.brokerOffice ?? {}) as Record<string, any>;
           return {
             display_name: bp.displayName || bo.representative || "담당 중개사",
-            phone: bp.phone || (bo.phone !== "-" ? bo.phone : null),
+            phone:
+              (bp.phone && bp.phone !== "-" ? bp.phone : null) ||
+              (bo.phone && bo.phone !== "-" ? bo.phone : null),
             specialty: bp.company || bo.name || "검증 공인중개사",
             company: bp.company || bp.officeName || bo.name || null,
             office_address:

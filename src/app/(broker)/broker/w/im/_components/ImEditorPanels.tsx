@@ -9,6 +9,7 @@ import {
   type RentRollImportPayload,
 } from "@/components/broker/rent-roll-importer";
 import { TERMS } from "@/lib/ux/lexicon";
+import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
 import type { ImPostitStyle } from "./ImPreviewPane";
 import {
   formatPhoneHyphen,
@@ -224,6 +225,56 @@ export function ImEditorPanels({
           ⚠ {actionAlert}
         </div>
       )}
+
+      {!showSampleBanner &&
+        !imTitle.trim() &&
+        !address.trim() &&
+        activeEditorTab === "specs" && (
+          <ZeroBlankStarterCard
+            testId="im-zero-blank-starter"
+            heading="처음 작성하시는 매물인가요? 편한 순서부터 시작하세요"
+            subheading="주소·엑셀·사진 중 가지고 계신 자료 1가지만 먼저 올리시면 나머지도 쉽게 채워집니다."
+            options={[
+              {
+                id: "lookup_address",
+                badge: "추천 1번",
+                title: "🏢 매물 주소로 대장·토지 자동 조회",
+                subtitle: "지번이나 도로명 주소를 넣으면 건축물대장·공시지가를 불러옵니다",
+                testId: "im-starter-address-btn",
+                onClick: () => {
+                  onChangeEditorTab("specs");
+                  onNotifyEditorFocus("im-unit-address");
+                  if (typeof document !== "undefined") {
+                    document.getElementById("im-address-input")?.focus();
+                  }
+                },
+              },
+              {
+                id: "upload_rentroll",
+                badge: "엑셀 보유 시",
+                title: "📊 엑셀 임대현황표 먼저 올리기",
+                subtitle: "가지고 계신 임대차 내역표(.xlsx·.csv)나 표 텍스트를 바로 반영합니다",
+                testId: "im-starter-rentroll-btn",
+                onClick: () => {
+                  onChangeEditorTab("rentroll");
+                  if (!isRentRollImportOpen) {
+                    onToggleRentRollImport();
+                  }
+                },
+              },
+              {
+                id: "upload_photos",
+                badge: "사진 보유 시",
+                title: "📷 현장 사진 먼저 올리기",
+                subtitle: "외관·내부 사진을 올리면 표지와 사진 슬라이드에 자동 배치됩니다",
+                testId: "im-starter-photos-btn",
+                onClick: () => {
+                  onChangeEditorTab("media_publish");
+                },
+              },
+            ]}
+          />
+        )}
 
       {/* Top 4 Primary Tabs */}
       <div

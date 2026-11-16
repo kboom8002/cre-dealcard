@@ -2440,7 +2440,7 @@ export function MobileIMViewer({
                   type="button"
                   data-testid="open-external-browser-btn"
                   onClick={() => void handleOpenExternalBrowser()}
-                  className="px-2.5 py-1 rounded-lg bg-[#0F172A] text-white font-bold hover:bg-[#1E293B] transition-colors cursor-pointer"
+                  className="min-h-[44px] px-3 py-1.5 rounded-lg bg-[#0F172A] text-white font-bold hover:bg-[#1E293B] transition-colors cursor-pointer"
                 >
                   외부 브라우저(Safari/Chrome)로 열기
                 </button>
@@ -2448,7 +2448,7 @@ export function MobileIMViewer({
                   type="button"
                   data-testid="copy-im-link-btn"
                   onClick={() => void handleCopyViewerLink()}
-                  className="px-2.5 py-1 rounded-lg bg-white border border-[#F59E0B] text-[#92400E] font-bold hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                  className="min-h-[44px] px-3 py-1.5 rounded-lg bg-white border border-[#F59E0B] text-[#92400E] font-bold hover:bg-[#FEF3C7] transition-colors cursor-pointer"
                 >
                   링크 복사
                 </button>
@@ -2456,7 +2456,7 @@ export function MobileIMViewer({
                   type="button"
                   aria-label="배너 닫기"
                   onClick={() => setDismissedWebViewBanner(true)}
-                  className="px-1.5 py-1 text-[#92400E] hover:text-[#78350F] font-bold cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] px-2 py-1.5 text-[#92400E] hover:text-[#78350F] font-bold cursor-pointer"
                 >
                   ✕
                 </button>

@@ -561,7 +561,7 @@ function QaBrokerSignoffInner() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen max-w-full overflow-x-clip bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-2xs">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -603,7 +603,7 @@ function QaBrokerSignoffInner() {
               <Link
                 href={appendQaParamsToHref("/qa-broker/showcase", "broker")}
                 data-testid="broker-open-showcase-link"
-                className="min-h-[44px] inline-flex items-center rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 text-base font-extrabold text-white whitespace-nowrap"
+                className="min-h-[44px] max-w-full inline-flex items-center justify-center rounded-xl bg-indigo-700 hover:bg-indigo-800 px-3.5 py-2 text-sm sm:text-base font-extrabold text-white text-center whitespace-normal sm:whitespace-nowrap"
               >
                 🎯 22종 실물 산출물 쇼룸 열기 ↗
               </Link>
@@ -780,13 +780,13 @@ function QaBrokerSignoffInner() {
               1단계씩 천천히 설명하는 가이드(0.65배속 영상 포함)와 연습용 건물사진 5장·임대현황표·고객명단 묶음을 바로 이용하실 수 있습니다.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
             <Link
               href={appendQaParamsToHref("/broker/tutorial", "broker")}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="broker-open-tutorial-link"
-              className="min-h-[44px] inline-flex items-center rounded-xl border border-indigo-300 bg-white hover:bg-indigo-100 px-3.5 text-sm font-extrabold text-indigo-950 whitespace-nowrap"
+              className="min-h-[44px] max-w-full inline-flex items-center rounded-xl border border-indigo-300 bg-white hover:bg-indigo-100 px-3.5 py-2 text-sm font-extrabold text-indigo-950 whitespace-normal sm:whitespace-nowrap"
             >
               📖 1단계씩 보는 사용법 가이드 ↗
             </Link>
@@ -794,11 +794,40 @@ function QaBrokerSignoffInner() {
               href="/api/public/qa-sample-kit"
               download
               data-testid="broker-download-sample-kit-link"
-              className="min-h-[44px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 text-sm font-extrabold text-white whitespace-nowrap"
+              className="min-h-[44px] max-w-full inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-sm font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
             >
               📦 연습용 건물사진 5장·양식 받기 (.zip)
             </a>
           </div>
+        </section>
+
+        {/* v6.0 5분 실매물 직접 발행 체험 안내 */}
+        <section
+          data-testid="broker-v6-timeattack-card"
+          className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div className="space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-800 text-white text-sm font-extrabold">
+                5분 실매물 체험
+              </span>
+              <h2 className="text-base font-extrabold text-slate-950 break-keep">
+                실제 매물 1건으로 5분 안에 카톡 딜카드·IM·인사말 복사까지 한번에 체험해 보세요
+              </h2>
+            </div>
+            <p className="text-sm text-slate-700 break-keep">
+              ① 딜카드 [30초 빠른 시작] → ② IM 상단 [발행 준비도 5/5] 칩 눌러 빈 칸 채우기 → ③ 소통함 [첫 전달 · 미팅 제안 · 방문 안내] 인사말 1초 복사 순서로 보실 수 있습니다.
+            </p>
+          </div>
+          <Link
+            href={appendQaParamsToHref("/broker/w/dealcards?qa=1&qaRole=broker&fresh=1", "broker")}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="broker-open-timeattack-link"
+            className="min-h-[44px] max-w-full shrink-0 inline-flex items-center justify-center rounded-xl bg-emerald-800 hover:bg-emerald-900 px-4 py-2 text-sm font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
+          >
+            ⚡ 5분 실습 바로 시작 ↗
+          </Link>
         </section>
 
         {/* 카드 2: 화·목 1~4회차 안건 & 기요청 12건 반영 확인표 */}

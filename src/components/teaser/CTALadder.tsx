@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useBottomSlot } from "@/components/ui/use-bottom-slot";
 import { TERMS } from "@/lib/ux/lexicon";
+import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { formatKrPhoneInput } from "@/lib/format/phone";
 
 interface CTALadderProps {
   buildingId: string;
@@ -128,6 +130,45 @@ export function CTALadder({
           </button>
         )}
       </div>
+
+      {hasValidPhone && (
+        <div
+          data-testid="public-dealcard-micro-actions"
+          className="grid grid-cols-2 gap-2 pt-2"
+        >
+          <a
+            href={`sms:${cleanPhone}`}
+            data-testid="public-dealcard-sms-link"
+            onClick={() =>
+              trackTeaserCta(teaserConfigId, fp, "cta_click", {
+                action: "sms_inquiry",
+              })
+            }
+            className="min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-2 text-sm font-bold text-slate-800 flex items-center justify-center gap-1.5 text-center transition cursor-pointer"
+          >
+            <span>💬 문자 문의 남기기</span>
+          </a>
+          <button
+            type="button"
+            data-testid="public-dealcard-copy-phone-btn"
+            onClick={async () => {
+              trackTeaserCta(teaserConfigId, fp, "cta_click", {
+                action: "copy_phone",
+              });
+              const formatted = formatKrPhoneInput(cleanPhone);
+              const ok = await copyText(formatted);
+              if (ok) {
+                toast.success(`담당 중개사 연락처(${formatted})를 복사했습니다.`);
+              } else {
+                toast.error(COPY_FAILED_MESSAGE);
+              }
+            }}
+            className="min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-2 text-sm font-bold text-slate-800 flex items-center justify-center gap-1.5 text-center transition cursor-pointer"
+          >
+            <span>📋 연락처 복사</span>
+          </button>
+        </div>
+      )}
 
       {/* Lightweight Contact Gate Modal */}
       <ContactGateModal

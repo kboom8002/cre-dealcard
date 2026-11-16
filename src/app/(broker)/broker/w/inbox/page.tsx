@@ -33,7 +33,9 @@ import {
   type InboxThreadItem,
   type InboxTransactionalBasis,
   type InboxWorkspacePageProps,
+  type KakaoOutreachPresetKind,
   type RecipientEvent,
+  buildKakaoOutreachPreset,
   matchesInboxThreadFilter,
   normalizeServerThread,
   parseBudgetManwonValue,
@@ -148,7 +150,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [alimtalkTemplateId, setAlimtalkTemplateId] =
     useState<InboxAlimtalkTemplateId>("TPL_INBOX_IM_APPROVED");
   const [showAlimtalkUpgradeSheet, setShowAlimtalkUpgradeSheet] = useState(false);
+  const [kakaoPresetKind, setKakaoPresetKind] =
+    useState<KakaoOutreachPresetKind>("intro");
   const [copiedBundlePreview, setCopiedBundlePreview] = useState<string | null>(null);
+  const [lastBundleShareUrl, setLastBundleShareUrl] = useState<string>("");
 
   const [currentBrokerId, setCurrentBrokerId] = useState<string>("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -852,6 +857,21 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
+  const handleKakaoPresetChange = (nextKind: KakaoOutreachPresetKind) => {
+    setKakaoPresetKind(nextKind);
+    if (!activeThread || !copiedBundlePreview) return;
+    const effectiveUrl = lastBundleShareUrl || activeThread.shareUrl || "";
+    if (!effectiveUrl) return;
+    setCopiedBundlePreview(
+      buildKakaoOutreachPreset(nextKind, {
+        clientName: activeThread.clientName,
+        buildingTitle: activeThread.buildingTitle,
+        shareUrl: effectiveUrl,
+        headline: kakaoHeadline,
+      })
+    );
+  };
+
   const handlePrepareCopyBundle = async () => {
     if (!activeThread) return;
     setStatusFeedback(null);
@@ -913,9 +933,25 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       return next;
     });
 
-    if (messageText) {
-      await copyText(messageText);
-      setCopiedBundlePreview(messageText);
+    const effectiveUrl = nextShareUrl || activeThread.shareUrl || "";
+    if (effectiveUrl) {
+      setLastBundleShareUrl(effectiveUrl);
+    }
+    const finalMessageText =
+      kakaoPresetKind === "intro" && messageText
+        ? messageText
+        : effectiveUrl
+          ? buildKakaoOutreachPreset(kakaoPresetKind, {
+              clientName: activeThread.clientName,
+              buildingTitle: activeThread.buildingTitle,
+              shareUrl: effectiveUrl,
+              headline: kakaoHeadline,
+            })
+          : messageText;
+
+    if (finalMessageText) {
+      await copyText(finalMessageText);
+      setCopiedBundlePreview(finalMessageText);
     }
     const toastMsg = "안내 문구와 추적 링크를 복사했습니다.";
     setStatusFeedback(toastMsg);
@@ -1782,6 +1818,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             outboundEmail={outboundEmail}
             outboundBasis={outboundBasis}
             alimtalkTemplateId={alimtalkTemplateId}
+            kakaoPresetKind={kakaoPresetKind}
             copiedBundlePreview={copiedBundlePreview}
             showAlimtalkUpgradeSheet={showAlimtalkUpgradeSheet}
             confirmLockOpen={confirmLockOpen}
@@ -1794,6 +1831,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onOutboundEmailChange={setOutboundEmail}
             onOutboundBasisChange={setOutboundBasis}
             onAlimtalkTemplateChange={setAlimtalkTemplateId}
+            onKakaoPresetChange={handleKakaoPresetChange}
             onPrepareCopyBundle={handlePrepareCopyBundle}
             onSendInboxEmail={handleSendInboxEmail}
             onSendInboxAlimtalk={handleSendInboxAlimtalk}

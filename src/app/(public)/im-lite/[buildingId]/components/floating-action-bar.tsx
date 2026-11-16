@@ -74,8 +74,9 @@ export function ShareButton({ title }: { title: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleShare}
-      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-lg transition-colors"
+      className="flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-sm font-medium text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors cursor-pointer"
     >
       {copied ? (
         <>
@@ -465,13 +466,13 @@ export function FloatingActionBar({
       {inAppWebView && (
         <div
           data-testid="fab-inapp-webview-banner"
-          className="bg-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-100 max-w-2xl mx-auto"
+          className="bg-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-100 max-w-2xl mx-auto"
         >
           <span>앱 내 브라우저에서는 PPTX 파일 저장이 차단될 수 있습니다.</span>
           <button
             type="button"
             onClick={() => void handleOpenExternalBrowser()}
-            className="px-2.5 py-1 rounded-lg bg-amber-400 text-neutral-950 font-extrabold hover:bg-amber-300 transition-colors cursor-pointer"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-400 text-neutral-950 text-sm font-extrabold hover:bg-amber-300 transition-colors cursor-pointer"
           >
             외부 브라우저(Safari/Chrome)로 열기
           </button>
@@ -657,7 +658,7 @@ export function FloatingActionBar({
             {brokerPhone && (
               <a
                 href={`tel:${brokerPhone}`}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
               >
                 📞 직통 전화
               </a>
@@ -667,40 +668,44 @@ export function FloatingActionBar({
                 href={validKakaoChannelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-bold rounded-xl transition-colors shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-bold rounded-xl transition-colors shadow-sm"
               >
                 💬 카톡 상담
               </a>
             ) : (
               onInquire && (
                 <button
+                  type="button"
                   onClick={onInquire}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl transition-colors shadow-sm"
+                  className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl transition-colors shadow-sm cursor-pointer"
                 >
                   📩 간편 문의 · 자료 요청
                 </button>
               )
             )}
             <button
+              type="button"
               onClick={handlePdf}
               title="PDF 다운로드"
-              className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors"
+              className="min-h-[48px] px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
             >
               📄 PDF
             </button>
             <button
+              type="button"
               onClick={() => handlePptxDownload()}
               title="PPTX 다운로드"
               disabled={pptxLoading}
-              className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors"
+              className="min-h-[48px] px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
             >
               {pptxLoading ? "⏳" : "📊"} PPTX
             </button>
             <button
+              type="button"
               onClick={handleShare}
               title="공유하기"
               aria-label="링크 복사"
-              className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition-colors"
+              className="min-h-[48px] min-w-[48px] px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
             >
               {copied ? "✅" : "🔗"}
             </button>

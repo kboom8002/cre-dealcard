@@ -78,14 +78,14 @@ function BrokerTutorialInner() {
     <>
       <main
         data-testid="broker-tutorial-page"
-        className={`flex flex-col items-center min-h-screen px-4 py-8 pb-28 ${bodyTextClass}`}
+        className={`flex flex-col items-center w-full max-w-full overflow-x-clip min-h-screen px-4 py-8 pb-28 ${bodyTextClass}`}
       >
-        <StaggerContainer className="w-full max-w-5xl mx-auto space-y-8">
+        <StaggerContainer className="w-full max-w-5xl min-w-0 mx-auto space-y-8 overflow-x-clip">
           {/* ── 상단 타이틀 & 큰글씨/인쇄/PDF 다운로드 헤더 카드 ── */}
           <StaggerItem>
-            <section className="rounded-3xl border-2 border-blue-600/30 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+            <section className="rounded-3xl border-2 border-blue-600/30 bg-white p-5 sm:p-8 shadow-sm space-y-5 min-w-0 max-w-full">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-[15px] font-extrabold">
+                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-[15px] font-extrabold max-w-full break-keep">
                   📖 60대 대표공인중개사 맞춤형 큰글씨 · 사진 · 동영상 사용 설명서 (SOTA 개정판)
                 </span>
                 <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -254,11 +254,11 @@ function BrokerTutorialInner() {
                   ? { contentVisibility: "auto", containIntrinsicSize: "0 900px" }
                   : undefined
               }
-              className="rounded-3xl border-2 border-slate-300 bg-white p-6 sm:p-8 shadow-sm space-y-6 break-inside-avoid-page"
+              className="rounded-3xl border-2 border-slate-300 bg-white p-5 sm:p-8 shadow-sm space-y-6 break-inside-avoid-page min-w-0 max-w-full overflow-x-hidden"
             >
               {/* 모듈 헤더 */}
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-slate-200 pb-5">
-                <div className="space-y-2 flex-1 min-w-[260px]">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-slate-200 pb-5 min-w-0">
+                <div className="space-y-2 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="px-3.5 py-1 rounded-full bg-blue-700 text-white text-[14px] font-extrabold">
                       {mod.moduleNumber}
@@ -267,7 +267,7 @@ function BrokerTutorialInner() {
                       ⏱️ 소요 시간: {mod.duration}
                     </span>
                   </div>
-                  <h2 className="text-[24px] sm:text-[28px] font-black text-slate-900 leading-snug">
+                  <h2 className="text-[24px] sm:text-[28px] font-black text-slate-900 leading-snug break-keep">
                     {mod.title}
                   </h2>
                   <p className="text-[16px] sm:text-[17px] text-slate-700 leading-relaxed">
@@ -277,7 +277,7 @@ function BrokerTutorialInner() {
 
                 <Link
                   href={mod.targetHref}
-                  className="px-5 py-3 min-h-[48px] inline-flex items-center gap-2 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[16px] shadow-sm shrink-0 print:hidden transition-colors"
+                  className="px-5 py-3 min-h-[48px] max-w-full inline-flex items-center gap-2 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[16px] shadow-sm print:hidden transition-colors"
                 >
                   <span>{mod.targetLabel} ↗</span>
                 </Link>

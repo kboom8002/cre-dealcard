@@ -921,8 +921,8 @@ export function WorkspaceShell({
           }`}
         >
           {/* Editor Header — aligned on the exact same max-w-4xl horizontal axis as Editor Body */}
-          <div className="h-14 border-b border-slate-900/[0.07] px-3 sm:px-5 flex items-center shrink-0 bg-white/78 backdrop-blur-2xl backdrop-saturate-[190%] sticky top-0 z-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_2px_12px_-2px_rgba(15,23,42,0.03)]">
-            <div className="w-full max-w-4xl mx-auto flex items-center justify-between gap-2 min-w-0">
+          <div className="min-h-14 py-1.5 border-b border-slate-900/[0.07] px-3 sm:px-5 flex items-center shrink-0 bg-white/78 backdrop-blur-2xl backdrop-saturate-[190%] sticky top-0 z-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_2px_12px_-2px_rgba(15,23,42,0.03)]">
+            <div className="w-full max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 min-w-0">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                   type="button"

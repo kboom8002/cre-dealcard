@@ -48,8 +48,8 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
     <div
       className={
         isPaperMode
-          ? "broker-paper-theme min-h-screen bg-[#F5F5F7] text-[#1D1D1F] transition-colors"
-          : "min-h-screen bg-[#090D16] text-white transition-colors"
+          ? "broker-paper-theme min-h-screen max-w-full overflow-x-clip bg-[#F5F5F7] text-[#1D1D1F] transition-colors"
+          : "min-h-screen max-w-full overflow-x-clip bg-[#090D16] text-white transition-colors"
       }
     >
       {/* Apple iOS 18 Cupertino Daylight & Liquid Glass 상단 글로벌 내비게이션 바 */}
@@ -64,12 +64,12 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
               : "sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-sm"
           }
         >
-        <div className="min-h-14 px-4 py-1.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-h-14 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 max-w-full overflow-x-hidden">
           <div
             className={
               isPaperMode
-                ? "flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar bg-[#767680]/[0.08] p-1 rounded-2xl border border-white/60 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)]"
-                : "flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar"
+                ? "flex max-w-full items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar bg-[#767680]/[0.08] p-1 rounded-2xl border border-white/60 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)]"
+                : "flex max-w-full items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar"
             }
           >
             {TOP_NAV_LINKS.map((item) => {
@@ -105,7 +105,7 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-full min-w-0">
             {!pathname.startsWith("/broker/tutorial") && (
               <motion.button
                 type="button"

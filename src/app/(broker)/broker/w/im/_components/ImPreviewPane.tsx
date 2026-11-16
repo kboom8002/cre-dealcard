@@ -9,6 +9,7 @@ import {
   PreviewEditableUnit,
   type PreviewLifecycleState,
 } from "@/components/workspace/preview-sync";
+import { ImDeckReadinessBar } from "./ImDeckReadinessBar";
 import {
   UUID_REGEX,
   resolveKnownTestAssetUrl,
@@ -182,6 +183,22 @@ export function ImPreviewPane({
           }
         />
       </div>
+
+      <ImDeckReadinessBar
+        address={address}
+        askingPriceManwon={askingPriceManwon}
+        gfaSqm={gfaSqm}
+        landAreaSqm={landAreaSqm}
+        hasRentRollRow={rentRoll.some(
+          (r) =>
+            (r.depositManwon || 0) > 0 ||
+            (r.monthlyRentManwon || 0) > 0 ||
+            r.status === "owner" ||
+            Boolean(r.tenantName?.trim())
+        )}
+        photoCount={photoEntries.length}
+        onFocusEditorUnit={onFocusEditorUnit}
+      />
 
       {previewLifecycle === "pre_generation" ? (
         <PreviewPregenerationCard

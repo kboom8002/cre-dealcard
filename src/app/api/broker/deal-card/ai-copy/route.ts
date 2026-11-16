@@ -39,6 +39,7 @@ import {
   stripUngroundedNumbers,
 } from '@/lib/deal-card/copy-limits';
 import { POSTURE_LABELS } from '@/lib/ux/lexicon';
+import { humanizeSeniorBrokerTone } from '@/domain/building/mobile-im/broker-sales-tone-lexicon';
 import { createModuleLogger } from '@/lib/logger';
 import {
   buildAiUnavailable503Response,
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
       if (!text) return '';
       const { cleaned, stripped } = stripUngroundedNumbers(text, prompt.factContext);
       if (stripped.length > 0) warnings.add(WARN_NUMBERS);
-      let line = cleanBlindPoints([cleaned || ''])[0] || '';
+      let line = humanizeSeniorBrokerTone(cleanBlindPoints([cleaned || ''])[0] || '');
       if (isHeadline) line = stripChipRepetition(line, { region: input.region, use: input.use });
       const repaired = repairDealCardLine(line);
       if (repaired !== line.trim()) warnings.add(WARN_REPAIRED);
