@@ -369,6 +369,25 @@ describe("Round-2 Dual-Portal Separation & Dual-Key Isolation (R2-WP-01 ~ R2-WP-
             }),
           };
         }
+        if (url.includes("mode=pins")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              pins: [
+                {
+                  id: "bpin-1",
+                  workspace: "newsletter",
+                  targetLabel: "NL-D1 · 전체 화면",
+                  note: "제목 글씨 크기가 좋습니다.",
+                  authorRole: "broker",
+                  screenshotDataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+                  createdAt: "2026-11-16T00:00:00.000Z",
+                },
+              ],
+            }),
+          };
+        }
         return {
           ok: true,
           json: async () => ({ ok: true, found: false, pins: [] }),
@@ -387,13 +406,22 @@ describe("Round-2 Dual-Portal Separation & Dual-Key Isolation (R2-WP-01 ~ R2-WP-
     expect(
       container.querySelector('[data-testid="showcase-verdict-pass"]')
     ).not.toBeNull();
-    // Switching to dealcard -> DC-06 shows patch-checking badge
+    expect(
+      container.querySelector('[data-testid="broker-showcase-pins-list"]')
+    ).not.toBeNull();
+
+    // Switching to dealcard -> default DC-01 is unverified ("사전 기술점검 대기"), DC-06 shows patch-checking badge
     const dealcardTab = container.querySelector(
       '[data-testid="showcase-tab-dealcard"]'
     ) as HTMLButtonElement;
     await act(async () => {
       dealcardTab.click();
     });
+    expect(
+      container.querySelector('[data-testid="broker-tester-verified-badge"]')
+        ?.textContent
+    ).toContain("사전 기술점검 대기");
+
     const dc06Btn = container.querySelector(
       '[data-testid="showcase-case-DC-06"]'
     ) as HTMLButtonElement;
@@ -420,6 +448,18 @@ describe("Round-2 Dual-Portal Separation & Dual-Key Isolation (R2-WP-01 ~ R2-WP-
     });
 
     expect(
+      container.querySelector('[data-testid="broker-signoff-font-toggle-wrap"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="broker-practice-helpers"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="broker-open-tutorial-link"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="broker-download-sample-kit-link"]')
+    ).not.toBeNull();
+    expect(
       container.querySelector('[data-testid="broker-verdict-summary-card"]')
     ).not.toBeNull();
     expect(
@@ -434,6 +474,27 @@ describe("Round-2 Dual-Portal Separation & Dual-Key Isolation (R2-WP-01 ~ R2-WP-
     expect(
       container.querySelector('[data-testid="broker-signoff-submit-btn"]')
     ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="broker-copy-kakao-summary-btn"]')
+    ).not.toBeNull();
+
+    // Broker pin screenshot zoom modal & Escape close
+    const pinZoomBtn = container.querySelector(
+      '[data-testid="broker-pin-zoom-bpin-1"]'
+    ) as HTMLButtonElement | null;
+    expect(pinZoomBtn).not.toBeNull();
+    await act(async () => {
+      pinZoomBtn!.click();
+    });
+    expect(
+      container.querySelector('[data-testid="broker-pin-zoom-modal"]')
+    ).not.toBeNull();
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(
+      container.querySelector('[data-testid="broker-pin-zoom-modal"]')
+    ).toBeNull();
 
     // Strict zero tester/dev jargon guard
     expect(container.textContent).not.toContain("R1-01");
@@ -443,5 +504,12 @@ describe("Round-2 Dual-Portal Separation & Dual-Key Isolation (R2-WP-01 ~ R2-WP-
     expect(container.textContent).not.toContain("preflight");
     expect(container.textContent).not.toContain("Blocker");
     expect(container.textContent).not.toContain("auto_probe_all");
+    expect(container.textContent).not.toContain("Gate 1");
+    expect(container.textContent).not.toContain("폴백");
+    expect(container.textContent).not.toContain("드라이런");
+    expect(container.textContent).not.toContain("Resend");
+    expect(container.textContent).not.toContain("slk.");
+    expect(container.textContent).not.toContain("OpenXML");
+    expect(container.textContent).not.toContain("(/qa-showcase");
   });
 });

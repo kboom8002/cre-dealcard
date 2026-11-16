@@ -36,6 +36,17 @@ interface TesterTechRecord {
   updatedAt?: string;
 }
 
+interface BrokerShowcasePinItem {
+  id: string;
+  targetLabel: string;
+  note: string;
+  originalText?: string;
+  suggestedText?: string;
+  authorRole?: string;
+  routePath?: string;
+  createdAt: string;
+}
+
 const LOCAL_STORAGE_KEY = "cre_qa_output_showcase_v1";
 
 function readInitialVerdicts(): Record<string, ShowcaseVerdictRecord> {
@@ -53,19 +64,19 @@ function readInitialVerdicts(): Record<string, ShowcaseVerdictRecord> {
 function verdictBadgeMeta(status?: BrokerVerdictStatus): ShowcaseScenarioBadge {
   if (status === "PASS") {
     return {
-      label: "적합 (PASS)",
+      label: "바로 사용 가능",
       chipClass: "bg-emerald-100 text-emerald-900 border-emerald-300",
     };
   }
   if (status === "NEEDS_POLISH") {
     return {
-      label: "손질 필요",
+      label: "조금 다듬기",
       chipClass: "bg-amber-100 text-amber-900 border-amber-300",
     };
   }
   if (status === "FAIL") {
     return {
-      label: "수정 필수 (FAIL)",
+      label: "보완 필요",
       chipClass: "bg-rose-100 text-rose-900 border-rose-300",
     };
   }
@@ -82,6 +93,7 @@ export default function QaBrokerShowcasePage() {
   const [testerTechRecords, setTesterTechRecords] = useState<
     Record<string, TesterTechRecord>
   >({});
+  const [brokerPins, setBrokerPins] = useState<BrokerShowcasePinItem[]>([]);
 
   const [syncMessage, setSyncMessage] = useState<string>("");
   const [submitMessage, setSubmitMessage] = useState<string>("");
@@ -106,7 +118,7 @@ export default function QaBrokerShowcasePage() {
     let cancelled = false;
     async function loadBrokerAndTesterStatus() {
       try {
-        const [brokerRes, testerRes, signoffRes] = await Promise.all([
+        const [brokerRes, testerRes, signoffRes, pinsRes] = await Promise.all([
           fetch(
             `/api/public/qa-workbench?sessionId=${encodeURIComponent(
               QA_BROKER_SHOWCASE_SESSION_ID
@@ -125,6 +137,12 @@ export default function QaBrokerShowcasePage() {
             )}`,
             { cache: "no-store" }
           ),
+          fetch("/api/public/qa-workbench?mode=pins", {
+            cache: "no-store",
+            headers: {
+              ...buildQaAuthHeaders("broker"),
+            },
+          }),
         ]);
 
         if (!cancelled && brokerRes.ok) {
@@ -205,6 +223,18 @@ export default function QaBrokerShowcasePage() {
             ...derivedFromR2Signoff,
             ...explicitTesterRecs,
           });
+        }
+
+        if (!cancelled && pinsRes.ok) {
+          const pinsJson = (await pinsRes.json()) as {
+            ok?: boolean;
+            pins?: BrokerShowcasePinItem[];
+          };
+          if (pinsJson?.ok && Array.isArray(pinsJson.pins)) {
+            setBrokerPins(
+              pinsJson.pins.filter((p) => p.authorRole === "broker")
+            );
+          }
         }
       } catch {
         // non-blocking
@@ -379,12 +409,16 @@ export default function QaBrokerShowcasePage() {
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        pin?: BrokerShowcasePinItem;
       } | null;
       if (!res.ok || !json?.ok) {
         setPinFeedback(
           json?.error || "의견 저장에 실패했습니다. 키 연결을 확인해 주세요."
         );
         return;
+      }
+      if (json.pin) {
+        setBrokerPins((prev) => [json.pin!, ...prev]);
       }
       setOriginalText("");
       setSuggestedText("");
@@ -441,9 +475,16 @@ export default function QaBrokerShowcasePage() {
           </span>
         );
       }
+      if (tech === "PASS") {
+        return (
+          <span className="inline-flex items-center self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[12px] font-bold text-emerald-900">
+            🛡️ 테스터 기술검증 완료
+          </span>
+        );
+      }
       return (
-        <span className="inline-flex items-center self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[12px] font-bold text-emerald-900">
-          🛡️ 테스터 기술검증 완료
+        <span className="inline-flex items-center self-start rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-700">
+          🔎 사전 기술점검 대기
         </span>
       );
     },
@@ -457,7 +498,7 @@ export default function QaBrokerShowcasePage() {
       headingTitle="실제 고객 발송 산출물 22종 품격·신뢰감 감수"
       backHref="/qa-broker/signoff"
       backLabel="← 중개인 감수 미팅 보드"
-      summaryBadgeText={`${decidedCount} / 22 판정 (PASS ${passCount} · 손질 ${polishCount} · FAIL ${failCount})`}
+      summaryBadgeText={`${decidedCount} / 22 판정 (바로사용 ${passCount} · 다듬기 ${polishCount} · 보완필요 ${failCount})`}
       oracleHeadingLabel="중개인 확인 포인트 (고객 신뢰·품격 기준)"
       slideActionLabel="✏️ 이 슬라이드 의견"
       headerRightSlot={
@@ -509,19 +550,24 @@ export default function QaBrokerShowcasePage() {
       renderScenarioContextSlot={(ctx) => {
         const techStatus = testerTechRecords[ctx.activeScenario.id]?.status;
         const isIssue = techStatus === "ISSUE";
+        const isPass = techStatus === "PASS";
         return (
           <div
             data-testid="broker-tester-verified-badge"
             className={`rounded-xl border px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 ${
               isIssue
                 ? "border-amber-300 bg-amber-50 text-amber-950"
-                : "border-emerald-300 bg-emerald-50 text-emerald-950"
+                : isPass
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                : "border-sky-200 bg-sky-50 text-sky-950"
             }`}
           >
             <span className="text-[15px] font-extrabold">
               {isIssue
-                ? "⚠️ 기술 패치 확인 중 — 일부 화면 요소가 수정 대기 중입니다"
-                : "🛡️ 테스터 기술검증 완료 — 깨짐·오탈자·숫자 오류 사전 점검 마침"}
+                ? "⚠️ 기술 패치 확인 중 — 일부 화면 요소가 보완 대기 중입니다"
+                : isPass
+                ? "🛡️ 테스터 기술검증 완료 — 깨짐·오탈자·숫자 오류 사전 점검 마침"
+                : "🔎 사전 기술점검 대기 — 테스터 순차 점검 진행 중"}
             </span>
             <span className="text-[14px] font-semibold">
               중개인님께서는 70대 매수자 이해도와 표현 품격만 편하게 봐 주시면 됩니다.
@@ -572,7 +618,7 @@ export default function QaBrokerShowcasePage() {
                       : "border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"
                   }`}
                 >
-                  ✅ 고객에게 바로 보내도 됨 (PASS)
+                  ✅ 손님께 바로 보내도 됨
                 </button>
                 <button
                   type="button"
@@ -590,7 +636,7 @@ export default function QaBrokerShowcasePage() {
                       : "border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
                   }`}
                 >
-                  🛠️ 문구·레이아웃 살짝 다듬기
+                  🛠️ 문구·배치 조금 다듬기
                 </button>
                 <button
                   type="button"
@@ -605,7 +651,7 @@ export default function QaBrokerShowcasePage() {
                       : "border-rose-300 bg-rose-50 text-rose-950 hover:bg-rose-100"
                   }`}
                 >
-                  🚫 수치·누출·결함 수정 필수 (FAIL)
+                  ⛔ 수치·표현 보완 필요
                 </button>
               </div>
 
@@ -630,7 +676,7 @@ export default function QaBrokerShowcasePage() {
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-[16px] font-extrabold text-slate-900">
-                  ✏️ Red-Pen 문구 고치기 & 화면 의견 바로 남기기
+                  ✏️ 어색한 문구 고치기 & 화면 의견 바로 남기기
                 </h3>
                 <span
                   data-testid="showcase-pin-target-label"
@@ -650,7 +696,7 @@ export default function QaBrokerShowcasePage() {
                     value={originalText}
                     onChange={(e) => setOriginalText(e.target.value)}
                     rows={2}
-                    placeholder="예: Cap Rate 스프레드가 확대됨"
+                    placeholder="예: 대출 금리 대비 임대수익률 차이가 소폭 확대됨"
                     className="w-full min-h-[72px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-[15px] text-slate-900"
                   />
                 </label>
@@ -716,6 +762,36 @@ export default function QaBrokerShowcasePage() {
                 </p>
               ) : null}
             </form>
+
+            {brokerPins.length > 0 ? (
+              <div
+                data-testid="broker-showcase-pins-list"
+                className="border-t border-slate-200 pt-4 space-y-2.5"
+              >
+                <h3 className="text-[15px] font-extrabold text-slate-900">
+                  ✏️ 내가 남긴 의견 확인 ({brokerPins.length}건)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {brokerPins.slice(0, 6).map((pin) => (
+                    <div
+                      key={pin.id}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1"
+                    >
+                      <p className="text-[14px] font-extrabold text-slate-900">
+                        {pin.targetLabel}
+                      </p>
+                      {pin.originalText || pin.suggestedText ? (
+                        <p className="text-[13px] font-semibold text-indigo-900">
+                          “{pin.originalText || "(기존)"}” → “
+                          {pin.suggestedText || "(희망 표현)"}”
+                        </p>
+                      ) : null}
+                      <p className="text-[14px] text-slate-700">{pin.note}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
         );
       }}

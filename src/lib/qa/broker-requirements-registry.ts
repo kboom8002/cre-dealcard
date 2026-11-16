@@ -116,35 +116,35 @@ export const BROKER_REQUIREMENTS_REGISTRY: readonly BrokerRequirementEntry[] = [
   },
   {
     id: "BR-008",
-    title: "소통함 무료(인사말+링크 복사·이메일) vs 유료 Pro(카카오 알림톡 4종·업그레이드 안내) 분리",
+    title: "소통함 무료(인사말+링크 복사·이메일) vs 유료 Pro(카카오 알림톡·업그레이드 안내) 분리",
     sourceSession: "소통함 발송 티어 승인 (11/14)",
     area: "inbox",
     biasTag: "공통",
     status: "pending_broker_confirm",
     acceptanceCriteria:
-      "무료 회원은 1클릭 정중 인사말+링크 복사 및 Resend 이메일 발송을 지원하고, 유료 Pro+거래근거 충족 시 카카오 알림톡(실발송 보류 정책 준수) 및 무료 회원 업그레이드 안내 시트가 동작한다.",
+      "무료 회원은 1클릭 정중한 인사말+링크 복사 및 이메일 발송을 바로 이용할 수 있고, 유료 Pro 안내 및 향후 카카오 알림톡 연동 고지가 깔끔하게 동작한다.",
     linkedTestFiles: ["src/tests/workspace/monthly-charts-and-inbox-tiers.test.tsx"],
   },
   {
     id: "BR-009",
-    title: "slk.* 서명 토큰 기반 고객별 IM · 딜카드 열람 및 체류시간 분리 귀속",
+    title: "고객별 전용 열람 링크로 IM · 딜카드 열람 횟수 및 체류시간 개별 집계",
     sourceSession: "소통함 추적 승인 (11/14)",
     area: "inbox",
     biasTag: "공통",
     status: "pending_broker_confirm",
     acceptanceCriteria:
-      "동일 매물을 여러 고객에게 보내도 각 고객 전용 slk.* 토큰으로 /im-lite·/dc 열람 횟수 및 체류시간이 섞이지 않고 개별 고객 행에 귀속된다.",
+      "동일 매물을 여러 고객에게 보내도 고객별 전용 열람 링크를 통해 IM·딜카드 열람 횟수와 체류시간이 서로 섞이지 않고 각 고객 내역에 정확히 기록된다.",
     linkedTestFiles: ["src/tests/workspace/monthly-charts-and-inbox-tiers.test.tsx"],
   },
   {
     id: "BR-010",
-    title: "딜카드 메모 우선 작성 & 공개 티저 지번·상호·연락처 비노출(블라인드 방역)",
+    title: "딜카드 메모 우선 작성 & 공개 화면 지번·상호·연락처 비노출(블라인드 보호)",
     sourceSession: "7일간 누적 핵심 요건",
     area: "dealcards",
     biasTag: "공통",
     status: "verified",
     acceptanceCriteria:
-      "원본 메모 기반 4칸 요약 생성 시 상세 번지·임차 브랜드·연락처가 /dc/[id] 및 카톡 OG 카드에 노출되지 않으며, 블라인드 위반 없이 저장·공유된다.",
+      "원본 메모 기반 4칸 요약 생성 시 상세 번지·임차 브랜드·연락처가 고객용 딜카드 및 카카오톡 미리보기 카드에 노출되지 않으며 안전하게 공유된다.",
     linkedTestFiles: [
       "src/tests/workspace/mece-preemptive-defense-audit.test.tsx",
       "e2e/ws-dealcard-inbox-sota-golden.auth.spec.ts",
@@ -152,13 +152,13 @@ export const BROKER_REQUIREMENTS_REGISTRY: readonly BrokerRequirementEntry[] = [
   },
   {
     id: "BR-011",
-    title: "다필지 조회 · 아이폰 HEIC 업로드 · PPTX Slide 05 지적도 경계 & Slide 07 수익률 정합성",
+    title: "다필지 조회 · 아이폰 사진(HEIC) 업로드 · PPTX 지적도 경계 & 수익률 수치 일치",
     sourceSession: "7일간 누적 핵심 요건",
     area: "im",
     biasTag: "확인필요",
     status: "pending_broker_confirm",
     acceptanceCriteria:
-      "다필지·HEIC 사진·렌트롤 엑셀 업로드 후 생성된 Basic IM PPTX가 4대 OpenXML 검사와 Slide 05 본건 필지 표시·Slide 07 수익률 수치 정합성을 통과한다.",
+      "여러 필지·아이폰 원본 사진·임대현황 엑셀 업로드 후 생성된 PPTX 발표자료에서 본건 필지 경계 표시와 임대수익률 수치가 모바일 IM과 정확히 일치한다.",
     linkedTestFiles: [
       "src/tests/preventive/l8-multiparcel-edgecases.test.ts",
       "src/tests/preventive/l12-im-heic-upload-parcel-broker-hygiene.test.ts",

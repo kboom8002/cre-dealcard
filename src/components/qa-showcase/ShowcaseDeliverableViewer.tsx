@@ -506,7 +506,9 @@ function ShowcaseDeliverableViewerInner({
               data-testid="showcase-channel-policy-badge"
               className="inline-flex items-center min-h-[44px] rounded-xl border border-sky-300 bg-sky-50 px-3 text-[15px] font-bold text-sky-900"
             >
-              {policySummary}
+              {portalRole === "broker"
+                ? "무료 카톡 링크복사·이메일 발송 지원 (Pro 알림톡 추후 오픈)"
+                : policySummary}
             </span>
             <span
               data-testid="showcase-summary-badge"
@@ -679,25 +681,31 @@ function ShowcaseDeliverableViewerInner({
             <span className="text-[15px] font-extrabold text-slate-800 mr-1">
               모바일 글자 크기:
             </span>
-            {FONT_SCALE_OPTIONS.map((opt) => {
-              const active = fontScale === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  data-testid={`showcase-font-${opt.id}`}
-                  onClick={() => applyFontScale(opt.id)}
-                  aria-pressed={active}
-                  className={`min-h-[44px] rounded-xl border px-3.5 text-[15px] font-bold cursor-pointer ${
-                    active
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
+            <div
+              role="group"
+              aria-label="모바일 글자 크기 선택"
+              className="ios-segmented-track inline-flex flex-wrap items-center gap-1 bg-slate-100 border border-slate-200"
+            >
+              {FONT_SCALE_OPTIONS.map((opt) => {
+                const active = fontScale === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-testid={`showcase-font-${opt.id}`}
+                    onClick={() => applyFontScale(opt.id)}
+                    aria-pressed={active}
+                    className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-bold transition-colors cursor-pointer ${
+                      active
+                        ? "bg-slate-900 text-white shadow-2xs"
+                        : "bg-transparent text-slate-800 hover:bg-white/80"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -708,16 +716,20 @@ function ShowcaseDeliverableViewerInner({
             className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div
+                role="group"
+                aria-label="모바일 또는 카카오톡 카드 보기 전환"
+                className="ios-segmented-track inline-flex flex-wrap items-center gap-1 bg-slate-100 border border-slate-200"
+              >
                 <button
                   type="button"
                   data-testid="showcase-view-mobile"
                   onClick={() => setMobileOrOgMode("mobile")}
                   aria-pressed={mobileOrOgMode === "mobile"}
-                  className={`min-h-[44px] rounded-xl border px-4 text-[15px] font-extrabold cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[40px] px-4 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     mobileOrOgMode === "mobile"
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      ? "bg-indigo-700 text-white shadow-2xs"
+                      : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
                   📱 모바일 실화면 (390px)
@@ -727,10 +739,10 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-view-og"
                   onClick={() => setMobileOrOgMode("og")}
                   aria-pressed={mobileOrOgMode === "og"}
-                  className={`min-h-[44px] rounded-xl border px-4 text-[15px] font-extrabold cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[40px] px-4 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     mobileOrOgMode === "og"
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      ? "bg-indigo-700 text-white shadow-2xs"
+                      : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
                   💬 카톡 공유 OG 카드
@@ -798,16 +810,20 @@ function ShowcaseDeliverableViewerInner({
             className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div
+                role="group"
+                aria-label="IM 보기 모드 선택"
+                className="ios-segmented-track inline-flex flex-wrap items-center gap-1 bg-slate-100 border border-slate-200"
+              >
                 <button
                   type="button"
                   data-testid="showcase-im-mode-grid"
                   onClick={() => setImViewMode("grid")}
                   aria-pressed={imViewMode === "grid"}
-                  className={`min-h-[44px] rounded-xl border px-3.5 text-[15px] font-extrabold cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "grid"
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      ? "bg-indigo-700 text-white shadow-2xs"
+                      : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
                   PPTX 전 슬라이드 한눈에
@@ -817,10 +833,10 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-single"
                   onClick={() => setImViewMode("single")}
                   aria-pressed={imViewMode === "single"}
-                  className={`min-h-[44px] rounded-xl border px-3.5 text-[15px] font-extrabold cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "single"
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      ? "bg-indigo-700 text-white shadow-2xs"
+                      : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
                   PPTX 1장씩 크게
@@ -830,10 +846,10 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-mobile"
                   onClick={() => setImViewMode("mobile")}
                   aria-pressed={imViewMode === "mobile"}
-                  className={`min-h-[44px] rounded-xl border px-3.5 text-[15px] font-extrabold cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "mobile"
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      ? "bg-indigo-700 text-white shadow-2xs"
+                      : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
                   모바일 IM 390px
@@ -843,10 +859,10 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-split"
                   onClick={() => setImViewMode("split")}
                   aria-pressed={imViewMode === "split"}
-                  className={`min-h-[44px] rounded-xl border px-3.5 text-[15px] font-extrabold cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "split"
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      ? "bg-indigo-700 text-white shadow-2xs"
+                      : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
                   모바일+PPTX 나란히
