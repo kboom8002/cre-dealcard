@@ -15,6 +15,7 @@ import { assertPublishable } from '@/lib/legal/publish-gate';
 import { validateBlindPoints } from '@/lib/deal-card/blind-guard';
 import { validateBlindPriceBand } from '@/lib/deal-card/price-band';
 import { evaluateDealCardPublishContent } from '@/lib/deal-card/publish-content-gate';
+import { syncLegacyBuildingPublishedStatus } from '@/lib/deal-card/publish-sync';
 import { normalizeDealCardCopy } from '@/lib/deal-card/copy-limits';
 import {
   isUuid,
@@ -1198,7 +1199,16 @@ export async function PATCH(
               { status: err.status }
             );
           }
-          // Non-blocking if pre-cutover mock DB lacks workspace_items chain
+          if (!isMissingRelationOrColumnError(err)) {
+            log.error('[deal-card PATCH] workspace_items upsert failed:', err);
+            return NextResponse.json(
+              { ok: false, error: '딜카드 저장 중 데이터베이스 오류가 발생했습니다.', code: 'DB_WRITE_FAILED' },
+              { status: 500 }
+            );
+          }
+        }
+        if (isPublishingUuid) {
+          await syncLegacyBuildingPublishedStatus(serviceClient, targetBuildingId);
         }
         if (!preservePublishedUuid) {
           updateQuickImCard4(targetBuildingId, mergedCard4, { ownerId: guard.user!.id });
@@ -1395,6 +1405,7 @@ export async function PATCH(
       if (isPublishingUuid) {
         signalCardUpdate.status = 'shared_external';
         signalCardUpdate.visibility = 'public_blind';
+        await syncLegacyBuildingPublishedStatus(serviceClient, targetBuildingId);
       }
 
       if (Object.keys(signalCardUpdate).length > 0) {
@@ -1472,7 +1483,16 @@ export async function PATCH(
           { status: err.status }
         );
       }
-      // Non-blocking if pre-cutover mock DB lacks workspace_items chain
+      if (!isMissingRelationOrColumnError(err)) {
+        log.error('[deal-card PATCH] legacy workspace_items upsert failed:', err);
+        return NextResponse.json(
+          { ok: false, error: '딜카드 저장 중 데이터베이스 오류가 발생했습니다.', code: 'DB_WRITE_FAILED' },
+          { status: 500 }
+        );
+      }
+    }
+    if (isPublishingUuid) {
+      await syncLegacyBuildingPublishedStatus(serviceClient, targetBuildingId);
     }
 
     if (!preservePublishedUuid) {

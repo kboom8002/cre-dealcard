@@ -10,6 +10,7 @@ import { assertPublishable } from '@/lib/legal/publish-gate';
 import { validateBlindPriceBand } from '@/lib/deal-card/price-band';
 import { evaluateDealCardPublishContent } from '@/lib/deal-card/publish-content-gate';
 import { fetchVerifiedBrokerSnapshotProfile } from '@/lib/deal-card/verified-broker-profile';
+import { syncLegacyBuildingPublishedStatus } from '@/lib/deal-card/publish-sync';
 import {
   assertLegacyOrDbOwnership,
   buildSanitizedDealCardPublicSnapshot,
@@ -387,6 +388,7 @@ export async function POST(
                 updated_at: nowIso,
               })
               .eq('building_id', resolvedBuildingId),
+            syncLegacyBuildingPublishedStatus(supabase, resolvedBuildingId, nowIso),
           ]);
         }
 

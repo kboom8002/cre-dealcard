@@ -56,8 +56,6 @@ export async function DELETE(
     ) {
       return NextResponse.json({ error: "삭제 권한이 없습니다." }, { status: 403 });
     }
-    markDealCardDeleted(id);
-    deleteQuickImRecord(id);
     if (service && typeof service.from === "function") {
       try {
         await softDeleteWorkspaceItem(service, {
@@ -65,9 +63,22 @@ export async function DELETE(
           userId: user.id,
           isAdmin: guard.role === "admin",
           kind: "dealcard",
+          requireExisting: !existingQuick,
         });
-      } catch {
-        // Non-blocking if only in-memory record exists
+      } catch (err) {
+        if (err instanceof WorkspaceRepositoryError) {
+          return NextResponse.json(
+            { ok: false, error: err.message, code: err.code },
+            { status: err.status }
+          );
+        }
+        if (!isMissingRelationOrColumnError(err) || !existingQuick) {
+          log.error("[deal-card/delete] non-UUID workspace_items soft delete failed:", err);
+          return NextResponse.json(
+            { ok: false, error: "삭제 처리 중 오류가 발생했습니다.", code: "DB_WRITE_FAILED" },
+            { status: 500 }
+          );
+        }
       }
       try {
         await service.from("activity_events").insert({
@@ -80,7 +91,11 @@ export async function DELETE(
       } catch {
         // Non-blocking
       }
+    } else if (!existingQuick) {
+      return NextResponse.json({ ok: false, error: "딜카드를 찾을 수 없습니다.", code: "NOT_FOUND" }, { status: 404 });
     }
+    markDealCardDeleted(id);
+    deleteQuickImRecord(id);
     try {
       revalidatePath(`/dc/${id}`);
     } catch {

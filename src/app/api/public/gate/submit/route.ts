@@ -19,6 +19,7 @@ import { checkRateLimit } from '@/lib/rate-limiter';
 import { createModuleLogger } from '@/lib/logger';
 import { getInboxState, getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
 import { getPublicWorkspaceProjection } from '@/lib/workspace/workspace-repository';
+import { isLegacyBuildingRowPublic } from '@/lib/deal-card/publish-sync';
 import {
   isBuildingShareLinkRevoked,
   verifyShareLinkToken,
@@ -85,16 +86,35 @@ export async function POST(req: NextRequest) {
           token: shareToken.trim(),
           ...(effectiveDealId ? { buildingId: effectiveDealId } : {}),
         });
-        if (verified.valid) {
-          if (!effectiveDealId && verified.buildingId) {
-            effectiveDealId = verified.buildingId.trim();
-          }
-          if (verified.brokerId && isUuid(verified.brokerId)) {
-            verifiedTokenBrokerId = verified.brokerId;
-          }
+        if (!verified.valid) {
+          return NextResponse.json(
+            {
+              ok: false,
+              accessGranted: false,
+              code: verified.reason === 'lookup_failed' ? 'GOVERNANCE_CHECK_UNAVAILABLE' : 'INVALID_OR_REVOKED_TOKEN',
+              error:
+                verified.reason === 'lookup_failed'
+                  ? '공유 링크 상태를 확인할 수 없어 잠시 후 다시 시도해 주세요.'
+                  : '유효하지 않거나 회수된 공유 링크입니다.',
+            },
+            { status: verified.reason === 'lookup_failed' ? 503 : 403 }
+          );
+        }
+        if (!effectiveDealId && verified.buildingId) {
+          effectiveDealId = verified.buildingId.trim();
+        }
+        if (verified.brokerId && isUuid(verified.brokerId)) {
+          verifiedTokenBrokerId = verified.brokerId;
         }
       } catch {
-        // Non-blocking: missing dealId fails closed below
+        return NextResponse.json(
+          {
+            ok: false,
+            accessGranted: false,
+            error: '공유 링크 검증에 실패했습니다.',
+          },
+          { status: 503 }
+        );
       }
     }
 
@@ -146,6 +166,7 @@ export async function POST(req: NextRequest) {
             ev?.metadata && typeof ev.metadata === 'object'
               ? (ev.metadata as Record<string, unknown>)
               : {};
+          if (meta.scope === 'thread' || meta.scope === 'recipient_approval') continue;
           const evBId = String(meta.building_id || ev?.entity_id || '').trim();
           if (evBId !== dealKey) continue;
           if (ev.event_type === 'link_revoked') {
@@ -164,8 +185,37 @@ export async function POST(req: NextRequest) {
         // non-blocking
       }
 
+      // Kernel K2: Check canonical workspace_items FIRST so a draft/revoked workspace row
+      // can NEVER be bypassed by a co-existing building_ssot_lite row.
       let dealExists = false;
-      if (isUuid(dealKey)) {
+      const wsProj = await getPublicWorkspaceProjection(supabase, dealKey).catch(() => null);
+      if (wsProj?.found) {
+        if (wsProj.revoked) {
+          return NextResponse.json(
+            {
+              ok: false,
+              accessGranted: false,
+              error: '담당 공인중개사가 열람 링크를 잠근 매물입니다.',
+            },
+            { status: 403 }
+          );
+        }
+        if (wsProj.deleted || !wsProj.projection) {
+          return NextResponse.json(
+            {
+              ok: false,
+              accessGranted: false,
+              error: '비공개 또는 작성 중인 매물입니다.',
+            },
+            { status: 404 }
+          );
+        }
+        dealExists = true;
+        resolvedBrokerId = wsProj.projection.ownerId;
+        resolvedTenantId = wsProj.projection.ownerId;
+      }
+
+      if (!dealExists && isUuid(dealKey)) {
         const { data: dealRow } = await supabase
           .from('deals')
           .select('id, broker_id')
@@ -195,6 +245,16 @@ export async function POST(req: NextRequest) {
             );
           }
           if (bldgRow?.id) {
+            if (!isLegacyBuildingRowPublic(bldgRow.status)) {
+              return NextResponse.json(
+                {
+                  ok: false,
+                  accessGranted: false,
+                  error: '비공개 또는 작성 중인 매물입니다.',
+                },
+                { status: 404 }
+              );
+            }
             dealExists = true;
             if (bldgRow.owner_id) {
               resolvedBrokerId = bldgRow.owner_id;
@@ -204,36 +264,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (!dealExists) {
-        const wsProj = await getPublicWorkspaceProjection(supabase, dealKey).catch(() => null);
-        if (wsProj?.found) {
-          if (wsProj.revoked) {
-            return NextResponse.json(
-              {
-                ok: false,
-                accessGranted: false,
-                error: '담당 공인중개사가 열람 링크를 잠근 매물입니다.',
-              },
-              { status: 403 }
-            );
-          }
-          if (wsProj.deleted || !wsProj.projection) {
-            return NextResponse.json(
-              {
-                ok: false,
-                accessGranted: false,
-                error: '비공개 또는 삭제된 매물입니다.',
-              },
-              { status: 404 }
-            );
-          }
-          dealExists = true;
-          resolvedBrokerId = wsProj.projection.ownerId;
-          resolvedTenantId = wsProj.projection.ownerId;
-        }
-      }
-
       if (!dealExists && quickRec) {
+        const quickStatus = String((quickRec as unknown as Record<string, unknown>).status || '').toLowerCase();
+        if (quickStatus === 'draft' || quickStatus === 'archived') {
+          return NextResponse.json(
+            {
+              ok: false,
+              accessGranted: false,
+              error: '비공개 또는 작성 중인 매물입니다.',
+            },
+            { status: 404 }
+          );
+        }
         dealExists = true;
         if (quickRec.ownerId) {
           resolvedBrokerId = quickRec.ownerId;

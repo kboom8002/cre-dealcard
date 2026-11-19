@@ -2317,7 +2317,7 @@ export async function POST(req: NextRequest) {
           price_band: card4.priceBand,
           size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
           vacancy_signal: ssotSummary.vacancy_signal,
-          status: 'public_signal_ready' as const,
+          status: (effectiveStatus === 'published' ? 'public_signal_ready' : 'draft') as 'public_signal_ready' | 'draft',
           layers: {
             completeness_score: completenessScore,
             location: {

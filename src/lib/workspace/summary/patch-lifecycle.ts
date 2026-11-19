@@ -4,6 +4,7 @@ import { isRealProductionRuntime } from "@/lib/env";
 import type { createServiceClient } from "@/lib/supabase/service";
 import { assertPublishable } from "@/lib/legal/publish-gate";
 import { evaluateDealCardPublishContent } from "@/lib/deal-card/publish-content-gate";
+import { syncLegacyBuildingPublishedStatus } from "@/lib/deal-card/publish-sync";
 import {
   updateDealCard4,
   type Card4Data,
@@ -621,6 +622,9 @@ export async function handlePatchWorkspaceLifecycle(
           },
           { status: 404 }
         );
+      }
+      if (isUuid(buildingId)) {
+        await syncLegacyBuildingPublishedStatus(supabase, buildingId);
       }
     } catch (err) {
       return repoErrorResponse(err);

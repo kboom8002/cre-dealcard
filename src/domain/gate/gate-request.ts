@@ -13,6 +13,8 @@ import {
   resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 import { getPublicWorkspaceProjection } from "@/lib/workspace/workspace-repository";
+import { isLegacyBuildingRowPublic } from "@/lib/deal-card/publish-sync";
+import { ForbiddenError, NotFoundError } from "@/lib/api-error";
 import type { GateLevel, GateRequestStatus } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -46,43 +48,37 @@ export async function createGateRequest(
   const isBldUuid = isUuid(input.buildingId);
   let building: { id: string; status?: string; owner_id?: string | null } | null = null;
 
-  if (isBldUuid) {
+  // Kernel K2: Check canonical workspace_items SSoT FIRST so a draft/revoked workspace row
+  // cannot be bypassed by a co-existing building_ssot_lite row.
+  const wsProj = await getPublicWorkspaceProjection(supabase, input.buildingId).catch(() => null);
+  if (wsProj?.found) {
+    if (wsProj.revoked) {
+      throw new ForbiddenError("담당 공인중개사가 열람 링크를 잠근 매물입니다.");
+    }
+    if (wsProj.deleted || !wsProj.projection) {
+      throw new NotFoundError("삭제되었거나 작성 중(미발행)인 매물에는 열람 요청을 생성할 수 없습니다.");
+    }
+  }
+
+  const wsProjection = wsProj?.found ? wsProj.projection : null;
+  const targetBldLookupId = isBldUuid
+    ? input.buildingId
+    : wsProjection?.buildingId && isUuid(wsProjection.buildingId)
+    ? wsProjection.buildingId
+    : null;
+
+  if (targetBldLookupId) {
     try {
       const { data: bldData, error: buildingErr } = await supabase
         .from("building_ssot_lite")
         .select("id, status, owner_id")
-        .eq("id", input.buildingId)
+        .eq("id", targetBldLookupId)
         .single();
       if (!buildingErr && bldData) {
         building = bldData as any;
       }
     } catch {
       building = null;
-    }
-  }
-
-  const wsProj = await getPublicWorkspaceProjection(supabase, input.buildingId).catch(() => null);
-  if (wsProj?.found && (wsProj.deleted || wsProj.revoked)) {
-    throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
-  }
-
-  let wsProjection = !building && wsProj?.found ? wsProj.projection : null;
-  if (!building && wsProj?.found && !wsProjection) {
-    throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
-  }
-  if (!building && wsProjection?.buildingId && isUuid(wsProjection.buildingId)) {
-    try {
-      const { data: linkedBld, error: linkedErr } = await supabase
-        .from("building_ssot_lite")
-        .select("id, status, owner_id")
-        .eq("id", wsProjection.buildingId)
-        .single();
-      if (!linkedErr && linkedBld) {
-        building = linkedBld as any;
-        wsProjection = null;
-      }
-    } catch {
-      // Fall back to standalone workspace projection
     }
   }
 
@@ -109,11 +105,16 @@ export async function createGateRequest(
   }
 
   if (!building && !wsProjection && !quickRec) {
-    throw new Error("건물 정보를 찾을 수 없습니다.");
+    throw new NotFoundError("건물 정보를 찾을 수 없습니다.");
   }
 
-  if (building?.status === "archived") {
-    throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
+  if (building?.status === "archived" || building?.status === "revoked") {
+    throw new NotFoundError("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
+  }
+
+  // When no published workspace_items row exists, require legacy building_ssot_lite row to be public.
+  if (!wsProjection && building && !isLegacyBuildingRowPublic(building.status)) {
+    throw new NotFoundError("비공개 또는 작성 중인 매물에는 열람 요청을 생성할 수 없습니다.");
   }
 
   // If the Deal Card is backed by standalone workspace_items / QuickImStore (not in building_ssot_lite),
