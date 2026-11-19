@@ -23,9 +23,11 @@ import {
   buildGovernanceUnavailableResponse,
   buildLinkRevokedResponse,
   buildShareTokenRequiredResponse,
+  filterHiddenImSections,
   isAllowedPublicDemoIm,
   isDemoSeedDisabledForProd,
   isPreCutoverSchemaError,
+  normalizeHiddenSectionSet,
   resolveWorkspaceImGuard,
   type PublicImDenyReason,
 } from "@/lib/im-lite/im-public-guard";
@@ -490,6 +492,20 @@ export async function GET(
               }
             : ssotSummary;
 
+        const hiddenSet = normalizeHiddenSectionSet(document.body as Record<string, unknown>);
+        const rawDocSections = Array.isArray(document.body.sections)
+          ? (document.body.sections as Array<Record<string, unknown>>)
+          : [];
+        const visibleDocSections = filterHiddenImSections(rawDocSections, hiddenSet);
+        const hideRentRoll =
+          hiddenSet.has("lease_status") ||
+          hiddenSet.has("03_lease") ||
+          hiddenSet.has("06_rentroll") ||
+          hiddenSet.has("rentroll");
+        const rawRentRoll = hideRentRoll
+          ? []
+          : document.body.rent_roll || document.body.floor_leases || ssotSummary.floor_leases || [];
+
         const doc = {
           buildingId,
           blindName: document.body.buildingName || `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
@@ -500,7 +516,8 @@ export async function GET(
           sizeSignal: ssotSummary.size_signal,
           completenessScore: score,
           broker,
-          sections: document.body.sections,
+          sections: visibleDocSections,
+          hiddenSections: Array.from(hiddenSet),
           generatedAt: document.body.generated_at || document.created_at || new Date().toISOString(),
           disclaimer: "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
           fullImUpgradeCta: {
@@ -514,8 +531,8 @@ export async function GET(
           coordinates: safeDocCoords,
           ssot_summary: safeSsotSummary,
           heroCard: document.body.heroCard || undefined,
-          rent_roll: document.body.rent_roll || document.body.floor_leases || ssotSummary.floor_leases || [],
-          floor_leases: document.body.floor_leases || document.body.rent_roll || ssotSummary.floor_leases || [],
+          rent_roll: rawRentRoll,
+          floor_leases: rawRentRoll,
           basicImDocument: document.body.basicImDocument || undefined,
           broker_extras: document.body.broker_extras || undefined,
           posture: document.body.investment_posture || document.body.posture || "income",
@@ -722,6 +739,9 @@ export async function GET(
       }
       const ssotTokenCheck = await verifyShareLinkToken({ token, buildingId });
       if (!ssotTokenCheck.valid) {
+        if (ssotTokenCheck.reason === "lookup_failed") {
+          return buildGovernanceUnavailableResponse();
+        }
         return NextResponse.json(
           {
             ok: false,

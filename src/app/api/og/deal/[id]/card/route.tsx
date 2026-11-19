@@ -5,6 +5,7 @@ import { readBuilding } from "@/domain/building/im-core/read-building";
 import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
+import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
 import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
@@ -223,10 +224,15 @@ export async function GET(
   };
   const teaserView = projectToTeaser(attrs);
   const imBody: Record<string, unknown> = teaserDocBody ?? {};
+  const needles = collectSensitiveNeedles(safeBuilding);
+  const sanitizeCardText = (text: string, fallback: string): string => {
+    const masked = maskNeedles(String(text || ""), needles);
+    return cleanBlindPoints([masked])[0] || fallback;
+  };
 
-  const regionDisplay = cleanBlindPoints([String(card4?.region || teaserView.region || "서울 주요 권역")])[0] || "서울 주요 권역";
-  const useDisplay = cleanBlindPoints([String(card4?.use || teaserView.assetType || "상업용 빌딩")])[0] || "상업용 빌딩";
-  const priceBandDisplay = String(card4?.priceBand || teaserView.bandedPrice || "가격 협의");
+  const regionDisplay = sanitizeCardText(String(card4?.region || teaserView.region || "서울 주요 권역"), "서울 주요 권역");
+  const useDisplay = sanitizeCardText(String(card4?.use || teaserView.assetType || "상업용 빌딩"), "상업용 빌딩");
+  const priceBandDisplay = maskNeedles(String(card4?.priceBand || teaserView.bandedPrice || "가격 협의"), needles);
 
   const rawHookCopy = String(
     card4?.headline ||
@@ -234,7 +240,7 @@ export async function GET(
     teaserView.hookCopy ||
     `${regionDisplay} 핵심 ${useDisplay}`
   );
-  const hookCopy = cleanBlindPoints([rawHookCopy])[0] || `${regionDisplay} 핵심 ${useDisplay}`;
+  const hookCopy = sanitizeCardText(rawHookCopy, `${regionDisplay} 핵심 ${useDisplay}`);
   const posture = String(card4?.posture || teaserView.posture || "income");
   const postureLabel = teaserView.postureLabel || "임대수익형";
 
@@ -244,7 +250,7 @@ export async function GET(
   ]).map((tile) => {
     if (tile.label === "매각가") return { ...tile, value: priceBandDisplay };
     if (tile.label === "권역") return { ...tile, value: regionDisplay };
-    return tile;
+    return { ...tile, value: maskNeedles(String(tile.value || ""), needles) };
   });
   const heroTiles = filterValidTiles(rawTiles).slice(0, 4);
 
@@ -253,7 +259,7 @@ export async function GET(
     : Array.isArray(imBody.dealPoints)
     ? (imBody.dealPoints as string[])
     : [teaserView.highlightText || "안정적 임차 구성 및 우수한 접근성"];
-  const rawDealPoints = rawDealPointsSource;
+  const rawDealPoints = rawDealPointsSource.map((p) => maskNeedles(String(p || ""), needles));
   const dealPoints = cleanBlindPoints(rawDealPoints);
   if (dealPoints.length === 0) {
     dealPoints.push("안정적 임차 구성 및 우수한 접근성");

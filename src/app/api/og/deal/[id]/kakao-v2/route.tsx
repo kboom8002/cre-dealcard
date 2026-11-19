@@ -10,6 +10,7 @@ import {
   type Card4Data,
 } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
+import { collectSensitiveNeedles, maskNeedles } from '@/domain/public-projection/deal-card';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
 import { isUuid } from '@/lib/im-lite/quick-generate-store';
 import { resolveOgDealGuard } from '@/lib/og/deal-public-guard';
@@ -481,10 +482,16 @@ export async function GET(
     return out.replace(/\s+/g, ' ').trim() || fallback;
   };
 
-  const displayRegion = safeText(cleanBlindPoints([region])[0] || '—', '-');
-  const displayUse = safeText(cleanBlindPoints([use])[0] || '—', '-');
-  const displayArea = safeText(areaLabel || '—', '-');
-  const displayPriceBand = safeText(priceBand || '—', '-');
+  const needles = collectSensitiveNeedles(safeBuilding);
+  const sanitizeV2Text = (text: string, fallback = '-'): string => {
+    const masked = maskNeedles(String(text || ''), needles);
+    return safeText(cleanBlindPoints([masked])[0] || fallback, fallback);
+  };
+
+  const displayRegion = sanitizeV2Text(region, '-');
+  const displayUse = sanitizeV2Text(use, '-');
+  const displayArea = sanitizeV2Text(areaLabel, '-');
+  const displayPriceBand = sanitizeV2Text(priceBand, '-');
 
   return new ImageResponse(
     (

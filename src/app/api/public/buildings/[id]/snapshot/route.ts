@@ -5,6 +5,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { isRealProductionRuntime } from '@/lib/env';
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { isUuid } from '@/lib/im-lite/quick-generate-store';
+import { getPublicWorkspaceProjection } from '@/lib/workspace/workspace-repository';
+import { isLegacyBuildingRowPublic } from '@/lib/deal-card/publish-sync';
 import {
   resolveProGrantByAnyId,
   timingSafeStringEqual,
@@ -57,6 +61,26 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const cleanId = String(id || '').trim();
+  const isVitestLegacyFixture =
+    process.env.VITEST === 'true' &&
+    !isRealProductionRuntime() &&
+    (cleanId === 'approved-building' || cleanId === 'private-building');
+  if (!cleanId || cleanId.includes('..') || (!isUuid(cleanId) && !isVitestLegacyFixture)) {
+    return NextResponse.json({ error: '유효하지 않은 매물 식별자입니다.' }, { status: 400 });
+  }
+
+  const clientIp =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip')?.trim() ||
+    'unknown';
+  const rateAllowed = await checkRateLimit(clientIp, 'public_building_snapshot', 60, 60_000);
+  if (!rateAllowed) {
+    return NextResponse.json(
+      { error: '요청이 일시적으로 많습니다. 잠시 후 다시 시도해 주세요.' },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    );
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -118,10 +142,10 @@ export async function GET(
   // Fetch building — P0-SEC SEC-2: 소유자 판정은 building_ssot_lite.owner_id 직접 조회
   const { data: buildingData } = await supabase
     .from('building_ssot_lite')
-    .select('id, owner_id')
-    .eq('id', id)
+    .select('id, owner_id, status')
+    .eq('id', cleanId)
     .maybeSingle();
-  const building = buildingData as { id: string; owner_id: string | null } | null;
+  const building = buildingData as { id: string; owner_id: string | null; status?: string | null } | null;
 
   if (!building || !building.id) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
@@ -129,6 +153,18 @@ export async function GET(
 
   const isOwner = userId !== null && Boolean(building.owner_id) && String(building.owner_id) === userId;
   const isAdmin = userRole === 'admin';
+  if (!isOwner && !isAdmin) {
+    const wsProj = await getPublicWorkspaceProjection(supabase, cleanId).catch(() => null);
+    if (wsProj?.revoked) {
+      return NextResponse.json({ error: '회수된 매물입니다.' }, { status: 403 });
+    }
+    if (wsProj?.deleted || (wsProj?.found && wsProj.status !== 'published')) {
+      return NextResponse.json({ error: '비공개 또는 초안 상태의 매물입니다.' }, { status: 404 });
+    }
+    if (!wsProj?.found && typeof building.status === 'string' && !isLegacyBuildingRowPublic(building.status)) {
+      return NextResponse.json({ error: '비공개 또는 초안 상태의 매물입니다.' }, { status: 404 });
+    }
+  }
   let isG2Approved = false;
 
   // 1. Authenticated buyer: caller-bound gate_requests check

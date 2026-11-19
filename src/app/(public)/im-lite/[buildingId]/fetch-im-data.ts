@@ -28,8 +28,10 @@ import {
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 import {
   allowDealPublicMemoryFallback,
+  filterHiddenImSections,
   isAllowedPublicDemoIm,
   isDemoSeedDisabledForProd,
+  normalizeHiddenSectionSet,
   resolveWorkspaceImGuard,
   type PublicImDenyReason,
   type WorkspaceImGuardResult,
@@ -1313,21 +1315,9 @@ export async function fetchIMData(
       }
     }
 
-    const mappedResult: MobileIMDocument = {
-      buildingId,
-      blindName: document.body.heroTitle || defaultBlindName,
-      fullName: defaultBlindName,
-      areaSignal: ssotSummary.area_signal || "",
-      assetType: ssotSummary.asset_type || "",
-      priceBand: ssotSummary.price_band || "",
-      sizeSignal: ssotSummary.size_signal || "",
-      completenessScore: document.body.readiness_score ?? 0,
-      broker: brokerObj,
-      ogTitle: document.body.ogTitle || null,
-      ogDescription: document.body.ogDescription || null,
-      heroSubtitle: document.body.heroSubtitle || null,
-      enrichment: document.body.enrichment || enriched || null,
-      sections: rawDocSections.map((s: any) => {
+    const hiddenSectionSet = normalizeHiddenSectionSet(document.body as Record<string, unknown>);
+    const mappedSections = filterHiddenImSections(
+      rawDocSections.map((s: any) => {
           if ("content" in s) {
             if (s.locked) {
               return { ...s, content: "", boundaryNote: undefined, provenance: [] };
@@ -1387,19 +1377,37 @@ export async function fetchIMData(
             boundaryNote: isSectionLocked ? undefined : s.boundary_note,
             provenance: isSectionLocked ? [] : (s.provenance || []),
           };
-        }),
-        generatedAt: document.body.generated_at || document.created_at || new Date().toISOString(),
-        status: document.status || "draft",
-        approvedAt: document.status === 'broker_reviewed' ? (document.updated_at || document.created_at) : undefined,
-        disclaimer: "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
-        fullImUpgradeCta: {
-          enabled: true,
-          label: "상세 투자설명서(IM) 요청",
-          description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
-        },
-        protectedFieldsRemoved: ["상세 지번", "소유주명"],
-        photos: rawPhotos,
-        hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
+        }) as Array<Record<string, unknown>>,
+      hiddenSectionSet,
+    );
+
+    const mappedResult: MobileIMDocument = {
+      buildingId,
+      blindName: document.body.heroTitle || defaultBlindName,
+      fullName: defaultBlindName,
+      areaSignal: ssotSummary.area_signal || "",
+      assetType: ssotSummary.asset_type || "",
+      priceBand: ssotSummary.price_band || "",
+      sizeSignal: ssotSummary.size_signal || "",
+      completenessScore: document.body.readiness_score ?? 0,
+      broker: brokerObj,
+      ogTitle: document.body.ogTitle || null,
+      ogDescription: document.body.ogDescription || null,
+      heroSubtitle: document.body.heroSubtitle || null,
+      enrichment: document.body.enrichment || enriched || null,
+      sections: mappedSections as unknown as MobileIMDocument["sections"],
+      generatedAt: document.body.generated_at || document.created_at || new Date().toISOString(),
+      status: document.status || "draft",
+      approvedAt: document.status === 'broker_reviewed' ? (document.updated_at || document.created_at) : undefined,
+      disclaimer: "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
+      fullImUpgradeCta: {
+        enabled: true,
+        label: "상세 투자설명서(IM) 요청",
+        description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
+      },
+      protectedFieldsRemoved: ["상세 지번", "소유주명"],
+      photos: rawPhotos,
+      hiddenSections: Array.from(hiddenSectionSet),
         coordinates: finalCoordinates,
         dataQualityBadge: computeDataQualityBadge({
           hasAddress: !!(enriched.meta.address || ssotSummary.address || ssotSummary.raw_address),

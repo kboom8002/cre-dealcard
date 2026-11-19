@@ -196,7 +196,10 @@ export function isPathInsideRoot(targetPath: string, rootDir: string): boolean {
   );
 }
 
-async function fetchSafeImageBuffer(rawUrl: string): Promise<Buffer | null> {
+async function fetchSafeImageBuffer(
+  rawUrl: string,
+  extraHeaders?: Record<string, string>,
+): Promise<Buffer | null> {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -242,6 +245,7 @@ async function fetchSafeImageBuffer(rawUrl: string): Promise<Buffer | null> {
     const response = await fetch(parsed.toString(), {
       redirect: 'error',
       signal: controller.signal,
+      ...(extraHeaders ? { headers: extraHeaders } : {}),
     });
     if (!response.ok) return null;
 
@@ -1058,16 +1062,12 @@ export async function fetchKakaoMapImage(
   const safeH = (typeof h === 'number' && Number.isFinite(h) && h > 0) ? Math.round(h) : 450;
   try {
     const referer = getVWorldReferer();
-    const response = await fetch(mapUrl, {
-      signal: AbortSignal.timeout(8000),
-      headers: { Referer: referer },
-    });
-    if (!response.ok) {
-      log.warn(`[kakao-map] fetch failed: ${response.status} ${response.statusText}`);
+    const rawBuffer = await fetchSafeImageBuffer(mapUrl, { Referer: referer });
+    if (!rawBuffer || rawBuffer.byteLength === 0) {
+      log.warn(`[kakao-map] SSRF-safe fetch blocked or empty: ${mapUrl}`);
       return null;
     }
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = await sharp(Buffer.from(arrayBuffer))
+    const buffer = await sharp(rawBuffer)
       .resize({ width: safeW, height: safeH, fit: 'cover' })
       .jpeg({ quality: 85 })
       .toBuffer();

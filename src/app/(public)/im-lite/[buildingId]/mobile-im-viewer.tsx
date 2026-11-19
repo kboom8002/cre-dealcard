@@ -883,7 +883,30 @@ export function MobileIMViewer({
   }, [initialDoc]);
 
   // Active document switches between v2 (latest) and real v1 (when previousVersion exists)
-  const basicDoc = selectedVersion === "v1" && v1Doc ? v1Doc : v2Doc;
+  const rawBasicDoc = selectedVersion === "v1" && v1Doc ? v1Doc : v2Doc;
+  const hiddenSectionSet = useMemo(() => {
+    const rawList = [
+      ...(Array.isArray(initialDoc?.hiddenSections) ? initialDoc.hiddenSections : []),
+      ...(Array.isArray((initialDoc as Record<string, unknown> | null)?.hidden_sections)
+        ? ((initialDoc as Record<string, unknown>).hidden_sections as unknown[])
+        : []),
+    ];
+    return new Set(
+      rawList.filter((v): v is string => typeof v === "string" && v.trim().length > 0).map((v) => v.trim())
+    );
+  }, [initialDoc]);
+
+  const basicDoc = useMemo<BasicImDocument>(() => {
+    if (hiddenSectionSet.size === 0 || !Array.isArray(rawBasicDoc.sections)) {
+      return rawBasicDoc;
+    }
+    return {
+      ...rawBasicDoc,
+      sections: rawBasicDoc.sections.filter(
+        (sec) => !hiddenSectionSet.has(sec.id) && !hiddenSectionSet.has(sec.sectionType)
+      ),
+    };
+  }, [rawBasicDoc, hiddenSectionSet]);
 
   const docHash = basicDoc.docHash;
 
@@ -1234,9 +1257,12 @@ export function MobileIMViewer({
       (s: any) =>
         s &&
         typeof s.sectionId === "string" &&
+        !hiddenSectionSet.has(s.sectionId) &&
+        !hiddenSectionSet.has(s.id) &&
+        !hiddenSectionSet.has(s.section_type) &&
         !CANONICAL_SECTION_CHIPS.some((c) => c.id === s.sectionId),
     );
-  }, [initialDoc]);
+  }, [initialDoc, hiddenSectionSet]);
 
   const isIncomeSectionLocked = useMemo(
     () =>

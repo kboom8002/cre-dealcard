@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
 import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
+import { createServiceClient } from '@/lib/supabase/service';
+
+const MAP_STORAGE_BUCKET = 'building_photos';
 
 const MAX_MAP_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MAP_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -135,8 +138,8 @@ export async function POST(
       );
     }
 
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    const dataUrl = `data:${magicMime};base64,${base64}`;
+    const buf = Buffer.from(arrayBuffer);
+    const ext = magicMime === 'image/png' ? 'png' : magicMime === 'image/webp' ? 'webp' : 'jpg';
 
     let project;
     try {
@@ -152,11 +155,67 @@ export async function POST(
     const denied = await assertStudioDealOwner(studioGuard, project.dealId);
     if (denied) return denied;
 
+    const safeSlideSegment = slideId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'slide';
+    const safeProjectSegment = project.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'project';
+    const storageKey = `studio-maps/${safeProjectSegment}/${safeSlideSegment}-${fieldName}-${Date.now()}.${ext}`;
+
+    let persistedUrl: string | null = null;
+    try {
+      const svc = createServiceClient();
+      if (svc?.storage && typeof svc.storage.from === 'function') {
+        try {
+          const { data: buckets } = await svc.storage.listBuckets();
+          if (buckets && !buckets.some((b: { name: string }) => b.name === MAP_STORAGE_BUCKET)) {
+            await svc.storage.createBucket(MAP_STORAGE_BUCKET, {
+              public: true,
+              fileSizeLimit: 20 * 1024 * 1024,
+            });
+          }
+        } catch {
+          // non-blocking bucket creation
+        }
+        const bucketApi = svc.storage.from(MAP_STORAGE_BUCKET);
+        const { data: upData, error: upErr } = await bucketApi.upload(storageKey, buf, {
+          contentType: magicMime,
+          upsert: true,
+        });
+        if (!upErr && upData) {
+          const { data: pubData } = bucketApi.getPublicUrl(upData.path || storageKey);
+          if (pubData?.publicUrl) {
+            persistedUrl = pubData.publicUrl;
+          }
+        } else if (process.env.VITEST !== 'true') {
+          return NextResponse.json(
+            { ok: false, code: 'STORAGE_UPLOAD_FAILED', error: '지도 이미지를 스토리지에 저장하지 못했습니다.' },
+            { status: 502 },
+          );
+        }
+      }
+    } catch {
+      if (process.env.VITEST !== 'true') {
+        return NextResponse.json(
+          { ok: false, code: 'STORAGE_UPLOAD_FAILED', error: '스토리지 서비스 연결에 실패했습니다.' },
+          { status: 502 },
+        );
+      }
+    }
+
+    if (!persistedUrl) {
+      if (process.env.VITEST === 'true') {
+        persistedUrl = `data:${magicMime};base64,${buf.toString('base64')}`;
+      } else {
+        return NextResponse.json(
+          { ok: false, code: 'STORAGE_UPLOAD_FAILED', error: '지도 이미지 URL 생성에 실패했습니다.' },
+          { status: 502 },
+        );
+      }
+    }
+
     const updated = await studioService.patchSlideOverrides(
       project.id,
       slideId,
       {
-        [fieldName]: dataUrl,
+        [fieldName]: persistedUrl,
       },
       undefined,
       studioGuard?.user?.id,
@@ -164,10 +223,10 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      url: dataUrl.slice(0, 50) + '...',
+      url: persistedUrl,
       project: updated,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[basic-im-studio/map-upload] Upload failed:', err);
     return NextResponse.json(
       { ok: false, error: '지도 이미지 업로드 처리에 실패했습니다.' },

@@ -133,7 +133,14 @@ export function derivePriceBand(manwon: number): string {
     band = Math.floor(eok / 500) * 500;
   }
 
-  // 천 단위 구분 쉼표 (1,000억 이상)
+  // 천 단위 구분 쉼표 및 1조 이상 '조/억대' 정규화
+  if (band >= 10000) {
+    const jo = Math.floor(band / 10000);
+    const remEok = band % 10000;
+    return remEok > 0
+      ? `${jo.toLocaleString("ko-KR")}조 ${remEok.toLocaleString("ko-KR")}억대`
+      : `${jo.toLocaleString("ko-KR")}조대`;
+  }
   const formatted = band >= 1000 ? band.toLocaleString("ko-KR") : String(band);
   return `${formatted}억대`;
 }

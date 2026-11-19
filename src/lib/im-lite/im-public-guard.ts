@@ -170,4 +170,36 @@ export async function verifyPublicImShareToken(params: {
   return { allowed: true };
 }
 
+export function normalizeHiddenSectionSet(
+  body: Record<string, unknown> | null | undefined
+): Set<string> {
+  if (!body || typeof body !== 'object') return new Set();
+  const list = [
+    ...(Array.isArray(body.hidden_sections) ? body.hidden_sections : []),
+    ...(Array.isArray(body.hiddenSections) ? body.hiddenSections : []),
+  ];
+  const out = new Set<string>();
+  for (const item of list) {
+    if (typeof item === 'string' && item.trim()) {
+      out.add(item.trim());
+    }
+  }
+  return out;
+}
+
+export function filterHiddenImSections<T extends Record<string, unknown>>(
+  sections: T[] | null | undefined,
+  hidden: ReadonlySet<string>
+): T[] {
+  if (!Array.isArray(sections)) return [];
+  if (!hidden || hidden.size === 0) return sections;
+  return sections.filter((s) => {
+    if (!s || typeof s !== 'object') return false;
+    const keys = [s.section_type, s.sectionId, s.sectionType, s.id]
+      .filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+      .map((k) => k.trim());
+    return !keys.some((k) => hidden.has(k));
+  });
+}
+
 export { allowDealPublicMemoryFallback, isDemoSeedDisabledForProd };

@@ -14,6 +14,7 @@ import {
   verifyProGrantViewerAccess,
 } from '@/domain/gate/im-pro-grant-service';
 import { resolvePublishedImProDocument } from '@/app/api/public/im-pro/_lib/im-pro-doc-guard';
+import { filterHiddenImSections, normalizeHiddenSectionSet } from '@/lib/im-lite/im-public-guard';
 
 export async function GET(
   req: NextRequest,
@@ -168,6 +169,23 @@ export async function GET(
       })
       .then(() => {}, (err: unknown) => console.error('Failed to insert view event:', err));
 
+    const rawImBody =
+      imDoc?.body && typeof imDoc.body === 'object' && !Array.isArray(imDoc.body)
+        ? (imDoc.body as Record<string, unknown>)
+        : null;
+    const imHiddenSet = normalizeHiddenSectionSet(rawImBody);
+    const filteredImDocument =
+      rawImBody && imHiddenSet.size > 0 && Array.isArray(rawImBody.sections)
+        ? {
+            ...rawImBody,
+            hiddenSections: Array.from(imHiddenSet),
+            sections: filterHiddenImSections(
+              rawImBody.sections as Array<Record<string, unknown>>,
+              imHiddenSet,
+            ),
+          }
+        : rawImBody;
+
     return NextResponse.json({
       ok: true,
       grant: {
@@ -195,7 +213,7 @@ export async function GET(
             leaseSummary: building.lease_summary,
           }
         : null,
-      imDocument: imDoc?.body || null,
+      imDocument: filteredImDocument,
       watermarkSeed,
       dcfEligible: imDoc?.body?.dcfEligible ?? false,
       dataGrade: imDoc?.body?.dataGrade ?? null,

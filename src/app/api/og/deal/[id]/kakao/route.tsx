@@ -4,6 +4,7 @@ import { readBuilding } from "@/domain/building/im-core/read-building";
 import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
+import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
 import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
@@ -275,11 +276,16 @@ export async function GET(
     investmentPosture: inferredPosture,
   };
   const teaserView = projectToTeaser(attrs);
+  const needles = collectSensitiveNeedles(safeBuilding);
+  const sanitizeKakaoText = (text: string, fallback: string): string => {
+    const masked = maskNeedles(String(text || ""), needles);
+    return cleanBlindPoints([masked])[0] || fallback;
+  };
 
   const rawRegionDisplay = card4?.region || teaserView.region || safeBuilding.area_signal || "서울권역";
-  const regionDisplay = cleanBlindPoints([rawRegionDisplay])[0] || "서울권역";
+  const regionDisplay = sanitizeKakaoText(rawRegionDisplay, "서울권역");
   const rawAssetTypeDisplay = card4?.use || teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
-  const assetTypeDisplay = cleanBlindPoints([rawAssetTypeDisplay])[0] || "근생·오피스";
+  const assetTypeDisplay = sanitizeKakaoText(rawAssetTypeDisplay, "근생·오피스");
 
   const rawHookCopy =
     card4?.headline ||
@@ -289,7 +295,7 @@ export async function GET(
     imBody?.hookCopy ||
     teaserView.hookCopy ||
     `${regionDisplay} 프라임 ${assetTypeDisplay}`;
-  const hookCopy = cleanBlindPoints([rawHookCopy])[0] || `${regionDisplay} 프라임 ${assetTypeDisplay}`;
+  const hookCopy = sanitizeKakaoText(rawHookCopy, `${regionDisplay} 프라임 ${assetTypeDisplay}`);
 
   const postureLabel = teaserView.postureLabel || "임대수익형";
   const explicitBand =
@@ -299,10 +305,12 @@ export async function GET(
     safeBuilding.price_band !== "가격 협의"
       ? safeBuilding.price_band.trim()
       : null);
-  const priceDisplay =
+  const priceDisplay = maskNeedles(
     explicitBand ||
-    (teaserView.bandedPrice && teaserView.bandedPrice !== "가격 미정" ? teaserView.bandedPrice : null) ||
-    "가격 협의";
+      (teaserView.bandedPrice && teaserView.bandedPrice !== "가격 미정" ? teaserView.bandedPrice : null) ||
+      "가격 협의",
+    needles
+  );
 
   const brokerName = String(
     snapshotBroker?.displayName ||
