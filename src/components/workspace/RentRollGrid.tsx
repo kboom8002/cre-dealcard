@@ -342,7 +342,8 @@ export function RentRollGrid({
       // Ctrl+D copies cell from above row
       if (rowIdx > 0) {
         e.preventDefault();
-        const aboveVal = (rows[rowIdx - 1] as any)[colKey];
+        const aboveRow = rows[rowIdx - 1];
+        const aboveVal = aboveRow ? aboveRow[colKey as keyof RentRollRowItem] : undefined;
         handleUpdateRow(rowIdx, { [colKey]: aboveVal });
       }
     }

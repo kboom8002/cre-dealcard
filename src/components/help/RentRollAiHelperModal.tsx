@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { BROKER_TUTORIAL_MODULES } from "@/lib/tutorial/broker-tutorial-data";
@@ -13,6 +13,17 @@ export function RentRollAiHelperModal() {
   const { helperEnabled } = useSeniorHelp();
   const [isOpen, setIsOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
 
   if (!helperEnabled) return null;
 
@@ -41,7 +52,7 @@ export function RentRollAiHelperModal() {
             <p className="text-[14px] sm:text-[15px] font-black text-amber-950">
               💡 매도인이 준 임대내역이 사진·한글·제각각인 엑셀인가요?
             </p>
-            <p className="text-[13px] font-semibold text-slate-800">
+            <p className="text-sm font-semibold text-slate-800">
               손으로 일일이 다시 치지 마시고 AI 변환 지시문으로 1분 만에 표준 표로 바꾸세요.
             </p>
           </div>
@@ -49,7 +60,7 @@ export function RentRollAiHelperModal() {
             type="button"
             onClick={() => setIsOpen(true)}
             data-testid="rentroll-ai-helper-btn"
-            className="px-3.5 py-2 min-h-[38px] rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-[13px] sm:text-[14px] font-black shadow-2xs transition-colors cursor-pointer shrink-0"
+            className="px-3.5 py-2 min-h-[44px] min-w-[44px] rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-sm font-black shadow-2xs transition-colors cursor-pointer shrink-0"
           >
             🤖 AI 10초 변환 지시문 복사 · 주의사항 보기
           </button>
@@ -60,19 +71,21 @@ export function RentRollAiHelperModal() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            role="presentation"
             className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150"
-            onClick={() => setIsOpen(false)}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsOpen(false);
+            }}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-label="렌트롤 AI 변환 도우미"
-              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl border-2 border-amber-400 bg-[#FFFBEB] text-[#0F172A] shadow-2xl overflow-hidden"
             >
               <div className="px-5 py-4 bg-white border-b border-amber-300 flex items-center justify-between gap-3 shrink-0">
                 <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-[12px] font-extrabold mb-1">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-sm font-extrabold mb-1">
                     준비편 핵심 요약 · 수작업 입력 제로
                   </span>
                   <h3 className="text-[19px] sm:text-[21px] font-black text-slate-900">
@@ -82,7 +95,7 @@ export function RentRollAiHelperModal() {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-[14px] font-extrabold shrink-0 cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-[14px] font-extrabold shrink-0 cursor-pointer"
                 >
                   ✕ 닫기
                 </button>
@@ -126,7 +139,7 @@ export function RentRollAiHelperModal() {
                             stepMethodA.copySample!.label
                           )
                         }
-                        className={`px-3.5 py-2 rounded-xl text-[14px] font-extrabold transition-colors cursor-pointer ${
+                        className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-[14px] font-extrabold transition-colors cursor-pointer ${
                           copiedKey === "methodA"
                             ? "bg-emerald-700 text-white"
                             : "bg-blue-700 hover:bg-blue-800 text-white"
@@ -159,7 +172,7 @@ export function RentRollAiHelperModal() {
                             stepMethodB.copySample!.label
                           )
                         }
-                        className={`px-3.5 py-2 rounded-xl text-[14px] font-extrabold transition-colors cursor-pointer ${
+                        className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-[14px] font-extrabold transition-colors cursor-pointer ${
                           copiedKey === "methodB"
                             ? "bg-emerald-700 text-white"
                             : "bg-slate-800 hover:bg-slate-900 text-white"

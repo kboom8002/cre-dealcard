@@ -120,7 +120,7 @@ export async function resolveImVersion(
         const isPinned = link.mode === 'pinned' || Boolean(link.version_id);
         let targetDocId = link.version_id;
 
-        // If follow_latest or version_id is null, resolve published_version_id from series
+        // If follow_latest or version_id is null, resolve published_version_id ONLY (never draft!)
         if (!targetDocId && link.series_id) {
           const { data: series } = await supabase
             .from('im_series')
@@ -128,7 +128,7 @@ export async function resolveImVersion(
             .eq('id', link.series_id)
             .maybeSingle();
 
-          targetDocId = series?.published_version_id || series?.current_draft_version_id;
+          targetDocId = series?.published_version_id ?? null;
         }
 
         if (targetDocId) {
@@ -138,7 +138,13 @@ export async function resolveImVersion(
             .eq('id', targetDocId)
             .maybeSingle();
 
-          if (doc) {
+          const isDocPublic =
+            doc &&
+            (doc.status === 'published' ||
+              doc.status === 'superseded' ||
+              doc.status === 'broker_reviewed' ||
+              doc.status === 'shared_external');
+          if (doc && isDocPublic) {
             return formatResolvedResult(doc, null, 'public', isPinned);
           }
         }
@@ -215,6 +221,14 @@ export async function resolveImVersion(
             .maybeSingle();
 
           if (vDoc) {
+            const isVDocPublic =
+              vDoc.status === 'published' ||
+              vDoc.status === 'superseded' ||
+              vDoc.status === 'broker_reviewed' ||
+              vDoc.status === 'shared_external';
+            if (!isOwner && !isVDocPublic) {
+              return null;
+            }
             const access = isOwner ? 'owner' : 'public';
             return formatResolvedResult(vDoc, series, access, true);
           }
@@ -222,8 +236,10 @@ export async function resolveImVersion(
 
         if (isOwner && mode === 'pinned' && series.current_draft_version_id) {
           targetDocId = series.current_draft_version_id;
-        } else {
+        } else if (isOwner) {
           targetDocId = series.published_version_id || series.current_draft_version_id;
+        } else {
+          targetDocId = series.published_version_id ?? null;
         }
 
         if (targetDocId) {
@@ -258,9 +274,12 @@ export async function resolveImVersion(
       if (!sErr && seriesList && seriesList.length > 0) {
         const series = seriesList[0];
         const isOwner = Boolean(viewerId && (viewerId === series.owner_id || role === 'admin'));
-        const targetDocId = (isOwner && mode === 'pinned' && series.current_draft_version_id)
-          ? series.current_draft_version_id
-          : (series.published_version_id || series.current_draft_version_id);
+        const targetDocId =
+          isOwner && mode === 'pinned' && series.current_draft_version_id
+            ? series.current_draft_version_id
+            : isOwner
+            ? series.published_version_id || series.current_draft_version_id
+            : series.published_version_id ?? null;
 
         if (targetDocId) {
           const { data: doc } = await supabase

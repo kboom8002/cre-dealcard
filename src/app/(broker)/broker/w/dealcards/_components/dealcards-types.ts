@@ -118,6 +118,15 @@ export const INITIAL_BUILDINGS: BuildingListItem[] = [
 ];
 
 export const INITIAL_IDS = new Set(INITIAL_BUILDINGS.map((b) => b.id));
+
+/**
+ * 상용/개발 런타임에서는 빈 계정에 체험 예시 딜카드(bld-01)를 자동 주입하지 않는다.
+ * 기존 단위/통합 테스트 환경(NODE_ENV === "test")에서만 초기 샘플 시드를 허용한다.
+ */
+export function allowInitialDemoSeed(): boolean {
+  return typeof process !== "undefined" && process.env?.NODE_ENV === "test";
+}
+
 export const DEALCARDS_STORAGE_KEY = "credeal-w-dealcards-v5";
 export const UNCONVERTED_MEMO_STORAGE_KEY = "credeal-w-dealcards-memos-v1";
 

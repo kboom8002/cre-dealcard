@@ -87,15 +87,15 @@ export function LeverageChart({
   if (total <= 0) return null;
 
   return (
-    <div className="rounded-xl bg-neutral-900 p-4">
+    <div className="rounded-xl bg-white border border-[#CBD5E1] p-4 shadow-2xs">
       {/* 타이틀 */}
-      <h3 className="mb-3 text-sm font-semibold text-white">
+      <h3 className="mb-3 text-base font-extrabold text-[#0F172A]">
         💰 자금 구조 분석
       </h3>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         {/* SVG 도넛 */}
-        <div className="relative flex-shrink-0">
+        <div className="relative flex-shrink-0 self-center sm:self-auto">
           <svg
             viewBox="0 0 120 120"
             width={120}
@@ -109,7 +109,7 @@ export function LeverageChart({
               cy={CENTER}
               r={RADIUS}
               fill="none"
-              stroke="#262626"
+              stroke="#E2E8F0"
               strokeWidth={STROKE_WIDTH}
             />
             {/* 세그먼트 */}
@@ -132,20 +132,20 @@ export function LeverageChart({
             {/* 중앙 텍스트 */}
             <text
               x={CENTER}
-              y={CENTER - 5}
+              y={CENTER - 6}
               textAnchor="middle"
-              fill="#a3a3a3"
-              fontSize="8"
+              fill="#64748B"
+              fontSize="14"
             >
               총취득원가
             </text>
             <text
               x={CENTER}
-              y={CENTER + 8}
+              y={CENTER + 12}
               textAnchor="middle"
-              fill="white"
-              fontSize="12"
-              fontWeight="600"
+              fill="#0F172A"
+              fontSize="14"
+              fontWeight="700"
             >
               {formatBil(total)}
             </text>
@@ -153,7 +153,7 @@ export function LeverageChart({
         </div>
 
         {/* 범례 & 수치 */}
-        <div className="flex flex-1 flex-col gap-2 text-xs">
+        <div className="flex flex-1 flex-col gap-2 text-sm">
           {arcs.map((arc) => {
             const pct = ((arc.fraction) * 100).toFixed(1);
             return (
@@ -161,11 +161,11 @@ export function LeverageChart({
                 <span
                   className={`inline-block h-2.5 w-2.5 rounded-sm ${arc.tailwind}`}
                 />
-                <span className="text-neutral-400">{arc.label}</span>
-                <span className="ml-auto font-medium text-white">
+                <span className="text-[#475569]">{arc.label}</span>
+                <span className="ml-auto font-bold text-[#0F172A] tabular-nums">
                   {formatBil(arc.value)}
                 </span>
-                <span className="w-10 text-right text-neutral-500">
+                <span className="w-12 text-right text-[#64748B] tabular-nums">
                   {pct}%
                 </span>
               </div>
@@ -176,18 +176,18 @@ export function LeverageChart({
 
       {/* 레버리지 수익률 뱃지 */}
       {leveragedYieldPct !== null && (
-        <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-sky-900/40 px-2.5 py-0.5 text-[11px] font-medium text-sky-300">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-1 text-sm font-bold text-[#1D4ED8]">
             자기자본수익률 {leveragedYieldPct.toFixed(1)}%
           </span>
-          <span className="text-xs text-neutral-600">
+          <span className="text-sm text-[#475569]">
             {loanBil > 0 ? "(NOI−이자)" : "NOI"} ÷ 순투자금(매매가−보증금−대출)
           </span>
         </div>
       )}
 
       {/* 면책 */}
-      <p className="mt-2 text-[9px] leading-relaxed text-neutral-600">
+      <p className="mt-2 text-sm leading-relaxed text-[#64748B]">
         ※ AI 추정값. 실제 자금 구조는 대출 조건·보증금 변동에 따라 달라질 수
         있습니다.
       </p>

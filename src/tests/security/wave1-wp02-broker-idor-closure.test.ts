@@ -82,6 +82,7 @@ vi.mock('@/lib/env', () => ({
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
   },
   getServerEnv: () => ({ SUPABASE_SERVICE_ROLE_KEY: 'service-key' }),
+  isRealProductionRuntime: () => false,
 }));
 
 vi.mock('@supabase/ssr', () => ({
@@ -861,7 +862,7 @@ describe('WP-02 [7] POST /api/broker/pro-grants/[id]/approve', () => {
       { params: Promise.resolve({ id: 'grant-owned' }) },
     );
     expect(ownRes.status).toBe(200);
-    expect(fakeDb.tables.im_pro_grants['grant-owned'].status).toBe('approved');
+    expect(fakeDb.tables.im_pro_grants['grant-owned'].status).toBe('pending_nda');
 
     asBroker(ADMIN, 'admin');
     const adminRes = await POST(

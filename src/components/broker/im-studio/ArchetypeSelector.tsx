@@ -67,10 +67,10 @@ export function ArchetypeSelector({
   return (
     <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] mb-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0F172A]">
+        <span className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A]">
           📐 슬라이드 레이아웃 변형 선택
         </span>
-        <span className="text-[10px] font-bold text-[#475569]">
+        <span className="text-sm font-bold text-[#475569]">
           {options.length}개 호환 레이아웃
         </span>
       </div>
@@ -82,18 +82,18 @@ export function ArchetypeSelector({
               key={opt.layoutType}
               type="button"
               onClick={() => onSelectLayout(opt.layoutType)}
-              className={`px-3 py-2 rounded-lg border text-left transition-all flex items-center justify-between ${
+              className={`min-h-[44px] px-3 py-2 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
                 active
                   ? 'border-[#1D4ED8] bg-[#EFF6FF] text-[#1E3A8A] shadow-2xs'
                   : 'border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-[#F1F5F9]'
               }`}
             >
               <div>
-                <div className="text-xs font-bold">{opt.label}</div>
-                <div className="text-[10px] text-[#475569]">{opt.desc}</div>
+                <div className="text-sm font-bold">{opt.label}</div>
+                <div className="text-sm text-[#475569]">{opt.desc}</div>
               </div>
               {active && (
-                <span className="px-1.5 py-0.5 text-[10px] font-extrabold rounded bg-[#1D4ED8] text-white shrink-0">
+                <span className="px-2 py-0.5 text-sm font-extrabold rounded bg-[#1D4ED8] text-white shrink-0">
                   적용됨
                 </span>
               )}

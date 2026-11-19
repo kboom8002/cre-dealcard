@@ -137,10 +137,10 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
       // m-4: CI 환경 LibreOffice 미설치 시 graceful skip
       if (err.message?.includes('LibreOffice') || err.message?.includes('soffice') || err.code === 'ENOENT') {
         console.warn('[Step 10] LibreOffice 미설치 — 캡처 건너뜀 (CI 환경)');
-        expect(true).toBe(true);
+        expect(pptxResult.buffer.byteLength).toBeGreaterThan(10_000);
       } else {
         throw err;
       }
     }
-  });
+  }, 60_000);
 });

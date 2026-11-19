@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  Home,
-  Search,
-  Radio,
-  MessageCircle,
-  MoreHorizontal,
-} from "lucide-react";
+import { Home, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useEffect, useRef, useState } from "react";
@@ -24,7 +18,7 @@ const NAV_ITEMS = [
     icon: Home,
     ariaLabel: "DealCard Hub 홈",
   },
-  /* DORMANT: public-pages — 탐색/펄스 탭 (복구 시 주석 해제)
+  /* DORMANT: public-pages — 탐색/펄스/아고라 탭 (복구 시 주석 해제)
   {
     href: "/explore",
     label: "탐색",
@@ -37,13 +31,13 @@ const NAV_ITEMS = [
     icon: Radio,
     ariaLabel: "CRE 시장 펄스 시그널",
   },
-  */
   {
     href: "/agora",
     label: "아고라",
     icon: MessageCircle,
     ariaLabel: "CRE 아고라 커뮤니티",
   },
+  */
 ] as const;
 
 function isNavActive(pathname: string, href: string) {
@@ -64,9 +58,18 @@ export function PublicBottomNav() {
     pathname.startsWith("/d/") ||
     pathname.startsWith("/deal/") ||
     pathname.startsWith("/im-lite/");
+  const isLegalOrAuthPage =
+    pathname === "/terms" ||
+    pathname.startsWith("/terms/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/") ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/reset-password" ||
+    pathname === "/update-password";
   const showNav = shouldShowPublicNav({
     scrollVisible: visible,
-    hasBottomBar: hasBottomBar || isRecipientDealPage,
+    hasBottomBar: hasBottomBar || isRecipientDealPage || isLegalOrAuthPage,
   });
 
   // Hide on scroll down, reveal on scroll up
@@ -97,7 +100,7 @@ export function PublicBottomNav() {
             aria-label="주요 탐색"
             className={cn(
               "fixed bottom-0 left-0 right-0 z-40 md:hidden",
-              "glass-medium border-t border-white/10",
+              "bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-lg",
               "pb-[env(safe-area-inset-bottom,0px)]"
             )}
             initial={{ y: 80, opacity: 0 }}
@@ -122,14 +125,14 @@ export function PublicBottomNav() {
                       "min-h-[56px] min-w-[52px] flex-1 px-1 py-2",
                       "rounded-none transition-colors duration-150",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
-                      active ? "text-blue-400" : "text-slate-500 hover:text-slate-300"
+                      active ? "text-blue-700" : "text-slate-600 hover:text-slate-900"
                     )}
                   >
                     {/* Spring-animated active background pill */}
                     {active && (
                       <motion.div
                         layoutId="nav-active-pill"
-                        className="absolute inset-x-1 inset-y-1.5 rounded-xl bg-blue-500/12"
+                        className="absolute inset-x-1 inset-y-1.5 rounded-xl bg-blue-600/10"
                         transition={{
                           type: "spring",
                           stiffness: 420,
@@ -149,7 +152,7 @@ export function PublicBottomNav() {
                       {active && (
                         <motion.div
                           layoutId="nav-dot"
-                          className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-blue-400"
+                          className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-blue-700"
                           transition={{ type: "spring", stiffness: 420, damping: 36 }}
                         />
                       )}
@@ -157,7 +160,7 @@ export function PublicBottomNav() {
 
                     <span
                       className={cn(
-                        "text-caption font-medium leading-none transition-all duration-200",
+                        "text-sm font-medium leading-none transition-all duration-200",
                         active ? "font-semibold" : ""
                       )}
                     >
@@ -180,13 +183,13 @@ export function PublicBottomNav() {
                   "min-h-[56px] min-w-[52px] flex-1 px-1 py-2",
                   "rounded-none transition-colors duration-150",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
-                  moreOpen ? "text-blue-400" : "text-slate-500 hover:text-slate-300"
+                  moreOpen ? "text-blue-700" : "text-slate-600 hover:text-slate-900"
                 )}
               >
                 {moreOpen && (
                   <motion.div
                     layoutId="nav-active-pill"
-                    className="absolute inset-x-1 inset-y-1.5 rounded-xl bg-blue-500/12"
+                    className="absolute inset-x-1 inset-y-1.5 rounded-xl bg-blue-600/10"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
                   />
                 )}
@@ -196,7 +199,7 @@ export function PublicBottomNav() {
                     moreOpen ? "w-5 h-5 stroke-[2.2]" : "w-5 h-5 stroke-[1.8]"
                   )}
                 />
-                <span className="text-caption font-medium leading-none">더보기</span>
+                <span className="text-sm font-medium leading-none">더보기</span>
               </button>
             </div>
           </motion.nav>

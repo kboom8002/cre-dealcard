@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import "./print.css";
@@ -28,12 +29,19 @@ import { LeverageChart } from "./leverage-chart";
 import { StackingPlanView } from "@/components/im/stacking-plan-view";
 import { useDealcardRealtimeSync } from "@/platform/im-pipeline/realtime/use-dealcard-realtime-sync";
 import {
-  IMInquiryBottomSheet,
   PhotoGallery,
   SectionCard,
   FloatingActionBar,
   ShareButton,
 } from "./components";
+
+const IMInquiryBottomSheet = dynamic(
+  () =>
+    import("./components/im-inquiry-bottom-sheet").then(
+      (m) => m.IMInquiryBottomSheet
+    ),
+  { ssr: false, loading: () => null }
+);
 import {
   isInAppWebView,
   buildKakaoExternalOpenUrl,
@@ -153,7 +161,8 @@ export function MobileIMViewer({
   buildingId,
   ssotData,
   docId,
-  isBroker = true,
+  // WP-7.3D P2-4: broker UI must be opted-in by a server-verified owner check (default off).
+  isBroker = false,
   shareToken,
 }: Props) {
   // Version state: v1 <-> v2 (only active when real previousVersion history exists)
@@ -233,18 +242,25 @@ export function MobileIMViewer({
   }, [buildingId, isBroker, shareToken]);
 
   const resolvedPptxDownloadUrl = useMemo(() => {
+    const effectiveToken =
+      (typeof shareToken === "string" && shareToken.trim()) ||
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("token")?.trim() || ""
+        : "");
     const prebuiltUrl = (initialDoc as any)?.pptxDownloadUrl;
     if (typeof prebuiltUrl === "string" && prebuiltUrl.trim()) {
       return prebuiltUrl.trim();
     }
     const grantId = (initialDoc as any)?.grantId;
     if (typeof grantId === "string" && grantId.trim()) {
-      return `/api/public/im-pro/${encodeURIComponent(grantId.trim())}/pptx`;
+      return `/api/public/im-pro/${encodeURIComponent(grantId.trim())}/pptx${
+        effectiveToken ? `?token=${encodeURIComponent(effectiveToken)}` : ""
+      }`;
     }
     return `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?direct=1${
       docId ? `&doc_id=${encodeURIComponent(docId)}` : ""
-    }`;
-  }, [initialDoc, buildingId, docId]);
+    }${effectiveToken ? `&token=${encodeURIComponent(effectiveToken)}` : ""}`;
+  }, [initialDoc, buildingId, docId, shareToken]);
 
   const hasDirectPrebuiltPptxUrl = Boolean(
     (typeof (initialDoc as any)?.pptxDownloadUrl === "string" &&
@@ -1321,8 +1337,10 @@ export function MobileIMViewer({
     cleanViewerBrokerField(factsBrokerObj?.address, "address") ||
     cleanViewerBrokerField(initialBrokerProfile?.officeAddress, "address") ||
     cleanViewerBrokerField(initialBrokerProfile?.office_address, "address") ||
+    cleanViewerBrokerField(initialBrokerProfile?.address, "address") ||
     cleanViewerBrokerField(legacyBrokerContact?.officeAddress, "address") ||
     cleanViewerBrokerField(legacyBrokerContact?.office_address, "address") ||
+    cleanViewerBrokerField(legacyBrokerContact?.address, "address") ||
     cleanViewerBrokerField(topBrokerObj?.officeAddress, "address") ||
     cleanViewerBrokerField(topBrokerObj?.office_address, "address") ||
     cleanViewerBrokerField(topBrokerObj?.address, "address") ||
@@ -1510,7 +1528,7 @@ export function MobileIMViewer({
                 key={chip.id}
                 type="button"
                 onClick={() => scrollToSection(chip.id)}
-                className={`min-h-[38px] px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap border transition-all cursor-pointer ${
+                className={`min-h-[44px] px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap border transition-all cursor-pointer ${
                   isActive
                     ? "bg-[#0F172A] text-white border-[#0F172A] shadow-xs scale-105"
                     : "bg-white text-[#475569] border-[#CBD5E1] hover:border-[#64748B]"
@@ -1625,6 +1643,26 @@ export function MobileIMViewer({
               )}
             </div>
           </div>
+          {(realBrokerOfficeName ||
+            realBrokerRepresentative ||
+            realBrokerRegistrationNo ||
+            realBrokerOfficeAddress ||
+            realBrokerPhone) && (
+            <p
+              data-testid="mobile-im-cover-statutory"
+              className="text-sm text-[#475569] border-t border-[#E2E8F0] pt-3 leading-relaxed break-keep"
+            >
+              {[
+                realBrokerOfficeName,
+                realBrokerRepresentative ? `대표 ${realBrokerRepresentative}` : "",
+                realBrokerRegistrationNo ? `등록번호 ${realBrokerRegistrationNo}` : "",
+                realBrokerOfficeAddress ? `소재지 ${realBrokerOfficeAddress}` : "",
+                realBrokerPhone ? `연락처 ${realBrokerPhone}` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </section>
 
         {/* Section 02: Summary Highlights (A02) */}
@@ -2465,10 +2503,10 @@ export function MobileIMViewer({
           </div>
         )}
 
-        <div className="max-w-2xl mx-auto px-4 pt-2 min-h-14 flex items-center justify-between gap-2.5">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-2 min-h-14 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
           <a
             href={brokerPhone && brokerPhone !== "-" ? `tel:${brokerPhone}` : "#10_contact"}
-            className="flex-1 min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-base whitespace-nowrap"
+            className="flex-1 min-w-[130px] min-h-[48px] px-3 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-base whitespace-nowrap"
           >
             <span>📞</span> 전화 문의
           </a>
@@ -2477,7 +2515,7 @@ export function MobileIMViewer({
               href={realKakaoChannelUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 min-h-[48px] bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-base whitespace-nowrap"
+              className="flex-1 min-w-[130px] min-h-[48px] px-3 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-base whitespace-nowrap"
             >
               <span>💬</span> 카톡 상담
             </a>
@@ -2485,41 +2523,43 @@ export function MobileIMViewer({
             <button
               type="button"
               onClick={() => setShowInquiry(true)}
-              className="flex-1 min-h-[48px] bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-base whitespace-nowrap"
+              className="flex-1 min-w-[150px] min-h-[48px] px-3 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-base whitespace-nowrap"
             >
               <span>📩</span> 간편 문의 · 자료 요청
             </button>
           )}
-          <a
-            href={resolvedPptxDownloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="mobile-im-download-pptx-btn"
-            aria-busy={isDownloadingPptx}
-            onClick={handleMobilePptxDownload}
-            className="min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
-            title="PPTX 투자설명서 다운로드"
-          >
-            <span>{isDownloadingPptx ? "⏳ 생성 중" : "📥 PPTX"}</span>
-          </a>
-          {isBroker && (
-            <Link
-              href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
-              data-testid="mobile-im-open-studio-btn"
-              className="min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
-              title="10면 발표자료(PPT) 꾸미기"
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
+            <a
+              href={resolvedPptxDownloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="mobile-im-download-pptx-btn"
+              aria-busy={isDownloadingPptx}
+              onClick={handleMobilePptxDownload}
+              className="flex-1 sm:flex-initial min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
+              title="PPTX 투자설명서 다운로드"
             >
-              <span>📐 스튜디오</span>
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="min-h-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-base shrink-0"
-            title="A4 인쇄 및 PDF 내보내기"
-          >
-            <span>🖨️</span>
-          </button>
+              <span>{isDownloadingPptx ? "⏳ 생성 중" : "📥 PPTX"}</span>
+            </a>
+            {isBroker && (
+              <Link
+                href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
+                data-testid="mobile-im-open-studio-btn"
+                className="flex-1 sm:flex-initial min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
+                title="10면 발표자료(PPT) 꾸미기"
+              >
+                <span>📐 스튜디오</span>
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="min-h-[48px] min-w-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-base shrink-0"
+              title="A4 인쇄 및 PDF 내보내기"
+            >
+              <span>🖨️</span>
+            </button>
+          </div>
         </div>
       </footer>
     </div>

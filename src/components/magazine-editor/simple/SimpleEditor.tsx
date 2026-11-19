@@ -415,7 +415,7 @@ export function SimpleEditor({
             {preservedAdvanced.count > 0 && (
               <p
                 data-testid="preserved-advanced-notice"
-                className="text-xs font-bold text-amber-950 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 rounded-lg px-3 py-1.5"
+                className="text-sm font-bold text-amber-950 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 rounded-lg px-3 py-1.5"
               >
                 🔒 고급 항목 {preservedAdvanced.count}개({preservedAdvanced.labels.join("·")} 등)도 함께 유지됩니다
               </p>
@@ -431,14 +431,14 @@ export function SimpleEditor({
           >
             <div className="flex items-center justify-between gap-2">
               <h2 id="simple-step-1-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
-                ① 이번 주 한마디 <span className="text-xs font-extrabold text-blue-700 dark:text-indigo-300 ml-1">(필수 · 1~3문장)</span>
+                ① 이번 주 한마디 <span className="text-sm font-extrabold text-blue-700 dark:text-indigo-300 ml-1">(필수 · 1~3문장)</span>
               </h2>
               <motion.span
                 key={isCommentReady ? "ready" : "pending"}
                 initial={{ scale: 0.9, opacity: 0.7 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={SOTA_SPRING}
-                className={`text-xs font-extrabold px-2.5 py-1 rounded-full ${
+                className={`text-sm font-extrabold px-2.5 py-1 rounded-full ${
                   isCommentReady
                     ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30"
                     : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
@@ -468,7 +468,7 @@ export function SimpleEditor({
               <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                 <span
                   data-testid="simple-comment-counter"
-                  className="text-xs font-bold text-slate-600 dark:text-slate-300"
+                  className="text-sm font-bold text-slate-600 dark:text-slate-300"
                 >
                   {comment.length} / {SIMPLE_NOTE_MAX}자 · 권장 1~3문장
                 </span>
@@ -480,7 +480,7 @@ export function SimpleEditor({
                   whileTap={{ scale: 0.97 }}
                   transition={SOTA_SPRING}
                   onClick={() => void runSummaryGeneration(true)}
-                  className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-blue-300 dark:border-indigo-500/40 bg-blue-50 dark:bg-indigo-500/15 px-3.5 py-1.5 text-xs font-extrabold text-blue-900 dark:text-indigo-200 hover:bg-blue-100 dark:hover:bg-indigo-500/25 disabled:opacity-45 transition-colors shadow-2xs"
+                  className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-blue-300 dark:border-indigo-500/40 bg-blue-50 dark:bg-indigo-500/15 px-3.5 py-1.5 text-sm font-extrabold text-blue-900 dark:text-indigo-200 hover:bg-blue-100 dark:hover:bg-indigo-500/25 disabled:opacity-45 transition-colors shadow-2xs"
                 >
                   {generatingSummary ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
@@ -497,7 +497,7 @@ export function SimpleEditor({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     data-testid="simple-summary-status"
-                    className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-1.5"
+                    className="text-sm font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-1.5"
                   >
                     {summaryStatusText}
                   </motion.p>
@@ -515,7 +515,7 @@ export function SimpleEditor({
           >
             <div className="flex items-center justify-between gap-2">
               <h2 id="simple-step-2-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
-                ② 소개할 매물 확인 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">(최대 3건)</span>
+                ② 소개할 매물 확인 <span className="text-sm font-bold text-slate-600 dark:text-slate-300 ml-1">(최대 3건)</span>
               </h2>
             </div>
 
@@ -540,7 +540,7 @@ export function SimpleEditor({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 id="simple-step-news-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
-                📰 함께 실을 관심 뉴스 확인 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">(부동산·경제·절세·문화·상권 · 최대 3건)</span>
+                📰 함께 실을 관심 뉴스 확인 <span className="text-sm font-bold text-slate-600 dark:text-slate-300 ml-1">(부동산·경제·절세·문화·상권 · 최대 3건)</span>
               </h2>
             </div>
 
@@ -563,7 +563,7 @@ export function SimpleEditor({
           >
             <div className="flex items-center justify-between gap-2">
               <h2 id="simple-step-3-heading" className="text-[17px] font-black text-slate-900 dark:text-white">
-                ③ 매거진 제목 &amp; 시장 온도 확인 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 ml-1">(자동 제안됨)</span>
+                ③ 매거진 제목 &amp; 시장 온도 확인 <span className="text-sm font-bold text-slate-600 dark:text-slate-300 ml-1">(자동 제안됨)</span>
               </h2>
             </div>
 
@@ -584,7 +584,7 @@ export function SimpleEditor({
                     userEditedHeadlineRef.current = false;
                     setHeadline(nextH);
                   }}
-                  className="text-xs font-extrabold text-blue-700 dark:text-indigo-300 hover:underline underline-offset-2"
+                  className="text-sm font-extrabold text-blue-700 dark:text-indigo-300 hover:underline underline-offset-2"
                 >
                   한마디 첫 문장으로 자동 채우기
                 </button>
@@ -600,7 +600,7 @@ export function SimpleEditor({
                 placeholder="매거진 제목을 입력하세요"
                 className="w-full min-h-[48px] rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-[#0B1120] px-4 py-3 text-[17px] font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/25 transition-all"
               />
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 비워두셔도 발행 시 &apos;이번 주 한마디&apos;의 첫 문장으로 자동 완성됩니다.
               </p>
             </div>
@@ -635,7 +635,7 @@ export function SimpleEditor({
                   );
                 })}
               </div>
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 pl-1">
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300 pl-1">
                 💬 {MARKET_TEMP_CONFIG[effectiveMarketTemp].description}
               </p>
             </div>
@@ -653,7 +653,7 @@ export function SimpleEditor({
             data-testid="simple-shortcut-bar"
             className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 space-y-2.5 shadow-2xs"
           >
-            <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+            <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
               구독자 관리·성과 확인이나 투표·세무 등 상세 편집이 필요하신가요?
             </p>
             <div className="flex flex-col gap-2">
@@ -665,7 +665,7 @@ export function SimpleEditor({
                   whileTap={{ scale: 0.98 }}
                   transition={SOTA_SPRING}
                   onClick={() => onOpenTab("outreach")}
-                  className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/12 px-3 py-2 text-xs font-extrabold text-amber-950 dark:text-amber-200 hover:bg-amber-100 transition-colors"
+                  className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/12 px-3 py-2 text-sm font-extrabold text-amber-950 dark:text-amber-200 hover:bg-amber-100 transition-colors"
                 >
                   <Users className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   <span>👥 구독자 관리 · QR 코드</span>
@@ -677,7 +677,7 @@ export function SimpleEditor({
                   whileTap={{ scale: 0.98 }}
                   transition={SOTA_SPRING}
                   onClick={() => onOpenTab("analytics")}
-                  className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 dark:border-pink-500/30 bg-rose-50 dark:bg-pink-500/12 px-3 py-2 text-xs font-extrabold text-rose-950 dark:text-pink-200 hover:bg-rose-100 transition-colors"
+                  className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 dark:border-pink-500/30 bg-rose-50 dark:bg-pink-500/12 px-3 py-2 text-sm font-extrabold text-rose-950 dark:text-pink-200 hover:bg-rose-100 transition-colors"
                 >
                   <BarChart3 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   <span>📈 독자 반응 · 연락할 고객 보기</span>
@@ -690,7 +690,7 @@ export function SimpleEditor({
                 whileTap={{ scale: 0.985 }}
                 transition={SOTA_SPRING}
                 onClick={onSwitchToFullMode}
-                className="w-full flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-3 py-2 text-xs font-extrabold text-slate-800 dark:text-slate-200 hover:bg-slate-200/80 transition-colors"
+                className="w-full flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-3 py-2 text-sm font-extrabold text-slate-800 dark:text-slate-200 hover:bg-slate-200/80 transition-colors"
               >
                 <Wrench className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>🛠️ 상세 편집 모드(투표·세무·테마)로 전환</span>

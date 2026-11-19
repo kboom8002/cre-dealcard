@@ -228,7 +228,7 @@ export function IdealBuyerPersonaSection({
         {personas && (
           <button
             onClick={handleClearCache}
-            className="text-[11px] text-muted-foreground hover:text-foreground underline transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
             title="다시 생성하기"
           >
             초기화
@@ -242,7 +242,7 @@ export function IdealBuyerPersonaSection({
           <div className="inline-block w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
           <div className="space-y-1">
             <p className="text-sm font-semibold">{LOADING_STEPS[loadingStep]}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               매물의 SSoT 신호를 바탕으로 매칭 시나리오를 계산하는 중입니다. (약 5초 소요)
             </p>
           </div>
@@ -259,7 +259,7 @@ export function IdealBuyerPersonaSection({
         <div className="space-y-4 animate-in fade-in duration-300">
           {/* Summary */}
           <div className="rounded-lg bg-muted/60 dark:bg-muted/40 p-3.5 border border-border/50">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">
+            <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider mb-1">
               매물 핵심 컨셉 요약
             </p>
             <p className="text-sm font-medium leading-relaxed">{personas.propertySummary}</p>
@@ -279,10 +279,10 @@ export function IdealBuyerPersonaSection({
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-sm select-none">{style.emoji}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${style.badge}`}>
+                        <span className={`text-sm font-bold px-1.5 py-0.5 rounded border ${style.badge}`}>
                           {persona.purposeProfile}형 페르소나
                         </span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                           매칭 적합도 {persona.fitScore}%
                         </span>
                       </div>
@@ -291,13 +291,13 @@ export function IdealBuyerPersonaSection({
                       </h3>
                     </div>
                     {/* Score badge */}
-                    <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${style.badge}`}>
+                    <div className={`text-sm font-bold px-2 py-0.5 rounded-full ${style.badge}`}>
                       {persona.fitScore}점
                     </div>
                   </div>
 
                   {/* Summary Grid */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] bg-black/5 dark:bg-white/5 rounded-lg p-2.5">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm bg-black/5 dark:bg-white/5 rounded-lg p-2.5">
                     <div>
                       <span className="text-muted-foreground block mb-0.5">매수자 유형</span>
                       <span className="font-semibold text-foreground">{persona.buyerType}</span>
@@ -309,7 +309,7 @@ export function IdealBuyerPersonaSection({
                   </div>
 
                   {/* Motivation */}
-                  <div className="text-[12px] space-y-1">
+                  <div className="text-sm space-y-1">
                     <span className="text-muted-foreground font-semibold">💡 매입 동기:</span>
                     <p className="text-muted-foreground leading-relaxed pl-1">
                       {persona.motivation}
@@ -318,12 +318,12 @@ export function IdealBuyerPersonaSection({
 
                   {/* Core Needs */}
                   <div className="space-y-1">
-                    <span className="text-[11px] text-muted-foreground font-semibold">🎯 핵심 요구사항:</span>
+                    <span className="text-sm text-muted-foreground font-semibold">🎯 핵심 요구사항:</span>
                     <div className="flex flex-wrap gap-1 pl-1">
                       {(persona.coreNeeds ?? []).map((need, idx) => (
                         <span
                           key={idx}
-                          className="text-[10px] bg-card border border-border/80 text-foreground px-2 py-0.5 rounded-md"
+                          className="text-sm bg-card border border-border/80 text-foreground px-2 py-0.5 rounded-md"
                         >
                           {need}
                         </span>
@@ -332,9 +332,9 @@ export function IdealBuyerPersonaSection({
                   </div>
 
                   {/* Where To Find */}
-                  <div className="text-[12px] space-y-1">
+                  <div className="text-sm space-y-1">
                     <span className="text-muted-foreground font-semibold">📍 발굴 및 타겟팅 경로:</span>
-                    <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground text-[11px]">
+                    <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground text-sm">
                       {(persona.whereToFind ?? []).map((path, idx) => (
                         <li key={idx}>{path}</li>
                       ))}
@@ -342,7 +342,7 @@ export function IdealBuyerPersonaSection({
                   </div>
 
                   {/* Approach Strategy */}
-                  <div className="mt-2 pt-2 border-t border-border/40 space-y-1 text-[12px] bg-primary/5 p-2.5 rounded-lg border border-primary/10">
+                  <div className="mt-2 pt-2 border-t border-border/40 space-y-1 text-sm bg-primary/5 p-2.5 rounded-lg border border-primary/10">
                     <span className="text-primary font-bold">💬 중개인 어필 및 접근 전략:</span>
                     <p className="text-foreground leading-relaxed">
                       {persona.approachStrategy}
@@ -378,7 +378,7 @@ export function IdealBuyerPersonaSection({
                           setRegisteringIndex(null);
                         }
                       }}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 py-2 px-3 text-xs font-bold hover:bg-primary/20 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 py-2 px-3 text-sm font-bold hover:bg-primary/20 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span>{registeringIndex === index ? '⏳ 등록 중...' : '🎯 이 페르소나 매칭 검토 (가상 의향 등록)'}</span>
                     </button>
@@ -390,10 +390,10 @@ export function IdealBuyerPersonaSection({
 
           {/* Action Plan */}
           <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-2">
-            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+            <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
               <span>📋</span> 중개인 실행 추천 플랜
             </p>
-            <ul className="space-y-1.5 pl-4 list-decimal text-xs text-muted-foreground">
+            <ul className="space-y-1.5 pl-4 list-decimal text-sm text-muted-foreground">
               {(personas.brokerActionPlan ?? []).map((action, idx) => (
                 <li key={idx} className="leading-relaxed">
                   {action}
@@ -403,14 +403,14 @@ export function IdealBuyerPersonaSection({
           </div>
 
           {/* Boundary Note */}
-          <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
+          <p className="text-sm text-muted-foreground text-center leading-relaxed">
             ⚠️ {personas.boundaryNote}
           </p>
 
           {/* Re-generate button */}
           <button
             onClick={handleGenerate}
-            className="w-full inline-flex items-center justify-center rounded-xl bg-secondary border border-border px-3 py-2 text-xs font-semibold text-foreground transition-all hover:bg-muted"
+            className="w-full inline-flex items-center justify-center rounded-xl bg-secondary border border-border px-3 py-2 text-sm font-semibold text-foreground transition-all hover:bg-muted"
           >
             🔄 페르소나 AI 분석 다시 실행
           </button>
@@ -420,20 +420,20 @@ export function IdealBuyerPersonaSection({
         <div className="py-6 text-center space-y-4">
           <div className="max-w-xs mx-auto space-y-1">
             <p className="text-sm font-semibold">이 매물은 어떤 사람이 사야 할까요?</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               매물 SSoT 데이터를 AI 에이전트가 분석하여 가장 적합한 3가지 가상 매수자 프로파일과 전략을 도출합니다.
             </p>
           </div>
           <div className="relative group inline-block">
             <button
               onClick={handleGenerate}
-              className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/95"
+              className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/95"
               id="cta-generate-buyer-personas"
             >
               ✨ AI 매수자 페르소나 도출
             </button>
             {(!areaSignal || !assetType || !priceBand) && (
-               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black/80 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                  일부 핵심 정보가 부족하여 추정 결과가 포함될 수 있습니다.
                </div>
             )}
@@ -442,7 +442,7 @@ export function IdealBuyerPersonaSection({
       )}
 
       {error && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
           ❌ {error}
         </div>
       )}

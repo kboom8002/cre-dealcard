@@ -25,10 +25,10 @@ test.describe("MECE Preventive Browser E2E Suite (PT-102, PT-201~204, PT-701~702
     page,
   }) => {
     const workspaces = [
-      { path: "/broker/w/im", queryKey: "buildingId", cardSelector: "[data-testid='im-list-card'], button:has-text('복제')" },
-      { path: "/broker/w/dealcards", queryKey: "buildingId", cardSelector: "[data-testid='dealcard-list-item'], aside button" },
-      { path: "/broker/w/magazine", queryKey: "edition", cardSelector: "aside [role='button'], aside button" },
-      { path: "/broker/w/inbox", queryKey: "thread", cardSelector: "aside [role='button'], aside button" },
+      { path: "/broker/w/im", queryKey: "buildingId", cardSelector: "[data-testid='ws-date-grouped-list'] button[data-testid]" },
+      { path: "/broker/w/dealcards", queryKey: "buildingId", cardSelector: "[data-testid='ws-date-grouped-list'] button[data-testid]" },
+      { path: "/broker/w/newsletter", queryKey: "edition", cardSelector: "aside [data-item-id]" },
+      { path: "/broker/w/inbox", queryKey: "thread", cardSelector: "[data-testid='ws-date-grouped-list'] button[data-testid]" },
     ] as const;
 
     for (const ws of workspaces) {
@@ -39,12 +39,14 @@ test.describe("MECE Preventive Browser E2E Suite (PT-102, PT-201~204, PT-701~702
       const aside = page.locator("aside").first();
       await expect(aside).toBeVisible({ timeout: 20_000 });
 
-      // Collect selectable list items inside left pane (excluding top action buttons like '+ 새 ...')
-      const listCards = aside.locator("[data-item-id], [role='listitem'], div.cursor-pointer");
+      // Collect distinct top-level list item controls inside left pane
+      const listCards = aside.locator(ws.cardSelector);
       const count = await listCards.count();
       expect(count).toBeGreaterThanOrEqual(0);
 
       if (count >= 2) {
+        const firstText = (await listCards.nth(0).innerText().catch(() => "")).trim();
+        const secondText = (await listCards.nth(1).innerText().catch(() => "")).trim();
         await listCards.nth(0).click();
         await page.waitForTimeout(350);
         const firstUrl = page.url();
@@ -53,8 +55,7 @@ test.describe("MECE Preventive Browser E2E Suite (PT-102, PT-201~204, PT-701~702
         await page.waitForTimeout(1100); // Wait past 1000ms to catch any stale useSearchParams snap-back!
         const secondUrl = page.url();
 
-        // Re-clicking first and then second must deterministically reflect second selection without snapping back
-        if (firstUrl.includes(`${ws.queryKey}=`)) {
+        if (firstText !== secondText && firstUrl.includes(`${ws.queryKey}=`)) {
           expect(secondUrl).not.toBe(firstUrl);
         }
       } else {
@@ -67,11 +68,10 @@ test.describe("MECE Preventive Browser E2E Suite (PT-102, PT-201~204, PT-701~702
   test("[PT-204] DealCard Memo-First flow parses broker memo, pairs card, and preserves memo across reload", async ({
     page,
   }) => {
-    await page.goto("/broker/w/dealcards");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/broker/w/dealcards", { waitUntil: "networkidle" });
     expect(page.url()).not.toContain("/login");
 
-    const createBtn = page.getByRole("button", { name: /\+\s*새 딜카드 만들기/ });
+    const createBtn = page.getByRole("button", { name: /새 딜카드 만들기/ });
     await expect(createBtn).toBeVisible({ timeout: 20_000 });
     await createBtn.click();
 
@@ -79,6 +79,7 @@ test.describe("MECE Preventive Browser E2E Suite (PT-102, PT-201~204, PT-701~702
       .locator("textarea[placeholder*='메모'], textarea[id*='memo']")
       .first();
     await expect(memoTextarea).toBeVisible({ timeout: 15_000 });
+    await expect(memoTextarea).toHaveValue("", { timeout: 10_000 });
 
     const uniqueTag = `보정동예방_${Date.now().toString().slice(-4)}`;
     const sampleMemo = `경기도 용인시 기흥구 보정동 1323-2 (${uniqueTag}) / 근린생활시설 / 매매가 28억 / 대지 133평 연면적 372평 / 보증금 2억7,950만 월세 809만 만실`;

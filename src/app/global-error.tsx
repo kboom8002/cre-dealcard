@@ -29,8 +29,8 @@ export default function GlobalError({
           margin: 0,
           padding: 0,
           fontFamily: 'system-ui, -apple-system, sans-serif',
-          background: '#09090b',
-          color: '#f4f4f5',
+          background: '#F8FAFC',
+          color: '#0F172A',
         }}
       >
         <div
@@ -47,11 +47,11 @@ export default function GlobalError({
               maxWidth: '440px',
               width: '100%',
               textAlign: 'center',
-              background: '#18181b',
-              border: '1px solid #27272a',
+              background: '#FFFFFF',
+              border: '1px solid #E2E8F0',
               borderRadius: '16px',
               padding: '32px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.08)',
             }}
           >
             <div
@@ -60,8 +60,9 @@ export default function GlobalError({
                 width: '48px',
                 height: '48px',
                 borderRadius: '12px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
+                background: '#FEF2F2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -76,7 +77,7 @@ export default function GlobalError({
                 fontSize: '20px',
                 fontWeight: 'bold',
                 margin: '0 0 8px 0',
-                color: '#ffffff',
+                color: '#0F172A',
               }}
             >
               시스템 오류가 발생했습니다
@@ -84,7 +85,7 @@ export default function GlobalError({
             <p
               style={{
                 fontSize: '15px',
-                color: '#d4d4d8',
+                color: '#334155',
                 margin: '0 0 16px 0',
                 lineHeight: '1.6',
               }}
@@ -93,8 +94,8 @@ export default function GlobalError({
             </p>
             <p
               style={{
-                fontSize: '12px',
-                color: '#a1a1aa',
+                fontSize: '14px',
+                color: '#475569',
                 fontFamily: 'monospace',
                 margin: '0 0 24px 0',
               }}
@@ -109,8 +110,8 @@ export default function GlobalError({
                 style={{
                   minHeight: '48px',
                   padding: '12px 20px',
-                  background: '#2563eb',
-                  color: '#ffffff',
+                  background: '#2563EB',
+                  color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '10px',
                   fontSize: '15px',
@@ -129,9 +130,9 @@ export default function GlobalError({
                 style={{
                   minHeight: '48px',
                   padding: '12px 20px',
-                  background: '#27272a',
-                  color: '#e4e4e7',
-                  border: '1px solid #3f3f46',
+                  background: '#F1F5F9',
+                  color: '#0F172A',
+                  border: '1px solid #CBD5E1',
                   borderRadius: '10px',
                   fontSize: '15px',
                   fontWeight: 500,

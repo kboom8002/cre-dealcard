@@ -344,7 +344,7 @@ export function ImManagementPanel({
             정보 충실도 {currentGrade}등급 ({currentScore}점)
           </span>
           {(currentGrade === 'C' || currentGrade === 'D') && (
-            <span className="text-[13px] text-slate-300 mt-0.5">
+            <span className="text-sm text-slate-300 mt-0.5">
               💡 주소·매매가·임대료 입력 시 품질 향상
             </span>
           )}
@@ -358,7 +358,7 @@ export function ImManagementPanel({
             };
             const cfg = TIER_LABELS[docs[0].releaseTier!] ?? { label: '표준 투자설명서', color: 'text-neutral-300' };
             return (
-              <span className={`text-[13px] font-medium mt-0.5 ${cfg.color}`}>
+              <span className={`text-sm font-medium mt-0.5 ${cfg.color}`}>
                 📋 {cfg.label}
               </span>
             );
@@ -416,9 +416,9 @@ export function ImManagementPanel({
         <div className="flex justify-between items-center gap-2 flex-wrap">
           <div>
             <h3 className="font-bold text-[16px]">한국형 표준 투자설명서 (Basic IM)</h3>
-            <p className="text-[13px] text-slate-300 mt-0.5">PC 인쇄·편집용 9면 PPTX + 고객 공유용 웹 뷰어</p>
+            <p className="text-sm text-slate-300 mt-0.5">PC 인쇄·편집용 9면 PPTX + 고객 공유용 웹 뷰어</p>
           </div>
-          <div className="text-[13px] font-medium">
+          <div className="text-sm font-medium">
             {basicDoc ? (
               basicDoc.approval_stage === 'S70_FILE_APPROVAL' || basicDoc.status === 'published' ? (
                 <span className="text-emerald-400 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full font-bold">
@@ -471,7 +471,7 @@ export function ImManagementPanel({
             <div className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-2.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="text-[13px] font-bold text-slate-200 shrink-0">🎨 PPTX 테마:</span>
+                  <span className="text-sm font-bold text-slate-200 shrink-0">🎨 PPTX 테마:</span>
                   <span
                     className="w-4 h-4 rounded-full flex-shrink-0 border border-white/30 shadow-sm"
                     style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#B8860B' }}
@@ -480,7 +480,7 @@ export function ImManagementPanel({
                     value={selectedPreset}
                     onChange={(e) => setSelectedPreset(e.target.value)}
                     aria-label="PPTX 색상 테마 프리셋 선택"
-                    className="flex-1 h-9 rounded-lg border border-slate-700 bg-slate-950 text-slate-100 text-[13px] font-semibold px-2.5 focus:ring-1 focus:ring-amber-500 outline-none"
+                    className="flex-1 h-9 rounded-lg border border-slate-700 bg-slate-950 text-slate-100 text-sm font-semibold px-2.5 focus:ring-1 focus:ring-amber-500 outline-none"
                   >
                     {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
                       <option key={id} value={id}>{s.name}</option>
@@ -492,7 +492,7 @@ export function ImManagementPanel({
                 </div>
                 <Link 
                   href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
-                  className="text-[12px] font-bold text-amber-300 hover:text-amber-200 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 transition-colors"
+                  className="text-sm font-bold text-amber-300 hover:text-amber-200 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 transition-colors"
                 >
                   ✨ 10종 테마 미리보기
                 </Link>
@@ -506,7 +506,7 @@ export function ImManagementPanel({
                       type="button"
                       onClick={() => setSelectedPreset(id)}
                       title={s.name}
-                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-bold shrink-0 border transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-bold shrink-0 border transition-all ${
                         active
                           ? 'bg-amber-500/20 border-amber-400 text-amber-200'
                           : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -572,7 +572,7 @@ export function ImManagementPanel({
             <Button 
               size="sm" 
               variant="outline"
-              className="h-9 font-bold text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50"
+              className="h-9 font-bold text-sm border-amber-600/50 text-amber-700 hover:bg-amber-50"
               onClick={() => handleGenerateIM('pro')}
               disabled={generationStatus !== 'idle'}
             >

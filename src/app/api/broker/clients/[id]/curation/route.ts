@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { requireBroker } from '@/lib/auth-guard';
+import { createServiceClient } from '@/lib/supabase/service';
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
+import { createModuleLogger } from '@/lib/logger';
+
+const log = createModuleLogger('broker-clients-curation-route');
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
   req: NextRequest,
@@ -10,21 +14,24 @@ export async function GET(
   try {
     const auth = await requireBroker(req);
     if (auth.error) return auth.error;
+    const isAdmin = auth.role === 'admin' || auth.profile?.role === 'admin';
     const { id: clientId } = await params;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
+    if (!UUID_RE.test(clientId)) {
+      return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
+    }
+
+    const supabase = createServiceClient();
 
     // 1. Fetch the client
-    const { data: client } = await supabase
+    let clientQuery = supabase
       .from('broker_clients')
       .select('id, client_type, linked_buyer_intent_ids')
-      .eq('id', clientId)
-      .eq('broker_id', auth.user!.id)
-      .single();
+      .eq('id', clientId);
+    if (!isAdmin) {
+      clientQuery = clientQuery.eq('broker_id', auth.user!.id);
+    }
+    const { data: client } = await clientQuery.maybeSingle();
 
     if (!client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
@@ -35,21 +42,18 @@ export async function GET(
 
     let buyerIntents: any[] = [];
     if (buyerIntentIds.length > 0) {
-      const { data } = await supabase
+      let biQuery = supabase
         .from('buyer_intent_lite')
         .select('preferred_regions, asset_types, budget_display, purchase_purpose')
         .in('id', buyerIntentIds);
+      if (!isAdmin) {
+        biQuery = biQuery.eq('owner_id', auth.user!.id);
+      }
+      const { data } = await biQuery;
       buyerIntents = data || [];
     }
 
-    // 3. Also fetch tenant intents linked to this client
-    const { data: tenantIntents } = await supabase
-      .from('tenant_intent')
-      .select('preferred_regions, business_type, budget_monthly_max, area_min, area_max')
-      .eq('broker_id', auth.user!.id)
-      .limit(5);
-
-    // 4. Build curation results
+    // 3. Build curation results
     const saleResults: any[] = [];
     const leaseResults: any[] = [];
 
@@ -157,7 +161,9 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error('[broker-clients-id-curation-get] Error:', err);
+    log.error('GET /api/broker/clients/[id]/curation failed', {
+      message: err instanceof Error ? err.message : 'unknown_error',
+    });
     return NextResponse.json(
       { error: '요청 처리에 실패했습니다.' },
       { status: 500 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { UserCheck, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
 import { BrokerResultCard, BrokerCardData } from "../search/BrokerResultCard";
 
@@ -16,7 +16,7 @@ export function HubBrokerShowcase({ brokers }: HubBrokerShowcaseProps) {
   if (!brokers || brokers.length === 0) return null;
 
   return (
-    <section className="relative overflow-hidden py-14 border-t border-b border-white/5 bg-gradient-to-b from-transparent via-[#090d17]/30 to-transparent">
+    <section className="relative overflow-hidden py-12 border-t border-b border-slate-200 bg-slate-50/70">
       {/* Decorative ambient background glows */}
       <div className="absolute top-1/2 left-0 -translate-y-1/2 w-72 h-72 rounded-full bg-amber-500/5 blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 right-0 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
@@ -25,25 +25,25 @@ export function HubBrokerShowcase({ brokers }: HubBrokerShowcaseProps) {
         {/* Header */}
         <div className="flex items-end justify-between mb-8">
           <div className="text-left">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/10 bg-amber-500/5 text-amber-400 text-[10px] font-bold mb-3">
-              <Sparkles className="w-3 h-3" />
-              <span>VTI 성향 기반 전문 중개인</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-800 text-sm font-bold mb-3">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>전문 권역 기반 공인중개사</span>
             </div>
             <h2 className="text-xl md:text-2xl font-extrabold text-foreground">
-              검증된 파트너 중개사
+              공개 활동 파트너 중개사
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-md">
-              AI가 매수 성향과 전문 권역을 분석하여 고객님에게 최적화된 최고의 전문 중개인을 매칭해 드립니다.
+            <p className="text-sm text-muted-foreground mt-1 max-w-md">
+              전문 권역과 취급 자산 유형을 기준으로 등록된 공인중개사 프로필을 확인해 보세요.
             </p>
           </div>
 
           <Link
             href="/search?type=broker"
             onClick={() => haptic.light()}
-            className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/90 transition-colors"
+            className="flex min-h-11 items-center gap-1 text-sm font-semibold text-primary hover:text-primary/90 transition-colors"
           >
             <span>전체 보기</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 

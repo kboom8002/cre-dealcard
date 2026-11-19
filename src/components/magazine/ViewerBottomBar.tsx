@@ -169,12 +169,12 @@ export function ViewerBottomBar({
     return (
       <div
         aria-hidden="true"
-        className="mt-6 flex gap-2 rounded-xl border border-white/10 bg-slate-950/80 p-3 pointer-events-none"
+        className="mt-6 flex gap-2 rounded-xl border border-slate-200 bg-white p-3 pointer-events-none"
       >
         {actions.map((a) => (
           <span
             key={a.target}
-            className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 text-sm font-bold text-ink-muted"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 text-sm font-bold text-slate-700"
           >
             <ActionIcon kind={a.kind} />
             {resolveActionDisplayLabel(a, kakaoUrl)}
@@ -203,14 +203,14 @@ export function ViewerBottomBar({
       <nav
         aria-label="상담·공유 바로가기"
         data-magazine-bottom-bar=""
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/15 bg-[#090d1a]/95 px-2.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl print:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl print:hidden"
       >
         <div className="mx-auto flex max-w-lg items-center gap-1.5">
           {primary && (
             <a
               href={primary.href}
               onClick={() => onTrack?.(primary.target)}
-              className="inline-flex h-12 min-h-12 flex-[1.25] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-600 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-500 active:scale-[0.99]"
+              className="inline-flex h-12 min-h-12 flex-[1.25] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-700 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-800 active:scale-[0.99]"
             >
               <ActionIcon kind={primary.kind} />
               <span>{resolveActionDisplayLabel(primary, kakaoUrl)}</span>
@@ -222,10 +222,10 @@ export function ViewerBottomBar({
                 key={a.target}
                 type="button"
                 onClick={handleShare}
-                className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.06] px-2.5 text-sm font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
+                className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50 active:scale-[0.99]"
               >
                 {copied ? (
-                  <Check className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+                  <Check className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
                 ) : (
                   <ActionIcon kind="share" />
                 )}
@@ -236,7 +236,7 @@ export function ViewerBottomBar({
                 key={a.target}
                 href={a.href}
                 onClick={() => onTrack?.(a.target)}
-                className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-white/20 bg-white/[0.06] px-2.5 text-sm font-bold text-slate-100 transition-colors hover:bg-white/10 active:scale-[0.99]"
+                className="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50 active:scale-[0.99]"
               >
                 <ActionIcon kind={a.kind} />
                 <span>{resolveActionDisplayLabel(a, kakaoUrl)}</span>

@@ -36,12 +36,12 @@ describe("briefingParaToSafeHtml", () => {
   });
   it("** 강조 안의 주입도 무력화된다", () => {
     const html = briefingParaToSafeHtml("**<b onclick=x>굵게</b>**");
-    expect(html).toMatch(/^<strong class="text-white font-bold">&lt;b onclick=/);
+    expect(html).toMatch(/^<strong class="text-slate-900 font-bold">&lt;b onclick=/);
     expect(html).not.toMatch(/<b /);
   });
   it("퍼센트·억 강조 마크업은 유지된다", () => {
     const html = briefingParaToSafeHtml("공실률 3.5% 하락, 거래액 120억");
-    expect(html).toContain('<span class="text-indigo-200 font-bold font-mono">3.5%</span>');
-    expect(html).toContain('<span class="text-emerald-200 font-bold">120억</span>');
+    expect(html).toContain('<span class="text-indigo-800 font-bold font-mono">3.5%</span>');
+    expect(html).toContain('<span class="text-emerald-800 font-bold">120억</span>');
   });
 });

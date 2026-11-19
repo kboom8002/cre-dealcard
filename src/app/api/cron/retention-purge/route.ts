@@ -13,24 +13,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { acquireCronIdempotencySlot, verifyCronRequest } from '@/lib/security/cron-auth';
+import { toKstDate } from '@/lib/magazine/kst';
+import { isUuid } from '@/lib/magazine/slug';
+import {
+  hashEmailForSuppression,
+  recordEmailSuppression,
+} from '@/lib/legal/email-suppression';
 
 export const maxDuration = 60;
 
 /**
  * 90일 경과 일반 활동 로그 파기 배치에서 영구 보존해야 하는 법정·보안 감사 이벤트 유형:
  * - newsletter_subscription_toggled: 수신동의·수신거부 2년 법정 증적 및 영구 발송 차단(suppression)
- * - link_revoked, link_restored: 공유 링크 잠금 상태 영구 유지 (삭제 시 잠긴 링크 재개방 방지)
- * - dealcard_deleted, im_deleted, custom_client_deleted, inbox_custom_client_upserted, email_bounced
+ * - link_revoked, link_restored, thread_link_revoked, thread_link_restored: 공유 링크 잠금/해제 이력 보존
+ * - dealcard_deleted, dealcard_restored, im_deleted, im_restored, custom_client_deleted: 삭제·복원 쌍 보존
+ * - correction_notice_published, correction_notice_cleared: 정정 공지 게시·해제 쌍 보존
+ * - email_bounced, email_complained, magazine_unsubscribed, email_suppression_recorded
+ * - consent_reconfirm_notified: 2년 주기 수신동의 재확인 통지 증적
+ * - inbox_thread_archived / inbox_thread_unarchived: PII 없는 보관 상태(쌍으로 보존해야 90일 후 재노출·재보관 오류가 없음)
+ *
+ * WP-7.3E P1-10: custom_client_upserted / inbox_custom_client_upserted / call_note_recorded 는
+ * 이름·연락처·이메일·메모 PII를 담은 비법정 CRM 이벤트이므로 영구 보존 대상에서 제외한다
+ * (정본은 broker_clients, 고객 삭제 시 이전 이벤트 PII도 스크럽).
  */
 export const PERMANENT_COMPLIANCE_EVENT_TYPES = [
   'newsletter_subscription_toggled',
   'link_revoked',
   'link_restored',
+  'thread_link_revoked',
+  'thread_link_restored',
   'dealcard_deleted',
+  'dealcard_restored',
   'im_deleted',
+  'im_restored',
+  'correction_notice_published',
+  'correction_notice_cleared',
   'custom_client_deleted',
-  'inbox_custom_client_upserted',
   'email_bounced',
+  'email_complained',
+  'magazine_unsubscribed',
+  'email_suppression_recorded',
+  'consent_reconfirm_notified',
+  'inbox_thread_archived',
+  'inbox_thread_unarchived',
 ] as const;
 
 /**
@@ -51,6 +76,110 @@ interface MagazinePurgeEntry {
   error?: string;
 }
 
+interface UnsubscribedSubscriberRow {
+  id?: string | null;
+  broker_id?: string | null;
+  broker_user_id?: string | null;
+  subscriber_email?: string | null;
+  status?: string | null;
+  unsubscribed_at?: string | null;
+}
+
+function isMissingColumnErr(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return (
+    err.code === '42703' ||
+    err.code === 'PGRST204' ||
+    /does not exist|schema cache/i.test(String(err.message || ''))
+  );
+}
+
+/**
+ * WP-7.8B NL P0-3b: `magazine_purge_unsubscribed(30)` sets `subscriber_email = null`.
+ * Persist SHA-256 email hashes into `public.email_suppressions` BEFORE running the RPC
+ * so PII scrubbing never erases permanent opt-out suppression.
+ */
+async function persistUnsubscribedHashesBeforePurge(
+  supabase: ReturnType<typeof createServiceClient>,
+): Promise<void> {
+  try {
+    const cutoffMs = Date.now() - 30 * 86_400_000;
+    let subRes = await supabase
+      .from('magazine_subscribers')
+      .select('id, broker_id, broker_user_id, subscriber_email, status, unsubscribed_at');
+    if (subRes?.error && isMissingColumnErr(subRes.error)) {
+      subRes = await supabase
+        .from('magazine_subscribers')
+        .select('id, broker_id, subscriber_email, status, unsubscribed_at');
+    }
+    const rawRows = (Array.isArray(subRes?.data) ? subRes.data : []) as UnsubscribedSubscriberRow[];
+    const candidates = rawRows.filter((row) => {
+      const email = typeof row?.subscriber_email === 'string' ? row.subscriber_email.trim() : '';
+      if (!email || !hashEmailForSuppression(email)) return false;
+      const isStatusUnsub = String(row?.status || '').toLowerCase() === 'unsubscribed';
+      const unsubMs = row?.unsubscribed_at ? Date.parse(String(row.unsubscribed_at)) : Number.NaN;
+      const isOlderThanCutoff = Number.isFinite(unsubMs) && unsubMs <= cutoffMs;
+      return isOlderThanCutoff || isStatusUnsub;
+    });
+    if (candidates.length === 0) return;
+
+    const slugSet = new Set<string>();
+    for (const row of candidates) {
+      const bUid = typeof row.broker_user_id === 'string' ? row.broker_user_id.trim() : '';
+      const bId = typeof row.broker_id === 'string' ? row.broker_id.trim() : '';
+      if (!isUuid(bUid) && bId && !isUuid(bId)) {
+        slugSet.add(bId);
+      }
+    }
+
+    const userIdBySlug = new Map<string, string>();
+    if (slugSet.size > 0) {
+      try {
+        const { data: bpRows } = await supabase
+          .from('broker_profiles')
+          .select('user_id, slug')
+          .in('slug', Array.from(slugSet));
+        for (const bp of (Array.isArray(bpRows) ? bpRows : []) as Array<{
+          user_id?: string | null;
+          slug?: string | null;
+        }>) {
+          if (bp?.slug && bp?.user_id && isUuid(bp.user_id)) {
+            userIdBySlug.set(String(bp.slug).trim(), String(bp.user_id).trim());
+          }
+        }
+      } catch {
+        // non-blocking slug resolution fallback
+      }
+    }
+
+    for (const row of candidates) {
+      const email = String(row.subscriber_email || '').trim();
+      const emailHash = hashEmailForSuppression(email);
+      if (!emailHash) continue;
+
+      const rawBrokerUserId = typeof row.broker_user_id === 'string' ? row.broker_user_id.trim() : '';
+      const rawBrokerId = typeof row.broker_id === 'string' ? row.broker_id.trim() : '';
+      const resolvedBrokerUuid = isUuid(rawBrokerUserId)
+        ? rawBrokerUserId
+        : isUuid(rawBrokerId)
+        ? rawBrokerId
+        : rawBrokerId
+        ? userIdBySlug.get(rawBrokerId) ?? null
+        : null;
+
+      await recordEmailSuppression(supabase, {
+        email,
+        brokerId: resolvedBrokerUuid,
+        scope: resolvedBrokerUuid ? 'broker' : 'global',
+        reason: 'unsubscribe',
+        source: 'retention_purge_unsubscribed',
+      });
+    }
+  } catch {
+    // Non-blocking pre-cutover fallback
+  }
+}
+
 /**
  * 매거진 파기 RPC. 함수가 아직 없으면(마이그레이션 20261004000014 미적용) 성공으로 위장하지 않고 정직한 에러를 기록한다.
  * 한 RPC 실패가 다른 파기를 막지 않도록 개별 try/catch.
@@ -58,6 +187,8 @@ interface MagazinePurgeEntry {
 async function purgeMagazine(
   supabase: ReturnType<typeof createServiceClient>,
 ): Promise<Record<string, MagazinePurgeEntry>> {
+  await persistUnsubscribedHashesBeforePurge(supabase);
+
   const steps: Array<[string, string, Record<string, number>]> = [
     ['unsubscribed', 'magazine_purge_unsubscribed', { p_days: 30 }],
     ['oldEvents', 'magazine_purge_old_events', { p_days: 365 }],
@@ -85,12 +216,9 @@ async function purgeMagazine(
   return out;
 }
 
-export async function GET(req: NextRequest) {
-  const authFailure = verifyCronRequest(req);
-  if (authFailure) return authFailure;
-
+async function runIdempotentPurge() {
   const supabase = createServiceClient();
-  const bucketKey = new Date().toISOString().slice(0, 10);
+  const bucketKey = toKstDate();
   const slot = await acquireCronIdempotencySlot(supabase, 'retention-purge', bucketKey);
   if (!slot.acquired) {
     return NextResponse.json({
@@ -105,12 +233,18 @@ export async function GET(req: NextRequest) {
   return executeRetentionPurge(supabase);
 }
 
+export async function GET(req: NextRequest) {
+  const authFailure = verifyCronRequest(req);
+  if (authFailure) return authFailure;
+
+  return runIdempotentPurge();
+}
+
 export async function POST(req: NextRequest) {
   const authFailure = verifyCronRequest(req);
   if (authFailure) return authFailure;
 
-  const supabase = createServiceClient();
-  return executeRetentionPurge(supabase);
+  return runIdempotentPurge();
 }
 
 async function executeRetentionPurge(supabase: ReturnType<typeof createServiceClient>) {
@@ -120,11 +254,11 @@ async function executeRetentionPurge(supabase: ReturnType<typeof createServiceCl
     // 0. 매거진 PII·이벤트 파기 (실패해도 이후 기존 파기는 계속 진행하되 결과에 정직하게 노출)
     const magazine = await purgeMagazine(supabase);
 
-    // 1. 보유기간 만료 Party 파기
+    // 1. 보유기간 만료 Party 파기 (KST 기준 날짜 경계 일관성 유지)
     const { data: expiredParties } = await supabase
       .from('party')
       .select('id')
-      .lt('retention_until', new Date().toISOString().slice(0, 10));
+      .lt('retention_until', toKstDate());
 
     if (expiredParties && expiredParties.length > 0) {
       const ids = expiredParties.map((p: { id: string }) => p.id);

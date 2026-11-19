@@ -50,58 +50,58 @@ export function LoanScenarioSection({
   return (
     <div className="col-span-2 mt-3 border-t border-blue-500/30 pt-4 bg-blue-500/5 p-3.5 rounded-xl space-y-3">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-bold text-blue-300">🏦 대출 시나리오</label>
-        <span className="text-[10px] text-blue-400/80 font-medium">LTV 및 금리 조건 입력</span>
+        <label className="block text-sm font-bold text-blue-300">🏦 대출 시나리오</label>
+        <span className="text-sm text-blue-400/80 font-medium">LTV 및 금리 조건 입력</span>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
         <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground mb-1">LTV 비율 (%)</label>
+          <label className="block text-sm font-semibold text-muted-foreground mb-1">LTV 비율 (%)</label>
           <input
             type="number"
             step="1"
             placeholder={autoLtv ?? "40"}
             value={ltvPct}
             onChange={(e) => setLtvPct(e.target.value)}
-            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
-          {autoLtv && !ltvPct && <p className="text-[10px] text-muted-foreground mt-0.5">자동 계산: {autoLtv}%</p>}
+          {autoLtv && !ltvPct && <p className="text-sm text-muted-foreground mt-0.5">자동 계산: {autoLtv}%</p>}
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground mb-1">대출 금리 (%)</label>
+          <label className="block text-sm font-semibold text-muted-foreground mb-1">대출 금리 (%)</label>
           <input
             type="number"
             step="0.1"
             placeholder="4.5"
             value={loanInterestPct}
             onChange={(e) => setLoanInterestPct(e.target.value)}
-            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground mb-1">대출 기간 (년)</label>
+          <label className="block text-sm font-semibold text-muted-foreground mb-1">대출 기간 (년)</label>
           <input
             type="number"
             step="1"
             placeholder="5"
             value={loanTermYears}
             onChange={(e) => setLoanTermYears(e.target.value)}
-            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-muted-foreground mb-1">목표 IRR (%)</label>
+          <label className="block text-sm font-semibold text-muted-foreground mb-1">목표 IRR (%)</label>
           <input
             type="number"
             step="0.1"
             placeholder="선택 입력"
             value={targetIrrPct}
             onChange={(e) => setTargetIrrPct(e.target.value)}
-            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
       </div>
       {(monthlyInterestManwon || equityYield) && (
-        <div className="flex justify-between text-xs text-blue-300 font-semibold pt-1 border-t border-blue-500/20">
+        <div className="flex justify-between text-sm text-blue-300 font-semibold pt-1 border-t border-blue-500/20">
           {monthlyInterestManwon && <span>월 이자 부담: ~{monthlyInterestManwon.toLocaleString()}만원</span>}
           {equityYield && <span>자기자본수익률: ~{equityYield}%</span>}
         </div>

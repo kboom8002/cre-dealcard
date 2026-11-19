@@ -284,10 +284,10 @@ function buildReferenceFinancingCostChart(regionKey: MonthlyRegionKey, regionLab
   ];
 
   return {
-    id: `${regionKey}-molit_tx_price_trend`,
+    id: `${regionKey}-reference_cost_financing`,
     regionKey,
     regionLabel,
-    chartType: 'molit_tx_price_trend',
+    chartType: 'reference_cost_financing',
     title: `${meta.primaryDistrict} 매수·신축 검토용 표준 건축단가 및 조달 기준`,
     subtitle: `구조별 평당 건축단가(만원/평) · 상업용 대출 평균 ${COMMERCIAL_MORTGAGE.interestRatePct}% · 부대비용 ${totalAcqPct}%`,
     authorityLabel: '상업용 빌딩 금융·건축원가 기준 참고치',
@@ -409,7 +409,7 @@ function buildBokLoanRateChart(
           primaryValue: basePolicyRatePct,
           secondaryValue: meta.capRatePct,
           displayPrimary: `연 ${basePolicyRatePct.toFixed(2)}%`,
-          displaySecondary: '정책 기준',
+          displaySecondary: '정책 참고치',
         },
         {
           label: '권역 기대수익률',
@@ -817,9 +817,173 @@ export function hydrateMonthlyChartsFromDbRows(
     }
   }
 
-  // 2. 임대동향 분기별 집계
+  // 2. 임대동향 · 상권 · BOK · 금액대 공통 하이드레이션 조립
+  const txRowsForBand = Array.isArray(input.transactions)
+    ? input.transactions.filter(isWholeBuildingDbRow)
+    : [];
+  return finalizeHydratedMonthlyPair({
+    regionKey,
+    yearMonth: input.yearMonth,
+    pair,
+    liveTxChart,
+    transactionsForBand: txRowsForBand,
+    rentalRows: input.rentalRows,
+    commercialRows: input.commercialRows,
+    bokLoanRates: input.bokLoanRates,
+  });
+}
+
+export interface RpcMonthlyTxStatRow {
+  ym: string;
+  tx_count: number;
+  gfa_sample_count: number;
+  land_sample_count: number;
+  gfa_median_manwon: number | null;
+  land_median_manwon: number | null;
+}
+
+export interface HydrateMonthlyChartsFromRpcInput {
+  regionKey: unknown;
+  yearMonth?: string;
+  pair?: readonly [MonthlyChartType, MonthlyChartType];
+  rpcRows: readonly RpcMonthlyTxStatRow[];
+  transactions?: readonly DbTransactionRow[];
+  rentalRows?: readonly DbRentalTrendRow[];
+  commercialRows?: readonly DbCommercialDistrictRow[];
+  bokLoanRates?: readonly BokMonthlyLoanRatePoint[];
+}
+
+/**
+ * DB SQL RPC(`get_monthly_regional_tx_stats`) 집계 결과를 월간 차트로 변환한다 (WP 3-E).
+ * - 빈 월(`tx_count === 0`)은 "표본 없음"으로 명시한다.
+ * - 표본 3건 미만(`gfa_median_manwon` / `land_median_manwon === null`)은 중앙값을 억제하고 "표본 부족"으로 표기한다.
+ * - `building_area` 표본이 전혀 없고 `land_area` 표본만 있으면 "대지 평당가"로 분리 표기한다.
+ */
+export function hydrateMonthlyChartsFromRpcRows(
+  input: HydrateMonthlyChartsFromRpcInput,
+): MonthlyRegionalChart[] {
+  const regionKey = normalizeMonthlyRegionKey(input.regionKey);
+  const preset = MONTHLY_REGION_PRESETS.find((p) => p.key === regionKey) ?? MONTHLY_REGION_PRESETS[0];
+  const meta = REGION_BENCHMARK_META[regionKey];
+  const hasExplicitBok = Array.isArray(input.bokLoanRates) && input.bokLoanRates.length > 0;
+  const hasExplicitRentals = Array.isArray(input.rentalRows) && input.rentalRows.length >= 2;
+  const pair: readonly [MonthlyChartType, MonthlyChartType] =
+    input.pair ??
+    (!hasExplicitBok && hasExplicitRentals
+      ? ['molit_tx_price_trend', 'reb_vacancy_cap_spread']
+      : ['molit_tx_price_trend', 'bok_loan_rate_cap_spread']);
+
+  const sortedRows = [...(input.rpcRows ?? [])]
+    .filter((r) => typeof r.ym === 'string' && /^\d{4}-\d{2}$/.test(r.ym))
+    .sort((a, b) => a.ym.localeCompare(b.ym))
+    .slice(-6);
+
+  let liveTxChart: MonthlyRegionalChart | null = null;
+  if (sortedRows.length > 0 && sortedRows.some((r) => Number(r.tx_count ?? 0) > 0)) {
+    const totalGfaSamples = sortedRows.reduce((s, r) => s + Number(r.gfa_sample_count ?? 0), 0);
+    const totalLandSamples = sortedRows.reduce((s, r) => s + Number(r.land_sample_count ?? 0), 0);
+    const useLandBasis = totalGfaSamples === 0 && totalLandSamples > 0;
+    const unitBasisLabel = useLandBasis ? '대지 평당가' : '연면적 평당가';
+
+    const series: MonthlyChartSeriesPoint[] = sortedRows.map((r) => {
+      const txCount = Math.max(0, Number(r.tx_count ?? 0));
+      const label = `${Number(r.ym.slice(5, 7))}월`;
+      if (txCount === 0) {
+        return {
+          label,
+          primaryValue: 0,
+          displayPrimary: '표본 없음',
+        };
+      }
+      const rawMedian = useLandBasis ? r.land_median_manwon : r.gfa_median_manwon;
+      const sampleCount = useLandBasis
+        ? Number(r.land_sample_count ?? 0)
+        : Number(r.gfa_sample_count ?? 0);
+      const medianPyeongManwon =
+        txCount >= 3 &&
+        sampleCount >= 3 &&
+        rawMedian !== null &&
+        Number.isFinite(Number(rawMedian)) &&
+        Number(rawMedian) > 0
+          ? Math.round(Number(rawMedian))
+          : null;
+
+      return {
+        label,
+        primaryValue: txCount,
+        ...(medianPyeongManwon !== null ? { secondaryValue: medianPyeongManwon } : {}),
+        displayPrimary: `${txCount}건`,
+        displaySecondary:
+          medianPyeongManwon !== null ? `${medianPyeongManwon.toLocaleString()}만` : '표본 부족',
+      };
+    });
+
+    const latest = series[series.length - 1];
+    const prev = series.length >= 2 ? series[series.length - 2] : latest;
+    const diff = latest.primaryValue - prev.primaryValue;
+    liveTxChart = {
+      id: `${regionKey}-molit_tx_price_trend`,
+      regionKey,
+      regionLabel: preset.label,
+      chartType: 'molit_tx_price_trend',
+      title: `${meta.primaryDistrict} 통건물 월별 실거래량 · ${unitBasisLabel} 중앙값`,
+      subtitle: `막대: 월 거래건수(건) · 하단 수치: ${unitBasisLabel} 중앙값(만원/평, 3건 미만 미산출)`,
+      authorityLabel: `국토교통부 실거래가 공개시스템 (통건물 ${unitBasisLabel} 중앙값)`,
+      asOf: `${sortedRows[sortedRows.length - 1].ym} 기준 6개월 DB 집계`,
+      unit: '건',
+      secondaryUnit: '만원/평',
+      highlightMetric: {
+        label: `최근 집계 거래건수 · 중앙 ${unitBasisLabel}`,
+        value:
+          latest.secondaryValue !== undefined && latest.displaySecondary
+            ? `${latest.displayPrimary} · ${unitBasisLabel} 중앙 ${latest.displaySecondary}`
+            : latest.displayPrimary,
+        deltaText:
+          diff > 0
+            ? `직전 집계월 대비 +${diff}건`
+            : diff < 0
+              ? `직전 집계월 대비 ${diff}건`
+              : '직전 집계월과 동일',
+        tone: diff >= 0 ? 'positive' : 'neutral',
+      },
+      series,
+      buyerImplication: `${meta.primaryDistrict} 통건물 실거래가 최근 월 ${latest.displayPrimary} 체결되며 표본 3건 이상 구간만 ${unitBasisLabel} 중앙값을 표시해 왜곡을 배제했습니다.`,
+      isPlaceholder: false,
+      sourceMode: 'public_db',
+    };
+  }
+
+  const txRowsForBand = Array.isArray(input.transactions)
+    ? input.transactions.filter(isWholeBuildingDbRow)
+    : [];
+  return finalizeHydratedMonthlyPair({
+    regionKey,
+    yearMonth: input.yearMonth,
+    pair,
+    liveTxChart,
+    transactionsForBand: txRowsForBand,
+    rentalRows: input.rentalRows,
+    commercialRows: input.commercialRows,
+    bokLoanRates: input.bokLoanRates,
+  });
+}
+
+function finalizeHydratedMonthlyPair(params: {
+  regionKey: MonthlyRegionKey;
+  yearMonth?: string;
+  pair: readonly [MonthlyChartType, MonthlyChartType];
+  liveTxChart: MonthlyRegionalChart | null;
+  transactionsForBand: readonly DbTransactionRow[];
+  rentalRows?: readonly DbRentalTrendRow[];
+  commercialRows?: readonly DbCommercialDistrictRow[];
+  bokLoanRates?: readonly BokMonthlyLoanRatePoint[];
+}): MonthlyRegionalChart[] {
+  const { regionKey, pair, liveTxChart, transactionsForBand } = params;
+  const preset = MONTHLY_REGION_PRESETS.find((p) => p.key === regionKey) ?? MONTHLY_REGION_PRESETS[0];
+  const meta = REGION_BENCHMARK_META[regionKey];
+
   let liveRentalChart: MonthlyRegionalChart | null = null;
-  const rentalRows = Array.isArray(input.rentalRows) ? input.rentalRows : [];
+  const rentalRows = Array.isArray(params.rentalRows) ? params.rentalRows : [];
   const validRentals = rentalRows.filter(
     (r) => typeof r.quarter === 'string' && r.quarter.trim() && typeof r.vacancy_rate === 'number',
   );
@@ -862,9 +1026,8 @@ export function hydrateMonthlyChartsFromDbRows(
     };
   }
 
-  // 3. 상권 활력 DB 집계
   let liveCommercialChart: MonthlyRegionalChart | null = null;
-  const commRows = Array.isArray(input.commercialRows) ? input.commercialRows : [];
+  const commRows = Array.isArray(params.commercialRows) ? params.commercialRows : [];
   const validComm = commRows.filter(
     (r) => typeof r.district_name === 'string' && typeof r.sales_volume_index === 'number',
   );
@@ -890,7 +1053,7 @@ export function hydrateMonthlyChartsFromDbRows(
       title: `${meta.primaryDistrict} 주요 상권 매출·유동 활력 지수`,
       subtitle: '적재된 상권정보 매출·유동 지수(pt) 비교',
       authorityLabel: '상권정보 DB 집계',
-      asOf: input.yearMonth ? `${input.yearMonth} 조회` : '최근 적재 기준',
+      asOf: params.yearMonth ? `${params.yearMonth} 조회` : '최근 적재 기준',
       unit: 'pt',
       highlightMetric: {
         label: `${latest.label} 매출 지수`,
@@ -905,8 +1068,8 @@ export function hydrateMonthlyChartsFromDbRows(
     };
   }
 
-  const bokChart = buildBokLoanRateChart(regionKey, preset.label, input.bokLoanRates);
-  const bandChart = buildPriceBandMixChart(regionKey, preset.label, txRows);
+  const bokChart = buildBokLoanRateChart(regionKey, preset.label, params.bokLoanRates);
+  const bandChart = buildPriceBandMixChart(regionKey, preset.label, transactionsForBand);
 
   const pickChart = (type: MonthlyChartType): MonthlyRegionalChart => {
     if (type === 'molit_tx_price_trend') {

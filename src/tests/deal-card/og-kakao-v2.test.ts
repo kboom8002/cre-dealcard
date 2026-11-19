@@ -97,7 +97,7 @@ describe('WP-P1-06 & WP-P1-07 & WP-14: KakaoTalk OG v2 & Zero-Redirect Cache Ver
     expect(res.headers.get('x-card4-hash')).toBe(expectedHash);
   });
 
-  it('responds with 200 image/png and immutable cache header when ?v={card4_hash} matches', async () => {
+  it('responds with 200 image/png and revocation-safe bounded s-maxage=300 cache header even when ?v={card4_hash} matches', async () => {
     const req = new NextRequest(
       `http://localhost:3000/api/og/deal/bldg-og-1/kakao-v2?v=${expectedHash}`
     );
@@ -106,7 +106,7 @@ describe('WP-P1-06 & WP-P1-07 & WP-14: KakaoTalk OG v2 & Zero-Redirect Cache Ver
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('image/png');
     const cacheControl = res.headers.get('cache-control');
-    expect(cacheControl).toBe('public, max-age=31536000, immutable');
+    expect(cacheControl).toBe('public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     expect(res.headers.get('x-card4-hash')).toBe(expectedHash);
   });
 

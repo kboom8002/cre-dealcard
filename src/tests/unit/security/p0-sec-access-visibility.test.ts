@@ -70,10 +70,15 @@ describe('P0-SEC: public visibility rules', () => {
     }
   });
 
-  it('/dc: blocks archived building, internal_only or archived signal card', () => {
+  it('/dc: blocks archived building, internal_only, archived signal card, or bare unpublished draft building', () => {
     expect(evaluateDealCardPublicVisibility({ buildingStatus: 'public_signal_ready', signalCardVisibility: 'public_blind', signalCardStatus: 'draft' }))
       .toEqual({ isPublic: true, reasons: [] });
-    expect(evaluateDealCardPublicVisibility({ buildingStatus: 'draft' }).isPublic).toBe(true);
+    expect(evaluateDealCardPublicVisibility({ buildingStatus: 'draft' }))
+      .toEqual({ isPublic: false, reasons: ['unpublished_draft_artifacts'] });
+    expect(evaluateDealCardPublicVisibility({ buildingStatus: 'draft', signalCardStatus: 'shared_external' }))
+      .toEqual({ isPublic: true, reasons: [] });
+    expect(evaluateDealCardPublicVisibility({ buildingStatus: 'draft', teaserDocStatus: 'published' }))
+      .toEqual({ isPublic: true, reasons: [] });
     expect(evaluateDealCardPublicVisibility({}).isPublic).toBe(true);
     expect(evaluateDealCardPublicVisibility({ buildingStatus: 'archived' }).reasons).toEqual(['building_archived']);
     expect(evaluateDealCardPublicVisibility({ signalCardVisibility: 'internal_only' }).reasons).toEqual(['signal_card_internal_only']);

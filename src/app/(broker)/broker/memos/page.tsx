@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Search, Edit3, StickyNote, Trash2,
-  ArrowRight, Pin, PinOff, MoreVertical, X, Filter, CheckCircle2,
+  Pin, PinOff, MoreVertical, X, Filter, CheckCircle2,
   Calendar, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,8 +118,26 @@ export default function BrokerMemosPage() {
   }, []);
 
   useEffect(() => {
-    fetchMemos();
-  }, [fetchMemos]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/broker/memo/save", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled && json.ok && json.data) {
+          setMemos(json.data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* ── Search with debounce ── */
   const handleSearch = (val: string) => {
@@ -211,7 +229,7 @@ export default function BrokerMemosPage() {
   const handleCreateDealCard = (memo: Memo) => {
     sessionStorage.setItem("memo_transfer", memo.memo_text);
     setOpenMenuId(null);
-    router.push("/broker/deal-card/new");
+    router.push("/broker/w/dealcards");
   };
 
   const handleCreateBuyerIntent = (memo: Memo) => {
@@ -225,7 +243,7 @@ export default function BrokerMemosPage() {
     if (memo.routing_type === "buyer_condition") {
       router.push("/broker/buyer-intents/new");
     } else {
-      router.push("/broker/deal-card/new");
+      router.push("/broker/w/dealcards");
     }
   };
 
@@ -473,7 +491,7 @@ interface MemoCardProps {
 function MemoCard({
   memo, isEditing, editText, setEditText,
   onStartEdit, onCancelEdit, onSaveEdit,
-  onDelete, onTogglePin, onTransfer,
+  onDelete, onTogglePin,
   onCreateDealCard, onCreateBuyerIntent,
   openMenuId, setOpenMenuId, menuRef,
 }: MemoCardProps) {
@@ -559,7 +577,6 @@ function MemoCard({
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             className="min-h-[120px] text-sm resize-none border-primary/30 focus-visible:ring-primary/30"
-            autoFocus
           />
           <div className="flex gap-2 justify-end">
             <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCancelEdit}>

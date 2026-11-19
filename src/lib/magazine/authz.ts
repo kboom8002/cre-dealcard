@@ -60,21 +60,32 @@ export async function requireBrokerContext(
   const userId = guard.user.id;
 
   let slug: string | null = null;
-  try {
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-      .from('broker_profiles')
-      .select('slug')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) {
-      log.error('broker_profiles lookup failed', { userId, error: error.message });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from('broker_profiles')
+        .select('slug')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 120));
+          continue;
+        }
+        log.error('broker_profiles lookup failed', { userId, error: error.message });
+        return { ctx: null, error: jsonError('INTERNAL_ERROR', '프로필을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500) };
+      }
+      slug = (data as { slug?: string | null } | null)?.slug ?? null;
+      break;
+    } catch (e) {
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 120));
+        continue;
+      }
+      log.error('broker_profiles lookup threw', { userId, error: e instanceof Error ? e.message : String(e) });
       return { ctx: null, error: jsonError('INTERNAL_ERROR', '프로필을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500) };
     }
-    slug = (data as { slug?: string | null } | null)?.slug ?? null;
-  } catch (e) {
-    log.error('broker_profiles lookup threw', { userId, error: e instanceof Error ? e.message : String(e) });
-    return { ctx: null, error: jsonError('INTERNAL_ERROR', '프로필을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500) };
   }
 
   if (opts.requireSlug && !slug) {

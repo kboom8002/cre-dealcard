@@ -174,7 +174,9 @@ describe('Wave 4 — WP-14: Local Korean Font (loadOgFonts) Unification & Kakao 
 
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toContain('image/png');
-      expect(res.headers.get('cache-control')).toContain('s-maxage=86400');
+      // WP-7.3C P2 (intentional hardening): deal OG TTL shortened from s-maxage=86400 to 300
+      // so revoked/deleted deal cards do not linger in CDN caches for a day.
+      expect(res.headers.get('cache-control')).toContain('s-maxage=300');
       expect(spy).toHaveBeenCalled();
 
       const pngBytes = await res.arrayBuffer();

@@ -98,7 +98,7 @@ export function SlugSetupGate({ onConfirmed }: SlugSetupGateProps) {
           </div>
 
           <div className="space-y-1.5 pt-1">
-            <span className="block text-xs font-semibold text-ink-subtle">
+            <span className="block text-sm font-semibold text-ink-subtle">
               추천 주소 예시 (누르면 자동 입력):
             </span>
             <div className="flex flex-wrap gap-1.5">

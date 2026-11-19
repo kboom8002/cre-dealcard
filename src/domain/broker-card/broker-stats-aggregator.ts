@@ -9,6 +9,14 @@
  * - activity_events     → 최근 활동
  */
 import { createServiceClient } from "@/lib/supabase/service";
+import {
+  isDemoSeedDisabledForProd,
+  resolvePublicDealWorkspaceGuard,
+} from "@/lib/og/deal-public-guard";
+import {
+  evaluateDealCardPublicVisibility,
+  PUBLIC_WORKSPACE_ITEM_STATUSES,
+} from "@/domain/public-projection/visibility";
 
 // ── Interfaces ──────────────────────────────────────────────────────
 
@@ -46,13 +54,77 @@ export async function aggregateBrokerStats(
 ): Promise<BrokerStats> {
   const supabase = createServiceClient();
 
-  // 1. 총 딜카드 + 지역/자산유형 분포
+  // 1. 공개 딜카드만 조회 (블라인드 컬럼만 선택 + public_signal_ready 필터 + 가드 검증)
   const { data: buildings } = await supabase
     .from("building_ssot_lite")
-    .select("id, area_signal, asset_type, price_band, status, created_at")
-    .eq("owner_id", brokerId);
+    .select("id, status, area_signal, asset_type, price_band, created_at")
+    .eq("owner_id", brokerId)
+    .eq("status", "public_signal_ready");
 
-  const allBuildings = buildings ?? [];
+  const candidateBuildings = (buildings ?? []).filter(
+    (row) =>
+      Boolean(row?.id) &&
+      row.status === "public_signal_ready" &&
+      !isDemoSeedDisabledForProd(String(row.id)),
+  );
+
+  const signalCardMap = new Map<
+    string,
+    { visibility?: string | null; status?: string | null }
+  >();
+  if (candidateBuildings.length > 0) {
+    try {
+      const candidateIds = candidateBuildings.map((r) => String(r.id));
+      const scTable = supabase.from("building_signal_cards") as unknown as {
+        select?: (cols: string) => {
+          in?: (
+            col: string,
+            vals: string[],
+          ) => PromiseLike<{ data?: Array<Record<string, unknown>> | null }>;
+        };
+      };
+      const scQuery = scTable?.select?.("building_id, visibility, status");
+      const scRes =
+        typeof scQuery?.in === "function"
+          ? await scQuery.in("building_id", candidateIds)
+          : null;
+      for (const sc of scRes?.data ?? []) {
+        const bId = sc?.building_id ? String(sc.building_id) : "";
+        if (bId && !signalCardMap.has(bId)) {
+          signalCardMap.set(bId, {
+            visibility: typeof sc.visibility === "string" ? sc.visibility : null,
+            status: typeof sc.status === "string" ? sc.status : null,
+          });
+        }
+      }
+    } catch {
+      // Non-blocking when signal cards lookup is unavailable in lightweight test mocks
+    }
+  }
+
+  const verifiedResults = await Promise.all(
+    candidateBuildings.map(async (row) => {
+      const id = String(row.id);
+      const guard = await resolvePublicDealWorkspaceGuard({ id, supabase });
+      if (guard.blocked) return null;
+      if (guard.item && !PUBLIC_WORKSPACE_ITEM_STATUSES.includes(guard.item.status)) {
+        return null;
+      }
+
+      const sig = signalCardMap.get(id);
+      const vis = evaluateDealCardPublicVisibility({
+        buildingStatus: row.status ?? "public_signal_ready",
+        signalCardVisibility: sig?.visibility ?? null,
+        signalCardStatus: sig?.status ?? null,
+        workspaceItemStatus: guard.item?.status ?? guard.workspaceItemStatus ?? null,
+      });
+      return vis.isPublic ? row : null;
+    }),
+  );
+
+  const allBuildings = verifiedResults.filter(
+    (row): row is NonNullable<typeof row> => row !== null,
+  );
   const totalDealCards = allBuildings.length;
 
   // 지역 빈도 카운트 → 상위 3

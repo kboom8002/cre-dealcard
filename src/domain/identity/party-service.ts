@@ -4,9 +4,14 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/service';
+import { createModuleLogger } from '@/lib/logger';
+import { isUuid } from '@/lib/im-lite/quick-generate-store';
 import type { Party } from '../distribution/types';
 import { toE164 } from './gate-schema';
 import { RETENTION } from '../distribution/types';
+
+const log = createModuleLogger('party-service');
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
 export interface CreatePartyInput {
   tenantId: string;
@@ -67,6 +72,26 @@ export async function findOrCreateParty(input: CreatePartyInput): Promise<Party>
 export async function deleteParty(partyId: string): Promise<void> {
   const supabase = createServiceClient();
 
+  let existingTenantId: string | null = null;
+  let existingBrokerId: string | null = null;
+  if (isUuid(partyId)) {
+    try {
+      const { data: existingRow } = await supabase
+        .from('party')
+        .select('id, tenant_id, owner_broker_id')
+        .eq('id', partyId)
+        .maybeSingle();
+      if (existingRow?.tenant_id && isUuid(String(existingRow.tenant_id))) {
+        existingTenantId = String(existingRow.tenant_id);
+      }
+      if (existingRow?.owner_broker_id && isUuid(String(existingRow.owner_broker_id))) {
+        existingBrokerId = String(existingRow.owner_broker_id);
+      }
+    } catch {
+      // Non-blocking pre-read before deletion
+    }
+  }
+
   // buyer_condition은 ON DELETE CASCADE로 자동 삭제
   const { error } = await supabase
     .from('party')
@@ -75,13 +100,51 @@ export async function deleteParty(partyId: string): Promise<void> {
 
   if (error) throw new Error(`Party deletion failed: ${error.message}`);
 
-  // 감사 로그 기록
-  await supabase.from('track_event').insert({
-    tenant_id: '00000000-0000-0000-0000-000000000000',
-    deal_id: '00000000-0000-0000-0000-000000000000',
-    kind: 'party.deleted',
-    payload: { partyId, deletedAt: new Date().toISOString(), reason: 'user_request' },
-  });
+  const deletedAt = new Date().toISOString();
+  const safeTenantId = existingTenantId && isUuid(existingTenantId) ? existingTenantId : ZERO_UUID;
+  const safeDealId = ZERO_UUID;
+  const safePartyId = isUuid(partyId) ? partyId : null;
+
+  // 감사 로그 기록 (track_event — non-blocking, UUID verified)
+  if (isUuid(safeTenantId) && isUuid(safeDealId)) {
+    try {
+      const { error: trackErr } = await supabase.from('track_event').insert({
+        tenant_id: safeTenantId,
+        deal_id: safeDealId,
+        kind: 'party.deleted',
+        ...(safePartyId ? { party_id: safePartyId } : {}),
+        payload: { partyId, deletedAt, reason: 'user_request' },
+      });
+      if (trackErr) {
+        log.warn('[party-service] track_event audit insert failed (non-blocking):', trackErr.message);
+      }
+    } catch (trackEx) {
+      log.warn('[party-service] track_event audit insert threw:', trackEx);
+    }
+  }
+
+  // PIPA 파기 영구 감사 로그 (activity_events)
+  try {
+    const { error: actErr } = await supabase.from('activity_events').insert({
+      actor_id: existingBrokerId && isUuid(existingBrokerId) ? existingBrokerId : null,
+      actor_role: 'system',
+      event_type: 'party_pipa_erased',
+      entity_type: 'party',
+      entity_id: safePartyId,
+      metadata: {
+        party_id: partyId,
+        tenant_id: safeTenantId,
+        deleted_at: deletedAt,
+        reason: 'user_request',
+        pipa_erasure: true,
+      },
+    });
+    if (actErr) {
+      log.warn('[party-service] activity_events PIPA erasure audit failed:', actErr.message);
+    }
+  } catch (actEx) {
+    log.warn('[party-service] activity_events PIPA erasure audit threw:', actEx);
+  }
 }
 
 /**

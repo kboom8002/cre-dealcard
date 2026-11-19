@@ -31,20 +31,20 @@ export function TeaserHeroHeader({
   vacancyLabel,
   urgencyTag
 }: TeaserHeroHeaderProps) {
-  // Posture별 프리미엄 추상 그라데이션 배경 테마
+  // Posture별 밝은 페이퍼 스튜디오 테마 (D3)
   const getGradientStyle = () => {
     switch (posture) {
       case 'development':
-        return 'from-[#0B1E19] via-[#122E26] to-[#1A2333] border-emerald-500/20';
+        return 'from-emerald-50 via-white to-slate-50 border-emerald-200';
       case 'owner_occupied':
-        return 'from-[#1C182A] via-[#2A1F3D] to-[#1A2333] border-purple-500/20';
+        return 'from-indigo-50 via-white to-slate-50 border-indigo-200';
       case 'operating':
-        return 'from-[#251A18] via-[#38231F] to-[#1A2333] border-amber-500/20';
+        return 'from-amber-50 via-white to-slate-50 border-amber-200';
       case 'trading':
-        return 'from-[#17202A] via-[#1F2C3A] to-[#1A2333] border-blue-500/20';
+        return 'from-sky-50 via-white to-slate-50 border-sky-200';
       case 'income':
       default:
-        return 'from-[#192231] via-[#232E42] to-[#141A21] border-[#C4A052]/30';
+        return 'from-amber-50/70 via-white to-slate-50 border-slate-300';
     }
   };
 
@@ -53,19 +53,19 @@ export function TeaserHeroHeader({
     switch (urgencyTag) {
       case 'urgent':
         return (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping" /> 🔥 급매물
+          <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping" /> 🔥 급매물
           </span>
         );
       case 'reviewing':
         return (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+          <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
             ⚡ 선순위 검토 진행 중
           </span>
         );
       case 'flexible':
         return (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <span className="text-sm font-medium px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
             🌱 여유 협상 가능
           </span>
         );
@@ -77,21 +77,21 @@ export function TeaserHeroHeader({
   return (
     <div
       data-testid="public-dealcard-hero"
-      className={`relative bg-gradient-to-b ${getGradientStyle()} border rounded-2xl overflow-hidden text-slate-100 p-5 space-y-4 shadow-xl`}
+      className={`relative bg-gradient-to-b ${getGradientStyle()} border rounded-2xl overflow-hidden text-slate-900 p-5 space-y-4 shadow-sm`}
     >
       {/* Background Abstract Geometric Accent */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-[#D4A853]/10 to-transparent rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-amber-200/30 to-transparent rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-sky-200/20 rounded-full blur-xl pointer-events-none" />
 
       {/* Top Badges */}
       <div className="relative z-10 flex items-center gap-2 flex-wrap">
         {postureLabel && (
-          <span className="text-[11px] font-bold text-slate-900 px-2.5 py-0.5 rounded-md shadow-sm" style={{ backgroundColor: '#D4A853' }}>
+          <span className="text-sm font-bold text-slate-950 px-2.5 py-0.5 rounded-md shadow-sm bg-amber-300 border border-amber-400">
             {postureLabel}
           </span>
         )}
         {archetype && <ArchetypeBadge archetype={archetype} size="md" />}
-        <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-800/80 border border-slate-700/60 rounded-md text-slate-200">
+        <span className="text-sm font-semibold px-2.5 py-0.5 bg-slate-100 border border-slate-300 rounded-md text-slate-800">
           📍 {regionLabel}
         </span>
         {renderUrgencyBadge()}
@@ -103,12 +103,12 @@ export function TeaserHeroHeader({
           <h1
             data-single-line-title="true"
             title={title}
-            className="text-xl sm:text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm whitespace-nowrap overflow-hidden text-ellipsis truncate"
+            className="text-xl sm:text-2xl font-bold text-slate-950 leading-snug tracking-tight font-serif whitespace-nowrap overflow-hidden text-ellipsis truncate"
           >
             {title}
           </h1>
           {hookCopy && (
-            <p className="text-sm text-slate-300 leading-relaxed font-medium">
+            <p className="text-sm text-slate-700 leading-relaxed font-medium">
               {hookCopy}
             </p>
           )}
@@ -117,13 +117,13 @@ export function TeaserHeroHeader({
         <h1
           data-single-line-title="true"
           title={hookCopy}
-          className="relative z-10 text-xl sm:text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm whitespace-nowrap overflow-hidden text-ellipsis truncate"
+          className="relative z-10 text-xl sm:text-2xl font-bold text-slate-950 leading-snug tracking-tight font-serif whitespace-nowrap overflow-hidden text-ellipsis truncate"
         >
           {hookCopy}
         </h1>
       ) : null}
 
-      {/* 4-Tile Metrics Grid with Glassmorphism */}
+      {/* 4-Tile Metrics Grid */}
       {(() => {
         let validTiles = postureHeroTiles ? filterValidTiles(postureHeroTiles) : [];
         if (validTiles.length === 0) {
@@ -141,15 +141,15 @@ export function TeaserHeroHeader({
               key={i}
               className={`p-3 rounded-xl border transition-all ${
                 i === 0 
-                  ? 'bg-[#182335]/90 border-[#D4A853]/40 shadow-inner' 
-                  : 'bg-[#121822]/70 border-[#252E39]/80 backdrop-blur-sm'
+                  ? 'bg-amber-50/80 border-amber-300 shadow-sm' 
+                  : 'bg-white border-slate-200'
               }`}
             >
-              <div className="text-[10.5px] text-slate-400 font-medium mb-1 flex items-center gap-1">
+              <div className="text-sm text-slate-600 font-semibold mb-1 flex items-center gap-1">
                 <span>{tile.emoji}</span>
                 <span>{tile.label}</span>
               </div>
-              <div className={`text-sm font-bold tracking-tight ${i === 0 ? 'text-[#5EEAD4] text-[15px]' : 'text-slate-100'}`}>
+              <div className={`text-sm font-extrabold tracking-tight ${i === 0 ? 'text-amber-900 text-[15px]' : 'text-slate-950'}`}>
                 {tile.value}
               </div>
             </div>

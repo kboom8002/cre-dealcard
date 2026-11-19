@@ -15,7 +15,11 @@ import { createModuleLogger } from '@/lib/logger';
 import { jsonError, notFoundResponse, requireBrokerContext, brokerKeyMatches } from '@/lib/magazine/authz';
 import { isFutureDateKst, parseIssueDate, todayKst } from '@/lib/magazine/kst';
 import { getPublishedIssue, maskIssueForPublic } from '@/lib/magazine/get-published-issue';
+import { isUnpublishedContent, sanitizeBrokerPhone } from '@/lib/magazine/public-page-data';
+import { normalizeContentForPublish, needsQualityReview } from '@/lib/magazine/edition-save';
+import { parseEditionContent, parseEditionContentDraft } from '@/domain/magazine/edition-content.schema';
 import { resolveBroker } from '@/lib/magazine/resolve-broker';
+import { assertPublishable } from '@/lib/legal/publish-gate';
 import { callMagazineJson, MagazineLlmError, zReaderText } from '@/lib/magazine/llm-guard';
 import { PULSE_REGION_LABELS_KO, deriveRegionKeywords, pickPulseRegion } from '@/lib/magazine/period-label';
 import {
@@ -26,7 +30,7 @@ import {
   DEFAULT_THEME_COLOR,
 } from '@/domain/magazine/weekly-generator';
 import { runMagazineQualityGate } from '@/domain/magazine/quality-gate';
-import { adaptBuildingToMagazineDeal, resolveDealCoverPhoto } from '@/domain/magazine/deal-adapter';
+import { adaptBuildingToMagazineDeal } from '@/domain/magazine/deal-adapter';
 
 const log = createModuleLogger('api-magazine-broker');
 
@@ -284,6 +288,43 @@ export async function POST(request: NextRequest, { params }: RouteCtx) {
 
     const supabase = createServiceClient();
 
+    const broker = await resolveBroker(supabase, slug);
+    if (!broker) return notFoundResponse();
+
+    let phone = '';
+    const { data: prof, error: profErr } = await supabase
+      .from('profiles')
+      .select('phone')
+      .eq('id', ctx.userId)
+      .maybeSingle();
+    if (profErr) {
+      log.warn('[api/magazine/POST] profile phone lookup failed', { error: profErr.message });
+    } else if (prof && typeof (prof as { phone?: unknown }).phone === 'string') {
+      phone = sanitizeBrokerPhone((prof as { phone: string }).phone);
+    }
+
+    const statutoryGate = await assertPublishable({
+      supabase,
+      userId: ctx.userId,
+      kind: 'magazine',
+      brokerMetaOverride: {
+        company: broker.company,
+        phone,
+        display_name: broker.displayName ?? ctx.displayName,
+      },
+    });
+    if (!statutoryGate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: statutoryGate.code, message: statutoryGate.message },
+          missingFields: statutoryGate.missingFields,
+          missingLabels: statutoryGate.missingLabels,
+        },
+        { status: 422 },
+      );
+    }
+
     // ── 생성 모드 ──
     if (payload.generate === true) {
       let gen;
@@ -325,9 +366,154 @@ export async function POST(request: NextRequest, { params }: RouteCtx) {
     }
 
     // ── 본문 저장 모드 (에디터) ──
-    const { generate: _generate, ...content } = payload;
+    const correctionReason =
+      typeof payload.correctionReason === 'string' ? payload.correctionReason.trim() : '';
+    const {
+      generate: _generate,
+      correctionReason: _correctionReason,
+      broker: _clientBroker,
+      brokerId: _clientBrokerId,
+      ...rawContent
+    } = payload;
     void _generate;
-    const toSave = { ...content, brokerId: slug, issueDate };
+    void _correctionReason;
+    void _clientBroker;
+    void _clientBrokerId;
+
+    const { data: existingIssues, error: existingErr } = await supabase
+      .from('magazine_issues')
+      .select('id, content')
+      .in('broker_id', ctx.brokerKeys)
+      .eq('issue_date', issueDate)
+      .limit(1);
+    if (existingErr && existingErr.code !== '42P01' && existingErr.code !== 'PGRST205') {
+      log.error('[api/magazine/POST] existing issue lookup failed', existingErr.message);
+      return jsonError('INTERNAL_ERROR', '기존 발행본 확인에 실패했습니다.', 500);
+    }
+    const existingRow = Array.isArray(existingIssues)
+      ? (existingIssues[0] as { id?: string; content?: Record<string, unknown> } | undefined)
+      : (existingIssues as { id?: string; content?: Record<string, unknown> } | null);
+    if (
+      existingRow?.content &&
+      typeof existingRow.content === 'object' &&
+      !isUnpublishedContent(existingRow.content) &&
+      !correctionReason
+    ) {
+      return jsonError(
+        'PUBLISHED_LOCKED',
+        '이미 발행된 호수입니다. 수정하려면 정정 사유(correctionReason)를 함께 입력해 주세요.',
+        409,
+      );
+    }
+
+    const rawGen =
+      rawContent.generation &&
+      typeof rawContent.generation === 'object' &&
+      !Array.isArray(rawContent.generation)
+        ? (rawContent.generation as Record<string, unknown>)
+        : null;
+    if (rawContent.generation !== undefined && !rawGen) {
+      return jsonError('INVALID_CONTENT', '생성 메타데이터 형식이 올바르지 않습니다.', 422);
+    }
+    if (rawGen?.isMock === true) {
+      return jsonError('MOCK_CONTENT', 'Mock(모의) 생성 콘텐츠는 발행할 수 없습니다.', 422);
+    }
+    if (
+      rawGen?.needsQualityReview === true ||
+      needsQualityReview(rawContent, typeof rawContent.status === 'string' ? rawContent.status : null) ||
+      isUnpublishedContent(rawContent)
+    ) {
+      return jsonError('QUALITY_GATE_FAILED', '품질 검수를 통과하지 못해 저장하지 않았습니다.', 422);
+    }
+
+    const draftCheck = parseEditionContentDraft(rawContent);
+    if (!draftCheck.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'INVALID_CONTENT',
+            message: `콘텐츠 형식이 올바르지 않습니다: ${draftCheck.issues[0] ?? ''}`.trim(),
+          },
+          issues: draftCheck.issues.slice(0, 8),
+        },
+        { status: 422 },
+      );
+    }
+
+    const hasExplicitBodyField =
+      'briefing' in rawContent ||
+      'ai_briefing' in rawContent ||
+      'theme_body_md' in rawContent ||
+      'field_note' in rawContent ||
+      'unitIssues' in rawContent ||
+      'monthlyCharts' in rawContent;
+    const rawHeadline = typeof rawContent.headline === 'string' ? rawContent.headline.trim() : '';
+    const contentForNormalize: Record<string, unknown> =
+      !hasExplicitBodyField && rawHeadline
+        ? { ...rawContent, briefing: `${rawHeadline} 핵심 내용을 정리해 전해드립니다.` }
+        : rawContent;
+
+    const kind =
+      rawContent.kind === 'weekly' ||
+      rawContent.kind === 'special' ||
+      rawContent.kind === 'daily' ||
+      rawContent.kind === 'monthly'
+        ? rawContent.kind
+        : 'daily';
+    const nowIso = new Date().toISOString();
+    const normalized = normalizeContentForPublish({
+      content: contentForNormalize,
+      broker: {
+        name: broker.displayName ?? ctx.displayName ?? '',
+        slug,
+        company: broker.company ?? '',
+        phone,
+        photoUrl: broker.photoUrl ?? null,
+        tagline: broker.tagline ?? broker.bio ?? '',
+        specialtyRegions: broker.specialtyRegions ?? [],
+        specialtyAssets: broker.specialtyAssets ?? [],
+      },
+      kind,
+      issueDate,
+      nowIso,
+      themeColor: typeof rawContent.theme_color === 'string' ? rawContent.theme_color : DEFAULT_THEME_COLOR,
+    });
+    if (!normalized.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: normalized.code,
+            message: normalized.issues[0] ?? '발행할 수 없는 콘텐츠입니다.',
+          },
+          issues: normalized.issues,
+        },
+        { status: 422 },
+      );
+    }
+
+    const parsedContent = parseEditionContent(normalized.content);
+    if (!parsedContent.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'INVALID_CONTENT',
+            message: parsedContent.issues[0] ?? '콘텐츠 형식이 올바르지 않습니다.',
+          },
+          issues: parsedContent.issues.slice(0, 8),
+        },
+        { status: 422 },
+      );
+    }
+
+    const toSave: Record<string, unknown> = {
+      ...(parsedContent.data as unknown as Record<string, unknown>),
+      brokerId: slug,
+      issueDate,
+      ...(correctionReason ? { correctionReason, correctedAt: nowIso } : {}),
+    };
     const { error: upErr } = await supabase
       .from('magazine_issues')
       .upsert({ broker_id: slug, issue_date: issueDate, content: toSave }, { onConflict: 'broker_id,issue_date' });
@@ -335,7 +521,7 @@ export async function POST(request: NextRequest, { params }: RouteCtx) {
       log.error('[api/magazine/POST] upsert failed', upErr.message);
       return jsonError('SAVE_FAILED', '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
     }
-    return NextResponse.json({ success: true, data: toSave, issue_date: issueDate });
+    return NextResponse.json({ success: true, data: maskIssueForPublic(toSave), issue_date: issueDate });
   } catch (err: unknown) {
     log.error('[api/magazine/POST] Error:', err instanceof Error ? err.message : String(err));
     return jsonError('INTERNAL_ERROR', '서버 오류가 발생했습니다.', 500);

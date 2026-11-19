@@ -9,14 +9,55 @@
  * No auth required for demo buildings (public demo access).
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createModuleLogger } from "@/lib/logger";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { fetchIMData } from "@/app/(public)/im-lite/[buildingId]/fetch-im-data";
-import { getInboxState, isUuid, resolveOrSynthesizeQuickImRecord } from "@/lib/im-lite/quick-generate-store";
+import { resolveOrSynthesizeQuickImRecord, getInboxState } from "@/lib/im-lite/quick-generate-store";
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 import { getServerViewer } from "@/lib/server-viewer";
 import { isOwnerOrAdmin } from "@/domain/public-projection/access";
 import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-projection/visibility";
+import {
+  allowDealPublicMemoryFallback,
+  buildLinkRevokedResponse,
+  buildShareTokenRequiredResponse,
+  isAllowedPublicDemoIm,
+  isDemoSeedDisabledForProd,
+  resolveWorkspaceImGuard,
+  type PublicImDenyReason,
+} from "@/lib/im-lite/im-public-guard";
+
+const log = createModuleLogger("public-im-lite");
+
+/**
+ * WP-7.3D P2-15: schema gaps that are expected before the staged migrations are applied
+ * (missing column/table, PostgREST schema-cache misses, PostgREST empty-body errors).
+ * Only these may fall back to legacy behaviour; anything else fails closed.
+ */
+function isPreCutoverSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = String((err as { code?: unknown }).code || "");
+  const msg = String((err as { message?: unknown }).message || "");
+  if (code === "42703" || code === "42P01" || code === "PGRST204" || code === "PGRST205") return true;
+  if (/column .* does not exist|relation .* does not exist|could not find the (?:table|column)/i.test(msg)) {
+    return true;
+  }
+  return !code && !msg.trim();
+}
+
+function buildGovernanceUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: {
+        code: "GOVERNANCE_CHECK_UNAVAILABLE",
+        message: "공유 링크 상태를 확인할 수 없어 잠시 열람이 제한됩니다. 잠시 후 다시 시도해 주세요.",
+      },
+    },
+    { status: 503 },
+  );
+}
 
 function coarsenCoordinates(
   coords: unknown,
@@ -65,7 +106,14 @@ export async function GET(
   try {
     const { buildingId } = await params;
     const docId = req.nextUrl.searchParams.get("doc") || req.nextUrl.searchParams.get("doc_id");
-    const token = req.nextUrl.searchParams.get("token");
+    const token = req.nextUrl.searchParams.get("token")?.trim() || null;
+
+    if (isDemoSeedDisabledForProd(buildingId)) {
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
 
     if (token) {
       const tokenCheck = await verifyShareLinkToken({ token, buildingId });
@@ -84,15 +132,67 @@ export async function GET(
     }
 
     const supabase = createServiceClient();
+    const memoryFallbackAllowed = allowDealPublicMemoryFallback();
 
     // ── 1a. Enforce building-level revocation across all paths (before demo return) ──
     try {
-      const { data: govEvents } = await supabase
+      const safeBld = /^[A-Za-z0-9_.:-]+$/.test(buildingId) ? buildingId : "";
+      const isBldUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(safeBld);
+      let govEvents: any[] | null = null;
+      let govErr: any = null;
+
+      let govQ: any = supabase
         .from("activity_events")
-        .select("event_type, entity_id, metadata, created_at")
-        .in("event_type", ["link_revoked", "link_restored"])
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .select("event_type, entity_id, building_id, metadata, created_at")
+        .in("event_type", ["link_revoked", "link_restored"]);
+      if (safeBld) {
+        if (typeof govQ?.or === "function") {
+          govQ = govQ.or(
+            isBldUuid
+              ? `building_id.eq.${safeBld},entity_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`
+              : `building_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`,
+          );
+        } else if (typeof govQ?.eq === "function") {
+          govQ = govQ.eq("building_id", safeBld);
+        }
+      }
+      const govRes = await govQ.order("created_at", { ascending: false }).limit(50);
+      govEvents = govRes?.data ?? null;
+      govErr = govRes?.error ?? null;
+
+      if (
+        govErr &&
+        (String(govErr.code || "") === "42703" ||
+          String(govErr.code || "") === "PGRST204" ||
+          /column .* does not exist/i.test(String(govErr.message || "")))
+      ) {
+        let govFallback: any = supabase
+          .from("activity_events")
+          .select("event_type, entity_id, metadata, created_at")
+          .in("event_type", ["link_revoked", "link_restored"]);
+        if (safeBld && typeof govFallback?.or === "function") {
+          govFallback = govFallback.or(
+            isBldUuid
+              ? `entity_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`
+              : `metadata->>building_id.eq.${safeBld}`,
+          );
+        }
+        const fbRes = await govFallback.order("created_at", { ascending: false }).limit(50);
+        govEvents = fbRes?.data ?? null;
+        // WP-7.3D P2-15: fallback errors other than a known pre-cutover schema gap fail closed.
+        if (fbRes?.error && !isPreCutoverSchemaError(fbRes.error)) {
+          log.error({ code: fbRes.error.code, message: fbRes.error.message, buildingId }, "revocation fallback lookup failed");
+          return buildGovernanceUnavailableResponse();
+        }
+      } else if (govErr) {
+        // WP-7.3D P2-15: previously any non-42703 error was silently treated as "not revoked"
+        // (fail open). Only a known pre-cutover schema gap may fall back to legacy behaviour.
+        if (!isPreCutoverSchemaError(govErr)) {
+          log.error({ code: govErr.code, message: govErr.message, buildingId }, "revocation lookup failed");
+          return buildGovernanceUnavailableResponse();
+        }
+        govEvents = null;
+      }
 
       let dbRevoked: boolean | undefined;
       let dbDecidedAt: string | undefined;
@@ -102,7 +202,7 @@ export async function GET(
             row?.metadata && typeof row.metadata === "object"
               ? (row.metadata as Record<string, any>)
               : {};
-          const evBldId = String(meta.building_id || row?.entity_id || "").trim();
+          const evBldId = String(row?.building_id || meta.building_id || row?.entity_id || "").trim();
           if (evBldId !== buildingId) continue;
           if (row.event_type === "link_revoked") {
             dbRevoked = true;
@@ -117,10 +217,12 @@ export async function GET(
         }
       }
 
-      const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
-      const localRevoked = Boolean(
-        inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId)
-      );
+      const inboxRevokedEntry = memoryFallbackAllowed
+        ? getInboxState().revokedBuildings?.[buildingId]
+        : undefined;
+      const localRevoked = memoryFallbackAllowed
+        ? Boolean(inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId))
+        : false;
       const localTs = inboxRevokedEntry?.revokedAt
         ? Date.parse(inboxRevokedEntry.revokedAt)
         : 0;
@@ -132,35 +234,74 @@ export async function GET(
           : localRevoked || dbRevoked === true;
 
       if (effectiveRevoked) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: {
-              code: "LINK_REVOKED",
-              message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-            },
-          },
-          { status: 403 }
-        );
+        return buildLinkRevokedResponse(403);
       }
+    } catch (govThrown) {
+      if (memoryFallbackAllowed) {
+        const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
+        if (inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId)) {
+          return buildLinkRevokedResponse(403);
+        }
+      }
+      // WP-7.3D P2-15: an unexpected failure of the revocation check must deny (fail closed),
+      // never silently serve a possibly-revoked IM.
+      log.error(govThrown, "revocation check threw");
+      return buildGovernanceUnavailableResponse();
+    }
+
+    let viewer: any = null;
+    try {
+      viewer = await getServerViewer();
     } catch {
-      const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
-      if (inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId)) {
+      viewer = null;
+    }
+
+    const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
+    if (wsGuard.isDeleted) {
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
+    if (wsGuard.itemRevoked && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+      return buildLinkRevokedResponse(403);
+    }
+    if (wsGuard.isDraft && !wsGuard.snapshot && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
+    if (
+      wsGuard.snapshot ||
+      (wsGuard.item?.draftPayload && isOwnerOrAdmin(viewer, wsGuard.ownerId))
+    ) {
+      let wsDenyReason: PublicImDenyReason | undefined;
+      const wsIm = await fetchIMData(buildingId, docId || undefined, viewer, {
+        token,
+        enforceShareToken: true,
+        onDeny: (r) => {
+          wsDenyReason = r;
+        },
+      });
+      if (!wsIm) {
+        if (wsDenyReason === "token_required") return buildShareTokenRequiredResponse();
+        if (wsDenyReason === "revoked") return buildLinkRevokedResponse(403);
+      } else {
+        if ((wsIm as any).isRevoked) return buildLinkRevokedResponse(403);
         return NextResponse.json(
           {
-            ok: false,
-            error: {
-              code: "LINK_REVOKED",
-              message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-            },
+            ok: true,
+            data: applyBlindCoordinateGuard(wsIm as any, isOwnerOrAdmin(viewer, wsGuard.ownerId)),
+            source: "workspace_items",
           },
-          { status: 403 }
+          { status: 200 },
         );
       }
     }
 
     // ── 1b. Check demo data ─────────────────────────────────────
-    const demo = getDemoMobileIM(buildingId);
+    const demo = isAllowedPublicDemoIm(buildingId) ? getDemoMobileIM(buildingId) : null;
     if (demo) {
       return NextResponse.json(
         { ok: true, data: demo, source: "demo" },
@@ -172,28 +313,19 @@ export async function GET(
       );
     }
 
-    let viewer: any = null;
-    try {
-      viewer = await getServerViewer();
-    } catch {
-      viewer = null;
-    }
-
     // Synthetic workspace IDs (bld-*, quick-*): delegate directly to fetchIMData / QuickImStore
     if (buildingId.startsWith("bld-") || buildingId.startsWith("quick-")) {
-      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
+      let denyReason: PublicImDenyReason | undefined;
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, {
+        token,
+        enforceShareToken: true,
+        onDeny: (r) => {
+          denyReason = r;
+        },
+      });
       if (fallbackIm) {
         if ((fallbackIm as any).isRevoked) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: {
-                code: "LINK_REVOKED",
-                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-              },
-            },
-            { status: 403 },
-          );
+          return buildLinkRevokedResponse(403);
         }
         return NextResponse.json(
           {
@@ -203,6 +335,12 @@ export async function GET(
           },
           { status: 200 },
         );
+      }
+      if (denyReason === "token_required") {
+        return buildShareTokenRequiredResponse();
+      }
+      if (denyReason === "revoked") {
+        return buildLinkRevokedResponse(403);
       }
       return NextResponse.json(
         { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
@@ -215,7 +353,7 @@ export async function GET(
       .select("owner_id, status")
       .eq("id", buildingId)
       .maybeSingle();
-    const buildingOwnerId: string | null = buildingAccess?.owner_id ?? null;
+    const buildingOwnerId: string | null = buildingAccess?.owner_id ?? wsGuard.ownerId ?? null;
     if (
       buildingAccess &&
       !isBuildingStatusPublic(buildingAccess.status) &&
@@ -249,7 +387,9 @@ export async function GET(
       }
     }
 
-    const quickRec = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId || undefined);
+    const quickRec = memoryFallbackAllowed
+      ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId || undefined)
+      : null;
 
     // ── 2. If docId is provided (or auto-resolved), fetch the generated document ────────
     if (resolvedDocId) {
@@ -260,29 +400,28 @@ export async function GET(
         .eq("building_id", buildingId)
         .single();
 
+      // WP-7.3D P2-8: a document without a status is NOT public (was `!document.status ||` →
+      // allowed). Only the owner/admin may preview such rows.
       const isAllowedDoc =
         document &&
-        (!document.status ||
-          isImDocStatusPublic(document.status) ||
+        (isImDocStatusPublic(document.status) ||
           isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id));
 
       if (!docError && isAllowedDoc && document.body?.sections) {
         const dbTime = Date.parse(document.updated_at || document.created_at || "") || 0;
         const qrTime = Date.parse(quickRec?.updatedAt || quickRec?.createdAt || "") || 0;
         if (quickRec && qrTime > dbTime) {
-          const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
+          let qrDenyReason: PublicImDenyReason | undefined;
+          const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, {
+            token,
+            enforceShareToken: true,
+            onDeny: (r) => {
+              qrDenyReason = r;
+            },
+          });
           if (fallbackIm) {
             if ((fallbackIm as any).isRevoked) {
-              return NextResponse.json(
-                {
-                  ok: false,
-                  error: {
-                    code: "LINK_REVOKED",
-                    message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-                  },
-                },
-                { status: 403 },
-              );
+              return buildLinkRevokedResponse(403);
             }
             return NextResponse.json(
               {
@@ -293,19 +432,21 @@ export async function GET(
               { status: 200 },
             );
           }
+          if (qrDenyReason === "token_required") {
+            return buildShareTokenRequiredResponse();
+          }
+          if (qrDenyReason === "revoked") {
+            return buildLinkRevokedResponse(403);
+          }
         }
 
         if (document.body?.is_revoked === true) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: {
-                code: "LINK_REVOKED",
-                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-              },
-            },
-            { status: 403 },
-          );
+          return buildLinkRevokedResponse(403);
+        }
+
+        const isPrivilegedDocViewer = isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id);
+        if (!isPrivilegedDocViewer && !token) {
+          return buildShareTokenRequiredResponse();
         }
         // Fetch Broker Profile (profiles + broker_profiles)
         const [{ data: brokerProfile }, { data: brokerMeta }] = await Promise.all([
@@ -353,7 +494,6 @@ export async function GET(
           : [];
         const docPhotos = rawDocPhotos.filter((p: any) => p && p.excluded !== true && p.url);
 
-        const isPrivilegedDocViewer = isOwnerOrAdmin(viewer, buildingOwnerId, document.owner_id);
         const isBlindDocResponse =
           !isPrivilegedDocViewer &&
           (document.document_type === "blind_teaser" ||
@@ -409,31 +549,37 @@ export async function GET(
       }
     }
 
-    // If quickRec exists in workspace/memory when no document_objects row matched, serve it before bare SSoT stub
-    if (quickRec) {
-      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
+    const serveWorkspaceImFallback = async (ownerHint: string | null) => {
+      let denyReason: PublicImDenyReason | undefined;
+      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, {
+        token,
+        enforceShareToken: true,
+        onDeny: (r) => {
+          denyReason = r;
+        },
+      });
       if (fallbackIm) {
         if ((fallbackIm as any).isRevoked) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: {
-                code: "LINK_REVOKED",
-                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-              },
-            },
-            { status: 403 },
-          );
+          return buildLinkRevokedResponse(403);
         }
         return NextResponse.json(
           {
             ok: true,
-            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, buildingOwnerId)),
+            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, ownerHint)),
             source: "im_workspace",
           },
           { status: 200 },
         );
       }
+      if (denyReason === "token_required") return buildShareTokenRequiredResponse();
+      if (denyReason === "revoked") return buildLinkRevokedResponse(403);
+      return null;
+    };
+
+    // If quickRec exists in workspace/memory when no document_objects row matched, serve it before bare SSoT stub
+    if (quickRec) {
+      const quickResp = await serveWorkspaceImFallback(buildingOwnerId);
+      if (quickResp) return quickResp;
     }
 
     // ── 3. Real building lookup (Fallback if no docId or doc not found)
@@ -448,29 +594,8 @@ export async function GET(
       .single();
 
     if (error || !ssot) {
-      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
-      if (fallbackIm) {
-        if ((fallbackIm as any).isRevoked) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: {
-                code: "LINK_REVOKED",
-                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-              },
-            },
-            { status: 403 },
-          );
-        }
-        return NextResponse.json(
-          {
-            ok: true,
-            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, buildingOwnerId)),
-            source: "im_workspace",
-          },
-          { status: 200 },
-        );
-      }
+      const fallbackResp = await serveWorkspaceImFallback(buildingOwnerId);
+      if (fallbackResp) return fallbackResp;
       return NextResponse.json(
         { ok: false, error: { code: "NOT_FOUND", message: "매물 정보를 찾을 수 없습니다." } },
         { status: 404 },
@@ -490,29 +615,8 @@ export async function GET(
 
     const score = ssot.completeness_score ?? 0;
     if (score < 30) {
-      const fallbackIm = await fetchIMData(buildingId, docId || undefined, viewer, token || undefined);
-      if (fallbackIm) {
-        if ((fallbackIm as any).isRevoked) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: {
-                code: "LINK_REVOKED",
-                message: "담당 중개인에 의해 회수된 공유 링크입니다.",
-              },
-            },
-            { status: 403 },
-          );
-        }
-        return NextResponse.json(
-          {
-            ok: true,
-            data: applyBlindCoordinateGuard(fallbackIm as any, isOwnerOrAdmin(viewer, ssot.owner_id)),
-            source: "im_workspace",
-          },
-          { status: 200 },
-        );
-      }
+      const lowScoreResp = await serveWorkspaceImFallback(ssot.owner_id);
+      if (lowScoreResp) return lowScoreResp;
       return NextResponse.json(
         {
           ok: false,
@@ -633,6 +737,24 @@ export async function GET(
 
     const layers = (ssot.layers as Record<string, any>) || {};
     const isPrivilegedSsotViewer = isOwnerOrAdmin(viewer, ssot.owner_id);
+    if (!isPrivilegedSsotViewer) {
+      if (!token) {
+        return buildShareTokenRequiredResponse();
+      }
+      const ssotTokenCheck = await verifyShareLinkToken({ token, buildingId });
+      if (!ssotTokenCheck.valid) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: ssotTokenCheck.reason === "revoked" ? "LINK_REVOKED" : "INVALID_TOKEN",
+              message: "담당 중개인에 의해 회수되었거나 유효하지 않은 공유 링크입니다.",
+            },
+          },
+          { status: 403 },
+        );
+      }
+    }
     const protectedFieldsRemoved =
       !isPrivilegedSsotViewer || ssot.disclosure?.guard_checked
         ? ["상세 지번", "소유주명"]
@@ -675,7 +797,7 @@ export async function GET(
       { status: 200 },
     );
   } catch (error) {
-    console.error('im-lite fetch error:', error);
+    log.error(error, 'im-lite fetch error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

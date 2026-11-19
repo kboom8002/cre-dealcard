@@ -28,58 +28,59 @@ export function OperatingWidget({ attrs }: Props) {
   const paybackYears = annualGopEok > 0 && priceEok > 0 ? (priceEok / annualGopEok).toFixed(1) : null;
 
   return (
-    <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 text-slate-100 shadow-xl space-y-3">
+    <div className="rounded-2xl bg-white border border-slate-300 p-4 text-slate-900 shadow-sm space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-orange-400 flex items-center gap-1.5">
+        <h3 className="text-base font-bold text-orange-800 flex items-center gap-1.5">
           <span>🏨</span> 운영 수익 시뮬레이터
         </h3>
-        <span className="text-xs px-2 py-0.5 rounded bg-orange-400/10 text-orange-300 font-semibold border border-orange-400/20">
+        <span className="text-sm px-2.5 py-0.5 rounded bg-orange-50 text-orange-800 font-semibold border border-orange-200">
           {initialRoomCount > 0 ? `운영형 (${initialRoomCount}실)` : "운영형"}
         </span>
       </div>
 
       {/* Result First Area */}
-      <div className="rounded-xl bg-slate-850 border border-slate-800 p-3.5 space-y-2">
-        <div className="flex justify-between items-baseline text-xs text-slate-400">
+      <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
+        <div className="flex justify-between items-baseline text-sm text-slate-600">
           <span>객실당 매출 (RevPAR)</span>
-          <span className="text-sm font-bold text-slate-200">
+          <span className="text-sm font-bold text-slate-900">
             {hasOperatingInputs ? `일 ${revParManwon.toFixed(1)}만원` : "운영 제원 미제공"}
           </span>
         </div>
 
-        <div className="flex justify-between items-baseline text-xs text-slate-400">
+        <div className="flex justify-between items-baseline text-sm text-slate-600">
           <span>예상 연간 총 매출 / GOP</span>
-          <span className="text-sm font-bold text-slate-200">
+          <span className="text-sm font-bold text-slate-900">
             {hasOperatingInputs
               ? `연 ${annualRevenueEok.toFixed(1)}억${annualGopEok > 0 ? ` (GOP ${annualGopEok.toFixed(1)}억)` : ""}`
               : "—"}
           </span>
         </div>
 
-        <div className="flex justify-between items-baseline text-xs text-slate-400">
+        <div className="flex justify-between items-baseline text-sm text-slate-600">
           <span>추정 투자 회수기간</span>
-          <span className="text-base font-extrabold text-orange-300">
+          <span className="text-base font-extrabold text-orange-800">
             {paybackYears ? `약 ${paybackYears}년` : "상세 제원 확인 필요"}
           </span>
         </div>
       </div>
 
       {/* Collapsible Slider Inputs */}
-      <div className="border-t border-slate-800 pt-2">
+      <div className="border-t border-slate-200 pt-2">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 hover:text-slate-200 py-1 transition-colors"
+          className="w-full min-h-[44px] flex items-center justify-between text-sm font-semibold text-slate-700 hover:text-slate-950 py-1.5 transition-colors"
         >
           <span>⚙️ 조건 변경하기</span>
           <span>{isOpen ? "▲ 접기" : "▼ 펼치기"}</span>
         </button>
 
         {isOpen && (
-          <div className="pt-3 space-y-3.5 text-xs">
+          <div className="pt-3 space-y-3.5 text-sm">
             <div>
-              <div className="flex justify-between mb-1 text-slate-300 font-medium">
+              <div className="flex justify-between mb-1 text-slate-700 font-medium">
                 <span>객실 평균 단가 (ADR)</span>
-                <span className="text-orange-300 font-bold">{adrManwon}만원/박</span>
+                <span className="text-orange-800 font-bold">{adrManwon}만원/박</span>
               </div>
               <input
                 type="range"
@@ -88,14 +89,14 @@ export function OperatingWidget({ attrs }: Props) {
                 step={1}
                 value={adrManwon}
                 onChange={(e) => setAdrManwon(Number(e.target.value))}
-                className="w-full accent-orange-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-orange-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between mb-1 text-slate-300 font-medium">
+              <div className="flex justify-between mb-1 text-slate-700 font-medium">
                 <span>객실 점유율 (OCC)</span>
-                <span className="text-teal-300 font-bold">{occPct}%</span>
+                <span className="text-teal-700 font-bold">{occPct}%</span>
               </div>
               <input
                 type="range"
@@ -104,7 +105,7 @@ export function OperatingWidget({ attrs }: Props) {
                 step={5}
                 value={occPct}
                 onChange={(e) => setOccPct(Number(e.target.value))}
-                className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-teal-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               />
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { issueShareLinkToken } from '@/lib/security/share-link-tokens';
 import { GET as getPublicIMLite } from '@/app/api/public/im-lite/[buildingId]/route';
 import { POST as postApproveIM } from '@/app/api/broker/im-lite/[id]/approve/route';
 import { PUT as putSaveSectionsIM } from '@/app/api/broker/im-lite/[id]/save-sections/route';
@@ -276,20 +277,28 @@ describe('IM Error Paths API Routes', () => {
     expect(res.status).toBe(404);
   });
 
-  // EP11: GET public viewer for published doc → 200
+  // EP11: GET public viewer for published doc with valid share token returns 200 (untokened returns 403)
   test('EP11: GET public viewer for published doc returns 200', async () => {
+    process.env.SHARE_LINK_SECRET = 'test-share-link-secret-minimum-32-chars-ok';
     mockDocumentData = {
       id: 'doc-123',
       owner_id: 'mock-user-id',
       building_id: 'b-123',
+      status: 'published',
       body: { sections: [], ssot_summary: { area_signal: 'Gangnam' } }
     };
     mockBuildingData = {
       id: 'b-123',
       owner_id: 'mock-user-id',
+      status: 'published',
       completeness_score: 90
     };
-    const req = new NextRequest('http://localhost:3000/api/public/im-lite/b-123');
+    const untokenedReq = new NextRequest('http://localhost:3000/api/public/im-lite/b-123');
+    const untokenedRes = await getPublicIMLite(untokenedReq, { params: Promise.resolve({ buildingId: 'b-123' }) });
+    expect(untokenedRes.status).toBe(403);
+
+    const issued = await issueShareLinkToken({ buildingId: 'b-123', brokerId: 'mock-user-id' });
+    const req = new NextRequest(`http://localhost:3000/api/public/im-lite/b-123?token=${encodeURIComponent(issued.token)}`);
     const params = Promise.resolve({ buildingId: 'b-123' });
     const res = await getPublicIMLite(req, { params });
     expect(res.status).toBe(200);

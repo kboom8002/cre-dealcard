@@ -31,7 +31,7 @@ export function GlossaryTerm({ term, children }: { term: string; children?: Reac
         aria-controls={id}
         aria-label={`${term} 설명 ${open ? '닫기' : '보기'}`}
         onClick={() => setOpen((v) => !v)}
-        className="inline cursor-help rounded-sm underline decoration-dotted decoration-ink-subtle underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
+        className="inline cursor-help rounded-sm underline decoration-dotted decoration-slate-500 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
       >
         {children ?? term}
       </button>
@@ -39,9 +39,9 @@ export function GlossaryTerm({ term, children }: { term: string; children?: Reac
         id={id}
         role="note"
         hidden={!open}
-        className="mt-1 block rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-caption font-normal leading-relaxed text-ink-muted"
+        className="mt-1 block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal leading-relaxed text-slate-700"
       >
-        <strong className="text-white">{term}</strong> — {description}
+        <strong className="text-slate-900">{term}</strong> — {description}
       </span>
     </span>
   );

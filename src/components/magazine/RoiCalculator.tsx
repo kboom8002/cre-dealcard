@@ -186,7 +186,7 @@ export function RoiCalculator({
   defaultDeposit,
   defaultMonthlyRent,
   defaultTotalFloors,
-  accentColor = "#6366f1",
+  accentColor = "#1D4ED8",
   onInteract,
 }: RoiCalculatorProps) {
   const [inputs, setInputs] = useState<RoiInputs>({
@@ -250,23 +250,23 @@ export function RoiCalculator({
   const result = useMemo(() => computeRoi(inputs), [inputs]);
   const { vacancyFloors, totalFloors } = inputs;
 
-  // 색은 보조 — 모든 지표는 숫자/부호/라벨 텍스트로도 구분된다
-  const capTone = result.capRate >= 4 ? { c: "#34d399", t: "양호" } : result.capRate >= 3 ? { c: "#fbbf24", t: "보통" } : { c: "#f87171", t: "낮음" };
-  const cashTone = result.cashOnCash >= 6 ? { c: "#34d399", t: "양호" } : result.cashOnCash >= 3 ? { c: "#fbbf24", t: "보통" } : { c: "#f87171", t: "낮음" };
-  const flowTone = result.monthlyCashFlow >= 0 ? { c: "#34d399", t: "흑자" } : { c: "#f87171", t: "적자" };
+  // 색은 보조 — 모든 지표는 숫자/부호/라벨 텍스트로도 구분된다 (Daylight Paper 고대비 잉크)
+  const capTone = result.capRate >= 4 ? { c: "#047857", t: "양호" } : result.capRate >= 3 ? { c: "#b45309", t: "보통" } : { c: "#be123c", t: "낮음" };
+  const cashTone = result.cashOnCash >= 6 ? { c: "#047857", t: "양호" } : result.cashOnCash >= 3 ? { c: "#b45309", t: "보통" } : { c: "#be123c", t: "낮음" };
+  const flowTone = result.monthlyCashFlow >= 0 ? { c: "#047857", t: "흑자" } : { c: "#be123c", t: "적자" };
 
   return (
     <div className="space-y-4">
       {/* 헤더: 제목은 바깥 SectionCard 가 이미 표시하므로(중복 방지) 시뮬레이션 배지만 둔다 */}
       <div className="flex items-center justify-end">
-        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-caption font-bold text-emerald-300">
+        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-800">
           실시간 시뮬레이션
         </span>
       </div>
 
       {/* 총 층수 직접 입력 (T3-46) */}
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor="roi-total-floors" className="inline-flex min-h-12 min-w-12 items-center text-label font-semibold text-ink-muted">
+        <label htmlFor="roi-total-floors" className="inline-flex min-h-12 min-w-12 items-center text-sm font-semibold text-slate-700">
           전체 층수
         </label>
         <span className="flex items-center gap-1.5">
@@ -282,9 +282,9 @@ export function RoiCalculator({
               const c = clampInput(Number(e.target.value), TOTAL_FLOORS_MIN, TOTAL_FLOORS_MAX);
               if (c !== null) setTotalFloors(c);
             }}
-            className="min-h-12 w-20 rounded-lg border border-white/15 bg-white/5 px-2.5 text-right text-reader font-bold text-white"
+            className="min-h-12 w-20 rounded-lg border border-slate-300 bg-white px-2.5 text-right text-reader font-bold text-slate-900"
           />
-          <span className="text-caption text-ink-muted">층</span>
+          <span className="text-sm text-slate-700">층</span>
         </span>
       </div>
 
@@ -403,7 +403,7 @@ export function RoiCalculator({
 
       {/* 용어 설명 (탭하면 펼침 — 48px 높이, keep-all) */}
       <div className="space-y-2">
-        <span className="block text-caption font-semibold text-ink-muted">용어 설명 (누르면 뜻이 펼쳐집니다):</span>
+        <span className="block text-sm font-semibold text-slate-700">용어 설명 (누르면 뜻이 펼쳐집니다):</span>
         <div className="flex flex-wrap items-start gap-2">
           <RoiGlossaryButton term="Cap Rate" />
           <RoiGlossaryButton term="Cash-on-Cash" />
@@ -413,9 +413,9 @@ export function RoiCalculator({
 
       {/* 공실 경고 (아이콘 + 텍스트) */}
       {vacancyFloors > 0 && (
-        <div role="status" className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" aria-hidden="true" />
-          <p className="text-caption leading-relaxed text-red-200">
+        <div role="status" className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" aria-hidden="true" />
+          <p className="text-sm leading-relaxed text-rose-900">
             <span className="font-bold">{vacancyFloors}개 층 공실 시</span> 가동률 {result.occupancyRate.toFixed(0)}%,
             Cap Rate {pct(result.capRate)}로 하락합니다.
             {result.monthlyCashFlow < 0 && (
@@ -427,27 +427,27 @@ export function RoiCalculator({
 
       {/* 상세 내역 */}
       <details className="group">
-        <summary className="flex min-h-12 cursor-pointer items-center text-label font-semibold text-ink-muted hover:text-white">
+        <summary className="flex min-h-12 cursor-pointer items-center text-sm font-semibold text-slate-700 hover:text-slate-900">
           상세 내역 펼치기 ▾
         </summary>
-        <dl className="mt-1 space-y-1.5 text-caption text-ink-muted">
+        <dl className="mt-1 space-y-1.5 text-sm text-slate-700">
           <Row dt="대출금" dd={formatPriceKo(result.loanAmount)} />
           <Row dt="자기자본" dd={formatPriceKo(result.equity)} />
           <Row
             dt="실질 임대수익률 (보증금 차감)"
-            dd={<span className="font-bold text-emerald-300">{pct(result.netYieldOnDeposit)}</span>}
+            dd={<span className="font-bold text-emerald-800">{pct(result.netYieldOnDeposit)}</span>}
           />
           <Row dt="연 임대수입 (공실 반영)" dd={formatPriceKo(result.annualRent)} />
           <Row dt="연 대출이자" dd={formatPriceKo(result.annualInterest)} />
           <Row
             dt="NOI (순영업소득)"
-            dd={<span className="font-bold text-white">{formatManwonInt(result.noi)}</span>}
+            dd={<span className="font-bold text-slate-900">{formatManwonInt(result.noi)}</span>}
           />
         </dl>
       </details>
 
       {/* 면책 + 핵심 가정 (14px 이상 · 대비 4.5:1 이상, T3-27) */}
-      <p className="text-sm leading-relaxed text-slate-300" data-testid="roi-disclaimer">
+      <p className="text-sm leading-relaxed text-slate-700" data-testid="roi-disclaimer">
         ※ 참고용 시뮬레이션이며 투자 자문이 아닙니다. 핵심 가정: 관리비는 임대수입의 {mgmtPct}%, 보증금 운용이자는 연{" "}
         {depositPct}%로 계산하며, 취득세·양도세 등 세금과 원금 상환은 포함하지 않습니다.
       </p>
@@ -470,7 +470,7 @@ function RoiGlossaryButton({ term }: { term: string }) {
         aria-label={`${term} 설명 ${open ? "닫기" : "보기"}`}
         onClick={() => setOpen((v) => !v)}
         style={{ wordBreak: "keep-all" }}
-        className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-3.5 py-2.5 text-[15px] font-semibold whitespace-nowrap text-indigo-200 underline decoration-dotted decoration-indigo-300/60 underline-offset-4 hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
+        className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-[15px] font-semibold whitespace-nowrap text-indigo-800 underline decoration-dotted decoration-indigo-600/60 underline-offset-4 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
       >
         {term}
       </button>
@@ -478,9 +478,9 @@ function RoiGlossaryButton({ term }: { term: string }) {
         id={id}
         role="note"
         hidden={!open}
-        className="mt-1.5 block rounded-xl border border-white/15 bg-slate-900 px-3.5 py-2.5 text-caption font-normal leading-relaxed text-ink-muted"
+        className="mt-1.5 block rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-normal leading-relaxed text-slate-700"
       >
-        <strong className="text-white">{term}</strong> — {description}
+        <strong className="text-slate-900">{term}</strong> — {description}
       </span>
     </div>
   );
@@ -614,7 +614,7 @@ function SliderInput({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`${id}-range`} className="inline-flex min-h-12 min-w-12 items-center text-label font-semibold text-ink-muted">
+        <label htmlFor={`${id}-range`} className="inline-flex min-h-12 min-w-12 items-center text-sm font-semibold text-slate-700">
           {label}
         </label>
         <span className="flex items-center gap-1">
@@ -629,15 +629,15 @@ function SliderInput({
             onKeyDown={(e) => {
               if (e.key === "Enter") commit();
             }}
-            className={`min-h-12 w-20 rounded-lg border bg-white/5 px-2 text-right text-reader font-bold ${
-              danger ? "border-red-400/50 text-red-200" : "border-white/15 text-white"
+            className={`min-h-12 w-20 rounded-lg border bg-white px-2 text-right text-reader font-bold ${
+              danger ? "border-rose-400 text-rose-800" : "border-slate-300 text-slate-900"
             }`}
           />
-          <span className="text-caption text-ink-muted">{unit}</span>
+          <span className="text-sm text-slate-700">{unit}</span>
         </span>
       </div>
       {notice && (
-        <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[15px] font-medium leading-snug text-amber-200">
+        <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[15px] font-medium leading-snug text-amber-900">
           {notice}
         </p>
       )}
@@ -647,13 +647,13 @@ function SliderInput({
           type="button"
           aria-label={`${label} 감소`}
           onClick={() => stepBy(-step)}
-          className="inline-flex h-12 min-h-12 w-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-title font-bold text-slate-200 hover:bg-white/10 active:scale-95"
+          className="inline-flex h-12 min-h-12 w-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-title font-bold text-slate-800 hover:bg-slate-50 active:scale-95"
         >
           −
         </button>
         <div className="relative flex h-12 flex-1 items-center">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-slate-600">
-            <div className="h-full rounded-full" style={{ width: `${fill}%`, background: danger ? "#f87171" : accent }} />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-slate-200">
+            <div className="h-full rounded-full" style={{ width: `${fill}%`, background: danger ? "#be123c" : accent }} />
           </div>
           <input
             id={`${id}-range`}
@@ -669,14 +669,14 @@ function SliderInput({
               setNotice(null);
               onChange(Number(e.target.value));
             }}
-            className="relative z-10 h-12 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white"
+            className="relative z-10 h-12 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-700 [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-indigo-700"
           />
         </div>
         <button
           type="button"
           aria-label={`${label} 증가`}
           onClick={() => stepBy(step)}
-          className="inline-flex h-12 min-h-12 w-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-title font-bold text-slate-200 hover:bg-white/10 active:scale-95"
+          className="inline-flex h-12 min-h-12 w-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-title font-bold text-slate-800 hover:bg-slate-50 active:scale-95"
         >
           +
         </button>
@@ -700,17 +700,17 @@ function ResultCard({
     <div
       className={`space-y-0.5 rounded-xl border p-2.5 text-center transition-all ${
         prominent
-          ? "col-span-2 sm:col-span-1 border-emerald-500/30 bg-emerald-500/10 py-3"
-          : "col-span-1 border-white/10 bg-white/[0.03]"
+          ? "col-span-2 sm:col-span-1 border-emerald-200 bg-emerald-50/70 py-3"
+          : "col-span-1 border-slate-200 bg-slate-50"
       }`}
     >
-      <p className="text-caption text-ink-muted">{label}</p>
+      <p className="text-sm text-slate-700">{label}</p>
       <p className={`font-black ${prominent ? "text-2xl sm:text-title" : "text-title"}`} style={{ color: tone.c }}>
         {value}
       </p>
-      <p className="text-caption font-bold text-ink-muted">{tone.t}</p>
-      <p className="text-caption text-ink-subtle">{sub}</p>
-      {helperKo && <span className="block text-caption text-ink-subtle">{helperKo}</span>}
+      <p className="text-sm font-bold text-slate-800">{tone.t}</p>
+      <p className="text-sm text-slate-700">{sub}</p>
+      {helperKo && <span className="block text-sm text-slate-700">{helperKo}</span>}
     </div>
   );
 }

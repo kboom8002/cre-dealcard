@@ -120,8 +120,17 @@ describe('P0-SEC: /dc/[id] page', () => {
     expect(json).not.toContain('"teaserView"');
   });
 
-  it('draft signal card / draft building are still public (shared links keep working)', async () => {
+  it('bare unpublished draft building 404s for anonymous viewers and stays visible to owner preview', async () => {
     h.ssotMeta = { owner_id: 'owner-1', status: 'draft' };
+    await expect(run()).rejects.toSatisfy((e: unknown) => digestOf(e).includes('404'));
+
+    h.viewer = { userId: 'owner-1', isAdmin: false };
+    await expect(run(true)).resolves.toBeTruthy();
+  });
+
+  it('draft building with shared_external signal card remains public (shared links keep working)', async () => {
+    h.ssotMeta = { owner_id: 'owner-1', status: 'draft' };
+    h.signalCard = { ...h.signalCard, status: 'shared_external' };
     await expect(run()).resolves.toBeTruthy();
   });
 

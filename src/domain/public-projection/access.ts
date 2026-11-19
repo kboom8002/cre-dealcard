@@ -24,9 +24,13 @@ export function isOwnerOrAdmin(
   viewer: Viewer | null | undefined,
   ...ownerIds: Array<string | null | undefined>
 ): boolean {
-  if (!viewer?.userId) return false;
-  if (viewer.isAdmin) return true;
-  return ownerIds.some((o) => typeof o === 'string' && o.length > 0 && o === viewer.userId);
+  const uid = viewer?.userId ?? (viewer as { id?: string | null } | null)?.id ?? null;
+  if (!uid) return false;
+  const admin = Boolean(
+    viewer?.isAdmin || (viewer as { role?: string } | null)?.role === 'admin'
+  );
+  if (admin) return true;
+  return ownerIds.some((o) => typeof o === 'string' && o.length > 0 && o === uid);
 }
 
 /**

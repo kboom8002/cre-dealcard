@@ -21,6 +21,7 @@ import { GENERIC_ERROR_MESSAGE } from '@/lib/magazine/user-message';
 import { resolveBroker } from '@/lib/magazine/resolve-broker';
 import { resolveEventTarget, type LegacyIssueRef } from '@/lib/magazine/edition-target';
 import { isUnpublishedContent } from '@/lib/magazine/get-published-issue';
+import { parseIssueDate, toKstDate } from '@/lib/magazine/kst';
 import { isMagazineSendEnabled, isMagazineTrackingEnabled } from '@/lib/magazine/send-flags';
 import { hashVisitorId } from '@/lib/magazine/visitor-hash';
 import { canonicalClickTarget, rawClickTarget, sanitizeClickMeta } from '@/lib/magazine/visitor-id';
@@ -193,23 +194,99 @@ export const POST = withPublicGuard<AnalyticsEventBody>({
   // Inbox(.or('actor_id.is.null,actor_id.neq.${userId},actor_role.eq.system'))·Home 집계 호환을 위해 유지하며,
   // 실제 방문자 익명/구독자 구분은 metadata.viewer_role 로 명시한다.
   if (broker?.userId && (body.event_type === 'page_view' || kind === 'im_request')) {
-    const { error: actErr } = await supabase.from('activity_events').insert({
-      actor_id: broker.userId,
-      actor_role: 'system',
-      event_type: kind === 'im_request' ? 'magazine_to_im_click' : 'magazine_view',
-      entity_type: 'building_ssot_lite',
-      entity_id: broker.userId,
-      metadata: {
-        broker_id: broker.userId,
-        viewer_role: subscriber ? 'subscriber' : 'anonymous',
-        user_agent_hash: visitorHash,
-        ...(editionId ? { edition_id: editionId } : {}),
-        ...(legacy ? { legacy_issue_id: legacy.issueId } : {}),
-        ...(subscriber ? { subscriber_id: subscriber.id, recipient_id: subscriber.id } : {}),
-      },
-      created_at: new Date().toISOString(),
-    });
-    if (actErr) log.warn('[Magazine Analytics] activity_events insert', actErr.message);
+    const activityEventType = kind === 'im_request' ? 'magazine_to_im_click' : 'magazine_view';
+    let skipDuplicateMagazineView = false;
+    let resolvedIssueDate: string | null = legacy?.issueDate || null;
+
+    if (activityEventType === 'magazine_view' && subscriber) {
+      const dedupSinceMs = Date.now() - 60_000;
+      const dedupSinceIso = new Date(dedupSinceMs).toISOString();
+      const { data: recentViews, error: recentViewErr } = await supabase
+        .from('activity_events')
+        .select('id, event_type, metadata, created_at')
+        .eq('actor_id', broker.userId)
+        .eq('event_type', 'magazine_view')
+        .eq('metadata->>subscriber_id', subscriber.id)
+        .gte('created_at', dedupSinceIso)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!recentViewErr && Array.isArray(recentViews) && recentViews.length > 0) {
+        if (!resolvedIssueDate && editionId) {
+          const { data: edMeta } = await supabase
+            .from('magazine_editions')
+            .select('edition_label, published_at, created_at, content')
+            .eq('id', editionId)
+            .maybeSingle();
+          if (edMeta && typeof edMeta === 'object') {
+            const edObj = edMeta as Record<string, unknown>;
+            const cObj =
+              edObj.content && typeof edObj.content === 'object'
+                ? (edObj.content as Record<string, unknown>)
+                : null;
+            const cDate =
+              typeof cObj?.issueDate === 'string'
+                ? cObj.issueDate.trim()
+                : typeof cObj?.issue_date === 'string'
+                  ? cObj.issue_date.trim()
+                  : '';
+            if (cDate && parseIssueDate(cDate)) resolvedIssueDate = cDate;
+            else if (typeof edObj.edition_label === 'string' && parseIssueDate(edObj.edition_label.trim())) {
+              resolvedIssueDate = edObj.edition_label.trim();
+            } else if (typeof edObj.published_at === 'string' || typeof edObj.created_at === 'string') {
+              const d = new Date(String(edObj.published_at || edObj.created_at));
+              if (!Number.isNaN(d.getTime())) resolvedIssueDate = toKstDate(d);
+            }
+          }
+        }
+
+        skipDuplicateMagazineView = recentViews.some((rawRow) => {
+          if (!rawRow || typeof rawRow !== 'object') return false;
+          const r = rawRow as Record<string, unknown>;
+          if (typeof r.event_type === 'string' && r.event_type !== 'magazine_view') return false;
+          if (typeof r.created_at === 'string' && r.created_at) {
+            const ts = new Date(r.created_at).getTime();
+            if (Number.isFinite(ts) && ts < dedupSinceMs) return false;
+          }
+          const rMeta =
+            r.metadata && typeof r.metadata === 'object'
+              ? (r.metadata as Record<string, unknown>)
+              : null;
+          if (!rMeta || rMeta.subscriber_id !== subscriber.id) return false;
+          if (editionId && typeof rMeta.edition_id === 'string' && rMeta.edition_id) {
+            return rMeta.edition_id === editionId;
+          }
+          if (legacy?.issueId && typeof rMeta.legacy_issue_id === 'string' && rMeta.legacy_issue_id) {
+            return rMeta.legacy_issue_id === legacy.issueId;
+          }
+          if (typeof rMeta.issue_date === 'string' && rMeta.issue_date) {
+            return resolvedIssueDate ? rMeta.issue_date === resolvedIssueDate : !rMeta.edition_id;
+          }
+          return false;
+        });
+      }
+    }
+
+    if (!skipDuplicateMagazineView) {
+      const { error: actErr } = await supabase.from('activity_events').insert({
+        actor_id: broker.userId,
+        actor_role: 'system',
+        event_type: activityEventType,
+        entity_type: 'building_ssot_lite',
+        entity_id: broker.userId,
+        metadata: {
+          broker_id: broker.userId,
+          viewer_role: subscriber ? 'subscriber' : 'anonymous',
+          user_agent_hash: visitorHash,
+          ...(editionId ? { edition_id: editionId } : {}),
+          ...(legacy ? { legacy_issue_id: legacy.issueId } : {}),
+          ...(resolvedIssueDate ? { issue_date: resolvedIssueDate } : {}),
+          ...(subscriber ? { subscriber_id: subscriber.id, recipient_id: subscriber.id } : {}),
+        },
+        created_at: new Date().toISOString(),
+      });
+      if (actErr) log.warn('[Magazine Analytics] activity_events insert', actErr.message);
+    }
   }
 
 

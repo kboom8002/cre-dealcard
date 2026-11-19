@@ -11,9 +11,9 @@ import {
   type BrokerCtx,
 } from "@/lib/magazine/authz";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
-import { maskPublicAddresses, sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
+import { maskPublicAddresses, mergeEditionContent, sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
 import { isUuid } from "@/lib/magazine/slug";
-import { currentWeekLabel } from "@/lib/magazine/kst";
+import { parseIssueDate, toKstDate } from "@/lib/magazine/kst";
 import { defaultLabelForEditionType } from "@/lib/magazine/edition-draft";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
@@ -96,12 +96,13 @@ export async function GET(request: NextRequest) {
       try {
         const withEmail = await supabase
           .from("broker_clients")
-          .select("id, display_name, phone, email, tier, tags")
+          .select("id, display_name, email, phone, tier, tags, consent_status, unsubscribed_at")
           .eq("broker_id", ctx.userId);
-        if ((withEmail as any)?.error?.code === "42703") {
+        const errCode = (withEmail as { error?: { code?: string } })?.error?.code;
+        if (errCode === "42703" || errCode === "PGRST204") {
           return await supabase
             .from("broker_clients")
-            .select("id, display_name, phone, tier, tags")
+            .select("id, display_name, email, phone, tier, tags")
             .eq("broker_id", ctx.userId);
         }
         return withEmail;
@@ -113,28 +114,8 @@ export async function GET(request: NextRequest) {
     const SUBSCRIBER_SELECT_COLS =
       "id, broker_id, broker_user_id, subscriber_phone, subscriber_email, subscriber_name, status, confirm_status, unsubscribed_at, interest_profile, segment";
 
-    const brokerProfileRes = await Promise.resolve(
-      supabase
-        .from("broker_profiles")
-        .select("user_id, slug, name, card_name")
-        .eq("user_id", ctx.userId)
-        .maybeSingle()
-    ).catch(() => ({ data: null }));
-
-    const brokerProfileRow = (brokerProfileRes?.data ?? null) as {
-      user_id?: string | null;
-      slug?: string | null;
-      name?: string | null;
-      card_name?: string | null;
-      office_name?: string | null;
-      company_name?: string | null;
-      phone?: string | null;
-      display_name?: string | null;
-    } | null;
-
-    const brokerSlug = ctx.slug || brokerProfileRow?.slug?.trim() || "";
     const subBrokerKeys = Array.from(
-      new Set([ctx.userId, brokerSlug, ...ctx.brokerKeys].filter((v): v is string => Boolean(v)))
+      new Set([ctx.userId, ctx.slug, ...ctx.brokerKeys].filter((v): v is string => Boolean(v)))
     );
 
     const loadMagazineSubscribersSafely = async () => {
@@ -173,7 +154,7 @@ export async function GET(request: NextRequest) {
       };
     };
 
-    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes, profileRes] = await Promise.all([
+    const [{ data, count, error }, subRes, brokerPreferences, brokerClientsRes, clientEventsRes, profileRes, brokerProfileRes] = await Promise.all([
       selfQuery,
       loadMagazineSubscribersSafely(),
       loadBrokerNewsletterPreferences(supabase, ctx.userId),
@@ -201,7 +182,26 @@ export async function GET(request: NextRequest) {
           .eq("id", ctx.userId)
           .maybeSingle()
       ).catch(() => ({ data: null })),
+      Promise.resolve(
+        supabase
+          .from("broker_profiles")
+          .select("user_id, slug, name, card_name")
+          .eq("user_id", ctx.userId)
+          .maybeSingle()
+      ).catch(() => ({ data: null })),
     ]);
+
+    const brokerProfileRow = (brokerProfileRes?.data ?? null) as {
+      user_id?: string | null;
+      slug?: string | null;
+      name?: string | null;
+      card_name?: string | null;
+      office_name?: string | null;
+      company_name?: string | null;
+      phone?: string | null;
+      display_name?: string | null;
+    } | null;
+    const brokerSlug = ctx.slug || brokerProfileRow?.slug?.trim() || "";
 
     if (error) {
       log.error("[api/magazine/editions/GET:me]", error.message);
@@ -474,14 +474,25 @@ export async function GET(request: NextRequest) {
       const pKey = normalizePhoneKey(c?.phone);
       const eKey = normalizeEmailKey(c?.email);
       const override = resolveLatestOverride(cliKey, rawId, customKey, key, pKey, eKey);
+      const cRec = c as Record<string, unknown>;
+      const rowConsentStatus = String(cRec?.consent_status ?? "").trim().toLowerCase();
+      const isRowOptInPending =
+        rowConsentStatus === "pending" ||
+        rowConsentStatus === "unconfirmed" ||
+        tags.some((t: string) => /수신확인대기/i.test(t));
       const explicitRowOptIn =
-        (c as Record<string, unknown>)?.newsletter_subscribed === true ||
-        (c as Record<string, unknown>)?.newsletterSubscribed === true ||
-        hasExplicitNewsletterTag(tags);
+        !isRowOptInPending &&
+        rowConsentStatus !== "unsubscribed" &&
+        !Boolean(cRec?.unsubscribed_at) &&
+        (cRec?.newsletter_subscribed === true ||
+          cRec?.newsletterSubscribed === true ||
+          hasExplicitNewsletterTag(tags));
       const explicitRowOptOut =
-        (c as Record<string, unknown>)?.newsletter_subscribed === false ||
-        (c as Record<string, unknown>)?.newsletterSubscribed === false ||
-        tags.some((t: string) => /수신거부|해지|unsub/i.test(t));
+        rowConsentStatus === "unsubscribed" ||
+        Boolean(cRec?.unsubscribed_at) ||
+        tags.some((t: string) => /수신거부|해지|unsub/i.test(t)) ||
+        (!isRowOptInPending &&
+          (cRec?.newsletter_subscribed === false || cRec?.newsletterSubscribed === false));
 
       const subscribed = override ? override.subscribed : explicitRowOptIn;
       if (subscribed) {
@@ -527,14 +538,24 @@ export async function GET(request: NextRequest) {
       const eKey = normalizeEmailKey(meta.client_email ?? meta.email);
       const customTags = Array.isArray(meta.tags) ? meta.tags.map((t: unknown) => String(t)) : [];
       const override = resolveLatestOverride(cId, rawCId, rawCId ? `custom_${rawCId}` : "", key, pKey, eKey);
+      const metaConsentStatus = String(meta.consent_status ?? meta.consentStatus ?? "").trim().toLowerCase();
+      const isMetaOptInPending =
+        meta.newsletter_opt_in_pending === true ||
+        meta.newsletterOptInPending === true ||
+        metaConsentStatus === "pending" ||
+        metaConsentStatus === "unconfirmed" ||
+        customTags.some((t: string) => /수신확인대기/i.test(t));
       const explicitOptIn =
-        meta.newsletter_subscribed === true ||
-        meta.newsletterSubscribed === true ||
-        hasExplicitNewsletterTag(customTags);
+        !isMetaOptInPending &&
+        metaConsentStatus !== "unsubscribed" &&
+        (meta.newsletter_subscribed === true ||
+          meta.newsletterSubscribed === true ||
+          hasExplicitNewsletterTag(customTags));
       const explicitOptOut =
-        meta.newsletter_subscribed === false ||
-        meta.newsletterSubscribed === false ||
-        customTags.some((t) => /수신거부|해지|unsub/i.test(t));
+        metaConsentStatus === "unsubscribed" ||
+        customTags.some((t: string) => /수신거부|해지|unsub/i.test(t)) ||
+        (!isMetaOptInPending &&
+          (meta.newsletter_subscribed === false || meta.newsletterSubscribed === false));
 
       const subscribed = override ? override.subscribed : explicitOptIn;
       if (subscribed) {
@@ -590,7 +611,16 @@ export async function GET(request: NextRequest) {
 
       const pKey = normalizePhoneKey(c.clientPhone);
       const override = resolveLatestOverride(cId, rawCId, key, pKey);
-      const subscribed = override ? override.subscribed : c.newsletterSubscribed === true;
+      const cRec = c as unknown as Record<string, unknown>;
+      const cConsentStatus = String(cRec.consentStatus ?? cRec.consent_status ?? "").trim().toLowerCase();
+      const isMemOptInPending =
+        cRec.newsletterOptInPending === true ||
+        cRec.newsletter_opt_in_pending === true ||
+        cConsentStatus === "pending" ||
+        cConsentStatus === "unconfirmed";
+      const subscribed = override
+        ? override.subscribed
+        : !isMemOptInPending && cConsentStatus !== "unsubscribed" && c.newsletterSubscribed === true;
       const cTs = typeof c.createdAt === "string" ? Date.parse(c.createdAt) : Number.NaN;
 
       if (subscribed) {
@@ -605,7 +635,11 @@ export async function GET(request: NextRequest) {
         }
         subscriberKeys.add(key);
         buyerKeys.add(key);
-      } else if ((override && !override.subscribed) || c.newsletterSubscribed === false) {
+      } else if (
+        (override && !override.subscribed) ||
+        cConsentStatus === "unsubscribed" ||
+        (!isMemOptInPending && c.newsletterSubscribed === false)
+      ) {
         eventUnsubscribedKeys.add(key);
       }
     }
@@ -970,6 +1004,59 @@ const DeleteSchema = z.object({
   id: z.string().uuid(),
 });
 
+interface OwnedEditionForDelete {
+  id: string;
+  broker_id: string;
+  status: string | null;
+  published_at: string | null;
+  created_at: string | null;
+  edition_label?: string | null;
+  content: unknown;
+}
+
+function resolveEditionKstIssueDate(row: {
+  published_at?: unknown;
+  created_at?: unknown;
+  edition_label?: unknown;
+  content?: unknown;
+}): string | null {
+  const contentObj =
+    row.content && typeof row.content === "object" && !Array.isArray(row.content)
+      ? (row.content as Record<string, unknown>)
+      : null;
+  const contentIssueDate =
+    typeof contentObj?.issueDate === "string"
+      ? contentObj.issueDate.trim()
+      : typeof contentObj?.issue_date === "string"
+        ? contentObj.issue_date.trim()
+        : "";
+  if (contentIssueDate && parseIssueDate(contentIssueDate)) {
+    return contentIssueDate;
+  }
+  const stamp =
+    typeof row.published_at === "string" && row.published_at
+      ? row.published_at
+      : typeof row.created_at === "string" && row.created_at
+        ? row.created_at
+        : "";
+  if (stamp) {
+    const parsed = new Date(stamp);
+    if (!Number.isNaN(parsed.getTime())) {
+      return toKstDate(parsed);
+    }
+  }
+  if (typeof row.edition_label === "string" && parseIssueDate(row.edition_label.trim())) {
+    return row.edition_label.trim();
+  }
+  return null;
+}
+
+function isMissingIssuesTableError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === "42P01" || error.code === "PGRST205") return true;
+  return /Could not find the table/i.test(String(error.message ?? ""));
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const { ctx, error: authError } = await requireBrokerContext(request);
@@ -995,8 +1082,18 @@ export async function DELETE(request: NextRequest) {
     const { id } = parsed.data;
 
     const supabase = createServiceClient();
-    const owned = await assertOwnsRow<{ id: string }>(supabase, "magazine_editions", id, ctx);
+    const owned = await assertOwnsRow<OwnedEditionForDelete>(
+      supabase,
+      "magazine_editions",
+      id,
+      ctx,
+      { select: "id, broker_id, status, published_at, created_at, content" },
+    );
     if (!owned) return notFoundResponse();
+
+    const issueDate = resolveEditionKstIssueDate(owned);
+    const wasPublished =
+      owned.status === "published" || Boolean(owned.published_at) || owned.status == null;
 
     const { error: deleteErr } = await supabase
       .from("magazine_editions")
@@ -1009,7 +1106,90 @@ export async function DELETE(request: NextRequest) {
       return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
     }
 
-    return NextResponse.json({ ok: true, id });
+    if (wasPublished && issueDate) {
+      const { data: remainingRows, error: remErr } = await supabase
+        .from("magazine_editions")
+        .select(
+          "id, broker_id, edition_type, edition_label, status, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at, created_at",
+        )
+        .in("broker_id", ctx.brokerKeys)
+        .eq("status", "published")
+        .neq("id", id)
+        .order("published_at", { ascending: false })
+        .limit(100);
+
+      if (remErr) {
+        log.error("[api/magazine/editions/DELETE] remaining editions lookup failed", remErr.message);
+        return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+      }
+
+      const sameDaySurvivors = ((remainingRows ?? []) as Array<Record<string, unknown>>).filter(
+        (r) => r.id !== id && r.status === "published" && resolveEditionKstIssueDate(r) === issueDate,
+      );
+      const survivor = sameDaySurvivors[0] ?? null;
+
+      if (!survivor) {
+        const { error: issueDelErr } = await supabase
+          .from("magazine_issues")
+          .delete()
+          .in("broker_id", ctx.brokerKeys)
+          .eq("issue_date", issueDate);
+        if (issueDelErr && !isMissingIssuesTableError(issueDelErr)) {
+          log.error("[api/magazine/editions/DELETE] magazine_issues delete failed", issueDelErr.message);
+          return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+        }
+      } else {
+        const survivorContent = mergeEditionContent(survivor);
+        const targetBrokerId = ctx.slug || String(survivor.broker_id || owned.broker_id || ctx.userId);
+        const nowIso = new Date().toISOString();
+        let { error: syncErr } = await supabase
+          .from("magazine_issues")
+          .upsert(
+            {
+              broker_id: targetBrokerId,
+              issue_date: issueDate,
+              content: survivorContent,
+              updated_at: nowIso,
+            },
+            { onConflict: "broker_id,issue_date" },
+          );
+        if (
+          syncErr &&
+          ((syncErr as { code?: string }).code === "42703" ||
+            (syncErr as { code?: string }).code === "PGRST204")
+        ) {
+          const retrySync = await supabase
+            .from("magazine_issues")
+            .upsert(
+              {
+                broker_id: targetBrokerId,
+                issue_date: issueDate,
+                content: survivorContent,
+              },
+              { onConflict: "broker_id,issue_date" },
+            );
+          syncErr = retrySync.error;
+        }
+        if (syncErr && !isMissingIssuesTableError(syncErr)) {
+          log.error("[api/magazine/editions/DELETE] magazine_issues sync failed", syncErr.message);
+          return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+        }
+      }
+    }
+
+    try {
+      await supabase.from("activity_events").insert({
+        actor_id: ctx.userId,
+        event_type: "magazine_edition_deleted",
+        entity_type: "magazine_editions",
+        entity_id: isUuid(id) ? id : null,
+        metadata: { edition_id: id, issue_date: issueDate },
+      });
+    } catch {
+      // Non-blocking audit tombstone
+    }
+
+    return NextResponse.json({ ok: true, id, issueDate });
   } catch (err: unknown) {
     log.error("[api/magazine/editions/DELETE]", err);
     return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);

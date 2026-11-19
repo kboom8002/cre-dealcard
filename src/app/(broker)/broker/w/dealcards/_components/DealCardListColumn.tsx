@@ -172,9 +172,10 @@ export function DealCardListColumn({
     const isSample = isSampleDealCardItem(item, syncedServerIds);
     const thumbFallback =
       (item.card4.region || item.region || item.title || "").trim().split(/\s+/).pop() || "";
-    const thumbSrc = syncedServerIds.has(item.id)
-      ? `/api/og/deal/${encodeURIComponent(item.id)}/kakao-v2`
-      : null;
+    const thumbSrc =
+      item.status === "sent" && syncedServerIds.has(item.id)
+        ? `/api/og/deal/${encodeURIComponent(item.id)}/kakao-v2`
+        : null;
 
     return (
       <div

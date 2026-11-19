@@ -36,13 +36,29 @@ const CTA_TEXT: Record<Channel, string> = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+function resolveAccessibleButtonBg(rawColor: string): string {
+  const hex = rawColor.trim();
+  const match = hex.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) return '#1D4ED8';
+  const raw = match[1];
+  const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+  const r = parseInt(full.slice(0, 2), 16) / 255;
+  const g = parseInt(full.slice(2, 4), 16) / 255;
+  const b = parseInt(full.slice(4, 6), 16) / 255;
+  const lin = (v: number) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  const lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const contrastWithWhite = 1.05 / (lum + 0.05);
+  return contrastWithWhite >= 4.6 ? `#${full}` : '#1D4ED8';
+}
+
 export function SubscribeCard({
   brokerId,
   source,
-  accentColor = '#4f46e5',
+  accentColor = '#1D4ED8',
   brokerPhone,
   variant,
 }: SubscribeCardProps) {
+  const safeButtonBg = resolveAccessibleButtonBg(accentColor);
   const effectiveVariant = variant ?? (source === 'magazine' ? 'minimal' : 'full');
   const uid = useId();
   const [channel, setChannel] = useState<Channel>('email');
@@ -183,7 +199,7 @@ export function SubscribeCard({
     : `/magazine/${encodeURIComponent(brokerId)}/subscribe`;
 
   const inputClass =
-    'w-full min-h-[48px] bg-slate-900/90 border border-slate-500 rounded-xl px-3.5 py-2.5 text-[16px] text-white placeholder:text-slate-300 outline-none focus:border-white transition-colors';
+    'w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-colors';
 
   const channelHelperText =
     channel === 'email'
@@ -196,13 +212,13 @@ export function SubscribeCard({
     return (
       <div
         data-testid="minimal-subscribe-optin"
-        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 text-left text-slate-100 space-y-3"
+        className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 text-left text-slate-900 shadow-sm space-y-3"
       >
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-[17px] font-bold text-white">뉴스레터 신청</h2>
-              <p className="text-[15px] text-slate-300">
+              <h2 className="text-[17px] font-bold text-slate-900">뉴스레터 신청</h2>
+              <p className="text-[15px] text-slate-700">
                 새 호가 발행되면 편하게 받아보실 수 있습니다.
               </p>
             </div>
@@ -214,7 +230,7 @@ export function SubscribeCard({
                   setStatus('idle');
                   setErrorMsg('');
                 }}
-                className="min-h-[44px] rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-[15px] font-semibold text-slate-200 hover:bg-white/10"
+                className="min-h-12 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-[15px] font-semibold text-slate-800 hover:bg-slate-100"
               >
                 {channel === 'email' ? '휴대폰으로 받기' : '이메일로 받기'}
               </button>
@@ -223,7 +239,7 @@ export function SubscribeCard({
           {status !== 'success' && (
             <p
               data-testid="subscribe-channel-helper"
-              className="text-[14px] text-slate-300 leading-snug break-keep"
+              className="text-[14px] text-slate-700 leading-snug break-keep"
             >
               {channelHelperText}
             </p>
@@ -234,10 +250,10 @@ export function SubscribeCard({
           <div
             role="status"
             data-testid="minimal-subscribe-success"
-            className="rounded-xl border border-emerald-400/50 bg-emerald-950/70 p-4 text-[15px] font-semibold text-emerald-100 leading-relaxed space-y-2"
+            className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-[15px] font-semibold text-emerald-950 leading-relaxed space-y-2"
           >
             {(done.submittedEmail || done.submittedPhone) && (
-              <p data-testid="subscribe-submitted-address" className="text-emerald-200 font-bold break-all">
+              <p data-testid="subscribe-submitted-address" className="text-emerald-900 font-bold break-all">
                 {done.submittedEmail || done.submittedPhone} 로 신청이 접수되었습니다.
               </p>
             )}
@@ -248,12 +264,12 @@ export function SubscribeCard({
                   : '뉴스레터 신청이 완료되었습니다.'}
               </p>
             )}
-            {done.message && <p className="text-emerald-200">{done.message}</p>}
+            {done.message && <p className="text-emerald-900">{done.message}</p>}
             <button
               type="button"
               data-testid="subscribe-reset-btn"
               onClick={() => setStatus('idle')}
-              className="mt-1 inline-flex min-h-[40px] items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-900/60 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-800/80 cursor-pointer"
+              className="mt-1 inline-flex min-h-12 items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-bold text-emerald-900 hover:bg-emerald-100 cursor-pointer"
             >
               메일·연락처 다시 입력하기
             </button>
@@ -298,12 +314,12 @@ export function SubscribeCard({
               </div>
             )}
 
-            <fieldset className="rounded-xl border border-white/15 bg-slate-900/60 p-3 space-y-1.5">
+            <fieldset className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
               <legend className="sr-only">뉴스레터 구독 필수 동의</legend>
 
               <label
                 htmlFor={`${uid}-min-consent-all`}
-                className="flex min-h-[44px] items-center gap-2.5 rounded-lg border border-indigo-400/50 bg-slate-800/80 px-3 py-2 cursor-pointer text-[15px] font-bold text-white select-none"
+                className="flex min-h-12 items-center gap-2.5 rounded-lg border border-indigo-300 bg-white px-3 py-2 cursor-pointer text-[15px] font-bold text-slate-900 select-none"
               >
                 <input
                   id={`${uid}-min-consent-all`}
@@ -314,12 +330,12 @@ export function SubscribeCard({
                     const agreed = e.target.checked;
                     setConsent({ privacy: agreed, marketing: agreed, age14: agreed });
                   }}
-                  className="h-5 w-5 rounded border-slate-400 accent-indigo-500 shrink-0"
+                  className="h-5 w-5 rounded border-slate-400 accent-indigo-700 shrink-0"
                 />
                 <span className="break-keep">필수 항목 모두 동의</span>
               </label>
 
-              <div className="flex min-h-[44px] items-start gap-2.5 px-1 py-1.5 text-[14px] text-slate-200">
+              <div className="flex min-h-12 items-start gap-2.5 px-1 py-1.5 text-[14px] text-slate-800">
                 <input
                   id={`${uid}-min-consent-privacy`}
                   type="checkbox"
@@ -329,17 +345,17 @@ export function SubscribeCard({
                     const checked = e.target.checked;
                     setConsent((prev) => ({ ...prev, privacy: checked }));
                   }}
-                  className="mt-0.5 h-5 w-5 rounded border-slate-400 accent-indigo-500 shrink-0 cursor-pointer"
+                  className="mt-0.5 h-5 w-5 rounded border-slate-400 accent-indigo-700 shrink-0 cursor-pointer"
                 />
                 <div className="leading-snug break-keep">
                   <label htmlFor={`${uid}-min-consent-privacy`} className="cursor-pointer select-none">
-                    <b className="text-white">[필수]</b> 개인정보 수집·이용 동의
+                    <b className="text-slate-900">[필수]</b> 개인정보 수집·이용 동의
                   </label>{' '}
                   <a
                     href={PRIVACY_POLICY_HREF}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline text-indigo-200 hover:text-white font-semibold ml-1"
+                    className="underline text-indigo-700 hover:text-indigo-900 font-semibold ml-1"
                   >
                     개인정보 처리방침 보기 (새 창)
                   </a>
@@ -348,7 +364,7 @@ export function SubscribeCard({
 
               <label
                 htmlFor={`${uid}-min-consent-marketing`}
-                className="flex min-h-[44px] items-center gap-2.5 px-1 py-1 text-[14px] text-slate-200 cursor-pointer select-none"
+                className="flex min-h-12 items-center gap-2.5 px-1 py-1 text-[14px] text-slate-800 cursor-pointer select-none"
               >
                 <input
                   id={`${uid}-min-consent-marketing`}
@@ -359,16 +375,16 @@ export function SubscribeCard({
                     const checked = e.target.checked;
                     setConsent((prev) => ({ ...prev, marketing: checked }));
                   }}
-                  className="h-5 w-5 rounded border-slate-400 accent-indigo-500 shrink-0 cursor-pointer"
+                  className="h-5 w-5 rounded border-slate-400 accent-indigo-700 shrink-0 cursor-pointer"
                 />
                 <span className="leading-snug break-keep">
-                  <b className="text-white">[필수]</b> 뉴스레터(광고성 정보) 수신 동의
+                  <b className="text-slate-900">[필수]</b> 뉴스레터(광고성 정보) 수신 동의
                 </span>
               </label>
 
               <label
                 htmlFor={`${uid}-min-consent-age14`}
-                className="flex min-h-[44px] items-center gap-2.5 px-1 py-1 text-[14px] text-slate-200 cursor-pointer select-none"
+                className="flex min-h-12 items-center gap-2.5 px-1 py-1 text-[14px] text-slate-800 cursor-pointer select-none"
               >
                 <input
                   id={`${uid}-min-consent-age14`}
@@ -379,10 +395,10 @@ export function SubscribeCard({
                     const checked = e.target.checked;
                     setConsent((prev) => ({ ...prev, age14: checked }));
                   }}
-                  className="h-5 w-5 rounded border-slate-400 accent-indigo-500 shrink-0 cursor-pointer"
+                  className="h-5 w-5 rounded border-slate-400 accent-indigo-700 shrink-0 cursor-pointer"
                 />
                 <span className="leading-snug break-keep">
-                  <b className="text-white">[필수]</b> 만 14세 이상 확인
+                  <b className="text-slate-900">[필수]</b> 만 14세 이상 확인
                 </span>
               </label>
             </fieldset>
@@ -390,7 +406,7 @@ export function SubscribeCard({
             <TrackingNotice />
 
             {status === 'error' && (
-              <p role="alert" className="text-[15px] text-rose-200 font-bold">
+              <p role="alert" className="text-[15px] text-rose-700 font-bold">
                 {errorMsg}
               </p>
             )}
@@ -399,8 +415,8 @@ export function SubscribeCard({
               type="submit"
               data-testid="minimal-subscribe-submit"
               disabled={status === 'loading' || !consentOk}
-              className="w-full min-h-[48px] py-2.5 rounded-xl text-[16px] font-bold text-white transition-all active:scale-[0.98] disabled:bg-slate-700 disabled:text-slate-200 disabled:border disabled:border-slate-500 disabled:cursor-not-allowed"
-              style={consentOk && status !== 'loading' ? { background: accentColor } : undefined}
+              className="w-full min-h-[48px] py-2.5 rounded-xl text-[16px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-700 disabled:border disabled:border-slate-300 disabled:cursor-not-allowed"
+              style={consentOk && status !== 'loading' ? { background: safeButtonBg } : undefined}
             >
               {status === 'loading' ? '신청 중...' : '뉴스레터 신청하기'}
             </button>
@@ -411,12 +427,12 @@ export function SubscribeCard({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-600 bg-slate-900/95 p-5 space-y-4 text-left text-slate-100">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 text-left text-slate-900 shadow-sm">
       <div className="space-y-1.5">
-        <h2 className="text-[19px] font-bold text-white flex items-center gap-1.5">
+        <h2 className="text-[19px] font-bold text-slate-900 flex items-center gap-1.5">
           <span aria-hidden>📰</span> 주간 매거진 구독하기
         </h2>
-        <p className="text-[15px] leading-relaxed text-slate-200 break-keep">
+        <p className="text-[15px] leading-relaxed text-slate-700 break-keep">
           중개인이 엄선한 최신 상업용 빌딩·수익형 부동산 정보 및 리포트를 {MAGAZINE_SEND_DAY_LABEL} 받아보세요.
         </p>
       </div>
@@ -425,22 +441,22 @@ export function SubscribeCard({
         <div
           role="status"
           aria-label="구독 접수 완료"
-          className="rounded-2xl border border-emerald-500/40 bg-emerald-950/70 p-5 text-left text-emerald-100 space-y-4 shadow-lg backdrop-blur-sm"
+          className="rounded-2xl border border-emerald-300 bg-emerald-50 p-5 text-left text-emerald-950 space-y-4 shadow-sm"
         >
           <div className="space-y-1.5">
-            <h3 className="text-[18px] sm:text-[19px] font-extrabold text-white leading-snug break-keep">
+            <h3 className="text-[18px] sm:text-[19px] font-extrabold text-slate-900 leading-snug break-keep">
               🎉 구독 신청이 접수되었습니다! (이메일을 함께 남겨주시면 매주 발행 즉시 자동 발송됩니다)
             </h3>
-            <p className="text-[15px] leading-relaxed text-emerald-200/90 break-keep">
+            <p className="text-[15px] leading-relaxed text-emerald-900 break-keep">
               전화번호로 신청이 안전하게 완료되었습니다. 이메일 주소를 함께 남겨주시면 매주 발행 즉시 기다림 없이 자동으로 전달됩니다.
             </p>
           </div>
           {done.notice && (
-            <p className="text-[14px] font-semibold text-emerald-300 break-keep">{done.notice}</p>
+            <p className="text-[14px] font-semibold text-emerald-800 break-keep">{done.notice}</p>
           )}
           <form onSubmit={handleFollowUpEmailSubmit} className="space-y-2.5 pt-1" noValidate>
             <div>
-              <label htmlFor={`${uid}-followup-email`} className="block mb-1.5 text-[15px] font-bold text-slate-100">
+              <label htmlFor={`${uid}-followup-email`} className="block mb-1.5 text-[15px] font-bold text-slate-900">
                 이메일 주소 추가 등록 (선택)
               </label>
               <input
@@ -452,32 +468,32 @@ export function SubscribeCard({
                 value={followUpEmail}
                 onChange={(e) => setFollowUpEmail(e.target.value)}
                 required
-                className="w-full min-h-[48px] rounded-xl border border-slate-500 bg-slate-900/90 px-3.5 py-2.5 text-[16px] text-white placeholder:text-slate-400 outline-none focus:border-emerald-400 transition-colors"
+                className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-emerald-700 transition-colors"
               />
             </div>
             {errorMsg && (
-              <p role="alert" className="text-[15px] font-bold text-rose-300">
+              <p role="alert" className="text-[15px] font-bold text-rose-700">
                 {errorMsg}
               </p>
             )}
             <button
               type="submit"
-              className="w-full min-h-[52px] rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-[17px] font-bold text-white shadow-md transition-colors"
+              className="w-full min-h-[52px] rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 py-3 text-[17px] font-bold text-white shadow-sm transition-colors"
             >
               📧 이메일 함께 등록하고 자동 발송 받기
             </button>
           </form>
           <a
             href={phoneCallHref}
-            className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-center text-[15px] font-semibold text-slate-200 transition hover:bg-white/10"
+            className="flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-[15px] font-semibold text-slate-900 transition hover:bg-slate-50"
           >
             📞 중개사에게 전화로 직접 문의하기
           </a>
         </div>
       ) : status === 'success' ? (
-        <div role="status" className="bg-emerald-950 border border-emerald-400 text-emerald-100 rounded-xl p-4 text-center text-[16px] font-semibold leading-relaxed space-y-2">
+        <div role="status" className="bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-xl p-4 text-center text-[16px] font-semibold leading-relaxed space-y-2">
           {(done.submittedEmail || done.submittedPhone) && (
-            <p data-testid="subscribe-submitted-address" className="text-[15px] font-bold text-emerald-200 break-all">
+            <p data-testid="subscribe-submitted-address" className="text-[15px] font-bold text-emerald-900 break-all">
               {done.submittedEmail || done.submittedPhone} 로 신청이 접수되었습니다.
             </p>
           )}
@@ -489,14 +505,14 @@ export function SubscribeCard({
               : ''}
             {!done.message?.includes('발송') && `${MAGAZINE_SEND_DAY_LABEL} 발송됩니다.`}
           </p>
-          {done.message && <p className="text-[15px] font-normal text-emerald-200">{done.message}</p>}
-          {done.notice && <p className="text-[15px] font-bold text-amber-200">{done.notice}</p>}
+          {done.message && <p className="text-[15px] font-normal text-emerald-900">{done.message}</p>}
+          {done.notice && <p className="text-[15px] font-bold text-amber-800">{done.notice}</p>}
           <div className="pt-1">
             <button
               type="button"
               data-testid="subscribe-reset-btn"
               onClick={() => setStatus('idle')}
-              className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-900/60 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-800/80 cursor-pointer"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-bold text-emerald-900 hover:bg-emerald-100 cursor-pointer"
             >
               메일·연락처 다시 입력하기
             </button>
@@ -504,7 +520,7 @@ export function SubscribeCard({
         </div>
       ) : (
         <form onSubmit={handleSubscribe} className="space-y-3.5" noValidate>
-          <div role="group" aria-label="수신 채널" className="grid grid-cols-3 gap-1.5 p-1 bg-slate-800 border border-slate-600 rounded-xl">
+          <div role="group" aria-label="수신 채널" className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-xl">
             {CHANNELS.map((item) => (
               <button
                 key={item.key}
@@ -513,8 +529,8 @@ export function SubscribeCard({
                 onClick={() => { setChannel(item.key); setStatus('idle'); }}
                 className={`min-h-[48px] py-2 text-[16px] font-bold rounded-lg transition-all ${
                   channel === item.key
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-100 hover:bg-slate-700'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-800 hover:bg-slate-200'
                 }`}
               >
                 {item.label}
@@ -523,13 +539,13 @@ export function SubscribeCard({
           </div>
           <p
             data-testid="subscribe-channel-helper"
-            className="text-[14px] text-slate-200 leading-snug break-keep"
+            className="text-[14px] text-slate-700 leading-snug break-keep"
           >
             {channelHelperText}
           </p>
 
           <div>
-            <label htmlFor={`${uid}-name`} className="block mb-1.5 text-[15px] font-semibold text-slate-100">
+            <label htmlFor={`${uid}-name`} className="block mb-1.5 text-[15px] font-semibold text-slate-900">
               성함 (선택)
             </label>
             <input
@@ -545,7 +561,7 @@ export function SubscribeCard({
 
           {needPhone && (
             <div>
-              <label htmlFor={`${uid}-phone`} className="block mb-1.5 text-[15px] font-semibold text-slate-100">
+              <label htmlFor={`${uid}-phone`} className="block mb-1.5 text-[15px] font-semibold text-slate-900">
                 휴대폰 번호 (필수 · 숫자만 입력하셔도 됩니다)
               </label>
               <input
@@ -553,7 +569,7 @@ export function SubscribeCard({
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel"
-                placeholder="휴대폰 번호 (010-0000-0000 형식)"
+                placeholder="휴대폰 번호 (예: 010-1234-5678)"
                 value={phone}
                 onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
                 required
@@ -564,7 +580,7 @@ export function SubscribeCard({
 
           {needEmail && (
             <div>
-              <label htmlFor={`${uid}-email`} className="block mb-1.5 text-[15px] font-semibold text-slate-100">
+              <label htmlFor={`${uid}-email`} className="block mb-1.5 text-[15px] font-semibold text-slate-900">
                 이메일 주소 (필수 · 구독 확인 링크 수신용)
               </label>
               <input
@@ -582,13 +598,13 @@ export function SubscribeCard({
           )}
 
           <ConsentCheckboxes value={consent} onChange={setConsent} idPrefix={`sc-${source}`} />
-          <p className="text-[14px] text-slate-300 leading-snug break-keep">
+          <p className="text-[14px] text-slate-700 leading-snug break-keep">
             개인정보 처리 및 보유 기준은{' '}
             <a
               href={PRIVACY_POLICY_HREF}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline text-indigo-200 hover:text-white font-semibold"
+              className="underline text-indigo-700 hover:text-indigo-900 font-semibold"
             >
               개인정보 처리방침 보기 (새 창)
             </a>
@@ -597,13 +613,13 @@ export function SubscribeCard({
           <TrackingNotice />
 
           {status === 'error' && (
-            <p role="alert" className="text-[15px] text-rose-200 font-bold">
+            <p role="alert" className="text-[15px] text-rose-700 font-bold">
               {errorMsg}
             </p>
           )}
 
           {!consentOk && (
-            <p className="text-[15px] font-semibold text-amber-200 leading-snug break-keep">
+            <p className="text-[15px] font-semibold text-amber-800 leading-snug break-keep">
               ☝️ 위 필수 동의 항목(&apos;필수 항목 모두 동의&apos; 포함)에 체크하시면 신청 버튼이 켜집니다
             </p>
           )}
@@ -611,8 +627,8 @@ export function SubscribeCard({
           <button
             type="submit"
             disabled={status === 'loading' || !consentOk}
-            className="w-full min-h-[52px] py-3 rounded-xl text-[17px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-100 disabled:bg-slate-700 disabled:text-slate-100 disabled:border disabled:border-slate-500 disabled:cursor-not-allowed"
-            style={consentOk && status !== 'loading' ? { background: accentColor } : undefined}
+            className="w-full min-h-[52px] py-3 rounded-xl text-[17px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-700 disabled:border disabled:border-slate-300 disabled:cursor-not-allowed"
+            style={consentOk && status !== 'loading' ? { background: safeButtonBg } : undefined}
           >
             {status === 'loading' ? '신청 중...' : CTA_TEXT[channel]}
           </button>

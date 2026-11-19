@@ -61,53 +61,54 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
   }
 
   return (
-    <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 text-slate-100 shadow-xl space-y-3">
+    <div className="rounded-2xl bg-white border border-slate-300 p-4 text-slate-900 shadow-sm space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-amber-300 flex items-center gap-1.5">
+        <h3 className="text-base font-bold text-amber-800 flex items-center gap-1.5">
           <span>💰</span> 투자 수익률 시뮬레이터
         </h3>
-        <span className="text-xs px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 font-semibold border border-amber-400/20">
+        <span className="text-sm px-2.5 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200">
           {postureBadgeLabel}
         </span>
       </div>
 
       {/* Result First Area */}
-      <div className="rounded-xl bg-slate-850 border border-slate-800 p-3.5 space-y-2">
-        <div className="flex justify-between items-baseline text-xs text-slate-400">
+      <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
+        <div className="flex justify-between items-baseline text-sm text-slate-600">
           <span>가정 실투자금 (자기자본)</span>
-          <span className="text-sm font-bold text-emerald-300">{equityStr}</span>
+          <span className="text-sm font-bold text-emerald-700">{equityStr}</span>
         </div>
 
-        <div className="flex justify-between items-baseline text-xs text-slate-400">
+        <div className="flex justify-between items-baseline text-sm text-slate-600">
           <span>참고 수익률 (LTV {ltv}% 가정)</span>
-          <span className="text-base font-extrabold text-amber-300">
+          <span className="text-base font-extrabold text-amber-800">
             {estimatedValueStr}
           </span>
         </div>
 
-        <div className="pt-2 border-t border-slate-800/80">
-          <p className="text-[10px] text-slate-500 text-center">
+        <div className="pt-2 border-t border-slate-200">
+          <p className="text-sm text-slate-600 text-center">
             ※ 본 시뮬레이션은 참고 범위이며, 실제 대출 금리 및 한도는 금융기관 심사에 따릅니다.
           </p>
         </div>
       </div>
 
       {/* Collapsible Slider Inputs */}
-      <div className="border-t border-slate-800 pt-2">
+      <div className="border-t border-slate-200 pt-2">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 hover:text-slate-200 py-1 transition-colors"
+          className="w-full min-h-[44px] flex items-center justify-between text-sm font-semibold text-slate-700 hover:text-slate-950 py-1.5 transition-colors"
         >
           <span>⚙️ 조건 변경하기</span>
           <span>{isOpen ? "▲ 접기" : "▼ 펼치기"}</span>
         </button>
 
         {isOpen && (
-          <div className="pt-3 space-y-3.5 text-xs">
+          <div className="pt-3 space-y-3.5 text-sm">
             <div>
-              <div className="flex justify-between mb-1 text-slate-300 font-medium">
+              <div className="flex justify-between mb-1 text-slate-700 font-medium">
                 <span>총 투자 예산</span>
-                <span className="text-amber-300 font-bold">{budget}억원</span>
+                <span className="text-amber-800 font-bold">{budget}억원</span>
               </div>
               <input
                 type="range"
@@ -116,14 +117,14 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
                 step="10"
                 value={budget}
                 onChange={(e) => setBudget(Number(e.target.value))}
-                className="w-full accent-amber-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-amber-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between mb-1 text-slate-300 font-medium">
+              <div className="flex justify-between mb-1 text-slate-700 font-medium">
                 <span>{axis2Config.label}</span>
-                <span className="text-teal-300 font-bold">{axis2}{axis2Config.unit}</span>
+                <span className="text-teal-700 font-bold">{axis2}{axis2Config.unit}</span>
               </div>
               <input
                 type="range"
@@ -132,7 +133,7 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
                 step={axis2Config.step}
                 value={axis2}
                 onChange={(e) => setAxis2(Number(e.target.value))}
-                className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-teal-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               />
             </div>
           </div>

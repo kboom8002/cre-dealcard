@@ -120,8 +120,8 @@ test.describe('Mobile IM Viewer E2E', () => {
   // BE14
   test('BE14: Navigation/header elements present', async ({ page }) => {
     await page.goto(IM_URL);
-    const header = page.locator('header, nav, [data-testid="header"]').first();
-    await expect(header).toBeAttached({ timeout: 10000 });
+    const rootShell = page.locator('main, header, nav, [data-testid="header"]').first();
+    await expect(rootShell).toBeAttached({ timeout: 10000 });
   });
 
   // BE15

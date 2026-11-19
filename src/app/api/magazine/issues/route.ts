@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBrokerContext, assertOwnsRow, jsonError } from "@/lib/magazine/authz";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
+import { assertPublishable } from "@/lib/legal/publish-gate";
 import { todayKst } from "@/lib/magazine/kst";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, DEFAULT_THEME_COLOR } from "@/lib/magazine/edition-save";
@@ -294,7 +295,7 @@ export async function POST(request: NextRequest) {
           const [bRes, dRes] = await Promise.all([
             supabase
               .from("building_ssot_lite")
-              .select("id, owner_id, address, area_signal, asset_type, price_band, fit_summary, layers")
+              .select("id, owner_id, raw_address, area_signal, asset_type, price_band, fit_summary, layers")
               .in("id", uuidDealIds),
             supabase
               .from("document_objects")
@@ -347,7 +348,7 @@ export async function POST(request: NextRequest) {
           (docMeta?.ssot_summary && typeof docMeta.ssot_summary === "object"
             ? (docMeta.ssot_summary as Record<string, unknown>)
             : {}) || {};
-        let qRec = (await resolveOrSynthesizeQuickImRecord(dId, supabase)) ?? quickRecords.find((r) => r.buildingId === dId);
+        const qRec = (await resolveOrSynthesizeQuickImRecord(dId, supabase)) ?? quickRecords.find((r) => r.buildingId === dId);
 
         // S1-10: Enforce broker ownership on featuredDealIds
         if (!(ctx as { isAdmin?: boolean }).isAdmin) {
@@ -384,7 +385,7 @@ export async function POST(request: NextRequest) {
         const rawAddr =
           String(snap.address ?? "").trim() ||
           qRec?.address ||
-          String(docSsot.address ?? locationLayer.road_address ?? locationLayer.address ?? dbRow?.address ?? dbRow?.area_signal ?? "").trim();
+          String(docSsot.address ?? locationLayer.road_address ?? locationLayer.address ?? dbRow?.raw_address ?? dbRow?.address ?? dbRow?.area_signal ?? "").trim();
         const safeAddr = maskAddressForPublic(sanitizeDealAddress(rawAddr)) || "수도권 역세권";
         const rawAreaSignal = String(qRec?.card4?.region || dbRow?.area_signal || docSsot.area_signal || safeAddr);
         const safeAreaSignal = maskAddressForPublic(sanitizeDealAddress(rawAreaSignal)) || safeAddr;
@@ -740,11 +741,13 @@ export async function POST(request: NextRequest) {
       : [];
     const briefingToggleEnabled = clientSectionMap.has("field_note")
       ? clientSectionMap.get("field_note")!
+      : clientSectionMap.has("ai_briefing")
+      ? clientSectionMap.get("ai_briefing")!
       : editionType === "daily"
       ? Boolean(primaryBriefingText)
       : true;
 
-    const mergedSections = baseSections.map((sec) => {
+    const mappedSections = baseSections.map((sec) => {
       if (sec.id === "market_data") {
         return { id: sec.id, enabled: marketDataToggleEnabled };
       }
@@ -752,7 +755,7 @@ export async function POST(request: NextRequest) {
         return { id: sec.id, enabled: briefingToggleEnabled && Boolean(primaryBriefingText) };
       }
       if (sec.id === "field_note") {
-        return { id: sec.id, enabled: false };
+        return { id: sec.id, enabled: briefingToggleEnabled };
       }
       if (sec.id === "theme_of_week") {
         return { id: sec.id, enabled: false };
@@ -765,10 +768,53 @@ export async function POST(request: NextRequest) {
       }
       return sec;
     });
+    const mergedSections = mappedSections.some((sec) => sec.id === "field_note")
+      ? mappedSections
+      : [...mappedSections, { id: "field_note", enabled: briefingToggleEnabled }];
 
     const targetAlreadyPublished = targetEdition.status === "published";
-    const nextStatus: "draft" | "published" =
-      isDraftRequest && !targetAlreadyPublished ? "draft" : "published";
+    if (isDraftRequest && targetAlreadyPublished) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "PUBLISHED_LOCKED",
+          error: "이미 발행된 뉴스레터는 초안 저장으로 덮어쓸 수 없습니다.",
+        },
+        { status: 409 }
+      );
+    }
+    const nextStatus: "draft" | "published" = isDraftRequest ? "draft" : "published";
+
+    if (nextStatus !== "draft") {
+      const statutoryGate = await assertPublishable({
+        supabase,
+        userId: ctx.userId,
+        kind: "magazine",
+        brokerMetaOverride: {
+          company:
+            resolvedBroker?.company ??
+            (prof as { company?: string | null } | null)?.company ??
+            undefined,
+          phone: phone || undefined,
+          display_name:
+            resolvedBroker?.displayName ??
+            (prof as { display_name?: string | null } | null)?.display_name ??
+            ctx.displayName ??
+            undefined,
+        },
+      });
+      if (!statutoryGate.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: { code: statutoryGate.code, message: statutoryGate.message },
+            missingFields: statutoryGate.missingFields,
+            missingLabels: statutoryGate.missingLabels,
+          },
+          { status: 422 }
+        );
+      }
+    }
 
     const finalContent: Record<string, unknown> = {
       ...normalized.content,
@@ -898,9 +944,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (issueErr) {
-      log.warn("[api/magazine/issues] magazine_issues upsert warning", {
+      log.error("[api/magazine/issues] magazine_issues upsert failed", {
         error: issueErr.message,
       });
+      if (!targetAlreadyPublished) {
+        await supabase
+          .from("magazine_editions")
+          .update({
+            status: typeof targetEdition.status === "string" ? targetEdition.status : "draft",
+            published_at:
+              typeof targetEdition.published_at === "string" ? targetEdition.published_at : null,
+            updated_at: nowIso,
+          })
+          .eq("id", editionId)
+          .in("broker_id", brokerKeys);
+      }
+      return jsonError("PUBLISH_FAILED", "공개 뉴스레터 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
     }
 
     if (isUuid(ctx.userId)) {

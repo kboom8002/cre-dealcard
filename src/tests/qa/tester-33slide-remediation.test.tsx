@@ -180,19 +180,36 @@ describe("33-Slide Tester Remediation Regression Suite (QA-WP-01 ~ QA-WP-12)", (
     const keyPostJson = await keyPost.json();
     expect(keyPostJson.pin?.screenshotDataUrl).toBe(fakeShot);
 
-    const anonGet = await getQaWorkbench(
+    const anonProdGet = await getQaWorkbench(
       new NextRequest("http://localhost:3000/api/public/qa-workbench?mode=pins")
     );
-    const anonGetJson = await anonGet.json();
-    expect(anonGetJson.pins[0]?.screenshotDataUrl).toBeNull();
+    expect(anonProdGet.status).toBe(404);
+    const anonProdJson = await anonProdGet.json();
+    expect(anonProdJson.pins).toBeUndefined();
 
     const keyGet = await getQaWorkbench(
       new NextRequest("http://localhost:3000/api/public/qa-workbench?mode=pins", {
         headers: { "x-qa-access-key": "credeal-test-access-key-2026" },
       })
     );
+    expect(keyGet.status).toBe(200);
     const keyGetJson = await keyGet.json();
     expect(keyGetJson.pins[0]?.screenshotDataUrl).toBe(fakeShot);
+
+    // Non-production anonymous caller stays 200 but strips screenshotDataUrl & authorEmail
+    const prevNodeEnv = process.env.NODE_ENV;
+    (process.env as Record<string, string | undefined>).NODE_ENV = "development";
+    delete process.env.CRE_ENFORCE_QA_GATE;
+    try {
+      const anonDevGet = await getQaWorkbench(
+        new NextRequest("http://localhost:3000/api/public/qa-workbench?mode=pins")
+      );
+      expect(anonDevGet.status).toBe(200);
+      const anonDevJson = await anonDevGet.json();
+      expect(anonDevJson.pins[0]?.screenshotDataUrl).toBeNull();
+    } finally {
+      (process.env as Record<string, string | undefined>).NODE_ENV = prevNodeEnv;
+    }
   });
 
   it("5. Renders v4.0 /qa-signoff without internal jargon, shows inline pin thumbnails, modals, sample kit buttons, and 3-line summary copy", async () => {

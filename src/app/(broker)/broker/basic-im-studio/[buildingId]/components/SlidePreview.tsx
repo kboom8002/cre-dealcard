@@ -74,7 +74,7 @@ function InlineEditableText({
               commit();
             }
           }}
-          className="w-full px-2 py-1 text-xs font-medium rounded border-2 border-[#1D4ED8] bg-white text-[#0F172A] shadow-lg focus:outline-none z-30 relative"
+          className="w-full px-2 py-1 text-sm font-medium rounded border-2 border-[#1D4ED8] bg-white text-[#0F172A] shadow-lg focus:outline-none z-30 relative"
         />
       );
     }
@@ -202,7 +202,7 @@ export function SlidePreview({
             className="absolute right-0 top-0 bottom-0 w-[30%] flex flex-col justify-end p-6"
             style={{ backgroundColor: `#${tokens.accent}` }}
           >
-            <div className="text-[11px] font-bold tracking-widest uppercase text-white/90 text-right">
+            <div className="text-sm font-bold tracking-widest uppercase text-white/90 text-right">
               {headerFooterConfig.companyTagline || tokens.companyTagline}
             </div>
           </div>
@@ -224,7 +224,7 @@ export function SlidePreview({
               <div className="h-24 w-full rounded-sm" style={{ backgroundColor: `#${tokens.ink}` }} />
               <div className="h-12 w-3/4 rounded-sm" style={{ backgroundColor: `#${tokens.ink2}` }} />
             </div>
-            <div className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: `#${tokens.darkMute}` }}>
+            <div className="text-sm font-semibold tracking-widest uppercase" style={{ color: `#${tokens.darkMute}` }}>
               {headerFooterConfig.companyTagline || 'COMMERCIAL REAL ESTATE'}
             </div>
           </div>
@@ -240,7 +240,7 @@ export function SlidePreview({
         {/* Top Bar: Clean Single Kicker */}
         <div className={`relative z-10 flex items-center ${contentMaxWidthClass}`}>
           <span
-            className="text-[10px] font-extrabold tracking-[0.2em] uppercase"
+            className="text-sm font-extrabold tracking-[0.2em] uppercase"
             style={{ color: `#${tokens.accentL}` }}
           >
             <InlineEditableText
@@ -273,7 +273,7 @@ export function SlidePreview({
             </p>
           )}
           {addrVal && (
-            <p className="text-xs sm:text-sm font-medium" style={{ color: `#${tokens.darkBody}` }}>
+            <p className="text-sm font-medium" style={{ color: `#${tokens.darkBody}` }}>
               <InlineEditableText
                 fieldKey="address"
                 value={addrVal}
@@ -286,7 +286,7 @@ export function SlidePreview({
               className="pt-1 pl-3 border-l-2 inline-flex items-baseline gap-2.5"
               style={{ borderColor: `#${tokens.accent}` }}
             >
-              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: `#${tokens.darkMute}` }}>
+              <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: `#${tokens.darkMute}` }}>
                 매매 희망가
               </span>
               <span className="text-lg sm:text-xl font-black tracking-tight" style={{ color: `#${tokens.accentL}` }}>
@@ -302,7 +302,7 @@ export function SlidePreview({
 
         {/* Bottom Clean Branding Bar */}
         <div
-          className={`relative z-10 pt-3 border-t flex items-center justify-between text-xs ${contentMaxWidthClass}`}
+          className={`relative z-10 pt-3 border-t flex items-center justify-between text-sm ${contentMaxWidthClass}`}
           style={{ borderColor: `#${tokens.darkBorder}` }}
         >
           <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ export function SlidePreview({
               </span>
             )}
           </div>
-          <span className="font-mono text-[11px]" style={{ color: `#${tokens.darkMute}` }}>
+          <span className="font-mono text-sm" style={{ color: `#${tokens.darkMute}` }}>
             <InlineEditableText fieldKey="date" value={dateVal} onCommit={handleFieldCommit} />
           </span>
         </div>
@@ -364,7 +364,7 @@ export function SlidePreview({
             }}
           >
             <span
-              className="text-[10px] font-bold uppercase tracking-wider"
+              className="text-sm font-bold uppercase tracking-wider"
               style={{ color: k.highlight ? `#${tokens.accentL}` : `#${tokens.slate}` }}
             >
               {k.label}
@@ -385,7 +385,7 @@ export function SlidePreview({
       <div className="flex-1 flex flex-col justify-between gap-2 min-h-0">
         {/* Lead Sentence Banner */}
         <div
-          className="px-3.5 py-2 rounded-xl border-l-4 text-xs sm:text-sm font-extrabold leading-snug"
+          className="px-3.5 py-2 rounded-xl border-l-4 text-sm font-extrabold leading-snug"
           style={{
             backgroundColor: `#${tokens.accentT}`,
             borderColor: `#${tokens.accent}`,
@@ -413,16 +413,16 @@ export function SlidePreview({
                   <div>
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <span
-                        className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white"
+                        className="w-5 h-5 rounded-full text-sm font-black flex items-center justify-center shrink-0 text-white"
                         style={{ backgroundColor: `#${tokens.accent}`, color: '#FFFFFF' }}
                       >
                         {pt.num}
                       </span>
-                      <span className="text-[11px] font-extrabold truncate" style={{ color: `#${tokens.ink}` }}>
+                      <span className="text-sm font-extrabold truncate" style={{ color: `#${tokens.ink}` }}>
                         {pt.title}
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-[#0F172A] leading-snug line-clamp-3">
+                    <div className="text-sm font-bold text-[#0F172A] leading-snug line-clamp-3">
                       <InlineEditableText
                         fieldKey={pt.key}
                         value={String(pt.text)}
@@ -451,13 +451,13 @@ export function SlidePreview({
                   style={{ borderColor: `#${tokens.line}` }}
                 >
                   <span
-                    className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white"
+                    className="w-5 h-5 rounded-full text-sm font-black flex items-center justify-center shrink-0 text-white"
                     style={{ backgroundColor: `#${tokens.accent}`, color: '#FFFFFF' }}
                   >
                     {pt.num}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-[#0F172A] leading-snug line-clamp-2">
+                    <div className="text-sm font-bold text-[#0F172A] leading-snug line-clamp-2">
                       <InlineEditableText
                         fieldKey={pt.key}
                         value={String(pt.text)}
@@ -512,17 +512,17 @@ export function SlidePreview({
           {/* Top Full-Width 2-Column Spec Table */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
             <div
-              className="px-3 py-1.5 text-[11px] font-extrabold text-white flex items-center justify-between"
+              className="px-3 py-1.5 text-sm font-extrabold text-white flex items-center justify-between"
               style={{ backgroundColor: `#${tokens.ink}` }}
             >
               <span>건축물대장 · 토지이용계획확인서 상세 제원 (와이드 비교형)</span>
-              <span className="text-[10px] opacity-80">✓ 공부확인</span>
+              <span className="text-sm opacity-80">✓ 공부확인</span>
             </div>
             <div className="grid grid-cols-2 gap-x-4 bg-white">
               {specRows.map((r, i) => (
                 <div
                   key={r.key}
-                  className="grid grid-cols-12 px-3 py-1 text-[11px] items-center border-b"
+                  className="grid grid-cols-12 px-3 py-1 text-sm items-center border-b"
                   style={{
                     backgroundColor: Math.floor(i / 2) % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF',
                     borderColor: `#${tokens.line2}`,
@@ -555,7 +555,7 @@ export function SlidePreview({
               ) : (
                 <div className="text-center p-2">
                   <div className="text-lg">🏢</div>
-                  <div className="text-[10px] font-bold" style={{ color: `#${tokens.ink}` }}>
+                  <div className="text-sm font-bold" style={{ color: `#${tokens.ink}` }}>
                     {ov.buildingName || buildingContext?.buildingName || '본건 외관 대표 이미지'}
                   </div>
                 </div>
@@ -569,10 +569,10 @@ export function SlidePreview({
                 borderColor: `#${tokens.accentL}`,
               }}
             >
-              <div className="text-[11px] font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
+              <div className="text-sm font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
                 ✦ 자산 핵심 체크포인트
               </div>
-              <div className="text-[11px] font-medium text-[#1E293B] whitespace-pre-line leading-snug line-clamp-3">
+              <div className="text-sm font-medium text-[#1E293B] whitespace-pre-line leading-snug line-clamp-3">
                 <InlineEditableText
                   fieldKey="rightCallout"
                   value={String(ov.rightCallout || '')}
@@ -583,18 +583,18 @@ export function SlidePreview({
             </div>
 
             <div
-              className="col-span-3 p-2.5 rounded-xl flex flex-col justify-between text-xs"
+              className="col-span-3 p-2.5 rounded-xl flex flex-col justify-between text-sm"
               style={{ backgroundColor: `#${tokens.ink}`, color: '#FFFFFF' }}
             >
               <div>
-                <span className="text-[10px] font-bold" style={{ color: `#${tokens.accentL}` }}>매매 희망가</span>
+                <span className="text-sm font-bold" style={{ color: `#${tokens.accentL}` }}>매매 희망가</span>
                 <div className="text-sm font-black truncate">
                   <InlineEditableText fieldKey="askingPrice" value={String(ov.askingPrice || '상담')} onCommit={handleFieldCommit} />
                 </div>
               </div>
               <div>
-                <span className="text-[10px] font-bold" style={{ color: `#${tokens.accentL}` }}>토지 평당가</span>
-                <div className="text-xs font-black truncate">
+                <span className="text-sm font-bold" style={{ color: `#${tokens.accentL}` }}>토지 평당가</span>
+                <div className="text-sm font-black truncate">
                   <InlineEditableText fieldKey="landUnitPrice" value={String(ov.landUnitPrice || '-')} onCommit={handleFieldCommit} />
                 </div>
               </div>
@@ -610,17 +610,17 @@ export function SlidePreview({
         <div className="col-span-7 flex flex-col justify-between min-h-0">
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
             <div
-              className="px-3 py-1.5 text-[11px] font-extrabold text-white flex items-center justify-between"
+              className="px-3 py-1.5 text-sm font-extrabold text-white flex items-center justify-between"
               style={{ backgroundColor: `#${tokens.ink}` }}
             >
               <span>건축물대장 · 토지이용계획확인서 제원</span>
-              <span className="text-[10px] opacity-80">✓ 공부확인</span>
+              <span className="text-sm opacity-80">✓ 공부확인</span>
             </div>
             <div className="divide-y" style={{ borderColor: `#${tokens.line2}` }}>
               {specRows.map((r, i) => (
                 <div
                   key={r.key}
-                  className="grid grid-cols-12 px-3 py-1 text-[11px] items-center"
+                  className="grid grid-cols-12 px-3 py-1 text-sm items-center"
                   style={{ backgroundColor: i % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
                 >
                   <span className="col-span-4 font-bold" style={{ color: `#${tokens.slate}` }}>
@@ -640,17 +640,17 @@ export function SlidePreview({
 
           {/* Bottom Price Box */}
           <div
-            className="mt-2 px-3.5 py-2 rounded-xl flex items-center justify-between text-xs"
+            className="mt-2 px-3.5 py-2 rounded-xl flex items-center justify-between text-sm"
             style={{ backgroundColor: `#${tokens.ink}`, color: '#FFFFFF' }}
           >
             <div>
-              <span className="text-[10px] font-bold" style={{ color: `#${tokens.accentL}` }}>매매 희망가</span>
+              <span className="text-sm font-bold" style={{ color: `#${tokens.accentL}` }}>매매 희망가</span>
               <div className="text-sm font-black">
                 <InlineEditableText fieldKey="askingPrice" value={String(ov.askingPrice || '상담')} onCommit={handleFieldCommit} />
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[10px] font-bold" style={{ color: `#${tokens.accentL}` }}>토지 평당가</span>
+              <span className="text-sm font-bold" style={{ color: `#${tokens.accentL}` }}>토지 평당가</span>
               <div className="text-sm font-black">
                 <InlineEditableText fieldKey="landUnitPrice" value={String(ov.landUnitPrice || '-')} onCommit={handleFieldCommit} />
               </div>
@@ -670,7 +670,7 @@ export function SlidePreview({
             ) : (
               <div className="text-center p-3">
                 <div className="text-xl mb-1">🏢</div>
-                <div className="text-[11px] font-bold" style={{ color: `#${tokens.ink}` }}>
+                <div className="text-sm font-bold" style={{ color: `#${tokens.ink}` }}>
                   {ov.buildingName || buildingContext?.buildingName || '본건 외관 대표 이미지'}
                 </div>
               </div>
@@ -685,10 +685,10 @@ export function SlidePreview({
             }}
           >
             <div>
-              <div className="text-[11px] font-extrabold mb-1" style={{ color: `#${tokens.ink}` }}>
+              <div className="text-sm font-extrabold mb-1" style={{ color: `#${tokens.ink}` }}>
                 ✦ 자산 핵심 체크포인트
               </div>
-              <div className="text-[11px] font-medium text-[#1E293B] whitespace-pre-line leading-relaxed line-clamp-5">
+              <div className="text-sm font-medium text-[#1E293B] whitespace-pre-line leading-relaxed line-clamp-5">
                 <InlineEditableText
                   fieldKey="rightCallout"
                   value={String(ov.rightCallout || '')}
@@ -733,25 +733,25 @@ export function SlidePreview({
             </svg>
             <div className="relative z-10 flex items-center justify-between">
               <span
-                className="px-2 py-0.5 rounded text-[10px] font-extrabold text-white"
+                className="px-2 py-0.5 rounded text-sm font-extrabold text-white"
                 style={{ backgroundColor: `#${tokens.ink}` }}
               >
                 반경 500m 입지·교통 분석도
               </span>
-              <span className="text-[10px] font-bold text-[#475569]">© 카카오맵 · 국토부 공간정보</span>
+              <span className="text-sm font-bold text-[#475569]">© 카카오맵 · 국토부 공간정보</span>
             </div>
             <div className="relative z-10 my-auto mx-auto text-center">
               <div
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black text-white shadow-md"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-black text-white shadow-md"
                 style={{ backgroundColor: `#${tokens.accent}` }}
               >
                 <span>📍 본건 위치</span>
               </div>
-              <div className="mt-2 text-xs font-extrabold text-[#0F172A] bg-white/90 px-2.5 py-1 rounded-md border border-[#CBD5E1]">
+              <div className="mt-2 text-sm font-extrabold text-[#0F172A] bg-white/90 px-2.5 py-1 rounded-md border border-[#CBD5E1]">
                 {ov.transitInfo || '역세권 핵심 입지'}
               </div>
             </div>
-            <div className="relative z-10 text-[10px] font-bold text-[#334155] bg-white/85 px-2.5 py-1 rounded border border-[#E2E8F0]">
+            <div className="relative z-10 text-sm font-bold text-[#334155] bg-white/85 px-2.5 py-1 rounded border border-[#E2E8F0]">
               소재지: {ov.address || '-'}
             </div>
           </>
@@ -763,18 +763,18 @@ export function SlidePreview({
       <div className={`${isTransitFocus ? 'col-span-7' : 'col-span-6'} flex flex-col justify-between gap-2.5 min-h-0`}>
         {isTransitFocus && (
           <div
-            className="px-3 py-1.5 rounded-xl flex items-center justify-between text-xs font-black text-white"
+            className="px-3 py-1.5 rounded-xl flex items-center justify-between text-sm font-black text-white"
             style={{ backgroundColor: `#${tokens.accent}` }}
           >
             <span>🚇 역세권 · 대중교통 핵심 요충지</span>
-            <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded">
+            <span className="text-sm bg-white/20 px-2 py-0.5 rounded">
               {ov.transitInfo || '역세권 도보권'}
             </span>
           </div>
         )}
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
           <div
-            className="px-3 py-1.5 text-[11px] font-extrabold text-white"
+            className="px-3 py-1.5 text-sm font-extrabold text-white"
             style={{ backgroundColor: `#${tokens.ink}` }}
           >
             교통 · 도로 · 상권 여건 요약
@@ -783,7 +783,7 @@ export function SlidePreview({
             {locRows.map((r, i) => (
               <div
                 key={r.key}
-                className="grid grid-cols-12 px-3 py-2 text-xs items-center"
+                className="grid grid-cols-12 px-3 py-2 text-sm items-center"
                 style={{ backgroundColor: i % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
               >
                 <span className="col-span-4 font-bold" style={{ color: `#${tokens.slate}` }}>
@@ -808,10 +808,10 @@ export function SlidePreview({
             borderColor: `#${tokens.accent}`,
           }}
         >
-          <div className="text-xs font-extrabold mb-1" style={{ color: `#${tokens.ink}` }}>
+          <div className="text-sm font-extrabold mb-1" style={{ color: `#${tokens.ink}` }}>
             🚇 입지 및 상권 종합 의견
           </div>
-          <div className="text-xs font-medium text-[#1E293B] leading-relaxed">
+          <div className="text-sm font-medium text-[#1E293B] leading-relaxed">
             <InlineEditableText
               fieldKey="locationCallout"
               value={String(ov.locationCallout || '')}
@@ -877,13 +877,13 @@ export function SlidePreview({
                 />
                 <line x1="5" y1="88" x2="115" y2="78" stroke={`#${tokens.ink}`} strokeWidth="3" />
               </svg>
-              <div className="text-xs font-extrabold text-[#0F172A]">V-World 연속지적도 · 필지 경계</div>
-              <div className="text-[11px] font-medium text-[#475569] mt-0.5">
+              <div className="text-sm font-extrabold text-[#0F172A]">V-World 연속지적도 · 필지 경계</div>
+              <div className="text-sm font-medium text-[#475569] mt-0.5">
                 {ov.landArea || '단일/다필지 대지 제원'}
               </div>
             </div>
           )}
-          <div className="text-[10px] font-bold text-[#475569] text-right">
+          <div className="text-sm font-bold text-[#475569] text-right">
             출처: 토지이음 · 국토교통부 V-World
           </div>
         </div>
@@ -892,7 +892,7 @@ export function SlidePreview({
         <div className={`${isCadastralFocus ? 'col-span-5' : 'col-span-7'} flex flex-col justify-between gap-2.5 min-h-0`}>
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: `#${tokens.line}` }}>
             <div
-              className="px-3 py-1.5 text-[11px] font-extrabold text-white flex justify-between"
+              className="px-3 py-1.5 text-sm font-extrabold text-white flex justify-between"
               style={{ backgroundColor: `#${tokens.ink}` }}
             >
               <span>토지이용계획확인원 핵심 제원</span>
@@ -902,7 +902,7 @@ export function SlidePreview({
               {landRows.map((r, i) => (
                 <div
                   key={r.key}
-                  className="grid grid-cols-12 px-3 py-1.5 text-xs items-center"
+                  className="grid grid-cols-12 px-3 py-1.5 text-sm items-center"
                   style={{ backgroundColor: i % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
                 >
                   <span className="col-span-4 font-bold" style={{ color: `#${tokens.slate}` }}>
@@ -918,25 +918,25 @@ export function SlidePreview({
 
           <div className="grid grid-cols-2 gap-2">
             <div className="p-2.5 rounded-xl border bg-white" style={{ borderColor: `#${tokens.line}` }}>
-              <div className="text-[10px] font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
+              <div className="text-sm font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
                 국토의 계획 및 이용에 관한 법률
               </div>
-              <div className="text-[11px] font-medium text-[#1E293B] line-clamp-2">
+              <div className="text-sm font-medium text-[#1E293B] line-clamp-2">
                 <InlineEditableText fieldKey="nationalLaw" value={String(ov.nationalLaw || '-')} onCommit={handleFieldCommit} />
               </div>
             </div>
             <div className="p-2.5 rounded-xl border bg-white" style={{ borderColor: `#${tokens.line}` }}>
-              <div className="text-[10px] font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
+              <div className="text-sm font-extrabold mb-0.5" style={{ color: `#${tokens.ink}` }}>
                 다른 법령 등에 따른 지역·지구
               </div>
-              <div className="text-[11px] font-medium text-[#1E293B] line-clamp-2">
+              <div className="text-sm font-medium text-[#1E293B] line-clamp-2">
                 <InlineEditableText fieldKey="otherLaws" value={String(ov.otherLaws || '-')} onCommit={handleFieldCommit} />
               </div>
             </div>
           </div>
 
           <div
-            className="p-2.5 rounded-xl border text-xs"
+            className="p-2.5 rounded-xl border text-sm"
             style={{ backgroundColor: `#${tokens.accentT}`, borderColor: `#${tokens.accent}` }}
           >
             <span className="font-extrabold mr-1.5" style={{ color: `#${tokens.ink}` }}>📋 공법 검토 의견:</span>
@@ -1007,7 +1007,7 @@ export function SlidePreview({
     return (
       <div className="flex-1 flex flex-col justify-between gap-2 min-h-0">
         {isMultiRentRollPage && (
-          <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[11px]">
+          <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-sm">
             <span className="font-bold text-[#1E3A8A]">
               📋 총 {parsedLeases.length}개 호실 — 1/2면 · 2/2면 미리보기 전환
             </span>
@@ -1015,7 +1015,7 @@ export function SlidePreview({
               <button
                 type="button"
                 onClick={() => setRentRollPreviewPage(0)}
-                className={`px-2 py-0.5 rounded font-extrabold ${
+                className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold cursor-pointer ${
                   rentRollPreviewPage === 0 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
                 }`}
               >
@@ -1024,7 +1024,7 @@ export function SlidePreview({
               <button
                 type="button"
                 onClick={() => setRentRollPreviewPage(1)}
-                className={`px-2 py-0.5 rounded font-extrabold ${
+                className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold cursor-pointer ${
                   rentRollPreviewPage === 1 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
                 }`}
               >
@@ -1046,7 +1046,7 @@ export function SlidePreview({
               className="px-3.5 py-2 rounded-xl border flex items-center justify-between"
               style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
             >
-              <span className="text-[11px] font-bold" style={{ color: `#${tokens.slate}` }}>{m.label}</span>
+              <span className="text-sm font-bold" style={{ color: `#${tokens.slate}` }}>{m.label}</span>
               <span className="text-sm font-black text-[#0F172A]">
                 <InlineEditableText fieldKey={m.key} value={String(m.val)} onCommit={handleFieldCommit} />
               </span>
@@ -1063,7 +1063,7 @@ export function SlidePreview({
               style={{ borderColor: `#${tokens.line}`, backgroundColor: `#${tokens.tint}` }}
             >
               <div
-                className="px-2.5 py-1.5 text-[10px] font-extrabold text-white flex items-center justify-between"
+                className="px-2.5 py-1.5 text-sm font-extrabold text-white flex items-center justify-between"
                 style={{ backgroundColor: `#${tokens.ink}` }}
               >
                 <span>층별 스태킹 플랜</span>
@@ -1082,7 +1082,7 @@ export function SlidePreview({
                     return (
                       <div
                         key={fl.floorLabel}
-                        className="px-2 py-1 rounded border flex items-center justify-between text-[10px]"
+                        className="px-2 py-1 rounded border flex items-center justify-between text-sm"
                         style={{
                           backgroundColor: allVacant ? `#${tokens.redL}` : '#FFFFFF',
                           borderColor: allVacant ? `#${tokens.red}` : `#${tokens.line}`,
@@ -1100,7 +1100,7 @@ export function SlidePreview({
                   })}
                 </div>
               ) : (
-                <div className="p-3 text-center text-[11px] text-[#475569] my-auto">층별 스태킹 자동 생성</div>
+                <div className="p-3 text-center text-sm text-[#475569] my-auto">층별 스태킹 자동 생성</div>
               )}
             </div>
           )}
@@ -1111,7 +1111,7 @@ export function SlidePreview({
             style={{ borderColor: `#${tokens.line}` }}
           >
             <div
-              className="grid grid-cols-12 px-3 py-1.5 text-[10px] font-extrabold text-white items-center"
+              className="grid grid-cols-12 px-3 py-1.5 text-sm font-extrabold text-white items-center"
               style={{ backgroundColor: `#${tokens.ink}` }}
             >
               <span className={hasUnitColumn ? 'col-span-1' : 'col-span-2'}>층</span>
@@ -1126,7 +1126,7 @@ export function SlidePreview({
                 {displayLeases.map((r: any, idx: number) => (
                   <div
                     key={idx}
-                    className="grid grid-cols-12 px-3 py-1 text-[10px] items-center"
+                    className="grid grid-cols-12 px-3 py-1 text-sm items-center"
                     style={{
                       backgroundColor: r.isVac ? `#${tokens.redL}` : idx % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF',
                     }}
@@ -1157,7 +1157,7 @@ export function SlidePreview({
                   </div>
                 ))}
                 {isMultiRentRollPage && (
-                  <div className="px-3 py-1 text-[10px] font-bold text-[#1E3A8A] bg-[#EFF6FF] flex items-center justify-between">
+                  <div className="px-3 py-1 text-sm font-bold text-[#1E3A8A] bg-[#EFF6FF] flex items-center justify-between">
                     <span>
                       {rentRollPreviewPage === 0
                         ? `외 ${parsedLeases.length - 6}개 호실`
@@ -1170,7 +1170,7 @@ export function SlidePreview({
                 )}
               </div>
             ) : (
-              <div className="p-4 text-center text-xs font-medium text-[#475569] my-auto">
+              <div className="p-4 text-center text-sm font-medium text-[#475569] my-auto">
                 층별 상세 임대차 내역은 우측 편집 패널 또는 딜카드 렌트롤 탭에서 연동됩니다.
               </div>
             )}
@@ -1182,14 +1182,14 @@ export function SlidePreview({
           className="px-3.5 py-2 rounded-xl border"
           style={{ backgroundColor: `#${tokens.accentT}`, borderColor: `#${tokens.accent}` }}
         >
-          <div className="text-[11px] font-extrabold" style={{ color: `#${tokens.ink}` }}>
+          <div className="text-sm font-extrabold" style={{ color: `#${tokens.ink}` }}>
             <InlineEditableText
               fieldKey="stabilizedYieldTitle"
               value={String(ov.stabilizedYieldTitle || '매입 후 임대차 재구성(Value-Add) 전략')}
               onCommit={handleFieldCommit}
             />
           </div>
-          <div className="text-[11px] font-medium text-[#1E293B] truncate mt-0.5">
+          <div className="text-sm font-medium text-[#1E293B] truncate mt-0.5">
             <InlineEditableText
               fieldKey="turnaroundStrategy"
               value={String(ov.turnaroundStrategy || ov.rentrollNotes || '')}
@@ -1214,22 +1214,20 @@ export function SlidePreview({
     )
       ? enrichment.landPriceHistory.history.slice(-10)
       : [];
-    const maxHistPrice =
-      rawHistory.length >= 2
-        ? Math.max(...rawHistory.map(h => Number(h.pricePerSqm) || 0), 1)
-        : 100;
-    const chartBars =
-      rawHistory.length >= 2
-        ? rawHistory.map(h => ({
-            yearLabel: `'${String(h.year).slice(-2)}`,
-            pct: Math.max(18, Math.round(((Number(h.pricePerSqm) || 0) / maxHistPrice) * 100)),
-            tooltip: `${h.year}년: ${Number(h.pricePerSqm || 0).toLocaleString()}원/㎡`,
-          }))
-        : [42, 48, 53, 60, 68, 76, 84, 89, 94, 100].map((pct, i) => ({
-            yearLabel: `'${17 + i}`,
-            pct,
-            tooltip: `개별공시지가 추이`,
-          }));
+    const hasRealLandHistory = rawHistory.length >= 2;
+    const maxHistPrice = hasRealLandHistory
+      ? Math.max(...rawHistory.map(h => Number(h.pricePerSqm) || 0), 1)
+      : 1;
+    const chartBars = hasRealLandHistory
+      ? rawHistory.map(h => ({
+          yearLabel: `'${String(h.year).slice(-2)}`,
+          pct: Math.max(18, Math.round(((Number(h.pricePerSqm) || 0) / maxHistPrice) * 100)),
+          tooltip: `${h.year}년: ${Number(h.pricePerSqm || 0).toLocaleString()}원/㎡`,
+        }))
+      : [];
+    const landChartYearRange = hasRealLandHistory
+      ? ` (${rawHistory[0].year}~${rawHistory[rawHistory.length - 1].year})`
+      : '';
 
     return (
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
@@ -1237,14 +1235,14 @@ export function SlidePreview({
         <div className="col-span-7 flex flex-col justify-between gap-2">
           {isDualYield && (
             <div
-              className="px-3 py-1.5 rounded-xl flex items-center justify-between text-xs font-extrabold text-white"
+              className="px-3 py-1.5 rounded-xl flex items-center justify-between text-sm font-extrabold text-white"
               style={{ backgroundColor: `#${tokens.accent}` }}
             >
               <span>
                 🚀 임대차 재구성 시 기대 수익률 상승폭: {yieldSpread >= 0 ? '+' : ''}
                 {yieldSpread.toFixed(2)}%p
               </span>
-              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">Value-Add 시나리오</span>
+              <span className="text-sm bg-white/20 px-2 py-0.5 rounded">Value-Add 시나리오</span>
             </div>
           )}
           <div className="grid grid-cols-2 gap-2.5">
@@ -1252,20 +1250,20 @@ export function SlidePreview({
               className="p-3.5 rounded-xl border text-white"
               style={{ backgroundColor: `#${tokens.ink}`, borderColor: `#${tokens.ink2}` }}
             >
-              <div className="text-[10px] font-bold uppercase" style={{ color: `#${tokens.accentL}` }}>
+              <div className="text-sm font-bold uppercase" style={{ color: `#${tokens.accentL}` }}>
                 현행 임대수익률 (보증금 차감)
               </div>
               <div className="text-2xl font-black mt-1">
                 <InlineEditableText fieldKey="capRateBase" value={String(ov.capRateBase || '-')} onCommit={handleFieldCommit} />
               </div>
-              <div className="text-[10px] mt-1 opacity-80">연 임대료 ÷ (매매가 − 보증금)</div>
+              <div className="text-sm mt-1 opacity-80">연 임대료 ÷ (매매가 − 보증금)</div>
             </div>
 
             <div
               className="p-3.5 rounded-xl border"
               style={{ backgroundColor: `#${tokens.accentT}`, borderColor: `#${tokens.accent}` }}
             >
-              <div className="text-[10px] font-extrabold uppercase" style={{ color: `#${tokens.accentD}` }}>
+              <div className="text-sm font-extrabold uppercase" style={{ color: `#${tokens.accentD}` }}>
                 안정화 기대수익률 (전환 시)
               </div>
               <div className="text-2xl font-black mt-1" style={{ color: `#${tokens.ink}` }}>
@@ -1275,7 +1273,7 @@ export function SlidePreview({
                   onCommit={handleFieldCommit}
                 />
               </div>
-              <div className="text-[10px] font-bold text-[#334155] mt-1 truncate">
+              <div className="text-sm font-bold text-[#334155] mt-1 truncate">
                 <InlineEditableText fieldKey="stabilizedAssumption" value={String(ov.stabilizedAssumption || '')} onCommit={handleFieldCommit} />
               </div>
             </div>
@@ -1290,7 +1288,7 @@ export function SlidePreview({
             ].map((r, i) => (
               <div
                 key={r.key}
-                className="grid grid-cols-12 px-3 py-1.5 text-xs items-center border-b last:border-b-0"
+                className="grid grid-cols-12 px-3 py-1.5 text-sm items-center border-b last:border-b-0"
                 style={{
                   backgroundColor: i % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF',
                   borderColor: `#${tokens.line2}`,
@@ -1305,36 +1303,50 @@ export function SlidePreview({
           </div>
         </div>
 
-        {/* Right 5 cols: 10-Year Official Land Price Trend Chart */}
+        {/* Right 5 cols: Multi-Year Official Land Price Trend Chart */}
         <div
           className="col-span-5 rounded-xl border p-3.5 flex flex-col justify-between"
           style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
         >
           <div>
-            <div className="text-xs font-extrabold text-[#0F172A]">📈 개별공시지가 10년 우상향 추이</div>
-            <div className="text-[10px] font-bold text-[#475569]">국토교통부 · 한국부동산원(R-ONE) 지가변동률</div>
+            <div className="text-sm font-extrabold text-[#0F172A]">
+              📈 개별공시지가 다개년 추이{landChartYearRange}
+            </div>
+            {hasRealLandHistory && (
+              <div className="text-sm font-bold text-[#475569]">
+                개별공시지가 다개년 열람 데이터 ({rawHistory.length}개년)
+              </div>
+            )}
           </div>
-          <div className="h-32 flex items-end justify-between gap-1.5 px-2 pt-4">
-            {chartBars.map((bar, i) => {
-              const isLast = i === chartBars.length - 1;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end" title={bar.tooltip}>
-                  <div
-                    className="w-full rounded-t transition-all"
-                    style={{
-                      height: `${bar.pct}%`,
-                      backgroundColor: isLast ? `#${tokens.accent}` : `#${tokens.ink}`,
-                      opacity: isLast ? 1 : 0.35 + i * 0.06,
-                    }}
-                  />
-                  <span className="text-[8px] font-mono font-bold text-[#475569]">
-                    {bar.yearLabel}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="text-[11px] font-medium text-[#1E293B] bg-white p-2 rounded-lg border border-[#CBD5E1]">
+          {hasRealLandHistory ? (
+            <div className="h-32 flex items-end justify-between gap-1.5 px-2 pt-4">
+              {chartBars.map((bar, i) => {
+                const isLast = i === chartBars.length - 1;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end" title={bar.tooltip}>
+                    <div
+                      className="w-full rounded-t transition-all"
+                      style={{
+                        height: `${bar.pct}%`,
+                        backgroundColor: isLast ? `#${tokens.accent}` : `#${tokens.ink}`,
+                        opacity: isLast ? 1 : 0.35 + i * 0.06,
+                      }}
+                    />
+                    <span className="text-sm font-mono font-bold text-[#475569]">
+                      {bar.yearLabel}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="h-32 my-2 rounded-lg border border-dashed border-[#CBD5E1] bg-white/80 px-3 flex items-center justify-center text-center">
+              <span className="text-sm font-bold text-[#475569] leading-snug">
+                개별공시지가 다개년 이력 데이터 미수집 (공공데이터 연동 후 표시)
+              </span>
+            </div>
+          )}
+          <div className="text-sm font-medium text-[#1E293B] bg-white p-2 rounded-lg border border-[#CBD5E1]">
             <InlineEditableText fieldKey="yieldNotes" value={String(ov.yieldNotes || '')} onCommit={handleFieldCommit} />
           </div>
         </div>
@@ -1358,10 +1370,10 @@ export function SlidePreview({
     return (
       <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
         <div className="flex items-center justify-between px-3.5 py-2 rounded-xl border" style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}>
-          <span className="text-xs font-extrabold text-[#0F172A]">
+          <span className="text-sm font-extrabold text-[#0F172A]">
             <InlineEditableText fieldKey="compsTitle" value={String(ov.compsTitle || '인근 유사 매매 실거래 비교 사례')} onCommit={handleFieldCommit} />
           </span>
-          <span className="text-xs font-black" style={{ color: `#${tokens.accentD}` }}>
+          <span className="text-sm font-black" style={{ color: `#${tokens.accentD}` }}>
             본건 토지평당가:{' '}
             <InlineEditableText fieldKey="targetLandPricePerPy" value={String(ov.targetLandPricePerPy || '-')} onCommit={handleFieldCommit} />
           </span>
@@ -1369,7 +1381,7 @@ export function SlidePreview({
 
         <div className="rounded-xl border overflow-hidden flex-1" style={{ borderColor: `#${tokens.line}` }}>
           <div
-            className="grid grid-cols-12 px-3 py-1.5 text-[11px] font-extrabold text-white"
+            className="grid grid-cols-12 px-3 py-1.5 text-sm font-extrabold text-white"
             style={{ backgroundColor: `#${tokens.ink}` }}
           >
             <span className="col-span-4">비교사례 소재지 · 건물명</span>
@@ -1386,7 +1398,7 @@ export function SlidePreview({
                 return (
                   <div
                     key={idx}
-                    className="grid grid-cols-12 px-3 py-1.5 text-xs items-center"
+                    className="grid grid-cols-12 px-3 py-1.5 text-sm items-center"
                     style={{ backgroundColor: idx % 2 === 1 ? `#${tokens.tint}` : '#FFFFFF' }}
                   >
                     <span className="col-span-4 font-bold text-[#0F172A] truncate">
@@ -1409,14 +1421,14 @@ export function SlidePreview({
               })}
             </div>
           ) : (
-            <div className="p-6 text-center text-xs font-medium text-[#475569]">
+            <div className="p-6 text-center text-sm font-medium text-[#475569]">
               우측 패널에서 인근 비교 사례를 추가하거나 시세 비교 코멘트를 입력할 수 있습니다.
             </div>
           )}
         </div>
 
         <div
-          className="px-3.5 py-2 rounded-xl border text-xs font-medium text-[#1E293B]"
+          className="px-3.5 py-2 rounded-xl border text-sm font-medium text-[#1E293B]"
           style={{ backgroundColor: `#${tokens.accentT}`, borderColor: `#${tokens.accent}` }}
         >
           <span className="font-extrabold mr-1.5" style={{ color: `#${tokens.ink}` }}>📊 시세 비교 시사점:</span>
@@ -1488,12 +1500,12 @@ export function SlidePreview({
           ) : (
             <div className="my-auto mx-auto text-center p-2">
               <div className="text-lg">📷</div>
-              <div className="text-[11px] font-bold text-[#475569]">{placeholders[idx] || `현장 실사 #${idx + 1}`}</div>
+              <div className="text-sm font-bold text-[#475569]">{placeholders[idx] || `현장 실사 #${idx + 1}`}</div>
             </div>
           )}
           {(isHero || isExt) && (
             <span
-              className={`absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white ${
+              className={`absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-sm font-extrabold text-white ${
                 isHero ? 'bg-[#D97706]' : 'bg-[#1D4ED8]'
               }`}
             >
@@ -1501,11 +1513,11 @@ export function SlidePreview({
             </span>
           )}
           <div
-            className="relative z-10 px-2.5 py-1 text-[11px] font-bold text-white flex items-center justify-between"
+            className="relative z-10 px-2.5 py-1 text-sm font-bold text-white flex items-center justify-between"
             style={{ backgroundColor: `#${tokens.ink}DD` }}
           >
             <span className="truncate">{item?.caption || placeholders[idx] || `현장 실사 #${idx + 1}`}</span>
-            <span className="text-[9px] opacity-75">{String(globalIdx + 1).padStart(2, '0')}</span>
+            <span className="text-sm opacity-75">{String(globalIdx + 1).padStart(2, '0')}</span>
           </div>
         </div>
       );
@@ -1517,7 +1529,7 @@ export function SlidePreview({
     return (
       <div className="flex-1 flex flex-col gap-2 min-h-0">
         {isTwoPage && (
-          <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[11px]">
+          <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-sm">
             <span className="font-bold text-[#1E3A8A]">
               📸 총 {activePhotos.length}장 — 갤러리 2면(1/2, 2/2) 자동 확장 미리보기
             </span>
@@ -1525,7 +1537,7 @@ export function SlidePreview({
               <button
                 type="button"
                 onClick={() => setGalleryPreviewPage(0)}
-                className={`px-2 py-0.5 rounded font-extrabold ${
+                className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold cursor-pointer ${
                   galleryPreviewPage === 0 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
                 }`}
               >
@@ -1534,7 +1546,7 @@ export function SlidePreview({
               <button
                 type="button"
                 onClick={() => setGalleryPreviewPage(1)}
-                className={`px-2 py-0.5 rounded font-extrabold ${
+                className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold cursor-pointer ${
                   galleryPreviewPage === 1 ? 'bg-[#1D4ED8] text-white' : 'bg-white text-[#334155]'
                 }`}
               >
@@ -1580,7 +1592,7 @@ export function SlidePreview({
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-2.5" style={{ borderColor: `#${tokens.darkBorder}` }}>
           <div className="flex items-baseline gap-2.5">
-            <span className="font-mono text-xs font-extrabold" style={{ color: `#${tokens.accentL}` }}>
+            <span className="font-mono text-sm font-extrabold" style={{ color: `#${tokens.accentL}` }}>
               {String(slideNo).padStart(2, '0')}
             </span>
             <h3 className="text-lg font-black text-white">
@@ -1588,7 +1600,7 @@ export function SlidePreview({
             </h3>
           </div>
           {pageNumText && (
-            <span className="font-mono text-xs font-semibold" style={{ color: `#${tokens.darkMute}` }}>
+            <span className="font-mono text-sm font-semibold" style={{ color: `#${tokens.darkMute}` }}>
               {pageNumText}
             </span>
           )}
@@ -1603,14 +1615,14 @@ export function SlidePreview({
               style={{ backgroundColor: `#${tokens.darkBlock}`, border: `1px solid #${tokens.darkBorder}` }}
             >
               <span
-                className="w-6 h-6 rounded-md text-[11px] font-black flex items-center justify-center text-white shrink-0"
+                className="w-6 h-6 rounded-md text-sm font-black flex items-center justify-center text-white shrink-0"
                 style={{ backgroundColor: `#${tokens.accent}` }}
               >
                 {s.num}
               </span>
               <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">{s.title}</div>
-                <div className="text-[10px] truncate" style={{ color: `#${tokens.darkMute}` }}>{s.desc}</div>
+                <div className="text-sm font-bold text-white truncate">{s.title}</div>
+                <div className="text-sm truncate" style={{ color: `#${tokens.darkMute}` }}>{s.desc}</div>
               </div>
             </div>
           ))}
@@ -1623,7 +1635,7 @@ export function SlidePreview({
             style={{ backgroundColor: `#${tokens.darkBlock}`, border: `1px solid #${tokens.accent}` }}
           >
             <div>
-              <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: `#${tokens.accentL}` }}>
+              <div className="text-sm font-extrabold uppercase tracking-wider" style={{ color: `#${tokens.accentL}` }}>
                 ADVISORY CONTACT
               </div>
               <div className="text-sm font-black text-white mt-1">
@@ -1633,7 +1645,7 @@ export function SlidePreview({
                   onCommit={handleFieldCommit}
                 />
               </div>
-              <div className="text-xs font-semibold mt-1.5 space-y-0.5" style={{ color: `#${tokens.darkBody}` }}>
+              <div className="text-sm font-semibold mt-1.5 space-y-0.5" style={{ color: `#${tokens.darkBody}` }}>
                 <div>
                   담당자: <InlineEditableText fieldKey="brokerName" value={String(ov.brokerName || '전담 매각자문팀')} onCommit={handleFieldCommit} />
                 </div>
@@ -1642,7 +1654,7 @@ export function SlidePreview({
                 </div>
               </div>
             </div>
-            <div className="text-[11px] font-medium pt-2 border-t mt-2" style={{ borderColor: `#${tokens.darkBorder}`, color: `#${tokens.accentL}` }}>
+            <div className="text-sm font-medium pt-2 border-t mt-2" style={{ borderColor: `#${tokens.darkBorder}`, color: `#${tokens.accentL}` }}>
               <InlineEditableText fieldKey="closingLine" value={String(ov.closingLine || '')} onCommit={handleFieldCommit} />
             </div>
           </div>
@@ -1652,8 +1664,8 @@ export function SlidePreview({
             style={{ backgroundColor: `#${tokens.darkBlock}`, border: `1px solid #${tokens.darkBorder}` }}
           >
             <div>
-              <div className="text-xs font-extrabold text-white mb-1">데이터 출처 표기 및 법적 면책 고지</div>
-              <div className="text-[11px] leading-relaxed" style={{ color: `#${tokens.darkMute}` }}>
+              <div className="text-sm font-extrabold text-white mb-1">데이터 출처 표기 및 법적 면책 고지</div>
+              <div className="text-sm leading-relaxed" style={{ color: `#${tokens.darkMute}` }}>
                 <InlineEditableText
                   fieldKey="disclaimer"
                   value={String(ov.disclaimer || headerFooterConfig.footerDisclaimer)}
@@ -1666,7 +1678,7 @@ export function SlidePreview({
               {['✓ 공부확인', '★ 전문가검증', '● 중개인입력', '◇ 시나리오추정'].map(b => (
                 <span
                   key={b}
-                  className="px-2 py-0.5 rounded text-[9px] font-bold text-white"
+                  className="px-2 py-0.5 rounded text-sm font-bold text-white"
                   style={{ backgroundColor: `#${tokens.ink}` }}
                 >
                   {b}
@@ -1686,11 +1698,11 @@ export function SlidePreview({
         <div className="flex items-center gap-2">
           <span
             data-active-pill="true"
-            className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#1D4ED8] text-white whitespace-nowrap shrink-0"
+            className="px-2.5 py-1 rounded-lg text-sm font-extrabold bg-[#1D4ED8] text-white whitespace-nowrap shrink-0"
           >
             SLIDE {String(slideNo).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
           </span>
-          <span className="text-xs font-bold text-[#334155]">
+          <span className="text-sm font-bold text-[#334155]">
             슬라이드 안의 글자나 숫자를 마우스로 직접 클릭해 바로 고칠 수 있습니다.
           </span>
         </div>
@@ -1698,7 +1710,7 @@ export function SlidePreview({
           <button
             type="button"
             onClick={onToggleFullscreen}
-            className="px-3 py-1 rounded-lg text-xs font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs whitespace-nowrap shrink-0"
+            className="min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
           >
             {isFullscreen ? '✕ 전체화면 닫기' : '크게 보기'}
           </button>
@@ -1720,7 +1732,7 @@ export function SlidePreview({
             <span className="px-4 py-1.5 rounded-full bg-[#B91C1C] text-white text-sm font-black mb-2">
               🚫 현재 다운로드 제외 (숨김 상태)
             </span>
-            <p className="text-xs text-white/90">
+            <p className="text-sm text-white/90">
               좌측 슬라이드 목록에서 [표시] 버튼을 누르면 PPTX 다운로드에 다시 포함됩니다.
             </p>
           </div>
@@ -1740,7 +1752,7 @@ export function SlidePreview({
             >
               <div className="flex items-baseline gap-2.5 min-w-0">
                 <span
-                  className="font-mono text-xs sm:text-sm font-black tracking-wider shrink-0"
+                  className="font-mono text-sm font-black tracking-wider shrink-0"
                   style={{ color: `#${tokens.accent}` }}
                 >
                   {String(slideNo).padStart(2, '0')}
@@ -1757,7 +1769,7 @@ export function SlidePreview({
                 </h3>
               </div>
 
-              <span className="text-[11px] font-medium text-[#64748B] truncate max-w-[38%] shrink-0">
+              <span className="text-sm font-medium text-[#64748B] truncate max-w-[38%] shrink-0">
                 {buildingContext?.buildingName || ssot.title || ''}
               </span>
             </div>
@@ -1783,7 +1795,7 @@ export function SlidePreview({
 
             {/* Minimal Apple-Style Slide Footer */}
             <div
-              className="pt-2 mt-2.5 border-t flex items-center justify-between text-[10px]"
+              className="pt-2 mt-2.5 border-t flex items-center justify-between text-sm"
               style={{ borderColor: `#${tokens.line2}`, color: `#${tokens.mute}` }}
             >
               <span className="font-semibold truncate max-w-[70%]">
@@ -1805,17 +1817,17 @@ export function SlidePreview({
           <button
             type="button"
             onClick={onPrevSlide}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl text-sm font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs cursor-pointer"
           >
             ◀ 이전 슬라이드
           </button>
-          <span className="text-xs font-extrabold text-[#334155]">
+          <span className="text-sm font-extrabold text-[#334155]">
             {slideNo} / {totalSlides} 면
           </span>
           <button
             type="button"
             onClick={onNextSlide}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl text-sm font-bold bg-white border border-[#CBD5E1] text-[#0F172A] hover:bg-[#F8FAFC] shadow-2xs cursor-pointer"
           >
             다음 슬라이드 ▶
           </button>

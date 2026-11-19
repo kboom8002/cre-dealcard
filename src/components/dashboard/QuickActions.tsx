@@ -3,7 +3,6 @@
 import { motion } from "motion/react";
 import {
   FilePlus,
-  Building2,
   UserPlus,
   Search,
   ArrowRight,
@@ -13,7 +12,7 @@ import { useHaptic } from "@/hooks/useHaptic";
 
 const ACTIONS = [
   {
-    href: "/broker/deal-card/new",
+    href: "/broker/w/dealcards",
     icon: FilePlus,
     label: "매매 딜카드 등록",
     color: "text-blue-400",

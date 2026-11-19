@@ -3,7 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { stripMarkdown } from '../data-binder';
-import { optimizeImageForPptx, type OptimizedImage } from '../utils/image-optimizer';
+import { optimizeImageForPptx, isNonPhotoGraphic, type OptimizedImage } from '../utils/image-optimizer';
 import { addImageFit, planImageFit } from '../utils/image-fit';
 import { prioritizeSpecRows } from '../spec-row-priority';
 import { verifiedLegalLimitsFromSsot } from '../binder/legal-limits';
@@ -195,9 +195,31 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     typeof s === 'string' && /^(?:data:)?image\/(?:png|jpeg|jpg);base64,/i.test(s);
   const photoCandidate = input.data.photoUrl || right.photoUrl;
   let photoImg: { base64: string; width?: number; height?: number } | null = null;
-  if (photoCandidate) {
-    const opt = await optimizeImageForPptx(photoCandidate, 1200, 85);
-    photoImg = opt || (isSafePptxBase64(photoCandidate) ? { base64: photoCandidate } : null);
+  const candidateUrls: string[] = [];
+  const pushCandidateUrl = (u: unknown) => {
+    if (typeof u === 'string' && u.trim() && !candidateUrls.includes(u)) candidateUrls.push(u);
+  };
+  pushCandidateUrl(photoCandidate);
+  if (Array.isArray(input.data.candidatePhotoUrls)) {
+    for (const u of input.data.candidatePhotoUrls) pushCandidateUrl(u);
+  }
+  if (candidateUrls.length > 0) {
+    let firstValid: OptimizedImage | null = null;
+    for (const url of candidateUrls) {
+      const opt = await optimizeImageForPptx(url, 1200, 85, 850);
+      if (!opt) continue;
+      if (!firstValid) firstValid = opt;
+      if (!isNonPhotoGraphic(opt)) {
+        photoImg = opt;
+        break;
+      }
+    }
+    if (!photoImg && firstValid && candidateUrls.length === 1) {
+      photoImg = firstValid;
+    }
+    if (!photoImg && photoCandidate && candidateUrls.length === 1 && isSafePptxBase64(photoCandidate)) {
+      photoImg = { base64: photoCandidate };
+    }
   }
   if (!photoImg && Array.isArray(input.data.photos) && input.data.photos.length > 0) {
     const kickerLower = (input.data.kicker || '').toLowerCase();
@@ -218,8 +240,12 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
 
     const url = typeof selectedPhoto === 'string' ? selectedPhoto : selectedPhoto?.url;
     if (url) {
-      const opt = await optimizeImageForPptx(url, 1200, 85);
-      photoImg = opt || (isSafePptxBase64(url) ? { base64: url } : null);
+      const opt = await optimizeImageForPptx(url, 1200, 85, 850);
+      if (opt && !isNonPhotoGraphic(opt)) {
+        photoImg = opt;
+      } else if (!candidateUrls.length && (opt || isSafePptxBase64(url))) {
+        photoImg = opt || { base64: url };
+      }
     }
   }
 

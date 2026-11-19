@@ -1,17 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import {
   normalizeFloorName,
-  synthesizeMissingVacantFloors,
 } from "@/lib/rent-roll/tsv-parser";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
-import { ImDataBottomSheet } from "@/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet";
+
+const ImDataBottomSheet = dynamic(
+  () =>
+    import("@/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet").then(
+      (m) => m.ImDataBottomSheet
+    ),
+  { ssr: false, loading: () => null }
+);
 import type { RentRollImportPayload } from "@/components/broker/rent-roll-importer";
 import {
   EMPTY_BROKER_EXTRAS_FORM,
@@ -35,6 +42,7 @@ import {
   readScopedWorkspaceJson,
   writeScopedWorkspaceJson,
 } from "@/lib/workspace/storage-namespace";
+import { toListTime } from "@/lib/workspace/list-date";
 
 import {
   BLANK_IM_HIGHLIGHTS,
@@ -78,19 +86,72 @@ export {
   parseKrwInputToManwon,
 };
 
+export function mintUniqueFreshImIds(): {
+  id: string;
+  buildingId: string;
+  suffix: string;
+} {
+  const suffix =
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return {
+    id: `im-doc-fresh-${suffix}`,
+    buildingId: `bld-fresh-${suffix}`,
+    suffix,
+  };
+}
+
+export function mintDuplicateImIds(sourceBuildingId?: string | null): {
+  id: string;
+  buildingId: string;
+  suffix: string;
+} {
+  const suffix =
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const rawBid = String(sourceBuildingId || "").trim();
+  const isSharedOrFresh =
+    SAMPLE_SEED_IDS.has(rawBid) ||
+    rawBid.startsWith("bld-fresh-") ||
+    rawBid.startsWith("im-doc-fresh-");
+  return {
+    id: `im-doc-${suffix}`,
+    buildingId: isSharedOrFresh || !rawBid ? `bld-dup-${suffix}` : `bld-dup-${suffix}`,
+    suffix,
+  };
+}
+
 function ImWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
 
-  const [items, setItems] = useState<ImListItem[]>(INITIAL_IM_LIST);
+  const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
+  const isFreshParam = searchParams.get("fresh") === "1";
+  const currentUserIdRef = useRef<string | null>(getLastActiveBrokerUserId());
+  const hydratedUserIdRef = useRef<string | null>(currentUserIdRef.current);
+  const [initialFreshItem] = useState<ImListItem | null>(() => {
+    if (!isFreshParam) return null;
+    const freshIds = mintUniqueFreshImIds();
+    return createBlankImItem({
+      id: freshIds.id,
+      buildingId: freshIds.buildingId,
+      updatedAt: "",
+    });
+  });
+
+  const [items, setItems] = useState<ImListItem[]>(() =>
+    initialFreshItem ? [initialFreshItem, ...INITIAL_IM_LIST] : INITIAL_IM_LIST
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [postureFilter, setPostureFilter] = useState<ImPostureFilterKey>("all");
   const [viewMode, setViewMode] = useListViewMode();
   const [fullscreenModalUrl, setFullscreenModalUrl] = useState<string | null>(null);
   const [activeEditorTab, setActiveEditorTab] = useState<ImEditorTabKey>("specs");
   const [activeSlideFilter, setActiveSlideFilter] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string>(items[0]?.id || "");
+  const [selectedId, setSelectedId] = useState<string>(
+    () => initialFreshItem?.id || items[0]?.id || ""
+  );
   const selectedIdRef = useRef<string>(selectedId);
   selectedIdRef.current = selectedId;
   const itemsRef = useRef<ImListItem[]>(items);
@@ -101,8 +162,6 @@ function ImWorkspaceInner() {
   const inFlightSelfUrlIdsRef = useRef<Set<string>>(new Set());
   const initialHydrationDoneRef = useRef<boolean>(false);
   const storageQuotaNotifiedRef = useRef<boolean>(false);
-  const currentUserIdRef = useRef<string | null>(getLastActiveBrokerUserId());
-  const hydratedUserIdRef = useRef<string | null>(currentUserIdRef.current);
 
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -111,6 +170,7 @@ function ImWorkspaceInner() {
   const [isAiPointsBusy, setIsAiPointsBusy] = useState(false);
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
   const [actionAlert, setActionAlert] = useState<string | null>(null);
+  const [actionAlertCode, setActionAlertCode] = useState<string | null>(null);
   const [photoEntries, setPhotoEntries] = useState<ImPhotoEntry[]>([]);
   const latestPhotoEntriesRef = useRef<ImPhotoEntry[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,11 +181,12 @@ function ImWorkspaceInner() {
   const [wonDraft, setWonDraft] = useState("");
   const [isPriceCalcOpen, setIsPriceCalcOpen] = useState(false);
   const [isRentRollImportOpen, setIsRentRollImportOpen] = useState(false);
+  const initialBrokerItem = initialFreshItem || INITIAL_IM_LIST[0];
   const [isBrokerSectionOpen, setIsBrokerSectionOpen] = useState<boolean>(
     () =>
       !Boolean(
-        cleanBrokerPlaceholder(INITIAL_IM_LIST[0]?.brokerName) ||
-          cleanBrokerPlaceholder(INITIAL_IM_LIST[0]?.brokerPhone)
+        cleanBrokerPlaceholder(initialBrokerItem?.brokerName) ||
+          cleanBrokerPlaceholder(initialBrokerItem?.brokerPhone)
       )
   );
   const brokerSectionTouchedRef = useRef<boolean>(false);
@@ -140,9 +201,6 @@ function ImWorkspaceInner() {
       await Promise.allSettled(Array.from(pendingPhotoCompressionsRef.current));
     }
   }, []);
-
-  const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
-  const isFreshParam = searchParams.get("fresh") === "1";
 
   const persistImItems = useCallback(
     (next: ImListItem[], explicitUserId?: string | null) => {
@@ -228,7 +286,7 @@ function ImWorkspaceInner() {
         inFlightSelfUrlIdsRef.current.add(currentQueryId);
       }
       inFlightSelfUrlIdsRef.current.add(urlTargetId);
-      lastAppliedQueryIdRef.current = currentQueryId || urlTargetId;
+      lastAppliedQueryIdRef.current = urlTargetId;
       pendingUrlBuildingIdRef.current = urlTargetId;
 
       if (options?.syncUrl !== false) {
@@ -445,6 +503,7 @@ function ImWorkspaceInner() {
   useImServerHydration({
     buildingIdParam,
     isFreshParam,
+    initialFreshStarterItem: initialFreshItem,
     initialHydrationDoneRef,
     currentUserIdRef,
     hydratedUserIdRef,
@@ -472,7 +531,7 @@ function ImWorkspaceInner() {
         rentRoll.reduce(
           (s, r) =>
             s +
-            (r.status !== "vacant"
+            (r.status !== "vacant" && r.status !== "owner"
               ? Number(
                   r.monthlyRentManwon ??
                     (r as unknown as Record<string, unknown>).rent_manwon ??
@@ -491,7 +550,7 @@ function ImWorkspaceInner() {
         rentRoll.reduce(
           (s, r) =>
             s +
-            (r.status !== "vacant"
+            (r.status !== "vacant" && r.status !== "owner"
               ? Number(
                   r.depositManwon ??
                     (r as unknown as Record<string, unknown>).deposit_manwon ??
@@ -510,6 +569,7 @@ function ImWorkspaceInner() {
     if (netInvestment <= 0) return 0;
     const rawYield = ((totalRentManwon * 12) / netInvestment) * 100;
     if (rawYield > 0) return rawYield;
+    if (rentRoll.length > 0) return 0;
     const normP = normalizePostureForSelector(investmentPosture);
     if (
       normP !== "owner_occupied" &&
@@ -522,7 +582,7 @@ function ImWorkspaceInner() {
       return currentItem.grossYieldPct;
     }
     return 0;
-  }, [askingPriceManwon, totalRentManwon, totalDepositManwon, investmentPosture, currentItem]);
+  }, [askingPriceManwon, totalRentManwon, totalDepositManwon, rentRoll.length, investmentPosture, currentItem]);
 
   const autosave = useWorkspaceAutosave<ImListItem | undefined>({
     id: selectedId || null,
@@ -575,6 +635,10 @@ function ImWorkspaceInner() {
             }
           : {}),
       };
+      const imPayloadForSync =
+        sanitizedDraft.hasUnpublishedEdits === true
+          ? { ...sanitizedDraft, status: "draft" as const }
+          : sanitizedDraft;
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -582,7 +646,7 @@ function ImWorkspaceInner() {
           action: "upsert_im",
           buildingId: targetBid,
           imId: draftItem.id,
-          imItem: sanitizedDraft,
+          imItem: imPayloadForSync,
         }),
       });
       if (!res.ok) {
@@ -659,14 +723,17 @@ function ImWorkspaceInner() {
         const depSum =
           Math.round(
             nextRentRoll.reduce(
-              (s, r) => s + (r.status !== "vacant" ? Number(r.depositManwon || 0) : 0),
+              (s, r) =>
+                s + (r.status !== "vacant" && r.status !== "owner" ? Number(r.depositManwon || 0) : 0),
               0
             ) * 10
           ) / 10;
         const rentSum =
           Math.round(
             nextRentRoll.reduce(
-              (s, r) => s + (r.status !== "vacant" ? Number(r.monthlyRentManwon || 0) : 0),
+              (s, r) =>
+                s +
+                (r.status !== "vacant" && r.status !== "owner" ? Number(r.monthlyRentManwon || 0) : 0),
               0
             ) * 10
           ) / 10;
@@ -674,7 +741,11 @@ function ImWorkspaceInner() {
         const nextYield =
           netInv > 0 && rentSum > 0
             ? Number((((rentSum * 12) / netInv) * 100).toFixed(2))
-            : patch.grossYieldPct ?? it.grossYieldPct ?? 0;
+            : patch.grossYieldPct !== undefined
+            ? patch.grossYieldPct
+            : patch.rentRoll !== undefined
+            ? 0
+            : it.grossYieldPct ?? 0;
         const nextHasUnpublishedEdits =
           patch.hasUnpublishedEdits !== undefined
             ? patch.hasUnpublishedEdits
@@ -777,21 +848,62 @@ function ImWorkspaceInner() {
         if (serverList.length === 0) return;
 
         const uid = currentUserIdRef.current;
-        const serverMap = new Map(serverList.map((s) => [s.id, s]));
+        const serverIds = new Set(serverList.map((s) => s.id));
+        const serverBuildingIds = new Set(
+          serverList.map((s) => s.buildingId).filter(Boolean)
+        );
         const baseLocal = itemsRef.current;
-        const localMap = new Map(baseLocal.map((l) => [l.id, l]));
+        const localById = new Map(baseLocal.map((l) => [l.id, l]));
+        const localByBuildingId = new Map(
+          baseLocal
+            .filter((l) => Boolean(l.buildingId))
+            .map((l) => [l.buildingId, l])
+        );
+        const matchedLocalIds = new Set<string>();
         const nextList: ImListItem[] = [];
         for (const srv of serverList) {
-          const loc = localMap.get(srv.id);
-          const srvTime = Date.parse(srv.updatedAt || "") || 0;
-          const locTime = Date.parse(loc?.updatedAt || "") || 0;
+          const loc =
+            localById.get(srv.id) ||
+            (srv.buildingId ? localByBuildingId.get(srv.buildingId) : undefined);
+          if (loc) {
+            matchedLocalIds.add(loc.id);
+          }
+          const srvTime =
+            Date.parse((srv as { updatedAtIso?: string }).updatedAtIso || "") ||
+            (toListTime(srv.updatedAt || "") ?? 0);
+          const locTime =
+            Date.parse(
+              (loc as { updatedAtIso?: string } | undefined)?.updatedAtIso || ""
+            ) || (toListTime(loc?.updatedAt || "") ?? 0);
           const keepLocal = Boolean(
-            loc && (loc.isDirty || loc.hasUnpublishedEdits || locTime > srvTime)
+            loc &&
+              (loc.isDirty ||
+                loc.hasUnpublishedEdits ||
+                (srvTime > 0 && locTime > srvTime))
           );
-          nextList.push(keepLocal ? loc! : { ...srv, ...(uid ? { ownerUserId: uid } : {}) });
+          if (
+            !keepLocal &&
+            loc &&
+            loc.id === selectedIdRef.current &&
+            srv.id !== loc.id
+          ) {
+            selectedIdRef.current = srv.id;
+            setSelectedId(srv.id);
+          }
+          nextList.push(
+            keepLocal ? loc! : { ...srv, ...(uid ? { ownerUserId: uid } : {}) }
+          );
         }
         for (const loc of baseLocal) {
-          if (!serverMap.has(loc.id) && !SAMPLE_SEED_IDS.has(loc.id)) {
+          const alreadyMatched =
+            matchedLocalIds.has(loc.id) ||
+            serverIds.has(loc.id) ||
+            Boolean(loc.buildingId && serverBuildingIds.has(loc.buildingId));
+          if (
+            !alreadyMatched &&
+            !SAMPLE_SEED_IDS.has(loc.id) &&
+            !SAMPLE_SEED_IDS.has(loc.buildingId || "")
+          ) {
             nextList.push(loc);
           }
         }
@@ -1165,7 +1277,10 @@ function ImWorkspaceInner() {
   };
 
   const handleCreateNew = () => {
+    const freshIds = mintUniqueFreshImIds();
     const newItem = createBlankImItem({
+      id: freshIds.id,
+      buildingId: freshIds.buildingId,
       ownerUserId: currentUserIdRef.current,
       brokerName: profileDefaultsRef.current.brokerName,
       brokerageName: profileDefaultsRef.current.brokerageName,
@@ -1227,7 +1342,11 @@ function ImWorkspaceInner() {
             : "occupied",
       };
     });
-    const finalRows = synthesizeMissingVacantFloors(mappedRows);
+    const normalizedRows = mappedRows.map((r) => ({
+      ...r,
+      floor: normalizeFloorName(r.floor),
+    }));
+    const finalRows = normalizedRows;
     const prevRows = [...rentRoll];
     const prevPrice = askingPriceManwon;
     let didUpdatePrice = false;
@@ -1570,6 +1689,7 @@ function ImWorkspaceInner() {
 
     setIsProvisioningSheet(true);
     setActionAlert(null);
+    setActionAlertCode(null);
     try {
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
@@ -1588,21 +1708,38 @@ function ImWorkspaceInner() {
           typeof data.documentId === "string" && data.documentId
             ? data.documentId
             : existingDocId;
+        const persistedAsDraft = data?.publishStatus === "draft";
         syncCurrentItemPatch(
           {
             buildingId: targetBid,
             ...(targetDocId ? { documentId: targetDocId } : {}),
             isDirty: false,
-            ...(originItem?.status === "published" ? { hasUnpublishedEdits: false } : {}),
+            ...(originItem?.status === "published" && !persistedAsDraft
+              ? { hasUnpublishedEdits: false }
+              : {}),
           },
           targetId
         );
         return { buildingId: targetBid, documentId: targetDocId };
       }
+      if (res.status === 422 && (data?.code === "STATUTORY_DISCLOSURE_INCOMPLETE" || data?.missingLabels)) {
+        if (selectedIdRef.current === targetId) {
+          const missingStr =
+            Array.isArray(data?.missingLabels) && data.missingLabels.length > 0
+              ? ` (누락: ${data.missingLabels.join(", ")})`
+              : "";
+          setActionAlertCode("STATUTORY_DISCLOSURE_INCOMPLETE");
+          setActionAlert(
+            `${data?.error || "공인중개사법 표시·광고 법정 정보가 누락되어 발행할 수 없습니다."}${missingStr}`
+          );
+        }
+        return null;
+      }
       if (UUID_REGEX.test(existingBid)) {
         return { buildingId: existingBid, documentId: existingDocId };
       }
       if (selectedIdRef.current === targetId) {
+        setActionAlertCode(null);
         setActionAlert(
           res.status === 413
             ? "첨부 사진 용량이 전송 한도를 초과했습니다. 사진을 다시 선택하면 자동으로 압축·변환하여 업로드합니다."
@@ -1783,6 +1920,8 @@ function ImWorkspaceInner() {
           typeof data?.documentId === "string" && data.documentId
             ? data.documentId
             : targetId;
+        const nextPublishStatus: "published" | "draft" =
+          data?.publishStatus === "draft" ? "draft" : "published";
         const syncedPhotos = sanitizePhotosForSync(latestPhotos);
         setItems((prev) => {
           const nextItems = prev.map((it) =>
@@ -1796,8 +1935,8 @@ function ImWorkspaceInner() {
                   address: reqAddress,
                   askingPriceManwon: reqPrice,
                   grossYieldPct: reqYield || it.grossYieldPct,
-                  status: "published" as const,
-                  versionLabel: "발행됨",
+                  status: nextPublishStatus,
+                  versionLabel: nextPublishStatus === "published" ? "발행됨" : "임시저장",
                   updatedAt: new Date().toISOString(),
                   rentRoll: reqRentRoll,
                   investmentPosture: reqPosture,
@@ -1815,7 +1954,7 @@ function ImWorkspaceInner() {
                   brokerExtrasForm: reqExtrasForm,
                   axiosHighlights: reqHighlights,
                   isDirty: false,
-                  hasUnpublishedEdits: false,
+                  hasUnpublishedEdits: nextPublishStatus === "draft" && it.status === "published",
                   isSample: false,
                 }
               : it
@@ -1831,7 +1970,7 @@ function ImWorkspaceInner() {
           data?.buildingId &&
           originItem.buildingId !== data.buildingId
         ) {
-          fetch("/api/broker/workspace/summary", {
+          await fetch("/api/broker/workspace/summary", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1862,12 +2001,27 @@ function ImWorkspaceInner() {
           variant: "success",
         });
       } else if (selectedIdRef.current === targetId) {
-        setActionAlert(
-          res.status === 413
-            ? "첨부 사진 용량이 전송 한도를 초과했습니다. 사진을 다시 선택하면 자동으로 압축·변환하여 업로드합니다."
-            : data?.error ||
-              "IM을 만드는 중 문제가 생겼어요. 입력 내용을 확인하고 다시 눌러 주세요."
-        );
+        if (
+          res.status === 422 &&
+          (data?.code === "STATUTORY_DISCLOSURE_INCOMPLETE" || data?.missingLabels)
+        ) {
+          const missingStr =
+            Array.isArray(data?.missingLabels) && data.missingLabels.length > 0
+              ? ` (누락: ${data.missingLabels.join(", ")})`
+              : "";
+          setActionAlertCode("STATUTORY_DISCLOSURE_INCOMPLETE");
+          setActionAlert(
+            `${data?.error || "공인중개사법 표시·광고 법정 정보가 누락되어 발행할 수 없습니다."}${missingStr}`
+          );
+        } else {
+          setActionAlertCode(null);
+          setActionAlert(
+            res.status === 413
+              ? "첨부 사진 용량이 전송 한도를 초과했습니다. 사진을 다시 선택하면 자동으로 압축·변환하여 업로드합니다."
+              : data?.error ||
+                "IM을 만드는 중 문제가 생겼어요. 입력 내용을 확인하고 다시 눌러 주세요."
+          );
+        }
       }
     } catch {
       if (selectedIdRef.current === targetId) {
@@ -1880,13 +2034,13 @@ function ImWorkspaceInner() {
 
   const handleDuplicateIm = (source: ImListItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const stamp = Date.now().toString().slice(-4);
-    const newId = `im-doc-${stamp}`;
+    const dupIds = mintDuplicateImIds(source.buildingId);
+    const newId = dupIds.id;
     const sourceLabel = source.title?.trim() || "새 IM";
     const cloned: ImListItem = {
       ...source,
       id: newId,
-      buildingId: `bld-${stamp}`,
+      buildingId: dupIds.buildingId,
       ...(currentUserIdRef.current ? { ownerUserId: currentUserIdRef.current } : {}),
       documentId: undefined,
       title: `${sourceLabel} (사본)`,
@@ -1913,11 +2067,14 @@ function ImWorkspaceInner() {
     const prevItems = [...items];
     const prevSelectedId = selectedId;
     const remaining = items.filter((it) => it.id !== target.id);
+    const fallbackFreshIds = remaining.length === 0 ? mintUniqueFreshImIds() : null;
     const next =
       remaining.length > 0
         ? remaining
         : [
             createBlankImItem({
+              id: fallbackFreshIds?.id,
+              buildingId: fallbackFreshIds?.buildingId,
               ownerUserId: currentUserIdRef.current,
               brokerName: profileDefaultsRef.current.brokerName,
               brokerageName: profileDefaultsRef.current.brokerageName,
@@ -2409,7 +2566,11 @@ function ImWorkspaceInner() {
             onOpenBottomSheet={handleOpenBottomSheet}
             isDownloadingPptx={isDownloadingPptx}
             actionAlert={actionAlert}
-            onClearActionAlert={() => setActionAlert(null)}
+            actionAlertCode={actionAlertCode}
+            onClearActionAlert={() => {
+              setActionAlert(null);
+              setActionAlertCode(null);
+            }}
             onNotifyEditorFocus={sync.notifyEditorFocus}
             onCreateNew={handleCreateNew}
             normalizedPosture={normalizedPosture}

@@ -11,7 +11,11 @@ import type { InvariantViolation } from './output-invariants';
 export type InvariantMode = 'warn' | 'block';
 
 export function resolveInvariantMode(env: NodeJS.ProcessEnv = process.env): InvariantMode {
-  return (env.IM_INVARIANT_MODE ?? 'warn').toLowerCase() === 'block' ? 'block' : 'warn';
+  const raw = env.IM_INVARIANT_MODE?.trim().toLowerCase();
+  if (raw === 'block') return 'block';
+  if (raw === 'warn') return 'warn';
+  if (!raw && env.NODE_ENV === 'production') return 'block';
+  return 'warn';
 }
 
 export interface ViolationSummary {

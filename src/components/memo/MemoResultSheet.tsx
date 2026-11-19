@@ -31,7 +31,7 @@ interface MemoResultSheetProps {
   onClose: () => void;
 }
 
-function formatKrwMoney(v: any): string {
+function formatKrwMoney(v: unknown): string {
   const num = Number(v);
   if (isNaN(num) || num <= 0) return "-";
   if (num >= 100_000_000) {
@@ -46,7 +46,7 @@ function formatKrwMoney(v: any): string {
 }
 
 // 슬롯 키별 친절한 한글 라벨 및 아이콘 정의
-const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: (val: any) => string }> = {
+const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: (val: unknown) => string }> = {
   address: {
     label: "소재지 / 주소",
     icon: <MapPin className="w-3.5 h-3.5 text-blue-500" />,
@@ -153,7 +153,7 @@ export function MemoResultSheet({ result, originalText, memoId, onClose }: MemoR
 
     switch (result.type) {
       case "new_deal":
-        router.push("/broker/deal-card/new");
+        router.push("/broker/w/dealcards");
         break;
       case "buyer_condition":
         router.push("/broker/buyer-intents/new");
@@ -256,9 +256,10 @@ export function MemoResultSheet({ result, originalText, memoId, onClose }: MemoR
       {/* 2. AI 슬롯 추출 결과 (Building SSoT 데이터 미리보기) */}
       {(extractedSlots.length > 0 || buyerExtracted?.target_region || buyerExtracted?.target_budget) && (
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/60 overflow-hidden">
-          <div 
+          <button
+            type="button"
             onClick={() => setShowSlots(!showSlots)}
-            className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 transition-colors"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 cursor-pointer hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 transition-colors text-left"
           >
             <div className="flex items-center space-x-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
@@ -269,14 +270,13 @@ export function MemoResultSheet({ result, originalText, memoId, onClose }: MemoR
                 {extractedSlots.length > 0 ? `${extractedSlots.length}개 항목 추출` : "매수 조건 추출"}
               </span>
             </div>
-            <button 
-              type="button" 
+            <span
               className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1 font-medium"
             >
               {showSlots ? "접기" : "상세보기"}
               {showSlots ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          </div>
+            </span>
+          </button>
 
           {showSlots && (
             <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-950/40">
@@ -287,7 +287,7 @@ export function MemoResultSheet({ result, originalText, memoId, onClose }: MemoR
                     const meta = SLOT_META[slot.key] || {
                       label: slot.key,
                       icon: <Check className="w-3.5 h-3.5 text-blue-500" />,
-                      format: (v: any) => String(v),
+                      format: (v: unknown) => String(v),
                     };
                     return (
                       <div 

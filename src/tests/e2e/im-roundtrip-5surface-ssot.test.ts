@@ -326,7 +326,18 @@ describe('Wave 2: IM Lifecycle Round-Trip (Axis 3) & 5-Surface SSOT Parity (Axis
       }));
 
       const { GET } = await import('@/app/api/public/im-lite/[buildingId]/route');
-      const req = new NextRequest(`http://localhost:3000/api/public/im-lite/${pptxInput.buildingId}`);
+      const unauthReq = new NextRequest(`http://localhost:3000/api/public/im-lite/${pptxInput.buildingId}`);
+      const unauthRes = await GET(unauthReq, { params: Promise.resolve({ buildingId: pptxInput.buildingId }) });
+      expect(unauthRes.status).toBe(403);
+
+      const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+      const issued = await issueShareLinkToken({
+        buildingId: pptxInput.buildingId,
+        brokerId: 'roundtrip-broker',
+      });
+      const req = new NextRequest(
+        `http://localhost:3000/api/public/im-lite/${pptxInput.buildingId}?token=${encodeURIComponent(issued.token)}`
+      );
       const res = await GET(req, { params: Promise.resolve({ buildingId: pptxInput.buildingId }) });
       expect(res.status).toBe(200);
       const publicPayload = await res.json();

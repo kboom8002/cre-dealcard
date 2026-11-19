@@ -150,7 +150,7 @@ describe('Preventive Suite L10 — SOTA AI Content Pipeline (Neuro-Symbolic + CR
   });
 
   it('[PT-1002] POST /api/broker/im/ai-points: 2-attempt pinpoint self-repair + Golden Benchmark + Zero-502 fallback', async () => {
-    // A. Golden Benchmark match
+    // A. No hardcoded golden_benchmark fixture leak; grounded deterministic fallback when LLM is unconfigured
     const goldenReq = new NextRequest('http://localhost:3000/api/broker/im/ai-points', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -162,9 +162,12 @@ describe('Preventive Suite L10 — SOTA AI Content Pipeline (Neuro-Symbolic + CR
     const goldenRes = await postImAiPoints(goldenReq);
     const goldenJson = await goldenRes.json();
     expect(goldenRes.status).toBe(200);
-    expect(goldenJson.source).toBe('golden_benchmark');
+    expect(goldenJson.source).toBe('deterministic_fallback');
     expect(goldenJson.result.points).toHaveLength(3);
-    expect(mockCallLLM).not.toHaveBeenCalled();
+    const serializedPoints = JSON.stringify(goldenJson.result.points);
+    expect(serializedPoints).not.toContain('스타벅스');
+    expect(serializedPoints).not.toContain('9.85');
+    mockCallLLM.mockClear();
 
     // B. 2-Attempt Neuro-Symbolic Self-Repair when Attempt 1 hallucinates ungrounded numbers & fabricated brand
     mockCallLLM

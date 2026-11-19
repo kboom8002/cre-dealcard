@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams;
     const format = sp.get('format') === 'json' ? 'json' : 'jsonl';
-    const minScore = Number(sp.get('min_score') ?? '3.5');
+    const rawMinScore = Number(sp.get('min_score') ?? '3.5');
+    const minScore = Number.isFinite(rawMinScore) ? rawMinScore : 3.5;
     const sectionType = sp.get('section_type');
     const sourceType = sp.get('source_type');
 
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('[GET /api/admin/golden-sets/export]', message);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message } },
+      { ok: false, error: { code: 'INTERNAL', message: '골든셋 내보내기에 실패했습니다.' } },
       { status: 500 },
     );
   }

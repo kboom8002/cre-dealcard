@@ -10,6 +10,18 @@ import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
 
+const ALLOWED_SORT_COLUMNS = new Set([
+  'judge_score',
+  'created_at',
+  'approved_at',
+  'usage_count',
+  'last_used_at',
+  'asset_type',
+  'section_type',
+  'price_band',
+  'version',
+]);
+
 const SELECT_FIELDS = [
   'id', 'document_id', 'building_id', 'section_type', 'section_alias',
   'asset_type', 'price_band', 'markdown', 'judge_score', 'was_edited',
@@ -28,9 +40,12 @@ export async function GET(req: NextRequest) {
     const sourceType = sp.get('source_type');
     const isActive = sp.get('is_active') ?? 'true';
     const tagsParam = sp.get('tags');
-    const page = Math.max(1, Number(sp.get('page') ?? '1'));
-    const limit = Math.min(100, Math.max(1, Number(sp.get('limit') ?? '20')));
-    const sort = sp.get('sort') ?? 'judge_score';
+    const rawPage = Number(sp.get('page') ?? '1');
+    const rawLimit = Number(sp.get('limit') ?? '20');
+    const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.floor(rawLimit))) : 20;
+    const rawSort = sp.get('sort');
+    const sort = rawSort ? (ALLOWED_SORT_COLUMNS.has(rawSort) ? rawSort : 'created_at') : 'judge_score';
     const order = sp.get('order') ?? 'desc';
 
     const supabase = createServiceClient();
@@ -76,7 +91,7 @@ export async function GET(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('[GET /api/admin/golden-sets]', message);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message } },
+      { ok: false, error: { code: 'INTERNAL', message: '골든셋 목록 조회에 실패했습니다.' } },
       { status: 500 },
     );
   }
@@ -150,7 +165,7 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('[POST /api/admin/golden-sets]', message);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message } },
+      { ok: false, error: { code: 'INTERNAL', message: '골든셋 생성에 실패했습니다.' } },
       { status: 500 },
     );
   }

@@ -16,6 +16,43 @@ interface DisclosurePrefs {
   hide_unit_rent: boolean;
 }
 
+// WP-7.3D P1-5: daylight palette (white/slate) + ≥14px text + 48px touch targets.
+function ToggleSwitch({
+  checked,
+  onToggle,
+  label,
+  tone,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  label: string;
+  tone: 'required' | 'optional';
+}) {
+  const onColor = tone === 'required' ? 'bg-blue-700' : 'bg-emerald-600';
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onToggle}
+      className="shrink-0 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+    >
+      <span
+        className={`w-12 h-7 rounded-full p-1 transition-all flex items-center ${
+          checked ? onColor : 'bg-slate-300'
+        }`}
+      >
+        <span
+          className={`w-5 h-5 rounded-full bg-white shadow-sm transition-all ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 export default function StudioDisclosurePage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
@@ -100,15 +137,14 @@ export default function StudioDisclosurePage() {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || '저장 중 오류가 발생했습니다.');
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        router.refresh();
-        window.location.reload();
-      }, 1000);
+      // WP-7.3D P1-5: no hard window reload — the local `prefs` state already reflects the
+      // saved policy; router.refresh() re-renders the server layout (completeness score).
+      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -118,264 +154,144 @@ export default function StudioDisclosurePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl min-h-[300px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
-        <p className="text-xs text-neutral-400 mt-4">보안 및 정보 공개 설정 페이지 구성 중...</p>
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-2xl min-h-[300px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-700"></div>
+        <p className="text-sm text-slate-700 mt-4">보안 및 정보 공개 설정 페이지 구성 중...</p>
       </div>
     );
   }
 
   const isTeaserViolated = !prefs.hide_exact_address || !prefs.hide_tenant_names || !prefs.hide_unit_rent;
 
+  const requiredRows: Array<{ key: keyof DisclosurePrefs; title: string; desc: string }> = [
+    {
+      key: 'hide_exact_address',
+      title: '📌 등기부등본상 정확한 지번 주소 숨기기',
+      desc: '비활성화 시 불특정 다수에게 매물이 특정되므로 블라인드 티저 출력이 거부됩니다.',
+    },
+    {
+      key: 'hide_tenant_names',
+      title: '🏢 개별 임차인명(상호명) 가림 처리',
+      desc: "개별 임차인 상호(예: 스타벅스 등)를 Blind 처리하고 업종 분류('식음료 F&B')로 대체합니다.",
+    },
+    {
+      key: 'hide_unit_rent',
+      title: '💰 호실별 상세 보증금 및 월세 금액 숨기기',
+      desc: '각 개별 임대 공간의 세부 수치 공개를 감추고 권한 등급(Gate-2) 이상 회원만 볼 수 있도록 격리합니다.',
+    },
+  ];
+
+  const optionalRows: Array<{ key: keyof DisclosurePrefs; title: string; desc: string }> = [
+    { key: 'show_area_signal', title: '대략적 권역 표시', desc: '예: 강남구 역삼동 부근' },
+    { key: 'show_asset_type', title: '자산 유형 공개', desc: '예: 꼬마빌딩, 복합근생 등' },
+    { key: 'show_price_band', title: '매각 희망 금액대 노출', desc: '예: 100억대 초반' },
+    { key: 'show_tenant_count', title: '총 임차인 구성 수', desc: '예: 총 8개사 입점 중' },
+    { key: 'show_walt', title: '평균 가중 잔여만기 (WALT)', desc: '예: WALT 2.1년 등' },
+    { key: 'show_vacancy_rate', title: '공실 비율 공개', desc: '예: 현재 공실률 3.5%' },
+  ];
+
   return (
     <div className="space-y-6">
       <StudioTabs buildingId={id} activeTab="disclosure" />
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-6 space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6 shadow-sm">
           <div>
-            <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
               🔒 Blind 자산 정보 공개 보안 설정
-              <span className="text-[10px] bg-primary/20 text-primary border border-primary/20 px-2 py-0.5 rounded font-mono font-bold">
+              <span className="text-sm bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-bold">
                 +5점 확보 가능
               </span>
             </h3>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-sm text-slate-700 mt-1 leading-relaxed">
               외부 투자자들에게 임대차 요약(WALT, 공실률 등) 및 자산의 비식별 신호(Asset Signals)를 어느 수준까지 공개할 것인지 제어합니다.
             </p>
           </div>
 
           {error && (
-            <div className="p-4 bg-red-950/40 border border-red-900/30 rounded-xl text-xs font-bold text-red-400 leading-relaxed">
+            <div role="alert" className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-700 leading-relaxed">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="p-4 bg-emerald-950/40 border border-emerald-900/30 rounded-xl text-xs font-bold text-emerald-400">
-              ✓ 보안 설정이 업데이트되었습니다. 실시간 완성도 등급 점수를 반영하고 있습니다...
+            <div role="status" className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold text-emerald-800">
+              ✓ 보안 설정이 업데이트되었습니다. 실시간 완성도 등급 점수에 반영됩니다.
             </div>
           )}
 
           {/* Core Security Redactions (Must match blind safety) */}
           <div className="space-y-4">
-            <h4 className="text-xs font-bold text-primary uppercase tracking-widest border-b border-neutral-800 pb-2">
+            <h4 className="text-sm font-bold text-blue-800 tracking-wide border-b border-slate-200 pb-2">
               🔴 필수 보안 마스킹 (Blind Teaser 필수)
             </h4>
-            
+
             <div className="grid grid-cols-1 gap-3">
-              {/* Hide Exact Address */}
-              <div className="flex items-center justify-between p-4 bg-neutral-950 border border-red-900/10 rounded-xl hover:border-red-900/20 transition-all">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">
-                    📌 등기부등본상 정확한 지번 주소 숨기기
-                  </span>
-                  <span className="text-[10px] text-neutral-500 mt-1 block">
-                    비활성화 시 불특정 다수에게 매물이 특정되므로 블라인드 티저 출력이 거부됩니다.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('hide_exact_address')}
-                  className={`w-12 h-6 rounded-full p-1 transition-all ${
-                    prefs.hide_exact_address ? 'bg-primary' : 'bg-neutral-800'
-                  }`}
+              {requiredRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="flex items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl"
                 >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.hide_exact_address ? 'translate-x-6' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Hide Tenant Names */}
-              <div className="flex items-center justify-between p-4 bg-neutral-950 border border-red-900/10 rounded-xl hover:border-red-900/20 transition-all">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">
-                    🏢 개별 임차인명(상호명) 가림 처리
-                  </span>
-                  <span className="text-[10px] text-neutral-500 mt-1 block">
-                    개별 임차인 상호(예: 스타벅스 등)를 Blind 처리하고 업종 분류(&apos;식음료 F&B&apos;)로 대체합니다.
-                  </span>
+                  <div className="min-w-0">
+                    <span className="block text-sm font-bold text-slate-900">{row.title}</span>
+                    <span className="text-sm text-slate-700 mt-1 block leading-relaxed">{row.desc}</span>
+                  </div>
+                  <ToggleSwitch
+                    checked={prefs[row.key]}
+                    onToggle={() => handleToggle(row.key)}
+                    label={row.title}
+                    tone="required"
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('hide_tenant_names')}
-                  className={`w-12 h-6 rounded-full p-1 transition-all ${
-                    prefs.hide_tenant_names ? 'bg-primary' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.hide_tenant_names ? 'translate-x-6' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Hide Unit Rent */}
-              <div className="flex items-center justify-between p-4 bg-neutral-950 border border-red-900/10 rounded-xl hover:border-red-900/20 transition-all">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">
-                    💰 호실별 상세 보증금 및 월세 금액 숨기기
-                  </span>
-                  <span className="text-[10px] text-neutral-500 mt-1 block">
-                    각 개별 임대 공간의 세부 수치 공개를 감추고 권한 등급(Gate-2) 이상 회원만 볼 수 있도록 격리합니다.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('hide_unit_rent')}
-                  className={`w-12 h-6 rounded-full p-1 transition-all ${
-                    prefs.hide_unit_rent ? 'bg-primary' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.hide_unit_rent ? 'translate-x-6' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
+              ))}
             </div>
           </div>
 
           {/* Optional Disclosures */}
           <div className="space-y-4 pt-2">
-            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-800 pb-2">
+            <h4 className="text-sm font-bold text-slate-700 tracking-wide border-b border-slate-200 pb-2">
               🟢 티저 공개 허용 범위 설정 (Asset Signals)
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Show Area Signal */}
-              <div className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">대략적 권역 표시</span>
-                  <span className="text-[10px] text-neutral-500">예: 강남구 역삼동 부근</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('show_area_signal')}
-                  className={`w-10 h-5 rounded-full p-0.5 transition-all ${
-                    prefs.show_area_signal ? 'bg-emerald-500' : 'bg-neutral-800'
-                  }`}
+              {optionalRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="flex items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl"
                 >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.show_area_signal ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Show Asset Type */}
-              <div className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">자산 유형 공개</span>
-                  <span className="text-[10px] text-neutral-500">예: 꼬마빌딩, 복합근생 등</span>
+                  <div className="min-w-0">
+                    <span className="block text-sm font-bold text-slate-900">{row.title}</span>
+                    <span className="text-sm text-slate-700">{row.desc}</span>
+                  </div>
+                  <ToggleSwitch
+                    checked={prefs[row.key]}
+                    onToggle={() => handleToggle(row.key)}
+                    label={row.title}
+                    tone="optional"
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('show_asset_type')}
-                  className={`w-10 h-5 rounded-full p-0.5 transition-all ${
-                    prefs.show_asset_type ? 'bg-emerald-500' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.show_asset_type ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Show Price Band */}
-              <div className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">매각 희망 금액대 노출</span>
-                  <span className="text-[10px] text-neutral-500">예: 100억대 초반</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('show_price_band')}
-                  className={`w-10 h-5 rounded-full p-0.5 transition-all ${
-                    prefs.show_price_band ? 'bg-emerald-500' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.show_price_band ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Show Tenant Count */}
-              <div className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">총 임차인 구성 수</span>
-                  <span className="text-[10px] text-neutral-500">예: 총 8개사 입점 중</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('show_tenant_count')}
-                  className={`w-10 h-5 rounded-full p-0.5 transition-all ${
-                    prefs.show_tenant_count ? 'bg-emerald-500' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.show_tenant_count ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Show WALT */}
-              <div className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">평균 가중 잔여만기 (WALT)</span>
-                  <span className="text-[10px] text-neutral-500">예: WALT 2.1년 등</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('show_walt')}
-                  className={`w-10 h-5 rounded-full p-0.5 transition-all ${
-                    prefs.show_walt ? 'bg-emerald-500' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.show_walt ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Show Vacancy Rate */}
-              <div className="flex items-center justify-between p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl">
-                <div>
-                  <span className="block text-xs font-bold text-neutral-200">공실 비율 공개</span>
-                  <span className="text-[10px] text-neutral-500">예: 현재 공실률 3.5%</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggle('show_vacancy_rate')}
-                  className={`w-10 h-5 rounded-full p-0.5 transition-all ${
-                    prefs.show_vacancy_rate ? 'bg-emerald-500' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-all ${
-                    prefs.show_vacancy_rate ? 'translate-x-5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
             onClick={() => router.push(`/broker/buildings/${id}/studio/briefing`)}
-            className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-xl text-xs font-bold text-neutral-300 transition-all cursor-pointer"
+            className="min-h-[48px] px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-700 transition-all cursor-pointer"
           >
             돌아가기
           </button>
           <button
             type="submit"
             disabled={saving || isTeaserViolated}
-            className="px-6 py-2.5 bg-primary hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-lg shadow-primary/10 cursor-pointer"
+            className="min-h-[48px] px-6 py-2.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-xl text-sm font-black transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div>
                 <span>저장 중...</span>
               </>
             ) : (

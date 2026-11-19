@@ -5,19 +5,10 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   X,
   Users,
-  GitBranch,
   Palette,
-  Store,
-  CreditCard,
-  Radio,
-  FileText,
-  Calculator,
   UserCircle,
-  Bell,
   BookOpen,
   ChevronRight,
-  StickyNote,
-  CalendarCheck,
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,20 +24,20 @@ const SECTIONS = [
     label: "핵심 업무 도구",
     items: [
       {
-        href: "/broker/magazine-editor?mode=simple",
+        href: "/broker/w/newsletter",
         icon: Palette,
         title: "주간 소식지(매거진) 만들기",
         desc: "5분 간편 작성 · 이메일 발송 · 카톡 링크 복사",
-        color: "text-amber-400",
-        bg: "bg-amber-500/10",
+        color: "text-amber-600",
+        bg: "bg-amber-50",
       },
       {
-        href: "/broker/clients",
+        href: "/broker/w/inbox",
         icon: Users,
-        title: "고객 · 구독자 명단",
-        desc: "소식지 받는 고객 관리 · 연락처 · 메모",
-        color: "text-blue-400",
-        bg: "bg-blue-500/10",
+        title: "고객 소통함 · 구독자 명단",
+        desc: "소식지 받는 고객 관리 · 연락처 · 문의 이력",
+        color: "text-blue-600",
+        bg: "bg-blue-50",
       },
       /* DORMANT: ux60-focus — 복원 시 docs/rollback/2026-10-18-dormant-features.md 참조
       {
@@ -149,16 +140,16 @@ const SECTIONS = [
         icon: UserCircle,
         title: "내 프로필 · 사무소 정보",
         desc: "이름 · 상호 · 연락처 · 사진 편집",
-        color: "text-slate-300",
-        bg: "bg-slate-500/10",
+        color: "text-slate-700",
+        bg: "bg-slate-100",
       },
       {
         href: "/broker/tutorial",
         icon: BookOpen,
         title: "쉬운 이용 안내 (사진·영상 매뉴얼)",
         desc: "1분 딜카드 · PPTX 제안서(IM) · 주간 소식지 단계별 사용법",
-        color: "text-amber-400",
-        bg: "bg-amber-500/10",
+        color: "text-amber-600",
+        bg: "bg-amber-50",
       },
     ],
   },
@@ -174,8 +165,8 @@ const ADMIN_SECTION = {
       icon: Shield,
       title: "Golden Set / Glossary",
       desc: "Golden Set, Prompt, Few-shot, Terminology",
-      color: "text-red-400",
-      bg: "bg-red-500/10",
+      color: "text-red-600",
+      bg: "bg-red-50",
     },
   ],
 };
@@ -189,7 +180,7 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -200,7 +191,7 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
           <motion.div
             className={cn(
               "fixed bottom-0 left-0 right-0 z-50",
-              "bg-[#0e1424] border-t border-slate-800 rounded-t-3xl",
+              "bg-white border-t border-slate-200 shadow-2xl rounded-t-3xl",
               "pb-[calc(env(safe-area-inset-bottom,0px)+70px)]",
               "max-h-[88vh] overflow-y-auto"
             )}
@@ -211,16 +202,17 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
           >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-slate-700 rounded-full" />
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
             </div>
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3">
-              <p className="text-[16px] font-bold text-white">전체 메뉴</p>
+              <p className="text-base font-bold text-slate-900">전체 메뉴</p>
               <button
+                type="button"
                 onClick={onClose}
                 aria-label="닫기"
-                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -229,7 +221,7 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
             <div className="px-4 pb-3 space-y-5">
               {allSections.map((section) => (
                 <div key={section.label}>
-                  <p className="text-[13px] font-bold text-slate-400 px-1 mb-2">
+                  <p className="text-sm font-bold text-slate-600 px-1 mb-2">
                     {section.label}
                   </p>
                   <div className="space-y-2">
@@ -240,18 +232,18 @@ export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps
                           key={item.href}
                           href={item.href}
                           onClick={onClose}
-                          className="flex items-center gap-3.5 bg-[#131b2e] border border-slate-800 rounded-xl px-4 py-3.5 min-h-[56px] hover:border-slate-600 transition-all group"
+                          className="flex items-center gap-3.5 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 min-h-[56px] hover:border-slate-300 hover:bg-slate-100 transition-all group"
                         >
                           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", item.bg)}>
                             <Icon className={cn("w-5 h-5", item.color)} strokeWidth={2.2} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[15px] font-bold text-white leading-snug mb-0.5">
+                            <p className="text-[15px] font-bold text-slate-900 leading-snug mb-0.5">
                               {item.title}
                             </p>
-                            <p className="text-[13px] text-slate-300 leading-snug">{item.desc}</p>
+                            <p className="text-sm text-slate-600 leading-snug">{item.desc}</p>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors shrink-0" />
+                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors shrink-0" />
                         </Link>
                       );
                     })}

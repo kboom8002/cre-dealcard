@@ -34,11 +34,11 @@ export default function MagazineEditorError({
         className="w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"
       >
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-[#0F172A]">뉴스레터 화면을 열지 못했습니다</h2>
-          <p className="text-body text-[#475569] leading-relaxed">
+          <h2 className="text-xl font-bold text-slate-900">뉴스레터 화면을 열지 못했습니다</h2>
+          <p className="text-base text-slate-700 leading-relaxed">
             일시적인 화면 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. 작성 중이던 내용은 초안으로 자동 저장되어 있습니다.
           </p>
-          <p className="text-xs font-mono text-slate-500 pt-1">
+          <p className="text-sm font-mono text-slate-600 pt-1">
             오류 참조코드: {refCode}
           </p>
         </div>
@@ -51,8 +51,8 @@ export default function MagazineEditorError({
             다시 시도하기
           </button>
           <Link
-            href="/"
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-medium text-[#0F172A] hover:bg-slate-100 transition-colors"
+            href="/broker"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-100 transition-colors"
           >
             홈으로 이동
           </Link>

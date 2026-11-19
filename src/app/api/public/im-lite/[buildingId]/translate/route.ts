@@ -15,9 +15,43 @@ import {
   isBuildingShareLinkRevoked,
 } from '@/lib/security/share-link-tokens';
 import { getInboxState } from '@/lib/im-lite/quick-generate-store';
-import { isImDocStatusPublic } from '@/domain/public-projection/visibility';
+import { isImDocStatusPublic, PUBLIC_IM_DOC_STATUSES } from '@/domain/public-projection/visibility';
+import { getServerViewer } from '@/lib/server-viewer';
+import { isOwnerOrAdmin } from '@/domain/public-projection/access';
+import {
+  allowDealPublicMemoryFallback,
+  buildShareTokenRequiredResponse,
+  isAllowedPublicDemoIm,
+  isDemoSeedDisabledForProd,
+  resolveWorkspaceImGuard,
+} from '@/lib/im-lite/im-public-guard';
 
 const log = createModuleLogger('im-lite-translate-route');
+
+function isPreCutoverSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code = String((err as { code?: unknown }).code || '');
+  const msg = String((err as { message?: unknown }).message || '');
+  if (code === '42703' || code === '42P01' || code === 'PGRST204' || code === 'PGRST205') return true;
+  if (/column .* does not exist|relation .* does not exist|could not find the (?:table|column)/i.test(msg)) {
+    return true;
+  }
+  return !code && !msg.trim();
+}
+
+function buildGovernanceUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: 'GOVERNANCE_CHECK_UNAVAILABLE',
+      error: {
+        code: 'GOVERNANCE_CHECK_UNAVAILABLE',
+        message: '공유 링크 상태를 확인할 수 없어 잠시 열람이 제한됩니다. 잠시 후 다시 시도해 주세요.',
+      },
+    },
+    { status: 503 }
+  );
+}
 
 const ALLOWED_LANGUAGES = new Set<IMLanguage>(['ko', 'en', 'ja', 'zh']);
 const MAX_BODY_BYTES = 8 * 1024;
@@ -91,8 +125,15 @@ export async function POST(
       }
     }
 
-    const inboxRevoked = getInboxState().revokedBuildings?.[buildingId]?.revoked;
-    if (inboxRevoked || isBuildingShareLinkRevoked(buildingId)) {
+    if (isDemoSeedDisabledForProd(buildingId)) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+
+    const memoryFallbackAllowed = allowDealPublicMemoryFallback();
+    const inboxRevoked = memoryFallbackAllowed
+      ? getInboxState().revokedBuildings?.[buildingId]?.revoked
+      : false;
+    if (inboxRevoked || (memoryFallbackAllowed && isBuildingShareLinkRevoked(buildingId))) {
       return NextResponse.json(
         { ok: false, error: '담당 중개인에 의해 회수된 공유 링크입니다.' },
         { status: 410 }
@@ -101,22 +142,59 @@ export async function POST(
 
     const supabase = createServiceClient();
 
-    // Check DB governance revocation events when available
+    // Check DB governance revocation events scoped to building_id (42703-safe)
     try {
-      const govQuery: any = supabase
+      const safeBld = /^[A-Za-z0-9_.:-]+$/.test(buildingId) ? buildingId : '';
+      const isBldUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(safeBld);
+      let govQuery: any = supabase
         .from('activity_events')
-        .select('event_type, entity_id, metadata, created_at')
-        .in('event_type', ['link_revoked', 'link_restored'])
-        .order('created_at', { ascending: false })
-        .limit(100);
-      const govRes = await govQuery;
+        .select('event_type, entity_id, building_id, metadata, created_at')
+        .in('event_type', ['link_revoked', 'link_restored']);
+      if (safeBld) {
+        if (typeof govQuery?.or === 'function') {
+          govQuery = govQuery.or(
+            isBldUuid
+              ? `building_id.eq.${safeBld},entity_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`
+              : `building_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`,
+          );
+        } else if (typeof govQuery?.eq === 'function') {
+          govQuery = govQuery.eq('building_id', safeBld);
+        }
+      }
+      let govRes = await govQuery.order('created_at', { ascending: false }).limit(50);
+      if (
+        govRes?.error &&
+        (String(govRes.error.code || '') === '42703' ||
+          String(govRes.error.code || '') === 'PGRST204' ||
+          /column .* does not exist/i.test(String(govRes.error.message || '')))
+      ) {
+        let fbQuery: any = supabase
+          .from('activity_events')
+          .select('event_type, entity_id, metadata, created_at')
+          .in('event_type', ['link_revoked', 'link_restored']);
+        if (safeBld && typeof fbQuery?.or === 'function') {
+          fbQuery = fbQuery.or(
+            isBldUuid
+              ? `entity_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`
+              : `metadata->>building_id.eq.${safeBld}`,
+          );
+        }
+        govRes = await fbQuery.order('created_at', { ascending: false }).limit(50);
+      }
+      if (govRes?.error && !isPreCutoverSchemaError(govRes.error)) {
+        log.error(
+          { code: govRes.error.code, message: govRes.error.message, buildingId },
+          '[translate] revocation lookup failed'
+        );
+        return buildGovernanceUnavailableResponse();
+      }
       if (Array.isArray(govRes?.data)) {
         for (const row of govRes.data) {
           const meta =
             row?.metadata && typeof row.metadata === 'object'
               ? (row.metadata as Record<string, unknown>)
               : {};
-          const evBldId = String(meta.building_id || row?.entity_id || '').trim();
+          const evBldId = String((row as any)?.building_id || meta.building_id || row?.entity_id || '').trim();
           if (evBldId !== buildingId) continue;
           if (row.event_type === 'link_revoked') {
             return NextResponse.json(
@@ -129,19 +207,64 @@ export async function POST(
           }
         }
       }
-    } catch {
-      // Non-blocking if activity_events is unavailable
+    } catch (govEx) {
+      if (!isPreCutoverSchemaError(govEx)) {
+        log.error({ buildingId, err: govEx }, '[translate] revocation lookup threw');
+        return buildGovernanceUnavailableResponse();
+      }
     }
 
-    // 2. Load existing document scoped strictly to buildingId & published status
-    const { data: doc, error: docErr } = await supabase
+    const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
+    if (wsGuard.isDeleted) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+    if (wsGuard.itemRevoked) {
+      return NextResponse.json(
+        { ok: false, error: '담당 중개인에 의해 회수된 공유 링크입니다.' },
+        { status: 410 }
+      );
+    }
+    if (wsGuard.isDraft && !wsGuard.snapshot) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+
+    // 2. Load existing document scoped strictly to buildingId, active public status & owner_id
+    let docLookup: any = supabase
       .from('document_objects')
-      .select('id, building_id, body, metadata, status')
+      .select('id, owner_id, building_id, body, metadata, status, document_type')
       .eq('id', docId)
       .eq('building_id', buildingId)
-      .maybeSingle();
+      .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft'])
+      .in('status', [...PUBLIC_IM_DOC_STATUSES]);
+    if (wsGuard.ownerId) {
+      docLookup = docLookup.eq('owner_id', wsGuard.ownerId);
+    }
+    const { data: dbDocRaw, error: docErr } = await docLookup.maybeSingle();
+    const dbDoc =
+      dbDocRaw &&
+      (!wsGuard.ownerId || !dbDocRaw.owner_id || String(dbDocRaw.owner_id) === String(wsGuard.ownerId))
+        ? dbDocRaw
+        : null;
 
-    if (docErr || !doc) {
+    const wsDocBody =
+      wsGuard.snapshot && typeof wsGuard.snapshot === 'object'
+        ? (wsGuard.snapshot.fullDocBody ||
+            (Array.isArray(wsGuard.snapshot.sections) ? wsGuard.snapshot : null))
+        : null;
+    const doc =
+      !docErr && dbDoc
+        ? dbDoc
+        : wsDocBody && wsGuard.item
+        ? {
+            id: wsGuard.item.id,
+            building_id: wsGuard.item.buildingId || buildingId,
+            body: wsDocBody,
+            metadata: {},
+            status: 'published',
+          }
+        : null;
+
+    if (!doc) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
@@ -162,41 +285,100 @@ export async function POST(
       );
     }
 
-    // 3. Check cache
-    const meta = (doc.metadata ?? {}) as Record<string, unknown>;
-    const cachedKey = `translated_${language}`;
-    if (meta[cachedKey]) {
-      return NextResponse.json({ ok: true, sections: meta[cachedKey], cached: true });
+    if (!token && !(isAllowedPublicDemoIm(buildingId) && !wsGuard.item)) {
+      let viewer: any = null;
+      try {
+        viewer = await getServerViewer();
+      } catch {
+        viewer = null;
+      }
+      if (!isOwnerOrAdmin(viewer, wsGuard.ownerId, (doc as any)?.owner_id)) {
+        return buildShareTokenRequiredResponse();
+      }
     }
 
-    // 4. Extract sections from document body
+    if ((doc as any).document_type === 'blind_teaser') {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+
+    // 3. Redact hidden, locked, and Pro-only sections BEFORE checking cache, returning 'ko', or sending to OpenAI
+    const hiddenSet = new Set<string>(
+      [
+        ...(Array.isArray(content.hidden_sections) ? (content.hidden_sections as unknown[]) : []),
+        ...(Array.isArray(content.hiddenSections) ? (content.hiddenSections as unknown[]) : []),
+      ].map((v) => String(v))
+    );
+    const isProDoc = content.tier === 'pro';
+    const docDataGrade = String(content.dataGrade || '');
+
     const rawSections = content?.sections as
-      | Array<{ title?: string; markdown?: string; content?: string; section_type?: string }>
+      | Array<{
+          id?: string;
+          sectionId?: string;
+          title?: string;
+          markdown?: string;
+          content?: string;
+          section_type?: string;
+          locked?: boolean;
+          min_tier?: string;
+        }>
       | undefined;
     if (!rawSections || rawSections.length === 0) {
       return NextResponse.json({ error: 'No sections found in document' }, { status: 422 });
     }
 
-    const sections = rawSections.map((s) => ({
+    const allowedRawSections = rawSections.filter((s) => {
+      if (!s) return false;
+      const keys = [s.section_type, s.sectionId, s.id].filter(Boolean).map(String);
+      if (keys.some((k) => hiddenSet.has(k))) return false;
+      if (s.locked === true) return false;
+      if (!isProDoc && s.min_tier === 'premium') return false;
+      if (s.min_tier === 'grade_a' && (docDataGrade === 'B' || docDataGrade === 'C')) return false;
+      return true;
+    });
+
+    const allowedIds = new Set<string>(
+      allowedRawSections
+        .map((s) => String(s.section_type || s.sectionId || s.id || ''))
+        .filter(Boolean)
+    );
+
+    const meta = (doc.metadata ?? {}) as Record<string, unknown>;
+    const cachedKey = `translated_${language}`;
+    if (Array.isArray(meta[cachedKey])) {
+      const filteredCached = (meta[cachedKey] as Array<Record<string, unknown>>).filter((cs) => {
+        const cid = String(cs?.sectionId || cs?.section_type || cs?.id || '');
+        if (!cid) return true;
+        return allowedIds.has(cid) && !hiddenSet.has(cid);
+      });
+      return NextResponse.json({ ok: true, sections: filteredCached, cached: true });
+    }
+
+    const sections = allowedRawSections.map((s) => ({
       title: s.title ?? '',
       content: s.markdown ?? s.content ?? '',
-      sectionId: s.section_type,
+      sectionId: s.section_type || s.sectionId || s.id,
     }));
 
-    if (language === 'ko') {
+    if (language === 'ko' || sections.length === 0) {
       return NextResponse.json({ ok: true, sections, cached: true });
     }
 
     const translated = await translateIMSections({ sections, language });
 
-    // Cache back to document_objects.metadata
+    // Cache back to document_objects.metadata (scoped by building_id & owner_id when present)
     try {
       const updatedMeta = { ...meta, [cachedKey]: translated };
-      await supabase
+      let cacheUpdate: any = supabase
         .from('document_objects')
         .update({ metadata: updatedMeta, updated_at: new Date().toISOString() })
         .eq('id', docId)
         .eq('building_id', buildingId);
+      const docOwner = (dbDoc as any)?.owner_id || wsGuard.ownerId;
+      if (docOwner && typeof cacheUpdate?.eq === 'function') {
+        cacheUpdate = cacheUpdate.eq('owner_id', docOwner);
+      }
+      await cacheUpdate;
     } catch {
       // Non-blocking cache write failure
     }

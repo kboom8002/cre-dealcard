@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Modal } from '@/components/ui/modal';
 import { ErrorState } from '@/components/ui/error-state';
 import { SkeletonGroup, SkeletonText } from '@/components/ui/Skeleton';
+import { toKstDate, todayKst } from '@/lib/magazine/kst';
 import { toUserMessage } from '@/lib/magazine/user-message';
 import { extractApiError } from './outreach/outreach-helpers';
 import {
@@ -31,10 +32,10 @@ interface SpecialEditionModalProps {
 type LoadResult = { key: string; preview: SpecialPreview | null; error: string | null };
 
 const TILE_STYLE: Record<string, string> = {
-  total: 'text-slate-200',
-  matched: 'text-rose-300',
-  hot: 'text-amber-300',
-  untagged: 'text-ink-muted',
+  total: 'text-slate-900',
+  matched: 'text-rose-700',
+  hot: 'text-amber-800',
+  untagged: 'text-slate-700',
 };
 
 export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, sendDisabled }: SpecialEditionModalProps) {
@@ -136,7 +137,11 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
         const editionObj = json && typeof json === 'object' ? (json as any).edition : null;
         const edId = editionObj?.id || (json as any)?.editionId || '';
         const brokerSlug = editionObj?.broker_id || '';
-        const pubDate = editionObj?.published_at ? editionObj.published_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+        const parsedPub = editionObj?.published_at ? new Date(editionObj.published_at) : null;
+        const pubDate =
+          parsedPub && !Number.isNaN(parsedPub.getTime())
+            ? toKstDate(parsedPub)
+            : todayKst();
         const edUrl = (json as any)?.viewerUrl || (json as any)?.distributionResult?.viewerUrl || (edId && typeof window !== 'undefined' ? `${window.location.origin}/magazine/${brokerSlug || 'm'}/${pubDate}?edition=${edId}` : '');
         setPublishedEdition({ id: edId, editionUrl: edUrl });
         if (onSuccess) onSuccess(editionObj);
@@ -176,21 +181,26 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
           <SkeletonText lines={3} />
         </SkeletonGroup>
       ) : loadError ? (
-        <ErrorState title="매물 정보를 불러오지 못했어요" description={loadError} onRetry={() => setLoadKey((k) => k + 1)} />
+        <ErrorState
+          title="매물 정보를 불러오지 못했어요"
+          description={loadError}
+          onRetry={() => setLoadKey((k) => k + 1)}
+          className="border-rose-200 bg-rose-50 [&_p]:text-rose-900 [&>p:nth-of-type(2)]:text-rose-800"
+        />
       ) : preview ? (
-        <div className="space-y-4 text-slate-200">
+        <div className="space-y-4 text-slate-900">
           {/* 매물 요약 — 입력된 값만 표시 */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-1">
-            <div className="flex items-center justify-between gap-2 text-label">
-              <span className="flex items-center gap-1.5 font-medium text-slate-300">
-                <Building2 className="h-3.5 w-3.5 text-indigo-400" aria-hidden="true" />
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="flex items-center gap-1.5 font-medium text-slate-800">
+                <Building2 className="h-3.5 w-3.5 text-indigo-700" aria-hidden="true" />
                 {[preview.building.areaSignal, preview.building.assetType].filter(Boolean).join(' · ') || '권역·자산유형 미입력'}
               </span>
-              <span className="font-bold text-emerald-400">{preview.building.priceDisplay ?? '가격 미입력'}</span>
+              <span className="font-bold text-emerald-800">{preview.building.priceDisplay ?? '가격 미입력'}</span>
             </div>
-            {preview.building.address ? <p className="text-caption text-ink-muted">{preview.building.address}</p> : null}
+            {preview.building.address ? <p className="text-sm text-slate-600">{preview.building.address}</p> : null}
             {!preview.matchable ? (
-              <p className="flex items-start gap-1.5 text-caption text-amber-300">
+              <p className="flex items-start gap-1.5 text-sm font-medium text-amber-800">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
                 권역·자산유형이 없어 발송 대상을 계산할 수 없어요. 발행만 할 수 있습니다.
               </p>
@@ -199,37 +209,37 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
 
           {/* 타게팅 미리보기: 전체 / 매칭 / 핫리드 / 태그 없음 */}
           <div>
-            <p className="mb-1.5 flex items-center gap-1.5 text-label font-bold text-slate-300">
-              <Users className="h-3.5 w-3.5 text-rose-400" aria-hidden="true" /> 발송 대상 미리보기
-              {loading ? <Loader2 className="h-3 w-3 animate-spin text-ink-subtle" aria-label="갱신 중" /> : null}
+            <p className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-slate-900">
+              <Users className="h-3.5 w-3.5 text-rose-700" aria-hidden="true" /> 발송 대상 미리보기
+              {loading ? <Loader2 className="h-3 w-3 animate-spin text-slate-600" aria-label="갱신 중" /> : null}
             </p>
             <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-busy={loading}>
               {targetingTiles(preview).map((t) => (
-                <div key={t.key} className="rounded-lg border border-slate-800 bg-slate-950/50 p-2" title={t.hint}>
-                  <dt className="flex items-center gap-1 text-caption text-ink-muted">
-                    {t.key === 'hot' ? <Flame className="h-3 w-3 text-rose-400" aria-hidden="true" /> : null}
+                <div key={t.key} className="rounded-lg border border-slate-200 bg-slate-50 p-2" title={t.hint}>
+                  <dt className="flex items-center gap-1 text-sm text-slate-700">
+                    {t.key === 'hot' ? <Flame className="h-3 w-3 text-rose-700" aria-hidden="true" /> : null}
                     {t.key === 'untagged' ? <Tag className="h-3 w-3" aria-hidden="true" /> : null}
                     {t.label}
                   </dt>
-                  <dd className={`text-title font-bold ${TILE_STYLE[t.key]}`}>{t.count}명</dd>
+                  <dd className={`text-lg font-bold ${TILE_STYLE[t.key]}`}>{t.count}명</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-1 text-caption text-ink-subtle">매칭 규칙: 권역과 자산유형이 모두 일치하는 구독자만 대상이에요. 태그가 없는 구독자는 기본 제외됩니다.</p>
+            <p className="mt-1 text-sm text-slate-600">매칭 규칙: 권역과 자산유형이 모두 일치하는 구독자만 대상이에요. 태그가 없는 구독자는 기본 제외됩니다.</p>
 
             {preview.matchedPreview.length > 0 ? (
               <ul className="mt-2 flex flex-wrap gap-1" aria-label="매칭 대상 일부">
                 {preview.matchedPreview.slice(0, 5).map((m) => (
-                  <li key={m.id} className="flex items-center gap-1 rounded-md border border-white/5 bg-slate-900 px-2 py-0.5 text-caption text-slate-300">
+                  <li key={m.id} className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-sm text-slate-800">
                     <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: m.color }} aria-hidden="true" />
                     {m.name}
                   </li>
                 ))}
-                {preview.matched > 5 ? <li className="self-center text-caption text-ink-subtle">외 {preview.matched - 5}명</li> : null}
+                {preview.matched > 5 ? <li className="self-center text-sm text-slate-600">외 {preview.matched - 5}명</li> : null}
               </ul>
             ) : null}
 
-            <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-800 px-3 text-label text-slate-300">
+            <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800">
               <input
                 type="checkbox"
                 checked={includeUntagged}
@@ -243,7 +253,7 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
 
           {/* 헤드라인 */}
           <div className="space-y-1.5">
-            <label htmlFor={headlineId} className="text-label font-bold text-slate-300">
+            <label htmlFor={headlineId} className="text-sm font-bold text-slate-900">
               속보 헤드라인
             </label>
             <input
@@ -256,11 +266,11 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
                 setHeadline(e.target.value);
               }}
               placeholder="예: [속보] 성수동 꼬마빌딩 신규 매물 안내"
-              className="min-h-11 w-full rounded-xl border border-slate-700 bg-black/30 px-3 text-body text-white placeholder:text-ink-subtle focus:border-rose-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 focus:border-rose-600 focus:outline-none"
             />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor={noteId} className="text-label font-medium text-ink-muted">
+            <label htmlFor={noteId} className="text-sm font-medium text-slate-700">
               한줄 코멘트 (선택)
             </label>
             <input
@@ -270,12 +280,12 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
               maxLength={120}
               onChange={(e) => setUrgentNote(e.target.value)}
               placeholder="전달하고 싶은 한 줄 (사실 확인된 내용만)"
-              className="min-h-11 w-full rounded-xl border border-slate-700 bg-black/30 px-3 text-body text-white placeholder:text-ink-subtle focus:border-rose-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 focus:border-rose-600 focus:outline-none"
             />
           </div>
 
           {/* 발송 토글 — 기본 OFF */}
-          <div className="flex min-h-11 items-start gap-2 rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
+          <div className="flex min-h-[44px] items-start gap-2 rounded-xl border border-indigo-200 bg-indigo-50 p-3">
             <input
               id={distributeId}
               type="checkbox"
@@ -285,14 +295,14 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
               className="mt-0.5 h-4 w-4 shrink-0 rounded"
             />
             <label htmlFor={distributeId} className="cursor-pointer space-y-0.5">
-              <span className="block text-label font-bold text-indigo-200">{`발행과 함께 매칭 구독자 ${preview.matched}명에게 발송`}</span>
-              <span className="block text-caption text-ink-muted">
+              <span className="block text-sm font-bold text-indigo-950">{`발행과 함께 매칭 구독자 ${preview.matched}명에게 발송`}</span>
+              <span className="block text-sm text-slate-700">
                 끄면 발행만 합니다. 속보 발송은 주 2회까지, 수신 동의·수신거부가 확인된 구독자에게만 나가요.
               </span>
             </label>
           </div>
           {autoDistribute && sendOff ? (
-            <p className="flex items-start gap-1.5 text-caption text-amber-300" role="status">
+            <p className="flex items-start gap-1.5 text-sm font-medium text-amber-800" role="status">
               <Info className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
               현재 발송 기능이 꺼져 있어요. 발행은 되지만 독자에게는 발송되지 않습니다.
             </p>
@@ -301,9 +311,9 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
       ) : null}
 
       {!outcome ? (
-        <div className="mt-4 border-t border-slate-800 pt-3">
+        <div className="mt-4 border-t border-slate-200 pt-3">
           {gate.reason ? (
-            <p className="mb-2 text-caption text-amber-300" role="status">
+            <p className="mb-2 text-sm font-medium text-amber-800" role="status">
               {gate.reason}
             </p>
           ) : null}
@@ -312,7 +322,7 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
               type="button"
               onClick={onClose}
               disabled={publishing}
-              className="min-h-11 rounded-lg border border-slate-700 px-4 text-label text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+              className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-100 disabled:opacity-50"
             >
               취소
             </button>
@@ -320,7 +330,7 @@ export function SpecialEditionModal({ buildingId, isOpen, onClose, onSuccess, se
               type="button"
               onClick={handlePublish}
               disabled={!gate.canPublish}
-              className="flex min-h-11 items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-pink-600 px-4 text-label font-bold text-white shadow-lg shadow-rose-900/30 transition-all hover:from-rose-500 hover:to-pink-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-rose-700 px-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {publishing ? (
                 <>
@@ -359,9 +369,9 @@ function OutcomePanel({
   const isError = outcome.kind === 'error';
   const isWarn = outcome.kind === 'send_stopped' || outcome.kind === 'dry_run' || outcome.kind === 'none_sent';
   const Icon = isError ? AlertTriangle : isWarn ? Info : CheckCircle2;
-  const tone = isError ? 'text-rose-300 border-rose-500/30 bg-rose-950/20' : isWarn ? 'text-amber-200 border-amber-500/30 bg-amber-950/20' : 'text-emerald-200 border-emerald-500/30 bg-emerald-950/20';
+  const tone = isError ? 'text-rose-900 border-rose-200 bg-rose-50' : isWarn ? 'text-amber-900 border-amber-200 bg-amber-50' : 'text-emerald-900 border-emerald-200 bg-emerald-50';
 
-  const fallbackDate = new Date().toISOString().slice(0, 10);
+  const fallbackDate = todayKst();
   const viewerUrl = publishedEdition?.editionUrl || (publishedEdition?.id && typeof window !== 'undefined' ? `${window.location.origin}/magazine/m/${fallbackDate}?edition=${publishedEdition.id}` : '');
   const groupChatPackage = `[CRE DealCard 긴급 매물 속보]
 ${headline || outcome.title || "긴급 추천 매물 속보"}
@@ -390,23 +400,23 @@ ${viewerUrl || (typeof window !== "undefined" ? window.location.origin : "")}`.t
   };
 
   return (
-    <div className="space-y-4" role={isError ? 'alert' : 'status'}>
+    <div className="space-y-4 text-slate-900" role={isError ? 'alert' : 'status'}>
       <div className={`flex items-start gap-2 rounded-xl border p-4 ${tone}`}>
         <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <div className="space-y-1">
-          <p className="text-body font-bold">{outcome.title}</p>
-          {outcome.detail ? <p className="text-label opacity-90">{outcome.detail}</p> : null}
+          <p className="text-base font-bold">{outcome.title}</p>
+          {outcome.detail ? <p className="text-sm">{outcome.detail}</p> : null}
         </div>
       </div>
 
       {outcome.published && (
-        <div className="space-y-2 p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700">
-          <p className="text-xs font-bold text-slate-300">⚡ 1초 원클릭 배포 패키지</p>
+        <div className="space-y-2 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+          <p className="text-sm font-bold text-slate-900">⚡ 1초 원클릭 배포 패키지</p>
           <button
             type="button"
             data-testid="special-copy-package-btn"
             onClick={handleCopyPackage}
-            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-sm font-extrabold text-white shadow-md transition-all cursor-pointer"
+            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-rose-700 hover:bg-rose-800 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all cursor-pointer"
           >
             <Copy className="h-4 w-4" aria-hidden="true" />
             📋 카톡 단톡방/VIP 문구 패키지 복사
@@ -415,18 +425,18 @@ ${viewerUrl || (typeof window !== "undefined" ? window.location.origin : "")}`.t
             <a
               href={smsHref}
               data-testid="special-sms-dispatch-link"
-              className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 py-2 text-xs font-bold text-slate-200 transition-all cursor-pointer shadow-2xs"
+              className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 py-2 text-sm font-bold text-slate-900 transition-all cursor-pointer shadow-2xs"
             >
-              <Send className="h-3.5 w-3.5 text-rose-400" aria-hidden="true" />
+              <Send className="h-3.5 w-3.5 text-rose-700" aria-hidden="true" />
               💬 문자(SMS) 바로 보내기
             </a>
             {viewerUrl ? (
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 py-2 text-xs font-bold text-slate-200 transition-all cursor-pointer shadow-2xs"
+                className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 py-2 text-sm font-bold text-slate-900 transition-all cursor-pointer shadow-2xs"
               >
-                <ExternalLink className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                <ExternalLink className="h-3.5 w-3.5 text-slate-700" aria-hidden="true" />
                 🔗 링크만 복사
               </button>
             ) : null}
@@ -439,7 +449,7 @@ ${viewerUrl || (typeof window !== "undefined" ? window.location.origin : "")}`.t
           <button
             type="button"
             onClick={onRetry}
-            className="min-h-11 rounded-lg border border-slate-700 px-4 text-label text-slate-300 hover:bg-slate-800"
+            className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-100"
           >
             다시 시도
           </button>
@@ -447,7 +457,7 @@ ${viewerUrl || (typeof window !== "undefined" ? window.location.origin : "")}`.t
         <button
           type="button"
           onClick={onClose}
-          className="min-h-11 rounded-lg bg-slate-700 px-4 text-label font-bold text-white hover:bg-slate-600"
+          className="min-h-[44px] rounded-lg bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800"
         >
           닫기
         </button>

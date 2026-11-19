@@ -44,6 +44,7 @@ export interface BuildingForSchema {
 
 export interface BrokerForSchema {
   id: string;
+  slug?: string | null;
   display_name?: string | null;
   company?: string | null;
   phone?: string | null;
@@ -80,7 +81,9 @@ export function realEstateListing(building: BuildingForSchema) {
   const region = regionLabel(building.area_signal);
   const regionSlug =
     building.area_signal?.replace(/\s+/g, "-").toLowerCase() ?? "unknown";
-  const needles = collectSensitiveNeedles(building as Record<string, any>);
+  const needles = collectSensitiveNeedles(
+    building as Parameters<typeof collectSensitiveNeedles>[0],
+  );
   const sanitizedFitSummary = building.fit_summary
     ? cleanBlindPoints([maskNeedles(building.fit_summary, needles)])[0]
     : null;
@@ -121,9 +124,12 @@ export function realEstateListing(building: BuildingForSchema) {
 /* ── 2. RealEstateAgent ─────────────────────────────────────────── */
 
 export function realEstateAgent(broker: BrokerForSchema) {
-  const slug = broker.display_name
-    ? broker.display_name.replace(/\s+/g, "-").toLowerCase()
-    : broker.id;
+  const slug =
+    broker.slug && broker.slug.trim()
+      ? encodeURIComponent(broker.slug.trim())
+      : broker.display_name
+        ? broker.display_name.replace(/\s+/g, "-").toLowerCase()
+        : encodeURIComponent(broker.id);
 
   return {
     "@context": "https://schema.org",
@@ -388,23 +394,31 @@ export function searchResultsPage(query: string, totalResults: number) {
   };
 }
 
-export function brokerItemList(brokers: BrokerForSchema[]) {
+export function hubFeaturedBrokersItemList(brokers: BrokerForSchema[]) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "상업용 부동산 전문 중개인 목록",
     numberOfItems: brokers.length,
-    itemListElement: brokers.map((b, idx) => ({
-      "@type": "ListItem",
-      position: idx + 1,
-      item: {
-        "@type": "RealEstateAgent",
-        name: b.display_name,
-        telephone: b.phone ?? undefined,
-        description: b.bio ?? undefined,
-        url: `${BASE_URL}/vibe-card/${b.id}`, // b.id should be the slug
-      },
-    })),
+    itemListElement: brokers.map((b, idx) => {
+      const profileSlug =
+        typeof b.slug === "string" && b.slug.trim() ? b.slug.trim() : b.id;
+      return {
+        "@type": "ListItem",
+        position: idx + 1,
+        item: {
+          "@type": "RealEstateAgent",
+          name: b.display_name,
+          telephone: b.phone ?? undefined,
+          description: b.bio ?? undefined,
+          url: `${BASE_URL}/broker-profile/${encodeURIComponent(profileSlug)}`,
+        },
+      };
+    }),
   };
+}
+
+export function brokerItemList(brokers: BrokerForSchema[]) {
+  return hubFeaturedBrokersItemList(brokers);
 }
 

@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('[GET /api/admin/golden-sets/[id]]', message);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message } },
+      { ok: false, error: { code: 'INTERNAL', message: '골든셋 조회에 실패했습니다.' } },
       { status: 500 },
     );
   }
@@ -129,7 +129,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('[PATCH /api/admin/golden-sets/[id]]', message);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message } },
+      { ok: false, error: { code: 'INTERNAL', message: '골든셋 수정에 실패했습니다.' } },
       { status: 500 },
     );
   }
@@ -155,7 +155,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('[DELETE /api/admin/golden-sets/[id]]', message);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message } },
+      { ok: false, error: { code: 'INTERNAL', message: '골든셋 삭제에 실패했습니다.' } },
       { status: 500 },
     );
   }

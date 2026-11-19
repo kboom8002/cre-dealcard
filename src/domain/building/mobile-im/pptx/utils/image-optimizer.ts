@@ -3,7 +3,12 @@
  * sharp 기반 리사이즈/압축 → Buffer 반환 (Base64 대비 33% 용량 절감)
  * Vercel Pro (3GB 메모리) 환경 최적화
  */
+import dns from 'node:dns';
+import fs from 'node:fs';
+import net from 'node:net';
+import path from 'node:path';
 import sharp from 'sharp';
+import { isRealProductionRuntime } from '@/lib/env';
 import { selectLocationPois, classifyPoi, bearingDeg, directionKo, formatOffViewLabel, type PoiCandidate, type SelectedPoi } from '../location-poi-selector';
 import {
   TARGET_PIN,
@@ -43,9 +48,243 @@ export interface OptimizedImage {
   originalHeight: number;
   /** 원본 비율 (width / height) */
   aspectRatio: number;
+  /** 알파 채널이 포함된 투명 그래픽(배너·로고 등) 여부 */
+  isTransparentGraphic?: boolean;
+  /** 알파 채널 평균값 (0=완전 투명 ~ 255=불투명) */
+  alphaMean?: number;
+  /** 이미지 섀넌 엔트로피 (단색/표 텍스트 스크린샷 판별용) */
+  entropy?: number;
+  /** RGB 채널 평균 편차 (무채색 UI 캡처/문서 판별용) */
+  rgbSpread?: number;
+}
+
+/**
+ * 명함·로고·UI 표 캡처 등 현장 실사 사진이 아닌 비사진 그래픽 여부 판별
+ */
+export function isNonPhotoGraphic(opt: OptimizedImage): boolean {
+  if (opt.isTransparentGraphic && (opt.alphaMean ?? 255) < 200) return true;
+  if (opt.aspectRatio > 3.0 || opt.aspectRatio < 0.30) return true;
+  if (opt.originalWidth >= 64 && opt.originalHeight >= 64) {
+    if (opt.originalHeight < 180) return true;
+    if (opt.entropy !== undefined && opt.entropy < 3.5 && (opt.rgbSpread ?? 99) < 3.0) return true;
+  }
+  return false;
 }
 
 const MAX_INTAKE_BYTES = 10 * 1024 * 1024; // 10MB intake guard against serverless OOM
+const ALLOWED_LOCAL_IMAGE_EXT_RE = /\.(?:jpe?g|png|webp|gif|avif)$/i;
+
+function isBlockedIpv4(v4: string): boolean {
+  const parts = v4.split('.');
+  if (parts.length !== 4) return true;
+  const nums = parts.map((p) => (/^\d+$/.test(p) ? Number(p) : NaN));
+  if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+  const [a, b, c] = nums;
+  if (a === 127) return true; // 127.0.0.0/8 loopback
+  if (a === 10) return true; // 10.0.0.0/8 RFC1918
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 RFC1918
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16 RFC1918
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 cloud IMDS & link-local
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+  if (a === 0) return true; // 0.0.0.0/8 unspecified
+  if (a === 192 && b === 0 && c === 0) return true; // 192.0.0.0/24 IETF protocol assignments
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 benchmarking
+  if (a >= 224) return true; // 224.0.0.0/4 multicast + 240.0.0.0/4 reserved
+  return false;
+}
+
+function parseIpv6Groups(v6: string): number[] | null {
+  let working = v6;
+  const lastColon = working.lastIndexOf(':');
+  if (lastColon !== -1 && working.slice(lastColon + 1).includes('.')) {
+    const ipv4Tail = working.slice(lastColon + 1);
+    const parts = ipv4Tail.split('.');
+    if (parts.length !== 4) return null;
+    const octets = parts.map((p) => (/^\d+$/.test(p) ? Number(p) : NaN));
+    if (octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    const hi = ((octets[0] << 8) | octets[1]).toString(16);
+    const lo = ((octets[2] << 8) | octets[3]).toString(16);
+    working = `${working.slice(0, lastColon)}:${hi}:${lo}`;
+  }
+
+  const dblParts = working.split('::');
+  if (dblParts.length > 2) return null;
+  const head = dblParts[0] ? dblParts[0].split(':') : [];
+  const tail = dblParts.length === 2 && dblParts[1] ? dblParts[1].split(':') : [];
+  const missing = 8 - (head.length + tail.length);
+  if (dblParts.length === 1 && missing !== 0) return null;
+  if (dblParts.length === 2 && missing < 1) return null;
+
+  const full = [...head, ...Array<string>(dblParts.length === 2 ? missing : 0).fill('0'), ...tail];
+  if (full.length !== 8) return null;
+  const groups = full.map((g) => (/^[0-9a-f]{1,4}$/i.test(g) ? parseInt(g, 16) : NaN));
+  if (groups.some((n) => Number.isNaN(n) || n < 0 || n > 0xffff)) return null;
+  return groups;
+}
+
+export function isBlockedPrivateOrInternalIp(rawIp: string): boolean {
+  const cleaned = String(rawIp || '')
+    .trim()
+    .replace(/^\[|\]$/g, '')
+    .split('%')[0]
+    .toLowerCase();
+  if (!cleaned) return true;
+
+  const mappedDotted = cleaned.match(/^(?:::ffff:|0{1,4}(?::0{1,4}){4}:ffff:)(\d+\.\d+\.\d+\.\d+)$/i);
+  if (mappedDotted) {
+    return isBlockedIpv4(mappedDotted[1]);
+  }
+
+  const ipVersion = net.isIP(cleaned);
+  if (ipVersion === 4) {
+    return isBlockedIpv4(cleaned);
+  }
+  if (ipVersion !== 6) {
+    return true;
+  }
+
+  const groups = parseIpv6Groups(cleaned);
+  if (!groups) return true;
+
+  const allZeroPrefix6 = groups.slice(0, 6).every((g) => g === 0);
+  const allZeroPrefix5 = groups.slice(0, 5).every((g) => g === 0);
+
+  // :: (unspecified) and ::1 (loopback)
+  if (allZeroPrefix6 && groups[6] === 0 && (groups[7] === 0 || groups[7] === 1)) {
+    return true;
+  }
+  // fc00::/7 Unique Local Address (ULA)
+  if ((groups[0] & 0xfe00) === 0xfc00) return true;
+  // fe80::/10 Link-local
+  if ((groups[0] & 0xffc0) === 0xfe80) return true;
+  // ff00::/8 Multicast
+  if ((groups[0] & 0xff00) === 0xff00) return true;
+  // ::ffff:0:0/96 IPv4-mapped IPv6
+  if (allZeroPrefix5 && groups[5] === 0xffff) {
+    const v4 = `${(groups[6] >> 8) & 0xff}.${groups[6] & 0xff}.${(groups[7] >> 8) & 0xff}.${groups[7] & 0xff}`;
+    return isBlockedIpv4(v4);
+  }
+  // ::x.x.x.x IPv4-compatible IPv6
+  if (allZeroPrefix6 && (groups[6] !== 0 || groups[7] > 1)) {
+    const v4 = `${(groups[6] >> 8) & 0xff}.${groups[6] & 0xff}.${(groups[7] >> 8) & 0xff}.${groups[7] & 0xff}`;
+    if (isBlockedIpv4(v4)) return true;
+  }
+  // 64:ff9b::/96 NAT64 well-known prefix
+  if (
+    groups[0] === 0x0064 &&
+    groups[1] === 0xff9b &&
+    groups[2] === 0 &&
+    groups[3] === 0 &&
+    groups[4] === 0 &&
+    groups[5] === 0
+  ) {
+    const v4 = `${(groups[6] >> 8) & 0xff}.${groups[6] & 0xff}.${(groups[7] >> 8) & 0xff}.${groups[7] & 0xff}`;
+    if (isBlockedIpv4(v4)) return true;
+  }
+
+  return false;
+}
+
+export function isPathInsideRoot(targetPath: string, rootDir: string): boolean {
+  if (!targetPath || !rootDir || targetPath.includes('\0')) return false;
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(targetPath);
+  const rel = path.relative(resolvedRoot, resolvedTarget);
+  return (
+    Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel)) &&
+    ALLOWED_LOCAL_IMAGE_EXT_RE.test(resolvedTarget)
+  );
+}
+
+async function fetchSafeImageBuffer(rawUrl: string): Promise<Buffer | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+
+  // Reject cleartext http:// (and any non-HTTPS scheme), URL credentials, and non-443 ports
+  if (parsed.protocol !== 'https:') return null;
+  if (parsed.username || parsed.password) return null;
+  if (parsed.port && parsed.port !== '443') return null;
+
+  const host = parsed.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+  if (
+    !host ||
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === 'metadata.google.internal' ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal')
+  ) {
+    return null;
+  }
+
+  if (net.isIP(host) !== 0) {
+    if (isBlockedPrivateOrInternalIp(host)) return null;
+  } else {
+    let records: dns.LookupAddress[];
+    try {
+      records = await dns.promises.lookup(host, { all: true });
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(records) || records.length === 0) return null;
+    if (records.some((rec) => !rec?.address || isBlockedPrivateOrInternalIp(rec.address))) {
+      return null;
+    }
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(parsed.toString(), {
+      redirect: 'error',
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+
+    const contentLength = response.headers?.get?.('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_INTAKE_BYTES) {
+      log.warn(`[optimizeImageForPptx] Content-Length (${contentLength} bytes) exceeds 10MB limit: ${rawUrl}`);
+      controller.abort();
+      return null;
+    }
+
+    if (response.body && typeof response.body.getReader === 'function') {
+      const reader = response.body.getReader();
+      const chunks: Buffer[] = [];
+      let receivedBytes = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          receivedBytes += value.byteLength;
+          if (receivedBytes > MAX_INTAKE_BYTES) {
+            await reader.cancel().catch(() => undefined);
+            controller.abort();
+            log.warn(`[optimizeImageForPptx] Stream exceeded 10MB limit (${receivedBytes} bytes): ${rawUrl}`);
+            return null;
+          }
+          chunks.push(Buffer.from(value));
+        }
+      }
+      return Buffer.concat(chunks, receivedBytes);
+    }
+
+    // Fallback ONLY if response.body is absent in a unit-test mock
+    const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength > MAX_INTAKE_BYTES) {
+      return null;
+    }
+    return Buffer.from(arrayBuffer);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 /**
  * URL에서 이미지를 가져와 PPTX 삽입용으로 최적화
@@ -56,21 +295,23 @@ const MAX_INTAKE_BYTES = 10 * 1024 * 1024; // 10MB intake guard against serverle
 export async function optimizeImageForPptx(
   imageUrl: string | Buffer,
   maxWidth = 1800, // D29 M-11: 실효 dpi 180 기반 (10" × 180dpi)
-  quality = 75
+  quality = 75,
+  minWidth = 0
 ): Promise<OptimizedImage | null> {
   try {
     if (!imageUrl) {
       return null;
     }
-    let inputBuffer: Buffer;
+    let inputBuffer: Buffer | null = null;
 
     if (Buffer.isBuffer(imageUrl)) {
       inputBuffer = imageUrl;
-    } else if (typeof imageUrl !== 'string' || imageUrl.startsWith('blob:')) {
+    } else if (typeof imageUrl !== 'string' || imageUrl.startsWith('blob:') || imageUrl.includes('\0')) {
       return null;
     } else if (imageUrl.startsWith('data:') || /^image\/[a-zA-Z0-9.+-]+;base64,/.test(imageUrl)) {
       const base64Data = imageUrl.split(',')[1];
-      if (base64Data && base64Data.length * 0.75 > MAX_INTAKE_BYTES) {
+      if (!base64Data) return null;
+      if (base64Data.length * 0.75 > MAX_INTAKE_BYTES) {
         log.warn('[optimizeImageForPptx] Data URL exceeds 10MB guard, aborting to prevent OOM');
         return null;
       }
@@ -82,77 +323,104 @@ export async function optimizeImageForPptx(
       }
       inputBuffer = Buffer.from(imageUrl, 'base64');
     } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      const response = await fetch(imageUrl, {
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!response.ok) return null;
+      inputBuffer = await fetchSafeImageBuffer(imageUrl);
+      if (!inputBuffer) return null;
+    } else if (imageUrl.startsWith('/api/public/testguide-assets/')) {
+      let relSlug = '';
+      try {
+        relSlug = decodeURIComponent(imageUrl.replace(/^\/api\/public\/testguide-assets\//, ''));
+      } catch {
+        return null;
+      }
+      const im261110Root = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'im261110');
+      const testguideRoot = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'testguide');
+      const im261110Path = path.join(/*turbopackIgnore: true*/ im261110Root, relSlug);
+      const testguidePath = path.join(/*turbopackIgnore: true*/ testguideRoot, relSlug);
+      const safeIm261110 = isPathInsideRoot(im261110Path, im261110Root);
+      const safeTestguide = isPathInsideRoot(testguidePath, testguideRoot);
 
-      const contentLength = response.headers.get('content-length');
-      if (contentLength && parseInt(contentLength, 10) > MAX_INTAKE_BYTES) {
-        log.warn(`[optimizeImageForPptx] Content-Length (${contentLength} bytes) exceeds 10MB limit: ${imageUrl}`);
+      if (!safeIm261110 && !safeTestguide) {
+        log.warn(`[optimizeImageForPptx] Rejected unsafe testguide-assets path: ${imageUrl}`);
         return null;
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      inputBuffer = Buffer.from(arrayBuffer);
+      if (safeIm261110 && fs.existsSync(/*turbopackIgnore: true*/ im261110Path)) {
+        inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ im261110Path);
+      } else if (safeTestguide && fs.existsSync(/*turbopackIgnore: true*/ testguidePath)) {
+        inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ testguidePath);
+      } else {
+        const baseFilename = path.basename(relSlug);
+        try {
+          const { TESTGUIDE_IMAGE_CDN_MAP } = await import('@/lib/testguide/testguide-data');
+          const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[baseFilename];
+          if (cdnUrl) {
+            inputBuffer = await fetchSafeImageBuffer(cdnUrl);
+          }
+        } catch {
+          // Fall through to deterministic sharp placeholder
+        }
+        if (!inputBuffer) {
+          inputBuffer = await sharp({
+            create: {
+              width: 1280,
+              height: 853,
+              channels: 3,
+              background: { r: 30, g: 41, b: 59 },
+            },
+          })
+            .jpeg({ quality: 88, mozjpeg: true })
+            .toBuffer();
+        }
+      }
     } else {
-      // 로컬 파일 경로 처리 (e.g. Windows absolute C:/..., relative, or /public/...)
-      const fs = await import('fs');
-      const path = await import('path');
-      let localPath = imageUrl;
-      if (imageUrl.startsWith('/api/public/testguide-assets/')) {
-        const relSlug = decodeURIComponent(imageUrl.replace(/^\/api\/public\/testguide-assets\//, ''));
-        const im261110Path = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'im261110', relSlug);
-        const testguidePath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs', 'testguide', relSlug);
-        if (fs.existsSync(/*turbopackIgnore: true*/ im261110Path)) {
-          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ im261110Path);
-        } else if (fs.existsSync(/*turbopackIgnore: true*/ testguidePath)) {
-          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ testguidePath);
-        } else {
-          const baseFilename = path.basename(relSlug);
-          try {
-            const { TESTGUIDE_IMAGE_CDN_MAP } = await import('@/lib/testguide/testguide-data');
-            const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[baseFilename];
-            if (cdnUrl) {
-              const upstream = await fetch(cdnUrl);
-              if (upstream.ok) {
-                inputBuffer = Buffer.from(await upstream.arrayBuffer());
-              }
-            }
-          } catch {
-            // Fall through to deterministic sharp placeholder
-          }
-          if (!inputBuffer!) {
-            inputBuffer = await sharp({
-              create: {
-                width: 1280,
-                height: 853,
-                channels: 3,
-                background: { r: 30, g: 41, b: 59 },
-              },
-            })
-              .jpeg({ quality: 88, mozjpeg: true })
-              .toBuffer();
-          }
-        }
+      // Reject non-path URI schemes (e.g. file://, ftp://) while preserving Windows drive paths (C:\...)
+      if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(imageUrl) && !/^[a-zA-Z]:[\\/]/.test(imageUrl)) {
+        return null;
       }
-      if (!inputBuffer! && fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
-        inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
-      } else if (!inputBuffer! && imageUrl.startsWith('/')) {
-        localPath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', imageUrl);
-        if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
-          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
-        }
-      }
-      if (!inputBuffer!) {
-        localPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), imageUrl);
-        if (fs.existsSync(/*turbopackIgnore: true*/ localPath)) {
-          inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ localPath);
-        } else {
-          log.warn(`[optimizeImageForPptx] Local image file not found: ${imageUrl}`);
+
+      const publicRoot = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public');
+      if (isRealProductionRuntime()) {
+        const candidate = imageUrl.startsWith('/')
+          ? path.join(/*turbopackIgnore: true*/ publicRoot, imageUrl.replace(/^\/+/, ''))
+          : path.resolve(/*turbopackIgnore: true*/ publicRoot, imageUrl);
+        if (!isPathInsideRoot(candidate, publicRoot) || !fs.existsSync(/*turbopackIgnore: true*/ candidate)) {
+          log.warn(`[optimizeImageForPptx] Local image file outside public/ or missing in prod: ${imageUrl}`);
           return null;
         }
+        inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ candidate);
+      } else {
+        const allowedNonProdRoots = [
+          publicRoot,
+          path.join(/*turbopackIgnore: true*/ process.cwd(), 'docs'),
+          path.join(/*turbopackIgnore: true*/ process.cwd(), 'e2e'),
+        ];
+        const candidates: string[] = [];
+        if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+          candidates.push(path.join(/*turbopackIgnore: true*/ publicRoot, imageUrl.replace(/^\/+/, '')));
+        }
+        candidates.push(path.resolve(/*turbopackIgnore: true*/ process.cwd(), imageUrl));
+        candidates.push(path.resolve(/*turbopackIgnore: true*/ publicRoot, imageUrl));
+
+        let resolvedSafeFile: string | null = null;
+        for (const candidate of candidates) {
+          if (
+            allowedNonProdRoots.some((root) => isPathInsideRoot(candidate, root)) &&
+            fs.existsSync(/*turbopackIgnore: true*/ candidate)
+          ) {
+            resolvedSafeFile = candidate;
+            break;
+          }
+        }
+        if (!resolvedSafeFile) {
+          log.warn(`[optimizeImageForPptx] Local image file outside allowed roots or not found: ${imageUrl}`);
+          return null;
+        }
+        inputBuffer = fs.readFileSync(/*turbopackIgnore: true*/ resolvedSafeFile);
       }
+    }
+
+    if (!inputBuffer) {
+      return null;
     }
 
     if (inputBuffer.length > MAX_INTAKE_BYTES) {
@@ -167,11 +435,47 @@ export async function optimizeImageForPptx(
     const originalWidth = isQuarterTurnRotated ? rawH : rawW;
     const originalHeight = isQuarterTurnRotated ? rawW : rawH;
 
-    const resizedBuffer = await sharp(inputBuffer).rotate() // EXIF Orientation 자동 보정 (출력 시 EXIF 제거되므로 필수)
+    let isTransparentGraphic = false;
+    let alphaMean: number | undefined;
+    let entropy: number | undefined;
+    let rgbSpread: number | undefined;
+    try {
+      const stats = await sharp(inputBuffer).stats();
+      entropy = stats.entropy;
+      if (stats.channels.length >= 3) {
+        const means = [stats.channels[0].mean, stats.channels[1].mean, stats.channels[2].mean];
+        rgbSpread = Math.round((Math.max(...means) - Math.min(...means)) * 100) / 100;
+      }
+      if (metadata.hasAlpha) {
+        const alphaChannel = stats.channels.length >= 4 ? stats.channels[3] : undefined;
+        alphaMean = alphaChannel ? Math.round(alphaChannel.mean * 100) / 100 : undefined;
+        if (!stats.isOpaque && alphaMean !== undefined && alphaMean < 245) {
+          isTransparentGraphic = true;
+        }
+      }
+    } catch {
+      // Fallback to JPEG path if stats extraction fails
+    }
+
+    const needsMinUpscale =
+      minWidth > 0 &&
+      originalWidth >= 180 &&
+      originalHeight >= 180 &&
+      originalWidth < minWidth;
+    const targetWidth = needsMinUpscale
+      ? Math.min(minWidth, maxWidth)
+      : Math.min(originalWidth, maxWidth);
+
+    let pipeline = sharp(inputBuffer).rotate() // EXIF Orientation 자동 보정 (출력 시 EXIF 제거되므로 필수)
       .resize({
-        width: Math.min(originalWidth, maxWidth),
-        withoutEnlargement: true,
-      })
+        width: targetWidth,
+        ...(needsMinUpscale ? { kernel: sharp.kernel.lanczos3 } : { withoutEnlargement: true }),
+      });
+    if (needsMinUpscale) {
+      pipeline = pipeline.sharpen({ sigma: 0.6 });
+    }
+
+    const resizedBuffer = await pipeline
       .flatten({ background: '#ffffff' })
       .jpeg({
         quality,
@@ -183,11 +487,12 @@ export async function optimizeImageForPptx(
     const resizedMeta = await sharp(resizedBuffer).metadata();
     const finalW = resizedMeta.width || originalWidth;
     const finalH = resizedMeta.height || originalHeight;
+    const mimeType = 'image/jpeg';
 
     return {
       sourceUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
       buffer: resizedBuffer,
-      base64: `image/jpeg;base64,${resizedBuffer.toString('base64')}`,
+      base64: `${mimeType};base64,${resizedBuffer.toString('base64')}`,
       width: finalW,
       height: finalH,
       sizeBytes: resizedBuffer.length,
@@ -195,6 +500,9 @@ export async function optimizeImageForPptx(
       originalWidth,
       originalHeight,
       aspectRatio: finalH > 0 ? finalW / finalH : originalWidth / originalHeight,
+      ...(isTransparentGraphic ? { isTransparentGraphic, alphaMean } : {}),
+      ...(entropy !== undefined ? { entropy } : {}),
+      ...(rgbSpread !== undefined ? { rgbSpread } : {}),
     };
   } catch (err) {
     log.warn('[optimizeImageForPptx] Failed:', imageUrl, err);
@@ -210,7 +518,8 @@ export async function optimizeImagesForPptx(
   urls: string[],
   maxCount = 8,
   maxWidth = 1800, // D29 M-11: 실효 dpi 180 기반 (10" × 180dpi)
-  quality = 75
+  quality = 75,
+  minWidth = 0
 ): Promise<OptimizedImage[]> {
   const targets = urls.slice(0, maxCount);
   const CONCURRENCY_LIMIT = 4;
@@ -219,7 +528,7 @@ export async function optimizeImagesForPptx(
   for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
     const chunk = targets.slice(i, i + CONCURRENCY_LIMIT);
     const chunkResults = await Promise.allSettled(
-      chunk.map(url => optimizeImageForPptx(url, maxWidth, quality))
+      chunk.map(url => optimizeImageForPptx(url, maxWidth, quality, minWidth))
     );
     results.push(...chunkResults);
   }

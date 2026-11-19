@@ -13,7 +13,6 @@ import {
 } from '@/lib/magazine/public-page-data';
 import { resolveSubscribeSource } from '@/lib/magazine/subscribe-source';
 import { formatKoreanDate } from '@/lib/magazine/kst';
-import { MAGAZINE_SEND_DAY_LABEL } from '@/lib/magazine/schedule-labels';
 import { InitialAvatar } from '@/components/magazine/InitialAvatar';
 import { SubscribeFormClient } from './SubscribeFormClient';
 
@@ -48,16 +47,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const brokerSlug = (found.bp.slug as string | null) ?? brokerId;
 
   return {
-    title: `${name}의 주간 부동산 매거진 구독 신청 | ${company}`,
-    description: `${name} 중개사의 실거래가, 시장 동향, 추천 매물 브리핑을 ${MAGAZINE_SEND_DAY_LABEL} 카카오톡·이메일로 받아보세요.`,
+    title: `${name}의 부동산 매거진 구독 신청 | ${company}`,
+    description: `${name} 중개사의 실거래가, 시장 동향, 추천 매물 브리핑을 이메일 인증 완료 후 정기 구독으로 받아보세요.`,
     openGraph: {
-      title: `[무료 구독] ${name}의 CRE 주간 매거진`,
-      description: '실거래 분석과 상업용 빌딩 매물 브리핑을 정기 발송해 드립니다.',
+      title: `[무료 구독] ${name}의 CRE 부동산 브리핑`,
+      description: '이메일 인증 완료 후 실거래 분석과 상업용 빌딩 매물 브리핑을 정기 발송해 드립니다.',
       type: 'website',
       siteName: 'CRE 매거진',
       images: [
         {
-          url: `/api/public/magazine/og-image?brokerId=${encodeURIComponent(brokerSlug)}`,
+          url: `/api/og/magazine?brokerId=${encodeURIComponent(brokerSlug)}`,
           width: 1200,
           height: 630,
         },
@@ -115,7 +114,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#070913] via-[#0d1124] to-[#080a15] text-slate-100 flex flex-col justify-between p-4 sm:p-6 font-sans">
+    <div className="min-h-screen bg-[#FAF9F5] text-slate-900 flex flex-col justify-between p-4 sm:p-6 font-sans">
       <main id="magazine-main" className="max-w-md w-full mx-auto space-y-6 pt-4 pb-12">
         {/* 상단 브로커 소개 배너 */}
         <header className="text-center space-y-3">
@@ -125,7 +124,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
               <img
                 src={photoUrl}
                 alt={`${brokerName} 중개사 사진`}
-                className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-indigo-500/40 shadow-xl"
+                className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-indigo-200 shadow-sm"
               />
             ) : (
               <InitialAvatar name={brokerName} size={80} className="mx-auto" />
@@ -133,19 +132,19 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
           </div>
 
           <div className="space-y-1">
-            <h1 className="text-title font-black text-white tracking-tight">
-              {brokerName} <span className="text-label font-normal text-slate-200">중개사의 매거진 구독</span>
+            <h1 className="text-title font-black text-slate-900 tracking-tight">
+              {brokerName} <span className="text-sm font-semibold text-slate-700">중개사의 매거진 구독</span>
             </h1>
-            {brokerCompany && <p className="text-[15px] text-indigo-200 font-semibold">{brokerCompany}</p>}
+            {brokerCompany && <p className="text-label text-indigo-700 font-semibold">{brokerCompany}</p>}
             {(regions.length > 0 || assets.length > 0) && (
               <div className="flex items-center justify-center gap-1.5 pt-1 flex-wrap">
                 {regions.map((r: string) => (
-                  <span key={r} className="text-[14px] px-2.5 py-1 rounded-full bg-slate-800 text-slate-100 border border-slate-600 font-medium">
+                  <span key={r} className="text-sm px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300 font-medium">
                     📍 {r}
                   </span>
                 ))}
                 {assets.map((a: string) => (
-                  <span key={a} className="text-[14px] px-2.5 py-1 rounded-full bg-indigo-950/60 text-indigo-100 border border-indigo-700/60 font-medium">
+                  <span key={a} className="text-sm px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 font-medium">
                     🏢 {a}
                   </span>
                 ))}
@@ -155,27 +154,26 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
         </header>
 
         {/* 안내 카드 */}
-        <section aria-label="발송 안내" className="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 shadow-xl space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-amber-300 text-[16px] font-bold">
+        <section aria-label="발송 안내" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-indigo-800 text-body font-bold">
             <span aria-hidden="true">✨</span>
-            <span>{MAGAZINE_SEND_DAY_LABEL} 카카오톡 무료 발송</span>
-            <span className="text-[14px] font-semibold text-amber-200">· 이메일 수신 가능</span>
+            <span>이메일 인증 완료 후 정기 부동산 브리핑 무료 발송</span>
           </div>
-          <p className="text-[15px] text-slate-200 leading-relaxed break-keep">
-            실거래가 분석, 지역 시장 동향, 권역별 추천 매물 브리핑을 카카오톡·이메일로 전달해 드립니다.
+          <p className="text-label text-slate-700 leading-relaxed break-keep">
+            실거래가 분석, 지역 시장 동향, 권역별 추천 매물 브리핑을 이메일로 안전하게 전달해 드리며, 휴대폰 번호 등록 시 담당 중개사 안내도 함께 받으실 수 있습니다.
           </p>
         </section>
 
         {/* 최근 호 미리보기 */}
         {preview && latestDate && (
-          <section aria-label="최근 발행 미리보기" className="rounded-2xl border border-slate-600 bg-slate-900/80 p-4 space-y-2" data-testid="recent-preview">
-            <p className="text-[14px] font-bold text-slate-200">최근 발행 · {preview.label}</p>
-            <p className="text-[18px] font-bold text-white leading-snug line-clamp-3 break-keep">
+          <section aria-label="최근 발행 미리보기" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-2" data-testid="recent-preview">
+            <p className="text-sm font-bold text-slate-700">최근 발행 · {preview.label}</p>
+            <p className="text-lg font-bold text-slate-900 leading-snug line-clamp-3 break-keep">
               {preview.headline ?? `${brokerName}의 CRE 매거진`}
             </p>
             <Link
               href={`/magazine/${encodeURIComponent(brokerSlug)}/${latestDate}`}
-              className="inline-flex min-h-12 items-center text-[15px] font-bold text-indigo-200 hover:text-white underline underline-offset-4"
+              className="inline-flex min-h-12 items-center text-label font-bold text-indigo-700 hover:text-indigo-900 underline underline-offset-4"
             >
               이런 내용을 받아봐요 — 먼저 읽어보기 →
             </Link>
@@ -195,7 +193,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
         />
       </main>
 
-      <footer className="text-center text-[14px] text-slate-300 pb-4">
+      <footer className="text-center text-sm text-slate-700 pb-4">
         © CRE DealCard · 상업용 부동산 인텔리전스 네트워크
       </footer>
     </div>

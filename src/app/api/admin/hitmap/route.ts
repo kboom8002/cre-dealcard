@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       log.error("[Hitmap] Error fetching events:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "활동 통계 조회에 실패했습니다." }, { status: 500 });
     }
 
     // Aggregate counts
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
     })).sort((a, b) => b.count - a.count);
 
     return NextResponse.json({ heatmap: heatmapData });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[Hitmap] Unhandled error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "통계 처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 }

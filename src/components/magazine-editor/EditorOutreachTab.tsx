@@ -24,6 +24,12 @@ import {
   withWeekly,
 } from './outreach/outreach-helpers';
 import { formatKrPhoneDisplay } from '@/lib/magazine/phone-input';
+import {
+  buildOgImageUrl,
+  buildSubscribeUrl,
+  buildViewerUrl,
+  resolvePublicBaseUrl,
+} from '@/lib/magazine/share-urls';
 
 // ── 타입 ──
 
@@ -51,10 +57,10 @@ interface Subscriber extends DetailSubscriber {
 
 // ── 상수 ──
 
-const CHANNEL_META: Record<string, { icon: typeof Mail; label: string; color: string }> = {
-  kakao: { icon: MessageCircle, label: CHANNEL_LABEL.kakao, color: '#FEE500' },
-  email: { icon: Mail, label: CHANNEL_LABEL.email, color: '#6366f1' },
-  both: { icon: Send, label: CHANNEL_LABEL.both, color: '#10b981' },
+const CHANNEL_META: Record<string, { icon: typeof Mail; label: string; colorClass: string }> = {
+  kakao: { icon: MessageCircle, label: CHANNEL_LABEL.kakao, colorClass: 'text-amber-700' },
+  email: { icon: Mail, label: CHANNEL_LABEL.email, colorClass: 'text-indigo-700' },
+  both: { icon: Send, label: CHANNEL_LABEL.both, colorClass: 'text-emerald-700' },
 };
 
 const TEMP_FILTERS = ['🔥 적극검토', '📈 관심', '⏸️ 관망', '❄️ 냉각', '⚪ 미확인'];
@@ -66,9 +72,39 @@ const STATUS_FILTERS: Array<{ key: 'active' | 'paused' | 'unsubscribed'; label: 
 ];
 
 const FILTER_CHIP = (on: boolean) =>
-  `min-h-11 rounded-md border px-2.5 text-caption font-bold transition-all ${
-    on ? 'border-indigo-500/40 bg-indigo-500/20 text-indigo-200' : 'border-slate-700/50 bg-slate-900/40 text-ink-muted hover:text-slate-200'
+  `min-h-[44px] rounded-md border px-3 text-sm font-bold transition-all ${
+    on
+      ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
+      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900'
   }`;
+
+function buildOutreachSharePayload(opts: {
+  baseUrl?: string;
+  brokerSlug: string;
+  brokerName?: string;
+  editionDate?: string;
+  shareTitle?: string;
+}): { text: string; issueUrl: string; subUrl: string; ogImageUrl: string } {
+  const origin = resolvePublicBaseUrl(opts.baseUrl) ?? 'https://credeal.net';
+  const issueUrl = opts.editionDate
+    ? buildViewerUrl({ baseUrl: origin, slug: opts.brokerSlug, date: opts.editionDate })
+    : new URL(`/magazine/${encodeURIComponent(opts.brokerSlug)}`, origin).toString();
+  const subUrl = buildSubscribeUrl({ baseUrl: origin, slug: opts.brokerSlug });
+  const ogImageUrl = opts.editionDate
+    ? buildOgImageUrl({ baseUrl: origin, slug: opts.brokerSlug, date: opts.editionDate })
+    : new URL(`/api/og/magazine?brokerId=${encodeURIComponent(opts.brokerSlug)}`, origin).toString();
+  const titleLine = opts.shareTitle ? `\n📌 이번 호 주제: ${opts.shareTitle}` : '';
+  const text = `안녕하세요, ${opts.brokerName || '담당'} 중개사입니다.${titleLine}\n이번 주 상업용 빌딩 시장 동향과 추천 매물 소식지를 보내드립니다.\n\n👉 이번 주 소식지 보기:\n${issueUrl}\n\n👉 이메일로 매주 편하게 받아보기(무료 구독):\n${subUrl}`;
+  return { text, issueUrl, subUrl, ogImageUrl };
+}
+
+function subscriberTempBadgeClass(label?: string): string {
+  if (!label) return 'border-slate-300 bg-slate-100 text-slate-800';
+  if (label.includes('적극검토')) return 'border-rose-200 bg-rose-50 text-rose-900';
+  if (label.includes('관심')) return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (label.includes('관망')) return 'border-amber-200 bg-amber-50 text-amber-900';
+  return 'border-slate-300 bg-slate-100 text-slate-800';
+}
 
 // ── 메인 컴포넌트 ──
 
@@ -80,18 +116,18 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
   const activeDealId = selectedDealId || props.deals?.[0]?.id || '';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-slate-900">
       {/* ⚡ 긴급 매물 속보(Flash Issue) 진입 배너 (U-F1-05 / B-07) */}
       <div
         data-testid="outreach-flash-issue-banner"
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/35 bg-gradient-to-r from-rose-950/40 to-pink-950/30 p-3.5"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5"
       >
         <div className="space-y-0.5">
-          <p className="flex items-center gap-1.5 text-sm font-bold text-rose-200">
-            <Zap className="h-4 w-4 text-rose-400 fill-current" aria-hidden="true" />
+          <p className="flex items-center gap-1.5 text-sm font-bold text-rose-950">
+            <Zap className="h-4 w-4 text-rose-700 fill-current" aria-hidden="true" />
             급매·신규 매물을 관심 구독자에게 즉시 알리세요
           </p>
-          <p className="text-xs text-slate-300">
+          <p className="text-sm text-rose-900">
             매물 권역·자산유형이 일치하는 구독자에게만 타겟팅 속보 매거진을 발행할 수 있습니다.
           </p>
         </div>
@@ -101,7 +137,7 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
               aria-label="속보 발행 매물 선택"
               value={activeDealId}
               onChange={(e) => setSelectedDealId(e.target.value)}
-              className="min-h-11 rounded-lg border border-rose-500/40 bg-slate-900/90 px-2.5 text-xs font-semibold text-white"
+              className="min-h-[44px] rounded-lg border border-rose-300 bg-white px-2.5 text-sm font-semibold text-slate-900"
             >
               {props.deals.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -114,14 +150,14 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
             <button
               type="button"
               onClick={() => setShowSpecialModal(true)}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 px-3.5 py-2 text-sm font-bold text-white shadow-md shadow-rose-950/40 hover:from-rose-500 hover:to-pink-500 transition-all"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-rose-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-800 transition-all"
             >
               ⚡ 긴급 매물 속보 만들기
             </button>
           ) : (
             <Link
               href="/broker"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 px-3.5 py-2 text-sm font-bold text-white shadow-md shadow-rose-950/40 hover:from-rose-500 hover:to-pink-500 transition-all"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-rose-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-800 transition-all"
             >
               ⚡ 긴급 매물 속보 만들기
             </Link>
@@ -139,7 +175,7 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
       )}
 
       {/* 메인 탭 */}
-      <div className="flex gap-1 rounded-xl bg-slate-800/50 p-1" role="tablist" aria-label="구독자·아웃리치">
+      <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="구독자·아웃리치">
         {[
           { id: 'subscribers' as const, label: '구독자 관리', icon: Users },
           { id: 'outreach' as const, label: '아웃리치', icon: Send },
@@ -152,8 +188,8 @@ export function EditorOutreachTab(props: EditorOutreachTabProps) {
               role="tab"
               aria-selected={mainTab === tab.id}
               onClick={() => setMainTab(tab.id)}
-              className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-label font-bold transition-colors ${
-                mainTab === tab.id ? 'bg-slate-700 text-slate-100 shadow-sm' : 'text-ink-muted hover:text-slate-200'
+              className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-colors ${
+                mainTab === tab.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-700 hover:text-slate-900'
               }`}
             >
               <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -244,7 +280,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         <div
           role="status"
           data-testid="subscriber-deleted-notice"
-          className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2.5 text-sm font-semibold text-emerald-200"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-900"
         >
           {deletedNotice}
         </div>
@@ -254,27 +290,27 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         <div
           role="status"
           data-testid="pending-email-confirm-banner"
-          className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-3.5 py-2.5 text-sm text-amber-200 leading-relaxed"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-950 leading-relaxed"
         >
           ⚠️ 확인 채널(이메일) 미등록 구독자가 <strong>{pendingEmailCount}명</strong> 있습니다. 구독자 이름을 눌러 이메일을 추가해 주세요.
         </div>
       )}
 
       {sendDisabled ? (
-        <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-label text-amber-200">
+        <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
           현재 발송 기능이 꺼져 있어요. 구독자를 추가해도 {weeklyLabel ? `${weeklyLabel}에도 ` : ''}매거진이 발송되지 않습니다.
         </p>
       ) : weeklyLabel ? (
-        <p className="px-1 text-caption text-ink-muted">발송 일정: {weeklyLabel} 오전 · 수신 동의가 확인된 구독자에게만 발송돼요.</p>
+        <p className="px-1 text-sm text-slate-700">발송 일정: {weeklyLabel} 오전 · 수신 동의가 확인된 구독자에게만 발송돼요.</p>
       ) : null}
 
       {/* 카톡·문자 수동 공유용 인사말 + 링크 1클릭 복사 배너 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 px-3.5 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
         <div className="min-w-0">
-          <p className="text-xs font-bold text-amber-200">
+          <p className="text-sm font-bold text-amber-950">
             💬 카카오톡·문자 공유 (인사말 + 소식지 주소 한 번에 복사)
           </p>
-          <p className="text-xs text-slate-300">
+          <p className="text-sm text-amber-900">
             이메일 등록 고객에게는 매주 자동 발송되며, 카톡 고객에게는 아래 버튼으로 복사해 단톡방·1:1 채팅에 붙여넣으세요.
           </p>
         </div>
@@ -282,17 +318,19 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
           type="button"
           data-testid="copy-kakao-greeting-btn"
           onClick={() => {
-            const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net');
-            const issueUrl = editionDate ? `${origin}/magazine/${brokerSlug}/${editionDate}` : `${origin}/magazine/${brokerSlug}`;
-            const subUrl = `${origin}/magazine/${brokerSlug}/subscribe`;
-            const titleLine = shareTitle ? `\n📌 이번 호 주제: ${shareTitle}` : '';
-            const text = `안녕하세요, ${brokerName || '담당'} 중개사입니다.${titleLine}\n이번 주 상업용 빌딩 시장 동향과 추천 매물 소식지를 보내드립니다.\n\n👉 이번 주 소식지 보기:\n${issueUrl}\n\n👉 이메일로 매주 편하게 받아보기(무료 구독):\n${subUrl}`;
+            const { text } = buildOutreachSharePayload({
+              baseUrl,
+              brokerSlug,
+              brokerName,
+              editionDate,
+              shareTitle,
+            });
             navigator.clipboard.writeText(text).then(
               () => toast.success('카톡·문자용 인사말과 소식지 주소가 복사되었습니다! 채팅방에 붙여넣기(Ctrl+V) 하세요.', { duration: 8000 }),
               () => toast.error('복사에 실패했습니다. 다시 시도해 주세요.'),
             );
           }}
-          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-2 text-xs font-extrabold text-[#191919] shadow-sm hover:bg-[#FEE500]/90 transition-colors"
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-2 text-sm font-extrabold text-[#191919] shadow-sm hover:bg-[#FEE500]/90 transition-colors"
         >
           <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
           <span>인사말 + 링크 복사</span>
@@ -305,20 +343,20 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
           <label htmlFor="subscriber-search" className="sr-only">
             구독자 검색
           </label>
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" aria-hidden="true" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" aria-hidden="true" />
           <input
             id="subscriber-search"
             type="search"
             placeholder="이름, 전화번호, 이메일 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900/60 pl-8 pr-3 text-reader text-white outline-none placeholder:text-ink-subtle focus:border-indigo-500/50"
+            className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 text-base text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-600"
           />
         </div>
         <button
           type="button"
           onClick={() => setShowQrModal(true)}
-          className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 text-label font-bold text-amber-200 transition-colors hover:bg-amber-500/30"
+          className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-bold text-amber-950 transition-colors hover:bg-amber-100"
           title="명함/전단지용 오프라인 구독 QR 코드 생성 및 다운로드"
         >
           <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
@@ -327,14 +365,14 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         <button
           type="button"
           onClick={() => setShowAddForm(true)}
-          className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-600/20 px-3 text-label font-bold text-indigo-200 transition-colors hover:bg-indigo-600/30"
+          className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-sm font-bold text-indigo-900 transition-colors hover:bg-indigo-100"
         >
           <Plus className="h-3.5 w-3.5" aria-hidden="true" /> 추가
         </button>
         <button
           type="button"
           onClick={() => void fetchSubscribers()}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-ink-muted transition-colors hover:text-slate-100"
+          className="flex min-h-[44px] h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
           aria-label="새로고침"
           title="새로고침"
         >
@@ -355,7 +393,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
 
       {/* 상태 / 매수 온도 / 채널 필터 */}
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="구독 상태 필터">
-        <Filter className="h-3 w-3 text-ink-subtle" aria-hidden="true" />
+        <Filter className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
         {STATUS_FILTERS.map((s) => (
           <button key={s.key} type="button" aria-pressed={filterStatus === s.key} onClick={() => setFilterStatus(s.key)} className={FILTER_CHIP(filterStatus === s.key)}>
             {s.label}
@@ -363,7 +401,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="매수 온도 필터">
-        <Filter className="h-3 w-3 text-ink-subtle" aria-hidden="true" />
+        <Filter className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
         {TEMP_FILTERS.map((temp) => (
           <button key={temp} type="button" aria-pressed={filterTemp === temp} onClick={() => setFilterTemp(filterTemp === temp ? null : temp)} className={FILTER_CHIP(filterTemp === temp)}>
             {temp}
@@ -371,7 +409,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="수신 채널 필터">
-        <MessageCircle className="h-3 w-3 text-ink-subtle" aria-hidden="true" />
+        <MessageCircle className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
         {Object.entries(CHANNEL_META).map(([key, meta]) => (
           <button key={key} type="button" aria-pressed={filterChannel === key} onClick={() => setFilterChannel(filterChannel === key ? null : key)} className={FILTER_CHIP(filterChannel === key)}>
             {meta.label}
@@ -381,7 +419,7 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
 
       {/* 구독자 수 — 로딩 중에는 숨겨 '총 0명 중 0명' 오표시를 막는다 */}
       {!loadError && !loading ? (
-        <div className="flex items-center justify-between px-1 text-caption text-ink-muted">
+        <div className="flex items-center justify-between px-1 text-sm font-medium text-slate-700">
           <span>
             총 {total}명 중 {filteredSubs.length}명 표시
           </span>
@@ -394,11 +432,17 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
           <SkeletonText lines={4} />
         </SkeletonGroup>
       ) : loadError ? (
-        <ErrorState title="구독자 목록을 불러오지 못했어요" description={loadError} onRetry={() => void fetchSubscribers()} />
+        <ErrorState
+          title="구독자 목록을 불러오지 못했어요"
+          description={loadError}
+          onRetry={() => void fetchSubscribers()}
+          className="border-rose-200 bg-rose-50 [&_p]:text-rose-900 [&>p:nth-of-type(2)]:text-rose-800"
+        />
       ) : filteredSubs.length === 0 ? (
         <EmptyState
           title={subscribers.length === 0 ? `${STATUS_FILTERS.find((s) => s.key === filterStatus)?.label ?? ''} 구독자가 없어요` : '검색 결과가 없어요'}
           description={subscribers.length === 0 && filterStatus === 'active' ? 'QR 코드나 추가 버튼으로 첫 구독자를 받아 보세요.' : undefined}
+          className="border-slate-300 bg-white [&_p]:text-slate-900 [&>p:nth-of-type(2)]:text-slate-600"
         />
       ) : (
         <ul className="max-h-[500px] space-y-1.5 overflow-y-auto pr-1" aria-label="구독자 목록">
@@ -415,11 +459,10 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
                 <button
                   type="button"
                   onClick={() => setSelectedSub(sub)}
-                  className="group flex min-h-14 w-full items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-800/30 p-3 text-left transition-all hover:border-slate-600/50 hover:bg-slate-800/60"
+                  className="group flex min-h-14 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-slate-300 hover:bg-slate-50"
                 >
                   <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-body"
-                    style={{ background: sub.temperatureConfig?.badgeBg || 'rgba(100,116,139,0.1)' }}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-base ${subscriberTempBadgeClass(sub.buyerTemperature)}`}
                     title={sub.temperatureConfig?.description || '미확인'}
                     aria-hidden="true"
                   >
@@ -428,38 +471,37 @@ function SubscriberManagement({ brokerSlug, brokerName, baseUrl, sendDayLabel, s
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate text-label font-bold text-slate-100">{sub.subscriber_name}</span>
+                      <span className="truncate text-sm font-bold text-slate-900">{sub.subscriber_name}</span>
                       {unsub ? (
-                        <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-caption font-bold text-rose-200">{statusLabel(sub.status)}</span>
+                        <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-sm font-bold text-rose-900">{statusLabel(sub.status)}</span>
                       ) : (
                         <span
-                          className="rounded-full px-1.5 py-0.5 text-caption font-bold"
-                          style={{ background: sub.temperatureConfig?.badgeBg || 'rgba(100,116,139,0.1)', color: sub.temperatureConfig?.color || '#94a3b8' }}
+                          className={`rounded-full border px-2 py-0.5 text-sm font-bold ${subscriberTempBadgeClass(sub.buyerTemperature)}`}
                         >
                           {sub.buyerTemperature || '⚪ 미확인'}
                         </span>
                       )}
                       {!unsub && pendingInfo ? (
-                        <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-caption font-bold text-amber-200" title={pendingInfo.notice}>
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-sm font-bold text-amber-900" title={pendingInfo.notice}>
                           {pendingInfo.badge}
                         </span>
                       ) : null}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2">
-                      <span className="text-caption text-ink-muted">{formatKrPhoneDisplay(sub.subscriber_phone)}</span>
-                      <ChannelIcon className="h-3 w-3" style={{ color: channelMeta.color }} role="img" aria-label={channelMeta.label} />
+                      <span className="text-sm text-slate-700">{formatKrPhoneDisplay(sub.subscriber_phone)}</span>
+                      <ChannelIcon className={`h-3.5 w-3.5 ${channelMeta.colorClass}`} role="img" aria-label={channelMeta.label} />
                     </div>
                   </div>
 
                   <div className="hidden shrink-0 items-center gap-1 sm:flex">
                     {allTags.map((tag) => (
-                      <span key={tag} className="rounded border border-slate-700/50 bg-slate-900/80 px-1.5 py-0.5 text-caption text-ink-muted">
+                      <span key={tag} className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-sm text-slate-700">
                         {tag}
                       </span>
                     ))}
                   </div>
 
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-subtle transition-colors group-hover:text-slate-300" aria-hidden="true" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-500 transition-colors group-hover:text-slate-900" aria-hidden="true" />
                 </button>
               </li>
             );
@@ -530,25 +572,27 @@ function OutreachPanel({
   return (
     <div className="space-y-3">
       {brokerSlug && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
           <div>
-            <p className="text-sm font-bold text-amber-200">💬 카카오톡 단톡방·문자 발송용 인사말 복사</p>
-            <p className="text-xs text-ink-muted">이번 주 소식지 주소와 무료 구독 신청 링크가 포함된 안부 인사말을 복사합니다.</p>
+            <p className="text-sm font-bold text-amber-950">💬 카카오톡 단톡방·문자 발송용 인사말 복사</p>
+            <p className="text-sm text-amber-900">이번 주 소식지 주소와 무료 구독 신청 링크가 포함된 안부 인사말을 복사합니다.</p>
           </div>
           <button
             type="button"
             onClick={() => {
-              const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net');
-              const issueUrl = editionDate ? `${origin}/magazine/${brokerSlug}/${editionDate}` : `${origin}/magazine/${brokerSlug}`;
-              const subUrl = `${origin}/magazine/${brokerSlug}/subscribe`;
-              const titleLine = shareTitle ? `\n📌 이번 호 주제: ${shareTitle}` : '';
-              const text = `안녕하세요, ${brokerName || '담당'} 중개사입니다.${titleLine}\n이번 주 상업용 빌딩 시장 동향과 추천 매물 소식지를 보내드립니다.\n\n👉 이번 주 소식지 보기:\n${issueUrl}\n\n👉 이메일로 매주 편하게 받아보기(무료 구독):\n${subUrl}`;
+              const { text } = buildOutreachSharePayload({
+                baseUrl,
+                brokerSlug,
+                brokerName,
+                editionDate,
+                shareTitle,
+              });
               navigator.clipboard.writeText(text).then(
                 () => toast.success('카톡·문자용 인사말과 소식지 주소가 복사되었습니다! 채팅방에 붙여넣기(Ctrl+V) 하세요.', { duration: 8000 }),
                 () => toast.error('복사에 실패했습니다. 다시 시도해 주세요.'),
               );
             }}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-2 text-xs font-extrabold text-[#191919] hover:bg-[#FEE500]/90 transition-colors"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-[#FEE500] px-3 py-2 text-sm font-extrabold text-[#191919] hover:bg-[#FEE500]/90 transition-colors"
           >
             <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
             인사말 + 링크 복사
@@ -556,23 +600,23 @@ function OutreachPanel({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
         <div>
-          <p className="text-sm font-bold text-rose-200">⚡ 긴급 매물 속보 (지금 바로 사용 가능)</p>
-          <p className="text-xs text-ink-muted">급매·신규 매물 소식을 관심 구독자에게 즉시 발송합니다.</p>
+          <p className="text-sm font-bold text-rose-950">⚡ 긴급 매물 속보 (지금 바로 사용 가능)</p>
+          <p className="text-sm text-rose-900">급매·신규 매물 소식을 관심 구독자에게 즉시 발송합니다.</p>
         </div>
         {activeDealId && onOpenSpecial ? (
           <button
             type="button"
             onClick={onOpenSpecial}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500 transition-colors"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-2 text-sm font-bold text-white hover:bg-rose-800 transition-colors"
           >
             ⚡ 긴급 매물 속보 만들기
           </button>
         ) : (
           <Link
             href="/broker"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500 transition-colors"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-2 text-sm font-bold text-white hover:bg-rose-800 transition-colors"
           >
             ⚡ 긴급 매물 속보 만들기
           </Link>
@@ -582,16 +626,17 @@ function OutreachPanel({
       <EmptyState
         title="추가 아웃리치 기능은 준비 중이에요"
         description="아래 기능은 아직 제공되지 않아 버튼을 숨겼어요. 제공되면 이곳에서 바로 사용할 수 있습니다."
+        className="border-slate-300 bg-white [&_p]:text-slate-900 [&>p:nth-of-type(2)]:text-slate-600"
       />
       <ul className="space-y-2" aria-label="준비 중인 아웃리치 기능">
         {PLANNED_OUTREACH.map(({ icon: Icon, title, desc }) => (
-          <li key={title} className="flex items-start gap-3 rounded-xl border border-slate-700/50 bg-slate-800/30 p-3">
-            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-subtle" aria-hidden="true" />
+          <li key={title} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" aria-hidden="true" />
             <div>
-              <p className="text-label font-bold text-slate-300">{title}</p>
-              <p className="text-caption text-ink-muted">{desc}</p>
+              <p className="text-sm font-bold text-slate-900">{title}</p>
+              <p className="text-sm text-slate-700">{desc}</p>
             </div>
-            <span className="ml-auto shrink-0 rounded-full border border-slate-700 px-2 py-0.5 text-caption text-ink-subtle">준비 중</span>
+            <span className="ml-auto shrink-0 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-sm font-medium text-slate-700">준비 중</span>
           </li>
         ))}
       </ul>

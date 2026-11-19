@@ -460,7 +460,7 @@ describe("Wave 6 — WP-19: <900ms Keepalive Autosave Flush, Mobile Shell Polish
 
       expect(
         buildCanonicalMagazineRedirectUrl("edition=ed-2026-11&step=publish", "")
-      ).toBe("/broker/magazine-editor?edition=ed-2026-11&step=publish");
+      ).toBe("/broker/w/newsletter?edition=ed-2026-11&step=publish");
 
       mockPathname = "/broker/w/magazine";
       mockSearchParams = new URLSearchParams("edition=ed-77&step=deals");
@@ -471,7 +471,7 @@ describe("Wave 6 — WP-19: <900ms Keepalive Autosave Flush, Mobile Shell Polish
 
       expect(mockReplace).toHaveBeenCalledTimes(1);
       expect(mockReplace).toHaveBeenCalledWith(
-        "/broker/magazine-editor?edition=ed-77&step=deals"
+        "/broker/w/newsletter?edition=ed-77&step=deals"
       );
     });
   });

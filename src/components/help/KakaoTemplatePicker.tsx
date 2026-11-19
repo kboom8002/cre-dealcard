@@ -99,7 +99,7 @@ export function KakaoTemplatePicker({
               {/* Header */}
               <div className="px-5 py-4 bg-white border-b border-amber-300 flex items-center justify-between gap-3 shrink-0">
                 <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[12px] font-extrabold mb-1">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-sm font-extrabold mb-1">
                     부록 C · 베테랑 대표중개사 실전 카톡 문구
                   </span>
                   <h3 className="text-[19px] sm:text-[21px] font-black text-slate-900">
@@ -109,17 +109,17 @@ export function KakaoTemplatePicker({
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-[14px] font-extrabold shrink-0 cursor-pointer"
+                  className="px-3.5 py-2 min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-extrabold shrink-0 cursor-pointer"
                 >
                   ✕ 닫기
                 </button>
               </div>
 
               {/* Description */}
-              <div className="px-5 py-3 bg-amber-100/70 border-b border-amber-200 text-[14px] font-bold text-amber-950 shrink-0">
+              <div className="px-5 py-3 bg-amber-100/70 border-b border-amber-200 text-sm font-bold text-amber-950 shrink-0">
                 💡 원하시는 상황의 <strong>[📋 인사말 복사]</strong> 버튼을 누르신 뒤, 카카오톡 대화창에 붙여넣기(Ctrl+V)만 하시면 됩니다.
                 {(areaSignal || priceBand || dealTitle) && (
-                  <span className="block text-[13px] text-slate-700 mt-0.5">
+                  <span className="block text-sm text-slate-700 mt-0.5">
                     현재 연결된 매물: <strong>{dealTitle || `${areaSignal || ""} ${priceBand || ""}`}</strong>
                   </span>
                 )}
@@ -142,22 +142,22 @@ export function KakaoTemplatePicker({
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-[12px] font-extrabold">
+                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-sm font-extrabold">
                             {tpl.situation}
                           </span>
                           {isDefaultRecommended && (
-                            <span className="inline-block px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 border border-amber-500 text-[11px] font-black animate-pulse">
+                            <span className="inline-block px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 border border-amber-500 text-sm font-black animate-pulse">
                               ⭐ 지금 추천
                             </span>
                           )}
-                          <span className="text-[13px] font-bold text-slate-600">
+                          <span className="text-sm font-bold text-slate-600">
                             추천 대상: {tpl.targetAudience}
                           </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleCopyTemplate(tpl.id, tpl.body, tpl.situation)}
-                          className={`px-3.5 py-2 min-h-[38px] rounded-xl text-[14px] font-extrabold transition-colors cursor-pointer ${
+                          className={`px-3.5 py-2 min-h-[44px] rounded-xl text-sm font-extrabold transition-colors cursor-pointer ${
                             isCopied
                               ? "bg-emerald-700 text-white"
                               : "bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] border border-amber-400"

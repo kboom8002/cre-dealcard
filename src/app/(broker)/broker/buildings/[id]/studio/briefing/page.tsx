@@ -49,10 +49,8 @@ export default function StudioBriefingPage() {
     async function fetchStatus() {
       try {
         const token = localStorage.getItem('sb-access-token') ?? '' /* SEC-6: 더미 토큰 금지 — 비어 있으면 서버가 세션 쿠키로 인증 */;
-        const res = await fetch(`/api/broker/buildings/${id}/studio`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        const res = await fetch(`/api/broker/buildings/${encodeURIComponent(id)}/studio`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!res.ok) {
           throw new Error('스튜디오 상태 정보를 불러올 수 없습니다.');
@@ -70,21 +68,21 @@ export default function StudioBriefingPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl min-h-[300px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
-        <p className="text-xs text-neutral-400 mt-4">스튜디오 대시보드를 구성하는 중...</p>
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-2xl min-h-[300px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-700"></div>
+        <p className="text-sm text-slate-600 mt-4">스튜디오 대시보드를 구성하는 중...</p>
       </div>
     );
   }
 
   if (error || !status) {
     return (
-      <div className="p-8 bg-neutral-900 border border-red-900/30 rounded-2xl text-center space-y-4">
+      <div className="p-8 bg-white border border-red-200 rounded-2xl text-center space-y-4">
         <p className="text-2xl">⚠️</p>
-        <p className="text-sm font-bold text-red-400">{error || '데이터 로드 실패'}</p>
+        <p className="text-sm font-bold text-red-700">{error || '데이터 로드 실패'}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-xl text-xs hover:bg-neutral-750 transition-colors"
+          className="min-h-[44px] px-5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 rounded-xl text-sm font-bold transition-colors cursor-pointer"
         >
           다시 시도
         </button>
@@ -92,13 +90,13 @@ export default function StudioBriefingPage() {
     );
   }
 
-  const { completenessScore, layerScores, checklist, eligibleOutputs } = status;
+  const { completenessScore, layerScores, checklist } = status;
 
   const scoreLevel =
-    completenessScore >= 80 ? { label: 'S등급 (거래 최적화)', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' } :
-    completenessScore >= 60 ? { label: 'A등급 (투자 홍보 가능)', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20' } :
-    completenessScore >= 40 ? { label: 'B등급 (정보 보완 필요)', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' } :
-    { label: 'C등급 (정리 미흡)', color: 'text-neutral-400', bg: 'bg-neutral-800/50', border: 'border-neutral-700/30' };
+    completenessScore >= 80 ? { label: 'S등급 (거래 최적화)', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' } :
+    completenessScore >= 60 ? { label: 'A등급 (투자 홍보 가능)', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' } :
+    completenessScore >= 40 ? { label: 'B등급 (정보 보완 필요)', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' } :
+    { label: 'C등급 (정리 미흡)', color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200' };
 
   // Checklist labels and target categories for navigation
   const checklistItems = [
@@ -128,25 +126,25 @@ export default function StudioBriefingPage() {
           {/* Trust Score Header Summary */}
           <div className={`p-5 rounded-2xl border ${scoreLevel.border} ${scoreLevel.bg} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+              <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">
                 SSoT 신뢰도 지표 현황
               </span>
               <h3 className={`text-lg font-black ${scoreLevel.color}`}>
                 현재 {scoreLevel.label}
               </h3>
-              <p className="text-xs text-neutral-300 leading-relaxed">
+              <p className="text-sm text-slate-700 leading-relaxed">
                 매도인의 투명성을 증명하고 매수자의 의사결정 시간을 80% 이상 단축합니다.
               </p>
             </div>
             <div className="flex flex-col items-start md:items-end justify-center">
-              <span className="text-xs text-neutral-400">종합 진척률</span>
-              <span className="text-3xl font-black text-white">{completenessScore}%</span>
+              <span className="text-sm text-slate-600 font-semibold">종합 진척률</span>
+              <span className="text-3xl font-black text-slate-900">{completenessScore}%</span>
             </div>
           </div>
 
           {/* Detailed Score Checklist */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 space-y-4">
-            <h3 className="text-sm font-bold text-white tracking-tight">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">
               🔍 10대 에비던스 검증 체크리스트
             </h3>
             
@@ -156,39 +154,40 @@ export default function StudioBriefingPage() {
                 return (
                   <div
                     key={item.key}
-                    className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-950/60 p-3 hover:border-neutral-800 transition-colors"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 hover:border-slate-300 transition-colors gap-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       {isChecked ? (
-                        <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs border border-emerald-500/25 font-bold">
+                        <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm border border-emerald-200 font-bold shrink-0">
                           ✓
                         </span>
                       ) : (
-                        <span className="w-5 h-5 rounded-full bg-neutral-800 text-neutral-500 flex items-center justify-center text-xs border border-neutral-750 font-bold">
+                        <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-sm border border-slate-300 font-bold shrink-0">
                           !
                         </span>
                       )}
-                      <div>
-                        <span className="block text-xs font-bold text-neutral-200">
+                      <div className="min-w-0">
+                        <span className="block text-sm font-bold text-slate-900">
                           {item.label}
                         </span>
-                        <span className="text-[10px] text-neutral-500">
+                        <span className="text-sm text-slate-600">
                           가중치 {item.max}점 중 {item.score}점 반영됨
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       {/* Score Indicator */}
-                      <span className="text-xs font-mono font-bold text-neutral-400">
+                      <span className="text-sm font-mono font-bold text-slate-700">
                         {item.score} / {item.max}
                       </span>
                       
                       {/* Action Button */}
                       {!isChecked && (
                         <button
+                          type="button"
                           onClick={() => router.push(`/broker/buildings/${id}/studio/${item.path}`)}
-                          className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-lg text-[10px] font-black hover:bg-primary/20 active:scale-[0.98] transition-all cursor-pointer"
+                          className="min-h-[44px] px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-extrabold hover:bg-blue-100 active:scale-[0.98] transition-all cursor-pointer"
                         >
                           자료 보완
                         </button>
@@ -206,26 +205,26 @@ export default function StudioBriefingPage() {
         <div className="space-y-6">
           
           {/* Output Level Card */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5 space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-xs">
             <div>
-              <h3 className="text-sm font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">
                 📄 생성 가능한 딜 에셋 목록
               </h3>
-              <p className="text-[10px] text-neutral-400 mt-1">
+              <p className="text-sm text-slate-600 mt-1">
                 완성도 점수에 따라 활성화되는 대외 공개용 보고서 및 마케팅 문서 게이트 정책
               </p>
             </div>
 
             <div className="space-y-2.5">
               {/* Teaser */}
-              <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-neutral-200">1분 블라인드 티저</span>
-                  <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-bold font-mono">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-900">1분 블라인드 티저</span>
+                  <span className="text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold font-mono shrink-0">
                     즉시 가능
                   </span>
                 </div>
-                <p className="text-[10px] text-neutral-500">
+                <p className="text-sm text-slate-600">
                   주요 핵심 신호(Asset Signal)만을 노출하는 요약 보고서
                 </p>
               </div>
@@ -233,22 +232,22 @@ export default function StudioBriefingPage() {
               {/* Missing Checklist & Buyer Fit */}
               <div className={`p-3 border rounded-xl space-y-1 transition-all ${
                 completenessScore >= 40 
-                  ? 'bg-neutral-950 border-neutral-800' 
-                  : 'bg-neutral-900/35 border-neutral-850 opacity-55'
+                  ? 'bg-slate-50 border-slate-200' 
+                  : 'bg-slate-100/70 border-slate-200 opacity-65'
               }`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-neutral-200">매수자 분석 메모 & 미비자료지</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-900">매수자 분석 메모 & 미비자료지</span>
                   {completenessScore >= 40 ? (
-                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-bold font-mono">
+                    <span className="text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold font-mono shrink-0">
                       활성화됨
                     </span>
                   ) : (
-                    <span className="text-[9px] bg-neutral-800 text-neutral-500 px-1.5 py-0.5 rounded font-bold font-mono">
+                    <span className="text-sm bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold font-mono shrink-0">
                       40점 제한
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-neutral-500">
+                <p className="text-sm text-slate-600">
                   매칭 성능과 보완이 필요한 체크리스트를 투명하게 공개
                 </p>
               </div>
@@ -256,22 +255,22 @@ export default function StudioBriefingPage() {
               {/* Full IM / IM Lite */}
               <div className={`p-3 border rounded-xl space-y-1 transition-all ${
                 completenessScore >= 85 
-                  ? 'bg-neutral-950 border-neutral-800' 
-                  : 'bg-neutral-900/35 border-neutral-850 opacity-55'
+                  ? 'bg-slate-50 border-slate-200' 
+                  : 'bg-slate-100/70 border-slate-200 opacity-65'
               }`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-neutral-200">AI Snapshot Draft (IM Lite)</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-900">AI Snapshot Draft (IM Lite)</span>
                   {completenessScore >= 85 ? (
-                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-bold font-mono">
+                    <span className="text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold font-mono shrink-0">
                       활성화됨
                     </span>
                   ) : (
-                    <span className="text-[9px] bg-neutral-850 text-neutral-500 px-1.5 py-0.5 rounded font-bold font-mono">
+                    <span className="text-sm bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold font-mono shrink-0">
                       85점 제한 (v0.3)
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-neutral-500">
+                <p className="text-sm text-slate-600">
                   민감정보 공개 차단 정책이 탑재된 8~12페이지 초간편 IM 자동 빌더
                 </p>
               </div>
@@ -280,17 +279,18 @@ export default function StudioBriefingPage() {
             {/* CTA action */}
             {completenessScore >= 85 ? (
               <button
-                onClick={() => router.push(`/broker/buildings/${id}/studio/snapshot`)}
-                className="w-full py-2.5 bg-primary text-white text-xs font-black rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1 cursor-pointer"
+                type="button"
+                onClick={() => router.push(`/broker/buildings/${id}/snapshot`)}
+                className="w-full min-h-[44px] py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-sm font-black rounded-xl hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-1 cursor-pointer"
               >
                 ✨ AI Snapshot Draft 생성하기
               </button>
             ) : (
-              <div className="text-center p-3.5 bg-neutral-950 rounded-xl border border-neutral-850">
-                <span className="block text-[11px] font-bold text-neutral-300">
+              <div className="text-center p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="block text-sm font-bold text-slate-800">
                   완성도 {85 - completenessScore}점이 부족합니다!
                 </span>
-                <span className="block text-[10px] text-neutral-500 mt-1">
+                <span className="block text-sm text-slate-600 mt-1">
                   체크리스트의 미비 서류를 보완하거나 Rent Roll 상세 내역을 입력하여 점수를 확보하세요.
                 </span>
               </div>
@@ -298,18 +298,18 @@ export default function StudioBriefingPage() {
           </div>
 
           {/* Quick Actions Guide */}
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5 space-y-3.5">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3.5 shadow-xs">
+            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
               🚀 빠른 정보 보완 방법
             </h4>
             <div className="space-y-2">
-              <div className="flex items-start gap-2.5 text-xs text-neutral-300">
-                <span className="text-primary font-bold">1.</span>
-                <span>건축물대장/등본 PDF 파일을 업로드하면 즉시 <strong className="text-white">+35점</strong>이 가산됩니다.</span>
+              <div className="flex items-start gap-2.5 text-sm text-slate-700">
+                <span className="text-blue-700 font-bold">1.</span>
+                <span>건축물대장/등본 PDF 파일을 업로드하면 즉시 <strong className="text-slate-900">+35점</strong>이 가산됩니다.</span>
               </div>
-              <div className="flex items-start gap-2.5 text-xs text-neutral-300">
-                <span className="text-primary font-bold">2.</span>
-                <span>임대 현황표를 멀티로우 동적 입력폼에 입력하면 <strong className="text-white">+25점</strong>이 가산됩니다.</span>
+              <div className="flex items-start gap-2.5 text-sm text-slate-700">
+                <span className="text-blue-700 font-bold">2.</span>
+                <span>임대 현황표를 멀티로우 동적 입력폼에 입력하면 <strong className="text-slate-900">+25점</strong>이 가산됩니다.</span>
               </div>
             </div>
           </div>

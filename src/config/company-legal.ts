@@ -16,13 +16,15 @@
  */
 
 export interface LegalSubProcessor {
-  id: 'supabase' | 'vercel' | 'openai' | 'resend';
+  id: 'supabase' | 'vercel' | 'openai' | 'resend' | 'solapi';
   name: string;
   purpose: string;
   region: string;
   isCrossBorder: boolean;
   transferMethod: string;
   retentionPeriod: string;
+  active?: boolean;
+  statusNote?: string;
 }
 
 export const SUB_PROCESSORS: readonly LegalSubProcessor[] = [
@@ -34,6 +36,7 @@ export const SUB_PROCESSORS: readonly LegalSubProcessor[] = [
     isCrossBorder: true,
     transferMethod: '서비스 이용 시 TLS 암호화 네트워크 전송',
     retentionPeriod: '회원 탈퇴 또는 위탁 계약 종료 시까지',
+    active: true,
   },
   {
     id: 'vercel',
@@ -43,6 +46,7 @@ export const SUB_PROCESSORS: readonly LegalSubProcessor[] = [
     isCrossBorder: true,
     transferMethod: '웹 접속 및 요청 처리 시 TLS 암호화 전송',
     retentionPeriod: '서비스 제공 및 보안 접속 로그 보관 기간 종료 시까지',
+    active: true,
   },
   {
     id: 'openai',
@@ -52,6 +56,7 @@ export const SUB_PROCESSORS: readonly LegalSubProcessor[] = [
     isCrossBorder: true,
     transferMethod: '초안 생성 요청 시 HTTPS API 암호화 전송',
     retentionPeriod: 'API 응답 처리 및 오남용 방지 모니터링 기간 경과 후 자동 파기',
+    active: true,
   },
   {
     id: 'resend',
@@ -61,11 +66,43 @@ export const SUB_PROCESSORS: readonly LegalSubProcessor[] = [
     isCrossBorder: true,
     transferMethod: '이메일 발송 시점 HTTPS API 및 TLS 전송',
     retentionPeriod: '발송 이력 보관 기간 또는 위탁 계약 종료 시까지',
+    active: true,
+  },
+  {
+    id: 'solapi',
+    name: '(주)솔라피 (Solapi)',
+    purpose: '카카오 알림톡 및 문자메시지 발송 연동 (현재 D4 채널 정책에 따라 실발송 보류 · 연동 예정)',
+    region: '대한민국',
+    isCrossBorder: false,
+    transferMethod: '암호화 API 전송 (현재 실발송 미사용 · 연동 활성화 시 적용)',
+    retentionPeriod: '발송 이력 보관 기간 또는 위탁 계약 종료 시까지',
+    active: false,
+    statusNote: '예정(비활성 · D4 정책에 따라 이메일 발송만 운영 중)',
   },
 ] as const;
 
+export const PRODUCTION_LEGAL_ENV_KEYS = [
+  'NEXT_PUBLIC_COMPANY_NAME',
+  'NEXT_PUBLIC_COMPANY_CEO',
+  'NEXT_PUBLIC_COMPANY_BIZ_NO',
+  'NEXT_PUBLIC_COMPANY_ADDRESS',
+  'NEXT_PUBLIC_PRIVACY_OFFICER_NAME',
+  'NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL',
+  'NEXT_PUBLIC_SUPPORT_EMAIL',
+] as const;
+
+function stripOuterQuotes(raw: string | undefined): string {
+  return (raw ?? '').trim().replace(/^(['"])(.*)\1$/, '$2').trim();
+}
+
+export function getMissingProductionLegalEnvKeys(): string[] {
+  return PRODUCTION_LEGAL_ENV_KEYS.filter(
+    (key) => stripOuterQuotes(process.env[key]).length === 0,
+  );
+}
+
 function readEnvOrDefault(raw: string | undefined, fallback: string): string {
-  const trimmed = (raw ?? '').trim();
+  const trimmed = stripOuterQuotes(raw);
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
@@ -79,7 +116,7 @@ export const COMPANY_LEGAL_CONFIG = {
     return readEnvOrDefault(process.env.NEXT_PUBLIC_COMPANY_CEO, '대표자 별도 고지');
   },
   get businessRegNumber(): string {
-    return (process.env.NEXT_PUBLIC_COMPANY_BIZ_NO ?? '').trim();
+    return stripOuterQuotes(process.env.NEXT_PUBLIC_COMPANY_BIZ_NO);
   },
   get address(): string {
     return readEnvOrDefault(

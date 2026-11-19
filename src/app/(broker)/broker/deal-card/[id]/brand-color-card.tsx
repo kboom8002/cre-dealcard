@@ -62,8 +62,8 @@ export function BrandColorCard() {
   return (
     <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5" data-testid="brand-color-card">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium">🎨 브랜드 컬러 (Basic IM)</span>
-        {saved && <span className="text-[10px] text-emerald-600" data-testid="brand-color-saved">적용 중 #{saved}</span>}
+        <span className="text-sm font-medium">🎨 브랜드 컬러 (Basic IM)</span>
+        {saved && <span className="text-sm text-emerald-600" data-testid="brand-color-saved">적용 중 #{saved}</span>}
       </div>
       <div className="flex items-center gap-2">
         <input
@@ -78,7 +78,7 @@ export function BrandColorCard() {
           value={color}
           onChange={(e) => setColor(e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`)}
           maxLength={7}
-          className="w-20 h-7 rounded-md border border-border bg-background text-[11px] px-2 font-mono"
+          className="w-20 h-7 rounded-md border border-border bg-background text-sm px-2 font-mono"
           aria-label="브랜드 컬러 HEX"
           data-testid="brand-color-hex"
         />
@@ -86,7 +86,7 @@ export function BrandColorCard() {
           type="button"
           onClick={save}
           disabled={busy || !valid}
-          className="h-7 px-2 rounded-md bg-foreground text-background text-[11px] disabled:opacity-40"
+          className="h-7 px-2 rounded-md bg-foreground text-background text-sm disabled:opacity-40"
           data-testid="brand-color-save"
         >저장</button>
         {saved && (
@@ -94,12 +94,12 @@ export function BrandColorCard() {
             type="button"
             onClick={clear}
             disabled={busy}
-            className="h-7 px-2 rounded-md border border-border text-[11px] text-muted-foreground"
+            className="h-7 px-2 rounded-md border border-border text-sm text-muted-foreground"
             data-testid="brand-color-clear"
           >해제</button>
         )}
       </div>
-      <p className="text-[10px] text-muted-foreground leading-snug">
+      <p className="text-sm text-muted-foreground leading-snug">
         기본 스킨(📋 Basic IM)의 강조색·표지 색을 이 색에서 자동 파생합니다. 너무 밝은 색은 가독성을 위해 어둡게 보정됩니다
         {effective ? ` (현재 적용색 #${effective})` : ""}.
       </p>

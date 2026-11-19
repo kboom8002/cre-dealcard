@@ -10,9 +10,13 @@ import { checkRateLimit } from '@/lib/rate-limiter';
 import type { ReleaseTier } from '@/domain/building/im-core';
 
 import { createModuleLogger } from '@/lib/logger';
+import { resolvePublishedImProDocument } from '@/app/api/public/im-pro/_lib/im-pro-doc-guard';
+import {
+  consumeProGrantDownload,
+  resolveProGrantByAnyId,
+  verifyProGrantViewerAccess,
+} from '@/domain/gate/im-pro-grant-service';
 const log = createModuleLogger('route');
-
-const NON_PUBLIC_DOC_STATUSES = new Set(['draft', 'archived', 'deleted']);
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // Pro 24p 덱 + 이미지 최적화 대응
@@ -28,8 +32,13 @@ export async function GET(
   const rateAllowed = await checkRateLimit(ip, 'im_pro_pptx', 10, 60_000);
   if (!rateAllowed) {
     return NextResponse.json(
-      { error: 'Rate limit exceeded', reason: '요청이 일시적으로 많습니다. 잠시 후 다시 시도해 주세요.' },
-      { status: 429 }
+      {
+        ok: false,
+        code: 'RATE_LIMITED',
+        error: 'Rate limit exceeded',
+        reason: '요청이 일시적으로 많습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      { status: 429, headers: { 'Retry-After': '60' } }
     );
   }
 
@@ -38,16 +47,18 @@ export async function GET(
 
   const supabase = createServiceClient();
 
-  // 1. Verify grant
-  const { data: grant } = await supabase
-    .from('im_pro_grants')
-    .select('*')
-    .eq('id', grantId)
-    .eq('status', 'active')
-    .maybeSingle();
+  // 1. Verify grant strictly by grant id/token/gate_request_id (never by building_id)
+  const resolved = await resolveProGrantByAnyId(supabase, grantId, {
+    allowBuildingLookup: false,
+  });
+  const grant = resolved.grant && resolved.grant.status === 'active' ? resolved.grant : null;
 
   if (!grant) {
     return NextResponse.json({ error: 'Grant not found or inactive' }, { status: 404 });
+  }
+  const effectiveGrantId = String(grant.id || grantId);
+  if (grant.is_revoked === true) {
+    return NextResponse.json({ error: 'Grant revoked' }, { status: 403 });
   }
   if (!grant.nda_signed_at) {
     return NextResponse.json({ error: 'NDA signing required' }, { status: 403 });
@@ -59,10 +70,21 @@ export async function GET(
     return NextResponse.json({ error: 'Grant expired' }, { status: 410 });
   }
 
+  const access = await verifyProGrantViewerAccess(req, grant);
+  if (!access.ok) {
+    return NextResponse.json(
+      {
+        error: access.error || 'Grant token required',
+        code: access.code || 'GRANT_TOKEN_REQUIRED',
+      },
+      { status: access.status || 403 },
+    );
+  }
+
   const maxDownloads =
     typeof grant.max_downloads === 'number' && Number.isFinite(grant.max_downloads) && grant.max_downloads > 0
       ? grant.max_downloads
-      : 20;
+      : 5;
   const grantDownloadCount =
     typeof grant.download_count === 'number' && Number.isFinite(grant.download_count) && grant.download_count >= 0
       ? grant.download_count
@@ -79,7 +101,7 @@ export async function GET(
   }
 
   // 2. Resolve building_id from deal_id -> deals.asset_id (or direct building_id if available)
-  let buildingId: string | null = grant.building_id || null;
+  let buildingId: string | null = grant.building_id || resolved.buildingId || null;
   if (!buildingId && grant.deal_id) {
     const { data: deal } = await supabase
       .from('deals')
@@ -92,56 +114,19 @@ export async function GET(
     return NextResponse.json({ error: 'Cannot resolve building from grant' }, { status: 404 });
   }
 
-  // 3. Fetch IM document (strictly reject draft / archived / deleted)
-  const { data: docRows } = await supabase
-    .from('document_objects')
-    .select('*')
-    .eq('building_id', buildingId)
-    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro'])
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  const sectionDocs = Array.isArray(docRows)
-    ? docRows.filter(
-        (d: any) =>
-          Array.isArray(d?.body?.sections) &&
-          d.body.sections.length > 0 &&
-          !Array.isArray(d?.body?.slides)
-      )
-    : [];
-
-  let doc: any =
-    sectionDocs.find((d: any) => {
-      const statusNorm = String(d?.status ?? '').trim().toLowerCase();
-      return statusNorm === 'published' || !NON_PUBLIC_DOC_STATUSES.has(statusNorm);
-    }) ?? null;
-
-  if (!doc && sectionDocs.length > 0) {
+  // 3. Fetch IM document (strict published/sent/approved allowlist + revocation + workspace guard)
+  const docGuard = await resolvePublishedImProDocument({
+    supabase,
+    buildingId,
+    quickLookupId: grant.building_id || buildingId,
+  });
+  if (!docGuard.ok) {
     return NextResponse.json(
-      { error: 'IM document is not published for export' },
-      { status: 403 }
+      { error: docGuard.error },
+      { status: docGuard.status }
     );
   }
-
-  if (!doc?.body) {
-    const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
-    const quickRec = await resolveOrSynthesizeQuickImRecord(grant.building_id || buildingId, supabase);
-    const quickStatusNorm = String((quickRec as any)?.status ?? '').trim().toLowerCase();
-    if (quickRec?.fullDocBody && !NON_PUBLIC_DOC_STATUSES.has(quickStatusNorm)) {
-      doc = {
-        id: quickRec.documentId,
-        building_id: quickRec.buildingId,
-        owner_id: quickRec.ownerId ?? null,
-        title: quickRec.buildingName,
-        status: 'published',
-        body: { ...quickRec.fullDocBody },
-      };
-    }
-  }
-
-  if (!doc?.body) {
-    return NextResponse.json({ error: 'IM document not found' }, { status: 404 });
-  }
+  const doc: any = docGuard.doc;
 
   // 4. Fetch building + scrub Dangsan poison coordinates (Rule 46)
   const { data: buildingRow } = await supabase
@@ -226,15 +211,17 @@ export async function GET(
   const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
   const broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId)) ?? null;
 
-  // 6. 다운로드 횟수 제한 (grant.max_downloads ?? 20, grant.download_count + activity_events 병행 검증)
+  // 6. 다운로드 횟수 제한 (grant.max_downloads ?? 5, grant.download_count + activity_events 병행 검증)
   let eventCount = 0;
   try {
-    const { count } = await supabase
-      .from('activity_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('entity_id', grantId)
-      .eq('event_type', 'im_pro_pptx_exported');
-    eventCount = count ?? 0;
+    const aeTable: any = supabase.from('activity_events');
+    if (aeTable && typeof aeTable.select === 'function') {
+      const { count } = await aeTable
+        .select('id', { count: 'exact', head: true })
+        .eq('entity_id', effectiveGrantId)
+        .in('event_type', ['im_pro_pptx_exported', 'im_pro_pdf_exported']);
+      eventCount = count ?? 0;
+    }
   } catch {
     eventCount = 0;
   }
@@ -248,6 +235,38 @@ export async function GET(
     }, { status: 429 });
   }
 
+  // doc.body에서 posture/grade 등 덱 시퀀스 분기 파라미터 추출 (Grade D 차단 선행)
+  const body = doc.body ?? {};
+  const posture = body.investmentPosture
+    ?? body.posture
+    ?? body.identity?.investmentPosture
+    ?? body.ssot_summary?.investment_posture
+    ?? building?.investment_posture
+    ?? 'income';
+
+  const grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.qualityGrade ?? body.grade ?? 'B';
+  if (grade === 'D') {
+    return NextResponse.json({ error: 'Grade D documents cannot be exported to PPTX [G30]' }, { status: 422 });
+  }
+
+  // Atomic pre-render download quota consumption (aborts early on 429 before PPTX CPU work)
+  const quotaRes = await consumeProGrantDownload(
+    supabase,
+    effectiveGrantId,
+    maxDownloads,
+    effectiveUsed,
+  );
+  if (!quotaRes.ok) {
+    return NextResponse.json(
+      {
+        error: quotaRes.error || '다운로드 횟수 초과',
+        limit: quotaRes.limit,
+        used: quotaRes.used,
+      },
+      { status: 429 },
+    );
+  }
+
   // 4. Generate PPTX with watermark
   try {
     const { MobileImPptxRenderer } = await import('@/domain/building/mobile-im/pptx/pptx-renderer');
@@ -255,20 +274,6 @@ export async function GET(
     
     const phoneLast4 = (grant.requester_phone || '0000').slice(-4);
     const timestamp = new Date().toISOString().slice(0, 16);
-
-    // doc.body에서 posture/grade 등 덱 시퀀스 분기 파라미터 추출
-    const body = doc.body ?? {};
-    const posture = body.investmentPosture
-      ?? body.posture
-      ?? body.identity?.investmentPosture
-      ?? body.ssot_summary?.investment_posture
-      ?? building?.investment_posture
-      ?? 'income';
-
-    const grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.qualityGrade ?? body.grade ?? 'B';
-    if (grade === 'D') {
-      return NextResponse.json({ error: 'Grade D documents cannot be exported to PPTX [G30]' }, { status: 422 });
-    }
 
     const result = await renderer.render({
       buildingId,
@@ -299,7 +304,7 @@ export async function GET(
 
     // 5. Upload to storage (best-effort)
     const ts = Date.now();
-    const filePath = `im-pptx/${buildingId}/pro_${grantId}_${ts}.pptx`;
+    const filePath = `im-pptx/${buildingId}/pro_${effectiveGrantId}_${ts}.pptx`;
 
     try {
       if (supabase.storage?.from) {
@@ -314,24 +319,14 @@ export async function GET(
       // Non-blocking storage upload
     }
 
-    // 7. Increment download_count on im_pro_grants (best-effort, Rule 26 try/catch) + log event
-    try {
-      await supabase
-        .from('im_pro_grants')
-        .update({ download_count: effectiveUsed + 1 })
-        .eq('id', grantId);
-    } catch {
-      // Best-effort download counter increment
-    }
-
     try {
       await supabase.from('activity_events').insert({
         event_type: 'im_pro_pptx_exported',
         entity_type: 'im_pro_grant',
-        entity_id: grantId,
+        entity_id: effectiveGrantId,
         building_ssot_lite_id: buildingId,
         metadata: {
-          grant_id: grantId,
+          grant_id: effectiveGrantId,
           actor_name: grant.requester_name || '',
           exportedAt: new Date().toISOString(),
           slideCount: result.slideCount,

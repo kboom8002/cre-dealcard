@@ -15,6 +15,10 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { deriveDealCardHeadline, repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { isUuid, getQuickImRecord } from '@/lib/im-lite/quick-generate-store';
+import {
+  assertLegacyOrDbOwnership,
+  WorkspaceRepositoryError,
+} from '@/lib/workspace/workspace-repository';
 import { LLMMockNotAllowedError } from '@/ai/llm-client';
 import { createModuleLogger } from '@/lib/logger';
 
@@ -25,7 +29,26 @@ export const NON_YIELD_POSITIONING_COPY = '사옥·실사용 및 밸류애드 �
 const ZERO_OR_UNGROUNDED_YIELD_RE =
   /수익률\s*0(?:\.0+)?\s*%|연\s*0(?:\.0+)?\s*%|0(?:\.0+)?\s*%\s*수준|임대수익\s*기반\s*안정적\s*현금흐름/;
 
-function extractPositiveYieldState(building: Record<string, any>): {
+interface FastFillBuildingLayers {
+  financial?: Record<string, unknown>;
+  finance?: Record<string, unknown>;
+  deal_terms?: Record<string, unknown>;
+  building_register?: Record<string, unknown>;
+  building?: Record<string, unknown>;
+  land?: Record<string, unknown>;
+  location?: Record<string, unknown>;
+  asset_identity?: Record<string, unknown>;
+  investment_posture?: unknown;
+  land_area_pyung?: unknown;
+  total_floor_area_pyung?: unknown;
+  price_band?: unknown;
+}
+
+type FastFillBuildingRecord = Record<string, unknown> & {
+  layers?: FastFillBuildingLayers | null;
+};
+
+function extractPositiveYieldState(building: FastFillBuildingRecord): {
   capRate: number | null;
   hasPositiveYield: boolean;
 } {
@@ -102,7 +125,7 @@ function extractRegionFromAddress(address?: string | null): string {
   return '서울시';
 }
 
-function extractUseFromBuilding(building: Record<string, any>): string {
+function extractUseFromBuilding(building: FastFillBuildingRecord): string {
   const purpose =
     building.main_purpose ||
     building.asset_type ||
@@ -122,7 +145,7 @@ function extractUseFromBuilding(building: Record<string, any>): string {
   return purpose;
 }
 
-function extractPostureFromBuilding(building: Record<string, any>): DealCardPosture {
+function extractPostureFromBuilding(building: FastFillBuildingRecord): DealCardPosture {
   const raw = String(
     building.investment_posture ||
       building.posture ||
@@ -143,7 +166,7 @@ function extractPostureFromBuilding(building: Record<string, any>): DealCardPost
   return 'income';
 }
 
-function extractScaleFromBuilding(building: Record<string, any>): {
+function extractScaleFromBuilding(building: FastFillBuildingRecord): {
   landAreaPyung?: number;
   gfaPyung?: number;
 } {
@@ -178,8 +201,8 @@ function extractScaleFromBuilding(building: Record<string, any>): {
   return { landAreaPyung, gfaPyung };
 }
 
-function extractPriceBandFromBuilding(building: Record<string, any>): string {
-  if (building.asking_price_krw && typeof building.asking_price_krw === 'number' && building.asking_price_krw > 0) {
+function extractPriceBandFromBuilding(building: FastFillBuildingRecord): string {
+  if (typeof building.asking_price_krw === 'number' && building.asking_price_krw > 0) {
     return formatPriceRange(building.asking_price_krw);
   }
 
@@ -189,7 +212,7 @@ function extractPriceBandFromBuilding(building: Record<string, any>): string {
     building.layers?.finance?.asking_price_krw ||
     building.layers?.finance?.asking_price ||
     building.layers?.deal_terms?.asking_price_krw;
-  if (layersPriceKrw && typeof layersPriceKrw === 'number' && layersPriceKrw > 0) {
+  if (typeof layersPriceKrw === 'number' && layersPriceKrw > 0) {
     return formatPriceRange(layersPriceKrw);
   }
 
@@ -208,7 +231,7 @@ function extractPriceBandFromBuilding(building: Record<string, any>): string {
     building.price_band ||
     building.layers?.deal_terms?.price_band ||
     building.layers?.price_band;
-  if (rawBand && typeof rawBand === 'string') {
+  if (typeof rawBand === 'string' && rawBand) {
     const parsed = parseLegacyBand(rawBand);
     if (parsed.label) return parsed.label;
   }
@@ -216,7 +239,7 @@ function extractPriceBandFromBuilding(building: Record<string, any>): string {
   return '가격 협의';
 }
 
-function extractPointsFromBuilding(building: Record<string, any>): [string, string, string] {
+function extractPointsFromBuilding(building: FastFillBuildingRecord): [string, string, string] {
   const points: string[] = [];
   const { capRate, hasPositiveYield } = extractPositiveYieldState(building);
 
@@ -521,19 +544,53 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceClient();
 
     if (input.buildingId) {
-      // 1. Verify ownership only when buildingId is a valid UUID (skip DB query for local/demo draft IDs)
+      // 1. Verify ownership for both UUID buildings and non-UUID legacy/workspace IDs
+      let existingWsCard4: Card4Data | null = null;
       if (isUuid(input.buildingId)) {
         const ownership = await assertBuildingOwner(supabase, input.buildingId, guard.user!.id, {
           allowAdmin: true,
           role: guard.role,
         });
         if (!ownership.ok) return ownership.response;
+      } else {
+        try {
+          const ownCheck = await assertLegacyOrDbOwnership(supabase, {
+            id: input.buildingId,
+            userId: guard.user!.id,
+            isAdmin: guard.role === 'admin',
+            kind: 'dealcard',
+            requireExisting: false,
+          });
+          const wsDraftCard4 = (ownCheck.existingItem?.draftPayload as Record<string, unknown> | undefined)?.card4;
+          if (wsDraftCard4 && typeof wsDraftCard4 === 'object') {
+            existingWsCard4 = wsDraftCard4 as Card4Data;
+          }
+        } catch (ownErr) {
+          if (ownErr instanceof WorkspaceRepositoryError) {
+            return NextResponse.json(
+              { ok: false, error: ownErr.message, code: ownErr.code },
+              { status: ownErr.status },
+            );
+          }
+          throw ownErr;
+        }
       }
 
-      // 2. Pure read of building facts (or fallback to quick-generate store for non-UUID local drafts)
+      // 2. Pure read of building facts (or fallback to quick-generate store / workspace draft for non-UUID local drafts)
       const building = await readBuilding(input.buildingId);
       const quickRec = !building ? getQuickImRecord(input.buildingId) : null;
-      if (!building && !quickRec) {
+      if (
+        !isUuid(input.buildingId) &&
+        quickRec?.ownerId &&
+        quickRec.ownerId !== guard.user!.id &&
+        guard.role !== 'admin'
+      ) {
+        return NextResponse.json(
+          { ok: false, error: '이 매물에 대한 권한이 없습니다.', code: 'FORBIDDEN' },
+          { status: 403 },
+        );
+      }
+      if (!building && !quickRec && !existingWsCard4) {
         return NextResponse.json({ error: 'Building not found' }, { status: 404 });
       }
 
@@ -572,21 +629,22 @@ export async function POST(req: NextRequest) {
           ...(Number.isFinite(rawFloors) && rawFloors > 0 ? { floorCount: rawFloors } : {}),
         };
       } else {
-        const joinedQuick = (quickRec!.card4.points ?? []).join(' ');
+        const sourceCard4 = (quickRec?.card4 ?? existingWsCard4)!;
+        const joinedQuick = (sourceCard4.points ?? []).join(' ');
         const quickYieldMatch = joinedQuick.match(/(\d+(?:\.\d+)?)\s*%/);
         const quickCapRate = quickYieldMatch ? parseFloat(quickYieldMatch[1]) : null;
         const quickHasPositiveYield =
           quickCapRate !== null && quickCapRate > 0 && !ZERO_OR_UNGROUNDED_YIELD_RE.test(joinedQuick);
 
         extracted = {
-          region: quickRec!.card4.region,
-          use: quickRec!.card4.use,
-          posture: quickRec!.card4.posture || (quickHasPositiveYield ? 'income' : 'owner_occupied'),
-          area: quickRec!.card4.area,
-          gfaPyung: quickRec!.card4.gfaPyung,
-          landAreaPyung: quickRec!.card4.landAreaPyung,
-          priceBand: quickRec!.card4.priceBand,
-          points: quickRec!.card4.points,
+          region: sourceCard4.region,
+          use: sourceCard4.use,
+          posture: sourceCard4.posture || (quickHasPositiveYield ? 'income' : 'owner_occupied'),
+          area: sourceCard4.area,
+          gfaPyung: sourceCard4.gfaPyung,
+          landAreaPyung: sourceCard4.landAreaPyung,
+          priceBand: sourceCard4.priceBand,
+          points: sourceCard4.points,
           provenanceSource: 'public',
           capRate: quickCapRate,
           hasPositiveYield: quickHasPositiveYield,
@@ -606,18 +664,20 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(buildDeterministicFastFillResponse(extracted));
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errMeta = err as { name?: string; message?: string } | null;
+    const errMessage = err instanceof Error ? err.message : String(errMeta?.message || '');
     if (
       extracted &&
-      (err instanceof LLMMockNotAllowedError || err?.name === 'LLMMockNotAllowedError')
+      (err instanceof LLMMockNotAllowedError || errMeta?.name === 'LLMMockNotAllowedError')
     ) {
-      log.warn('[fast-fill] LLMMockNotAllowedError fallback to deterministic template:', err.message);
+      log.warn('[fast-fill] LLMMockNotAllowedError fallback to deterministic template:', errMessage);
       return NextResponse.json({
         ...buildDeterministicFastFillResponse(extracted),
         source: 'deterministic_fallback',
       });
     }
     log.error('Fast-fill failed:', err);
-    return NextResponse.json({ error: err.message || 'Fast-fill failed' }, { status: 400 });
+    return NextResponse.json({ error: errMessage || 'Fast-fill failed' }, { status: 400 });
   }
 }

@@ -17,6 +17,15 @@ import {
   GET as summaryGET,
   PATCH as summaryPATCH,
 } from "@/app/api/broker/workspace/summary/route";
+import { validateBlindPriceBand } from "@/lib/deal-card/price-band";
+import { parseMemoIntoCard4 } from "@/lib/deal-card/memo-pairing";
+import { bandPrice as teaserBandPrice } from "@/domain/deal/teaser/banding";
+import { formatBandedPrice } from "@/domain/dealcard/teaser-rules";
+import { bandPrice as engineBandPrice } from "@/domain/building/dealcard-publication/banding-engine";
+import { buildBrokerProfileMeta } from "@/lib/workspace/summary/types-and-helpers";
+import { toPublicDealCard } from "@/domain/public-projection/deal-card";
+import { KakaoBubblePreview } from "@/components/broker/deal-card/KakaoBubblePreview";
+import { ContactGateModal } from "@/components/teaser/ContactGateModal";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -185,7 +194,7 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
     expect(regionInput.value).toBe("마포구 서교동");
     expect(useInput.value).toBe("근린생활시설");
     expect(areaInput.value).toBe("연면적 280평");
-    expect(priceInput.value).toBe("85~90억");
+    expect(priceInput.value).toBe("80~90억");
     expect(headlineInput.value).toBe("홍대입구역 도보 3분 만실 코너");
 
     // Classified into '✨ AI 메모 생성 딜카드' group in left list
@@ -650,5 +659,201 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
     expect(pairedCard.memoText).toContain("683-10");
     // Public card4 object itself must NOT carry raw memoText
     expect(pairedCard.card4.memoText).toBeUndefined();
+  });
+
+  it("[WP-7C-UNIT] enforces price-band SSOT, wildcard/draft band rejections, 조~조 parsing, licensed badge, daylight preview & ContactGateModal Tab focus trap", async () => {
+    // 1. Strict blind price-band checks (no wildcard bypass)
+    expect(validateBlindPriceBand("95억원").valid).toBe(false);
+    expect(validateBlindPriceBand("95억대").valid).toBe(false);
+    expect(validateBlindPriceBand("95.5억대").valid).toBe(false);
+    expect(validateBlindPriceBand("123억대").valid).toBe(false);
+    expect(validateBlindPriceBand("2,010억대").valid).toBe(false);
+    expect(validateBlindPriceBand("95억 500만 이상").valid).toBe(false);
+    expect(validateBlindPriceBand("95억 이상").valid).toBe(false);
+    expect(validateBlindPriceBand("무작위대").valid).toBe(false);
+
+    expect(validateBlindPriceBand("90억대").valid).toBe(true);
+    expect(validateBlindPriceBand("190억 원대").valid).toBe(true);
+    expect(validateBlindPriceBand("300억 원대").valid).toBe(true);
+    expect(validateBlindPriceBand("1,200억 원대").valid).toBe(true);
+    expect(validateBlindPriceBand("2,000억대").valid).toBe(true);
+    expect(validateBlindPriceBand("1조 2,000억대").valid).toBe(true);
+    expect(validateBlindPriceBand("100억 이상").valid).toBe(true);
+    expect(validateBlindPriceBand("30억 미만").valid).toBe(true);
+
+    // 2. 조~조 range extraction in memo-pairing
+    const joRangeCard = parseMemoIntoCard4("강남구 테헤란로 프라임 오피스 빌딩 1조 2,000억~1조 3,000억 매각");
+    expect(joRangeCard.priceBand).toBe("1조 2,000억~1조 3,000억");
+    const joShortCard = parseMemoIntoCard4("여의도 랜드마크 1~2조 매물");
+    expect(joShortCard.priceBand).toBe("1~2조");
+
+    // 3. Unified price-band formatters (>=5% & 조 units)
+    expect(teaserBandPrice(1_2500_0000_0000)).toBe("1조 2,000억~1조 3,000억");
+    expect(formatBandedPrice(1_2500_0000_0000)).toBe("1조 2,000억 원대");
+    expect(engineBandPrice(1_2500_0000_0000)).toBe("1조 2,000억~1조 3,000억");
+    expect(engineBandPrice(120_0000_0000)).toBe("120억~130억 원대");
+
+    // 4. BrokerProfileMeta + toPublicDealCard licensed badge
+    const meta = buildBrokerProfileMeta(
+      { display_name: "김공인", phone: "010-1111-2222", company: "크리딜부동산중개" },
+      {
+        office_reg_number: "11680-2024-00123",
+        office_address: "서울 강남구 역삼동",
+        representative_name: "김공인",
+      }
+    );
+    expect(meta?.is_licensed).toBe(true);
+    expect(meta?.specialty).toBe("크리딜부동산중개");
+
+    const pub = toPublicDealCard({
+      id: "00000000-0000-4000-8000-000000000099",
+      building: { id: "00000000-0000-4000-8000-000000000099", price_band: "90~100억", layers: {} },
+      signalCard: null,
+      teaserDoc: null,
+      brokerProfile: meta as Record<string, unknown>,
+      hasImDoc: false,
+      isPptxApproved: false,
+      pptxDownloadUrl: "",
+    });
+    expect(pub.broker.isLicensed).toBe(true);
+
+    // 5. KakaoBubblePreview daylight detail view & ContactGateModal Tab focus trap
+    await act(async () => {
+      root.render(
+        <>
+          <KakaoBubblePreview
+            dealId="deal-daylight-1"
+            card4={{
+              card4_version: 1,
+              headline: "역세권 코너 근생",
+              posture: "income",
+              region: "강남구 역삼동",
+              use: "근린생활시설",
+              area: "연면적 300평",
+              priceBand: "90~100억",
+              points: ["역 도보 3분", "전층 만실", "안정 수익"],
+              provenance: { points: ["broker", "broker", "broker"] },
+            }}
+          />
+          <ContactGateModal
+            isOpen={true}
+            onClose={vi.fn()}
+            buildingId="deal-daylight-1"
+            onSuccess={vi.fn()}
+          />
+        </>
+      );
+    });
+    const detailPanel = container.querySelector(
+      '[data-testid="dealcard-postit-preview-list"]'
+    ) as HTMLElement;
+    expect(detailPanel.className).toContain("bg-[#F3F2EE]");
+    expect(detailPanel.getAttribute("data-theme-lock")).toBeNull();
+
+    const gateModal = container.querySelector(
+      '[data-testid="contact-gate-modal"]'
+    ) as HTMLElement;
+    const focusables = Array.from(
+      gateModal.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    expect(focusables.length).toBeGreaterThan(2);
+    const lastEl = focusables[focusables.length - 1];
+    lastEl.focus();
+    const tabEvt = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    window.dispatchEvent(tabEvt);
+    expect(document.activeElement).toBe(focusables[0]);
+  });
+
+  it("[WP-7C-API] rejects non-range exact priceBand on upsert (422) and fails closed on mark_sent when card4 & item are absent (404)", async () => {
+    mockRequireBroker.mockResolvedValue({
+      user: { id: "broker-test-user-1" },
+      role: "broker",
+      error: null,
+    });
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  display_name: "정완전",
+                  phone: "010-1111-2222",
+                  company: "정완전공인중개사사무소",
+                },
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "broker_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  name: "정완전",
+                  office_name: "정완전공인중개사사무소",
+                  office_address: "서울시 강남구 테헤란로 100",
+                  office_reg_number: "11680-2024-00999",
+                  representative_name: "정완전",
+                  phone: "010-1111-2222",
+                },
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null }),
+            order: () => ({
+              limit: () => ({
+                maybeSingle: async () => ({ data: null }),
+              }),
+            }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+      };
+    });
+
+    // 1. Non-range exact priceBand "95억" rejected even on draft upsert
+    const badUpsertRes = await summaryPATCH(
+      new NextRequest("http://localhost:3000/api/broker/workspace/summary", {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "upsert",
+          buildingId: "bld-bad-band-01",
+          card4: {
+            region: "강남구 역삼동",
+            use: "근린생활시설",
+            priceBand: "95억",
+            points: ["역세권 입지", "만실 운영", "안정 수익"],
+          },
+        }),
+      })
+    );
+    expect(badUpsertRes.status).toBe(422);
+    const badUpsertJson = await badUpsertRes.json();
+    expect(badUpsertJson.code).toBe("BLIND_PRICE_BAND_INVALID");
+
+    // 2. mark_sent without card4 & without workspace item fails closed (404, persisted: false)
+    const missingSentRes = await summaryPATCH(
+      new NextRequest("http://localhost:3000/api/broker/workspace/summary", {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "mark_sent",
+          buildingId: "bld-non-existent-999",
+        }),
+      })
+    );
+    expect(missingSentRes.status).toBe(404);
+    const missingSentJson = await missingSentRes.json();
+    expect(missingSentJson.ok).toBe(false);
+    expect(missingSentJson.persisted).toBe(false);
   });
 });

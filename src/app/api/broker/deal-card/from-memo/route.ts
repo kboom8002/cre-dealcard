@@ -18,6 +18,13 @@ import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
+import { parseKoreanPriceKrw } from '@/lib/deal-card/price-band';
+import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
+import { computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import {
+  isMissingRelationOrColumnError,
+  upsertWorkspaceItem,
+} from '@/lib/workspace/workspace-repository';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 import {
   buildAiUnavailable503Response,
@@ -32,16 +39,89 @@ const log = createModuleLogger('route');
 
 export const maxDuration = 120;
 
-/** 한국어 가격 텍스트를 원화 숫자로 변환 (예: '120억' → 12_000_000_000) */
+async function persistFromMemoDraftWorkspace(params: {
+  supabase: ReturnType<typeof createServiceClient>;
+  buildingId: string;
+  userId: string;
+  isAdmin: boolean;
+  card4?: Card4Data;
+  fallbackBuilding?: Record<string, unknown> | null;
+}): Promise<void> {
+  const { supabase, buildingId, userId, isAdmin, card4, fallbackBuilding } = params;
+  const fallbackRegion =
+    cleanBlindPoints([String(fallbackBuilding?.area_signal || '서울 주요권역')])[0] || '서울 주요권역';
+  const fallbackUse =
+    cleanBlindPoints([String(fallbackBuilding?.asset_type || '근린생활시설')])[0] || '근린생활시설';
+  const fallbackPriceBand = String(fallbackBuilding?.price_band || '가격 협의');
+  const fallbackPoints = cleanBlindPoints([
+    `${fallbackRegion} 입지 검토`,
+    `${fallbackUse} 매물 검토`,
+    '상세 조건 협의 가능',
+  ]) as [string, string, string];
+  const draftCard4: Card4Data = card4 ?? {
+    headline: `${fallbackRegion} ${fallbackUse}`.trim(),
+    posture: 'income',
+    region: fallbackRegion,
+    use: fallbackUse,
+    priceBand: fallbackPriceBand,
+    points: fallbackPoints,
+    provenance: { points: ['ai', 'ai', 'ai'] },
+    generationSource: 'ai_memo',
+    card4_version: 1,
+    card4_hash: computeCard4Hash({
+      region: fallbackRegion,
+      use: fallbackUse,
+      priceBand: fallbackPriceBand,
+      points: fallbackPoints,
+      headline: `${fallbackRegion} ${fallbackUse}`.trim(),
+    }),
+  };
+
+  try {
+    await upsertWorkspaceItem(supabase, {
+      buildingId,
+      ownerId: userId,
+      isAdmin,
+      kind: 'dealcard',
+      status: 'draft',
+      title: draftCard4.headline || `${draftCard4.region} ${draftCard4.use}`.trim(),
+      address: draftCard4.region,
+      priceBand: draftCard4.priceBand,
+      draftPayload: {
+        card4: draftCard4,
+        generationSource: 'ai_memo',
+      },
+      publishedSnapshot: null,
+      docHash: draftCard4.card4_hash ?? null,
+      version: draftCard4.card4_version ?? 1,
+    });
+  } catch (wsErr) {
+    if (!isMissingRelationOrColumnError(wsErr)) {
+      throw wsErr;
+    }
+  }
+
+  try {
+    await supabase.from('activity_events').insert({
+      actor_id: userId,
+      event_type: 'dealcard_upserted',
+      entity_type: 'building',
+      entity_id: buildingId,
+      metadata: {
+        building_id: buildingId,
+        status: 'draft',
+        card4: draftCard4,
+        generation_source: 'ai_memo',
+      },
+    });
+  } catch (evErr) {
+    log.warn('[deal-card/from-memo] Non-blocking dealcard_upserted log failed:', evErr);
+  }
+}
+
+/** 한국어 가격 텍스트를 원화 숫자로 변환 (price-band SSOT 위임, 조·억·만 지원) */
 function parsePriceKrw(priceText: string | null | undefined): number | null {
-  if (!priceText) return null;
-  const cleaned = priceText.replace(/[^0-9.억만원\s]/g, '');
-  let total = 0;
-  const eokMatch = cleaned.match(/([\d.]+)\s*억/);
-  const manMatch = cleaned.match(/([\d.]+)\s*만/);
-  if (eokMatch) total += parseFloat(eokMatch[1]) * 100_000_000;
-  if (manMatch) total += parseFloat(manMatch[1]) * 10_000;
-  return total > 0 ? total : null;
+  return parseKoreanPriceKrw(priceText);
 }
 
 function sanitizePhotoUrls(urls?: string[]): string[] | undefined {
@@ -185,6 +265,14 @@ export async function POST(req: NextRequest) {
             user!.id,
           );
 
+          await persistFromMemoDraftWorkspace({
+            supabase,
+            buildingId: result.buildingId,
+            userId: user!.id,
+            isAdmin: guard.role === 'admin',
+            card4: result.card4,
+          });
+
           // Update job as completed
           await supabase.from("ai_runs").update({
             status: "completed",
@@ -194,11 +282,11 @@ export async function POST(req: NextRequest) {
           // Background auto-match
           const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
           await runAutoMatch(result.buildingId, user!.id);
-        } catch (err: any) {
+        } catch (err: unknown) {
           log.error("Async deal card creation failed:", err);
           await supabase.from("ai_runs").update({
             status: "failed",
-            error: err.message || "Unknown error"
+            error: err instanceof Error ? err.message : "Unknown error"
           }).eq("id", jobId);
         }
       });
@@ -218,10 +306,21 @@ export async function POST(req: NextRequest) {
 
     // 🚨 v3 Post-processing: Archetype Classification & Constraint Validation 🚨
     const res = await readWithMigration(result.buildingId);
-    const createdBuilding = res.data as any;
+    const createdBuilding = (res.data && typeof res.data === 'object'
+      ? (res.data as Record<string, unknown>)
+      : null);
+
+    await persistFromMemoDraftWorkspace({
+      supabase: createServiceClient(),
+      buildingId: result.buildingId,
+      userId: user!.id,
+      isAdmin: guard.role === 'admin',
+      card4: result.card4,
+      fallbackBuilding: createdBuilding,
+    });
 
     let archetypes: string[] = [];
-    let constraintWarnings: any[] = [];
+    let constraintWarnings: unknown[] = [];
     if (createdBuilding && Object.keys(createdBuilding).length > 0) {
       const attrs = buildAttrsFromSsotLite(createdBuilding);
 
@@ -245,7 +344,12 @@ export async function POST(req: NextRequest) {
     });
 
     // 🚨 v4 Price extraction from SSoT 🚨
-    const priceBand = createdBuilding?.price_band || createdBuilding?.layers?.price_band || null;
+    const createdLayers =
+      createdBuilding?.layers && typeof createdBuilding.layers === 'object'
+        ? (createdBuilding.layers as Record<string, unknown>)
+        : null;
+    const rawPriceBand = createdBuilding?.price_band ?? createdLayers?.price_band;
+    const priceBand = typeof rawPriceBand === 'string' ? rawPriceBand : null;
     const askingPriceKrw = parsePriceKrw(priceBand);
 
     return Response.json({

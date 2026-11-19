@@ -12,6 +12,7 @@ import {
   getQuickImRecord,
   resolveOrSynthesizeQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
+import { getPublicWorkspaceProjection } from "@/lib/workspace/workspace-repository";
 import type { GateLevel, GateRequestStatus } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -60,13 +61,39 @@ export async function createGateRequest(
     }
   }
 
-  const quickRec = !building
-    ? getQuickImRecord(input.buildingId) ||
-      (await resolveOrSynthesizeQuickImRecord(input.buildingId, supabase))
-    : null;
+  const wsProj = await getPublicWorkspaceProjection(supabase, input.buildingId).catch(() => null);
+  if (wsProj?.found && (wsProj.deleted || wsProj.revoked)) {
+    throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
+  }
+
+  let wsProjection = !building && wsProj?.found ? wsProj.projection : null;
+  if (!building && wsProj?.found && !wsProjection) {
+    throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
+  }
+  if (!building && wsProjection?.buildingId && isUuid(wsProjection.buildingId)) {
+    try {
+      const { data: linkedBld, error: linkedErr } = await supabase
+        .from("building_ssot_lite")
+        .select("id, status, owner_id")
+        .eq("id", wsProjection.buildingId)
+        .single();
+      if (!linkedErr && linkedBld) {
+        building = linkedBld as any;
+        wsProjection = null;
+      }
+    } catch {
+      // Fall back to standalone workspace projection
+    }
+  }
+
+  const quickRec =
+    !building && !wsProjection
+      ? getQuickImRecord(input.buildingId) ||
+        (await resolveOrSynthesizeQuickImRecord(input.buildingId, supabase))
+      : null;
 
   // Fallback for unit tests that mock building_ssot_lite with non-UUID IDs like 'bldg-1'
-  if (!building && !quickRec && !isBldUuid) {
+  if (!building && !wsProjection && !quickRec && !isBldUuid) {
     try {
       const { data: mockBld, error: mockErr } = await supabase
         .from("building_ssot_lite")
@@ -81,7 +108,7 @@ export async function createGateRequest(
     }
   }
 
-  if (!building && !quickRec) {
+  if (!building && !wsProjection && !quickRec) {
     throw new Error("건물 정보를 찾을 수 없습니다.");
   }
 
@@ -89,11 +116,11 @@ export async function createGateRequest(
     throw new Error("삭제되었거나 비공개 처리된 매물에는 열람 요청을 생성할 수 없습니다.");
   }
 
-  // If the Deal Card is backed by QuickImStore / activity_events (non-UUID or not in building_ssot_lite),
-  // persist the gate request into activity_events instead of querying UUID-typed gate_requests.building_id
-  if (!building && quickRec) {
+  // If the Deal Card is backed by standalone workspace_items / QuickImStore (not in building_ssot_lite),
+  // persist the gate request into activity_events instead of violating gate_requests.building_id FK
+  if (!building && (wsProjection || quickRec)) {
     const syntheticGateId = `gr-${Date.now()}`;
-    const ownerId = quickRec.ownerId || null;
+    const ownerId = wsProjection?.ownerId || quickRec?.ownerId || null;
     try {
       await supabase.from("activity_events").insert({
         actor_id: requesterId && isUuid(requesterId) ? requesterId : null,
@@ -116,19 +143,58 @@ export async function createGateRequest(
     return { gateRequestId: syntheticGateId, status: "submitted" };
   }
 
+  const targetBuildingId = building?.id || input.buildingId;
+
+  // Resolve building owner before insert so target_broker_id is populated on gate_requests
+  let resolvedOwnerId: string | null | undefined = building?.owner_id;
+  if (resolvedOwnerId === undefined) {
+    try {
+      const { data: bldg } = await supabase
+        .from("building_ssot_lite")
+        .select("owner_id")
+        .eq("id", targetBuildingId)
+        .single();
+      resolvedOwnerId = bldg?.owner_id ?? null;
+    } catch {
+      resolvedOwnerId = null;
+    }
+  }
+  const resolvedBrokerOwnerId = resolvedOwnerId || wsProj?.ownerId || quickRec?.ownerId || null;
+
+  const baseGatePayload = {
+    building_id: targetBuildingId,
+    requester_id: requesterId,
+    requested_level: input.requestedLevel,
+    requested_fields: input.requestedFields,
+    reason: input.reason ?? null,
+    status: "submitted" as const,
+  };
+
   // POLICY: Never auto-approve — always starts as submitted
-  const { data: gateRequest, error } = await supabase
+  let { data: gateRequest, error } = await supabase
     .from("gate_requests")
     .insert({
-      building_id: input.buildingId,
-      requester_id: requesterId,
-      requested_level: input.requestedLevel,
-      requested_fields: input.requestedFields,
-      reason: input.reason ?? null,
-      status: "submitted",
+      ...baseGatePayload,
+      target_broker_id:
+        resolvedBrokerOwnerId && isUuid(resolvedBrokerOwnerId) ? resolvedBrokerOwnerId : null,
     })
     .select("id")
     .single();
+
+  if (
+    error &&
+    (String((error as { code?: unknown }).code || "") === "42703" ||
+      String((error as { code?: unknown }).code || "") === "PGRST204" ||
+      /target_broker_id/i.test(String(error.message || "")))
+  ) {
+    const retry = await supabase
+      .from("gate_requests")
+      .insert(baseGatePayload)
+      .select("id")
+      .single();
+    gateRequest = retry.data;
+    error = retry.error;
+  }
 
   if (error || !gateRequest) {
     if (quickRec) {
@@ -157,21 +223,6 @@ export async function createGateRequest(
     throw new Error(`Gate request 생성에 실패했습니다: ${error?.message}`);
   }
 
-  // Resolve building owner for metadata tracking
-  let resolvedOwnerId = building?.owner_id;
-  if (resolvedOwnerId === undefined) {
-    try {
-      const { data: bldg } = await supabase
-        .from("building_ssot_lite")
-        .select("owner_id")
-        .eq("id", input.buildingId)
-        .single();
-      resolvedOwnerId = bldg?.owner_id;
-    } catch {
-      // Ignore
-    }
-  }
-
   await recordEvent(supabase, {
     actorId: requesterId ?? undefined,
     actorRole: requesterId ? "authenticated" : "anonymous",
@@ -183,7 +234,7 @@ export async function createGateRequest(
       requested_level: input.requestedLevel,
       requested_fields: input.requestedFields,
       reason: input.reason ?? null,
-      broker_id: resolvedOwnerId,
+      broker_id: resolvedBrokerOwnerId,
     },
   });
 

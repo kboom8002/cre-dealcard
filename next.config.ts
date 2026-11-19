@@ -26,25 +26,33 @@ const RESOLVED_BUILD_TIMESTAMP =
   process.env.NEXT_PUBLIC_BUILD_TIMESTAMP || new Date().toISOString();
 
 // ── H-01 보안 헤더 (S2-27) ───────────────────────────────────────────────────
-// CSP 는 Report-Only 로만 추가(1주 관찰 후 enforce). 외부 의존은 코드 grep 기준:
+// CSP 는 `Content-Security-Policy` 헤더로 **강제(enforce)** 적용된다(Report-Only 아님 — 관찰 기간 종료).
+//  새 외부 출처를 추가할 때는 아래 정책을 함께 갱신해야 한다. 외부 의존은 코드 grep 기준:
 //  Kakao SDK(t1.kakaocdn.net / dapi.kakao.com), Supabase, Pretendard(cdn.jsdelivr.net, globals.css @import),
 //  Google Fonts, 별도 배포 앱(*.vercel.app), 이미지는 data:/blob:/https: 허용.
 const isDev = process.env.NODE_ENV !== "production";
-const CSP_REPORT_ONLY = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' " : ""}https://t1.kakaocdn.net https://dapi.kakao.com`,
-  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-  "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' data: blob: https:",
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.kakao.com https://*.kakaocdn.net https://*.vercel.app https://credeal.net https://www.credeal.net https://dealcard.kr${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
-  "frame-src 'self' https://*.kakao.com",
-  "frame-ancestors 'self'",
-  "worker-src 'self' blob:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+
+function buildCspPolicy(frameAncestors: "'none'" | "'self'"): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' " : ""}https://t1.kakaocdn.net https://*.kakaocdn.net https://dapi.kakao.com https://*.daumcdn.net`,
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+    "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' data: blob: https:",
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.kakao.com https://*.kakaocdn.net https://*.daumcdn.net https://*.vercel.app https://credeal.net https://www.credeal.net https://dealcard.kr${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
+    "frame-src 'self' https://*.kakao.com",
+    `frame-ancestors ${frameAncestors}`,
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
+
+const CSP_STRICT = buildCspPolicy("'none'");
+const CSP_SAMEORIGIN_IFRAME = buildCspPolicy("'self'");
+
 // 카메라/마이크(사진 OCR capture, 음성 메모)는 same-origin 허용, 결제·USB 등은 차단
 const PERMISSIONS_POLICY = "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=()";
 const COMMON_SECURITY_HEADERS = [
@@ -52,7 +60,7 @@ const COMMON_SECURITY_HEADERS = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
-  { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+  { key: "Content-Security-Policy", value: CSP_STRICT },
 ];
 
 const nextConfig: NextConfig = {
@@ -77,6 +85,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizeCss: true,
+    optimizePackageImports: ["lucide-react", "motion", "recharts", "date-fns"],
   },
   serverExternalPackages: ['sharp', 'pdf-parse', 'heic-convert', 'heic-decode', 'libheif-js'],
   outputFileTracingExcludes: {
@@ -159,27 +168,36 @@ const nextConfig: NextConfig = {
         ],
       },
       // ── H-01 보안 헤더 ──
-      // X-Frame-Options: 기본 DENY, 같은 오리진 iframe 미리보기 경로(/magazine/*, /dc/*, /im-lite/*)는 SAMEORIGIN.
-      // (동일 키 규칙 중복 적용을 피하려고 DENY 규칙에서 해당 경로를 제외)
+      // 기본 경로는 X-Frame-Options: DENY + CSP frame-ancestors 'none' 으로 클릭재킹 차단.
+      // 같은 오리진 iframe 미리보기 경로(/magazine/*, /dc/*, /im-lite/*)만 뒤에 배치해 SAMEORIGIN/'self' 로 재정의.
+      {
+        source: '/:path*',
+        headers: COMMON_SECURITY_HEADERS,
+      },
       {
         source: '/((?!magazine(?:/|$)|dc(?:/|$)|im-lite(?:/|$)).*)',
         headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
       },
       {
         source: '/magazine/:path*',
-        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: CSP_SAMEORIGIN_IFRAME },
+        ],
       },
       {
         source: '/dc/:path*',
-        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: CSP_SAMEORIGIN_IFRAME },
+        ],
       },
       {
         source: '/im-lite/:path*',
-        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
-      },
-      {
-        source: '/:path*',
-        headers: COMMON_SECURITY_HEADERS,
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: CSP_SAMEORIGIN_IFRAME },
+        ],
       },
     ];
   },

@@ -140,12 +140,13 @@ export function MagazineQrModal({
         <ErrorState
           title="QR 주소를 만들 수 없어요"
           description="서비스 도메인 주소 설정이 아직 완료되지 않았어요. 관리자에게 문의해 주세요."
+          className="border-rose-200 bg-rose-50 [&_p]:text-rose-900 [&>p:nth-of-type(2)]:text-rose-800"
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 text-slate-900">
           {/* QR 코드 캔버스 카드 — 125% 배율 노트북에서도 스크롤 없이 한눈에 보이도록 여백 축소 */}
-          <div className="flex flex-col items-center justify-center space-y-2 rounded-2xl border border-slate-800 bg-slate-950/80 p-3">
-            <div className="rounded-xl bg-white p-2 shadow-xl">
+          <div className="flex flex-col items-center justify-center space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
               <canvas
                 ref={canvasRef}
                 className="block"
@@ -154,12 +155,12 @@ export function MagazineQrModal({
               />
             </div>
             <div className="w-full space-y-0.5 text-center">
-              <p className="flex items-center justify-center gap-1 text-label font-bold text-white">
-                <Smartphone className="h-4 w-4 text-indigo-400" aria-hidden="true" />
+              <p className="flex items-center justify-center gap-1 text-sm font-bold text-slate-900">
+                <Smartphone className="h-4 w-4 text-indigo-700" aria-hidden="true" />
                 카메라로 스캔하면 바로 구독 페이지로 이동해요
               </p>
               {/* T2-UX-5: 실제 URL 을 큰 글씨로 표시 (QR 이 안 읽힐 때 직접 입력) */}
-              <p className="break-all font-mono text-sm font-bold text-indigo-200">{subscribeUrl}</p>
+              <p className="break-all font-mono text-sm font-bold text-indigo-800">{subscribeUrl}</p>
             </div>
           </div>
 
@@ -169,7 +170,7 @@ export function MagazineQrModal({
               type="button"
               onClick={handleDownloadPng}
               disabled={downloading}
-              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-label font-bold text-white shadow-lg shadow-indigo-900/30 transition-colors hover:bg-indigo-500 disabled:opacity-60"
+              className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-indigo-700 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-800 disabled:opacity-60"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               <span>
@@ -182,12 +183,12 @@ export function MagazineQrModal({
             <button
               type="button"
               onClick={handleCopy}
-              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-label font-bold text-slate-200 transition-colors hover:bg-slate-700"
+              className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100"
             >
               {copied ? (
                 <>
-                  <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
-                  <span className="text-emerald-400">복사 완료!</span>
+                  <Check className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                  <span className="text-emerald-800">복사 완료!</span>
                 </>
               ) : (
                 <>
@@ -199,28 +200,28 @@ export function MagazineQrModal({
           </div>
 
           {/* 명함 인쇄 가이드 */}
-          <div className="space-y-1 rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
-            <div className="flex items-center gap-1.5 text-label font-bold text-indigo-300">
+          <div className="space-y-1 rounded-xl border border-indigo-200 bg-indigo-50 p-3">
+            <div className="flex items-center gap-1.5 text-sm font-bold text-indigo-900">
               <Printer className="h-4 w-4" aria-hidden="true" />
               <span>명함 뒷면 인쇄 추천 문구</span>
             </div>
-            <p className="rounded border border-white/5 bg-black/30 p-2 text-label leading-relaxed text-slate-200">
+            <p className="rounded border border-indigo-200 bg-white p-2 text-sm leading-relaxed text-slate-900">
               &ldquo;{printCopy}&rdquo;
             </p>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-800 pt-3">
+          <div className="flex items-center justify-between border-t border-slate-200 pt-3">
             <a
               href={subscribeUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-1 text-label text-ink-muted transition-colors hover:text-indigo-300"
+              className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-slate-700 transition-colors hover:text-indigo-700"
             >
               <span>구독 페이지 열어보기</span>
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="sr-only">(새 탭)</span>
             </a>
-            <span className="inline-flex items-center gap-1 text-caption text-ink-subtle">
+            <span className="inline-flex items-center gap-1 text-sm text-slate-600">
               <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
               {QR_PRINT_PX}px · 8cm 인쇄용
             </span>

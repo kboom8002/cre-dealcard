@@ -199,9 +199,9 @@ export function ImSlideVisualCard({
               <div className="flex items-center gap-1.5 pt-0.5">
                 <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-sm font-semibold text-slate-700 truncate">
                   {slide.no === "03"
-                    ? `용도지역: ${zoning || "미입력"}`
-                    : slide.no === "05"
                     ? `연면적: ${gfaSqm || "—"}㎡`
+                    : slide.no === "05"
+                    ? `용도지역: ${zoning || "미입력"}`
                     : `월임대료 ${totalRentManwon.toLocaleString()}만원`}
                 </span>
               </div>

@@ -171,10 +171,12 @@ describe('Inbox left list — simple / detailed view', () => {
     expect(pendingRow!.textContent).toContain('IM 요청 대기');
     expect(pendingRow!.textContent).toContain('잠원권역 근생빌딩');
     expect(q(container, 'inbox-thread-row-thr-pending-1-date')!.textContent).toMatch(
-      /^오(전|후) \d{1,2}:\d{2}$/
+      /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
     );
     expect(activeRow!.textContent).toContain('1회 열람');
-    expect(q(container, 'inbox-thread-row-thr-active-2-date')!.textContent).toBe('어제');
+    expect(q(container, 'inbox-thread-row-thr-active-2-date')!.textContent).toMatch(
+      /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+    );
 
     // Rich detail is NOT in simple rows
     expect(pendingRow!.textContent).not.toContain('IM 열람 요청:');
@@ -262,6 +264,6 @@ describe('Inbox left list — simple / detailed view', () => {
     expect(newRow).toBeDefined();
     const dateEl = newRow!.querySelector('[data-testid$="-date"]');
     expect(dateEl!.textContent).not.toBe('방금');
-    expect(dateEl!.textContent).toMatch(/^오(전|후) \d{1,2}:\d{2}$/);
+    expect(dateEl!.textContent).toMatch(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 });

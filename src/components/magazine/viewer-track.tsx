@@ -11,6 +11,7 @@
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { useMagazineAnalytics } from "@/hooks/use-magazine-analytics";
+import { SCANNER_OR_BOT_UA_RE } from "@/lib/magazine/public-page-data";
 import { safeTrackClick } from "@/lib/magazine/view-helpers";
 
 export type ViewerTrack = (target: string, meta?: Record<string, unknown>) => void;
@@ -27,24 +28,37 @@ interface ProviderProps {
   brokerId: string;
   /** 에디터 미리보기: 분석 비콘 비활성 */
   preview: boolean;
+  /** 서버 추적 마스터 스위치 (기본 true) */
+  trackingEnabled?: boolean;
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
 }
 
-export function ViewerTrackProvider({ editionId, brokerId, preview, className, style, children }: ProviderProps) {
+export function ViewerTrackProvider({
+  editionId,
+  brokerId,
+  preview,
+  trackingEnabled = true,
+  className,
+  style,
+  children,
+}: ProviderProps) {
+  const isScannerClient =
+    typeof navigator !== "undefined" && SCANNER_OR_BOT_UA_RE.test(navigator.userAgent || "");
+  const active = !preview && trackingEnabled && !isScannerClient;
   const analytics = useMagazineAnalytics({
     editionId,
     brokerId,
-    // 에디터 미리보기에서는 분석 비콘을 발사하지 않는다 (T1-13)
-    enabled: !preview,
+    // 에디터 미리보기·추적 비활성·봇/스캐너 UA 에서는 분석 비콘을 발사하지 않는다 (T1-13, P1-4)
+    enabled: active,
   });
   const { trackSection, trackInteraction } = analytics;
   const rootRef = useRef<HTMLDivElement>(null);
 
   // 섹션 노출/체류 추적 — 한 번만 observe 하고 unmount 시 정리한다.
   useEffect(() => {
-    if (preview) return;
+    if (!active) return;
     const root = rootRef.current;
     if (!root || typeof IntersectionObserver === "undefined") return;
     const entered = new Set<string>();
@@ -63,19 +77,19 @@ export function ViewerTrackProvider({ editionId, brokerId, preview, className, s
     }, { threshold: 0.3 });
     root.querySelectorAll<HTMLElement>("[data-section-id]").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [preview, trackSection]);
+  }, [active, trackSection]);
 
   const onTrack = useCallback<ViewerTrack>((trackTarget, meta) => {
-    if (preview) return;
+    if (!active) return;
     if (trackTarget === "poll_vote") trackInteraction("poll_vote", meta);
     else if (trackTarget === "referral_copy") trackInteraction("referral_copy", meta);
     else if (trackTarget === "calc_simulate") trackInteraction("calc_simulate", meta);
     else safeTrackClick(analytics, trackTarget, meta);
-  }, [preview, analytics, trackInteraction]);
+  }, [active, analytics, trackInteraction]);
 
   // 서버 본문의 `<a data-track="listing_click" data-track-listing-id=… data-track-from=…>` 클릭 위임
   const onClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (preview) return;
+    if (!active) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-track]");
     if (!el || !rootRef.current?.contains(el)) return;
     const target = el.dataset.track;
@@ -84,7 +98,7 @@ export function ViewerTrackProvider({ editionId, brokerId, preview, className, s
     if (el.dataset.trackListingId) meta.listing_id = el.dataset.trackListingId;
     if (el.dataset.trackFrom) meta.from = el.dataset.trackFrom;
     onTrack(target, Object.keys(meta).length > 0 ? meta : undefined);
-  }, [preview, onTrack]);
+  }, [active, onTrack]);
 
   const value = useMemo(() => onTrack, [onTrack]);
 

@@ -24,6 +24,42 @@ function isMissingBrokerColumnError(error: { code?: string; message?: string } |
   return /does not exist|schema cache/i.test(msg);
 }
 
+function isMissingEditionSchemaError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === '42703' || error.code === 'PGRST204' || error.code === 'PGRST205') {
+    return true;
+  }
+  const msg = String(error.message ?? '');
+  return /does not exist|schema cache|Could not find the table/i.test(msg);
+}
+
+function isTransientNetworkError(err: unknown): boolean {
+  const msg =
+    err && typeof err === 'object' && 'message' in err
+      ? String((err as { message?: unknown }).message ?? '')
+      : String(err ?? '');
+  return /fetch failed|network|socket|Project not specified|ECONNRESET|ETIMEDOUT/i.test(msg);
+}
+
+async function withTransientSupabaseRetry<T extends { error?: { message?: string } | null }>(
+  op: () => Promise<T>,
+): Promise<T> {
+  try {
+    const first = await op();
+    if (first?.error && isTransientNetworkError(first.error)) {
+      await new Promise((r) => setTimeout(r, 250));
+      return await op();
+    }
+    return first;
+  } catch (err) {
+    if (isTransientNetworkError(err)) {
+      await new Promise((r) => setTimeout(r, 250));
+      return await op();
+    }
+    throw err;
+  }
+}
+
 /** URL 파라미터가 uuid/slug 형식일 때만 DB에 질의. 그 외 형식은 null (notFound 처리). */
 export async function resolvePublicBroker(
   supabase: Db,
@@ -35,7 +71,9 @@ export async function resolvePublicBroker(
     if (isUuid(param)) q = q.eq('user_id', param);
     else if (SLUG_RE.test(param)) q = q.eq('slug', param);
     else return { skipped: true as const, data: null, error: null };
-    const { data, error } = await q.maybeSingle();
+    const { data, error } = await withTransientSupabaseRetry<{ data: unknown; error: { code?: string; message?: string } | null }>(
+      () => q.maybeSingle(),
+    );
     return { skipped: false as const, data, error };
   };
 
@@ -144,13 +182,20 @@ export async function findIssueForDate(
   supabase: Db,
   broker: { user_id?: string | null; slug?: string | null } | string,
   date: string,
-  editionId?: string,
+  editionId?: string | { editionId?: string | null } | null,
 ): Promise<MagazineContent | null> {
   const keys = brokerKeys(broker);
+  const resolvedEditionId =
+    typeof editionId === 'string'
+      ? editionId.trim() || undefined
+      : editionId && typeof editionId === 'object' && typeof editionId.editionId === 'string'
+        ? editionId.editionId.trim() || undefined
+        : undefined;
 
   // When editionId is provided (?edition=<id>), query magazine_editions directly first.
   // This prevents same-day Special Editions (호외) from being shadowed by Weekly issues on the same date.
-  if (editionId) {
+  // When an explicit UUID is passed and magazine_editions succeeds with no published row, NEVER fall through to magazine_issues.
+  if (resolvedEditionId) {
     let q = supabase
       .from('magazine_editions')
       .select(EDITION_COLUMNS);
@@ -159,25 +204,34 @@ export async function findIssueForDate(
     } else if (typeof q.eq === 'function') {
       q = q.eq('broker_id', keys[0]);
     }
-    const lookupCol = isUuid(editionId) ? 'id' : 'edition_label';
-    const byId = await q
-      .eq(lookupCol, editionId)
-      .eq('status', 'published')
-      .limit(1);
-    if (byId?.error) throw new Error(`edition lookup by ${lookupCol} failed: ${byId.error.message}`);
-    const row = Array.isArray(byId?.data) ? byId.data[0] : (byId?.data ?? null);
-    if (row) return mergeEditionContent(row);
+    const explicitUuid = isUuid(resolvedEditionId);
+    const lookupCol = explicitUuid ? 'id' : 'edition_label';
+    const byId = await withTransientSupabaseRetry<{ data: unknown; error: { code?: string; message?: string } | null }>(
+      () => q.eq(lookupCol, resolvedEditionId).eq('status', 'published').limit(1),
+    );
+    if (byId?.error) {
+      if (!isMissingEditionSchemaError(byId.error)) {
+        throw new Error(`edition lookup by ${lookupCol} failed: ${byId.error.message}`);
+      }
+    } else {
+      const row = Array.isArray(byId?.data) ? byId.data[0] : (byId?.data ?? null);
+      if (row) return mergeEditionContent(row);
+      if (explicitUuid) return null;
+    }
   }
 
-  const { data: issues, error: issueErr } = await supabase
-    .from('magazine_issues')
-    .select('id, content, updated_at')
-    .in('broker_id', keys)
-    .eq('issue_date', date)
-    .order('updated_at', { ascending: false })
-    .limit(1);
+  const { data: issues, error: issueErr } = await withTransientSupabaseRetry<{ data: unknown[] | null; error: { message?: string } | null }>(
+    () =>
+      supabase
+        .from('magazine_issues')
+        .select('id, content, updated_at')
+        .in('broker_id', keys)
+        .eq('issue_date', date)
+        .order('updated_at', { ascending: false })
+        .limit(1),
+  );
   if (issueErr) throw new Error(`issue lookup failed: ${issueErr.message}`);
-  const issue = Array.isArray(issues) ? issues[0] : null;
+  const issue = Array.isArray(issues) ? (issues[0] as { id?: string; content?: unknown } | undefined) : null;
   if (issue?.content && typeof issue.content === 'object') {
     const c = issue.content as MagazineContent;
     return c.id ? c : { ...c, id: issue.id };
@@ -186,28 +240,34 @@ export async function findIssueForDate(
   const startIso = new Date(`${date}T00:00:00+09:00`).toISOString();
   const endIso = new Date(`${addDays(date, 1)}T00:00:00+09:00`).toISOString();
 
-  const byLabel = await supabase
-    .from('magazine_editions')
-    .select(EDITION_COLUMNS)
-    .in('broker_id', keys)
-    .eq('status', 'published')
-    .eq('edition_label', date)
-    .order('published_at', { ascending: false })
-    .limit(1);
+  const byLabel = await withTransientSupabaseRetry<{ data: unknown[] | null; error: { message?: string } | null }>(
+    () =>
+      supabase
+        .from('magazine_editions')
+        .select(EDITION_COLUMNS)
+        .in('broker_id', keys)
+        .eq('status', 'published')
+        .eq('edition_label', date)
+        .order('published_at', { ascending: false })
+        .limit(1),
+  );
   if (byLabel.error) throw new Error(`edition lookup failed: ${byLabel.error.message}`);
-  if (byLabel.data?.[0]) return mergeEditionContent(byLabel.data[0]);
+  if (byLabel.data?.[0]) return mergeEditionContent(byLabel.data[0] as Record<string, unknown>);
 
-  const byPublished = await supabase
-    .from('magazine_editions')
-    .select(EDITION_COLUMNS)
-    .in('broker_id', keys)
-    .eq('status', 'published')
-    .gte('published_at', startIso)
-    .lt('published_at', endIso)
-    .order('published_at', { ascending: false })
-    .limit(1);
+  const byPublished = await withTransientSupabaseRetry<{ data: unknown[] | null; error: { message?: string } | null }>(
+    () =>
+      supabase
+        .from('magazine_editions')
+        .select(EDITION_COLUMNS)
+        .in('broker_id', keys)
+        .eq('status', 'published')
+        .gte('published_at', startIso)
+        .lt('published_at', endIso)
+        .order('published_at', { ascending: false })
+        .limit(1),
+  );
   if (byPublished.error) throw new Error(`edition lookup failed: ${byPublished.error.message}`);
-  if (byPublished.data?.[0]) return mergeEditionContent(byPublished.data[0]);
+  if (byPublished.data?.[0]) return mergeEditionContent(byPublished.data[0] as Record<string, unknown>);
 
   return null;
 }
@@ -345,21 +405,26 @@ export interface ArchiveEntry {
   title: string | null;
   marketTemp: string | null;
   keywords: string[];
+  /** 출처 구분: 'edition' (magazine_editions) vs 'legacy' (magazine_issues) */
+  source?: 'edition' | 'legacy';
 }
 
 /**
  * editions 행 → 아카이브 항목. 날짜는 edition_label 이 실존하는 날짜면 그것(뷰어가 label 로 먼저 매칭),
- * 아니면 발행 시각(없으면 생성 시각)의 KST 날짜. 같은 날짜는 최신 1건만, 오늘(KST) 이후 날짜는 제외, 최신순.
+ * 아니면 발행 시각(없으면 생성 시각)의 KST 날짜.
+ * 고유 published 에디션(UUID id 또는 서로 다른 edition_type·edition_label 슬롯)은 같은 날짜라도 모두 보존하며,
+ * 오늘(KST) 이후 날짜는 제외하고 최신순으로 정렬한다.
  */
 export function buildArchiveEntries(
   rows: ReadonlyArray<Record<string, unknown>>,
   now: Date = new Date(),
 ): ArchiveEntry[] {
   const today = todayKst(now);
-  const byDate = new Map<string, { entry: ArchiveEntry; stamp: string }>();
+  const byKey = new Map<string, { entry: ArchiveEntry; stamp: string }>();
   for (const r of rows) {
     if (!r || typeof r.id !== 'string') continue;
     const label = typeof r.edition_label === 'string' ? r.edition_label : '';
+    const editionType = typeof r.edition_type === 'string' ? r.edition_type.trim() : '';
     const stampRaw = (r.published_at ?? r.created_at) as string | null | undefined;
     const stamp = typeof stampRaw === 'string' ? stampRaw : '';
     let date: string | null = null;
@@ -369,9 +434,10 @@ export function buildArchiveEntries(
       if (!Number.isNaN(d.getTime())) date = toKstDate(d);
     }
     if (!date || date > today) continue;
-    const existing = byDate.get(date);
+    const dedupKey = isUuid(r.id) ? `id:${r.id}` : `slot:${editionType}:${label || date}`;
+    const existing = byKey.get(dedupKey);
     if (existing && existing.stamp >= stamp) continue;
-    byDate.set(date, {
+    byKey.set(dedupKey, {
       stamp,
       entry: {
         id: r.id,
@@ -382,12 +448,17 @@ export function buildArchiveEntries(
         keywords: Array.isArray(r.cover_keywords)
           ? (r.cover_keywords as unknown[]).filter((k): k is string => typeof k === 'string' && !!k).slice(0, 3)
           : [],
+        source: 'edition',
       },
     });
   }
-  return Array.from(byDate.values())
-    .map((v) => v.entry)
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return Array.from(byKey.values())
+    .sort((a, b) => {
+      if (a.entry.date !== b.entry.date) return a.entry.date < b.entry.date ? 1 : -1;
+      if (a.stamp !== b.stamp) return a.stamp < b.stamp ? 1 : -1;
+      return 0;
+    })
+    .map((v) => v.entry);
 }
 
 /** 발행(published)된 에디션 목록. 조회수 컬럼은 select 하지 않는다. DB 오류는 throw. */
@@ -437,6 +508,7 @@ export function buildLegacyIssueEntries(
         keywords: Array.isArray(r.cover_keywords)
           ? (r.cover_keywords as unknown[]).filter((k): k is string => typeof k === 'string' && !!k).slice(0, 3)
           : [],
+        source: 'legacy',
       },
     });
   }
@@ -444,17 +516,27 @@ export function buildLegacyIssueEntries(
 }
 
 /**
- * 발행된 에디션 항목 + 에디션이 없는 날짜의 레거시 발행본(날짜 중복 제거: 같은 날짜면 에디션 우선) → 최신순.
+ * 발행된 에디션 항목(동일 날짜 복수 에디션 보존) + 에디션이 없는 날짜의 레거시 발행본 → 최신순.
  * 뷰어(`findIssueForDate`)·구독 랜딩(`findLatestIssueDate`)·아카이브가 모두 이 규칙을 쓴다 (계획서 E-01 '읽기 호환').
  */
 export function mergeArchiveEntries(
   editionEntries: ReadonlyArray<ArchiveEntry>,
   legacyEntries: ReadonlyArray<ArchiveEntry>,
 ): ArchiveEntry[] {
-  const byDate = new Map<string, ArchiveEntry>();
-  for (const e of legacyEntries) byDate.set(e.date, e);
-  for (const e of editionEntries) byDate.set(e.date, e); // 에디션이 레거시를 덮어쓴다
-  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const out: ArchiveEntry[] = [];
+  const seenEditionIds = new Set<string>();
+  const editionDates = new Set<string>();
+  for (const e of editionEntries) {
+    if (seenEditionIds.has(e.id)) continue;
+    seenEditionIds.add(e.id);
+    editionDates.add(e.date);
+    out.push(e);
+  }
+  for (const l of legacyEntries) {
+    if (editionDates.has(l.date) || seenEditionIds.has(l.id)) continue;
+    out.push(l);
+  }
+  return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 /**
@@ -503,7 +585,9 @@ export async function resolvePublicDisplayName(
 ): Promise<string | null> {
   const direct = publicBrokerDisplayName(broker.name, null);
   if (direct) return direct;
-  const { data, error } = await supabase.from('profiles').select('display_name').eq('id', broker.user_id).maybeSingle();
+  const { data, error } = await withTransientSupabaseRetry<{ data: unknown; error: { message?: string } | null }>(
+    () => supabase.from('profiles').select('display_name').eq('id', broker.user_id).maybeSingle(),
+  );
   if (error) throw new Error(`profile lookup failed: ${error.message}`);
   return publicBrokerDisplayName(null, (data as { display_name?: unknown } | null)?.display_name);
 }
@@ -568,4 +652,33 @@ export async function resolvePublicBrokerStatutoryProfile(
     representativeName: representativeName ?? null,
     phone: phone ?? null,
   };
+}
+
+export const SCANNER_OR_BOT_UA_RE =
+  /bot|crawler|spider|preview|scanner|slackbot|kakaotalk-scrap|facebookexternalhit|proofpoint|barracuda|mimecast|safelinks/i;
+
+/**
+ * SSR / 뷰어 열람 추적에서 프리페치·링크 스캐너·봇 요청을 걸러낸다 (P1-4).
+ */
+export function isPrefetchOrScannerRequest(
+  headersLike?: { get(name: string): string | null } | null,
+): boolean {
+  if (!headersLike) return false;
+  const purpose = (headersLike.get('purpose') ?? '').toLowerCase();
+  if (purpose.includes('prefetch')) return true;
+  const secPurpose = (headersLike.get('sec-purpose') ?? '').toLowerCase();
+  if (secPurpose.includes('prefetch')) return true;
+  const nextRouterPrefetch = headersLike.get('next-router-prefetch');
+  if (
+    nextRouterPrefetch !== null &&
+    nextRouterPrefetch.trim() !== '' &&
+    nextRouterPrefetch !== '0' &&
+    nextRouterPrefetch.toLowerCase() !== 'false'
+  ) {
+    return true;
+  }
+  const xMoz = (headersLike.get('x-moz') ?? '').toLowerCase();
+  if (xMoz.includes('prefetch')) return true;
+  const ua = headersLike.get('user-agent') ?? '';
+  return SCANNER_OR_BOT_UA_RE.test(ua);
 }

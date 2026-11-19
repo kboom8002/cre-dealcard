@@ -1,19 +1,26 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth-guard";
-import { getMarketDefaults, invalidateMarketDefaultsCache, STATIC_MARKET_DEFAULTS } from "@/domain/ontology/market-data-provider";
+import { getMarketDefaults, invalidateMarketDefaultsCache } from "@/domain/ontology/market-data-provider";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const guard = await requireRole(req, ["admin"]);
+    if (guard.error) return guard.error;
+
     const defaults = await getMarketDefaults();
     return NextResponse.json({
       ok: true,
       data: defaults,
     });
-  } catch (error: any) {
-    return NextResponse.json({ ok: false, data: STATIC_MARKET_DEFAULTS, error: error?.message });
+  } catch (error: unknown) {
+    log.error("[MarketDefaults] Error fetching defaults:", error);
+    return NextResponse.json(
+      { ok: false, error: "시장 기본값을 불러오지 못했습니다." },
+      { status: 500 },
+    );
   }
 }
 
@@ -68,8 +75,11 @@ export async function POST(req: NextRequest) {
       ok: true,
       data,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[MarketDefaults] Error updating defaults:", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "시장 기본값 저장에 실패했습니다." },
+      { status: 500 },
+    );
   }
 }

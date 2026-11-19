@@ -35,7 +35,7 @@ export default function ImLiteError({
           <p className="text-slate-600 text-base mt-2 leading-relaxed">
             일시적인 화면 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
           </p>
-          <p className="text-xs font-mono text-slate-500 mt-3">
+          <p className="text-sm font-mono text-slate-500 mt-3">
             오류 참조코드: {refCode}
           </p>
         </div>

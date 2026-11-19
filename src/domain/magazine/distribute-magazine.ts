@@ -15,6 +15,7 @@ import type { MagazineDbClient } from './types';
 import { KAKAO_TEMPLATE_WEEKLY_ISSUE } from './templates/kakao-template-codes';
 import type { GateDeps } from './send-gate';
 import {
+  buildEditionUrl,
   emptyTally,
   loadActiveSubscribers,
   loadBrokerIdentity,
@@ -46,6 +47,8 @@ export interface DistributeMagazineResult {
   blockedReason?: 'SEND_DISABLED';
   message?: string;
   dryRun: boolean;
+  /** 판정 대상 사람(고유 구독자) 수 */
+  subscriberCount?: number;
   /** 판정 대상 (구독자×채널) 수 */
   total: number;
   /** 실제 provider 발송 성공 수 (dry-run이면 0) */
@@ -74,6 +77,7 @@ function disabledResult(): DistributeMagazineResult {
     blockedReason: 'SEND_DISABLED',
     message: SEND_DISABLED_MESSAGE,
     dryRun: isMagazineSendDryRun(),
+    subscriberCount: 0,
     total: 0,
     sent: 0,
     failed: 0,
@@ -127,7 +131,6 @@ export async function distributeMagazine(
     : rawType
       ? `${rawType}${rawId ? `:${rawId}` : ''}`
       : baseSlot;
-  const targetQuery = target !== 'all' ? `?target=${encodeURIComponent(target)}` : '';
 
   await runTargets(
     {
@@ -142,7 +145,9 @@ export async function distributeMagazine(
         headline: edition.headline ?? '',
         marketTemp: edition.market_temp ?? '',
         date: issueDate,
-        url: `${baseUrl}/magazine/${broker.slug}/${issueDate}${targetQuery}`,
+        cadence: rawType || undefined,
+        // P2-1: ?edition=<uuid> 로 같은 날짜의 다른 호와 구분 (+ 기존 ?target= 보존)
+        url: buildEditionUrl(baseUrl, broker.slug, issueDate, { editionId: edition.id, target }),
       },
       kakaoTemplateId: KAKAO_TEMPLATE_WEEKLY_ISSUE,
       gateDeps: deps,
@@ -163,6 +168,8 @@ export async function distributeMagazine(
         issue_date: issueDate,
         dry_run: deps.dryRun ?? isMagazineSendDryRun(),
         total: tally.total,
+        total_count: tally.total,
+        subscriber_count: subscribers.length,
         sent_count: tally.sent,
         recorded_count: tally.recorded,
         failed_count: tally.failed,
@@ -173,13 +180,14 @@ export async function distributeMagazine(
   }
 
   log.info(
-    `[Magazine Distribution] ${broker.slug} ${issueDate}: total=${tally.total} sent=${tally.sent} recorded=${tally.recorded} failed=${tally.failed}`,
+    `[Magazine Distribution] ${broker.slug} ${issueDate}: subscribers=${subscribers.length} total=${tally.total} sent=${tally.sent} recorded=${tally.recorded} failed=${tally.failed}`,
     { blocked: tally.blocked },
   );
 
   return {
     ok: true,
     dryRun: deps.dryRun ?? isMagazineSendDryRun(),
+    subscriberCount: subscribers.length,
     total: tally.total,
     sent: tally.sent,
     failed: tally.failed,

@@ -246,6 +246,26 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
 
   // D11a: 분류 라벨을 빈 캡션에 자동 복사하지 않는다 — 칩(라벨)과 캡션이 중복 렌더링되던 원인.
   //       캡션이 없으면 갤러리(A14)가 칩만 표시한다.
+  // N6: 위치 순서만으로 자동 부여된 레거시 템플릿 캡션/분류("실내 전용 공간", "1층 로비 및 공용부" 등)는
+  //     외관/항공 사진에 오기되는 원인이므로 정규화해 1·2페이지 모두에서 오분류를 제거한다.
+  const POSITIONAL_TEMPLATE_CAPTIONS = new Set([
+    '건물 외관 전경',
+    '주변 도로 및 접근로',
+    '1층 로비 및 공용부',
+    '실내 전용 공간',
+  ]);
+  if (
+    photos.length >= 3 &&
+    photos[0]?.caption === '건물 외관 전경' &&
+    photos[1]?.caption === '주변 도로 및 접근로' &&
+    photos[2]?.caption === '1층 로비 및 공용부'
+  ) {
+    photos = photos.map((p, idx) =>
+      p.caption && POSITIONAL_TEMPLATE_CAPTIONS.has(String(p.caption).trim())
+        ? { ...p, caption: undefined, category: idx === 0 ? (p.category || 'exterior') : 'exterior' }
+        : p,
+    );
+  }
 
   return photos;
 }

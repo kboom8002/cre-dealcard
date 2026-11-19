@@ -8,7 +8,9 @@ import { normalizeKrPhone, toE164Kr } from "@/lib/magazine/pii";
 import { mergeInterestProfile } from "@/lib/magazine/tags";
 import { toSubscriberView, isMissingColumnError, isUniqueViolation } from "@/lib/magazine/subscriber-view";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
-import { derivePendingReason } from "@/domain/magazine/consent-service";
+import { derivePendingReason, issueConfirmToken, sendOptInConfirmation } from "@/domain/magazine/consent-service";
+import { isEmailSuppressed } from "@/lib/legal/email-suppression";
+import { loadOptInSenderIdentity } from "@/lib/magazine/opt-in-sender";
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('route');
@@ -21,7 +23,7 @@ const GetSubscribersQuerySchema = z.object({
 });
 
 const CreateSubscriberSchema = z.object({
-  phone: z.string().min(1, "이름과 전화번호는 필수 입력 항목입니다."),
+  phone: z.string().trim().optional().nullable(),
   name: z.string().trim().min(1, "이름과 전화번호는 필수 입력 항목입니다.").max(100),
   email: z.string().trim().max(254).optional().nullable(),
   channel: z.enum(["kakao", "email", "both"]).default("kakao"),
@@ -136,8 +138,9 @@ export async function POST(request: NextRequest) {
       return jsonError("CONSENT_REQUIRED", "고객이 수신에 동의했음을 확인해야 구독자를 추가할 수 있습니다.", 400);
     }
 
-    const formattedPhone = normalizeKrPhone(phone);
-    if (!formattedPhone) {
+    const rawPhone = typeof phone === "string" ? phone.trim() : "";
+    const formattedPhone = rawPhone ? normalizeKrPhone(rawPhone) : null;
+    if (rawPhone && !formattedPhone) {
       return jsonError("INVALID_PHONE", "휴대폰 번호 형식을 확인해 주세요.", 400);
     }
     const emailNorm = email ? email.trim().toLowerCase() : "";
@@ -146,6 +149,12 @@ export async function POST(request: NextRequest) {
     }
     if ((channel === "email" || channel === "both") && !emailNorm) {
       return jsonError("EMAIL_REQUIRED", "이메일 수신에는 이메일 주소가 필요합니다.", 400);
+    }
+    if ((channel === "kakao" || channel === "both") && !formattedPhone) {
+      return jsonError("INVALID_PHONE", "휴대폰 번호 형식을 확인해 주세요.", 400);
+    }
+    if (!formattedPhone && !emailNorm) {
+      return jsonError("INVALID_INPUT", "연락처(휴대폰 번호 또는 이메일)를 입력해 주세요.", 400);
     }
 
     const serviceClient = createServiceClient();
@@ -166,18 +175,46 @@ export async function POST(request: NextRequest) {
       if (!owned) return notFoundResponse("연결하려는 고객을 찾을 수 없습니다.");
     }
 
-    // 중복 확인 (본인 broker 키 범위 내, 같은 전화번호)
-    const { data: dupRows, error: dupErr } = await serviceClient
-      .from("magazine_subscribers")
-      .select("*")
-      .in("broker_id", ctx.brokerKeys)
-      .eq("subscriber_phone", formattedPhone)
-      .limit(1);
-    if (dupErr) {
-      log.error("[Subscribers POST] duplicate lookup error:", dupErr.message);
-      return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+    // 중복 확인 (본인 broker 키 범위 내, 전화번호·이메일 모두 확인 — 수신거부 이력 우선 차단)
+    const dupLookups: Promise<{ data: unknown; error: { message?: string } | null }>[] = [];
+    if (formattedPhone) {
+      dupLookups.push(
+        Promise.resolve(
+          serviceClient
+            .from("magazine_subscribers")
+            .select("*")
+            .in("broker_id", ctx.brokerKeys)
+            .eq("subscriber_phone", formattedPhone)
+            .limit(1),
+        ),
+      );
     }
-    const dup = (dupRows ?? [])[0] as Record<string, any> | undefined;
+    if (emailNorm) {
+      dupLookups.push(
+        Promise.resolve(
+          serviceClient
+            .from("magazine_subscribers")
+            .select("*")
+            .in("broker_id", ctx.brokerKeys)
+            .eq("subscriber_email", emailNorm)
+            .limit(1),
+        ),
+      );
+    }
+    const dupResults = await Promise.all(dupLookups);
+    const dupRows: Record<string, unknown>[] = [];
+    for (const res of dupResults) {
+      if (res.error) {
+        log.error("[Subscribers POST] duplicate lookup error:", res.error.message ?? "unknown");
+        return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+      }
+      if (Array.isArray(res.data)) {
+        dupRows.push(...(res.data as Record<string, unknown>[]));
+      }
+    }
+    const dup =
+      dupRows.find((row) => row.status === "unsubscribed" || Boolean(row.unsubscribed_at)) ??
+      dupRows[0];
     if (dup) {
       if (dup.status === "unsubscribed" || dup.unsubscribed_at) {
         return jsonError("UNSUBSCRIBED", "수신거부한 구독자입니다. 구독자 본인이 직접 다시 구독해야 합니다.", 409);
@@ -185,8 +222,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, existing: true, subscriber: toSubscriberView(dup) });
     }
 
+    if (emailNorm) {
+      const supp = await isEmailSuppressed(serviceClient, {
+        email: emailNorm,
+        brokerId: ctx.userId,
+        brokerKeys: ctx.brokerKeys,
+      });
+      if (supp.suppressed) {
+        return jsonError("UNSUBSCRIBED", "수신거부 또는 발송 차단 이력이 있는 이메일입니다. 수신자 본인이 직접 다시 구독해야 합니다.", 409);
+      }
+    }
+
     const nowIso = new Date().toISOString();
     const brokerId = ctx.slug ?? ctx.userId;
+    const { token: confirmToken, hash: confirmTokenHash } = issueConfirmToken();
     const base = {
       broker_id: brokerId,
       subscriber_phone: formattedPhone,
@@ -201,10 +250,12 @@ export async function POST(request: NextRequest) {
     };
     const consentFields = {
       broker_user_id: ctx.userId,
-      phone_e164: toE164Kr(formattedPhone),
+      ...(formattedPhone ? { phone_e164: toE164Kr(formattedPhone) } : {}),
       consent_channel: "broker_attested",
       marketing_consent_at: nowIso,
-      confirm_status: "confirmed",
+      confirm_status: "pending",
+      consent_status: "pending",
+      confirm_token_hash: confirmTokenHash,
       consent_version: "v1",
     };
 
@@ -214,6 +265,16 @@ export async function POST(request: NextRequest) {
       .insert({ ...base, ...consentFields })
       .select()
       .single();
+
+    if (ins.error && isMissingColumnError(ins.error) && /consent_status/i.test(ins.error.message ?? "")) {
+      const { consent_status: _omittedConsentStatus, ...legacyConsentFields } = consentFields;
+      void _omittedConsentStatus;
+      ins = await serviceClient
+        .from("magazine_subscribers")
+        .insert({ ...base, ...legacyConsentFields })
+        .select()
+        .single();
+    }
 
     if (ins.error && isMissingColumnError(ins.error)) {
       // 마이그레이션 미적용: 동의 필드 없이 저장 — 응답에 consentRecorded:false로 알린다.
@@ -230,8 +291,34 @@ export async function POST(request: NextRequest) {
       return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
     }
 
+    let confirmEmailSent = false;
+    if (emailNorm && (channel === "email" || channel === "both")) {
+      try {
+        // P2-6: 공개 구독 경로와 같이 발신 중개사 표시명·연락처를 확인 메일에 싣는다
+        const sender = await loadOptInSenderIdentity(serviceClient, ctx.userId, ctx.displayName ?? null);
+        const confirmRes = await sendOptInConfirmation({
+          channel,
+          email: emailNorm,
+          brokerSlug: brokerId,
+          brokerName: sender.brokerName,
+          brokerContact: sender.brokerContact,
+          subscriberName: name,
+          token: confirmToken,
+        });
+        confirmEmailSent = confirmRes.sent;
+      } catch {
+        // non-blocking (D4 allowlist / dry-run safe)
+      }
+    }
+
     return NextResponse.json(
-      { success: true, existing: false, consentRecorded, subscriber: toSubscriberView(ins.data as Record<string, unknown>) },
+      {
+        success: true,
+        existing: false,
+        consentRecorded,
+        confirmEmailSent,
+        subscriber: toSubscriberView(ins.data as Record<string, unknown>),
+      },
       { status: 201 },
     );
   } catch (err: any) {

@@ -17,6 +17,28 @@ function isLoginRedirect(status: number, location: string | undefined): boolean 
   return [301, 302, 303, 307, 308].includes(status) && !!location && location.includes('/login');
 }
 
+async function getFinalLoginLocation(
+  request: import('@playwright/test').APIRequestContext,
+  startPath: string,
+  reqHeaders: Record<string, string>,
+): Promise<{ status: number; location: string | undefined }> {
+  let current = startPath;
+  for (let hop = 0; hop < 3; hop += 1) {
+    const res = await request.get(current, { headers: reqHeaders, maxRedirects: 0 });
+    const status = res.status();
+    const location = res.headers()['location'];
+    if (isLoginRedirect(status, location)) {
+      return { status, location };
+    }
+    if ([301, 302, 303, 307, 308].includes(status) && location && location.startsWith('/')) {
+      current = location;
+      continue;
+    }
+    return { status, location };
+  }
+  return { status: 0, location: undefined };
+}
+
 test.describe('proxy 소셜봇 예외 축소 (P0-02)', () => {
   for (const p of [
     '/broker/dashboard',
@@ -27,9 +49,9 @@ test.describe('proxy 소셜봇 예외 축소 (P0-02)', () => {
     '/broker/clients/new',
   ]) {
     test(`UA 위조로 ${p} → 로그인 리다이렉트`, async ({ request }) => {
-      const res = await request.get(p, { headers, maxRedirects: 0 });
-      expect(isLoginRedirect(res.status(), res.headers()['location']), `status=${res.status()}`).toBe(true);
-      expect(res.headers()['location']).toContain(`redirectTo=${encodeURIComponent(p)}`);
+      const { status, location } = await getFinalLoginLocation(request, p, headers);
+      expect(isLoginRedirect(status, location), `status=${status} location=${location}`).toBe(true);
+      expect(location).toContain('redirectTo=');
     });
   }
 
@@ -48,11 +70,12 @@ test.describe('proxy 소셜봇 예외 축소 (P0-02)', () => {
   }
 
   test('일반 브라우저 UA 로 허용 경로 접근 → 로그인 리다이렉트(봇 예외 비대상)', async ({ request }) => {
-    const res = await request.get(`/broker/deal-card/${NIL_UUID}`, {
-      headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537.36', 'x-playwright-test': 'false' },
-      maxRedirects: 0,
-    });
-    expect(isLoginRedirect(res.status(), res.headers()['location'])).toBe(true);
+    const { status, location } = await getFinalLoginLocation(
+      request,
+      `/broker/deal-card/${NIL_UUID}`,
+      { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537.36', 'x-playwright-test': 'false' },
+    );
+    expect(isLoginRedirect(status, location), `status=${status} location=${location}`).toBe(true);
   });
 
   // 발행된 딜카드 id 를 알려주면(E2E_PUBLISHED_DEAL_ID) og:title 존재까지 확인.

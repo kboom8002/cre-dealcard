@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav";
@@ -9,11 +9,15 @@ import {
   FontScaleToggle,
   FONT_SCALE_STORAGE_KEY,
   LEGACY_FONT_SCALE_STORAGE_KEY,
-  FONT_SCALE_EVENT,
   isValidFontScale,
+  getFontScaleSnapshot,
+  getFontScaleServerSnapshot,
+  subscribeFontScale,
+  applyAndPersistFontScale,
   type UiFontScale,
 } from "./FontScaleToggle";
 import { QaFeedbackPinWidget } from "./QaFeedbackPinWidget";
+import { WorkspaceHelpButton, type HelpWorkspaceKey } from "./WorkspaceHelpButton";
 import { UndoToastProvider, useUndoToast } from "./UndoConfirmToast";
 
 const FONT_SCALE_ORDER: readonly UiFontScale[] = [
@@ -45,10 +49,14 @@ function EnsureUndoToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function MobileFontScaleButton() {
-  const [fontScale, setFontScale] = useState<UiFontScale>("normal");
+  const fontScale = useSyncExternalStore(
+    subscribeFontScale,
+    getFontScaleSnapshot,
+    getFontScaleServerSnapshot,
+  );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || typeof document === "undefined") return;
     const htmlEl = document.documentElement;
     let resolved: UiFontScale | null = null;
     try {
@@ -61,66 +69,15 @@ function MobileFontScaleButton() {
     } catch {
       // ignore storage failure
     }
-    if (!resolved) {
-      const currentAttr = htmlEl.dataset.fontScale;
-      if (isValidFontScale(currentAttr)) {
-        resolved = currentAttr;
-      }
+    if (resolved && htmlEl.dataset.fontScale !== resolved) {
+      htmlEl.dataset.fontScale = resolved;
     }
-    if (resolved) {
-      setFontScale(resolved);
-    }
-
-    const onSync = (e: Event) => {
-      const next = (e as CustomEvent<UiFontScale>).detail;
-      if (isValidFontScale(next)) {
-        setFontScale(next);
-      }
-    };
-    window.addEventListener(FONT_SCALE_EVENT, onSync);
-
-    let observer: MutationObserver | null = null;
-    if (typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(() => {
-        const attr = htmlEl.dataset.fontScale;
-        if (isValidFontScale(attr)) {
-          setFontScale((prev) => (prev === attr ? prev : attr));
-        }
-      });
-      observer.observe(htmlEl, {
-        attributes: true,
-        attributeFilter: ["data-font-scale"],
-      });
-    }
-
-    return () => {
-      window.removeEventListener(FONT_SCALE_EVENT, onSync);
-      observer?.disconnect();
-    };
   }, []);
 
   const handleCycleFontScale = useCallback(() => {
     const idx = FONT_SCALE_ORDER.indexOf(fontScale);
     const nextScale = FONT_SCALE_ORDER[(idx + 1) % FONT_SCALE_ORDER.length];
-    setFontScale(nextScale);
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.fontScale = nextScale;
-    }
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
-        window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, nextScale);
-      } catch {
-        // ignore storage failure
-      }
-      try {
-        window.dispatchEvent(
-          new CustomEvent<UiFontScale>(FONT_SCALE_EVENT, { detail: nextScale })
-        );
-      } catch {
-        // ignore CustomEvent failure
-      }
-    }
+    applyAndPersistFontScale(nextScale);
   }, [fontScale]);
 
   const currentLabel = FONT_SCALE_LABELS[fontScale];
@@ -174,6 +131,8 @@ export interface WorkspaceShellProps {
   lastSavedAt?: Date | string | number | null;
   /** Retry handler shown when saveState === 'error' */
   onRetrySave?: () => void;
+  /** Conflict overwrite handler shown when saveState === 'conflict' (409 EDIT_CONFLICT) */
+  onResolveConflict?: () => Promise<void> | void;
   /** Optional manual sync handler to pull latest server state across open tabs/devices */
   onManualSync?: () => Promise<void> | void;
   /** True while manual sync is running */
@@ -231,6 +190,7 @@ export function WorkspaceShell({
   saveState,
   lastSavedAt,
   onRetrySave,
+  onResolveConflict,
   onManualSync,
   isSyncing = false,
   previewTabSlot,
@@ -312,10 +272,39 @@ export function WorkspaceShell({
             <button
               type="button"
               onClick={onRetrySave}
-              className="underline decoration-2 underline-offset-2 text-rose-800 font-extrabold cursor-pointer"
+              className="inline-flex items-center min-h-[44px] px-2.5 rounded-lg underline decoration-2 underline-offset-2 text-rose-800 font-extrabold cursor-pointer"
             >
               {text}
             </button>
+          );
+        }
+        if (saveState === "conflict") {
+          return (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <span>{text}</span>
+              {onResolveConflict && (
+                <button
+                  type="button"
+                  data-testid="workspace-conflict-overwrite-btn"
+                  onClick={() => {
+                    void onResolveConflict();
+                  }}
+                  className="inline-flex min-h-[44px] items-center rounded-lg bg-rose-700 px-2.5 py-1 text-sm font-extrabold text-white hover:bg-rose-800 cursor-pointer"
+                >
+                  내 수정본으로 덮어쓰기
+                </button>
+              )}
+              <button
+                type="button"
+                data-testid="workspace-conflict-reload-btn"
+                onClick={() => {
+                  if (typeof window !== "undefined") window.location.reload();
+                }}
+                className="inline-flex min-h-[44px] items-center rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-sm font-bold text-rose-900 hover:bg-rose-50 cursor-pointer"
+              >
+                새로고침
+              </button>
+            </span>
           );
         }
         return text;
@@ -332,8 +321,37 @@ export function WorkspaceShell({
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [isListDrawerOpen, setIsListDrawerOpen] = useState(false);
   const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
-  const [mobileView, setMobileView] = useState<"list" | "editor" | "preview">("list");
-  const [ariaAnnouncement, setAriaAnnouncement] = useState("");
+  const [hasSelectedFromList, setHasSelectedFromList] = useState(false);
+  const [mobileOverride, setMobileOverride] = useState<{
+    key: string;
+    view: "list" | "editor" | "preview";
+  } | null>(null);
+  const [eventAnnouncement, setEventAnnouncement] = useState("");
+
+  const routeSyncKey = `${activeBuildingId ?? ""}|${rawQueryTab ?? ""}|${
+    mobileStartOnList ? "1" : "0"
+  }`;
+
+  const derivedMobileView: "list" | "editor" | "preview" = (() => {
+    if (rawQueryTab === "list" && !hasSelectedFromList) return "list";
+    if (activeBuildingId) {
+      if (mobileStartOnList && !rawQueryTab && !hasSelectedFromList) return "list";
+      return queryTab === "preview" ? "preview" : "editor";
+    }
+    return "list";
+  })();
+
+  const mobileView: "list" | "editor" | "preview" =
+    mobileOverride && mobileOverride.key === routeSyncKey
+      ? mobileOverride.view
+      : derivedMobileView;
+
+  const derivedSelectionAnnouncement = activeBuildingId
+    ? selectedLabel
+      ? `선택: ${selectedLabel}`
+      : `선택된 매물: ${activeBuildingId}`
+    : "";
+  const ariaAnnouncement = eventAnnouncement || derivedSelectionAnnouncement;
 
   useEffect(() => {
     const handleOpenPreview = () => {
@@ -364,37 +382,43 @@ export function WorkspaceShell({
     };
   }, [isPreviewDrawerOpen]);
 
-  // Draggable 3-column widths state (Req 7)
-  const [listColWidth, setListColWidth] = useState<number>(DEFAULT_LIST_WIDTH);
-  const [previewColWidth, setPreviewColWidth] = useState<number>(DEFAULT_PREVIEW_WIDTH);
+  // Draggable 3-column widths state (Req 7) — lazily initialized without setState in useEffect
+  const [listColWidth, setListColWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_LIST_WIDTH;
+    try {
+      const raw = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.listColWidth === "number") {
+          return Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, parsed.listColWidth));
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return DEFAULT_LIST_WIDTH;
+  });
+  const [previewColWidth, setPreviewColWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_PREVIEW_WIDTH;
+    try {
+      const raw = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.previewColWidth === "number") {
+          return Math.min(MAX_PREVIEW_WIDTH, Math.max(MIN_PREVIEW_WIDTH, parsed.previewColWidth));
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return DEFAULT_PREVIEW_WIDTH;
+  });
   const [activeResizer, setActiveResizer] = useState<"left" | "right" | null>(null);
   const dragStateRef = useRef<{
     side: "left" | "right";
     startX: number;
     startWidth: number;
   } | null>(null);
-
-  // Load persisted column widths on mount
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed?.listColWidth === "number") {
-          setListColWidth(
-            Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, parsed.listColWidth))
-          );
-        }
-        if (typeof parsed?.previewColWidth === "number") {
-          setPreviewColWidth(
-            Math.min(MAX_PREVIEW_WIDTH, Math.max(MIN_PREVIEW_WIDTH, parsed.previewColWidth))
-          );
-        }
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
 
   const persistColumnWidths = useCallback((nextListW: number, nextPreviewW: number) => {
     try {
@@ -466,7 +490,6 @@ export function WorkspaceShell({
         persistColumnWidths(listColWidth, next);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [listColWidth, previewColWidth, persistColumnWidths, handleResetColumnWidth]
   );
 
@@ -519,6 +542,7 @@ export function WorkspaceShell({
   const suppressListQueryRef = useRef(false);
   const listClickSearchBeforeRef = useRef("");
   const prevSearchStrRef = useRef(searchParams.toString());
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   // If a child list item navigated while leaving ?tab=list in URL, clean tab->editor without losing new entity ID
   useEffect(() => {
@@ -534,24 +558,6 @@ export function WorkspaceShell({
       router.replace(`${pathname}?${params.toString()}`);
     }
   }, [searchParams, pathname, router]);
-
-  // Auto-switch mobile view if a selection is present (unless the page asks to start on the list)
-  useEffect(() => {
-    if (rawQueryTab === "list" && !suppressListQueryRef.current) {
-      setMobileView("list");
-      return;
-    }
-    if (activeBuildingId) {
-      if (mobileStartOnList && !rawQueryTab && !suppressListQueryRef.current) {
-        setMobileView("list");
-      } else {
-        setMobileView(queryTab === "preview" ? "preview" : "editor");
-      }
-      setAriaAnnouncement(selectedLabel ? `선택: ${selectedLabel}` : "");
-    } else {
-      setMobileView("list");
-    }
-  }, [activeBuildingId, queryTab, rawQueryTab, mobileStartOnList, selectedLabel]);
 
   // Synchronize buildingId into query string without full reload (WP-P2-06)
   const handleSelectBuilding = useCallback(
@@ -589,10 +595,115 @@ export function WorkspaceShell({
       }
       params.set("tab", tab);
       router.replace(`${pathname}?${params.toString()}`);
-      setMobileView(tab);
+      setHasSelectedFromList(true);
+      setMobileOverride({ key: routeSyncKey, view: tab });
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname, router, routeSyncKey]
   );
+
+  // Delegated list item click tracking on Column 1 container (avoids non-interactive JSX click handlers)
+  useEffect(() => {
+    const el = listContainerRef.current;
+    if (!el) return;
+
+    const handleCapture = () => {
+      listClickSearchBeforeRef.current =
+        typeof window !== "undefined" ? window.location.search : "";
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest(
+          '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], [data-testid^="edition-filter-"], input, select, textarea'
+        )
+      ) {
+        return;
+      }
+      const matchedItem = target.closest<HTMLElement>(
+        '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
+      );
+      if (!matchedItem) return;
+
+      suppressListQueryRef.current = true;
+      setHasSelectedFromList(true);
+      setMobileOverride({ key: routeSyncKey, view: "editor" });
+
+      const searchBefore = listClickSearchBeforeRef.current;
+      const searchAfter = typeof window !== "undefined" ? window.location.search : "";
+      const beforeParams = new URLSearchParams(searchBefore || searchParams.toString());
+      const liveParams = new URLSearchParams(searchAfter || searchParams.toString());
+
+      if (searchAfter !== searchBefore) {
+        if (
+          liveParams.get("tab") !== "list" ||
+          liveParams.get("buildingId") !== beforeParams.get("buildingId") ||
+          liveParams.get("id") !== beforeParams.get("id") ||
+          liveParams.get("thread") !== beforeParams.get("thread") ||
+          liveParams.get("threadId") !== beforeParams.get("threadId") ||
+          liveParams.get("editionId") !== beforeParams.get("editionId")
+        ) {
+          return;
+        }
+      }
+
+      const testId = matchedItem.getAttribute("data-testid") || "";
+      const isCreateOrJumpBtn =
+        testId === "workspace-new-dealcard-btn" ||
+        testId === "im-create-new-btn" ||
+        testId === "new-issue-btn" ||
+        testId === "new-newsletter-btn" ||
+        testId === "inbox-todo-card";
+      if (isCreateOrJumpBtn) {
+        return;
+      }
+
+      const itemPrefixes = [
+        "dealcard-item-",
+        "im-item-",
+        "inbox-thread-",
+        "inbox-item-",
+        "issue-card-",
+        "mag-issue-",
+        "magazine-edition-item-",
+      ];
+      let clickedItemId: string | null = null;
+      for (const prefix of itemPrefixes) {
+        if (testId.startsWith(prefix)) {
+          clickedItemId = testId.slice(prefix.length);
+          break;
+        }
+      }
+
+      const urlEntityId =
+        liveParams.get("buildingId") ||
+        liveParams.get("id") ||
+        liveParams.get("thread") ||
+        liveParams.get("threadId") ||
+        liveParams.get("editionId");
+
+      if (clickedItemId && clickedItemId !== urlEntityId) {
+        return;
+      }
+
+      if (liveParams.get("tab") === "list") {
+        if (liveParams.has("buildingId")) {
+          liveParams.delete("id");
+        }
+        liveParams.set("tab", "editor");
+        router.replace(`${pathname}?${liveParams.toString()}`);
+      }
+    };
+
+    el.addEventListener("click", handleCapture, true);
+    el.addEventListener("click", handleClick);
+    return () => {
+      el.removeEventListener("click", handleCapture, true);
+      el.removeEventListener("click", handleClick);
+    };
+  }, [pathname, router, routeSyncKey, searchParams]);
 
   // Bidirectional Preview -> Editor handoff: close <1280px preview drawer and flip mobile preview/list -> editor
   useEffect(() => {
@@ -604,7 +715,7 @@ export function WorkspaceShell({
         handleSelectTab("editor");
       }
       if (detail?.label) {
-        setAriaAnnouncement(`${detail.label} 편집으로 이동`);
+        setEventAnnouncement(`${detail.label} 편집으로 이동`);
       }
     };
     window.addEventListener("workspace:focus-editor", handleFocusEditor);
@@ -618,16 +729,10 @@ export function WorkspaceShell({
 
   const renderResizer = (side: "left" | "right") => {
     const isLeft = side === "left";
-    const now = isLeft ? listColWidth : previewColWidth;
     return (
-      <div
-        role="separator"
-        tabIndex={0}
-        aria-orientation="vertical"
-        aria-label={isLeft ? "목록 너비 조절" : "미리보기 너비 조절"}
-        aria-valuenow={now}
-        aria-valuemin={isLeft ? MIN_LIST_WIDTH : MIN_PREVIEW_WIDTH}
-        aria-valuemax={isLeft ? MAX_LIST_WIDTH : MAX_PREVIEW_WIDTH}
+      <button
+        type="button"
+        aria-label={isLeft ? "목록 패널 너비 조절" : "미리보기 패널 너비 조절"}
         data-testid={isLeft ? "workspace-resizer-left" : "workspace-resizer-right"}
         onMouseDown={(e) => handleStartResize(side, e)}
         onPointerDown={(e) => {
@@ -636,18 +741,19 @@ export function WorkspaceShell({
         onKeyDown={(e) => handleResizerKeyDown(side, e)}
         onDoubleClick={() => handleResetColumnWidth(side)}
         title="끌어서 너비 조절 · 두 번 누르면 처음 크기"
-        className={`${isLeft ? "hidden lg:flex" : "hidden xl:flex"} w-3 shrink-0 cursor-col-resize items-center justify-center group z-30 select-none touch-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
+        className={`${isLeft ? "hidden lg:flex" : "hidden xl:flex"} w-3 p-0 border-0 bg-transparent shrink-0 cursor-col-resize items-center justify-center group z-30 select-none touch-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
           activeResizer === side ? "bg-[#007AFF]/15" : "hover:bg-[#007AFF]/10"
         }`}
       >
-        <div
+        <span
+          aria-hidden="true"
           className={`w-1 h-12 rounded-full transition-all ${
             activeResizer === side
               ? "bg-[#007AFF] scale-y-110 shadow-[0_0_8px_rgba(0,122,255,0.45)]"
               : "bg-slate-400/50 group-hover:bg-[#007AFF] shadow-[0_1px_1px_rgba(255,255,255,0.8)]"
           }`}
         />
-      </div>
+      </button>
     );
   };
 
@@ -670,7 +776,7 @@ export function WorkspaceShell({
         >
           <nav
             aria-label="작업공간 메뉴"
-            className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1 bg-[#767680]/[0.08] p-1 rounded-2xl border border-white/60 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] max-w-fit"
+            className="hidden sm:flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1 bg-[#767680]/[0.08] p-1 rounded-2xl border border-white/60 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] max-w-fit"
           >
             {WS_TOPBAR_LINKS.map((link) => {
               const isActive =
@@ -691,7 +797,7 @@ export function WorkspaceShell({
                   data-testid={`workspace-nav-${link.id}`}
                   data-active-pill={isActive ? "true" : undefined}
                   aria-current={isActive ? "page" : undefined}
-                  className={`relative px-2.5 sm:px-3.5 py-1.5 min-h-[42px] sm:min-h-[44px] rounded-xl text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap shrink-0 ${
+                  className={`relative px-2.5 sm:px-3.5 py-1.5 min-h-[44px] rounded-xl text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                     isActive
                       ? "bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(0,122,255,0.28)]"
                       : "text-[#3A3A3C] hover:text-[#1D1D1F] hover:bg-white/60"
@@ -713,7 +819,7 @@ export function WorkspaceShell({
           </nav>
 
           {/* Right tools / indicators (Translucent Glass Pills — accessible on both <768px mobile & desktop) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto sm:ml-0">
             {/* Mobile <768px compact font-scale cycling button (min-h-[44px]) */}
             <MobileFontScaleButton />
 
@@ -730,6 +836,8 @@ export function WorkspaceShell({
             >
               <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
             </button>
+
+            <WorkspaceHelpButton workspace={workspace as HelpWorkspaceKey} />
 
             <Link
               href="/broker/profile"
@@ -757,9 +865,9 @@ export function WorkspaceShell({
           data-testid="workspace-col-list"
           data-col-width={isRailCollapsed ? 72 : listColWidth}
           className={`shrink-0 border-r border-slate-900/[0.075] bg-white/68 backdrop-blur-2xl backdrop-saturate-[180%] flex flex-col ${
-            activeResizer ? "" : "transition-all duration-200"
+            activeResizer ? "" : "transition-colors duration-200"
           } z-20 ${
-            mobileView !== "list" ? "hidden lg:flex" : "flex w-full lg:w-auto pb-16 lg:pb-0"
+            mobileView !== "list" ? "hidden lg:flex" : "flex w-full pb-16 lg:pb-0"
           } ${
             isRailCollapsed
               ? "lg:w-[72px]"
@@ -805,103 +913,8 @@ export function WorkspaceShell({
             </div>
           )}
           <div
+            ref={listContainerRef}
             className={`flex-1 overflow-y-auto p-3 ${isRailCollapsed ? "lg:hidden" : ""}`}
-            onClickCapture={() => {
-              listClickSearchBeforeRef.current =
-                typeof window !== "undefined" ? window.location.search : "";
-            }}
-            onClick={(e) => {
-              if (e.defaultPrevented) return;
-              const target = e.target as HTMLElement | null;
-              if (!target) return;
-              if (
-                target.closest(
-                  '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], [data-testid^="edition-filter-"], input, select, textarea'
-                )
-              ) {
-                return;
-              }
-              const matchedItem = target.closest<HTMLElement>(
-                '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
-              );
-              if (matchedItem) {
-                suppressListQueryRef.current = true;
-                setMobileView("editor");
-
-                const searchBefore = listClickSearchBeforeRef.current;
-                const searchAfter =
-                  typeof window !== "undefined" ? window.location.search : "";
-                const beforeParams = new URLSearchParams(
-                  searchBefore || searchParams.toString()
-                );
-                const liveParams = new URLSearchParams(
-                  searchAfter || searchParams.toString()
-                );
-
-                // If child synchronously mutated window.location.search (tab or entity), never overwrite
-                if (searchAfter !== searchBefore) {
-                  if (
-                    liveParams.get("tab") !== "list" ||
-                    liveParams.get("buildingId") !== beforeParams.get("buildingId") ||
-                    liveParams.get("id") !== beforeParams.get("id") ||
-                    liveParams.get("thread") !== beforeParams.get("thread") ||
-                    liveParams.get("threadId") !== beforeParams.get("threadId") ||
-                    liveParams.get("editionId") !== beforeParams.get("editionId")
-                  ) {
-                    return;
-                  }
-                }
-
-                // If child clicked a create/jump button or a different entity ID than the stale URL's entity,
-                // child's own router.replace handles navigation — do not clobber with stale params!
-                const testId = matchedItem.getAttribute("data-testid") || "";
-                const isCreateOrJumpBtn =
-                  testId === "workspace-new-dealcard-btn" ||
-                  testId === "im-create-new-btn" ||
-                  testId === "new-issue-btn" ||
-                  testId === "new-newsletter-btn" ||
-                  testId === "inbox-todo-card";
-                if (isCreateOrJumpBtn) {
-                  return;
-                }
-
-                const itemPrefixes = [
-                  "dealcard-item-",
-                  "im-item-",
-                  "inbox-thread-",
-                  "inbox-item-",
-                  "issue-card-",
-                  "mag-issue-",
-                  "magazine-edition-item-",
-                ];
-                let clickedItemId: string | null = null;
-                for (const prefix of itemPrefixes) {
-                  if (testId.startsWith(prefix)) {
-                    clickedItemId = testId.slice(prefix.length);
-                    break;
-                  }
-                }
-
-                const urlEntityId =
-                  liveParams.get("buildingId") ||
-                  liveParams.get("id") ||
-                  liveParams.get("thread") ||
-                  liveParams.get("threadId") ||
-                  liveParams.get("editionId");
-
-                if (clickedItemId && clickedItemId !== urlEntityId) {
-                  return;
-                }
-
-                if (liveParams.get("tab") === "list") {
-                  if (liveParams.has("buildingId")) {
-                    liveParams.delete("id");
-                  }
-                  liveParams.set("tab", "editor");
-                  router.replace(`${pathname}?${liveParams.toString()}`);
-                }
-              }
-            }}
           >
             {listSlot}
           </div>
@@ -929,7 +942,8 @@ export function WorkspaceShell({
                   data-testid="workspace-mobile-back-to-list-btn"
                   onClick={() => {
                     suppressListQueryRef.current = false;
-                    setMobileView("list");
+                    setHasSelectedFromList(false);
+                    setMobileOverride({ key: routeSyncKey, view: "list" });
                     const baseSearch =
                       typeof window !== "undefined" && window.location.search
                         ? window.location.search
@@ -951,16 +965,28 @@ export function WorkspaceShell({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 min-w-0">
-                {renderedSaveStatus && (
+                {renderedSaveStatus ? (
                   <div
                     data-testid="workspace-save-status"
                     data-save-state={saveState}
                     role="status"
                     aria-live="polite"
-                    className={`flex items-center gap-1.5 text-sm sm:text-base font-semibold px-2.5 sm:px-3 py-1 rounded-full border whitespace-nowrap shrink-0 ${saveTone}`}
+                    className={`flex items-center gap-1.5 text-sm sm:text-base font-semibold px-2.5 sm:px-3 py-1 border shrink-0 ${
+                      saveState === "conflict" ? "flex-wrap rounded-2xl" : "rounded-full whitespace-nowrap"
+                    } ${saveTone}`}
                   >
                     <span>{renderedSaveStatus}</span>
                   </div>
+                ) : (
+                  saveState !== undefined &&
+                  onManualSync && (
+                    <div
+                      aria-hidden="true"
+                      className="invisible pointer-events-none select-none flex items-center gap-1.5 text-sm sm:text-base font-semibold px-2.5 sm:px-3 py-1 rounded-full border whitespace-nowrap shrink-0"
+                    >
+                      <span>저장됨 · 방금</span>
+                    </div>
+                  )
                 )}
 
                 {onManualSync && (
@@ -1032,12 +1058,14 @@ export function WorkspaceShell({
 
         {/* Translucent backdrop behind Column 3 drawer on 1024-1279px (lg only) */}
         {isPreviewDrawerOpen && (
-          <div
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="미리보기 서랍 닫기"
             data-testid="workspace-preview-drawer-backdrop"
             data-modal-backdrop="true"
-            aria-hidden="true"
             onClick={() => setIsPreviewDrawerOpen(false)}
-            className="hidden lg:block xl:hidden fixed inset-0 z-30 bg-slate-900/35 backdrop-blur-[1px]"
+            className="hidden lg:block xl:hidden fixed inset-0 z-30 bg-slate-900/35 backdrop-blur-[1px] border-0 p-0 cursor-default"
           />
         )}
 
@@ -1063,7 +1091,8 @@ export function WorkspaceShell({
                 data-testid="mobile-preview-back-btn"
                 onClick={() => {
                   suppressListQueryRef.current = false;
-                  setMobileView("list");
+                  setHasSelectedFromList(false);
+                  setMobileOverride({ key: routeSyncKey, view: "list" });
                   const baseSearch =
                     typeof window !== "undefined" && window.location.search
                       ? window.location.search

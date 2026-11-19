@@ -34,19 +34,18 @@ export default function MagazineError({
   return (
     <main
       id="magazine-main"
-      className="flex min-h-screen items-center justify-center px-4 py-8"
-      style={{ background: 'linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)' }}
+      className="flex min-h-screen items-center justify-center bg-[#FAF9F5] px-4 py-8 text-slate-900"
     >
       <div
         role="alert"
-        className="w-full max-w-md space-y-5 rounded-2xl border border-white/15 bg-slate-900/90 p-7 text-center text-slate-100 shadow-xl"
+        className="w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-7 text-center text-slate-900 shadow-sm"
       >
         <div className="space-y-2">
-          <h2 className="text-title font-bold text-white">매거진을 불러오지 못했습니다</h2>
-          <p className="text-body text-slate-300 leading-relaxed">
+          <h2 className="text-title font-bold text-slate-900">매거진을 불러오지 못했습니다</h2>
+          <p className="text-body text-slate-700 leading-relaxed">
             일시적인 화면 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
           </p>
-          <p className="text-caption font-mono text-slate-400 pt-1">
+          <p className="text-sm font-mono text-slate-600 pt-1">
             오류 참조코드: {refCode}
           </p>
         </div>
@@ -54,13 +53,13 @@ export default function MagazineError({
           <button
             type="button"
             onClick={() => (retry ? retry() : window.location.reload())}
-            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-rose-600 px-5 text-body font-bold text-white hover:bg-rose-500 transition-colors"
+            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-rose-700 px-5 text-body font-bold text-white hover:bg-rose-800 transition-colors"
           >
             다시 시도하기
           </button>
           <Link
             href="/"
-            className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-white/20 px-5 text-body font-bold text-slate-200 hover:bg-white/5 transition-colors"
+            className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-body font-bold text-slate-900 hover:bg-slate-50 transition-colors"
           >
             홈으로 이동
           </Link>

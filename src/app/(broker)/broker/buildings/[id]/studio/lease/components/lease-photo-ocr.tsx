@@ -83,7 +83,7 @@ export function LeasePhotoOcr({ onImport }: LeasePhotoOcrProps) {
         disabled
         aria-disabled="true"
         title="임대현황표 사진 인식 기능은 준비 중입니다. 파일 업로드 또는 직접 입력을 이용해 주세요."
-        className="px-4 py-2 bg-neutral-900 border border-neutral-800 text-neutral-500 rounded-xl text-xs font-bold flex items-center gap-2 cursor-not-allowed opacity-60"
+        className="min-h-[48px] px-4 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-sm font-bold flex items-center gap-2 cursor-not-allowed opacity-70"
       >
         <span>📸 사진 인식 (준비 중)</span>
       </button>
@@ -104,11 +104,11 @@ export function LeasePhotoOcr({ onImport }: LeasePhotoOcrProps) {
         type="button"
         disabled={loading}
         onClick={() => fileInputRef.current?.click()}
-        className="px-4 py-2 bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+        className="min-h-[48px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-900 rounded-xl text-sm font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
       >
         {loading ? (
           <>
-            <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-white"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-slate-700"></div>
             <span>사진 분석 중...</span>
           </>
         ) : (
@@ -116,7 +116,7 @@ export function LeasePhotoOcr({ onImport }: LeasePhotoOcrProps) {
         )}
       </button>
       {error && (
-        <span role="alert" className="text-xs text-red-400 font-bold">
+        <span role="alert" className="text-sm text-red-700 font-bold">
           {error}
         </span>
       )}

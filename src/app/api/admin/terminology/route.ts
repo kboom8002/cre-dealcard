@@ -20,8 +20,10 @@ export async function GET(req: NextRequest) {
     const category = sp.get('category');
     const isActive = sp.get('is_active');
     const search = sp.get('search');
-    const page = Math.max(1, Number(sp.get('page') ?? '1'));
-    const limit = Math.min(100, Math.max(1, Number(sp.get('limit') ?? '20')));
+    const rawPage = Number(sp.get('page') ?? '1');
+    const rawLimit = Number(sp.get('limit') ?? '20');
+    const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.floor(rawLimit))) : 20;
 
     const safeSearch = search ? escapeIlike(search.replace(/[,()"\\]/g, '')) : '';
 
@@ -71,9 +73,9 @@ export async function GET(req: NextRequest) {
       page,
       limit,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     log.error('[terminology-api] GET error:', err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '용어 규칙 목록 조회에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -108,8 +110,8 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ ok: true, data });
-  } catch (err: any) {
+  } catch (err: unknown) {
     log.error('[terminology-api] POST error:', err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '용어 규칙 생성에 실패했습니다.' }, { status: 500 });
   }
 }

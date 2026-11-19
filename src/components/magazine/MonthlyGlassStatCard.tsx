@@ -102,7 +102,7 @@ export function MonthlyGlassStatCard({
       {/* 상단 하이라이트 라인 & 코너 소프트 오로라 오브 */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-18 blur-2xl"
+        className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full opacity-18 blur-2xl"
         style={{ background: theme.accent }}
       />
       <span
@@ -272,9 +272,14 @@ export function MonthlyGlassStatCard({
               </div>
             )}
             <div
-              className={`grid items-end pt-2 ${colCount >= 5 ? "gap-1 sm:gap-2" : "gap-2"}`}
+              className={`grid items-end pt-2 ${
+                colCount >= 5
+                  ? "grid-cols-3 sm:grid-cols-6 gap-x-2 gap-y-3"
+                  : colCount === 4
+                    ? "grid-cols-2 sm:grid-cols-4 gap-2"
+                    : "grid-cols-2 sm:grid-cols-3 gap-2"
+              }`}
               style={{
-                gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
                 minHeight: isPreview ? "7.5rem" : "8.5rem",
               }}
             >
@@ -303,7 +308,7 @@ export function MonthlyGlassStatCard({
                     className="flex min-w-0 flex-col items-center justify-end gap-1 text-center"
                   >
                     <span
-                      className={`${colCount >= 5 && isPreview ? "text-xs sm:text-sm" : "text-sm"} max-w-full truncate font-extrabold tabular-nums leading-tight whitespace-nowrap`}
+                      className="text-sm max-w-full truncate font-extrabold tabular-nums leading-tight"
                       style={{ color: isFocal ? theme.pillInk : "#0F172A" }}
                     >
                       {primaryText}
@@ -317,7 +322,7 @@ export function MonthlyGlassStatCard({
                       }}
                     />
                     <span
-                      className={`mt-0.5 ${colCount >= 5 && isPreview ? "text-xs sm:text-sm" : "text-sm"} max-w-full truncate font-bold leading-tight whitespace-nowrap`}
+                      className="mt-0.5 text-sm max-w-full truncate font-bold leading-tight"
                       style={{ color: "#1E293B" }}
                     >
                       {pt.label}
@@ -325,7 +330,7 @@ export function MonthlyGlassStatCard({
                     {secondaryText && (
                       <span
                         title={rawSecondaryText}
-                        className={`${colCount >= 5 ? "text-[11px] sm:text-xs" : "text-sm"} max-w-full truncate font-semibold tabular-nums leading-tight whitespace-nowrap`}
+                        className="text-sm max-w-full truncate font-semibold tabular-nums leading-tight"
                         style={{ color: isFocal ? theme.focalLabelInk : "#475569" }}
                       >
                         {secondaryText}

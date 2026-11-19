@@ -45,12 +45,6 @@ export function MobileRentRollCards({
 
   const safeFloorIndex = rows.length > 0 ? Math.min(activeFloorIndex, rows.length - 1) : 0;
 
-  useEffect(() => {
-    if (activeFloorIndex !== safeFloorIndex) {
-      setActiveFloorIndex(safeFloorIndex);
-    }
-  }, [activeFloorIndex, safeFloorIndex]);
-
   const handleUpdateRow = (index: number, patch: Partial<RentRollRowItem>) => {
     if (index < 0 || index >= rows.length) return;
     const next = [...rows];

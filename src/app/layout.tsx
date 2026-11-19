@@ -1,9 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SurveyProvider } from "@/components/feedback/SurveyProvider";
 import { ToastProvider } from "@/components/ui/toast-provider";
 import "./globals.css";
+
+const notoKr = localFont({
+  src: [
+    { path: "../../public/fonts/NotoSansKR-Regular.woff", weight: "400", style: "normal" },
+    { path: "../../public/fonts/NotoSansKR-Bold.woff", weight: "700", style: "normal" },
+  ],
+  variable: "--font-noto-kr",
+  display: "swap",
+  preload: true,
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,24 +55,17 @@ export default function RootLayout({
     <html
       lang="ko"
       data-font-scale="normal"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${notoKr.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_INIT_SCRIPT }} />
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          as="style"
-          crossOrigin="anonymous"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
-        />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange={false}
         >
           <ToastProvider />

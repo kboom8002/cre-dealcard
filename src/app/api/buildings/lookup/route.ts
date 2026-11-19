@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
       resolveAddress(rawAddress),
       supabase
         .from("building_ssot_lite")
-        .select("id, pnu, raw_address, raw_input, ssot_summary, layers")
+        .select("id, pnu, raw_address, raw_input, layers")
         .or(`raw_address.ilike.%${safeSearch}%,raw_input.ilike.%${safeSearch}%`)
         .order("updated_at", { ascending: false })
         .limit(1)
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
       try {
         const { data: pnuRow } = await supabase
           .from("building_ssot_lite")
-          .select("id, pnu, raw_address, raw_input, ssot_summary, layers")
+          .select("id, pnu, raw_address, raw_input, layers")
           .eq("pnu", resolved.pnu)
           .order("updated_at", { ascending: false })
           .limit(1)
@@ -262,7 +262,11 @@ export async function GET(req: NextRequest) {
     const verifiedFallback =
       (effectivePnu ? VERIFIED_PUBLIC_REGISTER_BY_PNU[effectivePnu] : undefined) ||
       (inferredPnuByAddr ? VERIFIED_PUBLIC_REGISTER_BY_PNU[inferredPnuByAddr] : undefined);
-    const ssotSummary = (ssotRow?.ssot_summary || {}) as Record<string, any>;
+    const ssotSummary = (
+      (ssotRow as Record<string, unknown> | null)?.ssot_summary ||
+      (ssotRow?.layers as Record<string, unknown> | undefined)?.ssot_summary ||
+      {}
+    ) as Record<string, unknown>;
     const ssotLayers = (ssotRow?.layers || {}) as Record<string, any>;
     const ssotBldReg = (ssotLayers?.building_register || {}) as Record<string, any>;
     const ssotLandUse = (ssotLayers?.land_use_plan || {}) as Record<string, any>;

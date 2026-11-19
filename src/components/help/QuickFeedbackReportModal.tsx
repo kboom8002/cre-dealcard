@@ -20,6 +20,12 @@ export interface QuickFeedbackReportModalProps {
 export function resolveScreenNameFromPathname(pathname: string): string {
   if (!pathname) return "기타 화면";
   if (pathname === "/broker") return "🏠 홈 화면 (대시보드 · 퀵액션 · 알림)";
+  if (pathname.startsWith("/broker/w/dealcards")) return "📄 딜카드 작업공간 (30초 생성 · 카카오톡 전송)";
+  if (pathname.startsWith("/broker/w/im")) return "📊 기본 IM 작업공간 (3분 완성 · 10개 섹션 리포트)";
+  if (pathname.startsWith("/broker/w/newsletter") || pathname.startsWith("/broker/w/magazine")) {
+    return "📰 뉴스레터 작업공간 (주간 매물 소식지 발행)";
+  }
+  if (pathname.startsWith("/broker/w/inbox")) return "💬 고객 소통함 작업공간 (열람 고객 · 자료 요청 관리)";
   if (pathname.startsWith("/broker/deal-card/new")) return "➕ 1분 딜카드 신규 등록 (카톡 메모 입력)";
   if (pathname.startsWith("/broker/deal-card/")) return "📱 1분 딜카드 상세 · 수신자 블라인드 화면 · 카톡 공유";
   if (pathname.includes("/im-lite")) return "📊 IM 완성 검수 · 웹 뷰어 (완성도 80점 점검)";
@@ -50,21 +56,14 @@ export function QuickFeedbackReportModal({
   const detectedScreen = resolveScreenNameFromPathname(pathname);
 
   const [brokerName, setBrokerName] = useState("");
-  const [dealAddress, setDealAddress] = useState(defaultAddress);
-  const [selectedScreen, setSelectedScreen] = useState(detectedScreen);
+  const [customDealAddress, setCustomDealAddress] = useState<string | null>(null);
+  const [screenOverrides, setScreenOverrides] = useState<Record<string, string>>({});
   const [complaintText, setComplaintText] = useState("");
   const [desiredImprovement, setDesiredImprovement] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
-  // Sync state if pathname or defaultAddress changes when opening
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedScreen(resolveScreenNameFromPathname(pathname));
-      if (defaultAddress && !dealAddress) {
-        setDealAddress(defaultAddress);
-      }
-    }
-  }, [isOpen, pathname, defaultAddress]);
+  const dealAddress = customDealAddress ?? defaultAddress;
+  const selectedScreen = screenOverrides[pathname] ?? detectedScreen;
 
   // Handle ESC key press
   useEffect(() => {
@@ -103,20 +102,22 @@ export function QuickFeedbackReportModal({
   return typeof document !== "undefined"
     ? createPortal(
         <div
+          role="presentation"
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150"
-          onClick={onClose}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="10초 현장 불편 제보 및 개선 건의"
-            onClick={(e) => e.stopPropagation()}
             className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border-2 border-amber-400 bg-[#FFFBEB] text-[#0F172A] shadow-2xl overflow-hidden"
           >
             {/* Header */}
             <div className="px-5 py-4 bg-white border-b border-amber-300 flex items-center justify-between gap-3 shrink-0">
               <div>
-                <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-[12px] font-black mb-1">
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-sm font-black mb-1">
                   🛠️ 현장 소통 창구
                 </span>
                 <h3 className="text-[19px] sm:text-[21px] font-black text-slate-900 leading-snug">
@@ -126,7 +127,7 @@ export function QuickFeedbackReportModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-[14px] font-extrabold shrink-0 cursor-pointer"
+                className="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-extrabold shrink-0 cursor-pointer"
               >
                 ✕ 닫기
               </button>
@@ -138,7 +139,7 @@ export function QuickFeedbackReportModal({
                 <p className="font-black text-amber-950 text-[15px]">
                   💡 대표님의 한마디가 크리딜을 가장 빠르게 발전시킵니다.
                 </p>
-                <p className="text-[13px] text-slate-800 font-medium">
+                <p className="text-sm text-slate-800 font-medium">
                   불편하셨던 점을 적어 아래 <strong>[📋 제보 양식 1초 복사]</strong> 버튼을 누르시면, 담당 엔지니어가 동일한 화면·지번으로 즉시 확인하여 수정합니다.
                 </p>
               </div>
@@ -146,76 +147,83 @@ export function QuickFeedbackReportModal({
               {/* Form Inputs */}
               <div className="space-y-3 bg-white p-4 rounded-2xl border border-amber-200">
                 <div>
-                  <label className="block text-[13px] font-black text-slate-700 mb-1">
+                  <label htmlFor="quick-fb-broker" className="block text-sm font-black text-slate-700 mb-1">
                     1. 작성자 (사무소 상호 / 대표님 성함)
                   </label>
                   <input
+                    id="quick-fb-broker"
                     type="text"
                     value={brokerName}
                     onChange={(e) => setBrokerName(e.target.value)}
                     placeholder="예: 현대부동산중개법인 김대표"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-[15px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-black text-slate-700 mb-1">
+                  <label htmlFor="quick-fb-address" className="block text-sm font-black text-slate-700 mb-1">
                     2. 작업 중이던 매물 주소 또는 지번
                   </label>
                   <input
+                    id="quick-fb-address"
                     type="text"
                     value={dealAddress}
-                    onChange={(e) => setDealAddress(e.target.value)}
+                    onChange={(e) => setCustomDealAddress(e.target.value)}
                     placeholder="예: 서울 중구 쌍림동 114 (운남빌딩)"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-[15px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-black text-slate-700 mb-1">
+                  <label htmlFor="quick-fb-screen" className="block text-sm font-black text-slate-700 mb-1">
                     3. 관련 화면 (현재 화면 자동 감지됨)
                   </label>
                   <input
+                    id="quick-fb-screen"
                     type="text"
                     value={selectedScreen}
-                    onChange={(e) => setSelectedScreen(e.target.value)}
-                    className="w-full rounded-xl border border-amber-400 bg-amber-50/50 px-3.5 py-2 text-[14px] font-bold text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    onChange={(e) =>
+                      setScreenOverrides((prev) => ({ ...prev, [pathname]: e.target.value }))
+                    }
+                    className="w-full min-h-[44px] rounded-xl border border-amber-400 bg-amber-50/50 px-3.5 py-2 text-base font-bold text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-black text-slate-700 mb-1">
+                  <label htmlFor="quick-fb-complaint" className="block text-sm font-black text-slate-700 mb-1">
                     4. 무엇이 불편하셨나요?
                   </label>
                   <textarea
+                    id="quick-fb-complaint"
                     rows={2}
                     value={complaintText}
                     onChange={(e) => setComplaintText(e.target.value)}
                     placeholder="예: 렌트롤 엑셀을 올렸는데 보증금 합계 숫자가 안 맞습니다 / 글씨가 작아 잘 안 보입니다"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-[15px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-black text-slate-700 mb-1">
+                  <label htmlFor="quick-fb-desired" className="block text-sm font-black text-slate-700 mb-1">
                     5. 어떻게 바뀌면 좋겠나요? (선택)
                   </label>
                   <input
+                    id="quick-fb-desired"
                     type="text"
                     value={desiredImprovement}
                     onChange={(e) => setDesiredImprovement(e.target.value)}
                     placeholder="예: 엑셀 올리기 전에 필수 열을 미리 짚어주면 좋겠습니다"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-[15px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
               </div>
 
               {/* Reflected Examples from BROKER_FEEDBACK_SYSTEM_GUIDE */}
               <div className="space-y-2 bg-white p-4 rounded-2xl border border-slate-300">
-                <p className="font-black text-blue-950 text-[14px]">
+                <p className="font-black text-blue-950 text-sm">
                   ✨ 대표님들의 피드백으로 개선된 실제 사례
                 </p>
-                <div className="space-y-2 text-[13px]">
+                <div className="space-y-2 text-sm">
                   {BROKER_FEEDBACK_SYSTEM_GUIDE.reflectedExamples.map((item, idx) => (
                     <div key={idx} className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 space-y-1">
                       <p className="font-extrabold text-slate-800">{item.brokerVoice}</p>
@@ -228,14 +236,14 @@ export function QuickFeedbackReportModal({
 
             {/* Footer Copy Button */}
             <div className="px-5 py-3.5 bg-white border-t border-amber-300 flex items-center justify-between gap-3 shrink-0">
-              <span className="text-[13px] text-slate-600 font-semibold hidden sm:inline">
+              <span className="text-sm text-slate-600 font-semibold hidden sm:inline">
                 양식을 복사한 뒤 카톡 또는 문자메시지로 전송해 주세요.
               </span>
               <button
                 type="button"
                 onClick={handleCopyReport}
                 data-testid="copy-feedback-report-btn"
-                className={`w-full sm:w-auto px-5 py-2.5 min-h-[42px] rounded-xl text-[15px] font-black transition-colors cursor-pointer shadow-xs ${
+                className={`w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-[15px] font-black transition-colors cursor-pointer shadow-xs ${
                   isCopied
                     ? "bg-emerald-700 text-white"
                     : "bg-amber-400 hover:bg-amber-500 text-slate-950 border border-amber-500/80"

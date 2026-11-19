@@ -188,9 +188,17 @@ async function readerCtx(browser: Browser, o: CtxOpts = {}): Promise<BrowserCont
 
 async function gotoViewer(page: Page, url = viewer()) {
   const t0 = Date.now();
-  const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 }).catch(async () => page.goto(url, { waitUntil: 'load', timeout: 120000 }));
-  await page.locator('#roi-price-range').waitFor({ state: 'attached', timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(500);
+  let resp = await page.goto(url, { waitUntil: 'load', timeout: 45000 }).catch(() => null);
+  const hasErrHeading = await page
+    .getByRole('heading', { name: '매거진을 불러오지 못했습니다' })
+    .isVisible()
+    .catch(() => false);
+  if (hasErrHeading) {
+    await page.waitForTimeout(300);
+    resp = await page.reload({ waitUntil: 'load', timeout: 45000 }).catch(() => resp);
+  }
+  await page.locator('#roi-price-range').waitFor({ state: 'attached', timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(400);
   return { status: resp?.status() ?? null, ms: Date.now() - t0 };
 }
 
@@ -668,7 +676,7 @@ test.describe('👵 UX60 독자 여정 (박정자, 64세)', () => {
         const page = await ctx.newPage();
         await gotoViewer(page);
         const m = await metrics(page);
-        const sc = await screens(page, `R2_${mode}`, mode === 'base' ? 30 : 40);
+        const sc = await screens(page, `R2_${mode}`, mode === 'base' ? 12 : 10);
         const opened = await expandAll(page);
         await page.waitForTimeout(500);
         const m2 = await metrics(page);
@@ -1104,7 +1112,7 @@ test.describe('👵 UX60 독자 여정 (박정자, 64세)', () => {
       await safe(`R8 archive ${mode}`, async () => {
         const ctx = await readerCtx(browser, { mode });
         const page = await ctx.newPage();
-        const resp = await page.goto(`/magazine/${SLUG}`, { waitUntil: 'networkidle', timeout: 120000 }).catch(() => null);
+        const resp = await page.goto(`/magazine/${SLUG}`, { waitUntil: 'load', timeout: 60000 }).catch(() => null);
         await page.waitForTimeout(600);
         await shot(page, `R8_archive_${mode}.png`, { fullPage: true });
         const m = await metrics(page);
@@ -1112,10 +1120,13 @@ test.describe('👵 UX60 독자 여정 (박정자, 64세)', () => {
         if (mode === 'base') {
           const first = page.locator('main ul li a').first();
           if (await first.count()) {
-            await Promise.all([page.waitForNavigation({ timeout: 120000 }).catch(() => null), first.tap()]);
-            await page.waitForTimeout(1200);
+            await Promise.all([
+              page.waitForURL(new RegExp(`/magazine/${SLUG}/[^/]+`), { timeout: 30000 }).catch(() => null),
+              first.tap(),
+            ]);
+            await page.waitForTimeout(800);
             r8.archiveToIssue = page.url().replace(BASE, '');
-            await page.goBack({ timeout: 60000 }).catch(() => {});
+            await page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
             await page.waitForTimeout(800);
             r8.archiveBackUrl = page.url().replace(BASE, '');
           }

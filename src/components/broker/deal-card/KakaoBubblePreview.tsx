@@ -76,6 +76,11 @@ export function KakaoBubblePreview({
     card4.area !== undefined ? card4.area.trim() : resolveCard4AreaLabel(card4);
   const areaText = resolvedArea || '—';
   const priceText = normalizePriceBandInput(card4.priceBand) || '—';
+  const cleanBrokerName = brokerName?.trim() || '중개사 프로필 미설정';
+  const hasConfiguredBroker =
+    Boolean(cleanBrokerName) &&
+    cleanBrokerName !== '중개사 프로필 미설정' &&
+    !/미설정|미입력|미등록/.test(cleanBrokerName);
 
   const hasCardContent = Boolean(
     card4.region?.trim() ||
@@ -341,15 +346,14 @@ export function KakaoBubblePreview({
         </div>
       )}
 
-      {/* 2. Recipient Detail Screen Preview (Single Scroll in Column 3) */}
+      {/* 2. Recipient Detail Screen Preview (D3 Daylight #F3F2EE) */}
       {viewFilter !== 'bubble' && (
         <div
           data-testid="dealcard-postit-preview-list"
-          data-theme-lock="dark"
-          className="w-full rounded-2xl bg-[#0B0F14] text-white border-2 border-slate-800 shadow-lg overflow-hidden"
+          className="w-full rounded-2xl bg-[#F3F2EE] text-slate-900 border-2 border-slate-300 shadow-lg overflow-hidden"
         >
-          <div className="px-4 py-3 bg-[#141A21] border-b border-slate-800 flex items-center justify-between">
-            <span className="text-sm font-extrabold text-slate-200">
+          <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between">
+            <span className="text-sm font-extrabold text-slate-900">
               고객이 카톡에서 눌렀을 때 보는 화면
             </span>
           </div>
@@ -359,24 +363,24 @@ export function KakaoBubblePreview({
             className="p-4 space-y-4"
           >
             {/* Compact 4-Item Summary Strip at top of detail view */}
-            <div className="rounded-xl bg-[#141A21] border border-slate-800 p-3.5 space-y-2.5">
+            <div className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-2.5 shadow-2xs">
               <div className="grid grid-cols-2 gap-2 text-center text-sm font-extrabold">
-                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-white break-keep">
+                <div className="py-2 px-2.5 rounded-lg bg-[#F3F2EE] border border-slate-200 text-slate-900 break-keep">
                   {regionText}
                 </div>
-                <div className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-sky-400 break-keep">
+                <div className="py-2 px-2.5 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 break-keep">
                   {useText}
                 </div>
                 {resolvedArea ? (
                   <div
                     data-testid="dealcard-detail-area-chip"
-                    className="py-2 px-2.5 rounded-lg bg-slate-800/90 text-slate-200 break-keep"
+                    className="py-2 px-2.5 rounded-lg bg-[#F3F2EE] border border-slate-200 text-slate-800 break-keep"
                   >
                     {resolvedArea}
                   </div>
                 ) : null}
                 <div
-                  className={`py-2 px-2.5 rounded-lg bg-slate-800/90 text-amber-400 break-keep ${
+                  className={`py-2 px-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 break-keep ${
                     resolvedArea ? '' : 'col-span-2'
                   }`}
                 >
@@ -387,13 +391,13 @@ export function KakaoBubblePreview({
                 testId="dealcard-preview-customer-title"
                 text={bubbleTitle}
                 preRepaired
-                className="text-base font-extrabold text-white text-center pt-0.5"
+                className="text-base font-extrabold text-slate-950 text-center pt-0.5"
               />
             </div>
 
             {/* 장점 3줄 */}
             <div className="space-y-2.5">
-              <span className="block text-sm font-extrabold text-amber-400 px-0.5">
+              <span className="block text-sm font-extrabold text-amber-900 px-0.5">
                 {TERMS.pointsSectionTitle}
               </span>
 
@@ -448,18 +452,20 @@ export function KakaoBubblePreview({
               '내 연락처·중개사 정보',
               <div
                 data-testid="preview-broker-profile-card"
-                className="rounded-xl bg-[#141A21] border border-slate-700/80 p-3.5 flex items-center justify-between gap-3"
+                className="rounded-xl bg-white border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-2xs"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-base font-extrabold text-white break-keep">
-                      {brokerName}
+                    <span className="text-base font-extrabold text-slate-950 break-keep">
+                      {cleanBrokerName}
                     </span>
-                    <span className="text-sm px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold shrink-0">
-                      공인중개사
-                    </span>
+                    {hasConfiguredBroker && (
+                      <span className="text-sm px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold shrink-0">
+                        공인중개사
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-slate-400 mt-1 break-keep">
+                  <p className="text-sm text-slate-600 mt-1 break-keep">
                     {brokerSpecialty}
                   </p>
                 </div>
@@ -489,7 +495,7 @@ export function KakaoBubblePreview({
                   }
                 }}
                 data-testid="preview-cta-call-btn"
-                className="min-h-[48px] py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                className="min-h-[48px] py-3 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span>{TERMS.recipientCallCta}</span>
               </a>
@@ -511,7 +517,7 @@ export function KakaoBubblePreview({
                 role="status"
                 aria-live="polite"
                 data-testid="preview-cta-im-request-hint"
-                className="text-sm font-semibold text-amber-200 bg-amber-500/15 border border-amber-400/30 rounded-xl px-3.5 py-2.5 break-keep"
+                className="text-sm font-semibold text-amber-950 bg-amber-50 border border-amber-300 rounded-xl px-3.5 py-2.5 break-keep"
               >
                 {previewHint}
               </p>

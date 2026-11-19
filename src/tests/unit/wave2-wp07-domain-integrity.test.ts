@@ -557,6 +557,7 @@ describe('Wave 2 — WP-07: Deliverable Edge-Case Integrity', () => {
       building_id: 'bldg-gangnam-001',
       requester_name: '박투자',
       requester_phone: '010-1234-5678',
+      grant_token: 'valid-pro-001-token',
       status: 'active',
       nda_signed_at: '2026-11-10T00:00:00Z',
       pdf_export_allowed: true,
@@ -565,7 +566,7 @@ describe('Wave 2 — WP-07: Deliverable Edge-Case Integrity', () => {
       max_downloads: 20,
     };
 
-    it('rejects draft / archived / deleted document_objects without exporting', async () => {
+    it('rejects missing grant token (403) and rejects draft / archived / deleted document_objects without exporting', async () => {
       mocks.supabaseState.grant = { ...baseActiveGrant };
       mocks.supabaseState.docs = [
         {
@@ -578,7 +579,12 @@ describe('Wave 2 — WP-07: Deliverable Edge-Case Integrity', () => {
         },
       ];
 
-      const req = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx');
+      const unauthReq = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx');
+      const unauthRes = await getImProPptx(unauthReq, { params: Promise.resolve({ grantId: 'grant-pro-001' }) });
+      expect(unauthRes.status).toBe(403);
+      expect(mocks.pptxRenderSpy).not.toHaveBeenCalled();
+
+      const req = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx?token=valid-pro-001-token');
       const res = await getImProPptx(req, { params: Promise.resolve({ grantId: 'grant-pro-001' }) });
 
       expect(res.status).toBe(403);
@@ -614,7 +620,7 @@ describe('Wave 2 — WP-07: Deliverable Edge-Case Integrity', () => {
         },
       ];
 
-      const req = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx', {
+      const req = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx?token=valid-pro-001-token', {
         headers: { 'x-forwarded-for': '203.0.113.10' },
       });
       const res = await getImProPptx(req, { params: Promise.resolve({ grantId: 'grant-pro-001' }) });
@@ -636,12 +642,12 @@ describe('Wave 2 — WP-07: Deliverable Edge-Case Integrity', () => {
 
     it('returns 429 when grant download_count reaches max_downloads or IP rate limit is exceeded', async () => {
       mocks.supabaseState.grant = { ...baseActiveGrant, download_count: 5, max_downloads: 5 };
-      const req1 = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx');
+      const req1 = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx?token=valid-pro-001-token');
       const res1 = await getImProPptx(req1, { params: Promise.resolve({ grantId: 'grant-pro-001' }) });
       expect(res1.status).toBe(429);
 
       mocks.checkRateLimitMock.mockResolvedValueOnce(false);
-      const req2 = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx');
+      const req2 = new NextRequest('http://localhost:3000/api/public/im-pro/grant-pro-001/pptx?token=valid-pro-001-token');
       const res2 = await getImProPptx(req2, { params: Promise.resolve({ grantId: 'grant-pro-001' }) });
       expect(res2.status).toBe(429);
     });

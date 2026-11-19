@@ -24,17 +24,17 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        'flex flex-col items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 px-5 py-8 text-center',
+        'flex flex-col items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-8 text-center text-rose-950',
         className,
       )}
     >
-      <p className="text-body font-semibold text-rose-200">{title}</p>
-      {description ? <p className="text-body text-ink-muted">{description}</p> : null}
+      <p className="text-body font-semibold text-rose-950">{title}</p>
+      {description ? <p className="text-body text-rose-800">{description}</p> : null}
       {onRetry ? (
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 inline-flex min-h-11 items-center justify-center rounded-lg bg-rose-600 px-4 text-body font-bold text-white hover:bg-rose-500"
+          className="mt-2 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-rose-300 bg-white px-4 text-body font-bold text-rose-900 hover:bg-rose-100"
         >
           {retryLabel}
         </button>

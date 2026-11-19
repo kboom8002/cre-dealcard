@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { ConfirmDeleteModal } from '@/components/workspace/ConfirmDeleteModal';
+import { createClient } from '@/lib/supabase/client';
 
 interface ClientDetail {
   id: string;
@@ -40,15 +41,40 @@ interface ClientDetail {
     id: string;
     status: string;
     created_at: string;
-    slot: {
-      slot_start: string;
-      building: {
+    slot?: {
+      slot_start?: string | null;
+      building?: {
         id: string;
-        area_signal: string;
-      };
-    };
+        area_signal?: string | null;
+      } | null;
+    } | null;
   }>;
   created_at: string;
+}
+
+interface CurationSaleProperty {
+  id: string;
+  area_signal?: string;
+  asset_type?: string;
+  price_band?: string;
+  is_cross?: boolean;
+  reasons: string[];
+  relevance: number;
+}
+
+interface CurationLeaseProperty {
+  id: string;
+  floor?: string;
+  space_type?: string;
+  area_pyeong?: number | string;
+  is_cross?: boolean;
+  deposit?: number | string;
+  monthly_rent?: number | string;
+}
+
+interface ClientCurationData {
+  saleProperties: CurationSaleProperty[];
+  leaseProperties: CurationLeaseProperty[];
 }
 
 const CONTACT_TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -62,22 +88,46 @@ const CONTACT_TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
 };
 
 const TIER_LABELS: Record<string, { label: string; color: string }> = {
-  vip: { label: 'VIP', color: 'bg-grade-s/10 text-grade-s border-grade-s/20' },
-  normal: { label: '일반', color: 'bg-primary/10 text-primary border-primary/20' },
-  potential: { label: '잠재', color: 'bg-warning/10 text-warning border-warning/20' },
-  dormant: { label: '휴면', color: 'bg-muted text-muted-foreground border-border' },
+  vip: { label: 'VIP', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  normal: { label: '일반', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  potential: { label: '잠재', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+  dormant: { label: '휴면', color: 'bg-slate-100 text-slate-700 border-slate-300' },
 };
+
+function fallbackCopyTextToClipboard(text: string): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
 export default function ClientDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFoundState, setNotFoundState] = useState(false);
+  const [feedbackToast, setFeedbackToast] = useState<{
+    tone: 'error' | 'success';
+    message: string;
+  } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactType, setContactType] = useState('phone');
   const [contactSummary, setContactSummary] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [curation, setCuration] = useState<any>(null);
+  const [curation, setCuration] = useState<ClientCurationData | null>(null);
   const [curationLoading, setCurationLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -89,48 +139,111 @@ export default function ClientDetailPage() {
   const [savingContact, setSavingContact] = useState(false);
   const [pendingDeleteContactId, setPendingDeleteContactId] = useState<string | null>(null);
 
+  const showFeedback = useCallback((tone: 'error' | 'success', message: string) => {
+    setFeedbackToast({ tone, message });
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setFeedbackToast(null);
+    }, 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   const fetchClient = useCallback(async () => {
+    setLoadError(null);
+    setNotFoundState(false);
     try {
       const res = await fetch(`/api/broker/clients/${params.id}`, {
         headers: { Authorization: `Bearer ${await getToken()}` },
       });
-      if (res.ok) {
-        const { data } = await res.json();
-        setClient(data);
+      if (res.status === 404) {
+        setClient(null);
+        setNotFoundState(true);
+        return;
       }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        setLoadError(
+          typeof errJson?.error === 'string' && errJson.error.trim()
+            ? errJson.error
+            : '고객 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+        );
+        return;
+      }
+      const { data } = await res.json();
+      setClient(data);
+    } catch {
+      setLoadError('네트워크 오류로 고객 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
     } finally {
       setLoading(false);
     }
   }, [params.id]);
 
   useEffect(() => {
-    fetchClient();
+    void fetchClient();
   }, [fetchClient]);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchCuration = async () => {
       try {
         const res = await fetch(`/api/broker/clients/${params.id}/curation`, {
           headers: { Authorization: `Bearer ${await getToken()}` },
         });
-        if (res.ok) {
+        if (!cancelled && res.ok) {
           const { data } = await res.json();
           setCuration(data);
         }
+      } catch {
+        // non-blocking curation error
       } finally {
-        setCurationLoading(false);
+        if (!cancelled) {
+          setCurationLoading(false);
+        }
       }
     };
-    fetchCuration();
+    void fetchCuration();
+    return () => {
+      cancelled = true;
+    };
   }, [params.id]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCopyKakao = async (prop: any, type: 'sale' | 'lease') => {
-    const text = type === 'sale'
-      ? `[블라인드 매물 안내]\n\n📍 ${prop.area_signal} ${prop.asset_type}\n💰 ${prop.price_band}\n\n관심 있으시면 연락 부탁드립니다.\n자세한 내용은 직접 안내드리겠습니다.`
-      : `[임대 공간 안내]\n\n🔑 ${prop.floor || ''} ${prop.space_type === 'office' ? '오피스' : '상가'} ${prop.area_pyeong}평\n💰 보증금 ${prop.deposit}만 / 월 ${prop.monthly_rent}만\n\n관심 있으시면 연락 부탁드립니다.`;
-    await navigator.clipboard.writeText(text);
+  const handleCopyKakao = async (
+    prop: CurationSaleProperty | CurationLeaseProperty,
+    type: 'sale' | 'lease'
+  ) => {
+    const text =
+      type === 'sale'
+        ? `[블라인드 매물 안내]\n\n📍 ${(prop as CurationSaleProperty).area_signal || ''} ${(prop as CurationSaleProperty).asset_type || ''}\n💰 ${(prop as CurationSaleProperty).price_band || ''}\n\n관심 있으시면 연락 부탁드립니다.\n자세한 내용은 직접 안내드리겠습니다.`
+        : `[임대 공간 안내]\n\n🔑 ${(prop as CurationLeaseProperty).floor || ''} ${(prop as CurationLeaseProperty).space_type === 'office' ? '오피스' : '상가'} ${(prop as CurationLeaseProperty).area_pyeong || ''}평\n💰 보증금 ${(prop as CurationLeaseProperty).deposit || ''}만 / 월 ${(prop as CurationLeaseProperty).monthly_rent || ''}만\n\n관심 있으시면 연락 부탁드립니다.`;
+
+    let copied = false;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } else {
+        copied = fallbackCopyTextToClipboard(text);
+      }
+    } catch {
+      copied = fallbackCopyTextToClipboard(text);
+    }
+
+    if (!copied) {
+      showFeedback('error', '클립보드 복사에 실패했습니다. 브라우저 권한을 확인해 주세요.');
+      return;
+    }
+
     setCopiedId(prop.id);
+    showFeedback('success', '카카오톡 안내 문구를 복사했습니다.');
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -149,11 +262,22 @@ export default function ClientDetailPage() {
           summary: contactSummary.trim(),
         }),
       });
-      if (res.ok) {
-        setContactSummary('');
-        setShowContactForm(false);
-        fetchClient();
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        showFeedback(
+          'error',
+          typeof errJson?.error === 'string' && errJson.error.trim()
+            ? errJson.error
+            : '연락 이력 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        );
+        return;
       }
+      setContactSummary('');
+      setShowContactForm(false);
+      showFeedback('success', '연락 이력을 저장했습니다.');
+      await fetchClient();
+    } catch {
+      showFeedback('error', '네트워크 오류로 연락 이력을 저장하지 못했습니다.');
     } finally {
       setSavingContact(false);
     }
@@ -174,10 +298,21 @@ export default function ClientDetailPage() {
           summary: editSummary.trim(),
         }),
       });
-      if (res.ok) {
-        setEditingContactId(null);
-        fetchClient();
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        showFeedback(
+          'error',
+          typeof errJson?.error === 'string' && errJson.error.trim()
+            ? errJson.error
+            : '연락 이력 수정에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        );
+        return;
       }
+      setEditingContactId(null);
+      showFeedback('success', '연락 이력을 수정했습니다.');
+      await fetchClient();
+    } catch {
+      showFeedback('error', '네트워크 오류로 연락 이력을 수정하지 못했습니다.');
     } finally {
       setIsEditingContact(false);
     }
@@ -195,32 +330,79 @@ export default function ClientDetailPage() {
           Authorization: `Bearer ${await getToken()}`,
         },
       });
-      if (res.ok) {
-        fetchClient();
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        showFeedback(
+          'error',
+          typeof errJson?.error === 'string' && errJson.error.trim()
+            ? errJson.error
+            : '연락 이력 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        );
+        return;
       }
-    } catch (err) {
-      console.error(err);
+      showFeedback('success', '연락 이력을 삭제했습니다.');
+      await fetchClient();
+    } catch {
+      showFeedback('error', '네트워크 오류로 연락 이력을 삭제하지 못했습니다.');
     }
   };
 
   if (loading) {
     return (
-      <main className="flex flex-col items-center min-h-screen px-4 py-8">
+      <main className="flex flex-col items-center min-h-screen bg-slate-50 text-slate-900 px-4 py-8">
         <div className="w-full max-w-md mx-auto space-y-4 pt-4">
-          <div className="h-8 bg-muted rounded-lg animate-pulse w-48" />
-          <div className="h-40 bg-muted rounded-xl animate-pulse" />
-          <div className="h-32 bg-muted rounded-xl animate-pulse" />
+          <div className="h-8 bg-slate-200 rounded-lg animate-pulse w-48" />
+          <div className="h-40 bg-slate-200 rounded-xl animate-pulse" />
+          <div className="h-32 bg-slate-200 rounded-xl animate-pulse" />
         </div>
       </main>
     );
   }
 
-  if (!client) {
+  if (loadError && !client) {
     return (
-      <main className="flex flex-col items-center min-h-screen px-4 py-8">
+      <main className="flex flex-col items-center min-h-screen bg-slate-50 text-slate-900 px-4 py-8">
+        <div
+          role="alert"
+          data-testid="client-detail-error-banner"
+          className="w-full max-w-md mx-auto mt-16 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center space-y-4"
+        >
+          <p className="text-base font-bold text-rose-900">
+            고객 정보를 불러오지 못했습니다
+          </p>
+          <p className="text-sm text-rose-800 break-keep">{loadError}</p>
+          <div className="flex items-center justify-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                void fetchClient();
+              }}
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition-colors cursor-pointer"
+            >
+              다시 시도
+            </button>
+            <Link
+              href="/broker/clients"
+              className="inline-flex min-h-[44px] items-center justify-center px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-sm font-semibold transition-colors"
+            >
+              목록으로 돌아가기
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (notFoundState || !client) {
+    return (
+      <main className="flex flex-col items-center min-h-screen bg-slate-50 text-slate-900 px-4 py-8">
         <div className="w-full max-w-md mx-auto pt-20 text-center">
-          <p className="text-muted-foreground">고객을 찾을 수 없습니다.</p>
-          <Link href="/broker/clients" className="text-primary text-sm mt-2 inline-block">
+          <p className="text-base text-slate-600">고객을 찾을 수 없습니다.</p>
+          <Link
+            href="/broker/clients"
+            className="text-blue-700 hover:underline text-sm font-semibold mt-3 inline-flex min-h-[44px] items-center px-3"
+          >
             ← 목록으로 돌아가기
           </Link>
         </div>
@@ -229,51 +411,85 @@ export default function ClientDetailPage() {
   }
 
   const tier = TIER_LABELS[client.tier] ?? TIER_LABELS.normal;
-  const typeLabel = client.client_type === 'seller' ? '매도자' : client.client_type === 'buyer' ? '매수자' : '매도/매수';
+  const typeLabel =
+    client.client_type === 'seller'
+      ? '매도자'
+      : client.client_type === 'buyer'
+        ? '매수자'
+        : '매도/매수';
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
+    <main className="flex flex-col items-center min-h-screen bg-slate-50 text-slate-900 px-4 py-8 pb-24">
       <div className="w-full max-w-md mx-auto space-y-5">
+        {/* Toast / Feedback Banner */}
+        {feedbackToast && (
+          <div
+            role="status"
+            data-testid="client-detail-feedback-toast"
+            className={`rounded-xl border px-4 py-3 text-sm font-medium break-keep ${
+              feedbackToast.tone === 'error'
+                ? 'border-rose-200 bg-rose-50 text-rose-900'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+            }`}
+          >
+            {feedbackToast.message}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-3 pt-4">
           <Link
             href="/broker/clients"
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-muted hover:bg-muted/80 text-sm transition-colors"
+            aria-label="고객 목록으로 돌아가기"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] w-11 h-11 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-base font-bold transition-colors"
           >
             ←
           </Link>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold">{client.display_name}</h1>
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${tier.color}`}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-slate-900">{client.display_name}</h1>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium border ${tier.color}`}>
                 {tier.label}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {typeLabel}{client.company ? ` · ${client.company}` : ''}
+            <p className="text-sm text-slate-600">
+              {typeLabel}
+              {client.company ? ` · ${client.company}` : ''}
             </p>
           </div>
+          <Link
+            href="/broker/w/inbox"
+            className="shrink-0 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition-colors"
+            id="cta-open-client-in-inbox"
+          >
+            인박스에서 열기
+          </Link>
         </div>
 
         {/* 연락처 정보 */}
-        <section className="rounded-xl border border-border bg-card p-4 space-y-2">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">연락처</h2>
+        <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+          <h2 className="text-sm font-semibold text-slate-600 tracking-wide">연락처</h2>
           <div className="grid grid-cols-2 gap-2 text-sm">
             {client.phone && (
               <div className="flex items-center gap-2">
                 <span>📞</span>
-                <a href={`tel:${client.phone}`} className="text-primary hover:underline">{client.phone}</a>
+                <a
+                  href={`tel:${client.phone}`}
+                  className="inline-flex min-h-[44px] items-center text-blue-700 font-medium hover:underline"
+                >
+                  {client.phone}
+                </a>
               </div>
             )}
             {client.email && (
               <div className="flex items-center gap-2">
                 <span>📧</span>
-                <span className="truncate">{client.email}</span>
+                <span className="truncate text-slate-800">{client.email}</span>
               </div>
             )}
           </div>
           {client.notes && (
-            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 mt-2">
+            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2.5 mt-2">
               {client.notes}
             </p>
           )}
@@ -281,8 +497,8 @@ export default function ClientDetailPage() {
 
         {/* 연결된 매물 */}
         {client.buildings.length > 0 && (
-          <section className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+            <h2 className="text-sm font-semibold text-slate-600 tracking-wide">
               🏢 관련 매물 ({client.buildings.length}건)
             </h2>
             <div className="space-y-1.5">
@@ -290,10 +506,12 @@ export default function ClientDetailPage() {
                 <Link
                   key={b.id}
                   href={`/broker/deal-card/${b.id}`}
-                  className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg bg-slate-50 border border-slate-200/70 px-3 py-2 text-sm text-slate-900 hover:bg-slate-100 transition-colors"
                 >
-                  <span className="text-xs font-medium">{b.area_signal} {b.asset_type}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{b.price_band}</span>
+                  <span className="text-sm font-medium">
+                    {b.area_signal} {b.asset_type}
+                  </span>
+                  <span className="text-sm text-slate-600 ml-auto">{b.price_band}</span>
                 </Link>
               ))}
             </div>
@@ -302,8 +520,8 @@ export default function ClientDetailPage() {
 
         {/* 연결된 매수 의향서 */}
         {client.buyerIntents.length > 0 && (
-          <section className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+            <h2 className="text-sm font-semibold text-slate-600 tracking-wide">
               🎯 매수 조건 ({client.buyerIntents.length}건)
             </h2>
             <div className="space-y-1.5">
@@ -311,10 +529,10 @@ export default function ClientDetailPage() {
                 <Link
                   key={bi.id}
                   href={`/broker/buyer-intents/${bi.id}`}
-                  className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg bg-slate-50 border border-slate-200/70 px-3 py-2 text-sm text-slate-900 hover:bg-slate-100 transition-colors"
                 >
-                  <span className="text-xs font-medium">{bi.buyer_type}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{bi.budget_display}</span>
+                  <span className="text-sm font-medium">{bi.buyer_type}</span>
+                  <span className="text-sm text-slate-600 ml-auto">{bi.budget_display}</span>
                 </Link>
               ))}
             </div>
@@ -322,41 +540,48 @@ export default function ClientDetailPage() {
         )}
 
         {/* 🎁 AI 추천 매물 */}
-        <section className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
-          <h2 className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1">
+        <section className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-blue-800 tracking-wide flex items-center gap-1">
             🎁 이 고객에게 추천할 매물
           </h2>
 
           {curationLoading ? (
             <div className="space-y-2">
-              <div className="h-16 bg-muted rounded-lg animate-pulse" />
-              <div className="h-16 bg-muted rounded-lg animate-pulse" />
+              <div className="h-16 bg-slate-200 rounded-lg animate-pulse" />
+              <div className="h-16 bg-slate-200 rounded-lg animate-pulse" />
             </div>
           ) : curation && (curation.saleProperties.length > 0 || curation.leaseProperties.length > 0) ? (
             <div className="space-y-3">
               {curation.saleProperties.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-medium">매매 추천 ({curation.saleProperties.length}건)</p>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {curation.saleProperties.map((prop: any) => (
-                    <div key={prop.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2.5">
+                  <p className="text-sm text-slate-700 font-semibold">
+                    매매 추천 ({curation.saleProperties.length}건)
+                  </p>
+                  {curation.saleProperties.map((prop) => (
+                    <div
+                      key={prop.id}
+                      className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2.5"
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-medium">{prop.area_signal} {prop.asset_type}</span>
-                          <span className="text-xs text-muted-foreground">{prop.price_band}</span>
+                          <span className="text-sm font-semibold text-slate-900">
+                            {prop.area_signal} {prop.asset_type}
+                          </span>
+                          <span className="text-sm text-slate-600">{prop.price_band}</span>
                           {prop.is_cross && (
-                            <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full font-medium">CROSS</span>
+                            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+                              CROSS
+                            </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {prop.reasons.join(' · ')}
-                        </p>
+                        <p className="text-sm text-slate-600 mt-0.5">{prop.reasons.join(' · ')}</p>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] font-bold text-primary">{prop.relevance}%</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-blue-700">{prop.relevance}%</span>
                         <button
-                          onClick={() => handleCopyKakao(prop, 'sale')}
-                          className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors"
+                          type="button"
+                          onClick={() => void handleCopyKakao(prop, 'sale')}
+                          className="min-h-[44px] min-w-[44px] text-sm bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded-lg font-medium hover:bg-blue-100 transition-colors cursor-pointer"
                         >
                           {copiedId === prop.id ? '✓ 복사됨' : '📋 카톡'}
                         </button>
@@ -368,26 +593,34 @@ export default function ClientDetailPage() {
 
               {curation.leaseProperties.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-medium">임대 추천 ({curation.leaseProperties.length}건)</p>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {curation.leaseProperties.map((prop: any) => (
-                    <div key={prop.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2.5">
+                  <p className="text-sm text-slate-700 font-semibold">
+                    임대 추천 ({curation.leaseProperties.length}건)
+                  </p>
+                  {curation.leaseProperties.map((prop) => (
+                    <div
+                      key={prop.id}
+                      className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2.5"
+                    >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-medium">
-                            {prop.floor || ''} {prop.space_type === 'office' ? '오피스' : '상가'} {prop.area_pyeong}평
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-semibold text-slate-900">
+                            {prop.floor || ''} {prop.space_type === 'office' ? '오피스' : '상가'}{' '}
+                            {prop.area_pyeong}평
                           </span>
                           {prop.is_cross && (
-                            <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full font-medium">CROSS</span>
+                            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+                              CROSS
+                            </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                        <p className="text-sm text-slate-600 mt-0.5">
                           보증금 {prop.deposit}만 / 월 {prop.monthly_rent}만
                         </p>
                       </div>
                       <button
-                        onClick={() => handleCopyKakao(prop, 'lease')}
-                        className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors shrink-0"
+                        type="button"
+                        onClick={() => void handleCopyKakao(prop, 'lease')}
+                        className="min-h-[44px] min-w-[44px] text-sm bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded-lg font-medium hover:bg-blue-100 transition-colors shrink-0 cursor-pointer"
                       >
                         {copiedId === prop.id ? '✓ 복사됨' : '📋 카톡'}
                       </button>
@@ -397,7 +630,7 @@ export default function ClientDetailPage() {
               )}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground text-center py-2">
+            <p className="text-sm text-slate-600 text-center py-2">
               매수 의향서를 연결하면 AI가 맞춤 매물을 추천합니다.
             </p>
           )}
@@ -405,27 +638,48 @@ export default function ClientDetailPage() {
 
         {/* 예약 이력 */}
         {client.bookings && client.bookings.length > 0 && (
-          <section className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+            <h2 className="text-sm font-semibold text-slate-600 tracking-wide flex items-center justify-between">
               <span>📅 임장/미팅 예약 ({client.bookings.length}건)</span>
             </h2>
             <div className="space-y-1.5">
               {client.bookings.map((booking) => {
-                const date = new Date(booking.slot.slot_start);
-                const dateStr = date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const rawSlotStart = booking.slot?.slot_start;
+                const parsedDate = rawSlotStart ? new Date(rawSlotStart) : null;
+                const dateStr =
+                  parsedDate && !Number.isNaN(parsedDate.getTime())
+                    ? parsedDate.toLocaleDateString('ko-KR', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '일정 정보 미상';
+                const areaSignal = booking.slot?.building?.area_signal?.trim() || '외부·비공개 매물';
                 return (
-                  <div key={booking.id} className="flex flex-col gap-1 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                  <div
+                    key={booking.id}
+                    className="flex flex-col gap-1 rounded-lg bg-slate-50 border border-slate-200/70 px-3 py-2.5 text-sm"
+                  >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{booking.slot.building.area_signal} 임장</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        booking.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' :
-                        booking.status === 'hold' ? 'bg-amber-500/10 text-amber-500' :
-                        'bg-zinc-500/10 text-zinc-500'
-                      }`}>
-                        {booking.status === 'confirmed' ? '확정' : booking.status === 'hold' ? '대기' : '취소/완료'}
+                      <span className="text-sm font-medium text-slate-900">{areaSignal} 임장</span>
+                      <span
+                        className={`text-sm px-2 py-0.5 rounded-full font-medium ${
+                          booking.status === 'confirmed'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : booking.status === 'hold'
+                              ? 'bg-amber-50 text-amber-800'
+                              : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {booking.status === 'confirmed'
+                          ? '확정'
+                          : booking.status === 'hold'
+                            ? '대기'
+                            : '취소/완료'}
                       </span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+                    <span className="text-sm text-slate-600">{dateStr}</span>
                   </div>
                 );
               })}
@@ -434,14 +688,13 @@ export default function ClientDetailPage() {
         )}
 
         {/* 연락 이력 */}
-        <section className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              📋 연락 이력
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-600 tracking-wide">📋 연락 이력</h2>
             <button
+              type="button"
               onClick={() => setShowContactForm(!showContactForm)}
-              className="text-xs text-primary font-medium hover:underline"
+              className="min-h-[44px] px-3 text-sm text-blue-700 font-semibold hover:underline cursor-pointer"
             >
               + 기록 추가
             </button>
@@ -449,16 +702,17 @@ export default function ClientDetailPage() {
 
           {/* 연락 기록 추가 폼 */}
           {showContactForm && (
-            <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+            <div className="space-y-2.5 p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <div className="flex gap-1.5 flex-wrap">
                 {Object.entries(CONTACT_TYPE_LABELS).map(([key, { emoji, label }]) => (
                   <button
                     key={key}
+                    type="button"
                     onClick={() => setContactType(key)}
-                    className={`px-2 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                    className={`min-h-[44px] px-3 py-1.5 rounded-full text-sm font-medium border transition-all cursor-pointer ${
                       contactType === key
-                        ? 'bg-primary/10 text-primary border-primary/40'
-                        : 'bg-background text-muted-foreground border-border'
+                        ? 'bg-blue-50 text-blue-700 border-blue-400 font-semibold'
+                        : 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
                     {emoji} {label}
@@ -469,13 +723,14 @@ export default function ClientDetailPage() {
                 value={contactSummary}
                 onChange={(e) => setContactSummary(e.target.value)}
                 rows={2}
-                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors resize-none"
                 placeholder="통화/미팅 내용을 간단히 기록하세요..."
               />
               <button
-                onClick={handleAddContact}
+                type="button"
+                onClick={() => void handleAddContact()}
                 disabled={savingContact || !contactSummary.trim()}
-                className="w-full bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium disabled:opacity-60"
+                className="w-full min-h-[44px] bg-slate-900 hover:bg-slate-800 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50 cursor-pointer"
               >
                 {savingContact ? '저장 중...' : '기록 저장'}
               </button>
@@ -491,16 +746,20 @@ export default function ClientDetailPage() {
 
                 if (isEditing) {
                   return (
-                    <div key={c.id} className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border">
+                    <div
+                      key={c.id}
+                      className="space-y-2.5 p-3 bg-slate-50 rounded-lg border border-slate-200"
+                    >
                       <div className="flex gap-1.5 flex-wrap">
                         {Object.entries(CONTACT_TYPE_LABELS).map(([key, { emoji, label }]) => (
                           <button
                             key={key}
+                            type="button"
                             onClick={() => setEditContactType(key)}
-                            className={`px-2 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                            className={`min-h-[44px] px-3 py-1.5 rounded-full text-sm font-medium border transition-all cursor-pointer ${
                               editContactType === key
-                                ? 'bg-primary/10 text-primary border-primary/40'
-                                : 'bg-background text-muted-foreground border-border'
+                                ? 'bg-blue-50 text-blue-700 border-blue-400 font-semibold'
+                                : 'bg-white text-slate-700 border-slate-200'
                             }`}
                           >
                             {emoji} {label}
@@ -511,19 +770,21 @@ export default function ClientDetailPage() {
                         value={editSummary}
                         onChange={(e) => setEditSummary(e.target.value)}
                         rows={2}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none"
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-colors resize-none"
                       />
                       <div className="flex gap-2 justify-end">
                         <button
+                          type="button"
                           onClick={() => setEditingContactId(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted"
+                          className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200/70 cursor-pointer"
                         >
                           취소
                         </button>
                         <button
-                          onClick={() => handleEditSubmit(c.id)}
+                          type="button"
+                          onClick={() => void handleEditSubmit(c.id)}
                           disabled={isEditingContact || !editSummary.trim()}
-                          className="px-3 py-1.5 rounded-lg text-xs bg-primary text-primary-foreground disabled:opacity-60"
+                          className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50 cursor-pointer"
                         >
                           {isEditingContact ? '저장 중...' : '저장'}
                         </button>
@@ -533,16 +794,16 @@ export default function ClientDetailPage() {
                 }
 
                 return (
-                  <div key={c.id} className="flex gap-2.5 text-sm group">
-                    <div className="flex flex-col items-center">
+                  <div key={c.id} className="flex gap-2.5 text-sm">
+                    <div className="flex flex-col items-center pt-1">
                       <span className="text-base">{ct.emoji}</span>
-                      <div className="w-px flex-1 bg-border mt-1" />
+                      <div className="w-px flex-1 bg-slate-200 mt-1" />
                     </div>
                     <div className="flex-1 pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium">{ct.label}</span>
-                          <span className="text-[10px] text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-slate-900">{ct.label}</span>
+                          <span className="text-sm text-slate-600">
                             {new Date(c.created_at).toLocaleDateString('ko-KR', {
                               month: 'short',
                               day: 'numeric',
@@ -551,33 +812,35 @@ export default function ClientDetailPage() {
                             })}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
+                            type="button"
                             onClick={() => {
                               setEditingContactId(c.id);
                               setEditContactType(c.contact_type);
                               setEditSummary(c.summary || '');
                             }}
-                            className="text-[10px] text-slate-400 hover:text-primary px-1"
+                            className="min-h-[44px] min-w-[44px] text-sm font-medium text-slate-600 hover:text-blue-700 px-2.5 rounded-lg hover:bg-slate-100 cursor-pointer"
                           >
                             수정
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDeleteContact(c.id)}
-                            className="text-[10px] text-slate-400 hover:text-rose-400 px-1"
+                            className="min-h-[44px] min-w-[44px] text-sm font-medium text-slate-600 hover:text-red-700 px-2.5 rounded-lg hover:bg-red-50 cursor-pointer"
                           >
                             삭제
                           </button>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{c.summary}</p>
+                      <p className="text-sm text-slate-700 mt-1">{c.summary}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground text-center py-3">
+            <p className="text-sm text-slate-600 text-center py-3">
               아직 기록된 연락 이력이 없어요.
             </p>
           )}
@@ -606,12 +869,10 @@ export default function ClientDetailPage() {
 
 async function getToken(): Promise<string> {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
-    const { data: { session } } = await supabase.auth.getSession();
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     return session?.access_token ?? '';
   } catch {
     return '';

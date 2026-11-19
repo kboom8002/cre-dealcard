@@ -315,7 +315,8 @@ test.describe.serial('Wave 3 Track C — DealCard, Inbox, QA Signoff & 3-Deal Re
     await page.getByTestId('preview-causality-resync-btn').click();
     await expect(page.getByTestId('preview-causality-bar')).toHaveAttribute(
       'data-lifecycle',
-      'published_clean'
+      'published_clean',
+      { timeout: 15_000 }
     );
     await shot(page, ARTIFACT_DIR, 'w3_dc_02_published_clean_1440', shotCounter);
 
@@ -390,6 +391,9 @@ test.describe.serial('Wave 3 Track C — DealCard, Inbox, QA Signoff & 3-Deal Re
     page,
   }) => {
     const seedRes = await page.request.post('/api/public/qa-workbench', {
+      headers: {
+        'x-qa-access-key': process.env.QA_TESTER_ACCESS_KEY || 'test-qa-tester-key',
+      },
       data: { mode: 'seed_axis456' },
     });
     expect(seedRes.ok()).toBe(true);
@@ -498,8 +502,11 @@ test.describe.serial('Wave 3 Track C — DealCard, Inbox, QA Signoff & 3-Deal Re
   test('[Axis C] In-App QA Pin (?qa=1) <-> /qa-signoff Hub Roundtrip & Hub UX Physics', async ({
     page,
   }) => {
+    const qaTesterKey = process.env.QA_TESTER_ACCESS_KEY || 'test-qa-tester-key';
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/broker/w/dealcards?qa=1', { waitUntil: 'load' });
+    await page.goto(`/broker/w/dealcards?qa=1&qaKey=${encodeURIComponent(qaTesterKey)}`, {
+      waitUntil: 'load',
+    });
     await hideDevOverlay(page);
     await page.waitForTimeout(400);
 
@@ -511,14 +518,15 @@ test.describe.serial('Wave 3 Track C — DealCard, Inbox, QA Signoff & 3-Deal Re
     await page.getByTestId('qa-pin-note-input').fill(uniquePinNote);
     await page.getByTestId('qa-pin-submit-btn').click();
     await expect(page.getByTestId('qa-pin-feedback')).toContainText(
-      '검수 허브에 화면 메모를 저장했습니다.'
+      '검수 허브에 화면 메모를 저장했습니다.',
+      { timeout: 20_000 }
     );
     await shot(page, ARTIFACT_DIR, 'w3_qa_01_pin_overlay_1440', shotCounter);
 
     // Turn off QA overlay cleanly before leaving workspace
     await page.getByTestId('qa-pin-disable-btn').click();
 
-    await page.goto('/qa-signoff', { waitUntil: 'load' });
+    await page.goto(`/qa-signoff?qaKey=${encodeURIComponent(qaTesterKey)}`, { waitUntil: 'load' });
     await hideDevOverlay(page);
     await page.waitForTimeout(400);
 
@@ -702,6 +710,8 @@ test.describe.serial('Wave 3 Track C — DealCard, Inbox, QA Signoff & 3-Deal Re
         assertPriceBandBlocked(analysis.fullPptxText);
         assertPriceReflected(analysis.fullPptxText, deal.askingPriceManwon);
 
+        fs.rmSync(scratchPdf, { force: true });
+        fs.rmSync(path.join(LO_PROFILE_DIR, '.lock'), { force: true });
         execFileSync(
           SOFFICE_EXE,
           [
@@ -713,7 +723,7 @@ test.describe.serial('Wave 3 Track C — DealCard, Inbox, QA Signoff & 3-Deal Re
             SCRATCH_DIR,
             savedPptx,
           ],
-          { timeout: 120_000 }
+          { timeout: 240_000 }
         );
 
         const actualPdf = path.join(

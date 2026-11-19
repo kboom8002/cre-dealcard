@@ -165,8 +165,15 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     email: cleanBrokerVal(rawBroker.email),
     company: cleanBrokerVal(rawBroker.company),
     registrationNo: cleanBrokerVal(rawBroker.registrationNo),
+    officeAddress: cleanBrokerVal(
+      (rawBroker as Record<string, unknown>).officeAddress ||
+        (rawBroker as Record<string, unknown>).office_address ||
+        (rawBroker as Record<string, unknown>).address
+    ),
   };
-  const hasBrokerInfo = Boolean(broker.name || broker.phone || broker.company);
+  const hasBrokerInfo = Boolean(
+    broker.name || broker.phone || broker.company || broker.officeAddress || broker.registrationNo
+  );
   let disclaimerStartY = brokerSectionY + 0.36;
 
   if (hasBrokerInfo) {
@@ -183,10 +190,11 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
 
     // 이름 + 직급 (부재 필드 생략 — 📞 아이콘은 실제 전화번호 행에만)
     const nameLine = [broker.name, broker.title].filter((s: unknown) => typeof s === 'string' && s.trim()).join('  ');
+    const hasAddressLine = Boolean(broker.officeAddress);
     if (nameLine) {
       slide.addText(nameLine, {
-        x: rx + 0.20, y: contactY + 0.06, w: rw - 0.40, h: 0.28,
-        fontFace: KR, fontSize: 11, bold: true, color: 'FFFFFF', margin: 0,
+        x: rx + 0.20, y: contactY + (hasAddressLine ? 0.04 : 0.06), w: rw - 0.40, h: hasAddressLine ? 0.24 : 0.28,
+        fontFace: KR, fontSize: hasAddressLine ? 10.5 : 11, bold: true, color: 'FFFFFF', margin: 0,
       });
     }
 
@@ -197,7 +205,10 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     ].filter(Boolean).join('    ');
     if (contactLine) {
       slide.addText(contactLine, {
-        x: rx + 0.20, y: contactY + (closingLine ? 0.34 : 0.38), w: rw - 0.40, h: 0.26,
+        x: rx + 0.20,
+        y: contactY + (hasAddressLine ? (closingLine ? 0.27 : 0.30) : (closingLine ? 0.34 : 0.38)),
+        w: rw - 0.40,
+        h: hasAddressLine ? 0.22 : 0.26,
         fontFace: KR, fontSize: 9.5, color: CD.body, margin: 0,
       });
     }
@@ -209,8 +220,22 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     ].filter(Boolean).join('    ');
     if (companyLine) {
       slide.addText(companyLine, {
-        x: rx + 0.20, y: contactY + (closingLine ? 0.60 : 0.64), w: rw - 0.40, h: 0.26,
+        x: rx + 0.20,
+        y: contactY + (hasAddressLine ? (closingLine ? 0.49 : 0.54) : (closingLine ? 0.60 : 0.64)),
+        w: rw - 0.40,
+        h: hasAddressLine ? 0.21 : 0.26,
         fontFace: KR, fontSize: 9, color: CD.mute, margin: 0,
+      });
+    }
+
+    // 중개사무소 소재지 (법정 표시사항)
+    if (hasAddressLine) {
+      slide.addText(`소재지: ${broker.officeAddress}`, {
+        x: rx + 0.20,
+        y: contactY + (closingLine ? 0.70 : 0.78),
+        w: rw - 0.40,
+        h: 0.22,
+        fontFace: KR, fontSize: 8.5, color: CD.mute, margin: 0, shrinkText: true,
       });
     }
 

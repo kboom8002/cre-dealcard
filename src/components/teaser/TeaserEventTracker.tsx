@@ -24,7 +24,7 @@ export function TeaserEventTracker({
   visitorFp,
   shareToken,
 }: TeaserEventTrackerProps) {
-  const mountedAtRef = useRef<number>(Date.now());
+  const mountedAtRef = useRef<number>(0);
   const dwellSentRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -50,7 +50,8 @@ export function TeaserEventTracker({
     const sendDwell = () => {
       if (dwellSentRef.current) return;
       dwellSentRef.current = true;
-      const dwellSeconds = Math.max(1, Math.round((Date.now() - mountedAtRef.current) / 1000));
+      const baseTs = mountedAtRef.current || Date.now();
+      const dwellSeconds = Math.max(1, Math.round((Date.now() - baseTs) / 1000));
       fetch('/api/public/teaser/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -361,7 +361,7 @@ export function SeniorTermTooltip({
         }}
         aria-expanded={open}
         data-testid={`senior-tooltip-trigger-${termKey || "custom"}`}
-        className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[34px] rounded-full bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 text-[14px] font-extrabold shadow-2xs transition-colors cursor-pointer shrink-0"
+        className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[44px] rounded-full bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 text-[14px] font-extrabold shadow-2xs transition-colors cursor-pointer shrink-0"
       >
         <span>{buttonLabel}</span>
       </button>
@@ -380,7 +380,7 @@ export function SeniorTermTooltip({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-[14px] font-extrabold shrink-0 cursor-pointer"
+              className="min-h-[44px] min-w-[44px] px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-[14px] font-extrabold shrink-0 cursor-pointer"
             >
               ✕ 닫기
             </button>
@@ -421,7 +421,7 @@ export function SeniorTermTooltip({
                 onAction();
                 setOpen(false);
               }}
-              className="w-full py-2.5 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[14px] font-extrabold shadow-xs transition-colors cursor-pointer"
+              className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[14px] font-extrabold shadow-xs transition-colors cursor-pointer"
             >
               {actionLabel}
             </button>

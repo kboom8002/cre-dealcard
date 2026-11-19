@@ -5,10 +5,19 @@ import heicConvert from "heic-convert";
 import { requireBroker, type AuthGuardResult } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { assertBuildingOwner } from "@/lib/authz/assert-owner";
+import {
+  DEMO_SEED_LEGACY_IDS,
+  getWorkspaceItemByAnyId,
+} from "@/lib/workspace/workspace-repository";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("im-upload-photo");
 const SAFE_BUILDING_SEGMENT_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(raw: string): boolean {
+  return UUID_RE.test(raw.trim());
+}
 
 export const maxDuration = 60;
 
@@ -27,7 +36,7 @@ const MAX_DECODED_BYTES = 8 * 1024 * 1024; // 8 MB ceiling for inline JSON base6
 const MAX_MULTIPART_BYTES = 16 * 1024 * 1024; // 16 MB ceiling for binary multipart uploads
 const MAX_SIGNED_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB ceiling for direct-to-Storage signed uploads
 
-type SupportedImageKind = "jpg" | "png" | "webp" | "heic";
+type SupportedImageKind = "jpg" | "png" | "webp" | "gif" | "heic";
 
 const HEIC_FTYP_BRANDS = new Set([
   "heic",
@@ -64,6 +73,13 @@ function sniffMagicKind(buf: Buffer): SupportedImageKind | null {
     return "png";
   }
   if (
+    buf.byteLength >= 6 &&
+    (buf.subarray(0, 6).toString("ascii") === "GIF87a" ||
+      buf.subarray(0, 6).toString("ascii") === "GIF89a")
+  ) {
+    return "gif";
+  }
+  if (
     buf.byteLength >= 12 &&
     buf.subarray(0, 4).toString("ascii") === "RIFF" &&
     buf.subarray(8, 12).toString("ascii") === "WEBP"
@@ -86,6 +102,7 @@ function classifyDeclaredMimeOrExt(
   if (cleanSub === "jpeg" || cleanSub === "jpg" || cleanSub === "pjpeg") return "jpg";
   if (cleanSub === "png") return "png";
   if (cleanSub === "webp") return "webp";
+  if (cleanSub === "gif") return "gif";
   if (
     cleanSub === "heic" ||
     cleanSub === "heif" ||
@@ -110,6 +127,7 @@ function classifyDeclaredMimeOrExt(
   if (ext === "jpg" || ext === "jpeg") return "jpg";
   if (ext === "png") return "png";
   if (ext === "webp") return "webp";
+  if (ext === "gif") return "gif";
   if (ext === "heic" || ext === "heif") return "heic";
 
   return "unknown";
@@ -121,6 +139,7 @@ function mimeForKind(kind: Exclude<SupportedImageKind, "heic">): {
 } {
   if (kind === "png") return { ext: "png", contentType: "image/png" };
   if (kind === "webp") return { ext: "webp", contentType: "image/webp" };
+  if (kind === "gif") return { ext: "gif", contentType: "image/gif" };
   return { ext: "jpg", contentType: "image/jpeg" };
 }
 
@@ -169,9 +188,10 @@ async function normalizePhotoBufferForStorage(
     }
   }
 
+  // Strictly derive stored MIME/extension from verified magicKind
   const baseMime = mimeForKind(kind);
-  // Optimize oversized raster photos (>350KB) while keeping tiny synthetic/unit-test buffers untouched on error
-  if (rawBuffer.byteLength > 350 * 1024) {
+  // Optimize oversized raster photos (>350KB) while keeping tiny synthetic/unit-test buffers & GIFs untouched
+  if (kind !== "gif" && rawBuffer.byteLength > 350 * 1024) {
     const optimized = await sharp(rawBuffer)
       .rotate()
       .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
@@ -191,15 +211,22 @@ function isSafeBuildingSegment(rawBuildingId: string): boolean {
 
 function resolveSafeFolder(rawBuildingId: string, userId?: string): string {
   const safeUser = userId && SAFE_BUILDING_SEGMENT_RE.test(userId) ? userId : "broker";
-  return rawBuildingId && isSafeBuildingSegment(rawBuildingId)
-    ? rawBuildingId
-    : `draft-${safeUser}`;
+  if (!rawBuildingId || !isSafeBuildingSegment(rawBuildingId)) {
+    return `drafts/${safeUser}/unscoped`;
+  }
+  if (isUuid(rawBuildingId)) {
+    return rawBuildingId;
+  }
+  return `drafts/${safeUser}/${rawBuildingId}`;
 }
 
 /**
- * When `rawBuildingId` is supplied, verify path-segment safety AND check `building_ssot_lite`.
- * Pre-creation draft IDs not yet in `building_ssot_lite` (404) are permitted, while existing
- * buildings owned by another broker (or with null owner_id) fail closed with 403.
+ * When `rawBuildingId` is supplied, verify path-segment safety AND tenant ownership:
+ * - UUID `rawBuildingId`: check `building_ssot_lite` via `assertBuildingOwner`; on 404, verify
+ *   `workspace_items` does not belong to another broker before permitting unprovisioned UUID drafts.
+ * - Non-UUID `rawBuildingId` (e.g. `bld-fresh-*`, `bld-dup-*`, `bld-01`): NEVER query UUID column
+ *   `building_ssot_lite.id` (prevents Postgres `22P02 -> 500`); verify `workspace_items` ownership
+ *   and isolate Storage paths under `drafts/<userId>/<buildingId>/...`.
  */
 async function guardBuildingIdForUpload(
   svc: ReturnType<typeof createServiceClient>,
@@ -213,13 +240,43 @@ async function guardBuildingIdForUpload(
       { status: 400 }
     );
   }
-  if (svc && typeof svc.from === "function" && auth.user?.id) {
-    const ownership = await assertBuildingOwner(svc, rawBuildingId, auth.user.id, {
+  if (!svc || typeof svc.from !== "function" || !auth.user?.id) {
+    return null;
+  }
+
+  const userId = auth.user.id;
+  const isAdmin = auth.role === "admin" || auth.profile?.role === "admin";
+
+  if (isUuid(rawBuildingId)) {
+    const ownership = await assertBuildingOwner(svc, rawBuildingId, userId, {
       allowAdmin: true,
       role: auth.role,
     });
-    if (!ownership.ok && ownership.status !== 404) {
+    if (ownership.ok) return null;
+    if (ownership.status !== 404) {
       return ownership.response;
+    }
+    const ownedWs = await getWorkspaceItemByAnyId(svc, rawBuildingId, "im", userId).catch(() => null);
+    if (ownedWs) return null;
+    const anyWs = await getWorkspaceItemByAnyId(svc, rawBuildingId).catch(() => null);
+    if (anyWs && anyWs.ownerId && anyWs.ownerId !== userId && !isAdmin) {
+      return NextResponse.json(
+        { ok: false, code: "FORBIDDEN", error: "이 매물에 대한 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+    return null;
+  }
+
+  const ownedWs = await getWorkspaceItemByAnyId(svc, rawBuildingId, "im", userId).catch(() => null);
+  if (ownedWs) return null;
+  if (!DEMO_SEED_LEGACY_IDS.has(rawBuildingId)) {
+    const anyWs = await getWorkspaceItemByAnyId(svc, rawBuildingId).catch(() => null);
+    if (anyWs && anyWs.ownerId && anyWs.ownerId !== userId && !isAdmin) {
+      return NextResponse.json(
+        { ok: false, code: "FORBIDDEN", error: "이 매물에 대한 권한이 없습니다." },
+        { status: 403 }
+      );
     }
   }
   return null;
@@ -324,21 +381,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Strict magic-byte enforcement: NEVER fall back to declared MIME/extension when magicKind is null
     const magicKind = sniffMagicKind(rawBuffer);
     const declared = classifyDeclaredMimeOrExt(blob.type || "", fileName);
-    const resolvedKind: SupportedImageKind | null =
-      magicKind || (declared !== "unsupported" && declared !== "unknown" ? declared : null);
 
-    if (!resolvedKind || declared === "unsupported") {
+    if (!magicKind || declared === "unsupported") {
       return NextResponse.json(
         {
           ok: false,
-          error: "UNSUPPORTED_MIME",
-          message: "JPG, PNG, WEBP, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
+          code: "UNSUPPORTED_MEDIA_TYPE",
+          error: "UNSUPPORTED_MEDIA_TYPE",
+          message: "JPG, PNG, WEBP, GIF, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
         },
         { status: 415 }
       );
     }
+    const resolvedKind: SupportedImageKind = magicKind;
 
     try {
       const svc = createServiceClient();
@@ -458,7 +516,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Mode 2B: Finalize raw file uploaded via signed URL -> transcode HEIC/oversized -> publish clean JPEG URL
+  // Mode 2B: Finalize raw file uploaded via signed URL -> transcode HEIC/oversized -> publish clean URL
   if (action === "finalize_uploaded_raw") {
     const tempPath = typeof body.tempPath === "string" ? body.tempPath.trim() : "";
     if (!tempPath || !tempPath.startsWith(`${safeFolder}/im-raw-tmp/`) || tempPath.includes("..")) {
@@ -482,19 +540,18 @@ export async function POST(req: NextRequest) {
       }
       const rawBuffer = Buffer.from(await dlBlob.arrayBuffer());
       const magicKind = sniffMagicKind(rawBuffer);
-      const declared = classifyDeclaredMimeOrExt("", rawFileName || tempPath);
-      const resolvedKind: SupportedImageKind | null =
-        magicKind || (declared !== "unsupported" && declared !== "unknown" ? declared : null);
-      if (!resolvedKind) {
+      if (!magicKind) {
         return NextResponse.json(
           {
             ok: false,
-            error: "UNSUPPORTED_MIME",
-            message: "JPG, PNG, WEBP, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
+            code: "UNSUPPORTED_MEDIA_TYPE",
+            error: "UNSUPPORTED_MEDIA_TYPE",
+            message: "JPG, PNG, WEBP, GIF, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
           },
           { status: 415 }
         );
       }
+      const resolvedKind: SupportedImageKind = magicKind;
       const normalized = await normalizePhotoBufferForStorage(rawBuffer, resolvedKind);
       const finalPath = `${safeFolder}/im-photos/${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${normalized.ext}`;
       const uploaded = await uploadBufferAndGetPublicUrl(
@@ -531,7 +588,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Mode 3: Backwards-compatible inline dataUrl JSON upload (supports image/jpeg, png, webp, heic, and octet-stream HEIC)
+  // Mode 3: Backwards-compatible inline dataUrl JSON upload (strict magic-byte check)
   const dataUrl = typeof body.dataUrl === "string" ? body.dataUrl.trim() : "";
   if (!dataUrl.startsWith("data:")) {
     return NextResponse.json(
@@ -574,26 +631,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: "UNSUPPORTED_MIME",
-        message: "JPG, PNG, WEBP, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
+        code: "UNSUPPORTED_MEDIA_TYPE",
+        error: "UNSUPPORTED_MEDIA_TYPE",
+        message: "JPG, PNG, WEBP, GIF, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
       },
       { status: 415 }
     );
   }
 
+  // Strict magic-byte enforcement: NEVER trust declared MIME when buffer lacks valid image magic bytes
   const magicKind = sniffMagicKind(buffer);
-  const resolvedKind: SupportedImageKind | null =
-    declared !== "unknown" ? declared : magicKind;
-  if (!resolvedKind) {
+  if (!magicKind) {
     return NextResponse.json(
       {
         ok: false,
-        error: "UNSUPPORTED_MIME",
-        message: "JPG, PNG, WEBP, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
+        code: "UNSUPPORTED_MEDIA_TYPE",
+        error: "UNSUPPORTED_MEDIA_TYPE",
+        message: "JPG, PNG, WEBP, GIF, HEIC(아이폰 사진) 형식만 업로드할 수 있습니다.",
       },
       { status: 415 }
     );
   }
+  const resolvedKind: SupportedImageKind = magicKind;
 
   try {
     const svc = createServiceClient();

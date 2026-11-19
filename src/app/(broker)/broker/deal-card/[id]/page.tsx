@@ -335,7 +335,7 @@ export default async function BrokerDealCardResultPage({
         <StaggerItem className="text-center space-y-2">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3.5 py-1 shadow-2xs">
             <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs font-extrabold text-primary">AI 블라인드 딜카드 완성</span>
+            <span className="text-sm font-extrabold text-primary">AI 블라인드 딜카드 완성</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black leading-tight text-foreground tracking-tight">
             {title || "딜카드가 준비됐습니다."}
@@ -351,7 +351,7 @@ export default async function BrokerDealCardResultPage({
             <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
               <span>🚀</span> 이 매물로 바로 작업하기
             </span>
-            <span className="text-xs font-semibold text-muted-foreground">
+            <span className="text-sm font-semibold text-muted-foreground">
               원하시는 작업을 눌러주세요
             </span>
           </div>
@@ -417,7 +417,7 @@ export default async function BrokerDealCardResultPage({
                   <p className="text-base font-extrabold text-foreground">
                     딜카드 제목 · 카톡 공유 문구 직접 다듬기
                   </p>
-                  <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                  <p className="text-sm font-medium text-muted-foreground mt-0.5">
                     AI가 작성한 제목이나 카카오톡 전송 문구를 수정하고 싶을 때 눌러서 여세요
                   </p>
                 </div>
@@ -523,7 +523,7 @@ export default async function BrokerDealCardResultPage({
                     </h2>
                     <div className="flex flex-wrap gap-1.5">
                       {hiddenFields.map((field) => (
-                        <span key={field} className="text-xs bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-md font-semibold">
+                        <span key={field} className="text-sm bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-md font-semibold">
                           {hiddenFieldLabels[field] || field}
                         </span>
                       ))}
@@ -540,7 +540,7 @@ export default async function BrokerDealCardResultPage({
                 currentScore={currentScore}
               />
               <div className="rounded-xl bg-muted/60 dark:bg-muted/40 border border-border px-4 py-3">
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {boundaryNote}
                 </p>
               </div>
@@ -552,13 +552,13 @@ export default async function BrokerDealCardResultPage({
               <div className="flex gap-2">
                 <Link
                   href={`/broker/matching?buildingId=${id}`}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
                 >
                   <span>🎯 AI 매칭 센터 전체보기</span>
                 </Link>
                 <Link
                   href={`/broker/tenant-intents?buildingId=${id}`}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
                 >
                   <span>🏢 연동 임차의향서 확인</span>
                 </Link>
@@ -592,10 +592,10 @@ export default async function BrokerDealCardResultPage({
               <DealPredictionSection buildingId={id} />
               <ScheduleSection buildingId={id} />
               <div className="rounded-xl border border-border bg-card p-4 text-center space-y-2">
-                <p className="text-xs text-muted-foreground">건물주 보고서 생성</p>
+                <p className="text-sm text-muted-foreground">건물주 보고서 생성</p>
                 <Link
                   href={`/broker/buildings/${id}/owner-report`}
-                  className="inline-flex items-center justify-center rounded-xl bg-secondary px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                  className="inline-flex items-center justify-center rounded-xl bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
                 >
                   📊 건물주 보고서 이동
                 </Link>

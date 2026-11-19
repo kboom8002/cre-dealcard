@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { trackTeaserCta } from "./TeaserEventTracker";
 import { ContactGateModal } from "./ContactGateModal";
 import { toast } from "sonner";
@@ -39,13 +39,32 @@ export function CTALadder({
   const router = useRouter();
   const [showContactModal, setShowContactModal] = useState(false);
   const [requestConfirmed, setRequestConfirmed] = useState(false);
+  const [serverCookieVerified, setServerCookieVerified] = useState(false);
   useBottomSlot(`cta-ladder-${buildingId}`);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/gate-requests?buildingId=${encodeURIComponent(buildingId)}`, {
+      credentials: "same-origin",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { verified?: boolean } | null) => {
+        if (!cancelled && json?.verified === true) {
+          setServerCookieVerified(true);
+        }
+      })
+      .catch(() => {
+        // non-blocking
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildingId]);
 
   const fp = readSafeLocalStorage("visitorFp") || "anon";
   const cleanPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, "") : "";
   const hasValidPhone = cleanPhone.length >= 8;
-  const isVerified =
-    requestConfirmed || Boolean(readSafeLocalStorage(`contact_verified_${buildingId}`));
+  const isVerified = requestConfirmed || serverCookieVerified;
 
   const handleCallPhone = () => {
     trackTeaserCta(teaserConfigId, fp, "cta_click", { action: "phone_call" });

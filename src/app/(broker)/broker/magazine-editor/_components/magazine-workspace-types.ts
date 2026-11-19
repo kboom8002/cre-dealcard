@@ -15,6 +15,8 @@ import type {
   MonthlyRegionalChart,
 } from "@/domain/magazine/types";
 import { getSiteOrigin } from "@/lib/kakao/share";
+import { toKstDate, todayKst } from "@/lib/magazine/kst";
+import { resolvePublicBaseUrl } from "@/lib/magazine/share-urls";
 import {
   getDefaultSectionsForCadence,
   parseCadenceAnchor,
@@ -130,6 +132,114 @@ export interface StatusBannerState {
   tone: "success" | "error" | "info" | "warning";
   message: string;
   fallbackUrl?: string;
+  profileCtaHref?: string;
+  missingLabels?: string[];
+}
+
+/**
+ * API 에러 응답(특히 422 STATUTORY_DISCLOSURE_INCOMPLETE)에서 사용자 안내 배너 상태를 생성한다.
+ */
+export function buildApiErrorStatusBanner(
+  status: number,
+  json: unknown,
+  fallbackMessage: string,
+): StatusBannerState {
+  const rec = (json && typeof json === "object" ? json : {}) as Record<string, unknown>;
+  const errObj =
+    rec.error && typeof rec.error === "object" ? (rec.error as Record<string, unknown>) : null;
+  const code = typeof errObj?.code === "string" ? errObj.code : typeof rec.code === "string" ? rec.code : "";
+  const rawMessage =
+    typeof errObj?.message === "string"
+      ? errObj.message
+      : typeof rec.message === "string"
+        ? rec.message
+        : fallbackMessage;
+  const rawMissing = Array.isArray(rec.missingLabels)
+    ? rec.missingLabels
+    : Array.isArray(errObj?.missingLabels)
+      ? errObj.missingLabels
+      : [];
+  const missingLabels = rawMissing
+    .filter((label): label is string => typeof label === "string" && label.trim().length > 0)
+    .map((label) => label.trim());
+
+  if (status === 422 && (code === "STATUTORY_DISCLOSURE_INCOMPLETE" || missingLabels.length > 0)) {
+    const missingSuffix = missingLabels.length > 0 ? ` (미입력 항목: ${missingLabels.join(", ")})` : "";
+    return {
+      tone: "error",
+      message: `${rawMessage || "법정 필수 중개사무소 정보가 미입력되어 발행을 완료할 수 없습니다."}${missingSuffix}`,
+      profileCtaHref: "/broker/profile",
+      missingLabels,
+    };
+  }
+
+  return {
+    tone: "error",
+    message: rawMessage || fallbackMessage,
+  };
+}
+
+export interface MagazineQueryAction {
+  dealIds: string[];
+  step?: NewsletterStepKey;
+  insightsTab?: "subscribers" | "analytics";
+}
+
+/**
+ * ?deals= / ?tab= / ?step= URL 쿼리 파라미터에서 초기 에디터 진입 액션을 해석한다.
+ */
+export function resolveMagazineQueryAction(
+  searchParams: { get?: (key: string) => string | null } | null | undefined,
+): MagazineQueryAction {
+  const dealsParam = searchParams?.get?.("deals") || "";
+  const tabParam = searchParams?.get?.("tab") || "";
+  const stepParam = searchParams?.get?.("step") || "";
+  const dealIds = dealsParam.split(",").map((s) => s.trim()).filter(Boolean);
+
+  if (tabParam === "outreach" || tabParam === "subscribers") {
+    return { dealIds, insightsTab: "subscribers" };
+  }
+  if (tabParam === "analytics") {
+    return { dealIds, insightsTab: "analytics" };
+  }
+  if (tabParam === "theme_deals" || tabParam === "content" || stepParam === "deals" || stepParam === "content") {
+    return { dealIds, step: "content" };
+  }
+  if (tabParam === "send" || tabParam === "publish" || stepParam === "publish" || stepParam === "send") {
+    return { dealIds, step: "send" };
+  }
+  if (tabParam === "ai_assist" || tabParam === "cover" || tabParam === "title" || stepParam === "title") {
+    return { dealIds, step: "title" };
+  }
+  return { dealIds, step: dealIds.length > 0 ? "content" : undefined };
+}
+
+export function buildSafePublicUrl(params: {
+  brokerSlug: string;
+  issueDate?: string | null;
+  fallbackAnchorDate?: string | null;
+  editionId?: string | null;
+  targetSegment?: NewsletterTargetSegment;
+}): string | null {
+  const cleanSlug = params.brokerSlug.trim();
+  if (!cleanSlug || cleanSlug === "me" || isUuidLike(cleanSlug)) {
+    return null;
+  }
+  const isoDate = isValidIsoDate(params.issueDate)
+    ? params.issueDate.trim()
+    : isValidIsoDate(params.fallbackAnchorDate)
+      ? params.fallbackAnchorDate.trim()
+      : todayKst();
+  const qs = new URLSearchParams();
+  if (params.editionId && params.editionId.trim()) {
+    qs.set("edition", params.editionId.trim());
+  }
+  if (params.targetSegment && params.targetSegment !== "all") {
+    qs.set("target", params.targetSegment);
+  }
+  const query = qs.toString();
+  const baseOrigin = resolvePublicBaseUrl() ?? getSiteOrigin();
+  return `${baseOrigin}/magazine/${encodeURIComponent(cleanSlug)}/${encodeURIComponent(isoDate)}${query ? `?${query}` : ""}`;
 }
 
 export const LEGACY_DRAFT_STORAGE_KEY = "cre-newsletter-local-draft-v2";
@@ -138,6 +248,13 @@ export const LAST_ACTIVE_SLOT_SESSION_KEY = "cre-newsletter-last-slot-v3";
 
 export function isValidIsoDate(val: unknown): val is string {
   return typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim());
+}
+
+export function isoTimestampToKstDate(val: unknown): string | undefined {
+  if (typeof val !== "string" || !val.trim()) return undefined;
+  if (isValidIsoDate(val)) return val.trim();
+  const parsed = new Date(val);
+  return Number.isNaN(parsed.getTime()) ? undefined : toKstDate(parsed);
 }
 
 export function isUuidLike(val: string | null | undefined): boolean {
@@ -174,10 +291,24 @@ export function normalizeEditorSections(
   const fallbackMap = new Map(
     buildDefaultEditorSections(cadenceVal).map((item) => [item.id, item.enabled]),
   );
-  return DEFAULT_NEWSLETTER_BLOCKS.map((b) => ({
-    id: b.id,
-    enabled: map.has(b.id) ? Boolean(map.get(b.id)) : Boolean(fallbackMap.get(b.id)),
-  }));
+  return DEFAULT_NEWSLETTER_BLOCKS.map((b) => {
+    if (b.id === "field_note") {
+      if (map.has("field_note") || map.has("ai_briefing")) {
+        return {
+          id: b.id,
+          enabled: Boolean(map.get("field_note")) || Boolean(map.get("ai_briefing")),
+        };
+      }
+      return {
+        id: b.id,
+        enabled: Boolean(fallbackMap.get(b.id)),
+      };
+    }
+    return {
+      id: b.id,
+      enabled: map.has(b.id) ? Boolean(map.get(b.id)) : Boolean(fallbackMap.get(b.id)),
+    };
+  });
 }
 
 export function normalizeTargetSegment(raw: unknown): NewsletterTargetSegment | undefined {
@@ -397,14 +528,12 @@ export function mapServerEditionRowToSummary(
     if (typeof v === "string") dealCommentsMap[k] = v;
   }
   const rawIssueDate = isValidIsoDate(content.issueDate)
-    ? content.issueDate
+    ? content.issueDate.trim()
     : isValidIsoDate(content.issue_date)
-      ? content.issue_date
-      : typeof row.published_at === "string" && isValidIsoDate(row.published_at.slice(0, 10))
-        ? row.published_at.slice(0, 10)
-        : typeof row.created_at === "string" && isValidIsoDate(row.created_at.slice(0, 10))
-          ? row.created_at.slice(0, 10)
-          : "";
+      ? content.issue_date.trim()
+      : isoTimestampToKstDate(row.published_at) ??
+        isoTimestampToKstDate(row.created_at) ??
+        "";
   const rowId = String(row.id ?? "");
   const rowSlug = String(row.edition_label ?? "");
   const parsedCadence =

@@ -10,6 +10,7 @@ import {
 } from "@/components/broker/rent-roll-importer";
 import { TERMS } from "@/lib/ux/lexicon";
 import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
+import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import type { ImPostitStyle } from "./ImPreviewPane";
 import {
   formatPhoneHyphen,
@@ -32,6 +33,7 @@ export interface ImEditorPanelsProps {
   onOpenBottomSheet: () => void;
   isDownloadingPptx: boolean;
   actionAlert: string | null;
+  actionAlertCode?: string | null;
   onClearActionAlert: () => void;
   onNotifyEditorFocus: (unitId: string) => void;
   onCreateNew: () => void;
@@ -120,6 +122,7 @@ export function ImEditorPanels({
   onOpenBottomSheet,
   isDownloadingPptx,
   actionAlert,
+  actionAlertCode,
   onClearActionAlert,
   onNotifyEditorFocus,
   onCreateNew,
@@ -220,9 +223,21 @@ export function ImEditorPanels({
       {actionAlert && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-base font-bold"
+          className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-base font-bold space-y-2.5"
         >
-          ⚠ {actionAlert}
+          <div>⚠ {actionAlert}</div>
+          {(actionAlertCode === "STATUTORY_DISCLOSURE_INCOMPLETE" ||
+            /공인중개사법|개설등록번호|법정 정보/.test(actionAlert)) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/broker/profile"
+                data-testid="im-statutory-profile-cta"
+                className="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-extrabold transition"
+              >
+                프로필에서 법정 표시사항 입력하기 →
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -731,7 +746,7 @@ export function ImEditorPanels({
                 >
                   약{" "}
                   {Math.round(
-                    Number(String(gfaSqm || "").replace(/,/g, "")) * 0.3025
+                    m2ToPyeong(Number(String(gfaSqm || "").replace(/,/g, "")))
                   ).toLocaleString()}
                   평
                 </span>
@@ -762,7 +777,7 @@ export function ImEditorPanels({
                 >
                   약{" "}
                   {Math.round(
-                    Number(String(landAreaSqm || "").replace(/,/g, "")) * 0.3025
+                    m2ToPyeong(Number(String(landAreaSqm || "").replace(/,/g, "")))
                   ).toLocaleString()}
                   평
                 </span>

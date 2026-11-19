@@ -6,12 +6,47 @@
  * - ?kind=photo&slot=1..7[&download=1]   -> 7 architectural photos (5 landscape + 2 portrait 853x1280)
  */
 
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import sharp from "sharp";
 import { TESTGUIDE_IMAGE_CDN_MAP } from "@/lib/testguide/testguide-data";
+import { isRealProductionRuntime } from "@/lib/env";
 
 export const runtime = "nodejs";
+
+function timingSafeMatchKey(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
+function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
+  const candidates = [
+    (req.headers.get("x-qa-access-key") || "").trim(),
+    (req.cookies.get("cre_qa_key")?.value || "").trim(),
+    (req.nextUrl.searchParams.get("qaKey") || req.nextUrl.searchParams.get("key") || "").trim(),
+  ].filter(Boolean);
+  if (candidates.length === 0) return false;
+
+  const configuredKeys = [
+    process.env.QA_ACCESS_KEY,
+    process.env.QA_TESTER_ACCESS_KEY,
+    process.env.QA_BROKER_ACCESS_KEY,
+  ]
+    .map((v) => (v || "").trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    for (const key of configuredKeys) {
+      if (timingSafeMatchKey(key, candidate)) return true;
+    }
+  }
+  return false;
+}
 
 const PHOTO_SLOT_CONFIG: Record<
   number,
@@ -135,6 +170,16 @@ function buildBojeongStandardWorkbook(): Buffer {
 }
 
 export async function GET(req: NextRequest) {
+  if (
+    (isRealProductionRuntime() || process.env.CRE_ENFORCE_QA_GATE === "1") &&
+    !hasValidQaAccessKeyHeader(req)
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Not Found" },
+      { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+    );
+  }
+
   const kind = req.nextUrl.searchParams.get("kind") || "";
 
   if (kind === "xlsx") {

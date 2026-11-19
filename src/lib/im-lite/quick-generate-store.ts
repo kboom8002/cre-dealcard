@@ -1,10 +1,9 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import type { BasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
-import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
+import { m2ToPyeong, pyeongToM2, SQM_RATIO } from '@/domain/building/im-core/facts/area';
+import { isRealProductionRuntime } from '@/lib/env';
+import { TEST_PARCEL_FIXTURES } from '@/lib/im-lite/test-parcel-fixtures';
 import {
   computeCard4Hash,
   generateAiOgHeadline,
@@ -244,69 +243,14 @@ export function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | un
   return undefined;
 }
 
-const TEST_WORKER_SUFFIX = process.env.VITEST ? `-${process.pid}` : '';
-const STORE_FILE = path.join(os.tmpdir(), `cre-v3-quick-generate-store${TEST_WORKER_SUFFIX}.json`);
+function isVitestStoreEnabled(): boolean {
+  return Boolean(process.env.VITEST) && process.env.DISABLE_MEMORY_STORE !== '1';
+}
 
 declare global {
   // eslint-disable-next-line no-var
   var __CRE_QUICK_IM_STORE__: Map<string, StoredQuickImRecord> | undefined;
 }
-
-const KNOWN_GOLDEN_PARCELS: Array<{
-  match: RegExp;
-  pnu: string;
-  coordinates: { lat: number; lng: number };
-  officialLandPriceWonSqm?: number;
-}> = [
-  {
-    match: /(양화로\s*18안길\s*7\b|동교동\s*(?:147-8|168-4)\b)/,
-    pnu: '1144012100101680004',
-    coordinates: { lat: 37.556828, lng: 126.925088 },
-    officialLandPriceWonSqm: 14200000,
-  },
-  {
-    match: /(동교동\s*189-6|와우산로37길\s*9)/,
-    pnu: '1144012100101890006',
-    coordinates: { lat: 37.55597, lng: 126.93033 },
-    officialLandPriceWonSqm: 11670000,
-  },
-  {
-    match: /(심곡동\s*382-2|부천로29번길\s*22)/,
-    pnu: '4119210100103820002',
-    coordinates: { lat: 37.4867, lng: 126.7824 },
-    officialLandPriceWonSqm: 4680000,
-  },
-  {
-    match: /(심곡동\s*349-10|부천로39번길\s*8)/,
-    pnu: '4119210200103490010',
-    coordinates: { lat: 37.48815, lng: 126.78317 },
-    officialLandPriceWonSqm: 4680000,
-  },
-  {
-    match: /(역삼동\s*823-33|테헤란로14길\s*8)/,
-    pnu: '1168010100108230033',
-    coordinates: { lat: 37.4996, lng: 127.0344 },
-    officialLandPriceWonSqm: 65340000,
-  },
-  {
-    match: /(역삼동\s*648-23|테헤란로\s*123)/,
-    pnu: '1168010100106480023',
-    coordinates: { lat: 37.49956, lng: 127.03151 },
-    officialLandPriceWonSqm: 65340000,
-  },
-  {
-    match: /(보정동\s*1208-4|죽전로\s*15)/,
-    pnu: '4146311800112080004',
-    coordinates: { lat: 37.3228, lng: 127.1107 },
-    officialLandPriceWonSqm: 6420000,
-  },
-  {
-    match: /(보정동\s*1323-2|신촌로47번길\s*6)/,
-    pnu: '4146311800113230002',
-    coordinates: { lat: 37.3079134604492, lng: 127.110304201949 },
-    officialLandPriceWonSqm: 2790000,
-  },
-];
 
 function parseFloorCountsFromRentRoll(
   rentRoll: Array<{ floor?: string }>,
@@ -514,7 +458,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       ? Math.round((params.gfaSqm / totalFloorsCount) * 10) / 10
       : 0;
   const perFloorAreaPy =
-    perFloorAreaSqm > 0 ? Math.round((perFloorAreaSqm / 3.305785) * 10) / 10 : 0;
+    perFloorAreaSqm > 0 ? Math.round(m2ToPyeong(perFloorAreaSqm) * 10) / 10 : 0;
   const normalizeStoreFloorKey = (rawStr: string): string => {
     const s = String(rawStr || '').trim();
     const uMatch = s.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
@@ -561,7 +505,7 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         : isAuxRow
         ? 0
         : Math.round((floorBudgetSqm / unitsOnFloor) * 100) / 100;
-    const areaPy = areaSqm > 0 ? Math.round((areaSqm / 3.305785) * 10) / 10 : perFloorAreaPy;
+    const areaPy = areaSqm > 0 ? Math.round(m2ToPyeong(areaSqm) * 10) / 10 : perFloorAreaPy;
     const exclusiveAreaSqm =
       Number(r.exclusiveAreaSqm ?? (r as any).exclusive_area_sqm ?? 0) || undefined;
     const rawUse = String(r.use || '').trim();
@@ -795,9 +739,9 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
         `| 본건 건물 단가 | 연면적 ${facts.building.totalGrossAreaPyeong}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 지상 ${floorsAbove}층 / 지하 ${floorsBelow}층 |`,
         ...(officialLandPriceWonSqm > 0
           ? [
-              `| 공시지가 대비 배율 | 개별공시지가 ${Math.round((officialLandPriceWonSqm * 3.305785) / 10000).toLocaleString()}만원/평 | ${(
+              `| 공시지가 대비 배율 | 개별공시지가 ${Math.round((officialLandPriceWonSqm * SQM_RATIO) / 10000).toLocaleString()}만원/평 | ${(
                 facts.transaction.pricePerPyeongLandWon /
-                Math.max(1, officialLandPriceWonSqm * 3.305785)
+                Math.max(1, officialLandPriceWonSqm * SQM_RATIO)
               ).toFixed(2)}배 | 토지 호가 / 공시지가 비율 |`,
             ]
           : []),
@@ -928,6 +872,9 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
 }
 
 export function getDefaultSeeds(): StoredQuickImRecord[] {
+  if (isRealProductionRuntime() && !isVitestStoreEnabled()) {
+    return [];
+  }
   return [
     buildSeedRecord({
       buildingId: 'bld-01',
@@ -1011,6 +958,9 @@ export function getDefaultSeeds(): StoredQuickImRecord[] {
 }
 
 function getStoreMap(): Map<string, StoredQuickImRecord> {
+  if (!isVitestStoreEnabled()) {
+    return new Map<string, StoredQuickImRecord>();
+  }
   if (!globalThis.__CRE_QUICK_IM_STORE__) {
     globalThis.__CRE_QUICK_IM_STORE__ = new Map<string, StoredQuickImRecord>();
     for (const seed of getDefaultSeeds()) {
@@ -1018,44 +968,18 @@ function getStoreMap(): Map<string, StoredQuickImRecord> {
       globalThis.__CRE_QUICK_IM_STORE__.set(seed.documentId, seed);
     }
   }
-  try {
-    if (fs.existsSync(STORE_FILE)) {
-      const raw = fs.readFileSync(STORE_FILE, 'utf-8');
-      const parsed = JSON.parse(raw) as StoredQuickImRecord[];
-      if (Array.isArray(parsed)) {
-        for (const rec of parsed) {
-          if (rec?.buildingId) {
-            globalThis.__CRE_QUICK_IM_STORE__.set(rec.buildingId, rec);
-          }
-          if (rec?.documentId) {
-            globalThis.__CRE_QUICK_IM_STORE__.set(rec.documentId, rec);
-          }
-        }
-      }
-    }
-  } catch {
-    // ignore file read error
-  }
   return globalThis.__CRE_QUICK_IM_STORE__;
 }
 
 export function saveQuickImRecord(record: StoredQuickImRecord): void {
+  if (!isVitestStoreEnabled()) return;
   const store = getStoreMap();
   store.set(record.buildingId, record);
   store.set(record.documentId, record);
-  try {
-    const uniqueByBuilding = new Map<string, StoredQuickImRecord>();
-    for (const val of store.values()) {
-      uniqueByBuilding.set(val.buildingId, val);
-    }
-    fs.writeFileSync(STORE_FILE, JSON.stringify(Array.from(uniqueByBuilding.values())), 'utf-8');
-  } catch {
-    // ignore file write error
-  }
 }
 
 export function deleteQuickImRecord(id: string): void {
-  if (!id) return;
+  if (!id || !isVitestStoreEnabled()) return;
   const store = getStoreMap();
   const target = store.get(id);
   store.delete(id);
@@ -1068,31 +992,15 @@ export function deleteQuickImRecord(id: string): void {
       store.delete(key);
     }
   }
-  try {
-    const uniqueByBuilding = new Map<string, StoredQuickImRecord>();
-    for (const val of store.values()) {
-      if (val?.buildingId) {
-        uniqueByBuilding.set(val.buildingId, val);
-      }
-    }
-    fs.writeFileSync(STORE_FILE, JSON.stringify(Array.from(uniqueByBuilding.values())), 'utf-8');
-  } catch {
-    // ignore file write error
-  }
 }
 
 export function clearQuickImStoreForTest(): void {
   globalThis.__CRE_QUICK_IM_STORE__ = new Map<string, StoredQuickImRecord>();
-  for (const seed of getDefaultSeeds()) {
-    globalThis.__CRE_QUICK_IM_STORE__.set(seed.buildingId, seed);
-    globalThis.__CRE_QUICK_IM_STORE__.set(seed.documentId, seed);
-  }
-  try {
-    if (fs.existsSync(STORE_FILE)) {
-      fs.unlinkSync(STORE_FILE);
+  if (isVitestStoreEnabled()) {
+    for (const seed of getDefaultSeeds()) {
+      globalThis.__CRE_QUICK_IM_STORE__.set(seed.buildingId, seed);
+      globalThis.__CRE_QUICK_IM_STORE__.set(seed.documentId, seed);
     }
-  } catch {
-    // ignore
   }
 }
 
@@ -1135,8 +1043,48 @@ export function synthesizeQuickRecordFromImItem(
     ? eventCreatedAt || undefined
     : undefined;
 
-  const address = String(imItem.address || '').trim();
-  const title = String(imItem.title || imItem.buildingName || '상업용 근생빌딩').trim();
+  const ssot = (
+    imItem.ssot_summary && typeof imItem.ssot_summary === 'object'
+      ? imItem.ssot_summary
+      : imItem.ssotSummary && typeof imItem.ssotSummary === 'object'
+      ? imItem.ssotSummary
+      : imItem.fullDocBody?.ssot_summary && typeof imItem.fullDocBody.ssot_summary === 'object'
+      ? imItem.fullDocBody.ssot_summary
+      : {}
+  ) as Record<string, any>;
+  const basicDoc = (
+    imItem.basicImDocument ||
+    imItem.basicImDoc ||
+    imItem.fullDocBody?.basicImDocument ||
+    imItem.fullDocBody?.basicImDoc
+  ) as Record<string, any> | undefined;
+  const basicFacts = (basicDoc?.facts && typeof basicDoc.facts === 'object'
+    ? basicDoc.facts
+    : undefined) as Record<string, any> | undefined;
+
+  const address = String(
+    imItem.address ||
+      imItem.resolved_address ||
+      imItem.roadAddress ||
+      imItem.jibunAddress ||
+      ssot.address ||
+      ssot.road_address ||
+      ssot.jibun_address ||
+      ssot.raw_address ||
+      basicFacts?.land?.roadAddress ||
+      basicFacts?.land?.jibunAddress ||
+      basicFacts?.building?.address ||
+      ''
+  ).trim();
+  const title = String(
+    imItem.title ||
+      imItem.buildingName ||
+      imItem.heroTitle ||
+      basicFacts?.building?.buildingName ||
+      basicFacts?.title ||
+      ssot.building_name ||
+      '상업용 근생빌딩'
+  ).trim();
   const region = (() => {
     const tokens = address
       .replace(/^(?:서울특별시|서울시|서울|경기도|경기|인천광역시|인천|부산광역시|대구광역시|대전광역시|광주광역시|울산광역시)\s*/, '')
@@ -1144,28 +1092,67 @@ export function synthesizeQuickRecordFromImItem(
       .split(/[\s,]+/)
       .map((t) => t.trim())
       .filter((t) => t.length > 0 && !/^(?:산\s*)?\d/.test(t) && !/^외$/.test(t) && !/필지/.test(t));
-    return tokens.slice(0, 2).join(' ') || '서울시 핵심권역';
+    return tokens.slice(0, 2).join(' ') || String(ssot.area_signal || '').trim() || '서울시 핵심권역';
   })();
 
-  const askingPriceManwon = Number(imItem.askingPriceManwon) || 0;
+  const askingPriceManwon =
+    Number(imItem.askingPriceManwon) ||
+    Number(ssot.asking_price_manwon) ||
+    (Number(ssot.asking_price) > 0 ? Math.round(Number(ssot.asking_price) / 10_000) : 0) ||
+    Number(basicFacts?.transaction?.askingPriceManwon) ||
+    (Number(basicFacts?.transaction?.askingPriceKrw ?? basicFacts?.transaction?.askingPriceWon) > 0
+      ? Math.round(
+          Number(basicFacts?.transaction?.askingPriceKrw ?? basicFacts?.transaction?.askingPriceWon) /
+            10_000
+        )
+      : 0) ||
+    (Number(imItem.heroCard?.askingPriceBil) > 0
+      ? Math.round(Number(imItem.heroCard.askingPriceBil) * 10_000)
+      : 0) ||
+    0;
 
-  const rawRentRoll = Array.isArray(imItem.rentRoll) ? imItem.rentRoll : [];
+  const rawRentRoll =
+    (Array.isArray(imItem.rentRoll) && imItem.rentRoll.length > 0 && imItem.rentRoll) ||
+    (Array.isArray(imItem.rent_roll) && imItem.rent_roll.length > 0 && imItem.rent_roll) ||
+    (Array.isArray(imItem.floor_leases) && imItem.floor_leases.length > 0 && imItem.floor_leases) ||
+    (Array.isArray(imItem.floorLeases) && imItem.floorLeases.length > 0 && imItem.floorLeases) ||
+    (Array.isArray(basicFacts?.rent?.rows) && basicFacts.rent.rows.length > 0 && basicFacts.rent.rows) ||
+    (Array.isArray(imItem.fullDocBody?.rent_roll) &&
+      imItem.fullDocBody.rent_roll.length > 0 &&
+      imItem.fullDocBody.rent_roll) ||
+    (Array.isArray(imItem.fullDocBody?.floor_leases) &&
+      imItem.fullDocBody.floor_leases.length > 0 &&
+      imItem.fullDocBody.floor_leases) ||
+    [];
   const normalizedRentRoll: QuickImRentRollRow[] =
     rawRentRoll.length > 0
       ? rawRentRoll.map((r: any, idx: number) => {
           const isVac =
             r.status === 'vacant' ||
+            r.status === '공실' ||
             r.is_vacant === true ||
+            r.isVacant === true ||
             r.lease_state === '공실' ||
+            r.occupancy_status === '공실' ||
             r.use === '공실';
           const isOwn =
             !isVac &&
             (r.status === 'owner' ||
+              r.status === 'owner_use' ||
+              r.status === '자가사용' ||
               r.lease_state === '자가사용' ||
+              r.lease_state === 'owner_use' ||
+              r.occupancy_status === '자가사용' ||
+              r.occupancy_status === 'owner_use' ||
               r.use === '자가사용' ||
               r.use === '자가');
           const rawUseStr = String(
-            r.use || r.tenant_type || r.tenant_name || (isVac ? '공실' : isOwn ? '자가사용' : '근린생활시설')
+            r.use ||
+              r.tenant_type ||
+              r.industry ||
+              r.tenant_name ||
+              r.tenant ||
+              (isVac ? '공실' : isOwn ? '자가사용' : '근린생활시설')
           ).trim();
           const slashParts = rawUseStr
             .split(/\s*\/\s*/)
@@ -1178,18 +1165,41 @@ export function synthesizeQuickRecordFromImItem(
                 ? slashParts[0]
                 : slashParts.slice(1).join(' / ')
               : rawUseStr;
-          const explicitTenantName = String(r.tenantName || r.tenant_name || splitTenantName || '').trim() || undefined;
+          const explicitTenantName =
+            String(r.tenantName || r.tenant_name || r.tenant || splitTenantName || '').trim() ||
+            undefined;
           const rawAreaSqm = Number(r.areaSqm ?? r.area_sqm ?? r.area_m2 ?? 0);
           const rawAreaPy = Number(r.areaPyeong ?? r.area_pyeong ?? 0);
           const areaSqm =
             rawAreaSqm > 0
               ? rawAreaSqm
               : rawAreaPy > 0
-              ? Math.round(rawAreaPy * 3.305785 * 100) / 100
+              ? Math.round(pyeongToM2(rawAreaPy) * 100) / 100
               : undefined;
           const rawExclSqm = Number(r.exclusiveAreaSqm ?? r.exclusive_area_sqm ?? 0);
           const exclusiveAreaSqm = rawExclSqm > 0 ? rawExclSqm : undefined;
           const note = r.note !== undefined && String(r.note).trim().length > 0 ? String(r.note).trim() : undefined;
+          const depositManwon =
+            Number(
+              r.depositManwon ??
+                r.deposit_manwon ??
+                (Number(r.deposit_krw) > 0 ? Math.round(Number(r.deposit_krw) / 10_000) : 0)
+            ) || 0;
+          const monthlyRentManwon =
+            Number(
+              r.monthlyRentManwon ??
+                r.monthly_rent_manwon ??
+                r.rent_manwon ??
+                (Number(r.monthly_rent_krw) > 0 ? Math.round(Number(r.monthly_rent_krw) / 10_000) : 0)
+            ) || 0;
+          const maintenanceManwon =
+            Number(
+              r.maintenanceManwon ??
+                r.mgmt_fee_manwon ??
+                (Number(r.maintenance_krw ?? r.mgmt_fee_krw) > 0
+                  ? Math.round(Number(r.maintenance_krw ?? r.mgmt_fee_krw) / 10_000)
+                  : 0)
+            ) || 0;
 
           return {
             floor: String(r.floor || `${idx + 1}F`),
@@ -1198,9 +1208,9 @@ export function synthesizeQuickRecordFromImItem(
             ...(explicitTenantName ? { tenantName: explicitTenantName } : {}),
             ...(areaSqm ? { areaSqm } : {}),
             ...(exclusiveAreaSqm ? { exclusiveAreaSqm } : {}),
-            depositManwon: Number(r.depositManwon ?? r.deposit_manwon ?? 0),
-            monthlyRentManwon: Number(r.monthlyRentManwon ?? r.rent_manwon ?? 0),
-            maintenanceManwon: Number(r.maintenanceManwon ?? r.mgmt_fee_manwon ?? 0),
+            depositManwon,
+            monthlyRentManwon,
+            maintenanceManwon,
             leaseExpiry: String(r.leaseExpiry || r.lease_end || ''),
             ...(note ? { note } : {}),
             status: isVac
@@ -1212,22 +1222,44 @@ export function synthesizeQuickRecordFromImItem(
         })
       : [];
 
-  let gfaSqm = Number(String(imItem.gfaSqm ?? '').replace(/,/g, '')) || 0;
-  let landAreaSqm = Number(String(imItem.landAreaSqm ?? '').replace(/,/g, '')) || 0;
-  // Auto-correct swapped GFA and Land Area on multi-story buildings
-  if (gfaSqm > 0 && landAreaSqm > 0 && gfaSqm < landAreaSqm && normalizedRentRoll.length >= 2) {
-    const tmp = gfaSqm;
-    gfaSqm = landAreaSqm;
-    landAreaSqm = tmp;
-  }
+  const gfaSqm =
+    Number(String(imItem.gfaSqm ?? '').replace(/,/g, '')) ||
+    Number(ssot.total_gross_area_sqm ?? ssot.total_gross_area_m2 ?? 0) ||
+    Number(basicFacts?.building?.totalGrossAreaSqm ?? 0) ||
+    Number(imItem.heroCard?.totalGrossAreaSqm ?? imItem.heroCard?.totalArea ?? 0) ||
+    0;
+  const landAreaSqm =
+    Number(String(imItem.landAreaSqm ?? '').replace(/,/g, '')) ||
+    Number(ssot.land_area_sqm ?? ssot.land_area_m2 ?? 0) ||
+    Number(basicFacts?.land?.landAreaSqm ?? 0) ||
+    Number(imItem.heroCard?.landAreaM2 ?? imItem.heroCard?.landArea ?? 0) ||
+    0;
 
-  const zoning = String(imItem.zoning || '').trim();
-  const completionDate = String(imItem.completionDate || '').trim();
-  const posture = String(imItem.investmentPosture || imItem.posture || 'core_income').trim();
+  const zoning = String(
+    imItem.zoning ||
+      ssot.zoning ||
+      basicFacts?.land?.zoning ||
+      imItem.heroCard?.zoningDistrict ||
+      ''
+  ).trim();
+  const completionDate = String(
+    imItem.completionDate ||
+      ssot.completion_date ||
+      basicFacts?.building?.completionYear ||
+      ''
+  ).trim();
+  const posture = String(
+    imItem.investmentPosture ||
+      imItem.investment_posture ||
+      imItem.posture ||
+      ssot.investment_posture ||
+      'core_income'
+  ).trim();
 
-  const knownGolden = address
-    ? KNOWN_GOLDEN_PARCELS.find((entry) => entry.match.test(address))
-    : undefined;
+  const knownGolden =
+    address && !isRealProductionRuntime()
+      ? TEST_PARCEL_FIXTURES.find((entry) => entry.match.test(address))?.info
+      : undefined;
 
   const existingMem =
     getQuickImRecord(buildingId) ||
@@ -1235,25 +1267,31 @@ export function synthesizeQuickRecordFromImItem(
   const sameExistingAddress =
     existingMem && (!address || !existingMem.address || existingMem.address === address);
 
-  const rawPnu = typeof imItem.pnu === 'string' ? imItem.pnu.trim() : '';
+  const rawPnu = String(imItem.pnu || ssot.pnu || basicFacts?.land?.pnu || '').trim();
   const resolvedPnu =
     rawPnu ||
     knownGolden?.pnu ||
     (sameExistingAddress ? existingMem?.pnu : undefined);
 
-  const rawCoordLat = Number(imItem.coordinates?.lat ?? imItem.lat);
-  const rawCoordLng = Number(imItem.coordinates?.lng ?? imItem.lng);
+  const rawCoordLat = Number(imItem.coordinates?.lat ?? imItem.lat ?? ssot.coordinates?.lat);
+  const rawCoordLng = Number(imItem.coordinates?.lng ?? imItem.lng ?? ssot.coordinates?.lng);
   const resolvedCoordinates =
     Number.isFinite(rawCoordLat) &&
     Number.isFinite(rawCoordLng) &&
     rawCoordLat !== 0 &&
     rawCoordLng !== 0
       ? { lat: rawCoordLat, lng: rawCoordLng }
-      : knownGolden?.coordinates ||
+      : (knownGolden ? { lat: knownGolden.lat, lng: knownGolden.lng } : undefined) ||
         (sameExistingAddress ? existingMem?.coordinates : undefined);
 
   const officialLandPriceWonSqm =
-    Number(imItem.officialLandPriceWonSqm ?? imItem.officialLandPricePerSqm) ||
+    Number(
+      imItem.officialLandPriceWonSqm ??
+        imItem.officialLandPricePerSqm ??
+        ssot.official_land_price_per_sqm ??
+        ssot.official_land_price_krw ??
+        basicFacts?.land?.officialLandPricePerSqm
+    ) ||
     knownGolden?.officialLandPriceWonSqm ||
     (sameExistingAddress ? existingMem?.officialLandPriceWonSqm : undefined) ||
     0;
@@ -1300,9 +1338,9 @@ export function synthesizeQuickRecordFromImItem(
             return {
               url,
               caption: p?.caption || p?.name || `${title} 현장 사진 ${idx + 1}`,
-              role: idx === 0 ? 'cover' : 'interior',
-              category: p?.category || (idx === 0 ? 'exterior' : 'interior'),
-              type: p?.category || (idx === 0 ? 'exterior' : 'interior'),
+              role: idx === 0 ? 'cover' : (p?.role || 'general'),
+              category: p?.category || (idx === 0 ? 'exterior' : 'general'),
+              type: p?.type || p?.category || (idx === 0 ? 'exterior' : 'general'),
               isHero: idx === 0,
             };
           })
@@ -1314,9 +1352,9 @@ export function synthesizeQuickRecordFromImItem(
             return {
               url,
               caption: name.replace(/\.[^.]+$/, '').replace(/^[0-9]+[_-\s]*/, '').replace(/[_-]+/g, ' '),
-              role: idx === 0 ? 'cover' : 'interior',
-              category: idx === 0 ? 'exterior' : 'interior',
-              type: idx === 0 ? 'exterior' : 'interior',
+              role: idx === 0 ? 'cover' : 'general',
+              category: idx === 0 ? 'exterior' : 'general',
+              type: idx === 0 ? 'exterior' : 'general',
               isHero: idx === 0,
             };
           })
@@ -1357,22 +1395,53 @@ export function synthesizeQuickRecordFromImItem(
         ''
     ).trim() || undefined;
 
+  const resolvedMainPurpose = String(
+    imItem.mainPurpose || ssot.main_usage || ssot.asset_type || basicFacts?.building?.mainUsage || '근린생활시설'
+  ).trim();
+  const resolvedBcrPct =
+    Number(imItem.bcrPct ?? ssot.bcr_pct ?? basicFacts?.building?.buildingCoveragePct ?? 0) || 0;
+  const resolvedFarPct =
+    Number(imItem.farPct ?? ssot.far_pct ?? basicFacts?.building?.floorAreaRatioPct ?? 0) || 0;
+  const resolvedParkingSpaces =
+    Number(
+      imItem.parkingTotal ??
+        imItem.parkingSpaces ??
+        ssot.parking_count ??
+        ssot.parking_total ??
+        basicFacts?.building?.parkingCount ??
+        0
+    ) || 0;
+  const resolvedElevators =
+    Number(
+      imItem.elevatorCount ??
+        imItem.elevators ??
+        ssot.elevator_count ??
+        basicFacts?.building?.elevatorCount ??
+        0
+    ) || 0;
+  const resolvedParcels = imItem.parcels || ssot.parcels || basicFacts?.land?.parcels;
+  const resolvedHandoverNote = imItem.handoverNote ?? imItem.handover_note ?? ssot.handover_note;
+
   const rec = buildSeedRecord({
     buildingId,
     documentId: String(imItem.id || `im-doc-${buildingId}`),
     address,
     buildingName: title,
     region,
-    use: String(imItem.mainPurpose || '근린생활시설'),
-    mainPurpose: imItem.mainPurpose ? String(imItem.mainPurpose) : undefined,
+    use: resolvedMainPurpose,
+    mainPurpose: imItem.mainPurpose
+      ? String(imItem.mainPurpose)
+      : ssot.main_usage
+      ? String(ssot.main_usage)
+      : undefined,
     priceBand,
     askingPriceManwon,
     posture,
     isSynthesized: true,
-    bcrPct: Number(imItem.bcrPct || 0),
-    farPct: Number(imItem.farPct || 0),
-    parkingSpaces: Number(imItem.parkingTotal ?? imItem.parkingSpaces ?? 0),
-    elevators: Number(imItem.elevatorCount ?? imItem.elevators ?? 0),
+    bcrPct: resolvedBcrPct,
+    farPct: resolvedFarPct,
+    parkingSpaces: resolvedParkingSpaces,
+    elevators: resolvedElevators,
     pnu: resolvedPnu || imItem.pnu,
     lat: resolvedCoordinates?.lat ?? imItem.lat,
     lng: resolvedCoordinates?.lng ?? imItem.lng,
@@ -1380,19 +1449,30 @@ export function synthesizeQuickRecordFromImItem(
     officialLandPriceWonSqm,
     officialLandPricePerSqm:
       Number(imItem.officialLandPricePerSqm || 0) || officialLandPriceWonSqm,
-    parcels: imItem.parcels,
+    parcels: resolvedParcels,
     closingLine: resolvedClosingLine,
     points,
     gfaSqm,
     landAreaSqm,
     zoning,
     completionDate,
-    floorsAbove: Number(imItem.floorsAbove || floorsAbove || 0),
-    floorsBelow: Number(imItem.floorsBelow ?? floorsBelow ?? 0),
+    floorsAbove: Number(
+      imItem.floorsAbove ?? ssot.floors_above ?? basicFacts?.building?.floorsAbove ?? floorsAbove ?? 0
+    ),
+    floorsBelow: Number(
+      imItem.floorsBelow ?? ssot.floors_below ?? basicFacts?.building?.floorsBelow ?? floorsBelow ?? 0
+    ),
     rentRoll: normalizedRentRoll,
     ...(resolvedPhotos.length > 0 ? { photos: resolvedPhotos as any } : {}),
-    ...(imItem.handoverNote ? { handoverNote: imItem.handoverNote } : {}),
+    ...(resolvedHandoverNote ? { handoverNote: resolvedHandoverNote } : {}),
   });
+
+  if (imItem.status) {
+    (rec as any).status = imItem.status;
+  }
+  if (imItem.hasUnpublishedEdits !== undefined) {
+    (rec as any).hasUnpublishedEdits = Boolean(imItem.hasUnpublishedEdits);
+  }
 
   const validItemUpdatedAt =
     typeof imItem.updatedAt === 'string' &&
@@ -1418,22 +1498,36 @@ export function synthesizeQuickRecordFromImItem(
     return t;
   };
 
+  const docBrokerContact = (imItem.broker_contact || basicFacts?.brokerOffice || imItem.broker) as
+    | Record<string, any>
+    | undefined;
   const resolvedBrokerName =
     cleanBrokerStr(imItem.brokerName) ||
     cleanBrokerStr(brokerProfile?.displayName) ||
     cleanBrokerStr(brokerProfile?.display_name) ||
+    cleanBrokerStr(docBrokerContact?.brokerName) ||
+    cleanBrokerStr(docBrokerContact?.representative) ||
+    cleanBrokerStr(docBrokerContact?.displayName) ||
+    cleanBrokerStr(docBrokerContact?.name) ||
     '';
   const resolvedBrokerageName =
     cleanBrokerStr(imItem.brokerageName) ||
     cleanBrokerStr(brokerProfile?.company) ||
+    cleanBrokerStr(docBrokerContact?.brokerageName) ||
+    cleanBrokerStr(docBrokerContact?.company) ||
+    cleanBrokerStr(docBrokerContact?.name) ||
     '';
   const resolvedBrokerPhone =
     cleanBrokerStr(imItem.brokerPhone) ||
     cleanBrokerStr(brokerProfile?.phone) ||
+    cleanBrokerStr(docBrokerContact?.brokerPhone) ||
+    cleanBrokerStr(docBrokerContact?.phone) ||
     '';
   const resolvedBrokerRegNo =
     cleanBrokerStr(imItem.brokerRegNo) ||
     cleanBrokerStr(brokerProfile?.registrationNo) ||
+    cleanBrokerStr(docBrokerContact?.registrationNo) ||
+    cleanBrokerStr(docBrokerContact?.registration_no) ||
     '';
 
   rec.ownerId = ownerId || undefined;
@@ -1477,12 +1571,33 @@ export function synthesizeQuickRecordFromImItem(
   return rec;
 }
 
+export function isDraftImUpsertEvent(meta: Record<string, any> | null | undefined): boolean {
+  if (!meta || typeof meta !== 'object') return false;
+  const imItem =
+    meta.im_item && typeof meta.im_item === 'object' ? (meta.im_item as Record<string, any>) : {};
+  return (
+    meta.status === 'draft' ||
+    imItem.status === 'draft' ||
+    imItem.hasUnpublishedEdits === true ||
+    meta.hasUnpublishedEdits === true
+  );
+}
+
 export async function resolveOrSynthesizeQuickImRecord(
   buildingId: string,
   supabase?: any,
-  docId?: string | null
+  docId?: string | null,
+  opts?: { publishedOnly?: boolean; ownerId?: string }
 ): Promise<StoredQuickImRecord | null> {
-  const fromMemory = (docId ? getQuickImRecord(docId) : null) || getQuickImRecord(buildingId);
+  const publishedOnly = Boolean(opts?.publishedOnly);
+  const ownerId = opts?.ownerId ? String(opts.ownerId).trim() : undefined;
+  const rawMemory = isVitestStoreEnabled()
+    ? (docId ? getQuickImRecord(docId) : null) || getQuickImRecord(buildingId)
+    : null;
+  const fromMemory =
+    rawMemory && (!ownerId || !rawMemory.ownerId || rawMemory.ownerId === ownerId)
+      ? rawMemory
+      : null;
 
   let dbClient = supabase;
   if (!dbClient) {
@@ -1495,20 +1610,91 @@ export async function resolveOrSynthesizeQuickImRecord(
   }
 
   if (dbClient && typeof dbClient.from === 'function') {
+    let skipSharedDemoUnscopedLookup = false;
     try {
-      const { data: imEvents } = await dbClient
-        .from('activity_events')
-        .select('actor_id, entity_id, event_type, metadata, created_at')
-        .in('event_type', [
-          'im_upserted',
-          'im_deleted',
-          'im_restored',
-          'dealcard_upserted',
-          'dealcard_deleted',
-          'dealcard_restored',
-        ])
+      const { getWorkspaceItemByAnyId, DEMO_SEED_LEGACY_IDS } = await import(
+        '@/lib/workspace/workspace-repository'
+      );
+      const isSharedDemoSeed =
+        DEMO_SEED_LEGACY_IDS.has(String(buildingId || '').trim()) ||
+        (docId ? DEMO_SEED_LEGACY_IDS.has(String(docId).trim()) : false);
+      skipSharedDemoUnscopedLookup = isSharedDemoSeed && !ownerId;
+
+      const wsItem = skipSharedDemoUnscopedLookup
+        ? null
+        : (await getWorkspaceItemByAnyId(dbClient, buildingId, 'im', ownerId).catch(() => null)) ||
+          (docId ? await getWorkspaceItemByAnyId(dbClient, docId, 'im', ownerId).catch(() => null) : null) ||
+          (await getWorkspaceItemByAnyId(dbClient, buildingId, 'dealcard', ownerId).catch(() => null));
+      if (wsItem) {
+        if (wsItem.deletedAt || wsItem.status === 'archived') {
+          return null;
+        }
+        if (publishedOnly && (wsItem.status === 'draft' || !wsItem.publishedSnapshot)) {
+          return null;
+        }
+        const payloadSource = publishedOnly
+          ? wsItem.publishedSnapshot || {}
+          : wsItem.publishedSnapshot || wsItem.draftPayload || {};
+        if (payloadSource.imItem || payloadSource.address || payloadSource.buildingName || payloadSource.title || payloadSource.ssot_summary) {
+          const itemObj: Record<string, any> = {
+            ...(payloadSource.imItem || payloadSource),
+            id: wsItem.id,
+            buildingId: wsItem.buildingId || wsItem.legacyId || wsItem.id,
+            ownerId: wsItem.ownerId,
+            address: payloadSource.address || payloadSource.resolved_address || wsItem.address,
+            title: payloadSource.title || payloadSource.buildingName || wsItem.title,
+          };
+          const rec = synthesizeQuickRecordFromImItem(
+            buildingId,
+            itemObj,
+            payloadSource.brokerProfile || null,
+            wsItem.updatedAt,
+            wsItem.ownerId
+          );
+          if (wsItem.revokedAt || wsItem.status === 'revoked') {
+            rec.isRevoked = true;
+          }
+          if (wsItem.correctionNotice) {
+            rec.correctionNotice = wsItem.correctionNotice;
+          }
+          return rec;
+        }
+      }
+    } catch {
+      // Non-blocking fallback to legacy activity_events
+    }
+
+    if (!skipSharedDemoUnscopedLookup) {
+      try {
+        let evQ: any = dbClient
+          .from('activity_events')
+          .select('actor_id, entity_id, event_type, metadata, created_at')
+          .in('event_type', [
+            'im_upserted',
+            'im_deleted',
+            'im_restored',
+            'dealcard_upserted',
+            'dealcard_deleted',
+            'dealcard_restored',
+          ]);
+        if (ownerId && typeof evQ.eq === 'function') {
+          evQ = evQ.eq('actor_id', ownerId);
+        }
+      const safeToken = /^[A-Za-z0-9_.:-]+$/.test(buildingId);
+      if (typeof evQ.or === 'function' && safeToken) {
+        if (isUuid(buildingId)) {
+          evQ = evQ.or(
+            `entity_id.eq.${buildingId},metadata->>building_id.eq.${buildingId},metadata->>im_id.eq.${buildingId},metadata->im_item->>id.eq.${buildingId},metadata->im_item->>buildingId.eq.${buildingId}`
+          );
+        } else {
+          evQ = evQ.or(
+            `metadata->>building_id.eq.${buildingId},metadata->>im_id.eq.${buildingId},metadata->im_item->>id.eq.${buildingId},metadata->im_item->>buildingId.eq.${buildingId}`
+          );
+        }
+      }
+      const { data: imEvents } = await evQ
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(30);
 
       if (Array.isArray(imEvents)) {
         let pendingCard4Update: {
@@ -1544,6 +1730,9 @@ export async function resolveOrSynthesizeQuickImRecord(
             meta.card4 &&
             !pendingCard4Update
           ) {
+            if (publishedOnly && meta.status === 'draft') {
+              continue;
+            }
             pendingCard4Update = {
               card4: meta.card4 as Card4Data,
               ownerId: ev.actor_id || undefined,
@@ -1552,6 +1741,9 @@ export async function resolveOrSynthesizeQuickImRecord(
             continue;
           }
           if ((ev.event_type === 'im_upserted' || ev.event_type === 'im_restored') && meta.im_item) {
+            if (publishedOnly && ev.event_type === 'im_upserted' && isDraftImUpsertEvent(meta)) {
+              continue;
+            }
             const itemToSynthesize: Record<string, any> = {
               ...(meta.im_item as Record<string, any>),
             };
@@ -1570,11 +1762,15 @@ export async function resolveOrSynthesizeQuickImRecord(
                 : null;
               if (targetBldUuid) {
                 try {
-                  const { data: docRows } = await dbClient
+                  let docQuery: any = dbClient
                     .from('document_objects')
                     .select('id, status, photos:body->photos, photos_v2:body->photos_v2, photo_urls:body->photo_urls')
                     .eq('building_id', targetBldUuid)
-                    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft'])
+                    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft']);
+                  if (publishedOnly && typeof docQuery?.in === 'function') {
+                    docQuery = docQuery.in('status', ['published', 'broker_reviewed', 'shared_external']);
+                  }
+                  const { data: docRows } = await docQuery
                     .order('created_at', { ascending: false })
                     .limit(5);
                   if (Array.isArray(docRows)) {
@@ -1628,9 +1824,18 @@ export async function resolveOrSynthesizeQuickImRecord(
           if (updated) return updated;
         }
       }
-    } catch {
-      // Non-blocking fallback to in-memory seed
+      } catch {
+        // Non-blocking fallback to in-memory seed
+      }
     }
+  }
+
+  if (
+    publishedOnly &&
+    fromMemory &&
+    ((fromMemory as any).status === 'draft' || (fromMemory as any).hasUnpublishedEdits === true)
+  ) {
+    return null;
   }
 
   return fromMemory;
@@ -1667,11 +1872,11 @@ export function updateQuickImCard4(
     ];
     const gfaSqm =
       typeof card4.gfaPyung === 'number' && card4.gfaPyung > 0
-        ? Math.round(card4.gfaPyung * 3.3058 * 10) / 10
+        ? Math.round(pyeongToM2(card4.gfaPyung) * 10) / 10
         : 0;
     const landAreaSqm =
       typeof card4.landAreaPyung === 'number' && card4.landAreaPyung > 0
-        ? Math.round(card4.landAreaPyung * 3.3058 * 10) / 10
+        ? Math.round(pyeongToM2(card4.landAreaPyung) * 10) / 10
         : 0;
     const synthesized = buildSeedRecord({
       buildingId: idOrDocId,
@@ -1753,8 +1958,6 @@ export function listAllQuickImRecords(): StoredQuickImRecord[] {
   return Array.from(uniqueByBuilding.values());
 }
 
-const INBOX_STATE_FILE = path.join(os.tmpdir(), `cre-v3-inbox-state-store${TEST_WORKER_SUFFIX}.json`);
-
 declare global {
   // eslint-disable-next-line no-var
   var __CRE_INBOX_STATE_STORE__: StoredInboxState | undefined;
@@ -1773,36 +1976,18 @@ function createEmptyInboxState(): StoredInboxState {
 }
 
 export function getInboxState(): StoredInboxState {
+  if (!isVitestStoreEnabled()) {
+    return createEmptyInboxState();
+  }
   if (!globalThis.__CRE_INBOX_STATE_STORE__) {
     globalThis.__CRE_INBOX_STATE_STORE__ = createEmptyInboxState();
-  }
-  try {
-    if (fs.existsSync(INBOX_STATE_FILE)) {
-      const raw = fs.readFileSync(INBOX_STATE_FILE, 'utf-8');
-      const parsed = JSON.parse(raw) as Partial<StoredInboxState>;
-      globalThis.__CRE_INBOX_STATE_STORE__ = {
-        revokedBuildings: parsed.revokedBuildings || {},
-        correctionNotices: parsed.correctionNotices || {},
-        gateDecisions: parsed.gateDecisions || {},
-        callNotes: parsed.callNotes || {},
-        customClients: Array.isArray(parsed.customClients) ? parsed.customClients : [],
-        deletedDealCardIds: parsed.deletedDealCardIds || {},
-        sentDealCardIds: parsed.sentDealCardIds || {},
-      };
-    }
-  } catch {
-    // ignore file read error
   }
   return globalThis.__CRE_INBOX_STATE_STORE__;
 }
 
 export function saveInboxState(state: StoredInboxState): void {
+  if (!isVitestStoreEnabled()) return;
   globalThis.__CRE_INBOX_STATE_STORE__ = state;
-  try {
-    fs.writeFileSync(INBOX_STATE_FILE, JSON.stringify(state), 'utf-8');
-  } catch {
-    // ignore file write error
-  }
 }
 
 export function setBuildingRevokedState(

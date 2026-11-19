@@ -33,8 +33,8 @@ export function WeeklyReportCard() {
         } else {
           setError(`데이터를 불러오지 못했습니다. (코드: ${res.status})`);
         }
-      } catch (err: any) {
-        setError(err?.message || '네트워크 오류가 발생했습니다.');
+      } catch (err: unknown) {
+        setError(err instanceof Error && err.message ? err.message : '네트워크 오류가 발생했습니다.');
       } finally {
         setLoading(false);
       }
@@ -69,7 +69,7 @@ export function WeeklyReportCard() {
         </div>
         <div className="pt-2 flex justify-center gap-2">
           <a
-            href="/broker/deal-card/new"
+            href="/broker/w/dealcards"
             className="inline-flex items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             ➕ 30초 딜카드 등록

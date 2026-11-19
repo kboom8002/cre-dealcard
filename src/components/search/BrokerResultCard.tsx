@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Award, Building2, Calendar, MapPin, Sparkles, User, ArrowRight } from "lucide-react";
+import { Award, Building2, MapPin, Sparkles, ArrowRight } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
-
 
 export interface BrokerCardData {
   id: string;
@@ -24,6 +23,12 @@ export interface BrokerCardData {
   seoSummary: string | null;
 }
 
+interface VtiMeta {
+  color: string;
+  emoji: string;
+  label_ko: string;
+}
+
 interface BrokerResultCardProps {
   broker: BrokerCardData;
 }
@@ -32,24 +37,21 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
   const haptic = useHaptic();
 
   // Resolve VTI metadata
-  const vtiMeta: any = null;
+  const vtiMeta: VtiMeta | null = null as VtiMeta | null;
 
   // Initials for avatar fallback
   const initials = broker.displayName
     ? broker.displayName.substring(0, 2)
     : "중개";
 
-  // Gradient for avatar fallback based on VTI color or default
-  const avatarBg = vtiMeta?.color
-    ? `linear-gradient(135deg, ${vtiMeta.color}30, ${vtiMeta.color}80)`
-    : "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.4))";
+  const profileSlug = (broker.slug && broker.slug.trim()) || broker.id;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative flex flex-col justify-between h-full glass-subtle rounded-2xl border border-white/10 hover:border-white/20 hover:shadow-2xl hover:shadow-primary/5 transition-all p-5 overflow-hidden"
+      className="group relative flex flex-col justify-between h-full rounded-2xl border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:shadow-md transition-all p-5 overflow-hidden"
     >
       {/* Visual background ambient glow if VTI is present */}
       {vtiMeta?.color && (
@@ -65,15 +67,15 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
           {/* Avatar Area */}
           <div className="relative shrink-0">
             {broker.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={broker.photoUrl}
                 alt={broker.displayName}
-                className="w-14 h-14 rounded-xl object-cover border border-white/10"
+                className="w-14 h-14 rounded-xl object-cover border border-slate-200"
               />
             ) : (
               <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center text-sm font-bold text-white border border-white/10"
-                style={{ background: avatarBg }}
+                className="w-14 h-14 rounded-xl flex items-center justify-center text-sm font-bold text-blue-800 bg-blue-50 border border-blue-200"
               >
                 {initials}
               </div>
@@ -81,7 +83,10 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
 
             {/* Verification Badge */}
             {broker.isVerified && (
-              <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-emerald-950 p-0.5 rounded-full border border-background shadow-sm" title="인증 파트너 중개사">
+              <div
+                className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-0.5 rounded-full border-2 border-white shadow-xs"
+                title="인증 파트너 중개사"
+              >
                 <Award className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
               </div>
             )}
@@ -90,16 +95,16 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
           {/* Name & Company */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <h3 className="text-base font-bold text-foreground truncate group-hover:text-primary transition-colors">
+              <h3 className="text-base font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
                 {broker.displayName}
               </h3>
               {broker.isVerified && (
-                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-medium px-1.5 py-0.5 rounded border border-emerald-500/20 shrink-0">
+                <span className="text-sm bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
                   인증됨
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-sm text-slate-600 truncate">
               {broker.company || "소속 공인중개사"}
             </p>
           </div>
@@ -109,12 +114,7 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
         {vtiMeta && (
           <div className="mb-3.5 flex items-center justify-between">
             <span
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"
-              style={{
-                borderColor: `${vtiMeta.color}30`,
-                backgroundColor: `${vtiMeta.color}10`,
-                color: vtiMeta.color,
-              }}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-800"
             >
               <span>{vtiMeta.emoji}</span>
               <span>{vtiMeta.label_ko}</span>
@@ -122,8 +122,8 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
 
             {/* Trust Match Rate */}
             {broker.vibeTrust !== null && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="text-sm text-slate-600 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                 <span>신뢰도 {Math.round(broker.vibeTrust * 100)}%</span>
               </span>
             )}
@@ -131,7 +131,7 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
         )}
 
         {/* Tagline or bio summary */}
-        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-4">
+        <p className="text-sm text-slate-700 line-clamp-2 leading-relaxed mb-4">
           {broker.tagline || broker.seoSummary || broker.bio || `${broker.displayName} 중개사입니다.`}
         </p>
 
@@ -140,20 +140,20 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
           {/* Regions */}
           {broker.specialtyRegions && broker.specialtyRegions.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground shrink-0 flex items-center gap-0.5">
-                <MapPin className="w-3 h-3" />
+              <span className="text-sm text-slate-600 shrink-0 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-500" />
                 권역:
               </span>
               {broker.specialtyRegions.slice(0, 2).map((reg) => (
                 <span
                   key={reg}
-                  className="text-[10px] font-medium text-foreground bg-white/5 border border-white/5 rounded px-2 py-0.5"
+                  className="text-sm font-medium text-slate-800 bg-slate-100 border border-slate-200 rounded-md px-2.5 py-0.5"
                 >
                   {reg.split(" ")[1] || reg}
                 </span>
               ))}
               {broker.specialtyRegions.length > 2 && (
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-sm font-medium text-slate-600">
                   +{broker.specialtyRegions.length - 2}
                 </span>
               )}
@@ -163,20 +163,20 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
           {/* Assets */}
           {broker.specialtyAssets && broker.specialtyAssets.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground shrink-0 flex items-center gap-0.5">
-                <Building2 className="w-3 h-3" />
+              <span className="text-sm text-slate-600 shrink-0 flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5 text-slate-500" />
                 자산:
               </span>
               {broker.specialtyAssets.slice(0, 2).map((asset) => (
                 <span
                   key={asset}
-                  className="text-[10px] font-medium text-foreground bg-white/5 border border-white/5 rounded px-2 py-0.5"
+                  className="text-sm font-medium text-slate-800 bg-slate-100 border border-slate-200 rounded-md px-2.5 py-0.5"
                 >
                   {asset}
                 </span>
               ))}
               {broker.specialtyAssets.length > 2 && (
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-sm font-medium text-slate-600">
                   +{broker.specialtyAssets.length - 2}
                 </span>
               )}
@@ -186,21 +186,21 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
       </div>
 
       {/* Footer (Deals + CTA Button) */}
-      <div className="pt-3.5 border-t border-white/5 flex items-center justify-between mt-auto">
+      <div className="pt-3.5 border-t border-slate-200 flex items-center justify-between gap-3 mt-auto">
         <div className="text-left">
-          <span className="text-[10px] text-muted-foreground block">총 거래 건수</span>
-          <span className="text-xs font-bold text-foreground">
+          <span className="text-sm text-slate-600 block">총 거래 건수</span>
+          <span className="text-sm font-bold text-slate-900">
             {broker.totalDealCount || 0}건
           </span>
         </div>
 
         <Link
-          href={`/vibe-card/${broker.slug}`}
+          href={`/broker-profile/${encodeURIComponent(profileSlug)}`}
           onClick={() => haptic.light()}
-          className="inline-flex items-center gap-1 bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold rounded-lg px-3 py-2 transition-all group-hover:gap-1.5"
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-all group-hover:gap-2"
         >
           프로필 보기
-          <ArrowRight className="w-3 h-3 transition-transform" />
+          <ArrowRight className="w-4 h-4 transition-transform" />
         </Link>
       </div>
     </motion.div>

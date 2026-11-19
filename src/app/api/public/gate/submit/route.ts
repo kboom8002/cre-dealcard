@@ -16,8 +16,15 @@ import { insertCondition } from '@/domain/identity/condition-engine';
 import { bindViewerHistory } from '@/domain/identity/bind';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { createModuleLogger } from '@/lib/logger';
 import { getInboxState, getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
-import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
+import { getPublicWorkspaceProjection } from '@/lib/workspace/workspace-repository';
+import {
+  isBuildingShareLinkRevoked,
+  verifyShareLinkToken,
+} from '@/lib/security/share-link-tokens';
+
+const log = createModuleLogger('public-gate-submit');
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,9 +42,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       formData,
-      tenantId: clientTenantId,
       dealId,
-      brokerId: clientBrokerId,
       viewerId,
       shareToken,
       recipientId,
@@ -71,12 +76,46 @@ export async function POST(req: NextRequest) {
     const cleanName = String(formData.name || '').trim();
 
     const supabase = createServiceClient();
+    let effectiveDealId = typeof dealId === 'string' ? dealId.trim() : '';
+    let verifiedTokenBrokerId: string | undefined = undefined;
+
+    if (typeof shareToken === 'string' && shareToken.trim()) {
+      try {
+        const verified = await verifyShareLinkToken({
+          token: shareToken.trim(),
+          ...(effectiveDealId ? { buildingId: effectiveDealId } : {}),
+        });
+        if (verified.valid) {
+          if (!effectiveDealId && verified.buildingId) {
+            effectiveDealId = verified.buildingId.trim();
+          }
+          if (verified.brokerId && isUuid(verified.brokerId)) {
+            verifiedTokenBrokerId = verified.brokerId;
+          }
+        }
+      } catch {
+        // Non-blocking: missing dealId fails closed below
+      }
+    }
+
+    if (!effectiveDealId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          accessGranted: false,
+          error: '대상 매물 식별자(dealId)가 필요합니다.',
+          errors: ['대상 매물 식별자(dealId)가 필요합니다.'],
+        },
+        { status: 400 }
+      );
+    }
+
     let resolvedBrokerId: string | undefined = undefined;
     let resolvedTenantId: string | undefined = undefined;
 
-    // dealId가 있으면 잠금 상태 및 실재·소유 중개사(broker_id / owner_id)를 서버에서 검증
-    if (dealId) {
-      const dealKey = String(dealId).trim();
+    // 잠금 상태 및 실재·소유 공인중개사(broker_id / owner_id)를 서버에서 검증
+    {
+      const dealKey = effectiveDealId;
       const quickRec = getQuickImRecord(dealKey);
 
       if (
@@ -88,7 +127,7 @@ export async function POST(req: NextRequest) {
           {
             ok: false,
             accessGranted: false,
-            error: '담당 중개인이 열람 링크를 잠근 매물입니다.',
+            error: '담당 공인중개사가 열람 링크를 잠근 매물입니다.',
           },
           { status: 403 }
         );
@@ -114,7 +153,7 @@ export async function POST(req: NextRequest) {
               {
                 ok: false,
                 accessGranted: false,
-                error: '담당 중개인이 열람 링크를 잠근 매물입니다.',
+                error: '담당 공인중개사가 열람 링크를 잠근 매물입니다.',
               },
               { status: 403 }
             );
@@ -165,6 +204,35 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      if (!dealExists) {
+        const wsProj = await getPublicWorkspaceProjection(supabase, dealKey).catch(() => null);
+        if (wsProj?.found) {
+          if (wsProj.revoked) {
+            return NextResponse.json(
+              {
+                ok: false,
+                accessGranted: false,
+                error: '담당 공인중개사가 열람 링크를 잠근 매물입니다.',
+              },
+              { status: 403 }
+            );
+          }
+          if (wsProj.deleted || !wsProj.projection) {
+            return NextResponse.json(
+              {
+                ok: false,
+                accessGranted: false,
+                error: '비공개 또는 삭제된 매물입니다.',
+              },
+              { status: 404 }
+            );
+          }
+          dealExists = true;
+          resolvedBrokerId = wsProj.projection.ownerId;
+          resolvedTenantId = wsProj.projection.ownerId;
+        }
+      }
+
       if (!dealExists && quickRec) {
         dealExists = true;
         if (quickRec.ownerId) {
@@ -183,21 +251,41 @@ export async function POST(req: NextRequest) {
           { status: 404 }
         );
       }
-    } else {
-      resolvedBrokerId = clientBrokerId;
-      resolvedTenantId = clientTenantId;
+
+      if (!resolvedBrokerId && verifiedTokenBrokerId) {
+        resolvedBrokerId = verifiedTokenBrokerId;
+        resolvedTenantId = verifiedTokenBrokerId;
+      }
     }
 
-    const tenantId = resolvedTenantId || resolvedBrokerId || 'default';
-    const brokerId = resolvedBrokerId || resolvedTenantId || tenantId;
+    const brokerId = resolvedBrokerId && isUuid(resolvedBrokerId) ? resolvedBrokerId : null;
+    const tenantId =
+      resolvedTenantId && isUuid(resolvedTenantId) ? resolvedTenantId : brokerId;
+
+    if (!brokerId || !tenantId || !isUuid(brokerId) || !isUuid(tenantId)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          accessGranted: false,
+          code: 'BROKER_IDENTITY_UNRESOLVED',
+          error: '담당 공인중개사 식별 정보를 확인할 수 없어 열람 자격을 처리할 수 없습니다.',
+        },
+        { status: 422 }
+      );
+    }
 
     // 2. Party 생성 (또는 기존 Party 반환)
+    const entityType = (ENTITY_TYPE_MAP[formData.entityType] || 'individual') as
+      | 'individual'
+      | 'corp'
+      | 'fund'
+      | 'agent';
     const party = await findOrCreateParty({
       tenantId,
       ownerBrokerId: brokerId,
       name: cleanName,
       phone: normalizedPhone,
-      entityType: (ENTITY_TYPE_MAP[formData.entityType] || 'individual') as any,
+      entityType,
       consentVersion: 'v1',
     });
 
@@ -221,16 +309,33 @@ export async function POST(req: NextRequest) {
       await bindViewerHistory(viewerId, party.id);
     }
 
-    // 6. Track event — intent.detail_request
-    await supabase.from('track_event').insert({
-      tenant_id: tenantId,
-      deal_id: dealId,
-      kind: 'intent.detail_request',
-      viewer_id: viewerId || null,
-      share_token: shareToken || null,
-      party_id: party.id,
-      payload: { formSource: 'gate_g2' },
-    });
+    // 6. Track event — intent.detail_request (strictly guarded on valid UUIDs, non-blocking)
+    if (isUuid(effectiveDealId) && isUuid(tenantId)) {
+      try {
+        const { error: trackErr } = await supabase.from('track_event').insert({
+          tenant_id: tenantId,
+          deal_id: effectiveDealId,
+          kind: 'intent.detail_request',
+          viewer_id: viewerId || null,
+          share_token: shareToken || null,
+          party_id: party.id,
+          payload: { formSource: 'gate_g2' },
+        });
+        if (trackErr) {
+          log.warn('[gate/submit] track_event insert failed (non-blocking)', {
+            dealId: effectiveDealId,
+            partyId: party.id,
+            error: trackErr.message,
+          });
+        }
+      } catch (trackEx) {
+        log.warn('[gate/submit] track_event insert threw (non-blocking)', {
+          dealId: effectiveDealId,
+          partyId: party.id,
+          error: trackEx instanceof Error ? trackEx.message : String(trackEx),
+        });
+      }
+    }
 
     // 7. Record gate_request_created in activity_events so submissions appear in /broker/w/inbox
     try {
@@ -239,10 +344,14 @@ export async function POST(req: NextRequest) {
         actor_role: 'anonymous',
         event_type: 'gate_request_created',
         entity_type: 'gate_request',
-        entity_id: dealId && isUuid(dealId) ? dealId : (party.id && isUuid(party.id) ? party.id : null),
+        entity_id: isUuid(effectiveDealId)
+          ? effectiveDealId
+          : party.id && isUuid(party.id)
+          ? party.id
+          : null,
         metadata: {
-          building_id: dealId || null,
-          broker_id: brokerId || null,
+          building_id: effectiveDealId,
+          broker_id: brokerId,
           party_id: party.id,
           requester_name: cleanName,
           requester_phone: normalizedPhone,

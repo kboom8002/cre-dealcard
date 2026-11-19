@@ -125,11 +125,11 @@ export async function POST(req: NextRequest) {
         if (UUID_RE.test(intentId) && supabase && typeof supabase.from === "function") {
           const { data: iRow } = await supabase
             .from("tenant_intent")
-            .select("id, broker_id, owner_id")
+            .select("*")
             .eq("id", intentId)
             .maybeSingle();
           if (iRow) {
-            const rowOwner = iRow.broker_id ?? iRow.owner_id ?? null;
+            const rowOwner = iRow.broker_id ?? (iRow as Record<string, unknown>).owner_id ?? null;
             if (!isAdmin && (!rowOwner || rowOwner !== userId)) {
               return NextResponse.json(
                 { ok: false, error: "이 임차 의향서에 대한 권한이 없습니다.", code: "FORBIDDEN" },

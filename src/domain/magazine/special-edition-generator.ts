@@ -26,7 +26,11 @@ import { runMagazineQualityGate } from './quality-gate';
 import { callMagazineJson, zReaderText } from '@/lib/magazine/llm-guard';
 import { todayKst } from '@/lib/magazine/kst';
 import { SLUG_RE, isUuid } from '@/lib/magazine/slug';
-import { adaptBuildingToMagazineDeal, resolveDealCoverPhoto } from './deal-adapter';
+import { maskAddressForPublic } from '@/lib/magazine/public-page-data';
+import {
+  adaptBuildingToMagazineDeal,
+  stripMagazinePrivateDealFields,
+} from './deal-adapter';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('special-edition-generator');
@@ -114,30 +118,43 @@ export async function generateSpecialEdition(params: GenerateSpecialEditionParam
   // document_objects SSOT 조회 (있을 경우 투자포인트/YieldSet 연동)
   const { data: imDoc } = await supabase
     .from('document_objects')
-    .select('doc_type, body')
+    .select('document_type, body')
     .eq('building_id', buildingId)
-    .in('doc_type', ['im_lite', 'im_lite_draft', 'mobile_im'])
+    .in('document_type', ['im_lite', 'im_lite_draft', 'mobile_im'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const adaptedDeal = adaptBuildingToMagazineDeal({
-    building: rawData,
-    imDoc,
-  });
+  const adaptedDeal = stripMagazinePrivateDealFields(
+    adaptBuildingToMagazineDeal({
+      building: rawData,
+      imDoc,
+    }),
+  );
 
-  const layers = (rawData.layers ?? {}) as Record<string, unknown>;
-  const photoUrls = adaptedDeal.photoUrls.length > 0 ? adaptedDeal.photoUrls : arr(((layers.photos ?? {}) as { urls?: unknown }).urls);
+  const rawLayers = (rawData.layers ?? {}) as Record<string, unknown>;
+  const safeLayers = stripMagazinePrivateDealFields(rawLayers);
+  const photoUrls =
+    adaptedDeal.photoUrls.length > 0
+      ? adaptedDeal.photoUrls
+      : arr(((rawLayers.photos ?? {}) as { urls?: unknown }).urls);
+  const maskedAreaSignal =
+    (nonEmpty(rawData.area_signal)
+      ? maskAddressForPublic(rawData.area_signal) || nonEmpty(rawData.area_signal)
+      : null) ??
+    (nonEmpty(rawData.raw_address) ? maskAddressForPublic(rawData.raw_address) || null : null);
   const building = {
     id: rawData.id as string,
-    address: nonEmpty(rawData.raw_address),
-    areaSignal: nonEmpty(rawData.area_signal),
+    address: maskedAreaSignal,
+    areaSignal: maskedAreaSignal,
     assetType: nonEmpty(rawData.asset_type),
-    priceDisplay: nonEmpty(rawData.price_band) ?? nonEmpty(layers.askingPriceDisplay),
+    priceDisplay: nonEmpty(rawData.price_band) ?? nonEmpty(rawLayers.askingPriceDisplay),
   };
 
-  // 3. 블라인드 티저 카드
-  const teaserCards = generateMagazineTeaserCards([{ id: building.id, attrs: layers }]);
+  // 3. 블라인드 티저 카드 (원문 layers의 지번·임대차 내역·연락처 제거 후 주입)
+  const teaserCards = stripMagazinePrivateDealFields(
+    generateMagazineTeaserCards([{ id: building.id, attrs: safeLayers }]),
+  );
   const primaryTeaser = teaserCards[0]?.teaserView;
 
   // 근거 사실 — 비어 있는 항목은 프롬프트에서 아예 제외한다 (가짜 기본값 금지)

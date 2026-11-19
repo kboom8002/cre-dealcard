@@ -32,7 +32,7 @@ export function KakaoStaticMap({ lat, lng, name, mapUrl }: KakaoStaticMapProps) 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span className="text-xs">지도를 불러올 수 없습니다</span>
+            <span className="text-sm">지도를 불러올 수 없습니다</span>
           </div>
         )}
       </div>
@@ -43,7 +43,7 @@ export function KakaoStaticMap({ lat, lng, name, mapUrl }: KakaoStaticMapProps) 
           href={kakaoMapLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-[11px] font-bold rounded-xl transition-all shadow-md active:scale-95"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 5.82 2 10.5c0 2.95 1.95 5.55 4.88 7.04-.15.57-.78 2.96-.81 3.13 0 0-.02.12.06.17.08.04.17.01.17.01.22-.03 2.58-1.71 3.66-2.43.64.09 1.33.14 2.04.14 5.52 0 10-3.82 10-8.56C22 5.82 17.52 2 12 2z" />
@@ -54,9 +54,9 @@ export function KakaoStaticMap({ lat, lng, name, mapUrl }: KakaoStaticMapProps) 
           href={naverMapLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#03C75A] hover:bg-[#02B351] text-white text-[11px] font-bold rounded-xl transition-all shadow-md active:scale-95"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#03C75A] hover:bg-[#02B351] text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
         >
-          <span className="font-extrabold text-[10px]">N</span>
+          <span className="font-extrabold text-sm">N</span>
           네이버 지도
         </a>
       </div>

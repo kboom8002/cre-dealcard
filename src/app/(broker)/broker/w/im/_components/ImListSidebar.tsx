@@ -148,7 +148,7 @@ export function ImListSidebar({
               type="button"
               data-testid="im-clear-search-btn"
               onClick={() => onSearchChange("")}
-              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
+              className="min-h-[44px] px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
             >
               검색어 지우기
             </button>
@@ -284,7 +284,7 @@ export function ImListSidebar({
                           type="button"
                           data-testid={`im-duplicate-${item.id}`}
                           onClick={(e) => onDuplicateItem(item, e)}
-                          className="min-h-[36px] text-sm font-semibold px-2.5 py-1 rounded-xl bg-[#767680]/10 hover:bg-[#767680]/18 text-[#3A3A3C] border border-slate-900/[0.08] cursor-pointer transition-colors"
+                          className="min-h-[44px] text-sm font-semibold px-3 py-1.5 rounded-xl bg-[#767680]/10 hover:bg-[#767680]/18 text-[#3A3A3C] border border-slate-900/[0.08] cursor-pointer transition-colors"
                         >
                           복제
                         </button>
@@ -292,7 +292,7 @@ export function ImListSidebar({
                           type="button"
                           data-testid={`im-delete-${item.id}`}
                           onClick={(e) => onDeleteItem(item, e)}
-                          className="min-h-[36px] text-sm font-semibold px-2.5 py-1 rounded-xl bg-[#FF2D55]/10 hover:bg-[#FF2D55]/18 text-[#C8102E] border border-[#FF2D55]/22 cursor-pointer transition-colors"
+                          className="min-h-[44px] text-sm font-semibold px-3 py-1.5 rounded-xl bg-[#FF2D55]/10 hover:bg-[#FF2D55]/18 text-[#C8102E] border border-[#FF2D55]/22 cursor-pointer transition-colors"
                         >
                           삭제
                         </button>

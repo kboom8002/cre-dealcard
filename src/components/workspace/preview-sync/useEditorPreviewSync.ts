@@ -80,7 +80,9 @@ export function useEditorPreviewSync<TTab extends string = string>({
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ unitId: string; seq: number } | null>(null);
   const unitsRef = useRef(units);
-  unitsRef.current = units;
+  useEffect(() => {
+    unitsRef.current = units;
+  }, [units]);
 
   // Post-commit DOM focus & pulse: runs after tab switch and disclosure state updates commit
   useEffect(() => {

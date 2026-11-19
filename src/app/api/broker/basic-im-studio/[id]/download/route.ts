@@ -335,7 +335,17 @@ export async function GET(
         grade = 'B';
       }
     }
-    if (grade === 'D') grade = 'C'; // Studio preview/download fallback guard
+    if (grade === 'D') {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Grade D documents cannot be exported to PPTX [G30]',
+          reason: '건물 기본 정보(주소·매매 희망가·임대 조건 중 필수 항목)가 부족하여 슬라이드를 구성할 수 없습니다.',
+          qualityGrade: 'D',
+        },
+        { status: 422 }
+      );
+    }
 
     const { MobileImPptxRenderer } = await import(
       '@/domain/building/mobile-im/pptx/pptx-renderer'
@@ -386,7 +396,7 @@ export async function GET(
   } catch (err: any) {
     console.error('[basic-im-studio/download] Generation failed:', err);
     return NextResponse.json(
-      { ok: false, error: err.message || 'Failed to generate Basic IM PPTX' },
+      { ok: false, error: 'Basic IM PPTX 파일 생성에 실패했습니다.' },
       { status: 500 }
     );
   }

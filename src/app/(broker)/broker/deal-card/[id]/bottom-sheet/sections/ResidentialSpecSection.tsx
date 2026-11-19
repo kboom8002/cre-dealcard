@@ -30,38 +30,38 @@ export function ResidentialSpecSection({
   return (
     <div className="border border-emerald-500/30 rounded-xl p-4 bg-emerald-500/5 space-y-3">
       <div className="flex justify-between items-center border-b border-emerald-500/20 pb-2">
-        <span className="text-xs font-bold text-emerald-300">🏠 주거 세대 스펙</span>
-        <span className="text-[10px] text-emerald-400 font-medium">전세/월세 보증금</span>
+        <span className="text-sm font-bold text-emerald-300">🏠 주거 세대 스펙</span>
+        <span className="text-sm text-emerald-400 font-medium">전세/월세 보증금</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">총 세대수</label>
+          <label className="block text-sm text-muted-foreground mb-1">총 세대수</label>
           <input
             type="number"
             placeholder="예: 12"
             value={resTotalUnits}
             onChange={(e) => setResTotalUnits(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">전세 세대수</label>
+          <label className="block text-sm text-muted-foreground mb-1">전세 세대수</label>
           <input
             type="number"
             placeholder="예: 4"
             value={resJeonseUnits}
             onChange={(e) => setResJeonseUnits(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">전세 보증금 합계 (만원)</label>
+          <label className="block text-sm text-muted-foreground mb-1">전세 보증금 합계 (만원)</label>
           <input
             type="number"
             placeholder="예: 80000"
             value={resJeonseDepositTotalManwon}
             onChange={(e) => setResJeonseDepositTotalManwon(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div className="flex items-center gap-2 pt-4">
@@ -72,10 +72,10 @@ export function ResidentialSpecSection({
             onChange={(e) => setResIllegalExtension(e.target.checked)}
             className="rounded border-border text-emerald-500 focus:ring-emerald-500 w-4 h-4 bg-background"
           />
-          <label htmlFor="resIllegalExtension" className="text-xs text-muted-foreground cursor-pointer">불법 증축/옥탑 포함</label>
+          <label htmlFor="resIllegalExtension" className="text-sm text-muted-foreground cursor-pointer">불법 증축/옥탑 포함</label>
         </div>
         {resIllegalExtension && (
-          <div className="col-span-2 text-[10px] text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg p-2 mt-1">
+          <div className="col-span-2 text-sm text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg p-2 mt-1">
             ⚠️ 위반건축물 대장 등재 시 매수자 주택담보대출이 차단될 수 있습니다. IM 리스크 섹션에 자동 기재됩니다.
           </div>
         )}

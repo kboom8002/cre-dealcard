@@ -90,7 +90,7 @@ export function SimpleNewsPicker({
     <div data-testid="simple-news-picker" className="space-y-3">
       {/* 상단 요약 바 + 황금배합 1클릭 버튼 */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-extrabold text-slate-700 dark:text-slate-200">
+        <span className="text-sm font-extrabold text-slate-700 dark:text-slate-200">
           {selectedList.length} / 최대 {maxLimit}건 선택됨 (부동산·경제·절세·문화·상권)
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -98,7 +98,7 @@ export function SimpleNewsPicker({
             type="button"
             data-testid="simple-news-balanced-btn"
             onClick={handleAutoBalancedThree}
-            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/15 px-3 py-1.5 text-xs font-extrabold text-indigo-900 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors"
+            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/15 px-3 py-1.5 text-sm font-extrabold text-indigo-900 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-amber-300" aria-hidden="true" />
             <span>✨ 부동산·경제·문화 황금배합 3선 자동 맞춤</span>
@@ -108,7 +108,7 @@ export function SimpleNewsPicker({
             data-testid="simple-news-expand-btn"
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex min-h-[38px] items-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-3 py-1.5 text-xs font-extrabold text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 transition-colors"
+            className="inline-flex min-h-[38px] items-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 px-3 py-1.5 text-sm font-extrabold text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 transition-colors"
           >
             <span>{expanded ? "채널별 뉴스 목록 접기" : "5대 채널에서 다른 뉴스 고르기"}</span>
             {expanded ? (
@@ -133,12 +133,12 @@ export function SimpleNewsPicker({
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-300 dark:border-indigo-400/40 bg-white dark:bg-indigo-500/20 px-2 py-0.5 text-xs font-extrabold text-indigo-900 dark:text-indigo-200">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-300 dark:border-indigo-400/40 bg-white dark:bg-indigo-500/20 px-2 py-0.5 text-sm font-extrabold text-indigo-900 dark:text-indigo-200">
                       <span aria-hidden="true">{chMeta.emoji}</span>
                       <span>{chMeta.shortLabel}</span>
                     </span>
                     {item.source && (
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
                         {item.source}
                       </span>
                     )}
@@ -150,7 +150,7 @@ export function SimpleNewsPicker({
                 <button
                   type="button"
                   onClick={() => setExpanded(true)}
-                  className="shrink-0 min-h-[36px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+                  className="shrink-0 min-h-[36px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100"
                 >
                   변경
                 </button>
@@ -178,7 +178,7 @@ export function SimpleNewsPicker({
                     aria-selected={isActive}
                     data-testid={`simple-news-channel-${ch.id}`}
                     onClick={() => setActiveChannel(ch.id)}
-                    className={`inline-flex min-h-[38px] items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-extrabold transition-colors ${
+                    className={`inline-flex min-h-[38px] items-center gap-1 rounded-xl border px-3 py-1.5 text-sm font-extrabold transition-colors ${
                       isActive
                         ? "border-blue-600 dark:border-indigo-400 bg-blue-600 dark:bg-indigo-500/30 text-white"
                         : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
@@ -195,7 +195,7 @@ export function SimpleNewsPicker({
                 type="button"
                 disabled={refreshing}
                 onClick={() => void handleRefreshClick()}
-                className="inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-500/15 px-2.5 py-1 text-xs font-bold text-sky-900 dark:text-sky-200"
+                className="inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-500/15 px-2.5 py-1 text-sm font-bold text-sky-900 dark:text-sky-200"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
                 <span>{refreshing ? "수집 중..." : "최신 뉴스 새로고침"}</span>
@@ -234,17 +234,17 @@ export function SimpleNewsPicker({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-sm font-extrabold text-slate-800 dark:text-slate-200">
                         <span aria-hidden="true">{chMeta.emoji}</span>
                         <span>{chMeta.shortLabel}</span>
                       </span>
                       {topic && (
-                        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                        <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
                           #{topic}
                         </span>
                       )}
                       {item.source && (
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
                           · {item.source}
                         </span>
                       )}
@@ -253,7 +253,7 @@ export function SimpleNewsPicker({
                       {cleanNewsText(item.title)}
                     </p>
                     {firstLine && (
-                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 mt-0.5">
+                      <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-1 mt-0.5">
                         {firstLine}
                       </p>
                     )}
@@ -268,7 +268,7 @@ export function SimpleNewsPicker({
               <button
                 type="button"
                 onClick={onOpenFullNewsTab}
-                className="text-xs font-extrabold text-blue-700 dark:text-indigo-300 hover:underline underline-offset-2"
+                className="text-sm font-extrabold text-blue-700 dark:text-indigo-300 hover:underline underline-offset-2"
               >
                 🔍 키워드 검색·직접 기사 추가(최대 6건)는 상세 뉴스 탭 열기 →
               </button>

@@ -15,8 +15,71 @@ import {
   NON_PUBLIC_DOCUMENT_STATUSES,
 } from '@/domain/public-projection/visibility';
 
+import {
+  allowDealPublicMemoryFallback,
+  buildLinkRevokedResponse,
+  buildShareTokenRequiredResponse,
+  isAllowedPublicDemoIm,
+  isDemoSeedDisabledForProd,
+  resolveWorkspaceImGuard,
+} from '@/lib/im-lite/im-public-guard';
+import { verifyShareLinkToken } from '@/lib/security/share-link-tokens';
+
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
+
+function isPreCutoverSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code = String((err as { code?: unknown }).code || '');
+  const msg = String((err as { message?: unknown }).message || '');
+  if (code === '42703' || code === '42P01' || code === 'PGRST204' || code === 'PGRST205') return true;
+  if (/column .* does not exist|relation .* does not exist|could not find the (?:table|column)/i.test(msg)) {
+    return true;
+  }
+  return !code && !msg.trim();
+}
+
+function buildGovernanceUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: 'GOVERNANCE_CHECK_UNAVAILABLE',
+      error: {
+        code: 'GOVERNANCE_CHECK_UNAVAILABLE',
+        message: '공유 링크 상태를 확인할 수 없어 잠시 열람이 제한됩니다. 잠시 후 다시 시도해 주세요.',
+      },
+    },
+    { status: 503 }
+  );
+}
+
+function mergeNonZeroFields(
+  baseObj: Record<string, any> | undefined,
+  overrideObj: Record<string, any> | undefined
+): Record<string, any> {
+  const out: Record<string, any> = { ...(baseObj || {}) };
+  if (!overrideObj || typeof overrideObj !== 'object') return out;
+  for (const [k, v] of Object.entries(overrideObj)) {
+    const prev = out[k];
+    const hasPrev =
+      prev !== undefined &&
+      prev !== null &&
+      prev !== '' &&
+      !(typeof prev === 'number' && prev === 0) &&
+      !(Array.isArray(prev) && prev.length === 0);
+    const isEmptyOverride =
+      v === undefined ||
+      v === null ||
+      v === '' ||
+      (typeof v === 'number' && v === 0) ||
+      (Array.isArray(v) && v.length === 0);
+    if (hasPrev && isEmptyOverride) {
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
+}
 
 
 export const runtime = 'nodejs';
@@ -44,13 +107,27 @@ export async function GET(
   const { buildingId } = await params;
   const searchParams = req.nextUrl.searchParams;
   const docId = searchParams.get('doc_id') || searchParams.get('docId');
-  /** @deprecated 골디락스 전환 후 렌더에 영향 없음 — 파일명 호환용 */
-  const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
+  const token = searchParams.get('token')?.trim() || null;
+  const requestedTierParam = searchParams.get('tier');
   const presetParam = searchParams.get('preset');
 
+  if (isDemoSeedDisabledForProd(buildingId)) {
+    return NextResponse.json({ error: 'Building not found' }, { status: 404 });
+  }
+
+  if (token) {
+    const tokenCheck = await verifyShareLinkToken({ token, buildingId });
+    if (!tokenCheck.valid) {
+      return buildLinkRevokedResponse(403);
+    }
+  }
+
+  const memoryFallbackAllowed = allowDealPublicMemoryFallback();
   const { getQuickImRecord, resolveOrSynthesizeQuickImRecord, isUuid, getInboxState } = await import('@/lib/im-lite/quick-generate-store');
   const { isBuildingShareLinkRevoked } = await import('@/lib/security/share-link-tokens');
-  const memRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  const memRec = memoryFallbackAllowed
+    ? (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId)
+    : undefined;
 
   // Create Supabase client with sanitized env values (defends against trailing \r\n on serverless)
   const { env, getServerEnv } = await import('@/lib/env');
@@ -67,29 +144,92 @@ export async function GET(
     viewer = null;
   }
 
+  const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
+  if (wsGuard.isDeleted) {
+    return NextResponse.json({ error: 'IM document has been deleted' }, { status: 404 });
+  }
+  if (wsGuard.itemRevoked && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+    return buildLinkRevokedResponse(403);
+  }
+  if (wsGuard.isDraft && !wsGuard.snapshot && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+    return NextResponse.json({ error: 'Valid IM document not found' }, { status: 404 });
+  }
+
   let latestDeletedTime = 0;
   let dbRevoked: boolean | undefined;
   let dbRevokeTime = 0;
+  const queryScopedEvents = async (
+    eventTypes: string[],
+    extraDocId?: string | null
+  ): Promise<{ rows: any[]; error: any }> => {
+    const safeIds = [buildingId, extraDocId]
+      .map((v) => String(v || '').trim())
+      .filter((v) => /^[A-Za-z0-9_.:-]+$/.test(v));
+    const buildOr = (withCol: boolean) => {
+      const parts: string[] = [];
+      for (const id of safeIds) {
+        if (withCol) parts.push(`building_id.eq.${id}`);
+        if (isUuid(id)) parts.push(`entity_id.eq.${id}`);
+        parts.push(`metadata->>building_id.eq.${id}`);
+      }
+      return parts.join(',');
+    };
+
+    let q: any = supabase
+      .from('activity_events')
+      .select('event_type, entity_id, building_id, metadata, created_at')
+      .in('event_type', eventTypes);
+    if (safeIds.length > 0) {
+      if (typeof q?.or === 'function') {
+        q = q.or(buildOr(true));
+      } else if (typeof q?.eq === 'function') {
+        q = q.eq('building_id', buildingId);
+      }
+    }
+    let res = await q.order('created_at', { ascending: false }).limit(50);
+    if (
+      res?.error &&
+      (String(res.error.code || '') === '42703' ||
+        String(res.error.code || '') === 'PGRST204' ||
+        /column .* does not exist/i.test(String(res.error.message || '')))
+    ) {
+      let fb: any = supabase
+        .from('activity_events')
+        .select('event_type, entity_id, metadata, created_at')
+        .in('event_type', eventTypes);
+      if (safeIds.length > 0 && typeof fb?.or === 'function') {
+        const expr = buildOr(false);
+        if (expr) fb = fb.or(expr);
+      }
+      res = await fb.order('created_at', { ascending: false }).limit(50);
+    }
+    return {
+      rows: Array.isArray(res?.data) ? res.data : [],
+      error: res?.error ?? null,
+    };
+  };
+
   try {
-    const [{ data: imEvents }, { data: govEvents }] = await Promise.all([
-      supabase
-        .from('activity_events')
-        .select('event_type, entity_id, metadata, created_at')
-        .in('event_type', ['im_upserted', 'im_deleted', 'im_restored'])
-        .order('created_at', { ascending: false })
-        .limit(80),
-      supabase
-        .from('activity_events')
-        .select('event_type, entity_id, metadata, created_at')
-        .in('event_type', ['link_revoked', 'link_restored'])
-        .order('created_at', { ascending: false })
-        .limit(80),
+    const [imRes, govRes] = await Promise.all([
+      queryScopedEvents(['im_upserted', 'im_deleted', 'im_restored'], docId),
+      queryScopedEvents(['link_revoked', 'link_restored']),
     ]);
+
+    if (govRes.error && !isPreCutoverSchemaError(govRes.error)) {
+      log.error(
+        { code: govRes.error.code, message: govRes.error.message, buildingId },
+        '[PPTX] governance revocation lookup failed'
+      );
+      return buildGovernanceUnavailableResponse();
+    }
+
+    const imEvents = imRes.rows;
+    const govEvents = govRes.rows;
 
     if (Array.isArray(imEvents)) {
       for (const ev of imEvents) {
         const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
-        const evBId = String(meta.building_id || ev?.entity_id || '');
+        const evBId = String(ev?.building_id || meta.building_id || ev?.entity_id || '');
         const evImId = String(meta.im_id || meta.im_item?.id || '');
         const evItemBid = String(meta.im_item?.buildingId || '');
         if (
@@ -110,7 +250,7 @@ export async function GET(
     if (Array.isArray(govEvents)) {
       for (const row of govEvents) {
         const meta = (row?.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<string, any>;
-        const evBldId = String(meta.building_id || row?.entity_id || '').trim();
+        const evBldId = String(row?.building_id || meta.building_id || row?.entity_id || '').trim();
         if (evBldId !== buildingId) continue;
         if (row.event_type === 'link_revoked') {
           dbRevoked = true;
@@ -124,34 +264,29 @@ export async function GET(
         }
       }
     }
-  } catch {
-    // Non-blocking
+  } catch (govEx) {
+    if (!isPreCutoverSchemaError(govEx)) {
+      log.error({ buildingId, err: govEx }, '[PPTX] governance revocation lookup threw');
+      return buildGovernanceUnavailableResponse();
+    }
   }
-
-  let quickRec = latestDeletedTime > 0
-    ? null
-    : (await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)) || memRec;
 
   let buildingRow: any = null;
   let buildingOwnerId: string | null = null;
   const IM_DOC_TYPES = ['mobile_im', 'im_lite', 'im_lite_draft'];
   let dbDoc: any = null;
 
-  if (isUuid(buildingId) || !quickRec?.fullDocBody) {
+  if (isUuid(buildingId)) {
     try {
-      // 1. Fetch building (owner) first — P0-SEC: 문서 상태/소유자 판정에 사용
-      if (isUuid(buildingId)) {
-        const { data: bRow } = await supabase
-          .from('building_ssot_lite')
-          .select('*')
-          .eq('id', buildingId)
-          .maybeSingle();
-        buildingRow = bRow;
-      }
-
+      const { data: bRow } = await supabase
+        .from('building_ssot_lite')
+        .select('*')
+        .eq('id', buildingId)
+        .maybeSingle();
+      buildingRow = bRow;
       buildingOwnerId = (buildingRow?.owner_id as string | null | undefined) ?? null;
 
-      if (docId && isUuid(buildingId)) {
+      if (docId) {
         const { data: requested } = await supabase
           .from('document_objects')
           .select('*')
@@ -159,13 +294,16 @@ export async function GET(
           .in('document_type', IM_DOC_TYPES)
           .eq('id', docId)
           .maybeSingle();
-        // 비공개 상태 doc_id 는 소유자·admin 에게만 — 그 외에는 무시하고 최신 공개본으로 대체
-        if (requested && (isImDocStatusPublic(requested.status) || isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))) {
+        if (
+          requested &&
+          (isImDocStatusPublic(requested.status) ||
+            isOwnerOrAdmin(viewer, buildingOwnerId, requested.owner_id))
+        ) {
           dbDoc = requested;
         }
       }
 
-      if (!dbDoc && isUuid(buildingId)) {
+      if (!dbDoc) {
         const privileged = isOwnerOrAdmin(viewer, buildingOwnerId);
         let latestQuery = supabase
           .from('document_objects')
@@ -175,13 +313,36 @@ export async function GET(
         latestQuery = privileged
           ? latestQuery.not('status', 'in', `(${NON_PUBLIC_DOCUMENT_STATUSES.join(',')})`)
           : latestQuery.in('status', [...PUBLIC_IM_DOC_STATUSES]);
-        const { data: latest } = await latestQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
+        const { data: latest } = await latestQuery
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
         dbDoc = latest ?? null;
       }
     } catch {
-      // Non-blocking fallback for non-UUID or offline DB
+      // Non-blocking fallback for offline DB
     }
   }
+
+  const prelimPrivileged = isOwnerOrAdmin(
+    viewer,
+    buildingOwnerId,
+    dbDoc?.owner_id ?? wsGuard.ownerId
+  );
+  const safeMemRec =
+    memRec &&
+    !prelimPrivileged &&
+    ((memRec as any).status === 'draft' || (memRec as any).hasUnpublishedEdits === true)
+      ? undefined
+      : memRec;
+  const quickRec =
+    latestDeletedTime > 0
+      ? null
+      : memoryFallbackAllowed
+      ? (await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId, {
+          publishedOnly: !prelimPrivileged,
+        })) || safeMemRec
+      : null;
 
   // Check if latest lifecycle event in activity_events is im_deleted and newer than dbDoc?.updated_at
   if (latestDeletedTime > 0) {
@@ -192,19 +353,32 @@ export async function GET(
   }
 
   // Link revocation check
-  const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
-  const localRevoked = Boolean(inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId));
+  const inboxRevokedEntry = memoryFallbackAllowed
+    ? getInboxState().revokedBuildings?.[buildingId]
+    : undefined;
+  const localRevoked = memoryFallbackAllowed
+    ? Boolean(inboxRevokedEntry?.revoked || isBuildingShareLinkRevoked(buildingId))
+    : false;
   const localRevokeTime = inboxRevokedEntry?.revokedAt ? Date.parse(inboxRevokedEntry.revokedAt) || 0 : 0;
   const effectiveRevoked =
     typeof dbRevoked === 'boolean' && (!localRevokeTime || dbRevokeTime >= localRevokeTime)
       ? dbRevoked
       : localRevoked || dbRevoked === true || Boolean(quickRec?.isRevoked) || dbDoc?.body?.is_revoked === true;
 
-  if (effectiveRevoked && !isOwnerOrAdmin(viewer, buildingOwnerId, dbDoc?.owner_id ?? (quickRec as any)?.ownerId)) {
-    return NextResponse.json({ ok: false, error: 'LINK_REVOKED' }, { status: 403 });
+  if (effectiveRevoked && !isOwnerOrAdmin(viewer, buildingOwnerId, dbDoc?.owner_id ?? (quickRec as any)?.ownerId ?? wsGuard.ownerId)) {
+    return buildLinkRevokedResponse(403);
   }
 
   let doc: any = null;
+  const wsActivePayload =
+    wsGuard.snapshot ||
+    (wsGuard.item?.draftPayload && isOwnerOrAdmin(viewer, buildingOwnerId, wsGuard.ownerId)
+      ? wsGuard.item.draftPayload
+      : null);
+  const wsDocBody =
+    wsActivePayload && typeof wsActivePayload === 'object'
+      ? (wsActivePayload.fullDocBody || (Array.isArray(wsActivePayload.sections) ? wsActivePayload : null))
+      : null;
   if (dbDoc?.body && quickRec?.fullDocBody) {
     const dbBody = dbDoc.body as Record<string, any>;
     const qrBody = quickRec.fullDocBody as Record<string, any>;
@@ -214,12 +388,33 @@ export async function GET(
     const primary = dbIsNewer ? dbBody : qrBody;
     const secondary = dbIsNewer ? qrBody : dbBody;
 
+    const mergedTop = mergeNonZeroFields(secondary, primary);
+    const mergedSsot = mergeNonZeroFields(secondary.ssot_summary, primary.ssot_summary);
+    const mergedHero = mergeNonZeroFields(secondary.heroCard, primary.heroCard);
+    const getBasicDocPrice = (bDoc: any) =>
+      Number(
+        bDoc?.facts?.transaction?.askingPriceKrw ??
+          bDoc?.facts?.transaction?.askingPriceManwon ??
+          0
+      );
+    const getBasicDocArea = (bDoc: any) =>
+      Number(bDoc?.facts?.building?.totalGrossAreaSqm ?? 0);
+    const dbBasicTxPrice = getBasicDocPrice(dbBody.basicImDocument);
+    const qrBasicTxPrice = getBasicDocPrice(qrBody.basicImDocument);
+    const dbBasicArea = getBasicDocArea(dbBody.basicImDocument);
+    const qrBasicArea = getBasicDocArea(qrBody.basicImDocument);
+    const resolvedBasicImDocument =
+      !dbIsNewer &&
+      ((qrBasicTxPrice === 0 && dbBasicTxPrice > 0) ||
+        (qrBasicArea === 0 && dbBasicArea > 0))
+        ? dbBody.basicImDocument
+        : primary.basicImDocument || secondary.basicImDocument;
+
     const mergedBody: Record<string, any> = {
-      ...secondary,
-      ...primary,
+      ...mergedTop,
+      ...(resolvedBasicImDocument ? { basicImDocument: resolvedBasicImDocument } : {}),
       ssot_summary: {
-        ...(secondary.ssot_summary || {}),
-        ...(primary.ssot_summary || {}),
+        ...mergedSsot,
         coordinates:
           primary.ssot_summary?.coordinates ||
           secondary.ssot_summary?.coordinates ||
@@ -232,10 +427,7 @@ export async function GET(
           secondary.pnu ||
           buildingRow?.pnu,
       },
-      heroCard: {
-        ...(secondary.heroCard || {}),
-        ...(primary.heroCard || {}),
-      },
+      heroCard: mergedHero,
       enrichment: primary.enrichment || secondary.enrichment,
       coordinates:
         primary.coordinates ||
@@ -309,21 +501,43 @@ export async function GET(
     };
   } else if (dbDoc) {
     doc = dbDoc;
+  } else if (wsDocBody && wsGuard.item) {
+    doc = {
+      id: wsGuard.item.id,
+      building_id: wsGuard.item.buildingId || buildingId,
+      owner_id: wsGuard.item.ownerId,
+      title: wsGuard.item.title,
+      status: wsGuard.item.status,
+      body: { ...wsDocBody },
+    };
   }
 
   if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
     return NextResponse.json({ error: 'Valid IM document not found or document has no sections' }, { status: 404 });
   }
 
-  if (tier !== 'pro') {
-    doc.body.preset = doc.body.preset || 'credeal_basic';
-    doc.body.tier = doc.body.tier || 'basic';
+  // 소유자·admin 여부 (워터마크 해제 및 Pro 티어 권한)
+  const isPrivilegedViewer = isOwnerOrAdmin(
+    viewer,
+    buildingOwnerId,
+    doc.owner_id ?? (quickRec as any)?.ownerId ?? wsGuard.ownerId
+  );
+  if (doc.body?.is_revoked === true && !isPrivilegedViewer) {
+    return buildLinkRevokedResponse(403);
+  }
+  const isDemoAllowed = isAllowedPublicDemoIm(buildingId) && !wsGuard.item;
+  if (!isPrivilegedViewer && !isDemoAllowed && !token) {
+    return buildShareTokenRequiredResponse();
   }
 
-  // 소유자·admin 여부 (워터마크 해제 권한)
-  const isPrivilegedViewer = isOwnerOrAdmin(viewer, buildingOwnerId, doc.owner_id ?? (quickRec as any)?.ownerId);
-  if (doc.body?.is_revoked === true && !isPrivilegedViewer) {
-    return NextResponse.json({ ok: false, error: 'LINK_REVOKED' }, { status: 403 });
+  // WP-7.4D P1-2: ignore untrusted ?tier=pro on public im-lite PPTX route unless authorized owner/admin
+  const effectiveTier: 'basic' | 'pro' =
+    isPrivilegedViewer && (doc.body?.tier === 'pro' || requestedTierParam === 'pro')
+      ? 'pro'
+      : 'basic';
+  if (effectiveTier !== 'pro') {
+    doc.body.preset = doc.body.preset || 'credeal_basic';
+    doc.body.tier = 'basic';
   }
 
   // Poison coordinate / PNU guard (Dangsan 11-47 leak) & on-the-fly geocoding
@@ -520,9 +734,9 @@ export async function GET(
     const hasViolation = body.hasViolation ?? body.violationStatus === 'exists';
     const hasJointCollateral = body.hasJointCollateral ?? false;
 
-    // ── IM 타입(Basic/Pro) 결정: 문서의 tier가 유일한 권한 (프리셋으로 결정하지 않음) ──
-    const docTier = body.tier || tier; // body.tier 우선, 없으면 URL ?tier= (기본 'basic')
-    const isBasicIM = docTier === 'basic';
+    // ── IM 타입(Basic/Pro) 결정: 비특권 공개 뷰어는 ?tier=pro 상승 차단 (항상 Basic / fact_om) ──
+    const docTier: 'basic' | 'pro' = effectiveTier;
+    const isBasicIM = docTier !== 'pro';
 
     // 시각적 프리셋: 사용자가 선택한 프리셋을 존중하되, Basic IM이면 항상 credeal_basic 시퀀스를 사용
     const visualPreset = presetParam || body.preset || (isBasicIM ? 'credeal_basic' : 'credeal_signature');
@@ -619,11 +833,11 @@ export async function GET(
       buildingName.replace(
         /[^a-zA-Z0-9\u3131-\u318E\u3200-\u321E\uAC00-\uD7A3]/g,
         '_'
-      ).replace(/_+/g, '_').replace(/^_|_$/g, '') + `_${tier === 'pro' ? 'Pro_IM' : 'Basic_IM'}.pptx`;
+      ).replace(/_+/g, '_').replace(/^_|_$/g, '') + `_${effectiveTier === 'pro' ? 'Pro_IM' : 'Basic_IM'}.pptx`;
 
     if (!quickRec?.fullDocBody && searchParams.get('direct') !== '1') {
       const timestamp = Date.now();
-      const filePath = `im-pptx/${buildingId}/${tier}_${timestamp}.pptx`;
+      const filePath = `im-pptx/${buildingId}/${effectiveTier}_${timestamp}.pptx`;
 
       const { error: uploadError } = await supabase.storage
         .from('Exports')
@@ -664,13 +878,12 @@ export async function GET(
       },
     });
   } catch (err: any) {
-    log.error(`[PPTX ${tier}] Generation failed:`, err);
+    log.error(`[PPTX ${effectiveTier}] Generation failed:`, err);
     return NextResponse.json(
       {
         error: 'PPTX generation failed',
         reason: 'PPTX 슬라이드를 생성하는 중 일시적인 오류가 발생했습니다.',
         suggestion: '잠시 후 다시 시도하거나 [기본 IM 수정·재생성]을 실행해 주세요.',
-        details: err?.message || String(err),
       },
       { status: 500 }
     );

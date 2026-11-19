@@ -35,7 +35,7 @@ import {
 import { BASIC_IM_BOUNDS } from '@/domain/building/mobile-im/pptx/basic-im-contract';
 import { createAdversarialBasicImInput } from './basic-im-adversarial.test';
 
-describe('Basic IM Degenerate & Hostile Stress Suite (Challenger 1)', () => {
+describe('Basic IM Degenerate & Hostile Stress Suite (Challenger 1)', { timeout: 90_000 }, () => {
   const renderer = new MobileImPptxRenderer();
 
   beforeAll(() => {

@@ -4,8 +4,10 @@
  * 지능형 브리핑 스크립트 생성 → OpenAI TTS-1-HD 음성 변환.
  * 1~2분 내외의 투자 브리핑 음성을 audio/mpeg로 반환합니다.
  */
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { PUBLIC_IM_DOC_STATUSES } from "@/domain/public-projection/visibility";
 import { getDemoMobileIM, type MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { createModuleLogger } from "@/lib/logger";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -16,8 +18,42 @@ import {
   isBuildingShareLinkRevoked,
 } from "@/lib/security/share-link-tokens";
 import { getInboxState } from "@/lib/im-lite/quick-generate-store";
+import { getServerViewer } from "@/lib/server-viewer";
+import { isOwnerOrAdmin } from "@/domain/public-projection/access";
+import {
+  allowDealPublicMemoryFallback,
+  buildShareTokenRequiredResponse,
+  isAllowedPublicDemoIm,
+  isDemoSeedDisabledForProd,
+  resolveWorkspaceImGuard,
+} from "@/lib/im-lite/im-public-guard";
 
 const log = createModuleLogger("im-lite-tts-route");
+
+function isPreCutoverSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = String((err as { code?: unknown }).code || "");
+  const msg = String((err as { message?: unknown }).message || "");
+  if (code === "42703" || code === "42P01" || code === "PGRST204" || code === "PGRST205") return true;
+  if (/column .* does not exist|relation .* does not exist|could not find the (?:table|column)/i.test(msg)) {
+    return true;
+  }
+  return !code && !msg.trim();
+}
+
+function buildGovernanceUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "GOVERNANCE_CHECK_UNAVAILABLE",
+      error: {
+        code: "GOVERNANCE_CHECK_UNAVAILABLE",
+        message: "공유 링크 상태를 확인할 수 없어 잠시 열람이 제한됩니다. 잠시 후 다시 시도해 주세요.",
+      },
+    },
+    { status: 503 }
+  );
+}
 
 const ALLOWED_LANGUAGES = new Set(["ko", "en", "ja", "zh"]);
 const SAFE_BUILDING_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -70,19 +106,30 @@ function getBriefingSystemPrompt(lang: string) {
 async function generateBriefingScriptWithLLM(
   openai: OpenAI,
   doc: MobileIMDocument,
-  lang: string
+  lang: string,
+  opts: { docHashSlice: string; ownerId: string | null }
 ): Promise<string> {
   const supabase = createServiceClient();
   try {
-    const { data: cached } = await supabase
+    let cacheQuery: any = supabase
       .from("document_objects")
-      .select("body, created_at")
+      .select("body, created_at, owner_id, status")
       .eq("building_id", doc.buildingId)
       .eq("document_type", "tts_script")
       .eq("title", lang)
-      .maybeSingle();
+      .in("status", [...PUBLIC_IM_DOC_STATUSES]);
+    if (opts.ownerId && typeof cacheQuery?.eq === "function") {
+      cacheQuery = cacheQuery.eq("owner_id", opts.ownerId);
+    }
+    const { data: cached } = await cacheQuery.maybeSingle();
 
-    if (cached?.body && typeof cached.body === "object" && "script" in cached.body) {
+    if (
+      cached?.body &&
+      typeof cached.body === "object" &&
+      "script" in cached.body &&
+      (!cached.body.docHash || cached.body.docHash === opts.docHashSlice) &&
+      (!opts.ownerId || !cached.owner_id || String(cached.owner_id) === String(opts.ownerId))
+    ) {
       const createdAt = new Date(cached.created_at).getTime();
       if (Date.now() - createdAt < 60 * 60 * 1000) {
         return (cached.body as Record<string, any>).script;
@@ -92,8 +139,22 @@ async function generateBriefingScriptWithLLM(
     log.warn("[TTS] Script cache read failed:", err);
   }
 
+  const hiddenSet = new Set<string>(
+    [
+      ...(Array.isArray((doc as any).hidden_sections) ? (doc as any).hidden_sections : []),
+      ...(Array.isArray(doc.hiddenSections) ? doc.hiddenSections : []),
+    ].map(String)
+  );
+  const isProDoc = (doc as any).tier === "pro";
+
   const sectionsText = (doc.sections || [])
-    .filter((s) => !s.locked)
+    .filter((s: any) => {
+      if (!s || s.locked) return false;
+      if (!isProDoc && s.min_tier === "premium") return false;
+      const keys = [s.section_type, s.sectionId, s.id].filter(Boolean).map(String);
+      if (keys.some((k) => hiddenSet.has(k))) return false;
+      return true;
+    })
     .map((s) => {
       const content = (s.content ?? (s as any).markdown ?? "").trim();
       if (!content || content === "데이터 없음") return null;
@@ -121,7 +182,7 @@ ${sectionsText}
 데이터가 부족한 섹션은 건너뛰고, 확인된 데이터만으로 전문적인 브리핑을 구성하세요.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.6-terra",
+    model: "gpt-4o-mini",
     messages: [
       { role: "system", content: getBriefingSystemPrompt(lang) },
       { role: "user", content: userPrompt },
@@ -137,9 +198,11 @@ ${sectionsText}
       await supabase.from("document_objects").upsert(
         {
           building_id: doc.buildingId,
+          ...(opts.ownerId ? { owner_id: opts.ownerId } : {}),
           document_type: "tts_script",
+          status: "published",
           title: lang,
-          body: { script },
+          body: { script, docHash: opts.docHashSlice },
           created_at: new Date().toISOString(),
         },
         { onConflict: "building_id,document_type,title" }
@@ -154,7 +217,20 @@ ${sectionsText}
 
 // ─── 폴백: 정규식 기반 스크립트 (LLM 실패 시) ──────────────────────
 function generateFallbackScript(doc: MobileIMDocument): string {
-  const sections = (doc.sections || []).filter((s) => !s.locked);
+  const hiddenSet = new Set<string>(
+    [
+      ...(Array.isArray((doc as any).hidden_sections) ? (doc as any).hidden_sections : []),
+      ...(Array.isArray(doc.hiddenSections) ? doc.hiddenSections : []),
+    ].map(String)
+  );
+  const isProDoc = (doc as any).tier === "pro";
+  const sections = (doc.sections || []).filter((s: any) => {
+    if (!s || s.locked) return false;
+    if (!isProDoc && s.min_tier === "premium") return false;
+    const keys = [s.section_type, s.sectionId, s.id].filter(Boolean).map(String);
+    if (keys.some((k) => hiddenSet.has(k))) return false;
+    return true;
+  });
   const lines: string[] = [];
 
   lines.push(
@@ -233,8 +309,18 @@ export async function GET(
       }
     }
 
-    const inboxRevoked = getInboxState().revokedBuildings?.[buildingId]?.revoked;
-    if (inboxRevoked || isBuildingShareLinkRevoked(buildingId)) {
+    if (isDemoSeedDisabledForProd(buildingId)) {
+      return NextResponse.json(
+        { error: "Building not found or IM not generated" },
+        { status: 404 }
+      );
+    }
+
+    const memoryFallbackAllowed = allowDealPublicMemoryFallback();
+    const inboxRevoked = memoryFallbackAllowed
+      ? getInboxState().revokedBuildings?.[buildingId]?.revoked
+      : false;
+    if (inboxRevoked || (memoryFallbackAllowed && isBuildingShareLinkRevoked(buildingId))) {
       return NextResponse.json(
         { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
         { status: 410 }
@@ -243,22 +329,59 @@ export async function GET(
 
     const supabase = createServiceClient();
 
-    // Check DB governance revocation events when available
+    // Check DB governance revocation events scoped to building_id (42703-safe)
     try {
-      const govQuery: any = supabase
+      const safeBld = /^[A-Za-z0-9_.:-]+$/.test(buildingId) ? buildingId : "";
+      const isBldUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(safeBld);
+      let govQuery: any = supabase
         .from("activity_events")
-        .select("event_type, entity_id, metadata, created_at")
-        .in("event_type", ["link_revoked", "link_restored"])
-        .order("created_at", { ascending: false })
-        .limit(100);
-      const govRes = await govQuery;
+        .select("event_type, entity_id, building_id, metadata, created_at")
+        .in("event_type", ["link_revoked", "link_restored"]);
+      if (safeBld) {
+        if (typeof govQuery?.or === "function") {
+          govQuery = govQuery.or(
+            isBldUuid
+              ? `building_id.eq.${safeBld},entity_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`
+              : `building_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`,
+          );
+        } else if (typeof govQuery?.eq === "function") {
+          govQuery = govQuery.eq("building_id", safeBld);
+        }
+      }
+      let govRes = await govQuery.order("created_at", { ascending: false }).limit(50);
+      if (
+        govRes?.error &&
+        (String(govRes.error.code || "") === "42703" ||
+          String(govRes.error.code || "") === "PGRST204" ||
+          /column .* does not exist/i.test(String(govRes.error.message || "")))
+      ) {
+        let fbQuery: any = supabase
+          .from("activity_events")
+          .select("event_type, entity_id, metadata, created_at")
+          .in("event_type", ["link_revoked", "link_restored"]);
+        if (safeBld && typeof fbQuery?.or === "function") {
+          fbQuery = fbQuery.or(
+            isBldUuid
+              ? `entity_id.eq.${safeBld},metadata->>building_id.eq.${safeBld}`
+              : `metadata->>building_id.eq.${safeBld}`,
+          );
+        }
+        govRes = await fbQuery.order("created_at", { ascending: false }).limit(50);
+      }
+      if (govRes?.error && !isPreCutoverSchemaError(govRes.error)) {
+        log.error(
+          { code: govRes.error.code, message: govRes.error.message, buildingId },
+          "[TTS] revocation lookup failed"
+        );
+        return buildGovernanceUnavailableResponse();
+      }
       if (Array.isArray(govRes?.data)) {
         for (const row of govRes.data) {
           const meta =
             row?.metadata && typeof row.metadata === "object"
               ? (row.metadata as Record<string, unknown>)
               : {};
-          const evBldId = String(meta.building_id || row?.entity_id || "").trim();
+          const evBldId = String((row as any)?.building_id || meta.building_id || row?.entity_id || "").trim();
           if (evBldId !== buildingId) continue;
           if (row.event_type === "link_revoked") {
             return NextResponse.json(
@@ -271,28 +394,74 @@ export async function GET(
           }
         }
       }
-    } catch {
-      // Non-blocking if activity_events unavailable
+    } catch (govEx) {
+      if (!isPreCutoverSchemaError(govEx)) {
+        log.error({ buildingId, err: govEx }, "[TTS] revocation lookup threw");
+        return buildGovernanceUnavailableResponse();
+      }
+    }
+
+    const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
+    if (wsGuard.isDeleted) {
+      return NextResponse.json(
+        { error: "Building not found or IM not generated" },
+        { status: 404 }
+      );
+    }
+    if (wsGuard.itemRevoked) {
+      return NextResponse.json(
+        { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
+        { status: 410 }
+      );
+    }
+    if (wsGuard.isDraft && !wsGuard.snapshot) {
+      return NextResponse.json(
+        { error: "Building not found or IM not generated" },
+        { status: 404 }
+      );
     }
 
     // 4. Load published IM document BEFORE serving audio cache (prevents draft/revoked leakage via cache)
-    let doc: MobileIMDocument | null = getDemoMobileIM(buildingId) || null;
+    const isDemoAllowed = isAllowedPublicDemoIm(buildingId) && !wsGuard.item;
+    let doc: MobileIMDocument | null = isDemoAllowed
+      ? getDemoMobileIM(buildingId) || null
+      : null;
+
+    if (!doc && wsGuard.snapshot && typeof wsGuard.snapshot === "object") {
+      const snapBody =
+        wsGuard.snapshot.fullDocBody ||
+        (Array.isArray(wsGuard.snapshot.sections) ? wsGuard.snapshot : null);
+      if (snapBody) {
+        doc = { ...(snapBody as MobileIMDocument), buildingId };
+      }
+    }
+
+    let docOwnerId: string | null = wsGuard.ownerId ?? null;
+    let docUpdatedAt = wsGuard.item?.updatedAt || "";
 
     if (!doc) {
       try {
-        const { data: dbDoc } = await supabase
+        let docQuery: any = supabase
           .from("document_objects")
-          .select("body, title, status, document_type, building_id")
+          .select("id, owner_id, body, title, status, document_type, building_id, updated_at")
           .eq("building_id", buildingId)
-          .eq("status", "published")
-          .in("document_type", ["mobile_im", "im_lite", "im_lite_draft", "blind_teaser"])
+          .in("status", [...PUBLIC_IM_DOC_STATUSES])
+          .in("document_type", ["mobile_im", "im_lite", "im_lite_draft"]);
+        if (wsGuard.ownerId && typeof docQuery?.eq === "function") {
+          docQuery = docQuery.eq("owner_id", wsGuard.ownerId);
+        }
+        const { data: dbDoc } = await docQuery
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
+        const docStatusOk =
+          !dbDoc?.status ||
+          (PUBLIC_IM_DOC_STATUSES as readonly string[]).includes(String(dbDoc.status));
         if (
           dbDoc?.body &&
-          dbDoc.status === "published" &&
+          docStatusOk &&
+          (!wsGuard.ownerId || !dbDoc.owner_id || String(dbDoc.owner_id) === String(wsGuard.ownerId)) &&
           (!dbDoc.building_id || String(dbDoc.building_id) === buildingId)
         ) {
           if ((dbDoc.body as Record<string, unknown>).is_revoked === true) {
@@ -302,6 +471,8 @@ export async function GET(
             );
           }
           doc = dbDoc.body as MobileIMDocument;
+          docOwnerId = dbDoc.owner_id ? String(dbDoc.owner_id) : docOwnerId;
+          docUpdatedAt = dbDoc.updated_at || docUpdatedAt;
           if (!doc.buildingId) {
             doc = { ...doc, buildingId };
           }
@@ -318,8 +489,37 @@ export async function GET(
       );
     }
 
+    if (!isDemoAllowed && !token) {
+      let viewer: any = null;
+      try {
+        viewer = await getServerViewer();
+      } catch {
+        viewer = null;
+      }
+      if (!isOwnerOrAdmin(viewer, wsGuard.ownerId, docOwnerId)) {
+        return buildShareTokenRequiredResponse();
+      }
+    }
+
+    const docHashSlice =
+      (typeof wsGuard.item?.docHash === "string" && wsGuard.item.docHash.trim().slice(0, 12)) ||
+      crypto
+        .createHash("sha256")
+        .update(
+          JSON.stringify({
+            buildingId,
+            docUpdatedAt,
+            sections: (doc.sections || []).map((s: any) => ({
+              t: s.title,
+              c: s.content ?? s.markdown ?? "",
+            })),
+          })
+        )
+        .digest("hex")
+        .slice(0, 12);
+
     const voice = VOICE_MAP[lang] || "nova";
-    const cacheKey = `${buildingId}_${lang}`;
+    const cacheKey = `${buildingId}_${lang}_${docHashSlice}`;
     const BUCKET_NAME = "tts-cache";
     const FILE_NAME = `${cacheKey}.mp3`;
 
@@ -335,7 +535,7 @@ export async function GET(
           headers: {
             "Content-Type": "audio/mpeg",
             "Content-Length": String(buffer.byteLength),
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "private, no-store",
             "X-TTS-Source": "cache",
           },
         });
@@ -356,9 +556,12 @@ export async function GET(
     const openai = new OpenAI({ apiKey });
 
     let script: string;
-    let scriptSource = "gpt-5.6-terra";
+    let scriptSource = "gpt-4o-mini";
     try {
-      script = await generateBriefingScriptWithLLM(openai, doc, lang);
+      script = await generateBriefingScriptWithLLM(openai, doc, lang, {
+        docHashSlice,
+        ownerId: docOwnerId,
+      });
       if (!script || script.length < 50) {
         throw new Error("Script too short");
       }
@@ -399,7 +602,7 @@ export async function GET(
       headers: {
         "Content-Type": "audio/mpeg",
         "Content-Length": String(buffer.length),
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "private, no-store",
         "X-TTS-Source": "generated",
         "X-TTS-Script-Source": scriptSource,
         "X-TTS-Script-Length": String(script.length),

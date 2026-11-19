@@ -294,11 +294,11 @@ export function ContactBulkImportModal({
       closeOnBackdrop={!submitting}
       closeOnEscape={!submitting}
     >
-      <div className="space-y-5 text-[16px] leading-relaxed text-slate-100" data-testid="contact-bulk-import-modal">
+      <div className="space-y-5 text-[16px] leading-relaxed text-slate-900" data-testid="contact-bulk-import-modal">
         {/* 3단계 진행 표시줄 */}
         <ol
           aria-label="일괄 등록 단계"
-          className="grid grid-cols-3 gap-2 rounded-xl border border-slate-700/80 bg-slate-950/70 p-2 text-base font-bold"
+          className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-100 p-2 text-base font-bold"
         >
           {[
             { num: 1 as const, label: '1. 파일 올리기·붙여넣기' },
@@ -315,8 +315,8 @@ export function ContactBulkImportModal({
                   active
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : done
-                      ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-600/40'
-                      : 'text-slate-400'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                      : 'text-slate-600'
                 }`}
               >
                 {item.label}
@@ -338,8 +338,8 @@ export function ContactBulkImportModal({
                 }}
                 className={`flex min-h-[48px] items-center justify-center gap-2 rounded-xl border px-4 text-[16px] font-bold transition-colors ${
                   inputTab === 'file'
-                    ? 'border-indigo-400 bg-indigo-600 text-white'
-                    : 'border-slate-700 bg-slate-800/70 text-slate-200 hover:bg-slate-800'
+                    ? 'border-indigo-600 bg-indigo-600 text-white'
+                    : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
                 }`}
               >
                 <FileSpreadsheet className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -354,8 +354,8 @@ export function ContactBulkImportModal({
                 }}
                 className={`flex min-h-[48px] items-center justify-center gap-2 rounded-xl border px-4 text-[16px] font-bold transition-colors ${
                   inputTab === 'paste'
-                    ? 'border-indigo-400 bg-indigo-600 text-white'
-                    : 'border-slate-700 bg-slate-800/70 text-slate-200 hover:bg-slate-800'
+                    ? 'border-indigo-600 bg-indigo-600 text-white'
+                    : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
                 }`}
               >
                 <ClipboardPaste className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -381,16 +381,16 @@ export function ContactBulkImportModal({
                   }}
                   className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${
                     isDragging
-                      ? 'border-indigo-400 bg-indigo-950/40'
-                      : 'border-slate-600 bg-slate-950/50'
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-slate-300 bg-slate-50'
                   }`}
                 >
-                  <Upload className="h-9 w-9 text-indigo-300" aria-hidden="true" />
+                  <Upload className="h-9 w-9 text-indigo-600" aria-hidden="true" />
                   <div className="space-y-1">
-                    <p className="text-[16px] font-bold text-white">
+                    <p className="text-[16px] font-bold text-slate-900">
                       엑셀(.xlsx, .xls) 또는 CSV 파일을 이곳에 끌어다 놓거나 선택해 주세요
                     </p>
-                    <p className="text-[16px] text-slate-300">
+                    <p className="text-[16px] text-slate-600">
                       이름·연락처·이메일·구분·수신동의 열 이름을 자동으로 찾아 정리합니다 (최대{' '}
                       {MAX_BULK_IMPORT_ROWS.toLocaleString()}명)
                     </p>
@@ -415,22 +415,22 @@ export function ContactBulkImportModal({
                     type="button"
                     data-testid="pick-bulk-file-btn"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[16px] font-bold text-white shadow-md transition-colors hover:bg-indigo-500"
+                    className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-indigo-700"
                   >
                     <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
                     내 컴퓨터에서 파일 선택하기
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-xl border border-slate-700/80 bg-slate-950/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-[16px] text-slate-200">
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-[16px] text-slate-700">
                     처음이신가요? 기본 열 이름이 적힌 샘플 양식을 내려받아 바로 채우실 수 있습니다.
                   </div>
                   <button
                     type="button"
                     data-testid="download-sample-csv-btn"
                     onClick={handleDownloadSampleCsv}
-                    className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-4 text-[16px] font-bold text-white transition-colors hover:bg-slate-700"
+                    className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-[16px] font-bold text-slate-900 transition-colors hover:bg-slate-100"
                   >
                     <Download className="h-5 w-5" aria-hidden="true" />
                     📥 엑셀 샘플 양식 다운로드
@@ -442,7 +442,7 @@ export function ContactBulkImportModal({
                 <div className="space-y-2">
                   <label
                     htmlFor="bulk-contact-paste-textarea"
-                    className="block text-[16px] font-bold text-white"
+                    className="block text-[16px] font-bold text-slate-900"
                   >
                     엑셀·카톡 명단 그대로 붙여넣기 (한 줄에 1명씩)
                   </label>
@@ -457,9 +457,9 @@ export function ContactBulkImportModal({
                     placeholder={
                       '예시:\n홍길동 010-1234-5678 hong@example.com 매수 VIP\n김대표\t010-2222-3333\tkim@example.com\t매도\t수신동의'
                     }
-                    className="min-h-[160px] w-full rounded-xl border border-slate-600 bg-slate-950/80 p-4 text-[16px] leading-relaxed text-white placeholder:text-slate-400 outline-none focus:border-indigo-400"
+                    className="min-h-[160px] w-full rounded-xl border border-slate-300 bg-white p-4 text-[16px] leading-relaxed text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600"
                   />
-                  <p className="text-[16px] text-slate-300">
+                  <p className="text-[16px] text-slate-600">
                     엑셀 표에서 드래그해 복사하거나, 카카오톡·메모장에 적어둔 이름·전화번호·이메일을 그대로 붙여넣으세요.
                   </p>
                 </div>
@@ -469,7 +469,7 @@ export function ContactBulkImportModal({
                     type="button"
                     data-testid="bulk-parse-paste-next-btn"
                     onClick={handlePasteParseNext}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[16px] font-bold text-white shadow-md transition-colors hover:bg-indigo-500 sm:w-auto"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 sm:w-auto"
                   >
                     자동 정리 결과 확인하기
                   </button>
@@ -483,8 +483,8 @@ export function ContactBulkImportModal({
         {step === 2 && parseResult && (
           <div className="space-y-4" data-testid="bulk-step-2">
             {selectedFileName ? (
-              <p className="text-[16px] font-semibold text-slate-300">
-                불러온 파일: <span className="font-bold text-white">{selectedFileName}</span>
+              <p className="text-[16px] font-semibold text-slate-700">
+                불러온 파일: <span className="font-bold text-slate-900">{selectedFileName}</span>
               </p>
             ) : null}
 
@@ -492,19 +492,19 @@ export function ContactBulkImportModal({
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               <div
                 data-testid="summary-valid-badge"
-                className="flex min-h-[52px] items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-950/50 px-4 py-2.5 text-[16px] font-bold text-emerald-200"
+                className="flex min-h-[52px] items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-[16px] font-bold text-emerald-900"
               >
                 등록 가능 {validRows.length}명
               </div>
               <div
                 data-testid="summary-merged-badge"
-                className="flex min-h-[52px] items-center justify-center rounded-xl border border-indigo-500/40 bg-indigo-950/50 px-4 py-2.5 text-[16px] font-bold text-indigo-200"
+                className="flex min-h-[52px] items-center justify-center rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2.5 text-[16px] font-bold text-indigo-900"
               >
                 중복 자동 합침 {mergedCount}건
               </div>
               <div
                 data-testid="summary-invalid-badge"
-                className="flex min-h-[52px] items-center justify-center rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-2.5 text-[16px] font-bold text-amber-200"
+                className="flex min-h-[52px] items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-[16px] font-bold text-amber-900"
               >
                 확인 필요(연락처 누락) {invalidRows.length}건
               </div>
@@ -513,7 +513,7 @@ export function ContactBulkImportModal({
             {/* 엑셀 앞자리 0 자동 복원 안내 */}
             <div
               data-testid="leading-zero-restored-notice"
-              className="rounded-xl border border-sky-500/40 bg-sky-950/40 px-4 py-3 text-[16px] text-sky-100"
+              className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-3 text-[16px] text-sky-950"
             >
               {restoredZeroCount > 0 ? (
                 <span>
@@ -528,7 +528,7 @@ export function ContactBulkImportModal({
             </div>
 
             {parseResult.truncatedRowsCount > 0 && (
-              <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-3 text-[16px] text-amber-100">
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[16px] text-amber-950">
                 한 번에 최대 {MAX_BULK_IMPORT_ROWS.toLocaleString()}명까지 등록할 수 있어 앞쪽{' '}
                 {MAX_BULK_IMPORT_ROWS.toLocaleString()}명만 우선 불러왔습니다.
               </div>
@@ -537,9 +537,9 @@ export function ContactBulkImportModal({
             {/* 미리보기 표 (상위 20행 + 스크롤) */}
             {previewRows.length > 0 ? (
               <div className="space-y-2">
-                <div className="max-h-[280px] overflow-auto rounded-xl border border-slate-700 bg-slate-950/80">
+                <div className="max-h-[280px] overflow-auto rounded-xl border border-slate-200 bg-white">
                   <table className="w-full border-collapse text-left text-[16px]">
-                    <thead className="sticky top-0 bg-slate-800 text-white">
+                    <thead className="sticky top-0 bg-slate-100 text-slate-900 border-b border-slate-200">
                       <tr>
                         <th className="px-3 py-2.5 font-bold">이름</th>
                         <th className="px-3 py-2.5 font-bold">연락처</th>
@@ -548,26 +548,26 @@ export function ContactBulkImportModal({
                         <th className="px-3 py-2.5 font-bold">수신동의</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-slate-200">
                       {previewRows.map((row, idx) => (
-                        <tr key={`${row.rowNumber}-${idx}`} className="hover:bg-slate-900/70">
-                          <td className="px-3 py-2.5 font-bold text-white">
+                        <tr key={`${row.rowNumber}-${idx}`} className="hover:bg-slate-50">
+                          <td className="px-3 py-2.5 font-bold text-slate-900">
                             {row.name}
                             {row.company ? (
-                              <span className="ml-1.5 text-sm font-normal text-slate-300">
+                              <span className="ml-1.5 text-sm font-normal text-slate-600">
                                 ({row.company})
                               </span>
                             ) : null}
                           </td>
-                          <td className="px-3 py-2.5 text-slate-200">{row.phone || '-'}</td>
-                          <td className="px-3 py-2.5 text-slate-200">{row.email || '-'}</td>
+                          <td className="px-3 py-2.5 text-slate-700">{row.phone || '-'}</td>
+                          <td className="px-3 py-2.5 text-slate-700">{row.email || '-'}</td>
                           <td className="px-3 py-2.5">
                             <span className="inline-flex items-center gap-1.5">
-                              <span className="rounded-md bg-slate-800 px-2 py-0.5 text-sm font-bold text-slate-200">
+                              <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-sm font-bold text-slate-800">
                                 {ROLE_BADGE_LABEL[row.clientRole]}
                               </span>
                               {row.isVip ? (
-                                <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-sm font-bold text-amber-300">
+                                <span className="rounded-md bg-amber-100 px-2 py-0.5 text-sm font-bold text-amber-900">
                                   VIP
                                 </span>
                               ) : null}
@@ -575,9 +575,9 @@ export function ContactBulkImportModal({
                           </td>
                           <td className="px-3 py-2.5">
                             {row.marketingConsent ? (
-                              <span className="font-bold text-emerald-300">수신동의(Y)</span>
+                              <span className="font-bold text-emerald-700">수신동의(Y)</span>
                             ) : (
-                              <span className="text-slate-400">미표시(상담용)</span>
+                              <span className="text-slate-600">미표시(상담용)</span>
                             )}
                           </td>
                         </tr>
@@ -586,13 +586,13 @@ export function ContactBulkImportModal({
                   </table>
                 </div>
                 {validRows.length > 20 && (
-                  <p className="text-[16px] text-slate-300">
+                  <p className="text-[16px] text-slate-600">
                     상위 20명 미리보기 중입니다 (전체 등록 대상 총 {validRows.length}명).
                   </p>
                 )}
               </div>
             ) : (
-              <div className="rounded-xl border border-rose-500/40 bg-rose-950/30 p-4 text-[16px] font-bold text-rose-200">
+              <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-[16px] font-bold text-rose-800">
                 유효한 전화번호 또는 이메일이 있는 고객이 없습니다. 이전 단계에서 명단을 다시 확인해 주세요.
               </div>
             )}
@@ -601,13 +601,13 @@ export function ContactBulkImportModal({
             {invalidRows.length > 0 && (
               <div
                 data-testid="invalid-rows-panel"
-                className="max-h-[140px] overflow-y-auto rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 space-y-1 text-[16px]"
+                className="max-h-[140px] overflow-y-auto rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-1 text-[16px]"
               >
-                <p className="font-bold text-amber-200">
+                <p className="font-bold text-amber-900">
                   연락처 확인이 필요해 제외된 행 ({invalidRows.length}건):
                 </p>
                 {invalidRows.slice(0, 10).map((inv) => (
-                  <p key={inv.rowNumber} className="text-slate-200">
+                  <p key={inv.rowNumber} className="text-slate-800">
                     • {inv.rowNumber}행 {inv.rawName ? `(${inv.rawName})` : ''}: {inv.reason}
                   </p>
                 ))}
@@ -622,7 +622,7 @@ export function ContactBulkImportModal({
                   setErrorMessage('');
                   setStep(1);
                 }}
-                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 text-[16px] font-bold text-slate-100 transition-colors hover:bg-slate-700"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-[16px] font-bold text-slate-900 transition-colors hover:bg-slate-50"
               >
                 이전 단계로
               </button>
@@ -634,7 +634,7 @@ export function ContactBulkImportModal({
                   setErrorMessage('');
                   setStep(3);
                 }}
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[16px] font-bold text-white shadow-md transition-colors hover:bg-indigo-500 disabled:opacity-50"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
               >
                 다음: 수신동의 확인 및 저장
               </button>
@@ -645,21 +645,21 @@ export function ContactBulkImportModal({
         {/* ── STEP 3: 수신동의 확인 및 일괄 저장 ── */}
         {step === 3 && parseResult && (
           <div className="space-y-4" data-testid="bulk-step-3">
-            <div className="rounded-2xl border border-indigo-500/40 bg-slate-950/80 p-4 space-y-3">
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 space-y-3">
               <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-indigo-300" aria-hidden="true" />
-                <p className="text-[16px] font-bold text-white leading-relaxed">
+                <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-indigo-700" aria-hidden="true" />
+                <p className="text-[16px] font-bold text-slate-900 leading-relaxed">
                   명단에 &apos;수신동의(Y)&apos;가 표시된 고객만 뉴스레터·안내 발송 대상으로 등록되며, 미표시 고객은 내 고객 수첩(상담용)으로만 안전하게 저장됩니다.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-slate-900/90 px-4 py-3 text-[16px] text-slate-200">
+              <div className="rounded-xl border border-indigo-200 bg-white px-4 py-3 text-[16px] text-slate-800">
                 전체 저장 대상 <strong>{validRows.length}명</strong> 중 수신동의(Y) 표시 고객{' '}
-                <strong className="text-emerald-300">{consentYesCount}명</strong> · 상담 전용 수첩 저장{' '}
+                <strong className="text-emerald-700">{consentYesCount}명</strong> · 상담 전용 수첩 저장{' '}
                 <strong>{validRows.length - consentYesCount}명</strong>
               </div>
 
-              <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3.5">
+              <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl border border-slate-300 bg-white p-3.5">
                 <input
                   type="checkbox"
                   data-testid="compliance-confirm-checkbox"
@@ -668,22 +668,22 @@ export function ContactBulkImportModal({
                     setComplianceConfirmed(e.target.checked);
                     setErrorMessage('');
                   }}
-                  className="mt-1 h-5 w-5 shrink-0 rounded accent-indigo-500"
+                  className="mt-1 h-5 w-5 shrink-0 rounded accent-indigo-600"
                 />
-                <span className="text-[16px] font-bold text-white">
+                <span className="text-[16px] font-bold text-slate-900">
                   위 정보통신망법 안내를 확인했으며, 적법하게 확보한 고객 명단만 저장합니다. (필수)
                 </span>
               </label>
 
-              <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3.5">
+              <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl border border-slate-300 bg-white p-3.5">
                 <input
                   type="checkbox"
                   data-testid="newsletter-sync-checkbox"
                   checked={registerAsNewsletterSubscriber}
                   onChange={(e) => setRegisterAsNewsletterSubscriber(e.target.checked)}
-                  className="mt-1 h-5 w-5 shrink-0 rounded accent-indigo-500"
+                  className="mt-1 h-5 w-5 shrink-0 rounded accent-indigo-600"
                 />
-                <span className="text-[16px] font-bold text-slate-100">
+                <span className="text-[16px] font-bold text-slate-800">
                   수신동의(Y) 고객을 주간 뉴스레터 구독자 명단에도 함께 추가
                 </span>
               </label>
@@ -698,7 +698,7 @@ export function ContactBulkImportModal({
                   setErrorMessage('');
                   setStep(2);
                 }}
-                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 text-[16px] font-bold text-slate-100 transition-colors hover:bg-slate-700 disabled:opacity-50"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-[16px] font-bold text-slate-900 transition-colors hover:bg-slate-50 disabled:opacity-50"
               >
                 이전 단계로
               </button>
@@ -707,7 +707,7 @@ export function ContactBulkImportModal({
                 data-testid="bulk-import-submit-btn"
                 disabled={submitting || !complianceConfirmed || validRows.length === 0}
                 onClick={() => void handleFinalSubmit()}
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[16px] font-bold text-white shadow-md transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
@@ -724,7 +724,7 @@ export function ContactBulkImportModal({
           <p
             role="alert"
             data-testid="bulk-import-error"
-            className="rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 text-[16px] font-bold text-rose-200"
+            className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-[16px] font-bold text-rose-800"
           >
             {errorMessage}
           </p>

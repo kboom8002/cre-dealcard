@@ -139,9 +139,9 @@ describe('Deal Card Pipeline Preemptive Contracts (DC-G1 ~ DC-G6)', () => {
   });
 
   describe('DC-G3: price-band & Teaser Banding Comma and NaN/Infinity Guards', () => {
-    it('parseLegacyBand strips commas before matching 억대 so "1,200억대" never corrupts into "200~210억"', () => {
+    it('parseLegacyBand strips commas before matching 억대 so "1,200억대" preserves >=5% width band without corrupting into "200~210억"', () => {
       const parsed = parseLegacyBand('1,200억대');
-      expect(parsed?.label).toBe('1200~1250억');
+      expect(parsed?.label).toBe('1,200~1,300억');
       expect(parsed?.label).not.toBe('200~210억');
       expect(parsed?.minKrw).toBe(1200_0000_0000);
     });

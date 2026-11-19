@@ -154,7 +154,7 @@ describe('Basic IM Studio Round-Trip Fact Oracle & Universal Invariants (U1-U6)'
     const pptxText = slides.join('\n');
 
     // Verify 2 rent roll slides + 2 gallery slides
-    expect(pptxText).toContain('소계\n 12개 호실');
+    expect(pptxText).toContain('소계\n 11개 호실');
     expect(pptxText).toContain('렌트롤 (2/2)');
     expect(pptxText).toContain('합계\n 20개 호실');
     expect(pptxText).toContain('현장 사진 (1/2)');

@@ -27,30 +27,34 @@ export function extractDealCardCasePack(
   buildingId: string,
   brokerId: string,
 ): DealCasePack {
-  const b = result.buildingTruth;
-  const t = result.blindTeaser;
+  const b = result?.buildingTruth;
+  const t = result?.blindTeaser;
 
-  const priceStr = b.priceBand ? ` ${b.priceBand}` : '';
-  const vacancyStr = b.vacancySignal
+  const areaSignal = String(b?.areaSignal ?? '');
+  const assetType = String(b?.assetType ?? '');
+  const fitSummary = String(b?.fitSummary ?? '');
+  const priceStr = b?.priceBand ? ` ${b.priceBand}` : '';
+  const vacancyStr = b?.vacancySignal
     ? `공실: ${b.vacancySignal}`
     : '공실 여부 미확인';
 
-  const hiddenCount = b.hiddenFields.length;
+  const hiddenCount = (Array.isArray(b?.hiddenFields) ? b.hiddenFields : []).length;
+  const missingData = (Array.isArray(b?.missingData) ? b.missingData : []).slice(0, 2);
 
   return {
     building_ssot_lite_id: buildingId,
     broker_id: brokerId,
-    task: `${b.areaSignal} ${b.assetType}${priceStr} 딜카드 생성`,
-    knowledge: `${b.areaSignal} ${b.assetType} | ${b.fitSummary}`,
+    task: `${areaSignal} ${assetType}${priceStr} 딜카드 생성`,
+    knowledge: `${areaSignal} ${assetType} | ${fitSummary}`,
     warning: [
-      b.cautionSummary,
+      b?.cautionSummary,
       hiddenCount > 0 ? `${hiddenCount}개 민감 필드 자동 숨김` : null,
-      ...(b.missingData.slice(0, 2)),
+      ...missingData,
     ]
       .filter(Boolean)
       .join(' / '),
-    output: t.kakaoText.slice(0, 500),
-    audience: b.fitSummary.slice(0, 200),
+    output: String(t?.kakaoText ?? '').slice(0, 500),
+    audience: fitSummary.slice(0, 200),
     situation: vacancyStr,
     logic: '블라인드 딜카드 → Gate 요청 → 상세 자료 공개',
     format: '모바일 최적화, 카카오 공유 문구 포함',

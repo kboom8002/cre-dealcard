@@ -586,7 +586,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       const json = await res.json();
       expect(json.ok).toBe(true);
       expect(json.id).toBe(grantId);
-      expect(json.status).toBe('approved');
+      expect(json.status).toBe('pending_nda');
 
       // Assert table queried is im_pro_grants (NOT legacy pro_grants)
       expect(mockDb.proGrantsTableQueried).toContain('im_pro_grants');
@@ -594,7 +594,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
 
       // Assert state updated in DB
       const updated = mockDb.im_pro_grants.get(grantId);
-      expect(updated.status).toBe('approved');
+      expect(updated.status).toBe('pending_nda');
     });
 
     it('Negative Pair A: without broker auth (no token), returns 401 Unauthorized', async () => {
@@ -644,6 +644,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
         building_id: buildingId,
         requester_name: 'VIP투자자',
         requester_phone: '010-5555-1234',
+        grant_token: 'valid-export-grant-token-888',
         status: 'active',
         nda_signed_at: new Date().toISOString(),
         pdf_export_allowed: true,
@@ -655,6 +656,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
         id: 'doc-pro-1',
         building_id: buildingId,
         document_type: 'im_pro', // Database column name is document_type
+        status: 'published',
         title: '선릉역 프라임 오피스빌딩 Pro IM',
         body: {
           title: '선릉역 프라임 오피스빌딩 Pro IM',
@@ -665,8 +667,12 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       });
     });
 
-    it('Positive Pair: queries document_type on document_objects and returns watermarked 200 HTML', async () => {
-      const req = new NextRequest(`http://localhost:3000/api/public/im-pro/${grantId}/export`);
+    it('Positive Pair: queries document_type on document_objects and returns watermarked 200 HTML (while blocking missing grant token with 403)', async () => {
+      const noTokenReq = new NextRequest(`http://localhost:3000/api/public/im-pro/${grantId}/export`);
+      const noTokenRes = await getExportProIm(noTokenReq, { params: Promise.resolve({ grantId }) });
+      expect(noTokenRes.status).toBe(403);
+
+      const req = new NextRequest(`http://localhost:3000/api/public/im-pro/${grantId}/export?token=valid-export-grant-token-888`);
       const res = await getExportProIm(req, { params: Promise.resolve({ grantId }) });
 
       expect(res.status).toBe(200);
@@ -679,10 +685,10 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       expect(html).toContain('선릉역 프라임 오피스빌딩 Pro IM');
       expect(html).toContain('핵심 투자 포인트');
 
-      // Output assertion for Feature 18: Column query must be document_type (excluding blind_teaser), NOT doc_type
+      // Output assertion for Feature 18: Column query must be document_type (excluding blind_teaser/draft), NOT doc_type
       expect(mockDb.documentObjectsQueriedColumns).toContainEqual({
         filterCol: 'document_type',
-        filterVal: ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro'],
+        filterVal: ['mobile_im', 'im_lite', 'im_pro'],
       });
       const hasOldDocType = mockDb.documentObjectsQueriedColumns.some((q) => q.filterCol === 'doc_type');
       expect(hasOldDocType).toBe(false);

@@ -28,7 +28,7 @@ import { resolveDisplayAreas, isRegisterTrustworthy } from "./display-areas";
  */
 export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<string, any>): Record<string, SectionData> {
     const result: Record<string, SectionData> = {};
-    const askingPriceBil = core.price.askingKrw > 0 ? (core.price.askingKrw / 1e8).toFixed(1) : '-';
+    const askingPriceBil = core.price.askingKrw > 0 ? fmtFixed(core.price.askingKrw / 1e8, 1) : '-';
     const grossYield = core.yields.gross_price;
     const yieldObj = buildYieldFromIMCore(core.yields);
     const yieldBasisSub = yieldObj?.basis === 'NOI' ? '순영업소득 기준' : '총임대료 기준';
@@ -37,7 +37,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     const summaryMetrics: Array<{ label: string; value: string; sub: string }> = [
             { label: '매매 희망가', value: `${askingPriceBil}억 원`, sub: '대지 및 건물 일괄' },
             { label: yieldObj ? yieldLabel(yieldObj) : '연 수익률(Cap Rate)', value: grossYield ? `${grossYield.value}%` : '-', sub: yieldBasisSub },
-            { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억 원`, sub: '대출/보증금 차감' },
+            { label: '실투자금', value: `${fmtFixed(core.equity.equity / 1e8, 1)}억 원`, sub: '대출/보증금 차감' },
           ];
     if (yieldObj) {
     (result as Record<string, any>)._yield = yieldObj;
@@ -95,14 +95,14 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       rows: (() => {
         const rows: [string, string][] = [
           ['소재지', core.address.raw],
-          ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(sqmToPyeong(core.physical.landAreaSqm)).toFixed(1)}평)` : '-'],
-          ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1)}평)` : '-'], // D30 BL-5
+          ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${fmtFixed(sqmToPyeong(core.physical.landAreaSqm), 1)}평)` : '-'],
+          ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${fmtFixed(sqmToPyeong(core.physical.totalGrossAreaSqm), 1)}평)` : '-'], // D30 BL-5
           ['층수', `지하 ${core.physical.floorsBelow ?? 0}층 / 지상 ${core.physical.floorsAbove ?? 0}층`],
           ['준공연도', core.physical.completionYear ? `${core.physical.completionYear}년` : '-'],
         ];
         // Phase 2: 표준 제원 보강
         if (core.physical?.archAreaSqm && Number.isFinite(core.physical.archAreaSqm) && core.physical.archAreaSqm > 0) {
-          const archPy = (core.physical.archAreaSqm * 0.3025).toFixed(1);
+          const archPy = fmtFixed(core.physical.archAreaSqm * 0.3025, 1);
           rows.push(['건축면적', `${core.physical.archAreaSqm.toLocaleString()}㎡ (${archPy}평)`]);
         }
         if (core.physical?.bcrPct && core.physical?.farPct) {
@@ -172,7 +172,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
           ])(coreParty(l)) : [
             l.unitLabel,
             l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),
-            l.leaseAreaSqm ? `${(sqmToPyeong(l.leaseAreaSqm)).toFixed(0)}평` : '-',
+            l.leaseAreaSqm ? `${fmtFixed(sqmToPyeong(l.leaseAreaSqm), 0)}평` : '-',
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}만` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}만` : '-',
             l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}만` : '-',
@@ -196,10 +196,10 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
             || body?.loan_amount_manwon || body?.ssot_summary?.loan_amount_manwon);
     const profitStats: Array<{ label: string; value: string }> = [
             { label: '매매가', value: `${askingPriceBil}억` },
-            { label: '총취득원가', value: `${(core.equity.totalAcquisitionCost / 1e8).toFixed(1)}억` },
+            { label: '총취득원가', value: `${fmtFixed(core.equity.totalAcquisitionCost / 1e8, 1)}억` },
           ];
     if (hasLoanInput) {
-    profitStats.push({ label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억` });
+    profitStats.push({ label: '실투자금', value: `${fmtFixed(core.equity.equity / 1e8, 1)}억` });
     }
 
     result['profit'] = {
@@ -220,10 +220,10 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
             const equity = totalCostKrw - depositKrw - loan;
             const annualInterest = loan * (loanRatePct / 100);
             const netCashFlow = annualRentKrw - annualInterest;
-            const yieldPct = equity > 0 ? parseFloat(((netCashFlow / equity) * 100).toFixed(2)) : 0;
+            const yieldPct = equity > 0 ? parseFloat(fmtFixed((netCashFlow / equity) * 100, 2)) : 0;
             return {
               ltvPct,
-              equityBil: (equity / 1e8).toFixed(1),
+              equityBil: fmtFixed(equity / 1e8, 1),
               yieldPct,
               note,
             };
@@ -250,7 +250,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     ltvScenarios,
     negativeLeverage: isNegLev,
     negativeLeverageWarning: isNegLev
-      ? `대출금리(연 ${loanRatePct}%)가 총수익률(${grossYieldPct.toFixed(2)}%)보다 높아 대출 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`
+      ? `대출금리(연 ${loanRatePct}%)가 총수익률(${fmtFixed(grossYieldPct, 2)}%)보다 높아 대출 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`
       : null,
     };
     result['cost'] = result['capital'];
@@ -260,8 +260,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tables: [],
     metrics: {},
     devMetrics: {
-      landAreaPyeong: core.physical.landAreaSqm ? (sqmToPyeong(core.physical.landAreaSqm)).toFixed(1) : '-',
-      targetGrossAreaPyeong: core.physical.totalGrossAreaSqm ? (sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1) : '-',
+      landAreaPyeong: core.physical.landAreaSqm ? fmtFixed(sqmToPyeong(core.physical.landAreaSqm), 1) : '-',
+      targetGrossAreaPyeong: core.physical.totalGrossAreaSqm ? fmtFixed(sqmToPyeong(core.physical.totalGrossAreaSqm), 1) : '-',
       expectedBcrPct: core.physical.bcrPct ?? undefined,
       expectedFarPct: core.physical.farPct ?? undefined,
     },
@@ -405,7 +405,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     if (effectiveLandArea && Number.isFinite(Number(effectiveLandArea)) && Number(effectiveLandArea) > 0) {
       const areaSqm = Number(effectiveLandArea);
       // 다필지: 토지 현황 행 수 상한(7행)을 넘기지 않도록 별도 행 대신 대지면적 행에 필지 수를 병기
-      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)${parcelSum.isMulti ? ` · ${parcelSum.count}필지 합계` : ''}`]);
+      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${fmtFixed(sqmToPyeong(areaSqm), 1)}평)${parcelSum.isMulti ? ` · ${parcelSum.count}필지 합계` : ''}`]);
     }
 
     let zoningDistrict = body?.ssot_summary?.zone_type ?? body?.ssot_summary?.zoning ?? lup?.zoningDistrict ?? '-';
@@ -534,7 +534,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     if (br.roofType) brRows.push(['지붕', br.roofType]);
     if (nbr.floorsAbove != null) brRows.push(['지상 층수', `${nbr.floorsAbove}층`]);
     if (nbr.floorsBelow != null) brRows.push(['지하 층수', `${nbr.floorsBelow}층`]);
-    if (nbr.totalArea != null) brRows.push(['연면적', `${Number(nbr.totalArea).toLocaleString()}㎡ (${(sqmToPyeong(Number(nbr.totalArea))).toFixed(1)}평)`]);
+    if (nbr.totalArea != null) brRows.push(['연면적', `${Number(nbr.totalArea).toLocaleString()}㎡ (${fmtFixed(sqmToPyeong(Number(nbr.totalArea)), 1)}평)`]);
     if (nbr.archArea != null) brRows.push(['건축면적', `${Number(nbr.archArea).toLocaleString()}㎡`]);
     if (nbr.useAprDay) brRows.push(['사용승인일', /^\d{8}$/.test(nbr.useAprDay) ? nbr.useAprDay.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1.$2.$3') : nbr.useAprDay]);
     if (nbr.elevatorCount != null) brRows.push(['승강기', `${nbr.elevatorCount}대`]);
@@ -625,7 +625,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     comps.slice(0, 5).forEach((c: any) => {
       compRows.push([
         c.buildingName || c.address || '-',
-        c.dealAmount ? `${(c.dealAmount / 10000).toFixed(1)}억` : '-',
+        c.dealAmount ? `${fmtFixed(c.dealAmount / 10000, 1)}억` : '-',
         c.area ? `${c.area}㎡` : '-',
         c.dealDate || '-',
       ]);

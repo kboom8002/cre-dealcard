@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'crypto';
 import type { MemoObservation, MemoObservationSet } from './types';
 import { detectSensitiveSegments } from './sensitive-detector';
 import { pyeongToSqm } from '@/lib/utils/area-conversion';
+import { parseKoreanPriceKrw } from '@/lib/deal-card/price-band';
 
 export function parseMemoToObservations(rawMemoText: string): MemoObservationSet {
   const observations: MemoObservation[] = [];
@@ -9,20 +10,22 @@ export function parseMemoToObservations(rawMemoText: string): MemoObservationSet
 
   const parseNum = (raw: string) => parseFloat(raw.replace(/,/g, ''));
 
-  // 1. Asking price pattern (e.g., "120억", "2,000억", "85억 5천")
-  const priceMatch = rawMemoText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*억(?:\s*(\d+)\s*천)?/);
+  // 1. Asking price pattern (e.g., "120억", "2,000억", "85억 5천", "1조 2,000억")
+  const priceMatch = rawMemoText.match(
+    /(?:\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*조(?:\s*(?:\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*억)?|(?:\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*억(?:\s*\d+\s*천)?/
+  );
   if (priceMatch) {
-    const eok = parseNum(priceMatch[1]) * 100000000;
-    const cheon = priceMatch[2] ? parseNum(priceMatch[2]) * 10000000 : 0;
-    const value = eok + cheon;
-    observations.push({
-      id: randomUUID(),
-      sourceText: priceMatch[0],
-      position: { start: priceMatch.index!, end: priceMatch.index! + priceMatch[0].length },
-      candidateType: 'asking_price',
-      candidateValue: value,
-      confidence: 'confirmed',
-    });
+    const value = parseKoreanPriceKrw(priceMatch[0]);
+    if (value && value > 0) {
+      observations.push({
+        id: randomUUID(),
+        sourceText: priceMatch[0],
+        position: { start: priceMatch.index!, end: priceMatch.index! + priceMatch[0].length },
+        candidateType: 'asking_price',
+        candidateValue: value,
+        confidence: 'confirmed',
+      });
+    }
   }
 
   // 2. Land area pattern (e.g., "대지 100평", "대지 1,250.5㎡", "토지 420m2")

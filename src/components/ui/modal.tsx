@@ -237,7 +237,7 @@ export function Modal({
         animate={animate}
         transition={{ duration }}
         className={cn(
-          'relative flex w-full flex-col overflow-hidden border border-slate-700 bg-slate-900 text-slate-200 shadow-2xl outline-none',
+          'relative flex w-full flex-col overflow-hidden border border-slate-200 bg-white text-slate-900 shadow-2xl outline-none',
           isRight
             ? 'h-full max-w-md rounded-none border-y-0 border-r-0'
             : isBottom
@@ -246,13 +246,13 @@ export function Modal({
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
           <div className="min-w-0 space-y-1">
-            <h2 id={titleId} className="text-title font-bold text-white">
+            <h2 id={titleId} className="text-title font-bold text-slate-900">
               {title}
             </h2>
             {description ? (
-              <p id={descId} className="text-label text-ink-muted">
+              <p id={descId} className="text-sm text-slate-600">
                 {description}
               </p>
             ) : null}
@@ -262,7 +262,7 @@ export function Modal({
             type="button"
             aria-label="닫기"
             onClick={requestClose}
-            className="-mr-2 -mt-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-400"
+            className="-mr-2 -mt-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>

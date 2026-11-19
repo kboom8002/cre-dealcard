@@ -38,18 +38,32 @@ const ctxA = { userId: UA, slug: 'broker-a', displayName: '김중개', brokerKey
 type Row = Record<string, unknown>;
 let rows: Row[] = [];
 let issueUpsertError: { message: string } | null = null;
+let incompleteStatutory = false;
 
 function setupDb() {
   h.db = createFakeDb((call: FakeCall) => {
     if (call.table === 'broker_profiles') {
       const slug = call.filters.find((f) => f[0] === 'eq' && f[1] === 'slug')?.[2];
-      if (slug === 'broker-a') {
-        return { data: { user_id: UA, slug: 'broker-a', bio: null, specialty_regions: ['성수'], specialty_assets: ['꼬마빌딩'], is_public: true } };
+      const userId = call.filters.find((f) => f[0] === 'eq' && f[1] === 'user_id')?.[2];
+      if (slug === 'broker-a' || userId === UA) {
+        return {
+          data: {
+            user_id: UA,
+            slug: 'broker-a',
+            bio: null,
+            office_address: incompleteStatutory ? null : '서울특별시 성동구 성수이로 88',
+            office_reg_number: incompleteStatutory ? null : '11200-2023-04567',
+            representative_name: '김중개',
+            specialty_regions: ['성수'],
+            specialty_assets: ['꼬마빌딩'],
+            is_public: true,
+          },
+        };
       }
       return { data: null };
     }
     if (call.table === 'profiles') {
-      return { data: { id: UA, display_name: '김중개', photo_url: null, company: '성수공인', tagline: '성수 전문', phone: '010-1234-5678' } };
+      return { data: { id: UA, display_name: '김중개', photo_url: null, company: '성수공인중개사사무소', tagline: '성수 전문', phone: '010-1234-5678' } };
     }
     if (call.table === 'magazine_subscribers') return { data: null, count: 7 };
     if (call.table === 'magazine_issues') return { error: call.op === 'upsert' ? issueUpsertError : null };
@@ -106,6 +120,7 @@ beforeEach(() => {
   h.unauth = false;
   h.ctx = ctxA;
   issueUpsertError = null;
+  incompleteStatutory = false;
   rows = [
     { id: 'ed-draft', broker_id: 'broker-a', status: 'draft', edition_type: 'weekly', edition_label: 'W40-2026', updated_at: '2026-10-05T01:00:00.000Z', theme_color: '#6366f1', published_at: null, content: draftContent },
     { id: 'ed-pub', broker_id: 'broker-a', status: 'published', edition_type: 'weekly', edition_label: 'W39-2026', updated_at: '2026-09-28T01:00:00.000Z', published_at: '2026-09-28T01:00:00.000Z', theme_color: '#6366f1', content: { ...draftContent, headline: '지난 호' } },
@@ -307,5 +322,15 @@ describe('POST /api/magazine/editions/[id]/publish', () => {
     expect(updates).toHaveLength(2); // 발행 → 되돌리기
     expect(updates[1].payload).toMatchObject({ status: 'draft', published_at: null });
     expect(rows.find((r) => r.id === 'ed-draft')?.status).toBe('draft');
+  });
+
+  it('법정 표시사항(5대 항목)이 누락되면 422 STATUTORY_DISCLOSURE_INCOMPLETE 를 반환하고 발행하지 않는다', async () => {
+    incompleteStatutory = true;
+    const res = await call('ed-draft');
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error.code).toBe('STATUTORY_DISCLOSURE_INCOMPLETE');
+    expect(callsOf('magazine_editions', 'update')).toHaveLength(0);
+    expect(callsOf('magazine_issues')).toHaveLength(0);
   });
 });

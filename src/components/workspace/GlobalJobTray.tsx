@@ -52,7 +52,6 @@ export function GlobalJobTray({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isDismissed, setIsDismissed] = useState(false);
   const [cancellingIds, setCancellingIds] = useState<Record<string, boolean>>({});
-  const [lastAnnouncedStage, setLastAnnouncedStage] = useState<string>('');
   const seenRunningJobIdsRef = useRef<Set<string>>(new Set());
 
   const runningJobs = allJobs.filter((j) => j.status === 'running' || j.status === 'queued');
@@ -76,18 +75,13 @@ export function GlobalJobTray({
         hasNewRunning = true;
       }
     }
-    if (hasNewRunning) {
+    if (!hasNewRunning) return;
+    const reopenTimer = window.setTimeout(() => {
       setIsDismissed(false);
       setIsExpanded(true);
-    }
+    }, 0);
+    return () => window.clearTimeout(reopenTimer);
   }, [runningJobs]);
-
-  // Announce stage changes via aria-live
-  useEffect(() => {
-    if (currentJob?.stage && currentJob.stage !== lastAnnouncedStage) {
-      setLastAnnouncedStage(currentJob.stage);
-    }
-  }, [currentJob?.stage, lastAnnouncedStage]);
 
   const handleCancelClick = useCallback(
     async (jobId: string) => {
@@ -155,7 +149,7 @@ export function GlobalJobTray({
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-sm font-bold text-slate-200 hover:text-white px-2.5 py-1 min-h-[36px] rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+              className="text-sm font-bold text-slate-200 hover:text-white px-2.5 py-1 min-h-[44px] rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
               aria-expanded={isExpanded}
             >
               {isExpanded ? '접기 ▲' : '자세히 보기 ▼'}
@@ -166,7 +160,7 @@ export function GlobalJobTray({
               onClick={() => setIsDismissed(true)}
               aria-label="작업 상태 창 닫기"
               title="닫기"
-              className="min-h-[36px] min-w-[36px] flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
             >
               ✕
             </button>
@@ -294,7 +288,7 @@ export function GlobalJobTray({
                           type="button"
                           onClick={() => handleCancelClick(job.id)}
                           disabled={isCancelling}
-                          className="w-full py-2 px-3 text-sm font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-sm transition disabled:opacity-50"
+                          className="w-full min-h-[44px] py-2 px-3 text-sm font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-sm transition disabled:opacity-50 cursor-pointer"
                         >
                           {isCancelling ? '멈추는 중...' : '작업 멈추기'}
                         </button>
@@ -304,7 +298,7 @@ export function GlobalJobTray({
                         <button
                           type="button"
                           onClick={() => onOpenResult?.(job.id, job.resultUrl)}
-                          className="w-full py-2 px-3 text-sm font-extrabold text-white bg-blue-700 hover:bg-blue-800 rounded-lg shadow-sm transition"
+                          className="w-full min-h-[44px] py-2 px-3 text-sm font-extrabold text-white bg-blue-700 hover:bg-blue-800 rounded-lg shadow-sm transition cursor-pointer"
                         >
                           결과 열기 →
                         </button>
@@ -315,14 +309,14 @@ export function GlobalJobTray({
                           <button
                             type="button"
                             onClick={() => onRetry?.(job.id)}
-                            className="flex-1 py-2 px-3 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition"
+                            className="flex-1 min-h-[44px] py-2 px-3 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition cursor-pointer"
                           >
                             다시 만들기
                           </button>
                           <button
                             type="button"
                             onClick={() => onReportIssue?.(job.id, job.error || undefined)}
-                            className="flex-1 py-2 px-3 text-sm font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition"
+                            className="flex-1 min-h-[44px] py-2 px-3 text-sm font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition cursor-pointer"
                           >
                             문제 알리기
                           </button>

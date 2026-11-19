@@ -52,7 +52,7 @@ export function DealCardTabs({
 
   return (
     <div className="space-y-4" id="deal-card-tabs-container">
-      <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-border bg-secondary/70 p-1.5 sticky top-14 z-20 backdrop-blur-md shadow-xs">
+      <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-100/90 p-1.5 sticky top-14 z-20 backdrop-blur-md shadow-xs">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -60,27 +60,27 @@ export function DealCardTabs({
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`relative py-3 px-4 rounded-xl text-center text-[15px] font-extrabold transition-colors ${
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              className={`relative min-h-[44px] py-3 px-4 rounded-xl text-center text-[15px] font-extrabold transition-colors ${
+                isActive ? 'text-slate-950' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="deal-tab-indicator"
                   transition={SOTA_SPRING}
-                  className="absolute inset-0 rounded-xl bg-card border border-primary/30 shadow-sm"
+                  className="absolute inset-0 rounded-xl bg-white border border-slate-300 shadow-sm"
                 />
               )}
               <span className="relative z-10 flex items-center justify-center gap-1.5">
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
                 {tab.key === 'buyers' && buyersBadge && buyersBadge.count > 0 && (
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-sm font-extrabold ${
                     buyersBadge.topGrade === 'S'
                       ? 'bg-grade-s text-white shadow-sm shadow-purple-500/40'
                       : buyersBadge.topGrade === 'A'
                       ? 'bg-grade-a text-white shadow-sm'
-                      : 'bg-muted text-muted-foreground'
+                      : 'bg-slate-200 text-slate-800'
                   }`}>
                     {buyersBadge.topGrade ? `${buyersBadge.topGrade}·${buyersBadge.count}` : buyersBadge.count}
                   </span>

@@ -1,15 +1,34 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
   useEditorPreviewSync,
   type PreviewLifecycleState,
 } from "@/components/workspace/preview-sync/useEditorPreviewSync";
-import { PreSendConfirmationSheet } from "@/components/broker/deal-card/PreSendConfirmationSheet";
-import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
 import type { Card4Data, DealCardGenerationSource } from "@/lib/deal-card/card4-schema";
+
+import {
+  type PreSendPublishError,
+} from "@/components/broker/deal-card/PreSendConfirmationSheet";
+
+const PreSendConfirmationSheet = dynamic(
+  () =>
+    import("@/components/broker/deal-card/PreSendConfirmationSheet").then(
+      (m) => m.PreSendConfirmationSheet
+    ),
+  { ssr: false, loading: () => null }
+);
+
+const MemoImportModal = dynamic(
+  () =>
+    import("@/components/broker/deal-card/MemoImportModal").then(
+      (m) => m.MemoImportModal
+    ),
+  { ssr: false, loading: () => null }
+);
 import {
   classifyDealCardOriginGroup,
   isDealCandidateMemo,
@@ -43,6 +62,7 @@ import {
   SAMPLE_CARD4,
   SAMPLE_MEMO_TEXT,
   UNCONVERTED_MEMO_STORAGE_KEY,
+  allowInitialDemoSeed,
   hydrateItem,
   isSampleDealCardItem,
   runHybridMemoGenerationApi,
@@ -54,6 +74,51 @@ import {
 import { DealCardListColumn } from "./_components/DealCardListColumn";
 import { DealCardEditorColumn } from "./_components/DealCardEditorColumn";
 import { DealCardPreviewColumn } from "./_components/DealCardPreviewColumn";
+
+type HydratedDealCardItem = BuildingListItem & {
+  hasUnpublishedEdits?: boolean;
+  updatedAtIso?: string;
+};
+
+function isPublishedDirtyItem(item: BuildingListItem | null | undefined): boolean {
+  if (!item) return false;
+  const rawStatus = String(item.status || "");
+  return (
+    (rawStatus === "sent" || rawStatus === "published") &&
+    Boolean((item as HydratedDealCardItem).hasUnpublishedEdits)
+  );
+}
+
+function toListTime(raw?: string): number {
+  if (!raw) return 0;
+  const parsed = Date.parse(raw);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  const trimmed = raw.trim();
+  const now = Date.now();
+  if (trimmed === "방금" || trimmed === "방금 전") return now;
+  if (trimmed === "어제") return now - 86_400_000;
+  const match = trimmed.match(/^(\d+)\s*(초|분|시간|일|주|개월|달|년)\s*전$/);
+  if (match) {
+    const n = Number(match[1]);
+    const unit = match[2];
+    const mult =
+      unit === "초"
+        ? 1_000
+        : unit === "분"
+        ? 60_000
+        : unit === "시간"
+        ? 3_600_000
+        : unit === "일"
+        ? 86_400_000
+        : unit === "주"
+        ? 7 * 86_400_000
+        : unit === "개월" || unit === "달"
+        ? 30 * 86_400_000
+        : 365 * 86_400_000;
+    return now - n * mult;
+  }
+  return 0;
+}
 
 function isBlankStarterDealCard(item: BuildingListItem | null | undefined): boolean {
   if (!item) return false;
@@ -88,10 +153,12 @@ function DealCardsWorkspaceInner() {
   const isNewParam = searchParams.get("new") === "true";
   const isFreshParam = searchParams.get("fresh") === "1";
 
-  const [items, setItems] = useState<BuildingListItem[]>(INITIAL_BUILDINGS);
+  const [items, setItems] = useState<BuildingListItem[]>(() =>
+    allowInitialDemoSeed() ? INITIAL_BUILDINGS : []
+  );
   const [unconvertedMemos, setUnconvertedMemos] = useState<ScopedUnconvertedMemoItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(
-    () => buildingIdParam || INITIAL_BUILDINGS[0]?.id || null
+    () => buildingIdParam || (allowInitialDemoSeed() ? INITIAL_BUILDINGS[0]?.id || null : null)
   );
   const [selectedMemoOnlyId, setSelectedMemoOnlyId] = useState<string | null>(
     () => memoIdParam || null
@@ -113,6 +180,7 @@ function DealCardsWorkspaceInner() {
   const [isGeneratingFromMemo, setIsGeneratingFromMemo] = useState(false);
   const [memoSaveStatus, setMemoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
+  const [publishError, setPublishError] = useState<PreSendPublishError | null>(null);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
   const [dirtySentIds, setDirtySentIds] = useState<Set<string>>(() => new Set());
   const [pendingDeleteModal, setPendingDeleteModal] =
@@ -127,6 +195,7 @@ function DealCardsWorkspaceInner() {
   const lastSyncedQueryIdRef = useRef<string | null>(null);
   const userInteractedRef = useRef<boolean>(false);
   const userEditedIdsRef = useRef<Set<string>>(new Set());
+  const serverVersionByIdRef = useRef<Map<string, number>>(new Map());
   const currentUserIdRef = useRef<string | null>(getLastActiveBrokerUserId());
   const hydratedUserIdRef = useRef<string | null>(currentUserIdRef.current);
   const itemsRef = useRef<BuildingListItem[]>(items);
@@ -199,7 +268,7 @@ function DealCardsWorkspaceInner() {
   const resolvedActiveId = activeItem?.id ?? null;
 
   const [currentCard4, setCurrentCard4] = useState<Card4Data>(
-    () => activeItem?.card4 || SAMPLE_CARD4
+    () => activeItem?.card4 || (allowInitialDemoSeed() ? SAMPLE_CARD4 : EMPTY_CARD4)
   );
   const [syncedBuildingId, setSyncedBuildingId] = useState<string>(
     () => activeItem?.id || ""
@@ -219,6 +288,7 @@ function DealCardsWorkspaceInner() {
     (nextId: string, options?: { syncUrl?: boolean }) => {
       if (!nextId) return;
       userInteractedRef.current = true;
+      setPublishError(null);
       setSelectedMemoOnlyId(null);
       setSelectedId(nextId);
       setMemoSaveStatus("idle");
@@ -278,6 +348,16 @@ function DealCardsWorkspaceInner() {
           const hydratedLocal = ownedLocal.map((it: BuildingListItem) =>
             it?.card4 ? hydrateItem(it) : it
           );
+          const localDirtyIds = hydratedLocal
+            .filter((it) => isPublishedDirtyItem(it))
+            .map((it) => it.id);
+          if (localDirtyIds.length > 0) {
+            setDirtySentIds((prev) => {
+              const next = new Set(prev);
+              for (const id of localDirtyIds) next.add(id);
+              return next;
+            });
+          }
           itemsRef.current = hydratedLocal;
           setItems(hydratedLocal);
           const initTargetId = initialBuildingIdParamRef.current;
@@ -314,13 +394,19 @@ function DealCardsWorkspaceInner() {
           currentUserIdRef.current = null;
           hydratedUserIdRef.current = null;
           userEditedIdsRef.current.clear();
+          serverVersionByIdRef.current.clear();
           setUnconvertedMemos([]);
-          itemsRef.current = INITIAL_BUILDINGS;
-          setItems(INITIAL_BUILDINGS);
-          if (INITIAL_BUILDINGS[0]) {
-            setSelectedId(INITIAL_BUILDINGS[0].id);
-            setCurrentCard4(INITIAL_BUILDINGS[0].card4);
-            setSyncedBuildingId(INITIAL_BUILDINGS[0].id);
+          const seedItems = allowInitialDemoSeed() ? INITIAL_BUILDINGS : [];
+          itemsRef.current = seedItems;
+          setItems(seedItems);
+          if (seedItems[0]) {
+            setSelectedId(seedItems[0].id);
+            setCurrentCard4(seedItems[0].card4);
+            setSyncedBuildingId(seedItems[0].id);
+          } else {
+            setSelectedId(null);
+            setCurrentCard4(EMPTY_CARD4);
+            setSyncedBuildingId("");
           }
           return;
         }
@@ -401,8 +487,21 @@ function DealCardsWorkspaceInner() {
 
         if (data?.ok && Array.isArray(data.dealcards)) {
           const serverIds = new Set<string>();
-          for (const rawSrv of data.dealcards as BuildingListItem[]) {
-            if (rawSrv?.id) serverIds.add(rawSrv.id);
+          const serverDirtyIds = new Set<string>();
+          const serverCleanIds = new Set<string>();
+          for (const rawSrv of data.dealcards as HydratedDealCardItem[]) {
+            if (rawSrv?.id) {
+              serverIds.add(rawSrv.id);
+              const srvVer = rawSrv.card4?.card4_version;
+              if (typeof srvVer === "number") {
+                serverVersionByIdRef.current.set(rawSrv.id, srvVer);
+              }
+              if (isPublishedDirtyItem(rawSrv)) {
+                serverDirtyIds.add(rawSrv.id);
+              } else if (!userEditedIdsRef.current.has(rawSrv.id)) {
+                serverCleanIds.add(rawSrv.id);
+              }
+            }
           }
           if (serverIds.size > 0) {
             setSyncedServerIds((prev) => {
@@ -411,11 +510,20 @@ function DealCardsWorkspaceInner() {
               return next;
             });
           }
+          if (serverDirtyIds.size > 0 || serverCleanIds.size > 0) {
+            setDirtySentIds((prev) => {
+              const next = new Set(prev);
+              for (const id of serverCleanIds) next.delete(id);
+              for (const id of serverDirtyIds) next.add(id);
+              return next;
+            });
+          }
 
           setItems((prev) => {
-            const activeFreshItem = initialFreshParamRef.current
-              ? prev.find((p) => p.id === resolvedActiveIdRef.current)
-              : undefined;
+            const activeFreshItem =
+              initialFreshParamRef.current || userInteractedRef.current
+                ? prev.find((p) => p.id === resolvedActiveIdRef.current)
+                : undefined;
             const rawLocalBase =
               scopedItemsForResolvedUser !== null
                 ? [
@@ -433,14 +541,17 @@ function DealCardsWorkspaceInner() {
             );
             const localMap = new Map(safePrev.map((it) => [it.id, it]));
             const mergedServer: BuildingListItem[] = data.dealcards.map(
-              (rawSrv: BuildingListItem) => {
+              (rawSrv: HydratedDealCardItem) => {
                 const srvHydrated = rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv;
-                const srv = resolvedUid
+                const srv: HydratedDealCardItem = resolvedUid
                   ? { ...srvHydrated, ownerUserId: resolvedUid }
                   : srvHydrated;
-                const local = localMap.get(srv.id);
+                const local = localMap.get(srv.id) as HydratedDealCardItem | undefined;
+                const rawSrvStatus = String(srv.status || "");
                 const effectiveStatus =
-                  srv.status === "sent" || local?.status === "sent"
+                  rawSrvStatus === "sent" ||
+                  rawSrvStatus === "published" ||
+                  local?.status === "sent"
                     ? ("sent" as const)
                     : srv.status;
                 if (
@@ -452,6 +563,10 @@ function DealCardsWorkspaceInner() {
                     ...srv,
                     ...local,
                     ...(resolvedUid ? { ownerUserId: resolvedUid } : {}),
+                    hasUnpublishedEdits: Boolean(
+                      local.hasUnpublishedEdits ?? srv.hasUnpublishedEdits ?? (effectiveStatus === "sent")
+                    ),
+                    updatedAtIso: local.updatedAtIso ?? srv.updatedAtIso,
                     memoText: local.memoText ?? srv.memoText,
                     pairedMemoId: local.pairedMemoId ?? srv.pairedMemoId,
                     generationSource:
@@ -459,10 +574,12 @@ function DealCardsWorkspaceInner() {
                       srv.generationSource ??
                       classifyDealCardOriginGroup(srv),
                     status: effectiveStatus,
-                  };
+                  } as BuildingListItem;
                 }
                 return {
                   ...srv,
+                  hasUnpublishedEdits: Boolean(srv.hasUnpublishedEdits),
+                  updatedAtIso: srv.updatedAtIso ?? local?.updatedAtIso,
                   memoText: srv.memoText ?? local?.memoText,
                   pairedMemoId: srv.pairedMemoId ?? local?.pairedMemoId,
                   generationSource:
@@ -471,7 +588,7 @@ function DealCardsWorkspaceInner() {
                     classifyDealCardOriginGroup(srv),
                   awaitingMemoGeneration: false,
                   status: effectiveStatus,
-                };
+                } as BuildingListItem;
               }
             );
 
@@ -481,6 +598,7 @@ function DealCardsWorkspaceInner() {
                 !serverIds.has(loc.id) &&
                 (!INITIAL_IDS.has(loc.id) ||
                   userEditedIdsRef.current.has(loc.id) ||
+                  (userInteractedRef.current && loc.id === resolvedActiveIdRef.current) ||
                   (loc.card4.card4_version || 1) > 1)
             );
 
@@ -510,35 +628,54 @@ function DealCardsWorkspaceInner() {
               return finalMerged;
             }
 
+            const emptyFallback = allowInitialDemoSeed() ? INITIAL_BUILDINGS : [];
             if (
               switchedAccount ||
               prev.some(
                 (loc) => Boolean(loc.ownerUserId && resolvedUid && loc.ownerUserId !== resolvedUid)
               )
             ) {
-              itemsRef.current = INITIAL_BUILDINGS;
-              if (INITIAL_BUILDINGS[0]) {
-                setSelectedId(INITIAL_BUILDINGS[0].id);
-                setCurrentCard4(INITIAL_BUILDINGS[0].card4);
-                setSyncedBuildingId(INITIAL_BUILDINGS[0].id);
+              const switchedFallback =
+                switchedAccount && !allowInitialDemoSeed() ? [] : emptyFallback;
+              itemsRef.current = switchedFallback;
+              if (switchedFallback[0]) {
+                setSelectedId(switchedFallback[0].id);
+                setCurrentCard4(switchedFallback[0].card4);
+                setSyncedBuildingId(switchedFallback[0].id);
+              } else {
+                setSelectedId(null);
+                setCurrentCard4(EMPTY_CARD4);
+                setSyncedBuildingId("");
               }
-              return INITIAL_BUILDINGS;
+              return switchedFallback;
             }
 
-            return safePrev.length > 0 ? safePrev : INITIAL_BUILDINGS;
+            if (safePrev.length > 0) return safePrev;
+            if (emptyFallback.length === 0) {
+              itemsRef.current = [];
+              setSelectedId(null);
+              setCurrentCard4(EMPTY_CARD4);
+              setSyncedBuildingId("");
+            }
+            return emptyFallback;
           });
         } else if (scopedItemsForResolvedUser !== null) {
+          const emptyFallback = allowInitialDemoSeed() ? INITIAL_BUILDINGS : [];
           const hydratedScoped = scopedItemsForResolvedUser.map((it) =>
             it?.card4 ? hydrateItem(it) : it
           );
           const nextItems =
-            hydratedScoped.length > 0 ? hydratedScoped : INITIAL_BUILDINGS;
+            hydratedScoped.length > 0 ? hydratedScoped : emptyFallback;
           itemsRef.current = nextItems;
           setItems(nextItems);
           if (nextItems[0] && !userInteractedRef.current) {
             setSelectedId(nextItems[0].id);
             setCurrentCard4(nextItems[0].card4);
             setSyncedBuildingId(nextItems[0].id);
+          } else if (nextItems.length === 0 && !userInteractedRef.current) {
+            setSelectedId(null);
+            setCurrentCard4(EMPTY_CARD4);
+            setSyncedBuildingId("");
           }
         }
       })
@@ -579,7 +716,15 @@ function DealCardsWorkspaceInner() {
   }, [buildingIdParam, items, activeItem, isHydrated, router, selectedMemoOnly]);
 
   const performServerSave = useCallback(
-    async ({ id, data: payloadCard4 }: { id: string; data: Card4Data }) => {
+    async ({
+      id,
+      data: payloadCard4,
+      expectedVersion,
+    }: {
+      id: string;
+      data: Card4Data;
+      expectedVersion?: number | string | null;
+    }) => {
       if (!id) throw new Error("Missing buildingId");
       const matchedItem = itemsRef.current.find((it) => it.id === id);
       if (
@@ -591,6 +736,11 @@ function DealCardsWorkspaceInner() {
         return { version: payloadCard4.card4_version ?? 1 };
       }
 
+      const effectiveExpectedVersion =
+        typeof expectedVersion === "number"
+          ? expectedVersion
+          : serverVersionByIdRef.current.get(id);
+
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -598,6 +748,9 @@ function DealCardsWorkspaceInner() {
           action: "upsert",
           buildingId: id,
           card4: payloadCard4,
+          ...(typeof effectiveExpectedVersion === "number"
+            ? { expectedVersion: effectiveExpectedVersion }
+            : {}),
           ...(matchedItem?.memoText !== undefined ? { memoText: matchedItem.memoText } : {}),
           ...(matchedItem?.pairedMemoId ? { pairedMemoId: matchedItem.pairedMemoId } : {}),
           ...(matchedItem?.generationSource
@@ -606,9 +759,28 @@ function DealCardsWorkspaceInner() {
         }),
       });
       if (!res.ok) {
-        throw new Error(`Save failed (${res.status})`);
+        const errBody = await res.json().catch(() => null);
+        if (res.status === 409) {
+          if (typeof errBody?.currentVersion === "number") {
+            serverVersionByIdRef.current.set(id, errBody.currentVersion);
+          }
+          throw Object.assign(
+            new Error(errBody?.error || "다른 화면에서 먼저 수정되어 저장 버전이 다릅니다."),
+            { status: 409, serverVersion: errBody?.currentVersion }
+          );
+        }
+        throw new Error(errBody?.error || `Save failed (${res.status})`);
       }
       const data = await res.json().catch(() => null);
+      const savedVersion =
+        typeof data?.version === "number"
+          ? data.version
+          : typeof data?.card4?.card4_version === "number"
+          ? data.card4.card4_version
+          : undefined;
+      if (savedVersion !== undefined) {
+        serverVersionByIdRef.current.set(id, savedVersion);
+      }
       markServerSynced(id);
       try {
         const activeUid = currentUserIdRef.current;
@@ -627,18 +799,29 @@ function DealCardsWorkspaceInner() {
         // ignore storage errors
       }
       return {
-        version: data?.card4?.card4_version ?? payloadCard4.card4_version ?? 1,
+        version: savedVersion ?? payloadCard4.card4_version ?? 1,
       };
     },
     [markServerSynced]
   );
 
+  const activeExpectedServerVersion = resolvedActiveId
+    ? (serverVersionByIdRef.current.get(resolvedActiveId) ?? null)
+    : null;
+
   const autosave = useWorkspaceAutosave<Card4Data>({
     id: selectedMemoOnly ? null : resolvedActiveId,
     ready: isHydrated && !activeItem?.awaitingMemoGeneration,
     data: effectiveCard4,
+    expectedVersion: activeExpectedServerVersion,
     debounceMs: 900,
     onSave: performServerSave,
+    onConflict: () => {
+      showUndoToast({
+        message: "다른 곳에서 먼저 저장된 최신 내용이 있어요. 오른쪽 위 새로고침을 눌러 주세요.",
+        variant: "destructive",
+      });
+    },
   });
   const autosaveRef = useRef(autosave);
   useEffect(() => {
@@ -669,6 +852,9 @@ function DealCardsWorkspaceInner() {
         const serverList: BuildingListItem[] = data.dealcards.map(
           (rawSrv: BuildingListItem) => {
             const hydrated = rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv;
+            if (hydrated?.id && typeof hydrated.card4?.card4_version === "number") {
+              serverVersionByIdRef.current.set(hydrated.id, hydrated.card4.card4_version);
+            }
             return uid ? { ...hydrated, ownerUserId: uid } : hydrated;
           }
         );
@@ -690,6 +876,17 @@ function DealCardsWorkspaceInner() {
           }
         }
         if (mergedNext.length > 0) {
+          setDirtySentIds((prev) => {
+            const next = new Set(prev);
+            for (const item of mergedNext) {
+              if (isPublishedDirtyItem(item)) {
+                next.add(item.id);
+              } else if (!userEditedIdsRef.current.has(item.id)) {
+                next.delete(item.id);
+              }
+            }
+            return next;
+          });
           itemsRef.current = mergedNext;
           setItems(mergedNext);
           persistItems(mergedNext, uid);
@@ -805,16 +1002,19 @@ function DealCardsWorkspaceInner() {
 
       setItems((prev) => {
         const activeUid = currentUserIdRef.current;
+        const nowIso = new Date().toISOString();
         const next = prev.map((it) =>
           it.id === targetId
-            ? {
+            ? ({
                 ...it,
                 ...(activeUid ? { ownerUserId: activeUid } : {}),
                 title: `${withMeta.region} ${withMeta.use}`.trim() || "새 딜카드",
                 region: withMeta.region,
                 use: withMeta.use,
                 priceBand: withMeta.priceBand,
-                updatedAt: new Date().toISOString(),
+                updatedAt: nowIso,
+                updatedAtIso: nowIso,
+                hasUnpublishedEdits: it.status === "sent",
                 card4: withMeta,
                 ...(pairingOverride?.memoText !== undefined
                   ? { memoText: pairingOverride.memoText }
@@ -829,7 +1029,7 @@ function DealCardsWorkspaceInner() {
                   pairingOverride?.awaitingMemoGeneration !== undefined
                     ? pairingOverride.awaitingMemoGeneration
                     : false,
-              }
+              } as BuildingListItem)
             : it
         );
         itemsRef.current = next;
@@ -842,6 +1042,53 @@ function DealCardsWorkspaceInner() {
       }
     },
     [persistItems, performServerSave]
+  );
+
+  const ensureDraftItemForActiveWorkspace = useCallback(
+    (opts?: {
+      awaitingMemoGeneration?: boolean;
+      generationSource?: DealCardGenerationSource;
+      memoText?: string;
+      card4Override?: Card4Data;
+    }): string => {
+      if (resolvedActiveIdRef.current) {
+        return resolvedActiveIdRef.current;
+      }
+      const activeUid = currentUserIdRef.current;
+      const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const baseCard4 = opts?.card4Override ?? {
+        ...EMPTY_CARD4,
+        ...(opts?.generationSource ? { generationSource: opts.generationSource } : {}),
+      };
+      const newItem: BuildingListItem = {
+        id: newId,
+        ...(activeUid ? { ownerUserId: activeUid } : {}),
+        title: baseCard4.headline || "새 딜카드",
+        region: baseCard4.region || "",
+        use: baseCard4.use || "",
+        priceBand: baseCard4.priceBand || "",
+        status: "draft",
+        updatedAt: new Date().toISOString(),
+        card4: baseCard4,
+        ...(opts?.memoText !== undefined ? { memoText: opts.memoText } : {}),
+        ...(opts?.generationSource ? { generationSource: opts.generationSource } : {}),
+        awaitingMemoGeneration: opts?.awaitingMemoGeneration ?? true,
+      };
+      resolvedActiveIdRef.current = newId;
+      userInteractedRef.current = true;
+      userEditedIdsRef.current.add(newId);
+      setItems((prev) => {
+        const next = [newItem, ...prev];
+        itemsRef.current = next;
+        persistItems(next, activeUid);
+        return next;
+      });
+      setSelectedId(newId);
+      setCurrentCard4(baseCard4);
+      setSyncedBuildingId(newId);
+      return newId;
+    },
+    [persistItems]
   );
 
   const handleMemoTextChange = useCallback(
@@ -865,8 +1112,13 @@ function DealCardsWorkspaceInner() {
         return;
       }
 
-      const targetId = resolvedActiveIdRef.current;
-      if (!targetId) return;
+      const targetId =
+        resolvedActiveIdRef.current ||
+        ensureDraftItemForActiveWorkspace({
+          awaitingMemoGeneration: true,
+          generationSource: "ai_memo",
+          memoText: nextText,
+        });
       userEditedIdsRef.current.add(targetId);
 
       const targetItem = itemsRef.current.find((it) => it.id === targetId);
@@ -1215,14 +1467,21 @@ function DealCardsWorkspaceInner() {
       return;
     }
 
+    if (!resolvedActiveIdRef.current) {
+      ensureDraftItemForActiveWorkspace({
+        awaitingMemoGeneration: false,
+        generationSource: "manual",
+        card4Override: { ...EMPTY_CARD4, generationSource: "manual" },
+      });
+      return;
+    }
     const targetId = resolvedActiveIdRef.current;
-    if (!targetId) return;
     handleCardChangeFor(
       targetId,
       { ...currentCard4Ref.current, generationSource: "manual" },
       { generationSource: "manual", awaitingMemoGeneration: false }
     );
-  }, [handleCardChangeFor, persistItems, selectedMemoOnly]);
+  }, [ensureDraftItemForActiveWorkspace, handleCardChangeFor, persistItems, selectedMemoOnly]);
 
   const handleFlushSave = useCallback(async (): Promise<boolean> => {
     const activeId = resolvedActiveIdRef.current;
@@ -1244,38 +1503,83 @@ function DealCardsWorkspaceInner() {
     }
   }, [autosave, performServerSave, syncedServerIds]);
 
-  const handleMarkSent = useCallback(() => {
+  const handleMarkSent = useCallback(async (): Promise<boolean> => {
     const activeId = resolvedActiveIdRef.current;
-    if (!activeId) return;
-    setDirtySentIds((prev) => {
-      if (!prev.has(activeId)) return prev;
-      const next = new Set(prev);
-      next.delete(activeId);
-      return next;
-    });
-    setItems((prev) => {
-      const next = prev.map((it) =>
-        it.id === activeId
-          ? { ...it, status: "sent" as const, updatedAt: new Date().toISOString() }
-          : it
-      );
-      persistItems(next);
-      return next;
-    });
-    void fetch("/api/broker/workspace/summary", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "mark_sent",
-        buildingId: activeId,
-        card4: currentCard4Ref.current,
-      }),
-    })
-      .then((res) => {
-        if (res.ok) markServerSynced(activeId);
-      })
-      .catch(() => {});
-  }, [markServerSynced, persistItems]);
+    if (!activeId) return false;
+    setPublishError(null);
+    try {
+      const res = await fetch("/api/broker/workspace/summary", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "mark_sent",
+          buildingId: activeId,
+          card4: currentCard4Ref.current,
+        }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        const errCode = typeof errJson?.code === "string" ? errJson.code : undefined;
+        const errMsg =
+          errCode === "STATUTORY_DISCLOSURE_INCOMPLETE"
+            ? errJson?.error ||
+              "법정 중개사무소 필수 정보(상호, 소재지, 등록번호 등)를 먼저 입력해야 발행할 수 있어요. 내 중개사 프로필에서 완성해 주세요."
+            : errJson?.error ||
+              "딜카드를 발행하지 못했습니다. 입력 내용을 확인한 뒤 다시 시도해 주세요.";
+        setPublishError({ code: errCode, message: errMsg });
+        showUndoToast({
+          message: errMsg,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const data = await res.json().catch(() => null);
+      const returnedVersion =
+        typeof data?.version === "number"
+          ? data.version
+          : typeof data?.card4?.card4_version === "number"
+          ? data.card4.card4_version
+          : undefined;
+      if (returnedVersion !== undefined) {
+        serverVersionByIdRef.current.set(activeId, returnedVersion);
+      }
+
+      markServerSynced(activeId);
+      setDirtySentIds((prev) => {
+        if (!prev.has(activeId)) return prev;
+        const next = new Set(prev);
+        next.delete(activeId);
+        return next;
+      });
+      setItems((prev) => {
+        const nowIso = new Date().toISOString();
+        const next = prev.map((it) =>
+          it.id === activeId
+            ? ({
+                ...it,
+                status: "sent" as const,
+                updatedAt: nowIso,
+                updatedAtIso: nowIso,
+                hasUnpublishedEdits: false,
+              } as BuildingListItem)
+            : it
+        );
+        persistItems(next);
+        return next;
+      });
+      return true;
+    } catch {
+      const errMsg =
+        "네트워크 오류로 발행 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.";
+      setPublishError({ message: errMsg });
+      showUndoToast({
+        message: errMsg,
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [markServerSynced, persistItems, showUndoToast]);
 
   const {
     activeUnitId: activeDealCardUnitId,
@@ -1322,11 +1626,12 @@ function DealCardsWorkspaceInner() {
 
   const handleResyncSentDealCard = useCallback(async () => {
     const ok = await handleFlushSave();
-    handleMarkSent();
+    const sentOk = await handleMarkSent();
+    if (!sentOk) return;
     showUndoToast({
       message: ok
         ? "수정한 내용을 고객 링크 화면에도 바로 반영했어요"
-        : "저장 후 반영할 내용을 정리했어요",
+        : "수정한 내용을 고객 링크 화면에 반영했어요",
       variant: "success",
     });
   }, [handleFlushSave, handleMarkSent, showUndoToast]);
@@ -1350,6 +1655,7 @@ function DealCardsWorkspaceInner() {
     };
     userInteractedRef.current = true;
     resolvedActiveIdRef.current = newId;
+    userEditedIdsRef.current.add(newId);
     setSelectedMemoOnlyId(null);
     setMemoSaveStatus("idle");
     setItems((prev) => {
@@ -1372,8 +1678,12 @@ function DealCardsWorkspaceInner() {
   }, [persistItems, router, showUndoToast]);
 
   const handleFillSample = () => {
-    const targetId = resolvedActiveId;
-    if (!targetId) return;
+    const targetId =
+      resolvedActiveId ||
+      ensureDraftItemForActiveWorkspace({
+        awaitingMemoGeneration: false,
+        generationSource: "ai_memo",
+      });
     const prevSnapshot: Card4Data = {
       ...effectiveCard4,
       points: [...effectiveCard4.points] as [string, string, string],
@@ -1452,8 +1762,13 @@ function DealCardsWorkspaceInner() {
         handleMemoTextChange(trimmed);
         return;
       }
-      const targetId = resolvedActiveIdRef.current;
-      if (!targetId) return;
+      const targetId =
+        resolvedActiveIdRef.current ||
+        ensureDraftItemForActiveWorkspace({
+          awaitingMemoGeneration: false,
+          generationSource: "ai_memo",
+          memoText: trimmed,
+        });
       const targetItem = itemsRef.current.find((it) => it.id === targetId);
       const base = currentCard4Ref.current;
       const prevSnapshot: Card4Data = {
@@ -1768,8 +2083,10 @@ function DealCardsWorkspaceInner() {
       };
       const tierDiff = getTier(a) - getTier(b);
       if (tierDiff !== 0) return tierDiff;
-      const tb = Date.parse(b.updatedAt || "") || 0;
-      const ta = Date.parse(a.updatedAt || "") || 0;
+      const tb =
+        Date.parse((b as HydratedDealCardItem).updatedAtIso || "") || toListTime(b.updatedAt);
+      const ta =
+        Date.parse((a as HydratedDealCardItem).updatedAtIso || "") || toListTime(a.updatedAt);
       return tb - ta;
     });
 
@@ -1871,7 +2188,7 @@ function DealCardsWorkspaceInner() {
   );
 
   const isDealCardPreGeneration = Boolean(
-    isAwaitingMemoGeneration && !hasAnyPreviewContent
+    (isAwaitingMemoGeneration || !resolvedActiveId) && !hasAnyPreviewContent
   );
 
   const isSentDirty = Boolean(
@@ -1978,6 +2295,7 @@ function DealCardsWorkspaceInner() {
       brokerProfile={brokerProfile}
       activeUnitId={activeDealCardUnitId}
       selectedMemoOnly={selectedMemoOnly}
+      publishError={publishError}
       onStartInput={() => memoTextareaRef.current?.focus()}
       onResyncPublished={() => {
         void handleResyncSentDealCard();
@@ -1999,6 +2317,14 @@ function DealCardsWorkspaceInner() {
           });
           return;
         }
+        if (!resolvedActiveIdRef.current) {
+          showUndoToast({
+            message: "먼저 왼쪽 메모창에 매물을 입력해 딜카드를 만들어 주세요.",
+          });
+          memoTextareaRef.current?.focus();
+          return;
+        }
+        setPublishError(null);
         setIsPreSendOpen(true);
       }}
       data-testid="workspace-primary-send-btn"
@@ -2044,17 +2370,20 @@ function DealCardsWorkspaceInner() {
       />
       <PreSendConfirmationSheet
         isOpen={isPreSendOpen}
-        onClose={() => setIsPreSendOpen(false)}
+        onClose={() => {
+          setIsPreSendOpen(false);
+          setPublishError(null);
+        }}
         card4={effectiveCard4}
         dealId={resolvedActiveId || ""}
         isSaved={isActiveSavedOnServer}
         onFlushSave={handleFlushSave}
         onAutoMask={handleAutoMaskActiveCard}
-        onSendToClient={() => {
-          handleMarkSent();
-        }}
-        onCopyLink={() => {
-          handleMarkSent();
+        publishError={publishError}
+        onClearPublishError={() => setPublishError(null)}
+        onSendToClient={handleMarkSent}
+        onCopyLink={handleMarkSent}
+        onAfterCopy={() => {
           showUndoToast({
             message: "링크를 복사했어요. 카카오톡에 붙여넣어 보내세요.",
             variant: "success",

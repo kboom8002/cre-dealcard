@@ -38,40 +38,40 @@ export function SectionalSpecSection({
   return (
     <div className="border border-purple-500/30 rounded-xl p-4 bg-purple-500/5 space-y-3">
       <div className="flex justify-between items-center border-b border-purple-500/20 pb-2">
-        <span className="text-xs font-bold text-purple-300">📊 구분소유 상세 정보</span>
-        <span className="text-[10px] text-purple-400 font-medium">지분/권리관계 확인</span>
+        <span className="text-sm font-bold text-purple-300">📊 구분소유 상세 정보</span>
+        <span className="text-sm text-purple-400 font-medium">지분/권리관계 확인</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">구분소유자 수 (명)</label>
+          <label className="block text-sm text-muted-foreground mb-1">구분소유자 수 (명)</label>
           <input
             type="number"
             placeholder="예: 45"
             value={sectionalOwnerCount}
             onChange={(e) => setSectionalOwnerCount(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">토지지분 비율 (%)</label>
+          <label className="block text-sm text-muted-foreground mb-1">토지지분 비율 (%)</label>
           <input
             type="number"
             step="0.1"
             placeholder="예: 100"
             value={sectionalLandSharePct}
             onChange={(e) => setSectionalLandSharePct(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
           {landShareWarning && (
-            <p className="text-[10px] text-red-400 mt-0.5">⚠️ 대지지분 비율이 100%와 ±1% 이상 차이납니다. 확인해 주세요.</p>
+            <p className="text-sm text-red-400 mt-0.5">⚠️ 대지지분 비율이 100%와 ±1% 이상 차이납니다. 확인해 주세요.</p>
           )}
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">관리단 구성 여부</label>
+          <label className="block text-sm text-muted-foreground mb-1">관리단 구성 여부</label>
           <select
             value={sectionalManagementBody}
             onChange={(e) => setSectionalManagementBody(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           >
             <option value="yes">관리단 구성됨</option>
             <option value="no">관리단 없음</option>
@@ -79,11 +79,11 @@ export function SectionalSpecSection({
           </select>
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">마스터리스 계약</label>
+          <label className="block text-sm text-muted-foreground mb-1">마스터리스 계약</label>
           <select
             value={sectionalMasterLease}
             onChange={(e) => setSectionalMasterLease(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           >
             <option value="no">없음 (개별 임대)</option>
             <option value="yes">있음 (통임대 운영중)</option>
@@ -91,16 +91,16 @@ export function SectionalSpecSection({
         </div>
         {/* C32: 공동담보 그룹명 */}
         <div className="col-span-2">
-          <label className="block text-[10px] text-muted-foreground mb-1">공동담보 그룹명 (해당 시)</label>
+          <label className="block text-sm text-muted-foreground mb-1">공동담보 그룹명 (해당 시)</label>
           <input
             type="text"
             placeholder="예: 강남역 삼성타운 A블록"
             value={jointCollateralGroup}
             onChange={(e) => setJointCollateralGroup(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
           {jointCollateralGroup && (
-            <p className="text-[10px] text-purple-400/70 mt-0.5">
+            <p className="text-sm text-purple-400/70 mt-0.5">
               ℹ️ 공동담보 설정 시 그룹 내 채권최고액이 IM 리스크에 자동 반영됩니다.
             </p>
           )}

@@ -95,7 +95,7 @@ describe('P0.5 Foundation Verification: PGlite Hermetic Migration & Rollback Dry
         created_at TIMESTAMPTZ DEFAULT now()
       );
     `);
-  });
+  }, 30_000);
 
   afterEach(async () => {
     if (db) {

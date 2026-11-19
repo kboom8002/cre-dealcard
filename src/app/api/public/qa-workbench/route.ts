@@ -109,6 +109,7 @@ export interface QaFeedbackPin {
   viewport: { width: number; height: number } | null;
   fontScale: string | null;
   createdAt: string;
+  authorId?: string | null;
   authorEmail?: string | null;
   buildSha?: string | null;
   builtAt?: string | null;
@@ -162,7 +163,7 @@ async function loadMergedQaPins(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q: any = supabase
         .from("activity_events")
-        .select("id, metadata, created_at")
+        .select("id, actor_id, metadata, created_at")
         .eq("entity_type", "qa_pin")
         .eq("event_type", "qa_pin_created");
       if (typeof q.order === "function") {
@@ -200,6 +201,12 @@ async function loadMergedQaPins(
               createdAt: String(
                 meta.createdAt || row?.created_at || new Date().toISOString()
               ),
+              authorId:
+                typeof meta.authorId === "string"
+                  ? meta.authorId
+                  : typeof row?.actor_id === "string"
+                  ? row.actor_id
+                  : null,
               authorEmail:
                 typeof meta.authorEmail === "string" ? meta.authorEmail : null,
               buildSha:
@@ -298,22 +305,118 @@ function timingSafeMatchKey(a: string, b: string): boolean {
   }
 }
 
-function resolveQaKeyRole(req: NextRequest): QaKeyRole {
-  const headerKey = (req.headers.get("x-qa-access-key") || "").trim();
-  if (!headerKey) return "none";
-
+function getConfiguredQaSecrets(): {
+  masterKey: string;
+  portalPasscode: string;
+  testerKey: string;
+  brokerKey: string;
+  anyConfigured: boolean;
+} {
   const masterKey = (process.env.QA_ACCESS_KEY || "").trim();
+  const portalPasscode = (process.env.QA_PORTAL_PASSCODE || "").trim();
   const testerKey = (process.env.QA_TESTER_ACCESS_KEY || "").trim();
   const brokerKey = (process.env.QA_BROKER_ACCESS_KEY || "").trim();
+  return {
+    masterKey,
+    portalPasscode,
+    testerKey,
+    brokerKey,
+    anyConfigured: Boolean(masterKey || portalPasscode || testerKey || brokerKey),
+  };
+}
 
-  if (timingSafeMatchKey(masterKey, headerKey)) return "master";
-  if (timingSafeMatchKey(testerKey, headerKey)) return "tester";
-  if (timingSafeMatchKey(brokerKey, headerKey)) return "broker";
+function isPublicQaFlagEnabled(): boolean {
+  const flag = (process.env.CREDEAL_ENABLE_PUBLIC_QA || "").trim().toLowerCase();
+  return flag === "true" || flag === "1";
+}
+
+function matchQaKeyRole(candidate: string): QaKeyRole {
+  if (!candidate) return "none";
+  const { masterKey, portalPasscode, testerKey, brokerKey, anyConfigured } =
+    getConfiguredQaSecrets();
+  if (!anyConfigured) return "none";
+
+  if (timingSafeMatchKey(masterKey, candidate)) return "master";
+  if (timingSafeMatchKey(portalPasscode, candidate)) return "master";
+  if (timingSafeMatchKey(testerKey, candidate)) return "tester";
+  if (timingSafeMatchKey(brokerKey, candidate)) return "broker";
+  return "none";
+}
+
+function resolveQaKeyRole(req: NextRequest): QaKeyRole {
+  if (!getConfiguredQaSecrets().anyConfigured) {
+    return "none";
+  }
+  const candidates = [
+    (req.headers.get("x-qa-access-key") || "").trim(),
+    (req.headers.get("x-qa-passcode") || "").trim(),
+    (req.cookies.get("cre_qa_key")?.value || "").trim(),
+    (
+      req.nextUrl.searchParams.get("qaKey") ||
+      req.nextUrl.searchParams.get("key") ||
+      req.nextUrl.searchParams.get("passcode") ||
+      ""
+    ).trim(),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const matched = matchQaKeyRole(candidate);
+    if (matched !== "none") return matched;
+  }
   return "none";
 }
 
 function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
   return resolveQaKeyRole(req) !== "none";
+}
+
+function isQaEnforceFlagEnabled(): boolean {
+  return process.env.CRE_ENFORCE_QA_GATE === "1";
+}
+
+function isQaApiGateEnforced(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    isQaEnforceFlagEnabled() ||
+    isPublicQaFlagEnabled()
+  );
+}
+
+function createQaGateDeniedResponse(): NextResponse {
+  return NextResponse.json(
+    { ok: false, error: "Not Found" },
+    { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+  );
+}
+
+function createQaForbiddenResponse(
+  message = "QA 액세스 키가 필요합니다."
+): NextResponse {
+  return NextResponse.json(
+    { ok: false, error: message },
+    { status: 403, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+  );
+}
+
+function hasQaApiAccess(
+  req: NextRequest,
+  brokerUser: { id: string } | null
+): boolean {
+  if (isPublicQaFlagEnabled()) {
+    // Fail closed when QA_PORTAL_PASSCODE / QA keys are all unset even if CREDEAL_ENABLE_PUBLIC_QA=true
+    if (!getConfiguredQaSecrets().anyConfigured) {
+      return false;
+    }
+    return hasValidQaAccessKeyHeader(req);
+  }
+  if (isRealProductionRuntime()) {
+    // Real production fails closed unless a valid QA access key is supplied
+    return hasValidQaAccessKeyHeader(req);
+  }
+  if (!isQaApiGateEnforced()) {
+    return true;
+  }
+  return Boolean(brokerUser?.id) || hasValidQaAccessKeyHeader(req);
 }
 
 function classifyQaSessionOwner(
@@ -351,13 +454,22 @@ function hasQaWriteAuthorization(
   req: NextRequest,
   brokerUser: { id: string } | null
 ): boolean {
-  if (process.env.NODE_ENV !== "production" || !isRealProductionRuntime()) {
+  if (isPublicQaFlagEnabled()) {
+    if (!getConfiguredQaSecrets().anyConfigured) {
+      return false;
+    }
+    return hasValidQaAccessKeyHeader(req);
+  }
+  if (isRealProductionRuntime()) {
+    return hasValidQaAccessKeyHeader(req);
+  }
+  if (!isQaEnforceFlagEnabled() && process.env.NODE_ENV !== "production") {
     return true;
   }
-  if (brokerUser?.id) {
+  if (hasValidQaAccessKeyHeader(req)) {
     return true;
   }
-  return hasValidQaAccessKeyHeader(req);
+  return Boolean(brokerUser?.id);
 }
 
 function parseSafeSameOriginUrl(
@@ -575,21 +687,48 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const hasQaKey = hasValidQaAccessKeyHeader(req);
+  if (isRealProductionRuntime() && !hasQaKey) {
+    return createQaGateDeniedResponse();
+  }
+  if (req.nextUrl.searchParams.get("verifyQaKey") === "1" && !hasQaKey) {
+    return createQaForbiddenResponse("유효한 QA 액세스 키가 필요합니다.");
+  }
+
+  const brokerUser = await resolveOptionalBrokerUser(req);
+  if (!hasQaApiAccess(req, brokerUser)) {
+    return createQaGateDeniedResponse();
+  }
+
+  const isEnforcedWithoutKey =
+    !isRealProductionRuntime() && isQaEnforceFlagEnabled() && !hasQaKey;
+
   const queryMode = (req.nextUrl.searchParams.get("mode") || "").trim();
   const sessionId = (req.nextUrl.searchParams.get("sessionId") || "").trim();
 
   if (queryMode === "pins") {
-    const brokerUser = await resolveOptionalBrokerUser(req);
-    const isAuthenticated = Boolean(brokerUser?.id) || hasValidQaAccessKeyHeader(req);
+    const isAuthenticated = Boolean(brokerUser?.id) || hasQaKey;
     const supabase = tryCreateServiceClient();
     const filterSid =
       sessionId && SESSION_ID_RE.test(sessionId) ? sessionId : undefined;
-    const rawPins = await loadMergedQaPins(supabase, filterSid);
+    let rawPins = await loadMergedQaPins(supabase, filterSid);
+    if (isEnforcedWithoutKey) {
+      if (!brokerUser?.id) {
+        return createQaGateDeniedResponse();
+      }
+      rawPins = rawPins.filter((p) => p.authorId === brokerUser.id);
+    }
     const pins = rawPins.map((p) => sanitizePinForViewer(p, isAuthenticated));
     return NextResponse.json({
       ok: true,
       pins,
     });
+  }
+
+  if (isEnforcedWithoutKey) {
+    return brokerUser?.id
+      ? createQaForbiddenResponse("매니페스트 및 관리자 조회는 QA 액세스 키가 필요합니다.")
+      : createQaGateDeniedResponse();
   }
 
   if (queryMode === "showcase") {
@@ -798,6 +937,9 @@ export async function POST(req: NextRequest) {
     try {
       body = (await req.json()) || {};
     } catch {
+      if (isRealProductionRuntime() && !hasValidQaAccessKeyHeader(req)) {
+        return createQaGateDeniedResponse();
+      }
       return NextResponse.json(
         { ok: false, error: "유효한 JSON 요청 본문이 필요합니다." },
         { status: 400 }
@@ -805,6 +947,26 @@ export async function POST(req: NextRequest) {
     }
 
     const mode = String(body?.mode || "").trim();
+    const hasQaKey = hasValidQaAccessKeyHeader(req);
+
+    if ((isRealProductionRuntime() || isPublicQaFlagEnabled()) && !hasQaKey) {
+      if (!getConfiguredQaSecrets().anyConfigured) {
+        return createQaGateDeniedResponse();
+      }
+      if (mode === "sync" || mode === "submit" || mode === "pin") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "운영 환경에서 QA 워크벤치 쓰기는 유효한 QA 액세스 키가 필요합니다.",
+          },
+          { status: 401 }
+        );
+      }
+      return createQaGateDeniedResponse();
+    }
+
+    const isEnforcedWithoutKey =
+      !isRealProductionRuntime() && isQaEnforceFlagEnabled() && !hasQaKey;
 
     // ════════════════════════════════════════════════════════════════════════
     // MODE 1: "sync" | "submit" (A-1: Server Persistence of QA Execution Records)
@@ -854,6 +1016,17 @@ export async function POST(req: NextRequest) {
 
       const summary = computeWorkbenchSummary(safeRecords, workbenchId);
       const brokerUser = await resolveOptionalBrokerUser(req);
+      if (isEnforcedWithoutKey) {
+        return brokerUser?.id
+          ? createQaForbiddenResponse("QA 세션 동기화·제출은 QA 액세스 키가 필요합니다.")
+          : NextResponse.json(
+              {
+                ok: false,
+                error: "QA 세션 동기화는 로그인 또는 QA 액세스 키가 필요합니다.",
+              },
+              { status: 401 }
+            );
+      }
       if (!hasQaWriteAuthorization(req, brokerUser)) {
         return NextResponse.json(
           {
@@ -982,6 +1155,16 @@ export async function POST(req: NextRequest) {
     // MODE 2: "probe" (A-2: Live Auto-Verifier Probe — Zero External SSRF)
     // ════════════════════════════════════════════════════════════════════════
     if (mode === "probe") {
+      const brokerUser = await resolveOptionalBrokerUser(req);
+      if (isEnforcedWithoutKey) {
+        return brokerUser?.id
+          ? createQaForbiddenResponse("프로브 점검은 QA 액세스 키가 필요합니다.")
+          : createQaGateDeniedResponse();
+      }
+      if (!hasQaApiAccess(req, brokerUser)) {
+        return createQaGateDeniedResponse();
+      }
+
       const rawNewsletterUrl = String(
         body.publicNewsletterUrl ?? body.newsletterPublicUrl ?? body.newsletterUrl ?? ""
       ).trim();
@@ -994,7 +1177,6 @@ export async function POST(req: NextRequest) {
       const rawClientContact = String(body.testClientContact ?? "").trim();
 
       const supabase = tryCreateServiceClient();
-      const brokerUser = await resolveOptionalBrokerUser(req);
       const callerBrokerKeys: string[] = [];
       if (brokerUser?.id) {
         callerBrokerKeys.push(brokerUser.id);
@@ -1400,7 +1582,7 @@ export async function POST(req: NextRequest) {
                   try {
                     const { data: ssotRow } = await supabase
                       .from("building_ssot_lite")
-                      .select("id, official_land_price_per_sqm, layers")
+                      .select("id, layers")
                       .eq("id", buildingId)
                       .maybeSingle();
                     if (ssotRow) {
@@ -1553,7 +1735,7 @@ export async function POST(req: NextRequest) {
               // ignore
             }
 
-            // Check broker_clients & broker_custom_clients (strictly scoped to brokerUser.id)
+            // Check broker_clients (strictly scoped to brokerUser.id)
             if (isUuid(brokerUser.id)) {
               try {
                 const { data: cliRows } = await supabase
@@ -1578,25 +1760,6 @@ export async function POST(req: NextRequest) {
                 }
               } catch {
                 // ignore
-              }
-
-              if (!foundInBrokerClients) {
-                try {
-                  const { data: customRows } = await supabase
-                    .from("broker_custom_clients")
-                    .select("phone")
-                    .eq("broker_id", brokerUser.id)
-                    .limit(100);
-                  if (Array.isArray(customRows) && krDigits) {
-                    foundInBrokerClients = customRows.some(
-                      (r: Record<string, unknown>) =>
-                        typeof r.phone === "string" &&
-                        r.phone.replace(/\D/g, "") === krDigits
-                    );
-                  }
-                } catch {
-                  // ignore
-                }
               }
             }
           }
@@ -1664,7 +1827,7 @@ export async function POST(req: NextRequest) {
                       .maybeSingle(),
                     supabase
                       .from("building_signal_cards")
-                      .select("id, headline, point_1, point_2, point_3, region")
+                      .select("id, title, area_signal, deal_points, body")
                       .eq("building_id", dealId)
                       .maybeSingle(),
                   ]);
@@ -1672,8 +1835,14 @@ export async function POST(req: NextRequest) {
                   const card = cardRes.data as Record<string, unknown> | null;
                   if (ssot || card) {
                     exists = true;
+                    const dealPts = Array.isArray(card?.deal_points)
+                      ? (card.deal_points as unknown[])
+                      : [];
                     const candidates = [
                       ssot?.area_signal,
+                      card?.title,
+                      card?.area_signal,
+                      ...dealPts,
                       card?.headline,
                       card?.region,
                       card?.point_1,
@@ -1786,6 +1955,11 @@ export async function POST(req: NextRequest) {
     // ════════════════════════════════════════════════════════════════════════
     if (mode === "seed_axis456") {
       const guard = await requireBroker(req);
+      if (isEnforcedWithoutKey) {
+        return guard.user?.id
+          ? createQaForbiddenResponse("시드 픽스처 생성은 QA 액세스 키가 필요합니다.")
+          : createQaGateDeniedResponse();
+      }
       if (guard.error || !guard.user?.id) {
         return (
           guard.error ??
@@ -1958,7 +2132,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (existingSubId) {
-        let updRes = await supabase
+        const updRes = await supabase
           .from("magazine_subscribers")
           .update({
             ...subscriberBase,
@@ -2155,6 +2329,7 @@ export async function POST(req: NextRequest) {
         viewport,
         fontScale,
         createdAt,
+        authorId: brokerUser?.id ?? null,
         authorEmail: brokerUser?.email ?? null,
         buildSha,
         builtAt,
@@ -2204,7 +2379,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const rawPins = await loadMergedQaPins(supabase);
+      let rawPins = await loadMergedQaPins(supabase);
+      if (isEnforcedWithoutKey && brokerUser?.id) {
+        rawPins = rawPins.filter((p) => p.authorId === brokerUser.id);
+      }
       const pins = rawPins.map((p) => sanitizePinForViewer(p, isAuthenticated));
       return NextResponse.json({
         ok: true,
@@ -2220,6 +2398,14 @@ export async function POST(req: NextRequest) {
     if (mode === "auto_probe_all") {
       const checkedAt = new Date().toISOString();
       const brokerUser = await resolveOptionalBrokerUser(req);
+      if (isEnforcedWithoutKey) {
+        return brokerUser?.id
+          ? createQaForbiddenResponse("자동 무결성 프로브는 QA 액세스 키가 필요합니다.")
+          : createQaGateDeniedResponse();
+      }
+      if (!hasQaApiAccess(req, brokerUser)) {
+        return createQaGateDeniedResponse();
+      }
       const supabase = tryCreateServiceClient();
 
       // 1) DealCard Blind Guard Check
@@ -2252,17 +2438,17 @@ export async function POST(req: NextRequest) {
         const sampleTsv =
           "층\t업종\t보증금\t월세\n1층\t카페\t50000000\t350\n3층\t사무실\t3000\t200";
         const parsed = parseTsvRentRoll(sampleTsv);
-        const has2FVacant = parsed.rows.some(
-          (r) => r.floor === "2F" && r.status === "vacant"
+        const noFabricated2F = !parsed.rows.some(
+          (r) => r.floor === "2F"
         );
         rentRollPass =
           parsed.hasUnitMistakes === true &&
-          has2FVacant &&
+          noFabricated2F &&
           parsed.totalDepositManwon === 8000 &&
           parsed.totalMonthlyRentManwon === 550;
         rentRollDetail = rentRollPass
-          ? "원→만원 자동 보정, 공실 층(2F) 자동 보간, 합계(8000/550) 일치"
-          : "TSV 단위 보정 또는 공실 층 합산 불일치";
+          ? "원→만원 자동 보정, 미입력 층 허위 공실 합성 차단, 합계(8000/550) 일치"
+          : "TSV 단위 보정 또는 공실·합계 무결성 불일치";
       } catch {
         rentRollPass = false;
       }

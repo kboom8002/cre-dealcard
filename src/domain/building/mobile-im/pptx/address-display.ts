@@ -161,20 +161,25 @@ export function resolveDualLineAddress(input: DualLineAddressInput): DualLineAdd
   // 괄호 안 법정동/건물명 부기 제거한 깔끔한 도로명
   const cleanRoad = strippedRoad.replace(/\s*\([^)]*\)\s*$/, '').trim();
 
-  // 2. 명시적 지번 후보 추출
+  // 2. 명시적 지번 후보 추출 (공부/SSoT 정본 vs landUsePlan 폴백 분리)
   const lupCombined =
     lup.ldCodeNm && lup.mnnmSlno
       ? `${String(lup.ldCodeNm).trim()} ${String(lup.mnnmSlno).trim()}`
       : '';
-  const explicitJibunRaw = String(
+  const authJibunRaw = String(
     input.jibunAddress ||
     br.platPlc ||
+    ''
+  ).trim();
+  const lupJibunRaw = String(
     lup.jibunAddress ||
     lup.address ||
     lupCombined ||
     ''
   ).trim();
-  const { clean: cleanExplicitJibun, inferredCount: jibunInferredCount } = stripParcelSuffix(explicitJibunRaw);
+  const { clean: cleanAuthJibun, inferredCount: authJibunInferredCount } = stripParcelSuffix(authJibunRaw);
+  const { clean: cleanLupJibun, inferredCount: lupJibunInferredCount } = stripParcelSuffix(lupJibunRaw);
+  const jibunInferredCount = authJibunInferredCount ?? lupJibunInferredCount;
 
   // 만약 roadAddress로 들어온 문자열이 실제로는 지번주소이고 명시적 지번이 비어 있는 경우
   const roadLooksLikeJibunOnly =
@@ -185,10 +190,12 @@ export function resolveDualLineAddress(input: DualLineAddressInput): DualLineAdd
   const roadLine = roadLooksLikeJibunOnly ? '' : cleanRoad;
   let resolvedJibun: string | null = null;
 
-  if (cleanExplicitJibun && !ROAD_TOKEN_RE.test(cleanExplicitJibun)) {
-    resolvedJibun = toShortJibun(cleanExplicitJibun);
+  if (cleanAuthJibun && !ROAD_TOKEN_RE.test(cleanAuthJibun)) {
+    resolvedJibun = toShortJibun(cleanAuthJibun);
   } else if (roadLooksLikeJibunOnly) {
     resolvedJibun = toShortJibun(cleanRoad);
+  } else if (cleanLupJibun && !ROAD_TOKEN_RE.test(cleanLupJibun)) {
+    resolvedJibun = toShortJibun(cleanLupJibun);
   } else {
     const searchTexts: Array<string | null | undefined> = [
       ...(input.memoTexts ?? []),

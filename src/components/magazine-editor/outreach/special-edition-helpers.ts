@@ -193,10 +193,21 @@ export function describeSpecialResult(args: {
 
   const dist = (j.distributionResult && typeof j.distributionResult === 'object' ? j.distributionResult : {}) as Record<string, unknown>;
   const sent = n(j.sent ?? dist.sent);
+  const queued = n(j.queued ?? dist.queued);
   const failed = n(j.failed ?? dist.failed);
   const recorded = n(dist.recorded);
   const blockedText = summarizeBlocked(j.blocked ?? dist.blocked);
   const extra = [failed > 0 ? `실패 ${failed}건` : '', blockedText ? `차단: ${blockedText}` : ''].filter(Boolean).join(' · ');
+
+  if (j.asyncQueued === true && queued > 0) {
+    return {
+      kind: 'sent',
+      published: editionPublished,
+      sent: 0,
+      title: `속보 대량 발송 대기열(${queued}건)에 등록했어요`,
+      detail: extra || '1분 단위 순차 발송 워커가 자동으로 전달합니다.',
+    };
+  }
 
   if (j.dryRun === true) {
     return {

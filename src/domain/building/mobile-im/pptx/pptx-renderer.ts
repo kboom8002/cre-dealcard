@@ -40,7 +40,7 @@ import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
 import { collectBrokerMentionTexts } from './utils/broker-mention-texts';
 import { resolvePhysicalSpecs } from '../resolve-physical-specs';
 import { summarizeParcels, withParcelCountSuffix } from '../parcel-input';
-import { resolveBrokerMemoFacts } from './binder/broker-memo-facts';
+import { resolveBrokerMemoFacts, resolveHotelOperating } from './binder/broker-memo-facts';
 import { buildSummaryHighlights, extractSummaryFacts, isBoilerplateHighlight } from './summary-highlights';
 import { resolveOverviewSpecs, buildOverviewSpecRows, isMissingSpecValue } from './spec-resolver';
 import { brokerMemoTextOf, parseBuildingSpecMemoFacts } from './binder/broker-memo-facts';
@@ -99,6 +99,7 @@ export interface MobileImPptxInput {
     specialty?: string;
     email?: string;
     registration_no?: string;
+    office_address?: string;
   };
   watermark?: {
     requesterName: string;
@@ -408,8 +409,7 @@ export class MobileImPptxRenderer {
           || input.building?.address
           || input.doc.body?.heroCard?.address,
         jibunAddress: input.doc.body?.ssot_summary?.jibun_address
-          || input.building?.jibun_address
-          || enrichment?.landUsePlan?.jibunAddress,
+          || input.building?.jibun_address,
         pnu: input.doc.body?.ssot_summary?.pnu
           || input.doc.body?.pnu
           || input.building?.pnu
@@ -444,6 +444,7 @@ export class MobileImPptxRenderer {
         (dataMap['cover'] as any).brokerPhone = input.broker?.phone ?? '';
         (dataMap['cover'] as any).brokerEmail = input.broker?.email ?? '';
         (dataMap['cover'] as any).registrationNo = input.broker?.registration_no ?? '';
+        (dataMap['cover'] as any).officeAddress = input.broker?.office_address ?? '';
       }
 
       // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보강 ──
@@ -692,6 +693,23 @@ export class MobileImPptxRenderer {
               bldgRows.push(['목표 신축규모', `약 ${devTargetPy.toLocaleString()}평 (● 중개인입력)`]);
             }
           }
+
+          if (posture === 'operating') {
+            const op = resolveHotelOperating(input.doc.body, input.building);
+            const opName = String(op.operator_name ?? '').trim();
+            if (opName && !existingLabels.has('운영사')) {
+              const modelSuffix =
+                op.operating_model === 'management_contract'
+                  ? ' (위탁운영)'
+                  : op.operating_model === 'direct'
+                  ? ' (직영)'
+                  : op.operating_model === 'master_lease'
+                  ? ' (마스터리스)'
+                  : '';
+              bldgRows.push(['운영사', `${opName}${modelSuffix}`]);
+              existingLabels.add('운영사');
+            }
+          }
         }
 
         const rawAskManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
@@ -887,9 +905,10 @@ export class MobileImPptxRenderer {
         dataMap['commute'].areaSignal = dataMap['location']?.areaSignal;
       }
 
-      // 건물 개요 슬라이드에 외관 사진 우선 사용
+      // 건물 개요 슬라이드에 외관 사진 우선 사용 (비사진 그래픽 제외 폴백용 후보 목록 포함)
       if (dataMap['building'] && exteriorPhoto) {
         dataMap['building'].photoUrl = exteriorPhoto.url;
+        dataMap['building'].candidatePhotoUrls = realPhotos.map(p => p.url);
       }
 
       // Phase 4: SSoT 기반 토지 콜아웃 보강 — V-World 데이터 없이도 실데이터 표시
@@ -1031,6 +1050,7 @@ export class MobileImPptxRenderer {
           email: input.broker?.email?.trim() || '',
           company: input.broker?.company_name?.trim() || '',
           registrationNo: input.broker?.registration_no?.trim() || '',
+          officeAddress: input.broker?.office_address?.trim() || '',
         };
       }
 
@@ -1335,6 +1355,7 @@ export class MobileImPptxRenderer {
                 tableRows: pageRows,
                 tables: [{ headers: baseRr.tableHead ?? [], rows: pageRows }],
                 hideStackingPlan: true,
+                commonNote: undefined,
                 fullTableRowsForSummary: isLastPage ? allRrRows : undefined,
                 summaryRowLabel: isLastPage ? '합계' : '소계',
                 brokerPostAcquisitionPlan: isLastPage ? savedPlan : undefined,

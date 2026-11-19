@@ -135,7 +135,7 @@ export function ConfirmDeleteModal({
               type="button"
               data-testid="confirm-delete-cancel-btn"
               onClick={onCancel}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-sm transition-colors cursor-pointer whitespace-nowrap"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#1D1D1F] font-semibold text-sm transition-colors cursor-pointer whitespace-nowrap"
             >
               {cancelLabel}
             </button>
@@ -162,23 +162,26 @@ export function ConfirmDeleteModal({
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       data-testid="confirm-delete-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 backdrop-blur-xs px-4"
-      onClick={(e) => {
-        if (
-          shouldCloseOnBackdropClick({
-            enabled: true,
-            targetIsBackdrop: e.target === e.currentTarget,
-          })
-        ) {
-          onCancel();
-        }
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
     >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-xs"
+        onMouseDown={(e) => {
+          if (
+            shouldCloseOnBackdropClick({
+              enabled: true,
+              targetIsBackdrop: e.target === e.currentTarget,
+            })
+          ) {
+            onCancel();
+          }
+        }}
+      />
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="w-full max-w-md rounded-2xl bg-white border border-slate-200 p-5 sm:p-6 shadow-2xl space-y-4 outline-none"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 p-5 sm:p-6 shadow-2xl space-y-4 outline-none"
       >
         <div className="space-y-1.5">
           <h2

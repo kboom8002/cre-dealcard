@@ -5,16 +5,16 @@ import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
+import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
 import {
-  getInboxState,
-  getQuickImRecord,
-  isDealCardDeleted,
-  isUuid,
-  resolveOrSynthesizeQuickImRecord,
-} from "@/lib/im-lite/quick-generate-store";
-import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+  isSignalCardStatusPublic,
+  PUBLIC_IM_DOC_STATUSES,
+} from "@/domain/public-projection/visibility";
 import { loadOgFonts } from "@/lib/magazine/og-fonts";
 import { createModuleLogger } from "@/lib/logger";
+
+const PUBLIC_OG_DOC_STATUSES = new Set<string>(["published", ...PUBLIC_IM_DOC_STATUSES]);
 
 const log = createModuleLogger("og-kakao");
 
@@ -25,26 +25,31 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  if (
-    isDealCardDeleted(id) ||
-    getInboxState().revokedBuildings[id]?.revoked ||
-    isBuildingShareLinkRevoked(id)
-  ) {
-    return new Response("Not Found", { status: 404 });
-  }
 
   let building: Record<string, any> | null = null;
   let teaserDoc: Record<string, any> | null = null;
   let brokerProfile: Record<string, any> | null = null;
-  let quickRec = getQuickImRecord(id);
+  let snapshotBroker: Record<string, any> | null = null;
+  let ssotStatus: string | null = null;
+  let signalCardStatus: string | null = null;
+  let isImLitePublic = false;
+  let hasVerifiedSentEvent = false;
+  let quickRec: Awaited<ReturnType<typeof resolveOgDealGuard>>["quickRec"] = null;
+  let snapshotCard4: Record<string, any> | null = null;
 
   try {
     const supabase = createServiceClient();
-    if (!quickRec) {
-      quickRec = await resolveOrSynthesizeQuickImRecord(id, supabase);
-    }
-    if (quickRec?.isRevoked) {
+    const ogGuard = await resolveOgDealGuard(id, supabase);
+    if (ogGuard.blocked) {
       return new Response("Not Found", { status: 404 });
+    }
+    quickRec = ogGuard.quickRec;
+    snapshotCard4 = ogGuard.snapshotCard4;
+    if (ogGuard.snapshot && typeof ogGuard.snapshot === "object") {
+      const rawBp = ogGuard.snapshot.brokerProfile ?? ogGuard.snapshot.broker_profile;
+      if (rawBp && typeof rawBp === "object") {
+        snapshotBroker = rawBp as Record<string, any>;
+      }
     }
 
     const bData = await readBuilding(id);
@@ -59,24 +64,29 @@ export async function GET(
         .select("id, status")
         .eq("id", id)
         .maybeSingle();
+      ssotStatus = ssotRow?.status ? String(ssotRow.status) : null;
       if (ssotRow?.status === "archived") {
         return new Response("Not Found", { status: 404 });
       }
 
       const { data: sData } = await supabase
         .from("building_signal_cards")
-        .select("area_signal, asset_type, price_band, title")
+        .select("area_signal, asset_type, price_band, title, status, visibility")
         .eq("building_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      signalCardStatus = sData?.status ? String(sData.status) : null;
+
+      if (sData?.visibility === "internal_only" || sData?.status === "archived") {
+        return new Response("Not Found", { status: 404 });
+      }
 
       const { data: tData } = await supabase
         .from("document_objects")
         .select("*")
         .eq("building_id", id)
         .eq("document_type", "blind_teaser")
-        .neq("status", "archived")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -84,10 +94,10 @@ export async function GET(
 
       const { data: imLiteData } = await supabase
         .from("document_objects")
-        .select("body")
+        .select("body, status, visibility")
         .eq("building_id", id)
         .eq("document_type", "im_lite")
-        .neq("status", "archived")
+        .in("status", Array.from(PUBLIC_OG_DOC_STATUSES))
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -97,11 +107,88 @@ export async function GET(
         building.asset_type = building.asset_type || sData.asset_type;
         building.price_band = building.price_band || sData.price_band;
       }
-      if (imLiteData?.body && building) {
-        const imLiteBody = imLiteData.body as Record<string, any>;
-        const imPosture = imLiteBody.investment_posture || imLiteBody.investmentPosture;
-        if (imPosture) {
-          building.investment_posture = imPosture;
+      if (
+        imLiteData?.body &&
+        imLiteData.visibility !== "internal_only" &&
+        PUBLIC_OG_DOC_STATUSES.has(String(imLiteData.status || ""))
+      ) {
+        isImLitePublic = true;
+        if (building) {
+          const imLiteBody = imLiteData.body as Record<string, any>;
+          const imPosture = imLiteBody.investment_posture || imLiteBody.investmentPosture;
+          if (imPosture) {
+            building.investment_posture = imPosture;
+          }
+        }
+      }
+
+      const isTeaserPublicEarly =
+        Boolean(teaserDoc) &&
+        teaserDoc?.visibility !== "internal_only" &&
+        PUBLIC_OG_DOC_STATUSES.has(String(teaserDoc?.status || ""));
+      if (
+        String(ssotStatus || building?.status || "") === "draft" &&
+        !snapshotCard4 &&
+        !quickRec &&
+        !isTeaserPublicEarly &&
+        !isImLitePublic &&
+        !isSignalCardStatusPublic(signalCardStatus)
+      ) {
+        try {
+          interface KakaoActivityQueryLike
+            extends PromiseLike<{ data?: Array<Record<string, unknown>> | null }> {
+            in?: (col: string, vals: string[]) => KakaoActivityQueryLike;
+            contains?: (col: string, val: Record<string, unknown>) => KakaoActivityQueryLike;
+            order?: (col: string, opts: { ascending: boolean }) => KakaoActivityQueryLike;
+            limit?: (n: number) => KakaoActivityQueryLike;
+          }
+          let actQ = supabase
+            .from("activity_events")
+            .select("actor_id, event_type, metadata, created_at") as unknown as KakaoActivityQueryLike;
+          if (typeof actQ?.in === "function") {
+            actQ = actQ.in("event_type", [
+              "dealcard_sent",
+              "dealcard_restored",
+              "dealcard_deleted",
+              "link_revoked",
+              "link_restored",
+            ]);
+          }
+          if (typeof actQ?.contains === "function") {
+            actQ = actQ.contains("metadata", { building_id: id });
+          }
+          if (typeof actQ?.order === "function") {
+            actQ = actQ.order("created_at", { ascending: false });
+          }
+          if (typeof actQ?.limit === "function") {
+            actQ = actQ.limit(50);
+          }
+          const { data: acts } = await actQ;
+          const matching = (Array.isArray(acts) ? acts : []).filter((a) => {
+            const meta = (a?.metadata as Record<string, unknown> | undefined) || {};
+            return (
+              String(meta.building_id || "").trim() === id &&
+              (["link_revoked", "link_restored"].includes(String(a?.event_type || "")) ||
+                Boolean(a?.actor_id))
+            );
+          });
+          const latestRevoke = matching.find((a) =>
+            ["link_revoked", "link_restored"].includes(String(a?.event_type || ""))
+          );
+          const latestTransition = matching.find((a) =>
+            ["dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(
+              String(a?.event_type || "")
+            )
+          );
+          if (
+            latestRevoke?.event_type !== "link_revoked" &&
+            latestTransition?.event_type === "dealcard_sent" &&
+            Boolean(latestTransition?.actor_id)
+          ) {
+            hasVerifiedSentEvent = true;
+          }
+        } catch {
+          // Ignore if activity_events unavailable
         }
       }
 
@@ -129,8 +216,37 @@ export async function GET(
     return new Response("Not Found", { status: 404 });
   }
 
-  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
-  const card4 = quickRec?.card4 || imBody?.card4;
+  const isTeaserDocPublic =
+    Boolean(teaserDoc) &&
+    teaserDoc?.visibility !== "internal_only" &&
+    PUBLIC_OG_DOC_STATUSES.has(String(teaserDoc?.status || ""));
+
+  if (teaserDoc && !isTeaserDocPublic && !snapshotCard4 && !quickRec) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  if (
+    String(ssotStatus || building?.status || "") === "draft" &&
+    !snapshotCard4 &&
+    !quickRec &&
+    !isTeaserDocPublic &&
+    !isImLitePublic &&
+    !isSignalCardStatusPublic(signalCardStatus) &&
+    !hasVerifiedSentEvent
+  ) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const imBody =
+    isTeaserDocPublic && teaserDoc?.body && typeof teaserDoc.body === "object"
+      ? (teaserDoc.body as Record<string, any>)
+      : null;
+
+  if (!imBody && !snapshotCard4 && !quickRec && !building) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const card4 = snapshotCard4 || quickRec?.card4 || imBody?.card4;
 
   const safeBuilding = building || {
     id,
@@ -168,9 +284,7 @@ export async function GET(
   const rawHookCopy =
     card4?.headline ||
     imBody?.card4?.headline ||
-    teaserDoc?.body?.ogTitle ||
     imBody?.ogTitle ||
-    teaserDoc?.body?.kakaoOgTitle ||
     imBody?.kakaoOgTitle ||
     imBody?.hookCopy ||
     teaserView.hookCopy ||
@@ -190,14 +304,20 @@ export async function GET(
     (teaserView.bandedPrice && teaserView.bandedPrice !== "가격 미정" ? teaserView.bandedPrice : null) ||
     "가격 협의";
 
-  const brokerName =
-    brokerProfile?.display_name ||
-    quickRec?.brokerProfile?.displayName ||
-    "담당 공인중개사";
-  const brokerCompany =
-    brokerProfile?.company_name ||
-    quickRec?.brokerProfile?.company ||
-    "CREDEAL 파트너스";
+  const brokerName = String(
+    snapshotBroker?.displayName ||
+      snapshotBroker?.display_name ||
+      brokerProfile?.display_name ||
+      quickRec?.brokerProfile?.displayName ||
+      ""
+  ).trim();
+  const brokerCompany = String(
+    snapshotBroker?.company ||
+      snapshotBroker?.officeName ||
+      brokerProfile?.company_name ||
+      quickRec?.brokerProfile?.company ||
+      ""
+  ).trim();
 
   const rawTiles = (teaserView.postureHeroTiles || [
     { emoji: "💰", label: "매각가", value: priceDisplay },
@@ -234,8 +354,8 @@ export async function GET(
 
   const safePostureLabel = safeText(postureLabel, "Income");
   const safeRegionAsset = safeText(`${regionDisplay} · ${assetTypeDisplay}`, "Seoul CRE");
-  const safeBrokerName = safeText(brokerName, "CRE Broker");
-  const safeBrokerCompany = safeText(`(${brokerCompany})`, "(CREDEAL)");
+  const safeBrokerName = brokerName ? safeText(brokerName, "") : "";
+  const safeBrokerCompany = brokerCompany ? safeText(`(${brokerCompany})`, "") : "";
   const truncatedHook = hookCopy.length > 32 ? hookCopy.slice(0, 32) + "..." : hookCopy;
   const safeHookCopy = safeText(truncatedHook, "CRE Deal");
   const safePriceDisplay = safeText(priceDisplay, "Price TBD");
@@ -311,14 +431,20 @@ export async function GET(
             </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ display: "flex", fontSize: "16px", fontWeight: 700, color: "#cbd5e1" }}>
-              {safeBrokerName}
-            </span>
-            <span style={{ display: "flex", fontSize: "14px", color: "#64748b" }}>
-              {safeBrokerCompany}
-            </span>
-          </div>
+          {(safeBrokerName || safeBrokerCompany) ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {safeBrokerName ? (
+                <span style={{ display: "flex", fontSize: "16px", fontWeight: 700, color: "#cbd5e1" }}>
+                  {safeBrokerName}
+                </span>
+              ) : null}
+              {safeBrokerCompany ? (
+                <span style={{ display: "flex", fontSize: "14px", color: "#64748b" }}>
+                  {safeBrokerCompany}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {/* Middle Content */}
@@ -451,7 +577,8 @@ export async function GET(
       height: 630,
       fonts: fonts.length > 0 ? fonts : undefined,
       headers: {
-        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+        // WP-7.3C P2: short CDN TTL so revoked/deleted cards stop rendering within minutes.
+        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
       },
     }
   );

@@ -1,78 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { resolvePublishedImProDocument } from '@/app/api/public/im-pro/_lib/im-pro-doc-guard';
+import {
+  consumeProGrantDownload,
+  resolveProGrantByAnyId,
+  verifyProGrantViewerAccess,
+} from '@/domain/gate/im-pro-grant-service';
 
-function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: string, broker: any }): string {
-  const sectionsHtml = (doc?.sections || [])
-    .filter(Boolean)
-    .map((s: any) => `<section class="im-section">
-  <h2>${escapeHtml(s.title)}</h2>
-  <div class="section-content">${markdownToHtml(s.markdown)}</div>
-</section>`)
-    .join('\n');
+interface ProExportBrokerInfo {
+  displayName: string;
+  representativeName: string;
+  company: string;
+  phone: string;
+  registrationNo: string;
+  officeAddress: string;
+}
 
-  let rentRollHtml = '';
-  if (Array.isArray(doc?.floorLeases) && doc.floorLeases.length > 0) {
-    rentRollHtml = `
+const STRUCTURED_LABELS_KO: Record<string, string> = {
+  scenario: '시나리오',
+  name: '시나리오명',
+  label: '항목',
+  title: '구분',
+  entityType: '취득 주체',
+  entity_type: '취득 주체',
+  buyerType: '매수 주체',
+  buyer_type: '매수 주체',
+  acquisitionTaxRate: '취득세율',
+  acquisition_tax_rate: '취득세율',
+  acquisitionTax: '취득세',
+  acquisitionTaxManwon: '취득세 (만원)',
+  acquisition_tax_manwon: '취득세 (만원)',
+  propertyTax: '보유세/재산세',
+  property_tax_manwon: '보유세/재산세 (만원)',
+  capitalGainsTax: '양도소득세',
+  capital_gains_tax_manwon: '양도소득세 (만원)',
+  estimatedTax: '예상 세액',
+  effectiveTaxRate: '실효세율 (%)',
+  netYieldAfterTax: '세후 수익률 (%)',
+  annualAfterTaxCashFlow: '연 세후 현금흐름',
+  ltv: 'LTV (%)',
+  ltvPct: 'LTV (%)',
+  ltv_pct: 'LTV (%)',
+  loanAmount: '대출금액',
+  loanAmountManwon: '대출금액 (만원)',
+  loan_amount_manwon: '대출금액 (만원)',
+  equityAmount: '자기자본',
+  equityManwon: '실투자금 (만원)',
+  equity_manwon: '실투자금 (만원)',
+  interestRate: '대출 금리 (%)',
+  interestRatePct: '대출 금리 (%)',
+  interest_rate_pct: '대출 금리 (%)',
+  annualInterest: '연 이자비용',
+  annualInterestManwon: '연 이자비용 (만원)',
+  annual_interest_manwon: '연 이자비용 (만원)',
+  annualNoiManwon: '연 NOI (만원)',
+  annual_noi_manwon: '연 NOI (만원)',
+  leveredCashFlowManwon: '세전 현금흐름 (만원)',
+  levered_cash_flow_manwon: '세전 현금흐름 (만원)',
+  cashOnCashPct: 'Cash-on-Cash (%)',
+  cash_on_cash_pct: 'Cash-on-Cash (%)',
+  dscr: 'DSCR (배)',
+  note: '비고',
+  summary: '요약',
+};
+
+function formatStructuredKey(key: string): string {
+  return STRUCTURED_LABELS_KO[key] || key;
+}
+
+function formatStructuredVal(val: unknown): string {
+  if (val === null || val === undefined || val === '') return '-';
+  if (typeof val === 'number') return Number.isFinite(val) ? val.toLocaleString() : '-';
+  if (typeof val === 'boolean') return val ? '예' : '아니오';
+  if (Array.isArray(val)) return val.map((v) => formatStructuredVal(v)).join(', ');
+  if (typeof val === 'object') {
+    return Object.entries(val as Record<string, unknown>)
+      .map(([k, v]) => `${formatStructuredKey(k)}: ${formatStructuredVal(v)}`)
+      .join(' · ');
+  }
+  return String(val);
+}
+
+function renderStructuredSectionHtml(title: string, data: unknown): string {
+  if (!data) return '';
+  if (Array.isArray(data)) {
+    if (data.length === 0) return '';
+    const firstObj = data.find((r) => r && typeof r === 'object' && !Array.isArray(r)) as
+      | Record<string, unknown>
+      | undefined;
+    if (firstObj) {
+      const cols = Object.keys(firstObj);
+      return `
       <section class="im-section">
-        <h2>📋 호실별 렌트롤 (상세)</h2>
+        <h2>${escapeHtml(title)}</h2>
         <div class="section-content">
           <table>
             <thead>
               <tr>
-                <th>층</th>
-                <th>업종분류</th>
-                <th>보증금(만원)</th>
-                <th>월세(만원)</th>
+                ${cols.map((c) => `<th>${escapeHtml(formatStructuredKey(c))}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
-              ${doc.floorLeases.map((t: any) => `
-                <tr>
-                  <td>${escapeHtml(t.floor || '-')}</td>
-                  <td>${escapeHtml(t.tenant_type || t.industry || '-')}</td>
-                  <td>${t.deposit_manwon?.toLocaleString() || '-'}</td>
-                  <td>${t.rent_manwon?.toLocaleString() || '-'}</td>
-                </tr>
-              `).join('')}
+              ${data
+                .map((row) => {
+                  const rec = (row && typeof row === 'object' ? row : {}) as Record<string, unknown>;
+                  return `<tr>${cols
+                    .map((c) => `<td>${escapeHtml(formatStructuredVal(rec[c]))}</td>`)
+                    .join('')}</tr>`;
+                })
+                .join('')}
             </tbody>
           </table>
         </div>
-      </section>
-    `;
-  }
-  
-  let loanSimulationHtml = '';
-  if (doc.loanSimulation) {
-    loanSimulationHtml = `
+      </section>`;
+    }
+    return `
       <section class="im-section">
-        <h2>금융 시뮬레이션</h2>
+        <h2>${escapeHtml(title)}</h2>
         <div class="section-content">
-          <table>
-            <thead>
-              <tr>
-                <th>항목</th>
-                <th>금액/비율</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${Object.entries(doc?.loanSimulation || {}).map(([key, value]) => `
-                <tr>
-                  <td>${escapeHtml(key)}</td>
-                  <td>${escapeHtml(String(value))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <ul>
+            ${data.map((item) => `<li>${escapeHtml(formatStructuredVal(item))}</li>`).join('')}
+          </ul>
         </div>
-      </section>
-    `;
+      </section>`;
   }
-  
-  let taxScenariosHtml = '';
-  if (doc.taxScenarios) {
-    taxScenariosHtml = `
+  if (typeof data === 'object') {
+    const entries = Object.entries(data as Record<string, unknown>);
+    if (entries.length === 0) return '';
+    return `
       <section class="im-section">
-        <h2>세금 시나리오</h2>
+        <h2>${escapeHtml(title)}</h2>
         <div class="section-content">
           <table>
             <thead>
@@ -82,18 +140,191 @@ function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: stri
               </tr>
             </thead>
             <tbody>
-              ${Object.entries(doc?.taxScenarios || {}).map(([key, value]) => `
+              ${entries
+                .map(
+                  ([key, value]) => `
                 <tr>
-                  <td>${escapeHtml(key)}</td>
-                  <td>${escapeHtml(String(value))}</td>
-                </tr>
-              `).join('')}
+                  <td>${escapeHtml(formatStructuredKey(key))}</td>
+                  <td>${escapeHtml(formatStructuredVal(value))}</td>
+                </tr>`,
+                )
+                .join('')}
             </tbody>
+          </table>
+        </div>
+      </section>`;
+  }
+  return `
+    <section class="im-section">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="section-content"><p>${escapeHtml(String(data))}</p></div>
+    </section>`;
+}
+
+function buildProHtmlExport(
+  doc: any,
+  grant: any,
+  options: { watermarkText: string; broker: ProExportBrokerInfo }
+): string {
+  const hiddenSectionSet = new Set<string>(
+    [
+      ...(Array.isArray(doc?.hidden_sections) ? doc.hidden_sections : []),
+      ...(Array.isArray(doc?.hiddenSections) ? doc.hiddenSections : []),
+    ]
+      .filter((k: unknown) => k !== null && k !== undefined && String(k).trim() !== '')
+      .map((k: unknown) => String(k).trim()),
+  );
+  const sectionsHtml = (doc?.sections || [])
+    .filter((s: any) => {
+      if (!s || s.hidden === true || s.is_hidden === true) return false;
+      const candidateKeys = [s.id, s.section_id, s.sectionId, s.section_type, s.key]
+        .filter((k: unknown) => k !== null && k !== undefined && String(k).trim() !== '')
+        .map((k: unknown) => String(k).trim());
+      return !candidateKeys.some((k) => hiddenSectionSet.has(k));
+    })
+    .map((s: any) => `<section class="im-section">
+  <h2>${escapeHtml(s.title)}</h2>
+  <div class="section-content">${markdownToHtml(s.markdown || s.content || '')}</div>
+</section>`)
+    .join('\n');
+
+  const rawLeases: any[] =
+    (Array.isArray(doc?.floorLeases) && doc.floorLeases.length > 0 && doc.floorLeases) ||
+    (Array.isArray(doc?.floor_leases) && doc.floor_leases.length > 0 && doc.floor_leases) ||
+    (Array.isArray(doc?.rentRoll) && doc.rentRoll.length > 0 && doc.rentRoll) ||
+    (Array.isArray(doc?.rent_roll) && doc.rent_roll.length > 0 && doc.rent_roll) ||
+    [];
+
+  let rentRollHtml = '';
+  if (rawLeases.length > 0) {
+    const classifyOccupancy = (t: any): { isVacant: boolean; isOwnerUse: boolean; label: '공실' | '자가사용' | '임대중' } => {
+      const isVacant = Boolean(
+        t?.is_vacant ||
+          t?.isVacant ||
+          t?.status === 'vacant' ||
+          t?.status === '공실' ||
+          t?.lease_state === '공실' ||
+          t?.occupancy_status === '공실' ||
+          t?.use === '공실',
+      );
+      const isOwnerUse =
+        !isVacant &&
+        Boolean(
+          t?.is_owner_use ||
+            t?.isOwnerUse ||
+            t?.status === 'owner' ||
+            t?.status === 'owner_use' ||
+            t?.status === '자가사용' ||
+            t?.lease_state === '자가사용' ||
+            t?.lease_state === 'owner_use' ||
+            t?.occupancy_status === '자가사용' ||
+            t?.occupancy_status === 'owner_use' ||
+            t?.use === '자가사용' ||
+            t?.use === '자가' ||
+            t?.tenant_type === '자가사용' ||
+            t?.tenantType === '자가사용',
+        );
+      return {
+        isVacant,
+        isOwnerUse,
+        label: isVacant ? '공실' : isOwnerUse ? '자가사용' : '임대중',
+      };
+    };
+
+    let totalDepositManwon = 0;
+    let totalMonthlyRentManwon = 0;
+    let vacantCount = 0;
+    for (const t of rawLeases) {
+      const occ = classifyOccupancy(t);
+      if (occ.isVacant) {
+        vacantCount += 1;
+        continue;
+      }
+      if (occ.isOwnerUse) {
+        continue;
+      }
+      const dep = Number(t?.deposit_manwon ?? t?.depositManwon ?? t?.deposit ?? 0);
+      const rent = Number(
+        t?.monthly_rent_manwon ??
+          t?.monthlyRentManwon ??
+          t?.rent_manwon ??
+          t?.rentManwon ??
+          t?.monthlyRent ??
+          0,
+      );
+      if (Number.isFinite(dep)) totalDepositManwon += dep;
+      if (Number.isFinite(rent)) totalMonthlyRentManwon += rent;
+    }
+
+    rentRollHtml = `
+      <section class="im-section">
+        <h2>📋 호실별 렌트롤 (상세)</h2>
+        <div class="section-content">
+          <table>
+            <thead>
+              <tr>
+                <th>층</th>
+                <th>업종분류</th>
+                <th>전용면적(㎡)</th>
+                <th>보증금(만원)</th>
+                <th>월세(만원)</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rawLeases
+                .map((t: any) => {
+                  const floor = t.floor ?? t.floorLabel ?? '-';
+                  const bizType =
+                    t.tenant_type ?? t.tenantType ?? t.industry ?? t.use ?? t.tenant_name ?? t.tenantName ?? '-';
+                  const areaVal = t.area_sqm ?? t.areaSqm ?? t.exclusiveAreaSqm ?? t.area;
+                  const depositVal = t.deposit_manwon ?? t.depositManwon ?? t.deposit;
+                  const rentVal =
+                    t.monthly_rent_manwon ??
+                    t.monthlyRentManwon ??
+                    t.rent_manwon ??
+                    t.rentManwon ??
+                    t.monthlyRent;
+                  const occ = classifyOccupancy(t);
+                  const fmtNum = (n: unknown) =>
+                    n !== null && n !== undefined && Number.isFinite(Number(n))
+                      ? Number(n).toLocaleString()
+                      : '-';
+                  return `
+                <tr>
+                  <td>${escapeHtml(String(floor))}</td>
+                  <td>${escapeHtml(String(bizType))}</td>
+                  <td>${escapeHtml(fmtNum(areaVal))}</td>
+                  <td>${escapeHtml(fmtNum(depositVal))}</td>
+                  <td>${escapeHtml(fmtNum(rentVal))}</td>
+                  <td>${escapeHtml(occ.label)}</td>
+                </tr>`;
+                })
+                .join('')}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td><strong>합계</strong></td>
+                <td>${rawLeases.length}건</td>
+                <td>-</td>
+                <td><strong>${totalDepositManwon.toLocaleString()}</strong></td>
+                <td><strong>${totalMonthlyRentManwon.toLocaleString()}</strong></td>
+                <td>${vacantCount}실 공실</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </section>
     `;
   }
+
+  const loanData =
+    doc?.loanSimulation ?? doc?.loan_scenario ?? doc?.loanScenario ?? doc?.loan_simulation ?? null;
+  const loanSimulationHtml = renderStructuredSectionHtml('금융 시뮬레이션', loanData);
+
+  const taxData =
+    doc?.taxScenarios ?? doc?.tax_scenarios ?? doc?.taxSimulation ?? doc?.tax_simulation ?? null;
+  const taxScenariosHtml = renderStructuredSectionHtml('세금 시나리오', taxData);
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -210,7 +441,15 @@ function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: stri
   <div class="footer">
     <div class="broker-card">
       <strong>${escapeHtml(options.broker.displayName)}</strong>
-      ${escapeHtml(options.broker.company)} &nbsp;·&nbsp; ${escapeHtml(options.broker.phone)}
+      ${[
+        options.broker.company ? `상호: ${escapeHtml(options.broker.company)}` : '',
+        options.broker.representativeName ? `대표자: ${escapeHtml(options.broker.representativeName)}` : '',
+        options.broker.registrationNo ? `등록번호: ${escapeHtml(options.broker.registrationNo)}` : '',
+        options.broker.officeAddress ? `소재지: ${escapeHtml(options.broker.officeAddress)}` : '',
+        options.broker.phone ? `연락처: ${escapeHtml(options.broker.phone)}` : '',
+      ]
+        .filter(Boolean)
+        .join(' &nbsp;·&nbsp; ')}
     </div>
     <p>본 문서는 기밀유지협약(NDA)에 따라 보호되는 기밀 정보입니다. 무단 유출 시 법적 책임을 질 수 있습니다.</p>
     <p style="margin-top:8px;color:#bbb;">Generated by 크리딜 Mobile IM Pro · Confidential</p>
@@ -278,6 +517,22 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ grantId: string }> }
 ) {
+  const clientIp =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip')?.trim() ||
+    'unknown';
+  const rateAllowed = await checkRateLimit(clientIp, 'im_pro_export', 30, 60_000);
+  if (!rateAllowed) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'RATE_LIMITED',
+        error: '요청이 일시적으로 많습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    );
+  }
+
   const { grantId } = await params;
   const format = req.nextUrl.searchParams.get('format');
   if (format === 'pptx') {
@@ -290,80 +545,158 @@ export async function GET(
 
   const supabase = createServiceClient();
 
-  const { data: grant } = await supabase
-    .from('im_pro_grants')
-    .select('*')
-    .eq('id', grantId)
-    .eq('status', 'active')
-    .maybeSingle();
+  const resolved = await resolveProGrantByAnyId(supabase, grantId, {
+    allowBuildingLookup: false,
+  });
+  const grant = resolved.grant && resolved.grant.status === 'active' ? resolved.grant : null;
 
   if (!grant) return NextResponse.json({ error: 'Grant not found or inactive' }, { status: 404 });
+  if (grant.is_revoked === true) return NextResponse.json({ error: 'Grant revoked' }, { status: 403 });
   if (!grant.nda_signed_at) return NextResponse.json({ error: 'NDA signing required' }, { status: 403 });
   if (grant.pdf_export_allowed === false) return NextResponse.json({ error: 'PDF export not permitted for this grant' }, { status: 403 });
-  if (new Date(grant.expires_at) < new Date()) return NextResponse.json({ error: 'Grant expired' }, { status: 410 });
+  if (grant.expires_at && new Date(grant.expires_at) < new Date()) return NextResponse.json({ error: 'Grant expired' }, { status: 410 });
 
-  let buildingId: string | null = grant.building_id || null;
-  if (!buildingId && grant.deal_id) {
-    const { data: deal } = await supabase
-      .from('deals')
-      .select('asset_id')
-      .eq('id', grant.deal_id)
-      .maybeSingle();
-    buildingId = deal?.asset_id || null;
+  const access = await verifyProGrantViewerAccess(req, grant);
+  if (!access.ok) {
+    return NextResponse.json(
+      {
+        error: access.error || 'Grant token required',
+        code: access.code || 'GRANT_TOKEN_REQUIRED',
+      },
+      { status: access.status || 403 },
+    );
   }
 
-  const targetBuildingId = buildingId || grant.building_id;
-  const { data: docRows } = await supabase
-    .from('document_objects')
-    .select('*')
-    .eq('building_id', targetBuildingId)
-    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'im_pro']) // P-H1: 통일 필터
-    .order('created_at', { ascending: false })
-    .limit(5);
+  const effectiveGrantId = String(grant.id || grantId);
+  const maxDownloads =
+    typeof grant.max_downloads === 'number' && Number.isFinite(grant.max_downloads) && grant.max_downloads > 0
+      ? grant.max_downloads
+      : 5;
+  const grantDownloadCount =
+    typeof grant.download_count === 'number' && Number.isFinite(grant.download_count) && grant.download_count >= 0
+      ? grant.download_count
+      : 0;
 
-  let doc: any = Array.isArray(docRows)
-    ? docRows.find(
-        (d: any) =>
-          Array.isArray(d?.body?.sections) &&
-          d.body.sections.length > 0 &&
-          !Array.isArray(d?.body?.slides)
-      )
-    : null;
+  let eventCount = 0;
+  try {
+    const aeTable: any = supabase.from('activity_events');
+    if (aeTable && typeof aeTable.select === 'function') {
+      const { count } = await aeTable
+        .select('id', { count: 'exact', head: true })
+        .eq('entity_id', effectiveGrantId)
+        .in('event_type', ['im_pro_pptx_exported', 'im_pro_pdf_exported']);
+      eventCount = count ?? 0;
+    }
+  } catch {
+    eventCount = 0;
+  }
 
-  if (!doc?.body && targetBuildingId) {
-    const { resolveOrSynthesizeQuickImRecord } = await import('@/lib/im-lite/quick-generate-store');
-    const quickRec = await resolveOrSynthesizeQuickImRecord(grant.building_id || targetBuildingId, supabase);
-    if (quickRec?.fullDocBody) {
-      doc = {
-        id: quickRec.documentId,
-        building_id: quickRec.buildingId,
-        owner_id: quickRec.ownerId ?? null,
-        title: quickRec.buildingName,
-        body: { ...quickRec.fullDocBody },
-      };
+  const effectiveUsed = Math.max(grantDownloadCount, eventCount);
+  if (effectiveUsed >= maxDownloads) {
+    return NextResponse.json(
+      {
+        error: '다운로드 횟수 초과',
+        limit: maxDownloads,
+        used: effectiveUsed,
+      },
+      { status: 429 },
+    );
+  }
+
+  let buildingId: string | null = grant.building_id || resolved.buildingId || null;
+  if (!buildingId && grant.deal_id) {
+    try {
+      const { data: deal } = await supabase
+        .from('deals')
+        .select('asset_id')
+        .eq('id', grant.deal_id)
+        .maybeSingle();
+      buildingId = deal?.asset_id || null;
+    } catch {
+      buildingId = null;
     }
   }
 
+  const targetBuildingId = buildingId || grant.building_id;
+  const docGuard = await resolvePublishedImProDocument({
+    supabase,
+    buildingId: targetBuildingId || '',
+    quickLookupId: grant.building_id || targetBuildingId,
+  });
+  if (!docGuard.ok) {
+    return NextResponse.json({ error: docGuard.error }, { status: docGuard.status });
+  }
+  const doc = docGuard.doc;
   const bodyContent = doc?.body || {};
 
-  // P-H2: 브로커 정보 동적 조회 (하드코딩 제거)
+  // P-H2 & P0-4: 브로커 5대 법정 표시 정보 동적 조회 (profiles + broker_profiles + doc.body fallback)
+  const docBroker = (bodyContent?.broker_contact || bodyContent?.basicImDocument?.facts?.brokerOffice || {}) as Record<string, any>;
   const ownerId = doc?.broker_id ?? doc?.owner_id;
-  let brokerInfo = { displayName: '담당 중개인', company: '', phone: '' };
+  let brokerInfo: ProExportBrokerInfo = {
+    displayName: String(docBroker.brokerName || docBroker.representative || docBroker.name || '').trim() || '담당 공인중개사',
+    representativeName: String(docBroker.representative || docBroker.representativeName || docBroker.brokerName || '').trim(),
+    company: String(docBroker.brokerageName || docBroker.company || '').trim(),
+    phone: String(docBroker.brokerPhone || docBroker.phone || '').trim(),
+    registrationNo: String(docBroker.registrationNo || docBroker.registration_no || '').trim(),
+    officeAddress: String(docBroker.officeAddress || docBroker.office_address || docBroker.address || '').trim(),
+  };
   if (ownerId) {
     const { data: bp } = await supabase
       .from('profiles')
       .select('display_name, company, phone')
       .eq('id', ownerId)
       .maybeSingle();
-    if (bp) {
+    let brokerMeta: any = null;
+    try {
+      const resMeta = await supabase
+        .from('broker_profiles')
+        .select('office_reg_number, license_number, office_address, representative_name')
+        .eq('user_id', ownerId)
+        .maybeSingle();
+      if (!resMeta.error) {
+        brokerMeta = resMeta.data;
+      } else {
+        const resFallback = await supabase
+          .from('broker_profiles')
+          .select('office_reg_number, license_number')
+          .eq('user_id', ownerId)
+          .maybeSingle();
+        brokerMeta = resFallback.data;
+      }
+    } catch {
+      brokerMeta = null;
+    }
+
+    if (bp || brokerMeta) {
+      const repName = String(
+        brokerMeta?.representative_name || bp?.display_name || brokerInfo.representativeName || ''
+      ).trim();
       brokerInfo = {
-        displayName: bp.display_name || '담당 중개인',
-        company: bp.company || '',
-        phone: bp.phone || '',
+        displayName: bp?.display_name || repName || brokerInfo.displayName || '담당 공인중개사',
+        representativeName: repName || (bp?.display_name || brokerInfo.representativeName),
+        company: bp?.company || brokerInfo.company,
+        phone: bp?.phone || brokerInfo.phone,
+        registrationNo:
+          brokerMeta?.office_reg_number || brokerMeta?.license_number || brokerInfo.registrationNo,
+        officeAddress: brokerMeta?.office_address || brokerInfo.officeAddress,
       };
     }
   }
   
+  // Atomic download quota consumption BEFORE HTML rendering so 429 aborts early
+  const quotaRes = await consumeProGrantDownload(
+    supabase,
+    effectiveGrantId,
+    maxDownloads,
+    effectiveUsed,
+  );
+  if (!quotaRes.ok) {
+    return NextResponse.json(
+      { error: quotaRes.error || '다운로드 횟수 초과', limit: quotaRes.limit, used: quotaRes.used },
+      { status: 429 },
+    );
+  }
+
   const timestamp = new Date().toISOString().slice(0, 16);
   const phoneLast4 = (grant.requester_phone || '0000').slice(-4);
   const watermarkText = `${grant.requester_name} \u00b7 ${phoneLast4} \u00b7 ${timestamp}`;
@@ -373,19 +706,23 @@ export async function GET(
     broker: brokerInfo,
   });
 
-  await supabase.from('activity_events').insert({
-    event_type: 'im_pro_pdf_exported',
-    entity_type: 'im_pro_grant',
-    entity_id: grantId,
-    building_ssot_lite_id: grant.building_id,
-    metadata: {
-      grant_id: grantId,
-      actor_name: grant.requester_name || '',
-      exportedAt: new Date().toISOString(),
-      userAgent: req.headers.get('user-agent')
-    },
-    source_app: 'web'
-  });
+  try {
+    await supabase.from('activity_events').insert({
+      event_type: 'im_pro_pdf_exported',
+      entity_type: 'im_pro_grant',
+      entity_id: effectiveGrantId,
+      building_ssot_lite_id: grant.building_id || targetBuildingId || null,
+      metadata: {
+        grant_id: effectiveGrantId,
+        actor_name: grant.requester_name || '',
+        exportedAt: new Date().toISOString(),
+        userAgent: req.headers.get('user-agent')
+      },
+      source_app: 'web'
+    });
+  } catch {
+    // Non-blocking audit logging
+  }
 
   return new NextResponse(html, {
     headers: {

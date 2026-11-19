@@ -25,8 +25,8 @@ export type ExtendedBrokerExtrasFormState = BrokerExtrasFormState & {
 type SetForm = React.Dispatch<React.SetStateAction<BrokerExtrasFormState>>;
 
 const INPUT_CLASS =
-  "text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none";
-const LABEL_CLASS = "text-[11px] font-semibold text-muted-foreground";
+  "text-sm px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none";
+const LABEL_CLASS = "text-sm font-semibold text-muted-foreground";
 
 function lineCount(text: string): number {
   return (text ?? "").split(/\r?\n/).filter((s) => s.trim().length > 0).length;
@@ -222,12 +222,12 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
     >
       <summary
         data-testid="broker-extras-summary"
-        className="cursor-pointer select-none flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground"
+        className="cursor-pointer select-none flex items-center justify-between gap-2 text-sm font-semibold text-muted-foreground"
       >
         <span>중개인 추가 정보 (선택)</span>
         <span
           data-testid="broker-extras-badge"
-          className={`text-[10px] px-1.5 py-0.5 rounded ${
+          className={`text-sm px-1.5 py-0.5 rounded ${
             filled > 0 ? "bg-primary/10 text-primary" : "bg-secondary/40 text-muted-foreground/60"
           }`}
         >
@@ -235,7 +235,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
         </span>
       </summary>
 
-      <p className="mt-2 text-[10px] text-muted-foreground/70">
+      <p className="mt-2 text-sm text-muted-foreground/70">
         입력한 내용은 <b>중개인 입력</b>으로 표기되어 원문 그대로 IM 에 반영됩니다 (AI 가 다시 쓰지 않습니다).
       </p>
 
@@ -253,7 +253,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
             placeholder={"한 줄에 하나씩 입력하세요"}
             className={`w-full ${INPUT_CLASS}`}
           />
-          <div className="text-[10px] text-muted-foreground/60 text-right">
+          <div className="text-sm text-muted-foreground/60 text-right">
             {lineCount(form.investmentPointsText)}/{L.investmentPointsMax}
           </div>
           <input
@@ -284,7 +284,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                     ],
                   }))
                 }
-                className="text-[10px] text-primary hover:text-primary/80 font-medium"
+                className="text-sm text-primary hover:text-primary/80 font-medium"
               >
                 + 추가
               </button>
@@ -320,7 +320,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                   onClick={() =>
                     setForm((prev) => ({ ...prev, regulatoryRows: prev.regulatoryRows.filter((_, idx) => idx !== i) }))
                   }
-                  className="text-[10px] text-rose-400 hover:text-rose-300 shrink-0"
+                  className="text-sm text-rose-400 hover:text-rose-300 shrink-0"
                 >
                   삭제
                 </button>
@@ -369,7 +369,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                 type="button"
                 data-testid="broker-extras-comp-paste-toggle"
                 onClick={() => setIsPasteOpen((prev) => !prev)}
-                className="text-[10px] px-2 py-0.5 rounded border border-border/60 bg-secondary/40 text-foreground hover:bg-secondary/70 font-medium"
+                className="text-sm px-2 py-0.5 rounded border border-border/60 bg-secondary/40 text-foreground hover:bg-secondary/70 font-medium"
               >
                 텍스트/표 붙여넣기
               </button>
@@ -397,7 +397,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                       ],
                     }))
                   }
-                  className="text-[10px] text-primary hover:text-primary/80 font-medium"
+                  className="text-sm text-primary hover:text-primary/80 font-medium"
                 >
                   + 비교 사례 추가
                 </button>
@@ -419,7 +419,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                 <button
                   type="button"
                   onClick={() => setIsPasteOpen(false)}
-                  className="text-[10px] px-2 py-1 rounded text-muted-foreground hover:text-foreground"
+                  className="text-sm px-2 py-1 rounded text-muted-foreground hover:text-foreground"
                 >
                   취소
                 </button>
@@ -428,7 +428,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                   data-testid="broker-extras-comp-paste-apply"
                   disabled={!pasteText.trim()}
                   onClick={handlePasteApply}
-                  className="text-[10px] px-2.5 py-1 rounded bg-primary text-primary-foreground font-semibold disabled:opacity-40"
+                  className="text-sm px-2.5 py-1 rounded bg-primary text-primary-foreground font-semibold disabled:opacity-40"
                 >
                   붙여넣기 반영
                 </button>
@@ -470,7 +470,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                   data-testid={`broker-extras-comp-enrich-${i}`}
                   disabled={!c.location.trim() || enrichingIdx === i}
                   onClick={() => handleEnrichComp(i)}
-                  className="text-[10px] px-2 py-1 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 shrink-0 font-medium"
+                  className="text-sm px-2 py-1 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 shrink-0 font-medium"
                 >
                   {enrichingIdx === i ? "조회중..." : "자동채움"}
                 </button>
@@ -478,7 +478,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                   type="button"
                   data-testid={`broker-extras-comp-remove-${i}`}
                   onClick={() => setForm((prev) => ({ ...prev, compRows: prev.compRows.filter((_, idx) => idx !== i) }))}
-                  className="text-[10px] text-rose-400 hover:text-rose-300 shrink-0"
+                  className="text-sm text-rose-400 hover:text-rose-300 shrink-0"
                 >
                   삭제
                 </button>
@@ -563,7 +563,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
             </div>
           ))}
           {form.compRows.length > 0 && (
-            <p className="text-[10px] text-muted-foreground/60">가격(억) 또는 토지평당가(만원) 중 하나는 입력해야 합니다.</p>
+            <p className="text-sm text-muted-foreground/60">가격(억) 또는 토지평당가(만원) 중 하나는 입력해야 합니다.</p>
           )}
         </div>
 
@@ -578,7 +578,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
             placeholder="역세권·상권·접근성 등 입지 특징"
             className={`w-full ${INPUT_CLASS}`}
           />
-          <div className="text-[10px] text-muted-foreground/60 text-right">
+          <div className="text-sm text-muted-foreground/60 text-right">
             {form.locationNote.trim().length}/{L.locationNoteChars}
           </div>
         </div>
@@ -602,7 +602,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
                     },
                   ])
                 }
-                className="text-[10px] text-primary hover:text-primary/80 font-medium"
+                className="text-sm text-primary hover:text-primary/80 font-medium"
               >
                 + 전환 호실 추가
               </button>
@@ -689,14 +689,14 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
           {planUnits.length > 0 && (
             <div
               data-testid="broker-extras-plan-units-summary"
-              className="rounded-lg bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-[10px] font-medium text-primary"
+              className="rounded-lg bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-sm font-medium text-primary"
             >
               합산 전환 보증금 +{totalPlanDeposit.toLocaleString()}만원 · 전환 월세 +{totalPlanRent.toLocaleString()}만원 (안정화 기대수익률 자동 반영)
             </div>
           )}
 
           <div className="space-y-1 pt-1">
-            <label className="text-[10px] font-medium text-muted-foreground">
+            <label className="text-sm font-medium text-muted-foreground">
               추가 전략 메모 (선택, 줄바꿈으로 구분, 최대 {L.postAcquisitionPlanMax}개 · 각 {L.postAcquisitionPlanChars}자)
             </label>
             <textarea
@@ -707,7 +707,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
               placeholder={"한 줄에 하나씩 입력하세요"}
               className={`w-full ${INPUT_CLASS}`}
             />
-            <div className="text-[10px] text-muted-foreground/60 text-right">
+            <div className="text-sm text-muted-foreground/60 text-right">
               {lineCount(form.postAcquisitionPlanText)}/{L.postAcquisitionPlanMax}
             </div>
           </div>
@@ -721,7 +721,7 @@ export function BrokerExtrasSection({ form, setForm, defaultOpen }: BrokerExtras
 export function BrokerTargetRentField({ form, setForm }: BrokerExtrasSectionProps) {
   return (
     <div className="col-span-2 flex flex-col gap-1">
-      <label className="text-xs font-semibold text-muted-foreground" htmlFor="broker-extras-target-rent">
+      <label className="text-sm font-semibold text-muted-foreground" htmlFor="broker-extras-target-rent">
         목표 임대료 (평당 만원/월)
       </label>
       <input
@@ -736,7 +736,7 @@ export function BrokerTargetRentField({ form, setForm }: BrokerExtrasSectionProp
         placeholder="예: 12"
         className="bg-secondary/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary"
       />
-      <p className="text-[10px] text-muted-foreground/70">공실·자가사용분 임대 시 안정화 수익률 산출에 사용 (선택)</p>
+      <p className="text-sm text-muted-foreground/70">공실·자가사용분 임대 시 안정화 수익률 산출에 사용 (선택)</p>
     </div>
   );
 }

@@ -37,7 +37,7 @@ export function NoteStarterChips({
 }: NoteStarterChipsProps) {
   return (
     <div className="space-y-2" data-testid="note-starter-chips">
-      <p className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
+      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
         💡 첫 문장이 막막하실 때 아래 버튼을 누르면 시작 문장이 자동으로 들어갑니다
       </p>
       <div className="flex flex-wrap gap-2" role="group" aria-label="한마디 시작 문장 추천">
@@ -63,7 +63,7 @@ export function NoteStarterChips({
               }`}
             >
               <span>{chip.label}</span>
-              {isIncluded && <span className="text-xs font-black ml-0.5">✓</span>}
+              {isIncluded && <span className="text-sm font-black ml-0.5">✓</span>}
             </motion.button>
           );
         })}

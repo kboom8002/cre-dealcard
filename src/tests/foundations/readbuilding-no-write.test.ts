@@ -166,7 +166,7 @@ describe('P0.5 Foundation Verification: Pure readBuilding() vs readWithMigration
 
       if (readBuildingFn) {
         // Test invocation with mock client (supporting client or supabase options)
-        const result = await readBuildingFn('bld-test-999', { client: mockSupabase, supabase: mockSupabase });
+        const result = await readBuildingFn('11111111-1111-4111-8111-111111111999', { client: mockSupabase, supabase: mockSupabase });
 
         // Assert operations contain NO mutations
         const mutations = operations.filter((op) => op.startsWith('MUTATION:'));
@@ -208,7 +208,7 @@ describe('P0.5 Foundation Verification: Pure readBuilding() vs readWithMigration
         })),
       };
 
-      const result = await readBuildingFn('non-existent-id', { client: mockSupabase, supabase: mockSupabase });
+      const result = await readBuildingFn('00000000-0000-4000-8000-000000000999', { client: mockSupabase, supabase: mockSupabase });
       expect(result).toBeNull();
       // Queries building_ssot_lite first, then falls back to assets (both pure SELECTs)
       expect(mockSupabase.from).toHaveBeenCalledTimes(2);

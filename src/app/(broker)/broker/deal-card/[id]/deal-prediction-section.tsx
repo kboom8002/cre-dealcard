@@ -42,10 +42,10 @@ export async function DealPredictionSection({
           <span>📊</span> AI 딜 성공 확률 & 적정가 분석
         </h2>
         <div className="rounded-lg bg-muted/40 p-4 text-center space-y-2 border border-border/50">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             매물 특성 기반 AI 적정 거래가 및 전환 확률 분석 모델이 가동 준비 중입니다.
           </p>
-          <span className="inline-flex items-center text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center text-sm font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
             온톨로지 예측 엔진 v1.0
           </span>
         </div>
@@ -83,14 +83,14 @@ export async function DealPredictionSection({
         {/* 거래가 예측 */}
         {pricePred && (
           <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 space-y-1">
-            <p className="text-xs text-primary font-medium">예측 거래가</p>
+            <p className="text-sm text-primary font-medium">예측 거래가</p>
             <p className="text-sm font-bold text-foreground">
               {formatPrice(pricePred.predicted_low)}
               <span className="font-normal text-primary/70 mx-1">~</span>
               {formatPrice(pricePred.predicted_high)}
             </p>
             {pricePred.confidence_level && (
-              <p className="text-xs text-primary/80">
+              <p className="text-sm text-primary/80">
                 신뢰도 {Math.round(pricePred.confidence_level * 100)}%
               </p>
             )}
@@ -100,7 +100,7 @@ export async function DealPredictionSection({
         {/* 성사 확률 */}
         {convPred && probPercent !== null && (
           <div className="rounded-lg bg-warning/10 border border-warning/20 p-3 space-y-1">
-            <p className="text-xs text-warning font-medium">딜 성사 확률</p>
+            <p className="text-sm text-warning font-medium">딜 성사 확률</p>
             <p className={`text-2xl font-bold ${probColor}`}>
               {probPercent}
               <span className="text-sm font-normal text-muted-foreground">%</span>
@@ -125,10 +125,10 @@ export async function DealPredictionSection({
       {/* 핵심 긍정 요소 */}
       {keyFactors.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-success">✅ 성사 기여 요인</p>
+          <p className="text-sm font-medium text-success">✅ 성사 기여 요인</p>
           <ul className="space-y-1">
             {keyFactors.slice(0, 3).map((factor, i) => (
-              <li key={i} className="text-xs flex gap-1.5 text-muted-foreground">
+              <li key={i} className="text-sm flex gap-1.5 text-muted-foreground">
                 <span className="text-success shrink-0">•</span>
                 <span>{factor}</span>
               </li>
@@ -140,10 +140,10 @@ export async function DealPredictionSection({
       {/* 리스크 요인 */}
       {riskFactors.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-destructive">⚠️ 리스크 요인</p>
+          <p className="text-sm font-medium text-destructive">⚠️ 리스크 요인</p>
           <ul className="space-y-1">
             {riskFactors.slice(0, 2).map((factor, i) => (
-              <li key={i} className="text-xs flex gap-1.5 text-muted-foreground">
+              <li key={i} className="text-sm flex gap-1.5 text-muted-foreground">
                 <span className="text-warning shrink-0">•</span>
                 <span>{factor}</span>
               </li>
@@ -152,7 +152,7 @@ export async function DealPredictionSection({
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         * 인근 실거래가 데이터와 매수자 매칭 결과를 기반으로 한 AI 추정치입니다.
         투자 판단의 근거로 단독 사용하지 마세요.
       </p>

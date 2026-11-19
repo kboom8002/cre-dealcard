@@ -50,9 +50,11 @@ import {
   hydrateMonthlyChartsFromDbRows,
 } from "@/domain/magazine/monthly-stats-hydration";
 import {
+  formatKrw,
   formatPriceRange,
   normalizePriceBandInput,
   parseLegacyBand,
+  validateBlindPriceBand,
 } from "@/lib/deal-card/price-band";
 import { formatKrPhoneInput } from "@/lib/format/phone";
 import { TERMS } from "@/lib/ux/lexicon";
@@ -240,11 +242,13 @@ describe("Round-3 Tester Feedback Remediation (26-11-16)", () => {
     expect(container.textContent).toContain("만원/평");
   });
 
-  it("3. Formats large Korean price bands with comma thousand separators", () => {
-    expect(formatPriceRange(200_000_000_000)).toBe("2,000~2,050억");
+  it("3. Formats large Korean price bands with >= 5% width, 조 unit, and comma thousand separators", () => {
+    expect(formatPriceRange(200_000_000_000)).toBe("2,000~2,200억");
+    expect(formatKrw(1_200_000_000_000)).toBe("1조 2,000억");
     expect(parseLegacyBand("2000억 이상").label).toBe("2,000억 이상");
-    expect(normalizePriceBandInput("2000~2010억")).toBe("2,000~2,010억");
+    expect(normalizePriceBandInput("2000~2200억")).toBe("2,000~2,200억");
     expect(normalizePriceBandInput("2000억대")).toBe("2,000억대");
+    expect(validateBlindPriceBand("2,000~2,010억").valid).toBe(false);
   });
 
   it("4. Ensures every type='tel' input file in src/ binds formatKrPhoneInput for auto-hyphenation", () => {
@@ -382,7 +386,7 @@ describe("Round-3 Tester Feedback Remediation (26-11-16)", () => {
     ).not.toBeNull();
     expect(
       container.querySelector('[data-testid="inbox-client-basis-select"]')
-    ).toBeNull();
+    ).not.toBeNull();
     expect(
       container.querySelector('[data-testid="inbox-alimtalk-early-access-hint"]')
     ).not.toBeNull();

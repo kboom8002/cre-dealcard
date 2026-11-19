@@ -11,7 +11,9 @@ import { requireBroker } from '@/lib/auth-guard';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
 const postSchema = z.object({
+  blind_teaser: z.boolean().optional(),
   disclosurePrefs: z.object({
+    blind_teaser: z.boolean().optional(),
     show_area_signal: z.boolean().optional(),
     show_asset_type: z.boolean().optional(),
     show_price_band: z.boolean().optional(),
@@ -21,7 +23,7 @@ const postSchema = z.object({
     hide_exact_address: z.boolean().optional(),
     hide_tenant_names: z.boolean().optional(),
     hide_unit_rent: z.boolean().optional(),
-  })
+  }),
 });
 
 export async function POST(
@@ -62,18 +64,29 @@ export async function POST(
   }
 
   const prefs = body.disclosurePrefs;
+  const blindTeaserEnabled =
+    prefs.blind_teaser !== undefined
+      ? Boolean(prefs.blind_teaser)
+      : body.blind_teaser !== undefined
+      ? Boolean(body.blind_teaser)
+      : Boolean(building?.disclosure_prefs?.blind_teaser);
 
-  // Update building_ssot_lite with new prefs
+  // Update building_ssot_lite with new prefs (blind_teaser forces server-side PII/address/rent redaction)
   const updatedPrefs = {
+    ...(blindTeaserEnabled
+      ? { blind_teaser: true }
+      : prefs.blind_teaser === false || body.blind_teaser === false
+      ? { blind_teaser: false }
+      : {}),
     show_area_signal: !!prefs.show_area_signal,
     show_asset_type: !!prefs.show_asset_type,
     show_price_band: !!prefs.show_price_band,
     show_tenant_count: !!prefs.show_tenant_count,
     show_walt: !!prefs.show_walt,
     show_vacancy_rate: !!prefs.show_vacancy_rate,
-    hide_exact_address: !!prefs.hide_exact_address,
-    hide_tenant_names: !!prefs.hide_tenant_names,
-    hide_unit_rent: !!prefs.hide_unit_rent,
+    hide_exact_address: blindTeaserEnabled ? true : !!prefs.hide_exact_address,
+    hide_tenant_names: blindTeaserEnabled ? true : !!prefs.hide_tenant_names,
+    hide_unit_rent: blindTeaserEnabled ? true : !!prefs.hide_unit_rent,
   };
 
   // Re-fetch evidence files to compute completeness score

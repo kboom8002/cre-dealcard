@@ -212,6 +212,7 @@ describe('3. K-apt 배후 공동주택 세대수 API 안전 폴백 및 A27 복�
   it('POSITIVE: enrichment.landUsePlan.zoningShares 폴백 및 제9조제4항 3행이 A27 슬라이드에 SAFE_BOTTOM(6.75") 이내로 렌더링된다', async () => {
     const slideData = buildBasicLandSlideData({
       enrichment: {
+        cadastralMapImage: 'https://example.com/cadastral-mock.png',
         landUsePlan: {
           zoningDistrict: '제2종일반주거지역',
           zoningOverlap: ['제3종일반주거지역'],

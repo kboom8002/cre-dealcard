@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { formatKoreanDate } from "@/lib/magazine/kst";
+import { isUuid } from "@/lib/magazine/slug";
 import {
   canonicalBrokerSlug,
   listPublishedEntries,
@@ -11,7 +12,6 @@ import {
   resolvePublicDisplayName,
 } from "@/lib/magazine/public-page-data";
 import { MARKET_TEMP_VIEW } from "@/lib/magazine/view-helpers";
-import { EmptyState } from "@/components/ui/empty-state";
 
 interface PageProps {
   params: Promise<{ brokerId: string }>;
@@ -84,37 +84,44 @@ export default async function MagazineArchivePage({ params }: PageProps) {
 
   // 발행된 에디션 목록 — 조회수는 독자에게 노출하지 않으므로 조회하지도 않는다 (U2-30)
   const entries = (await loadEntries(brokerId)) ?? [];
+  const dateCounts = new Map<string, number>();
+  for (const e of entries) {
+    dateCounts.set(e.date, (dateCounts.get(e.date) ?? 0) + 1);
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#050510] via-[#0a0a1a] to-[#080814] text-white">
+    <div className="min-h-screen bg-[#FAF9F5] text-slate-900">
       <main id="magazine-main" className="mx-auto max-w-[440px] px-4 py-8">
         {/* 헤더 */}
         <header className="mb-8 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-600/20 text-base" aria-hidden="true">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-base" aria-hidden="true">
               📰
             </div>
             <div>
-              <h1 className="text-title font-extrabold text-white">주간 매거진 아카이브</h1>
-              <p className="text-caption text-slate-300">{displayName} · 전체 발행 목록</p>
+              <h1 className="text-title font-extrabold text-slate-900">주간 매거진 아카이브</h1>
+              <p className="text-sm text-slate-700">{displayName} · 전체 발행 목록</p>
             </div>
           </div>
           {typeof profile.bio === "string" && profile.bio && (
-            <p className="line-clamp-2 text-label leading-relaxed text-slate-200">{profile.bio}</p>
+            <p className="line-clamp-2 text-sm leading-relaxed text-slate-700">{profile.bio}</p>
           )}
         </header>
 
         {/* 에디션 목록 */}
         {entries.length === 0 ? (
           <div className="space-y-4">
-            <EmptyState
-              icon={<span className="text-4xl">📭</span>}
-              title="아직 발행된 매거진이 없습니다"
-              description="첫 호가 발행되면 가장 먼저 받아보세요."
-            />
+            <div
+              role="status"
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center"
+            >
+              <span className="text-4xl" aria-hidden="true">📭</span>
+              <p className="text-body font-semibold text-slate-900">아직 발행된 매거진이 없습니다</p>
+              <p className="text-body text-slate-700">첫 호가 발행되면 가장 먼저 받아보세요.</p>
+            </div>
             <Link
               href={`/magazine/${encodeURIComponent(slug)}/subscribe`}
-              className="flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-500 px-4 text-body font-bold text-white hover:bg-indigo-400"
+              className="flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-700 px-4 text-body font-bold text-white hover:bg-indigo-800"
             >
               첫 호 알림 받기
             </Link>
@@ -124,22 +131,33 @@ export default async function MagazineArchivePage({ params }: PageProps) {
             {entries.map((entry) => {
               const tempConfig = entry.marketTemp ? MARKET_TEMP_VIEW[entry.marketTemp] : null;
               const dateLabel = formatKoreanDate(entry.date);
+              const isEditionEntry = entry.source !== "legacy";
+              const editionQueryVal =
+                isEditionEntry && isUuid(entry.id)
+                  ? entry.id
+                  : isEditionEntry && (dateCounts.get(entry.date) ?? 0) > 1
+                    ? entry.label || entry.id
+                    : null;
+              const entryHref = editionQueryVal
+                ? `/magazine/${encodeURIComponent(slug)}/${entry.date}?edition=${encodeURIComponent(editionQueryVal)}`
+                : `/magazine/${encodeURIComponent(slug)}/${entry.date}`;
               return (
                 <li key={entry.id}>
                   <Link
-                    href={`/magazine/${encodeURIComponent(slug)}/${entry.date}`}
-                    className="group block min-h-12 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all hover:border-white/20 hover:bg-white/[0.06]"
+                    href={entryHref}
+                    prefetch={false}
+                    className="group block min-h-12 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-indigo-300 hover:bg-slate-50"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-1.5">
-                        <time dateTime={entry.date} className="block text-caption text-slate-300">{dateLabel}</time>
-                        <p className="line-clamp-2 text-body font-bold text-slate-100 transition-colors group-hover:text-white">
+                        <time dateTime={entry.date} className="block text-sm text-slate-700">{dateLabel}</time>
+                        <p className="line-clamp-2 text-body font-bold text-slate-900 transition-colors group-hover:text-indigo-800">
                           {entry.title || `${dateLabel} 매거진`}
                         </p>
                         {entry.keywords.length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {entry.keywords.map((kw) => (
-                              <span key={kw} className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-caption text-indigo-200">
+                              <span key={kw} className="rounded-full bg-indigo-50 px-2 py-0.5 text-sm text-indigo-800">
                                 #{kw}
                               </span>
                             ))}
@@ -148,11 +166,10 @@ export default async function MagazineArchivePage({ params }: PageProps) {
                       </div>
                       {tempConfig && entry.marketTemp && (
                         <span
-                          className="shrink-0 rounded-full border px-2.5 py-1 text-caption font-bold"
+                          className="shrink-0 rounded-full border bg-white px-2.5 py-1 text-sm font-bold text-slate-900"
                           style={{
-                            color: tempConfig.color,
-                            borderColor: `${tempConfig.color}40`,
-                            background: `${tempConfig.color}15`,
+                            borderColor: `${tempConfig.color}99`,
+                            background: `${tempConfig.color}1f`,
                           }}
                         >
                           {tempConfig.emoji} {entry.marketTemp}
@@ -167,16 +184,16 @@ export default async function MagazineArchivePage({ params }: PageProps) {
         )}
 
         {/* 하단: 구독 CTA (존재하지 않는 프로필 링크 제거) */}
-        <footer className="mt-8 space-y-2 border-t border-white/10 pt-6 text-center">
+        <footer className="mt-8 space-y-2 border-t border-slate-200 pt-6 text-center">
           {entries.length > 0 && (
             <Link
               href={`/magazine/${encodeURIComponent(slug)}/subscribe`}
-              className="inline-flex min-h-12 items-center justify-center px-4 text-label font-semibold text-indigo-300 transition-colors hover:text-indigo-200"
+              className="inline-flex min-h-12 items-center justify-center px-4 text-sm font-semibold text-indigo-800 transition-colors hover:text-indigo-950"
             >
               다음 호 구독하기 →
             </Link>
           )}
-          <p className="text-caption text-slate-300">© CRE DealCard · 상업용 부동산 인텔리전스</p>
+          <p className="text-sm text-slate-700">© CRE DealCard · 상업용 부동산 인텔리전스</p>
         </footer>
       </main>
     </div>

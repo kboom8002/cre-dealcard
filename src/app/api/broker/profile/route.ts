@@ -150,13 +150,14 @@ export async function GET(req: NextRequest) {
         .eq('id', user!.id);
     }
   } else {
-    // profiles row가 없으면 생성
+    // profiles row가 없으면 생성 (admin 권한 보존)
     const defaultDisplayName = userMetaName || emailPrefix || '중개사';
+    const preservedRole = guard.role === 'admin' ? 'admin' : 'broker';
     const { data: newProfile } = await supabase
       .from('profiles')
       .upsert({
         id: user!.id,
-        role: 'broker',
+        role: preservedRole,
         display_name: defaultDisplayName,
       })
       .select()
@@ -376,17 +377,22 @@ export async function PUT(req: NextRequest) {
     if (parsed.data.tagline !== undefined) profileUpdate.tagline = parsed.data.tagline;
     if (parsed.data.avatar_url !== undefined) profileUpdate.photo_url = parsed.data.avatar_url;
   
+    const preservedRole = guard.role === 'admin' ? 'admin' : 'broker';
+
     if (Object.keys(profileUpdate).length > 0) {
       const { error } = await supabase
         .from('profiles')
         .upsert({
           id: user!.id,
-          role: 'broker',
+          role: preservedRole,
           ...profileUpdate,
         });
       if (error) {
         log.error('[Profile PUT] profiles update error:', error);
-        return NextResponse.json({ error: `기본 정보 저장 오류: ${error.message}` }, { status: 500 });
+        return NextResponse.json(
+          { error: '기본 정보 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+          { status: 500 },
+        );
       }
     }
   
@@ -400,6 +406,10 @@ export async function PUT(req: NextRequest) {
     if (nextSlug !== undefined) brokerUpdate.slug = nextSlug;
     // 현재 slug와 동일하면 쓰기에서 제외(불필요한 unique 충돌 경로 제거)
     if (nextSlug !== undefined && nextSlug === currentSlug) delete brokerUpdate.slug;
+    // 공개 프로필 활성화 시 slug가 아직 없으면 자동 생성
+    if (parsed.data.is_public === true && !currentSlug && brokerUpdate.slug === undefined) {
+      brokerUpdate.slug = buildAutoSlug(parsed.data.display_name, user!.id);
+    }
   
     if (Object.keys(brokerUpdate).length > 1) {
       const { data: existing } = await supabase
@@ -428,9 +438,15 @@ export async function PUT(req: NextRequest) {
         if (error) {
           if (error.code === '23505') return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
           log.error('[Profile PUT] broker_profiles update error:', error);
-          return NextResponse.json({ error: `전문 프로필 저장 오류: ${error.message}` }, { status: 500 });
+          return NextResponse.json(
+            { error: '전문 프로필 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+            { status: 500 },
+          );
         }
       } else {
+        if (!currentSlug && brokerUpdate.slug === undefined) {
+          brokerUpdate.slug = buildAutoSlug(parsed.data.display_name, user!.id);
+        }
         let { error } = await supabase
           .from('broker_profiles')
           .insert(brokerUpdate);
@@ -444,7 +460,10 @@ export async function PUT(req: NextRequest) {
         if (error) {
           if (error.code === '23505') return jsonError('SLUG_TAKEN', '이미 사용 중인 주소입니다. 다른 주소를 선택해 주세요.', 409);
           log.error('[Profile PUT] broker_profiles insert error:', error);
-          return NextResponse.json({ error: `전문 프로필 생성 오류: ${error.message}` }, { status: 500 });
+          return NextResponse.json(
+            { error: '전문 프로필 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+            { status: 500 },
+          );
         }
       }
     }

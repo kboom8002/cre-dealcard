@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
@@ -8,6 +9,7 @@ import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
 import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 import { validateBrokerStatutoryFields } from '@/lib/legal/broker-statutory-disclosure';
 import { formatKrPhoneInput } from '@/lib/format/phone';
+import { FontScaleToggle } from '@/components/workspace/FontScaleToggle';
 
 /* ─── Tag option constants ─── */
 
@@ -57,6 +59,7 @@ interface ProfileData {
     bio: string | null;
     slug: string | null;
     is_verified: boolean;
+    is_public?: boolean | null;
     license_number: string | null;
     office_reg_number: string | null;
     association: string | null;
@@ -83,14 +86,14 @@ interface ProfileData {
 /* ─── CSS class helpers ─── */
 
 const inputClass =
-  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[max(16px,1rem)] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors';
+  'w-full bg-white border border-slate-300 text-slate-900 rounded-xl px-3.5 sm:px-4 py-3 min-h-[48px] text-[max(16px,1rem)] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors';
 
 const selectClass =
-  'w-full bg-background border border-border rounded-xl px-4 py-3 min-h-[48px] text-[max(16px,1rem)] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors appearance-none';
+  'w-full bg-white border border-slate-300 text-slate-900 rounded-xl px-3.5 sm:px-4 py-3 min-h-[48px] text-[max(16px,1rem)] font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors appearance-none';
 
-const sectionClass = 'space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm';
+const sectionClass = 'space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm';
 
-const sectionTitleClass = 'text-lg font-extrabold text-foreground tracking-tight';
+const sectionTitleClass = 'text-lg font-extrabold text-slate-900 tracking-tight';
 
 /* ─── Component ─── */
 
@@ -145,8 +148,11 @@ export default function BrokerProfilePage() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
 
-  // Section 6: 자기소개
+  // Section 6: 자기소개 & 공개 프로필 설정
   const [bio, setBio] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [brokerSlug, setBrokerSlug] = useState('');
+  const [togglingPublic, setTogglingPublic] = useState(false);
   const [vibeStatus, setVibeStatus] = useState<'uploading' | 'done' | null>(null);
 
   /* ─── 공인중개사법 제18조의2 필수 5항목 점검 ─── */
@@ -266,6 +272,8 @@ export default function BrokerProfilePage() {
 
       // Section 6
       setBio(data.broker?.bio ?? '');
+      setIsPublic(Boolean(data.broker?.is_public));
+      setBrokerSlug(data.broker?.slug ?? '');
     } catch (e: any) {
       if (!isCancelled?.()) setError(e.message);
     } finally {
@@ -348,6 +356,7 @@ export default function BrokerProfilePage() {
           youtube_url: youtubeUrl || undefined,
           linkedin_url: linkedinUrl || undefined,
           avatar_url: avatarUrl || undefined,
+          is_public: isPublic,
         }),
       });
       if (!res.ok) {
@@ -461,6 +470,7 @@ export default function BrokerProfilePage() {
             youtube_url: youtubeUrl || undefined,
             linkedin_url: linkedinUrl || undefined,
             avatar_url: avatarUrl || undefined,
+            is_public: isPublic,
           }),
         });
         if (!autoSaveRes.ok) {
@@ -473,6 +483,41 @@ export default function BrokerProfilePage() {
       setError(e.message);
     } finally {
       setGeneratingBio(false);
+    }
+  };
+
+  /* ─── Public profile toggle ─── */
+
+  const handleTogglePublic = async () => {
+    const nextPublic = !isPublic;
+    setIsPublic(nextPublic);
+    setTogglingPublic(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/broker/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify({ is_public: nextPublic }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof errBody?.error === 'string'
+            ? errBody.error
+            : '공개 프로필 설정 저장에 실패했습니다.',
+        );
+      }
+      await fetchProfile();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: unknown) {
+      setIsPublic(!nextPublic);
+      setError(e instanceof Error ? e.message : '공개 프로필 설정 저장에 실패했습니다.');
+    } finally {
+      setTogglingPublic(false);
     }
   };
 
@@ -509,57 +554,53 @@ export default function BrokerProfilePage() {
     </div>
   );
 
-  /* ─── Loading state ─── */
+  /* ─── Render (always paint shell immediately so LCP & CLS stay well within budget) ─── */
 
-  if (loading) {
-    return (
-      <main className="flex flex-col items-center min-h-screen px-4 py-8">
-        <div className="w-full max-w-2xl mx-auto space-y-4 pt-4">
-          <div className="h-8 bg-muted rounded-lg animate-pulse w-48" />
-          <div className="h-32 bg-muted rounded-xl animate-pulse" />
-          <div className="h-32 bg-muted rounded-xl animate-pulse" />
-          <div className="h-32 bg-muted rounded-xl animate-pulse" />
-        </div>
-      </main>
-    );
-  }
-
-  /* ─── Render ─── */
+  const previewSlug = (brokerSlug && brokerSlug.trim()) || profile?.id || '';
 
   return (<>
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
+    <main className="flex flex-col items-center min-h-screen bg-[#FAF9F5] text-slate-900 px-4 py-8 pb-24">
       <div className="w-full max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">내 프로필 · 중개사무소 설정</h1>
             <p className="text-base text-muted-foreground font-medium">
-              로그인 계정: {profile?.email}
-              {profile?.broker?.is_verified && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-sm font-bold">
-                  ✓ 공인중개사 인증됨
-                </span>
+              {loading ? '저장된 중개사무소 정보를 불러오는 중입니다...' : (
+                <>
+                  로그인 계정: {profile?.email}
+                  {profile?.broker?.is_verified && (
+                    <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-sm font-bold">
+                      ✓ 공인중개사 인증됨
+                    </span>
+                  )}
+                </>
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-primary hover:bg-primary/90 active:scale-[0.98] active:translate-y-[1px] active:brightness-95 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-base shadow-sm transition-all disabled:opacity-60 cursor-pointer"
-            data-testid="save-profile-top-btn"
-          >
-            {saving ? '저장 중...' : '💾 변경사항 저장'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <FontScaleToggle />
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={loading || saving}
+              className="bg-primary hover:bg-primary/90 active:scale-[0.98] active:translate-y-[1px] active:brightness-95 text-primary-foreground font-extrabold rounded-xl px-5 py-3 min-h-[46px] text-base shadow-sm transition-all disabled:opacity-60 cursor-pointer"
+              data-testid="save-profile-top-btn"
+            >
+              {saving ? '저장 중...' : '💾 변경사항 저장'}
+            </button>
+          </div>
         </div>
 
         {/* 공인중개사법 제18조의2 필수 표기 5항목 점검 배너 */}
         <section
           data-testid="statutory-disclosure-check-banner"
           className={`rounded-2xl border-2 p-5 space-y-3 shadow-xs ${
-            statutoryCheck.completeness.isComplete
-              ? 'border-emerald-500/40 bg-emerald-500/10'
-              : 'border-amber-500/50 bg-amber-500/10'
+            loading
+              ? 'border-border bg-muted/30'
+              : statutoryCheck.completeness.isComplete
+                ? 'border-emerald-500/40 bg-emerald-500/10'
+                : 'border-amber-500/50 bg-amber-500/10'
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -573,12 +614,16 @@ export default function BrokerProfilePage() {
             </div>
             <span
               className={`px-3 py-1 rounded-full text-sm font-extrabold ${
-                statutoryCheck.completeness.isComplete
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-amber-500 text-slate-950'
+                loading
+                  ? 'bg-muted text-muted-foreground'
+                  : statutoryCheck.completeness.isComplete
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-amber-500 text-slate-950'
               }`}
             >
-              {statutoryCheck.completeness.filledCount} / {statutoryCheck.completeness.totalCount} 완료
+              {loading
+                ? '확인 중...'
+                : `${statutoryCheck.completeness.filledCount} / ${statutoryCheck.completeness.totalCount} 완료`}
             </span>
           </div>
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
@@ -592,20 +637,26 @@ export default function BrokerProfilePage() {
                 <span className="font-bold text-foreground">{item.label}</span>
                 <span
                   className={`text-sm font-extrabold shrink-0 ${
-                    item.filled ? 'text-emerald-600' : 'text-amber-600'
+                    loading
+                      ? 'text-muted-foreground'
+                      : item.filled
+                        ? 'text-emerald-600'
+                        : 'text-amber-600'
                   }`}
                 >
-                  {item.filled ? '✓ 입력됨' : '미입력'}
+                  {loading ? '확인 중' : item.filled ? '✓ 입력됨' : '미입력'}
                 </span>
               </li>
             ))}
           </ul>
-          {!statutoryCheck.ok && (
+          {!loading && !statutoryCheck.ok && (
             <p className="text-sm font-bold text-destructive">
               ⚠️ {statutoryCheck.message}
             </p>
           )}
         </section>
+
+        <fieldset disabled={loading} className="w-full min-w-0 border-0 p-0 m-0 space-y-6 disabled:opacity-75 transition-opacity">
 
         {/* 60대 중개인 친화 안내 배너: 어디에 인쇄/표시되는지 명확히 설명 */}
         <div data-testid="profile-where-it-shows-banner">
@@ -640,6 +691,68 @@ export default function BrokerProfilePage() {
           </div>
         )}
 
+        {/* ─── 공개 중개사 프로필 노출 (is_public) 설정 ─── */}
+        <section
+          data-testid="broker-public-profile-section"
+          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1 flex-1 min-w-[220px]">
+              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                공개 중개사 프로필 노출
+              </h2>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                활성화하면 허브·통합 검색·공개 명함 페이지에 대표님의 전문 권역과 공개 딜카드 실적이 노출됩니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublic}
+              aria-label="공개 중개사 프로필 노출"
+              data-testid="broker-public-profile-toggle"
+              disabled={loading || saving || togglingPublic}
+              onClick={handleTogglePublic}
+              className={`inline-flex min-h-[48px] min-w-[140px] items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-sm font-extrabold transition-colors cursor-pointer disabled:opacity-60 ${
+                isPublic
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span>{isPublic ? '공개 중' : '비공개'}</span>
+              <span
+                aria-hidden="true"
+                className={`inline-flex h-6 w-11 items-center rounded-full p-0.5 transition-colors ${
+                  isPublic ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
+                }`}
+              >
+                <span className="h-5 w-5 rounded-full bg-white shadow-xs" />
+              </span>
+            </button>
+          </div>
+
+          {isPublic && previewSlug ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-700">
+                현재 공개 주소: <span className="font-mono font-bold text-slate-900">/broker-profile/{previewSlug}</span>
+              </p>
+              <Link
+                href={`/broker-profile/${encodeURIComponent(previewSlug)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="broker-public-profile-preview-link"
+                className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 px-4 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                공개 프로필 미리보기 ↗
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-600">
+              비공개 상태에서는 외부 검색 및 공개 프로필 주소로 접근할 수 없습니다.
+            </p>
+          )}
+        </section>
+
         {/* ─── Section 7: 프로필 완성도 게이지 (placed at top) ─── */}
         <section className={sectionClass}>
           <div className="flex items-center justify-between">
@@ -669,7 +782,7 @@ export default function BrokerProfilePage() {
         <section className="space-y-5 rounded-2xl border-2 border-amber-500/40 bg-card p-6 shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-sm font-extrabold">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-sm font-extrabold">
                 가장 중요 · 필수 입력
               </span>
               <h2 className={sectionTitleClass}>① 기본 명함 정보 (이름 · 연락처 · 상호 · 소재지 · 사진)</h2>
@@ -809,7 +922,7 @@ export default function BrokerProfilePage() {
               value={phone}
               onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
               className={inputClass}
-              placeholder="예: 010-1234-5678 (숫자만 입력하셔도 자동 변환됩니다)"
+              placeholder="예: 010-1234-5678"
               id="profile-phone"
             />
             <p className="text-sm text-muted-foreground">
@@ -824,12 +937,12 @@ export default function BrokerProfilePage() {
               </label>
               <SeniorTermTooltip termKey="중개법인 상호 인쇄 위치" />
             </div>
-            <input
-              type="text"
+            <textarea
+              rows={2}
               value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className={inputClass}
-              placeholder="예: 양평 삼성 공인중개사사무소 / JS 부동산중개법인"
+              onChange={(e) => setCompany(e.target.value.replace(/[\r\n]+/g, ' '))}
+              className={`${inputClass} resize-none leading-snug`}
+              placeholder="예: 양평 삼성 공인중개사사무소"
               id="profile-company"
             />
             <p className="text-sm text-muted-foreground">
@@ -841,11 +954,11 @@ export default function BrokerProfilePage() {
             <label htmlFor="profile-office-address" className="block text-base font-bold">
               중개사무소 소재지 (도로명 주소) <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
+            <textarea
+              rows={2}
               value={officeAddress}
-              onChange={(e) => setOfficeAddress(e.target.value)}
-              className={inputClass}
+              onChange={(e) => setOfficeAddress(e.target.value.replace(/[\r\n]+/g, ' '))}
+              className={`${inputClass} resize-none leading-snug`}
               placeholder="예: 서울특별시 강남구 테헤란로 152, 3층"
               id="profile-office-address"
             />
@@ -858,12 +971,12 @@ export default function BrokerProfilePage() {
             <label htmlFor="profile-tagline" className="block text-base font-bold">
               명함 한줄 소개 문구 (카카오톡 공유 제목)
             </label>
-            <input
-              type="text"
+            <textarea
+              rows={2}
               value={tagline}
-              onChange={(e) => setTagline(e.target.value)}
-              className={inputClass}
-              placeholder="예: 영등포·당산·양평 꼬마빌딩·수익형 빌딩 20년 전문 중개"
+              onChange={(e) => setTagline(e.target.value.replace(/[\r\n]+/g, ' '))}
+              className={`${inputClass} resize-none leading-snug`}
+              placeholder="예: 강남·서초 꼬마빌딩 전문 중개"
               id="profile-tagline"
             />
             <p className="text-sm text-muted-foreground mt-1">
@@ -894,7 +1007,7 @@ export default function BrokerProfilePage() {
                 if (statutoryFieldError?.field === 'license_number') setStatutoryFieldError(null);
               }}
               className={inputClass}
-              placeholder="예: 자격증에 기재된 실제 번호 입력"
+              placeholder="예: 2024-123456"
               id="profile-license-number"
             />
             {statutoryFieldError?.field === 'license_number' && (
@@ -919,7 +1032,7 @@ export default function BrokerProfilePage() {
                 if (statutoryFieldError?.field === 'office_reg_number') setStatutoryFieldError(null);
               }}
               className={inputClass}
-              placeholder="예: 등록증 기재 번호 입력 (샘플 번호 저장 불가)"
+              placeholder="예: 11560-2024-00088"
               id="profile-office-reg-number"
             />
             {statutoryFieldError?.field === 'office_reg_number' && (
@@ -1124,7 +1237,7 @@ export default function BrokerProfilePage() {
               value={kakaoChannel}
               onChange={(e) => setKakaoChannel(e.target.value)}
               className={inputClass}
-              placeholder="예: @credeal (없으시면 비워두세요)"
+              placeholder="예: @credeal"
               id="profile-kakao-channel"
             />
           </div>
@@ -1136,7 +1249,7 @@ export default function BrokerProfilePage() {
               value={naverBlogUrl}
               onChange={(e) => setNaverBlogUrl(e.target.value)}
               className={inputClass}
-              placeholder="예: https://blog.naver.com/내블로그아이디"
+              placeholder="https://blog.naver.com/..."
               id="profile-naver-blog"
             />
           </div>
@@ -1148,7 +1261,7 @@ export default function BrokerProfilePage() {
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               className={inputClass}
-              placeholder="예: https://youtube.com/@채널이름"
+              placeholder="https://youtube.com/@..."
               id="profile-youtube"
             />
           </div>
@@ -1208,12 +1321,13 @@ export default function BrokerProfilePage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={loading || saving}
           className="w-full bg-primary hover:bg-primary/90 active:scale-[0.985] active:translate-y-[1px] active:brightness-95 text-primary-foreground font-extrabold rounded-xl px-5 py-4 min-h-[56px] text-lg shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           id="save-profile-btn"
         >
           {saving ? '저장 중...' : '💾 내 프로필 · 사무소 정보 저장하기'}
         </button>
+        </fieldset>
 
         {/* Logout */}
         <form action={logout}>

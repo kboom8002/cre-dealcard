@@ -167,7 +167,7 @@ ${subscribeUrl}`.trim();
 
         {/* ━━━ 최우선 승격: 1-Click 단톡방/VIP 문구 패키지 복사 & 문자 발송 ━━━ */}
         <div className="space-y-2 p-3.5 rounded-2xl bg-slate-50 border border-slate-300">
-          <p className="text-xs font-bold text-slate-600">⚡ 1초 원클릭 배포 패키지</p>
+          <p className="text-sm font-bold text-slate-600">⚡ 1초 원클릭 배포 패키지</p>
           <button
             type="button"
             data-testid="copy-group-chat-pkg-btn"
@@ -214,7 +214,7 @@ ${subscribeUrl}`.trim();
               ) : null}
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-600 font-medium">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-600 font-medium">
               <Mail className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
               <span>구독자 자동 발송 대상이 없거나 아직 발송 전입니다. 상단 단톡방 문구 패키지로 즉시 전달해 보세요.</span>
             </div>
@@ -254,10 +254,10 @@ ${subscribeUrl}`.trim();
 
         {/* 결과 안내 (토스트가 사라져도 남는 인라인 안내) */}
         <div aria-live="polite" className="min-h-5">
-          {notice ? <p className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 p-2 rounded-lg">{notice}</p> : null}
+          {notice ? <p className="text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 p-2 rounded-lg">{notice}</p> : null}
         </div>
         {viewerUrl ? (
-          <p className="break-all rounded-lg bg-slate-100 border border-slate-200 p-2 font-mono text-xs text-slate-600 select-all">{viewerUrl}</p>
+          <p className="break-all rounded-lg bg-slate-100 border border-slate-200 p-2 font-mono text-sm text-slate-600 select-all">{viewerUrl}</p>
         ) : null}
       </div>
     </Modal>

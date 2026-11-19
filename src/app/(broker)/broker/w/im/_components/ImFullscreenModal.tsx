@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import type { BasicImSlideSummary } from "./im-workspace-types";
 
 export interface ImFullscreenModalProps {
@@ -22,10 +22,61 @@ export function ImFullscreenModal({
   basicImSlides,
   renderSlideCard,
 }: ImFullscreenModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!fullscreenModalUrl || typeof document === "undefined") return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeBtnRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusables = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [fullscreenModalUrl]);
+
   if (!fullscreenModalUrl) return null;
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="IM 전체화면 미리보기"
@@ -36,7 +87,7 @@ export function ImFullscreenModal({
       }}
     >
       <div className="bg-[#F5F5F7] rounded-3xl border border-white/80 shadow-2xl w-full max-w-6xl h-[90dvh] flex flex-col overflow-hidden">
-        <div className="h-16 px-4 sm:px-6 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="min-h-16 py-2 px-4 sm:px-6 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <h3 className="text-base sm:text-lg font-extrabold text-[#0F172A] truncate">
               {title}
@@ -45,7 +96,7 @@ export function ImFullscreenModal({
               <button
                 type="button"
                 onClick={() => onChangePreviewTab("mobile")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
+                className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
                   previewTab === "mobile"
                     ? "bg-white text-[#007AFF] shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -56,7 +107,7 @@ export function ImFullscreenModal({
               <button
                 type="button"
                 onClick={() => onChangePreviewTab("pptx")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
+                className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
                   previewTab === "pptx"
                     ? "bg-white text-[#007AFF] shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -72,15 +123,16 @@ export function ImFullscreenModal({
               target="_blank"
               rel="noopener noreferrer"
               data-testid="im-fullscreen-open-newtab-link"
-              className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1D4ED8] border border-blue-200 text-sm font-extrabold flex items-center gap-1"
+              className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1D4ED8] border border-blue-200 text-sm font-extrabold flex items-center gap-1"
             >
               <span>새 탭에서 열기 ↗</span>
             </a>
             <button
+              ref={closeBtnRef}
               type="button"
               data-testid="im-fullscreen-close-btn"
               onClick={onClose}
-              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold cursor-pointer"
+              className="min-h-[44px] px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold cursor-pointer"
             >
               닫기
             </button>

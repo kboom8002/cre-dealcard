@@ -98,7 +98,7 @@ describe('Basic 시퀀서 — 중개인 제공 면 삽입 (R3/R7: 포인트·규
       },
     } as any);
     const keys = seq.map(s => s.dataKey);
-    expect(BASIC_IM_BOUNDS.maxSlides).toBe(12);
+    expect(BASIC_IM_BOUNDS.maxSlides).toBe(14);
     expect(keys.length).toBeLessThanOrEqual(BASIC_IM_BOUNDS.maxSlides);
     for (const k of ['cover', 'summary', 'building', 'location', 'land',
       'brokerRegulationImages', 'rentRoll', 'yieldFormula', 'brokerComps', 'closing']) {

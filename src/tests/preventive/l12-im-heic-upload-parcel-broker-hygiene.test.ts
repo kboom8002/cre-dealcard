@@ -237,7 +237,7 @@ describe("L12 Live Broker IM Authoring Friction Preventive Suite (PT-1201 ~ PT-1
     const signedJson = await signedRes.json();
     expect(signedRes.status).toBe(200);
     expect(signedJson.ok).toBe(true);
-    expect(signedJson.signedUrl).toContain("building_photos/bld-01/im-raw-tmp/");
+    expect(signedJson.signedUrl).toContain("building_photos/drafts/broker-seogyoseok/bld-01/im-raw-tmp/");
 
     // 4. Client-side 413 payload & HEIC dataUrl hygiene guards
     expect(isHeicLikeFile({ name: "IMG_0012.HEIC", type: "" })).toBe(true);

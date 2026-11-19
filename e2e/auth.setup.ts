@@ -51,6 +51,48 @@ setup('authenticate', async ({ page }) => {
     throw navErr;
   }
 
+  // 4b. E2E 테스트 계정의 공인중개사법 5대 법정 표시 항목이 비어있거나 플레이스홀더/샘플이면 테스트 기본값 보충
+  const profRes = await page.request.get('/api/broker/profile').catch(() => null);
+  if (profRes?.ok()) {
+    const profJson = await profRes.json().catch(() => null);
+    const d = profJson?.data;
+    const regNo = String(d?.broker?.office_reg_number || '').trim();
+    const isSampleReg = /(?:^|-)(?:00123|00001|00000)$/.test(regNo);
+    const missing = new Set<string>(
+      Array.isArray(d?.statutoryCompleteness?.missingFields)
+        ? d.statutoryCompleteness.missingFields
+        : []
+    );
+    if (!d?.statutoryCompleteness?.isComplete || isSampleReg) {
+      await page.request
+        .put('/api/broker/profile', {
+          data: {
+            display_name: d?.display_name || '김테스트',
+            representative_name: missing.has('representative_name')
+              ? '김테스트'
+              : d?.broker?.representative_name || d?.display_name || '김테스트',
+            company:
+              missing.has('company') || !d?.company
+                ? '크리딜 테스트 공인중개사사무소'
+                : d.company,
+            phone:
+              missing.has('phone') || !d?.phone || d.phone === '010-0000-0000'
+                ? '010-2548-2548'
+                : d.phone,
+            office_address:
+              missing.has('office_address') || !d?.broker?.office_address
+                ? '서울특별시 영등포구 국제금융로 10'
+                : d.broker.office_address,
+            office_reg_number:
+              missing.has('office_reg_number') || !regNo || isSampleReg
+                ? '11560-2024-00088'
+                : regNo,
+          },
+        })
+        .catch(() => null);
+    }
+  }
+
   // 5. storageState 저장 (쿠키 + localStorage)
   await page.context().storageState({ path: authFile });
   console.log(`✅ storageState 저장: ${authFile}`);

@@ -25,17 +25,17 @@ export default function PublicDealCardError({
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0B0F14] text-slate-100 p-6 text-center">
-      <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-6">
-        <AlertCircle className="w-8 h-8 text-red-400" aria-hidden="true" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#F3F2EE] text-slate-900 p-6 text-center">
+      <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mb-6">
+        <AlertCircle className="w-8 h-8 text-red-600" aria-hidden="true" />
       </div>
-      <h2 className="text-2xl font-bold text-slate-100 mb-2">
+      <h2 className="text-2xl font-bold text-slate-950 mb-2">
         딜카드 화면을 불러오지 못했습니다
       </h2>
-      <p className="text-slate-300 text-base max-w-md mb-3 leading-relaxed">
+      <p className="text-slate-700 text-base max-w-md mb-3 leading-relaxed">
         일시적인 화면 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
       </p>
-      <p className="text-xs font-mono text-slate-400 mb-8">
+      <p className="text-sm font-mono text-slate-600 mb-8">
         오류 참조코드: {refCode}
       </p>
       <div className="flex flex-wrap gap-3 justify-center">

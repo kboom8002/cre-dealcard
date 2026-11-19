@@ -73,7 +73,7 @@ function PresetMiniPreview({ preset, isSelected }: { preset: StudioPresetOption;
               style={{ backgroundColor: `#${t.accent}` }}
             />
             <span
-              className="text-[8px] font-bold tracking-wider uppercase"
+              className="text-sm font-bold tracking-wider uppercase"
               style={{ color: `#${t.accentL}` }}
             >
               IM STUDIO
@@ -105,20 +105,20 @@ function PresetMiniPreview({ preset, isSelected }: { preset: StudioPresetOption;
 
       {/* Label + Badge */}
       <div className="flex items-start justify-between gap-1 mb-0.5">
-        <span className="text-xs font-extrabold text-[#0F172A] break-keep leading-snug">
+        <span className="text-sm font-extrabold text-[#0F172A] break-keep leading-snug">
           {preset.label}
         </span>
         {isSelected ? (
-          <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-extrabold rounded bg-[#1D4ED8] text-white">
+          <span className="shrink-0 px-1.5 py-0.5 text-sm font-extrabold rounded bg-[#1D4ED8] text-white">
             적용됨
           </span>
         ) : preset.badge ? (
-          <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded bg-[#E2E8F0] text-[#1E293B]">
+          <span className="shrink-0 px-1.5 py-0.5 text-sm font-bold rounded bg-[#E2E8F0] text-[#1E293B]">
             {preset.badge}
           </span>
         ) : null}
       </div>
-      <p className="text-[11px] text-[#475569] line-clamp-2 font-medium break-keep leading-snug">
+      <p className="text-sm text-[#475569] line-clamp-2 font-medium break-keep leading-snug">
         {preset.desc}
       </p>
     </div>
@@ -150,6 +150,8 @@ export function PresetGallery() {
 
   const brandResult = deriveBrandSkin(brandAccent || tokens.accent);
   const whiteContrast = contrastRatio(tokens.accent, 'FFFFFF');
+  const contrastPassed = whiteContrast >= 4.5;
+  const contrastBadgeLabel = contrastPassed ? 'PASS' : 'WARN';
 
   const handleSaveCustom = async () => {
     setSavingPreset(true);
@@ -167,19 +169,25 @@ export function PresetGallery() {
       <section>
         <div className="flex items-center justify-between mb-2.5">
           <div>
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A]">
+            <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A]">
               🎨 Basic IM 표준 프리셋 ({basicPresets.length}종)
             </h4>
-            <p className="text-[11px] text-[#475569] mt-0.5">
+            <p className="text-sm text-[#475569] mt-0.5">
               클릭 즉시 우측 16:9 슬라이드 미리보기와 다운로드 PPTX에 반영됩니다.
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           {basicPresets.map(preset => (
-            <div key={preset.id} onClick={() => setPreset(preset.id)}>
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => setPreset(preset.id)}
+              aria-pressed={presetId === preset.id}
+              className="min-h-[44px] w-full text-left block cursor-pointer"
+            >
               <PresetMiniPreview preset={preset} isSelected={presetId === preset.id} />
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -187,18 +195,24 @@ export function PresetGallery() {
       {/* 2. 프리미엄 / 기관투자형 확장 테마 */}
       <section className="pt-3 border-t border-[#E2E8F0]">
         <div className="mb-2.5">
-          <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A]">
+          <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A]">
             🏛️ 기관투자형 · 프리미엄 팔레트 ({proPresets.length}종)
           </h4>
-          <p className="text-[11px] text-[#475569] mt-0.5">
+          <p className="text-sm text-[#475569] mt-0.5">
             법인 매수자·기관 브리핑용 고품격 컬러 테마입니다.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           {proPresets.map(preset => (
-            <div key={preset.id} onClick={() => setPreset(preset.id)}>
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => setPreset(preset.id)}
+              aria-pressed={presetId === preset.id}
+              className="min-h-[44px] w-full text-left block cursor-pointer"
+            >
               <PresetMiniPreview preset={preset} isSelected={presetId === preset.id} />
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -206,11 +220,17 @@ export function PresetGallery() {
       {/* 3. 브랜드 대표색(Accent) 원클릭 커스터마이징 */}
       <section className="pt-3 border-t border-[#E2E8F0]">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A]">
+          <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A]">
             🖌️ 중개법인 브랜드 대표색 (자동 명도·대비 보정)
           </h4>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#D1FAE5] text-[#065F46]">
-            WCAG 대비 {whiteContrast.toFixed(1)}:1 PASS
+          <span
+            className={`px-2 py-0.5 rounded text-sm font-bold ${
+              contrastPassed
+                ? 'bg-[#D1FAE5] text-[#065F46]'
+                : 'bg-[#FEF3C7] text-[#92400E]'
+            }`}
+          >
+            WCAG 대비 {whiteContrast.toFixed(1)}:1 {contrastBadgeLabel}
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
@@ -224,7 +244,7 @@ export function PresetGallery() {
                   setCustomHexInput(c.hex);
                   setBrandAccent(c.hex);
                 }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                className={`flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border transition-all cursor-pointer ${
                   active
                     ? 'border-[#0F172A] bg-[#F1F5F9] text-[#0F172A] ring-2 ring-[#0F172A]/15'
                     : 'border-[#CBD5E1] bg-white text-[#334155] hover:border-[#64748B]'
@@ -242,17 +262,19 @@ export function PresetGallery() {
         <div className="flex items-center gap-2">
           <input
             type="color"
+            aria-label="브랜드 대표 색상 선택"
             value={`#${(brandResult?.brandHex || tokens.accent).slice(0, 6)}`}
             onChange={e => {
               const clean = e.target.value.replace('#', '').toUpperCase();
               setCustomHexInput(clean);
               setBrandAccent(clean);
             }}
-            className="w-9 h-9 rounded-lg border border-[#CBD5E1] cursor-pointer bg-white p-0.5"
+            className="w-11 h-11 min-h-[44px] rounded-lg border border-[#CBD5E1] cursor-pointer bg-white p-0.5"
             title="브랜드 대표 색상 선택"
           />
           <input
             type="text"
+            aria-label="브랜드 대표색 HEX 코드"
             value={`#${customHexInput.replace('#', '')}`}
             onChange={e => {
               const raw = e.target.value.replace('#', '').toUpperCase();
@@ -262,14 +284,14 @@ export function PresetGallery() {
               }
             }}
             maxLength={7}
-            className="w-28 px-2.5 py-1.5 text-xs font-mono font-bold border border-[#CBD5E1] rounded-lg bg-white text-[#0F172A]"
+            className="w-28 min-h-[44px] px-2.5 py-1.5 text-sm font-mono font-bold border border-[#CBD5E1] rounded-lg bg-white text-[#0F172A]"
             placeholder="#B8860B"
           />
           {brandAccent && (
             <button
               type="button"
               onClick={() => setBrandAccent('')}
-              className="px-2.5 py-1.5 text-xs font-bold text-[#475569] hover:text-[#0F172A] border border-[#CBD5E1] rounded-lg bg-[#F8FAFC]"
+              className="min-h-[44px] px-3 py-1.5 text-sm font-bold text-[#475569] hover:text-[#0F172A] border border-[#CBD5E1] rounded-lg bg-[#F8FAFC] cursor-pointer"
             >
               프리셋 기본색 복원
             </button>
@@ -279,7 +301,7 @@ export function PresetGallery() {
 
       {/* 4. 표지 스타일 (CoverStyle 5종) */}
       <section className="pt-3 border-t border-[#E2E8F0]">
-        <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] mb-2">
+        <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A] mb-2">
           📘 표지 레이아웃 스타일 (5종)
         </h4>
         <div className="grid grid-cols-1 gap-1.5">
@@ -290,18 +312,18 @@ export function PresetGallery() {
                 key={opt.id}
                 type="button"
                 onClick={() => setCoverStyle(opt.id)}
-                className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all ${
+                className={`flex min-h-[44px] items-center justify-between px-3 py-2 rounded-lg border text-left transition-all cursor-pointer ${
                   active
                     ? 'border-[#1D4ED8] bg-[#EFF6FF] text-[#1E3A8A]'
                     : 'border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}
               >
                 <div>
-                  <div className="text-xs font-bold">{opt.label}</div>
-                  <div className="text-[11px] text-[#475569]">{opt.desc}</div>
+                  <div className="text-sm font-bold">{opt.label}</div>
+                  <div className="text-sm text-[#475569]">{opt.desc}</div>
                 </div>
                 {active && (
-                  <span className="text-xs font-extrabold text-[#1D4ED8]">✓ 선택됨</span>
+                  <span className="text-sm font-extrabold text-[#1D4ED8]">✓ 선택됨</span>
                 )}
               </button>
             );
@@ -311,7 +333,7 @@ export function PresetGallery() {
 
       {/* 5. 본문 레이아웃 스타일 (LayoutStyle 6종) */}
       <section className="pt-3 border-t border-[#E2E8F0]">
-        <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] mb-2">
+        <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A] mb-2">
           📐 본문 슬라이드 프레임 스타일 (6종)
         </h4>
         <div className="grid grid-cols-2 gap-1.5">
@@ -322,17 +344,17 @@ export function PresetGallery() {
                 key={opt.id}
                 type="button"
                 onClick={() => setLayoutStyle(opt.id)}
-                className={`p-2.5 rounded-lg border text-left transition-all ${
+                className={`min-h-[44px] p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                   active
                     ? 'border-[#1D4ED8] bg-[#EFF6FF] text-[#1E3A8A]'
                     : 'border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold">{opt.label}</span>
-                  {active && <span className="text-xs font-extrabold text-[#1D4ED8]">✓</span>}
+                  <span className="text-sm font-bold">{opt.label}</span>
+                  {active && <span className="text-sm font-extrabold text-[#1D4ED8]">✓</span>}
                 </div>
-                <div className="text-[10px] text-[#475569] mt-0.5 line-clamp-1">{opt.desc}</div>
+                <div className="text-sm text-[#475569] mt-0.5 line-clamp-1">{opt.desc}</div>
               </button>
             );
           })}
@@ -341,28 +363,29 @@ export function PresetGallery() {
 
       {/* 6. 내 기본 프리셋으로 저장 */}
       <section className="pt-3 border-t border-[#E2E8F0] bg-[#F8FAFC] p-3 rounded-xl border">
-        <h4 className="text-xs font-extrabold text-[#0F172A] mb-1.5">
+        <label htmlFor="studio-custom-preset-name" className="block text-sm font-extrabold text-[#0F172A] mb-1.5">
           💾 현재 색상·표지 조합을 내 기본 프리셋으로 저장
-        </h4>
+        </label>
         <div className="flex gap-2">
           <input
+            id="studio-custom-preset-name"
             type="text"
             value={presetNameInput}
             onChange={e => setPresetNameInput(e.target.value)}
             placeholder="예: 우리 중개법인 골드 테마"
-            className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+            className="flex-1 min-h-[44px] px-2.5 py-1.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
           />
           <button
             type="button"
             onClick={handleSaveCustom}
             disabled={savingPreset}
-            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white shrink-0 disabled:opacity-50"
+            className="min-h-[44px] px-3.5 py-1.5 text-sm font-bold rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white shrink-0 disabled:opacity-50 cursor-pointer"
           >
             {savingPreset ? '저장 중...' : '프리셋 저장'}
           </button>
         </div>
         {saveMessage && (
-          <p className="text-xs font-bold text-[#065F46] mt-1.5">{saveMessage}</p>
+          <p className="text-sm font-bold text-[#065F46] mt-1.5">{saveMessage}</p>
         )}
       </section>
     </div>

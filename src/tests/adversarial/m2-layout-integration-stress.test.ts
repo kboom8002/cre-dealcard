@@ -182,8 +182,8 @@ describe('M2 Adversarial Challenge: Archetype Layout Integration & Overflow Hard
         const slideXml = zip.getEntries().find(e => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
         const { shapes } = extractShapesAndTables(slideXml);
 
-        // Find lead sentence shape
-        const leadShape = shapes.find(s => Math.abs(s.y - 1.30) < 0.02 && Math.abs(s.w - CW) < 0.05);
+        // Find lead sentence shape (rendered at y=1.28)
+        const leadShape = shapes.find(s => Math.abs(s.y - 1.28) <= 0.03 && Math.abs(s.w - CW) < 0.05);
         expect(leadShape).toBeDefined();
         const leadBottom = leadShape!.y + leadShape!.h;
 

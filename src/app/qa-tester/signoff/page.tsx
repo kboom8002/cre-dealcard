@@ -96,7 +96,7 @@ function readInitialState(): TesterSignoffPersistedState {
       mobileKakaoChecked: false,
     },
     testerName: "이상덕 테스터",
-    deviceLabel: "PC Chrome + 모바일 카톡 인앱",
+    deviceLabel: "PC + 모바일 카톡",
     finalMemo: "",
   };
   if (typeof window === "undefined") return empty;
@@ -191,7 +191,12 @@ function QaTesterSignoffInner() {
           `/api/public/qa-workbench?sessionId=${encodeURIComponent(
             QA_TESTER_SIGNOFF_SESSION_ID
           )}`,
-          { cache: "no-store" }
+          {
+            cache: "no-store",
+            headers: {
+              ...buildQaAuthHeaders("tester"),
+            },
+          }
         );
         if (res.ok) {
           const json = (await res.json()) as {
@@ -567,11 +572,11 @@ function QaTesterSignoffInner() {
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
                 placeholder="전달받은 QA_TESTER_ACCESS_KEY 입력"
-                className="min-h-[42px] flex-1 min-w-[220px] rounded-xl border border-indigo-300 bg-white px-3 text-[15px]"
+                className="min-h-[44px] flex-1 min-w-[220px] rounded-xl border border-indigo-300 bg-white px-3 text-[15px]"
               />
               <button
                 type="submit"
-                className="min-h-[42px] rounded-xl bg-indigo-700 px-4 text-[14px] font-extrabold text-white cursor-pointer"
+                className="min-h-[44px] rounded-xl bg-indigo-700 px-4 text-[14px] font-extrabold text-white cursor-pointer"
               >
                 저장
               </button>
@@ -718,7 +723,7 @@ function QaTesterSignoffInner() {
                   type="button"
                   onClick={() => setR1Filter(tab.id)}
                   aria-pressed={r1Filter === tab.id}
-                  className={`min-h-[40px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
+                  className={`min-h-[44px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
                     r1Filter === tab.id
                       ? "border-slate-900 bg-slate-900 text-white"
                       : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
@@ -747,10 +752,10 @@ function QaTesterSignoffInner() {
                 >
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-white text-[13px] font-extrabold">
+                      <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-white text-sm font-extrabold">
                         {item.id}
                       </span>
-                      <span className="text-[13px] font-bold text-indigo-800">
+                      <span className="text-sm font-bold text-indigo-800">
                         {item.slideRef}
                       </span>
                     </div>
@@ -767,7 +772,7 @@ function QaTesterSignoffInner() {
                       href={appendQaParamsToHref(item.verifyHref, "tester")}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="min-h-[42px] inline-flex items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3 text-[14px] font-bold text-slate-900"
+                      className="min-h-[44px] inline-flex items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3 text-[14px] font-bold text-slate-900"
                     >
                       확인 화면 열기 ↗
                     </a>
@@ -776,7 +781,7 @@ function QaTesterSignoffInner() {
                       data-testid={`r1-pass-${item.id}`}
                       onClick={() => handleSetR1Status(item.id, "pass")}
                       aria-pressed={st === "pass"}
-                      className={`min-h-[42px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
+                      className={`min-h-[44px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
                         st === "pass"
                           ? "border-emerald-700 bg-emerald-700 text-white"
                           : "border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-50"
@@ -789,7 +794,7 @@ function QaTesterSignoffInner() {
                       data-testid={`r1-fail-${item.id}`}
                       onClick={() => handleSetR1Status(item.id, "fail")}
                       aria-pressed={st === "fail"}
-                      className={`min-h-[42px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
+                      className={`min-h-[44px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
                         st === "fail"
                           ? "border-rose-700 bg-rose-700 text-white"
                           : "border-rose-300 bg-white text-rose-950 hover:bg-rose-50"
@@ -836,14 +841,14 @@ function QaTesterSignoffInner() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-lg bg-indigo-900 text-white text-[13px] font-extrabold">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-indigo-900 text-white text-sm font-extrabold">
                           {mission.id}
                         </span>
-                        <span className="text-[13px] font-bold text-slate-600">
+                        <span className="text-sm font-bold text-slate-600">
                           예상 {mission.targetMin}분
                         </span>
                         {mission.mandatoryEveryCycle ? (
-                          <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-900 border border-rose-300 text-[13px] font-extrabold">
+                          <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-900 border border-rose-300 text-sm font-extrabold">
                             필수 미션
                           </span>
                         ) : null}
@@ -859,7 +864,7 @@ function QaTesterSignoffInner() {
                         data-testid={`r2-mission-pass-${mission.id}`}
                         onClick={() => handleSetR2Status(mission.id, "pass")}
                         aria-pressed={st === "pass"}
-                        className={`min-h-[42px] rounded-xl border px-3.5 text-[14px] font-extrabold cursor-pointer ${
+                        className={`min-h-[44px] rounded-xl border px-3.5 text-[14px] font-extrabold cursor-pointer ${
                           st === "pass"
                             ? "border-emerald-700 bg-emerald-700 text-white"
                             : "border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-50"
@@ -874,7 +879,7 @@ function QaTesterSignoffInner() {
                           handleSetR2Status(mission.id, "blocker")
                         }
                         aria-pressed={st === "blocker"}
-                        className={`min-h-[42px] rounded-xl border px-3.5 text-[14px] font-extrabold cursor-pointer ${
+                        className={`min-h-[44px] rounded-xl border px-3.5 text-[14px] font-extrabold cursor-pointer ${
                           st === "blocker"
                             ? "border-rose-700 bg-rose-700 text-white"
                             : "border-rose-300 bg-white text-rose-950 hover:bg-rose-50"
@@ -903,7 +908,7 @@ function QaTesterSignoffInner() {
                             "📋 R2-M1 표준 매물 메모(2,000억 · 4,313평)를 복사했습니다."
                           )
                         }
-                        className="min-h-[42px] rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 px-3.5 text-[14px] font-extrabold text-indigo-900 cursor-pointer"
+                        className="min-h-[44px] rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 px-3.5 text-[14px] font-extrabold text-indigo-900 cursor-pointer"
                       >
                         📋 표준 매물 메모 복사
                       </button>
@@ -914,7 +919,7 @@ function QaTesterSignoffInner() {
                         href={mission.sampleKitZipHref}
                         download
                         data-testid="r2-m2-download-zip-btn"
-                        className="min-h-[42px] inline-flex items-center rounded-xl border border-emerald-400 bg-emerald-50 hover:bg-emerald-100 px-3.5 text-[14px] font-extrabold text-emerald-950"
+                        className="min-h-[44px] inline-flex items-center rounded-xl border border-emerald-400 bg-emerald-50 hover:bg-emerald-100 px-3.5 text-[14px] font-extrabold text-emerald-950"
                       >
                         📦 샘플 키트(.zip) 다운로드
                       </a>
@@ -925,7 +930,7 @@ function QaTesterSignoffInner() {
                         href={mission.sampleKitCsvHref}
                         download
                         data-testid="r2-m2-download-csv-btn"
-                        className="min-h-[42px] inline-flex items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3.5 text-[14px] font-extrabold text-slate-900"
+                        className="min-h-[44px] inline-flex items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3.5 text-[14px] font-extrabold text-slate-900"
                       >
                         📊 샘플 렌트롤(.csv) 다운로드
                       </a>
@@ -935,7 +940,7 @@ function QaTesterSignoffInner() {
                       href={appendQaParamsToHref(mission.targetHref, "tester")}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="min-h-[42px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-4 text-[14px] font-extrabold text-white"
+                      className="min-h-[44px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-4 text-[14px] font-extrabold text-white"
                     >
                       🚀 해당 화면 바로 열기 ↗
                     </a>
@@ -983,7 +988,7 @@ function QaTesterSignoffInner() {
                     {chk.passed ? "✅ " : "❌ "}
                     {chk.title}
                   </p>
-                  <p className="text-[13px] text-slate-700 mt-0.5">
+                  <p className="text-sm text-slate-700 mt-0.5">
                     {chk.detail}
                   </p>
                 </div>
@@ -1110,7 +1115,7 @@ function QaTesterSignoffInner() {
             <button
               type="button"
               onClick={() => void fetchPins()}
-              className="min-h-[40px] rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 px-3 text-[14px] font-bold cursor-pointer"
+              className="min-h-[44px] rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 px-3 text-[14px] font-bold cursor-pointer"
             >
               {pinsLoading ? "불러오는 중..." : "↻ 새로고침"}
             </button>
@@ -1131,7 +1136,7 @@ function QaTesterSignoffInner() {
                     <span className="text-[14px] font-extrabold text-slate-950">
                       [{pin.workspace}] {pin.targetLabel}
                     </span>
-                    <span className="text-[13px] font-bold text-slate-600">
+                    <span className="text-sm font-bold text-slate-600">
                       {pin.severity}
                     </span>
                   </div>
@@ -1178,7 +1183,7 @@ function QaTesterSignoffInner() {
                 <button
                   type="button"
                   onClick={() => setLightboxPin(null)}
-                  className="min-h-[40px] rounded-xl bg-slate-900 px-3 text-[14px] font-extrabold text-white cursor-pointer"
+                  className="min-h-[44px] rounded-xl bg-slate-900 px-3 text-[14px] font-extrabold text-white cursor-pointer"
                 >
                   ✕ 닫기
                 </button>

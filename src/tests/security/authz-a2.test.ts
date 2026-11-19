@@ -252,18 +252,30 @@ describe('GET /api/public/im-lite/[buildingId]/pptx — 공개 상태·워터마
     expect(mockRender).not.toHaveBeenCalled();
   });
 
-  it('익명 + doc_id=초안 → 무시하고 최신 공개본 제공', async () => {
+  it('익명 + token 없음 → 403 SHARE_TOKEN_REQUIRED', async () => {
     seed(true);
     mockViewer.mockResolvedValue({ userId: null, isAdmin: false });
-    const res = await get(`&doc_id=${DRAFT}`);
+    const res = await get();
+    expect(res.status).toBe(403);
+    expect(mockRender).not.toHaveBeenCalled();
+  });
+
+  it('익명 + 유효 토큰 + doc_id=초안 → 무시하고 최신 공개본 제공', async () => {
+    seed(true);
+    mockViewer.mockResolvedValue({ userId: null, isAdmin: false });
+    const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+    const issued = await issueShareLinkToken({ buildingId: BUILDING, brokerId: OWNER });
+    const res = await get(`&doc_id=${DRAFT}&token=${encodeURIComponent(issued.token)}`);
     expect(res.status).toBe(200);
     expect(renderedMarker()).toBe('published');
   });
 
-  it('익명 기본 요청 → 더 최신 초안이 있어도 공개본', async () => {
+  it('익명 + 유효 토큰 기본 요청 → 더 최신 초안이 있어도 공개본', async () => {
     seed(true);
     mockViewer.mockResolvedValue({ userId: null, isAdmin: false });
-    expect((await get()).status).toBe(200);
+    const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+    const issued = await issueShareLinkToken({ buildingId: BUILDING, brokerId: OWNER });
+    expect((await get(`&token=${encodeURIComponent(issued.token)}`)).status).toBe(200);
     expect(renderedMarker()).toBe('published');
   });
 
@@ -285,10 +297,12 @@ describe('GET /api/public/im-lite/[buildingId]/pptx — 공개 상태·워터마
     expect(renderedMarker()).toBe('draft');
   });
 
-  it('비소유자 watermark=false + requester → 워터마크 유지, 소유자는 해제 가능', async () => {
+  it('비소유자 + 유효 토큰 watermark=false + requester → 워터마크 유지, 소유자는 해제 가능', async () => {
     seed(true);
     mockViewer.mockResolvedValue({ userId: null, isAdmin: false });
-    await get('&watermark=false&requester=홍길동&phone4=1234');
+    const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+    const issued = await issueShareLinkToken({ buildingId: BUILDING, brokerId: OWNER });
+    await get(`&watermark=false&requester=홍길동&phone4=1234&token=${encodeURIComponent(issued.token)}`);
     expect(renderedWatermark()).toMatchObject({ requesterName: '홍길동', phoneLast4: '1234' });
     mockViewer.mockResolvedValue({ userId: OWNER, isAdmin: false });
     await get('&watermark=false&requester=홍길동');

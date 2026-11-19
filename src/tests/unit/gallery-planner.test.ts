@@ -16,15 +16,22 @@ describe('gallery-planner', () => {
     expect(res[0].photos[0].url).toBe('1.jpg');
   });
 
-  it('tests 6-photo slice limit for credeal_basic preset', async () => {
-    const photos: PhotoMeta[] = Array.from({ length: 10 }, (_, i) => ({
+  it('tests 6-photo single slide and 10-photo balanced 2-slide limit (max 12) for credeal_basic preset', async () => {
+    const photos6: PhotoMeta[] = Array.from({ length: 6 }, (_, i) => ({
       url: `${i}.jpg`,
       category: 'exterior',
     }));
-    
-    const res = planGallerySlides(photos, 'income', 'credeal_basic');
-    expect(res.length).toBe(1);
-    expect(res[0].photos.length).toBe(6);
+    const res6 = planGallerySlides(photos6, 'income', 'credeal_basic');
+    expect(res6.length).toBe(1);
+    expect(res6[0].photos.length).toBe(6);
+
+    const photos14: PhotoMeta[] = Array.from({ length: 14 }, (_, i) => ({
+      url: `${i}.jpg`,
+      category: 'exterior',
+    }));
+    const res14 = planGallerySlides(photos14, 'income', 'credeal_basic');
+    expect(res14.length).toBe(2);
+    expect(res14[0].photos.length + res14[1].photos.length).toBe(12);
   });
 
   it('tests empty input returns empty result', async () => {

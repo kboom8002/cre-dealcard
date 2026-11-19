@@ -78,7 +78,8 @@ function createSeededDb(): TestDb {
       {
         user_id: BROKER_ID,
         office_address: '서울특별시 강남구 테헤란로 152, 12층',
-        office_reg_number: '11680-2024-00123',
+        office_reg_number: '11680-2024-00888',
+        representative_name: '박성훈',
         slug: 'hangang-park',
       },
     ],
@@ -95,6 +96,7 @@ function createSeededDb(): TestDb {
       {
         id: GATE_REQ_ID,
         building_id: BUILDING_ID,
+        reason: JSON.stringify({ name: '강매수 대표', email: 'kang@buyer.co.kr', message: '자료 열람 신청' }),
         status: 'approved',
         created_at: '2026-11-14T02:00:00.000Z',
       },
@@ -639,7 +641,7 @@ describe('Wave 3 — WP-10: 정보통신망법 제50조 소통함 이메일 적�
       expect(mockResendSend).not.toHaveBeenCalled();
     });
 
-    it('requires marketingConsentConfirmed or active magazine_subscribers opt-in for custom_* contacts and sends marketing_outreach with (광고) + signed unsubscribe URL', async () => {
+    it('requires recorded opt-in (rejecting self-attested marketingConsentConfirmed alone) for custom_* contacts and sends marketing_outreach with (광고) + signed unsubscribe URL', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-11-15T13:00:00+09:00'));
 
@@ -662,8 +664,8 @@ describe('Wave 3 — WP-10: 정보통신망법 제50조 소통함 이메일 적�
       const unconsentedJson = await unconsentedRes.json();
       expect(unconsentedJson.blockedReason).toBe('OPT_IN_REQUIRED');
 
-      // 2) Custom contact WITH marketingConsentConfirmed: true -> 200 marketing_outreach with (광고) & signed unsub URL
-      const consentedRes = await postInboxActions(
+      // 2) WP-7.3E P1-3: Self-attested body flag marketingConsentConfirmed: true WITHOUT recorded DB opt-in -> still 403 OPT_IN_REQUIRED
+      const selfAttestedRes = await postInboxActions(
         new NextRequest('https://credeal.net/api/broker/inbox/actions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -678,14 +680,11 @@ describe('Wave 3 — WP-10: 정보통신망법 제50조 소통함 이메일 적�
           }),
         })
       );
-      expect(consentedRes.status).toBe(200);
-      const consentedJson = await consentedRes.json();
-      expect(consentedJson.ok).toBe(true);
-      expect(consentedJson.deliveryPurpose).toBe('marketing_outreach');
-      expect(consentedJson.subject.startsWith('(광고) ')).toBe(true);
-      expect(consentedJson.unsubscribeUrl).toContain('/api/public/magazine/unsubscribe?t=');
+      expect(selfAttestedRes.status).toBe(403);
+      const selfAttestedJson = await selfAttestedRes.json();
+      expect(selfAttestedJson.blockedReason).toBe('OPT_IN_REQUIRED');
 
-      // 3) Custom contact backed by active magazine_subscribers opt-in -> 200 during daytime, 403 QUIET_HOURS_KST at night
+      // 3) Custom contact backed by active confirmed magazine_subscribers opt-in -> 200 marketing_outreach with (광고) & signed unsub URL during daytime, 403 QUIET_HOURS_KST at night
       db.magazine_subscribers.push({
         id: '55555555-6666-4777-8888-999999999999',
         broker_id: 'hangang-park',
@@ -711,7 +710,11 @@ describe('Wave 3 — WP-10: 정보통신망법 제50조 소통함 이메일 적�
         })
       );
       expect(subDayRes.status).toBe(200);
-      expect((await subDayRes.json()).deliveryPurpose).toBe('marketing_outreach');
+      const subDayJson = await subDayRes.json();
+      expect(subDayJson.ok).toBe(true);
+      expect(subDayJson.deliveryPurpose).toBe('marketing_outreach');
+      expect(subDayJson.subject.startsWith('(광고) ')).toBe(true);
+      expect(subDayJson.unsubscribeUrl).toContain('/api/public/magazine/unsubscribe?t=');
 
       vi.setSystemTime(new Date('2026-11-15T22:15:00+09:00'));
       const subNightRes = await postInboxActions(
@@ -771,11 +774,22 @@ describe('Wave 3 — WP-10: 정보통신망법 제50조 소통함 이메일 적�
         'newsletter_subscription_toggled',
         'link_revoked',
         'link_restored',
+        'thread_link_revoked',
+        'thread_link_restored',
         'dealcard_deleted',
+        'dealcard_restored',
         'im_deleted',
+        'im_restored',
+        'correction_notice_published',
+        'correction_notice_cleared',
         'custom_client_deleted',
-        'inbox_custom_client_upserted',
         'email_bounced',
+        'email_complained',
+        'magazine_unsubscribed',
+        'email_suppression_recorded',
+        'consent_reconfirm_notified',
+        'inbox_thread_archived',
+        'inbox_thread_unarchived',
       ]);
       expect(PROTECTED_NON_BUILDING_DOCUMENT_TYPES).toEqual([
         'magazine_edition',

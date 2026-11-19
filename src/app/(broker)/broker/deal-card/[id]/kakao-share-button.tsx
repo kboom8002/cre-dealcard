@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+
+const emptySubscribe = () => () => {};
+const getClientMounted = () => true;
+const getServerMounted = () => false;
 
 interface KakaoShareButtonProps {
   text: string;
@@ -31,24 +35,17 @@ export function KakaoShareButton({
   text,
   buildingId,
   dealTitle = "블라인드 딜카드",
-  brokerSlug,
-  areaSignal,
   variant = "secondary",
   showEditForm = false,
 }: KakaoShareButtonProps) {
   const [shared, setShared] = useState(false);
-  const [kakaoReady, setKakaoReady] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(
+    () => typeof window !== "undefined" && Boolean(window.Kakao)
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(text);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setEditedText(text);
-  }, [text]);
+  const [savedLocalText, setSavedLocalText] = useState<string | null>(null);
+  const mounted = useSyncExternalStore(emptySubscribe, getClientMounted, getServerMounted);
 
   // Escape 키로 모달 닫기
   useEffect(() => {
@@ -69,7 +66,6 @@ export function KakaoShareButton({
         const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
         if (appKey) window.Kakao.init(appKey);
       }
-      setKakaoReady(true);
       return;
     }
     const script = document.createElement("script");
@@ -88,11 +84,12 @@ export function KakaoShareButton({
   const siteUrl = "https://credeal.net";
   const dealUrl = `${siteUrl}/dc/${buildingId}`;
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
+  const effectiveShareText = savedLocalText ?? text;
 
   function handleShare() {
     const rawText = typeof window !== 'undefined' 
-      ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
-      : editedText;
+      ? sessionStorage.getItem(`kakao_text_${buildingId}`) || effectiveShareText 
+      : effectiveShareText;
     const finalText = cleanBlindPoints([rawText])[0] || rawText;
     const safeTitle = cleanBlindPoints([dealTitle || "블라인드 딜카드"])[0] || "블라인드 딜카드";
 
@@ -100,7 +97,7 @@ export function KakaoShareButton({
 
     if (kakaoReady && window.Kakao?.Share) {
       try {
-        (window.Kakao.Share as any).sendDefault({
+        window.Kakao.Share.sendDefault({
           objectType: "feed",
           content: {
             title: safeTitle,
@@ -190,6 +187,7 @@ export function KakaoShareButton({
   const handleSaveText = () => {
     const cleaned = cleanBlindPoints([editedText])[0] ?? editedText;
     setEditedText(cleaned);
+    setSavedLocalText(cleaned);
     sessionStorage.setItem(`kakao_text_${buildingId}`, cleaned);
     window.dispatchEvent(new Event(`kakao_update_${buildingId}`));
     fetch('/api/broker/deal-card/' + buildingId, {
@@ -202,7 +200,7 @@ export function KakaoShareButton({
 
   const handleEditClick = () => {
     const currentStorageText = sessionStorage.getItem(`kakao_text_${buildingId}`);
-    if (currentStorageText) setEditedText(currentStorageText);
+    setEditedText(currentStorageText ?? savedLocalText ?? text);
     setIsEditing(true);
   };
 
@@ -210,24 +208,29 @@ export function KakaoShareButton({
     if (!isEditing || showEditForm || !mounted) return null;
 
     return createPortal(
-      <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
-        onClick={() => setIsEditing(false)}
-      >
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <button
+          type="button"
+          aria-label="모달 배경 닫기"
+          className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm cursor-default"
+          onClick={() => setIsEditing(false)}
+        />
         <div
-          className="bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl relative z-10 max-h-[90vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="카톡 문구 수정"
+          className="bg-white text-slate-900 border border-slate-200 w-full max-w-md rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl relative z-10 max-h-[90vh] flex flex-col"
         >
           {/* Header */}
-          <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
             <div className="flex items-center gap-2">
               <span className="text-lg">💬</span>
-              <h3 className="text-base font-bold text-white tracking-tight">카톡 문구 수정</h3>
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">카톡 문구 수정</h3>
             </div>
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer text-sm font-bold"
+              className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer text-sm font-bold"
               aria-label="닫기"
               title="닫기"
             >
@@ -235,7 +238,7 @@ export function KakaoShareButton({
             </button>
           </div>
 
-          <p className="text-xs text-neutral-400 leading-relaxed">
+          <p className="text-sm text-slate-600 leading-relaxed">
             카카오톡으로 공유할 때 수신자에게 전송되는 메시지 문구를 맞춤 편집하세요.
           </p>
 
@@ -246,7 +249,7 @@ export function KakaoShareButton({
               onChange={(e) => setEditedText(e.target.value)}
               placeholder="카톡 공유 문구를 입력하세요..."
               rows={7}
-              className="w-full min-h-[160px] max-h-[42vh] p-3.5 text-sm rounded-xl border border-neutral-700 bg-neutral-950 text-neutral-100 placeholder-neutral-500 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-y leading-relaxed font-sans"
+              className="w-full min-h-[160px] max-h-[42vh] p-3.5 text-base rounded-xl border border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-y leading-relaxed font-sans"
             />
           </div>
 
@@ -255,7 +258,7 @@ export function KakaoShareButton({
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="flex-1 py-3 text-sm font-semibold rounded-xl border border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex-1 py-3 text-sm font-semibold rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
             >
               취소
             </button>
@@ -265,7 +268,7 @@ export function KakaoShareButton({
                 handleSaveText();
                 toast.success("카톡 문구가 수정되었습니다.");
               }}
-              className="flex-1 py-3 text-sm font-bold rounded-xl bg-[#FEE500] text-[#3C1E1E] hover:bg-[#FEE500]/90 transition-colors shadow-md cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex-1 py-3 text-sm font-bold rounded-xl bg-[#FEE500] text-[#191919] hover:bg-[#FDD835] transition-colors shadow-sm cursor-pointer"
             >
               수정 완료
             </button>
@@ -282,14 +285,14 @@ export function KakaoShareButton({
       <div className="flex w-full gap-1.5">
         <button
           onClick={handleShare}
-          className={`flex-1 flex items-center justify-center rounded-xl bg-[#FEE500] text-[#3C1E1E] px-3 py-2.5 text-sm font-bold shadow-sm transition-all hover:bg-[#FEE500]/90 active:scale-[0.98] ${readyClass}`}
+          className={`min-h-[44px] min-w-[44px] flex-1 flex items-center justify-center rounded-xl bg-[#FEE500] text-[#3C1E1E] px-3 py-2.5 text-sm font-bold shadow-sm transition-all hover:bg-[#FEE500]/90 active:scale-[0.98] ${readyClass}`}
           id="cta-kakao-share-compact"
         >
           {label}
         </button>
         <button
           onClick={handleEditClick}
-          className="w-10 shrink-0 flex items-center justify-center rounded-xl bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] hover:bg-[#FEE500]/30 transition-all text-sm font-bold"
+          className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center rounded-xl bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] hover:bg-[#FEE500]/30 transition-all text-sm font-bold"
           aria-label="카톡 문구 수정"
           title="카톡 문구 수정"
         >
@@ -306,13 +309,13 @@ export function KakaoShareButton({
       <div className="flex gap-2 w-full">
         <button
           onClick={handleDownloadCardImage}
-          className="flex-1 py-2.5 px-3 bg-secondary/60 hover:bg-secondary text-secondary-foreground rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-border transition-colors shadow-sm"
+          className="min-h-[44px] min-w-[44px] flex-1 py-2.5 px-3 bg-secondary/60 hover:bg-secondary text-secondary-foreground rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 border border-border transition-colors shadow-sm"
         >
           <span>📸</span> 1페이지 티저 이미지 다운로드
         </button>
         <button
           onClick={handleCopyCardImageUrl}
-          className="py-2.5 px-3 bg-secondary/40 hover:bg-secondary/70 text-secondary-foreground rounded-xl text-xs font-medium border border-border transition-colors"
+          className="min-h-[44px] min-w-[44px] py-2.5 px-3 bg-secondary/40 hover:bg-secondary/70 text-secondary-foreground rounded-xl text-sm font-medium border border-border transition-colors"
           title="티저 이미지 URL 복사"
         >
           📋 URL 복사
@@ -327,14 +330,14 @@ export function KakaoShareButton({
       <div className="flex w-full gap-2">
         <button
           onClick={handleShare}
-          className={`flex-1 inline-flex items-center justify-center rounded-lg bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FEE500]/30 active:scale-[0.98] ${readyClass}`}
+          className={`min-h-[44px] min-w-[44px] flex-1 inline-flex items-center justify-center rounded-lg bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FEE500]/30 active:scale-[0.98] ${readyClass}`}
           id="cta-kakao-share"
         >
           {label}
         </button>
         <button
           onClick={handleEditClick}
-          className={`shrink-0 inline-flex items-center justify-center rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.98]`}
+          className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.98]"
           title="문구 수정"
         >
           ✏️ 수정
@@ -344,13 +347,13 @@ export function KakaoShareButton({
       <div className="flex gap-2 w-full">
         <button
           onClick={handleDownloadCardImage}
-          className="flex-1 py-2 px-3 bg-secondary/40 hover:bg-secondary text-secondary-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-border transition-colors"
+          className="min-h-[44px] min-w-[44px] flex-1 py-2 px-3 bg-secondary/40 hover:bg-secondary text-secondary-foreground rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 border border-border transition-colors"
         >
           <span>📸</span> 1페이지 이미지 저장 (스마트폰 앨범용)
         </button>
         <button
           onClick={handleCopyCardImageUrl}
-          className="py-2 px-3 bg-secondary/20 hover:bg-secondary/40 text-secondary-foreground rounded-lg text-xs font-medium border border-border transition-colors"
+          className="min-h-[44px] min-w-[44px] py-2 px-3 bg-secondary/20 hover:bg-secondary/40 text-secondary-foreground rounded-lg text-sm font-medium border border-border transition-colors"
         >
           📋 링크 복사
         </button>

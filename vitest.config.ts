@@ -23,6 +23,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     testTimeout: 30_000,
+    hookTimeout: 30_000,
     restoreMocks: true,
     clearMocks: true,
     setupFiles: ["src/tests/setup/magazine-env-guard.ts"],

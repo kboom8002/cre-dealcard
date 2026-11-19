@@ -175,19 +175,19 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        className="px-4 py-2 bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+        className="min-h-[48px] px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-900 rounded-xl text-sm font-bold transition-all flex items-center gap-2 cursor-pointer"
       >
         <span>📊 XLS/CSV 임포트</span>
       </button>
       <a
         href="/CREDEAL_rentroll_template_v1.5.xlsx"
         download="CREDEAL_렌트롤_표준양식_v1.5.xlsx"
-        className="px-4 py-2 border border-neutral-700 text-neutral-200 hover:bg-neutral-800 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+        className="inline-flex min-h-[48px] items-center px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-bold transition-all whitespace-nowrap"
         title="CREDEAL 렌트롤 표준양식 v1.5 (빈 양식) 다운로드"
       >
         📥 빈 양식
       </a>
-      {error && <span className="text-xs text-red-400 font-bold">{error}</span>}
+      {error && <span role="alert" className="text-sm text-red-700 font-bold">{error}</span>}
     </div>
   );
 }

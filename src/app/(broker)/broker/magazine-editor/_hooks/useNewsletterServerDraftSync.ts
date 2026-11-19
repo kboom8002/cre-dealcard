@@ -370,5 +370,11 @@ export function useNewsletterServerDraftSync(
     autosave,
   ]);
 
-  return autosave;
+  return useMemo(
+    () => ({
+      ...autosave,
+      overwriteNow: autosave.overwrite,
+    }),
+    [autosave],
+  );
 }

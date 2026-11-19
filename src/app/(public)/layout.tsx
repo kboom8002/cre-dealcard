@@ -69,9 +69,9 @@ export const metadata: Metadata = {
       "주소 하나, 메모 하나로 건물 딜 가능성을 확인하세요.",
     images: [`${BASE_URL}/api/og/deal/default`],
   },
-  alternates: {
-    canonical: BASE_URL,
-  },
+  // P2 (WP-7.3A): no group-wide `alternates.canonical` here — a layout-level canonical
+  // pointing at BASE_URL was inherited by every public page and told crawlers that
+  // each deal/profile page was a duplicate of the homepage. Pages set their own.
 };
 
 export const viewport: Viewport = {

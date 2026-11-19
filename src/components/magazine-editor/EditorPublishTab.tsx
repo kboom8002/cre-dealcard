@@ -85,7 +85,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className={CARD}>
         <div className="flex items-center gap-2">
           <Info className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-bold text-slate-200">에디션 정보</span>
+          <span className="text-sm font-bold text-slate-200">에디션 정보</span>
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -112,7 +112,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className={CARD}>
         <div className="flex items-center gap-2">
           <Palette className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-xs font-bold text-slate-200">테마 컬러</span>
+          <span className="text-sm font-bold text-slate-200">테마 컬러</span>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -153,7 +153,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className={CARD}>
         <div className="flex items-center gap-2">
           <Link2 className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-xs font-bold text-slate-200">매거진 설정</span>
+          <span className="text-sm font-bold text-slate-200">매거진 설정</span>
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -168,7 +168,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
                 value={p.brokerSlug}
                 readOnly
                 aria-readonly="true"
-                className="flex-1 min-h-11 bg-slate-900/60 border border-slate-700 text-xs text-slate-300 p-1.5 rounded cursor-not-allowed focus:outline-none"
+                className="flex-1 min-h-11 bg-slate-900/60 border border-slate-700 text-sm text-slate-300 p-1.5 rounded cursor-not-allowed focus:outline-none"
               />
             </div>
             <p className="text-caption text-ink-subtle">주소는 구독자 링크에 쓰이므로 여기서 바꿀 수 없습니다.</p>
@@ -183,7 +183,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
               value={p.magazineTitle}
               onChange={(e) => p.setMagazineTitle(e.target.value)}
               placeholder="예: 김성공 중개사의 부동산 인사이트"
-              className="w-full min-h-11 bg-slate-900 border border-slate-700 text-xs text-white p-1.5 rounded focus:outline-none focus:border-indigo-500"
+              className="w-full min-h-11 bg-slate-900 border border-slate-700 text-sm text-white p-1.5 rounded focus:outline-none focus:border-indigo-500"
             />
             <p className="text-caption text-ink-subtle">제목은 발행할 때 프로필에 함께 저장됩니다.</p>
           </div>
@@ -194,7 +194,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className={CARD}>
         <div className="flex items-center gap-2">
           <Target className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-xs font-bold text-slate-200">발송 대상</span>
+          <span className="text-sm font-bold text-slate-200">발송 대상</span>
         </div>
         <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="발송 대상">
           {TARGET_SEGMENTS.map((seg) => {
@@ -226,7 +226,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className="space-y-3 p-4 bg-violet-950/20 border border-violet-500/20 rounded-xl">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-3.5 h-3.5 text-violet-400" />
-          <span className="text-xs font-bold text-violet-300">1-Click 투표 (선택)</span>
+          <span className="text-sm font-bold text-violet-300">1-Click 투표 (선택)</span>
         </div>
         <p className="text-caption text-violet-200/80">
           질문과 선택지를 {MIN_POLL_OPTIONS}개 이상 채우면 투표가 게시됩니다. 비워 두면 투표 섹션이 나타나지 않습니다.
@@ -240,7 +240,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
           value={p.pollQuestion}
           onChange={(e) => p.setPollQuestion(e.target.value)}
           placeholder="예: 현재 강남 꼬마빌딩 평당 1.2억, 적정하다고 보십니까?"
-          className="w-full min-h-11 bg-violet-950/30 border border-violet-500/20 rounded-lg px-3 py-2 text-xs text-white placeholder-violet-300/60 focus:outline-none focus:border-violet-500/40"
+          className="w-full min-h-11 bg-violet-950/30 border border-violet-500/20 rounded-lg px-3 py-2 text-sm text-white placeholder-violet-300/60 focus:outline-none focus:border-violet-500/40"
         />
         {pollOpen && (
           <div className="space-y-1.5">
@@ -296,7 +296,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className="space-y-3 p-4 bg-amber-950/15 border border-amber-500/15 rounded-xl">
         <div className="flex items-center gap-2">
           <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-xs font-bold text-amber-300">💰 세무·법률 클리닉 (선택)</span>
+          <span className="text-sm font-bold text-amber-300">💰 세무·법률 클리닉 (선택)</span>
         </div>
         <p className="text-caption text-amber-200/80">
           질문과 답변을 모두 채우면 1문1답이 게시됩니다. 비워 두면 섹션이 나타나지 않습니다.
@@ -310,7 +310,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
           value={p.taxQuestion}
           onChange={(e) => p.setTaxQuestion(e.target.value)}
           placeholder="Q. 법인 취득세 중과 범위는 어디까지인가요?"
-          className="w-full min-h-11 bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-xs text-white placeholder-amber-300/60 focus:outline-none focus:border-amber-500/30"
+          className="w-full min-h-11 bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-sm text-white placeholder-amber-300/60 focus:outline-none focus:border-amber-500/30"
         />
         {p.taxQuestion.trim() && (
           <>
@@ -323,7 +323,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
               onChange={(e) => p.setTaxAnswer(e.target.value)}
               placeholder="A. 답변을 입력하세요. 근거 조문이나 출처를 함께 적으면 신뢰도가 올라갑니다."
               rows={3}
-              className="w-full bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-xs text-white placeholder-amber-300/60 focus:outline-none focus:border-amber-500/30"
+              className="w-full bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-sm text-white placeholder-amber-300/60 focus:outline-none focus:border-amber-500/30"
             />
             <input
               type="text"
@@ -341,7 +341,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
       <div className={CARD}>
         <div className="flex items-center gap-2">
           <Target className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-xs font-bold text-slate-200">섹션 순서·노출</span>
+          <span className="text-sm font-bold text-slate-200">섹션 순서·노출</span>
         </div>
         <p className="text-caption text-ink-subtle">
           노출 순서를 바꾸고, 체크를 끄면 해당 섹션이 매거진에서 숨겨집니다.
@@ -400,7 +400,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Newspaper className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-xs font-bold text-slate-200">원페이지 이미지 (1080x1920)</span>
+            <span className="text-sm font-bold text-slate-200">원페이지 이미지 (1080x1920)</span>
           </div>
           <span className="text-caption bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold">
             카톡/스토리 최적화
@@ -431,7 +431,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
                 editorToast.error('이미지 다운로드에 실패했습니다.');
               }
             }}
-            className="flex-1 flex min-h-11 items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all disabled:opacity-40"
+            className="flex-1 flex min-h-11 items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 text-sm font-bold transition-all disabled:opacity-40"
           >
             ⬇️ 이미지 다운로드
           </button>
@@ -445,7 +445,7 @@ export function EditorPublishTab(p: EditorPublishTabProps) {
                 () => editorToast.error('복사하지 못했습니다.'),
               );
             }}
-            className="min-h-11 px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 text-xs font-bold transition-all disabled:opacity-40"
+            className="min-h-11 px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 text-sm font-bold transition-all disabled:opacity-40"
           >
             🔗 URL 복사
           </button>

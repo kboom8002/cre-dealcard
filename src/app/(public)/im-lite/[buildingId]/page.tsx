@@ -16,6 +16,7 @@ import { DEMO_BUILDING_IDS } from "@/lib/demo/mobile-im-demo-data";
 import { MobileIMViewer } from "./mobile-im-viewer";
 import { fetchIMData } from "./fetch-im-data";
 import { getServerViewer } from "@/lib/server-viewer";
+import { isOwnerOrAdmin } from "@/domain/public-projection/access";
 
 interface Props {
   params: Promise<{ buildingId: string }>;
@@ -25,10 +26,20 @@ interface Props {
 // P0-SEC: React cache() — generateMetadata 와 page 가 같은 요청에서 한 번만 조회
 // (fetchIMData 내부 broker_profiles upsert / readWithMigration 부수효과 중복 방지).
 // 요청자(viewer)를 전달해 비공개 상태 문서(?doc=)는 소유자/admin 에게만 미리보기 허용.
+import type { PublicImDenyReason } from "@/lib/im-lite/im-public-guard";
+
 const loadIMData = cache(
   async (buildingId: string, docId: string | undefined, token?: string) => {
     const viewer = await getServerViewer();
-    return fetchIMData(buildingId, docId, viewer, token);
+    let denyReason: PublicImDenyReason | undefined;
+    const data = await fetchIMData(buildingId, docId, viewer, {
+      token,
+      enforceShareToken: true,
+      onDeny: (reason) => {
+        denyReason = reason;
+      },
+    });
+    return { data, denyReason, viewer };
   }
 );
 
@@ -46,7 +57,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const docId = typeof sp.doc === "string" ? sp.doc : undefined;
   const token = typeof sp.token === "string" ? sp.token : undefined;
 
-  const data = await loadIMData(buildingId, docId, token);
+  const { data } = await loadIMData(buildingId, docId, token);
 
   if (data && !(data as any).isRevoked) {
     const ogTitle = data.ogTitle || `${data.blindName} — ${data.priceBand} 투자설명서`;
@@ -88,16 +99,16 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
   const docId = typeof sp.doc === "string" ? sp.doc : undefined;
   const token = typeof sp.token === "string" ? sp.token : undefined;
 
-  const data = await loadIMData(buildingId, docId, token);
+  const { data, denyReason, viewer } = await loadIMData(buildingId, docId, token);
 
   if (!data) {
-    if (token) {
+    if (token || denyReason === "revoked") {
       return (
         <main
           className="min-h-screen bg-[#FAF9F6] text-stone-900 flex items-center justify-center px-4 py-12"
           data-testid="revoked-im-screen"
         >
-          <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="max-w-md w-full min-w-0 bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
             <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-full font-bold text-sm">
               열람 종료 안내
             </div>
@@ -120,7 +131,35 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
       );
     }
 
-    const viewer = await getServerViewer();
+    if (denyReason === "token_required") {
+      return (
+        <main
+          className="min-h-screen bg-[#FAF9F6] text-stone-900 flex items-center justify-center px-4 py-12"
+          data-testid="token-required-im-screen"
+        >
+          <div className="max-w-md w-full min-w-0 bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full font-bold text-sm">
+              전용 열람 링크 필요
+            </div>
+            <h1 className="text-xl font-extrabold text-stone-900 leading-snug break-keep">
+              🔒 담당 중개인이 발급한 열람 토큰 링크로만 확인 가능한 자료입니다
+            </h1>
+            <p className="text-base text-stone-600 leading-relaxed break-keep">
+              상세 투자설명서(IM)는 비공개 매물 보호를 위해 승인된 공유 링크를 통해서만 열람됩니다. 매물 요약 딜카드에서 열람을 요청해 주세요.
+            </p>
+            <div className="pt-1">
+              <a
+                href={`/dc/${buildingId}`}
+                className="inline-flex min-h-[48px] w-full sm:w-auto items-center justify-center rounded-xl bg-stone-900 px-5 py-3 text-base font-bold text-white hover:bg-stone-800 transition-colors cursor-pointer"
+              >
+                ← 매물 요약 딜카드에서 열람 요청하기
+              </a>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     const isAuthenticatedViewer = Boolean(
       viewer?.userId || (viewer as { id?: string | null } | null)?.id
     );
@@ -130,7 +169,7 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
         className="min-h-screen bg-[#FAF9F6] text-stone-900 flex items-center justify-center px-4 py-12"
         data-testid="im-notfound-screen"
       >
-        <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
+        <div className="max-w-md w-full min-w-0 bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-full font-bold text-sm">
             투자설명서 준비 안내
           </div>
@@ -163,7 +202,13 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
     );
   }
 
-  const isBroker = sp.mode === "broker" || Boolean((data as any).isOwner);
+  // WP-7.3D P2-4: broker UI is enabled ONLY for the server-verified owner/admin of this IM.
+  // `?mode=broker` is no longer honoured on its own (any visitor could flip the broker UI on).
+  const resolvedOwnerId =
+    (data as any).ownerId || (data as any).broker?.userId || null;
+  const isBroker =
+    Boolean((data as any).isOwner) ||
+    isOwnerOrAdmin(viewer, typeof resolvedOwnerId === "string" ? resolvedOwnerId : null);
 
   const safeDocument = (data as any).isRevoked
     ? ({

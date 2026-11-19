@@ -62,15 +62,18 @@ export default function GoldenSetDetailPage() {
       try {
         const res = await fetch(`/api/admin/golden-sets/${id}`);
         if (res.ok) {
-          const data = await res.json();
-          setGs(data);
-          setSectionType(data.section_type || '');
-          setAssetType(data.asset_type || '');
-          setPriceBand(data.price_band || '');
-          setMarkdown(data.markdown || '');
-          setJudgeScore(data.judge_score ?? 4.0);
-          setTagsStr((data.tags || []).join(', '));
-          setIsActive(data.is_active ?? true);
+          const json = await res.json();
+          const data = (json?.data ?? json) as GoldenSetDetail | null;
+          if (data) {
+            setGs(data);
+            setSectionType(data.section_type || '');
+            setAssetType(data.asset_type || '');
+            setPriceBand(data.price_band || '');
+            setMarkdown(data.markdown || '');
+            setJudgeScore(data.judge_score ?? 4.0);
+            setTagsStr((data.tags || []).join(', '));
+            setIsActive(data.is_active ?? true);
+          }
         }
       } catch { /* ignore */ }
       setLoading(false);
@@ -105,60 +108,60 @@ export default function GoldenSetDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <p className="text-muted-foreground">로딩 중...</p>
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center">
+        <p className="text-sm text-slate-600">로딩 중...</p>
       </div>
     );
   }
 
   if (!gs) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <p className="text-muted-foreground">골든셋을 찾을 수 없습니다</p>
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center">
+        <p className="text-sm text-slate-600">골든셋을 찾을 수 없습니다</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 max-w-5xl mx-auto">
+    <div className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Button variant="outline" size="sm" onClick={() => router.push('/broker/golden-admin')}>
           ← 목록
         </Button>
-        <h1 className="text-xl font-bold">골든셋 편집</h1>
-        {saved && <span className="text-sm text-emerald-400 animate-pulse">✅ 저장됨</span>}
+        <h1 className="text-xl font-bold text-slate-900">골든셋 편집</h1>
+        {saved && <span className="text-sm font-semibold text-emerald-700 animate-pulse">✅ 저장됨</span>}
       </div>
 
       {/* Meta info */}
-      <Card className="p-4 bg-neutral-900 border-neutral-800 mb-6">
+      <Card className="p-4 bg-white border-slate-200 mb-6 shadow-xs">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
-            <span className="text-muted-foreground text-xs">문서 ID</span>
-            <p className="font-mono text-xs mt-0.5 truncate">{gs.document_id}</p>
+            <span className="text-slate-600 text-sm">문서 ID</span>
+            <p className="font-mono text-sm text-slate-900 mt-0.5 truncate">{gs.document_id}</p>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">소스</span>
-            <p className="mt-0.5">{gs.source_type}</p>
+            <span className="text-slate-600 text-sm">소스</span>
+            <p className="mt-0.5 text-slate-900">{gs.source_type}</p>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">버전</span>
-            <p className="mt-0.5">v{gs.version}</p>
+            <span className="text-slate-600 text-sm">버전</span>
+            <p className="mt-0.5 text-slate-900">v{gs.version}</p>
           </div>
           <div>
-            <span className="text-muted-foreground text-xs">활용 횟수</span>
-            <p className="mt-0.5">{gs.usage_count}회</p>
+            <span className="text-slate-600 text-sm">활용 횟수</span>
+            <p className="mt-0.5 text-slate-900">{gs.usage_count}회</p>
           </div>
           {gs.section_alias && (
             <div className="col-span-2">
-              <span className="text-muted-foreground text-xs">원본 섹션명</span>
-              <p className="mt-0.5 italic">{gs.section_alias}</p>
+              <span className="text-slate-600 text-sm">원본 섹션명</span>
+              <p className="mt-0.5 italic text-slate-800">{gs.section_alias}</p>
             </div>
           )}
           {gs.source_file_name && (
             <div className="col-span-2">
-              <span className="text-muted-foreground text-xs">원본 파일</span>
-              <p className="mt-0.5">{gs.source_file_name}</p>
+              <span className="text-slate-600 text-sm">원본 파일</span>
+              <p className="mt-0.5 text-slate-800">{gs.source_file_name}</p>
             </div>
           )}
         </div>
@@ -168,11 +171,11 @@ export default function GoldenSetDetailPage() {
       <div className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">섹션 타입</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">섹션 타입</label>
             <select
               value={sectionType}
               onChange={e => setSectionType(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               {Object.entries(SECTION_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -180,28 +183,28 @@ export default function GoldenSetDetailPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">자산 유형</label>
-            <Input value={assetType} onChange={e => setAssetType(e.target.value)} className="bg-neutral-800 border-neutral-700" />
+            <label className="text-sm font-medium text-slate-700 mb-1 block">자산 유형</label>
+            <Input value={assetType} onChange={e => setAssetType(e.target.value)} className="bg-white border-slate-300 text-slate-900" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">가격대</label>
-            <Input value={priceBand} onChange={e => setPriceBand(e.target.value)} className="bg-neutral-800 border-neutral-700" />
+            <label className="text-sm font-medium text-slate-700 mb-1 block">가격대</label>
+            <Input value={priceBand} onChange={e => setPriceBand(e.target.value)} className="bg-white border-slate-300 text-slate-900" />
           </div>
         </div>
 
         {/* Markdown editor + preview */}
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">마크다운 본문 ({markdown.length}자)</label>
+          <label className="text-sm font-medium text-slate-700 mb-1 block">마크다운 본문 ({markdown.length}자)</label>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <textarea
               value={markdown}
               onChange={e => setMarkdown(e.target.value)}
               rows={16}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 font-mono resize-y"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 font-mono resize-y"
             />
-            <div className="px-4 py-3 rounded-lg bg-neutral-900 border border-neutral-800 overflow-auto max-h-[400px]">
-              <p className="text-[10px] text-muted-foreground mb-2">미리보기</p>
-              <div className="prose prose-sm prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+            <div className="px-4 py-3 rounded-lg bg-white border border-slate-200 overflow-auto max-h-[400px]">
+              <p className="text-sm font-medium text-slate-600 mb-2">미리보기</p>
+              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed text-slate-900">
                 {markdown}
               </div>
             </div>
@@ -210,8 +213,8 @@ export default function GoldenSetDetailPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              품질 점수: <span className="font-bold text-foreground">{judgeScore.toFixed(1)}</span>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">
+              품질 점수: <span className="font-bold text-slate-900">{judgeScore.toFixed(1)}</span>
             </label>
             <input
               type="range"
@@ -220,37 +223,40 @@ export default function GoldenSetDetailPage() {
               step="0.1"
               value={judgeScore}
               onChange={e => setJudgeScore(parseFloat(e.target.value))}
-              className="w-full"
+              className="w-full min-h-[44px]"
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">태그 (쉼표 구분)</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">태그 (쉼표 구분)</label>
             <Input
               value={tagsStr}
               onChange={e => setTagsStr(e.target.value)}
               placeholder="오피스, 강남, 50억이상"
-              className="bg-neutral-800 border-neutral-700"
+              className="bg-white border-slate-300 text-slate-900"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="text-xs text-muted-foreground">활성 상태</label>
+          <label className="text-sm font-medium text-slate-700">활성 상태</label>
           <button
+            type="button"
             onClick={() => setIsActive(!isActive)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-700 text-neutral-400'
+            className={`min-h-[44px] px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors cursor-pointer ${
+              isActive
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-slate-100 text-slate-700 border-slate-300'
             }`}
           >
             {isActive ? '✅ 활성' : '⛔ 비활성'}
           </button>
         </div>
 
-        <div className="flex gap-3 pt-4 border-t border-neutral-800">
-          <Button onClick={handleSave} disabled={saving} className="bg-primary text-primary-foreground px-8">
+        <div className="flex gap-3 pt-4 border-t border-slate-200">
+          <Button onClick={handleSave} disabled={saving} className="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white px-8">
             {saving ? '저장 중...' : '💾 저장'}
           </Button>
-          <Button variant="outline" onClick={() => router.push('/broker/golden-admin')}>
+          <Button variant="outline" onClick={() => router.push('/broker/golden-admin')} className="min-h-[44px]">
             취소
           </Button>
         </div>

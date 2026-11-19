@@ -114,24 +114,34 @@ export async function getMonthlyUsage(
 
     let counter = fetchedCounter;
 
-    // 2. 레코드가 존재하지 않는 경우 자동 초기화 생성
+    // 2. 레코드가 존재하지 않는 경우 자동 초기화 생성 (조회가 이미 성공했으므로 초기화 실패는 비치명적)
     if (!counter && !error) {
-      const { data: newCounter, error: insertError } = await supabase
-        .from("usage_counters")
-        .insert({
+      try {
+        type UsageInsertResult = {
+          data: { current_count: number; max_limit: number | null } | null;
+          error: { message: string } | null;
+        };
+        const insertCall = supabase.from("usage_counters").insert({
           user_id: userId,
           feature_name: featureName,
           billing_month: billingMonth,
           current_count: 0,
           max_limit: tierLimit,
-        })
-        .select("current_count, max_limit")
-        .single();
-
-      if (insertError) {
-        log.error("[usage-tracker] Failed to initialize usage counter:", insertError.message);
-      } else {
-        counter = newCounter;
+        }) as unknown as {
+          select?: (cols: string) => { single: () => PromiseLike<UsageInsertResult> };
+        } & PromiseLike<UsageInsertResult>;
+        const insertRes =
+          typeof insertCall.select === "function"
+            ? await insertCall.select("current_count, max_limit").single()
+            : await insertCall;
+        if (insertRes?.error) {
+          log.error("[usage-tracker] Failed to initialize usage counter:", insertRes.error.message);
+        } else if (insertRes?.data && !Array.isArray(insertRes.data)) {
+          counter = insertRes.data;
+        }
+      } catch (initErr: unknown) {
+        const initMsg = initErr instanceof Error ? initErr.message : String(initErr);
+        log.warn("[usage-tracker] Best-effort counter initialization skipped:", initMsg);
       }
     }
 

@@ -15,21 +15,28 @@ export interface ReaderFontScaleToggleProps {
 }
 
 const READER_SCALE_LABELS: Record<UiFontScale, string> = {
-  compact: "표준",
+  compact: "작게",
   normal: "표준",
   large: "크게",
   xlarge: "아주 크게",
 };
 
+const READER_SCALE_ORDER: readonly UiFontScale[] = [
+  "compact",
+  "normal",
+  "large",
+  "xlarge",
+];
+
 function nextReaderScale(current: UiFontScale): UiFontScale {
-  if (current === "compact" || current === "normal") return "large";
-  if (current === "large") return "xlarge";
-  return "normal";
+  const idx = READER_SCALE_ORDER.indexOf(current);
+  if (idx === -1) return "normal";
+  return READER_SCALE_ORDER[(idx + 1) % READER_SCALE_ORDER.length];
 }
 
 /**
  * Senior-friendly 60~70s buyer font scale toggle for public viewers (/dc/[id], /im-lite/[buildingId]).
- * Cycles "가+ 글자 크기" (표준 -> 크게 -> 아주 크게) with min-h-[44px] touch target.
+ * Cycles "가+ 글자 크기" (작게 -> 표준 -> 크게 -> 아주 크게) with min-h-[44px] touch target.
  */
 export function ReaderFontScaleToggle({
   variant = "light",
@@ -137,7 +144,7 @@ export function ReaderFontScaleToggle({
       <span>가+ 글자 크기</span>
       <span
         data-testid="reader-font-scale-label"
-        className={`px-2 py-0.5 rounded-md text-xs font-extrabold ${badgeClasses}`}
+        className={`px-2 py-0.5 rounded-md text-sm font-extrabold ${badgeClasses}`}
       >
         {stepLabel}
       </span>

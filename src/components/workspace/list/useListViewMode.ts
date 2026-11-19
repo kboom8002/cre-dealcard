@@ -30,7 +30,9 @@ export function useListViewMode(): [ListViewMode, (next: ListViewMode) => void] 
   const [mode, setMode] = useState<ListViewMode>("simple");
 
   useEffect(() => {
-    setMode(readStoredListViewMode());
+    const initTimer = window.setTimeout(() => {
+      setMode(readStoredListViewMode());
+    }, 0);
     const onSync = (e: Event) => {
       const next = (e as CustomEvent<ListViewMode>).detail;
       if (isListViewMode(next)) setMode(next);
@@ -41,6 +43,7 @@ export function useListViewMode(): [ListViewMode, (next: ListViewMode) => void] 
     window.addEventListener(LIST_VIEW_EVENT, onSync);
     window.addEventListener("storage", onStorage);
     return () => {
+      window.clearTimeout(initTimer);
       window.removeEventListener(LIST_VIEW_EVENT, onSync);
       window.removeEventListener("storage", onStorage);
     };

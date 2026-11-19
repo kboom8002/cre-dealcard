@@ -1,5 +1,6 @@
 import React, { cache } from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -9,6 +10,7 @@ import {
   classifyIssueDate,
   findIssueForDate,
   findLatestIssueDate,
+  isPrefetchOrScannerRequest,
   maskPublicAddresses,
   resolvePublicBroker,
   resolvePublicBrokerStatutoryProfile,
@@ -16,6 +18,9 @@ import {
   type MagazineContent,
 } from "@/lib/magazine/public-page-data";
 import { isUnpublishedContent } from "@/lib/magazine/get-published-issue";
+import { isMagazineTrackingEnabled } from "@/lib/magazine/send-flags";
+import { verifySidToken } from "@/domain/magazine/sid-token";
+import { isUuid } from "@/lib/magazine/slug";
 import { buildMagazineTitle, parseViewerTarget } from "@/lib/magazine/view-helpers";
 import { UnpublishedNotice, type UnpublishedReason } from "@/components/magazine/UnpublishedNotice";
 import { PreviewReceiver } from "@/components/magazine/PreviewReceiver";
@@ -227,35 +232,56 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
     typeof state.brokerVibe?.user_id === "string"
       ? state.brokerVibe.user_id.trim()
       : "";
-  if (
-    !isPreview &&
-    rawSid &&
-    rawSid.length <= 120 &&
-    /^[a-zA-Z0-9:_-]+$/.test(rawSid) &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      brokerUserId
+  const sidBrokerKeys = Array.from(
+    new Set(
+      [state.brokerSlug, brokerUserId, brokerId].filter(
+        (k): k is string => typeof k === "string" && k.length > 0
+      )
     )
-  ) {
+  );
+  if (!isPreview && rawSid && isUuid(brokerUserId) && isMagazineTrackingEnabled()) {
+    let reqHeaders: Awaited<ReturnType<typeof headers>> | null = null;
     try {
-      const svc = createServiceClient();
-      await svc.from("activity_events").insert({
-        actor_id: brokerUserId,
-        actor_role: "system",
-        event_type: "magazine_view",
-        entity_type: "building_ssot_lite",
-        entity_id: brokerUserId,
-        metadata: {
-          broker_id: brokerUserId,
-          viewer_role: "subscriber",
-          recipient_id: rawSid,
-          subscriber_id: rawSid.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, ""),
-          issue_date: date,
-          source: "sid_link",
-        },
-        created_at: new Date().toISOString(),
-      });
+      reqHeaders = await headers();
     } catch {
-      // Non-blocking magazine view tracking
+      reqHeaders = null;
+    }
+    if (!isPrefetchOrScannerRequest(reqHeaders)) {
+      const verifiedSid = verifySidToken(rawSid);
+      if (verifiedSid.ok && sidBrokerKeys.includes(verifiedSid.brokerKey)) {
+        try {
+          const svc = createServiceClient();
+          const { data: sub } = await svc
+            .from("magazine_subscribers")
+            .select("id, status")
+            .eq("id", verifiedSid.subscriberId)
+            .in("broker_id", sidBrokerKeys)
+            .maybeSingle();
+          if (sub && sub.status !== "unsubscribed") {
+            const resolvedEditionUuid =
+              typeof state.data.id === "string" && isUuid(state.data.id) ? state.data.id : null;
+            await svc.from("activity_events").insert({
+              actor_id: brokerUserId,
+              actor_role: "system",
+              event_type: "magazine_view",
+              entity_type: "building_ssot_lite",
+              entity_id: brokerUserId,
+              metadata: {
+                broker_id: brokerUserId,
+                viewer_role: "subscriber",
+                recipient_id: verifiedSid.subscriberId,
+                subscriber_id: verifiedSid.subscriberId,
+                issue_date: date,
+                ...(resolvedEditionUuid ? { edition_id: resolvedEditionUuid } : {}),
+                source: "sid_link",
+              },
+              created_at: new Date().toISOString(),
+            });
+          }
+        } catch {
+          // Non-blocking magazine view tracking
+        }
+      }
     }
   }
 

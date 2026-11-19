@@ -546,14 +546,103 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   };
 
   const statusBadge = {
-    pending_approval: { label: '검토 대기', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-    published: { label: '공개됨', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    revision_needed: { label: '수정 요청', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-    draft: { label: '초안', color: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30' },
-  }[docStatus] ?? { label: docStatus, color: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30' };
+    pending_approval: { label: '검토 대기', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+    published: { label: '공개됨', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    revision_needed: { label: '수정 요청', color: 'bg-red-50 text-red-700 border-red-200' },
+    draft: { label: '초안', color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  }[docStatus] ?? { label: docStatus, color: 'bg-slate-100 text-slate-700 border-slate-300' };
 
   const allVerified = verifiedSet.size === sections.length;
   const [isPptxDownloading, setIsPptxDownloading] = useState(false);
+  const [isCopyingShareLink, setIsCopyingShareLink] = useState(false);
+  const [buyerShareUrl, setBuyerShareUrl] = useState<string>('');
+
+  const handleCopyBuyerShareLink = async () => {
+    if (isCopyingShareLink) return;
+    setIsCopyingShareLink(true);
+    const origin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'https://credeal.net';
+    let targetUrl = `${origin}/im-lite/${encodeURIComponent(buildingId)}`;
+
+    try {
+      let resolvedToken = '';
+      try {
+        const res = await fetch(
+          `/api/broker/share-link?buildingId=${encodeURIComponent(buildingId)}`,
+        );
+        if (res.ok) {
+          const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+          const linksArr = Array.isArray(data?.links)
+            ? (data?.links as Array<Record<string, unknown>>)
+            : [];
+          const rawUrl =
+            typeof data?.fullShareUrl === 'string' && data.fullShareUrl.trim()
+              ? data.fullShareUrl.trim()
+              : typeof data?.shareUrl === 'string' && data.shareUrl.trim()
+              ? data.shareUrl.trim()
+              : '';
+          const rawToken =
+            typeof data?.token === 'string' && data.token.trim()
+              ? data.token.trim()
+              : typeof data?.shareToken === 'string' && data.shareToken.trim()
+              ? data.shareToken.trim()
+              : typeof linksArr[0]?.token === 'string' && linksArr[0].token.trim()
+              ? linksArr[0].token.trim()
+              : '';
+          if (rawUrl) {
+            targetUrl = /^https?:\/\//i.test(rawUrl)
+              ? rawUrl
+              : `${origin}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+          }
+          if (rawToken) {
+            resolvedToken = rawToken;
+          }
+        }
+      } catch {
+        // Fallback below
+      }
+
+      if (!resolvedToken && !targetUrl.includes('token=')) {
+        try {
+          const bundleRes = await fetch('/api/broker/inbox/actions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'prepare_copy_bundle',
+              buildingId,
+              buildingTitle: editableTitle,
+              assetKind: 'im',
+            }),
+          });
+          if (bundleRes.ok) {
+            const bundleData = (await bundleRes.json().catch(() => null)) as Record<string, unknown> | null;
+            if (typeof bundleData?.shareToken === 'string' && bundleData.shareToken.trim()) {
+              resolvedToken = bundleData.shareToken.trim();
+            } else if (typeof bundleData?.fullShareUrl === 'string' && bundleData.fullShareUrl.trim()) {
+              targetUrl = bundleData.fullShareUrl.trim();
+            }
+          }
+        } catch {
+          // Graceful fallback to untokened buyer link when API unavailable
+        }
+      }
+
+      if (resolvedToken && !targetUrl.includes('token=')) {
+        targetUrl = `${origin}/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(resolvedToken)}`;
+      }
+      setBuyerShareUrl(targetUrl);
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(targetUrl);
+      }
+      toast.success('🔗 투자설명서 링크가 복사되었습니다. 카카오톡에 붙여넣으세요.');
+    } catch {
+      toast.error('링크 복사에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsCopyingShareLink(false);
+    }
+  };
 
   const handleDownloadPptx = async () => {
     if (isPptxDownloading) return;
@@ -593,18 +682,18 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white pb-20">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* Top bar */}
-      <div className="sticky top-0 z-40 bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800">
-        <div className="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
-          <Link href={`/broker/deal-card/${buildingId}`} className="text-[16px] font-bold text-neutral-200 hover:text-white transition-colors">
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <Link href={`/broker/deal-card/${buildingId}`} className="min-h-[44px] inline-flex items-center text-base font-bold text-slate-800 hover:text-slate-950 transition-colors">
             ← 딜카드 화면으로 돌아가기
           </Link>
           <div className="flex items-center gap-2.5">
-            <span className={`px-3 py-1 text-[13px] font-bold rounded-full border ${statusBadge.color}`}>
+            <span className={`px-3 py-1.5 text-sm font-bold rounded-full border ${statusBadge.color}`}>
               {statusBadge.label}
             </span>
-            <Link href={`/broker/basic-im-studio/${buildingId}`} className="text-[14px] font-semibold text-sky-300 hover:text-sky-200 bg-sky-500/10 border border-sky-500/30 px-3.5 py-2 min-h-[40px] flex items-center rounded-xl transition-colors whitespace-nowrap">
+            <Link href={`/broker/basic-im-studio/${buildingId}`} className="text-sm font-semibold text-blue-700 hover:text-blue-800 bg-blue-50 border border-blue-200 px-3.5 py-2 min-h-[44px] flex items-center rounded-xl transition-colors whitespace-nowrap">
               📐 슬라이드 상세 편집
             </Link>
           </div>
@@ -628,10 +717,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           />
         </StaggerItem>
 
-        <StaggerItem className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-6 shadow-md">
+        <StaggerItem className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 shadow-xs">
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">투자설명서(Basic IM) 완성 · 슬라이드 편집</h1>
-            <p className="text-[16px] text-neutral-200 leading-relaxed">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">투자설명서(Basic IM) 완성 · 슬라이드 편집</h1>
+            <p className="text-base text-slate-700 leading-relaxed">
               10면 PPTX 슬라이드와 10종 색상 테마를 실시간 미리보기로 확인·편집한 뒤 내려받거나, 지금 바로 다운로드할 수 있습니다.
             </p>
           </div>
@@ -639,7 +728,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             <Link
               href={`/broker/basic-im-studio/${buildingId}`}
               id="approval-top-studio-btn"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] shadow-lg transition-all active:scale-[0.98]"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[54px] rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-base shadow-sm transition-all active:scale-[0.98]"
             >
               <span>📐</span>
               <span>슬라이드 미리보기 · 편집 후 다운로드</span>
@@ -651,7 +740,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               onClick={handleDownloadPptx}
               disabled={isPptxDownloading}
               id="approval-top-download-pptx"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 min-h-[54px] rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold text-[15px] shadow-sm transition-all disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 min-h-[54px] rounded-xl bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 font-extrabold text-[15px] shadow-xs transition-all disabled:opacity-60 cursor-pointer"
             >
               <span>⚡</span>
               <span>{isPptxDownloading ? 'PPTX 준비 중...' : 'PPTX 바로 다운로드'}</span>
@@ -660,20 +749,18 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               type="button"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => {
-                navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
-                toast.success("🔗 투자설명서 링크가 복사되었습니다. 카카오톡에 붙여넣으세요.");
-              }}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[54px] rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white font-bold text-[15px] transition-colors"
+              onClick={() => void handleCopyBuyerShareLink()}
+              disabled={isCopyingShareLink}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[54px] rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-900 font-bold text-[15px] transition-colors cursor-pointer disabled:opacity-60"
             >
-              <span>🔗 카톡용 링크 복사</span>
+              <span>{isCopyingShareLink ? '⏳ 링크 발급 중...' : '🔗 카톡용 링크 복사'}</span>
             </motion.button>
             <motion.button
               type="button"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 min-h-[54px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[15px] transition-colors shadow-md"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-3.5 min-h-[54px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[15px] transition-colors shadow-xs cursor-pointer"
             >
               <span>🖥️ 웹 화면 열기</span>
               <span>↗</span>
@@ -683,22 +770,23 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
         {/* Empty State */}
         {sections.length === 0 && actionStatus !== 'done' && (
-          <div className="text-center py-16 px-6">
+          <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 mb-6">
             <div className="text-5xl mb-4">📄</div>
-            <h2 className="text-lg font-bold text-white mb-2">섹션 데이터를 불러올 수 없습니다</h2>
-            <p className="text-sm text-neutral-400 mb-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-2">섹션 데이터를 불러올 수 없습니다</h2>
+            <p className="text-sm text-slate-600 mb-6">
               AI 투자설명서가 아직 생성 중이거나, 데이터가 저장되지 않았을 수 있습니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
                 href={`/broker/deal-card/${buildingId}`}
-                className="inline-block px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
+                className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 text-sm font-medium rounded-xl transition-colors"
               >
                 ← 딜카드로 돌아가기
               </a>
               <button
+                type="button"
                 onClick={() => window.location.reload()}
-                className="inline-block px-6 py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-xl transition-colors"
+                className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
               >
                 🔄 다시 불러오기
               </button>
@@ -708,28 +796,28 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
         {/* Result message */}
         {actionStatus === 'done' && (
-          <div className="mb-6 p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-center">
+          <div className="mb-6 p-6 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-center">
             <h3 className="text-lg font-bold mb-2">✅ {resultMsg}</h3>
-            <p className="text-sm text-emerald-500/80 mb-4">투자설명서가 성공적으로 공개되었습니다.</p>
+            <p className="text-sm text-emerald-700 mb-4">투자설명서가 성공적으로 공개되었습니다.</p>
             <a
               href={`/im-lite/${buildingId}?doc=${docId}`}
-              className="inline-block px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+              className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-sm transition-colors"
             >
               퍼블릭 IM 확인하기
             </a>
           </div>
         )}
         {actionStatus === 'error' && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
             ❌ {resultMsg}
           </div>
         )}
 
-        {/* 렌트롤 게이트(V01·V12) 차단 패널 — V12 만 승인 시점에 사유를 적어 해제할 수 있다 */}
+        {/* 렌트롤 게이트(V01·V12) 차단 패널 — V12 만 승인 시점 사유로 해제 */}
         {docStatus !== 'published' && blockedGates.length > 0 && (
-          <div data-testid="approve-blocked-gates" className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
-            <h3 className="text-xs font-bold text-amber-400 mb-2">⛔ 승인 차단 — 렌트롤 검증 게이트</h3>
-            <ul className="space-y-1 text-[11px] text-amber-200/90">
+          <div data-testid="approve-blocked-gates" className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm">
+            <h3 className="text-sm font-bold text-amber-900 mb-2">⛔ 승인 차단 — 렌트롤 검증 게이트</h3>
+            <ul className="space-y-1 text-sm text-amber-800">
               {blockedGates.map((g) => (
                 <li key={g.id} data-testid={`approve-blocked-gate-${g.id}`}>
                   <span className="font-bold">{g.id}</span> — {g.label}
@@ -738,7 +826,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             </ul>
             {hasV12Block && (
               <div className="mt-3 space-y-2">
-                <label className="block text-[10px] font-semibold text-neutral-400" htmlFor="approve-v12-override-reason">
+                <label className="block text-sm font-semibold text-slate-800" htmlFor="approve-v12-override-reason">
                   V12 해제 사유 (필수, {V12_REASON_MAX}자 이하 — 예: 일부 층만 매각)
                 </label>
                 <textarea
@@ -748,7 +836,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   onChange={(e) => setV12Reason(e.target.value)}
                   maxLength={V12_REASON_MAX}
                   rows={2}
-                  className="w-full text-xs bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-primary/60"
+                  className="w-full min-h-[44px] text-base bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
                   placeholder="면적 단위 혼동이 아닌 이유를 적어주세요"
                 />
                 <button
@@ -756,12 +844,12 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   data-testid="approve-v12-override-apply"
                   onClick={handleV12Override}
                   disabled={v12Applying || !v12Reason.trim()}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="min-h-[44px] px-4 py-2 text-sm font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                   {v12Applying ? '적용 중…' : '사유 입력 후 해제'}
                 </button>
                 {hasOtherBlock && (
-                  <p className="text-[10px] text-neutral-500">V01 등 다른 차단 게이트는 해제할 수 없습니다 — 렌트롤을 수정해 재업로드해주세요.</p>
+                  <p className="text-sm text-slate-600">V01 등 다른 차단 게이트는 해제할 수 없습니다 — 렌트롤을 수정해 재업로드해주세요.</p>
                 )}
               </div>
             )}
@@ -785,28 +873,28 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         })()}
 
         {/* 📊 데이터 품질 모니터링 */}
-        <div className="mb-6 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/50">
+        <div className="mb-6 p-5 rounded-2xl border border-slate-200 bg-white shadow-xs">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-bold text-neutral-300 flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <span>📊 제안서 필수 데이터 자동 점검</span>
               <SeniorTermTooltip termKey="필수 데이터 4항목" buttonLabel="도움말" />
             </h3>
             <SeniorTermTooltip termKey="준비도 점수" buttonLabel="준비도 점수 안내" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
-              <span className="text-neutral-400 font-medium">데이터 자동 연동 상태</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-slate-600 font-medium">데이터 자동 연동 상태</span>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-lg font-extrabold text-emerald-400">
+                <p className="text-lg font-extrabold text-emerald-700">
                   ✓ 정부 공적장부 · 입지 데이터 반영됨 ({readinessScore}점)
                 </p>
                 <SeniorTermTooltip termKey="준비도 점수" buttonLabel="점수 도움말" />
               </div>
             </div>
-            <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
-              <span className="text-neutral-400 font-medium">제안서 분석 유형</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-slate-600 font-medium">제안서 분석 유형</span>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-lg font-extrabold text-primary">
+                <p className="text-lg font-extrabold text-blue-700">
                   {qualityBadge.emoji} {qualityBadge.label.replace(/^[A-D]등급\s*[—-]\s*/, '')}
                 </p>
               </div>
@@ -814,7 +902,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           </div>
           {/* 포스처별 맞춤형 체크리스트 */}
           <div className="mt-4 space-y-2">
-            <p className="text-[13px] font-semibold text-neutral-400 mb-1.5">필수 항목 확인 결과</p>
+            <p className="text-sm font-semibold text-slate-700 mb-1.5">필수 항목 확인 결과</p>
             {(() => {
               const hasPrice = !!(ssotSummary?.asking_price_manwon || (content as any)?.asking_price_manwon || (content as any)?.price_band);
               const baseItems = [
@@ -871,10 +959,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 });
               }
               return baseItems.map((item, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-[14px]">
-                  <span className={item.ok ? 'text-emerald-400' : 'text-amber-400'}>{item.ok ? '✅' : 'ℹ️'}</span>
-                  <span className="font-bold text-neutral-200">{item.label}</span>
-                  <span className="text-neutral-400 ml-auto truncate max-w-[320px]">{item.detail}</span>
+                <div key={i} className="flex items-center gap-2.5 text-sm">
+                  <span className={item.ok ? 'text-emerald-700' : 'text-amber-700'}>{item.ok ? '✅' : 'ℹ️'}</span>
+                  <span className="font-bold text-slate-900">{item.label}</span>
+                  <span className="text-slate-600 ml-auto truncate max-w-[320px]">{item.detail}</span>
                 </div>
               ));
             })()}
@@ -907,22 +995,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               }
             />
             <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-bold text-neutral-200">
+              <h3 className="text-base font-bold text-slate-900">
                 📷 매물 사진 관리 ({photos.filter(p => !p.excluded).length}/{photos.length}장 사용)
               </h3>
               <SeniorTermTooltip termKey="외관/대표 사진" buttonLabel="외관/대표 사진 안내" />
             </div>
-            <p className="text-[14px] text-neutral-400 mb-3 leading-relaxed">
-              표지에 쓸 사진은 <b className="text-amber-400">📌 대표</b>, 건물 전체 모습은 <b className="text-blue-400">🏢 외관</b>을 눌러주세요. 도면·서류·명함 등은 <b className="text-rose-400">🚫 제외</b>를 누르면 IM에서 빠집니다.
+            <p className="text-sm text-slate-600 mb-3 leading-relaxed">
+              표지에 쓸 사진은 <b className="text-amber-700">📌 대표</b>, 건물 전체 모습은 <b className="text-blue-700">🏢 외관</b>을 눌러주세요. 도면·서류·명함 등은 <b className="text-rose-700">🚫 제외</b>를 누르면 IM에서 빠집니다.
             </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {photos.map((photo, i) => {
                   const cat = photo.category || photo.type || '';
                   const isWebUrl = typeof photo.url === 'string' && (photo.url.startsWith('http') || photo.url.startsWith('/') || photo.url.startsWith('data:') || photo.url.startsWith('blob:'));
                   return (
-                  <div key={i} className={`space-y-1.5 p-2.5 rounded-xl border border-neutral-800 bg-neutral-900/40 ${photo.excluded ? 'opacity-40' : ''}`}>
+                  <div key={i} className={`space-y-1.5 p-2.5 rounded-xl border border-slate-200 bg-white shadow-xs ${photo.excluded ? 'opacity-45' : ''}`}>
                     <div 
-                      className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all relative flex items-center justify-center"
+                      className="w-full aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer hover:ring-2 hover:ring-blue-600/50 transition-all relative flex items-center justify-center"
                       onClick={() => setLightboxIdx(i)}
                     >
                       {isWebUrl ? (
@@ -937,15 +1025,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                       ) : null}
                       <div className="flex flex-col items-center justify-center p-3 text-center select-none pointer-events-none">
                         <span className="text-2xl mb-1">🖼️</span>
-                        <span className="text-[12px] font-bold text-neutral-300 line-clamp-2">{photo.caption || `매물 사진 #${i + 1}`}</span>
-                        <span className="text-[11px] text-emerald-400 mt-0.5 font-medium">✓ PPTX 반영됨</span>
+                        <span className="text-sm font-bold text-slate-800 line-clamp-2">{photo.caption || `매물 사진 #${i + 1}`}</span>
+                        <span className="text-sm text-emerald-700 mt-0.5 font-medium">✓ PPTX 반영됨</span>
                       </div>
                       {photo.excluded ? (
-                        <span className="absolute top-1.5 left-1.5 bg-rose-600 text-white text-[11px] px-2.5 py-0.5 rounded-full font-bold shadow">🚫 IM 제외</span>
+                        <span className="absolute top-1.5 left-1.5 bg-rose-600 text-white text-sm px-2.5 py-0.5 rounded-full font-bold shadow">🚫 IM 제외</span>
                       ) : photo.role === 'cover' ? (
-                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-slate-950 text-[11px] px-2.5 py-0.5 rounded-full font-extrabold shadow">📌 대표</span>
+                        <span className="absolute top-1.5 left-1.5 bg-amber-500 text-slate-950 text-sm px-2.5 py-0.5 rounded-full font-extrabold shadow">📌 대표</span>
                       ) : photo.role === 'exterior' ? (
-                        <span className="absolute top-1.5 left-1.5 bg-blue-600 text-white text-[11px] px-2.5 py-0.5 rounded-full font-bold shadow">🏢 외관</span>
+                        <span className="absolute top-1.5 left-1.5 bg-blue-600 text-white text-sm px-2.5 py-0.5 rounded-full font-bold shadow">🏢 외관</span>
                       ) : null}
                     </div>
                     <select
@@ -953,7 +1041,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                       onChange={(e) => { if (e.target.value) setPhotoCategory(i, e.target.value); }}
                       disabled={!!photo.excluded}
                       aria-label={`사진 ${i+1} 유형`}
-                      className="w-full text-[13px] bg-neutral-950 border border-neutral-800 rounded-lg px-2.5 py-2 text-neutral-200 focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                      className="w-full min-h-[44px] text-base bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 focus:outline-none focus:border-blue-600 disabled:opacity-50"
                     >
                       <option value="">유형 선택</option>
                       {TAGGABLE_PHOTO_CATEGORIES.map((c) => (
@@ -966,7 +1054,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                       onChange={(e) => updatePhotoCaption(i, e.target.value)}
                       onBlur={() => { void savePhotoCaptions(); }}
                       placeholder={`사진 ${i+1} 캡션 (선택 또는 아래 칩 클릭)`}
-                      className="w-full text-[13px] bg-neutral-950 border border-neutral-800 rounded-lg px-2.5 py-2 text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
+                      className="w-full min-h-[44px] text-base bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
                     />
                     <datalist id={`approval-caption-presets-${i}`}>
                       {getPhotoCaptionPresets(cat).map((preset) => (
@@ -985,7 +1073,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                             setPhotos(updated);
                             void savePhotoCaptions(updated);
                           }}
-                          className="shrink-0 text-[11px] px-2 py-0.5 rounded bg-neutral-800 hover:bg-primary/20 text-neutral-300 hover:text-primary transition-colors whitespace-nowrap"
+                          className="shrink-0 min-h-[44px] text-sm px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-blue-700 transition-colors whitespace-nowrap cursor-pointer"
                         >
                           {preset}
                         </button>
@@ -1004,8 +1092,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                           setPhotos(updated);
                           void savePhotoCaptions(updated);
                         }}
-                        className={`text-xs px-2.5 py-1.5 min-h-[34px] rounded-lg font-bold transition-colors ${
-                          photo.role === 'cover' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
+                        className={`text-sm px-2.5 py-1.5 min-h-[44px] rounded-lg font-bold transition-colors cursor-pointer ${
+                          photo.role === 'cover' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900'
                         }`}
                       >📌 대표</button>
                       <button
@@ -1019,8 +1107,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                           setPhotos(updated);
                           void savePhotoCaptions(updated);
                         }}
-                        className={`text-xs px-2.5 py-1.5 min-h-[34px] rounded-lg font-bold transition-colors ${
-                          photo.role === 'exterior' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
+                        className={`text-sm px-2.5 py-1.5 min-h-[44px] rounded-lg font-bold transition-colors cursor-pointer ${
+                          photo.role === 'exterior' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900'
                         }`}
                       >🏢 외관</button>
                       <button
@@ -1032,8 +1120,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                             ? { excluded: true, role: 'general', isHero: false }
                             : { excluded: false });
                         }}
-                        className={`text-xs px-2.5 py-1.5 min-h-[34px] rounded-lg font-bold transition-colors ${
-                          photo.excluded ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
+                        className={`text-sm px-2.5 py-1.5 min-h-[44px] rounded-lg font-bold transition-colors cursor-pointer ${
+                          photo.excluded ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900'
                         }`}
                       >🚫 제외</button>
                       <SeniorTermTooltip termKey="외관/대표 사진" buttonLabel="도움말" />
@@ -1058,14 +1146,18 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 >
                   {/* 닫기 버튼 */}
                   <button 
-                    className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl z-10"
+                    type="button"
+                    aria-label="닫기"
+                    className="absolute top-4 right-4 min-w-[44px] min-h-[44px] text-white/80 hover:text-white text-2xl z-10 cursor-pointer"
                     onClick={() => setLightboxIdx(null)}
                   >✕</button>
 
                   {/* 좌측 화살표 */}
                   {lightboxIdx > 0 && (
                     <button 
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl font-light z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60"
+                      type="button"
+                      aria-label="이전 사진"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl font-light z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 cursor-pointer"
                       onClick={(e) => { e.stopPropagation(); setLightboxIdx(lightboxIdx - 1); }}
                     >‹</button>
                   )}
@@ -1077,7 +1169,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                       alt={photos[lightboxIdx].caption || `사진 ${lightboxIdx + 1}`}
                       className="max-w-full max-h-[80vh] object-contain rounded-lg"
                     />
-                    <p className="text-neutral-400 text-sm mt-2">
+                    <p className="text-slate-200 text-sm mt-2">
                       {photos[lightboxIdx].caption || `사진 ${lightboxIdx + 1}`} ({lightboxIdx + 1}/{photos.length})
                     </p>
                   </div>
@@ -1085,7 +1177,9 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   {/* 우측 화살표 */}
                   {lightboxIdx < photos.length - 1 && (
                     <button 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl font-light z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60"
+                      type="button"
+                      aria-label="다음 사진"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white text-4xl font-light z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 cursor-pointer"
                       onClick={(e) => { e.stopPropagation(); setLightboxIdx(lightboxIdx + 1); }}
                     >›</button>
                   )}
@@ -1095,21 +1189,21 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         )}
 
         {/* 📋 투자 요약 편집 (Hero Content) */}
-        <div className="mb-6 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/30 space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
-            <h3 className="text-[16px] font-bold text-neutral-200">📋 상단 투자 요약 편집 (표지 · 핵심 요약)</h3>
+        <div className="mb-6 p-5 rounded-2xl border border-slate-200 bg-white space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+            <h3 className="text-base font-bold text-slate-900">📋 상단 투자 요약 편집 (표지 · 핵심 요약)</h3>
             {isHeroDirty && (
-              <span className="text-xs text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded font-bold">
+              <span className="text-sm text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded font-bold">
                 ⚠️ 미저장 (승인 시 자동 저장됨)
               </span>
             )}
           </div>
 
           {/* IM 뷰어 스타일 미리보기 + 편집 */}
-          <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-5 space-y-5">
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-5 space-y-5">
             {/* 제목 */}
             <div className="space-y-1.5">
-              <label className="text-[14px] text-neutral-300 font-bold block">
+              <label className="text-sm text-slate-800 font-bold block">
                 IM 제목 (공유 화면 · 표지에 표시)
               </label>
               <input
@@ -1117,13 +1211,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 value={heroTitle}
                 onChange={(e) => { setHeroTitle(e.target.value); setIsHeroDirty(true); }}
                 placeholder="예: 강남역 초역세권 프라임 오피스 매각"
-                className="w-full bg-neutral-900 border border-neutral-700 focus:border-primary rounded-xl px-4 py-3 text-xl font-black text-white placeholder-neutral-500 outline-none transition-colors"
+                className="w-full min-h-[44px] bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-4 py-3 text-xl font-black text-slate-900 placeholder:text-slate-400 outline-none transition-colors"
               />
             </div>
 
             {/* 서브제목 — 핵심 투자 하이라이트 헤드카피 */}
             <div className="space-y-1.5">
-              <label className="text-[14px] text-neutral-300 font-bold block">
+              <label className="text-sm text-slate-800 font-bold block">
                 서브제목 (핵심 투자 하이라이트 한 줄 문구)
               </label>
               <input
@@ -1131,35 +1225,35 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 value={heroSubtitle}
                 onChange={(e) => { setHeroSubtitle(e.target.value); setIsHeroDirty(true); }}
                 placeholder="예: 연 수익률 6.4% · 공실 Zero · 우량 임차 기반 안정 수익형"
-                className="w-full bg-neutral-900 border border-neutral-700 focus:border-emerald-500 rounded-xl px-4 py-3 text-lg font-bold text-primary placeholder-neutral-500 outline-none transition-colors"
+                className="w-full min-h-[44px] bg-white border border-slate-300 focus:border-emerald-600 rounded-xl px-4 py-3 text-lg font-bold text-blue-700 placeholder:text-slate-400 outline-none transition-colors"
               />
             </div>
 
             {/* 핵심 투자 포인트 */}
             <div className="space-y-1.5">
-              <label className="text-[14px] text-neutral-300 font-bold block">
+              <label className="text-sm text-slate-800 font-bold block">
                 💡 핵심 투자 포인트 요약문
               </label>
-              <div className="rounded-xl bg-neutral-900 border border-neutral-700 p-3.5">
+              <div className="rounded-xl bg-white border border-slate-300 p-3.5">
                 <textarea
                   value={heroKeyPoint}
                   onChange={(e) => { setHeroKeyPoint(e.target.value); setIsHeroDirty(true); }}
                   placeholder="예: 강남 핵심 상권 내 대로변 코너 입지로, 안정적인 임대 수익과 향후 개발 잠재력을 동시에 갖춘 투자 적격 자산입니다."
                   rows={3}
-                  className="w-full bg-transparent text-[16px] text-neutral-100 placeholder-neutral-500 outline-none resize-y leading-relaxed"
+                  className="w-full bg-transparent text-base text-slate-900 placeholder:text-slate-400 outline-none resize-y leading-relaxed"
                 />
               </div>
             </div>
 
-            {/* 3대 핵심 투자 포인트 (개별 편집 — 긴 문장 잘림 방지를 위해 2줄 textarea 사용) */}
+            {/* 3대 핵심 투자 포인트 */}
             <div className="space-y-2.5">
-              <label className="text-[14px] text-neutral-300 font-bold block">
+              <label className="text-sm text-slate-800 font-bold block">
                 ⭐ 3대 핵심 투자 포인트 (모바일 IM · PPTX에 동시 반영)
               </label>
               <div className="space-y-2.5">
                 {[0, 1, 2].map((idx) => (
                   <div key={idx} className="flex items-start gap-3">
-                    <span className="w-7 h-7 rounded-full bg-primary/20 text-primary text-sm font-extrabold flex items-center justify-center shrink-0 mt-2">
+                    <span className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-sm font-extrabold flex items-center justify-center shrink-0 mt-2">
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     <textarea
@@ -1172,7 +1266,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                         setIsHeroDirty(true);
                       }}
                       placeholder={idx === 0 ? '예: 선유도역 도보 1분 초역세권, 유동인구 풍부' : idx === 1 ? '예: 임대수익률 5.2%, 만실 운영 3년 지속' : '예: 준공업지역, 용적률 400% 개발 여력'}
-                      className="flex-1 bg-neutral-900 border border-neutral-700 focus:border-primary rounded-xl px-3.5 py-2.5 text-[15px] text-neutral-100 placeholder-neutral-500 leading-relaxed outline-none resize-y"
+                      className="flex-1 bg-white border border-slate-300 focus:border-blue-600 rounded-xl px-3.5 py-2.5 text-base text-slate-900 placeholder:text-slate-400 leading-relaxed outline-none resize-y"
                     />
                   </div>
                 ))}
@@ -1182,20 +1276,21 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
           {/* 저장 버튼 */}
           <button
+            type="button"
             onClick={saveHeroContent}
             disabled={isHeroSaving || !isHeroDirty}
-            className="w-full py-2.5 bg-gradient-to-r from-violet-600/80 to-primary/80 hover:from-violet-600 hover:to-primary text-xs font-bold rounded-lg disabled:opacity-40 transition-all text-white"
+            className="w-full min-h-[44px] py-2.5 bg-blue-700 hover:bg-blue-800 text-sm font-bold rounded-xl disabled:opacity-40 transition-all text-white cursor-pointer"
           >
             {isHeroSaving ? '저장 중...' : '💾 투자 요약 저장'}
           </button>
         </div>
 
         {/* 🖼️ 공유 OG 메타 및 이미지 관리 */}
-        <div className="mb-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30 space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-            <h3 className="text-xs font-bold text-neutral-300">🖼️ 카카오톡·문자 공유 카드 설정 (OG 메타)</h3>
+        <div className="mb-6 p-5 rounded-2xl border border-slate-200 bg-white space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+            <h3 className="text-base font-bold text-slate-900">🖼️ 카카오톡·문자 공유 카드 설정 (OG 메타)</h3>
             {isOgMetaDirty && (
-              <span className="text-xs text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded font-bold">
+              <span className="text-sm text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded font-bold">
                 ⚠️ 미저장 (승인 시 자동 저장됨)
               </span>
             )}
@@ -1203,10 +1298,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           <div className="grid gap-4 md:grid-cols-2">
             {/* Preview */}
             <div className="space-y-2">
-              <label className="text-xs text-neutral-400 font-semibold tracking-wider block">
+              <label className="text-sm text-slate-700 font-semibold tracking-wider block">
                 공유 썸네일 미리보기 (실시간)
               </label>
-              <div className="relative rounded-lg overflow-hidden border border-neutral-800 aspect-[1.91/1] bg-neutral-950 flex items-center justify-center">
+              <div className="relative rounded-lg overflow-hidden border border-slate-200 aspect-[1.91/1] bg-slate-100 flex items-center justify-center">
                 <img
                   src={`/api/og/deal/${buildingId}?type=im&t=${ogTimestamp}`}
                   alt="OG Preview"
@@ -1219,7 +1314,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             <div className="space-y-3 flex flex-col justify-between">
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-neutral-400 font-semibold tracking-wider block">
+                  <label className="text-sm text-slate-700 font-semibold tracking-wider block">
                     카카오톡 공유 제목
                   </label>
                   <input
@@ -1227,11 +1322,11 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     value={ogTitle}
                     onChange={(e) => { setOgTitle(e.target.value); setIsOgMetaDirty(true); }}
                     placeholder={editableTitle || "투자설명서 제목"}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary/50 text-neutral-200 placeholder-neutral-600"
+                    className="w-full min-h-[44px] bg-white border border-slate-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:border-blue-600 text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-neutral-400 font-semibold tracking-wider block">
+                  <label className="text-sm text-slate-700 font-semibold tracking-wider block">
                     카카오톡 공유 요약 설명
                   </label>
                   <textarea
@@ -1239,14 +1334,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     onChange={(e) => { setOgDescription(e.target.value); setIsOgMetaDirty(true); }}
                     placeholder={title || "투자설명서 요약 설명"}
                     rows={3}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary/50 text-neutral-200 placeholder-neutral-600 resize-none"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:border-blue-600 text-slate-900 placeholder:text-slate-400 resize-none"
                   />
                 </div>
               </div>
               <button
+                type="button"
                 onClick={saveOgMeta}
                 disabled={isOgSaving || !isOgMetaDirty}
-                className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-xs font-bold rounded-lg disabled:opacity-40 transition-all text-neutral-200 hover:text-white"
+                className="w-full min-h-[44px] py-2.5 bg-slate-900 hover:bg-slate-800 text-sm font-bold rounded-xl disabled:opacity-40 transition-all text-white cursor-pointer"
               >
                 {isOgSaving ? "공유 정보 저장 중..." : "💾 공유 카드 정보 저장"}
               </button>
@@ -1255,38 +1351,38 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         </div>
 
         {/* Section verification quick toolbar + Section editor (Web IM 선택 검토용 아코디언) */}
-        <details className="group mb-12 rounded-2xl border border-neutral-800 bg-neutral-900/30 overflow-hidden">
-          <summary className="cursor-pointer list-none p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-900/60 transition-colors select-none">
+        <details className="group mb-12 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+          <summary className="cursor-pointer list-none p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors select-none">
             <div>
-              <h3 className="text-[15px] font-bold text-white flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
                 <span>📑 웹 화면용 상세 섹션 검토 (선택 사항)</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${allVerified ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-800 text-neutral-300'}`}>
+                <span className={`text-sm px-2.5 py-0.5 rounded-full font-bold ${allVerified ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
                   {verifiedSet.size} / {sections.length} 확인됨
                 </span>
               </h3>
-              <p className="text-[13px] text-neutral-400 mt-1">
-                PPTX 파일은 위 [📥 PPTX 파일 받기] 버튼으로 바로 내려받을 수 있습니다. 웹 주소로 공유할 때만 상세 섹션을 펼쳐 확인하세요.
+              <p className="text-sm text-slate-600 mt-1">
+                PPTX 파일은 위 [⚡ PPTX 바로 다운로드] 버튼으로 바로 내려받을 수 있습니다. 웹 주소로 공유할 때만 상세 섹션을 펼쳐 확인하세요.
               </p>
             </div>
-            <span className="text-xs font-semibold text-neutral-300 bg-neutral-800 px-3 py-1.5 rounded-lg shrink-0 group-open:bg-neutral-700">
+            <span className="text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-3.5 py-2 rounded-lg shrink-0 group-open:bg-slate-200">
               상세 섹션 펼치기 ▾
             </span>
           </summary>
 
-          <div className="p-4 pt-2 border-t border-neutral-800/70">
-            <div className="mb-4 p-3.5 rounded-xl border border-neutral-800 bg-neutral-900/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-xs text-neutral-300">
+          <div className="p-4 pt-3 border-t border-slate-200">
+            <div className="mb-4 p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-sm text-slate-700">
                 {allVerified
                   ? '모든 섹션 확인이 완료되었습니다. 하단의 [🚀 승인 및 공개] 버튼을 눌러주세요.'
                   : '내용을 검토한 뒤 우측의 [미확인] 버튼을 누르거나, [✓ 전체 섹션 일괄 확인]을 눌러 한 번에 완료할 수 있습니다.'}
               </p>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {!allVerified && (
                   <button
                     type="button"
                     onClick={scrollToNextUnverified}
                     data-testid="jump-unverified-section-btn"
-                    className="px-3 py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold transition-colors"
+                    className="min-h-[44px] px-3.5 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-sm font-bold transition-colors cursor-pointer"
                   >
                     🔍 미확인 섹션 찾기
                   </button>
@@ -1296,7 +1392,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   onClick={verifyAllSections}
                   disabled={allVerified}
                   data-testid="verify-all-sections-btn"
-                  className="px-3.5 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-colors disabled:opacity-40"
+                  className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-sm font-bold transition-colors disabled:opacity-40 cursor-pointer"
                 >
                   {allVerified ? '✓ 전체 확인 완료됨' : '✓ 전체 섹션 일괄 확인'}
                 </button>
@@ -1317,16 +1413,16 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             let badgeUI = null;
             if (isProcedural) {
               badgeUI = isVerified
-                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 검토 확인됨</span>
-                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">⚪ 표준 안내</span>;
+                ? <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 검토 확인됨</span>
+                : <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">⚪ 표준 안내</span>;
             } else if (section.confidence === 'confirmed') {
-              badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 공공데이터 확인됨</span>;
+              badgeUI = <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 공공데이터 확인됨</span>;
             } else if (isVerified) {
-              badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 브로커 검토완료</span>;
+              badgeUI = <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 공인중개사 검토완료</span>;
             } else if (section.confidence === 'needs_check') {
-              badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">🔴 보완 필요</span>;
+              badgeUI = <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">🔴 보완 필요</span>;
             } else {
-              badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">🟡 AI 추론 — 검토 권장</span>;
+              badgeUI = <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">🟡 AI 추론 — 검토 권장</span>;
             }
 
             const isHidden = hiddenSections.has(section.section_type);
@@ -1335,18 +1431,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               <div
                 key={section.section_type ?? idx}
                 data-approval-section-idx={idx}
-                className={`rounded-2xl border transition-all ${isHidden ? 'border-red-900/30 bg-neutral-900/20 opacity-50' : isVerified ? 'border-neutral-800 bg-neutral-900/30' : 'border-amber-500/40 bg-neutral-900/80'} overflow-hidden`}
+                className={`rounded-2xl border transition-all ${isHidden ? 'border-red-200 bg-slate-100 opacity-60' : isVerified ? 'border-slate-200 bg-white' : 'border-amber-300 bg-white'} overflow-hidden`}
               >
-                <div className="p-4 flex items-center justify-between border-b border-neutral-800/50 gap-2 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base font-bold text-white">{idx + 1}. {section.title}</span>
+                <div className="p-4 flex items-center justify-between border-b border-slate-200 gap-2 flex-wrap bg-slate-50/70">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-base font-bold text-slate-900">{idx + 1}. {section.title}</span>
                     {badgeUI}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
+                      type="button"
                       onClick={() => toggleHideSection(idx)}
-                      className={`text-xs px-2.5 py-1.5 min-h-[34px] rounded-lg transition-colors ${
-                        isHidden ? 'bg-red-500/20 text-red-400' : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      className={`text-sm px-3 py-1.5 min-h-[44px] rounded-lg border transition-colors cursor-pointer ${
+                        isHidden ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                       }`}
                       title={isHidden ? '섹션 숨김 해제' : '공개 IM에서 이 섹션 숨기기'}
                     >
@@ -1354,19 +1451,21 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     </button>
                     {!isEditing && (
                       <button
+                        type="button"
                         onClick={() => toggleVerify(idx)}
-                        className={`text-xs px-3 py-1.5 min-h-[34px] rounded-lg font-bold transition-colors ${
+                        className={`text-sm px-3.5 py-1.5 min-h-[44px] rounded-lg font-bold transition-colors cursor-pointer ${
                           isVerified 
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                            : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                            : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300'
                         }`}
                       >
                         {isVerified ? '✓ 확인완료' : '미확인 (클릭하여 확인)'}
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => isEditing ? saveEdit(idx) : startEdit(idx)}
-                      className="text-xs px-3 py-1.5 min-h-[34px] rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                      className="text-sm px-3.5 py-1.5 min-h-[44px] rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer"
                     >
                       {isEditing ? '💾 저장' : '✏ 수정'}
                     </button>
@@ -1374,30 +1473,30 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 </div>
                 
                 {isEditing ? (
-                  <div className="border-t border-neutral-800">
+                  <div className="border-t border-slate-200">
                     {/* 모바일: 탭 전환 */}
-                    <div className="flex md:hidden border-b border-neutral-800">
-                      <button onClick={() => setEditorTab('edit')}
-                        className={`flex-1 px-4 py-2 text-xs font-bold transition-colors ${editorTab === 'edit' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}>
+                    <div className="flex md:hidden border-b border-slate-200">
+                      <button type="button" onClick={() => setEditorTab('edit')}
+                        className={`flex-1 min-h-[44px] px-4 py-2 text-sm font-bold transition-colors cursor-pointer ${editorTab === 'edit' ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}>
                         ✏️ 편집
                       </button>
-                      <button onClick={() => setEditorTab('preview')}
-                        className={`flex-1 px-4 py-2 text-xs font-bold transition-colors ${editorTab === 'preview' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}>
+                      <button type="button" onClick={() => setEditorTab('preview')}
+                        className={`flex-1 min-h-[44px] px-4 py-2 text-sm font-bold transition-colors cursor-pointer ${editorTab === 'preview' ? 'bg-blue-50 text-blue-700' : 'text-slate-600'}`}>
                         👁 미리보기
                       </button>
                     </div>
-                    <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-neutral-800">
+                    <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-200">
                       <div className={`w-full md:w-1/2 flex flex-col ${editorTab === 'preview' ? 'hidden md:flex' : ''}`}>
-                        <div className="px-4 py-2 bg-neutral-950 text-xs text-neutral-500 font-medium hidden md:block">마크다운 편집기</div>
+                        <div className="px-4 py-2 bg-slate-50 text-sm text-slate-600 font-medium hidden md:block">마크다운 편집기</div>
                         <textarea
                           value={editDraft}
                           onChange={(e) => setEditDraft(e.target.value)}
-                          className="w-full bg-neutral-950 p-4 text-sm text-neutral-300 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 min-h-[300px] md:min-h-0 md:h-[400px]"
+                          className="w-full bg-white p-4 text-base text-slate-900 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-blue-600 min-h-[300px] md:min-h-0 md:h-[400px]"
                           rows={15}
                         />
                       </div>
-                      <div className={`w-full md:w-1/2 flex flex-col bg-neutral-900/50 ${editorTab === 'edit' ? 'hidden md:flex' : ''}`}>
-                        <div className="px-4 py-2 bg-neutral-950 text-xs text-neutral-500 font-medium hidden md:block">실시간 미리보기</div>
+                      <div className={`w-full md:w-1/2 flex flex-col bg-slate-50/50 ${editorTab === 'edit' ? 'hidden md:flex' : ''}`}>
+                        <div className="px-4 py-2 bg-slate-50 text-sm text-slate-600 font-medium hidden md:block">실시간 미리보기</div>
                         <div className="p-4 overflow-y-auto min-h-[300px] md:h-[400px]">
                           <MarkdownRenderer content={editDraft} />
                         </div>
@@ -1405,14 +1504,14 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     </div>
                   </div>
                 ) : (
-                  <div className="px-4 py-6 bg-neutral-950/30">
+                  <div className="px-4 py-6 bg-white">
                     <MarkdownRenderer content={section.markdown} />
                   </div>
                 )}
                 {isEditing && (
-                  <div className="p-3 bg-neutral-950 border-t border-neutral-800 flex justify-end gap-2">
-                    <button onClick={cancelEdit} className="text-xs px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg">취소</button>
-                    <button onClick={() => saveEdit(idx)} className="text-xs px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg">저장 및 확인</button>
+                  <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                    <button type="button" onClick={cancelEdit} className="min-h-[44px] text-sm px-4 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg font-medium cursor-pointer">취소</button>
+                    <button type="button" onClick={() => saveEdit(idx)} className="min-h-[44px] text-sm px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg cursor-pointer">저장 및 확인</button>
                   </div>
                 )}
               </div>
@@ -1422,8 +1521,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           </div>
         </details>
 
-        {/* Bottom Action Card (본문 겹침 방지를 위해 인라인 하단 카드로 배치) */}
-        <div className="mt-8 rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-lg">
+        {/* Bottom Action Card */}
+        <div className="mt-8 rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             {docStatus !== 'published' ? (
               <>
@@ -1431,12 +1530,12 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   <button 
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="text-sm text-red-500/80 hover:text-red-500 underline underline-offset-4 transition-colors font-medium"
+                    className="min-h-[44px] px-2 text-sm text-red-700 hover:text-red-800 underline underline-offset-4 transition-colors font-medium cursor-pointer"
                   >
                     🗑 작성 취소
                   </button>
-                  <div className="text-[15px] font-medium flex items-center gap-2">
-                    <span className={allVerified ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                  <div className="text-[15px] font-medium flex flex-wrap items-center gap-2">
+                    <span className={allVerified ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
                       {verifiedSet.size} / {sections.length} 섹션 확인 완료
                     </span>
                     {!allVerified && (
@@ -1444,14 +1543,14 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                         <button
                           type="button"
                           onClick={scrollToNextUnverified}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-semibold transition-colors"
+                          className="min-h-[44px] text-sm px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold transition-colors cursor-pointer"
                         >
                           미확인 이동 ↑
                         </button>
                         <button
                           type="button"
                           onClick={verifyAllSections}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-semibold transition-colors"
+                          className="min-h-[44px] text-sm px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold transition-colors cursor-pointer"
                         >
                           ✓ 전체 일괄 확인
                         </button>
@@ -1463,7 +1562,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <Link
                     href={`/broker/basic-im-studio/${buildingId}`}
-                    className="px-5 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black rounded-xl transition-all text-[15px] shadow-md flex items-center gap-1.5"
+                    className="px-5 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black rounded-xl transition-all text-[15px] shadow-xs flex items-center gap-1.5"
                   >
                     <span>📐</span>
                     <span>슬라이드 미리보기 · 편집 후 다운로드</span>
@@ -1472,14 +1571,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     type="button"
                     onClick={handleDownloadPptx}
                     disabled={isPptxDownloading}
-                    className="px-4 py-3 min-h-[48px] bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold rounded-xl transition-colors text-[14px] shadow-sm disabled:opacity-60"
+                    className="px-4 py-3 min-h-[48px] bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 font-extrabold rounded-xl transition-colors text-sm shadow-xs disabled:opacity-60 cursor-pointer"
                   >
                     {isPptxDownloading ? '⏳ PPTX 준비 중...' : '⚡ PPTX 바로 다운로드'}
                   </button>
                   <button
+                    type="button"
                     onClick={handleApprove}
                     disabled={actionStatus === 'loading' || !allVerified}
-                    className="px-6 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 text-[15px] shadow-lg shadow-emerald-600/20"
+                    className="px-6 py-3 min-h-[48px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-500 text-[15px] shadow-xs cursor-pointer"
                   >
                     {actionStatus === 'loading' ? '처리 중...' : '🚀 승인 및 공개'}
                   </button>
@@ -1487,14 +1587,14 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               </>
             ) : (
               <>
-                <div className="flex items-center gap-3">
-                  <span className="text-[15px] text-emerald-400 font-bold flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-[15px] text-emerald-700 font-bold flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
                     공개 완료 상태
                   </span>
                   <Link
                     href={`/broker/deal-card/${buildingId}`}
-                    className="text-[15px] font-semibold text-neutral-300 hover:text-white transition-colors"
+                    className="min-h-[44px] inline-flex items-center text-[15px] font-semibold text-slate-700 hover:text-slate-950 transition-colors"
                   >
                     ← 딜카드 관리로 이동
                   </Link>
@@ -1503,7 +1603,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <Link
                     href={`/broker/basic-im-studio/${buildingId}`}
-                    className="px-5 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[15px] rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                    className="px-5 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[15px] rounded-xl transition-all shadow-xs flex items-center gap-1.5"
                   >
                     <span>📐</span>
                     <span>슬라이드 미리보기 · 편집 후 다운로드</span>
@@ -1512,22 +1612,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                     type="button"
                     onClick={handleDownloadPptx}
                     disabled={isPptxDownloading}
-                    className="px-4 py-3 min-h-[48px] bg-neutral-900 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold text-[14px] rounded-xl transition-colors shadow-sm disabled:opacity-60"
+                    className="px-4 py-3 min-h-[48px] bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 font-extrabold text-sm rounded-xl transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
                   >
                     {isPptxDownloading ? '⏳ PPTX 준비 중...' : '⚡ PPTX 바로 다운로드'}
                   </button>
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
-                      toast.success("🔗 투자설명서 링크가 복사되었습니다. 카카오톡에 붙여넣으세요.");
-                    }}
-                    className="px-4 py-3 min-h-[48px] bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-[15px] rounded-xl transition-colors"
+                    type="button"
+                    onClick={() => void handleCopyBuyerShareLink()}
+                    disabled={isCopyingShareLink}
+                    className="px-4 py-3 min-h-[48px] bg-white hover:bg-slate-100 border border-slate-300 text-slate-900 font-bold text-[15px] rounded-xl transition-colors cursor-pointer disabled:opacity-60"
                   >
-                    🔗 카톡용 링크 복사
+                    {isCopyingShareLink ? '⏳ 링크 발급 중...' : '🔗 카톡용 링크 복사'}
                   </button>
                   <button
+                    type="button"
                     onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}
-                    className="px-5 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[15px] rounded-xl transition-colors shadow-lg shadow-emerald-600/20 flex items-center gap-1.5"
+                    className="px-5 py-3 min-h-[48px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[15px] rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>🖥️ 웹 화면 열기</span>
                     <span>↗</span>
@@ -1542,32 +1642,32 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
       {/* Published Success Celebration Modal */}
       {showPublishedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative bg-neutral-900 border border-emerald-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
-            <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl flex items-center justify-center mx-auto text-3xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative bg-white border border-emerald-200 rounded-3xl p-6 md:p-8 max-w-md w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+            <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mx-auto text-3xl">
               🎉
             </div>
             
             <div className="space-y-2">
-              <h2 className="text-xl font-extrabold text-white">
+              <h2 className="text-xl font-extrabold text-slate-900">
                 투자설명서 준비가 완료되었습니다!
               </h2>
-              <p className="text-[15px] text-neutral-300 leading-relaxed">
+              <p className="text-[15px] text-slate-600 leading-relaxed">
                 슬라이드와 테마를 미리보기로 편집한 뒤 내려받거나, 지금 바로 PPTX 제안서 파일을 다운로드할 수 있습니다.
               </p>
             </div>
 
-            <div className="p-3.5 bg-neutral-950/80 rounded-xl border border-neutral-800 text-left space-y-1">
-              <p className="text-[12px] text-neutral-400 font-bold">고객 공유용 웹 주소</p>
-              <p className="text-[13px] text-emerald-400 font-mono truncate">
-                https://credeal.net/im-lite/{buildingId}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-left space-y-1">
+              <p className="text-sm text-slate-600 font-bold">고객 공유용 웹 주소</p>
+              <p className="text-sm text-emerald-700 font-mono truncate">
+                {buyerShareUrl || `https://credeal.net/im-lite/${buildingId}`}
               </p>
             </div>
 
             <div className="space-y-2.5 pt-2">
               <Link
                 href={`/broker/basic-im-studio/${buildingId}`}
-                className="w-full min-h-[50px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-[16px] rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+                className="w-full min-h-[50px] bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-base rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
               >
                 <span>📐</span>
                 <span>슬라이드 미리보기 · 편집 후 다운로드</span>
@@ -1577,27 +1677,27 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 type="button"
                 onClick={handleDownloadPptx}
                 disabled={isPptxDownloading}
-                className="w-full min-h-[48px] bg-neutral-950 hover:bg-neutral-800 border border-amber-500/40 text-amber-300 font-extrabold text-[15px] rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full min-h-[48px] bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 font-extrabold text-[15px] rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
               >
                 <span>⚡</span>
                 <span>{isPptxDownloading ? 'PPTX 파일 준비 중...' : 'PPTX 바로 다운로드 (PC용)'}</span>
               </button>
 
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
-                  toast.success("🔗 투자설명서 주소가 복사되었습니다. 카카오톡 대화창에 붙여넣으세요.");
-                }}
-                className="w-full min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[15px] rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => void handleCopyBuyerShareLink()}
+                disabled={isCopyingShareLink}
+                className="w-full min-h-[48px] bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[15px] rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               >
-                <span>📋 카카오톡 공유용 주소 복사</span>
+                <span>{isCopyingShareLink ? '⏳ 공유 링크 발급 중...' : '📋 카카오톡 공유용 주소 복사'}</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   window.open(`/im-lite/${buildingId}`, '_blank');
                 }}
-                className="w-full min-h-[46px] bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-[14px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                className="w-full min-h-[46px] bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>🖥️ 완성된 웹 투자설명서 열어보기</span>
                 <span>↗</span>
@@ -1606,7 +1706,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               <div className="flex justify-center pt-1">
                 <Link
                   href={`/broker/deal-card/${buildingId}`}
-                  className="py-2.5 px-4 text-[14px] font-semibold text-neutral-300 hover:text-white transition-colors text-center"
+                  className="min-h-[44px] inline-flex items-center py-2.5 px-4 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors text-center"
                 >
                   ← 딜카드 화면으로 돌아가기
                 </Link>
@@ -1619,13 +1719,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-card border border-border rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-foreground">모바일 IM 초안을 삭제하시겠습니까?</h3>
-            <p className="text-sm text-muted-foreground">삭제된 초안은 복구할 수 없습니다. 딜카드는 유지됩니다.</p>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="relative bg-white border border-slate-200 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-900">모바일 IM 초안을 삭제하시겠습니까?</h3>
+            <p className="text-sm text-slate-600">삭제된 초안은 복구할 수 없습니다. 딜카드는 유지됩니다.</p>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 h-10 rounded-lg border border-border text-sm font-medium">취소</button>
-              <button onClick={handleDeleteDraft} className="flex-1 h-10 rounded-lg bg-red-500 text-white text-sm font-bold">삭제</button>
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 min-h-[44px] rounded-xl border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 text-sm font-medium cursor-pointer">취소</button>
+              <button type="button" onClick={handleDeleteDraft} className="flex-1 min-h-[44px] rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold cursor-pointer">삭제</button>
             </div>
           </div>
         </div>
@@ -1649,7 +1749,7 @@ function ApprovalMapViewer({
   const [hasError, setHasError] = useState(false);
 
   return (
-    <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64 bg-neutral-900 flex items-center justify-center">
+    <div className="mb-8 rounded-xl overflow-hidden border border-slate-200 relative group h-48 sm:h-64 bg-slate-100 flex items-center justify-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img 
         src={src} 
@@ -1666,8 +1766,8 @@ function ApprovalMapViewer({
       <div className="absolute inset-0 border border-black/10 rounded-xl pointer-events-none" />
       
       {/* 안내 배지 */}
-      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 pointer-events-none">
-        <span className="text-[10px] text-white/90 font-medium">
+      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-2 pointer-events-none shadow-xs">
+        <span className="text-sm text-slate-900 font-semibold">
           {isPptxMap && !hasError ? '🗺️ 입지 지도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
         </span>
       </div>
@@ -1724,47 +1824,44 @@ function MarkdownRenderer({ content }: { content: string }) {
     if (trimmed.startsWith("#### ")) {
       flush();
       elements.push(
-        <h4 key={key++} className="text-xs font-bold text-primary/90 mt-3 mb-1.5">
+        <h4 key={key++} className="text-sm font-bold text-blue-700 mt-3 mb-1.5">
           <InlineMarkdown text={trimmed.slice(5)} />
         </h4>,
       );
     } else if (trimmed.startsWith("### ")) {
       flush();
       elements.push(
-        <h3 key={key++} className="text-xs font-bold uppercase tracking-wider text-primary mt-4 mb-2">
+        <h3 key={key++} className="text-sm font-bold uppercase tracking-wider text-blue-700 mt-4 mb-2">
           <InlineMarkdown text={trimmed.slice(4)} />
         </h3>,
       );
     } else if (trimmed.startsWith("## ")) {
       flush();
       elements.push(
-        <h2 key={key++} className="text-sm font-bold text-white mt-4 mb-2">
+        <h2 key={key++} className="text-base font-bold text-slate-900 mt-4 mb-2">
           <InlineMarkdown text={trimmed.slice(3)} />
         </h2>,
       );
     } else if (trimmed.startsWith("**") && trimmed.endsWith("**") && trimmed.length > 4) {
-      // 볼드 전용 줄 — 공백 포함도 허용 (이전: !line.includes(" ")로 대부분 누락)
       flush();
       elements.push(
-        <p key={key++} className="font-bold text-white text-sm mt-2">
+        <p key={key++} className="font-bold text-slate-900 text-sm mt-2">
           {trimmed.slice(2, -2)}
         </p>,
       );
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("• ") || trimmed.startsWith("· ")) {
-      // 불릿 리스트 — •, · 문자도 지원
       flush();
       const text = trimmed.replace(/^[-*•·]\s+/, '');
       elements.push(
-        <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-disc">
+        <li key={key++} className="text-slate-700 text-sm leading-relaxed ml-4 list-disc">
           <InlineMarkdown text={text} />
         </li>,
       );
     } else if (/^\d+[.)]\s/.test(trimmed)) {
-      // 번호 목록 — "1. " 또는 "1) " 형식
       flush();
       const text = trimmed.replace(/^\d+[.)]\s+/, '');
       elements.push(
-        <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-decimal">
+        <li key={key++} className="text-slate-700 text-sm leading-relaxed ml-4 list-decimal">
           <InlineMarkdown text={text} />
         </li>,
       );
@@ -1773,9 +1870,9 @@ function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <blockquote
           key={key++}
-          className="border-l-2 border-primary/50 bg-primary/5 rounded-r-lg py-1 px-3 my-2"
+          className="border-l-2 border-blue-600/50 bg-blue-50 rounded-r-lg py-1.5 px-3 my-2"
         >
-          <p className="text-neutral-400 text-xs leading-relaxed">
+          <p className="text-slate-700 text-sm leading-relaxed">
             <InlineMarkdown text={trimmed.slice(2)} />
           </p>
         </blockquote>,
@@ -1789,7 +1886,7 @@ function MarkdownRenderer({ content }: { content: string }) {
       const cleanedLine = trimmed.replace(/\s*#{2,4}\s*/g, ' ').trim();
       if (cleanedLine) {
         elements.push(
-          <p key={key++} className="text-neutral-300 text-sm leading-relaxed">
+          <p key={key++} className="text-slate-700 text-sm leading-relaxed">
             <InlineMarkdown text={cleanedLine} />
           </p>,
         );
@@ -1823,10 +1920,10 @@ function InlineMarkdown({ text }: { text: string }) {
     <>
       {parts.map((part, i) => {
         if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+          return <strong key={i} className="text-slate-900 font-semibold">{part.slice(2, -2)}</strong>;
         }
         if (part.startsWith("*") && part.endsWith("*")) {
-          return <em key={i} className="italic text-neutral-200">{part.slice(1, -1)}</em>;
+          return <em key={i} className="italic text-slate-800">{part.slice(1, -1)}</em>;
         }
         return <span key={i}>{part}</span>;
       })}
@@ -1847,12 +1944,12 @@ function TableFromLines({ lines }: { lines: string[] }) {
   const headers = parseRow(header);
 
   return (
-    <div className="overflow-x-auto my-3 rounded-xl border border-neutral-800">
-      <table className="w-full text-xs">
+    <div className="overflow-x-auto my-3 rounded-xl border border-slate-200">
+      <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-neutral-800 bg-neutral-950/50">
+          <tr className="border-b border-slate-200 bg-slate-50">
             {headers.map((h, i) => (
-              <th key={i} className="text-left text-neutral-400 font-medium px-3 py-2">
+              <th key={i} className="text-left text-slate-700 font-semibold px-3 py-2">
                 <InlineMarkdown text={h} />
               </th>
             ))}
@@ -1860,9 +1957,9 @@ function TableFromLines({ lines }: { lines: string[] }) {
         </thead>
         <tbody>
           {body.map((row, ri) => (
-            <tr key={ri} className="border-b border-neutral-800/50 last:border-0 hover:bg-neutral-800/20">
+            <tr key={ri} className="border-b border-slate-200 last:border-0 hover:bg-slate-50">
               {parseRow(row).map((cell, ci) => (
-                <td key={ci} className="px-3 py-2 text-neutral-300">
+                <td key={ci} className="px-3 py-2 text-slate-700">
                   <InlineMarkdown text={cell} />
                 </td>
               ))}

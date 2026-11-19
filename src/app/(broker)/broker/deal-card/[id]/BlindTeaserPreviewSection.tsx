@@ -113,20 +113,20 @@ export function BlindTeaserPreviewSection({
     return (
       <div className="rounded-xl border-2 border-primary/20 bg-card p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-primary font-medium">
+          <div className="flex items-center gap-2 text-sm text-primary font-medium">
             <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
             블라인드 티저 편집 모드
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={handleAutoClean} className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1">자동 마스킹</button>
-            <button onClick={() => setIsEditing(false)} className="text-xs text-slate-400 hover:text-white px-2 py-1">취소</button>
-            <button onClick={handleSave} disabled={isSaving} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg disabled:opacity-50">
+            <button type="button" onClick={handleAutoClean} className="text-sm text-rose-400 hover:text-rose-300 px-2 py-1">자동 마스킹</button>
+            <button onClick={() => setIsEditing(false)} className="text-sm text-slate-400 hover:text-white px-2 py-1">취소</button>
+            <button onClick={handleSave} disabled={isSaving} className="text-sm bg-primary text-primary-foreground px-3 py-1.5 rounded-lg disabled:opacity-50">
               {isSaving ? "저장 중..." : "저장"}
             </button>
           </div>
         </div>
         {blindError && (
-          <div role="alert" className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+          <div role="alert" className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
             <span>{blindError}</span>
             <button type="button" onClick={handleAutoClean} className="underline font-bold shrink-0">자동 마스킹</button>
           </div>
@@ -134,11 +134,11 @@ export function BlindTeaserPreviewSection({
         
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-slate-400">제목 (캐치프레이즈)</label>
+            <label className="text-sm text-slate-400">제목 (캐치프레이즈)</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
           </div>
           <div>
-            <label className="text-[10px] text-slate-400">매각 긴급도 태그</label>
+            <label className="text-sm text-slate-400">매각 긴급도 태그</label>
             <select
               value={urgencyTag || ''}
               onChange={e => setUrgencyTag((e.target.value as any) || undefined)}
@@ -151,15 +151,15 @@ export function BlindTeaserPreviewSection({
             </select>
           </div>
           <div>
-            <label className="text-[10px] text-slate-400">한줄 요약</label>
+            <label className="text-sm text-slate-400">한줄 요약</label>
             <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none" />
           </div>
           <div>
-            <label className="text-[10px] text-slate-400">딜 포인트 (줄바꿈으로 구분)</label>
+            <label className="text-sm text-slate-400">딜 포인트 (줄바꿈으로 구분)</label>
             <textarea value={dealPointsStr} onChange={e => setDealPointsStr(e.target.value)} rows={3} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" />
           </div>
           <div>
-            <label className="text-[10px] text-slate-400">유의점/투자 포인트 (줄바꿈으로 구분)</label>
+            <label className="text-sm text-slate-400">유의점/투자 포인트 (줄바꿈으로 구분)</label>
             <textarea value={cautionPointsStr} onChange={e => setCautionPointsStr(e.target.value)} rows={3} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" />
           </div>
         </div>
@@ -172,12 +172,12 @@ export function BlindTeaserPreviewSection({
     <div className="rounded-xl border-2 border-primary/20 bg-card p-5 space-y-4 group relative">
       <button 
         onClick={() => setIsEditing(true)} 
-        className="absolute top-4 right-4 flex items-center gap-1 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg hover:bg-amber-500/20 transition-all"
+        className="absolute top-4 right-4 flex items-center gap-1 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg hover:bg-amber-500/20 transition-all"
       >
         <PenTool className="w-3.5 h-3.5" />
         <span>편집</span>
       </button>
-      <div className="flex items-center gap-2 text-xs text-primary font-medium">
+      <div className="flex items-center gap-2 text-sm text-primary font-medium">
         <span className="inline-block w-2 h-2 rounded-full bg-primary" />
         블라인드 티저 미리보기
       </div>
@@ -211,18 +211,18 @@ export function BlindTeaserPreviewSection({
       {/* Caution Points (내부 참고용 - 공유 시 비공개) */}
       {cautionPointsStr && (
         <details className="group/caution">
-          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1.5 py-1">
-            <span className="text-[10px] transition-transform group-open/caution:rotate-90">▶</span>
+          <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1.5 py-1">
+            <span className="text-sm transition-transform group-open/caution:rotate-90">▶</span>
             🔒 내부 참고용 확인 사항 ({cautionPointsStr.split("\n").filter(Boolean).length}건)
           </summary>
           <div className="mt-2 pl-4 border-l-2 border-muted space-y-1">
             {cautionPointsStr.split("\n").filter(Boolean).map((p, i) => (
-              <p key={i} className="text-xs text-muted-foreground flex gap-2">
+              <p key={i} className="text-sm text-muted-foreground flex gap-2">
                 <span>•</span>
                 <span>{p}</span>
               </p>
             ))}
-            <p className="text-[10px] text-muted-foreground/60 mt-2 italic">
+            <p className="text-sm text-muted-foreground/60 mt-2 italic">
               ※ 이 내용은 카카오 공유 시 포함되지 않습니다.
             </p>
           </div>

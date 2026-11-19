@@ -24,12 +24,14 @@ export default function GateRequestForm({
   const contactId = `${uid}-gate-req-contact`;
   const companyId = `${uid}-gate-req-company`;
   const reasonId = `${uid}-gate-req-reason`;
+  const consentId = `${uid}-gate-req-privacy`;
 
   const [status, setStatus] = useState(initialStatus);
   const [reason, setReason] = useState('');
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [company, setCompany] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export default function GateRequestForm({
           상세 IM 열람이 승인되었습니다
         </div>
         <p className="mb-4 text-sm text-emerald-700">
-          담당 중개인이 상세 투자설명서(IM) 열람을 승인했습니다.
+          담당 공인중개사가 상세 투자설명서(IM) 열람을 승인했습니다.
         </p>
         <a
           href={`/im-lite/${buildingId}`}
@@ -56,7 +58,7 @@ export default function GateRequestForm({
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
         <div className="mb-1 text-base font-bold text-amber-800">
-          담당 중개인이 IM 열람 요청을 확인 중입니다
+          담당 공인중개사가 IM 열람 요청을 확인 중입니다
         </div>
         <p className="text-sm text-amber-700">
           승인이 완료되면 입력하신 연락처로 안내 링크를 전달해 드립니다.
@@ -70,6 +72,10 @@ export default function GateRequestForm({
     setErrorMsg(null);
     if (!userId && (!name.trim() || !contact.trim())) {
       setErrorMsg('성함과 연락처를 입력해 주세요.');
+      return;
+    }
+    if (!userId && !privacyConsent) {
+      setErrorMsg('개인정보 수집 및 이용에 동의해 주세요.');
       return;
     }
 
@@ -98,6 +104,14 @@ export default function GateRequestForm({
           body: JSON.stringify({
             buildingId,
             building_id: buildingId,
+            ...(!userId
+              ? {
+                  name: name.trim(),
+                  phone: contact.trim(),
+                  company: company.trim() || undefined,
+                  privacyConsent: true,
+                }
+              : {}),
             reason: payloadReason,
           }),
         });
@@ -131,7 +145,7 @@ export default function GateRequestForm({
           상세 투자설명서(IM) 열람 요청
         </h3>
         <p className="mt-1 text-sm text-slate-600">
-          층별 임대 현황과 상세 수지분석표는 담당 중개인 승인 후 열람하실 수 있습니다.
+          층별 임대 현황과 상세 수지분석표는 담당 공인중개사 승인 후 열람하실 수 있습니다.
         </p>
       </div>
 
@@ -215,6 +229,35 @@ export default function GateRequestForm({
           className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white p-3 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
         />
       </div>
+
+      {!userId && (
+        <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <input
+            id={consentId}
+            type="checkbox"
+            checked={privacyConsent}
+            onChange={(e) => setPrivacyConsent(e.target.checked)}
+            className="min-h-[48px] w-5 shrink-0 cursor-pointer text-[16px] accent-slate-900"
+          />
+          <label
+            htmlFor={consentId}
+            className="flex min-h-[48px] cursor-pointer items-center text-sm text-slate-700 leading-snug"
+          >
+            <span>
+              상세 열람 안내를 위한{' '}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-slate-900 underline"
+              >
+                개인정보 수집·이용(새 창)
+              </a>
+              에 동의합니다. (필수)
+            </span>
+          </label>
+        </div>
+      )}
 
       <button
         type="submit"

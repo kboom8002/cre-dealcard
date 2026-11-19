@@ -14,16 +14,30 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { requireBroker } from '@/lib/auth-guard';
+import { isRealProductionRuntime } from '@/lib/env';
 import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
+import { m2ToPyeong, pyeongToM2 } from '@/domain/building/im-core/facts/area';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { Card4Schema, computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
-import { formatPriceRange } from '@/lib/deal-card/price-band';
+import { cleanBlindPoints, suggestFallbackRegion } from '@/lib/deal-card/blind-guard';
+import { formatPriceRange, validateBlindPriceBand } from '@/lib/deal-card/price-band';
+import {
+  DEALCARD_PLACEHOLDER_REGION,
+  evaluateDealCardPublishContent,
+} from '@/lib/deal-card/publish-content-gate';
+import { buildSanitizedDealCardPublicSnapshot } from '@/lib/deal-card/public-snapshot';
 import {
   saveQuickImRecord,
   getQuickImRecord,
   resolveKnownTestAssetUrl,
 } from '@/lib/im-lite/quick-generate-store';
+import { TEST_PARCEL_FIXTURES } from '@/lib/im-lite/test-parcel-fixtures';
+import {
+  upsertWorkspaceItem,
+  WorkspaceRepositoryError,
+} from '@/lib/workspace/workspace-repository';
+import { buildSanitizedImPublicSnapshot } from '@/lib/workspace/summary/patch-upsert-im';
 import {
   applyBrokerExtrasToSections,
   parseBrokerExtras,
@@ -38,6 +52,8 @@ import { evaluateRAGIndexingEligibility } from '@/domain/building/mobile-im/rag-
 import { indexIMSections } from '@/domain/building/mobile-im/im-embedding-indexer';
 import { polishImCopyWithLexiconSync } from '@/domain/building/mobile-im/workspace-ai-enhancer';
 import { padNumber, splitMultiParcelAddress } from '@/lib/external/address-resolver';
+import { assertPublishable } from '@/lib/legal/publish-gate';
+import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
 
 // In-memory idempotency cache for quick-generate calls (scoped per user, bounded to prevent OOM)
 export const maxDuration = 120;
@@ -45,249 +61,6 @@ export const maxDuration = 120;
 const MAX_IDEMPOTENCY_CACHE_SIZE = 200;
 const LARGE_INLINE_PHOTO_THRESHOLD_CHARS = 32 * 1024; // 32KB threshold for offloading inline base64 photos to Supabase Storage
 const IDEMPOTENCY_CACHE = new Map<string, any>();
-
-interface KnownParcelInfo {
-  pnu: string;
-  lat: number;
-  lng: number;
-  jibunAddress: string;
-  roadAddress: string;
-  officialLandPriceWonSqm: number;
-  landAreaSqm?: number;
-  gfaSqm?: number;
-  zoning?: string;
-  completionDate?: string;
-  floorsAbove?: number;
-  floorsBelow?: number;
-  bcrPct?: number;
-  farPct?: number;
-  parkingSpaces?: number;
-  elevators?: number;
-  mainPurpose?: string;
-}
-
-const KNOWN_PARCEL_REGISTRY: Array<{ match: RegExp; info: KnownParcelInfo }> = [
-  {
-    match: /(양화로\s*18안길\s*7\b|동교동\s*(?:147-8|168-4)\b)/,
-    info: {
-      pnu: '1144012100101680004',
-      lat: 37.556828,
-      lng: 126.925088,
-      jibunAddress: '서울특별시 마포구 동교동 168-4',
-      roadAddress: '서울특별시 마포구 양화로18안길 7',
-      officialLandPriceWonSqm: 14200000,
-      landAreaSqm: 137.2,
-      gfaSqm: 426.11,
-      zoning: '제2종일반주거지역',
-      completionDate: '2019-06-21',
-      floorsAbove: 4,
-      floorsBelow: 1,
-      bcrPct: 59.81,
-      farPct: 189.69,
-      parkingSpaces: 3,
-      elevators: 0,
-      mainPurpose: '제1·2종 근린생활시설',
-    },
-  },
-  {
-    match: /(동교동\s*189-6|와우산로37길\s*9)/,
-    info: {
-      pnu: '1144012100101890006',
-      lat: 37.55597,
-      lng: 126.93033,
-      jibunAddress: '서울특별시 마포구 동교동 189-6',
-      roadAddress: '서울특별시 마포구 와우산로37길 9',
-      officialLandPriceWonSqm: 11670000,
-      landAreaSqm: 137.2,
-      gfaSqm: 426.11,
-      zoning: '제2종일반주거지역',
-      completionDate: '2019-05-30',
-      floorsAbove: 4,
-      floorsBelow: 2,
-      bcrPct: 59.81,
-      farPct: 189.69,
-      parkingSpaces: 3,
-      elevators: 0,
-      mainPurpose: '제1·2종 근린생활시설',
-    },
-  },
-  {
-    match: /(심곡동\s*382-2|부천로29번길\s*22)/,
-    info: {
-      pnu: '4119210100103820002',
-      lat: 37.4867,
-      lng: 126.7824,
-      jibunAddress: '경기도 부천시 원미구 심곡동 382-2',
-      roadAddress: '경기도 부천시 원미구 부천로29번길 22',
-      officialLandPriceWonSqm: 4680000,
-      landAreaSqm: 535.6,
-      gfaSqm: 2758.21,
-      zoning: '일반상업지역',
-      completionDate: '1998-11-17',
-      floorsAbove: 7,
-      floorsBelow: 2,
-      bcrPct: 79.24,
-      farPct: 445.24,
-      parkingSpaces: 28,
-      elevators: 2,
-      mainPurpose: '제1·2종 근린생활시설',
-    },
-  },
-  {
-    match: /(심곡동\s*349-10|부천로39번길\s*8)/,
-    info: {
-      pnu: '4119210200103490010',
-      lat: 37.48815,
-      lng: 126.78317,
-      jibunAddress: '경기도 부천시 원미구 심곡동 349-10',
-      roadAddress: '경기도 부천시 원미구 부천로39번길 8',
-      officialLandPriceWonSqm: 4680000,
-      landAreaSqm: 535.6,
-      gfaSqm: 2758.21,
-      zoning: '일반상업지역',
-      completionDate: '1998-11-17',
-      floorsAbove: 7,
-      floorsBelow: 1,
-      bcrPct: 79.24,
-      farPct: 445.24,
-      parkingSpaces: 28,
-      elevators: 2,
-      mainPurpose: '제1·2종 근린생활시설',
-    },
-  },
-  {
-    match: /(역삼동\s*823-33|테헤란로14길\s*8)/,
-    info: {
-      pnu: '1168010100108230033',
-      lat: 37.4996,
-      lng: 127.0344,
-      jibunAddress: '서울특별시 강남구 역삼동 823-33',
-      roadAddress: '서울특별시 강남구 테헤란로14길 8',
-      officialLandPriceWonSqm: 65340000,
-      landAreaSqm: 1452.2,
-      gfaSqm: 14256.64,
-      zoning: '일반상업지역',
-      completionDate: '1992-10-15',
-      floorsAbove: 15,
-      floorsBelow: 3,
-      bcrPct: 47.78,
-      farPct: 719.66,
-      parkingSpaces: 55,
-      elevators: 3,
-      mainPurpose: '업무시설, 근린생활시설',
-    },
-  },
-  {
-    match: /(역삼동\s*648-23|테헤란로\s*123)/,
-    info: {
-      pnu: '1168010100106480023',
-      lat: 37.49956,
-      lng: 127.03151,
-      jibunAddress: '서울특별시 강남구 역삼동 648-23 외 2필지',
-      roadAddress: '서울특별시 강남구 테헤란로 123',
-      officialLandPriceWonSqm: 65340000,
-      landAreaSqm: 1452.2,
-      gfaSqm: 14256.64,
-      zoning: '일반상업지역',
-      completionDate: '1985-06-13',
-      floorsAbove: 15,
-      floorsBelow: 3,
-      bcrPct: 47.78,
-      farPct: 719.66,
-      parkingSpaces: 55,
-      elevators: 3,
-      mainPurpose: '업무시설, 근린생활시설',
-    },
-  },
-  {
-    match: /(당산동5가\s*11-47|영신로\s*259)/,
-    info: {
-      pnu: '1156011500100110047',
-      lat: 37.5342,
-      lng: 126.9022,
-      jibunAddress: '서울특별시 영등포구 당산동5가 11-47',
-      roadAddress: '서울특별시 영등포구 영신로 259',
-      officialLandPriceWonSqm: 8950000,
-    },
-  },
-  {
-    match: /(서초동\s*1364-28|남부순환로347길\s*18)/,
-    info: {
-      pnu: '1165010800113640028',
-      lat: 37.4836,
-      lng: 127.0357,
-      jibunAddress: '서울특별시 서초구 서초동 1364-28',
-      roadAddress: '서울특별시 서초구 남부순환로347길 18',
-      officialLandPriceWonSqm: 15800000,
-    },
-  },
-  {
-    match: /(신사동\s*590|논현로159길\s*10)/,
-    info: {
-      pnu: '1168010700105900000',
-      lat: 37.5218,
-      lng: 127.0286,
-      jibunAddress: '서울특별시 강남구 신사동 590',
-      roadAddress: '서울특별시 강남구 논현로159길 10',
-      officialLandPriceWonSqm: 24500000,
-    },
-  },
-  {
-    match: /(당산동5가\s*11-47|양평동\s*11-47|영신로\s*259)/,
-    info: {
-      pnu: '1156011500100110047',
-      lat: 37.5342,
-      lng: 126.9022,
-      jibunAddress: '서울특별시 영등포구 당산동5가 11-47',
-      roadAddress: '서울특별시 영등포구 영신로 259',
-      officialLandPriceWonSqm: 8950000,
-    },
-  },
-  {
-    match: /(보정동\s*1208-4|죽전로\s*15)/,
-    info: {
-      pnu: '4146311800112080004',
-      lat: 37.3228,
-      lng: 127.1107,
-      jibunAddress: '경기도 용인시 기흥구 보정동 1208-4',
-      roadAddress: '경기도 용인시 기흥구 죽전로 15',
-      officialLandPriceWonSqm: 6420000,
-    },
-  },
-  {
-    match: /(보정동\s*1263|보정로\s*115)/,
-    info: {
-      pnu: '4146311100112630000',
-      lat: 37.3198,
-      lng: 127.1107,
-      jibunAddress: '경기도 용인시 기흥구 보정동 1263',
-      roadAddress: '경기도 용인시 기흥구 보정로 115',
-      officialLandPriceWonSqm: 6420000,
-    },
-  },
-  {
-    match: /(보정동\s*1323-2|신촌로47번길\s*6)/,
-    info: {
-      pnu: '4146311800113230002',
-      lat: 37.3079134604492,
-      lng: 127.110304201949,
-      jibunAddress: '경기도 용인시 기흥구 보정동 1323-2',
-      roadAddress: '경기도 용인시 기흥구 신촌로47번길 6 (보정동)',
-      officialLandPriceWonSqm: 2790000,
-      landAreaSqm: 440,
-      gfaSqm: 1230.46,
-      zoning: '제3종일반주거지역',
-      completionDate: '2004-12-23',
-      floorsAbove: 5,
-      floorsBelow: 1,
-      bcrPct: 49.91,
-      farPct: 209.24,
-      parkingSpaces: 7,
-      elevators: 1,
-      mainPurpose: '제1·2종 근린생활시설',
-    },
-  },
-];
 
 function mapPostureToLegacy(posture: string): string {
   switch (posture) {
@@ -418,15 +191,30 @@ export async function POST(req: NextRequest) {
   }
 
   const priceNum = Number(askingPriceManwon);
-  if (isNaN(priceNum) || priceNum <= 0) {
+  const isExplicitNegotiable =
+    priceNum === 0 &&
+    (body.priceNegotiable === true ||
+      /협의|비공개/.test(String(body.priceBand || body.title || body.buildingName || '')));
+  if (isNaN(priceNum) || priceNum < 0 || (priceNum === 0 && !isExplicitNegotiable)) {
     return NextResponse.json(
       { error: '유효한 매각 희망가를 입력해주세요 (0보다 커야 합니다).' },
       { status: 422 }
     );
   }
 
+  // WP-7.3D P1-4: same per-broker AI burst limit + daily AI quota as generate/generate-async
+  // (enforceBrokerAiQuota → 429 Korean message). Checked after cheap validation and after the
+  // idempotency cache so retries/replays never consume quota. 20/min is generous enough for
+  // E2E flows (a few generates per run) while stopping scripted abuse of this 120s route.
+  const quickGenQuotaErr = await enforceBrokerAiQuota(req, userId, 'im_quick_generate', {
+    perMinute: 20,
+  });
+  if (quickGenQuotaErr) return quickGenQuotaErr;
+
   const cleanAddress = address.trim();
-  const knownMatch = KNOWN_PARCEL_REGISTRY.find((entry) => entry.match.test(cleanAddress))?.info;
+  const knownMatch = !isRealProductionRuntime()
+    ? TEST_PARCEL_FIXTURES.find((entry) => entry.match.test(cleanAddress))?.info
+    : undefined;
 
   // Generate deterministic/unique IDs (reuse valid UUID buildingId if supplied)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -521,19 +309,67 @@ export async function POST(req: NextRequest) {
     }
 
     let existingBldRow: Record<string, any> | null = null;
+    // WP-7.3D P1-3: the ownership lookup must FAIL CLOSED. Previously only `data` was read and
+    // thrown errors were swallowed, so a lookup failure skipped the 403 check and the route went
+    // on to upsert building_ssot_lite for another broker's id. A genuine "not found" (no row) is
+    // still allowed; any other lookup error → 503 and no write.
+    const ownershipLookupWouldPersist =
+      (process.env.NODE_ENV !== 'test' && !process.env.VITEST) ||
+      process.env.DISABLE_MEMORY_STORE === '1' ||
+      process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1';
+    const ownershipLookupUnavailable = () =>
+      NextResponse.json(
+        {
+          ok: false,
+          code: 'OWNERSHIP_CHECK_UNAVAILABLE',
+          error: '매물 권한 확인을 일시적으로 할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+        },
+        { status: 503 }
+      );
+    let ownershipSupabase: any = null;
     try {
       const { createServiceClient } = await import('@/lib/supabase/service');
-      const supabase = createServiceClient();
-      if (supabase && typeof supabase.from === 'function') {
-        const { data: bRow } = await supabase
-          .from('building_ssot_lite')
-          .select('id, owner_id, pnu, raw_address, layers')
-          .eq('id', requestedBuildingId)
-          .maybeSingle();
-        existingBldRow = (bRow as Record<string, any> | null) ?? null;
+      ownershipSupabase = createServiceClient();
+    } catch (clientErr) {
+      ownershipSupabase = null;
+      if (ownershipLookupWouldPersist) {
+        console.error('[quick-generate] ownership lookup client unavailable:', clientErr);
+        return ownershipLookupUnavailable();
       }
-    } catch {
-      // Non-blocking if Supabase client is unavailable in offline test environments
+      // Offline unit-test environments without a Supabase client never persist to the DB.
+    }
+    if (ownershipSupabase && typeof ownershipSupabase.from === 'function') {
+      try {
+        const runLookup = (cols: string) =>
+          ownershipSupabase
+            .from('building_ssot_lite')
+            .select(cols)
+            .eq('id', requestedBuildingId)
+            .maybeSingle();
+        let lookup = await runLookup('id, owner_id, pnu, raw_address, layers');
+        const isMissingColumn = (e: any) =>
+          Boolean(e) &&
+          (String(e.code || '') === '42703' ||
+            String(e.code || '') === 'PGRST204' ||
+            /column .* does not exist/i.test(String(e.message || '')));
+        if (lookup?.error && isMissingColumn(lookup.error)) {
+          // Pre-cutover schema without the optional `pnu`/`raw_address` columns.
+          lookup = await runLookup('id, owner_id, layers');
+        }
+        const lookupErr = lookup?.error;
+        const isNotFound = Boolean(lookupErr) && String(lookupErr.code || '') === 'PGRST116';
+        if (lookupErr && !isNotFound) {
+          console.error('[quick-generate] ownership lookup failed:', {
+            code: lookupErr.code,
+            message: lookupErr.message,
+          });
+          return ownershipLookupUnavailable();
+        }
+        existingBldRow = (lookup?.data as Record<string, any> | null) ?? null;
+      } catch (lookupThrown) {
+        console.error('[quick-generate] ownership lookup threw:', lookupThrown);
+        return ownershipLookupUnavailable();
+      }
     }
 
     if (existingBldRow) {
@@ -825,15 +661,10 @@ export async function POST(req: NextRequest) {
     Number(landAreaSqm) > 0
       ? Number(landAreaSqm)
       : knownMatch?.landAreaSqm ?? Number(existingSsot?.land_area_sqm || 0);
-  let effectiveGfaSqm =
+  const effectiveGfaSqm =
     Number(gfaSqm) > 0
       ? Number(gfaSqm)
       : knownMatch?.gfaSqm ?? Number(existingSsot?.total_gross_area_sqm || 0);
-  if (effectiveFloorsAbove >= 2 && effectiveGfaSqm > 0 && effectiveLandSqm > 0 && effectiveGfaSqm < effectiveLandSqm) {
-    const tmp = effectiveGfaSqm;
-    effectiveGfaSqm = effectiveLandSqm;
-    effectiveLandSqm = tmp;
-  }
   const rawZoning = typeof zoning === 'string' ? zoning.trim() : '';
   const effectiveZoning =
     rawZoning ||
@@ -943,8 +774,8 @@ export async function POST(req: NextRequest) {
       })
     : '';
 
-  const subjectLandPyeongEarly = Math.max(1, effectiveLandSqm / 3.305785);
-  const subjectLandPricePerPyeongManwon = Math.round(priceNum / subjectLandPyeongEarly);
+  const subjectLandPyeongEarly = Math.max(1, m2ToPyeong(effectiveLandSqm));
+  const subjectLandPricePerPyeongManwon = priceNum > 0 ? Math.round(priceNum / subjectLandPyeongEarly) : 0;
 
   const DEFAULT_SAMPLE_HEADLINES = new Set([
     '역세권 도보 3분 코너 · 전 층 우량 임차인 만실 운영',
@@ -972,9 +803,11 @@ export async function POST(req: NextRequest) {
         : '안정적 임차인 및 사옥·가치개선 활용 적격'),
     customPoints[2] ||
       parsedExtras?.investment_points?.[2] ||
-      (effectiveMonthlyRentManwon > 0
+      (effectiveMonthlyRentManwon > 0 && priceNum > 0
         ? `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`
-        : `토지 평당 ${subjectLandPricePerPyeongManwon.toLocaleString()}만원 자산가치 우수`),
+        : subjectLandPricePerPyeongManwon > 0
+        ? `토지 평당 ${subjectLandPricePerPyeongManwon.toLocaleString()}만원 자산가치 우수`
+        : '핵심 입지 및 실수요·투자 가치 우수'),
   ];
   const defaultPoints: [string, string, string] = [
     polishImCopyWithLexiconSync(rawDefaultPoints[0], {
@@ -996,6 +829,7 @@ export async function POST(req: NextRequest) {
     displayName?: string;
     company?: string;
     phone?: string;
+    officeAddress?: string;
     registrationNo?: string;
     licenseNo?: string;
     tagline?: string;
@@ -1011,23 +845,35 @@ export async function POST(req: NextRequest) {
       const { createServiceClient } = await import('@/lib/supabase/service');
       const supabase = createServiceClient();
       if (supabase && typeof supabase.from === 'function') {
-        const [{ data: pRow }, { data: bpRow }] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('display_name, company, phone, tagline, photo_url')
-            .eq('id', auth.user.id)
-            .maybeSingle(),
-          supabase
+        const { data: pRow } = await supabase
+          .from('profiles')
+          .select('display_name, company, phone, tagline, photo_url')
+          .eq('id', auth.user.id)
+          .maybeSingle();
+
+        let bpRow: any = null;
+        const bpRes = await supabase
+          .from('broker_profiles')
+          .select('office_reg_number, license_number, office_address, representative_name, name, slug, specialty_regions, specialty_assets, bio, avatar_url')
+          .eq('user_id', auth.user.id)
+          .maybeSingle();
+        if (!bpRes.error) {
+          bpRow = bpRes.data;
+        } else {
+          const bpFallback = await supabase
             .from('broker_profiles')
             .select('office_reg_number, license_number, slug, specialty_regions, specialty_assets, bio, avatar_url')
             .eq('user_id', auth.user.id)
-            .maybeSingle(),
-        ]);
+            .maybeSingle();
+          bpRow = bpFallback.data;
+        }
+
         if (pRow || bpRow) {
           dbBrokerProfile = {
-            displayName: pRow?.display_name || undefined,
+            displayName: pRow?.display_name || bpRow?.representative_name || bpRow?.name || undefined,
             company: pRow?.company || undefined,
             phone: pRow?.phone || undefined,
+            officeAddress: bpRow?.office_address || undefined,
             registrationNo: bpRow?.office_reg_number || undefined,
             licenseNo: bpRow?.license_number || undefined,
             tagline: pRow?.tagline || undefined,
@@ -1064,6 +910,15 @@ export async function POST(req: NextRequest) {
     return t;
   };
 
+  const officeAddressVal =
+    cleanBrokerVal(body.brokerAddress) ||
+    cleanBrokerVal(body.brokerOfficeAddress) ||
+    cleanBrokerVal(body.brokerOffice?.officeAddress) ||
+    cleanBrokerVal(body.brokerOffice?.office_address) ||
+    cleanBrokerVal(body.brokerOffice?.address) ||
+    cleanBrokerVal(dbBrokerProfile?.officeAddress) ||
+    '';
+
   const brokerOfficeObj = {
     name:
       cleanBrokerVal(brokerageName) ||
@@ -1086,6 +941,8 @@ export async function POST(req: NextRequest) {
       cleanBrokerVal(body.brokerOffice?.phone) ||
       cleanBrokerVal(dbBrokerProfile?.phone) ||
       '',
+    officeAddress: officeAddressVal,
+    address: officeAddressVal,
   };
 
   const userSubmittedPhotos = Array.isArray(body.photos)
@@ -1125,17 +982,15 @@ export async function POST(req: NextRequest) {
               ? 'rooftop'
               : /도면|평면도|floor_plan/i.test(inferSource)
               ? 'floor_plan'
-              : idx === 0
+              : idx === 0 && typeof p === 'object' && p.isHero
               ? 'exterior'
-              : 'interior');
+              : 'general');
           const defaultCaption =
             typeof p === 'object' && p.caption
               ? String(p.caption).replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
               : rawName
               ? rawName.replace(/\.[^.]+$/, '').replace(/^[0-9]+[_-\s]*/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
-              : idx === 0
-              ? `${resolvedTitle} 전면 외관`
-              : `${resolvedTitle} 현장 사진 ${idx + 1}`;
+              : '';
           return {
             url: resolvedPhotoUrl,
             caption: defaultCaption,
@@ -1385,8 +1240,8 @@ export async function POST(req: NextRequest) {
   let resolvedLandCategory = parcelSummary.landCategoryLabel || '대';
   const resolvedParcels = normalizedParcels.length > 0 ? normalizedParcels : rawParcelsInput;
 
-  const subjectLandPyeong = Math.max(1, effectiveLandSqm / 3.305785);
-  const subjectLandPricePerPyeongWon = Math.round((priceNum * 10000) / subjectLandPyeong);
+  const subjectLandPyeong = Math.max(1, m2ToPyeong(effectiveLandSqm));
+  const subjectLandPricePerPyeongWon = priceNum > 0 ? Math.round((priceNum * 10000) / subjectLandPyeong) : 0;
   const defaultComps =
     parsedExtras?.market_comps && parsedExtras.market_comps.length > 0
       ? parsedExtras.market_comps.map((c, idx) => ({
@@ -1467,7 +1322,7 @@ export async function POST(req: NextRequest) {
                       .slice(0, 3)
                       .map((r: any) => {
                         const txManwon = Math.round(Number(r.transaction_price) / 10_000);
-                        const bldPy = Number(r.building_area) > 0 ? Number(r.building_area) / 3.305785 : 0;
+                        const bldPy = Number(r.building_area) > 0 ? m2ToPyeong(Number(r.building_area)) : 0;
                         return {
                           location:
                             [r.district, r.dong, r.address].filter(Boolean).join(' ').trim() ||
@@ -1586,7 +1441,7 @@ export async function POST(req: NextRequest) {
       explicitM2 > 0
         ? explicitM2
         : explicitPy > 0
-        ? Math.round(explicitPy * 3.305785 * 100) / 100
+        ? Math.round(pyeongToM2(explicitPy) * 100) / 100
         : isAuxRow
         ? 0
         : Math.round((floorBudgetSqm / unitsOnFloor) * 100) / 100;
@@ -1594,7 +1449,7 @@ export async function POST(req: NextRequest) {
       explicitPy > 0
         ? explicitPy
         : computedM2 > 0
-        ? Math.round((computedM2 / 3.305785) * 10) / 10
+        ? Math.round(m2ToPyeong(computedM2) * 10) / 10
         : 0;
     return {
       ...r,
@@ -1803,7 +1658,7 @@ export async function POST(req: NextRequest) {
       : 0;
 
   const exactEokNum = Math.round((priceNum / 10000) * 100) / 100;
-  const exactEokDisplay = `${exactEokNum}억 원`;
+  const exactEokDisplay = priceNum > 0 ? `${exactEokNum}억 원` : '가격 협의';
 
   const ssotSummary = {
     address: cleanAddress,
@@ -1881,7 +1736,14 @@ export async function POST(req: NextRequest) {
         `| 건폐율 / 용적률 | ${bcrPct}% / ${farPct}% |`,
         `| 사용승인일 | ${effectiveCompletionDate} |`,
         ...(parkingSpaces > 0 || elevators > 0
-          ? [`| 주차 / 승강기 | 자주식 ${parkingSpaces}대 / 승용 ${elevators}대 |`]
+          ? [
+              `| 주차 / 승강기 | ${
+                String(body.parkingType || (existingEnrichment?.buildingRegister as any)?.parkingType || '').trim() === '자주식' ||
+                String(body.parkingType || (existingEnrichment?.buildingRegister as any)?.parkingType || '').trim() === 'self'
+                  ? `자주식 ${parkingSpaces}대`
+                  : `총 ${parkingSpaces}대`
+              } / 승용 ${elevators}대 |`,
+            ]
           : []),
         ``,
         `- **핵심 입지**: ${defaultPoints[0]}`,
@@ -1995,9 +1857,9 @@ export async function POST(req: NextRequest) {
               `| 본건 건물 단가 | 연면적 ${facts.building.totalGrossAreaPyeong}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 지상 ${effectiveFloorsAbove}층 / 지하 ${effectiveFloorsBelow}층 |`,
               ...(effectiveOfficialLandPriceWonSqm > 0
                 ? [
-                    `| 공시지가 대비 배율 | 개별공시지가 ${Math.round((effectiveOfficialLandPriceWonSqm * 3.305785) / 10000).toLocaleString()}만원/평 | ${(
+                    `| 공시지가 대비 배율 | 개별공시지가 ${Math.round(pyeongToM2(effectiveOfficialLandPriceWonSqm) / 10000).toLocaleString()}만원/평 | ${(
                       facts.transaction.pricePerPyeongLandWon /
-                      Math.max(1, effectiveOfficialLandPriceWonSqm * 3.305785)
+                      Math.max(1, pyeongToM2(effectiveOfficialLandPriceWonSqm))
                     ).toFixed(2)}배 | 토지 호가 / 공시지가 비율 |`,
                   ]
                 : []),
@@ -2134,6 +1996,8 @@ export async function POST(req: NextRequest) {
       name: brokerOfficeObj.representative,
       company: brokerOfficeObj.name,
       phone: brokerOfficeObj.phone,
+      officeAddress: brokerOfficeObj.officeAddress,
+      office_address: brokerOfficeObj.officeAddress,
       registration_no: brokerOfficeObj.registrationNo,
       brokerName: brokerOfficeObj.representative,
       brokerageName: brokerOfficeObj.name,
@@ -2146,6 +2010,229 @@ export async function POST(req: NextRequest) {
   };
 
   const persistedOwnerId = existingOwnerId || userId;
+  const shouldPersistDb =
+    (process.env.NODE_ENV !== 'test' && !process.env.VITEST) ||
+    process.env.DISABLE_MEMORY_STORE === '1' ||
+    process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1';
+
+  const explicitPublishRequested =
+    body.publishStatus === 'published' || body.status === 'published';
+  const requestedStatus: 'draft' | 'published' =
+    body.publishStatus === 'draft' || body.status === 'draft'
+      ? 'draft'
+      : 'published';
+  let effectiveStatus: 'draft' | 'published' = requestedStatus;
+  let statutoryReady = false;
+  let sharedServiceSupabase: any = null;
+
+  if (requestedStatus === 'published' && auth.user?.id) {
+    if (shouldPersistDb) {
+      try {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        sharedServiceSupabase = createServiceClient();
+      } catch {
+        sharedServiceSupabase = null;
+      }
+    }
+    const statutoryGate = await assertPublishable({
+      supabase: sharedServiceSupabase,
+      userId: persistedOwnerId,
+      kind: 'im',
+      itemPayload: fullDocBody,
+      brokerMetaOverride: {
+        company: brokerOfficeObj.name || undefined,
+        officeAddress: brokerOfficeObj.officeAddress || undefined,
+        office_address: brokerOfficeObj.officeAddress || undefined,
+        phone: brokerOfficeObj.phone || undefined,
+        officeRegNumber: brokerOfficeObj.registrationNo || undefined,
+        office_reg_number: brokerOfficeObj.registrationNo || undefined,
+        representativeName: brokerOfficeObj.representative || undefined,
+        representative_name: brokerOfficeObj.representative || undefined,
+      },
+    });
+    statutoryReady = statutoryGate.ok;
+    if (!statutoryGate.ok) {
+      if (explicitPublishRequested) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: statutoryGate.code,
+            error: statutoryGate.message,
+            missingFields: statutoryGate.missingFields,
+            missingLabels: statutoryGate.missingLabels,
+          },
+          { status: 422 }
+        );
+      }
+      effectiveStatus = 'draft';
+    }
+  }
+
+  // P0-2: Blind-guard sanitize companion DealCard before any public snapshot persistence
+  const GENERIC_BUILDING_LABELS = new Set([
+    '새 IM',
+    '매물',
+    '근생빌딩',
+    '꼬마빌딩',
+    '상업용 빌딩',
+    '상업용 근생빌딩',
+    '오피스빌딩',
+    `${derivedRegion} 근생빌딩`,
+  ]);
+  const GENERIC_TENANT_LABELS = new Set([
+    '-',
+    '공실',
+    '자가사용',
+    '자가',
+    '임대중',
+    '임차중',
+    '근린생활시설',
+    '제1종근린생활시설',
+    '제2종근린생활시설',
+    '제1·2종 근린생활시설',
+    '사무실',
+    '오피스',
+    'IT 오피스',
+    '상가',
+    '의원',
+    '병원',
+    '약국',
+    '카페',
+    '프랜차이즈 카페',
+    '음식점',
+    '편의점',
+    '스튜디오',
+    '스튜디오/창고',
+    '창고',
+    '주차장',
+  ]);
+  const knownBuildingNames = Array.from(
+    new Set(
+      [
+        buildingName,
+        title,
+        body.heroTitle,
+        body.rawBuildingName,
+        existingSsot?.building_name,
+        (knownMatch as { buildingName?: string } | null)?.buildingName,
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter((v) => v.length >= 2 && !GENERIC_BUILDING_LABELS.has(v))
+    )
+  ).sort((a, b) => b.length - a.length);
+
+  const knownTenantNames = Array.from(
+    new Set(
+      [
+        ...safeRentRoll.flatMap((r: any) => [r?.tenantName, r?.tenant_name]),
+        ...mappedFloorLeases.map((fl: any) => fl?.tenant_name),
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter((v) => v.length >= 2 && !GENERIC_TENANT_LABELS.has(v))
+    )
+  ).sort((a, b) => b.length - a.length);
+
+  const escapeRegexLiteral = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stripBlindIdentifiers = (
+    raw: string,
+    buildingReplacement = '해당 건물',
+    tenantReplacement = '우량 임차업종'
+  ): string => {
+    let out = String(raw || '').trim();
+    if (!out) return '';
+    for (const bName of knownBuildingNames) {
+      out = out.replace(new RegExp(escapeRegexLiteral(bName), 'gi'), buildingReplacement);
+    }
+    for (const tName of knownTenantNames) {
+      out = out.replace(new RegExp(escapeRegexLiteral(tName), 'gi'), tenantReplacement);
+    }
+    out = cleanBlindPoints([out])[0] || out;
+    return out.replace(/\s+/g, ' ').trim();
+  };
+
+  const requestedRegionRaw =
+    typeof body.region === 'string' && body.region.trim() ? body.region.trim() : card4.region;
+  const cleanedRegionCandidate = stripBlindIdentifiers(requestedRegionRaw, '', '')
+    .replace(/(?:산\s*)?\b\d{1,5}(?:-\d{1,5})?(?:\s*번지)?\b/g, '')
+    .replace(/(?:OO번지|OO-OO|인근)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const safePublicRegion =
+    !cleanedRegionCandidate ||
+    /\d/.test(cleanedRegionCandidate)
+      ? derivedRegion
+      : cleanedRegionCandidate.slice(0, 14);
+
+  const cleanedPointsTuple = card4.points.map((pt, idx) => {
+    const stripped = stripBlindIdentifiers(pt);
+    const repaired = repairDealCardLine(stripped) || stripped.slice(0, 22).trim();
+    if (repaired) return repaired;
+    return idx === 0
+      ? '역세권 가시성 우수 입지'
+      : idx === 1
+      ? '안정적 임대수익 운용 자산'
+      : '핵심 상권 중장기 가치 우수';
+  }) as [string, string, string];
+
+  const rawHeadlineInput =
+    typeof body.headline === 'string' && body.headline.trim()
+      ? body.headline.trim()
+      : card4.headline;
+  const cleanedHeadlineCandidate = rawHeadlineInput
+    ? stripBlindIdentifiers(rawHeadlineInput)
+    : undefined;
+  const safePublicHeadline = cleanedHeadlineCandidate
+    ? /(?:OO번지|OO-OO)/.test(cleanedHeadlineCandidate)
+      ? `${safePublicRegion !== DEALCARD_PLACEHOLDER_REGION ? safePublicRegion : suggestFallbackRegion(cleanAddress)} ${card4.use}`.trim()
+      : cleanedHeadlineCandidate
+    : undefined;
+
+  const cleanedPointBriefs = Array.isArray(card4.pointBriefs)
+    ? (card4.pointBriefs.map((br) => stripBlindIdentifiers(br || '')) as [string, string, string])
+    : undefined;
+
+  const candidatePriceBand =
+    typeof body.priceBand === 'string' && body.priceBand.trim()
+      ? body.priceBand.trim()
+      : card4.priceBand;
+  const candidateBandCheck = validateBlindPriceBand(
+    candidatePriceBand,
+    priceNum > 0 ? priceNum * 10000 : null
+  );
+  const safePublicPriceBand = candidateBandCheck.valid
+    ? candidatePriceBand
+    : priceNum > 0
+    ? formatPriceRange(priceNum * 10000, 'standard')
+    : candidatePriceBand;
+
+  const card4ForPublicDraft = {
+    ...card4,
+    ...(safePublicHeadline ? { headline: safePublicHeadline } : {}),
+    region: safePublicRegion,
+    priceBand: safePublicPriceBand,
+    points: cleanedPointsTuple,
+    ...(cleanedPointBriefs ? { pointBriefs: cleanedPointBriefs } : {}),
+  };
+  const card4ForPublic: Card4Data = Card4Schema.parse({
+    ...card4ForPublicDraft,
+    card4_hash: computeCard4Hash(card4ForPublicDraft),
+  });
+  const statutoryBrokerProfile = {
+    ...brokerOfficeObj,
+    company: brokerOfficeObj.name,
+    officeName: brokerOfficeObj.name,
+    office_name: brokerOfficeObj.name,
+    office_address: brokerOfficeObj.officeAddress,
+    officeRegNumber: brokerOfficeObj.registrationNo,
+    office_reg_number: brokerOfficeObj.registrationNo,
+    representativeName: brokerOfficeObj.representative,
+    representative_name: brokerOfficeObj.representative,
+    displayName: brokerOfficeObj.representative,
+  };
+  const dealCardContentGate = evaluateDealCardPublishContent(card4ForPublic);
+  const canPublishCompanionDealCard =
+    effectiveStatus === 'published' && statutoryReady && dealCardContentGate.ok;
+  fullDocBody.card4 = card4ForPublic;
 
   saveQuickImRecord({
     buildingId,
@@ -2161,7 +2248,7 @@ export async function POST(req: NextRequest) {
     ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
     floorsAbove: effectiveFloorsAbove,
     floorsBelow: effectiveFloorsBelow,
-    card4,
+    card4: card4ForPublic,
     basicImDoc,
     rentRoll: safeRentRollWithAreas,
     specs: {
@@ -2199,171 +2286,262 @@ export async function POST(req: NextRequest) {
     updatedAt: nowIso,
   });
 
-  // Best-effort persistence into Supabase (skip network call in unit test runner)
-  if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  const completenessScore =
+    (cleanAddress ? 15 : 0) +
+    (priceNum > 0 || isExplicitNegotiable ? 15 : 0) +
+    (effectiveLandSqm > 0 ? 15 : 0) +
+    (effectiveGfaSqm > 0 ? 15 : 0) +
+    (effectiveZoning ? 10 : 0) +
+    (safeRentRollWithAreas.length > 0 ? 15 : 0) +
+    (defaultPhotos.length > 0 ? 10 : 0) +
+    (resolvedPnu ? 5 : 0);
+
+  if (shouldPersistDb) {
+    const strictPersist = isRealProductionRuntime() || process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1';
     try {
-      const { createServiceClient } = await import('@/lib/supabase/service');
-      const supabase = createServiceClient();
+      let supabase = sharedServiceSupabase;
+      if (!supabase) {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        supabase = createServiceClient();
+      }
       if (supabase && typeof supabase.from === 'function') {
-        await Promise.race([
-          (async () => {
-            const buildSsotPayload = (includeIndexPnu: boolean) => ({
-              id: buildingId,
-              owner_id: persistedOwnerId,
-              created_by_role: 'broker' as const,
-              input_type: 'manual_form' as const,
-              raw_input: cleanAddress,
+        const buildSsotPayload = (includeIndexPnu: boolean) => ({
+          id: buildingId,
+          owner_id: persistedOwnerId,
+          created_by_role: 'broker' as const,
+          input_type: 'manual_form' as const,
+          raw_input: cleanAddress,
+          raw_address: cleanAddress,
+          area_signal: card4.region,
+          asset_type: card4.use,
+          price_band: card4.priceBand,
+          size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
+          vacancy_signal: ssotSummary.vacancy_signal,
+          status: 'public_signal_ready' as const,
+          layers: {
+            completeness_score: completenessScore,
+            location: {
+              address: cleanAddress,
               raw_address: cleanAddress,
-              area_signal: card4.region,
-              asset_type: card4.use,
-              price_band: card4.priceBand,
-              size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
-              vacancy_signal: ssotSummary.vacancy_signal,
-              status: 'public_signal_ready' as const,
-              layers: {
-                completeness_score: 85,
-                location: {
-                  address: cleanAddress,
-                  raw_address: cleanAddress,
-                  ...(includeIndexPnu && resolvedPnu
-                    ? { pnu: resolvedPnu }
-                    : resolvedPnu
-                    ? { canonical_pnu: resolvedPnu }
-                    : {}),
-                },
-                coordinates: resolvedCoords,
-                physical: {
-                  total_floor_area_sqm: effectiveGfaSqm,
-                  land_area_sqm: effectiveLandSqm,
-                  zoning: effectiveZoning,
-                },
-                lease_summary: {
-                  asking_price_manwon: priceNum,
-                  total_deposit_manwon: effectiveDepositManwon,
-                  monthly_rent_total_krw: effectiveMonthlyRentManwon * 10000,
-                  vacancy_pct: vacancyPct,
-                },
-              },
-            });
+              ...(includeIndexPnu && resolvedPnu
+                ? { pnu: resolvedPnu }
+                : resolvedPnu
+                ? { canonical_pnu: resolvedPnu }
+                : {}),
+            },
+            coordinates: resolvedCoords,
+            physical: {
+              total_floor_area_sqm: effectiveGfaSqm,
+              land_area_sqm: effectiveLandSqm,
+              zoning: effectiveZoning,
+            },
+            lease_summary: {
+              asking_price_manwon: priceNum,
+              total_deposit_manwon: effectiveDepositManwon,
+              monthly_rent_total_krw: effectiveMonthlyRentManwon * 10000,
+              vacancy_pct: vacancyPct,
+            },
+          },
+        });
 
-            let { error: bErr } = await supabase
-              .from('building_ssot_lite')
-              .upsert(buildSsotPayload(true));
-            // If this broker already has another building_ssot_lite row for the same (owner_id, pnu)
-            // (e.g. creating manual vs .xlsx IM variants for the same parcel), store canonical_pnu in layers
-            // so generated column `pnu` stays NULL and avoids unique index collision while keeping FK intact.
-            if (bErr) {
-              const retryRes = await supabase
-                .from('building_ssot_lite')
-                .upsert(buildSsotPayload(false));
-              bErr = retryRes.error;
-            }
-            if (bErr) {
-              console.error('[quick-generate] building_ssot_lite upsert error:', bErr.message);
-            }
-            const { stripHeavyBase64ForDb } = await import(
-              '@/lib/supabase/jsonb-diet'
+        let { error: bErr } = await supabase
+          .from('building_ssot_lite')
+          .upsert(buildSsotPayload(true));
+        if (bErr) {
+          const retryRes = await supabase
+            .from('building_ssot_lite')
+            .upsert(buildSsotPayload(false));
+          bErr = retryRes.error;
+        }
+        if (bErr) {
+          console.error('[quick-generate] building_ssot_lite upsert error:', bErr.message);
+          if (strictPersist) {
+            return NextResponse.json(
+              { ok: false, error: '매물 기본 정보 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+              { status: 500 }
             );
-            const dbDocBody = stripHeavyBase64ForDb({
-              ...fullDocBody,
-              cadastralMapImage: undefined,
-            });
-            const urlPhotos = Array.isArray(defaultPhotos)
-              ? defaultPhotos.filter(
-                  (p: any) =>
-                    p &&
-                    typeof p.url === 'string' &&
-                    (p.url.startsWith('http://') ||
-                      p.url.startsWith('https://') ||
-                      p.url.startsWith('/'))
-                )
-              : [];
-            const dataUriPhotos = Array.isArray(defaultPhotos)
-              ? defaultPhotos
-                  .filter(
-                    (p: any) =>
-                      p &&
-                      typeof p.url === 'string' &&
-                      p.url.startsWith('data:') &&
-                      p.url.length <= LARGE_INLINE_PHOTO_THRESHOLD_CHARS
-                  )
-                  .slice(0, 12)
-              : [];
-            const persistedPhotos = [...urlPhotos, ...dataUriPhotos];
-            dbDocBody.photos = persistedPhotos;
-            dbDocBody.photos_v2 = persistedPhotos;
-            dbDocBody.photo_urls = persistedPhotos.map((p: any) => p.url);
-            const requestedStatus =
-              body.publishStatus === 'draft' || body.status === 'draft'
-                ? 'draft'
-                : 'published';
-            const { error: dErr } = await supabase.from('document_objects').insert({
-              id: documentId,
-              owner_id: auth.user?.id || null,
-              source_type: 'building_ssot_lite',
-              source_id: buildingId,
-              building_id: buildingId,
-              document_type: 'mobile_im',
-              visibility: 'public_blind',
-              status: requestedStatus,
-              title: resolvedTitle,
-              body: dbDocBody,
-            });
-            if (dErr) {
-              console.error('[quick-generate] document_objects insert error:', dErr.message);
-            }
-            const { pruneSupersededDocumentObjects } = await import(
-              '@/lib/supabase/prune-document-objects'
-            );
-            await pruneSupersededDocumentObjects(supabase, buildingId, 'mobile_im', 2);
+          }
+        }
 
-            // SOTA Closed-Loop RAG Hygiene & Vector Indexing (S0-T3):
-            // Only broker-published IMs pass evaluateRAGIndexingEligibility and feed im_documents pgvector asynchronously via after()
-            if (!dErr) {
-              const fullMarkdownForRag = pptxSections
-                .map((s) => `[${s.title}]\n${s.markdown}`)
-                .join('\n\n');
-              const ragGate = evaluateRAGIndexingEligibility({
-                id: documentId,
-                buildingId,
-                status: requestedStatus,
-                isBrokerApproved: requestedStatus === 'published',
-                content: fullMarkdownForRag,
-                assetType: card4.use,
-                regionCode: resolvedPnu ? resolvedPnu.slice(0, 5) : undefined,
-              });
-              if (ragGate.eligibleForIndexing) {
+        const { stripHeavyBase64ForDb } = await import('@/lib/supabase/jsonb-diet');
+        const dbDocBody = stripHeavyBase64ForDb({
+          ...fullDocBody,
+          cadastralMapImage: undefined,
+        });
+        const urlPhotos = Array.isArray(defaultPhotos)
+          ? defaultPhotos.filter(
+              (p: any) =>
+                p &&
+                typeof p.url === 'string' &&
+                (p.url.startsWith('http://') ||
+                  p.url.startsWith('https://') ||
+                  p.url.startsWith('/'))
+            )
+          : [];
+        const dataUriPhotos = Array.isArray(defaultPhotos)
+          ? defaultPhotos
+              .filter(
+                (p: any) =>
+                  p &&
+                  typeof p.url === 'string' &&
+                  p.url.startsWith('data:') &&
+                  p.url.length <= LARGE_INLINE_PHOTO_THRESHOLD_CHARS
+              )
+              .slice(0, 12)
+          : [];
+        const persistedPhotos = [...urlPhotos, ...dataUriPhotos];
+        dbDocBody.photos = persistedPhotos;
+        dbDocBody.photos_v2 = persistedPhotos;
+        dbDocBody.photo_urls = persistedPhotos.map((p: any) => p.url);
+        const { error: dErr } = await supabase.from('document_objects').insert({
+          id: documentId,
+          owner_id: auth.user?.id || null,
+          source_type: 'building_ssot_lite',
+          source_id: buildingId,
+          building_id: buildingId,
+          document_type: 'mobile_im',
+          visibility: 'public_blind',
+          status: effectiveStatus,
+          title: resolvedTitle,
+          body: dbDocBody,
+        });
+        if (dErr) {
+          console.error('[quick-generate] document_objects insert error:', dErr.message);
+          if (strictPersist) {
+            return NextResponse.json(
+              { ok: false, error: 'IM 문서 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+              { status: 500 }
+            );
+          }
+        }
+
+        const imWorkspacePayload: Record<string, any> = {
+          ...dbDocBody,
+          title: resolvedTitle,
+          address: cleanAddress,
+          askingPriceManwon: priceNum,
+          gfaSqm: effectiveGfaSqm,
+          landAreaSqm: effectiveLandSqm,
+          zoning: effectiveZoning,
+          completionDate: effectiveCompletionDate,
+          floorsAbove: effectiveFloorsAbove,
+          floorsBelow: effectiveFloorsBelow,
+          bcrPct,
+          farPct,
+          grossYieldPct: basicImDoc.facts.valuation.grossYieldPct,
+          capRatePct: basicImDoc.facts.valuation.capRatePct,
+          rentRoll: safeRentRollWithAreas,
+          floor_leases: mappedFloorLeases,
+          sections: pptxSections,
+          basicImDocument: basicImDoc,
+          ssot_summary: ssotSummary,
+        };
+
+        await upsertWorkspaceItem(supabase, {
+          id: documentId,
+          buildingId,
+          ownerId: persistedOwnerId,
+          isAdmin,
+          kind: 'im',
+          status: effectiveStatus === 'published' ? 'published' : 'draft',
+          title: resolvedTitle,
+          address: cleanAddress,
+          priceBand: card4.priceBand,
+          draftPayload: imWorkspacePayload,
+          ...(effectiveStatus === 'published'
+            ? { publishedSnapshot: buildSanitizedImPublicSnapshot(imWorkspacePayload) }
+            : {}),
+          docHash: basicImDoc.docHash,
+        });
+        await upsertWorkspaceItem(supabase, {
+          buildingId,
+          ownerId: persistedOwnerId,
+          isAdmin,
+          kind: 'dealcard',
+          status: canPublishCompanionDealCard ? 'sent' : 'draft',
+          title: `${card4ForPublic.region} ${card4ForPublic.use}`.trim(),
+          address: card4ForPublic.region,
+          priceBand: card4ForPublic.priceBand,
+          draftPayload: { card4: card4ForPublic, brokerProfile: statutoryBrokerProfile },
+          publishedSnapshot: canPublishCompanionDealCard
+            ? buildSanitizedDealCardPublicSnapshot({
+                card4: card4ForPublic,
+                brokerProfile: statutoryBrokerProfile,
+              })
+            : null,
+          docHash: card4ForPublic.card4_hash,
+        });
+
+        const { pruneSupersededDocumentObjects } = await import(
+          '@/lib/supabase/prune-document-objects'
+        );
+        await pruneSupersededDocumentObjects(supabase, buildingId, 'mobile_im', 2);
+
+        if (!dErr) {
+          const fullMarkdownForRag = pptxSections
+            .map((s) => `[${s.title}]\n${s.markdown}`)
+            .join('\n\n');
+          const ragGate = evaluateRAGIndexingEligibility({
+            id: documentId,
+            buildingId,
+            status: effectiveStatus,
+            isBrokerApproved: effectiveStatus === 'published',
+            content: fullMarkdownForRag,
+            assetType: card4.use,
+            regionCode: resolvedPnu ? resolvedPnu.slice(0, 5) : undefined,
+          });
+          if (ragGate.eligibleForIndexing) {
+            try {
+              after(async () => {
                 try {
-                  after(async () => {
-                    try {
-                      await indexIMSections(
-                        supabase as any,
-                        buildingId,
-                        pptxSections as any,
-                        {
-                          status: requestedStatus,
-                          brokerApproved: true,
-                          assetType: card4.use,
-                          address: cleanAddress,
-                          posture,
-                          documentId,
-                        },
-                      );
-                    } catch {
-                      // Non-blocking vector store indexing
+                  await indexIMSections(
+                    supabase as any,
+                    buildingId,
+                    pptxSections as any,
+                    {
+                      status: effectiveStatus,
+                      brokerApproved: true,
+                      assetType: card4.use,
+                      address: cleanAddress,
+                      posture,
+                      documentId,
                     }
-                  });
+                  );
                 } catch {
-                  // Safe fallback when invoked outside Next.js request async context
+                  // Non-blocking vector store indexing
                 }
-              }
+              });
+            } catch {
+              // Safe fallback when invoked outside Next.js request async context
             }
-          })(),
-          new Promise((resolve) => setTimeout(resolve, 12000)),
-        ]);
+          }
+        }
       }
     } catch (persistErr) {
+      if (persistErr instanceof WorkspaceRepositoryError) {
+        // WP-7.3D P2-7: repository 5xx messages may carry raw DB text — keep them server-side.
+        if (persistErr.status >= 500) {
+          console.error('[quick-generate] workspace persistence error:', persistErr.code, persistErr.message);
+        }
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              persistErr.status >= 500
+                ? '작업 공간 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+                : persistErr.message,
+            code: persistErr.code,
+          },
+          { status: persistErr.status }
+        );
+      }
       console.error('[quick-generate] Supabase persistence exception:', persistErr);
+      if (strictPersist) {
+        return NextResponse.json(
+          { ok: false, error: '데이터베이스 저장 중 오류가 발생했습니다.' },
+          { status: 500 }
+        );
+      }
     }
   }
 
@@ -2372,8 +2550,9 @@ export async function POST(req: NextRequest) {
     buildingId,
     documentId,
     docHash: basicImDoc.docHash,
-    card4,
+    card4: card4ForPublic,
     basicImDocument: basicImDoc,
+    publishStatus: effectiveStatus,
     status: 'succeeded',
     created_at: nowIso,
   };

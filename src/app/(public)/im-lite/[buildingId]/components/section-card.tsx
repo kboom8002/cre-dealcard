@@ -40,16 +40,16 @@ function InlineMarkdown({ text }: { text: string }) {
   // [text](url) → clickable link
   processed = processed.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline font-medium">$1</a>'
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-700 underline font-medium">$1</a>'
   );
 
   processed = processed.replace(
     /\*\*([^*]+)\*\*/g,
-    '<strong class="text-white font-bold">$1</strong>'
+    '<strong class="text-slate-900 font-bold">$1</strong>'
   );
   processed = processed.replace(
     /\*([^*]+)\*/g,
-    '<em class="italic text-neutral-200">$1</em>'
+    '<em class="italic text-slate-700">$1</em>'
   );
 
   processed = sanitizeHtml(processed);
@@ -64,14 +64,14 @@ function InlineMarkdown({ text }: { text: string }) {
       {parts.map((part, i) => {
         if (part.startsWith("**") && part.endsWith("**")) {
           return (
-            <strong key={i} className="text-white font-bold">
+            <strong key={i} className="text-slate-900 font-bold">
               {part.slice(2, -2)}
             </strong>
           );
         }
         if (part.startsWith("*") && part.endsWith("*")) {
           return (
-            <em key={i} className="italic text-neutral-200">
+            <em key={i} className="italic text-slate-700">
               {part.slice(1, -1)}
             </em>
           );
@@ -95,14 +95,14 @@ function TableFromLines({ lines }: { lines: string[] }) {
   const headers = parseRow(header);
 
   return (
-    <div className="overflow-x-auto my-4 rounded-xl border border-neutral-700/60 shadow-sm">
+    <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 bg-white shadow-xs">
       <table className="w-full text-sm sm:text-base">
         <thead>
-          <tr className="border-b border-neutral-700 bg-neutral-950/80">
+          <tr className="border-b border-slate-200 bg-slate-50">
             {headers.map((h, i) => (
               <th
                 key={i}
-                className="text-left text-neutral-300 font-bold px-3.5 py-3 text-xs sm:text-sm"
+                className="text-left text-slate-700 font-bold px-3.5 py-3 text-sm"
               >
                 <InlineMarkdown text={h} />
               </th>
@@ -113,12 +113,12 @@ function TableFromLines({ lines }: { lines: string[] }) {
           {body.map((row, ri) => (
             <tr
               key={ri}
-              className="border-b border-neutral-800 last:border-0 hover:bg-neutral-800/30 transition-colors"
+              className="border-b border-slate-200 last:border-0 hover:bg-slate-50/80 transition-colors"
             >
               {parseRow(row).map((cell, ci) => (
                 <td
                   key={ci}
-                  className="px-3.5 py-2.5 text-neutral-200 leading-relaxed font-normal"
+                  className="px-3.5 py-2.5 text-slate-800 leading-relaxed font-normal"
                 >
                   <InlineMarkdown text={cell} />
                 </td>
@@ -175,7 +175,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <h4
           key={key++}
-          className="text-xs sm:text-sm font-bold tracking-tight text-primary/90 mt-4 mb-2"
+          className="text-sm font-bold tracking-tight text-blue-800 mt-4 mb-2"
         >
           <InlineMarkdown text={trimmed.slice(5)} />
         </h4>
@@ -185,7 +185,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <h3
           key={key++}
-          className="text-sm sm:text-base font-bold tracking-tight text-primary mt-5 mb-2.5"
+          className="text-sm sm:text-base font-bold tracking-tight text-blue-700 mt-5 mb-2.5"
         >
           <InlineMarkdown text={trimmed.slice(4)} />
         </h3>
@@ -195,7 +195,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <h2
           key={key++}
-          className="text-base sm:text-lg font-bold text-white mt-5 mb-3"
+          className="text-base sm:text-lg font-bold text-slate-900 mt-5 mb-3"
         >
           <InlineMarkdown text={trimmed.slice(3)} />
         </h2>
@@ -210,7 +210,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <p
           key={key++}
-          className="font-bold text-white text-base leading-relaxed"
+          className="font-bold text-slate-900 text-base leading-relaxed"
         >
           {trimmed.slice(2, -2)}
         </p>
@@ -226,7 +226,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <li
           key={key++}
-          className="text-neutral-200 text-base leading-relaxed ml-4 list-disc my-1"
+          className="text-slate-700 text-base leading-relaxed ml-4 list-disc my-1"
         >
           <InlineMarkdown text={bulletText} />
         </li>
@@ -237,7 +237,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <li
           key={key++}
-          className="text-neutral-200 text-base leading-relaxed ml-4 list-decimal my-1"
+          className="text-slate-700 text-base leading-relaxed ml-4 list-decimal my-1"
         >
           <InlineMarkdown text={text} />
         </li>
@@ -247,9 +247,9 @@ export function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <blockquote
           key={key++}
-          className="border-l-3 border-primary/60 bg-primary/10 rounded-r-xl py-2 px-4 my-3"
+          className="border-l-3 border-blue-600/60 bg-blue-50/70 rounded-r-xl py-2 px-4 my-3"
         >
-          <p className="text-neutral-300 text-sm sm:text-base leading-relaxed font-medium">
+          <p className="text-slate-700 text-sm sm:text-base leading-relaxed font-medium">
             <InlineMarkdown text={trimmed.slice(2)} />
           </p>
         </blockquote>
@@ -264,7 +264,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
         elements.push(
           <p
             key={key++}
-            className="text-neutral-200 text-base leading-relaxed my-1"
+            className="text-slate-700 text-base leading-relaxed my-1"
           >
             <InlineMarkdown text={cleanedLine} />
           </p>
@@ -293,15 +293,15 @@ export function SectionCard({
   const aiRoleBadgeMap: Record<string, { label: string; color: string }> = {
     auto: {
       label: "공적장부 자동연동",
-      color: "text-sky-400 bg-sky-400/10 border-sky-400/20",
+      color: "text-sky-700 bg-sky-50 border-sky-200",
     },
     ai_generated: {
       label: "AI 생성",
-      color: "text-violet-400 bg-violet-400/10 border-violet-400/20",
+      color: "text-violet-700 bg-violet-50 border-violet-200",
     },
     static: {
       label: "표준 안내",
-      color: "text-neutral-400 bg-neutral-400/10 border-neutral-400/20",
+      color: "text-slate-600 bg-slate-100 border-slate-200",
     },
   };
   const aiRoleBadge = aiRoleBadgeMap[section.aiRole] ?? aiRoleBadgeMap.static;
@@ -310,25 +310,25 @@ export function SectionCard({
     <div
       className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
         section.locked
-          ? "border-neutral-800 bg-neutral-950/50"
+          ? "border-slate-200 bg-slate-50"
           : isOpen
-          ? "border-primary/30 bg-neutral-900/80 shadow-lg shadow-primary/5"
-          : "border-neutral-800 bg-neutral-900/50 hover:border-neutral-700"
+          ? "border-blue-300 bg-white shadow-sm"
+          : "border-slate-200 bg-white hover:border-slate-300"
       }`}
     >
       {/* Header */}
       <button
         onClick={onToggle}
         disabled={section.locked}
-        className="w-full flex items-center gap-4 p-4 text-left"
+        className="w-full flex items-center gap-4 p-4 text-left cursor-pointer disabled:cursor-not-allowed"
         aria-expanded={isOpen}
       >
         {/* Number badge */}
         <div
           className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${
             section.locked
-              ? "bg-neutral-800 text-neutral-600"
-              : "bg-primary/20 text-primary"
+              ? "bg-slate-200 text-slate-600"
+              : "bg-blue-50 text-blue-700 border border-blue-200"
           }`}
         >
           {section.locked ? "🔒" : index + 1}
@@ -339,7 +339,7 @@ export function SectionCard({
             <span className="text-lg">{section.icon}</span>
             <span
               className={`text-base font-bold truncate ${
-                section.locked ? "text-neutral-600" : "text-white"
+                section.locked ? "text-slate-500" : "text-slate-900"
               }`}
             >
               {section.title}
@@ -349,7 +349,6 @@ export function SectionCard({
           {(section as any).provenance &&
             (section as any).provenance.length > 0 &&
             (() => {
-              // 레거시 source → D37 ProvenanceKind 매핑
               const SOURCE_TO_PROVENANCE: Record<string, string> = {
                 public_data: "public_api",
                 broker_input: "broker",
@@ -357,12 +356,12 @@ export function SectionCard({
                 expert_verified: "ledger",
               };
               const TRUST_COLOR: Record<number, string> = {
-                5: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-                4: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-                3: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-                2: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-                1: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
-                0: "bg-neutral-500/10 text-neutral-400 border-neutral-500/20",
+                5: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                4: "bg-blue-50 text-blue-700 border-blue-200",
+                3: "bg-amber-50 text-amber-800 border-amber-200",
+                2: "bg-orange-50 text-orange-800 border-orange-200",
+                1: "bg-indigo-50 text-indigo-700 border-indigo-200",
+                0: "bg-slate-100 text-slate-600 border-slate-200",
               };
               const sources = Array.from(
                 new Set((section as any).provenance.map((p: any) => p.source))
@@ -381,7 +380,7 @@ export function SectionCard({
                     return (
                       <span
                         key={source}
-                        className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}
+                        className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-sm font-medium border ${colorClass}`}
                       >
                         {config.icon} {config.label}
                       </span>
@@ -391,7 +390,7 @@ export function SectionCard({
               );
             })()}
           {section.locked && section.lockedReason && (
-            <p className="text-xs text-neutral-600 mt-0.5 line-clamp-1">
+            <p className="text-sm text-slate-600 mt-0.5 line-clamp-1">
               {section.lockedReason}
             </p>
           )}
@@ -400,7 +399,7 @@ export function SectionCard({
         <div className="flex items-center gap-2 shrink-0">
           {!section.locked && (
             <span
-              className={`hidden sm:inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${aiRoleBadge.color}`}
+              className={`hidden sm:inline-flex items-center text-sm font-medium px-2 py-0.5 rounded-full border ${aiRoleBadge.color}`}
             >
               {aiRoleBadge.label}
             </span>
@@ -423,18 +422,18 @@ export function SectionCard({
                 confirmed: {
                   label: "확인됨",
                   color:
-                    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                    "bg-emerald-50 text-emerald-700 border-emerald-200",
                   icon: "✓",
                 },
                 needs_check: {
                   label: "데이터 수집 중",
-                  color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                  color: "bg-amber-50 text-amber-800 border-amber-200",
                   icon: "!",
                 },
                 inferred: {
                   label: "AI 추론",
                   color:
-                    "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+                    "bg-indigo-50 text-indigo-700 border-indigo-200",
                   icon: "◇",
                 },
               };
@@ -442,7 +441,7 @@ export function SectionCard({
               if (!cfg) return null;
               return (
                 <span
-                  className={`hidden sm:inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${cfg.color}`}
+                  className={`hidden sm:inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-full border ${cfg.color}`}
                 >
                   {cfg.icon} {cfg.label}
                 </span>
@@ -450,7 +449,7 @@ export function SectionCard({
             })()}
           {!section.locked && (
             <svg
-              className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
                 isOpen ? "rotate-180" : ""
               }`}
               fill="none"
@@ -471,12 +470,12 @@ export function SectionCard({
       {/* Locked overlay */}
       {section.locked && (
         <div className="px-4 pb-4">
-          <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 p-4 text-center space-y-1">
-            <p className="text-xs text-neutral-400 font-medium leading-relaxed">
+          <div className="rounded-xl bg-white border border-slate-200 p-4 text-center space-y-1">
+            <p className="text-sm text-slate-700 font-medium leading-relaxed">
               {section.lockedReason}
             </p>
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              임대료·보증금 등 세부 자료를 입력하거나 담당 중개인에게 상세 IM을 요청하면 열람할 수 있습니다.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              임대료·보증금 등 세부 자료를 입력하거나 담당 공인중개사에게 상세 IM을 요청하면 열람할 수 있습니다.
             </p>
           </div>
         </div>
@@ -484,18 +483,18 @@ export function SectionCard({
 
       {/* Content */}
       {!section.locked && isOpen && (
-        <div className="px-4 pb-5 border-t border-neutral-800/50">
+        <div className="px-4 pb-5 border-t border-slate-200">
           <div
-            className="pt-4 prose prose-invert prose-sm max-w-none
-            prose-headings:text-white prose-headings:font-bold
-            prose-h3:text-sm prose-h3:uppercase prose-h3:tracking-wider prose-h3:text-primary prose-h3:mt-4 prose-h3:mb-2
-            prose-p:text-neutral-300 prose-p:leading-relaxed prose-p:text-sm
-            prose-strong:text-white prose-strong:font-semibold
-            prose-table:text-xs prose-table:w-full
-            prose-th:text-neutral-400 prose-th:font-medium prose-th:text-left prose-th:pb-2
-            prose-td:text-neutral-300 prose-td:py-1.5
-            prose-li:text-neutral-300 prose-li:text-sm
-            prose-blockquote:text-neutral-400 prose-blockquote:border-l-primary/50 prose-blockquote:bg-primary/5 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:px-3
+            className="pt-4 prose prose-slate prose-sm max-w-none
+            prose-headings:text-slate-900 prose-headings:font-bold
+            prose-h3:text-sm prose-h3:uppercase prose-h3:tracking-wider prose-h3:text-blue-700 prose-h3:mt-4 prose-h3:mb-2
+            prose-p:text-slate-700 prose-p:leading-relaxed prose-p:text-sm
+            prose-strong:text-slate-900 prose-strong:font-semibold
+            prose-table:text-sm prose-table:w-full
+            prose-th:text-slate-700 prose-th:font-medium prose-th:text-left prose-th:pb-2
+            prose-td:text-slate-800 prose-td:py-1.5
+            prose-li:text-slate-700 prose-li:text-sm
+            prose-blockquote:text-slate-700 prose-blockquote:border-l-blue-600/50 prose-blockquote:bg-blue-50/70 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:px-3
           "
           >
             <MarkdownRenderer
@@ -504,9 +503,9 @@ export function SectionCard({
           </div>
 
           {section.boundaryNote && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
-              <span className="text-amber-400 text-sm shrink-0">⚠️</span>
-              <p className="text-xs text-amber-300/80 leading-relaxed">
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3">
+              <span className="text-amber-700 text-sm shrink-0">⚠️</span>
+              <p className="text-sm text-amber-900 leading-relaxed">
                 {section.boundaryNote}
               </p>
             </div>

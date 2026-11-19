@@ -522,7 +522,7 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
       representativeName: sanitizedRepresentativeName,
       responseGuaranteeHours: numOrNull(brokerProfile?.response_guarantee_hours),
       closedDeals: numOrNull(brokerProfile?.closed_deals),
-      isLicensed: brokerProfile?.is_licensed ?? true,
+      isLicensed: Boolean(brokerProfile?.is_licensed || sanitizedOfficeRegNumber),
     },
     cta: {
       requireNda: disclosure.requireNda === true,

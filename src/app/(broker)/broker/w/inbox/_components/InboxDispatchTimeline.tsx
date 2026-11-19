@@ -110,7 +110,7 @@ export function InboxDispatchTimeline({
 
         {dispatchHistory.length === 0 ? (
           <p className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-600">
-            아직 발송 내역이 없습니다. 이메일 발송이나 카톡 문구·링크 복사 시 이곳에 기록됩니다.
+            아직 발송·복사 내역이 없습니다. 이메일 발송이나 카톡 문구·링크 복사 시 이곳에 기록됩니다.
           </p>
         ) : (
           <ul className="mt-3 space-y-2.5" data-testid="inbox-dispatch-history-list">
@@ -122,6 +122,8 @@ export function InboxDispatchTimeline({
                   ? "border border-blue-200 bg-blue-50 text-blue-900"
                   : item.channel === "newsletter"
                   ? "border border-purple-200 bg-purple-50 text-purple-900"
+                  : item.channel === "import"
+                  ? "border border-teal-200 bg-teal-50 text-teal-900"
                   : "border border-slate-300 bg-white text-slate-800";
 
               return (
@@ -140,6 +142,7 @@ export function InboxDispatchTimeline({
                       </span>
                       <span
                         data-testid={`dispatch-status-badge-${item.id}`}
+                        data-dispatch-status={item.status}
                         className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${statusBadge.cls}`}
                       >
                         {statusBadge.label}

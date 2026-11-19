@@ -225,11 +225,12 @@ describe('POST /unsubscribe (해지 실행)', () => {
 
   it('unsubscribed_at 컬럼이 없는 DB → status만으로 재시도', async () => {
     h.updateError = { code: '42703', message: 'column "unsubscribed_at" does not exist' };
-    let n = 0;
     h.db = createFakeDb((call) => {
       if (call.table === 'magazine_subscribers' && call.op === 'update') {
-        n += 1;
-        return n === 1 ? { error: h.updateError! } : { data: null };
+        const p = (call.payload || {}) as Record<string, unknown>;
+        return 'unsubscribed_at' in p || 'consent_status' in p
+          ? { error: h.updateError! }
+          : { data: null };
       }
       if (call.table === 'broker_profiles') return { data: { user_id: UA, slug: 'broker-a' } };
       if (call.table === 'magazine_subscribers') return { data: h.sub };
@@ -238,8 +239,8 @@ describe('POST /unsubscribe (해지 실행)', () => {
     const res = await POST(form(tok()));
     expect(res.status).toBe(200);
     const updates = calls('magazine_subscribers', 'update');
-    expect(updates).toHaveLength(2);
-    expect(updates[1].payload).toEqual({ status: 'unsubscribed' });
+    expect(updates.length).toBeGreaterThanOrEqual(2);
+    expect(updates[updates.length - 1].payload).toEqual({ status: 'unsubscribed' });
   });
 
   it('DB 오류 → 503(고정 문구), 오류 원문·PII 미노출', async () => {

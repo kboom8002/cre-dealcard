@@ -111,6 +111,7 @@ export const monthlyRegionalChartSchema = z
       'kosis_commercial_vitality',
       'bok_loan_rate_cap_spread',
       'molit_price_band_mix',
+      'reference_cost_financing',
     ]),
     title: z.string().min(1).max(200),
     subtitle: z.string().max(300),

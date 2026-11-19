@@ -25,17 +25,17 @@ export function AncillaryIncomeSection({
   return (
     <div className="col-span-2 mt-2 border-t border-border/40 pt-4">
       <div className="flex items-center justify-between mb-2">
-        <label className="block text-xs font-semibold text-muted-foreground">
+        <label className="block text-sm font-semibold text-muted-foreground">
           📡 비임대 부가수입
         </label>
-        <span className="text-[9px] text-muted-foreground/70">
+        <span className="text-sm text-muted-foreground/70">
           통신장비, 주차, 간판 등
         </span>
       </div>
       {ancillaryIncomes.map((item, idx) => (
         <div key={idx} className="flex gap-2 mb-2">
           <select
-            className="flex-1 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+            className="flex-1 bg-secondary/50 border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:border-primary"
             value={item.type || "other"}
             onChange={(e) => {
               const updated = [...ancillaryIncomes];
@@ -54,7 +54,7 @@ export function AncillaryIncomeSection({
           <input
             type="number"
             placeholder="연간 수입(만원)"
-            className="w-28 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-foreground text-right focus:outline-none focus:border-primary"
+            className="w-28 bg-secondary/50 border border-border rounded px-2 py-1 text-sm text-foreground text-right focus:outline-none focus:border-primary"
             value={
               item.annualAmountKrw ? Math.round(item.annualAmountKrw / 10000) : ""
             }
@@ -73,7 +73,7 @@ export function AncillaryIncomeSection({
               const updated = ancillaryIncomes.filter((_, i) => i !== idx);
               setAncillaryIncomes(updated);
             }}
-            className="text-red-400 text-xs hover:text-red-500"
+            className="text-red-400 text-sm hover:text-red-500"
           >
             ✕
           </button>
@@ -93,7 +93,7 @@ export function AncillaryIncomeSection({
           ];
           setAncillaryIncomes(updated);
         }}
-        className="text-xs text-primary hover:text-primary/80"
+        className="text-sm text-primary hover:text-primary/80"
       >
         + 부가수입 추가
       </button>

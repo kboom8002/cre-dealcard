@@ -42,15 +42,15 @@ describe("Wave 5 WP-15 — 4-Step rem Font Scale Engine, Pre-Paint FOUC Script, 
       expect(css).toMatch(/\[data-font-scale="xlarge"\]\s*\{[\s\S]*?font-size:\s*21px;/);
     });
 
-    it("prevents caption double-shrinking below 13px and enforces >= 16px input floor in compact mode", () => {
-      expect(css).toContain("--text-xs: max(13px, 0.8125rem);");
+    it("prevents caption double-shrinking below 14px and enforces >= 16px input floor", () => {
+      expect(css).toContain("--text-xs: max(14px, 0.875rem);");
       expect(css).toMatch(
         /\[data-font-scale="compact"\]\s+select\s*\{\s*font-size:\s*max\(16px,\s*1rem\)\s*!important;/
       );
       expect(css).not.toMatch(
         /\[data-font-scale="compact"\]\s+select\s*\{\s*font-size:\s*15px\s*!important;/
       );
-      expect(css).toMatch(/\.ws-caption-min\s*\{[\s\S]*?font-size:\s*max\(13px,\s*0\.8235rem\);/);
+      expect(css).toMatch(/\.ws-caption-min\s*\{[\s\S]*?font-size:\s*max\(14px,\s*0\.875rem\);/);
     });
 
     it("includes @media (prefers-reduced-motion: reduce) accessibility guard", () => {
@@ -142,7 +142,7 @@ describe("Wave 5 WP-15 — 4-Step rem Font Scale Engine, Pre-Paint FOUC Script, 
   });
 
   describe("4. ReaderFontScaleToggle senior buyer control & public viewer mounting", () => {
-    it("cycles 표준 -> 크게 -> 아주 크게 -> 표준 with min-h-[44px] and persists to localStorage", async () => {
+    it("cycles 표준 -> 크게 -> 아주 크게 -> 작게 -> 표준 with min-h-[44px] and persists to localStorage", async () => {
       const { getByTestId } = render(<ReaderFontScaleToggle variant="light" />);
       const toggle = getByTestId("reader-font-scale-toggle");
       const label = getByTestId("reader-font-scale-label");
@@ -165,6 +165,13 @@ describe("Wave 5 WP-15 — 4-Step rem Font Scale Engine, Pre-Paint FOUC Script, 
       expect(document.documentElement.dataset.fontScale).toBe("xlarge");
       expect(label.textContent).toBe("아주 크게");
       expect(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY)).toBe("xlarge");
+
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
+      expect(document.documentElement.dataset.fontScale).toBe("compact");
+      expect(label.textContent).toBe("작게");
+      expect(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY)).toBe("compact");
 
       await act(async () => {
         fireEvent.click(toggle);
@@ -200,9 +207,9 @@ describe("Wave 5 WP-15 — 4-Step rem Font Scale Engine, Pre-Paint FOUC Script, 
       expect(src).not.toMatch(/text-\[(?:10|10\.5|11|12|13|14|15)px\]/);
     });
 
-    it("uses rem fontSize in toast-provider.tsx instead of hardcoded 14px", () => {
+    it("uses >=14px clamped rem fontSize in toast-provider.tsx instead of hardcoded 14px", () => {
       const toastSrc = readProjectFile("src/components/ui/toast-provider.tsx");
-      expect(toastSrc).toContain("fontSize: '0.875rem'");
+      expect(toastSrc).toContain("fontSize: 'max(14px, 0.875rem)'");
       expect(toastSrc).not.toContain("fontSize: '14px'");
     });
   });

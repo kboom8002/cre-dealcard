@@ -542,7 +542,11 @@ export function applyStudioSlideOverrides(
             })
           : null;
 
-      if (normalizedTenantRows) {
+      const origFloorLeases = Array.isArray(docBody.floor_leases) ? docBody.floor_leases : [];
+      const isUneditedFloorLeases =
+        JSON.stringify(rrOv.tenantData ?? []) === JSON.stringify(origFloorLeases);
+
+      if (normalizedTenantRows && (Boolean(dataMap['rentRoll']) || !isUneditedFloorLeases)) {
         if (!dataMap['rentRoll']) {
           dataMap['rentRoll'] = {
             title: '층별 임대차 현황 (Rent Roll)',

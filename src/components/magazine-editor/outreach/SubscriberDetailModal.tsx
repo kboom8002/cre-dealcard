@@ -62,6 +62,14 @@ type HistoryState =
   | { key: string; status: 'ok'; history: SubscriberHistory }
   | { key: string; status: 'error'; message: string };
 
+function temperatureBadgeClass(label?: string): string {
+  if (!label) return 'border-slate-300 bg-slate-100 text-slate-800';
+  if (label.includes('적극검토')) return 'border-rose-200 bg-rose-50 text-rose-900';
+  if (label.includes('관심')) return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (label.includes('관망')) return 'border-amber-200 bg-amber-50 text-amber-900';
+  return 'border-slate-300 bg-slate-100 text-slate-800';
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return '-';
   const d = new Date(iso);
@@ -94,10 +102,13 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
   const pending = pendingReasonInfo(subscriber.pendingReason);
 
   const initialTags = readSubscriberTags(subscriber);
+  const initialEmailNorm = (subscriber.subscriber_email ?? '').trim().toLowerCase();
   const [savedTags, setSavedTags] = useState<TagRecord>(initialTags);
   const [tags, setTags] = useState<TagRecord>(initialTags);
   const [savedChannel, setSavedChannel] = useState(subscriber.channel);
   const [channel, setChannel] = useState(subscriber.channel);
+  const [savedEmail, setSavedEmail] = useState(initialEmailNorm);
+  const [emailInput, setEmailInput] = useState(subscriber.subscriber_email ?? '');
   const [freeTag, setFreeTag] = useState('');
   const [tagNotice, setTagNotice] = useState('');
   const [saving, setSaving] = useState(false);
@@ -115,7 +126,10 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
   const historyKey = `${subscriber.id}|${historyTry}`;
   const historyLoading = historyState?.key !== historyKey;
 
-  const dirty = !tagRecordsEqual(tags, savedTags) || channel !== savedChannel;
+  const normalizedEmail = emailInput.trim().toLowerCase();
+  const isValidEmail = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(normalizedEmail);
+  const emailDirty = normalizedEmail !== savedEmail;
+  const dirty = !tagRecordsEqual(tags, savedTags) || channel !== savedChannel || emailDirty;
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -160,7 +174,11 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
   }
 
   async function handleSave() {
-    if ((channel === 'email' || channel === 'both') && !subscriber.subscriber_email) {
+    if (normalizedEmail && !isValidEmail) {
+      setSaveMsg({ tone: 'error', text: '올바른 이메일 주소 형식을 입력해 주세요.' });
+      return;
+    }
+    if ((channel === 'email' || channel === 'both') && !normalizedEmail) {
       setSaveMsg({ tone: 'error', text: '이메일 수신을 선택하려면 이메일 주소가 먼저 필요해요.' });
       return;
     }
@@ -170,7 +188,11 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
       const res = await fetch(`/api/broker/magazine/subscribers/${subscriber.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(channel !== savedChannel ? { channel } : {}), ...buildTagsPatch(tags) }),
+        body: JSON.stringify({
+          ...(channel !== savedChannel ? { channel } : {}),
+          ...(emailDirty ? { subscriber_email: normalizedEmail || null } : {}),
+          ...buildTagsPatch(tags),
+        }),
       });
       let json: unknown = null;
       try {
@@ -184,7 +206,14 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
       }
       setSavedTags(tags);
       setSavedChannel(channel);
-      setSaveMsg({ tone: 'ok', text: '변경사항을 저장했어요.' });
+      setSavedEmail(normalizedEmail);
+      const reconfirmSent = Boolean((json as { reconfirmRequired?: boolean } | null)?.reconfirmRequired);
+      setSaveMsg({
+        tone: 'ok',
+        text: reconfirmSent
+          ? '변경사항을 저장했어요. 입력한 이메일로 수신동의 확인 메일을 발송했어요.'
+          : '변경사항을 저장했어요.',
+      });
       onUpdated();
     } catch (err) {
       setSaveMsg({ tone: 'error', text: networkErrorMessage(err) });
@@ -239,47 +268,50 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
     }
   }
 
-  const tempColor = subscriber.temperatureConfig?.color;
+  const badgeClass = temperatureBadgeClass(subscriber.buyerTemperature);
 
   return (
-    <div className="space-y-4 text-slate-200">
+    <div className="space-y-4 text-slate-900">
       {/* 프로필 */}
-      <div className="flex items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-800/50 p-3">
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-title"
-          style={{ background: subscriber.temperatureConfig?.badgeBg || 'rgba(100,116,139,0.1)' }}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-lg ${badgeClass}`}
           aria-hidden="true"
         >
           {subscriber.buyerTemperature?.charAt(0) || '⚪'}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-body font-bold text-white">{subscriber.subscriber_name}</p>
-          <p className="flex items-center gap-1.5 text-label text-ink-muted">
-            <Phone className="h-3 w-3" aria-hidden="true" /> {formatKrPhoneDisplay(subscriber.subscriber_phone)}
+          <p className="truncate text-base font-bold text-slate-900">{subscriber.subscriber_name}</p>
+          <p className="flex items-center gap-1.5 text-sm text-slate-700">
+            <Phone className="h-3.5 w-3.5" aria-hidden="true" /> {formatKrPhoneDisplay(subscriber.subscriber_phone)}
           </p>
           {subscriber.subscriber_email ? (
-            <p className="flex items-center gap-1.5 truncate text-label text-ink-muted">
-              <Mail className="h-3 w-3" aria-hidden="true" /> {subscriber.subscriber_email}
+            <p className="flex items-center gap-1.5 truncate text-sm text-slate-700">
+              <Mail className="h-3.5 w-3.5" aria-hidden="true" /> {subscriber.subscriber_email}
             </p>
           ) : null}
         </div>
         <span
-          className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-caption font-bold ${unsub ? 'bg-rose-500/20 text-rose-200' : 'bg-emerald-500/15 text-emerald-200'}`}
+          className={`ml-auto shrink-0 rounded-full border px-2.5 py-0.5 text-sm font-bold ${
+            unsub
+              ? 'border-rose-200 bg-rose-50 text-rose-900'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+          }`}
         >
           {statusLabel(subscriber.status)}
         </span>
       </div>
 
       {unsub ? (
-        <p role="status" className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-label text-rose-200">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <p role="status" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           수신거부한 구독자예요. 매거진·속보가 발송되지 않고, 다시 받으려면 고객 본인이 구독 페이지에서 직접 구독해야 해요.
         </p>
       ) : null}
 
       {!unsub && pending ? (
-        <p role="status" className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-label text-amber-200">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <p role="status" className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             <strong className="font-bold">{pending.badge}</strong> — {pending.notice}
           </span>
@@ -287,19 +319,54 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
       ) : null}
 
       {/* 매수 온도 */}
-      <div className="rounded-xl border border-slate-700/50 p-3" style={{ background: subscriber.temperatureConfig?.badgeBg }}>
+      <div className={`rounded-xl border p-3 ${badgeClass}`}>
         <div className="flex items-center justify-between">
-          <span className="text-label font-bold" style={{ color: tempColor }}>
+          <span className="text-sm font-bold">
             {subscriber.buyerTemperature || '⚪ 미확인'}
           </span>
-          <Flame className="h-4 w-4" style={{ color: tempColor }} aria-hidden="true" />
+          <Flame className="h-4 w-4" aria-hidden="true" />
         </div>
-        <p className="mt-1 text-caption text-ink-muted">{subscriber.temperatureConfig?.description || '아직 열람 이력이 부족해요.'}</p>
+        <p className="mt-1 text-sm text-slate-700">{subscriber.temperatureConfig?.description || '아직 열람 이력이 부족해요.'}</p>
+      </div>
+
+      {/* 이메일 주소 입력 · 수정 */}
+      <div className="space-y-1.5">
+        <label htmlFor={`${uid}-email`} className="block text-sm font-bold text-slate-800">
+          이메일 주소 <span className="font-normal text-slate-600">(수신동의 확인 발송용)</span>
+        </label>
+        <input
+          id={`${uid}-email`}
+          name="subscriber_email"
+          data-testid="subscriber-detail-email-input"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          disabled={unsub}
+          value={emailInput}
+          onChange={(e) => {
+            const nextVal = e.target.value;
+            setEmailInput(nextVal);
+            setSaveMsg(null);
+            const nextTrim = nextVal.trim().toLowerCase();
+            if (
+              subscriber.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL' &&
+              channel === 'kakao' &&
+              /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(nextTrim)
+            ) {
+              setChannel('both');
+            }
+          }}
+          placeholder="예: client@example.com"
+          className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 disabled:bg-slate-100"
+        />
+        <p className="text-sm text-slate-600">
+          이메일을 등록·변경하면 고객 이메일로 수신동의 확인 안내가 자동 발송되며, 확인 완료 후 발송이 시작돼요.
+        </p>
       </div>
 
       {/* 수신 채널 */}
       <fieldset className="space-y-2" disabled={unsub}>
-        <legend className="text-label font-bold text-ink-muted">수신 채널</legend>
+        <legend className="text-sm font-bold text-slate-800">수신 채널</legend>
         <div className="flex gap-1.5" role="radiogroup" aria-label="수신 채널">
           {CHANNEL_OPTIONS.map((o) => (
             <button
@@ -311,10 +378,10 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
                 setChannel(o.key);
                 setSaveMsg(null);
               }}
-              className={`min-h-11 flex-1 rounded-lg border text-label font-bold transition-all disabled:opacity-50 ${
+              className={`min-h-[48px] flex-1 rounded-lg border text-sm font-bold transition-all disabled:opacity-50 ${
                 channel === o.key
-                  ? 'border-indigo-500/40 bg-indigo-500/20 text-indigo-200'
-                  : 'border-slate-700/50 bg-slate-800/50 text-ink-muted hover:text-slate-200'
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
               {o.label}
@@ -325,20 +392,20 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
 
       {/* 관심사 태그 */}
       <section className="space-y-3" aria-labelledby={`${uid}-tags`}>
-        <h4 id={`${uid}-tags`} className="text-label font-bold text-ink-muted">
+        <h4 id={`${uid}-tags`} className="text-sm font-bold text-slate-800">
           관심사 태그
         </h4>
         {TAG_GROUP_KEYS.map((group) => {
           const current = tags[group];
           return (
             <div key={group} className="space-y-1">
-              <p className="text-label font-semibold text-slate-300">{TAG_GROUP_LABELS[group]}</p>
+              <p className="text-sm font-semibold text-slate-800">{TAG_GROUP_LABELS[group]}</p>
               <ul className="flex flex-wrap gap-1" aria-label={`${TAG_GROUP_LABELS[group]} 선택됨`}>
-                {current.length === 0 ? <li className="text-caption text-ink-subtle">선택된 태그 없음</li> : null}
+                {current.length === 0 ? <li className="text-sm text-slate-600">선택된 태그 없음</li> : null}
                 {current.map((t) => (
                   <li
                     key={t}
-                    className="inline-flex items-center gap-0.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 py-0.5 pl-2.5 pr-0.5 text-label text-indigo-200"
+                    className="inline-flex items-center gap-0.5 rounded-full border border-indigo-200 bg-indigo-50 py-0.5 pl-2.5 pr-0.5 text-sm font-medium text-indigo-900"
                   >
                     {t}
                     {!unsub ? (
@@ -349,9 +416,9 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
                           setSaveMsg(null);
                         }}
                         aria-label={`${t} 태그 삭제`}
-                        className="-my-2 flex h-11 w-11 items-center justify-center rounded-full hover:text-rose-300"
+                        className="-my-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-indigo-700 hover:text-rose-700"
                       >
-                        <X className="h-3 w-3" aria-hidden="true" />
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     ) : (
                       <span className="w-2" />
@@ -369,7 +436,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
                         type="button"
                         onClick={() => handleAddTag(preset, group)}
                         aria-label={`${TAG_GROUP_LABELS[group]} ${preset} 추가`}
-                        className="min-h-11 rounded border border-slate-700/40 bg-slate-800/60 px-2 text-caption text-ink-muted transition-colors hover:border-indigo-500/30 hover:text-indigo-200"
+                        className="min-h-[44px] rounded border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-900"
                       >
                         + {preset}
                       </button>
@@ -382,7 +449,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
 
         {!unsub ? (
           <div className="space-y-1">
-            <label htmlFor={`${uid}-free`} className="text-label font-semibold text-slate-300">
+            <label htmlFor={`${uid}-free`} className="text-sm font-semibold text-slate-800">
               직접 입력
             </label>
             <div className="flex gap-1.5">
@@ -399,21 +466,21 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
                   }
                 }}
                 placeholder="예: 성수동, 토지, 경매"
-                className="min-h-11 flex-1 rounded-lg border border-slate-700 bg-slate-900/60 px-3 text-reader text-white placeholder:text-ink-subtle outline-none focus:border-indigo-500/60"
+                className="min-h-[44px] flex-1 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600"
               />
               <button
                 type="button"
                 onClick={() => {
                   if (handleAddTag(freeTag)) setFreeTag('');
                 }}
-                className="min-h-11 rounded-lg border border-slate-700 bg-slate-800 px-3 text-label font-bold text-slate-200 hover:bg-slate-700"
+                className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 px-3 text-sm font-bold text-slate-900 hover:bg-slate-200"
               >
                 추가
               </button>
             </div>
-            <p className="text-caption text-ink-subtle">권역·자산유형은 표준 이름으로 자동 맞춰지고, 그 외는 관심 토픽으로 저장돼요.</p>
+            <p className="text-sm text-slate-600">권역·자산유형은 표준 이름으로 자동 맞춰지고, 그 외는 관심 토픽으로 저장돼요.</p>
             {tagNotice ? (
-              <p role="status" className="text-caption text-amber-300">
+              <p role="status" className="text-sm font-medium text-amber-800">
                 {tagNotice}
               </p>
             ) : null}
@@ -428,13 +495,13 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
             type="button"
             onClick={handleSave}
             disabled={!dirty || saving}
-            className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-600/30 text-label font-bold text-indigo-100 transition-colors hover:bg-indigo-600/40 disabled:opacity-50"
+            className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-700 text-sm font-bold text-white transition-colors hover:bg-indigo-800 disabled:bg-slate-200 disabled:text-slate-600"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
             {saving ? '저장 중...' : dirty ? '변경사항 저장' : '변경사항 없음'}
           </button>
           {saveMsg ? (
-            <p role={saveMsg.tone === 'error' ? 'alert' : 'status'} className={`text-caption ${saveMsg.tone === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+            <p role={saveMsg.tone === 'error' ? 'alert' : 'status'} className={`text-sm font-medium ${saveMsg.tone === 'error' ? 'text-rose-700' : 'text-emerald-700'}`}>
               {saveMsg.text}
             </p>
           ) : null}
@@ -443,8 +510,8 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
 
       {/* 열람 이력 */}
       <section className="space-y-2" aria-labelledby={`${uid}-history`}>
-        <h4 id={`${uid}-history`} className="text-label font-bold text-ink-muted">
-          열람 이력 <span className="font-normal text-ink-subtle">(최근 30일)</span>
+        <h4 id={`${uid}-history`} className="text-sm font-bold text-slate-800">
+          열람 이력 <span className="font-normal text-slate-600">(최근 30일)</span>
         </h4>
         {historyLoading ? (
           <SkeletonGroup label="열람 이력을 불러오는 중" className="py-1">
@@ -455,7 +522,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
             title="열람 이력을 불러오지 못했어요"
             description={historyState.message}
             onRetry={() => setHistoryTry((n) => n + 1)}
-            className="py-5"
+            className="py-5 border-rose-200 bg-rose-50 [&_p]:text-rose-900 [&>p:nth-of-type(2)]:text-rose-800"
           />
         ) : historyState?.status === 'ok' ? (
           <HistoryView history={historyState.history} />
@@ -464,19 +531,19 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
 
       {/* AutoIntent */}
       {!unsub ? (
-        <div className="space-y-2 rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-950/30 to-orange-950/20 p-3">
+        <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
           <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-rose-400" aria-hidden="true" />
-            <span className="text-label font-bold text-rose-300">매수 의향서 초안 만들기</span>
+            <Target className="h-4 w-4 text-rose-700" aria-hidden="true" />
+            <span className="text-sm font-bold text-rose-900">매수 의향서 초안 만들기</span>
           </div>
-          <p className="text-caption text-ink-muted">
+          <p className="text-sm text-slate-700">
             구독자가 직접 선택한 관심 권역·자산유형과 입력한 예산이 모두 있을 때만 초안을 만들어요. 없는 정보는 지어내지 않아요.
           </p>
           <button
             type="button"
             onClick={handleAutoIntent}
             disabled={intentLoading}
-            className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/20 text-label font-bold text-rose-200 transition-colors hover:bg-rose-500/30 disabled:opacity-50"
+            className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-white text-sm font-bold text-rose-900 transition-colors hover:bg-rose-100 disabled:opacity-50"
           >
             {intentLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Target className="h-3.5 w-3.5" aria-hidden="true" />}
             {intentLoading ? '만드는 중...' : '의향서 초안 만들기'}
@@ -484,7 +551,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
           {intentMsg ? (
             <p
               role={intentMsg.tone === 'error' ? 'alert' : 'status'}
-              className={`rounded-lg bg-black/20 px-2 py-1.5 text-center text-caption ${intentMsg.tone === 'error' ? 'text-rose-300' : intentMsg.tone === 'success' ? 'text-emerald-300' : 'text-slate-300'}`}
+              className={`rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-center text-sm font-medium ${intentMsg.tone === 'error' ? 'text-rose-800' : intentMsg.tone === 'success' ? 'text-emerald-800' : 'text-slate-800'}`}
             >
               {intentMsg.message}
             </p>
@@ -493,16 +560,16 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
       ) : null}
 
       {/* 삭제 */}
-      <div className="border-t border-slate-800 pt-2">
+      <div className="border-t border-slate-200 pt-2">
         {confirmDelete ? (
           <div className="space-y-2">
-            <p className="text-center text-label font-semibold text-rose-300">정말 이 구독자를 삭제할까요? 되돌릴 수 없어요.</p>
+            <p className="text-center text-sm font-semibold text-rose-800">정말 이 구독자를 삭제할까요? 되돌릴 수 없어요.</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="min-h-11 flex-1 rounded-lg border border-rose-500/30 bg-rose-600/20 text-label font-bold text-rose-200 disabled:opacity-50"
+                className="min-h-[44px] flex-1 rounded-lg bg-rose-700 text-sm font-bold text-white hover:bg-rose-800 disabled:opacity-50"
               >
                 {deleting ? '삭제 중...' : '삭제'}
               </button>
@@ -510,13 +577,13 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
                 type="button"
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
-                className="min-h-11 flex-1 rounded-lg border border-slate-700 bg-slate-800 text-label font-bold text-slate-300"
+                className="min-h-[44px] flex-1 rounded-lg border border-slate-300 bg-white text-sm font-bold text-slate-800 hover:bg-slate-100"
               >
                 취소
               </button>
             </div>
             {deleteError ? (
-              <p role="alert" className="text-center text-caption text-rose-300">
+              <p role="alert" className="text-center text-sm font-medium text-rose-700">
                 {deleteError}
               </p>
             ) : null}
@@ -525,7 +592,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="flex min-h-11 w-full items-center justify-center gap-1.5 text-label text-ink-muted transition-colors hover:text-rose-300"
+            className="flex min-h-[44px] w-full items-center justify-center gap-1.5 text-sm font-medium text-slate-700 transition-colors hover:text-rose-700"
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> 구독자 삭제
           </button>
@@ -538,7 +605,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
 function HistoryView({ history }: { history: SubscriberHistory }) {
   if (history.totalViews === 0 && history.events.length === 0) {
     return (
-      <p role="status" className="rounded-lg border border-dashed border-slate-700 px-3 py-4 text-center text-label text-ink-muted">
+      <p role="status" className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-sm text-slate-600">
         최근 30일간 열람 이력이 없어요.
       </p>
     );
@@ -546,32 +613,32 @@ function HistoryView({ history }: { history: SubscriberHistory }) {
   return (
     <div className="space-y-2">
       <dl className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-          <dt className="text-caption text-ink-muted">열람</dt>
-          <dd className="text-body font-bold text-white">{history.totalViews}회</dd>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+          <dt className="text-sm text-slate-600">열람</dt>
+          <dd className="text-base font-bold text-slate-900">{history.totalViews}회</dd>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-          <dt className="text-caption text-ink-muted">평균 체류</dt>
-          <dd className="text-body font-bold text-white">{history.avgDwellSeconds}초</dd>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+          <dt className="text-sm text-slate-600">평균 체류</dt>
+          <dd className="text-base font-bold text-slate-900">{history.avgDwellSeconds}초</dd>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-          <dt className="text-caption text-ink-muted">마지막</dt>
-          <dd className="text-label font-bold text-white">{formatDateTime(history.lastActivityAt)}</dd>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+          <dt className="text-sm text-slate-600">마지막</dt>
+          <dd className="text-sm font-bold text-slate-900">{formatDateTime(history.lastActivityAt)}</dd>
         </div>
       </dl>
       {history.sections.length > 0 ? (
-        <p className="text-caption text-ink-muted">본 섹션: {history.sections.join(', ')}</p>
+        <p className="text-sm text-slate-700">본 섹션: {history.sections.join(', ')}</p>
       ) : null}
       {history.events.length > 0 ? (
         <ul className="max-h-40 space-y-1 overflow-y-auto" aria-label="최근 활동">
           {history.events.slice(0, 30).map((e, i) => (
-            <li key={`${e.at ?? 'x'}-${i}`} className="flex items-center justify-between rounded-md bg-slate-900/50 px-2 py-1 text-caption text-slate-300">
+            <li key={`${e.at ?? 'x'}-${i}`} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm text-slate-900">
               <span>
                 {eventLabel(e.type)}
                 {e.sectionId ? ` · ${e.sectionId}` : ''}
                 {e.dwellSeconds ? ` · ${e.dwellSeconds}초` : ''}
               </span>
-              <span className="text-ink-subtle">{formatDateTime(e.at)}</span>
+              <span className="text-slate-600">{formatDateTime(e.at)}</span>
             </li>
           ))}
         </ul>

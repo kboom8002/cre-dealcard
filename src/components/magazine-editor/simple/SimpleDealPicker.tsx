@@ -72,12 +72,12 @@ export function SimpleDealPicker({
   return (
     <div className="space-y-3" data-testid="simple-deal-picker">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
+        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
           터치 한 번으로 이번 호에 실을 매물을 켜거나 끌 수 있습니다
         </span>
         <span
           data-testid="simple-deal-count-badge"
-          className="shrink-0 rounded-full border border-blue-300 dark:border-indigo-500/30 bg-blue-50 dark:bg-indigo-500/15 px-3 py-1 text-xs font-extrabold text-blue-900 dark:text-indigo-200"
+          className="shrink-0 rounded-full border border-blue-300 dark:border-indigo-500/30 bg-blue-50 dark:bg-indigo-500/15 px-3 py-1 text-sm font-extrabold text-blue-900 dark:text-indigo-200"
         >
           {Math.min(selectedCount, SIMPLE_DEAL_LIMIT)} / 최대 {SIMPLE_DEAL_LIMIT}건 선택됨
         </span>
@@ -143,7 +143,7 @@ export function SimpleDealPicker({
                   )}
                 </div>
                 {subtitle && (
-                  <p className="text-[13px] font-medium text-slate-600 dark:text-slate-300 truncate mt-0.5">{subtitle}</p>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300 truncate mt-0.5">{subtitle}</p>
                 )}
               </div>
             </motion.button>

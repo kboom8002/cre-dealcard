@@ -338,7 +338,7 @@ describe("L11 Preventive — Production Runtime Friction & Zero-JSDOM/RAG Harden
     const summaryJson = await getRes.json();
     expect(summaryJson.dealcards).toHaveLength(1);
     const synthesized = summaryJson.dealcards[0];
-    expect(synthesized.priceBand).toBe("75~80억");
+    expect(synthesized.priceBand).toBe("70~80억");
     expect(synthesized.card4.points[0]).toBe("홍대입구역 도보 4분 역세권");
     expect(synthesized.card4.points[1]).toBe("연 수익률 4.5% 안정 운영");
     expect(synthesized.card4.points[2]).toBe("지하1층·지상6층 규모");

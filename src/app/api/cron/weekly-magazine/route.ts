@@ -59,19 +59,41 @@ export async function GET(request: NextRequest) {
   const editionLabel = isoWeekLabel(issueDate);
 
   // ── 구독 중인 브로커: user_subscriptions(active, 유료 티어) → broker_profiles(slug) ──
-  const { data: subs, error: subsError } = await supabase
-    .from("user_subscriptions")
-    .select("user_id")
-    .eq("status", "active")
-    .in("tier", PAID_TIERS);
-  if (subsError) {
-    log.error("[cron/weekly-magazine] user_subscriptions 조회 실패", subsError.message);
-    return NextResponse.json(
-      { ok: false, error: "SUBSCRIPTION_LOOKUP_FAILED", detail: subsError.message },
-      { status: 500 },
-    );
+  const PAGE_SIZE = 500;
+  const rawSubs: Array<{ user_id: string }> = [];
+  let subsOffset = 0;
+
+  while (true) {
+    let subsQuery = supabase
+      .from("user_subscriptions")
+      .select("user_id")
+      .eq("status", "active")
+      .in("tier", PAID_TIERS);
+    if (typeof subsQuery.order === "function") {
+      subsQuery = subsQuery.order("user_id", { ascending: true });
+    }
+    const supportsRange = typeof subsQuery.range === "function";
+    if (supportsRange) {
+      subsQuery = subsQuery.range(subsOffset, subsOffset + PAGE_SIZE - 1);
+    }
+
+    const { data: subsPage, error: subsError } = await subsQuery;
+    if (subsError) {
+      log.error("[cron/weekly-magazine] user_subscriptions 조회 실패", subsError.message);
+      return NextResponse.json(
+        { ok: false, error: "SUBSCRIPTION_LOOKUP_FAILED", detail: subsError.message },
+        { status: 500 },
+      );
+    }
+    const pageRows = (subsPage ?? []) as Array<{ user_id: string }>;
+    rawSubs.push(...pageRows);
+    if (!supportsRange || pageRows.length < PAGE_SIZE) {
+      break;
+    }
+    subsOffset += PAGE_SIZE;
   }
-  const userIds = Array.from(new Set((subs ?? []).map((s: { user_id: string }) => s.user_id)));
+
+  const userIds = Array.from(new Set(rawSubs.map((s) => s.user_id)));
   if (userIds.length === 0) {
     return NextResponse.json({
       ok: true,
@@ -84,20 +106,42 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const { data: brokers, error: brokersError } = await supabase
-    .from("broker_profiles")
-    .select("user_id, slug")
-    .in("user_id", userIds);
-  if (brokersError) {
-    log.error("[cron/weekly-magazine] broker_profiles 조회 실패", brokersError.message);
-    return NextResponse.json(
-      { ok: false, error: "BROKER_LOOKUP_FAILED", detail: brokersError.message },
-      { status: 500 },
-    );
+  const brokerRows: Array<{ user_id: string; slug: string | null }> = [];
+  const CHUNK_SIZE = 200;
+  for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+    const idChunk = userIds.slice(i, i + CHUNK_SIZE);
+    let brokerOffset = 0;
+    while (true) {
+      let bQuery = supabase
+        .from("broker_profiles")
+        .select("user_id, slug")
+        .in("user_id", idChunk);
+      if (typeof bQuery.order === "function") {
+        bQuery = bQuery.order("user_id", { ascending: true });
+      }
+      const supportsRange = typeof bQuery.range === "function";
+      if (supportsRange) {
+        bQuery = bQuery.range(brokerOffset, brokerOffset + PAGE_SIZE - 1);
+      }
+      const { data: brokersPage, error: brokersError } = await bQuery;
+      if (brokersError) {
+        log.error("[cron/weekly-magazine] broker_profiles 조회 실패", brokersError.message);
+        return NextResponse.json(
+          { ok: false, error: "BROKER_LOOKUP_FAILED", detail: brokersError.message },
+          { status: 500 },
+        );
+      }
+      const bPageRows = (brokersPage ?? []) as Array<{ user_id: string; slug: string | null }>;
+      brokerRows.push(...bPageRows);
+      if (!supportsRange || bPageRows.length < PAGE_SIZE) {
+        break;
+      }
+      brokerOffset += PAGE_SIZE;
+    }
   }
 
   const runs: BrokerRun[] = [];
-  const queue = [...((brokers ?? []) as Array<{ user_id: string; slug: string | null }>)];
+  const queue = [...brokerRows];
 
   async function processBroker(broker: { user_id: string; slug: string | null }): Promise<void> {
     const t0 = Date.now();

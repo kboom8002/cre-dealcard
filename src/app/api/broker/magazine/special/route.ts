@@ -4,6 +4,11 @@ import { assertOwnsRow, jsonError, notFoundResponse, requireBrokerContext } from
 import { isUuid } from '@/lib/magazine/slug';
 import { maskPhone } from '@/lib/magazine/pii';
 import { isMagazineSendEnabled } from '@/lib/magazine/send-flags';
+import { resolveBroker } from '@/lib/magazine/resolve-broker';
+import { maskAddressForPublic, sanitizeBrokerPhone } from '@/lib/magazine/public-page-data';
+import { toKstDate, todayKst } from '@/lib/magazine/kst';
+import { assertPublishable } from '@/lib/legal/publish-gate';
+import { upsertWorkspaceItem, type WorkspaceItemKind } from '@/lib/workspace/workspace-repository';
 import { generateSpecialEdition } from '@/domain/magazine/special-edition-generator';
 import { distributeSpecialEdition, selectFlashTargets } from '@/domain/magazine/distribute-special-edition';
 import type { SubscriberRow, TargetSegment } from '@/domain/magazine/send-batch';
@@ -178,6 +183,41 @@ export async function POST(req: NextRequest) {
       return jsonError('BAD_REQUEST', '권역·자산유형 정보가 없는 매물은 자동 발송 대상을 계산할 수 없습니다.', 422);
     }
 
+    const broker = await resolveBroker(supabase, ctx.slug).catch(() => null);
+    let phone = '';
+    const { data: prof, error: profErr } = await supabase
+      .from('profiles')
+      .select('phone')
+      .eq('id', ctx.userId)
+      .maybeSingle();
+    if (profErr) {
+      log.warn('[POST /api/broker/magazine/special] profile phone lookup failed', { error: profErr.message });
+    } else if (prof && typeof (prof as { phone?: unknown }).phone === 'string') {
+      phone = sanitizeBrokerPhone((prof as { phone: string }).phone);
+    }
+
+    const statutoryGate = await assertPublishable({
+      supabase,
+      userId: ctx.userId,
+      kind: 'magazine',
+      brokerMetaOverride: {
+        company: broker?.company ?? undefined,
+        phone: phone || undefined,
+        display_name: broker?.displayName ?? ctx.displayName,
+      },
+    });
+    if (!statutoryGate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: statutoryGate.code, message: statutoryGate.message },
+          missingFields: statutoryGate.missingFields,
+          missingLabels: statutoryGate.missingLabels,
+        },
+        { status: 422 },
+      );
+    }
+
     // 1. 속보 에디션 생성
     const edition = await generateSpecialEdition({
       supabase,
@@ -187,12 +227,72 @@ export async function POST(req: NextRequest) {
       urgentNote,
     });
 
-    const issueDate = edition.published_at ? edition.published_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const parsedPublishedAt = edition.published_at ? new Date(edition.published_at) : null;
+    const issueDate =
+      parsedPublishedAt && !Number.isNaN(parsedPublishedAt.getTime())
+        ? toKstDate(parsedPublishedAt)
+        : todayKst();
     const viewerUrl = `/magazine/${ctx.slug}/${issueDate}?edition=${edition.id}`;
 
-    // 2. 명시적 배포 요청인 경우에만 배포 수행
+    // workspace_items 동기화 (사전 컷오버·제약 미적용 환경 안전)
+    try {
+      const maskedAddr = maskAddressForPublic(building.area_signal || building.raw_address || '');
+      const editionContent =
+        edition && typeof edition.content === 'object' && edition.content !== null
+          ? (edition.content as Record<string, unknown>)
+          : {};
+      const wsStatus = edition.status === 'published' ? 'published' : 'draft';
+      await upsertWorkspaceItem(supabase, {
+        id: isUuid(edition.id) ? edition.id : undefined,
+        legacyId: !isUuid(edition.id) && edition.id ? String(edition.id) : edition.edition_label ?? null,
+        buildingId,
+        ownerId: ctx.userId,
+        kind: 'magazine' as unknown as WorkspaceItemKind,
+        status: wsStatus,
+        title: edition.title || headline || '속보 브리핑',
+        address: maskedAddr,
+        priceBand: building.price_band ?? null,
+        draftPayload: {
+          editionId: edition.id,
+          editionType: 'special',
+          issueDate,
+          slug: ctx.slug,
+          viewerUrl,
+          ...editionContent,
+        },
+        publishedSnapshot:
+          wsStatus === 'published'
+            ? {
+                editionId: edition.id,
+                editionType: 'special',
+                issueDate,
+                slug: ctx.slug,
+                viewerUrl,
+                ...editionContent,
+              }
+            : null,
+      });
+    } catch (wsErr: unknown) {
+      log.warn('[POST /api/broker/magazine/special] workspace_items sync skipped', {
+        error: wsErr instanceof Error ? wsErr.message : String(wsErr),
+      });
+    }
+
+    // 2. 명시적 배포 요청이면서 QG를 통과해 published 상태인 경우에만 배포 수행
     if (!autoDistribute) {
       return NextResponse.json({ success: true, edition, viewerUrl, distributionResult: null });
+    }
+
+    if (edition.status !== 'published') {
+      return NextResponse.json({
+        success: true,
+        edition,
+        viewerUrl,
+        published: false,
+        sent: 0,
+        autoDistributeSkipped: 'NEEDS_REVIEW',
+        distributionResult: null,
+      });
     }
 
     const distributionResult = await distributeSpecialEdition(supabase, {

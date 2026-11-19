@@ -186,7 +186,14 @@ export default function PrivacyPage() {
             <tbody className="text-slate-800">
               {COMPANY_LEGAL_CONFIG.processors.map((proc) => (
                 <tr key={proc.id}>
-                  <td className="border border-slate-300 px-3 py-2.5 font-semibold">{proc.name}</td>
+                  <td className="border border-slate-300 px-3 py-2.5 font-semibold">
+                    {proc.name}
+                    {proc.statusNote ? (
+                      <span className="mt-1 block text-sm font-medium text-slate-600">
+                        ({proc.statusNote})
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="border border-slate-300 px-3 py-2.5">{proc.purpose}</td>
                   <td className="border border-slate-300 px-3 py-2.5">
                     {proc.region} ({proc.transferMethod})
@@ -194,12 +201,6 @@ export default function PrivacyPage() {
                   <td className="border border-slate-300 px-3 py-2.5">{proc.retentionPeriod}</td>
                 </tr>
               ))}
-              <tr>
-                <td className="border border-slate-300 px-3 py-2.5 font-semibold">(주)솔라피 (Solapi)</td>
-                <td className="border border-slate-300 px-3 py-2.5">카카오 알림톡 및 문자메시지 발송 연동</td>
-                <td className="border border-slate-300 px-3 py-2.5">대한민국 (암호화 API 전송)</td>
-                <td className="border border-slate-300 px-3 py-2.5">발송 이력 보관 기간 또는 위탁 계약 종료 시까지</td>
-              </tr>
             </tbody>
           </table>
         </div>

@@ -19,12 +19,22 @@ import { isBuildingStatusPublic, isImDocStatusPublic } from "@/domain/public-pro
 import {
   getInboxState,
   getQuickImRecord,
+  isDraftImUpsertEvent,
   isUuid,
   resolveOrSynthesizeQuickImRecord,
   synthesizeQuickRecordFromImItem,
   type StoredQuickImRecord,
 } from "@/lib/im-lite/quick-generate-store";
 import { verifyShareLinkToken, isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+import {
+  allowDealPublicMemoryFallback,
+  isAllowedPublicDemoIm,
+  isDemoSeedDisabledForProd,
+  resolveWorkspaceImGuard,
+  type PublicImDenyReason,
+  type WorkspaceImGuardResult,
+} from "@/lib/im-lite/im-public-guard";
+import { isMissingRelationOrColumnError } from "@/lib/workspace/workspace-repository";
 
 function isValidPhotoUrl(url: unknown): url is string {
   if (typeof url !== "string") return false;
@@ -641,9 +651,12 @@ function attachInboxGovernanceOverlay(
   dbGovernance?: DbGovernanceOverlay,
   isOwner = false
 ): MobileIMDocument {
-  const inboxState = getInboxState();
-  const revokedInfo = inboxState.revokedBuildings[buildingId];
-  const localRevoked = Boolean(revokedInfo?.revoked) || isBuildingShareLinkRevoked(buildingId);
+  const memoryFallbackAllowed = allowDealPublicMemoryFallback();
+  const inboxState = memoryFallbackAllowed ? getInboxState() : null;
+  const revokedInfo = inboxState?.revokedBuildings[buildingId];
+  const localRevoked = memoryFallbackAllowed
+    ? Boolean(revokedInfo?.revoked) || isBuildingShareLinkRevoked(buildingId)
+    : false;
   const localRevokeTime = revokedInfo?.revokedAt ? new Date(revokedInfo.revokedAt).getTime() : 0;
   const dbRevokeTime = dbGovernance?.revokeDecisionAt
     ? new Date(dbGovernance.revokeDecisionAt).getTime()
@@ -659,7 +672,7 @@ function attachInboxGovernanceOverlay(
       Boolean(sourceMeta?.is_revoked);
   }
 
-  const localNotice = inboxState.correctionNotices[buildingId];
+  const localNotice = inboxState?.correctionNotices[buildingId] || null;
   const localNoticeTime = localNotice?.updatedAt ? new Date(localNotice.updatedAt).getTime() : 0;
   const dbNoticeTime = dbGovernance?.correctionDecisionAt
     ? new Date(dbGovernance.correctionDecisionAt).getTime()
@@ -701,16 +714,30 @@ export async function fetchIMData(
   buildingId: string,
   docId?: string,
   viewer?: Viewer | null,
-  tokenOrOptions?: string | { token?: string | null }
+  tokenOrOptions?:
+    | string
+    | {
+        token?: string | null;
+        enforceShareToken?: boolean;
+        onDeny?: (reason: PublicImDenyReason) => void;
+      }
 ): Promise<MobileIMDocument | null> {
+  const opts = typeof tokenOrOptions === "object" && tokenOrOptions !== null ? tokenOrOptions : undefined;
   // P0-SEC (IB-05): Verify share link token when ?token= is passed
   const explicitToken =
     typeof tokenOrOptions === "string"
       ? tokenOrOptions
-      : tokenOrOptions?.token ||
+      : opts?.token ||
         (viewer as any)?.token ||
         (viewer as any)?.shareToken ||
         (docId && (docId.startsWith("slk.") || docId.startsWith("tok-")) ? docId : undefined);
+  const enforceShareToken = Boolean(opts?.enforceShareToken);
+  const onDeny = opts?.onDeny;
+
+  if (isDemoSeedDisabledForProd(buildingId)) {
+    onDeny?.("not_found");
+    return null;
+  }
 
   if (explicitToken) {
     const tokenVerification = await verifyShareLinkToken({
@@ -718,6 +745,7 @@ export async function fetchIMData(
       buildingId,
     });
     if (!tokenVerification.valid) {
+      onDeny?.("revoked");
       return null;
     }
     if (docId === explicitToken) {
@@ -731,8 +759,38 @@ export async function fetchIMData(
     supabase = null;
   }
 
+  const wsGuard: WorkspaceImGuardResult | null = supabase
+    ? await resolveWorkspaceImGuard(supabase, buildingId)
+    : null;
+  let governanceUnavailable = Boolean(
+    (wsGuard as { governanceUnavailable?: boolean } | null)?.governanceUnavailable
+  );
+  if (wsGuard?.isDeleted) {
+    onDeny?.("not_found");
+    return null;
+  }
+  if (wsGuard?.itemRevoked && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+    onDeny?.("revoked");
+    return null;
+  }
+  if (wsGuard?.isDraft && !wsGuard.snapshot && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+    onDeny?.("not_found");
+    return null;
+  }
+
+  const memoryFallbackAllowed = allowDealPublicMemoryFallback();
+
   // P0-META-IM-PERSIST-03 & Axis B-2: Check activity_events for latest IM upsert/delete AND serverless governance (link_revoked, correction_notice)
-  let latestImUpsert: { imItem: Record<string, any>; brokerProfile?: Record<string, any> } | null = null;
+  let latestOwnerImUpsert: {
+    imItem: Record<string, any>;
+    brokerProfile?: Record<string, any>;
+    actorId?: string | null;
+  } | null = null;
+  let latestPublishedImUpsert: {
+    imItem: Record<string, any>;
+    brokerProfile?: Record<string, any>;
+    actorId?: string | null;
+  } | null = null;
   const dbGovernance: DbGovernanceOverlay = {};
   if (supabase) {
     try {
@@ -763,7 +821,7 @@ export async function fetchIMData(
 
       let imQuery: any = supabase
         .from("activity_events")
-        .select("event_type, entity_id, metadata, created_at")
+        .select("actor_id, event_type, entity_id, metadata, created_at")
         .in("event_type", [
           "im_upserted",
           "im_deleted",
@@ -785,10 +843,17 @@ export async function fetchIMData(
         imFilteredSql = true;
       }
 
-      const [{ data: govEvents }, { data: imEvents }] = await Promise.all([
+      const [govRes, imRes] = await Promise.all([
         govQuery.order("created_at", { ascending: false }).limit(govFilteredSql ? 20 : 200),
         imQuery.order("created_at", { ascending: false }).limit(imFilteredSql ? 20 : 200),
       ]);
+      const govEvents = govRes?.data ?? null;
+      const govErr = govRes?.error ?? null;
+      const imEvents = imRes?.data ?? null;
+
+      if (govErr && !isMissingRelationOrColumnError(govErr)) {
+        governanceUnavailable = true;
+      }
 
       if (Array.isArray(govEvents)) {
         let decidedRevoke = false;
@@ -823,10 +888,19 @@ export async function fetchIMData(
         }
       }
 
+      const hasActiveCanonicalWorkspaceItem = Boolean(
+        wsGuard?.item &&
+          !wsGuard.isDeleted &&
+          !(wsGuard as { blocked?: boolean }).blocked &&
+          !wsGuard.item.deletedAt &&
+          wsGuard.item.status !== "archived"
+      );
+
       if (Array.isArray(imEvents)) {
         let decidedDeleted = false;
         let decidedRestored = false;
-        let decidedIm = false;
+        let decidedOwnerIm = false;
+        let decidedPubIm = false;
 
         for (const ev of imEvents) {
           const meta = (ev.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, any>;
@@ -835,49 +909,172 @@ export async function fetchIMData(
           const evItemBid = String(meta.im_item?.buildingId || "");
           if (evBId !== buildingId && evImId !== buildingId && evItemBid !== buildingId) continue;
 
-          if (!decidedIm) {
-            if (ev.event_type === "im_deleted") {
-              if (!decidedRestored && !latestImUpsert) {
-                decidedDeleted = true;
-              }
-              decidedIm = true;
-            } else if (ev.event_type === "im_restored") {
-              decidedRestored = true;
-            } else if (ev.event_type === "im_upserted" && meta.im_item) {
-              latestImUpsert = {
+          if (ev.event_type === "im_deleted") {
+            if (!hasActiveCanonicalWorkspaceItem && !decidedRestored && !latestOwnerImUpsert) {
+              decidedDeleted = true;
+            }
+            decidedOwnerIm = true;
+            decidedPubIm = true;
+            break;
+          } else if (ev.event_type === "im_restored") {
+            decidedRestored = true;
+          } else if (ev.event_type === "im_upserted" && meta.im_item) {
+            if (!decidedOwnerIm) {
+              latestOwnerImUpsert = {
                 imItem: meta.im_item as Record<string, any>,
                 brokerProfile: meta.broker_profile as Record<string, any> | undefined,
+                actorId: ev.actor_id ? String(ev.actor_id) : null,
               };
-              decidedIm = true;
+              decidedOwnerIm = true;
             }
+            if (!decidedPubIm && !isDraftImUpsertEvent(meta)) {
+              latestPublishedImUpsert = {
+                imItem: meta.im_item as Record<string, any>,
+                brokerProfile: meta.broker_profile as Record<string, any> | undefined,
+                actorId: ev.actor_id ? String(ev.actor_id) : null,
+              };
+              decidedPubIm = true;
+            }
+            if (decidedOwnerIm && decidedPubIm) break;
           }
         }
-        if (decidedDeleted) {
+        if (decidedDeleted && !hasActiveCanonicalWorkspaceItem) {
+          onDeny?.("not_found");
           return null;
         }
       }
-    } catch {
-      // Non-blocking
+    } catch (govThrown) {
+      const isPartialMockTypeErr =
+        govThrown instanceof TypeError &&
+        /is not a function|Cannot read properties of undefined/i.test(govThrown.message);
+      if (!isPartialMockTypeErr && !isMissingRelationOrColumnError(govThrown)) {
+        governanceUnavailable = true;
+      }
     }
   }
 
+  // IM P1-1: Fail closed for non-owner anonymous SSR viewers when governance lookup fails
+  if (governanceUnavailable && !viewer?.isAdmin && !viewer?.userId) {
+    onDeny?.("not_found");
+    return null;
+  }
+
+  const pickEffectiveImUpsert = (privileged: boolean) =>
+    privileged ? latestOwnerImUpsert || latestPublishedImUpsert : latestPublishedImUpsert;
+
+  const hydrateWorkspaceSnapshot = (
+    wsSnapObj: Record<string, any>,
+    wsPriv: boolean,
+    ssotEnrich?: Record<string, any> | null
+  ): MobileIMDocument | null => {
+    const hasMobileDoc =
+      Array.isArray(wsSnapObj.sections) &&
+      wsSnapObj.sections.length > 0 &&
+      Boolean(wsSnapObj.blindName);
+    if (hasMobileDoc) {
+      return attachInboxGovernanceOverlay(
+        { ...(wsSnapObj as MobileIMDocument), buildingId: wsSnapObj.buildingId || buildingId },
+        buildingId,
+        wsSnapObj,
+        dbGovernance,
+        wsPriv
+      );
+    }
+    if (wsSnapObj.basicImDoc && wsSnapObj.fullDocBody) {
+      return hydrateQuickRecordToMobileIM(
+        buildingId,
+        wsSnapObj as StoredQuickImRecord,
+        dbGovernance,
+        wsPriv
+      );
+    }
+    const rawWsItemSource = (
+      wsSnapObj.imItem && typeof wsSnapObj.imItem === "object" ? wsSnapObj.imItem : wsSnapObj
+    ) as Record<string, any>;
+    const ssotLayers = (ssotEnrich?.layers && typeof ssotEnrich.layers === "object"
+      ? ssotEnrich.layers
+      : {}) as Record<string, any>;
+    const wsItemSource: Record<string, any> = ssotEnrich
+      ? {
+          address:
+            ssotEnrich.raw_address ||
+            ssotLayers.location?.address ||
+            ssotLayers.location?.raw_address ||
+            undefined,
+          askingPriceManwon: Number(ssotLayers.lease_summary?.asking_price_manwon) || undefined,
+          gfaSqm: Number(ssotLayers.physical?.total_floor_area_sqm) || undefined,
+          landAreaSqm: Number(ssotLayers.physical?.land_area_sqm) || undefined,
+          zoning: ssotLayers.physical?.zoning || undefined,
+          coordinates: ssotLayers.coordinates || undefined,
+          pnu: ssotLayers.location?.pnu || ssotLayers.location?.canonical_pnu || undefined,
+          ...rawWsItemSource,
+        }
+      : rawWsItemSource;
+    if (
+      wsItemSource.basicImDocument ||
+      wsItemSource.basicImDoc ||
+      wsItemSource.fullDocBody ||
+      wsItemSource.ssot_summary ||
+      wsItemSource.buildingName ||
+      wsItemSource.title ||
+      wsItemSource.address
+    ) {
+      const synthWs = synthesizeQuickRecordFromImItem(
+        buildingId,
+        wsItemSource,
+        wsSnapObj.brokerProfile || wsItemSource.brokerProfile
+      );
+      return hydrateQuickRecordToMobileIM(buildingId, synthWs, dbGovernance, wsPriv);
+    }
+    return null;
+  };
+
+  const resolveUncheckedIMData = async (): Promise<MobileIMDocument | null> => {
+  // Check canonical workspace_items snapshot (or owner-only draft) when available
+  const wsSnap =
+    wsGuard?.snapshot ||
+    (wsGuard?.item?.draftPayload && isOwnerOrAdmin(viewer, wsGuard.ownerId)
+      ? wsGuard.item.draftPayload
+      : null);
+  const wsPrivileged = Boolean(
+    isOwnerOrAdmin(viewer, wsGuard?.ownerId, latestOwnerImUpsert?.actorId)
+  );
+  // Short-circuit immediately ONLY when !isUuid(buildingId) or !supabase;
+  // for UUID buildings with Supabase, let document_objects + building_ssot_lite enrich wsSnap first!
+  if (wsSnap && typeof wsSnap === "object" && (!isUuid(buildingId) || !supabase)) {
+    const directHydrated = hydrateWorkspaceSnapshot(wsSnap, wsPrivileged);
+    if (directHydrated) return directHydrated;
+  }
+
   // 0. Quick-Generate Store lookup (short-circuit before document_objects only when !isUuid(buildingId))
-  const memQuickRec = (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId);
+  const rawMemQuickRec = memoryFallbackAllowed
+    ? (docId ? getQuickImRecord(docId) : undefined) || getQuickImRecord(buildingId)
+    : undefined;
+  const memQuickRec =
+    rawMemQuickRec &&
+    !wsPrivileged &&
+    ((rawMemQuickRec as any).status === "draft" || (rawMemQuickRec as any).hasUnpublishedEdits === true)
+      ? undefined
+      : rawMemQuickRec;
+  const earlyUpsert = pickEffectiveImUpsert(wsPrivileged);
   const earlyQuickRec =
-    latestImUpsert?.imItem && (memQuickRec || !isUuid(buildingId))
+    earlyUpsert?.imItem && (memQuickRec || !isUuid(buildingId))
       ? synthesizeQuickRecordFromImItem(
           buildingId,
-          latestImUpsert.imItem,
-          latestImUpsert.brokerProfile
+          earlyUpsert.imItem,
+          earlyUpsert.brokerProfile
         )
       : memQuickRec ||
-        (!isUuid(buildingId)
-          ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId)
+        (memoryFallbackAllowed && !isUuid(buildingId)
+          ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId, {
+              publishedOnly: !wsPrivileged,
+            })
           : null);
   if (!isUuid(buildingId) && earlyQuickRec) {
     const quickOwnerId =
       (earlyQuickRec as any)?.ownerId ||
-      (latestImUpsert?.brokerProfile as any)?.userId ||
+      (earlyUpsert?.brokerProfile as any)?.userId ||
+      wsGuard?.ownerId ||
       null;
     return hydrateQuickRecordToMobileIM(
       buildingId,
@@ -888,7 +1085,7 @@ export async function fetchIMData(
   }
 
   // 1. Demo data
-  const demo = getDemoMobileIM(buildingId);
+  const demo = isAllowedPublicDemoIm(buildingId) ? getDemoMobileIM(buildingId) : null;
   if (demo) {
     return attachInboxGovernanceOverlay(
       demo,
@@ -913,17 +1110,23 @@ export async function fetchIMData(
 
   // Non-UUID custom IM IDs: synthesize via QuickImRecord so full sections are hydrated
   if (!isUuid(buildingId)) {
-    const quickRec = latestImUpsert?.imItem
+    const nonUuidUpsert = pickEffectiveImUpsert(wsPrivileged);
+    const quickRec = nonUuidUpsert?.imItem
       ? synthesizeQuickRecordFromImItem(
           buildingId,
-          latestImUpsert.imItem,
-          latestImUpsert.brokerProfile
+          nonUuidUpsert.imItem,
+          nonUuidUpsert.brokerProfile
         )
-      : await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
+      : memoryFallbackAllowed
+      ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId, {
+          publishedOnly: !wsPrivileged,
+        })
+      : null;
     if (quickRec) {
       const quickOwnerId =
         (quickRec as any)?.ownerId ||
-        (latestImUpsert?.brokerProfile as any)?.userId ||
+        (nonUuidUpsert?.brokerProfile as any)?.userId ||
+        wsGuard?.ownerId ||
         null;
       return hydrateQuickRecordToMobileIM(
         buildingId,
@@ -940,8 +1143,23 @@ export async function fetchIMData(
     .select("owner_id, status")
     .eq("id", buildingId)
     .maybeSingle();
-  const buildingOwnerId: string | null = buildingAccess?.owner_id ?? null;
-  if (buildingAccess && !isBuildingStatusPublic(buildingAccess.status) && !isOwnerOrAdmin(viewer, buildingOwnerId)) {
+  const buildingOwnerId: string | null = buildingAccess?.owner_id ?? wsGuard?.ownerId ?? null;
+  if (buildingAccess && buildingAccess.status === "deleted") {
+    return null;
+  }
+  if (
+    buildingAccess &&
+    buildingAccess.status === "archived" &&
+    !isOwnerOrAdmin(viewer, buildingOwnerId)
+  ) {
+    return null;
+  }
+  if (
+    !wsGuard?.snapshot &&
+    buildingAccess &&
+    !isBuildingStatusPublic(buildingAccess.status) &&
+    !isOwnerOrAdmin(viewer, buildingOwnerId)
+  ) {
     return null;
   }
 
@@ -1307,8 +1525,14 @@ export async function fetchIMData(
         releaseTier: document.body.releaseTier ?? 'fact_om',
       };
 
-    if (document.body?.basicImDocument || document.body?.schemaVersion === '3.0') {
-      (mappedResult as any).basicImDocument = document.body.basicImDocument || document.body;
+    if (document.body?.basicImDocument?.facts) {
+      (mappedResult as any).basicImDocument = document.body.basicImDocument;
+      (mappedResult as any).schemaVersion = '3.0';
+    } else if (document.body?.basicImDocument || document.body?.schemaVersion === '3.0') {
+      (mappedResult as any).basicImDocument = synthesizeQuickRecordFromImItem(
+        buildingId,
+        document.body
+      ).basicImDoc;
       (mappedResult as any).schemaVersion = '3.0';
     }
     (mappedResult as any).ssotSummary = ssotSummary;
@@ -1358,15 +1582,34 @@ export async function fetchIMData(
     (mappedResult as any).ssotSummary = ssotSummary;
     (mappedResult as any).enrichment = document.body.enrichment || enriched || null;
 
-    if (latestImUpsert?.imItem) {
-      const it = latestImUpsert.imItem;
+    const isDocPrivileged = isOwnerOrAdmin(viewer, buildingOwnerId, document?.owner_id);
+    const resolvedOverlayUpsert = pickEffectiveImUpsert(isDocPrivileged);
+    const wsOverlayItem =
+      !resolvedOverlayUpsert?.imItem && wsSnap && typeof wsSnap === "object"
+        ? {
+            imItem: (wsSnap.imItem && typeof wsSnap.imItem === "object"
+              ? wsSnap.imItem
+              : wsSnap) as Record<string, any>,
+            brokerProfile: (wsSnap.brokerProfile ||
+              (wsSnap.imItem as any)?.brokerProfile) as Record<string, any> | undefined,
+          }
+        : resolvedOverlayUpsert;
+
+    if (wsOverlayItem?.imItem) {
+      const it = wsOverlayItem.imItem;
       if (it.title) {
         mappedResult.blindName = String(it.title);
         mappedResult.fullName = String(it.title);
       }
-      if (Array.isArray(it.rentRoll) && it.rentRoll.length > 0) {
-        (mappedResult as any).rentRoll = it.rentRoll;
-        (mappedResult as any).floor_leases = it.rentRoll;
+      const itRentRoll =
+        (Array.isArray(it.rentRoll) && it.rentRoll.length > 0 && it.rentRoll) ||
+        (Array.isArray(it.rent_roll) && it.rent_roll.length > 0 && it.rent_roll) ||
+        (Array.isArray(it.floor_leases) && it.floor_leases.length > 0 && it.floor_leases) ||
+        null;
+      if (itRentRoll) {
+        (mappedResult as any).rentRoll = itRentRoll;
+        (mappedResult as any).floor_leases =
+          Array.isArray(it.floor_leases) && it.floor_leases.length > 0 ? it.floor_leases : itRentRoll;
       }
       const resolvedLat = Number(it.coordinates?.lat ?? it.lat) || undefined;
       const resolvedLng = Number(it.coordinates?.lng ?? it.lng) || undefined;
@@ -1383,22 +1626,22 @@ export async function fetchIMData(
         ...(it.investmentPosture || it.posture
           ? { investment_posture: it.investmentPosture || it.posture }
           : {}),
-        ...(Number(it.askingPriceManwon) ? { asking_price_manwon: Number(it.askingPriceManwon) } : {}),
-        ...(Number(it.gfaSqm)
+        ...(Number(it.askingPriceManwon) > 0 ? { asking_price_manwon: Number(it.askingPriceManwon) } : {}),
+        ...(Number(it.gfaSqm) > 0
           ? { total_gross_area_sqm: Number(it.gfaSqm), total_gross_area_m2: Number(it.gfaSqm) }
           : {}),
-        ...(Number(it.landAreaSqm)
+        ...(Number(it.landAreaSqm) > 0
           ? { land_area_sqm: Number(it.landAreaSqm), land_area_m2: Number(it.landAreaSqm) }
           : {}),
         ...(it.zoning ? { zoning: it.zoning } : {}),
         ...(it.completionDate ? { completion_date: it.completionDate } : {}),
-        ...(Number(it.floorsAbove) ? { floors_above: Number(it.floorsAbove) } : {}),
+        ...(Number(it.floorsAbove) > 0 ? { floors_above: Number(it.floorsAbove) } : {}),
         ...(it.floorsBelow !== undefined && Number.isFinite(Number(it.floorsBelow))
           ? { floors_below: Number(it.floorsBelow) }
           : {}),
-        ...(Number(it.bcrPct) ? { bcr_pct: Number(it.bcrPct) } : {}),
-        ...(Number(it.farPct) ? { far_pct: Number(it.farPct) } : {}),
-        ...(Number(it.parkingTotal) ? { parking_count: Number(it.parkingTotal) } : {}),
+        ...(Number(it.bcrPct) > 0 ? { bcr_pct: Number(it.bcrPct) } : {}),
+        ...(Number(it.farPct) > 0 ? { far_pct: Number(it.farPct) } : {}),
+        ...(Number(it.parkingTotal) > 0 ? { parking_count: Number(it.parkingTotal) } : {}),
         ...(it.elevatorCount !== undefined && Number.isFinite(Number(it.elevatorCount))
           ? { elevator_count: Number(it.elevatorCount) }
           : {}),
@@ -1444,7 +1687,7 @@ export async function fetchIMData(
         }
       }
 
-      const bp = latestImUpsert.brokerProfile || {};
+      const bp = wsOverlayItem.brokerProfile || {};
       const brokerName =
         cleanImBrokerPlaceholder(it.brokerName) ||
         cleanImBrokerPlaceholder(bp.displayName || bp.display_name || bp.name);
@@ -1483,6 +1726,14 @@ export async function fetchIMData(
         }
       }
 
+      const cleanNonZeroItemOverrides = Object.fromEntries(
+        Object.entries(it).filter(([, v]) => {
+          if (v === undefined || v === null || v === "") return false;
+          if (typeof v === "number" && v === 0) return false;
+          if (Array.isArray(v) && v.length === 0) return false;
+          return true;
+        })
+      );
       const mergedItForSynth = {
         address: nextSsot.address,
         title: mappedResult.blindName,
@@ -1502,12 +1753,14 @@ export async function fetchIMData(
         coordinates: mappedResult.coordinates,
         rentRoll: (mappedResult as any).rentRoll,
         photos: mappedResult.photos,
-        ...it,
+        ssot_summary: nextSsot,
+        basicImDocument: document.body?.basicImDocument,
+        ...cleanNonZeroItemOverrides,
       };
       (mappedResult as any).basicImDocument = synthesizeQuickRecordFromImItem(
         buildingId,
         mergedItForSynth,
-        latestImUpsert.brokerProfile
+        wsOverlayItem.brokerProfile
       ).basicImDoc;
     }
 
@@ -1516,22 +1769,42 @@ export async function fetchIMData(
       buildingId,
       document.body,
       dbGovernance,
-      isOwnerOrAdmin(viewer, buildingOwnerId, document?.owner_id)
+      isDocPrivileged
     );
   }
 
+  const isFallbackPrivileged = isOwnerOrAdmin(viewer, buildingOwnerId, wsGuard?.ownerId);
+
+  // 2b. If canonical workspace_items snapshot exists (and document_objects had no published row),
+  //     enrich wsSnap from building_ssot_lite before synthesizing!
+  if (wsSnap && typeof wsSnap === "object") {
+    let ssotEnrichRow: Record<string, any> | null = null;
+    try {
+      const bRes = await readBuilding(buildingId);
+      const cand = (bRes?.data ?? bRes ?? null) as Record<string, any> | null;
+      if (cand && typeof cand === "object" && Object.keys(cand).length > 0) {
+        ssotEnrichRow = cand;
+      }
+    } catch {
+      ssotEnrichRow = null;
+    }
+    const hydratedWs = hydrateWorkspaceSnapshot(wsSnap, isFallbackPrivileged, ssotEnrichRow);
+    if (hydratedWs) return hydratedWs;
+  }
+
   // 3. Fallback: If broker saved/published via IM Workspace (activity_events im_upserted) or in-memory quick store, synthesize directly before bare SSoT stub
-  if (latestImUpsert?.imItem) {
+  const fallbackUpsert = pickEffectiveImUpsert(isFallbackPrivileged);
+  if (fallbackUpsert?.imItem) {
     const synthRec = synthesizeQuickRecordFromImItem(
       buildingId,
-      latestImUpsert.imItem,
-      latestImUpsert.brokerProfile
+      fallbackUpsert.imItem,
+      fallbackUpsert.brokerProfile
     );
     return hydrateQuickRecordToMobileIM(
       buildingId,
       synthRec,
       dbGovernance,
-      isOwnerOrAdmin(viewer, buildingOwnerId)
+      isFallbackPrivileged
     );
   }
   if (earlyQuickRec) {
@@ -1539,7 +1812,7 @@ export async function fetchIMData(
       buildingId,
       earlyQuickRec,
       dbGovernance,
-      isOwnerOrAdmin(viewer, buildingOwnerId)
+      isFallbackPrivileged
     );
   }
 
@@ -1547,13 +1820,17 @@ export async function fetchIMData(
   const ssot = (result?.data ?? result ?? {}) as Record<string, any>;
 
   if (!ssot || Object.keys(ssot).length === 0 || (ssot.completeness_score ?? 0) < 30) {
-    const quickRec = await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId);
+    const quickRec = memoryFallbackAllowed
+      ? await resolveOrSynthesizeQuickImRecord(buildingId, supabase, docId, {
+          publishedOnly: !isFallbackPrivileged,
+        })
+      : null;
     if (quickRec) {
       return hydrateQuickRecordToMobileIM(
         buildingId,
         quickRec,
         dbGovernance,
-        isOwnerOrAdmin(viewer, buildingOwnerId)
+        isFallbackPrivileged
       );
     }
     return null;
@@ -1683,4 +1960,41 @@ export async function fetchIMData(
       hasPhotos: (Array.isArray(layers.photos) && layers.photos.length > 0) || (Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0),
     }),
   }, buildingId, undefined, dbGovernance, isOwnerOrAdmin(viewer, buildingOwnerId || ssot.owner_id));
+  };
+
+  const resolvedDoc = await resolveUncheckedIMData();
+  if (!resolvedDoc) {
+    onDeny?.("not_found");
+    return null;
+  }
+
+  const isDemo = Boolean(isAllowedPublicDemoIm(buildingId) && !wsGuard?.item);
+  const resolvedOwner =
+    wsGuard?.ownerId ||
+    (resolvedDoc as any)?.ownerId ||
+    (resolvedDoc as any)?.broker?.userId ||
+    null;
+  const privileged =
+    Boolean((resolvedDoc as any).isOwner) || isOwnerOrAdmin(viewer, resolvedOwner);
+
+  if (governanceUnavailable && !privileged) {
+    onDeny?.("not_found");
+    return null;
+  }
+
+  if (!privileged && dbGovernance.revoked === undefined && wsGuard?.dbShareRevoked) {
+    (resolvedDoc as any).isRevoked = true;
+  }
+
+  if (enforceShareToken && (resolvedDoc as any).isRevoked && !privileged) {
+    onDeny?.("revoked");
+    return null;
+  }
+
+  if (enforceShareToken && !privileged && !isDemo && !explicitToken) {
+    onDeny?.("token_required");
+    return null;
+  }
+
+  return resolvedDoc;
 }

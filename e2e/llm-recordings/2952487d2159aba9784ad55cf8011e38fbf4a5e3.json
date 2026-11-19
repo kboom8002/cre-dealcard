@@ -1,0 +1,14 @@
+{
+ "key": "2952487d2159aba9784ad55cf8011e38fbf4a5e3",
+ "recordedAt": "2026-11-17T07:13:30.000Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "text",
+ "promptPreview": "[S] Situation & Broker Preferences: 주간 뉴스레터 상단 '시장 브리핑' 영역에 들어가는 중개인 직접 브리핑입니다.",
+ "result": {
+  "content": "강남과 마포 역세권 꼬마빌딩은 급매물을 중심으로 매수 문의가 빠르게 이어지고 있습니다.\n은행 대출 금리 부담이 줄어들면서 임대수익이 안정적인 건물로 관심이 모이고 있습니다.\n매입을 검토하실 때는 현재 세입자의 계약 조건과 주변 상권 흐름을 함께 살펴보시는 것이 좋습니다.",
+  "tokens": 420,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 680
+ }
+}

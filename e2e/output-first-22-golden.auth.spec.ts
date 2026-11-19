@@ -948,9 +948,10 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
       { label: "390x844", width: 390, height: 844 },
     ] as const;
 
+    const qaTesterKey = process.env.QA_TESTER_ACCESS_KEY || "test-qa-tester-key";
     for (const vp of viewports) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto("/qa-showcase", { waitUntil: "networkidle" });
+      await page.goto(`/qa-showcase?qaKey=${encodeURIComponent(qaTesterKey)}`, { waitUntil: "networkidle" });
       await hideDevOverlay(page);
 
       for (const tab of ["newsletter", "dealcard", "im"] as const) {

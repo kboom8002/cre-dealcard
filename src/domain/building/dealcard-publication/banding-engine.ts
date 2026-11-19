@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import type { MemoObservationSet } from '../memo-intake/types';
 import { computeTargetHash } from '../im-core/target-hash';
 import { sqmToPyeong } from '@/lib/utils/area-conversion';
+import { formatKrw, formatPriceRange } from '@/lib/deal-card/price-band';
 
 export interface DealcardRentRollSummary {
   /** 총 호실/구획 수 (예: "총 6개 구획") */
@@ -75,13 +76,19 @@ export interface DealcardPackage {
 
 
 export function bandPrice(krw: number): string {
-  const eok = Math.floor(krw / 100000000);
-  if (eok >= 100) {
-    const low = Math.floor(eok / 10) * 10;
-    const high = low + 10;
-    return `${low}억~${high}억 원대`;
+  if (typeof krw !== 'number' || !Number.isFinite(krw) || krw <= 0) {
+    return '가격 협의';
   }
-  return `${eok}억 원대`;
+  // 100~200억 구간은 기존 계약("120억~130억 원대", 10억 폭 >= 5%) 유지
+  const EOK_KRW = 1_0000_0000;
+  if (krw >= 100 * EOK_KRW && krw < 200 * EOK_KRW) {
+    const width = 10 * EOK_KRW;
+    const low = Math.floor(krw / width) * width;
+    const high = low + width;
+    return `${formatKrw(low)}~${formatKrw(high)} 원대`;
+  }
+  // 그 외 모든 금액(<100억, >=200억, 조 단위)은 canonical SSOT 위임 (>=5% 폭 & 조/억/만 포맷)
+  return formatPriceRange(krw, 'standard');
 }
 
 export function bandLocation(rawLoc: string): string {

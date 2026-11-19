@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useSyncExternalStore } from "react";
 
 export const FONT_SCALE_STORAGE_KEY = "credeal-workspace-font-scale-v1";
 export const LEGACY_FONT_SCALE_STORAGE_KEY = "cre-font-scale";
@@ -10,6 +10,76 @@ export type UiFontScale = "compact" | "normal" | "large" | "xlarge";
 
 export function isValidFontScale(val: unknown): val is UiFontScale {
   return val === "compact" || val === "normal" || val === "large" || val === "xlarge";
+}
+
+export function getFontScaleSnapshot(): UiFontScale {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return "normal";
+  }
+  const attr = document.documentElement.dataset.fontScale;
+  if (isValidFontScale(attr)) {
+    return attr;
+  }
+  try {
+    const saved =
+      window.localStorage.getItem(FONT_SCALE_STORAGE_KEY) ||
+      window.localStorage.getItem(LEGACY_FONT_SCALE_STORAGE_KEY);
+    if (isValidFontScale(saved)) {
+      return saved;
+    }
+  } catch {
+    // ignore storage failure
+  }
+  return "normal";
+}
+
+export function getFontScaleServerSnapshot(): UiFontScale {
+  return "normal";
+}
+
+export function subscribeFontScale(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => {};
+  }
+  const htmlEl = document.documentElement;
+  const handleSync = () => onStoreChange();
+  window.addEventListener(FONT_SCALE_EVENT, handleSync);
+  window.addEventListener("storage", handleSync);
+
+  let observer: MutationObserver | null = null;
+  if (typeof MutationObserver !== "undefined") {
+    observer = new MutationObserver(() => {
+      onStoreChange();
+    });
+    observer.observe(htmlEl, { attributes: true, attributeFilter: ["data-font-scale"] });
+  }
+
+  return () => {
+    window.removeEventListener(FONT_SCALE_EVENT, handleSync);
+    window.removeEventListener("storage", handleSync);
+    observer?.disconnect();
+  };
+}
+
+export function applyAndPersistFontScale(nextScale: UiFontScale): void {
+  if (typeof document !== "undefined") {
+    document.documentElement.dataset.fontScale = nextScale;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
+      window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, nextScale);
+    } catch {
+      // ignore storage failure
+    }
+    try {
+      window.dispatchEvent(
+        new CustomEvent<UiFontScale>(FONT_SCALE_EVENT, { detail: nextScale }),
+      );
+    } catch {
+      // ignore CustomEvent failure
+    }
+  }
 }
 
 export interface FontScaleToggleProps {
@@ -24,10 +94,14 @@ export interface FontScaleToggleProps {
  * - xlarge  (21px): 아주 크게
  */
 export function FontScaleToggle({ className }: FontScaleToggleProps) {
-  const [fontScale, setFontScale] = useState<UiFontScale>("normal");
+  const fontScale = useSyncExternalStore(
+    subscribeFontScale,
+    getFontScaleSnapshot,
+    getFontScaleServerSnapshot,
+  );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || typeof document === "undefined") return;
     const htmlEl = document.documentElement;
     let resolved: UiFontScale | null = null;
 
@@ -50,8 +124,9 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
     }
 
     if (resolved) {
-      setFontScale(resolved);
-      htmlEl.dataset.fontScale = resolved;
+      if (htmlEl.dataset.fontScale !== resolved) {
+        htmlEl.dataset.fontScale = resolved;
+      }
       try {
         window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, resolved);
         window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, resolved);
@@ -59,52 +134,10 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
         // ignore storage failure
       }
     }
-
-    const onSync = (e: Event) => {
-      const next = (e as CustomEvent<UiFontScale>).detail;
-      if (isValidFontScale(next)) {
-        setFontScale(next);
-      }
-    };
-    window.addEventListener(FONT_SCALE_EVENT, onSync);
-
-    let observer: MutationObserver | null = null;
-    if (typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver(() => {
-        const attr = htmlEl.dataset.fontScale;
-        if (isValidFontScale(attr)) {
-          setFontScale((prev) => (prev === attr ? prev : attr));
-        }
-      });
-      observer.observe(htmlEl, { attributes: true, attributeFilter: ["data-font-scale"] });
-    }
-
-    return () => {
-      window.removeEventListener(FONT_SCALE_EVENT, onSync);
-      observer?.disconnect();
-    };
   }, []);
 
   const handleSelect = useCallback((nextScale: UiFontScale) => {
-    setFontScale(nextScale);
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.fontScale = nextScale;
-    }
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, nextScale);
-        window.localStorage.setItem(LEGACY_FONT_SCALE_STORAGE_KEY, nextScale);
-      } catch {
-        // ignore storage failure
-      }
-      try {
-        window.dispatchEvent(
-          new CustomEvent<UiFontScale>(FONT_SCALE_EVENT, { detail: nextScale })
-        );
-      } catch {
-        // ignore CustomEvent failure
-      }
-    }
+    applyAndPersistFontScale(nextScale);
   }, []);
 
   const options: Array<{ id: UiFontScale; label: string }> = [
@@ -121,7 +154,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
       data-testid="workspace-font-scale-toggle"
       className={
         className ||
-        "inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0"
+        "inline-flex max-w-full flex-wrap items-center justify-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] border border-white/60 gap-0.5"
       }
     >
       {options.map((opt) => {
@@ -133,7 +166,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
             data-testid={`workspace-font-scale-${opt.id}`}
             aria-pressed={active}
             onClick={() => handleSelect(opt.id)}
-            className={`px-2.5 min-h-[44px] rounded-[9px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`px-2 sm:px-2.5 min-h-[44px] rounded-[9px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
               active
                 ? "ios-segmented-pill bg-white text-[#007AFF]"
                 : "text-[#3A3A3C] hover:text-[#1D1D1F]"

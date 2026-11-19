@@ -5,8 +5,17 @@
  *   (이전 레거시 ID 는 base64 문자열이라 `_` 가 없고 `v2_` 로 시작하지 않는다 → 집계에서 구분·제외 가능)
  * - 시크릿 미설정이면 null (가짜 기본 salt 금지). 호출자는 503/미수집으로 정직하게 처리한다.
  */
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
+import { isRealProductionRuntime } from '@/lib/env';
 import { isValidVisitorId } from '@/lib/magazine/visitor-id';
+
+let devVisitorSalt: string | null = null;
+function getDevVisitorSalt(): string {
+  if (!devVisitorSalt) {
+    devVisitorSalt = randomBytes(32).toString('hex');
+  }
+  return devVisitorSalt;
+}
 
 export const VISITOR_HASH_PREFIX = 'v2_';
 /** PostgREST like 패턴 (`_` 는 와일드카드지만 base64 에는 `_` 가 없어 레거시와 충돌하지 않는다) */
@@ -33,7 +42,15 @@ export function computeVisitorHash(
   userAgent: string | null | undefined,
   secret: string | undefined = process.env.MAGAZINE_SID_SECRET,
 ): string {
-  const effectiveSecret = secret && secret.length >= 8 ? secret : 'cre-dealcard-visitor-fallback-salt';
+  const trimmed = typeof secret === 'string' ? secret.trim() : '';
+  let effectiveSecret: string;
+  if (trimmed.length >= 8) {
+    effectiveSecret = trimmed;
+  } else if (isRealProductionRuntime()) {
+    throw new Error('MAGAZINE_SID_SECRET_NOT_CONFIGURED');
+  } else {
+    effectiveSecret = getDevVisitorSalt();
+  }
   const cleanIp = (ip || '').trim().toLowerCase();
   const cleanUa = (userAgent || '').trim().slice(0, 200);
   const rawKey = `visitor:${cleanIp}:${cleanUa}`;

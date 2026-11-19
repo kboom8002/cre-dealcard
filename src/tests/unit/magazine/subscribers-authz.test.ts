@@ -40,7 +40,8 @@ const PROFILE = {
 };
 const SUBS: Array<Record<string, unknown>> = [
   { id: 'sub-a1', broker_id: 'broker-a', status: 'active', unsubscribed_at: null, channel: 'kakao', subscriber_email: null, subscriber_phone: '01011112222', subscriber_name: '가나다', interest_profile: PROFILE, client_id: null, confirm_token_hash: 'HASH', consent_ip_hash: 'IPHASH' },
-  { id: 'sub-a-unsub', broker_id: 'broker-a', status: 'unsubscribed', unsubscribed_at: '2026-01-01T00:00:00Z', channel: 'kakao', subscriber_email: null, subscriber_phone: '01033334444', subscriber_name: '해지자', interest_profile: {}, client_id: null },
+  { id: 'sub-a2-email', broker_id: 'broker-a', status: 'active', unsubscribed_at: null, channel: 'both', subscriber_email: 'active@a.com', subscriber_phone: '01022223333', subscriber_name: '이메일구독', interest_profile: {}, client_id: null },
+  { id: 'sub-a-unsub', broker_id: 'broker-a', status: 'unsubscribed', unsubscribed_at: '2026-01-01T00:00:00Z', channel: 'kakao', subscriber_email: 'unsub@a.com', subscriber_phone: '01033334444', subscriber_name: '해지자', interest_profile: {}, client_id: null },
   { id: 'sub-a-pending', broker_id: 'broker-a', status: 'active', unsubscribed_at: null, channel: 'kakao', subscriber_email: null, subscriber_phone: '01055556666', subscriber_name: '확인전', interest_profile: {}, client_id: null, confirm_status: 'pending' },
   { id: 'sub-b1', broker_id: 'broker-b', status: 'active', unsubscribed_at: null, channel: 'email', subscriber_email: 'secret@b.com', subscriber_phone: '01099998888', subscriber_name: '타브로커고객', interest_profile: {}, client_id: null },
 ];
@@ -174,12 +175,25 @@ describe('PATCH /subscribers/[id]', () => {
     expect(callsOf('update')).toHaveLength(0);
   });
 
-  it('활성 구독자를 unsubscribed 로 바꾸면 unsubscribed_at 기록', async () => {
-    const res = await itemPATCH(req('/x', { method: 'PATCH', body: { status: 'unsubscribed' } }), params('sub-a1'));
+  it('활성 구독자를 unsubscribed 로 바꾸면 unsubscribed_at·consent_status 기록 및 email_suppressions 동기화', async () => {
+    const res = await itemPATCH(req('/x', { method: 'PATCH', body: { status: 'unsubscribed' } }), params('sub-a2-email'));
     expect(res.status).toBe(200);
     const payload = callsOf('update')[0].payload as Record<string, unknown>;
     expect(payload.status).toBe('unsubscribed');
+    expect(payload.consent_status).toBe('unsubscribed');
     expect(typeof payload.unsubscribed_at).toBe('string');
+    const suppInserts = callsOf('insert', 'email_suppressions');
+    expect(suppInserts).toHaveLength(1);
+    expect(suppInserts[0].payload).toMatchObject({ scope: 'broker', broker_id: UA, reason: 'unsubscribe', source: 'broker_patch' });
+  });
+
+  it('해지된 구독자를 DELETE 해도 email_suppressions 에 해지 이력이 보존된다', async () => {
+    const res = await itemDELETE(req('/x', { method: 'DELETE' }), params('sub-a-unsub'));
+    expect(res.status).toBe(200);
+    const suppInserts = callsOf('insert', 'email_suppressions');
+    expect(suppInserts).toHaveLength(1);
+    expect(suppInserts[0].payload).toMatchObject({ scope: 'broker', broker_id: UA, reason: 'unsubscribe', source: 'broker_delete' });
+    expect(callsOf('delete')).toHaveLength(1);
   });
 
   it('태그 저장은 interest_profile 병합 — 기존 예산·다른 태그 그룹 보존 (T2-10), interest_tags 입력 수용', async () => {
@@ -218,6 +232,36 @@ describe('PATCH /subscribers/[id]', () => {
     const res = await itemPATCH(req('/x', { method: 'PATCH', body: { status: 'deleted' } }), params('sub-a1'));
     expect(res.status).toBe(400);
   });
+
+  it('사전 마이그레이션 DB(consent_status·email_delivery_status 컬럼 없음)에서도 assertOwnsRow("*")로 PATCH/DELETE 200 동작', async () => {
+    h.db = createFakeDb((call: FakeCall) => {
+      if (call.table !== 'magazine_subscribers') return { data: null };
+      if (call.op === 'select') {
+        const selFilter = call.filters.find((f) => f[0] === 'select');
+        const selCols = String(selFilter?.[1] ?? '*');
+        if (selCols.includes('consent_status') || selCols.includes('email_delivery_status')) {
+          return { error: { code: '42703', message: 'column does not exist' } };
+        }
+        return { data: rowVisibleTo(SUBS, call) ?? null };
+      }
+      if (call.op === 'update') {
+        const row = rowVisibleTo(SUBS, call);
+        return { data: row ? { ...row, ...(call.payload as object) } : null };
+      }
+      if (call.op === 'delete') {
+        const id = call.filters.find((f) => f[0] === 'eq' && f[1] === 'id')?.[2];
+        const keys = (call.filters.find((f) => f[0] === 'in' && f[1] === 'broker_id')?.[2] ?? []) as string[];
+        return { data: SUBS.filter((r) => r.id === id && keys.includes(String(r.broker_id))).map((r) => ({ id: r.id })) };
+      }
+      return { data: null };
+    }) as never;
+
+    const patchRes = await itemPATCH(req('/x', { method: 'PATCH', body: { subscriber_name: '수정됨' } }), params('sub-a1'));
+    expect(patchRes.status).toBe(200);
+
+    const delRes = await itemDELETE(req('/x', { method: 'DELETE' }), params('sub-a1'));
+    expect(delRes.status).toBe(200);
+  });
 });
 
 describe('POST /subscribers (수동 추가)', () => {
@@ -251,7 +295,7 @@ describe('POST /subscribers (수동 추가)', () => {
       source: 'manual',
       status: 'active',
       consent_channel: 'broker_attested',
-      confirm_status: 'confirmed',
+      confirm_status: 'pending',
       consent_version: 'v1',
       broker_user_id: UA,
     });

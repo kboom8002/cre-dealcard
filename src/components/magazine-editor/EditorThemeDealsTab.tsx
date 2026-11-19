@@ -94,7 +94,7 @@ export function EditorThemeDealsTab({
           <p className="text-[15px] font-extrabold text-slate-900">
             주목 매물 ({selectedDealIds.size}/{allDeals.length})
           </p>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="text-sm font-semibold text-slate-500">
             소식지에 실을 핵심 추천 매물을 선택하세요
           </span>
         </div>
@@ -174,28 +174,28 @@ export function EditorThemeDealsTab({
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-500 truncate mb-1.5 font-medium">
+                    <p className="text-sm text-slate-500 truncate mb-1.5 font-medium">
                       {deal.address || deal.raw_address}
                     </p>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {/* IM 연동 배지 */}
                       {hasIm && (
-                        <span className="text-xs font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full inline-flex items-center gap-0.5">
+                        <span className="text-sm font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full inline-flex items-center gap-0.5">
                           📊 Basic IM 연동됨
                         </span>
                       )}
 
                       {/* 실질 수익률 배지 */}
                       {yieldVal != null && Number(yieldVal) > 0 && (
-                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                        <span className="text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
                           수익률 연 {yieldVal}%
                         </span>
                       )}
 
                       {/* 매수 관심 고객 수 */}
                       {deal.buyerInterestCount > 0 && (
-                        <span className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
+                        <span className="text-sm font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
                           관심 {deal.buyerInterestCount}명
                         </span>
                       )}

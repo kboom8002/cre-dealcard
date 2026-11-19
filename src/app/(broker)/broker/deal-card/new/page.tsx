@@ -335,21 +335,20 @@ export default function BrokerDealCardNewPage() {
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        <span className="text-sm font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
                           {matchLabel} ({Math.round(candidate.confidence * 100)}%)
                         </span>
                       </div>
                       <p className="text-sm font-medium">
                         {candidate.summary.areaSignal || "권역 미상"} · {candidate.summary.assetType || "유형 미상"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {candidate.summary.priceBand || ""} {createdDate ? `· ${createdDate} 등록` : ""}
                       </p>
                     </div>
                   </div>
                   <Button
-                    size="sm"
-                    className="w-full"
+                    className="w-full min-h-[44px] text-sm font-bold"
                     onClick={() => handleDuplicateAction("update", candidate.existingBuildingId)}
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
@@ -364,17 +363,18 @@ export default function BrokerDealCardNewPage() {
           <div className="space-y-2 pt-2">
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full min-h-[44px] text-sm font-bold"
               onClick={() => handleDuplicateAction("forceNew")}
             >
               <Plus className="w-4 h-4 mr-2" />
               다른 물건이에요 — 새로 만들기
             </Button>
             <button
-              className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 py-2"
+              type="button"
+              className="w-full min-h-[44px] text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 py-2"
               onClick={() => handleDuplicateAction("cancel")}
             >
-              <X className="w-3 h-3 inline mr-1" />
+              <X className="w-4 h-4 inline mr-1" />
               취소하고 메모 수정하기
             </button>
           </div>
@@ -482,7 +482,7 @@ export default function BrokerDealCardNewPage() {
           <button
             type="button"
             onClick={handleCancelLoading}
-            className="text-xs text-muted-foreground hover:text-foreground underline pt-2"
+            className="min-h-[44px] px-4 py-2 text-sm text-muted-foreground hover:text-foreground underline pt-2"
           >
             ✕ 생성 취소하고 메모 수정하기
           </button>
@@ -508,7 +508,7 @@ export default function BrokerDealCardNewPage() {
                 router.push("/broker/buildings");
               }
             }}
-            className="flex items-center gap-1.5 text-[15px] font-bold text-muted-foreground hover:text-foreground transition-colors py-1.5 px-3 -ml-2 rounded-xl hover:bg-secondary/60"
+            className="min-h-[44px] flex items-center gap-1.5 text-[15px] font-bold text-muted-foreground hover:text-foreground transition-colors py-2 px-3 -ml-2 rounded-xl hover:bg-secondary/60"
           >
             <ChevronLeft className="w-5 h-5" />
             <span>뒤로 가기</span>
@@ -521,8 +521,9 @@ export default function BrokerDealCardNewPage() {
           <button
             type="button"
             onClick={() => router.push("/broker/buildings")}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-secondary/60"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors p-2.5 rounded-xl hover:bg-secondary/60"
             title="닫고 목록으로"
+            aria-label="닫고 목록으로"
           >
             <X className="w-5 h-5" />
           </button>
@@ -575,7 +576,7 @@ export default function BrokerDealCardNewPage() {
                 key={sample.label}
                 type="button"
                 onClick={() => setMemo(sample.text)}
-                className="px-3.5 py-2 rounded-xl border border-border bg-secondary/70 hover:bg-secondary text-[14px] font-bold text-foreground transition-colors"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl border border-border bg-secondary/70 hover:bg-secondary text-[14px] font-bold text-foreground transition-colors"
               >
                 {sample.label}
               </button>
@@ -598,7 +599,7 @@ export default function BrokerDealCardNewPage() {
             <button
               type="button"
               onClick={() => setShowMemoModal(true)}
-              className="text-[14px] text-primary font-bold hover:underline flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 rounded-xl transition-colors"
+              className="min-h-[44px] text-[14px] text-primary font-bold hover:underline flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 rounded-xl transition-colors"
               id="btn-import-memo"
             >
               <StickyNote className="w-4 h-4" />

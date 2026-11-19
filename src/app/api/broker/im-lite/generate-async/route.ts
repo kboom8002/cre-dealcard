@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits, floorLeaseToPersistUnit } from "@/domain/building/mobile-im/lease-adapter";
 import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
+import { enforceBrokerAiQuota, enforceFeatureQuota } from "@/lib/ai-quota-guard";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -37,14 +38,14 @@ export async function POST(req: NextRequest) {
   let skipApproval = false;
   let directData: Record<string, unknown> | null = null;
   let tier: 'basic' | 'pro' = 'basic';
-  let hospitalitySpecInput: Record<string, any> | null = null;
+  let hospitalitySpecInput: Record<string, unknown> | null = null;
   let loanStatusInput: string | null = null;
-  let developmentSpecInput: Record<string, any> | null = null;
-  let vacateSpecInput: Record<string, any> | null = null;
-  let permitSpecInput: Record<string, any> | null = null;
-  let occupancySpecInput: Record<string, any> | null = null;
-  let sectionalSpecInput: Record<string, any> | null = null;
-  let residentialSpecInput: Record<string, any> | null = null;
+  let developmentSpecInput: Record<string, unknown> | null = null;
+  let vacateSpecInput: Record<string, unknown> | null = null;
+  let permitSpecInput: Record<string, unknown> | null = null;
+  let occupancySpecInput: Record<string, unknown> | null = null;
+  let sectionalSpecInput: Record<string, unknown> | null = null;
+  let residentialSpecInput: Record<string, unknown> | null = null;
   let investmentPostureInput: string | null = null;
   let preset: string | undefined = undefined;
   let hasExplicitRentRollMeta = false;
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Pro IM tier gate: D-grade rentroll blocks Pro generation
-  const incomingGrade = (directData?.qualityGrade || (directData as any)?.grade) as string | undefined;
+  const incomingGrade = (directData?.qualityGrade || directData?.grade) as string | undefined;
   if (tier === 'pro' && (incomingGrade === 'D' || incomingGrade === 'C')) {
     return NextResponse.json(
       { error: 'Pro IM은 B등급(완성도 60%) 이상의 데이터가 필요합니다.' },
@@ -97,6 +98,15 @@ export async function POST(req: NextRequest) {
     role: guard.role,
   });
   if (!ownership.ok) return ownership.response;
+
+  // ── 월간 IM 생성 한도 및 일간/분당 AI 쿼터 검증 (sync generate와 동일 기준) ──
+  const featureQuotaErr = await enforceFeatureQuota(user.id, "im_generation");
+  if (featureQuotaErr) return featureQuotaErr;
+
+  const aiQuotaErr = await enforceBrokerAiQuota(req, user.id, "im_lite_generate", {
+    perMinute: 10,
+  });
+  if (aiQuotaErr) return aiQuotaErr;
 
   // ── 작업 ID 생성 + DB 레코드 삽입 ──
   const jobId = `im_${buildingId}_${Date.now()}_${randomUUID().slice(0, 8)}`;
@@ -169,12 +179,16 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (existing) {
-            const existingLayers = (existing.layers ?? {}) as Record<string, any>;
-            const existingLease = (existing.lease_summary ?? {}) as Record<string, any>;
+            const existingLayers = (existing.layers ?? {}) as Record<string, unknown>;
+            const existingLease = (existing.lease_summary ?? {}) as Record<string, unknown>;
 
             // layers 패치: 물류/운영/개발/사옥/주거/구분소유 팩슬롯, 사진, 브로커 하이라이트
-            const layersPatch: Record<string, any> = { ...existingLayers };
-            const packSlotsPatch: Record<string, any> = { ...(existingLayers.pack_slots ?? {}) };
+            const layersPatch: Record<string, unknown> = { ...existingLayers };
+            const existingPackSlots =
+              existingLayers.pack_slots && typeof existingLayers.pack_slots === 'object'
+                ? (existingLayers.pack_slots as Record<string, unknown>)
+                : {};
+            const packSlotsPatch: Record<string, unknown> = { ...existingPackSlots };
 
             if (supplemental.floor_leases) layersPatch.rent_roll = supplemental.floor_leases;
             if (supplemental.logistics) {
@@ -204,31 +218,47 @@ export async function POST(req: NextRequest) {
             layersPatch.pack_slots = packSlotsPatch;
 
             if (supplemental.broker_highlight) layersPatch.broker_highlight = supplemental.broker_highlight;
+            const prevBrokerInputs =
+              existingLayers.broker_inputs && typeof existingLayers.broker_inputs === 'object'
+                ? (existingLayers.broker_inputs as Record<string, unknown>)
+                : {};
             // D4: 중개인 입력 주차/승강기 대수 — layers.physical(대장 유래)과 분리 저장, 해석은 resolvePhysicalSpecs
             if (supplemental.parking_count != null || supplemental.elevator_count != null) {
               layersPatch.broker_inputs = {
-                ...(existingLayers.broker_inputs ?? {}),
+                ...prevBrokerInputs,
                 ...(supplemental.parking_count != null ? { parking_count: supplemental.parking_count } : {}),
                 ...(supplemental.elevator_count != null ? { elevator_count: supplemental.elevator_count } : {}),
               };
             }
             // D4: 중개인 추가 정보(구조화, handler에서 sanitize 완료본) — 비우고 재생성하면 stale 값도 제거
+            const currentBrokerInputs =
+              layersPatch.broker_inputs && typeof layersPatch.broker_inputs === 'object'
+                ? (layersPatch.broker_inputs as Record<string, unknown>)
+                : prevBrokerInputs;
             if (supplemental.broker_extras) {
-              layersPatch.broker_inputs = { ...(layersPatch.broker_inputs ?? existingLayers.broker_inputs ?? {}), extras: supplemental.broker_extras };
-            } else if (existingLayers.broker_inputs?.extras) {
-              const { extras: _staleExtras, ...restInputs } = layersPatch.broker_inputs ?? existingLayers.broker_inputs;
+              layersPatch.broker_inputs = { ...currentBrokerInputs, extras: supplemental.broker_extras };
+            } else if (prevBrokerInputs.extras) {
+              const { extras: _staleExtras, ...restInputs } = currentBrokerInputs;
               layersPatch.broker_inputs = restInputs;
             }
+            const existingLocation =
+              existingLayers.location && typeof existingLayers.location === 'object'
+                ? (existingLayers.location as Record<string, unknown>)
+                : {};
             if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
             if (supplemental.resolved_address) {
-              layersPatch.location = { ...(existingLayers.location ?? {}), address: supplemental.resolved_address };
+              layersPatch.location = { ...existingLocation, address: supplemental.resolved_address };
             }
             if (supplemental.resolved_pnu) {
-              layersPatch.location = { ...(layersPatch.location ?? existingLayers.location ?? {}), pnu: supplemental.resolved_pnu };
+              const currLoc =
+                layersPatch.location && typeof layersPatch.location === 'object'
+                  ? (layersPatch.location as Record<string, unknown>)
+                  : existingLocation;
+              layersPatch.location = { ...currLoc, pnu: supplemental.resolved_pnu };
             }
 
             // lease_summary 패치
-            const leasePatch: Record<string, any> = { ...existingLease };
+            const leasePatch: Record<string, unknown> = { ...existingLease };
             if (supplemental.monthly_rent_total_krw != null) leasePatch.monthly_rent_total_krw = supplemental.monthly_rent_total_krw;
             if (supplemental.total_deposit_manwon != null) leasePatch.total_deposit_manwon = supplemental.total_deposit_manwon;
             if (supplemental.mgmt_fee_total_manwon != null) leasePatch.mgmt_fee_total_manwon = supplemental.mgmt_fee_total_manwon;
@@ -237,7 +267,7 @@ export async function POST(req: NextRequest) {
             if (supplemental.vacancy_pct != null) leasePatch.vacancy_pct = supplemental.vacancy_pct;
             if (loanStatusInput) leasePatch.loan_status = loanStatusInput;
 
-            const updatePayload: Record<string, any> = {
+            const updatePayload: Record<string, unknown> = {
               layers: layersPatch,
               lease_summary: leasePatch,
               updated_at: new Date().toISOString(),
@@ -279,8 +309,9 @@ export async function POST(req: NextRequest) {
 
             await bgSupabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);
           }
-        } catch (writebackErr: any) {
-          log.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);
+        } catch (writebackErr: unknown) {
+          const msg = writebackErr instanceof Error ? writebackErr.message : String(writebackErr);
+          log.warn("[im-generate-async] SSoT writeback failed (non-blocking):", msg);
         }
       } else {
         await bgSupabase.from("im_generation_jobs").update({
@@ -294,12 +325,12 @@ export async function POST(req: NextRequest) {
           completed_at: new Date().toISOString(),
         }).eq("id", jobId);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error("[im-generate-async] Error:", err);
       try {
         await bgSupabase.from("im_generation_jobs").update({
           status: "failed",
-          result: { error: err?.message ?? "Unknown error" },
+          result: { error: err instanceof Error ? err.message : "Unknown error" },
           completed_at: new Date().toISOString(),
         }).eq("id", jobId);
       } catch (updateErr) {

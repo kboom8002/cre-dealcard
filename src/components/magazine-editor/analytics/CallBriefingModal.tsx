@@ -167,21 +167,21 @@ export function CallBriefingModal({ lead, onClose, brokerDisplayName }: Props) {
       description="통화 전 참고용 템플릿입니다 (AI 생성 아님)."
     >
       {lead ? (
-        <div className="space-y-4">
+        <div className="space-y-4 text-slate-900">
           {/* ── 상단: 18px 큰 전화번호 + [📞 바로 전화 걸기] / [📋 전화번호 복사] 나란히 배치 ── */}
-          <div className="rounded-xl border border-emerald-500/30 bg-slate-950/70 p-4 space-y-3">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
-                <span className="block text-sm font-medium text-slate-300">고객 연락처</span>
-                <span className="mt-0.5 block font-mono text-lg font-extrabold tracking-wide text-white">
+                <span className="block text-sm font-medium text-slate-700">고객 연락처</span>
+                <span className="mt-0.5 block font-mono text-lg font-extrabold tracking-wide text-slate-900">
                   {formattedPhone}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="rounded-lg bg-slate-800 px-2.5 py-1 text-sm font-bold text-slate-200">
+                <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-bold text-slate-800">
                   {segmentKo}
                 </span>
-                <span className="rounded-lg bg-rose-500/20 px-2.5 py-1 text-sm font-bold text-rose-200">
+                <span className="rounded-lg border border-rose-200 bg-rose-100 px-2.5 py-1 text-sm font-bold text-rose-900">
                   {lead.buyerTemperature}
                 </span>
               </div>
@@ -190,7 +190,7 @@ export function CallBriefingModal({ lead, onClose, brokerDisplayName }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <a
                 href={`tel:${lead.subscriber_phone}`}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-base font-bold text-white hover:bg-emerald-500 transition-colors"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-base font-bold text-white hover:bg-emerald-800 transition-colors"
               >
                 <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>📞 바로 전화 걸기</span>
@@ -199,10 +199,10 @@ export function CallBriefingModal({ lead, onClose, brokerDisplayName }: Props) {
                 type="button"
                 aria-label="전화번호 복사"
                 onClick={() => copy('phone', lead.subscriber_phone)}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-base font-bold text-slate-100 hover:bg-slate-700 transition-colors"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 {copied === 'phone' ? (
-                  <Check className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                  <Check className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
                 ) : (
                   <Copy className="h-4 w-4 shrink-0" aria-hidden="true" />
                 )}
@@ -210,14 +210,14 @@ export function CallBriefingModal({ lead, onClose, brokerDisplayName }: Props) {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 border-t border-white/10 pt-2.5 text-sm">
+            <div className="grid grid-cols-2 gap-2 border-t border-emerald-200 pt-2.5 text-sm">
               <div>
-                <span className="block text-sm text-slate-300">최근 30일 열람</span>
-                <span className="mt-0.5 block text-base font-bold text-indigo-300">{lead.totalViews}회</span>
+                <span className="block text-sm text-slate-700">최근 30일 열람</span>
+                <span className="mt-0.5 block text-base font-bold text-indigo-800">{lead.totalViews}회</span>
               </div>
               <div>
-                <span className="block text-sm text-slate-300">마지막 반응</span>
-                <span className="mt-0.5 block font-mono text-sm font-semibold text-slate-200">
+                <span className="block text-sm text-slate-700">마지막 반응</span>
+                <span className="mt-0.5 block font-mono text-sm font-semibold text-slate-900">
                   {formatKstDateTime(lead.lastActiveAt)}
                 </span>
               </div>
@@ -226,43 +226,43 @@ export function CallBriefingModal({ lead, onClose, brokerDisplayName }: Props) {
 
           {/* ── 최근 집중해서 본 내용 ── */}
           <div>
-            <h3 className="mb-2 text-base font-bold text-slate-100">최근 집중해서 본 내용</h3>
+            <h3 className="mb-2 text-base font-bold text-slate-900">최근 집중해서 본 내용</h3>
             {recentSectionsKo.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {recentSectionsKo.map((s) => (
                   <span
                     key={s}
-                    className="rounded-lg bg-rose-500/20 px-3 py-1 text-sm font-semibold text-rose-200"
+                    className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-900"
                   >
                     ✓ {s}
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-300">연결된 섹션 열람 기록이 없습니다.</p>
+              <p className="text-sm text-slate-700">연결된 섹션 열람 기록이 없습니다.</p>
             )}
           </div>
 
           {/* ── 통화 스크립트 본문 (16px 이상, AI 생성 아님 유지) ── */}
           <div>
             <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
-              <h3 className="text-base font-bold text-slate-100">통화 오프닝 (템플릿)</h3>
-              <span className="text-sm text-slate-300">실제 열람 기록 기반 · AI 생성 아님</span>
+              <h3 className="text-base font-bold text-slate-900">통화 오프닝 (템플릿)</h3>
+              <span className="text-sm text-slate-600">실제 열람 기록 기반 · AI 생성 아님</span>
             </div>
-            <pre className="whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-4 font-sans text-base leading-relaxed text-slate-100">
+            <pre className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 font-sans text-base leading-relaxed text-slate-900">
               {script}
             </pre>
           </div>
 
           {/* ── 하단 액션 ── */}
-          <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-slate-800 pt-3">
+          <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-slate-200 pt-3">
             <button
               type="button"
               onClick={() => copy('script', script)}
-              className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/80 px-4 py-2.5 text-base font-bold text-slate-100 hover:bg-slate-700 transition-colors"
+              className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-900 hover:bg-slate-100 transition-colors"
             >
               {copied === 'script' ? (
-                <Check className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                <Check className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
               ) : (
                 <Copy className="h-4 w-4 shrink-0" aria-hidden="true" />
               )}

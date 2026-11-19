@@ -18,7 +18,7 @@ export function VacancySection({
 }: VacancySectionProps) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+      <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
         📊 현재 공실률
       </label>
       <div className="grid grid-cols-4 gap-2">
@@ -60,13 +60,13 @@ export function VacancySection({
                 : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
             }`}
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
             %
           </span>
         </div>
       </div>
       {typeof vacancyPct === "number" && vacancyPct > 0 && (
-        <p className="text-xs text-amber-500 mt-1.5">
+        <p className="text-sm text-amber-500 mt-1.5">
           ⚠️ 공실률 {vacancyPct}% 반영
         </p>
       )}
@@ -77,14 +77,14 @@ export function VacancySection({
         const memoIsFull = sig.includes("만실");
         if (vacancyPct === 0 && memoHasVacancy) {
           return (
-            <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-2 rounded-lg">
+            <p className="text-sm text-yellow-400 mt-1.5 bg-yellow-500/10 p-2 rounded-lg">
               💡 메모에 &quot;{vacancySignal}&quot;로 기재되어 있습니다. 만실이 맞으시면 그대로 진행하세요.
             </p>
           );
         }
         if (vacancyPct > 0 && memoIsFull) {
           return (
-            <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-2 rounded-lg">
+            <p className="text-sm text-yellow-400 mt-1.5 bg-yellow-500/10 p-2 rounded-lg">
               💡 메모에 &quot;만실&quot;로 기재되어 있지만 공실률 {vacancyPct}%를 선택하셨습니다. 맞으시면 그대로 진행하세요.
             </p>
           );

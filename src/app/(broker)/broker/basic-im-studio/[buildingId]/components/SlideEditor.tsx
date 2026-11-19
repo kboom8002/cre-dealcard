@@ -1,12 +1,28 @@
 'use client';
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import type { PptxSlide } from '@/domain/building/pptx-studio/studio-service';
+import { m2ToPyeong as sqmToPyeong, pyeongToM2 } from '@/domain/building/im-core/facts/area';
+import {
+  resolveLeaseOccupancy,
+  summarizeLeaseOccupancy,
+  sumLeasedRentRoll,
+} from '@/domain/building/mobile-im/lease-vacancy';
 import { PresetGallery } from '@/components/broker/im-studio/PresetGallery';
 import { HeaderFooterEditor } from '@/components/broker/im-studio/HeaderFooterEditor';
 import { ArchetypeSelector } from '@/components/broker/im-studio/ArchetypeSelector';
 import { AiTextGenerator } from '@/components/broker/im-studio/AiTextGenerator';
 import { GalleryCurator, type StudioPhotoItem } from '@/components/broker/im-studio/GalleryCurator';
+
+const MAX_STUDIO_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_STUDIO_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
+const DISALLOWED_STUDIO_FILE_EXT_RE = /\.(?:svg|svgz|html?|xml|js|mjs)$/i;
 
 export type RightPanelTab = 'content' | 'theme' | 'branding';
 
@@ -125,6 +141,22 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
   ],
 };
 
+function normalizeRowForLeaseSsot(row: Record<string, any>): Record<string, any> {
+  const rawStatus = String(row?.status || '').trim().toLowerCase();
+  const explicitState =
+    row?.lease_state ??
+    row?.leaseState ??
+    (rawStatus === '공실' || rawStatus === 'vacant'
+      ? '공실'
+      : rawStatus === '자가사용' ||
+        rawStatus === '자가' ||
+        rawStatus === 'owner' ||
+        rawStatus === 'owner_use'
+      ? '자가사용'
+      : undefined);
+  return explicitState ? { ...row, lease_state: explicitState } : row;
+}
+
 export function SlideEditor({
   projectId,
   slide,
@@ -147,6 +179,7 @@ export function SlideEditor({
   const [compLandPy, setCompLandPy] = useState('');
   const [compUnitManwon, setCompUnitManwon] = useState('');
   const [uploadingImageKey, setUploadingImageKey] = useState<string | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   // Quick-add tenant row state for 'rentroll' slide
   const [rrFloor, setRrFloor] = useState('');
@@ -161,43 +194,37 @@ export function SlideEditor({
 
   const handleRecalculateRentRollTotals = () => {
     if (rawTenantList.length === 0) return;
-    let totalDeposit = 0;
-    let totalRent = 0;
-    let occupiedCount = 0;
-    let vacantCount = 0;
-    for (const r of rawTenantList) {
-      const isVacant = Boolean(
-        r.is_vacant ||
-          r.status === '공실' ||
-          String(r.tenant_name || r.tenant || '').includes('공실')
-      );
-      if (isVacant) {
-        vacantCount += 1;
-      } else {
-        occupiedCount += 1;
-        totalDeposit += Number(r.deposit_manwon ?? r.depositManwon ?? r.deposit ?? 0) || 0;
-        totalRent += Number(r.rent_manwon ?? r.monthlyRentManwon ?? r.monthly_rent_manwon ?? r.monthlyRent ?? r.rent ?? 0) || 0;
-      }
-    }
-    const totalCount = rawTenantList.length;
-    const occPct = Math.round((occupiedCount / totalCount) * 100);
-    onChange('depositTotal', `${totalDeposit.toLocaleString()}만 원`);
-    onChange('monthlyRentTotal', `${totalRent.toLocaleString()}만 원/월`);
+    const normalizedRows = rawTenantList.map(r => normalizeRowForLeaseSsot(r || {}));
+    const occSummary = summarizeLeaseOccupancy(normalizedRows);
+    const leasedTotals = sumLeasedRentRoll(normalizedRows);
+    const vacPct = occSummary.vacancyPct ?? 0;
+    const occPct =
+      occSummary.vacancyPct !== null
+        ? Math.round((100 - occSummary.vacancyPct) * 10) / 10
+        : 100;
+
+    onChange('depositTotal', `${leasedTotals.depositManwon.toLocaleString()}만 원`);
+    onChange('monthlyRentTotal', `${leasedTotals.monthlyRentManwon.toLocaleString()}만 원/월`);
     onChange('occupancyRate', `${occPct}%`);
     onChange(
       'vacancySignal',
-      vacantCount === 0 ? '전실 임대 가동' : `공실 ${vacantCount}실 (공실률 ${100 - occPct}%)`
+      occSummary.vacant === 0
+        ? occSummary.ownerUse > 0
+          ? `임대 만실 (자가사용 ${occSummary.ownerUse}실 별도)`
+          : '전실 임대 가동'
+        : `공실 ${occSummary.vacant}실 (공실률 ${vacPct}%)`
     );
   };
 
   const handleToggleTenantVacant = (idx: number) => {
     const next = rawTenantList.map((r: any, i: number) => {
       if (i !== idx) return r;
-      const curVac = Boolean(r.is_vacant || r.status === '공실');
-      const nextVac = !curVac;
+      const curOcc = resolveLeaseOccupancy(normalizeRowForLeaseSsot(r || {}));
+      const nextVac = curOcc !== '공실';
       return {
         ...r,
         is_vacant: nextVac,
+        lease_state: nextVac ? '공실' : '임대중',
         status: nextVac ? '공실' : '임대중',
         tenant_name: nextVac ? '공실' : r.tenant_name === '공실' ? '임차중' : r.tenant_name,
         tenant: nextVac ? '공실' : r.tenant === '공실' ? '임차중' : r.tenant,
@@ -231,10 +258,11 @@ export function SlideEditor({
       tenant_name: tenantLabel,
       tenant: tenantLabel,
       area_pyeong: areaPy,
-      area_sqm: areaPy ? Number((areaPy * 3.305785).toFixed(2)) : undefined,
+      area_sqm: areaPy ? Number(pyeongToM2(areaPy).toFixed(2)) : undefined,
       deposit_manwon: depositVal,
       rent_manwon: rentVal,
       is_vacant: rrIsVacant,
+      lease_state: rrIsVacant ? '공실' : '임대중',
       status: rrIsVacant ? '공실' : '임대중',
     };
     const next = [...rawTenantList, newRow];
@@ -295,6 +323,26 @@ export function SlideEditor({
 
   const handleMapFileUpload = async (fieldName: string, file?: File | null) => {
     if (!file) return;
+    setImageUploadError(null);
+
+    if (file.size <= 0 || file.size > MAX_STUDIO_IMAGE_BYTES) {
+      const msg = '이미지 파일 크기는 5MB 이하여야 합니다.';
+      setImageUploadError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    const declaredMime = String(file.type || '').trim().toLowerCase();
+    if (
+      !ALLOWED_STUDIO_IMAGE_MIMES.has(declaredMime) ||
+      DISALLOWED_STUDIO_FILE_EXT_RE.test(file.name || '')
+    ) {
+      const msg = 'JPG, PNG, WEBP, GIF 이미지 형식만 업로드할 수 있습니다.';
+      setImageUploadError(msg);
+      toast.error(msg);
+      return;
+    }
+
     setUploadingImageKey(fieldName);
     try {
       const formData = new FormData();
@@ -306,40 +354,38 @@ export function SlideEditor({
         method: 'POST',
         body: formData,
       });
-      const json = await res.json();
-      if (json?.ok) {
-        const updatedSlide = json.project?.slides?.find((s: any) => s.id === slide.id);
-        const savedDataUrl = updatedSlide?.slideOverrides?.[fieldName];
-        if (savedDataUrl) {
-          onChange(fieldName, savedDataUrl);
-          return;
-        }
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        const msg =
+          (typeof json?.error === 'string' && json.error.trim()) ||
+          (typeof json?.message === 'string' && json.message.trim()) ||
+          '지도 이미지 검증 및 업로드에 실패했습니다. 유효한 이미지 파일인지 확인해 주세요.';
+        setImageUploadError(msg);
+        toast.error(msg);
+        return;
       }
-      // Fallback: read client-side Data URL directly so preview updates immediately
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(fieldName, reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+
+      const updatedSlide = json.project?.slides?.find((s: any) => s.id === slide.id);
+      const savedDataUrl = updatedSlide?.slideOverrides?.[fieldName];
+      if (savedDataUrl) {
+        onChange(fieldName, savedDataUrl);
+      }
     } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(fieldName, reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      const msg = '네트워크 오류로 지도 이미지를 업로드하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      setImageUploadError(msg);
+      toast.error(msg);
     } finally {
       setUploadingImageKey(null);
     }
   };
 
+  const kickerInputId = `studio-slide-kicker-${slide.id}`;
+  const titleInputId = `studio-slide-title-${slide.id}`;
+
   return (
     <aside
       data-testid="studio-slide-editor"
-      className="w-96 border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden"
+      className="w-full sm:w-96 max-w-full border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden"
     >
       {/* Top 3-Tab Switcher */}
       <div
@@ -359,7 +405,7 @@ export function SlideEditor({
               data-testid={`studio-tab-${tab.id}`}
               data-active-pill={active ? 'true' : undefined}
               onClick={() => onTabChange(tab.id)}
-              className={`py-2 px-2 rounded-lg text-xs font-extrabold transition-all ${
+              className={`min-h-[44px] py-2 px-2 rounded-lg text-sm font-extrabold transition-all cursor-pointer ${
                 active
                   ? 'bg-[#1D4ED8] text-white shadow-xs'
                   : 'text-[#334155] hover:text-[#0F172A] hover:bg-[#E2E8F0]/60'
@@ -383,31 +429,33 @@ export function SlideEditor({
             {/* Slide Common Title & Kicker */}
             <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#1E3A8A]">
+                <span className="text-sm font-extrabold uppercase tracking-wider text-[#1E3A8A]">
                   슬라이드 {String(slide.slideIndex).padStart(2, '0')} 헤더 설정
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-[#334155] mb-0.5">
+                  <label htmlFor={kickerInputId} className="block text-sm font-bold text-[#334155] mb-1">
                     머리말 작은 제목
                   </label>
                   <input
+                    id={kickerInputId}
                     type="text"
                     value={String(overrides.kicker ?? slide.kicker ?? '')}
                     onChange={e => onChange('kicker', e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    className="w-full min-h-[44px] px-3 py-2 text-base font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-[#334155] mb-0.5">
+                  <label htmlFor={titleInputId} className="block text-sm font-bold text-[#334155] mb-1">
                     슬라이드 큰 제목
                   </label>
                   <input
+                    id={titleInputId}
                     type="text"
                     value={String(overrides.title ?? slide.title ?? '')}
                     onChange={e => onChange('title', e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    className="w-full min-h-[44px] px-3 py-2 text-base font-bold bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                   />
                 </div>
               </div>
@@ -423,6 +471,7 @@ export function SlideEditor({
             {/* Gallery Curator if Gallery Slide */}
             {dataKey === 'gallery' && (
               <GalleryCurator
+                buildingId={projectId}
                 photos={(overrides.photos as StudioPhotoItem[]) || []}
                 galleryLayout={String(overrides.galleryLayout || 'grid_4')}
                 onChangePhotos={nextPhotos => onChange('photos', nextPhotos)}
@@ -430,15 +479,26 @@ export function SlideEditor({
               />
             )}
 
+            {imageUploadError && (
+              <div
+                role="alert"
+                className="px-3 py-2 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-sm font-bold text-[#B91C1C]"
+              >
+                {imageUploadError}
+              </div>
+            )}
+
             {/* Structured Field Inputs */}
             <div className="space-y-3">
               {fields.map(f => {
                 const currentVal = String(overrides[f.key] ?? '');
                 const isImageUploadField = f.key === 'mapImageUrl' || f.key === 'cadastralMapImage';
+                const fieldInputId = `studio-field-${slide.id}-${f.key}`;
+                const fileUploadId = `studio-upload-${slide.id}-${f.key}`;
                 return (
                   <div key={f.key} className="space-y-1">
                     <div className="flex items-center justify-between gap-1">
-                      <label className="block text-xs font-bold text-[#0F172A]">
+                      <label htmlFor={fieldInputId} className="block text-sm font-bold text-[#0F172A]">
                         {f.label}
                       </label>
                       {f.aiEnabled && (
@@ -452,33 +512,42 @@ export function SlideEditor({
                         />
                       )}
                       {isImageUploadField && (
-                        <label className="cursor-pointer px-2 py-0.5 rounded bg-[#EFF6FF] border border-[#BFDBFE] text-[10px] font-extrabold text-[#1E3A8A] hover:bg-[#DBEAFE]">
+                        <label
+                          htmlFor={fileUploadId}
+                          className="cursor-pointer min-h-[44px] inline-flex items-center px-3 py-1.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-sm font-extrabold text-[#1E3A8A] hover:bg-[#DBEAFE]"
+                        >
                           {uploadingImageKey === f.key ? '업로드 중…' : '📁 이미지 파일 업로드'}
                           <input
+                            id={fileUploadId}
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
                             className="hidden"
                             disabled={uploadingImageKey === f.key}
-                            onChange={e => handleMapFileUpload(f.key, e.target.files?.[0])}
+                            onChange={e => {
+                              void handleMapFileUpload(f.key, e.target.files?.[0]);
+                              e.target.value = '';
+                            }}
                           />
                         </label>
                       )}
                     </div>
                     {f.multiline ? (
                       <textarea
+                        id={fieldInputId}
                         rows={3}
                         value={currentVal}
                         onChange={e => onChange(f.key, e.target.value)}
                         placeholder={f.placeholder || `${f.label} 입력`}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] resize-y"
+                        className="w-full min-h-[44px] px-3 py-2 text-base font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] resize-y"
                       />
                     ) : (
                       <input
+                        id={fieldInputId}
                         type="text"
                         value={currentVal}
                         onChange={e => onChange(f.key, e.target.value)}
                         placeholder={f.placeholder || `${f.label} 입력`}
-                        className="w-full px-3 py-2 text-xs font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                        className="w-full min-h-[44px] px-3 py-2 text-base font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
                       />
                     )}
                   </div>
@@ -490,7 +559,7 @@ export function SlideEditor({
             {(dataKey === 'rentroll' || dataKey === 'rentRoll') && (
               <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-extrabold text-[#0F172A]">
+                  <div className="text-sm font-extrabold text-[#0F172A]">
                     🏢 층·호수별 임대차 행 관리 ({rawTenantList.length}건)
                   </div>
                 </div>
@@ -499,7 +568,7 @@ export function SlideEditor({
                   <button
                     type="button"
                     onClick={handleRecalculateRentRollTotals}
-                    className="w-full py-1.5 px-2.5 text-[11px] font-extrabold rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E3A8A] hover:bg-[#DBEAFE] transition-colors"
+                    className="w-full min-h-[44px] py-2 px-3 text-sm font-extrabold rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E3A8A] hover:bg-[#DBEAFE] transition-colors cursor-pointer"
                   >
                     🔄 행 기준 보증금·월세·가동률 합계 자동 계산
                   </button>
@@ -509,19 +578,23 @@ export function SlideEditor({
                   <div className="space-y-1.5">
                     {rawTenantList.map((r: any, idx: number) => {
                       const unitStr = r.unit_label || r.unit_number || r.unit || '';
-                      const isVac = Boolean(r.is_vacant || r.status === '공실');
+                      const occState = resolveLeaseOccupancy(normalizeRowForLeaseSsot(r || {}));
+                      const isVac = occState === '공실';
+                      const isOwnerUse = occState === '자가사용';
                       const tenantStr = isVac
                         ? '공실'
+                        : isOwnerUse
+                        ? r.tenant_name || r.tenant || '자가사용'
                         : r.tenant_name || r.tenant || r.use || '임차중';
                       const areaStr = r.area_pyeong
                         ? `${r.area_pyeong}평`
                         : r.area_sqm
-                        ? `${(Number(r.area_sqm) * 0.3025).toFixed(1)}평`
+                        ? `${sqmToPyeong(Number(r.area_sqm)).toFixed(1)}평`
                         : '-';
                       return (
                         <div
                           key={idx}
-                          className="p-2 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between gap-2 text-xs"
+                          className="p-2.5 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between gap-2 text-sm"
                         >
                           <div className="min-w-0 flex-1 space-y-0.5">
                             <div className="flex items-center gap-1.5 truncate">
@@ -532,30 +605,32 @@ export function SlideEditor({
                               <span className="font-bold text-[#0F172A] truncate">
                                 {tenantStr}
                               </span>
-                              <span className="text-[11px] text-[#475569] shrink-0">
+                              <span className="text-sm text-[#475569] shrink-0">
                                 ({areaStr})
                               </span>
                             </div>
-                            <div className="text-[11px] font-medium text-[#334155]">
+                            <div className="text-sm font-medium text-[#334155]">
                               보증금 {(r.deposit_manwon ?? r.depositManwon ?? r.deposit ?? 0).toLocaleString()}만 / 월세 {(r.rent_manwon ?? r.monthlyRentManwon ?? r.monthly_rent_manwon ?? r.monthlyRent ?? r.rent ?? 0).toLocaleString()}만
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
                               onClick={() => handleToggleTenantVacant(idx)}
-                              className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${
+                              className={`min-h-[44px] px-2.5 py-1 rounded-lg text-sm font-extrabold border cursor-pointer ${
                                 isVac
                                   ? 'bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]'
+                                  : isOwnerUse
+                                  ? 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]'
                                   : 'bg-[#D1FAE5] border-[#A7F3D0] text-[#065F46]'
                               }`}
                             >
-                              {isVac ? '공실' : '임차중'}
+                              {isVac ? '공실' : isOwnerUse ? '자가사용' : '임차중'}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleRemoveTenantRow(idx)}
-                              className="px-1.5 py-0.5 text-[11px] font-bold text-[#B91C1C] hover:underline"
+                              className="min-h-[44px] px-2.5 py-1 text-sm font-bold text-[#B91C1C] hover:underline cursor-pointer"
                             >
                               삭제
                             </button>
@@ -567,68 +642,78 @@ export function SlideEditor({
                 )}
 
                 <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-                  <div className="text-xs font-bold text-[#0F172A]">➕ 임대차 호실 직접 추가</div>
+                  <div className="text-sm font-bold text-[#0F172A]">➕ 임대차 호실 직접 추가</div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <input
                       type="text"
+                      aria-label="임대차 층 입력"
                       value={rrFloor}
                       onChange={e => setRrFloor(e.target.value)}
                       placeholder="층, 예: 1F, 2F, B1"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                     <input
                       type="text"
+                      aria-label="임대차 호수 입력"
                       value={rrUnit}
                       onChange={e => setRrUnit(e.target.value)}
                       placeholder="호수, 예: 101호 (선택)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <input
                       type="text"
+                      aria-label="임차인 또는 업종 입력"
                       value={rrTenant}
                       onChange={e => setRrTenant(e.target.value)}
                       placeholder="임차인·업종, 예: 메디컬의원"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                     <input
                       type="text"
+                      aria-label="전용면적 평수 입력"
                       value={rrAreaPy}
                       onChange={e => setRrAreaPy(e.target.value)}
                       placeholder="전용면적(평)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <input
                       type="text"
+                      aria-label="보증금 만원 입력"
                       value={rrDeposit}
                       onChange={e => setRrDeposit(e.target.value)}
                       placeholder="보증금(만원)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                     <input
                       type="text"
+                      aria-label="월임대료 만원 입력"
                       value={rrRent}
                       onChange={e => setRrRent(e.target.value)}
                       placeholder="월임대료(만원)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                   </div>
-                  <label className="flex items-center gap-2 text-xs font-bold text-[#334155] cursor-pointer">
+                  <label
+                    htmlFor={`studio-rr-vacant-${slide.id}`}
+                    className="flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#334155] cursor-pointer"
+                  >
                     <input
+                      id={`studio-rr-vacant-${slide.id}`}
                       type="checkbox"
                       checked={rrIsVacant}
                       onChange={e => setRrIsVacant(e.target.checked)}
-                      className="rounded border-[#CBD5E1]"
+                      className="w-5 h-5 rounded border-[#CBD5E1]"
                     />
                     공실 여부 체크박스
                   </label>
                   <button
                     type="button"
                     onClick={handleAddTenantRow}
-                    className="w-full py-1.5 text-xs font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                    className="w-full min-h-[44px] py-2 text-sm font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B] cursor-pointer"
                   >
                     임대차 호실 추가
                   </button>
@@ -639,7 +724,7 @@ export function SlideEditor({
             {/* Market Comparables List Editor for 'comps' slide */}
             {dataKey === 'comps' && (
               <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
-                <div className="text-xs font-extrabold text-[#0F172A]">
+                <div className="text-sm font-extrabold text-[#0F172A]">
                   📊 비교 사례 행 관리 ({rawCompsList.length}건)
                 </div>
                 {rawCompsList.length > 0 && (
@@ -647,7 +732,7 @@ export function SlideEditor({
                     {rawCompsList.map((c: any, i: number) => (
                       <div
                         key={i}
-                        className="px-2.5 py-1.5 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between text-xs"
+                        className="px-3 py-2 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between text-sm"
                       >
                         <div className="truncate pr-2">
                           <span className="font-bold text-[#0F172A]">{c.location || c.name || c.address}</span>
@@ -658,7 +743,7 @@ export function SlideEditor({
                         <button
                           type="button"
                           onClick={() => handleRemoveComp(i)}
-                          className="text-[11px] font-bold text-[#B91C1C] hover:underline shrink-0"
+                          className="min-h-[44px] px-2 text-sm font-bold text-[#B91C1C] hover:underline shrink-0 cursor-pointer"
                         >
                           삭제
                         </button>
@@ -668,48 +753,53 @@ export function SlideEditor({
                 )}
 
                 <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-                  <div className="text-xs font-bold text-[#0F172A]">➕ 인근 비교사례 직접 추가</div>
+                  <div className="text-sm font-bold text-[#0F172A]">➕ 인근 비교사례 직접 추가</div>
                   <input
                     type="text"
+                    aria-label="비교사례 소재지 또는 건물명 입력"
                     value={compName}
                     onChange={e => setCompName(e.target.value)}
                     placeholder="소재지 또는 건물명 (예: 당산동4가 근생빌딩)"
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                    className="w-full min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                   />
                   <div className="grid grid-cols-2 gap-1.5">
                     <input
                       type="text"
+                      aria-label="비교사례 거래시점 입력"
                       value={compDate}
                       onChange={e => setCompDate(e.target.value)}
                       placeholder="거래시점 (예: 25.11)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                     <input
                       type="text"
+                      aria-label="비교사례 거래가 입력"
                       value={compPrice}
                       onChange={e => setCompPrice(e.target.value)}
                       placeholder="거래가 (예: 88억)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                     <input
                       type="text"
+                      aria-label="비교사례 대지면적 평수 입력"
                       value={compLandPy}
                       onChange={e => setCompLandPy(e.target.value)}
                       placeholder="대지면적(평) (예: 112)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                     <input
                       type="text"
+                      aria-label="비교사례 토지평당가 만원 입력"
                       value={compUnitManwon}
                       onChange={e => setCompUnitManwon(e.target.value)}
                       placeholder="토지평당가(만) (예: 7,850)"
-                      className="px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+                      className="min-h-[44px] px-2.5 py-2 text-base bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleAddComp}
-                    className="w-full py-1.5 text-xs font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                    className="w-full min-h-[44px] py-2 text-sm font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B] cursor-pointer"
                   >
                     비교사례 행 추가
                   </button>
@@ -726,7 +816,7 @@ export function SlideEditor({
           type="button"
           onClick={onResetSlide}
           disabled={saving}
-          className="px-3 py-2.5 text-xs font-bold text-[#334155] hover:text-[#0F172A] bg-white hover:bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl transition-colors"
+          className="min-h-[44px] px-3 py-2 text-sm font-bold text-[#334155] hover:text-[#0F172A] bg-white hover:bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl transition-colors cursor-pointer"
           title="이 슬라이드의 텍스트·수치를 공부/초기 추출값으로 되돌립니다"
         >
           ↺ 초기값 복원
@@ -735,7 +825,7 @@ export function SlideEditor({
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="flex-1 py-2.5 px-4 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-extrabold rounded-xl text-xs transition-colors disabled:opacity-50 shadow-xs"
+          className="flex-1 min-h-[44px] py-2 px-4 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-extrabold rounded-xl text-sm transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
         >
           {saving ? '⏳ 저장 중...' : '💾 현재 슬라이드 저장'}
         </button>

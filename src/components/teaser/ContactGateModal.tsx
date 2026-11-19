@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { formatKrPhoneInput } from "@/lib/magazine/phone-input";
 
 interface Props {
@@ -29,17 +29,58 @@ export function ContactGateModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const cleanBrokerPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, "") : "";
   const hasValidBrokerPhone = cleanBrokerPhone.length >= 8;
 
   useEffect(() => {
     if (!isOpen) return;
+    previousFocusRef.current =
+      typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const raf = window.requestAnimationFrame(() => {
+      if (!dialogRef.current) return;
+      const firstInput = dialogRef.current.querySelector<HTMLElement>(
+        'input:not([disabled]), button:not([disabled]), [href], textarea:not([disabled])'
+      );
+      (firstInput || closeBtnRef.current)?.focus?.();
+    });
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusables = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -79,49 +120,56 @@ export function ContactGateModal({
         message: message.trim() || defaultMsg,
       });
 
-      const [gateRes, eventRes] = await Promise.allSettled([
-        fetch("/api/gate-requests", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            buildingId,
-            requestedLevel: "G1",
-            requestedFields: ["im_lite_request"],
-            email: trimmedEmail || undefined,
-            reason: payloadReason,
-          }),
+      const gateResponse = await fetch("/api/gate-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buildingId,
+          requestedLevel: "G1",
+          requestedFields: ["im_lite_request"],
+          email: trimmedEmail || undefined,
+          privacyConsent: true,
+          reason: payloadReason,
         }),
-        fetch("/api/public/teaser/event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            buildingId,
-            eventType: "intent.pro_im_request",
-            eventData: {
-              name: name.trim(),
-              phone: formattedPhone,
-              email: trimmedEmail || undefined,
-              company: company.trim() || undefined,
-              message: message.trim() || undefined,
-            },
-            metadata: {
-              name: name.trim(),
-              phone: formattedPhone,
-              email: trimmedEmail || undefined,
-              company: company.trim() || undefined,
-              message: message.trim() || undefined,
-            },
-          }),
-        }),
-      ]);
+      });
 
-      const gateOk = gateRes.status === "fulfilled" && gateRes.value.ok;
-      const eventOk = eventRes.status === "fulfilled" && eventRes.value.ok;
-
-      if (!gateOk && !eventOk) {
-        setErrorMessage("요청 전송에 실패했어요. 잠시 후 다시 눌러 주세요.");
+      if (!gateResponse.ok) {
+        const errJson = await gateResponse.json().catch(() => null);
+        const fallbackMsg =
+          gateResponse.status === 400
+            ? "개인정보 수집·이용에 동의해 주셔야 요청을 보낼 수 있습니다."
+            : "요청 전송에 실패했어요. 잠시 후 다시 눌러 주세요.";
+        const apiMsg =
+          errJson?.error?.message ||
+          (typeof errJson?.error === "string" ? errJson.error : null);
+        setErrorMessage(apiMsg || fallbackMsg);
         return;
       }
+
+      // Best-effort telemetry only after /api/gate-requests succeeds
+      await fetch("/api/public/teaser/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buildingId,
+          eventType: "intent.pro_im_request",
+          privacyConsent: true,
+          eventData: {
+            name: name.trim(),
+            phone: formattedPhone,
+            email: trimmedEmail || undefined,
+            company: company.trim() || undefined,
+            message: message.trim() || undefined,
+          },
+          metadata: {
+            name: name.trim(),
+            phone: formattedPhone,
+            email: trimmedEmail || undefined,
+            company: company.trim() || undefined,
+            message: message.trim() || undefined,
+          },
+        }),
+      }).catch(() => null);
 
       try {
         localStorage.setItem(`contact_verified_${buildingId}`, "true");
@@ -138,18 +186,22 @@ export function ContactGateModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="contact-gate-modal-title"
       data-testid="contact-gate-modal"
     >
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 text-slate-100 shadow-2xl space-y-4 relative">
+      <div
+        ref={dialogRef}
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white border border-slate-300 rounded-2xl p-6 text-slate-900 shadow-2xl space-y-4 relative"
+      >
         <button
+          ref={closeBtnRef}
           type="button"
           onClick={onClose}
           aria-label="닫기"
-          className="absolute top-3 right-3 min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 text-base"
+          className="absolute top-3 right-3 min-h-[48px] min-w-[48px] flex items-center justify-center text-slate-600 hover:text-slate-950 rounded-xl hover:bg-slate-100 text-base"
         >
           ✕
         </button>
@@ -157,15 +209,15 @@ export function ContactGateModal({
         {isSubmitted ? (
           <div className="space-y-4 py-2" data-testid="contact-gate-submitted">
             <div className="space-y-2 pr-8">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                 ✓ 신청 접수 완료
               </span>
-              <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-white break-keep">
+              <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-slate-950 break-keep">
                 {hasImDoc
                   ? "상세 IM 열람 신청이 접수되었습니다"
                   : "담당 공인중개사에게 상세 자료 요청이 접수되었습니다"}
               </h3>
-              <p className="text-sm text-slate-300 leading-relaxed break-keep">
+              <p className="text-sm text-slate-700 leading-relaxed break-keep">
                 {hasImDoc
                   ? `담당 중개사가 신청 내용을 확인한 뒤 입력하신 연락처(${formatKrPhoneInput(phone.trim()) || phone}${email.trim() ? ` · ${email.trim()}` : ""})로 전용 열람 링크를 보내드립니다.`
                   : `담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처(${formatKrPhoneInput(phone.trim()) || phone}${email.trim() ? ` · ${email.trim()}` : ""})로 전용 링크를 안내해 드립니다.`}
@@ -194,7 +246,7 @@ export function ContactGateModal({
                   type="button"
                   onClick={onSuccess}
                   data-testid="contact-gate-preview-btn"
-                  className="flex-1 min-h-[48px] py-3 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold rounded-xl text-sm border border-slate-600 transition-all cursor-pointer"
+                  className="flex-1 min-h-[48px] py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl text-sm border border-slate-300 transition-all cursor-pointer"
                 >
                   기본 요약본 먼저 보기
                 </button>
@@ -204,10 +256,10 @@ export function ContactGateModal({
         ) : (
           <>
             <div className="space-y-1.5 pr-10">
-              <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-white">
+              <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-slate-950">
                 {hasImDoc ? "상세 투자설명서(IM) 요청하기" : "상세 자료 요청하기"}
               </h3>
-              <p className="text-sm text-slate-300 leading-relaxed break-keep">
+              <p className="text-sm text-slate-700 leading-relaxed break-keep">
                 성함과 연락처를 남겨 주시면 담당 중개사가 확인 후 상세 자료를 보내드립니다.
               </p>
             </div>
@@ -217,7 +269,7 @@ export function ContactGateModal({
                 <div>
                   <label
                     htmlFor="contact-gate-name"
-                    className="block text-sm font-bold text-slate-200 mb-1.5"
+                    className="block text-sm font-bold text-slate-800 mb-1.5"
                   >
                     이름 (필수)
                   </label>
@@ -229,14 +281,14 @@ export function ContactGateModal({
                     placeholder="예: 박매수 상무"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
+                    className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-950 focus:outline-none focus:border-amber-600"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="contact-gate-phone"
-                    className="block text-sm font-bold text-slate-200 mb-1.5"
+                    className="block text-sm font-bold text-slate-800 mb-1.5"
                   >
                     연락처 (필수)
                   </label>
@@ -249,7 +301,7 @@ export function ContactGateModal({
                     placeholder="010-8888-7777"
                     value={phone}
                     onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
-                    className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
+                    className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-950 focus:outline-none focus:border-amber-600"
                   />
                 </div>
               </div>
@@ -257,7 +309,7 @@ export function ContactGateModal({
               <div>
                 <label
                   htmlFor="contact-gate-email"
-                  className="block text-sm font-bold text-slate-200 mb-1.5"
+                  className="block text-sm font-bold text-slate-800 mb-1.5"
                 >
                   이메일 (선택 · PDF/링크 수신용)
                 </label>
@@ -270,14 +322,14 @@ export function ContactGateModal({
                   placeholder="예: buyer@company.com (입력 시 중개사 이메일 발송 가능)"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
+                  className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-950 focus:outline-none focus:border-amber-600"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="contact-gate-company"
-                  className="block text-sm font-bold text-slate-200 mb-1.5"
+                  className="block text-sm font-bold text-slate-800 mb-1.5"
                 >
                   소속 · 기관명 (선택)
                 </label>
@@ -288,14 +340,14 @@ export function ContactGateModal({
                   placeholder="예: 케이리츠자산운용"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
+                  className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-950 focus:outline-none focus:border-amber-600"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="contact-gate-message"
-                  className="block text-sm font-bold text-slate-200 mb-1.5"
+                  className="block text-sm font-bold text-slate-800 mb-1.5"
                 >
                   문의 내용 (선택)
                 </label>
@@ -306,11 +358,11 @@ export function ContactGateModal({
                   placeholder="예: 투심위 상정용 임대 현황 및 상세 IM 요청드립니다"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  className="w-full min-h-[48px] bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-[16px] text-white focus:outline-none focus:border-amber-400"
+                  className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-950 focus:outline-none focus:border-amber-600"
                 />
               </div>
 
-              <div className="flex items-start gap-2.5 min-h-[44px] rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2.5">
+              <div className="flex items-start gap-2.5 min-h-[44px] rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5">
                 <input
                   id="contact-gate-privacy-consent"
                   data-testid="contact-gate-privacy-consent"
@@ -318,9 +370,9 @@ export function ContactGateModal({
                   required
                   checked={privacyConsent}
                   onChange={(e) => setPrivacyConsent(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-500 accent-amber-400 cursor-pointer"
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-400 accent-amber-600 cursor-pointer"
                 />
-                <div className="text-sm text-slate-200 leading-snug break-keep">
+                <div className="text-sm text-slate-800 leading-snug break-keep">
                   <label
                     htmlFor="contact-gate-privacy-consent"
                     className="cursor-pointer select-none"
@@ -331,7 +383,7 @@ export function ContactGateModal({
                     href="/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline text-amber-300 hover:text-amber-200 font-semibold ml-1"
+                    className="underline text-amber-800 hover:text-amber-950 font-semibold ml-1"
                   >
                     내용 보기
                   </a>
@@ -339,7 +391,7 @@ export function ContactGateModal({
               </div>
 
               {errorMessage && (
-                <p role="alert" className="text-sm font-bold text-red-400">
+                <p role="alert" className="text-sm font-bold text-red-700">
                   ⚠ {errorMessage}
                 </p>
               )}
@@ -348,7 +400,7 @@ export function ContactGateModal({
                 type="submit"
                 disabled={isSubmitting || !privacyConsent}
                 data-testid="contact-gate-submit-btn"
-                className="w-full min-h-[52px] py-3 mt-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold rounded-xl text-base transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full min-h-[52px] py-3 mt-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold rounded-xl text-base transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isSubmitting
                   ? "요청 보내는 중…"

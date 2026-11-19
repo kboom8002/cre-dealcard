@@ -68,10 +68,10 @@ export function SlideNavigator({
       {/* Header Summary */}
       <div className="p-3.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
         <div>
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A]">
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#0F172A]">
             📑 슬라이드 구성 ({visibleCount}/{slides.length}면)
           </h3>
-          <p className="text-[11px] font-medium text-[#475569] mt-0.5">
+          <p className="text-sm font-medium text-[#475569] mt-0.5">
             순서 이동(▲▼) 및 포함/제외(👁️) 가능
           </p>
         </div>
@@ -120,8 +120,7 @@ export function SlideNavigator({
                 onReorder(next.map(s => s.id));
                 onSelect(idx);
               }}
-              onClick={() => onSelect(idx)}
-              className={`group rounded-xl border p-2.5 transition-all cursor-pointer select-none ${
+              className={`group rounded-xl border p-2.5 min-h-[44px] transition-all select-none ${
                 isSelected
                   ? 'border-[#1D4ED8] bg-[#EFF6FF] shadow-xs ring-2 ring-[#1D4ED8]/15'
                   : slide.hidden
@@ -130,9 +129,14 @@ export function SlideNavigator({
               }`}
             >
               <div className="flex items-center justify-between gap-1.5">
-                <div className="flex items-center gap-2 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => onSelect(idx)}
+                  aria-current={isSelected ? 'true' : undefined}
+                  className="flex items-center gap-2 min-w-0 flex-1 min-h-[44px] text-left cursor-pointer"
+                >
                   <span
-                    className="w-6 h-6 rounded-lg font-mono text-xs font-extrabold flex items-center justify-center shrink-0"
+                    className="w-7 h-7 rounded-lg font-mono text-sm font-extrabold flex items-center justify-center shrink-0"
                     style={
                       isSelected
                         ? { backgroundColor: '#1D4ED8', color: '#FFFFFF' }
@@ -145,31 +149,28 @@ export function SlideNavigator({
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs font-extrabold text-[#0F172A] truncate">
+                      <span className="text-sm font-extrabold text-[#0F172A] truncate">
                         {meta.icon} {slide.title || meta.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] font-bold text-[#475569]">
+                      <span className="text-sm font-bold text-[#475569]">
                         {meta.label}
                       </span>
                       {isDirty && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-[#FEF3C7] text-[#92400E]">
+                        <span className="px-1.5 py-0.5 rounded text-sm font-extrabold bg-[#FEF3C7] text-[#92400E]">
                           편집중
                         </span>
                       )}
                     </div>
                   </div>
-                </div>
+                </button>
 
                 {/* Right Controls: Visibility Toggle + Reorder */}
-                <div
-                  className="flex items-center gap-1 shrink-0"
-                  onClick={e => e.stopPropagation()}
-                >
+                <div className="flex items-center gap-1 shrink-0">
                   {isLocked ? (
                     <span
-                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#E2E8F0] text-[#334155]"
+                      className="px-2 py-1 rounded text-sm font-bold bg-[#E2E8F0] text-[#334155]"
                       title="표지와 마감 슬라이드는 필수 포함 면입니다"
                     >
                       🔒 필수
@@ -177,12 +178,13 @@ export function SlideNavigator({
                   ) : (
                     <>
                       {onReorder && (
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => moveSlide(idx, -1)}
                             disabled={idx <= 1}
-                            className="px-1 py-0.2 text-[9px] font-bold rounded border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F1F5F9] disabled:opacity-30"
+                            aria-label={`${slide.title || meta.label} 위로 이동`}
+                            className="min-h-[44px] min-w-[44px] px-2 text-sm font-bold rounded-lg border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F1F5F9] disabled:opacity-30 cursor-pointer"
                             title="위로 이동"
                           >
                             ▲
@@ -191,7 +193,8 @@ export function SlideNavigator({
                             type="button"
                             onClick={() => moveSlide(idx, 1)}
                             disabled={idx >= slides.length - 2}
-                            className="px-1 py-0.2 text-[9px] font-bold rounded border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F1F5F9] disabled:opacity-30"
+                            aria-label={`${slide.title || meta.label} 아래로 이동`}
+                            className="min-h-[44px] min-w-[44px] px-2 text-sm font-bold rounded-lg border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F1F5F9] disabled:opacity-30 cursor-pointer"
                             title="아래로 이동"
                           >
                             ▼
@@ -202,7 +205,8 @@ export function SlideNavigator({
                         <button
                           type="button"
                           onClick={() => onToggleVisibility(slide.id, !slide.hidden)}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border transition-colors ${
+                          aria-pressed={!slide.hidden}
+                          className={`min-h-[44px] px-3 py-1 rounded-lg text-sm font-extrabold border transition-colors cursor-pointer ${
                             slide.hidden
                               ? 'border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]'
                               : 'border-[#A7F3D0] bg-[#D1FAE5] text-[#065F46]'

@@ -126,14 +126,14 @@ export function PhotoGallery({
 
               {/* Type badge (top-left) */}
               <div className="absolute top-3 left-3">
-                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-bold rounded-lg border border-white/10">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/10">
                   {item.label}
                 </span>
               </div>
 
               {/* Counter (top-right) */}
               <div className="absolute top-3 right-3">
-                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-lg border border-white/10">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-sm font-medium rounded-lg border border-white/10">
                   {i + 1} / {sortedItems.length}
                 </span>
               </div>
@@ -141,7 +141,7 @@ export function PhotoGallery({
               {/* Caption overlay (bottom) */}
               {item.caption && item.caption.trim() !== (item.label || "").trim() && (
                 <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-                  <p className="text-white text-xs leading-snug line-clamp-2">
+                  <p className="text-white text-sm leading-snug line-clamp-2">
                     {item.caption}
                   </p>
                 </div>

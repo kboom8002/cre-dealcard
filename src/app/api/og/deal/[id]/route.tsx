@@ -7,15 +7,15 @@ import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
+import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
 import {
-  getInboxState,
-  getQuickImRecord,
-  isDealCardDeleted,
-  isUuid,
-  resolveOrSynthesizeQuickImRecord,
-} from "@/lib/im-lite/quick-generate-store";
-import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+  isSignalCardStatusPublic,
+  PUBLIC_IM_DOC_STATUSES,
+} from "@/domain/public-projection/visibility";
 import { loadOgFonts } from "@/lib/magazine/og-fonts";
+
+const PUBLIC_OG_DOC_STATUSES = new Set<string>(["published", ...PUBLIC_IM_DOC_STATUSES]);
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -27,40 +27,41 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  if (
-    isDealCardDeleted(id) ||
-    getInboxState().revokedBuildings[id]?.revoked ||
-    isBuildingShareLinkRevoked(id)
-  ) {
-    return new Response("Not Found", { status: 404 });
-  }
 
   let building: Record<string, any> | null = null;
   let teaser: Record<string, any> | null = null;
   let imBody: Record<string, any> | null = null;
   let signalCard: Record<string, any> | null = null;
+  let ssotStatus: string | null = null;
+  let hasVerifiedSentEvent = false;
   let targetBuildingId = id;
-  let quickRec = getQuickImRecord(id);
+  let quickRec: Awaited<ReturnType<typeof resolveOgDealGuard>>["quickRec"] = null;
+  let snapshotCard4: Record<string, any> | null = null;
 
   try {
     const supabase = createServiceClient();
-    if (!quickRec) {
-      quickRec = await resolveOrSynthesizeQuickImRecord(id, supabase);
-    }
-    if (quickRec?.isRevoked) {
+    const ogGuard = await resolveOgDealGuard(id, supabase);
+    if (ogGuard.blocked) {
       return new Response("Not Found", { status: 404 });
     }
+    quickRec = ogGuard.quickRec;
+    snapshotCard4 = ogGuard.snapshotCard4;
 
     if (isUuid(id)) {
       // 1. id가 document_objects의 PK인지 확인
       const { data: directDoc } = await supabase
         .from("document_objects")
-        .select("id, title, body, document_type, building_id, status")
+        .select("id, title, body, document_type, building_id, status, visibility")
         .eq("id", id)
         .maybeSingle();
 
       if (directDoc) {
-        if (directDoc.status === "archived") {
+        const directStatus = String(directDoc.status || "");
+        if (
+          directDoc.visibility === "internal_only" ||
+          directDoc.document_type === "im_lite_draft" ||
+          !PUBLIC_OG_DOC_STATUSES.has(directStatus)
+        ) {
           return new Response("Not Found", { status: 404 });
         }
         if (directDoc.building_id) targetBuildingId = directDoc.building_id;
@@ -70,7 +71,7 @@ export async function GET(
             return new Response("Not Found", { status: 404 });
           }
           if (
-            ["im_lite", "im_lite_draft", "mobile_im", "im_pro"].includes(directDoc.document_type) ||
+            ["im_lite", "mobile_im", "im_pro"].includes(directDoc.document_type) ||
             bodyObj.im_type === "mobile_im_lite"
           ) {
             imBody = bodyObj;
@@ -94,6 +95,7 @@ export async function GET(
         .select("id, status")
         .eq("id", targetBuildingId)
         .maybeSingle();
+      ssotStatus = ssotRow?.status ? String(ssotRow.status) : null;
       if (ssotRow?.status === "archived") {
         return new Response("Not Found", { status: 404 });
       }
@@ -101,30 +103,43 @@ export async function GET(
       // 3. building_signal_cards 조회 (최신 신호 데이터)
       const { data: sData } = await supabase
         .from("building_signal_cards")
-        .select("area_signal, asset_type, price_band, title, visibility")
+        .select("area_signal, asset_type, price_band, title, visibility, status")
         .eq("building_id", targetBuildingId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       signalCard = sData;
-      if (signalCard?.visibility === "internal_only") {
+      if (signalCard?.visibility === "internal_only" || signalCard?.status === "archived") {
         return new Response("Not Found", { status: 404 });
       }
 
-      // 4. document_objects 다중 조회 (blind_teaser, im_lite, mobile_im 등)
+      // 4. document_objects 다중 조회 (PUBLIC allowlist만 허용 — draft/internal_only/archived 차단)
       const { data: docList } = await supabase
         .from("document_objects")
-        .select("id, title, body, document_type, status")
+        .select("id, title, body, document_type, status, visibility")
         .eq("building_id", targetBuildingId)
-        .neq("status", "archived")
-        .in("document_type", ["blind_teaser", "im_lite", "im_lite_draft", "mobile_im", "im_pro"])
+        .in("document_type", ["blind_teaser", "im_lite", "mobile_im", "im_pro"])
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (docList && docList.length > 0) {
-        for (const d of docList) {
+        if (docList.some((d: Record<string, any>) => d.document_type === "blind_teaser" && d.body?.is_revoked === true)) {
+          return new Response("Not Found", { status: 404 });
+        }
+        const publicDocs = docList.filter((d: Record<string, any>) => {
+          const st = String(d.status || "");
+          return (
+            PUBLIC_OG_DOC_STATUSES.has(st) &&
+            d.visibility !== "internal_only" &&
+            d.document_type !== "im_lite_draft"
+          );
+        });
+        if (publicDocs.length === 0 && !snapshotCard4 && !quickRec) {
+          return new Response("Not Found", { status: 404 });
+        }
+        for (const d of publicDocs) {
           const b = d.body as Record<string, any>;
-          if (!imBody && (["im_lite", "im_lite_draft", "mobile_im", "im_pro"].includes(d.document_type) || b?.im_type === "mobile_im_lite")) {
+          if (!imBody && (["im_lite", "mobile_im", "im_pro"].includes(d.document_type) || b?.im_type === "mobile_im_lite")) {
             imBody = b;
           }
           if (!teaser && d.document_type === "blind_teaser" && b?.im_type !== "mobile_im_lite") {
@@ -139,6 +154,73 @@ export async function GET(
         building.asset_type = building.asset_type || sData.asset_type;
         building.price_band = building.price_band || sData.price_band;
       }
+
+      const effectiveDraftCheck = String(ssotStatus || building?.status || "");
+      if (
+        effectiveDraftCheck === "draft" &&
+        !snapshotCard4 &&
+        !quickRec &&
+        !teaser &&
+        !imBody &&
+        !isSignalCardStatusPublic(signalCard?.status)
+      ) {
+        try {
+          interface ActivityQueryLike
+            extends PromiseLike<{ data?: Array<Record<string, unknown>> | null }> {
+            in?: (col: string, vals: string[]) => ActivityQueryLike;
+            contains?: (col: string, val: Record<string, unknown>) => ActivityQueryLike;
+            order?: (col: string, opts: { ascending: boolean }) => ActivityQueryLike;
+            limit?: (n: number) => ActivityQueryLike;
+          }
+          let actQ = supabase
+            .from("activity_events")
+            .select("actor_id, event_type, metadata, created_at") as unknown as ActivityQueryLike;
+          if (typeof actQ?.in === "function") {
+            actQ = actQ.in("event_type", [
+              "dealcard_sent",
+              "dealcard_restored",
+              "dealcard_deleted",
+              "link_revoked",
+              "link_restored",
+            ]);
+          }
+          if (typeof actQ?.contains === "function") {
+            actQ = actQ.contains("metadata", { building_id: targetBuildingId });
+          }
+          if (typeof actQ?.order === "function") {
+            actQ = actQ.order("created_at", { ascending: false });
+          }
+          if (typeof actQ?.limit === "function") {
+            actQ = actQ.limit(50);
+          }
+          const { data: acts } = await actQ;
+          const matching = (Array.isArray(acts) ? acts : []).filter((a) => {
+            const meta = (a?.metadata as Record<string, unknown> | undefined) || {};
+            return (
+              String(meta.building_id || "").trim() === targetBuildingId &&
+              (["link_revoked", "link_restored"].includes(String(a?.event_type || "")) ||
+                Boolean(a?.actor_id))
+            );
+          });
+          const latestRevoke = matching.find((a) =>
+            ["link_revoked", "link_restored"].includes(String(a?.event_type || ""))
+          );
+          const latestTransition = matching.find((a) =>
+            ["dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(
+              String(a?.event_type || "")
+            )
+          );
+          if (
+            latestRevoke?.event_type !== "link_revoked" &&
+            latestTransition?.event_type === "dealcard_sent" &&
+            Boolean(latestTransition?.actor_id)
+          ) {
+            hasVerifiedSentEvent = true;
+          }
+        } catch {
+          // Ignore if activity_events unavailable
+        }
+      }
     }
   } catch (err) {
     log.warn("[OG/deal] Fetch error:", err);
@@ -147,8 +229,22 @@ export async function GET(
   if (teaser?.is_revoked === true) {
     return new Response("Not Found", { status: 404 });
   }
+  if (
+    String(ssotStatus || building?.status || "") === "draft" &&
+    !snapshotCard4 &&
+    !quickRec &&
+    !teaser &&
+    !imBody &&
+    !isSignalCardStatusPublic(signalCard?.status) &&
+    !hasVerifiedSentEvent
+  ) {
+    return new Response("Not Found", { status: 404 });
+  }
+  if (!building && !snapshotCard4 && !quickRec && !teaser && !imBody && !signalCard) {
+    return new Response("Not Found", { status: 404 });
+  }
 
-  const card4 = quickRec?.card4 || teaser?.card4 || imBody?.card4;
+  const card4 = snapshotCard4 || quickRec?.card4 || teaser?.card4 || imBody?.card4;
   const safeBuilding = building || {
     id: targetBuildingId,
     area_signal: card4?.region,
@@ -498,7 +594,8 @@ export async function GET(
       height: 630,
       fonts: fonts.length > 0 ? fonts : undefined,
       headers: {
-        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+        // WP-7.3C P2: short CDN TTL so revoked/deleted cards stop rendering within minutes.
+        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
       },
     }
   );

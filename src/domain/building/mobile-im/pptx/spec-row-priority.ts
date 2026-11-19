@@ -22,6 +22,7 @@ export function specRowPriority(key: string): number {
   if (/주차|승강기|엘리베이터/.test(k)) return 8;
   if (/준공|사용승인/.test(k)) return 9;
   if (/주용도|^용도$/.test(k)) return 10;
+  if (/^운영사|브랜드/.test(k)) return 10;
   if (/주구조|건물구조|^구조/.test(k)) return 11;
   if (/지목/.test(k)) return 12;
   return 50;

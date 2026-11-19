@@ -15,6 +15,9 @@ import { requireBroker } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import { computeTargetHash } from '@/domain/building/im-core/target-hash';
 import { applyAreaUnitOverride, sanitizeOverrideReason } from '@/domain/building/mobile-im/approval-gate-override';
+import { createModuleLogger } from '@/lib/logger';
+
+const log = createModuleLogger('approve-override');
 
 export async function POST(
   req: NextRequest,
@@ -51,7 +54,7 @@ export async function POST(
   }
 
   const ownerId = doc.broker_id ?? doc.owner_id;
-  if (ownerId !== guard.user!.id) {
+  if (guard.role !== 'admin' && ownerId !== guard.user!.id) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
@@ -83,7 +86,16 @@ export async function POST(
     .eq('id', id);
 
   if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    // WP-7.3D P2-7: log the DB error server-side; return a generic Korean message.
+    log.error('[approve-override] document_objects update failed:', {
+      code: (updateErr as any)?.code,
+      message: updateErr.message,
+      id,
+    });
+    return NextResponse.json(
+      { error: '승인 예외 처리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.', code: 'OVERRIDE_SAVE_FAILED' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({

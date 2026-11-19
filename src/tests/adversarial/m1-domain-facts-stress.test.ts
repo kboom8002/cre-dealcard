@@ -321,15 +321,15 @@ describe("Adversarial Domain Facts & Edge Case Stress Suite", () => {
       expect(facts.units[3].status).toBe("owner");
       expect(facts.units[3].rentKrw).toBe(0);
 
-      // Aggregates: occupiedCount counts only status === 'occupied'
-      // Non-occupied (vacant + owner) increment vacantCount to preserve invariant unitCount = occupied + vacant
+      // Rule 75: owner-occupied is counted in occupiedCount (and ownerOccupiedCount), not vacantCount
       expect(facts.unitCount).toBe(4);
-      expect(facts.occupiedCount).toBe(2); // 스타벅스 & 의원
-      expect(facts.vacantCount).toBe(2); // B1 (vacant) + 4F (owner)
+      expect(facts.occupiedCount).toBe(3); // 스타벅스 & 의원 & owner
+      expect(facts.ownerOccupiedCount).toBe(1);
+      expect(facts.vacantCount).toBe(1); // B1 (vacant)
       expect(facts.monthlyRentTotalKrw).toBe(18_000_000);
       expect(facts.depositTotalKrw).toBe(150_000_000);
       expect(facts.annualRentKrw).toBe(216_000_000);
-      expect(facts.occupancyRatePct).toBe(50); // 2 / 4 = 50%
+      expect(facts.occupancyRatePct).toBe(75); // 3 / 4 = 75%
     });
 
     it("evaluates behavior on null or undefined array elements", () => {
@@ -353,12 +353,13 @@ describe("Adversarial Domain Facts & Edge Case Stress Suite", () => {
       expect(cleanFacts.depositTotalKrw).toBe(100_000_000);
       expect(Number.isNaN(cleanFacts.monthlyRentTotalKrw)).toBe(false);
 
-      // Strings with Korean formatting commas (e.g. '1,500'): Number('1,500') results in NaN in standard JS
+      // Strings with Korean formatting commas (e.g. '1,500'): parseFlexibleManwon strips commas cleanly
       const commaFacts = extractRentFacts({
         rent_roll: [{ floor: "1F", rent_manwon: "1,500", deposit_manwon: "10,000", status: "occupied" }],
       });
-      // Empirical verification: Number('1,500') produces NaN
-      expect(Number.isNaN(commaFacts.monthlyRentTotalKrw)).toBe(true);
+      expect(Number.isNaN(commaFacts.monthlyRentTotalKrw)).toBe(false);
+      expect(commaFacts.monthlyRentTotalKrw).toBe(15_000_000);
+      expect(commaFacts.depositTotalKrw).toBe(100_000_000);
     });
 
     it("survives primitives passed directly as raw (number, string, boolean)", () => {
@@ -389,14 +390,14 @@ describe("Adversarial Domain Facts & Edge Case Stress Suite", () => {
       });
 
       expect(facts.unitCount).toBe(3);
-      expect(facts.occupiedCount).toBe(1);
-      expect(facts.vacantCount).toBe(2); // owner + vacant
+      expect(facts.occupiedCount).toBe(2); // occupied + owner (Rule 75)
+      expect(facts.vacantCount).toBe(1); // vacant only
       expect(facts.monthlyRentTotalKrw).toBe(0);
       expect(facts.monthlyRentTotalManwon).toBe(0);
       expect(facts.annualRentKrw).toBe(0);
       expect(facts.depositTotalKrw).toBe(50_000_000);
       expect(facts.depositTotalManwon).toBe(5000);
-      expect(facts.occupancyRatePct).toBe(33.3); // Math.round((1/3)*1000)/10 = 33.3%
+      expect(facts.occupancyRatePct).toBe(66.7); // Math.round((2/3)*1000)/10 = 66.7%
     });
 
     it("handles negative rent values (concessions / adjustments) without runtime crashes", () => {

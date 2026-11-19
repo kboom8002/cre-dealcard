@@ -202,7 +202,9 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
       const docWithPrev = { ...docWithoutPrev, previousVersion: prevDoc };
 
       await act(async () => {
-        root.render(<MobileIMViewer document={docWithPrev as any} buildingId="bld-test-03" />);
+        // WP-7.3D P2-4: MobileIMViewer now defaults isBroker=false (broker UI requires a
+        // server-verified owner); the owner-only version switcher is exercised explicitly.
+        root.render(<MobileIMViewer document={docWithPrev as any} buildingId="bld-test-03" isBroker={true} />);
       });
 
       const versionSelect = container.querySelector('[data-testid="version-switcher"]') as HTMLSelectElement;

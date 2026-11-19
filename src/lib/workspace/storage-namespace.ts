@@ -40,9 +40,22 @@ export function scopedWorkspaceStorageKey(
   return uid ? `${baseKey}:u:${uid}` : `${baseKey}:anon`;
 }
 
+const QA_STORAGE_KEY_PATTERN = /^credeal[_-]qa[_-]/i;
+
+const SENSITIVE_EXACT_STORAGE_KEYS = new Set<string>([
+  LAST_ACTIVE_USER_KEY,
+  "credeal_qa_mode",
+  "credeal_qa_pin_docked",
+  "credeal-qa-pin-active",
+  "credeal-qa-pin-role",
+  "credeal-qa-signoff-session-v1",
+  "dealcard_recent_searches",
+]);
+
 export function isSensitiveWorkspaceStorageKey(key: string): boolean {
   if (!key || PRESERVED_UI_STORAGE_KEYS.has(key)) return false;
-  if (key === LAST_ACTIVE_USER_KEY) return true;
+  if (SENSITIVE_EXACT_STORAGE_KEYS.has(key)) return true;
+  if (QA_STORAGE_KEY_PATTERN.test(key)) return true;
   return SENSITIVE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 

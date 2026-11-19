@@ -27,6 +27,7 @@ export interface InboxPreviewColumnProps {
   subscriptionTier: "free" | "pro" | "premium";
   outboundEmail: string;
   outboundBasis: "" | InboxTransactionalBasis;
+  marketingConsentConfirmed?: boolean;
   alimtalkTemplateId: InboxAlimtalkTemplateId;
   kakaoPresetKind?: KakaoOutreachPresetKind;
   copiedBundlePreview: string | null;
@@ -40,6 +41,7 @@ export interface InboxPreviewColumnProps {
   onSendMaterial: (kind: "im" | "dealcard" | "newsletter" | "magazine") => void;
   onOutboundEmailChange: (next: string) => void;
   onOutboundBasisChange: (next: "" | InboxTransactionalBasis) => void;
+  onMarketingConsentConfirmedChange?: (checked: boolean) => void;
   onAlimtalkTemplateChange: (next: InboxAlimtalkTemplateId) => void;
   onKakaoPresetChange?: (kind: KakaoOutreachPresetKind) => void;
   onPrepareCopyBundle: () => void;
@@ -69,6 +71,7 @@ export function InboxPreviewColumn({
   subscriptionTier,
   outboundEmail,
   outboundBasis,
+  marketingConsentConfirmed = false,
   alimtalkTemplateId,
   kakaoPresetKind = "intro",
   copiedBundlePreview,
@@ -82,6 +85,7 @@ export function InboxPreviewColumn({
   onSendMaterial,
   onOutboundEmailChange,
   onOutboundBasisChange,
+  onMarketingConsentConfirmedChange,
   onAlimtalkTemplateChange,
   onKakaoPresetChange,
   onPrepareCopyBundle,
@@ -323,6 +327,23 @@ export function InboxPreviewColumn({
                 />
               </div>
 
+              <label
+                htmlFor="inbox-marketing-consent-checkbox"
+                className="flex min-h-[44px] items-start gap-2.5 rounded-lg border border-blue-200/80 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-pointer"
+              >
+                <input
+                  id="inbox-marketing-consent-checkbox"
+                  data-testid="inbox-marketing-consent-checkbox"
+                  type="checkbox"
+                  checked={Boolean(marketingConsentConfirmed)}
+                  onChange={(e) => onMarketingConsentConfirmedChange?.(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  광고성 이메일 수신 동의를 확인했습니다 (수신거부 링크 자동 포함)
+                </span>
+              </label>
+
               <button
                 type="button"
                 data-testid="inbox-send-email-btn"
@@ -334,61 +355,59 @@ export function InboxPreviewColumn({
               </button>
             </div>
 
-            {/* PRO 전용 알림톡 옵션 (무료 플랜에서는 드롭다운을 숨겨 복잡도 제거) */}
-            {subscriptionTier !== "free" && (
-              <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
-                <div>
-                  <label
-                    htmlFor="inbox-client-basis-select"
-                    className="mb-1 block text-sm font-bold text-slate-700"
-                  >
-                    알림톡 안내 근거 (PRO)
-                  </label>
-                  <select
-                    id="inbox-client-basis-select"
-                    data-testid="inbox-client-basis-select"
-                    value={outboundBasis}
-                    onChange={(e) =>
-                      onOutboundBasisChange(
-                        e.target.value as "" | InboxTransactionalBasis
-                      )
-                    }
-                    className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
-                  >
-                    <option value="">고객 요청·상담 근거 선택</option>
-                    <option value="im_request">고객 IM 열람 요청</option>
-                    <option value="property_inquiry">고객 매물 문의 접수</option>
-                    <option value="tour_booking">현장 임장·미팅 예약</option>
-                    <option value="broker_manual">기존 상담 고객 1:1 안내</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="inbox-alimtalk-template-select"
-                    className="mb-1 block text-sm font-bold text-slate-700"
-                  >
-                    알림톡 양식 선택
-                  </label>
-                  <select
-                    id="inbox-alimtalk-template-select"
-                    data-testid="inbox-alimtalk-template-select"
-                    value={alimtalkTemplateId}
-                    onChange={(e) =>
-                      onAlimtalkTemplateChange(
-                        e.target.value as InboxAlimtalkTemplateId
-                      )
-                    }
-                    className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
-                  >
-                    <option value="TPL_INBOX_IM_APPROVED">IM 열람 승인 안내</option>
-                    <option value="TPL_INBOX_INQUIRY_REPLY">매물 문의 답변 안내</option>
-                    <option value="TPL_INBOX_TOUR_CONFIRMED">임장·미팅 일정 안내</option>
-                    <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
-                  </select>
-                </div>
+            {/* 전 플랜 공통 발송 근거 · 알림톡 양식 선택 (zero CLS) */}
+            <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+              <div>
+                <label
+                  htmlFor="inbox-client-basis-select"
+                  className="mb-1 block text-sm font-bold text-slate-700"
+                >
+                  발송 근거 (요청 답변 · 1:1 안내)
+                </label>
+                <select
+                  id="inbox-client-basis-select"
+                  data-testid="inbox-client-basis-select"
+                  value={outboundBasis}
+                  onChange={(e) =>
+                    onOutboundBasisChange(
+                      e.target.value as "" | InboxTransactionalBasis
+                    )
+                  }
+                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="">고객 요청·상담 근거 선택</option>
+                  <option value="im_request">고객 IM 열람 요청</option>
+                  <option value="property_inquiry">고객 매물 문의 접수</option>
+                  <option value="tour_booking">현장 임장·미팅 예약</option>
+                  <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+                </select>
               </div>
-            )}
+
+              <div>
+                <label
+                  htmlFor="inbox-alimtalk-template-select"
+                  className="mb-1 block text-sm font-bold text-slate-700"
+                >
+                  알림톡 양식 선택
+                </label>
+                <select
+                  id="inbox-alimtalk-template-select"
+                  data-testid="inbox-alimtalk-template-select"
+                  value={alimtalkTemplateId}
+                  onChange={(e) =>
+                    onAlimtalkTemplateChange(
+                      e.target.value as InboxAlimtalkTemplateId
+                    )
+                  }
+                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                >
+                  <option value="TPL_INBOX_IM_APPROVED">IM 열람 승인 안내</option>
+                  <option value="TPL_INBOX_INQUIRY_REPLY">매물 문의 답변 안내</option>
+                  <option value="TPL_INBOX_TOUR_CONFIRMED">임장·미팅 일정 안내</option>
+                  <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
+                </select>
+              </div>
+            </div>
 
             <div className="space-y-2 border-t border-slate-100 pt-2.5">
               <button

@@ -452,7 +452,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
           ← IM 관리로
         </Link>
         <h1 className="text-base font-bold text-white">PPTX 템플릿 에디터</h1>
-        <span className="ml-auto text-xs text-amber-400/90 font-medium">
+        <span className="ml-auto text-sm text-amber-400/90 font-medium">
           템플릿: {tokens.presetName || selectedPresetId}
         </span>
       </header>
@@ -499,7 +499,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
 
         {/* Center: Canvas Preview & Style Selectors */}
         <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center bg-slate-900/30">
-          <div className="mb-3 text-xs text-amber-500/90 bg-amber-500/10 px-4 py-1.5 rounded-full flex items-center gap-2">
+          <div className="mb-3 text-sm text-amber-500/90 bg-amber-500/10 px-4 py-1.5 rounded-full flex items-center gap-2">
             <span>⚡</span> 실시간 SVG 렌더링 엔진: 템플릿/컬러/폰트 및 문안 수정이 100ms 이내 실시간 화면에 반영됩니다
           </div>
 

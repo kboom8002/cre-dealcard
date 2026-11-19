@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, X, Building2, Key, Target, Tag } from "lucide-react";
+import { Plus, X, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/hooks/useHaptic";
 
 const ACTIONS = [
   {
-    href: "/broker/deal-card/new",
+    href: "/broker/w/dealcards",
     icon: Building2,
     label: "매매 딜카드",
     color: "bg-amber-500",
@@ -66,7 +66,7 @@ export function BrokerCreateFAB() {
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
           >
             <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl p-3.5 shadow-2xl w-56">
-              <p className="text-[11px] font-bold text-amber-300/80 uppercase tracking-widest text-center mb-2.5">
+              <p className="text-sm font-bold text-amber-300/80 uppercase tracking-widest text-center mb-2.5">
                 신규 프라이빗 등록
               </p>
               <div className="space-y-2">
@@ -81,7 +81,7 @@ export function BrokerCreateFAB() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all",
+                        "w-full min-h-[44px] flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all",
                         "bg-[#1e293b]/90 hover:bg-[#334155] active:scale-[0.98]",
                         action.border
                       )}
@@ -89,7 +89,7 @@ export function BrokerCreateFAB() {
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-md", action.color)}>
                         <Icon className="w-4 h-4 text-slate-950 stroke-[2.5]" />
                       </div>
-                      <span className={cn("text-xs font-bold", action.textColor)}>
+                      <span className={cn("text-sm font-bold", action.textColor)}>
                         {action.label}
                       </span>
                     </motion.button>

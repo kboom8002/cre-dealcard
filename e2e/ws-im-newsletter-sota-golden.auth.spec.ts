@@ -472,7 +472,7 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
     await page.getByTestId('title-preset-chip-0').click();
     await expect(page.locator('#newsletter-headline-input')).toHaveValue(/중개사의/);
 
-    const uniqueNlHeadline = `2026년 11월 강남·마포 빌딩 시장 동향 E2E_${Date.now().toString().slice(-4)}`;
+    const uniqueNlHeadline = '2026년 11월 강남·마포 빌딩 시장 동향 E2E_GOLDEN';
     await page.locator('#newsletter-headline-input').fill(uniqueNlHeadline);
 
     // Immediately transitions to live_draft & removes pre-generation card!

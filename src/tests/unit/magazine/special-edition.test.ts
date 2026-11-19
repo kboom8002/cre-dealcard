@@ -63,9 +63,36 @@ const SUBS = [
   mkSub('s4', { regions: ['강남'] }),
 ];
 
-function setupDb(subsError = false) {
+function setupDb(subsError = false, incompleteStatutory = false) {
   h.db = createFakeDb((call: FakeCall) => {
     if (call.table === 'building_ssot_lite') return { data: rowVisibleTo(BUILDINGS, call, 'owner_id') ?? null };
+    if (call.table === 'broker_profiles') {
+      return {
+        data: {
+          user_id: UA,
+          slug: 'broker-a',
+          bio: null,
+          office_address: incompleteStatutory ? null : '서울특별시 강남구 테헤란로 123',
+          office_reg_number: incompleteStatutory ? null : '11680-2023-04567',
+          representative_name: '김에이스',
+          specialty_regions: ['강남'],
+          specialty_assets: ['꼬마빌딩'],
+          is_public: true,
+        },
+      };
+    }
+    if (call.table === 'profiles') {
+      return {
+        data: {
+          id: UA,
+          display_name: '김에이스',
+          company: incompleteStatutory ? null : '에이스공인중개사사무소',
+          phone: incompleteStatutory ? null : '010-1234-5678',
+          photo_url: null,
+          tagline: null,
+        },
+      };
+    }
     if (call.table === 'magazine_subscribers') {
       return subsError ? { error: { code: 'XX000', message: 'boom internal detail' } } : { data: SUBS };
     }
@@ -192,6 +219,16 @@ describe('POST /api/broker/magazine/special — 검증 선행·정직한 결과'
     expect(h.distribute.mock.calls[0][1]).toMatchObject({ includeUntagged: false, areaSignal: '강남', assetType: '꼬마빌딩' });
     await specialPOST(req('/api/broker/magazine/special', { method: 'POST', body: { buildingId: B_OWN, autoDistribute: true, includeUntagged: true } }));
     expect(h.distribute.mock.calls[1][1]).toMatchObject({ includeUntagged: true });
+  });
+
+  it('법정 표시사항(5대 항목) 누락 시 422 STATUTORY_DISCLOSURE_INCOMPLETE — 생성·발송 호출 없음', async () => {
+    setupDb(false, true);
+    const res = await specialPOST(req('/api/broker/magazine/special', { method: 'POST', body: { buildingId: B_OWN, headline: 'h', autoDistribute: true } }));
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error.code).toBe('STATUTORY_DISCLOSURE_INCOMPLETE');
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.distribute).not.toHaveBeenCalled();
   });
 });
 

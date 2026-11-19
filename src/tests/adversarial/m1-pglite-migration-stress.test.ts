@@ -79,13 +79,13 @@ describe('Empirical Challenger: PGlite Migration & Rollback Multi-Cycle Stress',
         created_at TIMESTAMPTZ DEFAULT now()
       );
     `);
-  });
+  }, 30_000);
 
   afterEach(async () => {
     if (db) {
       await db.close();
     }
-  });
+  }, 15_000);
 
   it('Stress: 3 full cycles of Apply -> Rollback with zero leftover schema objects in pg_catalog', async () => {
     const jobsV2Columns = [

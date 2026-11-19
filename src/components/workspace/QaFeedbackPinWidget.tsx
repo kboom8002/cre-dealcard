@@ -9,6 +9,7 @@ import {
 import {
   buildQaAuthHeaders,
   getQaSignoffHrefForRole,
+  getStoredQaAccessKey,
   resolveQaPortalRole,
   syncQaKeyFromSearchParams,
   type QaPortalRole,
@@ -31,6 +32,15 @@ const QA_PIN_ACTIVE_STORAGE_KEY = "credeal-qa-pin-active";
 const QA_PIN_ROLE_STORAGE_KEY = "credeal-qa-pin-role";
 const QA_SIGNOFF_SESSION_STORAGE_KEY = "credeal-qa-signoff-session-v1";
 const MAX_SCREENSHOT_DATA_URL_CHARS = 140_000;
+
+/**
+ * Production builds (Vercel prod/preview, `next start`) require a server-verified QA
+ * key before the overlay renders on non-proxy-gated routes. Dev/test keep the legacy
+ * `?qa=1` convenience toggle.
+ */
+export function isProductionQaBuild(): boolean {
+  return process.env.NODE_ENV === "production";
+}
 
 function describeElement(el: HTMLElement): {
   selector: string;
@@ -427,13 +437,134 @@ export function QaFeedbackPinWidget({
       return;
     }
 
-    if (requireExplicitQueryParam) {
+    const isPublicRoute =
+      requireExplicitQueryParam ||
+      (!pathname.startsWith("/broker") &&
+        !pathname.startsWith("/qa-") &&
+        !pathname.startsWith("/testguide") &&
+        !pathname.startsWith("/newsletter-inbox-test") &&
+        !pathname.startsWith("/dealcard-im-test"));
+
+    if (requireExplicitQueryParam || isPublicRoute) {
       const isTopFrame =
         typeof window === "undefined" || window.self === window.top;
-      const on = isQaExplicitOn && isTopFrame;
-      setEnabled(on);
-      setDockedOff(on ? readDockedState() : false);
-      return;
+      if (!isQaExplicitOn || !isTopFrame) {
+        setEnabled(false);
+        setDockedOff(false);
+        return;
+      }
+
+      // 공개 라우트(/dc, /im-lite, /magazine 등)에서는 검증된 QA 키가 있을 때만 위젯 활성화
+      const urlKey = (
+        searchParams?.get("qaKey") ||
+        searchParams?.get("key") ||
+        (typeof window !== "undefined" && window.location?.search
+          ? new URLSearchParams(window.location.search).get("qaKey") ||
+            new URLSearchParams(window.location.search).get("key")
+          : null) ||
+        ""
+      ).trim();
+      const candidateKey = urlKey || getStoredQaAccessKey(resolvedPortalRole);
+      if (!candidateKey) {
+        setEnabled(false);
+        setDockedOff(false);
+        return;
+      }
+
+      let cancelled = false;
+      fetch("/api/public/qa-workbench?mode=pins&verifyQaKey=1", {
+        method: "GET",
+        headers: { "x-qa-access-key": candidateKey },
+      })
+        .then((res) => {
+          if (cancelled) return;
+          if (res.ok) {
+            setEnabled(true);
+            setDockedOff(readDockedState());
+          } else {
+            setEnabled(false);
+            setDockedOff(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setEnabled(false);
+            setDockedOff(false);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // P2 (WP-7.3A): in production builds `?qa=1` alone must never expose the QA
+    // overlay on broker workspace routes. The proxy already enforces a key on the
+    // /qa-*, /testguide, … routes; every other route needs a server-verified key.
+    const isServerGatedQaRoute =
+      pathname.startsWith("/qa-") ||
+      pathname.startsWith("/testguide") ||
+      pathname.startsWith("/newsletter-inbox-test") ||
+      pathname.startsWith("/dealcard-im-test");
+    if (isProductionQaBuild() && !isServerGatedQaRoute) {
+      let wantsQa = false;
+      try {
+        if (isQaExplicitOff) {
+          window.sessionStorage.removeItem(QA_MODE_SESSION_STORAGE_KEY);
+          window.sessionStorage.removeItem("credeal_qa_pin_docked");
+          window.localStorage.removeItem(QA_PIN_ACTIVE_STORAGE_KEY);
+          setEnabled(false);
+          setDockedOff(false);
+          return;
+        }
+        wantsQa =
+          isQaExplicitOn ||
+          window.sessionStorage.getItem(QA_MODE_SESSION_STORAGE_KEY) === "1";
+      } catch {
+        wantsQa = isQaExplicitOn;
+      }
+      const prodUrlKey = (
+        searchParams?.get("qaKey") ||
+        searchParams?.get("key") ||
+        ""
+      ).trim();
+      const prodCandidateKey = wantsQa
+        ? prodUrlKey || getStoredQaAccessKey(resolvedPortalRole)
+        : "";
+      if (!prodCandidateKey) {
+        setEnabled(false);
+        setDockedOff(false);
+        return;
+      }
+      let cancelledProd = false;
+      fetch("/api/public/qa-workbench?mode=pins&verifyQaKey=1", {
+        method: "GET",
+        headers: { "x-qa-access-key": prodCandidateKey },
+      })
+        .then((res) => {
+          if (cancelledProd) return;
+          if (res.ok) {
+            try {
+              window.sessionStorage.setItem(QA_MODE_SESSION_STORAGE_KEY, "1");
+            } catch {
+              // ignore storage errors
+            }
+            setEnabled(true);
+            setDockedOff(readDockedState());
+          } else {
+            setEnabled(false);
+            setDockedOff(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelledProd) {
+            setEnabled(false);
+            setDockedOff(false);
+          }
+        });
+      return () => {
+        cancelledProd = true;
+      };
     }
 
     try {
@@ -462,7 +593,7 @@ export function QaFeedbackPinWidget({
       setEnabled(isQaExplicitOn);
       setDockedOff(false);
     }
-  }, [forceVisible, requireExplicitQueryParam, resolvedPortalRole, searchParams]);
+  }, [forceVisible, pathname, requireExplicitQueryParam, resolvedPortalRole, searchParams]);
 
   useEffect(() => {
     if (!isPicking) return;
@@ -691,7 +822,7 @@ export function QaFeedbackPinWidget({
             color: "#FFFFFF",
             borderColor: "#334155",
           }}
-          className="min-h-[40px] px-3.5 rounded-full shadow-lg border-2 text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
+          className="min-h-[44px] px-3.5 rounded-full shadow-lg border-2 text-[14px] font-extrabold cursor-pointer whitespace-nowrap"
         >
           📌 핀 켜기
         </button>
@@ -972,7 +1103,7 @@ export function QaFeedbackPinWidget({
                       .then((shot) => setPreviewDataUrl(shot))
                       .finally(() => setCapturingPreview(false));
                   }}
-                  className="min-h-[36px] px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-[13px] font-bold text-slate-800 cursor-pointer whitespace-nowrap"
+                  className="min-h-[44px] px-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-sm font-bold text-slate-800 cursor-pointer whitespace-nowrap"
                 >
                   🔄 다시 캡처
                 </button>
@@ -991,7 +1122,7 @@ export function QaFeedbackPinWidget({
                     data-testid="qa-pin-screenshot-preview"
                     className="w-full max-h-28 object-contain bg-white"
                   />
-                  <span className="block w-full py-1 text-center text-[12px] font-bold text-slate-600 bg-slate-100/90 group-hover:text-slate-900">
+                  <span className="block w-full py-1 text-center text-sm font-bold text-slate-600 bg-slate-100/90 group-hover:text-slate-900">
                     🔍 눌러서 크게 보기
                   </span>
                 </button>
@@ -1043,7 +1174,7 @@ export function QaFeedbackPinWidget({
                 type="button"
                 data-testid="qa-pin-zoom-close-btn"
                 onClick={() => setZoomOpen(false)}
-                className="min-h-[36px] px-3 rounded-lg bg-slate-900 text-white text-xs font-extrabold cursor-pointer hover:bg-slate-800"
+                className="min-h-[44px] px-3 rounded-lg bg-slate-900 text-white text-sm font-extrabold cursor-pointer hover:bg-slate-800"
               >
                 ✕ 닫기 (ESC)
               </button>
@@ -1084,7 +1215,7 @@ export function QaFeedbackPinWidget({
                 color: "#FFFFFF",
                 borderColor: "#334155",
               }}
-              className="min-h-[36px] px-3 rounded-full shadow-md border text-[14px] font-bold cursor-pointer whitespace-nowrap"
+              className="min-h-[44px] px-3 rounded-full shadow-md border text-[14px] font-bold cursor-pointer whitespace-nowrap"
             >
               📌 핀 펼치기
             </button>

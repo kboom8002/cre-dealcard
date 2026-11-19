@@ -9,6 +9,7 @@ import {
   PreviewEditableUnit,
   type PreviewLifecycleState,
 } from "@/components/workspace/preview-sync";
+import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import { ImDeckReadinessBar } from "./ImDeckReadinessBar";
 import {
   UUID_REGEX,
@@ -354,7 +355,7 @@ export function ImPreviewPane({
                   <strong className="text-slate-900">
                     {gfaSqm
                       ? `${gfaSqm}㎡ (약 ${Math.round(
-                          Number(String(gfaSqm || "").replace(/,/g, "")) * 0.3025
+                          m2ToPyeong(Number(String(gfaSqm || "").replace(/,/g, "")))
                         )}평)`
                       : "—"}
                   </strong>
@@ -404,7 +405,7 @@ export function ImPreviewPane({
                   <strong className="text-slate-900">
                     {landAreaSqm
                       ? `${landAreaSqm}㎡ (약 ${Math.round(
-                          Number(String(landAreaSqm || "").replace(/,/g, "")) * 0.3025
+                          m2ToPyeong(Number(String(landAreaSqm || "").replace(/,/g, "")))
                         )}평)`
                       : "—"}
                   </strong>

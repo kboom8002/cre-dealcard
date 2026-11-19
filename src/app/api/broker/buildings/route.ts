@@ -8,6 +8,10 @@ import {
   resolveKnownTestAssetUrl,
   synthesizeQuickRecordFromImItem,
 } from "@/lib/im-lite/quick-generate-store";
+import {
+  listWorkspaceItemsForOwner,
+  type WorkspaceItemRecord,
+} from "@/lib/workspace/workspace-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -251,7 +255,13 @@ export async function GET(request: NextRequest) {
         realPhoto && (!Array.isArray(entry.item.photos) || entry.item.photos.length === 0)
           ? { ...entry.item, photos: [{ url: realPhoto }] }
           : entry.item;
-      synthesizeQuickRecordFromImItem(bId, itemWithPhotos as Record<string, any>, null, userId);
+      synthesizeQuickRecordFromImItem(
+        bId,
+        itemWithPhotos as Record<string, any>,
+        null,
+        undefined,
+        userId
+      );
     } catch {
       // Ignore synthesis error
     }
@@ -359,6 +369,110 @@ export async function GET(request: NextRequest) {
       updated_at: customImByBuildingId.get(id)?.updatedAt || b.updated_at || null,
     };
   });
+
+  // 2-B. Merge canonical workspace_items (dealcard & im) with safe pre-cutover fallback
+  let wsItems: WorkspaceItemRecord[] = [];
+  try {
+    const wsRes = await listWorkspaceItemsForOwner(supabase, {
+      ownerId: userId,
+      isAdmin,
+    });
+    if (wsRes.tableAvailable && Array.isArray(wsRes.items)) {
+      wsItems = wsRes.items;
+    }
+  } catch {
+    wsItems = [];
+  }
+
+  for (const ws of wsItems) {
+    if (ws.deletedAt || ws.status === "archived") continue;
+    const wsKey = String(ws.buildingId || ws.legacyId || ws.id).trim();
+    if (!wsKey || deletedIds.has(wsKey) || deletedIds.has(ws.id)) continue;
+
+    const draftObj = (ws.draftPayload ?? {}) as Record<string, unknown>;
+    const snapObj = (ws.publishedSnapshot ?? {}) as Record<string, unknown>;
+    const wsPublished = ws.status === "published" || ws.status === "sent";
+    const wsStatus = wsPublished ? "published" : ws.status === "revoked" ? "revoked" : "draft";
+
+    const existingIdx = buildings.findIndex((b) => b.id === wsKey || b.id === ws.id);
+    if (existingIdx >= 0) {
+      const existing = buildings[existingIdx];
+      if (ws.title && ws.title.trim()) {
+        existing.title = ws.title.trim();
+        existing.building_name = ws.title.trim();
+      }
+      if (ws.priceBand && !existing.price_band) {
+        existing.price_band = ws.priceBand;
+      }
+      if (wsPublished) {
+        existing.status = "published";
+      }
+      if (ws.updatedAt) {
+        existing.updated_at = ws.updatedAt;
+      }
+      seenIds.add(wsKey);
+      seenIds.add(ws.id);
+      continue;
+    }
+
+    seenIds.add(wsKey);
+    seenIds.add(ws.id);
+
+    if (ws.kind === "dealcard") {
+      const c4 = ((draftObj.card4 || snapObj.card4) ?? {}) as Record<string, unknown>;
+      const region = String(c4.region || ws.address || "서울 핵심 권역").trim();
+      const use = String(c4.use || "근린생활시설").trim();
+      const headline = String(ws.title || c4.headline || "").trim();
+      const title = headline || `${region} ${use}`.trim();
+      const priceBandStr =
+        ws.priceBand || (typeof c4.priceBand === "string" ? c4.priceBand.trim() : null);
+      const salePriceWon = parsePriceBandToWon(priceBandStr);
+
+      buildings.push({
+        id: wsKey,
+        title,
+        building_name: `${region} ${use}`.trim(),
+        address: ws.address || region,
+        dong: region,
+        sale_price: salePriceWon,
+        price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
+        cap_rate: null,
+        photo_url: realPhotoByBuildingId.get(wsKey) || null,
+        status: wsStatus,
+        updated_at: ws.updatedAt || null,
+      });
+    } else {
+      const imPayload = ((draftObj.imItem && typeof draftObj.imItem === "object"
+        ? draftObj.imItem
+        : draftObj) || snapObj) as Record<string, unknown>;
+      const addr = String(ws.address || imPayload.address || "서울 핵심 권역").trim();
+      const title = String(
+        ws.title || imPayload.title || imPayload.buildingName || addr
+      ).trim();
+      const askingManwon = Number(imPayload.askingPriceManwon || 0);
+      const priceBandStr =
+        ws.priceBand || (typeof imPayload.priceBand === "string" ? imPayload.priceBand : null);
+      const salePriceWon =
+        askingManwon > 0 ? Math.round(askingManwon * 10_000) : parsePriceBandToWon(priceBandStr);
+      const capRateRaw = Number(imPayload.grossYieldPct || 0);
+      const photoUrl =
+        extractPhotoFromImItem(imPayload) || realPhotoByBuildingId.get(wsKey) || null;
+
+      buildings.push({
+        id: wsKey,
+        title,
+        building_name: title,
+        address: addr,
+        dong: addr,
+        sale_price: salePriceWon,
+        price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
+        cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
+        photo_url: photoUrl,
+        status: wsStatus,
+        updated_at: ws.updatedAt || null,
+      });
+    }
+  }
 
   // 3. Merge customImByBuildingId entries that were not in building_ssot_lite rows
   for (const [bId, entry] of customImByBuildingId.entries()) {

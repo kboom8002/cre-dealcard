@@ -17,9 +17,10 @@ interface PriceTrendChartProps {
   className?: string;
 }
 
-const CHART_WIDTH  = 280;
-const CHART_HEIGHT = 100;
-const PADDING = { top: 12, right: 12, bottom: 28, left: 52 };
+const CHART_WIDTH  = 340;
+const CHART_HEIGHT = 150;
+// WP-7.3D: labels are ≥14px (no sub-14px text), so the chart canvas/padding were widened.
+const PADDING = { top: 16, right: 60, bottom: 34, left: 72 };
 
 function formatPrice(krw: number): string {
   if (krw >= 1_000_000) return `${(krw / 1_000_000).toFixed(0)}백만`;
@@ -71,7 +72,7 @@ export function PriceTrendChart({ transactions, targetPricePerSqm, className = "
 
   return (
     <div className={`price-trend-chart ${className}`} style={{ overflowX: "auto" }}>
-      <p style={{ fontSize: "0.75rem", color: "var(--text-secondary, #888)", marginBottom: "4px" }}>
+      <p style={{ fontSize: "0.875rem", color: "#334155", marginBottom: "4px" }}>
         ㎡당 시세 추이 (인근 실거래)
       </p>
       <svg
@@ -102,7 +103,7 @@ export function PriceTrendChart({ transactions, targetPricePerSqm, className = "
         />
         <text
           x={PADDING.left + innerW + 2} y={targetY + 4}
-          fontSize="9" fill="#ef4444" textAnchor="start"
+          fontSize="14" fill="#dc2626" textAnchor="start"
         >
           본 자산
         </text>
@@ -129,13 +130,13 @@ export function PriceTrendChart({ transactions, targetPricePerSqm, className = "
         {/* X축 레이블 (첫/마지막) */}
         <text
           x={toX(0)} y={CHART_HEIGHT - 6}
-          fontSize="9" fill="currentColor" opacity="0.6" textAnchor="middle"
+          fontSize="14" fill="currentColor" opacity="0.8" textAnchor="middle"
         >
           {firstLabel}
         </text>
         <text
           x={toX(sorted.length - 1)} y={CHART_HEIGHT - 6}
-          fontSize="9" fill="currentColor" opacity="0.6" textAnchor="middle"
+          fontSize="14" fill="currentColor" opacity="0.8" textAnchor="middle"
         >
           {lastLabel}
         </text>
@@ -143,18 +144,18 @@ export function PriceTrendChart({ transactions, targetPricePerSqm, className = "
         {/* Y축 레이블 (첫/마지막 데이터 포인트 가격) */}
         <text
           x={PADDING.left - 4} y={toY(sorted[0].pricePerSqm) + 4}
-          fontSize="9" fill="currentColor" opacity="0.55" textAnchor="end"
+          fontSize="14" fill="currentColor" opacity="0.8" textAnchor="end"
         >
           {firstPrice}
         </text>
         <text
           x={PADDING.left - 4} y={toY(sorted[sorted.length - 1].pricePerSqm) + 4}
-          fontSize="9" fill="currentColor" opacity="0.55" textAnchor="end"
+          fontSize="14" fill="currentColor" opacity="0.8" textAnchor="end"
         >
           {lastPrice}
         </text>
       </svg>
-      <p style={{ fontSize: "0.7rem", color: "var(--text-secondary, #888)", marginTop: "2px" }}>
+      <p style={{ fontSize: "0.875rem", color: "#334155", marginTop: "2px" }}>
         ※ 인근 유사 거래 {sorted.length}건 기준 | 빨간 점선: 본 자산 ㎡당 단가
       </p>
     </div>

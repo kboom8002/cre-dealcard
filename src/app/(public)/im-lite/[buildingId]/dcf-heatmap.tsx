@@ -27,22 +27,22 @@ function formatIrr(irr: number | null): string {
   return `${irr.toFixed(1)}%`;
 }
 
-/** NPV 기반 셀 배경색 (Tailwind 클래스) */
+/** NPV 기반 셀 배경색 (Tailwind 클래스 — D3 Daylight) */
 function getCellColor(npv: number): string {
   if (npv > 0) {
     // 양수: emerald 계열, 크기에 따라 채도 차등
     return npv > 5e8
-      ? "bg-emerald-900/60 text-emerald-200"
-      : "bg-emerald-900/35 text-emerald-300";
+      ? "bg-[#D1FAE5] text-[#065F46]"
+      : "bg-[#ECFDF5] text-[#047857]";
   }
   if (npv < 0) {
     // 음수: rose 계열
     return npv < -5e8
-      ? "bg-rose-900/60 text-rose-200"
-      : "bg-rose-900/35 text-rose-300";
+      ? "bg-[#FFE4E6] text-[#991B1B]"
+      : "bg-[#FFF1F2] text-[#BE123C]";
   }
   // 0 근방: amber
-  return "bg-amber-900/40 text-amber-300";
+  return "bg-[#FEF3C7] text-[#92400E]";
 }
 
 export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
@@ -76,41 +76,41 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
   if (sensitivityMatrix.length !== 9) return null;
 
   return (
-    <div className="rounded-xl bg-neutral-900 p-4">
+    <div className="rounded-xl bg-white border border-[#CBD5E1] p-4 shadow-2xs">
       {/* 타이틀 */}
-      <h3 className="mb-1 text-sm font-semibold text-white">
+      <h3 className="mb-1 text-base font-extrabold text-[#0F172A]">
         📊 10년 DCF 민감도 분석
       </h3>
-      <p className="mb-3 text-xs text-neutral-400">
+      <p className="mb-3 text-sm text-[#475569]">
         WACC {waccPct}% 기준 | 할인율 × 임대료 상승률
       </p>
 
       {/* 히트맵 테이블 */}
       <div className="overflow-x-auto -mx-1">
-        <table className="w-full min-w-[280px] border-collapse text-center text-xs">
+        <table className="w-full min-w-[280px] border-collapse text-center text-sm">
           <thead>
             <tr>
-              <th className="p-1 text-xs font-normal text-neutral-500">
+              <th className="p-1.5 text-sm font-semibold text-[#64748B]">
                 할인율 ＼ 상승률
               </th>
               {capLabels.map((label, i) => (
                 <th
                   key={i}
-                  className={`p-1 text-xs font-medium ${
-                    i === 1 ? "text-sky-400" : "text-neutral-400"
+                  className={`p-1.5 text-sm font-bold ${
+                    i === 1 ? "text-[#1D4ED8]" : "text-[#475569]"
                   }`}
                 >
                   {label}
                   {i === 0 && (
-                    <span className="block text-[8px] text-neutral-600">
+                    <span className="block text-sm font-normal text-[#64748B]">
                       −50bp
                     </span>
                   )}
                   {i === 1 && (
-                    <span className="block text-[8px] text-sky-600">Base</span>
+                    <span className="block text-sm font-semibold text-[#1D4ED8]">Base</span>
                   )}
                   {i === 2 && (
-                    <span className="block text-[8px] text-neutral-600">
+                    <span className="block text-sm font-normal text-[#64748B]">
                       +50bp
                     </span>
                   )}
@@ -123,18 +123,18 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
               <tr key={ri}>
                 {/* 행 헤더: 할인율 */}
                 <td
-                  className={`p-1 text-xs font-medium whitespace-nowrap ${
-                    ri === 1 ? "text-sky-400" : "text-neutral-400"
+                  className={`p-1.5 text-sm font-bold whitespace-nowrap ${
+                    ri === 1 ? "text-[#1D4ED8]" : "text-[#475569]"
                   }`}
                 >
                   {drLabels[ri]}
-                  <span className="block text-[8px]">
+                  <span className="block text-sm font-normal">
                     {ri === 0 ? (
-                      <span className="text-neutral-600">−1%p</span>
+                      <span className="text-[#64748B]">−1%p</span>
                     ) : ri === 1 ? (
-                      <span className="text-sky-600">Base</span>
+                      <span className="font-semibold text-[#1D4ED8]">Base</span>
                     ) : (
-                      <span className="text-neutral-600">+1%p</span>
+                      <span className="text-[#64748B]">+1%p</span>
                     )}
                   </span>
                 </td>
@@ -144,16 +144,16 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
                   return (
                     <td
                       key={ci}
-                      className={`p-1.5 rounded-md ${getCellColor(cell.npv)} ${
+                      className={`p-2 rounded-md border border-white ${getCellColor(cell.npv)} ${
                         isCenter
-                          ? "ring-2 ring-sky-500/70 ring-offset-1 ring-offset-neutral-900"
+                          ? "ring-2 ring-[#1D4ED8] ring-offset-1 ring-offset-white"
                           : ""
                       }`}
                     >
-                      <div className="text-[11px] font-semibold leading-tight">
+                      <div className="text-sm font-bold leading-tight tabular-nums">
                         {formatBil(cell.npv)}
                       </div>
-                      <div className="mt-0.5 text-[9px] opacity-75">
+                      <div className="mt-0.5 text-sm opacity-90 tabular-nums">
                         IRR {formatIrr(cell.irr)}
                       </div>
                     </td>
@@ -166,27 +166,27 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
       </div>
 
       {/* 범례 */}
-      <div className="mt-3 flex items-center gap-3 text-xs text-neutral-500">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-emerald-600" />
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-[#475569]">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#059669]" />
           NPV &gt; 0
         </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-amber-600" />
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#D97706]" />
           NPV ≈ 0
         </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-rose-600" />
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#E11D48]" />
           NPV &lt; 0
         </span>
-        <span className="ml-auto flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm ring-1 ring-sky-500" />
+        <span className="ml-auto flex items-center gap-1.5 font-semibold text-[#1D4ED8]">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-[#1D4ED8]" />
           Base
         </span>
       </div>
 
       {/* 면책 */}
-      <p className="mt-2 text-[9px] leading-relaxed text-neutral-600">
+      <p className="mt-2 text-sm leading-relaxed text-[#64748B]">
         ※ AI 추정값으로 참고용입니다. 실제 수익률은 임대차 조건, 공실률, 금리,
         세금 등에 따라 상이할 수 있습니다.
       </p>

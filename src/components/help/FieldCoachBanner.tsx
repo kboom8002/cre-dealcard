@@ -110,7 +110,7 @@ export function FieldCoachBanner({
               type="button"
               onClick={handleAction}
               data-testid="field-coach-sample-btn"
-              className={`px-3.5 py-2 min-h-[40px] rounded-xl text-[14px] font-black transition-all cursor-pointer shadow-2xs ${
+              className={`px-3.5 py-2 min-h-[44px] min-w-[44px] rounded-xl text-[14px] font-black transition-all cursor-pointer shadow-2xs ${
                 isCopied
                   ? "bg-emerald-700 text-white border border-emerald-800"
                   : "bg-amber-400 hover:bg-amber-500 text-slate-950 border border-amber-500/60"
@@ -129,7 +129,7 @@ export function FieldCoachBanner({
             type="button"
             onClick={() => setIsMistakeOpen((prev) => !prev)}
             aria-expanded={isMistakeOpen}
-            className="w-full flex items-center justify-between text-left cursor-pointer font-black text-[14px] text-amber-950 hover:text-amber-800"
+            className="w-full min-h-[44px] flex items-center justify-between text-left cursor-pointer font-black text-[14px] text-amber-950 hover:text-amber-800"
           >
             <span>⚠️ 잠깐! 자주 하는 실수</span>
             <span className="text-[14px] font-bold text-slate-700 bg-amber-100 px-2 py-0.5 rounded-md">

@@ -144,7 +144,7 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     }
 
     expect(readyRow?.textContent).toContain("마포구 서교동 근린생활시설");
-    expect(q(container, "dealcard-item-dc-ready-1-date")?.textContent).toMatch(/오전|오후/);
+    expect(q(container, "dealcard-item-dc-ready-1-date")?.textContent).toMatch(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     expect(q(container, "dealcard-status-badge-dc-ready-1")?.textContent).toBe("준비 완료");
     expect(q(container, "dealcard-status-badge-dc-owner-2")?.textContent).toBe("작성 중");
     expect(q(container, "dealcard-status-badge-dc-ready-1")?.getAttribute("title")).toContain(
@@ -189,9 +189,10 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     expect(q(container, "dealcard-status-badge-dc-ready-1")?.textContent).toBe("준비 완료");
 
     const readyRow = q(container, "dealcard-item-dc-ready-1");
+    expect(readyRow?.querySelector('[data-testid="ws-list-thumbnail"]')).not.toBeNull();
+    // WP-7.4C P1-2: draft items render the built-in placeholder without firing 404 /api/og/deal/... <img> requests
     const thumbImg = readyRow?.querySelector('[data-testid="ws-list-thumbnail"] img');
-    expect(thumbImg?.getAttribute("src")).toBe("/api/og/deal/dc-ready-1/kakao-v2");
-    expect(thumbImg?.getAttribute("loading")).toBe("lazy");
+    expect(thumbImg).toBeNull();
 
     // No duplicated action testids in 자세히 mode
     expect(q(container, "ws-selected-item-actions")).toBeNull();

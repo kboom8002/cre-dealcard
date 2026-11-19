@@ -445,7 +445,7 @@ export function ImDataBottomSheet({
             <h2 id="bottom-sheet-title" className="text-xl font-black text-foreground tracking-tight">
               {'📊 투자설명서(IM) 만들기'}
             </h2>
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
               💾 입력하신 금액·임대차 내역은 창을 닫아도 자동 저장됩니다
             </p>
           </div>
@@ -454,7 +454,7 @@ export function ImDataBottomSheet({
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.96 }}
             onClick={onClose}
-            className="px-3.5 py-2 rounded-xl border border-border bg-secondary/70 text-sm font-extrabold text-muted-foreground hover:text-foreground transition-colors"
+            className="min-h-[44px] px-4 py-2 rounded-xl border border-border bg-secondary/70 text-sm font-extrabold text-muted-foreground hover:text-foreground transition-colors"
           >
             ✕ 닫기
           </motion.button>
@@ -476,7 +476,7 @@ export function ImDataBottomSheet({
                   setActiveStepTab(step.id);
                   document.getElementById(step.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
-                className={`relative py-2.5 px-2 rounded-xl text-xs sm:text-sm font-extrabold transition-colors text-center truncate ${
+                className={`relative min-h-[44px] py-2.5 px-2 rounded-xl text-sm font-extrabold transition-colors text-center truncate ${
                   isActive ? "text-primary" : "text-foreground/80 hover:text-foreground"
                 }`}
               >
@@ -549,7 +549,7 @@ export function ImDataBottomSheet({
                   className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-xl shadow-2xl max-h-60 overflow-y-auto z-[100] divide-y divide-border/50"
                 >
                   {isSearching && (
-                    <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                    <div className="p-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                       <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -569,22 +569,22 @@ export function ImDataBottomSheet({
                           {String(result.roadAddr || result.jibunAddr || "")}
                         </p>
                         {(result.pnu || result.bdMgtSn) ? (
-                          <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 shrink-0">
+                          <span className="text-sm font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 shrink-0">
                             대장연동 가능 (PNU)
                           </span>
                         ) : null}
                       </div>
                       {result.jibunAddr && result.roadAddr ? (
-                        <p className="text-xs text-muted-foreground mt-0.5">지번: {String(result.jibunAddr)}</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">지번: {String(result.jibunAddr)}</p>
                       ) : null}
                       {result.bdNm ? (
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 font-semibold">건물명: {String(result.bdNm)}</p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400 mt-0.5 font-semibold">건물명: {String(result.bdNm)}</p>
                       ) : null}
                     </button>
                   ))}
 
                   {!isSearching && searchResults.length === 0 && (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
+                    <div className="p-4 text-center text-sm text-muted-foreground">
                       검색 결과가 없습니다. 번지(예: 당산동5가 11-47) 또는 도로명(예: 영신로 259)을 입력해 주세요.
                     </div>
                   )}
@@ -600,12 +600,12 @@ export function ImDataBottomSheet({
                     ✅ {address}
                   </span>
                   {pnu && (
-                    <span className="text-xs bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-md font-bold border border-emerald-500/30">
+                    <span className="text-sm bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-md font-bold border border-emerald-500/30">
                       ✓ 정부 토지·건축물대장 연결 완료
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80 font-medium">
+                <p className="text-sm text-emerald-700/80 dark:text-emerald-400/80 font-medium">
                   대지면적·용도지역·공시지가·실거래가가 제안서에 자동 반영됩니다.
                 </p>
               </div>
@@ -614,7 +614,7 @@ export function ImDataBottomSheet({
             {/* 주소 미입력 안내 */}
             {!address && !pnu && (
               <div className="mt-2 px-3.5 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl">
-                <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                   💡 주소를 검색하여 선택하시면 정부 건축물대장·토지대장이 자동으로 연결됩니다.
                 </p>
               </div>
@@ -647,10 +647,10 @@ export function ImDataBottomSheet({
 
             {/* Monthly Rent */}
           <div id="bs-step-2">
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
+            <label className="block text-sm font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
               <span>💰 월 임대료 총액</span>
               {formatManwonToKorean(monthlyRent) && (
-                <span className="text-xs font-extrabold text-emerald-500">
+                <span className="text-sm font-extrabold text-emerald-500">
                   = 월 {formatManwonToKorean(monthlyRent)}
                 </span>
               )}
@@ -670,12 +670,12 @@ export function ImDataBottomSheet({
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
             </div>
             {monthlyRent && Number(monthlyRent) > 0 && (
-              <p className="text-xs text-emerald-500 mt-1.5 font-medium">
+              <p className="text-sm text-emerald-500 mt-1.5 font-medium">
                 ✅ 월 {Number(monthlyRent).toLocaleString()}만원 (연간 약 {formatManwonToKorean(Number(monthlyRent) * 12)})
               </p>
             )}
             {Boolean(prefillMonthlyRent && prefillMonthlyRent > 0) && monthlyRent === String(prefillMonthlyRent) && (
-              <span className="text-[10px] text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
+              <span className="text-sm text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
             )}
           </div>
 
@@ -683,10 +683,10 @@ export function ImDataBottomSheet({
             {/* Total Deposit */}
             {/* 보증금 — Basic에도 표시 */}
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
+                <label className="block text-sm font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
                   <span>🔒 보증금 총액</span>
                   {formatManwonToKorean(totalDeposit) && (
-                    <span className="text-[11px] font-bold text-emerald-500">
+                    <span className="text-sm font-bold text-emerald-500">
                       = {formatManwonToKorean(totalDeposit)}
                     </span>
                   )}
@@ -703,22 +703,22 @@ export function ImDataBottomSheet({
                   placeholder="예: 30000"
                   className={getFieldClass('totalDeposit', 'w-full bg-secondary/50 border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
               </div>
               {totalDeposit && Number(totalDeposit) > 0 && (
-                <p className="text-xs text-emerald-500 mt-1 font-medium">
+                <p className="text-sm text-emerald-500 mt-1 font-medium">
                   ✅ {formatManwonToKorean(totalDeposit)}
                 </p>
               )}
               {Boolean(prefillTotalDeposit && prefillTotalDeposit > 0) && totalDeposit === String(prefillTotalDeposit) && (
-                <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
+                <span className="text-sm text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
 
             {/* Mgmt Fee */}
             {stage === 'pro' && (
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+              <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
                 🧹 관리비 총액
               </label>
               <div className="relative">
@@ -733,7 +733,7 @@ export function ImDataBottomSheet({
                   placeholder="예: 50"
                   className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
               </div>
             </div>
             )}
@@ -741,7 +741,7 @@ export function ImDataBottomSheet({
             {/* Asking Price */}
             <div className={stage === 'basic' ? 'col-span-2' : ''}>
               <div className="flex justify-between items-center mb-1.5">
-                <label htmlFor="input-asking-price" className="block text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                <label htmlFor="input-asking-price" className="block text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <span>💰 매각 희망가</span>
                   {formatManwonToKorean(askingPrice) && (
                     <span className="text-sm font-extrabold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">
@@ -758,14 +758,14 @@ export function ImDataBottomSheet({
                     }
                     setShowYieldCalc((prev) => !prev);
                   }}
-                  className="text-xs font-semibold text-primary hover:underline px-2 py-0.5 rounded bg-primary/10"
+                  className="min-h-[44px] text-sm font-semibold text-primary hover:underline px-3 py-1.5 rounded-lg bg-primary/10"
                 >
                   {showYieldCalc ? "역산 닫기 ▲" : "🧮 수익률로 역산"}
                 </button>
               </div>
               {showYieldCalc && (
                 <div className="mb-2 p-2.5 rounded-xl bg-secondary/60 border border-primary/30 space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">
+                  <p className="text-sm text-muted-foreground font-medium">
                     목표 수익률을 누르면 월 임대료·보증금 기준으로 매각 희망가가 자동 계산됩니다:
                   </p>
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -774,7 +774,7 @@ export function ImDataBottomSheet({
                         key={rate}
                         type="button"
                         onClick={() => applyReverseYield(rate)}
-                        className="px-2.5 py-1 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 text-xs font-bold transition-colors"
+                        className="min-h-[44px] px-3 py-2 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 text-sm font-bold transition-colors"
                       >
                         {rate.toFixed(1)}%
                       </button>
@@ -787,14 +787,14 @@ export function ImDataBottomSheet({
                         max="30"
                         value={customYieldInput}
                         onChange={(e) => setCustomYieldInput(e.target.value)}
-                        className="w-16 bg-background border border-border rounded px-2 py-1 text-xs text-foreground"
+                        className="w-16 bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
                         aria-label="직접 입력 수익률(%)"
                       />
-                      <span className="text-xs text-muted-foreground">%</span>
+                      <span className="text-sm text-muted-foreground">%</span>
                       <button
                         type="button"
                         onClick={() => applyReverseYield( parseFloat(customYieldInput || "0") )}
-                        className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
+                        className="min-h-[44px] px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold"
                       >
                         적용
                       </button>
@@ -815,11 +815,11 @@ export function ImDataBottomSheet({
                   placeholder="예: 250000"
                   className={getFieldClass('askingPrice', 'w-full bg-secondary/50 border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
               </div>
               {/* 빠른 금액 입력 버튼 — 0 개수 실수 방지 */}
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className="text-[11px] text-muted-foreground mr-1">빠른 합산:</span>
+                <span className="text-sm text-muted-foreground mr-1">빠른 합산:</span>
                 {[
                   { label: "+100억", add: 1000000 },
                   { label: "+10억", add: 100000 },
@@ -833,7 +833,7 @@ export function ImDataBottomSheet({
                       const cur = Number(askingPrice) || 0;
                       setAskingPrice(String(cur + btn.add));
                     }}
-                    className="px-2 py-1 rounded-md bg-secondary hover:bg-secondary/80 border border-border text-xs font-semibold text-foreground transition-colors"
+                    className="min-h-[44px] px-3 py-2 rounded-md bg-secondary hover:bg-secondary/80 border border-border text-sm font-semibold text-foreground transition-colors"
                   >
                     {btn.label}
                   </button>
@@ -842,7 +842,7 @@ export function ImDataBottomSheet({
                   <button
                     type="button"
                     onClick={() => setAskingPrice("")}
-                    className="px-2 py-1 rounded-md bg-secondary/40 hover:bg-rose-500/15 text-xs text-muted-foreground hover:text-rose-400 transition-colors ml-auto"
+                    className="min-h-[44px] px-3 py-2 rounded-md bg-secondary/40 hover:bg-rose-500/15 text-sm text-muted-foreground hover:text-rose-400 transition-colors ml-auto"
                   >
                     초기화
                   </button>
@@ -857,7 +857,7 @@ export function ImDataBottomSheet({
                 const v04Yield = netPrice > 0 ? ((rent * 12) / netPrice) * 100 : null;
                 const simpleYield = ((rent * 12) / price) * 100;
                 return (
-                  <p className="mt-1.5 text-xs text-primary/90 font-medium">
+                  <p className="mt-1.5 text-sm text-primary/90 font-medium">
                     📊 임대수익률(보증금 차감):{" "}
                     <strong>{v04Yield != null ? `${v04Yield.toFixed(2)}%` : `${simpleYield.toFixed(2)}%`}</strong>
                     <span className="text-muted-foreground ml-1.5">
@@ -867,18 +867,18 @@ export function ImDataBottomSheet({
                 );
               })()}
               {Boolean(prefillAskingPrice && prefillAskingPrice > 0) && askingPrice === String(prefillAskingPrice) && (
-                <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
+                <span className="text-sm text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
 
             {/* 주차 / 승강기 대수 (선택) — 건축물대장 값이 우선, 대장 값이 없을 때만 보완 (D4) */}
             <details className="rounded-lg border border-border bg-secondary/20 px-3 py-2">
-              <summary className="cursor-pointer select-none text-xs font-semibold text-muted-foreground">
+              <summary className="cursor-pointer select-none text-sm font-semibold text-muted-foreground">
                 주차 · 승강기 대수 (선택)
               </summary>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">주차 대수</label>
+                  <label className="block text-sm text-muted-foreground mb-1">주차 대수</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -891,11 +891,11 @@ export function ImDataBottomSheet({
                       placeholder="예: 14"
                       className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-8 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">대</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">대</span>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1">승강기 대수</label>
+                  <label className="block text-sm text-muted-foreground mb-1">승강기 대수</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -908,11 +908,11 @@ export function ImDataBottomSheet({
                       placeholder="예: 1"
                       className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-8 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">대</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">대</span>
                   </div>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">건축물대장 값이 있으면 대장 값이 우선 적용됩니다</p>
+              <p className="mt-2 text-sm text-muted-foreground">건축물대장 값이 있으면 대장 값이 우선 적용됩니다</p>
             </details>
 
             {/* 유사 건물 실거래가 (Pro IM 전용) */}
@@ -1022,14 +1022,14 @@ export function ImDataBottomSheet({
                       return next;
                     });
                   }}
-                  className="text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-md font-bold transition-colors"
+                  className="min-h-[44px] text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-2 rounded-md font-bold transition-colors"
                 >
                   ⚡ 미입력 캡션 자동 채우기
                 </button>
-                <span className="text-xs text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">⭐ 표지·외관 사진 지정</span>
+                <span className="text-sm text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">⭐ 표지·외관 사진 지정</span>
               </div>
             </label>
-            <p className="text-xs text-muted-foreground mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
               사진 상단의 <b className="text-amber-600 dark:text-amber-500">★ 대표</b>(물건 개요·표지 대표 사진), <b className="text-blue-600 dark:text-blue-500">🏢 외관</b> 버튼을 눌러 지정하세요. 7~12장 등록 시 현장 사진이 2면으로 자동 확장됩니다.
             </p>
             <div className="flex gap-3 overflow-x-auto pb-2.5 snap-x">
@@ -1037,22 +1037,22 @@ export function ImDataBottomSheet({
               {existingUrls.map((url, idx) => {
                 const isRenderableUrl = Boolean(url && (/^(https?:\/\/|\/|data:|blob:)/i.test(url)));
                 return (
-                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-28">
-                  <div className="relative w-28 h-28">
+                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-36">
+                  <div className="relative w-36 h-32">
                     {isRenderableUrl ? (
-                      <img src={url} alt={`매물 사진 ${idx + 1}`} className="w-28 h-28 object-cover rounded-lg border border-border" />
+                      <img src={url} alt={`매물 사진 ${idx + 1}`} className="w-36 h-32 object-cover rounded-lg border border-border" />
                     ) : (
-                      <div className="w-28 h-28 rounded-lg border border-border bg-secondary/50 flex flex-col items-center justify-center text-muted-foreground pt-4">
+                      <div className="w-36 h-32 rounded-lg border border-border bg-secondary/50 flex flex-col items-center justify-center text-muted-foreground pt-4">
                         <span className="text-xl">🏢</span>
-                        <span className="text-[11px] font-semibold mt-0.5">등록 사진 {idx + 1}</span>
+                        <span className="text-sm font-semibold mt-0.5">등록 사진 {idx + 1}</span>
                       </div>
                     )}
-                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">기존</span>
+                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-sm px-1.5 py-0.5 rounded font-bold">기존</span>
                     <button
                       type="button"
                       title="대표 사진으로 지정"
                       onClick={() => setHeroPhotoIndex(idx)}
-                      className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-slate-950' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                      className={`absolute top-1 left-1 px-2 min-h-[44px] min-w-[44px] rounded-md flex items-center justify-center text-sm font-bold shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-slate-950' : 'bg-black/70 text-white hover:bg-black/85'}`}
                     >
                       ★ 대표
                     </button>
@@ -1060,7 +1060,7 @@ export function ImDataBottomSheet({
                       type="button"
                       title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
                       onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === idx ? null : idx)}
-                      className={`absolute top-1 left-12 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-600 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                      className={`absolute bottom-1 right-1 px-2 min-h-[44px] min-w-[44px] rounded-md flex items-center justify-center text-sm font-bold shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-600 text-white' : 'bg-black/70 text-white hover:bg-black/85'}`}
                     >
                       🏢 외관
                     </button>
@@ -1069,7 +1069,7 @@ export function ImDataBottomSheet({
                       onClick={() => {
                         setExistingUrls(prev => prev.filter((_, i) => i !== idx));
                       }}
-                      className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
+                      className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full min-w-[44px] min-h-[44px] flex items-center justify-center text-base font-bold shadow"
                     >
                       ×
                     </button>
@@ -1078,7 +1078,7 @@ export function ImDataBottomSheet({
                     data-testid={`photo-category-${idx}`}
                     value={photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')}
                     onChange={(e) => setPhotoCategories(prev => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
+                    className="w-36 min-h-[44px] text-sm px-2 py-1.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
                   >
                     <option value="exterior">외관 전경</option>
                     <option value="lobby">1층 로비</option>
@@ -1098,27 +1098,27 @@ export function ImDataBottomSheet({
                     list={`photo-caption-presets-${idx}`}
                     value={photoCaptions[idx] || ''}
                     onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    className="w-36 min-h-[44px] text-sm px-2 py-1.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none"
                   />
                   <datalist id={`photo-caption-presets-${idx}`}>
                     {getPhotoCaptionPresets(photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')).map((opt) => (
                       <option key={opt} value={opt} />
                     ))}
                   </datalist>
-                  <div className="w-28 flex overflow-x-auto no-scrollbar gap-1 py-0.5">
+                  <div className="w-36 flex overflow-x-auto no-scrollbar gap-1 py-0.5">
                     {getPhotoCaptionPresets(photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')).map((chip) => (
                       <button
                         key={chip}
                         type="button"
                         onClick={() => setPhotoCaptions(prev => ({ ...prev, [idx]: chip }))}
-                        className="shrink-0 text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
+                        className="shrink-0 min-h-[44px] text-sm leading-tight px-2.5 py-1.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
                       >
                         {chip}
                       </button>
                     ))}
                   </div>
                   <input type="hidden"
-                    className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    className="w-36 min-h-[44px] text-sm px-2 py-1.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none"
                   />
                 </div>
                 );
@@ -1128,15 +1128,15 @@ export function ImDataBottomSheet({
               {photoPreviewUrls.map((url, idx) => {
                 const totalIdx = existingUrls.length + idx;
                 return (
-                  <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-28">
-                    <div className="relative w-28 h-28">
-                      <img src={url} alt={`Preview ${idx}`} className="w-28 h-28 object-cover rounded-lg border border-border" />
-                      <span className="absolute bottom-1 left-1 bg-indigo-600/90 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">신규</span>
+                  <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-36">
+                    <div className="relative w-36 h-32">
+                      <img src={url} alt={`Preview ${idx}`} className="w-36 h-32 object-cover rounded-lg border border-border" />
+                      <span className="absolute bottom-1 left-1 bg-indigo-600/90 text-white text-sm px-1.5 py-0.5 rounded font-bold">신규</span>
                       <button
                         type="button"
                         title="대표 사진으로 지정"
                         onClick={() => setHeroPhotoIndex(totalIdx)}
-                        className={`absolute top-1 left-1 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-slate-950' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                        className={`absolute top-1 left-1 px-2 min-h-[44px] min-w-[44px] rounded-md flex items-center justify-center text-sm font-bold shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-slate-950' : 'bg-black/70 text-white hover:bg-black/85'}`}
                       >
                         ★ 대표
                       </button>
@@ -1144,7 +1144,7 @@ export function ImDataBottomSheet({
                         type="button"
                         title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
                         onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === totalIdx ? null : totalIdx)}
-                        className={`absolute top-1 left-12 px-1.5 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shadow transition-colors ${exteriorPhotoIndex === totalIdx ? 'bg-blue-500 text-white' : 'bg-black/65 text-white/90 hover:bg-black/80'}`}
+                        className={`absolute bottom-1 right-1 px-2 min-h-[44px] min-w-[44px] rounded-md flex items-center justify-center text-sm font-bold shadow transition-colors ${exteriorPhotoIndex === totalIdx ? 'bg-blue-600 text-white' : 'bg-black/70 text-white hover:bg-black/85'}`}
                       >
                         🏢 외관
                       </button>
@@ -1167,7 +1167,7 @@ export function ImDataBottomSheet({
                           });
                           setPhotoCaptions(newCaptions);
                         }}
-                        className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
+                        className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full min-w-[44px] min-h-[44px] flex items-center justify-center text-base font-bold shadow"
                       >
                         ×
                       </button>
@@ -1176,7 +1176,7 @@ export function ImDataBottomSheet({
                       data-testid={`photo-category-${totalIdx}`}
                       value={photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')}
                       onChange={(e) => setPhotoCategories(prev => ({ ...prev, [totalIdx]: e.target.value }))}
-                      className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
+                      className="w-36 min-h-[44px] text-sm px-2 py-1.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
                     >
                       <option value="exterior">외관 전경</option>
                       <option value="lobby">1층 로비</option>
@@ -1196,27 +1196,27 @@ export function ImDataBottomSheet({
                       list={`photo-caption-presets-${totalIdx}`}
                       value={photoCaptions[totalIdx] || ''}
                       onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: e.target.value }))}
-                      className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                      className="w-36 min-h-[44px] text-sm px-2 py-1.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none"
                     />
                     <datalist id={`photo-caption-presets-${totalIdx}`}>
                       {getPhotoCaptionPresets(photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')).map((opt) => (
                         <option key={opt} value={opt} />
                       ))}
                     </datalist>
-                    <div className="w-28 flex overflow-x-auto no-scrollbar gap-1 py-0.5">
+                    <div className="w-36 flex overflow-x-auto no-scrollbar gap-1 py-0.5">
                       {getPhotoCaptionPresets(photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')).map((chip) => (
                         <button
                           key={chip}
                           type="button"
                           onClick={() => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: chip }))}
-                          className="shrink-0 text-[10px] leading-tight px-1.5 py-0.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
+                          className="shrink-0 min-h-[44px] text-sm leading-tight px-2.5 py-1.5 rounded bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
                         >
                           {chip}
                         </button>
                       ))}
                     </div>
                     <input type="hidden"
-                      className="w-28 text-xs px-1.5 py-1 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                      className="w-36 min-h-[44px] text-sm px-2 py-1.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none"
                     />
                   </div>
                 );
@@ -1226,10 +1226,10 @@ export function ImDataBottomSheet({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-28 h-28 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
+                  className="w-36 h-32 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
                 >
                   <span className="text-2xl leading-none mb-1">+</span>
-                  <span className="text-xs font-semibold">사진 추가</span>
+                  <span className="text-sm font-semibold">사진 추가</span>
                 </button>
               )}
             </div>
@@ -1259,117 +1259,117 @@ export function ImDataBottomSheet({
           {stage === 'pro' && (assetType?.includes("물류") || assetType?.toLowerCase().includes("logistics")) && (
             <div className="border border-border/80 rounded-xl p-4 bg-secondary/20 space-y-4">
               <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-xs font-bold text-foreground">🏗️ 물류센터 상세 스펙</span>
-                <span className="text-[10px] text-muted-foreground">정밀한 분석을 위해 수동 입력을 권장합니다.</span>
+                <span className="text-sm font-bold text-foreground">🏗️ 물류센터 상세 스펙</span>
+                <span className="text-sm text-muted-foreground">정밀한 분석을 위해 수동 입력을 권장합니다.</span>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 {/* 1. 건물 스펙 */}
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-1">기본 제원</div>
+                <div className="col-span-2 text-sm font-bold text-muted-foreground/80 mt-1">기본 제원</div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">천장고 (m)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">천장고 (m)</label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="예: 10.5"
                     value={ceilingHeight}
                     onChange={(e) => setCeilingHeight(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">기둥 간격 (m)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">기둥 간격 (m)</label>
                   <input
                     type="text"
                     placeholder="예: 10x12"
                     value={columnSpan}
                     onChange={(e) => setColumnSpan(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">바닥 하중 (ton/㎡)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">바닥 하중 (ton/㎡)</label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="예: 5.0"
                     value={floorLoadTon}
                     onChange={(e) => setFloorLoadTon(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">전기 용량 (kW)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">전기 용량 (kW)</label>
                   <input
                     type="number"
                     placeholder="예: 500"
                     value={powerCapacity}
                     onChange={(e) => setPowerCapacity(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
 
                 {/* 2. 도크/하역 */}
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">도크 및 접안</div>
+                <div className="col-span-2 text-sm font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">도크 및 접안</div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">도크 수</label>
+                  <label className="block text-sm text-muted-foreground mb-1">도크 수</label>
                   <input
                     type="number"
                     placeholder="예: 24"
                     value={dockCount}
                     onChange={(e) => setDockCount(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">도크 레벨러 수</label>
+                  <label className="block text-sm text-muted-foreground mb-1">도크 레벨러 수</label>
                   <input
                     type="number"
                     placeholder="예: 12"
                     value={dockLevelerCount}
                     onChange={(e) => setDockLevelerCount(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">최대 접안 차량 (톤)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">최대 접안 차량 (톤)</label>
                   <input
                     type="number"
                     placeholder="예: 25"
                     value={maxVehicleTon}
                     onChange={(e) => setMaxVehicleTon(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">하역장 면적 (평)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">하역장 면적 (평)</label>
                   <input
                     type="number"
                     placeholder="예: 150"
                     value={loadingArea}
                     onChange={(e) => setLoadingArea(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
 
                 {/* 3. 냉동/냉장 */}
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">설비 및 보관</div>
+                <div className="col-span-2 text-sm font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">설비 및 보관</div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">냉동/냉장 면적 (평)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">냉동/냉장 면적 (평)</label>
                   <input
                     type="number"
                     placeholder="예: 500"
                     value={coldStorageArea}
                     onChange={(e) => setColdStorageArea(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">냉장 유형</label>
+                  <label className="block text-sm text-muted-foreground mb-1">냉장 유형</label>
                   <select
                     value={coldStorageType}
                     onChange={(e) => setColdStorageType(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   >
                     <option value="none">없음</option>
                     <option value="frozen">냉동 전용</option>
@@ -1378,11 +1378,11 @@ export function ImDataBottomSheet({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">차량 접근 방식</label>
+                  <label className="block text-sm text-muted-foreground mb-1">차량 접근 방식</label>
                   <select
                     value={vehicleAccessType}
                     onChange={(e) => setVehicleAccessType(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   >
                     <option value="dock">도크 접안</option>
                     <option value="ramp">램프 이동</option>
@@ -1390,18 +1390,18 @@ export function ImDataBottomSheet({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">내화 등급</label>
+                  <label className="block text-sm text-muted-foreground mb-1">내화 등급</label>
                   <input
                     type="text"
                     placeholder="예: 1급 내화"
                     value={fireRating}
                     onChange={(e) => setFireRating(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
 
                 {/* 4. 부대시설 및 안전 */}
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">소방 및 부대시설</div>
+                <div className="col-span-2 text-sm font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">소방 및 부대시설</div>
                 <div className="flex items-center gap-2 py-1">
                   <input
                     type="checkbox"
@@ -1410,7 +1410,7 @@ export function ImDataBottomSheet({
                     onChange={(e) => setSprinkler(e.target.checked)}
                     className="rounded border-border text-primary focus:ring-primary w-4 h-4 bg-background"
                   />
-                  <label htmlFor="sprinkler" className="text-xs text-muted-foreground cursor-pointer">스프링클러 작동 완료</label>
+                  <label htmlFor="sprinkler" className="text-sm text-muted-foreground cursor-pointer">스프링클러 작동 완료</label>
                 </div>
                 <div className="flex items-center gap-2 py-1">
                   <input
@@ -1420,42 +1420,42 @@ export function ImDataBottomSheet({
                     onChange={(e) => setHasOfficeSpace(e.target.checked)}
                     className="rounded border-border text-primary focus:ring-primary w-4 h-4 bg-background"
                   />
-                  <label htmlFor="hasOfficeSpace" className="text-xs text-muted-foreground cursor-pointer">사무공간 보유</label>
+                  <label htmlFor="hasOfficeSpace" className="text-sm text-muted-foreground cursor-pointer">사무공간 보유</label>
                 </div>
                 {hasOfficeSpace && (
                   <div className="col-span-2">
-                    <label className="block text-[10px] text-muted-foreground mb-1">사무공간 면적 (평)</label>
+                    <label className="block text-sm text-muted-foreground mb-1">사무공간 면적 (평)</label>
                     <input
                       type="number"
                       placeholder="예: 50"
                       value={officeArea}
                       onChange={(e) => setOfficeArea(e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                      className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                     />
                   </div>
                 )}
 
                 {/* 5. 고속도로 IC 정보 */}
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">교통 입지 (고속도로 IC)</div>
+                <div className="col-span-2 text-sm font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">교통 입지 (고속도로 IC)</div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">IC 명칭</label>
+                  <label className="block text-sm text-muted-foreground mb-1">IC 명칭</label>
                   <input
                     type="text"
                     placeholder="예: 성수IC"
                     value={icName}
                     onChange={(e) => setIcName(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">IC까지의 거리 (km)</label>
+                  <label className="block text-sm text-muted-foreground mb-1">IC까지의 거리 (km)</label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="예: 3.5"
                     value={distanceToIc}
                     onChange={(e) => setDistanceToIc(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -1548,7 +1548,7 @@ export function ImDataBottomSheet({
 
           {/* Comment */}
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
               📝 중개인 한줄 코멘트
             </label>
             <input
@@ -1574,7 +1574,7 @@ export function ImDataBottomSheet({
 
           {/* Error & CTA */}
           {state === "error" && (
-            <p className="text-xs text-rose-500 text-center mb-2">⚠️ {errorMsg}</p>
+            <p className="text-sm text-rose-500 text-center mb-2">⚠️ {errorMsg}</p>
           )}
           
           {state === "success" ? (

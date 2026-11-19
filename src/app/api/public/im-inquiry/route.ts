@@ -11,7 +11,11 @@ import { createNotification } from "@/lib/notifications/in-app";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { normalizeKoreanMobilePhone } from "@/domain/identity/gate-schema";
 import { getInboxState, getQuickImRecord, isUuid } from "@/lib/im-lite/quick-generate-store";
-import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+import {
+  isBuildingShareLinkRevoked,
+  isBuildingShareLinkRevokedAsync,
+} from "@/lib/security/share-link-tokens";
+import { getPublicWorkspaceProjection } from "@/lib/workspace/workspace-repository";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('im-inquiry-route');
@@ -34,7 +38,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const rawBuildingId = String(body?.building_id ?? body?.buildingId ?? "").trim();
     const docId = typeof body?.doc_id === "string" && body.doc_id.trim() ? body.doc_id.trim() : null;
-    const clientBrokerId = String(body?.broker_user_id ?? body?.brokerUserId ?? "").trim();
     const cleanName = String(body?.requester_name ?? body?.name ?? "").trim();
     const rawPhone = String(body?.requester_phone ?? body?.phone ?? "").trim();
     const cleanEmail =
@@ -48,7 +51,11 @@ export async function POST(req: NextRequest) {
         ? String(body?.message ?? body?.inquiryMessage).trim()
         : null;
 
-    if (body?.privacy_agreed === false) {
+    const consentAccepted =
+      body?.privacy_agreed === true ||
+      body?.privacyAgreed === true ||
+      body?.consent === true;
+    if (!consentAccepted) {
       return NextResponse.json(
         { ok: false, error: "개인정보 수집·이용에 동의해 주세요." },
         { status: 400 }
@@ -92,8 +99,12 @@ export async function POST(req: NextRequest) {
     }
 
     const quickRec = getQuickImRecord(rawBuildingId);
+    const supabase = createServiceClient();
+
+    const dbRevoked = await isBuildingShareLinkRevokedAsync(rawBuildingId, supabase).catch(() => false);
     if (
       isBuildingShareLinkRevoked(rawBuildingId) ||
+      dbRevoked ||
       Boolean(getInboxState().revokedBuildings?.[rawBuildingId]?.revoked) ||
       Boolean(quickRec?.isRevoked)
     ) {
@@ -102,8 +113,6 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
-
-    const supabase = createServiceClient();
 
     // 서버 측 소유 중개사 검증 및 위조(broker_user_id spoofing) 차단
     let buildingInfo: {
@@ -116,11 +125,36 @@ export async function POST(req: NextRequest) {
     } | null = null;
     let resolvedOwnerId = "";
 
-    if (isUuid(rawBuildingId)) {
+    const wsProj = await getPublicWorkspaceProjection(supabase, rawBuildingId).catch(() => null);
+    if (wsProj?.found) {
+      if (wsProj.revoked) {
+        return NextResponse.json(
+          { ok: false, error: "담당 중개인이 열람을 잠근 매물입니다." },
+          { status: 403 }
+        );
+      }
+      if (wsProj.deleted || !wsProj.projection) {
+        return NextResponse.json(
+          { ok: false, error: "비공개 또는 삭제된 매물입니다." },
+          { status: 404 }
+        );
+      }
+      if (wsProj.ownerId) {
+        resolvedOwnerId = String(wsProj.ownerId);
+      }
+    }
+
+    const linkedBuildingUuid =
+      wsProj?.projection?.buildingId && isUuid(wsProj.projection.buildingId)
+        ? wsProj.projection.buildingId
+        : null;
+    const buildingLookupUuid = isUuid(rawBuildingId) ? rawBuildingId : linkedBuildingUuid;
+
+    if (buildingLookupUuid) {
       const { data: bldRow } = await supabase
         .from("building_ssot_lite")
         .select("id, owner_id, status, area_signal, asset_type, address")
-        .eq("id", rawBuildingId)
+        .eq("id", buildingLookupUuid)
         .maybeSingle();
 
       if (bldRow?.status === "archived") {
@@ -130,7 +164,7 @@ export async function POST(req: NextRequest) {
         );
       }
       if (bldRow) {
-        buildingInfo = bldRow as any;
+        buildingInfo = bldRow;
         if (bldRow.owner_id) {
           resolvedOwnerId = String(bldRow.owner_id);
         }
@@ -165,14 +199,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (isUuid(rawBuildingId) && !buildingInfo && !quickRec) {
+    const isResolvedBuilding = Boolean(
+      buildingInfo || wsProj?.projection || quickRec || resolvedOwnerId
+    );
+    if (!isResolvedBuilding) {
       return NextResponse.json(
         { ok: false, error: "대상 매물 정보를 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    const effectiveBrokerId = resolvedOwnerId || clientBrokerId;
+    const effectiveBrokerId = resolvedOwnerId;
     if (!effectiveBrokerId) {
       return NextResponse.json(
         { ok: false, error: "담당 중개인 정보를 확인할 수 없습니다." },
@@ -252,7 +289,7 @@ export async function POST(req: NextRequest) {
 
     const buildingLabel = buildingInfo
       ? `${buildingInfo.area_signal || ""} ${buildingInfo.asset_type || "매물"}`.trim()
-      : quickRec?.buildingName || "매물";
+      : wsProj?.projection?.title || quickRec?.buildingName || "매물";
 
     // 2. 인앱 알림 전송 (담당 중개인에게 — 비차단)
     let notifSent = false;

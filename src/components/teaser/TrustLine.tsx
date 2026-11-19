@@ -57,7 +57,7 @@ function TrustLineBase({
   return (
     <div
       data-testid="public-dealcard-trustline"
-      className="bg-[#141A21] border border-[#252E39] rounded-2xl p-4 flex flex-col gap-3 shadow-lg"
+      className="bg-white border border-slate-300 rounded-2xl p-4 flex flex-col gap-3 shadow-xs text-slate-900"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -67,12 +67,12 @@ function TrustLineBase({
               <img
                 src={brokerAvatarUrl}
                 alt={safeBrokerName}
-                className="w-12 h-12 rounded-full object-cover border-2 border-amber-400/40 shadow-sm"
+                className="w-12 h-12 rounded-full object-cover border-2 border-blue-200 shadow-xs"
               />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600/70 flex items-center justify-center shadow-inner">
+              <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center shadow-inner">
                 <svg
-                  className="w-6 h-6 text-amber-300/80"
+                  className="w-6 h-6 text-slate-700"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
@@ -85,31 +85,31 @@ function TrustLineBase({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-extrabold text-white tracking-tight break-keep">
+              <span className="text-base font-extrabold text-slate-950 tracking-tight break-keep">
                 {safeBrokerName}
               </span>
               {isLicensed && (
-                <span className="text-sm shrink-0 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
+                <span className="text-sm shrink-0 bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-md font-bold">
                   공인중개사
                 </span>
               )}
             </div>
             {specialty && (
-              <p className="text-sm text-slate-300 mt-0.5 break-keep">{specialty}</p>
+              <p className="text-sm text-slate-700 mt-0.5 break-keep font-medium">{specialty}</p>
             )}
           </div>
         </div>
       </div>
 
       {hasVerifiedStats && (
-        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300 pt-2 border-t border-slate-800/80">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 pt-2 border-t border-slate-200">
           {typeof responseGuaranteeHours === 'number' && responseGuaranteeHours > 0 && (
             <span>평균 {responseGuaranteeHours}시간 내 답변</span>
           )}
           {typeof responseGuaranteeHours === 'number' &&
             responseGuaranteeHours > 0 &&
             typeof closedDeals === 'number' &&
-            closedDeals > 0 && <span className="text-slate-600">·</span>}
+            closedDeals > 0 && <span className="text-slate-400">·</span>}
           {typeof closedDeals === 'number' && closedDeals > 0 && (
             <span>누적 거래 {closedDeals}건</span>
           )}
@@ -119,12 +119,12 @@ function TrustLineBase({
       {hasExplicitStatutoryTrigger && statutory.hasAny && (
         <dl
           data-testid="broker-statutory-disclosure"
-          className="pt-2.5 border-t border-slate-800/80 space-y-1 text-xs text-slate-300"
+          className="pt-2.5 border-t border-slate-200 space-y-1.5 text-sm text-slate-800"
         >
           {statutory.items.map((item) => (
             <div key={item.key} className="flex items-baseline gap-2 break-keep">
-              <dt className="shrink-0 font-semibold text-slate-400">{item.label}</dt>
-              <dd className="text-slate-200">{item.value}</dd>
+              <dt className="shrink-0 font-bold text-slate-600">{item.label}</dt>
+              <dd className="font-semibold text-slate-900">{item.value}</dd>
             </div>
           ))}
         </dl>

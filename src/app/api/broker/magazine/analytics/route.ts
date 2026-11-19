@@ -159,13 +159,34 @@ export async function GET(req: NextRequest) {
 
     const thirtyDaysAgo = new Date(now - 30 * DAY_MS).toISOString();
 
-    // 2. 활성 구독자 수
-    const { count: subscriberCount, error: subCountErr } = await supabase
+    // 2. 활성 확인 구독자 수 (pending 미확인 제외, pre-cutover 스키마 42703/PGRST204 폴백)
+    let subCountRes = await supabase
       .from("magazine_subscribers")
-      .select("id", { count: "exact", head: true })
+      .select("id", { count: "exact" })
       .in("broker_id", brokerIds)
-      .eq("status", "active");
-    if (subCountErr) throw new QueryError(`subscriber count: ${subCountErr.message}`);
+      .eq("status", "active")
+      .or("confirm_status.is.null,confirm_status.neq.pending")
+      .or("consent_status.is.null,consent_status.neq.pending")
+      .limit(1);
+    if (subCountRes.error && (isMissingColumnError(subCountRes.error) || !subCountRes.error.message)) {
+      subCountRes = await supabase
+        .from("magazine_subscribers")
+        .select("id", { count: "exact" })
+        .in("broker_id", brokerIds)
+        .eq("status", "active")
+        .or("confirm_status.is.null,confirm_status.neq.pending")
+        .limit(1);
+      if (subCountRes.error && (isMissingColumnError(subCountRes.error) || !subCountRes.error.message)) {
+        subCountRes = await supabase
+          .from("magazine_subscribers")
+          .select("id", { count: "exact" })
+          .in("broker_id", brokerIds)
+          .eq("status", "active")
+          .limit(1);
+      }
+    }
+    if (subCountRes.error) throw new QueryError(`subscriber count: ${subCountRes.error.message}`);
+    const subscriberCount = subCountRes.count ?? 0;
 
     // 3. 최근 배포 이력 (activity_events)
     const distEvents = must(
@@ -180,11 +201,19 @@ export async function GET(req: NextRequest) {
     );
 
     const lastDist = distEvents?.[0];
+    const lastDistMeta = (lastDist?.metadata ?? {}) as Record<string, unknown>;
+    const lastDistDate = lastDist?.created_at
+      ? toKstDate(lastDist.created_at instanceof Date ? lastDist.created_at : new Date(String(lastDist.created_at)))
+      : null;
     const lastDistribution = lastDist ? {
-      date: lastDist.created_at?.slice(0, 10) || null,
-      sentCount: (lastDist.metadata as any)?.sent_count ?? 0,
-      failedCount: (lastDist.metadata as any)?.failed_count ?? 0,
-      totalCount: (lastDist.metadata as any)?.total_count ?? 0,
+      date: lastDistDate,
+      sentCount: (lastDistMeta.sent_count as number | undefined) ?? 0,
+      failedCount: (lastDistMeta.failed_count as number | undefined) ?? 0,
+      totalCount:
+        (lastDistMeta.total_count as number | undefined) ??
+        (lastDistMeta.subscriber_count as number | undefined) ??
+        (lastDistMeta.total as number | undefined) ??
+        0,
     } : null;
 
     // 4. 에디션 (이벤트 범위는 내 에디션 전체 최근 100건, 화면 표시는 20건)

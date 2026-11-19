@@ -14,21 +14,43 @@
  */
 import { MARKET_TEMP_CONFIG, type MarketTemperature } from './types';
 import { decodeEntities, escapeHtml, safePersonName, safeTemplateVar, stripTags } from '@/lib/magazine/escape';
+import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 import { maskAddress } from '@/lib/magazine/pii';
 import { clip, formatDateDots, formatDateKo, formatKrwAmount } from './templates/format';
 import { renderMagazineKakaoText } from './templates/kakao-text';
 import {
   MagazineRenderError,
   type MagazineDealInput,
-  type MagazineEmailInput,
+  type MagazineEmailInput as BaseMagazineEmailInput,
   type MagazineEmailRendered,
   type MagazineKakaoRendered,
   type MagazineTaxClinicInput,
 } from './templates/types';
 import { assertAbsoluteHttpsUrl, toTelHref } from './templates/url-guard';
 
+export type MagazineCadenceKind = 'daily' | 'weekly' | 'monthly' | 'special';
+
+export interface MagazineEmailInput extends Omit<BaseMagazineEmailInput, 'edition'> {
+  edition: BaseMagazineEmailInput['edition'] & {
+    /** 발행 주기 ('daily' | 'weekly' | 'monthly' | 'special') */
+    cadence?: MagazineCadenceKind | string;
+  };
+  /** 공인중개사법 제18조의2 법정 표시사항: 중개사무소 등록번호 */
+  officeRegNumber?: string | null;
+  /** 공인중개사법 제18조의2 법정 표시사항: 대표자 성명 */
+  representativeName?: string | null;
+}
+
+export function resolveCadenceSubtitle(cadence?: string | null): string {
+  const norm = typeof cadence === 'string' ? cadence.trim().toLowerCase() : '';
+  if (norm === 'daily') return '일간 부동산 브리핑';
+  if (norm === 'monthly') return '월간 부동산 브리핑';
+  if (norm === 'special' || norm === 'flash') return '호외 부동산 브리핑';
+  return '주간 부동산 브리핑';
+}
+
 export { renderMagazineKakaoText, MagazineRenderError };
-export type { MagazineEmailInput, MagazineEmailRendered, MagazineKakaoRendered };
+export type { MagazineEmailRendered, MagazineKakaoRendered };
 
 /**
  * 색 토큰(모두 지정 배경 대비 4.5:1 이상)
@@ -204,7 +226,11 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   const contact = safeTemplateVar(input.brokerContact, { max: 40 });
   const telHref = contact ? toTelHref(contact) : null;
   const address = pt(input.senderAddress, 80);
+  const email = pt(input.senderEmail, 80);
+  const repName = pt(sanitizeStatutoryField(input.representativeName, 'name'), 40);
+  const regNo = pt(sanitizeStatutoryField(input.officeRegNumber, 'regNo'), 40);
   const consentDateKo = formatDateKo(input.consentDate);
+  const cadenceSubtitle = resolveCadenceSubtitle(input.edition.cadence);
 
   const title = pt(input.edition.title, 80);
   const headlineText = expandCreTermsFirstOccurrence(body(input.edition.headline, 600));
@@ -213,7 +239,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   const tempKey: MarketTemperature | null = isSupportedTemp(temp) ? temp : null; // 미지원 라벨은 숨김
 
   // 제목: (광고) 접두 + [전송자] + 제목. 광고 표기는 반드시 맨 앞.
-  const subject = `(광고) [${broker}] ${title || '이번 주 부동산 매거진'}`;
+  const subject = `(광고) [${broker}] ${title || cadenceSubtitle}`;
   const preheaderRaw = pt(headlineText || title, 90);
   const preheader = `(광고) ${preheaderRaw}`.trim();
 
@@ -233,8 +259,8 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   // 헤더
   blocks.push(
     `<tr><td class="mag-pad" style="padding:24px 28px 8px;font-family:${FONT};word-break:keep-all;">` +
-      `<div style="font-size:14px;font-weight:bold;line-height:1.5;color:${COLORS.muted};letter-spacing:0.5px;">(광고) ${escapeHtml(broker)} 주간 부동산 매거진</div>` +
-      `<h1 style="margin:8px 0 6px;font-size:23px;line-height:1.4;color:${COLORS.text};font-weight:bold;word-break:keep-all;">${escapeHtml(title || '이번 주 부동산 매거진')}</h1>` +
+      `<div style="font-size:14px;font-weight:bold;line-height:1.5;color:${COLORS.muted};letter-spacing:0.5px;">(광고) ${escapeHtml(broker)} ${escapeHtml(cadenceSubtitle)}</div>` +
+      `<h1 style="margin:8px 0 6px;font-size:23px;line-height:1.4;color:${COLORS.text};font-weight:bold;word-break:keep-all;">${escapeHtml(title || cadenceSubtitle)}</h1>` +
       (dateKo ? `<div style="font-size:14px;line-height:1.5;color:${COLORS.muted};">${escapeHtml(dateKo)} 발행</div>` : '') +
       (tempKey
         ? `<div style="padding-top:10px;"><span style="display:inline-block;padding:5px 14px;border:1px solid ${TEMP_COLOR[tempKey]};font-size:14px;font-weight:bold;line-height:1.4;color:${TEMP_COLOR[tempKey]};background-color:${COLORS.cardBg};">시장 상태: ${escapeHtml(tempKey)}</span></div>`
@@ -282,9 +308,11 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
 
   if (tax.html) blocks.push(tax.html);
 
-  // 푸터: 전송자 명칭·연락처·주소, 수신동의 안내, 수신거부 버튼(48px 이상 터치 영역)
+  // 푸터: 전송자 명칭·연락처·주소·전자우편·대표자·등록번호, 수신동의 안내, 수신거부 버튼(48px 이상 터치 영역)
   const footerLines: string[] = [];
-  footerLines.push(`전송자: ${escapeHtml(broker)}${contact ? ` · 연락처 ${escapeHtml(contact)}` : ''}${address ? ` · ${escapeHtml(address)}` : ''}`);
+  footerLines.push(
+    `전송자: ${escapeHtml(broker)}${contact ? ` · 연락처 ${escapeHtml(contact)}` : ''}${address ? ` · ${escapeHtml(address)}` : ''}${email ? ` · 전자우편 ${escapeHtml(email)}` : ''}${repName ? ` · 대표자 ${escapeHtml(repName)}` : ''}${regNo ? ` · 중개사무소 등록번호 ${escapeHtml(regNo)}` : ''}`,
+  );
   footerLines.push(
     consentDateKo
       ? `이 메일은 ${escapeHtml(consentDateKo)} 광고성 정보 수신에 동의하신 분께 발송되었습니다.`
@@ -336,8 +364,8 @@ ${blocks.join('\n')}
 
   // ── 텍스트 대체본 ──
   const textParts: string[] = [];
-  textParts.push(`(광고) ${broker} 주간 부동산 매거진`);
-  textParts.push(title || '이번 주 부동산 매거진');
+  textParts.push(`(광고) ${broker} ${cadenceSubtitle}`);
+  textParts.push(title || cadenceSubtitle);
   if (dateKo) textParts.push(`${dateKo} 발행`);
   if (tempKey) textParts.push(`시장 상태: ${tempKey}`);
   textParts.push('');
@@ -352,7 +380,7 @@ ${blocks.join('\n')}
   textParts.push(
     '',
     '----',
-    `전송자: ${broker}${contact ? ` · 연락처 ${contact}` : ''}${address ? ` · ${address}` : ''}`,
+    `전송자: ${broker}${contact ? ` · 연락처 ${contact}` : ''}${address ? ` · ${address}` : ''}${email ? ` · 전자우편 ${email}` : ''}${repName ? ` · 대표자 ${repName}` : ''}${regNo ? ` · 중개사무소 등록번호 ${regNo}` : ''}`,
     consentDateKo ? `이 메일은 ${consentDateKo} 광고성 정보 수신에 동의하신 분께 발송되었습니다.` : '이 메일은 광고성 정보 수신에 동의하신 분께 발송되었습니다.',
     `수신거부: ${unsubUrl}`,
   );

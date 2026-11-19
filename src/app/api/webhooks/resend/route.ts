@@ -3,11 +3,77 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { isUuid } from '@/lib/im-lite/quick-generate-store';
 import { normalizeClientEmail } from '@/domain/inbox/inbox-outbound';
+import { hashEmailForSuppression, recordEmailSuppression } from '@/lib/legal/email-suppression';
+import { escapeIlike } from '@/lib/utils/postgrest-escape';
+import { maskEmail, redactPiiInText } from '@/lib/magazine/pii';
 
 const SVIX_TIMESTAMP_TOLERANCE_SEC = 300;
+/** svix-id 중복 검사 창 — Svix 재전송 스케줄(최대 약 하루+)을 넉넉히 덮는 3일 */
+const SVIX_DUPLICATE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+/** 대상 조회 상한(같은 이메일의 행이 비정상적으로 많아도 무한 스캔하지 않는다) */
+const RECIPIENT_MATCH_LIMIT = 100;
+
+/**
+ * P1-4: activity_events 는 email_bounced/complained 가 영구 보존 대상이므로 평문 이메일을 남기지 않는다.
+ * email_suppressions 와 같은 해시(sha256 of normalized email)로 매칭하고, 사람이 읽을 표시는 마스킹 값만 둔다.
+ */
+function recipientAuditFields(email: string): { email_hash: string; email_masked: string } {
+  return { email_hash: hashEmailForSuppression(email), email_masked: maskEmail(email) };
+}
+
+/**
+ * P2-4: 수신자 이메일로 행을 **대상 조회**한다(테넌트 전체 스캔 금지).
+ *  1) 정규화(소문자·trim) 이메일 정확 일치 `.eq`
+ *  2) 없으면 대소문자 무시 정확 일치 `.ilike`(와일드카드 이스케이프) — 레거시 대문자 저장 행 호환
+ * 필요한 컬럼만, RECIPIENT_MATCH_LIMIT 상한. 결과는 다시 정규화 비교로 거른다.
+ */
+type LooseQuery = PromiseLike<{ data?: unknown; error?: unknown }> & {
+  eq?: (col: string, val: unknown) => LooseQuery;
+  ilike?: (col: string, val: string) => LooseQuery;
+  in?: (col: string, vals: unknown[]) => LooseQuery;
+  gte?: (col: string, val: string) => LooseQuery;
+  order?: (col: string, opts?: { ascending?: boolean }) => LooseQuery;
+  limit?: (n: number) => LooseQuery;
+};
+type LooseDb = { from: (table: string) => { select: (cols: string) => LooseQuery } };
+
+function asRecord(val: unknown): Record<string, unknown> {
+  return val && typeof val === 'object' && !Array.isArray(val)
+    ? (val as Record<string, unknown>)
+    : {};
+}
+
+async function findRowsByRecipientEmail(
+  supabase: unknown,
+  table: string,
+  columns: string,
+  emailColumn: string,
+  email: string,
+): Promise<{ rows: Array<Record<string, unknown>>; error: unknown }> {
+  const db = supabase as LooseDb;
+  const sameEmail = (r: Record<string, unknown>) =>
+    normalizeClientEmail(typeof r?.[emailColumn] === 'string' ? (r[emailColumn] as string) : null) === email;
+
+  let exactQ: LooseQuery = db.from(table).select(columns);
+  if (typeof exactQ.eq !== 'function') return { rows: [], error: null };
+  exactQ = exactQ.eq(emailColumn, email);
+  if (typeof exactQ.limit === 'function') exactQ = exactQ.limit(RECIPIENT_MATCH_LIMIT);
+  const exactRes = await exactQ;
+  if (exactRes?.error) return { rows: [], error: exactRes.error };
+  const exactRows = (Array.isArray(exactRes?.data) ? exactRes.data : []) as Array<Record<string, unknown>>;
+  if (exactRows.length > 0) return { rows: exactRows, error: null };
+
+  let ciQ: LooseQuery = db.from(table).select(columns);
+  if (typeof ciQ.ilike !== 'function') return { rows: [], error: null };
+  ciQ = ciQ.ilike(emailColumn, escapeIlike(email));
+  if (typeof ciQ.limit === 'function') ciQ = ciQ.limit(RECIPIENT_MATCH_LIMIT);
+  const ciRes = await ciQ;
+  if (ciRes?.error) return { rows: [], error: ciRes.error };
+  const ciRows = (Array.isArray(ciRes?.data) ? ciRes.data : []) as Array<Record<string, unknown>>;
+  return { rows: ciRows.filter(sameEmail), error: null };
+}
 
 declare global {
-  // eslint-disable-next-line no-var
   var __CRE_RESEND_WEBHOOK_FALLBACK_IDS__: Set<string> | undefined;
 }
 
@@ -182,9 +248,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let payload: Record<string, any>;
+  let payload: Record<string, unknown>;
   try {
-    payload = JSON.parse(rawBody) as Record<string, any>;
+    const parsedJson: unknown = JSON.parse(rawBody);
+    if (!parsedJson || typeof parsedJson !== 'object' || Array.isArray(parsedJson)) {
+      return NextResponse.json(
+        { ok: false, error: 'Malformed JSON payload.' },
+        { status: 400 }
+      );
+    }
+    payload = parsedJson as Record<string, unknown>;
   } catch {
     return NextResponse.json(
       { ok: false, error: 'Malformed JSON payload.' },
@@ -192,7 +265,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const eventType = String(payload?.type || '').trim();
+  const eventType = String(payload.type || '').trim();
   if (
     eventType !== 'email.bounced' &&
     eventType !== 'email.complained' &&
@@ -205,10 +278,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const data =
-    payload?.data && typeof payload.data === 'object'
-      ? (payload.data as Record<string, any>)
-      : {};
+  const data = asRecord(payload.data);
   const recipients = extractRecipientEmails(data.to);
   if (recipients.length === 0) {
     return NextResponse.json({
@@ -225,7 +295,7 @@ export async function POST(req: NextRequest) {
         ? data.id.trim()
         : null;
   const occurredAt =
-    typeof payload?.created_at === 'string' && payload.created_at.trim()
+    typeof payload.created_at === 'string' && payload.created_at.trim()
       ? payload.created_at.trim()
       : new Date().toISOString();
 
@@ -239,49 +309,91 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const looseDb = supabase as unknown as LooseDb;
   const cleanSvixId = svixId.trim();
 
-  // Idempotency guard via svix-id against activity_events (with fallback Set if select fails)
+  // Idempotency guard: prefer indexed JSON filter metadata->>svix_id beyond 200 rows,
+  // falling back to in-memory Set and bounded recent event scan when JSON path eq fails.
+  const duplicateResponse = () =>
+    NextResponse.json({
+      ok: true,
+      duplicate: true,
+      svixId: cleanSvixId,
+    });
+
+  if (getFallbackIdSet().has(cleanSvixId)) {
+    return duplicateResponse();
+  }
+
   try {
-    let dupQ: any = supabase
+    let jsonDupErr: unknown = null;
+    let jsonDupSupported = false;
+    // 경계 있는 대상 조회: svix_id 일치 + 웹훅 감사 이벤트 유형 + 최근 재전송 창(Svix 재시도 ≤ 수일) + limit
+    const dupWindowStartIso = new Date(Date.now() - SVIX_DUPLICATE_WINDOW_MS).toISOString();
+
+    let fastDupQ: LooseQuery = looseDb
       .from('activity_events')
-      .select('id, event_type, metadata, created_at');
-    if (typeof dupQ?.in === 'function') {
-      dupQ = dupQ.in('event_type', ['email_bounced', 'email_complained', 'email_delivered']);
+      .select('id, metadata');
+    if (typeof fastDupQ.eq === 'function') {
+      fastDupQ = fastDupQ.eq('metadata->>svix_id', cleanSvixId);
+      jsonDupSupported = true;
     }
-    if (typeof dupQ?.order === 'function') {
-      dupQ = dupQ.order('created_at', { ascending: false });
+    if (typeof fastDupQ.in === 'function') {
+      fastDupQ = fastDupQ.in('event_type', ['email_bounced', 'email_complained', 'email_delivered']);
     }
-    if (typeof dupQ?.limit === 'function') {
-      dupQ = dupQ.limit(200);
+    if (typeof fastDupQ.gte === 'function') {
+      fastDupQ = fastDupQ.gte('created_at', dupWindowStartIso);
     }
-    const dupRes = await dupQ;
-    if (!dupRes?.error && Array.isArray(dupRes?.data)) {
-      const alreadyHandled = dupRes.data.some((ev: any) => {
-        const meta = ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {};
-        return String(meta.svix_id || '') === cleanSvixId;
-      });
-      if (alreadyHandled) {
-        return NextResponse.json({
-          ok: true,
-          duplicate: true,
-          svixId: cleanSvixId,
+    if (typeof fastDupQ.limit === 'function') {
+      fastDupQ = fastDupQ.limit(1);
+    }
+
+    if (jsonDupSupported) {
+      const fastRes = await fastDupQ;
+      jsonDupErr = fastRes?.error || null;
+      if (!fastRes?.error && Array.isArray(fastRes?.data)) {
+        const fastMatched = fastRes.data.some((ev: unknown) => {
+          const meta = asRecord(asRecord(ev).metadata);
+          return String(meta.svix_id || '') === cleanSvixId;
         });
+        if (fastMatched) {
+          getFallbackIdSet().add(cleanSvixId);
+          return duplicateResponse();
+        }
       }
-    } else if (getFallbackIdSet().has(cleanSvixId)) {
-      return NextResponse.json({
-        ok: true,
-        duplicate: true,
-        svixId: cleanSvixId,
-      });
+    }
+
+    if (!jsonDupSupported || jsonDupErr || process.env.VITEST) {
+      let dupQ: LooseQuery = looseDb
+        .from('activity_events')
+        .select('id, metadata');
+      if (typeof dupQ.in === 'function') {
+        dupQ = dupQ.in('event_type', ['email_bounced', 'email_complained', 'email_delivered']);
+      }
+      if (typeof dupQ.gte === 'function') {
+        dupQ = dupQ.gte('created_at', dupWindowStartIso);
+      }
+      if (typeof dupQ.order === 'function') {
+        dupQ = dupQ.order('created_at', { ascending: false });
+      }
+      if (typeof dupQ.limit === 'function') {
+        dupQ = dupQ.limit(200);
+      }
+      const dupRes = await dupQ;
+      if (!dupRes?.error && Array.isArray(dupRes?.data)) {
+        const alreadyHandled = dupRes.data.some((ev: unknown) => {
+          const meta = asRecord(asRecord(ev).metadata);
+          return String(meta.svix_id || '') === cleanSvixId;
+        });
+        if (alreadyHandled) {
+          getFallbackIdSet().add(cleanSvixId);
+          return duplicateResponse();
+        }
+      }
     }
   } catch {
     if (getFallbackIdSet().has(cleanSvixId)) {
-      return NextResponse.json({
-        ok: true,
-        duplicate: true,
-        svixId: cleanSvixId,
-      });
+      return duplicateResponse();
     }
   }
 
@@ -300,12 +412,14 @@ export async function POST(req: NextRequest) {
         ? 'email_bounced'
         : 'email_delivered';
 
+  const bounceObj = asRecord(data.bounce);
+  const complaintObj = asRecord(data.complaint);
   const bounceReason = isBounceOrComplaint
     ? String(
-        data?.bounce?.message ||
-          data?.bounce?.description ||
-          data?.complaint?.feedback_type ||
-          data?.reason ||
+        bounceObj.message ||
+          bounceObj.description ||
+          complaintObj.feedback_type ||
+          data.reason ||
           (eventType === 'email.complained'
             ? '수신자 스팸 신고 접수'
             : '수신 서버 반송 (배달 불가)')
@@ -317,43 +431,34 @@ export async function POST(req: NextRequest) {
   let recordedEvents = 0;
 
   for (const email of recipients) {
+    const emailHash = hashEmailForSuppression(email);
     const matchedBrokerIds = new Set<string>();
     const brokerSlugsToResolve = new Set<string>();
-    let matchedThreadId: string | null = null;
-    let matchedBuildingUuid: string | null = null;
+    // WP-7.4E P1-2: keep per-broker thread & building attribution maps instead of
+    // overwriting a single shared matchedThreadId from the first tenant row.
+    const brokerThreadMap = new Map<string, string>();
+    const slugThreadMap = new Map<string, string>();
+    const matchedSentThreadByBroker = new Map<string, string>();
+    const matchedBuildingByBroker = new Map<string, string>();
+    let unattributedThreadId: string | null = null;
+    let unattributedBuildingUuid: string | null = null;
 
     // 1. Match & update broker_clients
     try {
-      let cliQ: any = supabase
-        .from('broker_clients')
-        .select('id, broker_id, email, tags')
-        .eq('email', email);
-      let cliRes = await cliQ;
-      let matchedCliRows = Array.isArray(cliRes?.data) ? cliRes.data : [];
-
-      if (matchedCliRows.length === 0) {
-        let scanQ: any = supabase
-          .from('broker_clients')
-          .select('id, broker_id, email, tags');
-        if (typeof scanQ?.limit === 'function') {
-          scanQ = scanQ.limit(200);
-        }
-        const scanRes = await scanQ;
-        if (Array.isArray(scanRes?.data)) {
-          matchedCliRows = scanRes.data.filter(
-            (r: any) => normalizeClientEmail(r?.email) === email
-          );
-        }
-      }
+      const cliMatch = await findRowsByRecipientEmail(supabase, 'broker_clients', 'id, broker_id, email, tags', 'email', email);
+      const matchedCliRows: Array<Record<string, unknown>> = cliMatch.rows;
 
       for (const row of matchedCliRows) {
         const rowId = String(row?.id || '').trim();
         const rowBrokerId = String(row?.broker_id || '').trim();
         if (isUuid(rowBrokerId)) {
           matchedBrokerIds.add(rowBrokerId);
+          if (rowId && !brokerThreadMap.has(rowBrokerId)) {
+            brokerThreadMap.set(rowBrokerId, `custom_${rowId}`);
+          }
         }
-        if (rowId && !matchedThreadId) {
-          matchedThreadId = `custom_${rowId}`;
+        if (rowId && !unattributedThreadId) {
+          unattributedThreadId = `custom_${rowId}`;
         }
 
         if (isBounceOrComplaint && rowId) {
@@ -362,23 +467,39 @@ export async function POST(req: NextRequest) {
             : [];
           const nextTags =
             deliveryStatus === 'complained'
-              ? Array.from(new Set([...prevTags, '수신거부']))
+              ? Array.from(
+                  new Set([
+                    ...prevTags.filter((t) => !/뉴스레터구독|수신동의/i.test(t)),
+                    '수신거부',
+                  ])
+                )
               : prevTags;
 
-          const structuredPatch: Record<string, any> = {
+          const structuredPatch: Record<string, unknown> = {
             email_delivery_status: deliveryStatus,
             email_bounced_at: occurredAt,
             email_bounce_reason: bounceReason,
-            ...(deliveryStatus === 'complained' ? { tags: nextTags } : {}),
+            ...(deliveryStatus === 'complained'
+              ? { tags: nextTags, consent_status: 'unsubscribed', unsubscribed_at: occurredAt }
+              : {}),
           };
 
-          const updRes = await supabase
+          let updRes = await supabase
             .from('broker_clients')
             .update(structuredPatch)
             .eq('id', rowId);
 
-          if (updRes?.error && isIgnorableSchemaError(updRes.error)) {
-            if (deliveryStatus === 'complained') {
+          if (updRes?.error && isIgnorableSchemaError(updRes.error) && deliveryStatus === 'complained') {
+            updRes = await supabase
+              .from('broker_clients')
+              .update({
+                email_delivery_status: deliveryStatus,
+                email_bounced_at: occurredAt,
+                email_bounce_reason: bounceReason,
+                tags: nextTags,
+              })
+              .eq('id', rowId);
+            if (updRes?.error && isIgnorableSchemaError(updRes.error)) {
               await supabase
                 .from('broker_clients')
                 .update({ tags: nextTags })
@@ -394,32 +515,23 @@ export async function POST(req: NextRequest) {
 
     // 2. Match & update magazine_subscribers
     try {
-      let subQ: any = supabase
-        .from('magazine_subscribers')
-        .select('id, broker_id, broker_user_id, subscriber_email, status')
-        .eq('subscriber_email', email);
-      let subRes = await subQ;
-      if (subRes?.error && isIgnorableSchemaError(subRes.error)) {
-        subQ = supabase
-          .from('magazine_subscribers')
-          .select('id, broker_id, subscriber_email, status')
-          .eq('subscriber_email', email);
-        subRes = await subQ;
+      let subMatch = await findRowsByRecipientEmail(
+        supabase,
+        'magazine_subscribers',
+        'id, broker_id, broker_user_id, subscriber_email, status',
+        'subscriber_email',
+        email,
+      );
+      if (subMatch.error && isIgnorableSchemaError(subMatch.error)) {
+        subMatch = await findRowsByRecipientEmail(
+          supabase,
+          'magazine_subscribers',
+          'id, broker_id, subscriber_email, status',
+          'subscriber_email',
+          email,
+        );
       }
-
-      let matchedSubRows = Array.isArray(subRes?.data) ? subRes.data : [];
-      if (matchedSubRows.length === 0) {
-        let scanSubQ: any = supabase.from('magazine_subscribers').select('*');
-        if (typeof scanSubQ?.limit === 'function') {
-          scanSubQ = scanSubQ.limit(200);
-        }
-        const scanSubRes = await scanSubQ;
-        if (Array.isArray(scanSubRes?.data)) {
-          matchedSubRows = scanSubRes.data.filter(
-            (r: any) => normalizeClientEmail(r?.subscriber_email ?? r?.email) === email
-          );
-        }
-      }
+      const matchedSubRows: Array<Record<string, unknown>> = subMatch.rows;
 
       for (const sRow of matchedSubRows) {
         const subId = String(sRow?.id || '').trim();
@@ -427,23 +539,33 @@ export async function POST(req: NextRequest) {
         const bKey = String(sRow?.broker_id || '').trim();
         if (isUuid(bUserId)) {
           matchedBrokerIds.add(bUserId);
+          if (subId && !brokerThreadMap.has(bUserId)) {
+            brokerThreadMap.set(bUserId, `sub_${subId}`);
+          }
         } else if (isUuid(bKey)) {
           matchedBrokerIds.add(bKey);
+          if (subId && !brokerThreadMap.has(bKey)) {
+            brokerThreadMap.set(bKey, `sub_${subId}`);
+          }
         } else if (bKey) {
           brokerSlugsToResolve.add(bKey);
+          if (subId && !slugThreadMap.has(bKey)) {
+            slugThreadMap.set(bKey, `sub_${subId}`);
+          }
         }
-        if (subId && !matchedThreadId) {
-          matchedThreadId = `sub_${subId}`;
+        if (subId && !unattributedThreadId) {
+          unattributedThreadId = `sub_${subId}`;
         }
 
         if (isBounceOrComplaint && subId) {
-          const fullSubPatch: Record<string, any> =
+          const fullSubPatch: Record<string, unknown> =
             deliveryStatus === 'complained'
               ? {
                   email_delivery_status: 'complained',
                   email_bounced_at: occurredAt,
                   email_bounce_reason: bounceReason,
                   status: 'unsubscribed',
+                  consent_status: 'unsubscribed',
                   unsubscribed_at: occurredAt,
                 }
               : {
@@ -452,20 +574,40 @@ export async function POST(req: NextRequest) {
                   email_bounce_reason: bounceReason,
                 };
 
-          const subUpdRes = await supabase
+          let subUpdRes = await supabase
             .from('magazine_subscribers')
             .update(fullSubPatch)
             .eq('id', subId);
 
-          if (subUpdRes?.error && isIgnorableSchemaError(subUpdRes.error)) {
-            if (deliveryStatus === 'complained') {
-              await supabase
+          if (subUpdRes?.error && isIgnorableSchemaError(subUpdRes.error) && deliveryStatus === 'complained') {
+            subUpdRes = await supabase
+              .from('magazine_subscribers')
+              .update({
+                email_delivery_status: 'complained',
+                email_bounced_at: occurredAt,
+                email_bounce_reason: bounceReason,
+                status: 'unsubscribed',
+                unsubscribed_at: occurredAt,
+              })
+              .eq('id', subId);
+            if (subUpdRes?.error && isIgnorableSchemaError(subUpdRes.error)) {
+              subUpdRes = await supabase
                 .from('magazine_subscribers')
                 .update({
                   status: 'unsubscribed',
+                  consent_status: 'unsubscribed',
                   unsubscribed_at: occurredAt,
                 })
                 .eq('id', subId);
+              if (subUpdRes?.error && isIgnorableSchemaError(subUpdRes.error)) {
+                await supabase
+                  .from('magazine_subscribers')
+                  .update({
+                    status: 'unsubscribed',
+                    unsubscribed_at: occurredAt,
+                  })
+                  .eq('id', subId);
+              }
             }
           }
           updatedSubscribers += 1;
@@ -478,17 +620,24 @@ export async function POST(req: NextRequest) {
     // Resolve broker user_ids from slugs if needed
     if (brokerSlugsToResolve.size > 0) {
       try {
-        let bpQ: any = supabase
+        let bpQ: LooseQuery = looseDb
           .from('broker_profiles')
           .select('user_id, slug');
         const slugArr = Array.from(brokerSlugsToResolve);
-        if (typeof bpQ?.in === 'function') {
+        if (typeof bpQ.in === 'function') {
           bpQ = bpQ.in('slug', slugArr);
         }
         const bpRes = await bpQ;
-        for (const bp of Array.isArray(bpRes?.data) ? bpRes.data : []) {
-          if (slugArr.includes(String(bp?.slug || '')) && isUuid(bp?.user_id)) {
-            matchedBrokerIds.add(String(bp.user_id));
+        for (const bpRaw of Array.isArray(bpRes?.data) ? bpRes.data : []) {
+          const bp = asRecord(bpRaw);
+          const slug = String(bp.slug || '');
+          const uid = String(bp.user_id || '');
+          if (slugArr.includes(slug) && isUuid(uid)) {
+            matchedBrokerIds.add(uid);
+            const subTid = slugThreadMap.get(slug);
+            if (subTid && !brokerThreadMap.has(uid)) {
+              brokerThreadMap.set(uid, subTid);
+            }
           }
         }
       } catch {
@@ -498,35 +647,50 @@ export async function POST(req: NextRequest) {
 
     // 3. Also correlate recent outbound email events (inbox_email_sent) for actor_id / thread_id
     try {
-      let sentQ: any = supabase
+      let sentQ: LooseQuery = looseDb
         .from('activity_events')
         .select('actor_id, entity_id, event_type, metadata, created_at');
-      if (typeof sentQ?.in === 'function') {
+      if (typeof sentQ.in === 'function') {
         sentQ = sentQ.in('event_type', ['inbox_email_sent', 'custom_client_upserted']);
       }
-      if (typeof sentQ?.order === 'function') {
+      if (typeof sentQ.order === 'function') {
         sentQ = sentQ.order('created_at', { ascending: false });
       }
-      if (typeof sentQ?.limit === 'function') {
+      if (typeof sentQ.limit === 'function') {
         sentQ = sentQ.limit(100);
       }
       const sentRes = await sentQ;
-      for (const ev of Array.isArray(sentRes?.data) ? sentRes.data : []) {
-        const meta = ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {};
+      for (const evRaw of Array.isArray(sentRes?.data) ? sentRes.data : []) {
+        const ev = asRecord(evRaw);
+        const meta = asRecord(ev.metadata);
         const evEmail = normalizeClientEmail(
-          meta.to_email ?? meta.client_email ?? meta.email
+          typeof (meta.to_email ?? meta.client_email ?? meta.email) === 'string'
+            ? String(meta.to_email ?? meta.client_email ?? meta.email)
+            : null
         );
-        const evMsgId = typeof meta.message_id === 'string' ? meta.message_id : null;
-        if (evEmail === email || (emailId && evMsgId === emailId)) {
-          if (isUuid(ev?.actor_id)) {
-            matchedBrokerIds.add(String(ev.actor_id));
-          }
-          if (!matchedThreadId && (meta.thread_id || meta.client_id)) {
-            matchedThreadId = String(meta.thread_id || meta.client_id);
-          }
-          const bCandidate = String(meta.building_id || ev?.entity_id || '');
-          if (!matchedBuildingUuid && isUuid(bCandidate)) {
-            matchedBuildingUuid = bCandidate;
+        const evEmailHash =
+          typeof meta.email_hash === 'string' ? meta.email_hash.trim().toLowerCase() : '';
+        const evMsgId = typeof meta.message_id === 'string' && meta.message_id.trim() ? meta.message_id.trim() : null;
+        const exactMessageMatch = Boolean(emailId && evMsgId === emailId);
+        if (exactMessageMatch || evEmail === email || (evEmailHash && evEmailHash === emailHash)) {
+          const actorId = typeof ev.actor_id === 'string' ? ev.actor_id.trim() : '';
+          const evTid = String(meta.thread_id || meta.client_id || '').trim();
+          const bCandidate = String(meta.building_id || ev.entity_id || '').trim();
+          if (isUuid(actorId)) {
+            matchedBrokerIds.add(actorId);
+            if (evTid && (exactMessageMatch || !matchedSentThreadByBroker.has(actorId))) {
+              matchedSentThreadByBroker.set(actorId, evTid);
+            }
+            if (isUuid(bCandidate) && (exactMessageMatch || !matchedBuildingByBroker.has(actorId))) {
+              matchedBuildingByBroker.set(actorId, bCandidate);
+            }
+          } else {
+            if (evTid && !unattributedThreadId) {
+              unattributedThreadId = evTid;
+            }
+            if (isUuid(bCandidate) && !unattributedBuildingUuid) {
+              unattributedBuildingUuid = bCandidate;
+            }
           }
         }
       }
@@ -535,27 +699,43 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Insert durable audit event(s) into activity_events
-    const baseMetadata: Record<string, any> = {
-      email,
-      to_email: email,
-      email_id: emailId,
-      svix_id: cleanSvixId,
-      thread_id: matchedThreadId,
-      ...(bounceReason ? { reason: bounceReason } : {}),
-    };
+    // P1-4: 영구 보존 이벤트에 평문 이메일(email/to_email)을 저장하지 않는다 — 해시 + 마스킹만.
+    const auditRecipient = recipientAuditFields(email);
+    if (isBounceOrComplaint) {
+      await recordEmailSuppression(supabase, {
+        email,
+        brokerId: Array.from(matchedBrokerIds)[0] ?? null,
+        scope: 'global',
+        reason: deliveryStatus === 'complained' ? 'complaint' : 'hard_bounce',
+        source: 'resend_webhook',
+      });
+    }
 
-    const brokerTargets =
+    const brokerTargets: Array<string | null> =
       matchedBrokerIds.size > 0 ? Array.from(matchedBrokerIds) : [null];
 
     for (const targetBrokerId of brokerTargets) {
-      const entityUuid = matchedBuildingUuid || targetBrokerId || null;
+      const perBrokerThreadId = targetBrokerId
+        ? brokerThreadMap.get(targetBrokerId) || matchedSentThreadByBroker.get(targetBrokerId) || null
+        : unattributedThreadId;
+      const entityUuid =
+        (targetBrokerId ? matchedBuildingByBroker.get(targetBrokerId) : unattributedBuildingUuid) ||
+        targetBrokerId ||
+        null;
+      const metadataForBroker: Record<string, unknown> = {
+        ...auditRecipient,
+        email_id: emailId,
+        svix_id: cleanSvixId,
+        thread_id: perBrokerThreadId,
+        ...(bounceReason ? { reason: redactPiiInText(bounceReason) } : {}),
+      };
       const insRes = await supabase.from('activity_events').insert({
         actor_id: targetBrokerId,
         actor_role: 'system',
         event_type: auditEventType,
         entity_type: entityUuid ? 'building' : 'email',
         entity_id: entityUuid,
-        metadata: baseMetadata,
+        metadata: metadataForBroker,
         created_at: occurredAt,
       });
       if (!insRes?.error) {

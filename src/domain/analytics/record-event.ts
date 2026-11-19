@@ -95,6 +95,41 @@ export interface RecordEventInput {
   metadata?: Record<string, unknown>;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `activity_events.entity_id` is a nullable uuid column (00001_mvp_schema.sql). */
+export function isUuidLike(value: unknown): boolean {
+  return typeof value === "string" && UUID_RE.test(value.trim());
+}
+
+/**
+ * P1-1 (WP-7.3A): Build a row that satisfies the `activity_events` schema.
+ * A non-uuid entity identifier (e.g. an `ERR-XXXX` reference code or a legacy slug)
+ * would make the whole insert fail with 22P02 and the event would be lost silently,
+ * so it is moved into `metadata.entity_ref` and `entity_id` is stored as NULL.
+ * `source_app` is never set here (NULL passes the 00005 CHECK constraint).
+ */
+export function buildActivityEventRow(input: RecordEventInput): ActivityEventInsert {
+  const rawEntityId = typeof input.entityId === "string" ? input.entityId.trim() : "";
+  const metadata: Record<string, unknown> = { ...(input.metadata ?? {}) };
+  let entityId: string | null = null;
+  if (rawEntityId) {
+    if (isUuidLike(rawEntityId)) {
+      entityId = rawEntityId;
+    } else if (metadata.entity_ref === undefined) {
+      metadata.entity_ref = rawEntityId.slice(0, 128);
+    }
+  }
+  return {
+    actor_id: input.actorId ?? null,
+    actor_role: input.actorRole ?? null,
+    event_type: input.eventType,
+    entity_type: input.entityType ?? null,
+    entity_id: entityId,
+    metadata: metadata as ActivityEventInsert["metadata"],
+  };
+}
+
 /**
  * Record an activity event using the provided Supabase client.
  *
@@ -105,14 +140,7 @@ export async function recordEvent(
   supabase: SupabaseClient,
   input: RecordEventInput,
 ): Promise<{ id: string } | null> {
-  const row: ActivityEventInsert = {
-    actor_id: input.actorId ?? null,
-    actor_role: input.actorRole ?? null,
-    event_type: input.eventType,
-    entity_type: input.entityType ?? null,
-    entity_id: input.entityId ?? null,
-    metadata: input.metadata ?? {},
-  };
+  const row: ActivityEventInsert = buildActivityEventRow(input);
 
   const { data, error } = await supabase
     .from("activity_events")
@@ -136,14 +164,7 @@ export async function recordEvents(
   inputs: RecordEventInput[],
 ): Promise<Array<{ id: string }>> {
   if (!inputs || inputs.length === 0) return [];
-  const rows: ActivityEventInsert[] = inputs.map(input => ({
-    actor_id: input.actorId ?? null,
-    actor_role: input.actorRole ?? null,
-    event_type: input.eventType,
-    entity_type: input.entityType ?? null,
-    entity_id: input.entityId ?? null,
-    metadata: (input.metadata ?? {}) as any,
-  }));
+  const rows: ActivityEventInsert[] = inputs.map(input => buildActivityEventRow(input));
 
   const { data, error } = await supabase
     .from("activity_events")

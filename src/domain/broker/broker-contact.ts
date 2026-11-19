@@ -21,6 +21,8 @@ export interface BrokerContact {
   email: string | null;
   /** 중개사무소 등록번호 (broker_profiles.office_reg_number) */
   officeRegNumber: string | null;
+  /** 중개사무소 소재지 (broker_profiles.office_address) */
+  officeAddress: string | null;
   /** 공인중개사 자격번호 (broker_profiles.license_number) */
   licenseNumber: string | null;
   specialty: string | null;
@@ -48,14 +50,25 @@ export async function fetchBrokerContact(
   if (!userId) return null;
   const { authEmailFallback = true } = options;
 
-  const [profileRes, brokerRes] = await Promise.all([
+  const [profileRes, initialBrokerRes] = await Promise.all([
     supabase.from('profiles').select('display_name, company, phone').eq('id', userId).maybeSingle(),
     supabase
       .from('broker_profiles')
-      .select('name, office_reg_number, license_number, contact_email, deal_specialty')
+      .select('name, office_reg_number, office_address, license_number, contact_email, deal_specialty')
       .eq('user_id', userId)
       .maybeSingle(),
   ]);
+  let brokerRes = initialBrokerRes;
+  if (
+    brokerRes?.error &&
+    (brokerRes.error.code === '42703' || /office_address/i.test(String(brokerRes.error.message ?? '')))
+  ) {
+    brokerRes = await supabase
+      .from('broker_profiles')
+      .select('name, office_reg_number, license_number, contact_email, deal_specialty')
+      .eq('user_id', userId)
+      .maybeSingle();
+  }
   const profile = profileRes?.data ?? null;
   const bp = brokerRes?.data ?? null;
   if (!profile && !bp) return null;
@@ -82,6 +95,7 @@ export async function fetchBrokerContact(
     phone: clean(profile?.phone),
     email,
     officeRegNumber: clean(bp?.office_reg_number),
+    officeAddress: clean(bp?.office_address),
     licenseNumber: clean(bp?.license_number),
     specialty,
   };
@@ -96,6 +110,7 @@ export function toPptxBrokerInput(c: BrokerContact | null) {
     phone: c.phone ?? undefined,
     email: c.email ?? undefined,
     registration_no: c.officeRegNumber ?? undefined,
+    office_address: c.officeAddress ?? undefined,
     specialty: c.specialty ?? undefined,
   };
 }

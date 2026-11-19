@@ -27,7 +27,7 @@ export async function POST(
   // 1. Fetch source document (with unmigrated column fallback)
   let { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, building_id, series_id, version_no, title, body, status, sealed_at')
+    .select('id, owner_id, broker_id, building_id, source_type, source_id, series_id, version_no, title, body, status, sealed_at')
     .eq('id', id)
     .maybeSingle();
 
@@ -123,8 +123,16 @@ export async function POST(
     forkedAt: new Date().toISOString(),
   };
 
+  const sourceDoc = doc as Record<string, unknown>;
+  const resolvedSourceType =
+    (typeof sourceDoc.source_type === 'string' && sourceDoc.source_type.trim()) ||
+    'building_ssot_lite';
+  const resolvedSourceId = sourceDoc.source_id ?? doc.building_id ?? null;
+
   const insertPayload: Record<string, any> = {
     building_id: doc.building_id,
+    source_type: resolvedSourceType,
+    source_id: resolvedSourceId,
     owner_id: doc.owner_id || guard.user!.id,
     broker_id: guard.user!.id,
     document_type: 'im_lite',
@@ -153,6 +161,8 @@ export async function POST(
   ) {
     const standardPayload = {
       building_id: doc.building_id,
+      source_type: resolvedSourceType,
+      source_id: resolvedSourceId,
       owner_id: doc.owner_id || guard.user!.id,
       broker_id: guard.user!.id,
       document_type: 'im_lite',

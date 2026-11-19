@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { validateBlindPoints } from "@/lib/deal-card/blind-guard";
+import { validateBlindPriceBand } from "@/lib/deal-card/price-band";
 
 interface BuildingSignalEditorProps {
   buildingId: string;
@@ -60,10 +61,26 @@ export default function BuildingSignalEditor({
       return;
     }
 
-    if (ssotKey === "area_signal" || key === "areaSignal") {
+    if (
+      ssotKey === "area_signal" ||
+      key === "areaSignal" ||
+      ssotKey === "asset_type" ||
+      key === "assetType"
+    ) {
       const blindCheck = validateBlindPoints([value]);
       if (!blindCheck.isValid) {
-        toast.error(blindCheck.violations[0]?.reason || "상세 지번·건물명은 권역에 입력할 수 없습니다.");
+        toast.error(
+          blindCheck.violations[0]?.reason || "상세 지번·건물명은 공개 신호에 입력할 수 없습니다."
+        );
+        setEditingKey(null);
+        return;
+      }
+    }
+
+    if ((ssotKey === "price_band" || key === "priceBand") && value.trim().length > 0) {
+      const bandCheck = validateBlindPriceBand(value);
+      if (!bandCheck.valid) {
+        toast.error(bandCheck.reason || "블라인드 가격 구간 형식을 확인해 주세요.");
         setEditingKey(null);
         return;
       }
@@ -107,13 +124,13 @@ export default function BuildingSignalEditor({
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      <h2 className="text-sm font-semibold flex items-center justify-between">
+      <h2 className="text-base font-semibold flex items-center justify-between">
         <span className="flex items-center gap-1.5"><span>🏢</span> 건물 신호 및 분류 스펙</span>
-        <span className="text-[10px] font-normal text-muted-foreground flex items-center gap-1">
-          <Pencil className="w-3 h-3" /> 클릭하여 편집
+        <span className="text-sm font-normal text-muted-foreground flex items-center gap-1">
+          <Pencil className="w-3.5 h-3.5" /> 클릭하여 편집
         </span>
       </h2>
-      <div className="grid grid-cols-2 gap-2.5 text-xs">
+      <div className="grid grid-cols-2 gap-2.5 text-sm">
         {fieldConfig.map((item) => {
           const value = fields[item.key];
           const conf = (confidence || {})[item.key];
@@ -124,17 +141,25 @@ export default function BuildingSignalEditor({
           return (
             <div
               key={item.label}
-              className={`rounded-lg p-2.5 transition-colors ${
+              role={!isEditing ? "button" : undefined}
+              tabIndex={!isEditing ? 0 : undefined}
+              className={`min-h-[44px] rounded-lg p-3 transition-colors ${
                 value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'
               } ${!isEditing ? 'cursor-pointer hover:bg-muted/50' : ''}`}
               onClick={() => !isEditing && handleEditClick(item.key, value)}
+              onKeyDown={(e) => {
+                if (!isEditing && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  handleEditClick(item.key, value);
+                }
+              }}
             >
-              <div className="flex items-center justify-between mb-0.5">
-                <p className="text-[11px] text-muted-foreground">{item.label}</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-muted-foreground">{item.label}</p>
                 <div className="flex items-center gap-1">
                   {conf === 'ai_hypothesis' && !isEditing && (
                     <span
-                      className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-500 font-medium cursor-help"
+                      className="text-sm px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-medium cursor-help"
                       title="AI가 파싱한 분류입니다."
                     >
                       AI분류
@@ -142,21 +167,21 @@ export default function BuildingSignalEditor({
                   )}
                   {conf === 'needs_verification' && !isEditing && (
                     <span
-                      className="text-[9px] px-1 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help"
+                      className="text-sm px-1.5 py-0.5 rounded bg-red-500/15 text-red-700 dark:text-red-400 font-medium cursor-help"
                       title="정보가 불충분합니다."
                     >
                       확인필요
                     </span>
                   )}
-                  {isLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                  {isSuccess && <Check className="w-3 h-3 text-green-500" />}
+                  {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                  {isSuccess && <Check className="w-3.5 h-3.5 text-green-500" />}
                 </div>
               </div>
               {isEditing ? (
                 <input
                   type="text"
                   autoFocus
-                  className="w-full bg-background border border-input rounded px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full min-h-[44px] bg-background border border-input rounded px-2.5 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={() => handleSave(item.key, item.ssotKey)}
@@ -164,7 +189,7 @@ export default function BuildingSignalEditor({
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <p className={`font-semibold ${value ? '' : 'text-muted-foreground/50 text-[11px]'}`}>
+                <p className={`text-sm font-semibold ${value ? '' : 'text-muted-foreground/70'}`}>
                   {value || "미입력 ✏️"}
                 </p>
               )}
@@ -173,7 +198,7 @@ export default function BuildingSignalEditor({
         })}
       </div>
       {fitSummary && (
-        <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
+        <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
           <div className="flex items-center gap-1">
             <span className="font-medium text-foreground">🎯 핵심 투자 포인트</span>
           </div>
@@ -181,8 +206,8 @@ export default function BuildingSignalEditor({
         </div>
       )}
       {cautionSummary && (
-        <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
-          <p className="font-medium text-amber-500 dark:text-amber-400">⚠️ 실사 확인 필요 사항</p>
+        <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
+          <p className="font-medium text-amber-700 dark:text-amber-400">⚠️ 실사 확인 필요 사항</p>
           <p className="leading-relaxed">{cautionSummary}</p>
         </div>
       )}

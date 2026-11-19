@@ -173,10 +173,11 @@ describe('v0.3 Snapshot API Routes', () => {
     expect(data.documentType).toBe('building_snapshot_draft');
     expect(data.status).toBe('draft');
 
-    // Verify activity event recorded
+    // Verify activity event recorded (WP-7.3A P1-1: non-UUID entityId stored in metadata.entity_ref while entity_id stays null)
     const event = recordedEvents.find(e => e.event_type === 'building_snapshot_generated');
     expect(event).toBeDefined();
-    expect(event.entity_id).toBe('ready-building');
+    expect(event.entity_id).toBeNull();
+    expect(event.metadata?.entity_ref).toBe('ready-building');
   });
 
   test('GET /snapshot - blocks public user if not owner and not G2 approved', async () => {

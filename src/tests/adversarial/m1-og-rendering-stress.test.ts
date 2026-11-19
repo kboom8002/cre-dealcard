@@ -85,7 +85,7 @@ describe('Empirical Challenger: OG Image Rendering Stress Harness', () => {
   });
 
   describe('KakaoTalk OG v2 (api/og/deal/[id]/kakao)', () => {
-    it('Scenario 1: Survives completely null building and database failures without crashing', async () => {
+    it('Scenario 1: Survives completely null building and database failures with fail-closed 404 (no 500 crash)', async () => {
       const { GET } = await import('@/app/api/og/deal/[id]/kakao/route');
       mockBuildingData = null;
       mockSignalData = null;
@@ -96,8 +96,7 @@ describe('Empirical Challenger: OG Image Rendering Stress Harness', () => {
       const response = await GET(req, { params: Promise.resolve({ id: 'test-null' }) });
 
       expect(response).toBeDefined();
-      expect(response.status).toBe(200);
-      expect(response.headers.get('content-type')).toContain('image/png');
+      expect(response.status).toBe(404);
     });
 
     it('Scenario 2: Survives building with all null/undefined properties', async () => {
@@ -204,7 +203,7 @@ describe('Empirical Challenger: OG Image Rendering Stress Harness', () => {
   });
 
   describe('Standard Deal OG (api/og/deal/[id])', () => {
-    it('Scenario 1: Survives completely missing documents and null building', async () => {
+    it('Scenario 1: Survives completely missing documents and null building with fail-closed 404 (no 500 crash)', async () => {
       const { GET } = await import('@/app/api/og/deal/[id]/route');
       mockBuildingData = null;
       mockDocListData = [];
@@ -214,8 +213,7 @@ describe('Empirical Challenger: OG Image Rendering Stress Harness', () => {
       const response = await GET(req, { params: Promise.resolve({ id: 'std-null' }) });
 
       expect(response).toBeDefined();
-      expect(response.status).toBe(200);
-      expect(response.headers.get('content-type')).toContain('image/png');
+      expect(response.status).toBe(404);
     });
 
     it('Scenario 2: Handles 10,000 char long headlines and subtitles with graceful ellipsis', async () => {

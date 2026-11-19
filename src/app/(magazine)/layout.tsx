@@ -3,7 +3,7 @@
  *
  * `(public)` 레이아웃/템플릿과 분리한 이유:
  *  - PublicBottomNav: 뷰어 하단 고정 바(ViewerBottomBar)와 겹침 → 이 그룹에서는 렌더하지 않는다.
- *  - ThemeToggle: 뷰어는 다크 고정 디자인 → 토글 제외, `color-scheme: dark` 적용.
+ *  - ThemeToggle: 뷰어는 Daylight Paper(`#FAF9F5`) 라이트 고정 디자인 → 토글 제외, `color-scheme: light` 적용.
  *  - PageTransition(`(public)/template.tsx`): transform 이 `position: fixed` 하단 바의 기준을 깨뜨림 → 적용하지 않는다.
  * 메타데이터는 (public) 에서 상속되지 않으므로 여기서 기본값(metadataBase·title 템플릿·robots·openGraph)을 제공한다.
  * canonical 은 페이지별로 지정한다(이전에는 (public) 의 홈 canonical 이 전 페이지에 상속되던 문제도 함께 해소).
@@ -43,28 +43,28 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
-  themeColor: "#0b0f19",
+  colorScheme: "light",
+  themeColor: "#FAF9F5",
 };
 
 export default function MagazineGroupLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="min-h-screen bg-[#050510] text-slate-100"
+      className="min-h-screen bg-[#FAF9F5] text-slate-900"
       style={
         {
-          colorScheme: "dark",
-          "--text-caption": "0.875rem",
-          "--text-label": "0.9375rem",
-          "--text-body": "1.0625rem",
-          "--text-reader": "1.125rem",
+          colorScheme: "light",
+          "--text-caption": "max(14px, 0.875rem)",
+          "--text-label": "max(15px, 0.9375rem)",
+          "--text-body": "max(16px, 1.0625rem)",
+          "--text-reader": "max(17px, 1.125rem)",
         } as React.CSSProperties
       }
     >
       <MagazineRouteEffects />
       <a
         href="#magazine-main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:inline-flex focus:min-h-12 focus:items-center focus:rounded-lg focus:bg-white focus:px-4 focus:py-2.5 focus:text-label focus:font-bold focus:text-slate-900"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:inline-flex focus:min-h-12 focus:items-center focus:rounded-lg focus:border focus:border-slate-300 focus:bg-white focus:px-4 focus:py-2.5 focus:text-label focus:font-bold focus:text-slate-900"
       >
         본문으로 건너뛰기
       </a>

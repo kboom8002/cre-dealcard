@@ -113,6 +113,13 @@ export function IssueMetadataForm({
   onChangeIssueDate,
 }: IssueMetadataFormProps) {
   const [isMoodOpen, setIsMoodOpen] = React.useState<boolean>(() => Boolean(marketTemp));
+  const [prevMarketTemp, setPrevMarketTemp] = React.useState<MarketTemperature | null>(marketTemp);
+  if (marketTemp !== prevMarketTemp) {
+    setPrevMarketTemp(marketTemp);
+    if (marketTemp) {
+      setIsMoodOpen(true);
+    }
+  }
   const [isScheduleOpen, setIsScheduleOpen] = React.useState<boolean>(false);
   const nowKst = kstParts();
   const safeYear = typeof year === "number" ? year : nowKst.year;
@@ -124,12 +131,6 @@ export function IssueMetadataForm({
     () => buildNewsletterTitlePresets(brokerName, cadence, safeMonth),
     [brokerName, cadence, safeMonth],
   );
-
-  React.useEffect(() => {
-    if (marketTemp) {
-      setIsMoodOpen(true);
-    }
-  }, [marketTemp]);
 
   const handleYearChange = (nextYear: number) => {
     const nextMeta = deriveAutoIssueMeta(nextYear, safeMonth);

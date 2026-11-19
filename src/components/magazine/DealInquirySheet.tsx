@@ -187,31 +187,31 @@ export function DealInquirySheet({
       description={activeDeal?.assetType}
       side="bottom"
       size="md"
-      className="mx-auto sm:my-auto sm:max-w-md sm:rounded-2xl sm:border-b border-indigo-400/35 bg-[#0f1428] text-slate-100"
+      className="mx-auto sm:my-auto sm:max-w-md sm:rounded-2xl sm:border-b border-slate-200 bg-white text-slate-900"
     >
       {activeDeal ? (
         <div
           data-testid="deal-inquiry-sheet"
           style={{ wordBreak: 'keep-all' }}
         >
-          <div className="space-y-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[16px] font-semibold text-slate-300">매매·기준가</span>
-              <span className="font-mono text-[20px] font-extrabold text-amber-300 tabular-nums">
+              <span className="text-[16px] font-semibold text-slate-700">매매·기준가</span>
+              <span className="font-mono text-[20px] font-extrabold text-indigo-800 tabular-nums">
                 {activeDeal.price}
               </span>
             </div>
             {activeDeal.areaSignal && (
-              <div className="border-t border-white/10 pt-2.5">
-                <p className="text-sm font-semibold text-slate-300">주요 특징 · 면적 안내</p>
-                <p className="mt-1 text-[17px] font-medium leading-relaxed text-slate-100">
+              <div className="border-t border-slate-200 pt-2.5">
+                <p className="text-sm font-semibold text-slate-700">주요 특징 · 면적 안내</p>
+                <p className="mt-1 text-[17px] font-medium leading-relaxed text-slate-900">
                   {activeDeal.areaSignal}
                 </p>
               </div>
             )}
           </div>
 
-          <p className="mt-3.5 text-sm leading-relaxed text-slate-300">
+          <p className="mt-3.5 text-sm leading-relaxed text-slate-700">
             상세 지번·임대차 내역·투자설명서(IM)는 매도인 정보 보호를 위해 담당 중개사({brokerName})가 직접 안내해 드립니다.
           </p>
 
@@ -221,7 +221,7 @@ export function DealInquirySheet({
               <a
                 href={`/im-lite/${encodeURIComponent(activeDeal.id)}`}
                 data-track="im_request"
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 px-4 py-3 text-[17px] font-extrabold text-white shadow-lg transition-colors"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
               >
                 <span aria-hidden="true">📄</span>
                 <span>모바일 IM 열람하기</span>
@@ -230,7 +230,7 @@ export function DealInquirySheet({
               <a
                 href={smsHref}
                 data-track="im_request"
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 px-4 py-3 text-[17px] font-extrabold text-white shadow-lg transition-colors"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
               >
                 <span aria-hidden="true">📄</span>
                 <span>모바일 IM 열람하기 (문자 즉시 요청)</span>
@@ -242,7 +242,7 @@ export function DealInquirySheet({
               <a
                 href={`tel:${telDigits}`}
                 data-track="cta_click"
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-[17px] font-extrabold text-white shadow-lg transition-colors hover:bg-emerald-500"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors hover:bg-emerald-800"
               >
                 <span aria-hidden="true">📞</span>
                 <span>중개사에게 이 매물 전화 문의 ({formattedPhone})</span>
@@ -253,7 +253,7 @@ export function DealInquirySheet({
             <a
               href={smsHref}
               data-track="im_request"
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-400/35 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2.5 text-[16px] font-bold text-indigo-200 transition-colors"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 text-[16px] font-bold text-indigo-900 transition-colors"
             >
               <span aria-hidden="true">💬</span>
               <span>문자로 투자설명서(IM)·상세자료 요청</span>
@@ -263,7 +263,7 @@ export function DealInquirySheet({
             <a
               href={profileHref}
               data-track="cta_click"
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-[16px] font-bold text-slate-100 transition-colors hover:bg-white/10"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[16px] font-bold text-slate-900 transition-colors hover:bg-slate-50"
             >
               <span aria-hidden="true">👤</span>
               <span>중개사 프로필 보기</span>

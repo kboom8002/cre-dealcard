@@ -109,7 +109,7 @@ export function MagazinePhonePreview({
     <div className="flex-1 bg-[#E8E6DF] dark:bg-slate-950 bg-[radial-gradient(#94A3B8_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:22px_22px] flex items-center justify-center p-4 lg:p-8 overflow-y-auto">
       <div className="flex flex-col items-center gap-4">
         {/* 미리보기 스튜디오 배지 */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/95 dark:bg-slate-900/90 border border-slate-300/90 dark:border-slate-700 shadow-xs text-xs font-extrabold text-slate-800 dark:text-slate-200 backdrop-blur-md">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/95 dark:bg-slate-900/90 border border-slate-300/90 dark:border-slate-700 shadow-xs text-sm font-extrabold text-slate-800 dark:text-slate-200 backdrop-blur-md">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
           <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-indigo-400" aria-hidden="true" />
           <span>실시간 고객 화면 미리보기</span>

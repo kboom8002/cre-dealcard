@@ -97,6 +97,7 @@ export interface BrokerDealCardFromMemoResult {
   teaserDocId: string;
   hiddenFields: string[];
   postureProposal?: PostureProposal;
+  card4?: Card4Data;
 }
 
 export async function brokerDealCardFromMemo(
@@ -155,7 +156,7 @@ export async function brokerDealCardFromMemo(
   // resolvedAddress from AI agent contains PNU from address resolution
   const resolvedAddr = aiResult.resolvedAddress || {};
 
-  const layersData: Record<string, any> = {};
+  const layersData: Record<string, unknown> = {};
   if (coordinates) layersData.coordinates = coordinates;
   if (addressQuery || exactAddress) {
     layersData.location = {
@@ -249,7 +250,7 @@ export async function brokerDealCardFromMemo(
       layers: layersData,
       confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
       disclosure: { guard_checked: true },
-      status: "public_signal_ready",
+      status: "draft",
     });
   } else {
     // ── 신규 물건 생성 모드 ──
@@ -271,7 +272,7 @@ export async function brokerDealCardFromMemo(
       layers: layersData,
       confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
       disclosure: { guard_checked: true },
-      status: "public_signal_ready",
+      status: "draft",
     });
   }
 
@@ -550,5 +551,6 @@ export async function brokerDealCardFromMemo(
     teaserDocId: teaserDoc.id,
     hiddenFields: buildingTruth.hiddenFields,
     postureProposal,
+    card4: initialCard4,
   };
 }

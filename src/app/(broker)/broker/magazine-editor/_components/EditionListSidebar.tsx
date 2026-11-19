@@ -248,7 +248,7 @@ export function EditionListSidebar({
                         data-testid={`edition-status-filter-${st.key}`}
                         aria-pressed={editionStatusFilter === st.key}
                         onClick={() => onChangeEditionStatusFilter(st.key)}
-                        className={`min-h-[40px] rounded-lg px-2 py-1 text-sm font-bold transition ${
+                        className={`min-h-[44px] rounded-lg px-2 py-1 text-sm font-bold transition ${
                           editionStatusFilter === st.key
                             ? "bg-white text-slate-900 shadow-2xs"
                             : "text-slate-600 hover:text-slate-900"
@@ -283,7 +283,7 @@ export function EditionListSidebar({
                               ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" }
                               : { backgroundColor: "#F1F5F9", color: "#334155" }
                           }
-                          className={`min-h-[40px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
+                          className={`min-h-[44px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
                             activeFilter
                               ? "bg-blue-700 text-white"
                               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -329,7 +329,7 @@ export function EditionListSidebar({
             )}
           />
         ) : (
-          <ul className="space-y-2" role="list">
+          <ul className="space-y-2">
             {visibleEditions.map((ed) => {
               const isCurrent = editionId === ed.id;
               const edCadenceLabel = editionCadenceLabelOf(ed);
@@ -384,7 +384,7 @@ export function EditionListSidebar({
                             data-testid={`edition-duplicate-btn-${ed.id}`}
                             aria-label={`${ed.title || ed.slug} 복제`}
                             onClick={(e) => onDuplicateEdition(ed, e)}
-                            className="min-h-[36px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                            className="min-h-[44px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100"
                           >
                             복제
                           </button>
@@ -393,7 +393,7 @@ export function EditionListSidebar({
                             data-testid={`edition-delete-btn-${ed.id}`}
                             aria-label={`${ed.title || ed.slug} 삭제`}
                             onClick={(e) => onRequestDeleteEdition(ed, e)}
-                            className="min-h-[36px] inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-sm font-bold text-rose-800 hover:bg-rose-100"
+                            className="min-h-[44px] inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-sm font-bold text-rose-800 hover:bg-rose-100"
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>삭제</span>

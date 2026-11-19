@@ -125,9 +125,9 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
                   closeMenu(true);
                   setShowSpecialModal(true);
                 }}
-                className="w-full flex items-center gap-2 px-4 py-3.5 min-h-[48px] text-[15px] text-amber-300 font-bold hover:bg-amber-500/10 focus:bg-amber-500/10 focus:outline-none transition-colors text-left border-b border-border"
+                className="w-full flex items-center gap-2 px-4 py-3.5 min-h-[48px] text-[15px] text-amber-700 dark:text-amber-300 font-bold hover:bg-amber-500/10 focus:bg-amber-500/10 focus:outline-none transition-colors text-left border-b border-border"
               >
-                ⚡ 급매 소식지 발행
+                📰 특별호 소식지 발행
               </button>
               {/* DORMANT: ux60-focus — 서클 공유 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
               <button

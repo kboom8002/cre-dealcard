@@ -204,8 +204,13 @@ describe('3종 실데이터 매물 × 2종 모드 (간편 모드 + 기존 바텀
         if (fs.existsSync(pptxPath) && fs.statSync(pptxPath).size > 30_000) {
           pptxBuf = fs.readFileSync(pptxPath);
         } else {
+          const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+          const issued = await issueShareLinkToken({
+            buildingId: data.buildingId,
+            brokerId: 'golden-test-broker',
+          });
           const pptxReq = new NextRequest(
-            `http://localhost:3000/api/public/im-lite/${data.buildingId}/pptx?docId=${data.documentId}&direct=1`,
+            `http://localhost:3000/api/public/im-lite/${data.buildingId}/pptx?docId=${data.documentId}&direct=1&token=${encodeURIComponent(issued.token)}`,
             { method: 'GET' }
           );
           const pptxRes = await pptxGet(pptxReq, {

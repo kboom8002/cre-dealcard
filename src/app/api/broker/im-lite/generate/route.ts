@@ -10,7 +10,6 @@ import { requireBroker } from "@/lib/auth-guard";
 import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
-import { getServerFeatureFlag } from "@/lib/flags";
 import {
   buildAiUnavailable503Response,
   enforceBrokerAiQuota,
@@ -53,36 +52,12 @@ export async function POST(req: NextRequest) {
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
     identity = body.identity || {};
-    const ffMobileCorePackage = await getServerFeatureFlag('ff_mobile_core_package', {
-      requestHeaders: req.headers,
-      userId: guard.user?.id,
-    });
     const investmentPosture = body.investment_posture ?? body.investmentPosture ?? identity?.investmentPosture;
     if (investmentPosture) {
       identity = { ...identity, investmentPosture };
     }
     tier = body.tier || 'basic';
 
-    if (ffMobileCorePackage) {
-      const featureQuotaErr = await enforceFeatureQuota(user!.id, "im_generation");
-      if (featureQuotaErr) return featureQuotaErr;
-
-      const aiQuotaErr = await enforceBrokerAiQuota(req, user!.id, "im_lite_generate", {
-        perMinute: 10,
-      });
-      if (aiQuotaErr) return aiQuotaErr;
-
-      // ─── Modern Pipeline Branch (CIM-0504)
-      return NextResponse.json({
-        ok: true,
-        im_lite_id: buildingId,
-        url: `/im-lite/${buildingId}`,
-        pipeline: 'modern_core_package',
-        tier: tier === 'pro' ? 'decision_im' : 'fact_om',
-        sections_count: tier === 'pro' ? 6 : 4,
-        message: '모바일 IM 현대화 코어 파이프라인으로 생성되었습니다.',
-      });
-    }
     // 화이트리스트·검증은 generate-async 와 공유하는 단일 헬퍼 (drift 방지 — 이전에는 floor_leases·parcels 등이 유실됐다).
     // 실패 시 400 + 한국어 메시지.
     const parsed = parseSupplementalFromBody(body);

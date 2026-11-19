@@ -1,10 +1,16 @@
 import crypto from 'crypto';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { createServiceClient } from '@/lib/supabase/service';
 import { setBuildingRevokedState } from '@/lib/im-lite/quick-generate-store';
 import { isRealProductionRuntime } from '@/lib/env';
+import { createModuleLogger } from '@/lib/logger';
+import {
+  getWorkspaceItemByAnyId,
+  isMissingRelationOrColumnError,
+  updateWorkspaceItemState,
+} from '@/lib/workspace/workspace-repository';
+
+const log = createModuleLogger('share-link-tokens');
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type ShareLinkKind = 'im' | 'dealcard';
 export type ShareLinkChannel = 'copy' | 'email' | 'alimtalk' | 'kakao_share';
@@ -36,8 +42,10 @@ export interface RevokeShareLinkInput {
   buildingId?: string | null;
   brokerId?: string | null;
   threadId?: string | null;
+  gateRequestId?: string | null;
   reason?: string | null;
   isAdmin?: boolean;
+  scope?: 'thread' | 'building';
 }
 
 export interface RevokeShareLinkResult {
@@ -116,10 +124,85 @@ interface ShareTokenStoreState {
   >;
 }
 
-const SHARE_TOKEN_STORE_FILE = path.join(os.tmpdir(), 'cre-v4-share-link-tokens.json');
+function isVitestTokenStoreEnabled(): boolean {
+  return Boolean(process.env.VITEST) && process.env.DISABLE_MEMORY_STORE !== '1';
+}
+
+type ShareDbRow = Record<string, unknown>;
+
+interface ShareDbResult {
+  data?: ShareDbRow | ShareDbRow[] | null;
+  error?: { code?: string; message?: string } | null;
+}
+
+interface ShareDbQueryLike extends PromiseLike<ShareDbResult> {
+  select?: (cols?: string) => ShareDbQueryLike;
+  insert?: (payload: ShareDbRow | ShareDbRow[]) => ShareDbQueryLike;
+  update?: (payload: ShareDbRow) => ShareDbQueryLike;
+  upsert?: (
+    payload: ShareDbRow | ShareDbRow[],
+    opts?: { onConflict?: string }
+  ) => ShareDbQueryLike;
+  eq?: (col: string, val: unknown) => ShareDbQueryLike;
+  in?: (col: string, vals: unknown[]) => ShareDbQueryLike;
+  or?: (expr: string) => ShareDbQueryLike;
+  order?: (col: string, opts?: { ascending?: boolean }) => ShareDbQueryLike;
+  limit?: (n: number) => ShareDbQueryLike;
+  maybeSingle?: () => Promise<ShareDbResult>;
+  single?: () => Promise<ShareDbResult>;
+}
+
+interface ShareDbClientLike {
+  from: (table: string) => ShareDbQueryLike;
+}
+
+function asShareDbClient(client: unknown): ShareDbClientLike | null {
+  if (
+    client &&
+    typeof client === 'object' &&
+    typeof (client as { from?: unknown }).from === 'function'
+  ) {
+    return client as ShareDbClientLike;
+  }
+  return null;
+}
+
+function toFirstShareRow(
+  data: ShareDbRow | ShareDbRow[] | null | undefined
+): ShareDbRow | null {
+  if (!data) return null;
+  return Array.isArray(data) ? data[0] ?? null : data;
+}
+
+async function resolveCanonicalBuildingOwnerId(
+  supabase: ShareDbClientLike | null,
+  buildingId: string
+): Promise<string | null> {
+  const cleanId = buildingId.trim();
+  if (!supabase || !cleanId) return null;
+  try {
+    const wsItem = await getWorkspaceItemByAnyId(supabase, cleanId).catch(() => null);
+    if (wsItem?.ownerId) {
+      return wsItem.ownerId;
+    }
+    if (UUID_RE.test(cleanId)) {
+      const bQuery = supabase
+        .from('building_ssot_lite')
+        .select?.('owner_id')
+        ?.eq?.('id', cleanId);
+      const bRes = typeof bQuery?.maybeSingle === 'function' ? await bQuery.maybeSingle() : null;
+      const bRow = toFirstShareRow(bRes?.data);
+      if (bRow?.owner_id) {
+        return String(bRow.owner_id);
+      }
+    }
+  } catch {
+    // non-blocking lookup
+  }
+  return null;
+}
 
 declare global {
-  // eslint-disable-next-line no-var
   var __CRE_SHARE_LINK_TOKEN_STORE__: ShareTokenStoreState | undefined;
 }
 
@@ -150,44 +233,22 @@ function createEmptyStore(): ShareTokenStoreState {
 }
 
 function getTokenStore(): ShareTokenStoreState {
+  if (!isVitestTokenStoreEnabled()) {
+    return createEmptyStore();
+  }
   if (!globalThis.__CRE_SHARE_LINK_TOKEN_STORE__) {
     globalThis.__CRE_SHARE_LINK_TOKEN_STORE__ = createEmptyStore();
-    try {
-      if (fs.existsSync(SHARE_TOKEN_STORE_FILE)) {
-        const raw = fs.readFileSync(SHARE_TOKEN_STORE_FILE, 'utf-8');
-        const parsed = JSON.parse(raw) as Partial<ShareTokenStoreState>;
-        globalThis.__CRE_SHARE_LINK_TOKEN_STORE__ = {
-          tokens: parsed.tokens || {},
-          revokedTokens: parsed.revokedTokens || {},
-          revokedBuildings: parsed.revokedBuildings || {},
-        };
-      }
-    } catch {
-      // ignore disk read failure in serverless/test
-    }
   }
   return globalThis.__CRE_SHARE_LINK_TOKEN_STORE__;
 }
 
 function persistTokenStore(state: ShareTokenStoreState): void {
+  if (!isVitestTokenStoreEnabled()) return;
   globalThis.__CRE_SHARE_LINK_TOKEN_STORE__ = state;
-  try {
-    fs.writeFileSync(SHARE_TOKEN_STORE_FILE, JSON.stringify(state), 'utf-8');
-  } catch {
-    // ignore disk write failure
-  }
 }
 
 export function resetShareLinkTokenStoreForTests(): void {
-  const empty = createEmptyStore();
-  globalThis.__CRE_SHARE_LINK_TOKEN_STORE__ = empty;
-  try {
-    if (fs.existsSync(SHARE_TOKEN_STORE_FILE)) {
-      fs.unlinkSync(SHARE_TOKEN_STORE_FILE);
-    }
-  } catch {
-    // ignore
-  }
+  globalThis.__CRE_SHARE_LINK_TOKEN_STORE__ = createEmptyStore();
 }
 
 interface SignedPayload {
@@ -289,10 +350,10 @@ export async function issueShareLinkToken(
 
   // Persist to Supabase im_share_links when available
   try {
-    const supabase = createServiceClient();
-    const table: any = supabase.from('im_share_links');
+    const supabase = asShareDbClient(createServiceClient());
+    const table = supabase?.from('im_share_links');
     if (table && typeof table.upsert === 'function') {
-      await table.upsert(
+      const upsertRes = await table.upsert(
         {
           token,
           building_id: buildingId,
@@ -305,8 +366,15 @@ export async function issueShareLinkToken(
         },
         { onConflict: 'token' }
       );
+      if (upsertRes?.error && !isMissingRelationOrColumnError(upsertRes.error)) {
+        log.warn('im_share_links upsert failed during share-link issuance', {
+          code: upsertRes.error.code,
+          message: upsertRes.error.message,
+          buildingId,
+        });
+      }
     } else if (table && typeof table.insert === 'function') {
-      await table.insert({
+      const insertRes = await table.insert({
         token,
         building_id: buildingId,
         broker_id: brokerId,
@@ -314,6 +382,13 @@ export async function issueShareLinkToken(
         status: 'active',
         expires_at: expiresAt,
       });
+      if (insertRes?.error && !isMissingRelationOrColumnError(insertRes.error)) {
+        log.warn('im_share_links insert failed during share-link issuance', {
+          code: insertRes.error.code,
+          message: insertRes.error.message,
+          buildingId,
+        });
+      }
     }
   } catch {
     // Non-blocking fallback when DB is not configured
@@ -346,8 +421,22 @@ export async function revokeShareLinkToken(
   const rawBuildingId = input.buildingId ? String(input.buildingId).trim() : '';
   const brokerId = input.brokerId ? String(input.brokerId).trim() : null;
   const rawThreadId = input.threadId ? String(input.threadId).trim() : '';
+  const rawGateRequestId = input.gateRequestId
+    ? String(input.gateRequestId).trim()
+    : '';
   const reason = input.reason ? String(input.reason).trim() : null;
   const isAdmin = Boolean(input.isAdmin);
+  const scope: 'thread' | 'building' =
+    input.scope === 'thread' ? 'thread' : 'building';
+
+  if (scope === 'thread' && !rawToken) {
+    return {
+      ok: false,
+      revoked: false,
+      status: 400,
+      error: '개별 링크 잠금에는 대상 토큰이 필요합니다.',
+    };
+  }
 
   if (!rawToken && !rawBuildingId) {
     return {
@@ -361,53 +450,85 @@ export async function revokeShareLinkToken(
   const store = getTokenStore();
   const existingMem = rawToken ? store.tokens[rawToken] : undefined;
   const decoded = rawToken ? decodeSignedToken(rawToken) : { validSig: false };
-  const resolvedBuildingId =
-    rawBuildingId || existingMem?.buildingId || decoded.payload?.b || '';
 
-  // Check DB record if available for ownership validation
-  let dbOwnerId: string | null = null;
+  // Check DB record and canonical building ownership for authorization validation
+  let linkBrokerId: string | null = null;
+  let linkBuildingId = '';
+  let canonicalBuildingOwnerId: string | null = null;
+  let dbClientForCheck: ShareDbClientLike | null = null;
   try {
-    const supabase = createServiceClient();
-    if (rawToken) {
-      const q: any = supabase
+    dbClientForCheck = asShareDbClient(createServiceClient());
+    if (rawToken && dbClientForCheck) {
+      const q = dbClientForCheck
         .from('im_share_links')
-        .select('token, building_id, broker_id, status')
-        .eq('token', rawToken);
-      const res = typeof q.maybeSingle === 'function' ? await q.maybeSingle() : await q.single?.();
-      if (res?.data?.broker_id) {
-        dbOwnerId = String(res.data.broker_id);
+        .select?.('token, building_id, broker_id, status')
+        ?.eq?.('token', rawToken);
+      const res =
+        typeof q?.maybeSingle === 'function'
+          ? await q.maybeSingle()
+          : typeof q?.single === 'function'
+          ? await q.single()
+          : null;
+      const linkRow = toFirstShareRow(res?.data);
+      if (linkRow?.broker_id) {
+        linkBrokerId = String(linkRow.broker_id);
+      }
+      if (linkRow?.building_id) {
+        linkBuildingId = String(linkRow.building_id);
       }
     }
   } catch {
     // ignore DB lookup error
   }
 
+  const resolvedBuildingId =
+    rawBuildingId ||
+    linkBuildingId ||
+    existingMem?.buildingId ||
+    (decoded.validSig && decoded.payload?.b ? decoded.payload.b : '');
+
+  if (resolvedBuildingId && dbClientForCheck) {
+    canonicalBuildingOwnerId = await resolveCanonicalBuildingOwnerId(
+      dbClientForCheck,
+      resolvedBuildingId
+    );
+  }
+
   const tokenOwnerId =
-    dbOwnerId ||
+    canonicalBuildingOwnerId ||
+    linkBrokerId ||
     existingMem?.brokerId ||
     (decoded.validSig && decoded.payload?.u ? decoded.payload.u : null);
 
-  if (!isAdmin && brokerId && tokenOwnerId && tokenOwnerId !== brokerId) {
-    return {
-      ok: false,
-      revoked: false,
-      status: 403,
-      error: '다른 중개인이 발급한 공유 링크는 잠글 수 없습니다.',
-    };
-  }
-
-  // If no token owner was known on the token itself, check building owner in memory/store
-  if (!isAdmin && brokerId && !tokenOwnerId && resolvedBuildingId) {
-    const byBldg = Object.values(store.tokens).filter(
-      (t) => t.buildingId === resolvedBuildingId && t.brokerId
-    );
-    if (byBldg.length > 0 && byBldg.every((t) => t.brokerId !== brokerId)) {
+  if (!isAdmin && brokerId) {
+    if (canonicalBuildingOwnerId) {
+      if (canonicalBuildingOwnerId !== brokerId) {
+        return {
+          ok: false,
+          revoked: false,
+          status: 403,
+          error: '다른 개업공인중개사의 매물 링크는 잠글 수 없습니다.',
+        };
+      }
+    } else if (tokenOwnerId && tokenOwnerId !== brokerId) {
       return {
         ok: false,
         revoked: false,
         status: 403,
-        error: '다른 중개인의 매물 링크는 잠글 수 없습니다.',
+        error: '다른 개업공인중개사가 발급한 공유 링크는 잠글 수 없습니다.',
       };
+    } else if (!tokenOwnerId && resolvedBuildingId) {
+      const byBldg = Object.values(store.tokens).filter(
+        (t) => t.buildingId === resolvedBuildingId && t.brokerId
+      );
+      if (byBldg.length > 0 && byBldg.every((t) => t.brokerId !== brokerId)) {
+        return {
+          ok: false,
+          revoked: false,
+          status: 403,
+          error: '다른 개업공인중개사의 매물 링크는 잠글 수 없습니다.',
+        };
+      }
     }
   }
 
@@ -417,21 +538,22 @@ export async function revokeShareLinkToken(
   let durablePersisted = false;
   let supabaseClientConfigured = false;
   try {
-    const supabase = createServiceClient();
-    if (supabase && typeof supabase.from === 'function') {
+    const supabase = asShareDbClient(createServiceClient());
+    if (supabase) {
       supabaseClientConfigured = true;
-      const table: any = supabase.from('im_share_links');
+      const table = supabase.from('im_share_links');
       if (rawToken && table) {
         let tokenSaved = false;
         if (typeof table.update === 'function') {
           try {
-            const updRes = await table
+            const updQ = table
               .update({
                 status: 'revoked',
                 revoked_at: revokedAt,
                 revoked_reason: reason,
               })
-              .eq('token', rawToken);
+              ?.eq?.('token', rawToken);
+            const updRes = updQ ? await updQ : null;
             if (!updRes?.error) {
               tokenSaved = true;
               durablePersisted = true;
@@ -464,15 +586,16 @@ export async function revokeShareLinkToken(
           }
         }
       }
-      if (resolvedBuildingId && table && typeof table.update === 'function') {
+      if (scope !== 'thread' && resolvedBuildingId && table && typeof table.update === 'function') {
         try {
-          const bldRes = await table
+          const bldQ = table
             .update({
               status: 'revoked',
               revoked_at: revokedAt,
               revoked_reason: reason,
             })
-            .eq('building_id', resolvedBuildingId);
+            ?.eq?.('building_id', resolvedBuildingId);
+          const bldRes = bldQ ? await bldQ : null;
           if (!bldRes?.error) {
             durablePersisted = true;
           }
@@ -480,29 +603,50 @@ export async function revokeShareLinkToken(
           // Handled below
         }
       }
-      const evTable: any = supabase.from('activity_events');
+      const evTable = supabase.from('activity_events');
       if (evTable && typeof evTable.insert === 'function') {
         try {
           const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const actorId = brokerId && uuidRe.test(brokerId) ? brokerId : null;
           const entityId =
             resolvedBuildingId && uuidRe.test(resolvedBuildingId)
               ? resolvedBuildingId
+              : rawGateRequestId && uuidRe.test(rawGateRequestId)
+              ? rawGateRequestId
               : brokerId && uuidRe.test(brokerId)
               ? brokerId
               : '00000000-0000-4000-8000-000000000000';
-          const evRes = await evTable.insert({
-            actor_id: brokerId && uuidRe.test(brokerId) ? brokerId : entityId,
-            event_type: 'link_revoked',
-            entity_type: 'building',
-            entity_id: entityId,
-            metadata: {
-              thread_id: rawThreadId || null,
-              building_id: resolvedBuildingId || null,
-              share_token: rawToken || null,
-              reason,
-              revoked: true,
-            },
-          });
+          const evRes = await evTable.insert(
+            scope === 'thread'
+              ? {
+                  actor_id: actorId,
+                  event_type: 'thread_link_revoked',
+                  entity_type: 'building',
+                  entity_id: entityId,
+                  metadata: {
+                    scope: 'thread',
+                    gate_request_id: rawGateRequestId || null,
+                    thread_id: rawThreadId || null,
+                    building_id: resolvedBuildingId || null,
+                    share_token: rawToken || null,
+                    reason,
+                    revoked: true,
+                  },
+                }
+              : {
+                  actor_id: actorId,
+                  event_type: 'link_revoked',
+                  entity_type: 'building',
+                  entity_id: entityId,
+                  metadata: {
+                    thread_id: rawThreadId || null,
+                    building_id: resolvedBuildingId || null,
+                    share_token: rawToken || null,
+                    reason,
+                    revoked: true,
+                  },
+                }
+          );
           if (!evRes?.error) {
             durablePersisted = true;
           }
@@ -515,7 +659,30 @@ export async function revokeShareLinkToken(
     // Non-blocking fallback when Supabase service client is unavailable in dev/test
   }
 
-  if (supabaseClientConfigured && !durablePersisted && isRealProductionRuntime()) {
+  if (
+    scope !== 'thread' &&
+    resolvedBuildingId &&
+    (brokerId || isAdmin) &&
+    supabaseClientConfigured &&
+    dbClientForCheck
+  ) {
+    try {
+      await updateWorkspaceItemState(dbClientForCheck, {
+        id: resolvedBuildingId,
+        userId: brokerId || tokenOwnerId || '',
+        isAdmin,
+        status: 'revoked',
+      });
+    } catch {
+      // Ignore if building is not in workspace_items
+    }
+  }
+
+  if (
+    supabaseClientConfigured &&
+    !durablePersisted &&
+    (isRealProductionRuntime() || process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1')
+  ) {
     return {
       ok: false,
       revoked: false,
@@ -542,7 +709,7 @@ export async function revokeShareLinkToken(
     }
   }
 
-  if (resolvedBuildingId) {
+  if (scope !== 'thread' && resolvedBuildingId) {
     store.revokedBuildings[resolvedBuildingId] = {
       buildingId: resolvedBuildingId,
       brokerId,
@@ -619,17 +786,28 @@ export function clearBuildingShareLinkLock(buildingId: string): void {
 
 export async function revokeRecipientShareLinkTokens(
   recipientId: string,
-  supabaseOverride?: any
+  optsOrSupabase?: { brokerId?: string | null; supabase?: unknown } | unknown
 ): Promise<number> {
   const cleanRecipient = String(recipientId || '').trim();
   if (!cleanRecipient) return 0;
+
+  const rawClient = asShareDbClient(optsOrSupabase);
+  const optsObj =
+    !rawClient && optsOrSupabase && typeof optsOrSupabase === 'object'
+      ? (optsOrSupabase as { brokerId?: string | null; supabase?: unknown })
+      : null;
+  const supabaseOverride = rawClient || asShareDbClient(optsObj?.supabase);
+  const scopedBrokerId = optsObj?.brokerId ? String(optsObj.brokerId).trim() : null;
 
   const revokedAt = new Date().toISOString();
   const store = getTokenStore();
   let count = 0;
 
   for (const entry of Object.values(store.tokens)) {
-    if (entry.recipientId === cleanRecipient) {
+    if (
+      entry.recipientId === cleanRecipient &&
+      (!scopedBrokerId || !entry.brokerId || entry.brokerId === scopedBrokerId)
+    ) {
       entry.status = 'revoked';
       entry.revokedAt = revokedAt;
       entry.revokedReason = 'gate_expired';
@@ -646,19 +824,35 @@ export async function revokeRecipientShareLinkTokens(
   persistTokenStore(store);
 
   try {
-    const supabase = supabaseOverride || createServiceClient();
-    const table: any = supabase.from('im_share_links');
+    const supabase = supabaseOverride || asShareDbClient(createServiceClient());
+    const table = supabase?.from('im_share_links');
     if (table && typeof table.update === 'function') {
-      await table
+      let updQ: ShareDbQueryLike | undefined = table
         .update({
           status: 'revoked',
           revoked_at: revokedAt,
           revoked_reason: 'gate_expired',
         })
-        .eq('recipient_id', cleanRecipient);
+        ?.eq?.('recipient_id', cleanRecipient);
+      if (scopedBrokerId && typeof updQ?.eq === 'function') {
+        updQ = updQ.eq('broker_id', scopedBrokerId);
+      }
+      if (typeof updQ?.select === 'function') {
+        updQ = updQ.select('token');
+      }
+      const res = updQ ? await updQ : null;
+      if (res?.error) {
+        if (!isMissingRelationOrColumnError(res.error) && (isRealProductionRuntime() || process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1')) {
+          throw new Error(res.error.message || 'DB_REVOKE_RECIPIENT_FAILED');
+        }
+      } else if (Array.isArray(res?.data) && res.data.length > count) {
+        count = res.data.length;
+      }
     }
-  } catch {
-    // Non-blocking fallback
+  } catch (err) {
+    if (isRealProductionRuntime() || process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1') {
+      throw err;
+    }
   }
 
   return count;
@@ -690,19 +884,26 @@ export async function restoreShareLinkToken(input: {
 
   let dbOwnerId: string | null = null;
   let dbBuildingId: string | null = null;
+  let dbClient: ShareDbClientLike | null = null;
   try {
-    const supabase = createServiceClient();
-    if (rawToken) {
-      const q: any = supabase
+    dbClient = asShareDbClient(createServiceClient());
+    if (rawToken && dbClient) {
+      const q = dbClient
         .from('im_share_links')
-        .select('token, building_id, broker_id, status')
-        .eq('token', rawToken);
-      const res = typeof q.maybeSingle === 'function' ? await q.maybeSingle() : await q.single?.();
-      if (res?.data?.broker_id) {
-        dbOwnerId = String(res.data.broker_id);
+        .select?.('token, building_id, broker_id, status')
+        ?.eq?.('token', rawToken);
+      const res =
+        typeof q?.maybeSingle === 'function'
+          ? await q.maybeSingle()
+          : typeof q?.single === 'function'
+          ? await q.single()
+          : null;
+      const linkRow = toFirstShareRow(res?.data);
+      if (linkRow?.broker_id) {
+        dbOwnerId = String(linkRow.broker_id);
       }
-      if (res?.data?.building_id) {
-        dbBuildingId = String(res.data.building_id);
+      if (linkRow?.building_id) {
+        dbBuildingId = String(linkRow.building_id);
       }
     }
   } catch {
@@ -717,6 +918,27 @@ export async function restoreShareLinkToken(input: {
     decoded.payload?.b ||
     '';
 
+  if (!dbOwnerId && resolvedBuildingId && dbClient) {
+    try {
+      const wsItem = await getWorkspaceItemByAnyId(dbClient, resolvedBuildingId).catch(() => null);
+      if (wsItem?.ownerId) {
+        dbOwnerId = wsItem.ownerId;
+      } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedBuildingId)) {
+        const bQuery = dbClient
+          .from('building_ssot_lite')
+          .select?.('owner_id')
+          ?.eq?.('id', resolvedBuildingId);
+        const bRes = typeof bQuery?.maybeSingle === 'function' ? await bQuery.maybeSingle() : null;
+        const bRow = toFirstShareRow(bRes?.data);
+        if (bRow?.owner_id) {
+          dbOwnerId = String(bRow.owner_id);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const tokenOwnerId =
     dbOwnerId ||
     existingMem?.brokerId ||
@@ -727,7 +949,7 @@ export async function restoreShareLinkToken(input: {
     return {
       ok: false,
       status: 403,
-      error: '다른 중개인이 발급한 공유 링크는 다시 열 수 없습니다.',
+      error: '다른 개업공인중개사가 발급한 공유 링크는 다시 열 수 없습니다.',
     };
   }
 
@@ -737,7 +959,7 @@ export async function restoreShareLinkToken(input: {
       return {
         ok: false,
         status: 403,
-        error: '다른 중개인의 매물 링크는 다시 열 수 없습니다.',
+        error: '다른 개업공인중개사의 매물 링크는 다시 열 수 없습니다.',
       };
     }
     const byBldg = Object.values(store.tokens).filter(
@@ -747,7 +969,7 @@ export async function restoreShareLinkToken(input: {
       return {
         ok: false,
         status: 403,
-        error: '다른 중개인의 매물 링크는 다시 열 수 없습니다.',
+        error: '다른 개업공인중개사의 매물 링크는 다시 열 수 없습니다.',
       };
     }
   }
@@ -785,28 +1007,77 @@ export async function restoreShareLinkToken(input: {
 
   persistTokenStore(store);
 
+  let durablePersisted = false;
+  let supabaseConfigured = false;
   try {
-    const supabase = createServiceClient();
-    const table: any = supabase.from('im_share_links');
-    if (rawToken && table && typeof table.update === 'function') {
-      await table
-        .update({
-          status: 'active',
-          revoked_at: null,
-          revoked_reason: null,
-        })
-        .eq('token', rawToken);
-    } else if (resolvedBuildingId && table && typeof table.update === 'function') {
-      await table
-        .update({
-          status: 'active',
-          revoked_at: null,
-          revoked_reason: null,
-        })
-        .eq('building_id', resolvedBuildingId);
+    const supabase = dbClient || asShareDbClient(createServiceClient());
+    if (supabase) {
+      supabaseConfigured = true;
+      const table = supabase.from('im_share_links');
+      if (rawToken && table && typeof table.update === 'function') {
+        const updQ = table
+          .update({
+            status: 'active',
+            revoked_at: null,
+            revoked_reason: null,
+          })
+          ?.eq?.('token', rawToken);
+        const res = updQ ? await updQ : null;
+        if (!res?.error) durablePersisted = true;
+      } else if (resolvedBuildingId && table && typeof table.update === 'function') {
+        const updQ = table
+          .update({
+            status: 'active',
+            revoked_at: null,
+            revoked_reason: null,
+          })
+          ?.eq?.('building_id', resolvedBuildingId);
+        const res = updQ ? await updQ : null;
+        if (!res?.error) durablePersisted = true;
+      }
+      if (resolvedBuildingId && (brokerId || tokenOwnerId || isAdmin)) {
+        await updateWorkspaceItemState(supabase, {
+          id: resolvedBuildingId,
+          userId: brokerId || tokenOwnerId || '',
+          isAdmin,
+          status: 'published',
+        }).catch(() => null);
+      }
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const evTable = supabase.from('activity_events');
+      const evQ =
+        typeof evTable.insert === 'function'
+          ? evTable.insert({
+              actor_id: brokerId && uuidRe.test(brokerId) ? brokerId : null,
+              event_type: 'link_restored',
+              entity_type: 'building',
+              entity_id: uuidRe.test(resolvedBuildingId)
+                ? resolvedBuildingId
+                : null,
+              metadata: {
+                building_id: resolvedBuildingId || null,
+                share_token: rawToken || null,
+                revoked: false,
+              },
+            })
+          : null;
+      const evRes = evQ ? await evQ : null;
+      if (!evRes?.error) durablePersisted = true;
     }
   } catch {
-    // Non-blocking fallback
+    // Handled below
+  }
+
+  if (
+    supabaseConfigured &&
+    !durablePersisted &&
+    (isRealProductionRuntime() || process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1')
+  ) {
+    return {
+      ok: false,
+      status: 500,
+      error: '링크 잠금 해제 상태를 서버에 저장하지 못했습니다.',
+    };
   }
 
   return { ok: true, status: 200, buildingId: resolvedBuildingId || undefined };
@@ -816,6 +1087,59 @@ export function isBuildingShareLinkRevoked(buildingId: string): boolean {
   if (!buildingId) return false;
   const store = getTokenStore();
   return Boolean(store.revokedBuildings[buildingId]);
+}
+
+export async function isBuildingShareLinkRevokedAsync(
+  buildingId: string,
+  supabaseOverride?: unknown
+): Promise<boolean> {
+  if (!buildingId) return false;
+  if (isBuildingShareLinkRevoked(buildingId)) return true;
+
+  try {
+    const supabase = asShareDbClient(supabaseOverride) || asShareDbClient(createServiceClient());
+    if (!supabase) return false;
+
+    const wsItem = await getWorkspaceItemByAnyId(supabase, buildingId).catch(() => null);
+    if (wsItem && (wsItem.revokedAt || wsItem.status === 'revoked')) {
+      return true;
+    }
+
+    const safeToken = /^[A-Za-z0-9_.:-]+$/.test(buildingId);
+    const evTable = supabase.from('activity_events');
+    let evQuery: ShareDbQueryLike | undefined =
+      typeof evTable.select === 'function'
+        ? evTable
+            .select('event_type, entity_id, metadata, created_at')
+            ?.in?.('event_type', ['link_revoked', 'link_restored'])
+        : evTable;
+    if (typeof evQuery?.or === 'function' && safeToken) {
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(buildingId)) {
+        evQuery = evQuery.or(`entity_id.eq.${buildingId},metadata->>building_id.eq.${buildingId}`);
+      } else {
+        evQuery = evQuery.or(`metadata->>building_id.eq.${buildingId}`);
+      }
+    }
+    if (typeof evQuery?.order === 'function') {
+      evQuery = evQuery.order('created_at', { ascending: false });
+    }
+    if (typeof evQuery?.limit === 'function') {
+      evQuery = evQuery.limit(20);
+    }
+    const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
+    const evList = Array.isArray(evRes?.data) ? evRes.data : [];
+    for (const ev of evList) {
+      const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
+      const evBId = String(meta.building_id || ev?.entity_id || '').trim();
+      if (evBId !== buildingId) continue;
+      if (meta.scope === 'recipient_approval') continue;
+      if (ev.event_type === 'link_revoked') return true;
+      if (ev.event_type === 'link_restored') return false;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
 }
 
 export async function verifyShareLinkToken(
@@ -833,92 +1157,169 @@ export async function verifyShareLinkToken(
 
   const store = getTokenStore();
 
-  // 1. Immediate in-memory/file revocation check
+  // 1. Immediate in-memory/test revocation check
   if (store.revokedTokens[token] || store.tokens[token]?.status === 'revoked') {
     return { valid: false, reason: 'revoked' };
   }
 
-  const preDecodedBuildingId = token.startsWith('slk.')
-    ? decodeSignedToken(token).payload?.b || ''
-    : '';
+  // WP-7.8B Inbox P0-2: For signed `slk.*` tokens, enforce cryptographic HMAC-SHA256
+  // verification BEFORE accepting any DB row so unsigned/tampered `slk.*` tokens
+  // never succeed even if an `im_share_links` row exists.
+  const isSignedSlk = token.startsWith('slk.');
+  const slkDecoded = isSignedSlk ? decodeSignedToken(token) : null;
+  if (isSignedSlk && (!slkDecoded?.validSig || !slkDecoded.payload)) {
+    return { valid: false, reason: 'invalid' };
+  }
+
+  const preDecodedBuildingId = slkDecoded?.payload?.b || '';
+  if (isSignedSlk && expectedBuildingId && preDecodedBuildingId !== expectedBuildingId) {
+    return { valid: false, reason: 'invalid' };
+  }
   const targetBuildingId = expectedBuildingId || preDecodedBuildingId;
 
   // 2. Check Supabase im_share_links & activity_events tables when available (Serverless Cold-Start Resilience)
   try {
-    const supabase = createServiceClient();
-    try {
-      let evQuery: any = supabase
-        .from('activity_events')
-        .select('event_type, entity_id, metadata, created_at');
-      if (typeof evQuery.in === 'function') {
-        evQuery = evQuery.in('event_type', ['link_revoked', 'link_restored']);
-      }
-      if (typeof evQuery.order === 'function') {
-        evQuery = evQuery.order('created_at', { ascending: false });
-      }
-      if (typeof evQuery.limit === 'function') {
-        evQuery = evQuery.limit(200);
-      }
-      const evRes = await evQuery;
-      const events = Array.isArray(evRes?.data) ? evRes.data : [];
-      for (const ev of events) {
-        const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, any>;
-        const evToken = String(meta.share_token || meta.token || '').trim();
-        const evBId = String(meta.building_id || ev?.entity_id || '').trim();
-        const matchesToken = Boolean(evToken && evToken === token);
-        const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
-        if (!matchesToken && !matchesBuilding) continue;
-
-        if (ev.event_type === 'link_revoked') {
-          return { valid: false, reason: 'revoked' };
+    const supabase = asShareDbClient(createServiceClient());
+    if (supabase) {
+      try {
+        const evTable = supabase.from('activity_events');
+        let evQuery: ShareDbQueryLike | undefined =
+          typeof evTable.select === 'function'
+            ? evTable.select('event_type, entity_id, metadata, created_at')
+            : evTable;
+        if (typeof evQuery?.in === 'function') {
+          evQuery = evQuery.in('event_type', ['link_revoked', 'link_restored', 'thread_link_revoked']);
         }
-        if (ev.event_type === 'link_restored') {
-          if (matchesToken || meta.scope !== 'recipient_approval') {
-            break;
+        const safeTarget = /^[A-Za-z0-9_.:-]+$/.test(targetBuildingId);
+        if (targetBuildingId && safeTarget && typeof evQuery?.or === 'function') {
+          if (UUID_RE.test(targetBuildingId)) {
+            evQuery = evQuery.or(`entity_id.eq.${targetBuildingId},metadata->>building_id.eq.${targetBuildingId}`);
+          } else {
+            evQuery = evQuery.or(`metadata->>building_id.eq.${targetBuildingId}`);
           }
         }
-      }
-    } catch {
-      // non-blocking if activity_events unavailable
-    }
+        if (typeof evQuery?.order === 'function') {
+          evQuery = evQuery.order('created_at', { ascending: false });
+        }
+        if (typeof evQuery?.limit === 'function') {
+          evQuery = evQuery.limit(50);
+        }
+        const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
+        const events = Array.isArray(evRes?.data) ? evRes.data : [];
+        for (const ev of events) {
+          const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
+          const evToken = String(meta.share_token || meta.token || '').trim();
+          const evBId = String(meta.building_id || ev?.entity_id || '').trim();
+          const matchesToken = Boolean(evToken && evToken === token);
+          const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
+          if (!matchesToken && !matchesBuilding) continue;
 
-    const q: any = supabase
-      .from('im_share_links')
-      .select('token, building_id, broker_id, recipient_id, status, expires_at, revoked_at')
-      .eq('token', token);
-    const res = typeof q.maybeSingle === 'function' ? await q.maybeSingle() : await q.single?.();
-    const row = res?.data;
-    if (row) {
-      if (expectedBuildingId && row.building_id && String(row.building_id) !== expectedBuildingId) {
-        return { valid: false, reason: 'invalid' };
+          if (ev.event_type === 'thread_link_revoked') {
+            if (matchesToken) {
+              return { valid: false, reason: 'revoked' };
+            }
+            continue;
+          }
+          if (ev.event_type === 'link_revoked') {
+            if (meta.scope === 'thread' ? matchesToken : matchesToken || matchesBuilding) {
+              return { valid: false, reason: 'revoked' };
+            }
+            continue;
+          }
+          if (ev.event_type === 'link_restored') {
+            if (matchesToken || (!evToken && meta.scope !== 'recipient_approval')) {
+              break;
+            }
+          }
+        }
+      } catch {
+        // non-blocking if activity_events unavailable
       }
-      if (row.status === 'revoked' || Boolean(row.revoked_at)) {
-        return { valid: false, reason: 'revoked' };
+
+      const q = supabase
+        .from('im_share_links')
+        .select?.('token, building_id, broker_id, created_by, recipient_id, status, expires_at, revoked_at')
+        ?.eq?.('token', token);
+      let res =
+        typeof q?.maybeSingle === 'function'
+          ? await q.maybeSingle()
+          : typeof q?.single === 'function'
+          ? await q.single()
+          : null;
+      if (res?.error && isMissingRelationOrColumnError(res.error)) {
+        const fbQ = supabase
+          .from('im_share_links')
+          .select?.('token, building_id, broker_id, recipient_id, status, expires_at, revoked_at')
+          ?.eq?.('token', token);
+        res =
+          typeof fbQ?.maybeSingle === 'function'
+            ? await fbQ.maybeSingle()
+            : typeof fbQ?.single === 'function'
+            ? await fbQ.single()
+            : null;
       }
-      if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
-        return { valid: false, reason: 'expired' };
+      const row = toFirstShareRow(res?.data);
+      if (row) {
+        const rowBuildingId = row.building_id ? String(row.building_id).trim() : '';
+        if (expectedBuildingId && rowBuildingId && rowBuildingId !== expectedBuildingId) {
+          return { valid: false, reason: 'invalid' };
+        }
+        if (isSignedSlk && slkDecoded?.payload && rowBuildingId && rowBuildingId !== slkDecoded.payload.b) {
+          return { valid: false, reason: 'invalid' };
+        }
+        if (row.status === 'revoked' || Boolean(row.revoked_at)) {
+          return { valid: false, reason: 'revoked' };
+        }
+        if (row.status === 'expired') {
+          return { valid: false, reason: 'expired' };
+        }
+        if (row.status && row.status !== 'active') {
+          return { valid: false, reason: 'invalid' };
+        }
+        if (
+          (row.expires_at && new Date(String(row.expires_at)).getTime() <= Date.now()) ||
+          (isSignedSlk && slkDecoded?.payload && slkDecoded.payload.exp <= Date.now())
+        ) {
+          return { valid: false, reason: 'expired' };
+        }
+
+        const effectiveBuildingId = rowBuildingId || preDecodedBuildingId || expectedBuildingId;
+        if (!isSignedSlk) {
+          const canonicalOwnerId = effectiveBuildingId
+            ? await resolveCanonicalBuildingOwnerId(supabase, effectiveBuildingId)
+            : null;
+          const rowBrokerId = row.broker_id
+            ? String(row.broker_id)
+            : row.created_by
+            ? String(row.created_by)
+            : null;
+          if (canonicalOwnerId && (!rowBrokerId || rowBrokerId !== canonicalOwnerId)) {
+            return { valid: false, reason: 'invalid' };
+          }
+        }
+
+        const decodedMeta = slkDecoded?.payload;
+        return {
+          valid: true,
+          buildingId: String(effectiveBuildingId || ''),
+          brokerId: row.broker_id
+            ? String(row.broker_id)
+            : decodedMeta?.u || null,
+          recipientId: row.recipient_id
+            ? String(row.recipient_id)
+            : decodedMeta?.r || null,
+          kind: decodedMeta?.k || 'im',
+          channel: decodedMeta?.ch || null,
+        };
       }
-      const decodedMeta = token.startsWith('slk.') ? decodeSignedToken(token).payload : undefined;
-      return {
-        valid: true,
-        buildingId: row.building_id,
-        brokerId: row.broker_id || null,
-        recipientId: row.recipient_id || null,
-        kind: decodedMeta?.k || 'im',
-        channel: decodedMeta?.ch || null,
-      };
     }
   } catch {
     // Fall through to HMAC & in-memory verification
   }
 
   // 3. Verify HMAC-SHA256 signed token (slk.<payload>.<sig>)
-  if (token.startsWith('slk.')) {
-    const decoded = decodeSignedToken(token);
-    if (!decoded.validSig || !decoded.payload) {
-      return { valid: false, reason: 'invalid' };
-    }
-    const { b, u, r, exp, k, ch } = decoded.payload;
+  if (isSignedSlk && slkDecoded?.validSig && slkDecoded.payload) {
+    const { b, u, r, exp, k, ch } = slkDecoded.payload;
     if (expectedBuildingId && b !== expectedBuildingId) {
       return { valid: false, reason: 'invalid' };
     }

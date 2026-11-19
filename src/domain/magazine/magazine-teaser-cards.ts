@@ -169,15 +169,15 @@ function renderTeaserCardHtml(teaser: TeaserView): string {
   const signals = Array.isArray(teaser.structuralSignals) ? teaser.structuralSignals : [];
   return `
 <div style="border:1px solid #333; border-radius:12px; padding:20px; margin:12px 0; background:#1a1a1a;">
-  <div style="font-size:12px; color:#888;">${escapeHtml(teaser.region)} · ${escapeHtml(teaser.assetType)}</div>
+  <div style="font-size:14px; color:#888;">${escapeHtml(teaser.region)} · ${escapeHtml(teaser.assetType)}</div>
   <div style="font-size:18px; font-weight:700; color:#fff; margin:8px 0;">${escapeHtml(teaser.hookCopy)}</div>
-  <div style="display:flex; gap:16px; margin:12px 0;">
+  <div style="display:flex; gap:16px; margin:12px 0; font-size:14px;">
     <span style="color:#4ade80;">💰 ${escapeHtml(teaser.bandedPrice)}</span>
     <span style="color:#60a5fa;">📐 ${escapeHtml(teaser.bandedArea)}</span>
     <span style="color:#f59e0b;">📈 ${escapeHtml(teaser.bandedCapRate)}</span>
   </div>
-  <div style="font-size:12px; color:#666;">${signals.map((s) => escapeHtml(s)).join(' · ')}</div>
-  <div style="margin-top:12px; padding:8px 12px; background:#2a2a2a; border-radius:8px; text-align:center; color:#4ade80;">
+  <div style="font-size:14px; color:#888;">${signals.map((s) => escapeHtml(s)).join(' · ')}</div>
+  <div style="margin-top:12px; padding:8px 12px; background:#2a2a2a; border-radius:8px; text-align:center; font-size:14px; color:#4ade80;">
     ${escapeHtml(teaser.curiositySlot)}
   </div>
 </div>`.trim();

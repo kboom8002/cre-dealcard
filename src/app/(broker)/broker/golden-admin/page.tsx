@@ -113,18 +113,18 @@ const TERM_CATEGORIES = [
 ];
 
 function scoreBadgeColor(score: number): string {
-  if (score >= 4.5) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-  if (score >= 4.0) return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-  if (score >= 3.5) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-  return 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+  if (score >= 4.5) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+  if (score >= 4.0) return 'bg-blue-50 text-blue-800 border-blue-200';
+  if (score >= 3.5) return 'bg-amber-50 text-amber-800 border-amber-200';
+  return 'bg-rose-50 text-rose-800 border-rose-200';
 }
 
 function sourceBadgeColor(source: string): string {
   switch (source) {
-    case 'manual_input': return 'bg-blue-500/20 text-blue-400';
-    case 'pptx_upload': return 'bg-emerald-500/20 text-emerald-400';
-    case 'pdf_upload': return 'bg-purple-500/20 text-purple-400';
-    default: return 'bg-neutral-500/20 text-neutral-400';
+    case 'manual_input': return 'bg-blue-50 text-blue-800 border border-blue-200';
+    case 'pptx_upload': return 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+    case 'pdf_upload': return 'bg-purple-50 text-purple-800 border border-purple-200';
+    default: return 'bg-slate-100 text-slate-700 border border-slate-200';
   }
 }
 
@@ -458,43 +458,47 @@ export default function GoldenAdminPage() {
             fetchTerminologyRows();
             fetchStats();
           } else {
-            toast.error(`시딩 실패: ${json.error}`);
+            const errMsg =
+              typeof json?.error === 'string'
+                ? json.error
+                : json?.error?.message || '시딩 실패';
+            toast.error(`시딩 실패: ${errMsg}`);
           }
-        } catch (err: any) {
-          toast.error(`오류 발생: ${err.message}`);
+        } catch (err: unknown) {
+          toast.error(`오류 발생: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
         }
       },
     });
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Title */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">🏆 IM 고도화 지식 엔진 관리</h1>
-          <p className="text-sm text-muted-foreground mt-1">Few-shot 퓨샷 자산 데이터 및 CRE 표준 용어 사전을 통합 제어합니다.</p>
+          <h1 className="text-2xl font-bold text-slate-900">🏆 IM 고도화 지식 엔진 관리</h1>
+          <p className="text-sm text-slate-600 mt-1">Few-shot 퓨샷 자산 데이터 및 CRE 표준 용어 사전을 통합 제어합니다.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {activeTab === 'golden' && (
             <>
-              <Button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground text-sm">
+              <Button onClick={() => setShowCreate(true)} className="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm">
                 + 퓨샷 수동 추가
               </Button>
-              <Button onClick={() => router.push('/broker/golden-admin/upload')} variant="outline" className="text-sm">
+              <Button onClick={() => router.push('/broker/golden-admin/upload')} variant="outline" className="min-h-[44px] text-sm">
                 📄 PPTX/PDF 업로드
               </Button>
-              <Button onClick={handleExportFewShot} variant="outline" className="text-sm">
+              <Button onClick={handleExportFewShot} variant="outline" className="min-h-[44px] text-sm">
                 📦 JSONL 내보내기
               </Button>
             </>
           )}
           {activeTab === 'terminology' && (
             <>
-              <Button onClick={() => handleOpenTermModal(null)} className="bg-primary text-primary-foreground text-sm">
+              <Button onClick={() => handleOpenTermModal(null)} className="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm">
                 + 용어 규칙 추가
               </Button>
-              <Button onClick={handleSeedTerminology} variant="outline" className="text-sm text-yellow-500 border-yellow-500/30">
+              <Button onClick={handleSeedTerminology} variant="outline" className="min-h-[44px] text-sm text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100">
                 🌱 기본 규칙 시드 로드
               </Button>
             </>
@@ -513,7 +517,7 @@ export default function GoldenAdminPage() {
           { id: 'analytics', label: '📊 효과 & 품질 Analytics' },
           { id: 'market', label: '💹 시장 기본값 관리' },
         ]}
-        className="border-b border-neutral-800 pb-2 mb-6"
+        className="border-b border-slate-200 pb-2 mb-6"
       />
 
       {/* ─── TAB 1: GOLDEN SETS ─── */}
@@ -521,23 +525,23 @@ export default function GoldenAdminPage() {
         <>
           {stats?.goldenStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">전체 퓨샷</p>
-                <p className="text-2xl font-bold mt-1">{stats.goldenStats.totalCount}</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">전체 퓨샷</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{stats.goldenStats.totalCount}</p>
               </Card>
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">활성 비율</p>
-                <p className="text-2xl font-bold mt-1 text-emerald-400">
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">활성 비율</p>
+                <p className="text-2xl font-bold mt-1 text-emerald-700">
                   {stats.goldenStats.totalCount > 0 ? Math.round((stats.goldenStats.activeCount / stats.goldenStats.totalCount) * 100) : 0}%
                 </p>
               </Card>
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">평균 Judge 점수</p>
-                <p className="text-2xl font-bold mt-1 text-blue-400">{stats.goldenStats.avgJudgeScore.toFixed(1)}</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">평균 Judge 점수</p>
+                <p className="text-2xl font-bold mt-1 text-blue-700">{stats.goldenStats.avgJudgeScore.toFixed(1)}</p>
               </Card>
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">총 활용 횟수</p>
-                <p className="text-2xl font-bold mt-1 text-amber-400">{stats.goldenStats.totalUsageCount}</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">총 활용 횟수</p>
+                <p className="text-2xl font-bold mt-1 text-amber-700">{stats.goldenStats.totalUsageCount}</p>
               </Card>
             </div>
           )}
@@ -547,7 +551,7 @@ export default function GoldenAdminPage() {
             <select
               value={filterSection}
               onChange={e => { setFilterSection(e.target.value); setGoldenPage(1); }}
-              className="px-3 py-1.5 text-sm rounded-lg bg-neutral-800 border border-neutral-700 text-foreground"
+              className="min-h-[44px] px-3 py-1.5 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               <option value="">전체 섹션</option>
               {Object.entries(SECTION_LABELS).map(([k, v]) => (
@@ -558,12 +562,12 @@ export default function GoldenAdminPage() {
               placeholder="자산 유형"
               value={filterAssetType}
               onChange={e => { setFilterAssetType(e.target.value); setGoldenPage(1); }}
-              className="w-32 text-sm bg-neutral-800 border-neutral-700"
+              className="w-36 text-sm bg-white border-slate-300 text-slate-900"
             />
             <select
               value={filterSource}
               onChange={e => { setFilterSource(e.target.value); setGoldenPage(1); }}
-              className="px-3 py-1.5 text-sm rounded-lg bg-neutral-800 border border-neutral-700 text-foreground"
+              className="min-h-[44px] px-3 py-1.5 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               <option value="">전체 소스</option>
               {Object.entries(SOURCE_LABELS).map(([k, v]) => (
@@ -571,11 +575,12 @@ export default function GoldenAdminPage() {
               ))}
             </select>
             <button
+              type="button"
               onClick={() => { setFilterActive(!filterActive); setGoldenPage(1); }}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+              className={`min-h-[44px] px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors cursor-pointer ${
                 filterActive
-                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                  : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
               }`}
             >
               {filterActive ? '✅ 활성만' : '전체 (비활성 포함)'}
@@ -583,71 +588,76 @@ export default function GoldenAdminPage() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto rounded-xl border border-neutral-800">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-neutral-900 border-b border-neutral-800">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">섹션</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">자산유형</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">가격대</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">품질</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">소스</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">활용</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">상태</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">생성일</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">액션</th>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700">섹션</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700">자산유형</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700">가격대</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">품질</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">소스</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">활용</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">상태</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">생성일</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">액션</th>
                 </tr>
               </thead>
               <tbody>
                 {goldenLoading ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">로딩 중...</td></tr>
+                  <tr><td colSpan={9} className="text-center py-12 text-slate-600">로딩 중...</td></tr>
                 ) : goldenSets.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">골든셋이 없습니다</td></tr>
+                  <tr><td colSpan={9} className="text-center py-12 text-slate-600">골든셋이 없습니다</td></tr>
                 ) : goldenSets.map(gs => (
-                  <tr key={gs.id} className="border-b border-neutral-800/50 hover:bg-neutral-900/50 transition-colors">
+                  <tr key={gs.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
-                      <span className="font-medium">{SECTION_LABELS[gs.section_type] || gs.section_type}</span>
+                      <span className="font-medium text-slate-900">{SECTION_LABELS[gs.section_type] || gs.section_type}</span>
                       {gs.section_alias && (
-                        <span className="block text-[10px] text-muted-foreground mt-0.5">{gs.section_alias}</span>
+                        <span className="block text-sm text-slate-600 mt-0.5">{gs.section_alias}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{gs.asset_type || '-'}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{gs.price_band || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700">{gs.asset_type || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700">{gs.price_band || '-'}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${scoreBadgeColor(gs.judge_score)}`}>
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-sm font-bold border ${scoreBadgeColor(gs.judge_score)}`}>
                         {gs.judge_score}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] ${sourceBadgeColor(gs.source_type)}`}>
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-sm ${sourceBadgeColor(gs.source_type)}`}>
                         {SOURCE_LABELS[gs.source_type] || gs.source_type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-muted-foreground">{gs.usage_count || 0}</td>
+                    <td className="px-4 py-3 text-center text-slate-700">{gs.usage_count || 0}</td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        type="button"
                         onClick={() => handleToggleGoldenActive(gs)}
-                        className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                          gs.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-700 text-neutral-400'
+                        className={`min-h-[44px] text-sm px-3 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
+                          gs.is_active
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
                         }`}
                       >
                         {gs.is_active ? '활성' : '비활성'}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-muted-foreground">
+                    <td className="px-4 py-3 text-center text-sm text-slate-600">
                       {new Date(gs.created_at).toLocaleDateString('ko-KR')}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
+                      <div className="flex gap-1.5 justify-center">
                         <button
+                          type="button"
                           onClick={() => router.push(`/broker/golden-admin/${gs.id}`)}
-                          className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                          className="min-h-[44px] px-3 py-1 text-sm font-medium bg-blue-50 text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                         >
                           편집
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteGolden(gs.id)}
-                          className="px-2 py-1 text-xs bg-rose-500/20 text-rose-400 rounded hover:bg-rose-500/30 transition-colors"
+                          className="min-h-[44px] px-3 py-1 text-sm font-medium bg-rose-50 text-rose-800 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors cursor-pointer"
                         >
                           삭제
                         </button>
@@ -670,7 +680,7 @@ export default function GoldenAdminPage() {
               >
                 이전
               </Button>
-              <span className="flex items-center text-sm text-muted-foreground px-3">
+              <span className="flex items-center text-sm text-slate-600 px-3">
                 {goldenPage} / {Math.ceil(goldenTotal / limit)}
               </span>
               <Button
@@ -691,21 +701,21 @@ export default function GoldenAdminPage() {
         <>
           {stats?.terminologyStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">전체 규칙 수</p>
-                <p className="text-2xl font-bold mt-1">{stats.terminologyStats.totalRules}</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">전체 규칙 수</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{stats.terminologyStats.totalRules}</p>
               </Card>
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">활성 규칙 수</p>
-                <p className="text-2xl font-bold mt-1 text-emerald-400">{stats.terminologyStats.activeRules}</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">활성 규칙 수</p>
+                <p className="text-2xl font-bold mt-1 text-emerald-700">{stats.terminologyStats.activeRules}</p>
               </Card>
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">총 규칙 치환 횟수</p>
-                <p className="text-2xl font-bold mt-1 text-blue-400">{stats.terminologyStats.totalHits}</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">총 규칙 치환 횟수</p>
+                <p className="text-2xl font-bold mt-1 text-blue-700">{stats.terminologyStats.totalHits}</p>
               </Card>
-              <Card className="p-4 bg-neutral-900 border-neutral-800">
-                <p className="text-xs text-muted-foreground">평균 우선순위</p>
-                <p className="text-2xl font-bold mt-1 text-amber-400">100</p>
+              <Card className="p-4 bg-white border-slate-200">
+                <p className="text-sm text-slate-600">평균 우선순위</p>
+                <p className="text-2xl font-bold mt-1 text-amber-700">100</p>
               </Card>
             </div>
           )}
@@ -715,7 +725,7 @@ export default function GoldenAdminPage() {
             <select
               value={filterCategory}
               onChange={e => { setFilterCategory(e.target.value); setTermPage(1); }}
-              className="px-3 py-1.5 text-sm rounded-lg bg-neutral-800 border border-neutral-700 text-foreground"
+              className="min-h-[44px] px-3 py-1.5 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               <option value="">전체 카테고리</option>
               {TERM_CATEGORIES.map(c => (
@@ -725,7 +735,7 @@ export default function GoldenAdminPage() {
             <select
               value={termActiveFilter}
               onChange={e => { setTermActiveFilter(e.target.value); setTermPage(1); }}
-              className="px-3 py-1.5 text-sm rounded-lg bg-neutral-800 border border-neutral-700 text-foreground"
+              className="min-h-[44px] px-3 py-1.5 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               <option value="">전체 상태</option>
               <option value="true">활성</option>
@@ -735,71 +745,76 @@ export default function GoldenAdminPage() {
               placeholder="검색 (패턴, 치환어, 메모)"
               value={termSearch}
               onChange={e => { setTermSearch(e.target.value); setTermPage(1); }}
-              className="w-64 text-sm bg-neutral-800 border-neutral-700"
+              className="w-64 text-sm bg-white border-slate-300 text-slate-900"
             />
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto rounded-xl border border-neutral-800">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-neutral-900 border-b border-neutral-800">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">카테고리</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">매칭 패턴</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">치환 단어 / 함수</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">우선순위</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">발동 횟수</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">Regex 여부</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">상태</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">액션</th>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700">카테고리</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700">매칭 패턴</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700">치환 단어 / 함수</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">우선순위</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">발동 횟수</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">Regex 여부</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">상태</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-700">액션</th>
                 </tr>
               </thead>
               <tbody>
                 {termLoading ? (
-                  <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">로딩 중...</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-slate-600">로딩 중...</td></tr>
                 ) : terminologyRules.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">용어 규칙이 없습니다</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-slate-600">용어 규칙이 없습니다</td></tr>
                 ) : terminologyRules.map(rule => (
-                  <tr key={rule.id} className="border-b border-neutral-800/50 hover:bg-neutral-900/50 transition-colors">
-                    <td className="px-4 py-3 text-muted-foreground">
-                      <span className="px-2 py-0.5 rounded bg-neutral-800 text-xs">{rule.category}</span>
+                  <tr key={rule.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 text-slate-700">
+                      <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-sm">{rule.category}</span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs max-w-xs truncate" title={rule.pattern}>
+                    <td className="px-4 py-3 font-mono text-sm text-slate-800 max-w-xs truncate" title={rule.pattern}>
                       {rule.pattern}
                     </td>
-                    <td className="px-4 py-3 font-medium text-emerald-400">
+                    <td className="px-4 py-3 font-medium text-emerald-700">
                       {rule.replacement.startsWith('fn:') ? (
-                        <span className="text-yellow-400 font-mono text-xs underline cursor-help" title="JS/TS 동적 함수형 매핑 규칙">
+                        <span className="text-amber-800 font-mono text-sm underline cursor-help" title="JS/TS 동적 함수형 매핑 규칙">
                           ⚙️ {rule.replacement}
                         </span>
                       ) : rule.replacement}
                     </td>
-                    <td className="px-4 py-3 text-center text-muted-foreground">{rule.priority}</td>
-                    <td className="px-4 py-3 text-center font-bold text-blue-400">{rule.hit_count || 0}</td>
-                    <td className="px-4 py-3 text-center text-xs text-muted-foreground">
+                    <td className="px-4 py-3 text-center text-slate-700">{rule.priority}</td>
+                    <td className="px-4 py-3 text-center font-bold text-blue-700">{rule.hit_count || 0}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-600">
                       {rule.is_regex ? 'Regex' : '텍스트'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        type="button"
                         onClick={() => handleToggleTermActive(rule)}
-                        className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                          rule.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-700 text-neutral-400'
+                        className={`min-h-[44px] text-sm px-3 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
+                          rule.is_active
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-300'
                         }`}
                       >
                         {rule.is_active ? '활성' : '비활성'}
                       </button>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
+                      <div className="flex gap-1.5 justify-center">
                         <button
+                          type="button"
                           onClick={() => handleOpenTermModal(rule)}
-                          className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+                          className="min-h-[44px] px-3 py-1 text-sm font-medium bg-blue-50 text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                         >
                           편집
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteTerm(rule.id)}
-                          className="px-2 py-1 text-xs bg-rose-500/20 text-rose-400 rounded hover:bg-rose-500/30 transition-colors"
+                          className="min-h-[44px] px-3 py-1 text-sm font-medium bg-rose-50 text-rose-800 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors cursor-pointer"
                         >
                           삭제
                         </button>
@@ -822,7 +837,7 @@ export default function GoldenAdminPage() {
               >
                 이전
               </Button>
-              <span className="flex items-center text-sm text-muted-foreground px-3">
+              <span className="flex items-center text-sm text-slate-600 px-3">
                 {termPage} / {Math.ceil(termTotal / limit)}
               </span>
               <Button
@@ -843,68 +858,68 @@ export default function GoldenAdminPage() {
         <div className="space-y-6">
           {/* Main indicators */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="p-5 bg-neutral-900 border-neutral-800 flex flex-col justify-between">
+            <Card className="p-5 bg-white border-slate-200 flex flex-col justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">최근 Few-shot 주입 평균 품질 점수</p>
-                <p className="text-3xl font-extrabold text-blue-400 mt-2">{stats.fewShotStats.avgFewShotResultScore.toFixed(1)} / 5.0</p>
+                <p className="text-sm text-slate-600">최근 Few-shot 주입 평균 품질 점수</p>
+                <p className="text-3xl font-extrabold text-blue-700 mt-2">{stats.fewShotStats.avgFewShotResultScore.toFixed(1)} / 5.0</p>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-4">최근 200건 생성 섹션에 대한 AI Judge 자가 평가 평균</p>
+              <p className="text-sm text-slate-600 mt-4">최근 200건 생성 섹션에 대한 AI Judge 자가 평가 평균</p>
             </Card>
-            <Card className="p-5 bg-neutral-900 border-neutral-800 flex flex-col justify-between">
+            <Card className="p-5 bg-white border-slate-200 flex flex-col justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">지식 엔진 총 퓨샷 활용 로그</p>
-                <p className="text-3xl font-extrabold text-emerald-400 mt-2">{stats.fewShotStats.totalLogs} 건</p>
+                <p className="text-sm text-slate-600">지식 엔진 총 퓨샷 활용 로그</p>
+                <p className="text-3xl font-extrabold text-emerald-700 mt-2">{stats.fewShotStats.totalLogs} 건</p>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-4">생성 시 DB Few-shot이 매칭 및 로드된 누적 횟수</p>
+              <p className="text-sm text-slate-600 mt-4">생성 시 DB Few-shot이 매칭 및 로드된 누적 횟수</p>
             </Card>
-            <Card className="p-5 bg-neutral-900 border-neutral-800 flex flex-col justify-between">
+            <Card className="p-5 bg-white border-slate-200 flex flex-col justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">최다 치환 카테고리</p>
-                <p className="text-3xl font-extrabold text-yellow-400 mt-2">임대 및 거래</p>
+                <p className="text-sm text-slate-600">최다 치환 카테고리</p>
+                <p className="text-3xl font-extrabold text-amber-700 mt-2">임대 및 거래</p>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-4">용어 필터 규칙 발동 분포 기반 상위 카테고리</p>
+              <p className="text-sm text-slate-600 mt-4">용어 필터 규칙 발동 분포 기반 상위 카테고리</p>
             </Card>
           </div>
 
           {/* Sub-grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top 10 Terminology hits */}
-            <Card className="p-5 bg-neutral-900 border-neutral-800">
-              <h3 className="font-bold text-sm mb-4">🔥 최다 발동 용어 규칙 Top 10</h3>
+            <Card className="p-5 bg-white border-slate-200">
+              <h3 className="font-bold text-base text-slate-900 mb-4">🔥 최다 발동 용어 규칙 Top 10</h3>
               <div className="space-y-3">
                 {stats.terminologyStats.topRules.map((rule, idx) => (
-                  <div key={rule.id} className="flex justify-between items-center text-xs border-b border-neutral-800/50 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground font-mono w-4">{idx + 1}</span>
-                      <span className="font-mono bg-neutral-800 text-muted-foreground px-1.5 py-0.5 rounded text-[10px]">
+                  <div key={rule.id} className="flex justify-between items-center text-sm border-b border-slate-200 pb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-slate-600 font-mono w-5">{idx + 1}</span>
+                      <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-sm border border-slate-200">
                         {rule.category}
                       </span>
-                      <span className="font-mono text-neutral-300 max-w-[120px] truncate" title={rule.pattern}>
+                      <span className="font-mono text-slate-800 max-w-[120px] truncate" title={rule.pattern}>
                         {rule.pattern}
                       </span>
-                      <span className="text-muted-foreground">→</span>
-                      <span className="text-emerald-400 font-semibold max-w-[120px] truncate">
+                      <span className="text-slate-500">→</span>
+                      <span className="text-emerald-700 font-semibold max-w-[120px] truncate">
                         {rule.replacement}
                       </span>
                     </div>
-                    <span className="font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                    <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full shrink-0">
                       {rule.hit_count}회
                     </span>
                   </div>
                 ))}
                 {stats.terminologyStats.topRules.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8 text-xs">발동 로그가 존재하지 않습니다</p>
+                  <p className="text-center text-slate-600 py-8 text-sm">발동 로그가 존재하지 않습니다</p>
                 )}
               </div>
             </Card>
 
             {/* Few-shot correlation analysis */}
-            <Card className="p-5 bg-neutral-900 border-neutral-800">
-              <h3 className="font-bold text-sm mb-4">📈 퓨샷별 품질 상관관계 (Effectiveness)</h3>
+            <Card className="p-5 bg-white border-slate-200">
+              <h3 className="font-bold text-base text-slate-900 mb-4">📈 퓨샷별 품질 상관관계 (Effectiveness)</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
+                <table className="w-full text-sm text-left">
                   <thead>
-                    <tr className="text-muted-foreground border-b border-neutral-800 pb-2">
+                    <tr className="text-slate-700 border-b border-slate-200 pb-2">
                       <th className="py-2">섹션 유형</th>
                       <th className="py-2">자산유형 / 가격</th>
                       <th className="text-center py-2">사용횟수</th>
@@ -914,16 +929,16 @@ export default function GoldenAdminPage() {
                   </thead>
                   <tbody>
                     {stats.fewShotStats.effectiveness.map(eff => (
-                      <tr key={eff.goldenId} className="border-b border-neutral-800/40 hover:bg-neutral-800/20">
-                        <td className="py-2.5 font-medium">{SECTION_LABELS[eff.sectionType] || eff.sectionType}</td>
-                        <td className="py-2.5 text-muted-foreground">{eff.assetType} / {eff.priceBand}</td>
-                        <td className="text-center py-2.5 font-mono">{eff.timesUsed}회</td>
-                        <td className="text-center py-2.5 font-mono font-bold text-blue-400">{eff.avgResultScore.toFixed(1)}</td>
+                      <tr key={eff.goldenId} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-2.5 font-medium text-slate-900">{SECTION_LABELS[eff.sectionType] || eff.sectionType}</td>
+                        <td className="py-2.5 text-slate-600">{eff.assetType} / {eff.priceBand}</td>
+                        <td className="text-center py-2.5 font-mono text-slate-800">{eff.timesUsed}회</td>
+                        <td className="text-center py-2.5 font-mono font-bold text-blue-700">{eff.avgResultScore.toFixed(1)}</td>
                         <td className="text-center py-2.5">
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            eff.effectiveness === 'high' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : eff.effectiveness === 'low' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : 'bg-neutral-800 text-muted-foreground'
+                          <span className={`inline-block px-2 py-0.5 rounded text-sm font-bold ${
+                            eff.effectiveness === 'high' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : eff.effectiveness === 'low' ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                            : 'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
                             {eff.effectiveness === 'high' ? '우수(High)' : eff.effectiveness === 'low' ? '교체권장' : '보통'}
                           </span>
@@ -932,7 +947,7 @@ export default function GoldenAdminPage() {
                     ))}
                     {stats.fewShotStats.effectiveness.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={5} className="text-center py-12 text-slate-600">
                           분석 가능한 퓨샷 사용 로그가 부족합니다 (최소 1회 이상 생성 및 채점 필요)
                         </td>
                       </tr>
@@ -948,22 +963,22 @@ export default function GoldenAdminPage() {
       {/* ─── TAB 4: MARKET DEFAULTS ─── */}
       {activeTab === 'market' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200 rounded-xl p-4">
             <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 💹 온톨로지 시장 기본값 레지스트리 (SSoT)
               </h2>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-slate-600 mt-1">
                 상업용 대출 금리, PF 금리, 건설 단가, 취득세율 등 온톨로지 엔진이 사용하는 기본값을 동적 관리합니다.
               </p>
             </div>
             <div className="flex items-center gap-3">
               {marketUpdatedAt && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-sm text-slate-600">
                   최종 갱신: {new Date(marketUpdatedAt).toLocaleDateString()}
                 </span>
               )}
-              <Button onClick={handleSaveMarket} disabled={marketSaving} className="bg-primary text-primary-foreground text-xs">
+              <Button onClick={handleSaveMarket} disabled={marketSaving || marketLoading} className="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm">
                 {marketSaving ? "저장 중..." : "💾 기본값 저장/갱신"}
               </Button>
             </div>
@@ -971,103 +986,103 @@ export default function GoldenAdminPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* 1. 금리 & 대출 조건 */}
-            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
-              <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+            <Card className="p-5 bg-white border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-emerald-700 flex items-center gap-1.5">
                 🏦 상업용 대출 & 금융 조건
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">시중은행 상업용 대출 평균 금리 (연 %)</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">시중은행 상업용 대출 평균 금리 (연 %)</label>
                   <Input
                     type="number"
                     step="0.1"
                     value={marketForm.commercial_mortgage_rate_pct}
                     onChange={(e) => setMarketForm(f => ({ ...f, commercial_mortgage_rate_pct: parseFloat(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">한국은행 기준금리 3.25% + 가산금리 기준</p>
+                  <p className="text-sm text-slate-600 mt-1">한국은행 기준금리 3.25% + 가산금리 기준</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">개발사업 PF 금리 (연 %)</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">개발사업 PF 금리 (연 %)</label>
                   <Input
                     type="number"
                     step="0.1"
                     value={marketForm.pf_interest_rate_pct}
                     onChange={(e) => setMarketForm(f => ({ ...f, pf_interest_rate_pct: parseFloat(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">최대 허용 LTV (%)</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">최대 허용 LTV (%)</label>
                   <Input
                     type="number"
                     value={marketForm.max_ltv_pct}
                     onChange={(e) => setMarketForm(f => ({ ...f, max_ltv_pct: parseInt(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
                 </div>
               </div>
             </Card>
 
             {/* 2. 건설 단가 */}
-            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
-              <h3 className="text-sm font-bold text-blue-400 flex items-center gap-1.5">
+            <Card className="p-5 bg-white border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-blue-700 flex items-center gap-1.5">
                 🏗️ 표준 건설 단가 (서울 기준, 만원/평)
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">RC (철근콘크리트) 구조</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">RC (철근콘크리트) 구조</label>
                   <Input
                     type="number"
                     value={marketForm.construction_cost_rc}
                     onChange={(e) => setMarketForm(f => ({ ...f, construction_cost_rc: parseInt(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">SC (철골) 구조</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">SC (철골) 구조</label>
                   <Input
                     type="number"
                     value={marketForm.construction_cost_sc}
                     onChange={(e) => setMarketForm(f => ({ ...f, construction_cost_sc: parseInt(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">SRC (철골철근콘크리트) 구조</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">SRC (철골철근콘크리트) 구조</label>
                   <Input
                     type="number"
                     value={marketForm.construction_cost_src}
                     onChange={(e) => setMarketForm(f => ({ ...f, construction_cost_src: parseInt(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
                 </div>
               </div>
             </Card>
 
             {/* 3. 세금 & 부대비용 */}
-            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
-              <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+            <Card className="p-5 bg-white border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-amber-700 flex items-center gap-1.5">
                 ⚖️ 취득세 및 법정 부대비용
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">상업용 부동산 표준 취득세율 (%)</label>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">상업용 부동산 표준 취득세율 (%)</label>
                   <Input
                     type="number"
                     step="0.1"
                     value={marketForm.acquisition_tax_rate_pct}
                     onChange={(e) => setMarketForm(f => ({ ...f, acquisition_tax_rate_pct: parseFloat(e.target.value) || 0 }))}
-                    className="bg-neutral-800 border-neutral-700"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">지방세법 기본 4.0% + 농어촌 0.2% + 지방교육세 0.4%</p>
+                  <p className="text-sm text-slate-600 mt-1">지방세법 기본 4.0% + 농어촌 0.2% + 지방교육세 0.4%</p>
                 </div>
               </div>
             </Card>
 
             {/* 4. 메모 & 이력 */}
-            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
-              <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
+            <Card className="p-5 bg-white border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-purple-700 flex items-center gap-1.5">
                 📝 변경 사유 및 관리자 메모
               </h3>
               <div>
@@ -1076,7 +1091,7 @@ export default function GoldenAdminPage() {
                   onChange={(e) => setMarketForm(f => ({ ...f, notes: e.target.value }))}
                   placeholder="예: 2026 Q3 한국은행 금리 인상 반영 / 시공사 공사비 지수 갱신..."
                   rows={4}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y text-foreground"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 resize-y text-slate-900"
                 />
               </div>
             </Card>
@@ -1093,11 +1108,11 @@ export default function GoldenAdminPage() {
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">섹션 타입</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">섹션 타입</label>
             <select
               value={createForm.section_type}
               onChange={e => setCreateForm(f => ({ ...f, section_type: e.target.value }))}
-              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               {Object.entries(SECTION_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -1106,37 +1121,37 @@ export default function GoldenAdminPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">자산 유형</label>
+              <label className="text-sm font-medium text-slate-700 mb-1 block">자산 유형</label>
               <Input
                 value={createForm.asset_type}
                 onChange={e => setCreateForm(f => ({ ...f, asset_type: e.target.value }))}
                 placeholder="오피스, 꼬마빌딩..."
-                className="bg-neutral-800 border-neutral-700"
+                className="bg-white border-slate-300 text-slate-900"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">가격대</label>
+              <label className="text-sm font-medium text-slate-700 mb-1 block">가격대</label>
               <Input
                 value={createForm.price_band}
                 onChange={e => setCreateForm(f => ({ ...f, price_band: e.target.value }))}
                 placeholder="10~30억"
-                className="bg-neutral-800 border-neutral-700"
+                className="bg-white border-slate-300 text-slate-900"
               />
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">마크다운 본문 (최소 50자)</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">마크다운 본문 (최소 50자)</label>
             <textarea
               value={createForm.markdown}
               onChange={e => setCreateForm(f => ({ ...f, markdown: e.target.value }))}
               placeholder="골든셋으로 사용할 마크다운 내용을 입력하세요..."
               rows={8}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 resize-y"
             />
-            <span className="text-[10px] text-muted-foreground">{createForm.markdown.length}자</span>
+            <span className="text-sm text-slate-600">{createForm.markdown.length}자</span>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">품질 점수: {createForm.judge_score}</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">품질 점수: {createForm.judge_score}</label>
             <input
               type="range"
               min="1"
@@ -1144,22 +1159,22 @@ export default function GoldenAdminPage() {
               step="0.1"
               value={createForm.judge_score}
               onChange={e => setCreateForm(f => ({ ...f, judge_score: parseFloat(e.target.value) }))}
-              className="w-full"
+              className="w-full min-h-[44px]"
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">태그 (쉼표 구분)</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">태그 (쉼표 구분)</label>
             <Input
               value={createForm.tags}
               onChange={e => setCreateForm(f => ({ ...f, tags: e.target.value }))}
               placeholder="오피스, 강남, 50억이상"
-              className="bg-neutral-800 border-neutral-700"
+              className="bg-white border-slate-300 text-slate-900"
             />
           </div>
         </div>
 
         <div className="flex gap-2 mt-6">
-          <Button onClick={handleCreateGolden} disabled={creating} className="flex-1 min-h-[44px] bg-primary text-primary-foreground">
+          <Button onClick={handleCreateGolden} disabled={creating} className="flex-1 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white">
             {creating ? '등록 중...' : '등록'}
           </Button>
           <Button onClick={() => setShowCreate(false)} variant="outline" className="flex-1 min-h-[44px]">
@@ -1177,11 +1192,11 @@ export default function GoldenAdminPage() {
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">카테고리</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">카테고리</label>
             <select
               value={termForm.category}
               onChange={e => setTermForm(f => ({ ...f, category: e.target.value }))}
-              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+              className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
             >
               {TERM_CATEGORIES.map(c => (
                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -1190,39 +1205,39 @@ export default function GoldenAdminPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">매칭 패턴 (Regex 또는 일반 텍스트)</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">매칭 패턴 (Regex 또는 일반 텍스트)</label>
             <Input
               value={termForm.pattern}
               onChange={e => setTermForm(f => ({ ...f, pattern: e.target.value }))}
               placeholder="예: 근저당\s*많 또는 급매"
-              className="bg-neutral-800 border-neutral-700 font-mono text-sm"
+              className="bg-white border-slate-300 text-slate-900 font-mono text-sm"
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">치환 단어 / 함수 (fn:형식 가능)</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">치환 단어 / 함수 (fn:형식 가능)</label>
             <Input
               value={termForm.replacement}
               onChange={e => setTermForm(f => ({ ...f, replacement: e.target.value }))}
               placeholder="예: 선순위 채권 부담이 큰 또는 fn:pyeongToSqm"
-              className="bg-neutral-800 border-neutral-700 font-mono text-sm"
+              className="bg-white border-slate-300 text-slate-900 font-mono text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">우선순위 (낮을수록 선실행)</label>
+              <label className="text-sm font-medium text-slate-700 mb-1 block">우선순위 (낮을수록 선실행)</label>
               <Input
                 type="number"
                 value={termForm.priority}
                 onChange={e => setTermForm(f => ({ ...f, priority: parseInt(e.target.value) || 100 }))}
-                className="bg-neutral-800 border-neutral-700"
+                className="bg-white border-slate-300 text-slate-900"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">매칭 방식</label>
+              <label className="text-sm font-medium text-slate-700 mb-1 block">매칭 방식</label>
               <select
                 value={String(termForm.is_regex)}
                 onChange={e => setTermForm(f => ({ ...f, is_regex: e.target.value === 'true' }))}
-                className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700"
+                className="w-full min-h-[44px] px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900"
               >
                 <option value="true">Regex (정규표현식)</option>
                 <option value="false">일반 텍스트 정확 매치</option>
@@ -1230,22 +1245,24 @@ export default function GoldenAdminPage() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">설명 / 메모</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">설명 / 메모</label>
             <textarea
               value={termForm.note}
               onChange={e => setTermForm(f => ({ ...f, note: e.target.value }))}
               placeholder="규칙에 대한 설명이나 목적을 기록하세요..."
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-white border border-slate-300 text-slate-900 resize-y"
             />
           </div>
           <div className="flex items-center gap-3 pt-2">
-            <label className="text-xs text-muted-foreground">활성 여부</label>
+            <label className="text-sm font-medium text-slate-700">활성 여부</label>
             <button
               type="button"
               onClick={() => setTermForm(f => ({ ...f, is_active: !f.is_active }))}
-              className={`min-h-[44px] text-xs px-3 py-1 rounded-full transition-colors ${
-                termForm.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-700 text-neutral-400'
+              className={`min-h-[44px] text-sm px-3.5 py-1 rounded-full font-medium border transition-colors cursor-pointer ${
+                termForm.is_active
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-slate-100 text-slate-700 border-slate-300'
               }`}
             >
               {termForm.is_active ? '활성' : '비활성'}
@@ -1254,7 +1271,7 @@ export default function GoldenAdminPage() {
         </div>
 
         <div className="flex gap-2 mt-6">
-          <Button onClick={handleSaveTerm} disabled={termSaving} className="flex-1 min-h-[44px] bg-primary text-primary-foreground">
+          <Button onClick={handleSaveTerm} disabled={termSaving} className="flex-1 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white">
             {termSaving ? '저장 중...' : '저장'}
           </Button>
           <Button onClick={() => setShowTermModal(false)} variant="outline" className="flex-1 min-h-[44px]">

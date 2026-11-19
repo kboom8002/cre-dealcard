@@ -297,12 +297,14 @@ describe('초안 생성 / simple-summary API / 발행 API / 프로필 editor_mod
   let editions: Row[] = [];
   let settingsRow: Row | null = null;
   let editorModeColumnMissing = false;
+  let incompleteStatutory = false;
 
   beforeEach(() => {
     h.unauth = false;
     h.ctx = ctxA;
     h.llmFn = null;
     editorModeColumnMissing = false;
+    incompleteStatutory = false;
     settingsRow = {
       broker_user_id: UA,
       broker_slug: 'broker-a',
@@ -367,6 +369,9 @@ describe('초안 생성 / simple-summary API / 발행 API / 프로필 editor_mod
             user_id: UA,
             slug: 'broker-a',
             bio: null,
+            office_address: incompleteStatutory ? null : '서울특별시 성동구 성수이로 88',
+            office_reg_number: incompleteStatutory ? null : '11200-2023-04567',
+            representative_name: '김중개',
             specialty_regions: ['성수동'],
             specialty_assets: ['꼬마빌딩'],
             is_public: true,
@@ -486,6 +491,19 @@ describe('초안 생성 / simple-summary API / 발행 API / 프로필 editor_mod
     expect(json.edition.content.format).toBe('simple');
     expect(json.edition.content.featured_deal_ids).toHaveLength(3);
     expect(json.edition.content.topNews).toHaveLength(3);
+  });
+
+  it('POST /api/magazine/editions/[id]/publish: 법정 표시사항 누락 시 422 STATUTORY_DISCLOSURE_INCOMPLETE', async () => {
+    incompleteStatutory = true;
+    const req = new NextRequest('https://credeal.net/api/magazine/editions/ed-simple-1/publish', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const res = await PUBLISH(req, { params: Promise.resolve({ id: 'ed-simple-1' }) });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error.code).toBe('STATUTORY_DISCLOSURE_INCOMPLETE');
   });
 
   it('GET/PUT /api/broker/profile: magazine_editor_mode 조회·저장 및 컬럼 미적용(42703/PGRST204) 시 무오류 폴백', async () => {

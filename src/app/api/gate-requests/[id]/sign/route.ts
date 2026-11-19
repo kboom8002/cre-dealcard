@@ -9,35 +9,24 @@ import { verifyAuth } from '@/lib/auth-guard';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { createModuleLogger } from '@/lib/logger';
 import { generateProIMWatermark } from '@/domain/gate/nda-watermark';
+import {
+  createHmacGrantToken,
+  isMissingColumnError,
+  issueOrRefreshProGrant,
+  parseGateReasonRequesterMeta,
+  resolveProGrantByAnyId,
+  timingSafeStringEqual,
+  verifyHmacGrantToken,
+} from '@/domain/gate/im-pro-grant-service';
 
 const log = createModuleLogger('gate-nda-sign');
 const SAFE_GRANT_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
-const ELIGIBLE_UNSIGNED_STATUSES = new Set(['pending', 'approved', 'granted']);
+const ELIGIBLE_UNSIGNED_STATUSES = new Set(['pending', 'pending_nda', 'approved', 'granted']);
 const PLACEHOLDER_PHONE_DIGITS = new Set(['01000000000', '00000000000', '0000']);
 
 function normalizePhoneDigits(raw: unknown): string {
   if (typeof raw !== 'string') return '';
   return raw.replace(/\D/g, '');
-}
-
-function timingSafeStringEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, 'utf8');
-  const bufB = Buffer.from(b, 'utf8');
-  if (bufA.byteLength !== bufB.byteLength || bufA.byteLength === 0) {
-    return false;
-  }
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
-function verifyHmacGrantToken(grantId: string, providedToken: string): boolean {
-  const secret = (process.env.NDA_GRANT_TOKEN_SECRET || process.env.GRANT_TOKEN_SECRET || '').trim();
-  if (!secret || secret.length < 16 || !providedToken) return false;
-  const cleanToken = providedToken.startsWith('sha256=')
-    ? providedToken.slice('sha256='.length).trim()
-    : providedToken.trim();
-  if (!/^[0-9a-f]{64}$/i.test(cleanToken)) return false;
-  const expected = crypto.createHmac('sha256', secret).update(grantId, 'utf8').digest('hex');
-  return timingSafeStringEqual(cleanToken.toLowerCase(), expected.toLowerCase());
 }
 
 export async function POST(
@@ -88,19 +77,70 @@ export async function POST(
   const supabase = createServiceClient();
 
   try {
-    // Fetch grant
-    const selectQuery: any = supabase.from('im_pro_grants').select('*').eq('id', id);
-    const { data: grant, error } =
-      typeof selectQuery.maybeSingle === 'function'
-        ? await selectQuery.maybeSingle()
-        : await selectQuery.single();
+    // Resolve strictly by im_pro_grants.id, grant_token, or gate_request_id (NEVER public building_id)
+    const resolved = await resolveProGrantByAnyId(supabase, id, { allowBuildingLookup: false });
+    let grant = resolved.grant;
+    let gateRequest = resolved.gateRequest;
 
-    if (error || !grant) {
+    // Direct gate_requests.id lookup (per-request ID only — never building_id)
+    if (!grant && !gateRequest) {
+      try {
+        const grTable = supabase.from('gate_requests') as unknown as {
+          select?: (cols: string) => {
+            eq?: (col: string, val: string) => {
+              maybeSingle?: () => PromiseLike<{
+                data?: Record<string, unknown> | null;
+                error?: unknown;
+              }>;
+            };
+          };
+        };
+        const grQuery = grTable?.select?.('*')?.eq?.('id', id);
+        if (grQuery && typeof grQuery.maybeSingle === 'function') {
+          const grRes = await grQuery.maybeSingle();
+          if (!grRes?.error && grRes?.data && String(grRes.data.id || '') === id) {
+            gateRequest = grRes.data as typeof resolved.gateRequest;
+          }
+        }
+      } catch {
+        gateRequest = null;
+      }
+    }
+
+    // Fallback: if an approved gate_request exists without a pre-issued grant row, issue one now
+    if (!grant && gateRequest) {
+      const gateStatus = String(gateRequest.status || '').trim().toLowerCase();
+      if (!['approved', 'granted'].includes(gateStatus)) {
+        return NextResponse.json(
+          { ok: false, error: 'Grant is not eligible for NDA signing' },
+          { status: 403 },
+        );
+      }
+      const meta = parseGateReasonRequesterMeta(gateRequest.reason);
+      const issued = await issueOrRefreshProGrant(supabase, {
+        gateRequestId: String(gateRequest.id),
+        buildingId: gateRequest.building_id ? String(gateRequest.building_id) : null,
+        requesterId: gateRequest.requester_id ?? null,
+        requesterName: meta.name,
+        requesterEmail: meta.email,
+        requesterPhone: meta.phone,
+        ttlHours: 72,
+        maxDownloads: 5,
+        status: 'pending_nda',
+      });
+      if (issued.ok && issued.grant) {
+        grant = issued.grant;
+      }
+    }
+
+    if (!grant) {
       return NextResponse.json({ error: 'Grant not found' }, { status: 404 });
     }
 
+    const targetGrantId = String(grant.id || id);
+
     if (grant.nda_signed_at) {
-      return NextResponse.json({ error: 'NDA already signed', grantId: id }, { status: 409 });
+      return NextResponse.json({ error: 'NDA already signed', grantId: targetGrantId }, { status: 409 });
     }
 
     const currentStatus = typeof grant.status === 'string' ? grant.status.trim().toLowerCase() : '';
@@ -108,6 +148,20 @@ export async function POST(
       return NextResponse.json(
         { ok: false, error: 'Grant is not eligible for NDA signing' },
         { status: 403 },
+      );
+    }
+
+    // Per-grant brute-force lockout before checking phone/token
+    const grantAllowed = await checkRateLimit(
+      `nda_grant:${targetGrantId}`,
+      'gate_nda_sign_grant',
+      8,
+      15 * 60_000,
+    );
+    if (!grantAllowed) {
+      return NextResponse.json(
+        { ok: false, error: '본인 확인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429 },
       );
     }
 
@@ -126,7 +180,7 @@ export async function POST(
         timingSafeStringEqual(headerOrBodyToken, grant.grant_token.trim())
       ) {
         identityVerified = true;
-      } else if (verifyHmacGrantToken(id, headerOrBodyToken)) {
+      } else if (verifyHmacGrantToken(targetGrantId, headerOrBodyToken) || verifyHmacGrantToken(id, headerOrBodyToken)) {
         identityVerified = true;
       }
     }
@@ -151,7 +205,7 @@ export async function POST(
       }
     }
 
-    // 3. Normalized phone digits or last-4 digits match against recorded requester_phone
+    // 3. Normalized full phone match against recorded requester_phone (4-digit stub only if recorded phone is 4 digits)
     const recordedPhoneDigits = normalizePhoneDigits(grant.requester_phone);
     const hasRealRecordedPhone =
       recordedPhoneDigits.length >= 4 && !PLACEHOLDER_PHONE_DIGITS.has(recordedPhoneDigits);
@@ -164,8 +218,12 @@ export async function POST(
           ? phoneLast4
           : '';
       const providedDigits = normalizePhoneDigits(providedPhoneRaw);
-      if (providedDigits.length === 4) {
-        identityVerified = timingSafeStringEqual(recordedPhoneDigits.slice(-4), providedDigits);
+      if (recordedPhoneDigits.length >= 8) {
+        identityVerified =
+          providedDigits.length >= 8 &&
+          timingSafeStringEqual(recordedPhoneDigits, providedDigits);
+      } else if (recordedPhoneDigits.length === 4 && providedDigits.length === 4) {
+        identityVerified = timingSafeStringEqual(recordedPhoneDigits, providedDigits);
       } else if (providedDigits.length > 4) {
         identityVerified = timingSafeStringEqual(recordedPhoneDigits, providedDigits);
       }
@@ -210,21 +268,35 @@ export async function POST(
     const authoritativePhone = existingPhone ?? cleanedSignerPhone;
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const minExpiryMs = now.getTime() + 72 * 60 * 60 * 1000;
+    const existingExpiryMs = grant.expires_at ? Date.parse(String(grant.expires_at)) : 0;
+    const expiresAt = new Date(
+      Number.isFinite(existingExpiryMs) && existingExpiryMs > now.getTime() + 24 * 60 * 60 * 1000
+        ? existingExpiryMs
+        : minExpiryMs,
+    );
+
     const wm = generateProIMWatermark({
       requesterName: authoritativeName,
       requesterPhone: authoritativePhone || '010-0000-0000',
-      dealId: grant.deal_id || grant.building_id || id,
-      grantId: id,
+      dealId: grant.deal_id || grant.building_id || targetGrantId,
+      grantId: targetGrantId,
     });
     const last4ForSeed = normalizePhoneDigits(authoritativePhone || '').slice(-4);
     const watermarkSeed = `${authoritativeName}|${last4ForSeed}|${now.toISOString()}|${wm.watermarkSeed}`;
+
+    const existingGrantToken =
+      typeof grant.grant_token === 'string' && grant.grant_token.trim().length >= 8
+        ? grant.grant_token.trim()
+        : null;
+    const issuedGrantToken = existingGrantToken || crypto.randomBytes(32).toString('hex');
 
     const updatePayload: Record<string, unknown> = {
       status: 'active',
       nda_signed_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
       watermark_seed: watermarkSeed,
+      ...(existingGrantToken ? {} : { grant_token: issuedGrantToken }),
     };
     if (!existingName) {
       updatePayload.requester_name = trimmedSignerName;
@@ -233,22 +305,51 @@ export async function POST(
       updatePayload.requester_phone = cleanedSignerPhone;
     }
 
-    const { error: updateError } = await supabase
+    let persistedGrantToken: string | null = issuedGrantToken;
+    let { error: updateError } = await supabase
       .from('im_pro_grants')
       .update(updatePayload)
-      .eq('id', id);
+      .eq('id', targetGrantId);
+
+    if (updateError && isMissingColumnError(updateError) && 'grant_token' in updatePayload) {
+      const { grant_token: _omitToken, ...fallbackPayload } = updatePayload;
+      persistedGrantToken = existingGrantToken || null;
+      const retry = await supabase
+        .from('im_pro_grants')
+        .update(fallbackPayload)
+        .eq('id', targetGrantId);
+      updateError = retry.error;
+    }
 
     if (updateError) {
-      log.error('Failed to update im_pro_grants on NDA sign', { id, error: updateError.message });
+      log.error('Failed to update im_pro_grants on NDA sign', { id: targetGrantId, error: updateError.message });
       return NextResponse.json({ error: 'Failed to process NDA' }, { status: 500 });
     }
 
-    return NextResponse.json({
+    const tokenParam = persistedGrantToken ? `?token=${encodeURIComponent(persistedGrantToken)}` : '';
+    const redirectUrl = `/im-pro/${encodeURIComponent(targetGrantId)}${tokenParam}`;
+
+    const res = NextResponse.json({
       ok: true,
-      grantId: id,
+      grantId: targetGrantId,
+      ...(persistedGrantToken ? { grantToken: persistedGrantToken } : {}),
+      redirectUrl,
       expiresAt: expiresAt.toISOString(),
-      message: 'NDA signed successfully. Pro IM access granted for 24 hours.',
+      message: 'NDA signed successfully. Pro IM access granted.',
     });
+
+    const cookieToken = persistedGrantToken || createHmacGrantToken(targetGrantId);
+    if (cookieToken) {
+      res.cookies.set('cre_pro_grant', `${targetGrantId}:${cookieToken}`, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 72 * 3600,
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+
+    return res;
   } catch (err) {
     log.error('Unexpected NDA sign error', { id, error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ error: 'Failed to process NDA' }, { status: 500 });

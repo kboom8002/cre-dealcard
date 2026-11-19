@@ -11,6 +11,7 @@ import { sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
 import { isUuid } from "@/lib/magazine/slug";
 import { kindOfEditionType } from "@/lib/magazine/edition-draft";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
+import { assertPublishable } from "@/lib/legal/publish-gate";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-editions-publish");
@@ -115,6 +116,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (profErr) log.warn("profile phone lookup failed", { error: profErr.message });
     else if (prof && typeof (prof as { phone?: unknown }).phone === "string") {
       phone = sanitizeBrokerPhone((prof as { phone: string }).phone);
+    }
+
+    const statutoryGate = await assertPublishable({
+      supabase,
+      userId: ctx.userId,
+      kind: "magazine",
+      brokerMetaOverride: {
+        company: broker.company,
+        phone,
+        display_name: broker.displayName ?? ctx.displayName,
+      },
+    });
+    if (!statutoryGate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: statutoryGate.code, message: statutoryGate.message },
+          missingFields: statutoryGate.missingFields,
+          missingLabels: statutoryGate.missingLabels,
+        },
+        { status: 422 },
+      );
     }
 
     const nowIso = new Date().toISOString();

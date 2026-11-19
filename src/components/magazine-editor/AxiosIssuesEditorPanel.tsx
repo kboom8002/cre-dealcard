@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Sparkles, ArrowUp, ArrowDown, RefreshCw, Palette, Newspaper } from "lucide-react";
 import type { AxiosUnitIssue, PostItTone } from "@/domain/magazine/types";
 import {
@@ -59,6 +59,7 @@ export function AxiosIssuesEditorPanel({
   const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
   const [expandedToolsIdx, setExpandedToolsIdx] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState<NewsChannelId>("all");
+  const replaceSeqRef = useRef(0);
 
   // 실제 상태(unitIssues)와 화면 표시를 1:1 일치시켜 미저장 유령 카드 발생을 원천 차단한다
   const issues: AxiosUnitIssue[] = unitIssues.slice(0, ISSUE_CARD_COUNT);
@@ -105,8 +106,9 @@ export function AxiosIssuesEditorPanel({
   const handleReplaceSingleIssue = (idx: number, item: NewsPoolItem) => {
     const ch = resolveNewsChannel(item);
     const currentTone = issues[idx]?.memoTone ?? POST_IT_TONES[idx % POST_IT_TONES.length];
+    replaceSeqRef.current += 1;
     const replacement: AxiosUnitIssue = {
-      id: String(item.id ?? `issue-${idx + 1}-${Date.now()}`),
+      id: String(item.id ?? `issue-${idx + 1}-${replaceSeqRef.current}`),
       title: formatAxiosCardTitle(item.cardTitle || item.title),
       brief: formatAxiosTwoLineBrief(item.cardBrief || item.summary, {
         title: formatAxiosCardTitle(item.cardTitle || item.title),

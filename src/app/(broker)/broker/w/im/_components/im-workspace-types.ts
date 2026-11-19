@@ -5,6 +5,7 @@ import {
   formatKoreanCurrencyReadout,
   parseManwonAmount,
 } from "@/lib/rent-roll/tsv-parser";
+import { pyeongToM2 } from "@/domain/building/im-core/facts/area";
 import type { BrokerExtrasFormState } from "@/domain/building/mobile-im/broker-extras";
 
 export const UUID_REGEX =
@@ -239,16 +240,19 @@ export function sortImWorkspaceItems(items: ImListItem[]): ImListItem[] {
 }
 
 export function createBlankImItem(options?: {
+  id?: string;
+  buildingId?: string;
+  updatedAt?: string;
   ownerUserId?: string | null;
   brokerName?: string;
   brokerageName?: string;
   brokerPhone?: string;
 }): ImListItem {
   const stamp = Date.now();
-  const newId = `im-doc-${stamp}`;
+  const newId = options?.id || `im-doc-${stamp}`;
   return {
     id: newId,
-    buildingId: `bld-${stamp}`,
+    buildingId: options?.buildingId || `bld-${stamp}`,
     ...(options?.ownerUserId ? { ownerUserId: options.ownerUserId } : {}),
     title: "",
     address: "",
@@ -256,7 +260,7 @@ export function createBlankImItem(options?: {
     grossYieldPct: 0,
     status: "draft",
     versionLabel: "작성 중",
-    updatedAt: new Date().toISOString(),
+    updatedAt: options?.updatedAt ?? new Date().toISOString(),
     investmentPosture: "core_income",
     gfaSqm: "",
     completionDate: "",
@@ -320,14 +324,14 @@ export function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
       String(c4.priceBand || dc.priceBand || "")
     ),
     grossYieldPct: 0,
-    status: "draft",
-    versionLabel: "작성 중",
+    status: dc.status === "sent" || dc.status === "published" ? "published" : "draft",
+    versionLabel: dc.status === "sent" || dc.status === "published" ? "v1 공개 중 ★" : "작성 중",
     updatedAt: new Date().toISOString(),
     investmentPosture: posture,
-    gfaSqm: gfaPyung > 0 ? String(Math.round(gfaPyung * 3.3058 * 10) / 10) : "",
+    gfaSqm: gfaPyung > 0 ? String(Math.round(pyeongToM2(gfaPyung) * 10) / 10) : "",
     completionDate: "",
     landAreaSqm:
-      landPyung > 0 ? String(Math.round(landPyung * 3.3058 * 10) / 10) : "",
+      landPyung > 0 ? String(Math.round(pyeongToM2(landPyung) * 10) / 10) : "",
     zoning: "",
     handoverNote: "",
     axiosHighlights: BLANK_IM_HIGHLIGHTS,
@@ -474,8 +478,8 @@ export function inferPhotoCategoryFromFilename(
     return { category: "interior", caption: base || "기준층 실내 전용 공간" };
   }
   return {
-    category: idx === 0 ? "exterior" : "interior",
-    caption: base || (idx === 0 ? "건물 전면 외관" : `현장 사진 ${idx + 1}`),
+    category: "general",
+    caption: base || "",
   };
 }
 

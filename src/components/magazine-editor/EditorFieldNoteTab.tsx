@@ -85,13 +85,13 @@ export function EditorFieldNoteTab({
                   aria-expanded={tipOpen}
                   aria-controls={tipId}
                   onClick={() => setActiveTooltip(tipOpen ? null : field.key)}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-bold text-blue-700 dark:text-indigo-300 bg-blue-50 dark:bg-slate-800/80 hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-bold text-blue-700 dark:text-indigo-300 bg-blue-50 dark:bg-slate-800/80 hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <Info className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>작성 요령 보기</span>
                 </button>
               </div>
-              <span className="text-xs font-bold text-slate-600 dark:text-ink-subtle">
+              <span className="text-sm font-bold text-slate-600 dark:text-ink-subtle">
                 {currentLen}자 · 권장 2~3문장
               </span>
             </div>
@@ -102,7 +102,7 @@ export function EditorFieldNoteTab({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="text-[13px] font-semibold text-blue-900 dark:text-indigo-200 bg-blue-50/70 dark:bg-indigo-950/40 rounded-lg px-3 py-2 leading-relaxed overflow-hidden"
+                  className="text-sm font-semibold text-blue-900 dark:text-indigo-200 bg-blue-50/70 dark:bg-indigo-950/40 rounded-lg px-3 py-2 leading-relaxed overflow-hidden"
                 >
                   💡 {field.tooltip}
                 </motion.p>

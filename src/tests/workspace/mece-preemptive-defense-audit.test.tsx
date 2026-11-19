@@ -83,6 +83,7 @@ function simulateServerlessColdStart() {
 
 interface SharedDatabase {
   activity_events: Array<Record<string, any>>;
+  profiles?: Array<Record<string, any>>;
   broker_profiles: Array<Record<string, any>>;
   building_ssot_lite: Array<Record<string, any>>;
   buildings: Array<Record<string, any>>;
@@ -119,6 +120,20 @@ function clearInjectedErrors() {
 function createInitialDb(): SharedDatabase {
   return {
     activity_events: [],
+    profiles: [
+      {
+        id: BROKER_A_ID,
+        display_name: "이상덕",
+        company: "제이에스부동산중개법인",
+        phone: "010-3773-9127",
+      },
+      {
+        id: BROKER_B_ID,
+        display_name: "김경쟁",
+        company: "라이벌중개법인",
+        phone: "010-9999-8888",
+      },
+    ],
     broker_profiles: [
       {
         id: BROKER_A_ID,
@@ -126,8 +141,11 @@ function createInitialDb(): SharedDatabase {
         broker_id: BROKER_A_ID,
         slug: "broker-a-realty",
         display_name: "이상덕",
+        representative_name: "이상덕",
         office_name: "제이에스부동산중개법인",
         company_name: "제이에스부동산중개법인",
+        office_address: "서울특별시 마포구 동교로 123, 2층",
+        office_reg_number: "11440-2024-04567",
         phone: "010-3773-9127",
         preferred_regions: ["홍대·연남(마포)"],
         preferred_channels: ["deal_completion"],
@@ -138,8 +156,11 @@ function createInitialDb(): SharedDatabase {
         broker_id: BROKER_B_ID,
         slug: "broker-b-rival",
         display_name: "김경쟁",
+        representative_name: "김경쟁",
         office_name: "라이벌중개법인",
         company_name: "라이벌중개법인",
+        office_address: "서울특별시 강남구 테헤란로 456, 3층",
+        office_reg_number: "11680-2024-00002",
         phone: "010-9999-8888",
         preferred_regions: ["강남·서초"],
         preferred_channels: ["deal_completion"],

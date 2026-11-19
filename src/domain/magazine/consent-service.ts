@@ -21,6 +21,8 @@ import {
   isMagazineSendDryRun,
   isMagazineSendEnabled,
 } from '@/lib/magazine/send-flags';
+import { clearBrokerUnsubscribeSuppression } from '@/lib/legal/email-suppression';
+import { isUuid } from '@/lib/magazine/slug';
 import { renderOptInConfirmEmail } from './templates/opt-in-confirm';
 import { assertAbsoluteHttpsUrl, getSiteBaseUrl } from './templates/url-guard';
 import {
@@ -323,6 +325,7 @@ export async function recordOptIn(db: ConsentDbClient, p: RecordOptInParams): Pr
       age_confirmed: input.consent.age14,
       reconfirm_due_at: computeReconfirmDue(now).toISOString(),
       confirm_status: 'pending' as const,
+      consent_status: 'pending' as const,
       confirm_token_hash: hash,
     };
 
@@ -340,7 +343,13 @@ export async function recordOptIn(db: ConsentDbClient, p: RecordOptInParams): Pr
       if (p.brokerUserId) patch.broker_user_id = p.brokerUserId;
       // status / unsubscribed_at / source는 의도적으로 건드리지 않는다:
       //  - 해지자는 unsubscribed 유지, 확인 링크(confirmOptIn)에서만 재활성화
-      const { error } = await db.from('magazine_subscribers').update(patch).eq('id', target.id).eq('broker_id', p.brokerSlug);
+      let { error } = await db.from('magazine_subscribers').update(patch).eq('id', target.id).eq('broker_id', p.brokerSlug);
+      if (error && isSchemaMissingError(error) && /consent_status/i.test(error.message ?? '')) {
+        // 20261117000002 마이그레이션 전 DB 호환: consent_status 컬럼 누락 시 폴백
+        const legacyPatch = { ...patch };
+        delete legacyPatch.consent_status;
+        ({ error } = await db.from('magazine_subscribers').update(legacyPatch).eq('id', target.id).eq('broker_id', p.brokerSlug));
+      }
       if (error) {
         logDbError('update', error);
         return { ok: false, code: isSchemaMissingError(error) ? 'UNAVAILABLE' : 'DB_ERROR' };
@@ -373,10 +382,21 @@ export async function recordOptIn(db: ConsentDbClient, p: RecordOptInParams): Pr
     if (p.brokerUserId) baseRow.broker_user_id = p.brokerUserId;
 
     let ins = await db.from('magazine_subscribers').insert(baseRow).select('id').single();
+    if (ins.error && isSchemaMissingError(ins.error) && /consent_status/i.test(ins.error.message ?? '')) {
+      const legacyRow = { ...baseRow };
+      delete legacyRow.consent_status;
+      ins = await db.from('magazine_subscribers').insert(legacyRow).select('id').single();
+    }
     if (ins.error?.code === '23514' && input.source !== 'magazine') {
       // source CHECK에 'qr_card' 등이 아직 없는 DB: 출처는 interest_profile.origin에 보존하고 'magazine'으로 저장
       log.warn('[consent] source CHECK 미확장 DB → source=magazine 폴백(origin은 interest_profile에 보존)');
-      ins = await db.from('magazine_subscribers').insert({ ...baseRow, source: 'magazine' }).select('id').single();
+      const fallbackRow: Record<string, unknown> = { ...baseRow, source: 'magazine' };
+      ins = await db.from('magazine_subscribers').insert(fallbackRow).select('id').single();
+      if (ins.error && isSchemaMissingError(ins.error) && /consent_status/i.test(ins.error.message ?? '')) {
+        const legacyFallback = { ...fallbackRow };
+        delete legacyFallback.consent_status;
+        ins = await db.from('magazine_subscribers').insert(legacyFallback).select('id').single();
+      }
     }
     if (ins.error) {
       if (ins.error.code === '23505' && attempt === 0) continue; // 동시 가입 경합 → 재조회 후 갱신 경로
@@ -403,6 +423,22 @@ export type ConfirmOptInResult =
 
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{32,128}$/;
 
+async function resolveBrokerUuidForConfirm(
+  db: ConsentDbClient,
+  params: { brokerUserId?: string | null; brokerId?: string | null; brokerSlug: string },
+): Promise<string | null> {
+  if (isUuid(params.brokerUserId)) return params.brokerUserId;
+  if (isUuid(params.brokerId)) return params.brokerId;
+  if (isUuid(params.brokerSlug)) return params.brokerSlug;
+  try {
+    const res = await db.from('broker_profiles').select('user_id').eq('slug', params.brokerSlug).limit(1);
+    const uid = res?.data?.[0]?.user_id;
+    return isUuid(uid) ? uid : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 확인 처리(POST 전용 — GET은 확인 버튼 페이지만 렌더, 메일 스캐너 prefetch로 소비되지 않게):
  * 토큰 해시 비교(timingSafeEqual) → 만료(동의 시각 + 7일) 확인 → confirmed.
@@ -424,7 +460,7 @@ export async function confirmOptIn(
 
   const { data, error } = await db
     .from('magazine_subscribers')
-    .select('id, status, unsubscribed_at, confirm_status, confirm_token_hash, marketing_consent_at')
+    .select('id, broker_id, broker_user_id, subscriber_email, status, unsubscribed_at, confirm_status, confirm_token_hash, marketing_consent_at')
     .eq('broker_id', brokerSlug)
     .eq('confirm_token_hash', hash)
     .limit(1);
@@ -435,6 +471,9 @@ export async function confirmOptIn(
   const row = data?.[0] as
     | {
         id: string;
+        broker_id?: string | null;
+        broker_user_id?: string | null;
+        subscriber_email?: string | null;
         status: string;
         unsubscribed_at: string | null;
         confirm_status?: string | null;
@@ -457,12 +496,17 @@ export async function confirmOptIn(
   if (!within) return { ok: false, reason: 'EXPIRED' };
 
   const reactivate = (row.status === 'unsubscribed' || !!row.unsubscribed_at) && canResubscribe(row, { confirmed: true });
-  const patch: Record<string, unknown> = { confirm_status: 'confirmed' };
+  const nowIso = now.toISOString();
+  const patch: Record<string, unknown> = {
+    confirm_status: 'confirmed',
+    consent_status: 'confirmed',
+    consented_at: nowIso,
+  };
   if (reactivate) {
     patch.status = 'active';
     patch.unsubscribed_at = null;
   }
-  const upd = await db
+  let upd = await db
     .from('magazine_subscribers')
     .update(patch)
     .eq('id', row.id)
@@ -470,6 +514,20 @@ export async function confirmOptIn(
     .eq('confirm_token_hash', hash)
     .eq('confirm_status', 'pending') // 동시 클릭 경합 방지(한쪽만 상태 전이)
     .select('id');
+  if (upd.error && isSchemaMissingError(upd.error) && /consent_status|consented_at/i.test(upd.error.message ?? '')) {
+    // 20261117000002 마이그레이션 전 DB 호환
+    const legacyPatch = { ...patch };
+    delete legacyPatch.consent_status;
+    delete legacyPatch.consented_at;
+    upd = await db
+      .from('magazine_subscribers')
+      .update(legacyPatch)
+      .eq('id', row.id)
+      .eq('broker_id', brokerSlug)
+      .eq('confirm_token_hash', hash)
+      .eq('confirm_status', 'pending')
+      .select('id');
+  }
   if (upd.error) {
     logDbError('confirm update', upd.error);
     return { ok: false, reason: isSchemaMissingError(upd.error) ? 'UNAVAILABLE' : 'ERROR' };
@@ -477,6 +535,20 @@ export async function confirmOptIn(
   if (!upd.data?.length) {
     // 동시 요청이 먼저 전이시킨 경우: 사용자가 같은 링크를 다시 열면 멱등 경로(alreadyConfirmed)로 ok가 된다
     return { ok: false, reason: 'INVALID' };
+  }
+  if (row.subscriber_email) {
+    const resolvedBrokerUuid = await resolveBrokerUuidForConfirm(db, {
+      brokerUserId: row.broker_user_id,
+      brokerId: row.broker_id,
+      brokerSlug,
+    });
+    if (resolvedBrokerUuid) {
+      // 본인의 더블 옵트인 확인 완료 시 scope='broker' & reason='unsubscribe'만 해제 (hard_bounce/complaint/global은 영구 보존)
+      await clearBrokerUnsubscribeSuppression(db, {
+        email: row.subscriber_email,
+        brokerId: resolvedBrokerUuid,
+      });
+    }
   }
   return { ok: true, subscriberId: row.id, reactivated: reactivate, alreadyConfirmed: false };
 }

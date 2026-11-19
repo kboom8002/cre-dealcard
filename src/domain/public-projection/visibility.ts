@@ -40,6 +40,12 @@
 export const NON_PUBLIC_BUILDING_STATUSES: readonly string[] = ['archived'];
 export const NON_PUBLIC_SIGNAL_CARD_VISIBILITIES: readonly string[] = ['internal_only'];
 export const NON_PUBLIC_SIGNAL_CARD_STATUSES: readonly string[] = ['archived'];
+export const PUBLIC_SIGNAL_CARD_STATUSES: readonly string[] = [
+  'shared_external',
+  'published',
+  'broker_reviewed',
+  'active',
+];
 
 /** Document statuses that are never surfaced on public pages (teaser body / IM existence). */
 export const NON_PUBLIC_DOCUMENT_STATUSES: readonly string[] = ['archived'];
@@ -59,15 +65,25 @@ export function isImDocStatusPublic(status: string | null | undefined): boolean 
   return !!status && PUBLIC_IM_DOC_STATUSES.includes(status);
 }
 
+export function isSignalCardStatusPublic(status: string | null | undefined): boolean {
+  return !!status && PUBLIC_SIGNAL_CARD_STATUSES.includes(status);
+}
+
+export const PUBLIC_WORKSPACE_ITEM_STATUSES: readonly string[] = ['published', 'sent'];
+
 export type DealCardNonPublicReason =
   | 'building_archived'
   | 'signal_card_internal_only'
-  | 'signal_card_archived';
+  | 'signal_card_archived'
+  | 'workspace_item_not_public'
+  | 'unpublished_draft_artifacts';
 
 export interface DealCardVisibilityInput {
   buildingStatus?: string | null;
   signalCardVisibility?: string | null;
   signalCardStatus?: string | null;
+  teaserDocStatus?: string | null;
+  workspaceItemStatus?: string | null;
 }
 
 export interface DealCardVisibilityResult {
@@ -84,6 +100,20 @@ export function evaluateDealCardPublicVisibility(input: DealCardVisibilityInput)
   }
   if (input.signalCardStatus && NON_PUBLIC_SIGNAL_CARD_STATUSES.includes(input.signalCardStatus)) {
     reasons.push('signal_card_archived');
+  }
+  if (input.workspaceItemStatus && !PUBLIC_WORKSPACE_ITEM_STATUSES.includes(input.workspaceItemStatus)) {
+    reasons.push('workspace_item_not_public');
+  }
+  if (!input.workspaceItemStatus) {
+    const bothDraftArtifacts =
+      input.signalCardStatus === 'draft' && input.teaserDocStatus === 'draft';
+    const unpublishedDraftBuilding =
+      input.buildingStatus === 'draft' &&
+      !isImDocStatusPublic(input.teaserDocStatus) &&
+      !isSignalCardStatusPublic(input.signalCardStatus);
+    if (bothDraftArtifacts || unpublishedDraftBuilding) {
+      reasons.push('unpublished_draft_artifacts');
+    }
   }
   return { isPublic: reasons.length === 0, reasons };
 }

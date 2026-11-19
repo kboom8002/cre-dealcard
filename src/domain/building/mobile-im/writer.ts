@@ -476,6 +476,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       hasHallucination: hasNeedsCheckOrHallucination,
       // PII: 섹션 마크다운에 개인정보 패턴이 없는지 검사
       piiRemoved: !sections.some(s => /\d{3}-\d{4}-\d{4}|주민등록|resident\s*registration/i.test(s.markdown || '')),
+      imagePiiConfirmed: (input.supplemental as Record<string, unknown> | undefined)?.image_pii_confirmed !== false,
       // 위험 표현: 섹션 중 boundary_note가 있으면 true
       hasRiskExpression: sections.some(s => !!(s.boundary_note && s.boundary_note.length > 0)),
       // IM Judge 점수: 평균 confidence 기반 (high=5, medium=3, low=1, needs_check=0)
@@ -494,7 +495,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       disclosureDcf: '',
       disclosureIrr: '',
       termExplanationExists: sections.some(s => s.section_type === 'risk_check'),
-      effectiveLandArea: 0,
+      effectiveLandArea: Number((ctx as { landAreaSqm?: number }).landAreaSqm ?? resolvedLand.value ?? 0) || 0,
       effectiveFAR: 0,
       calculatedEffectiveFAR: 0,
       // D37 P2-3: G48~G53 실값 연결

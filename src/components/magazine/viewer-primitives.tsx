@@ -18,9 +18,9 @@ export function Section({ children }: { children: React.ReactNode }) {
 
 export function DataBadge({ type }: { type: "ai" | "public" | "realtime" }) {
   const config = {
-    ai: { label: "🟣 AI 분석", cls: "text-violet-300 bg-violet-500/10 border-violet-500/30" },
-    public: { label: "🔵 공공데이터", cls: "text-sky-300 bg-sky-500/10 border-sky-500/30" },
-    realtime: { label: "🟢 실시간", cls: "text-emerald-300 bg-emerald-500/10 border-emerald-500/30" },
+    ai: { label: "🟣 AI 분석", cls: "text-violet-800 bg-violet-50 border-violet-200" },
+    public: { label: "🔵 공공데이터", cls: "text-sky-800 bg-sky-50 border-sky-200" },
+    realtime: { label: "🟢 실시간", cls: "text-emerald-800 bg-emerald-50 border-emerald-200" },
   };
   const c = config[type];
   return <span className={`rounded-md border px-1.5 py-0.5 text-caption font-bold ${c.cls}`}>{c.label}</span>;
@@ -29,10 +29,10 @@ export function DataBadge({ type }: { type: "ai" | "public" | "realtime" }) {
 /** 브리핑/테마 본문 → 안전한 HTML. 입력 전체를 먼저 escapeHtml 한 뒤 고정 리터럴 태그만 삽입하므로 사용자 문자열은 태그가 될 수 없다. */
 export function briefingParaToSafeHtml(para: string): string {
   return escapeHtml(para)
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-    .replace(/「(.*?)」/g, '<strong class="text-white font-bold">「$1」</strong>')
-    .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-200 font-bold font-mono">$1</span>')
-    .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-200 font-bold">$1</span>');
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 font-bold">$1</strong>')
+    .replace(/「(.*?)」/g, '<strong class="text-slate-900 font-bold">「$1」</strong>')
+    .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-800 font-bold font-mono">$1</span>')
+    .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-800 font-bold">$1</span>');
 }
 
 /** 브리핑/테마 본문. 독자 본문 16px(text-reader). 강조 span 은 이스케이프 후 고정 태그로만 만든다. */
@@ -47,7 +47,7 @@ export function RichBriefing({ text }: { text: string }) {
           /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/u.test(para) ||
           /^\*\*.*\*\*$/.test(para.trim());
         const html = briefingParaToSafeHtml(para);
-        const cls = isHeading ? "pt-1 text-title font-extrabold leading-snug text-white" : "text-reader leading-relaxed text-slate-200";
+        const cls = isHeading ? "pt-1 text-title font-extrabold leading-snug text-slate-900" : "text-reader leading-relaxed text-slate-800";
         // html 은 escapeHtml 로 전체 이스케이프된 뒤 고정 strong/span 태그만 삽입됨
         return <p key={i} className={cls} dangerouslySetInnerHTML={{ __html: html }} />;
       })}

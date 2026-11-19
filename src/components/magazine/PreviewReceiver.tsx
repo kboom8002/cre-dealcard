@@ -101,10 +101,10 @@ export function PreviewReceiver({ editionId, brokerId, brokerSlug, date, dateLab
       : "에디터의 초안을 불러오는 중입니다…";
 
   return (
-    <div className="min-h-screen w-full" style={{ background: "linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)" }}>
+    <div className="min-h-screen w-full bg-[#FAF9F5] text-slate-900">
       <main id="magazine-main" className="mx-auto max-w-[440px] px-4 py-24 text-center">
-        <h1 className="text-title font-extrabold text-white">매거진 미리보기</h1>
-        <p role="status" className="mt-3 text-label text-ink-muted">{message}</p>
+        <h1 className="text-title font-extrabold text-slate-900">매거진 미리보기</h1>
+        <p role="status" className="mt-3 text-sm text-slate-700">{message}</p>
       </main>
     </div>
   );

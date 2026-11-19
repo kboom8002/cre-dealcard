@@ -1,8 +1,10 @@
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
 import { createModuleLogger } from '@/lib/logger';
-import { isRealProductionRuntime } from '@/lib/env';
 import { isQuietHoursKst } from '@/lib/magazine/kst';
+import { maskEmail, maskPhone } from '@/lib/magazine/pii';
+import { isUuid } from '@/lib/magazine/slug';
+import { hashEmailForSuppression } from '@/lib/legal/email-suppression';
 import {
   buildListUnsubscribeHeaders,
   buildUnsubscribeUrl,
@@ -23,7 +25,8 @@ export type InboxEmailDeliveryPurpose = 'transactional_reply' | 'marketing_outre
 export type InboxEmailBlockedReason =
   | 'INVALID_EMAIL'
   | 'OPT_IN_REQUIRED'
-  | 'QUIET_HOURS_KST';
+  | 'QUIET_HOURS_KST'
+  | 'UNSUBSCRIBE_LINK_UNAVAILABLE';
 
 export const TRANSACTIONAL_BASIS_LABELS: Record<InboxTransactionalBasis, string> = {
   im_request: '고객 IM 열람 요청',
@@ -58,7 +61,7 @@ export function normalizeClientEmail(raw?: string | null): string | null {
   return trimmed.toLowerCase();
 }
 
-export function normalizeTransactionalBasis(raw?: string | null): InboxTransactionalBasis | null {
+export function normalizeTransactionalBasis(raw?: unknown): InboxTransactionalBasis | null {
   if (
     raw === 'im_request' ||
     raw === 'property_inquiry' ||
@@ -163,52 +166,76 @@ export function buildInboxUnsubscribeUrl(params: {
   brokerId?: string | null;
   subscriberId?: string | null;
   toEmail: string;
-}): string | null {
+}): string {
+  if (!process.env.UNSUBSCRIBE_SECRET) {
+    return '';
+  }
+
   const baseOrigin = (
     params.origin?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
     'https://credeal.net'
   ).replace(/\/+$/, '');
 
-  const rawSub = (params.subscriberId || '').trim().replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 100);
-  const rawBroker = (params.brokerId || 'broker')
-    .trim()
-    .replace(/[^A-Za-z0-9_-]/g, '-')
-    .slice(0, 100);
-  const subId =
-    rawSub ||
-    `em-${crypto
-      .createHash('sha256')
-      .update(params.toEmail.trim().toLowerCase())
-      .digest('hex')
-      .slice(0, 24)}`;
-  const brokerKey = rawBroker || 'broker';
+  const rawInputSub = (params.subscriberId || '').trim();
+  const strippedSub = rawInputSub.replace(/^(?:srv-|custom[-_]|cli[-_]|sub_)/, '');
 
-  if (process.env.UNSUBSCRIBE_SECRET) {
-    try {
-      const token = issueUnsubToken({ subscriberId: subId, brokerId: brokerKey });
-      return buildUnsubscribeUrl(baseOrigin, token);
-    } catch {
-      // fall through to deterministic HMAC fallback if ID format rejected
+  let targetId = '';
+  if (rawInputSub && rawInputSub !== 'inbox-client') {
+    if (isUuid(strippedSub)) {
+      targetId =
+        rawInputSub.startsWith('sub_') || rawInputSub.startsWith('cli-')
+          ? rawInputSub.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 100)
+          : strippedSub;
+    } else if (/^(?:sub_[A-Za-z0-9_-]{1,96}|emh_[0-9a-f]{64})$/i.test(rawInputSub)) {
+      targetId = rawInputSub;
     }
   }
 
-  const fallbackSecret =
-    (process.env.SHARE_LINK_SECRET || '').trim() ||
-    (process.env.NEXTAUTH_SECRET || '').trim() ||
-    (!isRealProductionRuntime() ? 'credeal-inbox-unsub-hmac-v1' : '');
-
-  if (!fallbackSecret) {
-    return null;
+  if (!targetId) {
+    const emailHash = hashEmailForSuppression(params.toEmail);
+    if (!emailHash) return '';
+    targetId = `emh_${emailHash}`;
   }
 
-  const exp = Math.floor(Date.now() / 1000) + 365 * 86400;
-  const payloadB64 = Buffer.from(`v2.${subId}.${brokerKey}.${exp}`, 'utf8').toString('base64url');
-  const sigB64 = crypto
-    .createHmac('sha256', fallbackSecret)
-    .update(payloadB64)
-    .digest('base64url');
-  return buildUnsubscribeUrl(baseOrigin, `${payloadB64}.${sigB64}`);
+  const brokerKey =
+    (params.brokerId || 'broker')
+      .trim()
+      .replace(/[^A-Za-z0-9_-]/g, '-')
+      .slice(0, 100) || 'broker';
+
+  try {
+    const token = issueUnsubToken({ subscriberId: targetId, brokerId: brokerKey });
+    if (!token || token === 'NO_SECRET') {
+      return '';
+    }
+    return buildUnsubscribeUrl(baseOrigin, token);
+  } catch {
+    return '';
+  }
+}
+
+const UNSUBSCRIBE_PATH = '/api/public/magazine/unsubscribe';
+
+/**
+ * WP-7.3E P1-2: only a server-built unsubscribe URL (http(s), our unsubscribe endpoint, single `t`
+ * token, no header-injection characters) may flow into List-Unsubscribe / the footer.
+ * Anything else is discarded and the URL is regenerated server-side.
+ */
+export function isTrustedInboxUnsubscribeUrl(raw?: string | null): boolean {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (!value || value.length > 2048 || /[\s<>"'\\]/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    if (url.username || url.password) return false;
+    if (url.pathname !== UNSUBSCRIBE_PATH) return false;
+    const tokens = url.searchParams.getAll('t');
+    if (tokens.length !== 1 || !tokens[0] || tokens[0].length > 600) return false;
+    return Array.from(url.searchParams.keys()).every((k) => k === 't');
+  } catch {
+    return false;
+  }
 }
 
 export interface SendInboxClientEmailInput {
@@ -217,6 +244,7 @@ export interface SendInboxClientEmailInput {
   brokerCompany?: string | null;
   brokerPhone?: string | null;
   brokerAddress?: string | null;
+  brokerEmail?: string | null;
   brokerId?: string | null;
   subscriberId?: string | null;
   clientName: string;
@@ -290,6 +318,7 @@ export async function sendInboxClientEmail(
   const brokerCompanyClean = (input.brokerCompany || '').trim();
   const brokerPhoneClean = (input.brokerPhone || '').trim();
   const brokerAddressClean = (input.brokerAddress || '').trim();
+  const brokerEmailClean = (input.brokerEmail || '').trim();
   const senderIdentity = brokerCompanyClean || brokerNameClean;
 
   let shareOrigin: string | null = null;
@@ -301,15 +330,22 @@ export async function sendInboxClientEmail(
     shareOrigin = null;
   }
 
+  const callerUnsubscribeUrl = input.unsubscribeUrl?.trim() || '';
+  if (callerUnsubscribeUrl && !isTrustedInboxUnsubscribeUrl(callerUnsubscribeUrl)) {
+    log.warn('Discarding untrusted unsubscribeUrl; regenerating server-side', {
+      deliveryPurpose,
+    });
+  }
   const resolvedUnsubscribeUrl =
     deliveryPurpose === 'marketing_outreach'
-      ? input.unsubscribeUrl?.trim() ||
+      ? (isTrustedInboxUnsubscribeUrl(callerUnsubscribeUrl) ? callerUnsubscribeUrl : '') ||
         buildInboxUnsubscribeUrl({
           origin: shareOrigin,
           brokerId: input.brokerId,
           subscriberId: input.subscriberId,
           toEmail: normalizedEmail,
-        })
+        }) ||
+        null
       : null;
 
   const text =
@@ -321,6 +357,7 @@ export async function sendInboxClientEmail(
           `발신자: ${senderIdentity}`,
           ...(brokerPhoneClean ? [`연락처: ${brokerPhoneClean}`] : []),
           ...(brokerAddressClean ? [`소재지: ${brokerAddressClean}`] : []),
+          ...(brokerEmailClean ? [`전자우편: ${brokerEmailClean}`] : []),
           '본 메일은 정보통신망법에 따라 수신에 동의하신 고객님께 발송된 안내 메일입니다.',
           ...(resolvedUnsubscribeUrl
             ? [`무료 수신거부: ${resolvedUnsubscribeUrl}`]
@@ -365,6 +402,23 @@ export async function sendInboxClientEmail(
         text,
       };
     }
+
+    // WP-7.3E P2-8: 정보통신망법 제50조 — a marketing email must carry a working one-click
+    // unsubscribe link. If it cannot be signed (e.g. UNSUBSCRIBE_SECRET missing), fail closed.
+    if (!resolvedUnsubscribeUrl) {
+      log.error('Blocking marketing inbox email: unsubscribe link unavailable', {
+        to: maskEmail(normalizedEmail),
+      });
+      return {
+        ok: false,
+        blockedReason: 'UNSUBSCRIBE_LINK_UNAVAILABLE',
+        deliveryPurpose,
+        error:
+          '수신거부 링크를 생성할 수 없어 광고성 이메일 발송을 보류했습니다. 관리자에게 문의하시거나 1:1 안내 문구 복사를 이용해 주세요.',
+        subject,
+        text,
+      };
+    }
   }
 
   const headers =
@@ -380,6 +434,7 @@ export async function sendInboxClientEmail(
   const safeHeadline = input.headline?.trim() ? escapeHtml(input.headline.trim()) : '';
   const safePhone = brokerPhoneClean ? escapeHtml(brokerPhoneClean) : '';
   const safeAddress = brokerAddressClean ? escapeHtml(brokerAddressClean) : '';
+  const safeBrokerEmail = brokerEmailClean ? escapeHtml(brokerEmailClean) : '';
   const safeUrl = escapeHtml(input.shareUrl);
   const safeUnsubUrl = resolvedUnsubscribeUrl ? escapeHtml(resolvedUnsubscribeUrl) : '';
   const headerBrandLine = safeCompany ? `${safeCompany} · ${safeBroker}` : safeBroker;
@@ -388,7 +443,7 @@ export async function sendInboxClientEmail(
     deliveryPurpose === 'marketing_outreach'
       ? `<div style="margin:0;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.7;color:#64748b;">
       <p style="margin:0 0 6px;">
-        발신자: ${safeSenderIdentity}${safePhone ? ` · 연락처: ${safePhone}` : ''}${safeAddress ? ` · 소재지: ${safeAddress}` : ''}
+        발신자: ${safeSenderIdentity}${safePhone ? ` · 연락처: ${safePhone}` : ''}${safeAddress ? ` · 소재지: ${safeAddress}` : ''}${safeBrokerEmail ? ` · 전자우편: ${safeBrokerEmail}` : ''}
       </p>
       <p style="margin:0;">
         본 메일은 정보통신망법에 따라 수신에 동의하신 고객님께 발송된 광고성 안내 메일입니다.${
@@ -399,7 +454,7 @@ export async function sendInboxClientEmail(
       </p>
     </div>`
       : `<p style="margin:0;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.6;color:#64748b;">
-      발신: ${safeBroker}${safeCompany ? ` (${safeCompany})` : ''}${safePhone ? ` · ${safePhone}` : ''}${safeAddress ? ` · ${safeAddress}` : ''}<br/>
+      발신: ${safeBroker}${safeCompany ? ` (${safeCompany})` : ''}${safePhone ? ` · ${safePhone}` : ''}${safeAddress ? ` · ${safeAddress}` : ''}${safeBrokerEmail ? ` · ${safeBrokerEmail}` : ''}<br/>
       본 메일은 상담·자료 요청 고객님께 1:1로 전달된 매물 안내 메일입니다.
     </p>`;
 
@@ -422,7 +477,7 @@ export async function sendInboxClientEmail(
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     log.info('[Email STUB] Simulated inbox email', {
-      to: normalizedEmail,
+      to: maskEmail(normalizedEmail),
       subject,
       deliveryPurpose,
     });
@@ -568,6 +623,40 @@ export function evaluateInboxAlimtalkAccess(params: {
   return { allowed: true };
 }
 
+/**
+ * WP-7.3E P1-6 (D4): inbox AlimTalk never goes live merely because SOLAPI credentials exist.
+ * Live dispatch requires ALL of:
+ *   - `INBOX_ALIMTALK_LIVE === '1'` (explicit operator switch, default off → dry-run)
+ *   - SOLAPI credentials
+ *   - recipient phone listed in `INBOX_ALIMTALK_ALLOWLIST` (comma-separated digits; `*` = everyone)
+ * Otherwise the send is an honest `simulated` dry-run.
+ */
+export function resolveInboxAlimtalkLiveMode(recipientPhone: string): {
+  live: boolean;
+  reason: 'LIVE' | 'LIVE_FLAG_OFF' | 'MISSING_CREDENTIALS' | 'NOT_ALLOWLISTED';
+} {
+  const flagOn = String(process.env.INBOX_ALIMTALK_LIVE || '').trim() === '1';
+  if (!flagOn) return { live: false, reason: 'LIVE_FLAG_OFF' };
+  const hasCreds = Boolean(
+    process.env.SOLAPI_API_KEY &&
+      process.env.SOLAPI_API_SECRET &&
+      (process.env.SOLAPI_SENDER_PHONE || process.env.SOLAPI_SENDER_NUMBER) &&
+      process.env.SOLAPI_PFID
+  );
+  if (!hasCreds) return { live: false, reason: 'MISSING_CREDENTIALS' };
+  const allowlist = new Set(
+    String(process.env.INBOX_ALIMTALK_ALLOWLIST || '')
+      .split(',')
+      .map((s) => (s.trim() === '*' ? '*' : s.replace(/[^0-9]/g, '')))
+      .filter(Boolean)
+  );
+  const digits = String(recipientPhone || '').replace(/[^0-9]/g, '');
+  if (!allowlist.has('*') && !(digits && allowlist.has(digits))) {
+    return { live: false, reason: 'NOT_ALLOWLISTED' };
+  }
+  return { live: true, reason: 'LIVE' };
+}
+
 export async function sendInboxTransactionalAlimtalk(input: {
   recipientPhone: string;
   templateId: InboxAlimtalkTemplateId;
@@ -581,6 +670,7 @@ export async function sendInboxTransactionalAlimtalk(input: {
 }): Promise<{
   ok: boolean;
   simulated?: boolean;
+  simulatedReason?: string;
   messageId?: string | null;
   templateId: InboxAlimtalkTemplateId;
   previewText: string;
@@ -591,16 +681,19 @@ export async function sendInboxTransactionalAlimtalk(input: {
   const apiSecret = process.env.SOLAPI_API_SECRET;
   const senderPhone = process.env.SOLAPI_SENDER_PHONE || process.env.SOLAPI_SENDER_NUMBER;
   const pfId = process.env.SOLAPI_PFID;
+  const liveMode = resolveInboxAlimtalkLiveMode(input.recipientPhone);
 
-  if (!apiKey || !apiSecret || !senderPhone || !pfId) {
+  if (!liveMode.live || !apiKey || !apiSecret || !senderPhone || !pfId) {
     log.info('[Alimtalk STUB] Simulated transactional inbox Alimtalk', {
-      to: input.recipientPhone,
+      to: maskPhone(input.recipientPhone),
       templateId: input.templateId,
       basis: input.transactionalBasis,
+      reason: liveMode.reason,
     });
     return {
       ok: true,
       simulated: true,
+      simulatedReason: liveMode.reason,
       messageId: `sim-ata-${Date.now()}`,
       templateId: input.templateId,
       previewText,
@@ -659,7 +752,7 @@ export async function sendInboxTransactionalAlimtalk(input: {
       };
     }
 
-    const resJson = (await res.json().catch(() => ({}))) as Record<string, any>;
+    const resJson = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return {
       ok: true,
       simulated: false,

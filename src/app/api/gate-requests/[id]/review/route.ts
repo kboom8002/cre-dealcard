@@ -12,6 +12,10 @@
  */
 import { z } from "zod/v4";
 import { reviewGateRequest } from "@/domain/gate/gate-request";
+import {
+  issueOrRefreshProGrant,
+  parseGateReasonRequesterMeta,
+} from "@/domain/gate/im-pro-grant-service";
 import { toApiError } from "@/lib/api-error";
 import { requireBroker } from "@/lib/auth-guard";
 import { NextRequest, NextResponse } from "next/server";
@@ -41,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: ReviewRouteParams) {
     // Verify ownership: the reviewer must be the owner of the building
     const { data: gateReq, error: fetchErr } = await supabase
       .from("gate_requests")
-      .select("building_id")
+      .select("id, building_id, requester_id, requested_level, reason")
       .eq("id", id)
       .single();
       
@@ -58,7 +62,59 @@ export async function PATCH(req: NextRequest, { params }: ReviewRouteParams) {
 
     const result = await reviewGateRequest(id, input, guard.user!.id);
 
-    return NextResponse.json({ ok: true, data: result });
+    let issuedGrant: { id: string; status: string; expiresAt: string | null; grantToken: string | null } | undefined;
+    if (input.decision === "approved") {
+      const reasonMeta = parseGateReasonRequesterMeta((gateReq as any).reason);
+      let requesterName = reasonMeta.name;
+      let requesterPhone = reasonMeta.phone;
+      let requesterEmail = reasonMeta.email;
+
+      if (gateReq.requester_id && (!requesterName || !requesterPhone || !requesterEmail)) {
+        try {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("display_name, phone")
+            .eq("id", gateReq.requester_id)
+            .maybeSingle();
+          if (prof) {
+            requesterName = requesterName || prof.display_name || null;
+            requesterPhone = requesterPhone || prof.phone || null;
+          }
+          if (!requesterEmail && typeof supabase.auth?.admin?.getUserById === "function") {
+            const { data: authData } = await supabase.auth.admin.getUserById(gateReq.requester_id);
+            requesterEmail = requesterEmail || authData?.user?.email || null;
+          }
+        } catch {
+          // non-blocking profile fallback
+        }
+      }
+
+      const issued = await issueOrRefreshProGrant(supabase, {
+        gateRequestId: id,
+        buildingId: gateReq.building_id,
+        requesterId: gateReq.requester_id ?? null,
+        requesterName,
+        requesterEmail,
+        requesterPhone,
+        brokerId: ownership.ownerId ?? guard.user!.id,
+        ttlHours: 72,
+        maxDownloads: 5,
+      });
+      if (issued.ok && issued.grant) {
+        issuedGrant = {
+          id: String(issued.grant.id),
+          status: String(issued.grant.status || "pending_nda"),
+          expiresAt: issued.grant.expires_at ?? null,
+          grantToken: issued.grantToken,
+        };
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      data: result,
+      ...(issuedGrant ? { grant: issuedGrant, grantId: issuedGrant.id, grantToken: issuedGrant.grantToken } : {}),
+    });
   } catch (error) {
     return toApiError(error);
   }

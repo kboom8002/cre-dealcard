@@ -39,8 +39,160 @@ export function isSocialBotAllowedPath(pathname: string, ua: string): boolean {
     && SOCIAL_BOT_ALLOWED_PATHS.some((re) => re.test(pathname));
 }
 
+export const QA_GATED_PREFIXES = [
+  '/qa-signoff',
+  '/qa-tester',
+  '/qa-broker',
+  '/qa-showcase',
+  '/testguide',
+  '/newsletter-inbox-test',
+  '/dealcard-im-test',
+] as const;
+
+export const DORMANT_PUBLIC_PREFIXES = [
+  '/agora',
+  '/services',
+  '/building-radar',
+] as const;
+
+function matchesRoutePrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+export function isDormantPublicPath(pathname: string): boolean {
+  return DORMANT_PUBLIC_PREFIXES.some((prefix) => matchesRoutePrefix(pathname, prefix));
+}
+
+export function isQaGatedPath(pathname: string): boolean {
+  return QA_GATED_PREFIXES.some((prefix) => matchesRoutePrefix(pathname, prefix));
+}
+
+function constantTimeEqualStr(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const maxLen = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < maxLen; i += 1) {
+    diff |= (a.charCodeAt(i % a.length) || 0) ^ (b.charCodeAt(i % b.length) || 0);
+  }
+  return diff === 0;
+}
+
+function resolveConfiguredQaKeys(): string[] {
+  return [
+    process.env.QA_ACCESS_KEY,
+    process.env.QA_TESTER_ACCESS_KEY,
+    process.env.QA_BROKER_ACCESS_KEY,
+  ]
+    .map((v) => (v || '').trim())
+    .filter(Boolean);
+}
+
+export function isValidQaGateRequest(request: NextRequest): {
+  allowed: boolean;
+  queryKey: string;
+} {
+  const url = request.nextUrl;
+  const queryKey = (url.searchParams.get('qaKey') || url.searchParams.get('key') || '').trim();
+  const headerKey = (request.headers.get('x-qa-access-key') || '').trim();
+  const cookieKey = (request.cookies.get('cre_qa_key')?.value || '').trim();
+  const provided = queryKey || headerKey || cookieKey;
+  const configuredKeys = resolveConfiguredQaKeys();
+  if (!provided || configuredKeys.length === 0) {
+    return { allowed: false, queryKey: '' };
+  }
+  let matched = false;
+  for (const key of configuredKeys) {
+    if (constantTimeEqualStr(provided, key)) {
+      matched = true;
+    }
+  }
+  return { allowed: matched, queryKey: matched ? queryKey : '' };
+}
+
+/**
+ * QA gate enforcement switch: always on in production builds, and on in any other
+ * runtime when CRE_ENFORCE_QA_GATE=1 (CI e2e runs `next dev`, so it sets the flag).
+ */
+export function isQaGateEnforced(
+  envSource: Record<string, string | undefined> = process.env,
+): boolean {
+  return envSource.NODE_ENV === 'production' || envSource.CRE_ENFORCE_QA_GATE === '1';
+}
+
+/**
+ * Per-process random secret that lets server.ts trust the proxy-verified user header.
+ * Returns null (fail closed → no fast-path) when no CSPRNG is available; never a
+ * hard-coded constant.
+ */
+export function resolveProxySecret(): string | null {
+  const g = globalThis as Record<string, unknown>;
+  const existing = g.__creProxySecret;
+  if (typeof existing === 'string' && existing.length >= 32) return existing;
+  let generated: string | null = null;
+  try {
+    if (typeof crypto !== 'undefined') {
+      if (typeof crypto.randomUUID === 'function') {
+        generated = crypto.randomUUID();
+      } else if (typeof crypto.getRandomValues === 'function') {
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        generated = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+      }
+    }
+  } catch {
+    generated = null;
+  }
+  if (!generated || generated.length < 32) return null;
+  g.__creProxySecret = generated;
+  return generated;
+}
+
 export async function proxy(request: NextRequest) {
+  // Strip any untrusted internal verification headers at the very start before any early return
+  request.headers.delete('x-cre-proxy-secret');
+  request.headers.delete('x-cre-verified-user');
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete('x-cre-proxy-secret');
+  requestHeaders.delete('x-cre-verified-user');
+
   const { pathname } = request.nextUrl;
+
+  // Dormant public feature routes return 404 until restored
+  if (isDormantPublicPath(pathname)) {
+    return new NextResponse('Not Found', {
+      status: 404,
+      headers: { 'X-Robots-Tag': 'noindex, nofollow' },
+    });
+  }
+
+  // Internal QA/Tester workbench & showcase fail-closed gate in production (or CRE_ENFORCE_QA_GATE=1)
+  if (isQaGatedPath(pathname)) {
+    const enforceGate = isQaGateEnforced();
+    if (enforceGate) {
+      const { allowed, queryKey } = isValidQaGateRequest(request);
+      if (!allowed) {
+        return new NextResponse('Not Found', {
+          status: 404,
+          headers: { 'X-Robots-Tag': 'noindex, nofollow' },
+        });
+      }
+      const res = NextResponse.next({ request: { headers: requestHeaders } });
+      res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+      if (queryKey) {
+        res.cookies.set('cre_qa_key', queryKey, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: 60 * 60 * 12,
+        });
+      }
+      return res;
+    }
+    const res = NextResponse.next({ request: { headers: requestHeaders } });
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return res;
+  }
 
   // Legacy short link redirect: /d/[id] -> /dc/[id]
   if (pathname.startsWith('/d/')) {
@@ -64,18 +216,14 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = pathname.startsWith(PROTECTED_ADMIN);
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname === r);
 
-  // Strip any incoming internal verification headers so clients can never spoof them
-  request.headers.delete('x-cre-proxy-secret');
-  request.headers.delete('x-cre-verified-user');
-
   // Public routes (/hub, /dc/*, /m/*, /magazine/*, /im-lite/*, etc.) do not require
   // a blocking remote supabase.auth.getUser() round-trip in proxy.
   if (!isBrokerRoute && !isAdminRoute && !isAuthRoute) {
-    return NextResponse.next({ request });
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Create Supabase client with cookie-based session
-  let supabaseResponse = NextResponse.next({ request });
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -90,7 +238,7 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -106,18 +254,20 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const g = globalThis as Record<string, unknown>;
-    const secret =
-      (g.__creProxySecret as string) ||
-      ((g.__creProxySecret =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : 'cre-proxy-secret') as string);
-    request.headers.set('x-cre-proxy-secret', secret);
-    request.headers.set('x-cre-verified-user', encodeURIComponent(JSON.stringify(user)));
-    const prevCookies = supabaseResponse.cookies.getAll();
-    supabaseResponse = NextResponse.next({ request });
-    prevCookies.forEach((c) => supabaseResponse.cookies.set(c));
+    // P2 (WP-7.3A): never fall back to a guessable constant secret. When no CSPRNG is
+    // available we fail closed — the verified-user fast-path header is simply not set
+    // and server.ts falls back to the standard remote supabase.auth.getUser().
+    const secret = resolveProxySecret();
+    if (secret) {
+      const serializedUser = encodeURIComponent(JSON.stringify(user));
+      request.headers.set('x-cre-proxy-secret', secret);
+      request.headers.set('x-cre-verified-user', serializedUser);
+      requestHeaders.set('x-cre-proxy-secret', secret);
+      requestHeaders.set('x-cre-verified-user', serializedUser);
+      const prevCookies = supabaseResponse.cookies.getAll();
+      supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
+      prevCookies.forEach((c) => supabaseResponse.cookies.set(c));
+    }
   }
 
   // 1. Unauthenticated user → redirect to /login if on protected route
@@ -131,9 +281,16 @@ export async function proxy(request: NextRequest) {
 
     if (!isSocialBot && !isE2ETest) {
       const redirectUrl = new URL('/login', request.nextUrl);
-      redirectUrl.searchParams.set('redirectTo', pathname);
+      redirectUrl.searchParams.set('redirectTo', `${pathname}${request.nextUrl.search || ''}`);
       return NextResponse.redirect(redirectUrl);
     }
+  }
+
+  // Canonical newsletter workspace redirect (after auth gate so unauth bots redirect to /login):
+  if (pathname === '/broker/w/magazine' || pathname === '/broker/magazine-editor') {
+    const targetUrl = request.nextUrl.clone();
+    targetUrl.pathname = '/broker/w/newsletter';
+    return NextResponse.redirect(targetUrl, 307);
   }
 
   // 2. Admin route → also check admin role via custom header set downstream

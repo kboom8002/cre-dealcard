@@ -196,7 +196,11 @@ function isSummaryRow(cells: string[]): boolean {
 /**
  * Parses multi-cell TSV / CSV / Markdown table text copied from Excel, Google Sheets, or Guide Docs.
  */
-export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): ParsedTsvResult {
+export function parseTsvRentRoll(
+  tsvText: string,
+  startIdIndex: number = 1,
+  options?: { synthesizeVacant?: boolean }
+): ParsedTsvResult {
   const rawLines = tsvText
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -480,7 +484,10 @@ export function parseTsvRentRoll(tsvText: string, startIdIndex: number = 1): Par
     });
   }
 
-  const finalRows = synthesizeMissingVacantFloors(rows);
+  const finalRows =
+    options?.synthesizeVacant === true
+      ? synthesizeMissingVacantFloors(rows)
+      : rows.map((r) => ({ ...r, floor: normalizeFloorName(r.floor) }));
 
   const totalDepositManwon = Math.round(
     finalRows.reduce((sum, r) => sum + (r.status !== 'vacant' ? r.depositManwon || 0 : 0), 0) * 10
@@ -587,13 +594,14 @@ export function synthesizeMissingVacantFloors(rows: RentRollRowItem[]): RentRoll
   const synthesized: RentRollRowItem[] = missingFloors.map((f) => ({
     id: `rr-vacant-synth-${f}f`,
     floor: `${f}F`,
-    unit: `${f}01호`,
-    use: '공실',
+    unit: '-',
+    use: '미확인',
     depositManwon: 0,
     monthlyRentManwon: 0,
     maintenanceManwon: 0,
     leaseExpiry: '-',
     status: 'vacant',
+    note: '층 현황 미확인',
   }));
 
   const combined = [...normalizedRows, ...synthesized];

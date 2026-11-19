@@ -128,11 +128,11 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
   return (
     <SectionCard
       title="📊 이번 주 투표"
-      icon={<BarChart3 className="h-4 w-4 text-violet-300" aria-hidden="true" />}
+      icon={<BarChart3 className="h-4 w-4 text-violet-700" aria-hidden="true" />}
       defaultOpen
     >
       <div className="space-y-3">
-        <p className="text-reader font-bold leading-snug text-white" id={`poll-q-${brokerId}`}>{view.question}</p>
+        <p className="text-reader font-bold leading-snug text-slate-900" id={`poll-q-${brokerId}`}>{view.question}</p>
         <div role="group" aria-labelledby={`poll-q-${brokerId}`} className="space-y-2.5">
           {view.options.map((opt, idx) => {
             const isSelected = voted === idx;
@@ -148,27 +148,27 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
                 className={`relative min-h-12 w-full overflow-hidden rounded-xl border p-3.5 text-left transition-colors ${
                   hasVoted
                     ? isSelected
-                      ? "border-white/40 bg-white/[0.08]"
-                      : "border-white/10 bg-white/[0.02]"
-                    : "cursor-pointer border-white/15 bg-white/[0.04] hover:border-white/30 hover:bg-white/[0.08] active:scale-[0.98]"
+                      ? "border-indigo-400 bg-indigo-50/70"
+                      : "border-slate-200 bg-slate-50"
+                    : "cursor-pointer border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50 active:scale-[0.98]"
                 }`}
               >
                 {hasVoted && pct !== null && (
                   <div
                     aria-hidden="true"
-                    className="absolute inset-y-0 left-0 rounded-xl opacity-20 transition-all duration-700 motion-reduce:transition-none"
+                    className="absolute inset-y-0 left-0 rounded-xl opacity-25 transition-all duration-700 motion-reduce:transition-none"
                     style={{ width: `${pct}%`, background: POLL_BAR_COLOR }}
                   />
                 )}
                 <div className="relative flex items-center justify-between gap-2">
-                  <span className="text-body font-medium text-slate-100">
+                  <span className="text-body font-medium text-slate-900">
                     {opt.label}
                     {isSubmittingThis && (
-                      <span className="ml-2 text-sm font-bold text-amber-300">보내는 중…</span>
+                      <span className="ml-2 text-sm font-bold text-amber-800">보내는 중…</span>
                     )}
-                    {isSelected && <span className="ml-2 text-sm font-bold text-emerald-200">✓ 내 선택</span>}
+                    {isSelected && <span className="ml-2 text-sm font-bold text-emerald-800">✓ 내 선택</span>}
                   </span>
-                  {hasVoted && pct !== null && <span className="text-body font-bold text-slate-100">{pct}%</span>}
+                  {hasVoted && pct !== null && <span className="text-body font-bold text-slate-900">{pct}%</span>}
                 </div>
               </button>
             );
@@ -176,14 +176,14 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
         </div>
 
         {error && (
-          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-400/40 bg-rose-950/30 p-3">
-            <p className="flex-1 text-sm text-rose-200">{error}</p>
+          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3">
+            <p className="flex-1 text-sm text-rose-800">{error}</p>
             {pending !== null && (
               <button
                 type="button"
                 onClick={() => vote(pending)}
                 disabled={submitting}
-                className="min-h-12 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white hover:bg-rose-500 disabled:opacity-60"
+                className="min-h-12 rounded-lg bg-rose-700 px-4 text-sm font-bold text-white hover:bg-rose-800 disabled:opacity-60"
               >
                 {submitting ? "다시 보내는 중…" : "다시 시도"}
               </button>
@@ -192,8 +192,8 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
         )}
 
         {hasVoted && (
-          <div className="space-y-2.5 border-t border-white/10 pt-3 text-center">
-            <p role="status" className="text-sm text-slate-300">
+          <div className="space-y-2.5 border-t border-slate-200 pt-3 text-center">
+            <p role="status" className="text-sm text-slate-700">
               {already ? "이미 응답하셨습니다." : "응답이 접수되었습니다."}
               {showResults
                 ? ` 총 ${results.total}명이 참여했습니다.`
@@ -203,7 +203,7 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
               <a
                 href={telHref}
                 onClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 text-label font-bold text-white hover:bg-white/10"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-900 hover:bg-slate-50"
               >
                 <MessageSquare className="h-4 w-4" aria-hidden="true" />
                 {selectedIntent === "seller" ? "매도 상담 문의하기" : "이 주제로 상담하기"}

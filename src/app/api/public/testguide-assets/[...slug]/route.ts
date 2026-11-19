@@ -4,18 +4,63 @@
  * for https://credeal.net/testguide via Supabase Storage CDN or local files without committing binaries to git (Rule 47).
  */
 
+import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from '@/lib/testguide/testguide-data';
+import { isRealProductionRuntime } from '@/lib/env';
 
 export const runtime = 'nodejs';
+
+function timingSafeMatchKey(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
+function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
+  const candidates = [
+    (req.headers.get('x-qa-access-key') || '').trim(),
+    (req.cookies.get('cre_qa_key')?.value || '').trim(),
+    (req.nextUrl.searchParams.get('qaKey') || req.nextUrl.searchParams.get('key') || '').trim(),
+  ].filter(Boolean);
+  if (candidates.length === 0) return false;
+
+  const configuredKeys = [
+    process.env.QA_ACCESS_KEY,
+    process.env.QA_TESTER_ACCESS_KEY,
+    process.env.QA_BROKER_ACCESS_KEY,
+  ]
+    .map((v) => (v || '').trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    for (const key of configuredKeys) {
+      if (timingSafeMatchKey(key, candidate)) return true;
+    }
+  }
+  return false;
+}
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }
 ) {
+  if (
+    (isRealProductionRuntime() || process.env.CRE_ENFORCE_QA_GATE === '1') &&
+    !hasValidQaAccessKeyHeader(req)
+  ) {
+    return NextResponse.json(
+      { ok: false, error: 'Not Found' },
+      { status: 404, headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
+    );
+  }
+
   const { slug } = await params;
   if (!Array.isArray(slug) || slug.length === 0) {
     return NextResponse.json({ error: 'Asset path required' }, { status: 400 });

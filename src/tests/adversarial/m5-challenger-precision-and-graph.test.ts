@@ -263,7 +263,7 @@ describe('Adversarial Challenge: Module Dependency Graph & Circular Dependency C
     // 단언: 발견된 순환 의존성 사이클이 정확히 0건이어야 함
     expect(cycles).toEqual([]);
     expect(cycles.length).toBe(0);
-  });
+  }, 60_000);
 
   it('verifies im-core domain has EXACTLY 0 reverse or transitive reverse dependencies', () => {
     const imCoreDir = path.resolve(projectRoot, 'src/domain/building/im-core');

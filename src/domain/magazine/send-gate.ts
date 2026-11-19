@@ -36,8 +36,8 @@ const log = createModuleLogger('magazine-send-gate');
 
 export const DISPATCH_LEDGER_TABLE = 'magazine_dispatch_logs';
 
-/** send-flags.ts의 SendBlockReason + 원장 불가 + provider 실패(실패는 blocked 집계가 아닌 failed로 센다) */
-export type GateBlockReason = SendBlockReason | 'LEDGER_UNAVAILABLE' | 'PROVIDER_FAILED';
+/** send-flags.ts의 SendBlockReason + 반송/신고 억제 + 원장 불가 + provider 실패(실패는 blocked 집계가 아닌 failed로 센다) */
+export type GateBlockReason = SendBlockReason | 'SUPPRESSED' | 'LEDGER_UNAVAILABLE' | 'PROVIDER_FAILED';
 
 export type GateChannel = 'email' | 'kakao';
 export type GateKind = 'weekly' | 'flash';
@@ -55,6 +55,10 @@ export interface GateSubscriber {
   /** 'pending' | 'confirmed' */
   confirm_status?: string | null;
   night_consent?: boolean | null;
+  consent_status?: string | null;
+  /** 'ok' | 'bounced' | 'complained' */
+  email_delivery_status?: string | null;
+  suppressed?: boolean;
 }
 
 export interface GateRendered {
@@ -99,6 +103,12 @@ export interface GateDeps {
   now?: Date;
   /** 테스트용 override. 기본은 isMagazineSendDryRun() */
   dryRun?: boolean;
+  /**
+   * WP-7.3B P1-1: 비동기 워커가 이미 CAS(`pending_worker|retryable → queued`, `updated_at`=점유 시각)로
+   * 점유한 원장 행 id. 지정되면 insert 대신 `status='queued'` 인 그 행만 CAS로 최종 상태로 전이하며,
+   * 점유를 잃었으면(다른 tick 이 재점유) DUPLICATE 로 차단한다.
+   */
+  claimedDispatchId?: string;
 }
 
 interface DbErr {
@@ -108,6 +118,32 @@ interface DbErr {
 
 function isLedgerMissing(err: DbErr | null | undefined): boolean {
   return !!err && (err.code === '42P01' || err.code === 'PGRST205' || /does not exist|schema cache/i.test(err.message ?? ''));
+}
+
+/** 컬럼 미존재(사전 컷오버: 000003 미적용 시 updated_at 등) — 42703 / PGRST204 */
+export function isMissingLedgerColumn(err: DbErr | null | undefined): boolean {
+  return (
+    !!err &&
+    (err.code === '42703' ||
+      err.code === 'PGRST204' ||
+      /column .* does not exist|could not find the '.*' column/i.test(err.message ?? ''))
+  );
+}
+
+/**
+ * CAS update 를 실행하고, 사전 컷오버 DB 에서 선택 컬럼(`updated_at`, `blocked_reason` 등)이 없어 실패하면
+ * 그 컬럼들을 뺀 patch 로 한 번 재시도한다. 첫 시도는 에러로 끝났으므로 재시도는 안전하다.
+ */
+export async function casUpdateLedger(
+  run: (patch: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErr | null }>,
+  patch: Record<string, unknown>,
+  optionalKeys: readonly string[] = ['updated_at', 'blocked_reason', 'error'],
+): Promise<{ data: unknown; error: DbErr | null }> {
+  const first = await run(patch);
+  if (!first.error || !isMissingLedgerColumn(first.error)) return first;
+  const reduced: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) if (!optionalKeys.includes(k)) reduced[k] = v;
+  return run(reduced);
 }
 
 function isUniqueViolation(err: DbErr | null | undefined): boolean {
@@ -162,7 +198,23 @@ export function evaluateGate(input: GateInput, now: Date, dryRun: boolean): { bl
     return { blocked: 'NOT_ALLOWLISTED' };
   }
 
-  if (sub.status === 'unsubscribed' || sub.unsubscribed_at) return { blocked: 'UNSUBSCRIBED' };
+  if (
+    sub.status === 'unsubscribed' ||
+    sub.unsubscribed_at ||
+    sub.consent_status === 'unsubscribed'
+  ) {
+    return { blocked: 'UNSUBSCRIBED' };
+  }
+  const deliveryStatus =
+    typeof sub.email_delivery_status === 'string'
+      ? sub.email_delivery_status.trim().toLowerCase()
+      : '';
+  if (deliveryStatus === 'bounced' || deliveryStatus === 'complained') {
+    return { blocked: 'SUPPRESSED', detail: `email_delivery_status=${deliveryStatus}` };
+  }
+  if (sub.suppressed) {
+    return { blocked: 'UNSUBSCRIBED' };
+  }
   if (!sub.marketing_consent_at) return { blocked: 'NO_CONSENT' };
   if (sub.confirm_status !== 'confirmed') return { blocked: 'PENDING_CONFIRM' };
   const ch = sub.channel;
@@ -265,8 +317,38 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
     status: dryRun ? 'dry_run' : 'queued',
     recipient_hash: recipientHash,
   };
-  const ins = await supabase.from(DISPATCH_LEDGER_TABLE).insert(row).select('id').single();
-  let dispatchId: string | null = (ins.data as { id?: string } | null)?.id ?? null;
+  const claimIso = now.toISOString();
+  let dispatchId: string | null = null;
+
+  if (deps.claimedDispatchId) {
+    // 7-W. 워커가 이미 CAS로 점유(status='queued')한 행: 그 점유가 아직 내 것일 때만 진행한다.
+    const claimedId = deps.claimedDispatchId;
+    const confirm = await casUpdateLedger(
+      (patch) =>
+        supabase
+          .from(DISPATCH_LEDGER_TABLE)
+          .update(patch)
+          .eq('id', claimedId)
+          .eq('status', 'queued')
+          .select('id')
+          .maybeSingle(),
+      { status: row.status, blocked_reason: null, error: null, updated_at: claimIso },
+    );
+    if (confirm.error) {
+      if (isLedgerMissing(confirm.error)) {
+        return { ok: false, blocked: 'LEDGER_UNAVAILABLE', detail: confirm.error.message };
+      }
+      log.error('worker claim confirm failed', { error: confirm.error.message, code: confirm.error.code });
+      return { ok: false, blocked: 'LEDGER_UNAVAILABLE', detail: confirm.error.message };
+    }
+    if (!confirm.data) return { ok: false, blocked: 'DUPLICATE', detail: 'worker claim lost' };
+    dispatchId = claimedId;
+  }
+
+  const ins = dispatchId
+    ? { data: { id: dispatchId }, error: null }
+    : await supabase.from(DISPATCH_LEDGER_TABLE).insert(row).select('id').single();
+  if (!dispatchId) dispatchId = (ins.data as { id?: string } | null)?.id ?? null;
 
   if (ins.error) {
     const err = ins.error as DbErr;
@@ -278,18 +360,30 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
       log.error('dispatch ledger insert failed', { error: err.message, code: err.code });
       return { ok: false, blocked: 'LEDGER_UNAVAILABLE', detail: err.message };
     }
-    // 이미 존재: blocked(재시도 가능) 또는 dry_run→실발송 승격만 재점유 허용. 그 외는 DUPLICATE
+    // 이미 존재: blocked/retryable/pending_worker(재시도 가능) 또는 dry_run→실발송 승격만 재점유 허용. 그 외는 DUPLICATE
     const existing = await supabase.from(DISPATCH_LEDGER_TABLE).select('id, status').eq('idempotency_key', key).maybeSingle();
     const ex = existing.data as { id: string; status: string } | null;
-    const reclaimable = !!ex && (ex.status === 'blocked' || (ex.status === 'dry_run' && !dryRun));
+    const reclaimable =
+      !!ex &&
+      (ex.status === 'blocked' ||
+        ex.status === 'retryable' ||
+        ex.status === 'pending_worker' ||
+        (ex.status === 'dry_run' && !dryRun));
     if (!ex || !reclaimable) return { ok: false, blocked: 'DUPLICATE' };
-    const claim = await supabase
-      .from(DISPATCH_LEDGER_TABLE)
-      .update({ status: row.status, blocked_reason: null, error: null })
-      .eq('id', ex.id)
-      .eq('status', ex.status)
-      .select('id')
-      .maybeSingle();
+    // P1-1: 재점유 시각을 updated_at 에 기록 → stale 회수는 enqueue 시각(created_at)이 아니라 점유 시각 기준.
+    // 사전 컷오버(000003 미적용, updated_at 없음)에서는 updated_at 없이 재시도한다.
+    const claim = await casUpdateLedger(
+      (patch) =>
+        supabase
+          .from(DISPATCH_LEDGER_TABLE)
+          .update(patch)
+          .eq('id', ex.id)
+          .eq('status', ex.status)
+          .select('id')
+          .maybeSingle(),
+      { status: row.status, blocked_reason: null, error: null, updated_at: claimIso },
+      ['updated_at'],
+    );
     if (claim.error || !claim.data) return { ok: false, blocked: 'DUPLICATE' };
     dispatchId = ex.id;
   }
@@ -344,6 +438,41 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
   }
   await updateLedger(supabase, dispatchId, { status: 'sent', provider_msg_id: result.messageId ?? null, error: null });
   return { ok: true, dispatchId, dryRun: false };
+}
+
+/**
+ * 15분 이상 `queued`(점유·발송 중) 상태에 고착된 발송 작업을 재시도 가능한 `retryable` 상태로 되돌린다 (WP 3-C).
+ * 멱등 키(`idempotency_key`)는 그대로 유지하므로 이미 완료된 건은 절대 중복 발송되지 않는다.
+ *
+ * WP-7.3B P1-1: 고착 판정은 **점유 시각(`updated_at`)** 기준이다. 이전에는 enqueue 시각(`created_at`)을 써서
+ * 오래전에 대기열에 들어간 행이 방금 점유되어 발송 중이어도 즉시 retryable 로 뒤집혀 중복 발송될 수 있었다.
+ * 점유(워커 CAS·sendGate 재점유·신규 insert)는 모두 `updated_at` 을 점유 시각으로 기록한다.
+ * 사전 컷오버(updated_at 컬럼 없음)에서는 회수하지 않는다(0 반환) — 기존과 동일하게 안전 측.
+ */
+export async function reclaimStaleQueuedDispatches(
+  supabase: MagazineDbClient,
+  opts?: { staleMinutes?: number; now?: Date },
+): Promise<{ reclaimed: number }> {
+  const now = opts?.now ?? new Date();
+  const staleMinutes = Math.max(1, opts?.staleMinutes ?? 15);
+  const cutoffIso = new Date(now.getTime() - staleMinutes * 60_000).toISOString();
+
+  try {
+    const { data, error } = await supabase
+      .from(DISPATCH_LEDGER_TABLE)
+      .update({ status: 'retryable', updated_at: now.toISOString(), error: 'reclaimed_after_stale_timeout' })
+      .eq('status', 'queued')
+      .lte('updated_at', cutoffIso)
+      .select('id');
+    if (error) {
+      log.warn('reclaimStaleQueuedDispatches failed', { error: error.message });
+      return { reclaimed: 0 };
+    }
+    return { reclaimed: Array.isArray(data) ? data.length : 0 };
+  } catch (e) {
+    log.warn('reclaimStaleQueuedDispatches threw', { error: e instanceof Error ? e.message : String(e) });
+    return { reclaimed: 0 };
+  }
 }
 
 /** 속보 주간 상한(기본 2회): 이번 주(KST 월요일~) 다른 속보 에디션 수를 원장으로 센다. */

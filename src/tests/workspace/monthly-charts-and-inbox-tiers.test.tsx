@@ -42,7 +42,9 @@ const mockRequireBroker = vi.fn();
 
 interface InMemDb {
   user_subscriptions: Array<Record<string, any>>;
+  profiles: Array<Record<string, any>>;
   broker_profiles: Array<Record<string, any>>;
+  email_suppressions: Array<Record<string, any>>;
   building_ssot_lite: Array<Record<string, any>>;
   buildings: Array<Record<string, any>>;
   gate_requests: Array<Record<string, any>>;
@@ -59,15 +61,31 @@ interface InMemDb {
 function createInitialInMemDb(): InMemDb {
   return {
     user_subscriptions: [{ user_id: BROKER_ID, tier: "free", status: "active" }],
+    profiles: [
+      {
+        id: BROKER_ID,
+        role: "broker",
+        display_name: "이상은",
+        company: "JS 부동산중개법인",
+        phone: "02-555-1234",
+      },
+    ],
     broker_profiles: [
       {
         user_id: BROKER_ID,
+        name: "이상은",
         display_name: "이상은",
         company: "JS 부동산중개법인",
         phone: "02-555-1234",
         slug: "gangnam-lee",
+        office_address: "서울특별시 강남구 역삼동 123",
+        office_reg_number: "11680-2026-00999",
+        representative_name: "이상은",
+        contact_email: "lee@jscre.co.kr",
+        is_public: true,
       },
     ],
+    email_suppressions: [],
     building_ssot_lite: [
       {
         id: BUILDING_ID,
@@ -588,6 +606,18 @@ describe("Monthly Top-2 Option A + Per-Client Attribution + Free/Paid Inbox Tier
       })
     );
     expect(unconsentedEmailRes.status).toBe(403);
+
+    // WP-7.3E P1-3 & P2-8: marketing outreach requires recorded subscriber opt-in + server UNSUBSCRIBE_SECRET
+    vi.stubEnv("UNSUBSCRIBE_SECRET", "test-unsubscribe-secret-minimum-32-characters!!");
+    db.magazine_subscribers.push({
+      id: "cccccccc-3333-4333-8333-333333333333",
+      broker_id: "gangnam-lee",
+      subscriber_email: "kim@alpha.co.kr",
+      status: "active",
+      confirm_status: "confirmed",
+      night_consent: true,
+      created_at: new Date().toISOString(),
+    });
 
     const emailRes = await postInboxAction(
       new NextRequest("http://localhost:3000/api/broker/inbox/actions", {

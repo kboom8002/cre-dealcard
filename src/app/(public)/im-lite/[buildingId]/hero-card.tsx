@@ -30,9 +30,9 @@ function fmtPricePerPyeong(v: number | null | undefined): string {
 
 /** SSoT 완성도 점수 → 색상 */
 function readinessColor(score: number): string {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 50) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-[#065F46]";
+  if (score >= 50) return "text-[#92400E]";
+  return "text-[#991B1B]";
 }
 
 /** SSoT 완성도 라벨 */
@@ -68,21 +68,21 @@ export function HeroCard({ data }: HeroCardProps) {
   })();
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-neutral-800/60 bg-neutral-900/80 backdrop-blur-xl">
+    <div className="relative overflow-hidden rounded-2xl border border-[#CBD5E1] bg-white shadow-xs">
       {/* Gradient top border */}
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-violet-500" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1D4ED8] via-[#2563EB] to-[#065F46]" />
 
       <div className="px-5 pt-5 pb-4">
         {/* Header: Asset type + area */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-400 ring-1 ring-inset ring-blue-500/30">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="inline-flex items-center gap-1 rounded-md bg-[#EFF6FF] px-2.5 py-1 text-sm font-bold text-[#1D4ED8] ring-1 ring-inset ring-[#BFDBFE]">
             {data.assetType || "상업용 자산"}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-300">
+          <span className="inline-flex items-center gap-1 rounded-md bg-[#FAF9F5] border border-[#E2E8F0] px-2.5 py-1 text-sm font-semibold text-[#475569]">
             <span aria-hidden="true">📍</span> {data.areaSignal || "핵심 권역"}
           </span>
           {data.askingPriceDisplay && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-500/30">
+            <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-[#ECFDF5] px-2.5 py-1 text-sm font-bold text-[#065F46] ring-1 ring-inset ring-[#A7F3D0]">
               <span aria-hidden="true">💰</span> {data.askingPriceDisplay}
             </span>
           )}
@@ -212,21 +212,21 @@ export function HeroCard({ data }: HeroCardProps) {
 
         {/* Investment Point */}
         {data.keyPoints && data.keyPoints.length > 0 ? (
-          <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
-            <p className="text-xs font-semibold text-blue-400 mb-2"><span aria-hidden="true">💡</span> 3대 핵심 투자 포인트</p>
-            <ul className="space-y-1.5 text-xs sm:text-sm text-neutral-200 leading-relaxed">
+          <div className="mb-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-4 py-3">
+            <p className="text-sm font-bold text-[#1D4ED8] mb-2"><span aria-hidden="true">💡</span> 3대 핵심 투자 포인트</p>
+            <ul className="space-y-1.5 text-sm text-[#0F172A] leading-relaxed">
               {data.keyPoints.map((pt, idx) => (
                 <li key={idx} className="flex items-start gap-2">
-                  <span className="text-primary font-bold text-[11px] mt-0.5 shrink-0">0{idx + 1}</span>
+                  <span className="text-[#1D4ED8] font-bold text-sm mt-0.5 shrink-0">0{idx + 1}</span>
                   <span className="font-medium">{pt}</span>
                 </li>
               ))}
             </ul>
           </div>
         ) : (
-          <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
-            <p className="text-xs font-semibold text-blue-400 mb-1"><span aria-hidden="true">💡</span> 핵심 투자 포인트</p>
-            <p className="text-sm sm:text-base font-medium text-neutral-200 leading-relaxed">
+          <div className="mb-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-4 py-3">
+            <p className="text-sm font-bold text-[#1D4ED8] mb-1"><span aria-hidden="true">💡</span> 핵심 투자 포인트</p>
+            <p className="text-sm sm:text-base font-medium text-[#0F172A] leading-relaxed">
               {data.keyInvestmentPoint}
             </p>
           </div>
@@ -234,23 +234,23 @@ export function HeroCard({ data }: HeroCardProps) {
 
         {/* Key Risk */}
         {data.keyRisk && (
-          <div className="mb-3 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/5 border border-red-500/20 px-4 py-3">
-            <p className="text-xs font-semibold text-red-400 mb-1"><span aria-hidden="true">⚠️</span> 핵심 리스크 및 점검 사항</p>
-            <p className="text-sm sm:text-base font-medium text-red-300/90 leading-relaxed">
+          <div className="mb-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] px-4 py-3">
+            <p className="text-sm font-bold text-[#991B1B] mb-1"><span aria-hidden="true">⚠️</span> 핵심 리스크 및 점검 사항</p>
+            <p className="text-sm sm:text-base font-medium text-[#7F1D1D] leading-relaxed">
               {data.keyRisk}
             </p>
           </div>
         )}
 
         {/* Bottom row: NPV badge + readiness */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           {/* NPV Badge */}
           {data.dcf10YearNpvBil !== null && (
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${
                 data.dcf10YearNpvBil >= 0
-                  ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-500/30"
-                  : "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/30"
+                  ? "bg-[#ECFDF5] text-[#065F46] ring-1 ring-inset ring-[#A7F3D0]"
+                  : "bg-[#FEF2F2] text-[#991B1B] ring-1 ring-inset ring-[#FECACA]"
               }`}
             >
               {data.dcf10YearNpvBil >= 0 ? <span aria-hidden="true">📈</span> : <span aria-hidden="true">📉</span>} 10Y NPV{" "}
@@ -261,7 +261,7 @@ export function HeroCard({ data }: HeroCardProps) {
           {/* Readiness Score */}
           <div className="ml-auto flex items-center gap-2">
             <div 
-              className="w-16 h-1.5 rounded-full bg-neutral-800 overflow-hidden"
+              className="w-16 h-1.5 rounded-full bg-[#E2E8F0] overflow-hidden"
               role="progressbar"
               aria-valuenow={data.readinessScore}
               aria-valuemin={0}
@@ -270,15 +270,15 @@ export function HeroCard({ data }: HeroCardProps) {
               <div
                 className={`h-full rounded-full transition-all ${
                   data.readinessScore >= 80
-                    ? "bg-emerald-500"
+                    ? "bg-emerald-600"
                     : data.readinessScore >= 50
                     ? "bg-amber-500"
-                    : "bg-red-500"
+                    : "bg-red-600"
                 }`}
                 style={{ width: `${Math.min(data.readinessScore, 100)}%` }}
               />
             </div>
-            <span className={`text-xs font-semibold ${readinessColor(data.readinessScore)}`}>
+            <span className={`text-sm font-bold ${readinessColor(data.readinessScore)}`}>
               {readinessLabel(data.readinessScore)}
             </span>
           </div>
@@ -300,13 +300,13 @@ function MetricCell({
 }) {
   const isLongValue = value.length > 10;
   return (
-    <div className="rounded-xl bg-neutral-800/60 border border-neutral-700/40 px-3.5 py-3 shadow-sm min-h-0 h-auto flex flex-col justify-between">
-      <p className="text-xs font-medium text-neutral-400 mb-1 leading-snug">{label}</p>
+    <div className="rounded-xl bg-[#FAF9F5] border border-[#E2E8F0] px-3.5 py-3 shadow-2xs min-h-0 h-auto flex flex-col justify-between">
+      <p className="text-sm font-semibold text-[#64748B] mb-1 leading-snug">{label}</p>
       <p
         className={`${
           isLongValue ? "text-base sm:text-xl" : "text-xl sm:text-2xl"
         } font-black tracking-tight tabular-nums leading-snug break-keep ${
-          highlight ? "text-emerald-400" : "text-neutral-100"
+          highlight ? "text-[#065F46]" : "text-[#0F172A]"
         }`}
       >
         {value}

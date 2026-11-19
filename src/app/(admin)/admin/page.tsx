@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdminRsc } from "@/lib/auth/require-admin-rsc";
 
 export const metadata: Metadata = {
   title: { absolute: "관리자 콘솔 | 크리딜" },
@@ -42,15 +43,24 @@ const ADMIN_SECTIONS = [
     desc: "대기 중인 전문가 코멘트 요청 목록",
     id: "link-admin-expert-notes",
   },
+  {
+    href: "/admin/discrepancy-dashboard",
+    emoji: "⚖️",
+    title: "신/구 파이프라인 정합성 기준선",
+    desc: "IM CORE v1 기준선 샘플 대조표",
+    id: "link-admin-discrepancy-dashboard",
+  },
 ];
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  await requireAdminRsc();
+
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8">
+    <main className="flex flex-col items-center min-h-screen bg-slate-50 text-slate-900 px-4 py-8">
       <div className="w-full max-w-md mx-auto space-y-6">
-        <div className="space-y-1 pt-4">
-          <h1 className="text-2xl font-bold">관리자 콘솔</h1>
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-1.5 pt-4">
+          <h1 className="text-2xl font-bold text-slate-900">관리자 콘솔</h1>
+          <p className="text-sm text-slate-600">
             Gate 요청, 전문가 코멘트, 이벤트 데이터를 관리합니다.
           </p>
         </div>
@@ -61,21 +71,21 @@ export default function AdminPage() {
               key={section.href}
               href={section.href}
               id={section.id}
-              className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4 transition-all hover:border-primary/40 active:scale-[0.98]"
+              className="flex min-h-[56px] items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-xs transition-all hover:border-blue-400 hover:bg-slate-50 active:scale-[0.98]"
             >
-              <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-lg shrink-0">
+              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-blue-50 border border-blue-100 text-lg shrink-0">
                 {section.emoji}
               </span>
               <div>
-                <p className="text-sm font-semibold">{section.title}</p>
-                <p className="text-xs text-muted-foreground">{section.desc}</p>
+                <p className="text-base font-bold text-slate-900">{section.title}</p>
+                <p className="text-sm text-slate-600">{section.desc}</p>
               </div>
             </Link>
           ))}
         </div>
 
-        <div className="rounded-xl bg-secondary/50 border border-border px-4 py-3">
-          <p className="text-xs text-muted-foreground leading-relaxed">
+        <div className="rounded-xl bg-white border border-slate-200 px-4 py-3.5 shadow-xs">
+          <p className="text-sm text-slate-700 leading-relaxed">
             🔒 승인 전 보호 필드(주소, 임차 상세, 매도자 정보)는
             이 콘솔을 통해 자동으로 공개되지 않습니다.
           </p>

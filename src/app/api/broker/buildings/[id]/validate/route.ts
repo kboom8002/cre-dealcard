@@ -2,34 +2,55 @@
  * POST /api/broker/buildings/[id]/validate
  *
  * Building-scoped validation route.
- * Ensures canGenerate returns false if asking_price is missing when posture is income.
+ * Enforces `requireBroker` + `assertBuildingOwner` BEFORE any early validation return.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { requireBroker } from "@/lib/auth-guard";
+import { assertBuildingOwner } from "@/lib/authz/assert-owner";
+import { createServiceClient } from "@/lib/supabase/service";
 import { POST as postValidate } from "@/app/api/im/validate/route";
 
-import { z } from 'zod';
-
-const postSchema = z.object({
-  investment_posture: z.string().optional(),
-  asking_price_manwon: z.any().optional(),
-  askingPrice: z.any().optional(),
-  grade: z.string().optional()
-}).passthrough();
+const postSchema = z
+  .object({
+    investment_posture: z.string().optional(),
+    asking_price_manwon: z.any().optional(),
+    askingPrice: z.any().optional(),
+    grade: z.string().optional(),
+  })
+  .passthrough();
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const { user, role } = guard;
+
   const { id } = await params;
+  const supabase = createServiceClient();
+  const ownership = await assertBuildingOwner(supabase, id, user!.id, {
+    allowAdmin: true,
+    role,
+  });
+  if (!ownership.ok) return ownership.response;
+
   let body;
   try {
     const raw = await req.json();
     body = postSchema.parse(raw);
   } catch (e) {
     if (e instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: e.issues, canGenerate: false }, { status: 400 });
+      return NextResponse.json(
+        { error: "Validation failed", details: e.issues, canGenerate: false },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ error: "Invalid request body", canGenerate: false }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body", canGenerate: false },
+      { status: 400 }
+    );
   }
 
   const posture = body.investment_posture || "income";

@@ -20,6 +20,7 @@ export interface DealCardPreviewColumnProps {
   brokerProfile: BrokerProfileSummary | null;
   activeUnitId: string | null;
   selectedMemoOnly: UnconvertedMemoItem | null;
+  publishError?: { message: string; code?: string } | null;
   onStartInput: () => void;
   onResyncPublished: () => void;
   onSkipMemoManual: () => void;
@@ -36,6 +37,7 @@ export function DealCardPreviewColumn({
   brokerProfile,
   activeUnitId,
   selectedMemoOnly,
+  publishError,
   onStartInput,
   onResyncPublished,
   onSkipMemoManual,
@@ -56,6 +58,27 @@ export function DealCardPreviewColumn({
           liveLinkTestId="dealcard-live-link"
         />
       </div>
+
+      {publishError && (
+        <div
+          role="alert"
+          data-testid="dealcard-publish-error-banner"
+          className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900 space-y-2.5"
+        >
+          <p className="text-sm font-bold leading-relaxed">
+            ⚠ {publishError.message}
+          </p>
+          {publishError.code === "STATUTORY_DISCLOSURE_INCOMPLETE" && (
+            <Link
+              href="/broker/profile"
+              data-testid="dealcard-publish-error-profile-link"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-red-700 px-4 py-2 text-sm font-extrabold text-white transition hover:bg-red-800"
+            >
+              중개사 프로필 완성하기 →
+            </Link>
+          )}
+        </div>
+      )}
 
       {isPreGeneration ? (
         <PreviewPregenerationCard

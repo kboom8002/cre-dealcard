@@ -79,13 +79,6 @@ export function useEditionAutosave(opts: UseEditionAutosaveOptions): UseEditionA
   const statusRef = useRef<AutosaveStatus>('idle');
   const mountedRef = useRef(true);
 
-  // 렌더 시점 즉시 동기화 (<3초 고속 이탈/언마운트 시 최신 서명·페이로드 보장)
-  signatureRef.current = signature;
-  getPayloadRef.current = getPayload;
-  editionIdRef.current = editionId;
-  enabledRef.current = enabled;
-  readyRef.current = ready;
-
   useEffect(() => {
     signatureRef.current = signature;
     getPayloadRef.current = getPayload;

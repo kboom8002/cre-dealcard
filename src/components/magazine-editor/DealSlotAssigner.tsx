@@ -57,7 +57,7 @@ export function DealSlotAssigner({
           </p>
         </div>
       ) : (
-        <ul className="space-y-3" role="list">
+        <ul className="space-y-3">
           {deals.map((deal) => {
             const isSelected = selectedDealIds.includes(deal.id);
             const currentComment = dealComments[deal.id] ?? "";

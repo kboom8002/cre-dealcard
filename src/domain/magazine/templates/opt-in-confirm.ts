@@ -63,8 +63,8 @@ export function renderOptInConfirmEmail(input: OptInConfirmInput): OptInConfirmR
 <tr><td align="center" style="padding:20px 28px;">
 <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 28px;background-color:#1d4ed8;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">구독 확인하기</a>
 </td></tr>
-<tr><td style="padding:0 28px 8px;font-size:13px;line-height:1.7;color:#475569;">버튼이 열리지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.<br><span style="word-break:break-all;">${escapeHtml(url)}</span></td></tr>
-<tr><td style="padding:12px 28px 24px;font-size:13px;line-height:1.7;color:#475569;">링크는 ${ttl}일 동안 유효합니다. 본인이 신청하지 않으셨다면 이 메일을 무시해 주세요. 확인하지 않으면 매거진은 발송되지 않습니다.${contact ? `<br>문의: ${escapeHtml(contact)}` : ''}</td></tr>
+<tr><td style="padding:0 28px 8px;font-size:14px;line-height:1.7;color:#475569;">버튼이 열리지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.<br><span style="word-break:break-all;">${escapeHtml(url)}</span></td></tr>
+<tr><td style="padding:12px 28px 24px;font-size:14px;line-height:1.7;color:#475569;">링크는 ${ttl}일 동안 유효합니다. 본인이 신청하지 않으셨다면 이 메일을 무시해 주세요. 확인하지 않으면 매거진은 발송되지 않습니다.${contact ? `<br>문의: ${escapeHtml(contact)}` : ''}</td></tr>
 </table>
 </td></tr>
 </table>

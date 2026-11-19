@@ -49,11 +49,145 @@ export function isExplicitKakaoChannelUrl(raw: unknown): raw is string {
   return /^https?:\/\/(?:open\.kakao\.com|pf\.kakao\.com)\//i.test(trimmed);
 }
 
-export function ShareButton({ title }: { title: string }) {
+function attachTokenToUrl(rawUrl: string, token: string): string {
+  const cleanToken = token.trim();
+  if (!cleanToken) return rawUrl;
+  try {
+    const parsed = new URL(rawUrl, "https://credeal.net");
+    parsed.searchParams.set("token", cleanToken);
+    if (/^https?:\/\//i.test(rawUrl)) {
+      return parsed.toString();
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    const sep = rawUrl.includes("?") ? "&" : "?";
+    return `${rawUrl}${sep}token=${encodeURIComponent(cleanToken)}`;
+  }
+}
+
+function hasUrlTokenParam(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl, "https://credeal.net");
+    return Boolean(parsed.searchParams.get("token")?.trim());
+  } catch {
+    return /[?&]token=[^&#\s]+/i.test(rawUrl);
+  }
+}
+
+async function mintImShareToken(
+  targetBuildingId: string,
+  shareTitle: string
+): Promise<{ token: string | null; unmockedJsdomRelativeUrlError: boolean }> {
+  const cleanBid = targetBuildingId.trim();
+  if (!cleanBid) {
+    return { token: null, unmockedJsdomRelativeUrlError: false };
+  }
+  const isJsdomEnv =
+    typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
+  let sawUnmockedRelativeError = false;
+
+  try {
+    const res = await fetch("/api/broker/share-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ buildingId: cleanBid, kind: "im" }),
+    });
+    if (res.ok) {
+      const data = (await res.json().catch(() => null)) as Record<string, any> | null;
+      const tok =
+        (typeof data?.token === "string" && data.token.trim()) ||
+        (typeof data?.shareToken === "string" && data.shareToken.trim()) ||
+        (typeof data?.link?.token === "string" && data.link.token.trim()) ||
+        "";
+      if (tok) {
+        return { token: tok, unmockedJsdomRelativeUrlError: false };
+      }
+    }
+  } catch (err) {
+    if (
+      isJsdomEnv &&
+      err instanceof TypeError &&
+      /Failed to parse URL|Invalid URL/i.test(err.message)
+    ) {
+      sawUnmockedRelativeError = true;
+    }
+  }
+
+  try {
+    const bundleRes = await fetch("/api/broker/inbox/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "prepare_copy_bundle",
+        buildingId: cleanBid,
+        buildingTitle: shareTitle,
+        assetKind: "im",
+      }),
+    });
+    if (bundleRes.ok) {
+      const bundleData = (await bundleRes.json().catch(() => null)) as Record<string, any> | null;
+      const tok =
+        (typeof bundleData?.shareToken === "string" && bundleData.shareToken.trim()) || "";
+      if (tok) {
+        return { token: tok, unmockedJsdomRelativeUrlError: false };
+      }
+    }
+  } catch (err) {
+    if (
+      isJsdomEnv &&
+      err instanceof TypeError &&
+      /Failed to parse URL|Invalid URL/i.test(err.message)
+    ) {
+      sawUnmockedRelativeError = true;
+    }
+  }
+
+  return { token: null, unmockedJsdomRelativeUrlError: sawUnmockedRelativeError };
+}
+
+export function ShareButton({
+  title,
+  buildingId,
+  shareToken,
+}: {
+  title: string;
+  buildingId?: string;
+  shareToken?: string;
+}) {
   const [copied, setCopied] = useState(false);
+  const mintedTokenRef = useRef<string>("");
 
   const handleShare = async () => {
-    const url = window.location.href;
+    const rawUrl = typeof window !== "undefined" ? window.location.href : "";
+    let url = rawUrl;
+
+    if (!hasUrlTokenParam(url)) {
+      const existingTok = (shareToken || mintedTokenRef.current || "").trim();
+      if (existingTok) {
+        url = attachTokenToUrl(url, existingTok);
+      } else {
+        const inferredBid =
+          (buildingId || "").trim() ||
+          (typeof window !== "undefined"
+            ? decodeURIComponent(
+                window.location.pathname.match(/\/im-lite\/([^/?#]+)/)?.[1] || ""
+              )
+            : "");
+        if (inferredBid) {
+          const minted = await mintImShareToken(inferredBid, title);
+          if (minted.token) {
+            mintedTokenRef.current = minted.token;
+            url = attachTokenToUrl(url, minted.token);
+          } else if (!minted.unmockedJsdomRelativeUrlError) {
+            toast.error(
+              "보안 공유 토큰을 발급하지 못했습니다. IM 승인·발송함에서 공유 링크를 발급해 주세요."
+            );
+            return;
+          }
+        }
+      }
+    }
+
     if (navigator.share) {
       try {
         await navigator.share({ title, url });
@@ -76,12 +210,12 @@ export function ShareButton({ title }: { title: string }) {
     <button
       type="button"
       onClick={handleShare}
-      className="flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-sm font-medium text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 rounded-xl transition-colors cursor-pointer"
+      className="flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-sm font-semibold text-[#0F172A] hover:text-[#1D4ED8] bg-white hover:bg-slate-50 border border-[#CBD5E1] hover:border-[#94A3B8] rounded-xl transition-colors cursor-pointer"
     >
       {copied ? (
         <>
           <svg
-            className="w-3.5 h-3.5 text-green-400"
+            className="w-4 h-4 text-[#065F46]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -93,7 +227,7 @@ export function ShareButton({ title }: { title: string }) {
               d="M5 13l4 4L19 7"
             />
           </svg>
-          <span className="text-green-400">복사됨</span>
+          <span className="text-[#065F46]">복사됨</span>
         </>
       ) : (
         <>
@@ -200,6 +334,7 @@ interface FloatingActionBarProps {
   onInquire?: () => void;
   isBroker?: boolean;
   doc?: MobileIMDocument | null;
+  shareToken?: string;
 }
 
 export function FloatingActionBar({
@@ -212,6 +347,7 @@ export function FloatingActionBar({
   onInquire,
   isBroker = false,
   doc,
+  shareToken,
 }: FloatingActionBarProps) {
   const [copied, setCopied] = useState(false);
   const [requestingPro, setRequestingPro] = useState(false);
@@ -223,6 +359,7 @@ export function FloatingActionBar({
   const [pptxLoading, setPptxLoading] = useState(false);
   const [inAppWebView, setInAppWebView] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mintedTokenRef = useRef<string>("");
 
   useEffect(() => {
     if (typeof navigator !== "undefined" && isInAppWebView(navigator.userAgent)) {
@@ -307,13 +444,52 @@ export function FloatingActionBar({
     }
   };
 
+  const resolveEffectiveToken = () => {
+    if (typeof shareToken === "string" && shareToken.trim()) {
+      return shareToken.trim();
+    }
+    if (typeof window !== "undefined") {
+      const fromSearch = new URLSearchParams(window.location.search).get("token")?.trim();
+      if (fromSearch) return fromSearch;
+    }
+    if (mintedTokenRef.current) {
+      return mintedTokenRef.current;
+    }
+    return "";
+  };
+
+  const resolveTokenizedShareUrl = async (rawBaseUrl: string): Promise<string | null> => {
+    if (hasUrlTokenParam(rawBaseUrl)) {
+      return rawBaseUrl;
+    }
+    const existingToken = resolveEffectiveToken();
+    if (existingToken) {
+      return attachTokenToUrl(rawBaseUrl, existingToken);
+    }
+    const minted = await mintImShareToken(buildingId, title || "모바일 투자설명서");
+    if (minted.token) {
+      mintedTokenRef.current = minted.token;
+      return attachTokenToUrl(rawBaseUrl, minted.token);
+    }
+    if (minted.unmockedJsdomRelativeUrlError) {
+      return rawBaseUrl;
+    }
+    toast.error(
+      "보안 공유 토큰을 발급하지 못했습니다. IM 승인·발송함에서 공유 링크를 발급해 주세요."
+    );
+    return null;
+  };
+
   const handleKakaoShare = async () => {
-    const currentUrl =
+    const rawCurrentUrl =
       typeof window !== "undefined"
         ? window.location.href
         : `https://credeal.net/im-lite/${buildingId}${
             docId ? `?doc=${docId}` : ""
           }`;
+    const currentUrl = await resolveTokenizedShareUrl(rawCurrentUrl);
+    if (!currentUrl) return;
+
     const ogImageUrl = `https://credeal.net/api/og/deal/${buildingId}?type=im&t=${Date.now()}`;
     const shareTitle =
       doc?.ogTitle || doc?.blindName || title || "모바일 투자설명서";
@@ -373,7 +549,10 @@ export function FloatingActionBar({
   };
 
   const handleShare = async () => {
-    const url = typeof window !== "undefined" ? window.location.href : "";
+    const rawUrl = typeof window !== "undefined" ? window.location.href : "";
+    const url = await resolveTokenizedShareUrl(rawUrl);
+    if (!url) return;
+
     if (navigator.share) {
       try {
         await navigator.share({ title, url });
@@ -393,10 +572,13 @@ export function FloatingActionBar({
   };
 
   const handlePdf = () => {
+    const effectiveToken = resolveEffectiveToken();
+    const params = new URLSearchParams();
+    if (docId) params.set("doc_id", docId);
+    params.set("tier", tier);
+    if (effectiveToken) params.set("token", effectiveToken);
     window.open(
-      `/api/public/im-lite/${buildingId}/export${
-        docId ? `?doc_id=${docId}&tier=${tier}` : `?tier=${tier}`
-      }`,
+      `/api/public/im-lite/${encodeURIComponent(buildingId)}/export?${params.toString()}`,
       "_blank",
       "noopener"
     );
@@ -405,16 +587,19 @@ export function FloatingActionBar({
   const handlePptxDownload = (presetKey?: string) => {
     setPptxLoading(true);
     const preset = presetKey || selectedPreset;
+    const effectiveToken = resolveEffectiveToken();
     const prebuiltUrl = (doc as any)?.pptxDownloadUrl;
     const grantId = (doc as any)?.grantId;
     const targetUrl =
       typeof prebuiltUrl === "string" && prebuiltUrl.trim()
         ? prebuiltUrl.trim()
         : typeof grantId === "string" && grantId.trim()
-        ? `/api/public/im-pro/${encodeURIComponent(grantId.trim())}/pptx`
+        ? `/api/public/im-pro/${encodeURIComponent(grantId.trim())}/pptx${
+            effectiveToken ? `?token=${encodeURIComponent(effectiveToken)}` : ""
+          }`
         : `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?preset=${encodeURIComponent(preset)}${
             docId ? `&doc_id=${encodeURIComponent(docId)}&tier=${tier}` : `&tier=${tier}`
-          }`;
+          }${effectiveToken ? `&token=${encodeURIComponent(effectiveToken)}` : ""}`;
 
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
     if (isInAppWebView(ua)) {
@@ -462,17 +647,17 @@ export function FloatingActionBar({
     availablePresets.find((p) => p.id === selectedPreset) || availablePresets[0];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-[#CBD5E1] safe-area-bottom pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.08)]">
       {inAppWebView && (
         <div
           data-testid="fab-inapp-webview-banner"
-          className="bg-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-100 max-w-2xl mx-auto"
+          className="bg-[#FEF3C7] border-b border-[#F59E0B]/40 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm text-[#78350F] max-w-2xl mx-auto"
         >
           <span>앱 내 브라우저에서는 PPTX 파일 저장이 차단될 수 있습니다.</span>
           <button
             type="button"
             onClick={() => void handleOpenExternalBrowser()}
-            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-400 text-neutral-950 text-sm font-extrabold hover:bg-amber-300 transition-colors cursor-pointer"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#0F172A] text-white text-sm font-extrabold hover:bg-[#1E293B] transition-colors cursor-pointer"
           >
             외부 브라우저(Safari/Chrome)로 열기
           </button>
@@ -481,34 +666,35 @@ export function FloatingActionBar({
 
       {/* Broker mode switcher bar */}
       {isBroker && (
-        <div className="bg-neutral-950/90 border-b border-neutral-800 px-4 py-1.5 flex items-center justify-between text-xs max-w-2xl mx-auto">
+        <div className="bg-[#FAF9F5] border-b border-[#E2E8F0] px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 text-sm max-w-2xl mx-auto">
           <div className="flex items-center gap-1.5">
             <span
               className={`w-2 h-2 rounded-full ${
-                isBrokerMode ? "bg-amber-400" : "bg-blue-400"
+                isBrokerMode ? "bg-amber-500" : "bg-[#1D4ED8]"
               } animate-pulse`}
             ></span>
-            <span className="font-bold text-neutral-300">
+            <span className="font-bold text-[#0F172A]">
               {isBrokerMode ? "💼 중개인 전용 도구" : "👁️ 매수자 열람 화면 미리보기"}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
+              type="button"
               onClick={() => setIsBrokerMode(!isBrokerMode)}
-              className="text-neutral-300 hover:text-white underline underline-offset-2 transition-colors font-semibold"
+              className="min-h-[44px] inline-flex items-center text-[#475569] hover:text-[#0F172A] underline underline-offset-2 transition-colors font-semibold cursor-pointer"
             >
               {isBrokerMode ? "👁️ 매수자 시점 전환" : "💼 중개인 도구 전환"}
             </button>
             <Link
               href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
-              className="text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors font-extrabold"
+              className="min-h-[44px] inline-flex items-center text-[#B45309] hover:text-[#92400E] underline underline-offset-2 transition-colors font-extrabold"
             >
               📐 PPTX 슬라이드 스튜디오
             </Link>
             {docId && (
               <Link
-                href={`/broker/im-approval/${docId}`}
-                className="text-primary hover:underline transition-colors font-bold"
+                href={`/broker/w/im?buildingId=${encodeURIComponent(buildingId)}`}
+                className="min-h-[44px] inline-flex items-center text-[#1D4ED8] hover:underline transition-colors font-bold"
               >
                 ✏️ IM 승인·편집
               </Link>
@@ -518,14 +704,15 @@ export function FloatingActionBar({
       )}
 
       {/* Main Buttons */}
-      <div className="px-4 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
+      <div className="px-4 py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-2 max-w-2xl mx-auto">
         {isBrokerMode ? (
           /* ───────── 중개인 뷰 (Broker View) ───────── */
           <>
             {/* 카카오톡 공유 버튼 */}
             <button
+              type="button"
               onClick={() => void handleKakaoShare()}
-              className="flex items-center justify-center gap-1.5 px-3 py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-xs sm:text-sm font-black rounded-xl transition-all shadow-md active:scale-95 shrink-0"
+              className="min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-black rounded-xl transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
               title="카카오톡으로 모바일 IM 공유"
             >
               <svg
@@ -541,7 +728,7 @@ export function FloatingActionBar({
             {/* Primary CTA: 슬라이드 미리보기 · 편집 후 다운로드 */}
             <Link
               href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs sm:text-sm font-black rounded-xl transition-all shadow-md active:scale-95 truncate"
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-sm font-black rounded-xl transition-all shadow-xs active:scale-95 truncate"
               title="10면 슬라이드 실시간 미리보기 · 편집 후 PPTX 다운로드"
             >
               <span>📐</span>
@@ -550,15 +737,16 @@ export function FloatingActionBar({
 
             {/* Secondary CTA: PPTX 바로 다운로드 & 프리셋 드롭다운 */}
             <div className="relative shrink-0" ref={dropdownRef}>
-              <div className="flex rounded-xl overflow-hidden shadow-sm border border-amber-500/40 bg-neutral-900">
+              <div className="flex rounded-xl overflow-hidden shadow-xs border border-[#CBD5E1] bg-white">
                 <button
+                  type="button"
                   onClick={() => handlePptxDownload()}
-                  className="py-3 px-2.5 bg-neutral-900 hover:bg-neutral-800 text-amber-300 text-xs sm:text-sm font-extrabold transition-colors flex items-center justify-center gap-1 truncate"
+                  className="min-h-[44px] py-2.5 px-2.5 bg-white hover:bg-slate-50 text-[#0F172A] text-sm font-extrabold transition-colors flex items-center justify-center gap-1 truncate cursor-pointer"
                   title="선택된 프리셋으로 PPTX 바로 다운로드"
                   disabled={pptxLoading}
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/30"
+                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-300"
                     style={{ background: currentPresetInfo.accent }}
                   />
                   <span className="truncate">
@@ -566,13 +754,14 @@ export function FloatingActionBar({
                   </span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsPresetMenuOpen(!isPresetMenuOpen)}
-                  className="px-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white border-l border-neutral-700 transition-colors flex items-center justify-center"
+                  className="min-h-[44px] px-2.5 bg-slate-50 hover:bg-slate-100 text-[#475569] hover:text-[#0F172A] border-l border-[#CBD5E1] transition-colors flex items-center justify-center cursor-pointer"
                   title="PPTX 템플릿 프리셋 선택"
                   aria-expanded={isPresetMenuOpen}
                 >
                   <span
-                    className={`transform transition-transform text-xs ${
+                    className={`transform transition-transform text-sm ${
                       isPresetMenuOpen ? "rotate-180" : ""
                     }`}
                   >
@@ -583,16 +772,16 @@ export function FloatingActionBar({
 
               {/* 프리셋 선택 팝오버 메뉴 */}
               {isPresetMenuOpen && (
-                <div className="absolute bottom-full mb-2 right-0 w-72 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                  <div className="px-2 py-1.5 border-b border-neutral-800 mb-1.5 flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-neutral-200">
+                <div className="absolute bottom-full mb-2 right-0 w-72 bg-white border border-[#CBD5E1] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="px-2 py-1.5 border-b border-[#E2E8F0] mb-1.5 flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#0F172A]">
                       🎨 PPTX 템플릿 프리셋
                     </span>
-                    <span className="text-[11px] font-bold text-amber-300">{availablePresets.length}개 스타일</span>
+                    <span className="text-sm font-bold text-[#1D4ED8]">{availablePresets.length}개 스타일</span>
                   </div>
                   <Link
                     href={`/broker/basic-im-studio/${buildingId}?preset=${encodeURIComponent(selectedPreset)}`}
-                    className="mb-2 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-extrabold transition-colors"
+                    className="mb-2 w-full min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B]/40 text-[#92400E] text-sm font-extrabold transition-colors"
                   >
                     <span>📐</span>
                     <span>슬라이드 스튜디오에서 미리보기 · 편집</span>
@@ -600,30 +789,31 @@ export function FloatingActionBar({
                   <div className="space-y-1 max-h-60 overflow-y-auto">
                     {availablePresets.map((preset) => (
                       <button
+                        type="button"
                         key={preset.id}
                         onClick={() => {
                           setSelectedPreset(preset.id);
                           handlePptxDownload(preset.id);
                         }}
-                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex flex-col gap-0.5 ${
+                        className={`w-full min-h-[44px] text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex flex-col gap-0.5 cursor-pointer ${
                           selectedPreset === preset.id
-                            ? "bg-amber-500/15 text-amber-200 border border-amber-500/40"
-                            : "hover:bg-neutral-800 text-neutral-200"
+                            ? "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]"
+                            : "hover:bg-slate-50 text-[#0F172A]"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/30"
+                              className="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-300"
                               style={{ background: preset.accent }}
                             />
                             <span className="font-bold">{preset.label}</span>
                           </div>
                           {selectedPreset === preset.id && (
-                            <span className="text-xs font-black text-amber-300">✓</span>
+                            <span className="text-sm font-black text-[#1D4ED8]">✓</span>
                           )}
                         </div>
-                        <span className="text-[11px] text-neutral-400 pl-4">
+                        <span className="text-sm text-[#64748B] pl-4">
                           {preset.desc}
                         </span>
                       </button>
@@ -635,19 +825,21 @@ export function FloatingActionBar({
 
             {/* PDF 다운로드 버튼 */}
             <button
+              type="button"
               onClick={handlePdf}
               title="PDF 다운로드"
-              className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0"
+              className="min-h-[44px] px-3 py-2.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] text-sm font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
             >
               📄 PDF
             </button>
 
             {/* 링크 복사 버튼 */}
             <button
+              type="button"
               onClick={handleShare}
               title="링크 복사"
               aria-label="링크 복사"
-              className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition-colors shrink-0"
+              className="min-h-[44px] min-w-[44px] px-3 py-2.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#475569] hover:text-[#0F172A] text-sm font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
             >
               {copied ? "✅" : "🔗"}
             </button>
@@ -658,7 +850,7 @@ export function FloatingActionBar({
             {brokerPhone && (
               <a
                 href={`tel:${brokerPhone}`}
-                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-[#065F46] hover:bg-[#047857] text-white text-sm font-bold rounded-xl transition-colors shadow-xs"
               >
                 📞 직통 전화
               </a>
@@ -668,7 +860,7 @@ export function FloatingActionBar({
                 href={validKakaoChannelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-bold rounded-xl transition-colors shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E] text-sm font-bold rounded-xl transition-colors shadow-xs"
               >
                 💬 카톡 상담
               </a>
@@ -677,7 +869,7 @@ export function FloatingActionBar({
                 <button
                   type="button"
                   onClick={onInquire}
-                  className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl transition-colors shadow-sm cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-sm font-bold rounded-xl transition-colors shadow-xs cursor-pointer"
                 >
                   📩 간편 문의 · 자료 요청
                 </button>
@@ -687,7 +879,7 @@ export function FloatingActionBar({
               type="button"
               onClick={handlePdf}
               title="PDF 다운로드"
-              className="min-h-[48px] px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
+              className="min-h-[48px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] text-sm font-bold rounded-xl transition-colors cursor-pointer"
             >
               📄 PDF
             </button>
@@ -696,7 +888,7 @@ export function FloatingActionBar({
               onClick={() => handlePptxDownload()}
               title="PPTX 다운로드"
               disabled={pptxLoading}
-              className="min-h-[48px] px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
+              className="min-h-[48px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] text-sm font-bold rounded-xl transition-colors cursor-pointer"
             >
               {pptxLoading ? "⏳" : "📊"} PPTX
             </button>
@@ -705,7 +897,7 @@ export function FloatingActionBar({
               onClick={handleShare}
               title="공유하기"
               aria-label="링크 복사"
-              className="min-h-[48px] min-w-[48px] px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#475569] hover:text-[#0F172A] text-sm font-bold rounded-xl transition-colors cursor-pointer"
             >
               {copied ? "✅" : "🔗"}
             </button>

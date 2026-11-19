@@ -30,7 +30,7 @@ export function LoanStatusSection({
 
   return (
     <div className="col-span-2">
-      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+      <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
         🏦 대출 현황
       </label>
       <div className="flex gap-2">
@@ -43,7 +43,7 @@ export function LoanStatusSection({
             key={opt.value}
             type="button"
             onClick={() => setLoanStatus(opt.value)}
-            className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 py-2 px-2 rounded-lg text-sm font-medium transition-colors ${
               loanStatus === opt.value
                 ? "bg-primary/20 border-primary/50 text-primary border"
                 : "bg-secondary/50 border-border text-muted-foreground border hover:border-primary/40"
@@ -66,20 +66,20 @@ export function LoanStatusSection({
             placeholder="예: 100000"
             className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
             만원
           </span>
         </div>
       )}
       {loanStatus === "unknown" && (
-        <p className="mt-2 text-[10px] text-amber-500">
+        <p className="mt-2 text-sm text-amber-500">
           ⚠️ 등기부등본 미열람 — 자기자본 산출 시 대출 미반영 안내가 IM에 표시됩니다
         </p>
       )}
       {prefillLoanAmount &&
         loanAmount === String(prefillLoanAmount) &&
         loanStatus === "confirmed" && (
-          <span className="text-[10px] text-blue-400 mt-1 block">
+          <span className="text-sm text-blue-400 mt-1 block">
             📋 딜카드에서 자동 입력
           </span>
         )}

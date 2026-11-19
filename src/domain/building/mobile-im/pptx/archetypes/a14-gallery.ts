@@ -2,7 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
-import { optimizeImagesForPptx, type OptimizedImage } from '../utils/image-optimizer';
+import { optimizeImagesForPptx, isNonPhotoGraphic, type OptimizedImage } from '../utils/image-optimizer';
 import { addImageFit } from '../utils/image-fit';
 import type { PhotoMeta } from '../../types';
 import type { GalleryLayoutType } from '../gallery-planner';
@@ -74,6 +74,27 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     targetPhotos = photoUrls.map(url => ({ url }));
   }
 
+  const POSITIONAL_TEMPLATE_CAPTIONS = new Set([
+    '건물 외관 전경',
+    '주변 도로 및 접근로',
+    '1층 로비 및 공용부',
+    '실내 전용 공간',
+  ]);
+  const nonEmptyCaps = targetPhotos.map(p => (p.caption || '').trim()).filter(Boolean);
+  const hasLegacyPositionalCaptions =
+    (targetPhotos.length >= 3 &&
+      targetPhotos[0]?.caption === '건물 외관 전경' &&
+      targetPhotos[1]?.caption === '주변 도로 및 접근로' &&
+      targetPhotos[2]?.caption === '1층 로비 및 공용부') ||
+    (nonEmptyCaps.length >= 2 && nonEmptyCaps.every(c => POSITIONAL_TEMPLATE_CAPTIONS.has(c)));
+  if (hasLegacyPositionalCaptions) {
+    targetPhotos = targetPhotos.map((p) =>
+      p.caption && POSITIONAL_TEMPLATE_CAPTIONS.has(p.caption.trim())
+        ? { ...p, caption: '', label: undefined, category: undefined }
+        : p,
+    );
+  }
+
   const validPhotos = targetPhotos.filter(p => !!p.url);
 
   const renderFallbackGallery = (): ArchetypeOutput => {
@@ -112,7 +133,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const urlsToOptimize = candidatePhotos.map(p => p.url);
   let optimized: OptimizedImage[] = [];
   try {
-    optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85);
+    optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85, 1000);
   } catch (err) {
     warnings.push(`갤러리 이미지 최적화 실패: ${err instanceof Error ? err.message : String(err)}`);
     return renderFallbackGallery();
@@ -125,7 +146,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
 
   // 일부 이미지 URL이 깨져 스킵된 경우, 성공한 이미지와 원본 메타데이터를 정확히 매칭
   const remainingCandidates = [...candidatePhotos];
-  const matchedMetas = optimized.map((opt, idx) => {
+  let matchedMetas = optimized.map((opt, idx) => {
     if (opt.sourceUrl) {
       const foundIdx = remainingCandidates.findIndex(c => c.url === opt.sourceUrl);
       if (foundIdx >= 0) {
@@ -134,6 +155,26 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     }
     return candidatePhotos[idx] || {};
   });
+
+  // 투명 배너·로고·UI 캡처·극단적 띠 이미지 필터 (일반 사진 갤러리에 한해 적용, 도면 면 제외)
+  if (!input.data.suppressOnEmpty) {
+    const keptOptimized: OptimizedImage[] = [];
+    const keptMetas: typeof matchedMetas = [];
+    optimized.forEach((opt, i) => {
+      if (isNonPhotoGraphic(opt)) {
+        warnings.push(`비사진 배너·로고 이미지 제외: ${opt.sourceUrl || `#${i + 1}`}`);
+        return;
+      }
+      keptOptimized.push(opt);
+      keptMetas.push(matchedMetas[i] || { url: opt.sourceUrl || '' });
+    });
+    optimized = keptOptimized;
+    matchedMetas = keptMetas;
+    if (optimized.length === 0) {
+      warnings.push('유효 현장 사진 없음 — 건축물 현황 실사 대체 카드 삽입');
+      return renderFallbackGallery();
+    }
+  }
 
   // 검증 통과 후에만 슬라이드 생성
   const slide = L.light(input.pres);

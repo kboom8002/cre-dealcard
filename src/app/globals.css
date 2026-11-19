@@ -62,12 +62,10 @@
   --shadow-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
   --shadow-elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
 
-  /* Typography Scale — 한글 보정 적용 (Latin 대비 +1~2px optical)
-   * 한글은 동일 em-box에서 획이 복잡하여 Latin 대비 10~15% 작아 보임.
-   * 최소 가독 사이즈를 13px(0.8125rem)으로 상향. */
-  --text-2xs: 0.6875rem;  /* 11px (was 10px) */
-  --text-xs: 0.8125rem;   /* 13px (was 12px) */
-  --text-sm: 0.9375rem;   /* 15px (was 14px) */
+  /* Typography Scale — 한글 보정 적용 및 최소 가독 14px 바닥선 보장 */
+  --text-2xs: max(14px, 0.875rem); /* >= 14px */
+  --text-xs: max(14px, 0.875rem);  /* >= 14px */
+  --text-sm: 0.9375rem;            /* 15px (was 14px) */
   --text-base: 1.0625rem; /* 17px (was 16px) */
   --text-lg: 1.1875rem;   /* 19px (was 18px) */
   --text-xl: 1.375rem;    /* 22px (was 20px) */
@@ -120,8 +118,10 @@
   --color-grade-c: var(--grade-c);
 
   /* Typography */
-  --font-sans: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-noto-kr), "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", var(--font-geist-mono), monospace;
+  --text-xs: var(--text-xs);
+  --text-2xs: var(--text-2xs);
 
   /* Radius mapping */
   --radius-sm: var(--radius-sm);
@@ -141,9 +141,9 @@
  * 사용: text-caption / text-label / text-body / text-reader / text-title / text-display,
  *       text-ink-muted / text-ink-subtle */
 @theme {
-  --text-caption: 0.75rem;   /* 12px */
-  --text-label: 0.8125rem;   /* 13px */
-  --text-body: 0.9375rem;    /* 15px */
+  --text-caption: max(14px, 0.875rem); /* >= 14px */
+  --text-label: max(14px, 0.875rem);   /* >= 14px */
+  --text-body: 0.9375rem;              /* 15px */
   --text-reader: 1rem;       /* 16px — 독자 본문 */
   --text-reader--line-height: 1.7;
   --text-title: 1.125rem;    /* 18px */
@@ -243,7 +243,7 @@
   body {
     background: var(--background);
     color: var(--foreground);
-    font-family: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    font-family: var(--font-noto-kr), "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
     font-size: 1rem; /* 한글 기본 사이즈 보정: html 17px 기준 rem 동적 비례 스케일링 */
     letter-spacing: -0.01em; /* 한글 자간 미세 보정 */
     word-break: keep-all; /* 한글 단어 단위 줄바꿈 */
@@ -1235,11 +1235,17 @@
 /* 10. Senior Typography Scaling & Touch Targets (WP-P2-01 & Wave 5 WP-15) */
 [data-font-scale="compact"] {
   font-size: 15px;
-  --text-xs: max(13px, 0.8125rem); /* 캡션 최소 13px 보장 (이중 축소 방지) */
+  --text-2xs: max(14px, 0.9333rem);
+  --text-xs: max(14px, 0.9333rem); /* 캡션 최소 14px 보장 */
   --text-sm: max(14px, 0.9333rem); /* 14px */
   --text-base: 1rem;               /* 15px */
   --text-lg: 1.1333rem;            /* 17px */
   --text-xl: 1.3333rem;            /* 20px */
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+textarea,
+select {
+  font-size: max(16px, 1rem) !important;
 }
 [data-font-scale="compact"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
 [data-font-scale="compact"] textarea,
@@ -1275,7 +1281,7 @@
 }
 
 .ws-caption-min {
-  font-size: max(13px, 0.8235rem);
+  font-size: max(14px, 0.875rem);
   line-height: 1.5;
 }
 

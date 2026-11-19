@@ -54,7 +54,7 @@ export function InboxNewClientModal({
         aria-labelledby="inbox-new-client-dialog-title"
         data-testid="inbox-new-client-dialog"
         onClick={(e) => e.stopPropagation()}
-        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white text-slate-900 p-6 shadow-xl"
       >
         <div className="flex items-center justify-between gap-2">
           <h2
@@ -283,7 +283,7 @@ export function InboxNewClientModal({
             />
           </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+          <div className="flex min-h-[44px] items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
             <input
               id="new-client-newsletter"
               data-testid="new-client-newsletter-checkbox"
@@ -353,7 +353,7 @@ export function InboxEditClientModal({
         aria-labelledby="inbox-edit-client-dialog-title"
         data-testid="inbox-edit-client-dialog"
         onClick={(e) => e.stopPropagation()}
-        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white text-slate-900 p-6 shadow-xl"
       >
         <div className="flex items-center justify-between gap-2">
           <h2

@@ -1,4 +1,4 @@
-import { createModuleLogger } from '@/lib/logger';
+import { createModuleLogger, redactStringPii } from '@/lib/logger';
 
 const log = createModuleLogger('error-reporter');
 
@@ -6,6 +6,25 @@ export interface ErrorReportContext {
   boundary?: string;
   digest?: string;
   url?: string;
+}
+
+function sanitizeUrlForTelemetry(rawUrl?: string | null): string | null {
+  if (typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith('/')) {
+    const pathnameOnly = trimmed.split(/[?#]/)[0] || '/';
+    return redactStringPii(pathnameOnly).slice(0, 512);
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return redactStringPii(`${parsed.origin}${parsed.pathname}`).slice(0, 512);
+  } catch {
+    const stripped = trimmed.split(/[?#]/)[0] || '';
+    return stripped ? redactStringPii(stripped).slice(0, 512) : null;
+  }
 }
 
 function sanitizeDigest(raw: unknown): string | null {
@@ -22,24 +41,27 @@ function extractErrorDetails(
     if (error instanceof Error) {
       const errWithDigest = error as Error & { digest?: unknown };
       return {
-        name: error.name || 'Error',
-        message: error.message || 'Unhandled error',
+        name: redactStringPii(error.name || 'Error'),
+        message: redactStringPii(error.message || 'Unhandled error'),
         digest: sanitizeDigest(errWithDigest.digest) ?? sanitizeDigest(fallbackDigest),
       };
     }
     if (typeof error === 'string') {
       return {
         name: 'Error',
-        message: error || 'Unhandled error',
+        message: redactStringPii(error || 'Unhandled error'),
         digest: sanitizeDigest(fallbackDigest),
       };
     }
     if (error && typeof error === 'object') {
       const rec = error as Record<string, unknown>;
-      const name = typeof rec.name === 'string' && rec.name.trim() ? rec.name.trim() : 'Error';
+      const name =
+        typeof rec.name === 'string' && rec.name.trim()
+          ? redactStringPii(rec.name.trim())
+          : 'Error';
       const message =
         typeof rec.message === 'string' && rec.message.trim()
-          ? rec.message.trim()
+          ? redactStringPii(rec.message.trim())
           : 'Unhandled object error';
       return {
         name,
@@ -90,6 +112,82 @@ export function generateErrorReferenceCode(error?: unknown): string {
   }
 }
 
+/**
+ * P1-1 (WP-7.3A): `activity_events` schema contract for system error telemetry.
+ *  - `entity_id` is `uuid` (nullable) — 00001_mvp_schema.sql. The `ERR-XXXX` reference
+ *    code is NOT a uuid, so it lives in `metadata.ref_code` and `entity_id` is null.
+ *  - `source_app` CHECK (00005) only allows null or 'js-building-ssot-mvp' /
+ *    'js-full-im-studio' / 'js-space-ai-page'. We omit it (→ NULL) so the row is valid
+ *    even on databases where the column/constraint differs.
+ *  - The previous `ai_anomalies` insert was removed: no migration creates that table,
+ *    so every report produced a guaranteed PostgREST 404 (PGRST205).
+ */
+export interface SystemErrorActivityRow {
+  actor_id: null;
+  actor_role: 'system';
+  event_type: 'system_error';
+  entity_type: 'system';
+  entity_id: null;
+  metadata: {
+    ref_code: string;
+    boundary: string;
+    digest: string | null;
+    url: string | null;
+    error_name: string;
+  };
+}
+
+export function buildSystemErrorActivityRow(input: {
+  refCode: string;
+  boundary: string;
+  digest: string | null;
+  url: string | null;
+  errorName: string;
+}): SystemErrorActivityRow {
+  return {
+    actor_id: null,
+    actor_role: 'system',
+    event_type: 'system_error',
+    entity_type: 'system',
+    entity_id: null,
+    metadata: {
+      ref_code: input.refCode,
+      boundary: input.boundary,
+      digest: input.digest,
+      url: input.url,
+      error_name: input.errorName,
+    },
+  };
+}
+
+/**
+ * Browser → `/api/public/events` payload. `entityId` is intentionally omitted (the
+ * reference code is not a uuid); the route stores the code in metadata.
+ */
+export function buildClientErrorTelemetryPayload(input: {
+  refCode: string;
+  boundary: string;
+  digest: string | null;
+  path: string;
+}): {
+  type: 'activity_event';
+  eventType: 'client_error_reported';
+  entityType: 'system';
+  metadata: Record<string, unknown>;
+} {
+  return {
+    type: 'activity_event',
+    eventType: 'client_error_reported',
+    entityType: 'system',
+    metadata: {
+      client_error_ref: input.refCode,
+      boundary: input.boundary,
+      digest: input.digest,
+      path: input.path,
+    },
+  };
+}
+
 interface LooseSupabaseTable {
   insert: (payload: Record<string, unknown>) => PromiseLike<unknown>;
 }
@@ -112,11 +210,11 @@ export async function reportClientOrServerError(
       ? { name: details.name, message: details.message, digest: details.digest }
       : error;
   const refCode = generateErrorReferenceCode(refInput);
-  const boundary = context?.boundary?.trim() || 'unhandled';
+  const boundary = redactStringPii(context?.boundary?.trim() || 'unhandled');
+  const safeUrl = sanitizeUrlForTelemetry(context?.url);
 
   try {
     if (typeof window === 'undefined') {
-      const safeUrl = context?.url?.slice(0, 512) ?? null;
       const structuredRecord = {
         event: 'system_error',
         refCode,
@@ -124,7 +222,7 @@ export async function reportClientOrServerError(
         digest: details.digest,
         url: safeUrl,
         errorName: details.name,
-        errorMessage: details.message.slice(0, 500),
+        errorMessage: redactStringPii(details.message).slice(0, 500),
         timestamp: new Date().toISOString(),
       };
 
@@ -151,7 +249,9 @@ export async function reportClientOrServerError(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              text: `[CRE DealCard] 시스템 오류 감지 (${refCode}) — boundary=${boundary}`,
+              text: redactStringPii(
+                `[CRE DealCard] 시스템 오류 감지 (${refCode}) — boundary=${boundary}`,
+              ),
               refCode,
               boundary,
               digest: details.digest,
@@ -169,40 +269,31 @@ export async function reportClientOrServerError(
         const supabase = createServiceClient() as unknown as LooseSupabaseClient | null;
         if (supabase && typeof supabase.from === 'function') {
           try {
-            await supabase.from('activity_events').insert({
-              actor_id: null,
-              actor_role: 'system',
-              event_type: 'system_error',
-              entity_type: 'building',
-              entity_id: refCode,
-              source_app: 'dealcard',
-              metadata: {
-                ref_code: refCode,
-                boundary,
-                digest: details.digest,
-                url: safeUrl,
-                error_name: details.name,
-              },
+            const row = buildSystemErrorActivityRow({
+              refCode,
+              boundary,
+              digest: details.digest,
+              url: safeUrl,
+              errorName: details.name,
             });
+            const result = (await supabase
+              .from('activity_events')
+              .insert(row as unknown as Record<string, unknown>)) as
+              | { error?: { code?: string; message?: string } | null }
+              | null
+              | undefined;
+            if (result && result.error) {
+              try {
+                log.warn(
+                  { refCode, code: result.error.code ?? null },
+                  '[error-reporter] activity_events insert rejected',
+                );
+              } catch {
+                // Ignore logger transport issues
+              }
+            }
           } catch {
             // Best-effort DB telemetry
-          }
-
-          try {
-            const anomalyTable = 'ai_anomalies';
-            await supabase.from(anomalyTable).insert({
-              anomaly_type: 'system_error',
-              severity: 'error',
-              reference_code: refCode,
-              boundary,
-              metadata: {
-                digest: details.digest,
-                url: safeUrl,
-                error_name: details.name,
-              },
-            });
-          } catch {
-            // Best-effort anomaly log if table exists
           }
         }
       } catch {
@@ -210,8 +301,11 @@ export async function reportClientOrServerError(
       }
     } else {
       const currentPath =
-        context?.url?.slice(0, 256) ||
-        (typeof window.location?.pathname === 'string' ? window.location.pathname : '/');
+        safeUrl ??
+        sanitizeUrlForTelemetry(
+          typeof window.location?.pathname === 'string' ? window.location.pathname : '/',
+        ) ??
+        '/';
 
       try {
         console.error('[error-reporter]', {
@@ -224,18 +318,14 @@ export async function reportClientOrServerError(
         // Ignore console errors
       }
 
-      const telemetryBody = JSON.stringify({
-        type: 'activity_event',
-        eventType: 'im_viewed',
-        entityType: 'building',
-        entityId: refCode,
-        metadata: {
-          client_error_ref: refCode,
+      const telemetryBody = JSON.stringify(
+        buildClientErrorTelemetryPayload({
+          refCode,
           boundary,
           digest: details.digest,
           path: currentPath,
-        },
-      });
+        }),
+      );
 
       try {
         if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {

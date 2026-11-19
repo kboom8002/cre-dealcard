@@ -7,9 +7,9 @@ import { z } from "zod/v4";
 const log = createModuleLogger("broker-client-contacts-item");
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
-const UpdateSchema = z.object({
-  contact_type: z.string().optional(),
-  summary: z.string().optional(),
+const UpdateContactSchema = z.object({
+  contact_type: z.string().trim().min(1).max(40).optional(),
+  summary: z.string().max(5000).optional(),
 });
 
 export async function PATCH(
@@ -33,7 +33,7 @@ export async function PATCH(
       return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
     }
 
-    const parsed = UpdateSchema.safeParse(json);
+    const parsed = UpdateContactSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: "입력 항목을 확인해주세요." }, { status: 400 });
     }

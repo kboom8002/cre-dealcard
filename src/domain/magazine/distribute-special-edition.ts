@@ -198,6 +198,8 @@ export async function distributeSpecialEdition(
         area_signal: areaSignal,
         asset_type: assetType,
         dry_run: dryRun,
+        total_count: tally.total,
+        subscriber_count: targetedSubscribers.length,
         total_targets: tally.total,
         sent_count: tally.sent,
         recorded_count: tally.recorded,

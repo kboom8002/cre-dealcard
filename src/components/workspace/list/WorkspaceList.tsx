@@ -258,23 +258,15 @@ export function SimpleListRow({
   const dateLabel = formatListDate(date, now);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       data-testid={testId}
       data-list-row="simple"
       data-selected={selected ? "true" : "false"}
       aria-current={selected ? "true" : undefined}
       onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
       {...(dataAttrs || {})}
-      className={`relative flex min-h-[3.5rem] cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-xl border py-2.5 pl-4 pr-3 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#007AFF]/60 ${
+      className={`relative flex w-full min-h-[3.5rem] cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-xl border py-2.5 pl-4 pr-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#007AFF]/60 ${
         selected
           ? "border-[#007AFF] bg-[#EAF3FF] shadow-[0_2px_8px_rgba(0,122,255,0.16)]"
           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-[#FAFAFC]"
@@ -283,7 +275,7 @@ export function SimpleListRow({
       {selected && (
         <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
       )}
-      <div className="flex min-w-0 items-baseline justify-between gap-2">
+      <div className="flex min-w-0 w-full items-baseline justify-between gap-2">
         <span
           data-single-line-title="true"
           title={title}
@@ -307,7 +299,7 @@ export function SimpleListRow({
         </span>
       </div>
       {(status || meta) && (
-        <div className="flex min-w-0 items-center gap-1.5 text-sm">
+        <div className="flex min-w-0 w-full items-center gap-1.5 text-sm">
           {status && tone && (
             <span
               data-testid={status.testId}
@@ -329,7 +321,7 @@ export function SimpleListRow({
           {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
         </div>
       )}
-    </div>
+    </button>
   );
 }
 

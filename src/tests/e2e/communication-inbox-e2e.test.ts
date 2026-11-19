@@ -1,4 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
+import { POST as postPublicImInquiry } from '@/app/api/public/im-inquiry/route';
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import { SolapiMessageAdapter } from '@/lib/notification/message-adapter';
 
@@ -138,7 +140,8 @@ describe('Communication & Inbox Domain (소통/관리함) Tests', () => {
         name: '홍길동',
         phone: '010-1234-5678',
         email: 'test@example.com',
-        inquiryMessage: '매물 관련 문의드립니다.'
+        inquiryMessage: '매물 관련 문의드립니다.',
+        privacy_agreed: true
       };
       const res = await fetch(`${BASE_URL}/api/public/im-inquiry`, {
         method: 'POST',
@@ -263,6 +266,60 @@ describe('Communication & Inbox Domain (소통/관리함) Tests', () => {
 
       const response = await askAiAmbassador([{ role: 'user' as const, content: '수익률 보장되나요?' }], {} as any);
       expect((response as any).message.content).toContain('해당 중개인에게 확인 후 안내');
+    });
+  });
+
+  describe('C4-Unit. Public IM Inquiry Fail-Closed PIPA Consent (POST /api/public/im-inquiry)', () => {
+    test('rejects omitted privacy_agreed with 400', async () => {
+      const req = new NextRequest('http://localhost:3000/api/public/im-inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buildingId: 'bldg-1',
+          name: '홍길동',
+          phone: '010-1234-5678',
+        }),
+      });
+      const res = await postPublicImInquiry(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.ok).toBe(false);
+    });
+
+    test('rejects null or false privacy_agreed with 400', async () => {
+      for (const privacyAgreedValue of [null, false, 'true']) {
+        const req = new NextRequest('http://localhost:3000/api/public/im-inquiry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            buildingId: 'bldg-1',
+            name: '홍길동',
+            phone: '010-1234-5678',
+            privacy_agreed: privacyAgreedValue,
+          }),
+        });
+        const res = await postPublicImInquiry(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.ok).toBe(false);
+      }
+    });
+
+    test('rejects missing buildingId, name, or phone even when privacy_agreed is true', async () => {
+      const req = new NextRequest('http://localhost:3000/api/public/im-inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buildingId: '',
+          name: '홍길동',
+          phone: '010-1234-5678',
+          privacy_agreed: true,
+        }),
+      });
+      const res = await postPublicImInquiry(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.ok).toBe(false);
     });
   });
 });

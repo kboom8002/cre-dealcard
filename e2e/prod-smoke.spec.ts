@@ -10,13 +10,31 @@ import * as path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
 
+const QA_ACCESS_KEY = (
+  process.env.QA_ACCESS_KEY ||
+  process.env.QA_TESTER_ACCESS_KEY ||
+  process.env.QA_BROKER_ACCESS_KEY ||
+  ""
+).trim();
+
 test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
   test.setTimeout(90_000);
 
-  test("[Smoke-01] POST /api/public/qa-workbench auto_probe_all returns 4/4 passed + buildStamp", async ({
+  test("[Smoke-01] POST /api/public/qa-workbench auto_probe_all fails closed without auth and returns 4/4 passed with QA key", async ({
     request,
   }) => {
+    const unauthRes = await request.post("/api/public/qa-workbench", {
+      data: { mode: "auto_probe_all" },
+    });
+    expect([401, 404]).toContain(unauthRes.status());
+
+    if (!QA_ACCESS_KEY) {
+      test.skip(true, "QA_ACCESS_KEY 미설정 — 인증 프로브는 건너뛰고 비인증 fail-closed만 검증합니다.");
+      return;
+    }
+
     const res = await request.post("/api/public/qa-workbench", {
+      headers: { "x-qa-access-key": QA_ACCESS_KEY },
       data: { mode: "auto_probe_all" },
     });
     expect(res.status()).toBe(200);
@@ -31,13 +49,25 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     }
   });
 
-  test("[Smoke-02] /qa-signoff renders cleanly, has zero pageerrors, and runs 1-click Auto-Probe", async ({
+  test("[Smoke-02] /qa-signoff fails closed without key, renders cleanly with key, and runs 1-click Auto-Probe", async ({
     page,
+    request,
   }) => {
+    const denied = await request.get("/qa-signoff", { maxRedirects: 0 });
+    expect(denied.status()).toBe(404);
+
+    if (!QA_ACCESS_KEY) {
+      test.skip(true, "QA_ACCESS_KEY 미설정 — /qa-signoff 인증 화면 스모크를 건너뜁니다.");
+      return;
+    }
+
     const pageErrors: string[] = [];
     page.on("pageerror", (err) => pageErrors.push(err.message));
 
-    const res = await page.goto("/qa-signoff", { waitUntil: "load" });
+    const res = await page.goto(
+      `/qa-signoff?qaKey=${encodeURIComponent(QA_ACCESS_KEY)}`,
+      { waitUntil: "load" }
+    );
     expect(res?.status()).toBeLessThan(400);
     await page.waitForTimeout(500);
 
@@ -96,11 +126,24 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
 
     await page.waitForURL("**/broker**", { timeout: 45_000 });
 
+    if (!QA_ACCESS_KEY) {
+      test.skip(
+        true,
+        "QA_ACCESS_KEY 미설정 — 프로덕션 빌드 QA 핀 오버레이는 검증된 qaKey가 필요합니다."
+      );
+      return;
+    }
+
+    // WP-7.3A: ?qa=1 without qaKey must NOT expose the QA pin overlay in production builds
+    await page.goto("/broker/w/dealcards?qa=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("qa-pin-fab")).toHaveCount(0);
+
+    const qaQs = `qa=1&qaKey=${encodeURIComponent(QA_ACCESS_KEY)}`;
     const routes = [
-      "/broker/w/dealcards?qa=1",
-      "/broker/w/im?qa=1",
-      "/broker/magazine-editor?qa=1",
-      "/broker/w/inbox?qa=1",
+      `/broker/w/dealcards?${qaQs}`,
+      `/broker/w/im?${qaQs}`,
+      `/broker/magazine-editor?${qaQs}`,
+      `/broker/w/inbox?${qaQs}`,
     ];
 
     for (const route of routes) {
@@ -141,11 +184,21 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     expect(validOgRes.headers()["content-type"] || "").toContain("image/png");
   });
 
-  test("[Smoke-05] /api/public/qa-workbench?mode=showcase returns 22 deliverables & /qa-showcase?tab=im renders slide PNGs", async ({
+  test("[Smoke-05] /api/public/qa-workbench?mode=showcase fails closed without auth and returns 22 deliverables with key", async ({
     page,
     request,
   }) => {
-    const manifestRes = await request.get("/api/public/qa-workbench?mode=showcase");
+    const deniedRes = await request.get("/api/public/qa-workbench?mode=showcase");
+    expect([401, 404]).toContain(deniedRes.status());
+
+    if (!QA_ACCESS_KEY) {
+      test.skip(true, "QA_ACCESS_KEY 미설정 — /qa-showcase 검증을 건너뜁니다.");
+      return;
+    }
+
+    const manifestRes = await request.get("/api/public/qa-workbench?mode=showcase", {
+      headers: { "x-qa-access-key": QA_ACCESS_KEY },
+    });
     expect(manifestRes.status()).toBe(200);
     const manifestJson = await manifestRes.json();
     expect(manifestJson.ok).toBe(true);
@@ -154,7 +207,10 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     const pageErrors: string[] = [];
     page.on("pageerror", (err) => pageErrors.push(err.message));
 
-    const res = await page.goto("/qa-showcase?tab=im", { waitUntil: "networkidle" });
+    const res = await page.goto(
+      `/qa-showcase?tab=im&qaKey=${encodeURIComponent(QA_ACCESS_KEY)}`,
+      { waitUntil: "networkidle" }
+    );
     expect(res?.status()).toBeLessThan(400);
 
     await expect(page.getByTestId("showcase-build-stamp-badge")).toBeVisible({

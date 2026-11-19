@@ -113,10 +113,39 @@ export async function signup(
   });
 
   if (error) {
-    if (error.message?.includes('already registered')) {
+    const rawMsg = (error.message || '').toLowerCase();
+    const rawCode = ((error as { code?: string }).code || '').toLowerCase();
+    if (
+      rawMsg.includes('already registered') ||
+      rawCode === 'user_already_exists' ||
+      rawCode === 'email_exists'
+    ) {
       return { errors: { email: ['이미 사용 중인 이메일입니다.'] } };
     }
-    return { message: `회원가입 오류: ${error.message}` };
+    if (rawCode === 'weak_password' || rawMsg.includes('password')) {
+      return {
+        errors: {
+          password: [
+            '비밀번호 보안 기준을 충족하지 않습니다. 영문·숫자 등을 조합해 8자 이상 입력해주세요.',
+          ],
+        },
+      };
+    }
+    if (
+      (error as { status?: number }).status === 429 ||
+      rawCode.includes('rate_limit') ||
+      rawMsg.includes('rate limit') ||
+      rawMsg.includes('too many')
+    ) {
+      return { message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+    if (rawCode.includes('email') || (rawMsg.includes('invalid') && rawMsg.includes('email'))) {
+      return { errors: { email: ['올바른 이메일 주소를 입력해주세요.'] } };
+    }
+    console.error('[Signup] Supabase auth error:', rawCode || (error as { status?: number }).status || 'unknown');
+    return {
+      message: '회원가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+    };
   }
 
   // ALPHA: 모든 신규 가입자에게 서비스 롤을 통해 즉시 broker 권한 및 이름 부여

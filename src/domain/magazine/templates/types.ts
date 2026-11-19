@@ -48,6 +48,8 @@ export interface MagazineEmailInput {
   unsubscribeUrl: string;
   /** 전송자 주소(선택, footer 표기) */
   senderAddress?: string;
+  /** 전송자 전자우편(선택, footer 표기) */
+  senderEmail?: string;
   /** 수신 동의 일자(YYYY-MM-DD, 선택, footer 표기) */
   consentDate?: string;
   /** 광고성 정보 표기. 반드시 true */

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireBroker } from '@/lib/auth-guard';
 import { assertBuildingOwner, assertDocOwner } from '@/lib/authz/assert-owner';
+import { softDeleteWorkspaceItem } from '@/lib/workspace/workspace-repository';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -51,7 +51,9 @@ export async function GET(
     const { data: docs, error } = await docsQuery;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      // WP-7.3D P2-7: no raw DB error text to clients.
+      log.error('[im-lite/get] document_objects query failed:', { code: error.code, message: error.message, id });
+      return NextResponse.json({ error: 'IM 문서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' }, { status: 400 });
     }
 
     return NextResponse.json({
@@ -65,7 +67,8 @@ export async function GET(
       })),
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    log.error('[im-lite/get] Unexpected error:', err);
+    return NextResponse.json({ error: 'IM 문서 조회 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
@@ -75,44 +78,30 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
-    // 인증 확인 (App Router 표준 세션)
-    const supabase = await createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const userId = guard.user!.id;
+    const isAdmin = guard.role === 'admin';
 
     const service = createServiceClient();
 
-    // 대상 IM 문서 조회
-    const { data: doc, error: fetchErr } = await service
+    // 소유권 확인 (Admin 패리티 + 연결 매물 소유자 포함)
+    const docCheck = await assertDocOwner(service, id, userId, {
+      allowAdmin: true,
+      role: guard.role,
+      allowBuildingOwner: true,
+    });
+    if (!docCheck.ok) {
+      return docCheck.response;
+    }
+
+    const { data: doc } = await service
       .from('document_objects')
-      .select('id, owner_id, building_id')
+      .select('id, building_id')
       .eq('id', id)
       .maybeSingle();
-
-    if (fetchErr || !doc) {
-      return NextResponse.json({ error: '투자설명서(IM)를 찾을 수 없습니다.' }, { status: 404 });
-    }
-
-    // 소유권 확인: doc.owner_id 또는 연결된 building_ssot_lite의 owner_id 일치 여부
-    let isOwner = doc.owner_id === user.id;
-    if (!isOwner && doc.building_id) {
-      const { data: bldg } = await service
-        .from('building_ssot_lite')
-        .select('owner_id')
-        .eq('id', doc.building_id)
-        .maybeSingle();
-      if (bldg && bldg.owner_id === user.id) {
-        isOwner = true;
-      }
-    }
-
-    if (!isOwner) {
-      return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
-    }
 
     // 연관 데이터 선삭제 (참조 무결성)
     await Promise.allSettled([
@@ -135,13 +124,31 @@ export async function DELETE(
 
       if (softDeleteErr) {
         log.error('[im-lite/delete] Soft delete failed:', softDeleteErr);
-        return NextResponse.json({ error: `삭제 실패: ${softDeleteErr.message}` }, { status: 500 });
+        return NextResponse.json({ error: 'IM 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.' }, { status: 500 });
       }
+    }
+
+    // workspace_items soft-delete 동기화
+    await softDeleteWorkspaceItem(service, {
+      id,
+      userId,
+      isAdmin,
+      kind: 'im',
+      requireExisting: false,
+    }).catch(() => {});
+    if (doc?.building_id && doc.building_id !== id) {
+      await softDeleteWorkspaceItem(service, {
+        id: doc.building_id,
+        userId,
+        isAdmin,
+        kind: 'im',
+        requireExisting: false,
+      }).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, message: 'IM이 삭제되었습니다.' });
   } catch (err: any) {
     log.error('[im-lite/delete] Unexpected error:', err);
-    return NextResponse.json({ error: `삭제 중 오류가 발생했습니다: ${err.message}` }, { status: 500 });
+    return NextResponse.json({ error: '삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' }, { status: 500 });
   }
 }

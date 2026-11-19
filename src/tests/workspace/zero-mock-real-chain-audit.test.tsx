@@ -18,14 +18,18 @@ import MagazineEditorPage from "@/app/(broker)/broker/magazine-editor/page";
 import { MagazineView, type MagazineData } from "@/app/(magazine)/magazine/[brokerId]/[date]/magazine-view";
 import { fetchIMData } from "@/app/(public)/im-lite/[buildingId]/fetch-im-data";
 import {
+  clearQuickImStoreForTest,
   saveInboxState,
 } from "@/lib/im-lite/quick-generate-store";
 import {
+  issueShareLinkToken,
   verifyShareLinkToken,
   resetShareLinkTokenStoreForTests,
 } from "@/lib/security/share-link-tokens";
 
 function resetQuickImStoreForTests() {
+  clearQuickImStoreForTest();
+  resetShareLinkTokenStoreForTests();
   saveInboxState({
     revokedBuildings: {},
     correctionNotices: {},
@@ -53,6 +57,8 @@ interface InMemoryTables {
   gate_requests: Array<Record<string, any>>;
   profiles: Array<Record<string, any>>;
   broker_profiles: Array<Record<string, any>>;
+  workspace_items: Array<Record<string, any>>;
+  email_suppressions: Array<Record<string, any>>;
 }
 
 let db: InMemoryTables;
@@ -101,9 +107,15 @@ function resetInMemoryDb() {
         slug: "js-realty",
         company: "JS 부동산 중개법인",
         phone: "010-3355-5589",
+        office_reg_number: "11440-2023-00777",
+        office_address: "서울특별시 마포구 양화로 100",
+        representative_name: "이상덕",
+        contact_email: "lee@credeal.net",
         specialty_regions: ["홍대·연남·합정", "마포·공덕"],
       },
     ],
+    workspace_items: [],
+    email_suppressions: [],
   };
 }
 
@@ -155,6 +167,40 @@ function createStatefulSupabaseChain(tableName: string) {
       filters.push((r) => set.has(String(r[col] ?? "")));
       return chain;
     },
+    is: (col: string, val: unknown) => {
+      filters.push((r) => (val === null ? r[col] === null || r[col] === undefined : String(r[col] ?? "") === String(val)));
+      return chain;
+    },
+    or: (expr: string) => {
+      const clauses = String(expr || "")
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
+      filters.push((r) =>
+        clauses.some((clause) => {
+          const parts = clause.split(".");
+          if (parts.length < 3) return true;
+          const col = parts[0];
+          const op = parts[1];
+          const val = parts.slice(2).join(".");
+          const actual = col.includes("->>")
+            ? (() => {
+                const [objCol, jsonKey] = col.split("->>");
+                return (r[objCol] && typeof r[objCol] === "object" ? (r[objCol] as Record<string, any>)[jsonKey] : undefined);
+              })()
+            : r[col];
+          if (op === "eq") return String(actual ?? "") === val;
+          if (op === "neq") return String(actual ?? "") !== val;
+          if (op === "is") return val === "null" ? actual === null || actual === undefined : String(actual ?? "") === val;
+          if (op === "in") {
+            const inner = val.replace(/^\(/, "").replace(/\)$/, "").split(",").map((s) => s.trim());
+            return inner.includes(String(actual ?? ""));
+          }
+          return true;
+        })
+      );
+      return chain;
+    },
     order: (col: string, opts?: { ascending?: boolean }) => {
       sortCol = col;
       sortAsc = opts?.ascending !== false;
@@ -193,6 +239,7 @@ function createStatefulSupabaseChain(tableName: string) {
         const existingIdx = table.findIndex(
           (r) =>
             (item.id && r.id === item.id) ||
+            (item.legacy_id && r.legacy_id === item.legacy_id && (!item.kind || r.kind === item.kind)) ||
             (item.token && r.token === item.token) ||
             (item.broker_id && item.edition_label && r.broker_id === item.broker_id && r.edition_label === item.edition_label)
         );
@@ -404,7 +451,8 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     expect(matchedDeal).toBeDefined();
     expect(matchedDeal.building_name).toBe("마포구 동교동 더파크빌딩");
     expect(matchedDeal.sale_price).toBe(770000 * 10000);
-    expect(matchedDeal.cap_rate).toBe(2.34);
+    // Korean CRE deposit-adjusted gross yield: (1500 * 12) / (770000 - 10000) * 100 = 2.37%
+    expect(matchedDeal.cap_rate).toBe(2.37);
 
     // Step 5: Verify GET /api/broker/inbox recovers the VIP client thread after cold start
     const inboxRes = await getInbox(new NextRequest("http://localhost:3000/api/broker/inbox?workspace=1"));
@@ -414,7 +462,29 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     expect(vipThread).toBeDefined();
     expect(vipThread.clientGrade).toBe("VIP");
 
-    // Step 6: Verify GET /api/magazine/editions?broker_id=me reflects subscriberCount >= 1 & highInterestCount >= 1
+    // Step 6a: PIPA Double Opt-In invariant — manual broker upsert_client does NOT count as confirmed subscriber before recipient self-confirmation
+    const pendingEditionsRes = await getEditions(
+      new NextRequest("http://localhost:3000/api/magazine/editions?broker_id=me&type=all")
+    );
+    const pendingEditionsJson = await pendingEditionsRes.json();
+    expect(pendingEditionsRes.status).toBe(200);
+    expect(pendingEditionsJson.subscriberCount).toBe(0);
+
+    // Step 6b: Once VIP recipient confirms opt-in (magazine_subscribers confirm_status='confirmed') + cold start wipe, VIP & subscriber counts merge cleanly
+    db.magazine_subscribers.push({
+      id: "sub-vip-choi",
+      broker_id: "js-realty",
+      broker_user_id: activeBrokerUser.id,
+      subscriber_name: "최대표",
+      subscriber_phone: "010-7777-8888",
+      status: "active",
+      confirm_status: "confirmed",
+      unsubscribed_at: null,
+      segment: "investor",
+      interest_profile: {},
+    });
+    resetQuickImStoreForTests();
+
     const editionsRes = await getEditions(
       new NextRequest("http://localhost:3000/api/magazine/editions?broker_id=me&type=all")
     );
@@ -431,8 +501,8 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     const { PATCH: patchWorkspaceSummary } = await import("@/app/api/broker/workspace/summary/route");
     const { POST: postInboxAction } = await import("@/app/api/broker/inbox/actions/route");
 
-    // 1. Seed IM in activity_events
-    await patchWorkspaceSummary(
+    // 1. Seed IM in activity_events & workspace_items
+    const seedRes = await patchWorkspaceSummary(
       new NextRequest("http://localhost:3000/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -447,6 +517,8 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
             askingPriceManwon: 770000,
             landAreaSqm: 244.6,
             gfaSqm: 696.97,
+            zoning: "제2종일반주거지역",
+            completionDate: "1991-06-21",
             grossYieldPct: 4.8,
             capRatePct: 4.8,
             status: "published",
@@ -454,6 +526,7 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
         }),
       })
     );
+    expect(seedRes.status).toBe(200);
 
     // 2. Approve Gate Request -> issue signed token (slk.*)
     const approveRes = await postInboxAction(
@@ -527,8 +600,20 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     });
     expect(blockedDoc).toBeNull();
 
-    // 7. Verify fetchIMData without token carries isRevoked=true and correctionNotice from activity_events
-    const overlayDoc = (await fetchIMData("im-doc-donggyo-77")) as any;
+    // 7. Fail-closed for anonymous callers even without ?token=, while owner viewer retains revoked & correctionNotice overlay
+    let anonDenyReason: string | undefined;
+    const anonDoc = await fetchIMData("im-doc-donggyo-77", undefined, null, {
+      onDeny: (r) => {
+        anonDenyReason = r;
+      },
+    });
+    expect(anonDoc).toBeNull();
+    expect(anonDenyReason).toBe("revoked");
+
+    const overlayDoc = (await fetchIMData("im-doc-donggyo-77", undefined, {
+      userId: activeBrokerUser.id,
+      isAdmin: false,
+    })) as any;
     expect(overlayDoc).not.toBeNull();
     expect(overlayDoc.isRevoked).toBe(true);
     expect(overlayDoc.correctionNotice?.message).toBe(
@@ -545,7 +630,7 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     const { GET: getPublicImLite } = await import("@/app/api/public/im-lite/[buildingId]/route");
 
     // 1. Broker creates & publishes deal in IM Workspace
-    await patchWorkspaceSummary(
+    const upsertRes = await patchWorkspaceSummary(
       new NextRequest("http://localhost:3000/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -566,6 +651,8 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
             askingPriceManwon: 770000,
             landAreaSqm: 244.6,
             gfaSqm: 696.97,
+            zoning: "제2종일반주거지역",
+            completionDate: "1991-06-21",
             grossYieldPct: 4.8,
             capRatePct: 4.8,
             status: "published",
@@ -573,6 +660,7 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
         }),
       })
     );
+    expect(upsertRes.status).toBe(200);
 
     // Simulate cold start so POST /api/magazine/issues must hydrate the deal from Supabase activity_events!
     resetQuickImStoreForTests();
@@ -668,8 +756,23 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
       (customerImDoc as any)?.basicImDocument?.facts?.transaction?.askingPriceKrw
     ).toBe(7_700_000_000);
 
-    const apiImRes = await getPublicImLite(
+    const untokenedApiRes = await getPublicImLite(
       new NextRequest("http://localhost:3000/api/public/im-lite/im-doc-donggyo-77"),
+      { params: Promise.resolve({ buildingId: "im-doc-donggyo-77" }) }
+    );
+    expect(untokenedApiRes.status).toBe(403);
+    const untokenedJson = await untokenedApiRes.json();
+    expect(untokenedJson.code).toBe("SHARE_TOKEN_REQUIRED");
+
+    const issuedToken = await issueShareLinkToken({
+      buildingId: "im-doc-donggyo-77",
+      brokerId: "zero-mock-broker",
+    });
+
+    const apiImRes = await getPublicImLite(
+      new NextRequest(
+        `http://localhost:3000/api/public/im-lite/im-doc-donggyo-77?token=${encodeURIComponent(issuedToken.token)}`
+      ),
       { params: Promise.resolve({ buildingId: "im-doc-donggyo-77" }) }
     );
     const apiImJson = await apiImRes.json();

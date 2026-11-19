@@ -100,7 +100,7 @@ export function AxiosGlassIssueCard({
       {/* 우상단 소프트 오로라 글로우 오브 */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-20 blur-2xl"
+        className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full opacity-20 blur-2xl"
         style={{ background: meta.glassAccent }}
       />
       {/* 상단 유리 스페큘러 하이라이트 헤어라인 */}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 
 export interface StudioPhotoItem {
   id?: string;
@@ -15,11 +16,21 @@ export interface StudioPhotoItem {
 }
 
 interface GalleryCuratorProps {
+  buildingId?: string;
   photos: StudioPhotoItem[];
   galleryLayout: string;
   onChangePhotos: (photos: StudioPhotoItem[]) => void;
   onChangeLayout: (layout: string) => void;
 }
+
+const MAX_GALLERY_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_GALLERY_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
+const DISALLOWED_GALLERY_FILE_EXT_RE = /\.(?:svg|svgz|html?|xml|js|mjs)$/i;
 
 const CATEGORY_LABELS: Record<string, string> = {
   exterior: '외관 전면',
@@ -43,80 +54,60 @@ const PRESET_CAPTIONS: readonly string[] = [
 
 const CAPTION_PRESETS = PRESET_CAPTIONS;
 
-async function readFileAsOptimizedDataUrl(file: File): Promise<string> {
-  const rawDataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-
-  if (!rawDataUrl) return '';
-
-  const isJsdom =
-    typeof window === 'undefined' ||
-    typeof document === 'undefined' ||
-    /jsdom/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
-
-  if (isJsdom || file.size < 300 * 1024) {
-    return rawDataUrl;
+async function uploadGalleryPhotoFile(
+  file: File,
+  buildingId?: string
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  if (file.size <= 0 || file.size > MAX_GALLERY_UPLOAD_BYTES) {
+    return {
+      ok: false,
+      error: `'${file.name}' 파일 크기가 5MB를 초과합니다. 5MB 이하 이미지만 업로드할 수 있습니다.`,
+    };
   }
 
-  return new Promise<string>(resolve => {
-    let settled = false;
-    const finish = (val: string) => {
-      if (!settled) {
-        settled = true;
-        resolve(val);
-      }
+  const mime = String(file.type || '').trim().toLowerCase();
+  if (
+    !ALLOWED_GALLERY_IMAGE_MIMES.has(mime) ||
+    DISALLOWED_GALLERY_FILE_EXT_RE.test(file.name || '')
+  ) {
+    return {
+      ok: false,
+      error: `'${file.name}' 형식은 지원하지 않습니다. JPG, PNG, WEBP, GIF 파일만 업로드할 수 있습니다.`,
     };
-    const timer = setTimeout(() => finish(rawDataUrl), 1500);
-    try {
-      const img = new window.Image();
-      img.onload = () => {
-        clearTimeout(timer);
-        try {
-          const maxDim = 1400;
-          let { width, height } = img;
-          if (!width || !height || (width <= maxDim && height <= maxDim)) {
-            finish(rawDataUrl);
-            return;
-          }
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            finish(rawDataUrl);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.85);
-          finish(compressed || rawDataUrl);
-        } catch {
-          finish(rawDataUrl);
-        }
-      };
-      img.onerror = () => {
-        clearTimeout(timer);
-        finish(rawDataUrl);
-      };
-      img.src = rawDataUrl;
-    } catch {
-      clearTimeout(timer);
-      finish(rawDataUrl);
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', file.name);
+    if (buildingId && buildingId.trim()) {
+      formData.append('buildingId', buildingId.trim());
     }
-  });
+
+    const res = await fetch('/api/broker/im/upload-photo', {
+      method: 'POST',
+      body: formData,
+    });
+    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok || !json?.ok || typeof json?.url !== 'string' || !json.url.trim()) {
+      const msg =
+        (typeof json?.message === 'string' && json.message.trim()) ||
+        (typeof json?.error === 'string' && json.error.trim()) ||
+        `'${file.name}' 사진 서버 검증 및 업로드에 실패했습니다.`;
+      return { ok: false, error: msg };
+    }
+
+    return { ok: true, url: json.url.trim() };
+  } catch {
+    return {
+      ok: false,
+      error: `'${file.name}' 업로드 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.`,
+    };
+  }
 }
 
 export function GalleryCurator({
+  buildingId,
   photos,
   galleryLayout,
   onChangePhotos,
@@ -125,6 +116,7 @@ export function GalleryCurator({
   const [newUrl, setNewUrl] = useState('');
   const [newCaption, setNewCaption] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const normalized: StudioPhotoItem[] = (Array.isArray(photos) ? photos : []).map((p: any, idx) =>
     typeof p === 'string'
@@ -207,12 +199,28 @@ export function GalleryCurator({
 
   const handleLocalFilesUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
+    setUploadError(null);
     setUploadingFiles(true);
     try {
       const files = Array.from(fileList);
-      const dataUrls = await Promise.all(files.map(file => readFileAsOptimizedDataUrl(file)));
-      const validUrls = dataUrls.filter(Boolean);
+      const validUrls: string[] = [];
+      let firstError: string | null = null;
+
+      for (const file of files) {
+        const res = await uploadGalleryPhotoFile(file, buildingId);
+        if (res.ok) {
+          validUrls.push(res.url);
+        } else {
+          if (!firstError) firstError = res.error;
+          toast.error(res.error);
+        }
+      }
+
+      if (firstError) {
+        setUploadError(firstError);
+      }
       if (validUrls.length === 0) return;
+
       const appended: StudioPhotoItem[] = validUrls.map((url, idx) => ({
         url,
         caption: CAPTION_PRESETS[(normalized.length + idx) % CAPTION_PRESETS.length],
@@ -230,11 +238,19 @@ export function GalleryCurator({
   };
 
   const handleAddPhoto = () => {
-    if (!newUrl.trim()) return;
+    const trimmedUrl = newUrl.trim();
+    if (!trimmedUrl) return;
+    if (/^data:/i.test(trimmedUrl)) {
+      const msg = 'Base64 데이터 URL 대신 사진 파일 직접 추가 또는 https:// 주소를 사용해 주세요.';
+      setUploadError(msg);
+      toast.error(msg);
+      return;
+    }
+    setUploadError(null);
     const next: StudioPhotoItem[] = [
       ...normalized,
       {
-        url: newUrl.trim(),
+        url: trimmedUrl,
         caption:
           newCaption.trim() ||
           CAPTION_PRESETS[normalized.length % CAPTION_PRESETS.length] ||
@@ -255,7 +271,7 @@ export function GalleryCurator({
     <div className="space-y-4 text-[#0F172A]">
       {/* 갤러리 배치 스타일 */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold text-[#0F172A]">
+        <label className="block text-sm font-bold text-[#0F172A]">
           사진 배치 레이아웃
         </label>
         <div className="grid grid-cols-3 gap-1.5">
@@ -268,7 +284,7 @@ export function GalleryCurator({
               key={l.id}
               type="button"
               onClick={() => onChangeLayout(l.id)}
-              className={`py-2 px-2 rounded-lg text-xs font-bold border transition-all ${
+              className={`min-h-[44px] py-2 px-2 rounded-lg text-sm font-bold border transition-all cursor-pointer ${
                 (galleryLayout || 'grid_4') === l.id
                   ? 'border-[#1D4ED8] bg-[#EFF6FF] text-[#1E3A8A]'
                   : 'border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]'
@@ -283,23 +299,23 @@ export function GalleryCurator({
       {/* 사진 목록 및 순서/캡션 편집 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-[#0F172A]">
+          <span className="text-sm font-bold text-[#0F172A]">
             등록된 현장 사진 ({includedCount}장 슬라이드 반영 / 총 {normalized.length}장)
           </span>
         </div>
 
         {includedCount >= 7 && (
-          <div className="px-3 py-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[11px] font-bold text-[#1E3A8A]">
+          <div className="px-3 py-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-sm font-bold text-[#1E3A8A]">
             📄 7장 이상 선택됨 ({Math.min(12, includedCount)}장) — PPTX 다운로드 시 갤러리 2면(1/2, 2/2)으로 자동 확장됩니다 (최대 12장)
           </div>
         )}
 
         {normalized.length === 0 ? (
           <div className="p-4 rounded-xl bg-[#F8FAFC] border border-dashed border-[#CBD5E1] text-center">
-            <p className="text-xs font-bold text-[#334155]">
+            <p className="text-sm font-bold text-[#334155]">
               등록된 현장 사진이 없습니다.
             </p>
-            <p className="text-[11px] text-[#64748B] mt-0.5">
+            <p className="text-sm text-[#64748B] mt-0.5">
               아래에서 사진 URL을 추가하거나 딜카드 사진 탭에서 현장 사진을 업로드하세요.
             </p>
           </div>
@@ -329,18 +345,18 @@ export function GalleryCurator({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-[10px] font-bold text-[#475569]">NO IMG</span>
+                      <span className="text-sm font-bold text-[#475569]">NO IMG</span>
                     )}
-                    <span className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-black/75 text-white text-[9px] font-bold">
+                    <span className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-black/75 text-white text-sm font-bold">
                       #{idx + 1}
                     </span>
                     {isHero && (
-                      <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-[#D97706] text-white text-[9px] font-extrabold">
+                      <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-[#D97706] text-white text-sm font-extrabold">
                         ★ 대표
                       </span>
                     )}
                     {!isHero && isExterior && (
-                      <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-[#1D4ED8] text-white text-[9px] font-extrabold">
+                      <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-[#1D4ED8] text-white text-sm font-extrabold">
                         외관
                       </span>
                     )}
@@ -354,7 +370,7 @@ export function GalleryCurator({
                         onChange={e => {
                           if (e.target.value) updateCaption(idx, e.target.value);
                         }}
-                        className="w-28 shrink-0 px-1.5 py-1 text-[11px] font-bold bg-[#F8FAFC] border border-[#CBD5E1] rounded-md text-[#1E293B]"
+                        className="w-28 shrink-0 min-h-[44px] px-1.5 py-1 text-sm font-bold bg-[#F8FAFC] border border-[#CBD5E1] rounded-md text-[#1E293B]"
                         title="빠른 캡션 선택"
                       >
                         <option value="">빠른 캡션…</option>
@@ -369,15 +385,15 @@ export function GalleryCurator({
                         value={photo.caption || ''}
                         onChange={e => updateCaption(idx, e.target.value)}
                         placeholder="사진 캡션 입력 (예: 전면 외관 및 주출입구)"
-                        className="flex-1 min-w-0 px-2 py-1 text-xs font-medium bg-white border border-[#CBD5E1] rounded-md text-[#0F172A]"
+                        className="flex-1 min-w-0 min-h-[44px] px-2 py-1 text-sm font-medium bg-white border border-[#CBD5E1] rounded-md text-[#0F172A]"
                       />
                     </div>
                     <div className="flex items-center justify-between gap-1 flex-wrap">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <button
                           type="button"
                           onClick={() => toggleInclude(idx)}
-                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                          className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold cursor-pointer ${
                             photo.included !== false
                               ? 'bg-[#D1FAE5] text-[#065F46]'
                               : 'bg-[#E2E8F0] text-[#475569]'
@@ -388,7 +404,7 @@ export function GalleryCurator({
                         <button
                           type="button"
                           onClick={() => setHeroPhoto(idx)}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${
+                          className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold border cursor-pointer ${
                             isHero
                               ? 'bg-[#FEF3C7] border-[#F59E0B] text-[#92400E]'
                               : 'bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC]'
@@ -400,7 +416,7 @@ export function GalleryCurator({
                         <button
                           type="button"
                           onClick={() => toggleExteriorRole(idx)}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${
+                          className={`min-h-[44px] px-2.5 py-1 rounded text-sm font-extrabold border cursor-pointer ${
                             isExterior
                               ? 'bg-[#DBEAFE] border-[#3B82F6] text-[#1E40AF]'
                               : 'bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC]'
@@ -415,7 +431,7 @@ export function GalleryCurator({
                           type="button"
                           onClick={() => movePhoto(idx, -1)}
                           disabled={idx === 0}
-                          className="px-1.5 py-0.5 text-[10px] font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30"
+                          className="min-h-[44px] min-w-[44px] px-2 py-1 text-sm font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30 cursor-pointer"
                           title="위로 이동"
                         >
                           ▲
@@ -424,7 +440,7 @@ export function GalleryCurator({
                           type="button"
                           onClick={() => movePhoto(idx, 1)}
                           disabled={idx === normalized.length - 1}
-                          className="px-1.5 py-0.5 text-[10px] font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30"
+                          className="min-h-[44px] min-w-[44px] px-2 py-1 text-sm font-bold border border-[#CBD5E1] rounded bg-white text-[#334155] disabled:opacity-30 cursor-pointer"
                           title="아래로 이동"
                         >
                           ▼
@@ -432,7 +448,7 @@ export function GalleryCurator({
                         <button
                           type="button"
                           onClick={() => removePhoto(idx)}
-                          className="px-1.5 py-0.5 text-[10px] font-bold border border-[#FECACA] rounded bg-[#FEF2F2] text-[#991B1B]"
+                          className="min-h-[44px] px-2.5 py-1 text-sm font-bold border border-[#FECACA] rounded bg-[#FEF2F2] text-[#991B1B] cursor-pointer"
                           title="사진 삭제"
                         >
                           삭제
@@ -449,14 +465,22 @@ export function GalleryCurator({
 
       {/* 새 사진 추가 */}
       <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5">
-        <div className="text-xs font-bold text-[#0F172A]">➕ 새 현장 사진 추가</div>
-        <label className="w-full py-2 px-3 rounded-lg bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#BFDBFE] text-xs font-extrabold text-[#1E3A8A] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+        <div className="text-sm font-bold text-[#0F172A]">➕ 새 현장 사진 추가</div>
+        {uploadError && (
+          <div
+            role="alert"
+            className="px-3 py-2 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-sm font-bold text-[#B91C1C]"
+          >
+            {uploadError}
+          </div>
+        )}
+        <label className="w-full min-h-[44px] py-2 px-3 rounded-lg bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#BFDBFE] text-sm font-extrabold text-[#1E3A8A] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
           <span>
-            {uploadingFiles ? '⏳ 사진 파일 처리 중...' : '📁 내 PC/휴대폰 사진 파일 직접 추가'}
+            {uploadingFiles ? '⏳ 사진 파일 업로드 중...' : '📁 내 PC/휴대폰 사진 파일 직접 추가'}
           </span>
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             multiple
             className="hidden"
             disabled={uploadingFiles}
@@ -466,13 +490,13 @@ export function GalleryCurator({
             }}
           />
         </label>
-        <div className="text-[11px] font-bold text-[#475569] pt-1">또는 이미지 URL로 추가</div>
+        <div className="text-sm font-bold text-[#475569] pt-1">또는 이미지 URL로 추가</div>
         <input
           type="url"
           value={newUrl}
           onChange={e => setNewUrl(e.target.value)}
           placeholder="사진 이미지 URL (https://...)"
-          className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+          className="w-full min-h-[44px] px-2.5 py-1.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
         />
         <div className="flex gap-2">
           <input
@@ -480,12 +504,12 @@ export function GalleryCurator({
             value={newCaption}
             onChange={e => setNewCaption(e.target.value)}
             placeholder="사진 설명 캡션 (예: 1층 전면 상가)"
-            className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
+            className="flex-1 min-h-[44px] px-2.5 py-1.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A]"
           />
           <button
             type="button"
             onClick={handleAddPhoto}
-            className="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B] shrink-0"
+            className="min-h-[44px] px-3.5 py-1.5 text-sm font-extrabold rounded-lg bg-[#0F172A] text-white hover:bg-[#1E293B] shrink-0 cursor-pointer"
           >
             추가
           </button>

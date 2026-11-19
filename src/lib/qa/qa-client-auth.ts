@@ -190,11 +190,9 @@ export function appendQaParamsToHref(
   const key = getStoredQaAccessKey(resolvedRole);
 
   let currentHasQa = false;
-  let currentUrlKey = "";
   try {
     const currentParams = new URLSearchParams(window.location.search);
     currentHasQa = currentParams.get("qa") === "1";
-    currentUrlKey = currentParams.get("qaKey")?.trim() || "";
   } catch {
     currentHasQa = false;
   }
@@ -224,10 +222,8 @@ export function appendQaParamsToHref(
     ) {
       parsed.searchParams.set("qaRole", resolvedRole);
     }
-    const effectiveKey = key || currentUrlKey;
-    if (effectiveKey && !parsed.searchParams.has("qaKey")) {
-      parsed.searchParams.set("qaKey", effectiveKey);
-    }
+    parsed.searchParams.delete("qaKey");
+    parsed.searchParams.delete("key");
 
     return isAbsolute
       ? parsed.toString()

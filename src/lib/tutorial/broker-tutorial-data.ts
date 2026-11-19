@@ -222,7 +222,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "복잡한 표를 일일이 채울 필요 없이, 카카오톡이나 수첩에 적어두신 매물 메모를 그대로 복사해 붙여넣기만 하면 AI가 주소·가격·면적을 자동으로 읽어 모바일 딜카드를 만들어 드립니다.",
     duration: "약 1분",
-    targetHref: "/broker/deal-card/new",
+    targetHref: "/broker/w/dealcards",
     targetLabel: "➕ 새 물건 등록 화면 열기",
     videoUrl: "/tutorials/videos/video-02-memo-to-dealcard.webm",
     videoTitle: "🎬 [따라하기 영상 2] 카톡 메모 붙여넣기로 1분 만에 딜카드 만들고 다듬기",
@@ -295,7 +295,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "방금 만들어진 1분 딜카드의 제목과 핵심 강점을 대표님의 표현으로 손쉽게 고치고, 상단 6개 탭에서 건축물대장·주변 실거래 시세를 확인한 뒤 카카오톡으로 멋지게 보내는 방법입니다.",
     duration: "약 3분",
-    targetHref: "/broker/buildings",
+    targetHref: "/broker/w/dealcards",
     targetLabel: "🏢 내 딜카드 목록 열기",
     videoUrl: "/tutorials/videos/video-02-memo-to-dealcard.webm",
     videoTitle: "🎬 [따라하기 영상 2] 딜카드 문구 직접 수정하고 카카오톡으로 공유하기",
@@ -387,7 +387,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "고품질 IM을 가로막는 가장 큰 벽은 '렌트롤 엑셀 작성'과 '입력 시트(바텀시트)에 넣을 자료 모으기'입니다. 공적장부는 시스템이 자동으로 가져오므로, 대표님은 매도인 자료를 모아 ChatGPT·Claude·Gemini 같은 AI 챗봇에 '변환 지시문'과 함께 붙여넣기만 하시면 표준 렌트롤(v1.5)을 5분 안에 완성하실 수 있습니다.",
     duration: "약 10분 (자료가 모여 있으면 5분)",
-    targetHref: "/broker/buildings",
+    targetHref: "/broker/w/im",
     targetLabel: "🏢 내 물건에서 IM 입력 시트 열기",
     videoUrl: "/tutorials/videos/video-03p-prep-rentroll.webm",
     videoTitle: "🎬 [따라하기 영상 3-준비] 빈 렌트롤 양식 받기 · 변환된 엑셀 업로드 · 자동 검산 확인",
@@ -583,7 +583,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "딜카드 화면 하단의 [⚡ 기본 IM 만들기] 버튼만 누르면 정부 토지·건축물대장, V-World 연속지적도, 10년 공시지가, 실거래 사례를 자동으로 모아 8~12장 분량의 고품질 파워포인트(PPTX) 제안서를 만들어 드립니다.",
     duration: "약 3분",
-    targetHref: "/broker/buildings",
+    targetHref: "/broker/w/im",
     targetLabel: "🏢 내 물건에서 IM 만들기",
     videoUrl: "/tutorials/videos/video-03-basic-im-generation.webm",
     videoTitle: "🎬 [따라하기 영상 3] 양평동 다필지 수익형 빌딩(250억) 기본 IM 만들기 전 과정",
@@ -699,7 +699,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "생성된 투자설명서(IM)를 [📐 슬라이드 미리보기 · 편집 후 다운로드] 스튜디오에서 16:9 실제 슬라이드로 미리 보며 10종 색상 테마 전환, 문구·수치 인라인 클릭 수정, AI 문구 다듬기, 슬라이드 순서/포함 조정을 마친 뒤 맞춤형 파워포인트(PPTX)로 내려받는 방법입니다.",
     duration: "약 3분",
-    targetHref: "/broker/im-approval/4a7e0693-2fb5-4071-81e1-7a39248e48c6",
+    targetHref: "/broker/w/im",
     targetLabel: "📄 양평동 IM 완성 화면 열기",
     videoUrl: "/tutorials/videos/video-03-basic-im-generation.webm",
     videoTitle: "🎬 [따라하기 영상 3 & 4] IM 완성 화면 점검 · 슬라이드 미리보기/편집 스튜디오 · PPTX 다운로드",
@@ -819,7 +819,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "지금까지 등록해 둔 모든 매물의 딜카드와 투자설명서(IM)를 한곳에서 찾아보고, 언제든 다시 열어 수정하거나 다 팔린 물건을 정리하는 방법입니다.",
     duration: "약 1분",
-    targetHref: "/broker/buildings",
+    targetHref: "/broker/w/im",
     targetLabel: "🏢 내 물건 목록 열기",
     videoUrl: "/tutorials/videos/video-04-buyer-im-viewer.webm",
     videoTitle: "🎬 [따라하기 영상 4] 내 물건 보관함에서 딜카드·IM 다시 열기 및 관리하기",
@@ -867,7 +867,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "매주 건물주·매수 고객에게 안부 인사와 추천 매물, 부동산 뉴스, 세금 계산기를 담은 품격 있는 '모바일 부동산 소식지'를 5분 만에 만들어 보내는 방법과, 필요시 8단계 상세 탭을 세밀하게 편집하는 방법입니다.",
     duration: "약 5분",
-    targetHref: "/broker/magazine-editor?mode=simple",
+    targetHref: "/broker/w/newsletter",
     targetLabel: "📰 고객 소식지 편집실 열기",
     videoUrl: "/tutorials/videos/video-05-weekly-magazine.webm",
     videoTitle: "🎬 [따라하기 영상 5] 5분 간단 모드로 이번 주 고객 소식지 작성 · 미리보기 · 발행하기",
@@ -961,7 +961,7 @@ export const BROKER_TUTORIAL_MODULES: TutorialModule[] = [
     subtitle:
       "소식지를 받아볼 VIP 건물주·매수 고객 명단을 등록하고, 누가 내 딜카드와 투자설명서(IM)를 몇 번이나 열어보았는지 확인하여 타이밍 좋게 안부 전화를 거는 방법입니다.",
     duration: "약 2분",
-    targetHref: "/broker/inbox",
+    targetHref: "/broker/w/inbox",
     targetLabel: "🔔 고객 문의함 열기",
     videoUrl: "/tutorials/videos/video-06-clients-inbox-profile.webm",
     videoTitle: "🎬 [따라하기 영상 6] 고객 명단 등록 · 문의함 열람 알림 확인 · 내 프로필 설정",

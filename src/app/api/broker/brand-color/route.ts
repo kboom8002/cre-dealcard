@@ -59,8 +59,8 @@ export async function PUT(req: NextRequest) {
 
     const supabase = db();
     // company_id 는 서버에서 조회 (클라이언트 값 무시)
-    const { data: profile } = await supabase.from('broker_profiles').select('company_id').eq('user_id', user.id).maybeSingle();
-    const companyId = profile?.company_id ?? null;
+    const { data: profile } = await supabase.from('broker_profiles').select('*').eq('user_id', user.id).maybeSingle();
+    const companyId = (profile as { company_id?: string | null } | null)?.company_id ?? null;
 
     // 이 사용자의 기존 기본 프리셋 해제 (이름 고정 프리셋 외)
     await supabase

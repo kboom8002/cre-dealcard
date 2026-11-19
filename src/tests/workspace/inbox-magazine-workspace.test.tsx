@@ -395,7 +395,7 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
   });
 
   describe('2. Weekly Magazine Workspace (/broker/w/magazine)', () => {
-    it('redirects seamlessly to real studio /broker/magazine-editor', async () => {
+    it('redirects seamlessly to canonical workspace /broker/w/newsletter', async () => {
       mockReplace.mockClear();
       await act(async () => {
         root.render(<MagazineWorkspacePage />);
@@ -404,7 +404,7 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
       const redirectEl = container.querySelector('[data-testid="magazine-workspace-redirect"]');
       expect(redirectEl).not.toBeNull();
       expect(redirectEl?.textContent).toContain('뉴스레터 편집실로 이동 중입니다');
-      expect(mockReplace).toHaveBeenCalledWith('/broker/magazine-editor');
+      expect(mockReplace).toHaveBeenCalledWith('/broker/w/newsletter');
     });
   });
 });

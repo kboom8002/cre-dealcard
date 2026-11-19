@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MessageCircle, Copy, Check, Eye, ExternalLink, ShieldCheck, Sparkles, Smartphone } from "lucide-react";
+import { MessageCircle, Copy, Check, ShieldCheck, Sparkles, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SeniorTermTooltip } from "@/components/help/SeniorTermTooltip";
@@ -21,6 +21,7 @@ interface LiveDealCardPreviewCardProps {
   assetType?: string;
   priceBand?: string;
   kakaoText?: string;
+  status?: "draft" | "sent" | "published" | "archived" | string;
 }
 
 export function LiveDealCardPreviewCard({
@@ -35,21 +36,31 @@ export function LiveDealCardPreviewCard({
   assetType,
   priceBand,
   kakaoText,
+  status,
 }: LiveDealCardPreviewCardProps) {
   const [copied, setCopied] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [ogTimestamp, setOgTimestamp] = useState(Date.now());
-  const [kakaoReady, setKakaoReady] = useState(false);
+  const [ogVersion, setOgVersion] = useState(0);
+  const [failedOgKey, setFailedOgKey] = useState<string | null>(null);
+  const [kakaoReady, setKakaoReady] = useState(
+    () => typeof window !== "undefined" && Boolean(window.Kakao)
+  );
   // OG 메타를 실시간 동기화 — 편집기 저장 시 업데이트
   const [liveOgTitle, setLiveOgTitle] = useState(ogTitle);
   const [liveOgDesc, setLiveOgDesc] = useState(ogDescription);
 
+  const isPublished = status === "sent" || status === "published";
+  const currentOgKey = `${buildingId}:${ogVersion}`;
+  const ogLoadFailed = failedOgKey === currentOgKey;
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://credeal.net";
   const shareUrl = `${siteUrl}/dc/${buildingId}`;
   const rawTitle = liveOgTitle || title || "블라인드 딜카드";
   const displayTitle = cleanBlindPoints([rawTitle])[0] || "블라인드 딜카드";
   const rawDesc = liveOgDesc || hookCopy || summary || "AI가 분석한 상업용 부동산 투자 기회";
   const displayDesc = cleanBlindPoints([rawDesc])[0] || "AI가 분석한 상업용 부동산 투자 기회";
+  const safeRegionLabel = cleanBlindPoints([areaSignal || "주요 권역"])[0] || "주요 권역";
+  const safeAssetLabel = cleanBlindPoints([assetType || "상업용 매물"])[0] || "상업용 매물";
+  const safePriceLabel = cleanBlindPoints([priceBand || "가격 협의"])[0] || "가격 협의";
 
   // Kakao SDK 초기화
   useEffect(() => {
@@ -59,7 +70,6 @@ export function LiveDealCardPreviewCard({
         const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
         if (appKey) window.Kakao.init(appKey);
       }
-      setKakaoReady(true);
       return;
     }
     const script = document.createElement("script");
@@ -78,7 +88,7 @@ export function LiveDealCardPreviewCard({
   // 외부 저장 이벤트 수신 시 OG 메타 + 이미지 새로고침
   useEffect(() => {
     const handleUpdate = (e: Event) => {
-      setOgTimestamp(Date.now());
+      setOgVersion((v) => v + 1);
       // DealCardEditor 저장 시 커스텀 이벤트의 detail에서 OG 메타 동기화
       const detail = (e as CustomEvent)?.detail;
       if (detail?.ogTitle !== undefined) setLiveOgTitle(detail.ogTitle);
@@ -163,19 +173,19 @@ export function LiveDealCardPreviewCard({
         {/* Top Tag & Status */}
         <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 text-primary text-sm font-bold">
               <Sparkles className="w-3.5 h-3.5" />
               실시간 딜카드 미리보기
             </span>
             {areaSignal && (
-              <span className="text-[11px] px-2 py-0.5 rounded bg-muted font-semibold text-muted-foreground">
+              <span className="text-sm px-2.5 py-0.5 rounded bg-muted font-semibold text-muted-foreground">
                 {areaSignal}
               </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-              <ShieldCheck className="w-3 h-3" />
+            <span className="text-sm text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">
+              <ShieldCheck className="w-3.5 h-3.5" />
               안심 블라인드 보호
             </span>
             <SeniorTermTooltip
@@ -195,22 +205,45 @@ export function LiveDealCardPreviewCard({
             data-theme-lock="dark"
             className="relative aspect-[1.91/1] w-full bg-neutral-900 overflow-hidden flex items-center justify-center border-b border-border/40"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/og/deal/${buildingId}/kakao-v2?v=${ogTimestamp}`}
-              alt="OG 공유 썸네일"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              key={ogTimestamp}
-              onError={(e) => {
-                const target = e.currentTarget;
-                if (!target.src.includes("/kakao?")) {
-                  target.src = `/api/og/deal/${buildingId}/kakao?v=${ogTimestamp}`;
-                }
-              }}
-            />
+            {isPublished && !ogLoadFailed ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={`/api/og/deal/${encodeURIComponent(buildingId)}/kakao-v2?v=${ogVersion}`}
+                alt="OG 공유 썸네일"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                key={ogVersion}
+                onError={() => setFailedOgKey(currentOgKey)}
+              />
+            ) : (
+              <div
+                data-testid="live-dealcard-inline-og-fallback"
+                className="w-full h-full grid grid-cols-2 grid-rows-2 bg-slate-900 text-white select-none"
+              >
+                <div className="flex items-center justify-center p-3 border-b border-r border-slate-700/60 text-center">
+                  <span className="text-base sm:text-lg font-extrabold text-slate-50 break-keep">
+                    {safeRegionLabel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-center p-3 border-b border-slate-700/60 text-center">
+                  <span className="text-base sm:text-lg font-extrabold text-sky-400 break-keep">
+                    {safeAssetLabel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-center p-3 border-r border-slate-700/60 text-center">
+                  <span className="text-sm sm:text-base font-bold text-slate-200 break-keep">
+                    블라인드 보호
+                  </span>
+                </div>
+                <div className="flex items-center justify-center p-3 text-center">
+                  <span className="text-base sm:text-lg font-extrabold text-amber-400 break-keep">
+                    {safePriceLabel}
+                  </span>
+                </div>
+              </div>
+            )}
             {/* Overlay badge */}
-            <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
-              <span>카카오톡 공유 카드</span>
+            <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/75 backdrop-blur-xs text-white text-sm font-bold px-2.5 py-0.5 rounded">
+              <span>{isPublished ? "카카오톡 공유 카드" : "미리보기 (발행 전)"}</span>
             </div>
           </div>
 
@@ -218,12 +251,12 @@ export function LiveDealCardPreviewCard({
           <div className="p-3.5 space-y-1.5 bg-neutral-900/90 text-left">
             <DealCardLineText
               text={displayTitle}
-              className="text-sm font-bold text-white"
+              className="text-base font-bold text-white"
             />
-            <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed">
+            <p className="text-sm text-neutral-300 line-clamp-2 leading-relaxed">
               {displayDesc}
             </p>
-            <p className="text-[11px] text-primary/80 font-medium flex items-center gap-1 pt-1">
+            <p className="text-sm text-primary/90 font-medium flex items-center gap-1 pt-1">
               <span>🔗 {shareUrl.replace(/^https?:\/\//, "")}</span>
             </p>
           </div>
@@ -233,19 +266,19 @@ export function LiveDealCardPreviewCard({
         {dealPoints.length > 0 && (
           <div className="bg-primary/[0.04] border border-primary/20 rounded-lg p-3 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-primary flex items-center gap-1">
+              <span className="text-sm font-bold text-primary flex items-center gap-1">
                 <span>⭐ 핵심 딜 포인트 (Top 3 우선 노출)</span>
               </span>
               {dealPoints.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   +{dealPoints.length - 3}개 더보기(상세)
                 </span>
               )}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {dealPoints.slice(0, 3).map((pt, i) => (
-                <p key={i} className="text-xs text-foreground font-medium flex items-start gap-1.5 leading-snug">
-                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                <p key={i} className="text-sm text-foreground font-medium flex items-start gap-2 leading-snug">
+                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
                     {i + 1}
                   </span>
                   <DealCardLineText as="span" text={pt} />
@@ -260,7 +293,7 @@ export function LiveDealCardPreviewCard({
           <Button
             onClick={handleKakaoShare}
             data-testid="deal-card-kakao-share-btn"
-            className="bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-xs h-10 shadow-sm flex items-center justify-center gap-1.5"
+            className="bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-sm min-h-[44px] h-11 shadow-sm flex items-center justify-center gap-1.5"
           >
             <MessageCircle className="w-4 h-4 fill-[#191919]" />
             카톡 공유
@@ -270,16 +303,16 @@ export function LiveDealCardPreviewCard({
             variant="outline"
             onClick={handleCopyLink}
             data-testid="deal-card-copy-link-btn"
-            className="text-xs h-10 font-semibold flex items-center justify-center gap-1.5 border-border hover:bg-muted"
+            className="text-sm min-h-[44px] h-11 font-semibold flex items-center justify-center gap-1.5 border-border hover:bg-muted"
           >
             {copied ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                <Check className="w-4 h-4 text-emerald-500" />
                 <span className="text-emerald-600 dark:text-emerald-400">복사완료</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5" />
+                <Copy className="w-4 h-4" />
                 링크 복사
               </>
             )}
@@ -289,9 +322,9 @@ export function LiveDealCardPreviewCard({
             variant="secondary"
             onClick={() => setShowPhoneModal(true)}
             data-testid="deal-card-recipient-view-btn"
-            className="text-xs h-10 font-semibold flex items-center justify-center gap-1.5"
+            className="text-sm min-h-[44px] h-11 font-semibold flex items-center justify-center gap-1.5"
           >
-            <Smartphone className="w-3.5 h-3.5" />
+            <Smartphone className="w-4 h-4" />
             수신자 화면
           </Button>
         </div>
@@ -308,8 +341,10 @@ export function LiveDealCardPreviewCard({
       {/* ── 스마트폰 디바이스 프레임 미리보기 모달 ── */}
       {showPhoneModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          <button
+            type="button"
+            aria-label="스마트폰 미리보기 닫기"
+            className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-default"
             onClick={() => setShowPhoneModal(false)}
           />
           <div
@@ -322,10 +357,11 @@ export function LiveDealCardPreviewCard({
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-700 inline-block" />
                 <span className="w-12 h-1.5 rounded-full bg-slate-800 inline-block" />
               </div>
-              <span className="text-[11px] font-semibold text-slate-300">📱 매수자 수신 화면</span>
+              <span className="text-sm font-semibold text-slate-300">📱 매수자 수신 화면</span>
               <button
+                type="button"
                 onClick={() => setShowPhoneModal(false)}
-                className="text-xs text-slate-400 hover:text-white font-bold px-2 py-0.5 rounded bg-slate-800/60 hover:bg-slate-700 transition-colors"
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-sm text-slate-300 hover:text-white font-bold px-3 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 transition-colors"
               >
                 ✕ 닫기
               </button>
@@ -333,7 +369,7 @@ export function LiveDealCardPreviewCard({
             {/* Preview iframe */}
             <div className="flex-1 w-full bg-[#0B0F14] overflow-hidden relative">
               <iframe
-                src={`/dc/${buildingId}?preview=1&t=${Date.now()}`}
+                src={`/dc/${buildingId}?preview=1&t=${ogVersion}`}
                 className="w-full h-full border-0"
                 title="공유 딜카드 미리보기"
               />

@@ -41,54 +41,54 @@ export function HoldingHistorySection({
     <div className="border border-orange-500/30 rounded-xl p-4 bg-orange-500/5 space-y-3">
       <div className="flex justify-between items-center border-b border-orange-500/20 pb-2">
         <span className="text-sm font-bold text-orange-700 dark:text-orange-300">📈 보유 이력 (단기매매)</span>
-        <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold">💡 시세차익 분석용</span>
+        <span className="text-sm text-orange-600 dark:text-orange-400 font-semibold">💡 시세차익 분석용</span>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">매입일</label>
+          <label className="block text-sm text-muted-foreground mb-1">매입일</label>
           <input
             type="date"
             value={acquisitionDate}
             onChange={(e) => setAcquisitionDate(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">매입가 (만원)</label>
+          <label className="block text-sm text-muted-foreground mb-1">매입가 (만원)</label>
           <input
             type="number"
             placeholder="예: 350000"
             value={acquisitionPriceManwon}
             onChange={(e) => setAcquisitionPriceManwon(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">보유 개월 수</label>
+          <label className="block text-sm text-muted-foreground mb-1">보유 개월 수</label>
           <input
             type="number"
             placeholder="예: 24"
             value={holdingMonths}
             onChange={(e) => setHoldingMonths(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">10년 내 양도 횟수</label>
+          <label className="block text-sm text-muted-foreground mb-1">10년 내 양도 횟수</label>
           <input
             type="number"
             placeholder="예: 1"
             value={transferCountIn10Y}
             onChange={(e) => setTransferCountIn10Y(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div className="col-span-2">
-          <label className="block text-[10px] text-muted-foreground mb-1">매도 사유</label>
+          <label className="block text-sm text-muted-foreground mb-1">매도 사유</label>
           <select
             value={sellerMotive}
             onChange={(e) => setSellerMotive(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
           >
             {SELLER_MOTIVES.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>

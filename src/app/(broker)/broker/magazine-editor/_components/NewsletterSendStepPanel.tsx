@@ -18,6 +18,8 @@ import {
   type BulkImportApiResult,
 } from "@/components/workspace/inbox/ContactBulkImportModal";
 import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
+import { isQuietHoursKst } from "@/lib/magazine/kst";
+import type { DistributeOutcomeCardData } from "./distribute-result-helper";
 import type { NewsletterStepKey } from "./magazine-workspace-types";
 
 export interface NewsletterSendStepPanelProps {
@@ -33,6 +35,8 @@ export interface NewsletterSendStepPanelProps {
   subscriberCount: number;
   highInterestCount: number;
   sending: boolean;
+  distributeOutcome?: DistributeOutcomeCardData | null;
+  quietHoursNow?: boolean;
   onJumpToStep: (step: NewsletterStepKey) => void;
   onNotifyEditorFocus: (unitId: string) => void;
   onBulkSubscribersImported: (result: BulkImportApiResult) => void;
@@ -55,6 +59,8 @@ export function NewsletterSendStepPanel({
   subscriberCount,
   highInterestCount,
   sending,
+  distributeOutcome = null,
+  quietHoursNow,
   onJumpToStep,
   onNotifyEditorFocus,
   onBulkSubscribersImported,
@@ -64,6 +70,8 @@ export function NewsletterSendStepPanel({
   onSendSelected,
 }: NewsletterSendStepPanelProps) {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [scheduleRecommendedToast, setScheduleRecommendedToast] = useState(false);
+  const isQuietHours = quietHoursNow ?? isQuietHoursKst(new Date());
 
   return (
     <div
@@ -72,6 +80,69 @@ export function NewsletterSendStepPanel({
       aria-labelledby="newsletter-tab-send"
       className="space-y-5"
     >
+      {isQuietHours && (
+        <section
+          data-testid="quiet-hours-warning"
+          role="alert"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 space-y-2"
+        >
+          <p className="text-base font-extrabold">
+            야간 발송 제한 시간대입니다 (21:00 ~ 08:00 KST)
+          </p>
+          <p className="text-sm font-medium leading-relaxed text-amber-900">
+            정보통신망법에 따라 야간 별도 동의가 없는 구독자에게는 광고성 이메일·알림톡이 발송 차단됩니다.
+            지금 웹 발행만 완료하거나 <strong>예약 발송(익일 오전 08:30)</strong>으로 전달하는 것을 권장합니다.
+          </p>
+          <button
+            type="button"
+            data-testid="quiet-hours-schedule-btn"
+            onClick={() => setScheduleRecommendedToast(true)}
+            className="inline-flex min-h-[44px] items-center rounded-xl border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-amber-950 hover:bg-amber-100"
+          >
+            오전 08:30 예약 발송 기준 확인
+          </button>
+          {scheduleRecommendedToast && (
+            <p className="text-sm font-semibold text-amber-900">
+              야간 차단 건은 오전 08:00 이후 다시 발송하거나 주간 정기 발송 일정에 맞춰 안전하게 전달됩니다.
+            </p>
+          )}
+        </section>
+      )}
+
+      {distributeOutcome && (
+        <section
+          data-testid="distribute-outcome-card"
+          aria-label="발송 처리 결과"
+          className={`rounded-2xl border p-4 space-y-2 ${
+            distributeOutcome.tone === "success"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+              : distributeOutcome.tone === "error"
+                ? "border-red-300 bg-red-50 text-red-950"
+                : distributeOutcome.tone === "info"
+                  ? "border-blue-300 bg-blue-50 text-blue-950"
+                  : "border-amber-300 bg-amber-50 text-amber-950"
+          }`}
+        >
+          <p className="text-base font-extrabold">{distributeOutcome.title}</p>
+          <p className="text-sm font-medium">{distributeOutcome.message}</p>
+          <div className="flex flex-wrap gap-2 text-sm font-bold">
+            <span>발송 {distributeOutcome.sent}건</span>
+            {distributeOutcome.queued > 0 && <span>· 대기열 {distributeOutcome.queued}건</span>}
+            {distributeOutcome.dryRun && <span>· 드라이런 기록 {distributeOutcome.recorded}건</span>}
+            <span>· 차단 {distributeOutcome.blockedTotal}건</span>
+            <span>· 실패 {distributeOutcome.failed}건</span>
+          </div>
+          {distributeOutcome.blockedReasons.length > 0 && (
+            <ul className="text-sm list-disc list-inside space-y-0.5">
+              {distributeOutcome.blockedReasons.map((r) => (
+                <li key={r.code}>
+                  {r.label} ({r.count}건)
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       <MagazinePublishChecklist
         headline={headline}
         briefingBody={briefingBody}

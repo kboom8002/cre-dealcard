@@ -21,7 +21,7 @@ export interface HeaderFooterConfig {
 }
 
 export const DEFAULT_HEADER_FOOTER: HeaderFooterConfig = {
-  companyName: 'CRE DEAL 파트너스 중개법인',
+  companyName: '',
   companyTagline: 'Commercial Real Estate Advisory',
   footerDisclaimer: '본 자료는 매수 검토 참고용이며 법적 효력이 없습니다.',
   showPageNumbers: true,

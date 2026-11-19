@@ -36,8 +36,8 @@ export function buildCanonicalMagazineRedirectUrl(
   const fromWindow = (windowLocationSearch || "").replace(/^\?/, "").trim();
   const resolvedQuery = fromHook || fromWindow;
   return resolvedQuery
-    ? `/broker/magazine-editor?${resolvedQuery}`
-    : "/broker/magazine-editor";
+    ? `/broker/w/newsletter?${resolvedQuery}`
+    : "/broker/w/newsletter";
 }
 
 function MagazineWorkspaceRedirectInner() {

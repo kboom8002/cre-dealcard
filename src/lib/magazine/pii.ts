@@ -1,7 +1,16 @@
 /**
  * src/lib/magazine/pii.ts — PII 마스킹/정규화 (F-03)
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { isRealProductionRuntime } from '@/lib/env';
+
+let devIpSalt: string | null = null;
+function getDevIpSalt(): string {
+  if (!devIpSalt) {
+    devIpSalt = randomBytes(32).toString('hex');
+  }
+  return devIpSalt;
+}
 
 /** 전화번호를 숫자만 남기고 국내 형식(010XXXXXXXX)으로 정규화. 유효하지 않으면 null. */
 export function normalizeKrPhone(raw: unknown): string | null {
@@ -80,6 +89,14 @@ export function redactPiiInText(text: string): string {
 /** IP 해시 (동의 기록용, 원문 IP 저장 금지). salt는 서버 비밀. */
 export function hashIp(ip: string | null | undefined): string | null {
   if (!ip) return null;
-  const salt = process.env.MAGAZINE_SID_SECRET || process.env.CRON_SECRET || 'magazine-ip-salt';
+  const configuredSecret = process.env.MAGAZINE_SID_SECRET?.trim() || '';
+  let salt: string;
+  if (configuredSecret.length >= 8) {
+    salt = configuredSecret;
+  } else if (isRealProductionRuntime()) {
+    throw new Error('MAGAZINE_SID_SECRET_NOT_CONFIGURED');
+  } else {
+    salt = process.env.CRON_SECRET?.trim() || getDevIpSalt();
+  }
   return createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 32);
 }

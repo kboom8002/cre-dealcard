@@ -11,16 +11,15 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
+import { isUuid } from '@/lib/im-lite/quick-generate-store';
+import { resolveOgDealGuard } from '@/lib/og/deal-public-guard';
 import {
-  getInboxState,
-  getQuickImRecord,
-  isDealCardDeleted,
-  isUuid,
-} from '@/lib/im-lite/quick-generate-store';
-import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
-import { createModuleLogger } from '@/lib/logger';
+  isBuildingStatusPublic,
+  isSignalCardStatusPublic,
+  PUBLIC_IM_DOC_STATUSES,
+} from '@/domain/public-projection/visibility';
 
-const log = createModuleLogger('og-kakao-v2');
+const PUBLIC_OG_DOC_STATUSES = new Set<string>(['published', ...PUBLIC_IM_DOC_STATUSES]);
 
 export const runtime = 'nodejs';
 
@@ -32,7 +31,18 @@ function extractRegion(address?: string | null): string {
   return guMatch ? guMatch[1] : '서울시';
 }
 
-function extractUse(building: Record<string, any>): string {
+type OgBuildingRecord = Record<string, unknown>;
+
+interface OgQueryChain<T = OgBuildingRecord> extends PromiseLike<{ data: T[] | null }> {
+  in?: (col: string, vals: string[]) => OgQueryChain<T>;
+  contains?: (col: string, val: Record<string, unknown>) => OgQueryChain<T>;
+  order?: (col: string, opts: { ascending: boolean }) => OgQueryChain<T>;
+  limit?: (n: number) => OgQueryChain<T>;
+  neq?: (col: string, val: string) => OgQueryChain<T>;
+  maybeSingle?: () => Promise<{ data: T | null }>;
+}
+
+function extractUse(building: OgBuildingRecord): string {
   const purpose = building.asset_type || building.main_purpose || building.usage;
   if (!purpose || typeof purpose !== 'string') return '근린생활시설';
   if (purpose.includes('근린') || purpose.includes('근생')) return '근린생활시설';
@@ -42,7 +52,7 @@ function extractUse(building: Record<string, any>): string {
   return purpose;
 }
 
-function extractPriceBand(building: Record<string, any>): string {
+function extractPriceBand(building: OgBuildingRecord): string {
   if (building.asking_price_krw && typeof building.asking_price_krw === 'number') {
     return formatPriceRange(building.asking_price_krw);
   }
@@ -52,7 +62,58 @@ function extractPriceBand(building: Record<string, any>): string {
   return '가격 협의';
 }
 
-const DEMO_OG_BUILDINGS: Record<string, Record<string, any>> = {
+function resolveSentActivityCard4(forBuilding: OgBuildingRecord[]): {
+  blocked: boolean;
+  isSent: boolean;
+  card4: Card4Data | undefined;
+} {
+  const verified = forBuilding.filter((a) => {
+    const evType = String(a?.event_type || '');
+    if (
+      ['dealcard_upserted', 'dealcard_sent', 'dealcard_restored', 'dealcard_deleted'].includes(
+        evType
+      )
+    ) {
+      return Boolean(a?.actor_id);
+    }
+    return true;
+  });
+  if (verified.length === 0) {
+    return { blocked: false, isSent: false, card4: undefined };
+  }
+  const latestRevoke = verified.find((a) =>
+    ['link_revoked', 'link_restored'].includes(String(a?.event_type || ''))
+  );
+  if (latestRevoke?.event_type === 'link_revoked') {
+    return { blocked: true, isSent: false, card4: undefined };
+  }
+  const latestTransitionIdx = verified.findIndex((a) =>
+    ['dealcard_deleted', 'dealcard_restored', 'dealcard_sent'].includes(String(a?.event_type || ''))
+  );
+  if (latestTransitionIdx < 0) {
+    return { blocked: true, isSent: false, card4: undefined };
+  }
+  const latestTransition = verified[latestTransitionIdx];
+  if (latestTransition?.event_type !== 'dealcard_sent') {
+    return { blocked: true, isSent: false, card4: undefined };
+  }
+  const sentMeta = (latestTransition?.metadata as Record<string, unknown> | undefined) || {};
+  if (sentMeta.card4 && typeof sentMeta.card4 === 'object') {
+    return { blocked: false, isSent: true, card4: sentMeta.card4 as Card4Data };
+  }
+  const priorSource = verified.slice(latestTransitionIdx).find((a) => {
+    const meta = (a?.metadata as Record<string, unknown> | undefined) || {};
+    return Boolean(meta.card4) && meta.has_unpublished_edits !== true;
+  });
+  const fallbackCard4 = (priorSource?.metadata as Record<string, unknown> | undefined)?.card4;
+  return {
+    blocked: false,
+    isSent: true,
+    card4: fallbackCard4 ? (fallbackCard4 as Card4Data) : undefined,
+  };
+}
+
+const DEMO_OG_BUILDINGS: Record<string, OgBuildingRecord> = {
   'bld-01': {
     id: 'bld-01',
     address: '서울특별시 영등포구 당산동1가 72-1',
@@ -100,7 +161,7 @@ const DEMO_OG_BUILDINGS: Record<string, Record<string, any>> = {
 };
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -108,34 +169,30 @@ export async function GET(
     return new Response('Missing Deal ID', { status: 400 });
   }
 
-  if (
-    isDealCardDeleted(id) ||
-    getInboxState().revokedBuildings[id]?.revoked ||
-    isBuildingShareLinkRevoked(id)
-  ) {
+  const supabase = createServiceClient();
+  const ogGuard = await resolveOgDealGuard(id, supabase);
+  if (ogGuard.blocked) {
     return new Response('Building Not Found', { status: 404 });
   }
 
-  const quickRec = getQuickImRecord(id);
-  if (quickRec?.isRevoked) {
-    return new Response('Building Not Found', { status: 404 });
-  }
+  const quickRec = ogGuard.quickRec;
 
   // Pure read: zero DB mutations
-  let building: Record<string, any> | null = null;
-  let bodyCard4: Card4Data | undefined = quickRec?.card4;
+  let building: OgBuildingRecord | null = null;
+  let bodyCard4: Card4Data | undefined =
+    (ogGuard.snapshotCard4 as Card4Data | undefined) || quickRec?.card4;
 
   if (!isUuid(id)) {
-    building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
-    if (building?.status === 'archived') {
+    let hasNonUuidSentEvent = false;
+    building = (await readBuilding(id) as OgBuildingRecord | null) || (ogGuard.demoAllowed ? DEMO_OG_BUILDINGS[id] : null) || null;
+    if (building && !isBuildingStatusPublic(building.status as string | null | undefined)) {
       return new Response('Building Not Found', { status: 404 });
     }
-    if (!bodyCard4 || !quickRec?.ownerId) {
+    if (!ogGuard.snapshotCard4) {
       try {
-        const supabase = createServiceClient();
-        let actQuery: any = supabase
+        let actQuery = supabase
           .from('activity_events')
-          .select('actor_id, event_type, metadata, created_at');
+          .select('actor_id, event_type, metadata, created_at') as unknown as OgQueryChain;
         if (typeof actQuery.in === 'function') {
           actQuery = actQuery.in('event_type', [
             'dealcard_upserted',
@@ -157,27 +214,15 @@ export async function GET(
         }
         const { data: acts } = await actQuery;
         const forBuilding = (acts || []).filter(
-          (a: any) => String(a?.metadata?.building_id || '').trim() === id
+          (a) => String((a?.metadata as Record<string, unknown> | undefined)?.building_id || '').trim() === id
         );
-        const latestLifecycle = forBuilding.find((a: any) =>
-          [
-            'dealcard_deleted',
-            'dealcard_restored',
-            'dealcard_sent',
-            'dealcard_upserted',
-            'link_revoked',
-            'link_restored',
-          ].includes(String(a?.event_type || ''))
-        );
-        if (
-          latestLifecycle?.event_type === 'dealcard_deleted' ||
-          latestLifecycle?.event_type === 'link_revoked'
-        ) {
+        const actResolved = resolveSentActivityCard4(forBuilding);
+        if (actResolved.blocked) {
           return new Response('Building Not Found', { status: 404 });
         }
-        const matched = forBuilding.find((a: any) => a?.metadata?.card4);
-        if (matched?.metadata?.card4) {
-          const actCard4 = matched.metadata.card4 as Card4Data;
+        hasNonUuidSentEvent = actResolved.isSent;
+        if (actResolved.card4) {
+          const actCard4 = actResolved.card4;
           const actVer = typeof actCard4.card4_version === 'number' ? actCard4.card4_version : 0;
           const memVer = typeof bodyCard4?.card4_version === 'number' ? bodyCard4.card4_version : 0;
           if (!bodyCard4 || !quickRec?.ownerId || actVer >= memVer) {
@@ -188,20 +233,30 @@ export async function GET(
         // ignore if activity_events unavailable
       }
     }
+    if (
+      String(building?.status || '') === 'draft' &&
+      !ogGuard.snapshotCard4 &&
+      !quickRec &&
+      !hasNonUuidSentEvent
+    ) {
+      return new Response('Building Not Found', { status: 404 });
+    }
     if (!building && !quickRec && !bodyCard4) {
       return new Response('Building Not Found', { status: 404 });
     }
   } else {
-    const supabase = createServiceClient();
-
+    let ssotStatus: string | null = null;
+    let signalCardStatus: string | null = null;
+    let hasVerifiedSentEvent = false;
     // Check building_ssot_lite status (.neq('status', 'archived')) when supported by client
-    let ssotQuery: any = supabase
+    let ssotQuery = supabase
       .from('building_ssot_lite')
       .select('id, status')
-      .eq('id', id);
+      .eq('id', id) as unknown as OgQueryChain;
     if (typeof ssotQuery.maybeSingle === 'function') {
       const { data: ssotRow } = await ssotQuery.maybeSingle();
-      if (ssotRow?.status === 'archived') {
+      ssotStatus = ssotRow?.status ? String(ssotRow.status) : null;
+      if (ssotRow && !isBuildingStatusPublic(ssotRow.status as string | null | undefined)) {
         return new Response('Building Not Found', { status: 404 });
       }
     }
@@ -209,32 +264,68 @@ export async function GET(
       ssotQuery = ssotQuery.neq('status', 'archived');
     }
 
-    building = (await readBuilding(id)) || DEMO_OG_BUILDINGS[id] || null;
-    if (building?.status === 'archived') {
+    // Pre-cutover signal card visibility/archive guard
+    try {
+      let sigQuery = supabase
+        .from('building_signal_cards')
+        .select('status, visibility')
+        .eq('building_id', id) as unknown as OgQueryChain;
+      if (typeof sigQuery?.order === 'function') {
+        sigQuery = sigQuery.order('created_at', { ascending: false });
+      }
+      if (typeof sigQuery?.limit === 'function') {
+        sigQuery = sigQuery.limit(1);
+      }
+      if (typeof sigQuery?.maybeSingle === 'function') {
+        const { data: sigRow } = await sigQuery.maybeSingle();
+        signalCardStatus = sigRow?.status ? String(sigRow.status) : null;
+        if (sigRow?.visibility === 'internal_only' || sigRow?.status === 'archived') {
+          return new Response('Building Not Found', { status: 404 });
+        }
+      }
+    } catch {
+      // Ignore on minimal mock clients without single-eq order/limit chain
+    }
+
+    building = (await readBuilding(id) as OgBuildingRecord | null) || (ogGuard.demoAllowed ? DEMO_OG_BUILDINGS[id] : null) || null;
+    if (building && !isBuildingStatusPublic(building.status as string | null | undefined)) {
       return new Response('Building Not Found', { status: 404 });
     }
 
-    // Fetch Card4 from blind_teaser document if already created
-    let teaserQuery: any = supabase
+    // Fetch Card4 from published blind_teaser document if already created
+    let teaserQuery = supabase
       .from('document_objects')
-      .select('body')
+      .select('body, status, visibility')
       .eq('building_id', id)
-      .eq('document_type', 'blind_teaser');
+      .eq('document_type', 'blind_teaser') as unknown as OgQueryChain;
     if (typeof teaserQuery.neq === 'function') {
       teaserQuery = teaserQuery.neq('status', 'archived');
     }
-    const { data: teaserDoc } = await teaserQuery
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const orderedTeaser = teaserQuery.order ? teaserQuery.order('created_at', { ascending: false }) : teaserQuery;
+    const limitedTeaser = orderedTeaser.limit ? orderedTeaser.limit(1) : orderedTeaser;
+    const { data: teaserDoc } = limitedTeaser.maybeSingle ? await limitedTeaser.maybeSingle() : { data: null };
 
-    const teaserBody = (teaserDoc?.body as Record<string, any>) || undefined;
+    if (teaserDoc?.status === 'archived') {
+      return new Response('Building Not Found', { status: 404 });
+    }
+
+    const teaserBody = (teaserDoc?.body as Record<string, unknown> | undefined) || undefined;
     if (teaserBody?.is_revoked === true) {
       return new Response('Building Not Found', { status: 404 });
     }
 
-    const dbCard4 = teaserBody?.card4 as Card4Data | undefined;
-    if (dbCard4) {
+    const isTeaserDocPublic =
+      Boolean(teaserDoc) &&
+      teaserDoc?.visibility !== 'internal_only' &&
+      PUBLIC_OG_DOC_STATUSES.has(String(teaserDoc?.status || ''));
+
+    if (teaserDoc && !isTeaserDocPublic && !ogGuard.snapshotCard4 && !quickRec) {
+      return new Response('Building Not Found', { status: 404 });
+    }
+
+    // Never allow a draft document_objects row to overwrite published ogGuard.snapshotCard4
+    const dbCard4 = isTeaserDocPublic ? (teaserBody?.card4 as Card4Data | undefined) : undefined;
+    if (!ogGuard.snapshotCard4 && dbCard4) {
       const dbVer = typeof dbCard4.card4_version === 'number' ? dbCard4.card4_version : 0;
       const memVer = typeof bodyCard4?.card4_version === 'number' ? bodyCard4.card4_version : 0;
       if (!bodyCard4 || dbVer >= memVer) {
@@ -242,11 +333,11 @@ export async function GET(
       }
     }
 
-    if (!bodyCard4) {
+    if (!ogGuard.snapshotCard4 && !bodyCard4) {
       try {
-        let actQuery: any = supabase
+        let actQuery = supabase
           .from('activity_events')
-          .select('actor_id, event_type, metadata, created_at');
+          .select('actor_id, event_type, metadata, created_at') as unknown as OgQueryChain;
         if (typeof actQuery.in === 'function') {
           actQuery = actQuery.in('event_type', [
             'dealcard_upserted',
@@ -268,31 +359,30 @@ export async function GET(
         }
         const { data: acts } = await actQuery;
         const forBuilding = (acts || []).filter(
-          (a: any) => String(a?.metadata?.building_id || '').trim() === id
+          (a) => String((a?.metadata as Record<string, unknown> | undefined)?.building_id || '').trim() === id
         );
-        const latestLifecycle = forBuilding.find((a: any) =>
-          [
-            'dealcard_deleted',
-            'dealcard_restored',
-            'dealcard_sent',
-            'dealcard_upserted',
-            'link_revoked',
-            'link_restored',
-          ].includes(String(a?.event_type || ''))
-        );
-        if (
-          latestLifecycle?.event_type === 'dealcard_deleted' ||
-          latestLifecycle?.event_type === 'link_revoked'
-        ) {
+        const actResolved = resolveSentActivityCard4(forBuilding);
+        if (actResolved.blocked) {
           return new Response('Building Not Found', { status: 404 });
         }
-        const matched = forBuilding.find((a: any) => a?.metadata?.card4);
-        if (matched?.metadata?.card4) {
-          bodyCard4 = matched.metadata.card4 as Card4Data;
+        hasVerifiedSentEvent = actResolved.isSent;
+        if (actResolved.card4) {
+          bodyCard4 = actResolved.card4;
         }
       } catch {
         // ignore if activity_events unavailable
       }
+    }
+
+    if (
+      String(ssotStatus || building?.status || '') === 'draft' &&
+      !ogGuard.snapshotCard4 &&
+      !quickRec &&
+      !isTeaserDocPublic &&
+      !isSignalCardStatusPublic(signalCardStatus) &&
+      !hasVerifiedSentEvent
+    ) {
+      return new Response('Building Not Found', { status: 404 });
     }
 
     if (!building && !bodyCard4) {
@@ -324,18 +414,18 @@ export async function GET(
         headline: bodyCard4.headline,
       });
   } else {
-    region = safeBuilding.area_signal || extractRegion(safeBuilding.address || safeBuilding.road_address);
+    region = String(safeBuilding.area_signal || extractRegion(String(safeBuilding.address || safeBuilding.road_address || '')));
     use = extractUse(safeBuilding);
     priceBand = extractPriceBand(safeBuilding);
 
     // Default points from building facts
     const rawPoints = [
       safeBuilding.road_contact ? '대로변 위치 접근성 우수' : '역세권 상권 중심지',
-      safeBuilding.total_floor_area_pyung
+      typeof safeBuilding.total_floor_area_pyung === 'number' && safeBuilding.total_floor_area_pyung > 0
         ? `연면적 약 ${Math.round(safeBuilding.total_floor_area_pyung)}평 규모`
         : '수익형 근생 알짜 매물',
       safeBuilding.completion_year
-        ? `${safeBuilding.completion_year}년 준공 관리 상태 양호`
+        ? `${String(safeBuilding.completion_year)}년 준공 관리 상태 양호`
         : '안정적 임차 수요 확보',
     ];
     points = cleanBlindPoints(rawPoints) as [string, string, string];
@@ -371,13 +461,8 @@ export async function GET(
     }
   );
 
-  // WP-14: Zero-redirect 200 ImageResponse for Kakao scraper integrity
-  const url = new URL(request.url);
-  const versionParam = url.searchParams.get('v');
-  const cacheControl =
-    versionParam && versionParam === card4Hash
-      ? 'public, max-age=31536000, immutable'
-      : 'public, max-age=60, s-maxage=300, stale-while-revalidate=600';
+  // WP-14 & DealCard P1-4: Zero-redirect 200 ImageResponse with short 5-minute CDN TTL so revoked/deleted cards expire promptly
+  const cacheControl = 'public, max-age=60, s-maxage=300, stale-while-revalidate=600';
 
   // Load local bundled font (zero remote CDN fetch during render)
   const fontData = await loadOgFonts();

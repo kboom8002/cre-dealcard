@@ -71,14 +71,14 @@ export function EditorCoverTab({
             뉴스레터 제목 (한 줄 표시)
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-600">
+            <span className="text-sm font-bold text-slate-600">
               {headline.length}/38자 · 1줄 고정
             </span>
             {headline.length > 34 && (
               <button
                 type="button"
                 onClick={() => setHeadline(formatSingleLineTitle(headline, 34))}
-                className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-extrabold text-blue-800 hover:bg-blue-100"
+                className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-sm font-extrabold text-blue-800 hover:bg-blue-100"
               >
                 한 줄로 다듬기
               </button>
@@ -163,7 +163,7 @@ export function EditorCoverTab({
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-xs font-bold text-slate-600 mr-1">추천 키워드:</span>
+          <span className="text-sm font-bold text-slate-600 mr-1">추천 키워드:</span>
           {(["금리 인하", "꼬마빌딩", "공실률", "착한 임대", "역세권"] as const).map((chip) => (
             <button
               key={chip}

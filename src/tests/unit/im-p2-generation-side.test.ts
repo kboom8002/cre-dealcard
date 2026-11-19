@@ -57,10 +57,10 @@ describe('sumLeasedRentRoll — 임대중 호실 합 (생성·요약 공통 SSOT
     { floor: 'B1', tenant_name: '기계실', rent_manwon: 0, deposit_manwon: 0 },
   ];
   it('공실·자가사용·비임대 행의 금액은 제외', () => {
-    expect(sumLeasedRentRoll(rows)).toEqual({ rentManwon: 790, depositManwon: 8500, count: 2 });
+    expect(sumLeasedRentRoll(rows)).toEqual({ rentManwon: 790, monthlyRentManwon: 790, depositManwon: 8500, count: 2 });
   });
   it('빈 입력', () => {
-    expect(sumLeasedRentRoll(undefined)).toEqual({ rentManwon: 0, depositManwon: 0, count: 0 });
+    expect(sumLeasedRentRoll(undefined)).toEqual({ rentManwon: 0, monthlyRentManwon: 0, depositManwon: 0, count: 0 });
   });
 });
 

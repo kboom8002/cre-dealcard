@@ -58,17 +58,17 @@ export function PostureSelector({ investmentPosture, setInvestmentPosture, postu
     <div className="space-y-2.5">
       <label className="block text-sm font-extrabold text-foreground flex justify-between items-center">
         <span>🎯 1단계: 이 매물의 투자 목적 선택</span>
-        <span className="text-xs text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">맞춤형 슬라이드 자동 구성</span>
+        <span className="text-sm text-primary bg-primary/10 px-2.5 py-0.5 rounded-md font-bold">맞춤형 슬라이드 자동 구성</span>
       </label>
       {/* C-2: AI 추천 배지 */}
       {postureProposal && postureProposal.confidence >= 0.7 && (
-        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-700 dark:text-blue-400 flex items-center gap-2">
+        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm text-blue-700 dark:text-blue-400 flex items-center gap-2">
           <span className="font-bold">💡 AI 추천 유형:</span>
           <span className="flex-1 font-medium">{postureProposal.reason}</span>
           <button
             type="button"
             onClick={() => setInvestmentPosture(postureProposal.value)}
-            className="ml-auto px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+            className="ml-auto px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors"
           >
             추천 적용
           </button>
@@ -101,7 +101,7 @@ export function PostureSelector({ investmentPosture, setInvestmentPosture, postu
             key={item.id}
             type="button"
             onClick={() => setInvestmentPosture(item.id)}
-            className={`min-h-[46px] py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+            className={`min-h-[46px] py-2 px-3 rounded-xl text-sm font-bold border transition-all flex items-center justify-center gap-1.5 ${
               investmentPosture === item.id
                 ? "bg-primary text-primary-foreground border-primary shadow-sm"
                 : "bg-secondary/30 text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
@@ -113,7 +113,7 @@ export function PostureSelector({ investmentPosture, setInvestmentPosture, postu
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground leading-relaxed bg-secondary/30 rounded-xl px-3 py-2 border border-border/60 font-medium">
+      <p className="text-sm text-muted-foreground leading-relaxed bg-secondary/30 rounded-xl px-3 py-2 border border-border/60 font-medium">
         {selectedItem
           ? `${selectedItem.emoji} ${selectedItem.desc}`
           : "👆 위 투자 목적 중 이 매물에 가장 잘 맞는 항목 하나를 눌러주세요."}

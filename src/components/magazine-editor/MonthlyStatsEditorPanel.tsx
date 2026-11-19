@@ -91,11 +91,11 @@ export function MonthlyStatsEditorPanel({
           <h2 className="text-base font-extrabold text-slate-900">
             ① 월간 브리핑 대상 권역 선택
           </h2>
-          <span className="ml-auto rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-extrabold text-emerald-800">
+          <span className="ml-auto rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-sm font-extrabold text-emerald-800">
             국토부·통계청 공식 지표 연동
           </span>
         </div>
-        <p className="text-xs font-medium text-slate-600">
+        <p className="text-sm font-medium text-slate-600">
           권역을 선택하면 해당 권역 매수자가 가장 관심 갖는 <strong>국토교통부 실거래가·임대동향 및 통계청(KOSIS) 상권 지표 2건</strong>이 자동 구성됩니다.
         </p>
 
@@ -113,7 +113,7 @@ export function MonthlyStatsEditorPanel({
                 data-testid={`monthly-region-btn-${preset.key}`}
                 aria-pressed={isSelected}
                 onClick={() => handleSelectRegion(preset.key)}
-                className={`min-h-11 rounded-xl border px-3 py-2 text-xs font-extrabold transition-all flex items-center justify-center gap-1 ${
+                className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-extrabold transition-all flex items-center justify-center gap-1 ${
                   isSelected
                     ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
                     : "bg-slate-50 text-slate-800 border-slate-300 hover:bg-slate-100"
@@ -152,9 +152,9 @@ export function MonthlyStatsEditorPanel({
                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <span className="text-xs sm:text-sm font-extrabold">{preset.label}</span>
+                <span className="text-sm sm:text-sm font-extrabold">{preset.label}</span>
                 <span
-                  className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
+                  className={`shrink-0 rounded-md px-2 py-0.5 text-sm font-bold ${
                     isSelected ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-600"
                   }`}
                 >
@@ -179,21 +179,21 @@ export function MonthlyStatsEditorPanel({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded-lg bg-emerald-700 text-white px-2.5 py-1 text-xs font-extrabold">
+                  <span className="rounded-lg bg-emerald-700 text-white px-2.5 py-1 text-sm font-extrabold">
                     통계 그래프 0{idx + 1}
                   </span>
-                  <span className="rounded-lg bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700">
+                  <span className="rounded-lg bg-slate-100 border border-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
                     {chart.authorityLabel}
                   </span>
                 </div>
-                <span className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-extrabold text-emerald-800">
+                <span className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-sm font-extrabold text-emerald-800">
                   {chart.highlightMetric.value} ({chart.highlightMetric.deltaText})
                 </span>
               </div>
 
               <div>
                 <h4 className="text-base font-extrabold text-slate-900">{chart.title}</h4>
-                <p className="text-xs font-medium text-slate-500 mt-0.5">
+                <p className="text-sm font-medium text-slate-500 mt-0.5">
                   {typeMeta?.buyerReason ?? chart.subtitle}
                 </p>
               </div>
@@ -203,7 +203,7 @@ export function MonthlyStatsEditorPanel({
                 {chart.series.map((pt, sIdx) => {
                   const widthPct = Math.max(15, Math.min(100, Math.round((pt.primaryValue / maxPrimary) * 100)));
                   return (
-                    <div key={sIdx} className="grid grid-cols-12 items-center gap-2 text-xs">
+                    <div key={sIdx} className="grid grid-cols-12 items-center gap-2 text-sm">
                       <span className="col-span-3 font-bold text-slate-700 truncate">{pt.label}</span>
                       <div className="col-span-6 h-4 rounded-md bg-slate-200/80 overflow-hidden">
                         <div
@@ -224,7 +224,7 @@ export function MonthlyStatsEditorPanel({
               <div className="space-y-1">
                 <label
                   htmlFor={`monthly-chart-implication-${idx}`}
-                  className="flex items-center gap-1 text-xs font-extrabold text-slate-800"
+                  className="flex items-center gap-1 text-sm font-extrabold text-slate-800"
                 >
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
                   <span>매수자 핵심 시사점 (그래프 하단 1~2문장 해설)</span>

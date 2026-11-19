@@ -32,7 +32,13 @@ function b64urlEncode(buf: Buffer | string): string {
 }
 
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
-const ID_RE = /^[A-Za-z0-9_-]{1,100}$/; // uuid(하이픈 포함) · slug 모두 허용, '.'는 불가
+const ID_RE = /^[A-Za-z0-9_-]{1,100}$/; // uuid · slug · emh_<64hex> 이메일 해시 토큰 허용, '.'는 불가
+const EMH_RE = /^emh_([0-9a-f]{64})$/i;
+
+export function extractEmailHashFromUnsubId(subscriberId: string): string | null {
+  const m = EMH_RE.exec(String(subscriberId || '').trim());
+  return m ? m[1].toLowerCase() : null;
+}
 
 function sign(secret: string, payloadB64: string): Buffer {
   return createHmac('sha256', secret).update(payloadB64).digest();

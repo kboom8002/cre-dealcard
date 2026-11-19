@@ -68,6 +68,23 @@ export type {
 };
 export { normalizeServerThread };
 
+function buildCustomClientIdentityKey(item: {
+  id: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string;
+}): string {
+  const nameLower = item.clientName.trim().toLowerCase();
+  const phoneDigits = item.clientPhone.replace(/\D/g, "");
+  const emailNorm = (item.clientEmail || "").trim().toLowerCase();
+  const rowId = item.id.replace(/^(?:custom[-_]|cli-)/, "") || item.id;
+  return phoneDigits
+    ? `${nameLower}::p:${phoneDigits}`
+    : emailNorm
+      ? `${nameLower}::e:${emailNorm}`
+      : `${nameLower}::id:${rowId}`;
+}
+
 const INITIAL_CLIENT_FORM: InboxClientFormValues = {
   name: "",
   phone: "",
@@ -132,7 +149,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [editClientForm, setEditClientForm] = useState<
     Omit<InboxClientFormValues, "newsletterOptIn">
   >(() => {
-    const { newsletterOptIn: _omit, ...rest } = INITIAL_CLIENT_FORM;
+    const { newsletterOptIn, ...rest } = INITIAL_CLIENT_FORM;
+    void newsletterOptIn;
     return rest;
   });
   const [pendingDeleteClient, setPendingDeleteClient] =
@@ -144,6 +162,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   );
   const [outboundEmail, setOutboundEmail] = useState("");
   const [outboundBasis, setOutboundBasis] = useState<"" | InboxTransactionalBasis>("");
+  const [outboundMarketingConsentConfirmed, setOutboundMarketingConsentConfirmed] = useState(false);
   const [outboundAssetKind, setOutboundAssetKind] = useState<
     "im" | "dealcard" | "magazine"
   >("im");
@@ -156,6 +175,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [lastBundleShareUrl, setLastBundleShareUrl] = useState<string>("");
 
   const [currentBrokerId, setCurrentBrokerId] = useState<string>("");
+  const [clientOffset, setClientOffset] = useState<number>(0);
+  const [hasMoreClients, setHasMoreClients] = useState<boolean>(false);
+  const [totalClientsCount, setTotalClientsCount] = useState<number | null>(null);
+  const [loadingMoreClients, setLoadingMoreClients] = useState<boolean>(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const busyLockRef = useRef<boolean>(false);
   const lastSyncedQueryKeyRef = useRef<string | null>(null);
@@ -253,26 +276,43 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   };
 
   const persistThreadsRef = useRef(persistThreads);
-  persistThreadsRef.current = persistThreads;
   const searchParamsRef = useRef(searchParams);
-  searchParamsRef.current = searchParams;
   const initialThreadsLenRef = useRef(initialThreads.length);
-  initialThreadsLenRef.current = initialThreads.length;
+  useEffect(() => {
+    persistThreadsRef.current = persistThreads;
+    searchParamsRef.current = searchParams;
+    initialThreadsLenRef.current = initialThreads.length;
+  }, [persistThreads, searchParams, initialThreads.length]);
 
   const refreshInboxFromServer = useCallback(
-    async (opts?: { switchToAllOnImport?: boolean }) => {
+    async (opts?: { switchToAllOnImport?: boolean; offset?: number; append?: boolean }) => {
       try {
-        const res = await fetch("/api/broker/inbox?workspace=1");
+        const reqOffset = typeof opts?.offset === "number" && opts.offset > 0 ? Math.trunc(opts.offset) : 0;
+        const res = await fetch(
+          `/api/broker/inbox?workspace=1&clientOffset=${reqOffset}&clientPageSize=50`
+        );
         if (res.status === 401 || res.status === 403) {
           purgeInboxLocalStorage();
           setCurrentBrokerId("");
           setThreads([]);
           setSelectedId("");
+          setHasMoreClients(false);
           return;
         }
         if (!res.ok) return;
         const data = await res.json().catch(() => null);
         if (!data) return;
+
+        if (data.pagination && typeof data.pagination === "object") {
+          setHasMoreClients(Boolean(data.pagination.hasMoreClients));
+          setClientOffset(reqOffset);
+          if (typeof data.pagination.totalClients === "number") {
+            setTotalClientsCount(data.pagination.totalClients);
+          }
+        } else if (!opts?.append) {
+          setHasMoreClients(false);
+          setClientOffset(0);
+        }
 
         const resolvedUid =
           extractWorkspaceResponseUserId(data) ||
@@ -302,7 +342,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           const initLen = initialThreadsLenRef.current;
           setThreads((prev) => {
             if (serverThreads.length === 0) {
-              if (prev.length > 0 && initLen > 0) {
+              if (opts?.append || (prev.length > 0 && initLen > 0)) {
                 return prev;
               }
               if (resolvedUid) {
@@ -312,7 +352,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             }
 
             const baseList =
-              initLen > 0 && !opts?.switchToAllOnImport
+              opts?.append || (initLen > 0 && !opts?.switchToAllOnImport)
                 ? [...prev, ...serverThreads]
                 : serverThreads;
             const byId = new Map<string, InboxThreadItem>();
@@ -320,7 +360,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             for (const item of baseList) {
               if (!item?.id || byId.has(item.id)) continue;
               if (item.id.startsWith("custom_")) {
-                const customKey = `${item.clientName.trim().toLowerCase()}::${item.clientPhone.replace(/\D/g, "")}`;
+                const customKey = buildCustomClientIdentityKey(item);
                 if (seenCustomClientKeys.has(customKey)) continue;
                 seenCustomClientKeys.add(customKey);
               }
@@ -331,7 +371,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               persistThreadsRef.current(merged, resolvedUid);
             }
 
-            if ((initLen === 0 || opts?.switchToAllOnImport) && merged.length > 0) {
+            if (!opts?.append && (initLen === 0 || opts?.switchToAllOnImport) && merged.length > 0) {
               const hasTodoItems = merged.some(
                 (t) =>
                   t.status === "pending_gate" ||
@@ -359,6 +399,19 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     [purgeInboxLocalStorage]
   );
 
+  const handleLoadMoreClients = async () => {
+    if (loadingMoreClients || !hasMoreClients) return;
+    setLoadingMoreClients(true);
+    try {
+      await refreshInboxFromServer({
+        offset: clientOffset + 50,
+        append: true,
+      });
+    } finally {
+      setLoadingMoreClients(false);
+    }
+  };
+
   // Clear legacy unscoped storage keys and fetch real server threads once on mount
   useEffect(() => {
     try {
@@ -368,9 +421,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     } catch {
       // ignore
     }
-    void refreshInboxFromServer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    queueMicrotask(() => {
+      void refreshInboxFromServer();
+    });
+  }, [refreshInboxFromServer]);
 
   // Close client registration / edit modals on Escape key (IB-26)
   useEffect(() => {
@@ -389,9 +443,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   useEffect(() => {
     const rawFilter = searchParams.get("filter");
     const parsedFilter = parseFilterParam(rawFilter);
+    let nextFilterToSet: InboxFilterType | null = null;
     if (parsedFilter && lastSyncedFilterParamRef.current !== rawFilter) {
       lastSyncedFilterParamRef.current = rawFilter;
-      setActiveFilter(parsedFilter);
+      nextFilterToSet = parsedFilter;
     } else if (!rawFilter) {
       lastSyncedFilterParamRef.current = null;
     }
@@ -405,30 +460,44 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       "";
     const queryKey = `${queryTarget}::${rawFilter || ""}`;
 
+    let matchedThreadId: string | null = null;
     if (!queryTarget) {
       lastSyncedQueryKeyRef.current = null;
-      return;
-    }
-    if (
-      lastSyncedQueryKeyRef.current === queryKey ||
-      lastPushedQueryKeyRef.current === queryKey
+    } else if (
+      lastSyncedQueryKeyRef.current !== queryKey &&
+      lastPushedQueryKeyRef.current !== queryKey
     ) {
-      return;
-    }
-
-    const match = threads.find(
-      (t) => t.id === queryTarget || (Boolean(t.buildingId) && t.buildingId === queryTarget)
-    );
-    if (match) {
-      lastSyncedQueryKeyRef.current = queryKey;
-      setSelectedId(match.id);
-      setMobileStayOnList(false);
-
-      const effectiveFilter = parsedFilter ?? activeFilter;
-      if (!matchesInboxThreadFilter(match, effectiveFilter, "")) {
-        setActiveFilter("all");
+      const match = threads.find(
+        (t) => t.id === queryTarget || (Boolean(t.buildingId) && t.buildingId === queryTarget)
+      );
+      if (match) {
+        lastSyncedQueryKeyRef.current = queryKey;
+        matchedThreadId = match.id;
+        const effectiveFilter = parsedFilter ?? activeFilter;
+        if (!matchesInboxThreadFilter(match, effectiveFilter, "")) {
+          nextFilterToSet = "all";
+        }
       }
     }
+
+    if (nextFilterToSet === null && matchedThreadId === null) {
+      return;
+    }
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (nextFilterToSet !== null) {
+        setActiveFilter(nextFilterToSet);
+      }
+      if (matchedThreadId !== null) {
+        setSelectedId(matchedThreadId);
+        setMobileStayOnList(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, threads, activeFilter]);
 
   const pendingThreads = useMemo(
@@ -502,34 +571,50 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     else notifyInboxEditorFocus("ib-unit-history");
   };
 
+  const activeThreadSnapshotRef = useRef(activeThread);
+  useEffect(() => {
+    activeThreadSnapshotRef.current = activeThread;
+  });
+  const activeThreadId = activeThread?.id ?? "";
+
   // Reset transient drafts, inline confirmations & error banners when switching threads
   useEffect(() => {
-    setConfirmLockOpen(false);
-    setLockEntireBuilding(false);
-    setShowShareSheet(false);
-    setCorrectionNoticeOpen(false);
-    setCorrectionNoticeText("");
-    setCallNote("");
-    setEditingClientOpen(false);
-    setInlineActionError(null);
-    setShowAlimtalkUpgradeSheet(false);
-    setCopiedBundlePreview(null);
-    if (!activeThread) {
-      setOutboundEmail("");
-      setOutboundBasis("");
-      return;
-    }
-    setOutboundEmail(activeThread.clientEmail || "");
-    setOutboundBasis(activeThread.transactionalBasis || "");
-    setOutboundAssetKind(!activeThread.buildingId ? "magazine" : "im");
-    if (activeThread.status === "pending_gate") {
-      setActiveEditorTab("todo");
-    }
-    setKakaoHeadline(`[${activeThread.buildingTitle}] 상세 검토 자료 안내`);
-    setKakaoBrief(
-      `${activeThread.clientName}님, 관심 가져주신 [${activeThread.buildingTitle}] 상세 투자설명서(IM)와 층별 임대 현황을 보내드립니다. 검토하시면서 궁금하신 점은 편하게 말씀해 주세요.`
-    );
-  }, [activeThread?.id]);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const current = activeThreadSnapshotRef.current;
+      setConfirmLockOpen(false);
+      setLockEntireBuilding(false);
+      setShowShareSheet(false);
+      setCorrectionNoticeOpen(false);
+      setCorrectionNoticeText("");
+      setCallNote("");
+      setEditingClientOpen(false);
+      setInlineActionError(null);
+      setShowAlimtalkUpgradeSheet(false);
+      setCopiedBundlePreview(null);
+      if (!current) {
+        setOutboundEmail("");
+        setOutboundBasis("");
+        setOutboundMarketingConsentConfirmed(false);
+        return;
+      }
+      setOutboundEmail(current.clientEmail || "");
+      setOutboundBasis(current.transactionalBasis || "");
+      setOutboundMarketingConsentConfirmed(false);
+      setOutboundAssetKind(!current.buildingId ? "magazine" : "im");
+      if (current.status === "pending_gate") {
+        setActiveEditorTab("todo");
+      }
+      setKakaoHeadline(`[${current.buildingTitle}] 상세 검토 자료 안내`);
+      setKakaoBrief(
+        `${current.clientName}님, 관심 가져주신 [${current.buildingTitle}] 상세 투자설명서(IM)와 층별 임대 현황을 보내드립니다. 검토하시면서 궁금하신 점은 편하게 말씀해 주세요.`
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeThreadId]);
 
   // Shared honest mutation helper
   const postJsonHonest = async (
@@ -537,7 +622,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     url: string,
     payload: Record<string, unknown>,
     fallbackError: string
-  ): Promise<{ ok: true; data: Record<string, any> } | { ok: false; error: string }> => {
+  ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> => {
     if (busyLockRef.current) {
       return { ok: false, error: "이전 요청을 처리 중입니다." };
     }
@@ -565,7 +650,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       }
       return {
         ok: true,
-        data: json && typeof json === "object" ? (json as Record<string, any>) : {},
+        data: json && typeof json === "object" ? (json as Record<string, unknown>) : {},
       };
     } catch {
       setStatusFeedback(fallbackError);
@@ -792,7 +877,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         normalizedKind === "newsletter"
           ? kakaoHeadline || "뉴스레터 브리핑"
           : activeThread.buildingTitle,
-      status: "sent",
+      status: "prepared",
       createdAt: new Date().toISOString(),
     };
 
@@ -910,7 +995,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       eventType: "inbox_outbound_copied",
       channel: resolvedAssetKind === "magazine" ? "newsletter" : "kakao_copy",
       title: kakaoHeadline || activeThread.buildingTitle,
-      status: "sent",
+      status: "copied",
       createdAt: new Date().toISOString(),
     };
 
@@ -962,6 +1047,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     if (!activeThread) return;
     setStatusFeedback(null);
     const targetEmail = outboundEmail.trim() || (activeThread.clientEmail || "").trim();
+    const resolvedBasis = outboundBasis || activeThread.transactionalBasis || "";
     const resolvedAssetKind: "im" | "dealcard" | "magazine" =
       (outboundAssetKind === "im" || outboundAssetKind === "dealcard") &&
       !activeThread.buildingId.trim()
@@ -982,6 +1068,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         assetKind: resolvedAssetKind,
         headline: kakaoHeadline,
         shareUrl: activeThread.shareUrl,
+        ...(resolvedBasis ? { transactionalBasis: resolvedBasis } : {}),
+        marketingConsentConfirmed: outboundMarketingConsentConfirmed,
       },
       "이메일 발송에 실패했습니다. 이메일 주소를 확인해 주세요."
     );
@@ -1007,6 +1095,13 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           ? {
               ...t,
               clientEmail: targetEmail,
+              transactionalBasis:
+                (resolvedBasis as InboxThreadItem["transactionalBasis"]) ||
+                t.transactionalBasis ||
+                null,
+              hasTransactionalBasis: Boolean(
+                resolvedBasis || t.hasTransactionalBasis
+              ),
               ...(resolvedAssetKind === "im" && nextShareUrl
                 ? {
                     shareUrl: nextShareUrl,
@@ -1248,6 +1343,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         clientId: targetThread.id,
         clientName: targetThread.clientName,
         clientPhone: targetThread.clientPhone,
+        clientEmail: targetThread.clientEmail || undefined,
         buildingId: targetThread.buildingId,
         subscribed: nextSubscribed,
       },
@@ -1255,19 +1351,32 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     );
     if (!apiRes.ok) return;
 
+    const json = apiRes.data;
+    const optInPending =
+      nextSubscribed &&
+      (json.optInPending === true || json.newsletterSubscribed === false);
+    const effectiveSubscribed = nextSubscribed
+      ? Boolean(json.newsletterSubscribed) && !optInPending
+      : false;
+
     setThreads((prev) => {
       const next = prev.map((t) => {
         if (t.id !== targetThread.id) return t;
+        const badgeLabel = optInPending
+          ? "(수신 확인 대기)"
+          : effectiveSubscribed
+            ? "(수신 동의 완료)"
+            : "(수신 거부)";
         const replaceSubLabel = (txt?: string) =>
           typeof txt === "string" && t.id.startsWith("sub_")
             ? txt.replace(
                 /\((?:수신 동의 완료|수신 확인 대기|수신 거부|미구독)\)/g,
-                nextSubscribed ? "(수신 동의 완료)" : "(수신 거부)"
+                badgeLabel
               )
             : txt;
         return {
           ...t,
-          newsletterSubscribed: nextSubscribed,
+          newsletterSubscribed: effectiveSubscribed,
           cleanMessage: replaceSubLabel(t.cleanMessage),
           latestEvent: replaceSubLabel(t.latestEvent) || t.latestEvent,
         };
@@ -1276,9 +1385,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       return next;
     });
 
-    const msg = nextSubscribed
-      ? `${targetThread.clientName}님의 뉴스레터 수신 동의가 켜졌습니다.`
-      : `${targetThread.clientName}님의 뉴스레터 수신이 해제되었습니다.`;
+    const msg = optInPending
+      ? "수신동의 확인 요청을 발송했습니다 (고객 확인 후 활성화됩니다)"
+      : effectiveSubscribed
+        ? `${targetThread.clientName}님의 뉴스레터 수신 동의가 켜졌습니다.`
+        : `${targetThread.clientName}님의 뉴스레터 수신이 해제되었습니다.`;
     setStatusFeedback(msg);
     showUndoToast(msg);
   };
@@ -1460,6 +1571,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         freeMemo,
         buildingId: resolvedBuildingId,
         buildingTitle: resolvedBuildingTitle,
+        newsletterOptIn: newClientForm.newsletterOptIn,
         newsletterSubscribed: newClientForm.newsletterOptIn,
       },
       "고객 등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
@@ -1467,9 +1579,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     if (!apiRes.ok) return;
 
     const json = apiRes.data;
-    if (typeof json?.clientId === "string" && json.clientId) {
+    if (typeof json.clientId === "string" && json.clientId) {
       canonicalId = json.clientId;
     }
+    const jsonClient =
+      json.client && typeof json.client === "object"
+        ? (json.client as Record<string, unknown>)
+        : null;
+    const optInPending = Boolean(json.optInPending);
+    const resolvedNewsletterSubscribed = optInPending
+      ? false
+      : Boolean(jsonClient?.newsletterSubscribed);
 
     const created: InboxThreadItem = {
       id: canonicalId,
@@ -1502,7 +1622,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       budget: newClientForm.budget.trim(),
       preferredRegion: newClientForm.region.trim(),
       focusedSections: [],
-      newsletterSubscribed: newClientForm.newsletterOptIn,
+      newsletterSubscribed: resolvedNewsletterSubscribed,
       events: [
         {
           id: `ev-${canonicalId}`,
@@ -1514,11 +1634,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     };
 
     setThreads((prev) => {
-      const customKey = `${created.clientName.toLowerCase()}::${created.clientPhone.replace(/\D/g, "")}`;
+      const customKey = buildCustomClientIdentityKey(created);
       const withoutDup = prev.filter((t) => {
         if (t.id === created.id) return false;
         if (t.id.startsWith("custom_")) {
-          const existingKey = `${t.clientName.trim().toLowerCase()}::${t.clientPhone.replace(/\D/g, "")}`;
+          const existingKey = buildCustomClientIdentityKey(t);
           if (existingKey === customKey) return false;
         }
         return true;
@@ -1535,9 +1655,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
     selectThread(canonicalId, shouldSwitchAll ? "all" : undefined);
 
+    const registrationToast =
+      newClientForm.newsletterOptIn && optInPending
+        ? "고객 이메일로 수신동의 확인 안내를 발송했습니다 (확인 완료 후 발송 가능)"
+        : `${created.clientName} 고객이 등록되었습니다.`;
     setNewClientForm(INITIAL_CLIENT_FORM);
     setShowNewClientModal(false);
-    showUndoToast(`${created.clientName} 고객이 등록되었습니다.`);
+    setStatusFeedback(registrationToast);
+    showUndoToast(registrationToast);
   };
 
   const handleOpenEditCustomClient = () => {
@@ -1786,6 +1911,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onApproveAndSendIm={handleApproveAndSendIm}
             onOpenNewClientModal={() => setShowNewClientModal(true)}
             onOpenBulkImportModal={() => setBulkImportOpen(true)}
+            hasMoreClients={hasMoreClients}
+            loadingMoreClients={loadingMoreClients}
+            totalClientsCount={totalClientsCount}
+            onLoadMoreClients={handleLoadMoreClients}
           />
         }
         editorSlot={
@@ -1817,6 +1946,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             subscriptionTier={subscriptionTier}
             outboundEmail={outboundEmail}
             outboundBasis={outboundBasis}
+            marketingConsentConfirmed={outboundMarketingConsentConfirmed}
             alimtalkTemplateId={alimtalkTemplateId}
             kakaoPresetKind={kakaoPresetKind}
             copiedBundlePreview={copiedBundlePreview}
@@ -1830,6 +1960,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onSendMaterial={handleSendMaterial}
             onOutboundEmailChange={setOutboundEmail}
             onOutboundBasisChange={setOutboundBasis}
+            onMarketingConsentConfirmedChange={setOutboundMarketingConsentConfirmed}
             onAlimtalkTemplateChange={setAlimtalkTemplateId}
             onKakaoPresetChange={handleKakaoPresetChange}
             onPrepareCopyBundle={handlePrepareCopyBundle}

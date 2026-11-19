@@ -11,6 +11,7 @@ import path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createRoot, type Root } from "react-dom/client";
 import DealCardsWorkspacePage from "@/app/(broker)/broker/w/dealcards/page";
+import { PreSendConfirmationSheet } from "@/components/broker/deal-card/PreSendConfirmationSheet";
 import InboxWorkspacePage, {
   type InboxThreadItem,
 } from "@/app/(broker)/broker/w/inbox/page";
@@ -359,6 +360,178 @@ describe("DealCard & Inbox SOTA Bidirectional Sync & Senior Physics (Wave 1)", (
     expect(document.activeElement).toBe(
       container.querySelector("#inbox-kakao-headline-input")
     );
+  });
+
+  it("[DC-P0-FAILCLOSED-01] blocks clipboard copy and 'sent' status transition when mark_sent returns 422 STATUTORY_DISCLOSURE_INCOMPLETE", async () => {
+    const clipboardSpy = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: clipboardSpy },
+    });
+
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/api/broker/profile")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              display_name: "홍길동",
+              company: "크리딜 중개법인",
+              phone: "010-1234-5678",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (
+        url.includes("/api/broker/workspace/summary") &&
+        init?.method === "PATCH"
+      ) {
+        const payload = JSON.parse(String(init.body || "{}"));
+        if (payload.action === "mark_sent") {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              code: "STATUTORY_DISCLOSURE_INCOMPLETE",
+              error:
+                "법정 중개사무소 필수 정보(개설등록번호)를 입력해야 발행할 수 있습니다.",
+              missingFields: ["office_reg_number"],
+            }),
+            { status: 422, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ ok: true, version: 2, card4: { card4_version: 2 } }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(JSON.stringify({ ok: true, dealcards: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    await act(async () => {
+      root.render(<DealCardsWorkspacePage />);
+    });
+    await flushMicrotasks();
+
+    const sendBtn = container.querySelector(
+      '[data-testid="workspace-primary-send-btn"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      sendBtn.click();
+    });
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    const copyBtn = container.querySelector(
+      '[data-testid="presend-copy-btn"]'
+    ) as HTMLButtonElement;
+    expect(copyBtn).not.toBeNull();
+    expect(copyBtn.disabled).toBe(false);
+
+    await act(async () => {
+      copyBtn.click();
+    });
+    await flushMicrotasks();
+
+    expect(clipboardSpy).not.toHaveBeenCalled();
+    const bar = container.querySelector(
+      '[data-testid="preview-causality-bar"]'
+    ) as HTMLElement;
+    expect(bar?.getAttribute("data-lifecycle")).toBe("live_draft");
+    expect(container.querySelector('[data-testid="dealcard-live-link"]')).toBeNull();
+    const errBox = container.querySelector(
+      '[data-testid="presend-publish-error"]'
+    ) as HTMLElement;
+    expect(errBox?.textContent).toContain("개설등록번호");
+    const profileLink = container.querySelector(
+      '[data-testid="presend-profile-link"]'
+    ) as HTMLAnchorElement;
+    expect(profileLink?.getAttribute("href")).toBe("/broker/profile");
+  });
+
+  it("[DC-P0-PRICEBAND-01] disables PreSend actions when priceBand fails validateBlindPriceBand", async () => {
+    await act(async () => {
+      root.render(
+        <PreSendConfirmationSheet
+          isOpen={true}
+          onClose={vi.fn()}
+          dealId="deal-bad-band"
+          isSaved={true}
+          onFlushSave={vi.fn(async () => true)}
+          card4={{
+            card4_version: 1,
+            headline: "역세권 코너 수익형 빌딩",
+            posture: "income",
+            region: "강남구 역삼동",
+            use: "근린생활시설",
+            area: "연면적 300평",
+            priceBand: "95억대",
+            points: ["역세권 입지", "전층 만실 운영", "안정적 수익 구조"],
+            provenance: { points: ["broker", "broker", "broker"] },
+          }}
+        />
+      );
+    });
+
+    expect(
+      container.querySelector('[data-testid="presend-priceband-alert"]')
+    ).not.toBeNull();
+    const kakaoBtn = container.querySelector(
+      '[data-testid="presend-kakao-btn"]'
+    ) as HTMLButtonElement;
+    const copyBtn = container.querySelector(
+      '[data-testid="presend-copy-btn"]'
+    ) as HTMLButtonElement;
+    expect(kakaoBtn.disabled).toBe(true);
+    expect(copyBtn.disabled).toBe(true);
+  });
+
+  it("[DC-P1-EMPTY-SEED-01] does not inject prod-blocked INITIAL_BUILDINGS (bld-01) when broker account is empty in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/broker/profile")) {
+          return new Response(
+            JSON.stringify({ ok: true, data: { display_name: "테스트 중개사" } }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(JSON.stringify({ ok: true, dealcards: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }) as typeof fetch;
+
+      await act(async () => {
+        root.render(<DealCardsWorkspacePage />);
+      });
+      await flushMicrotasks();
+
+      expect(
+        container.querySelector('[data-testid="dealcard-sample-badge"]')
+      ).toBeNull();
+      expect(container.textContent).not.toContain("마포구 서교동");
+      expect(
+        container.querySelector('[data-testid="dealcard-pregeneration-card"]')
+      ).not.toBeNull();
+
+      const memoBox = container.querySelector(
+        '[data-testid="dealcard-top-memo-textarea"]'
+      ) as HTMLTextAreaElement;
+      expect(memoBox).not.toBeNull();
+      await act(async () => {
+        setNativeInputValue(memoBox, "강남구 논현동 120억 근생 빌딩");
+      });
+      await flushMicrotasks();
+      expect(memoBox.value).toContain("논현동");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("[SENIOR-PHYSICS-01] has zero sub-44px interactive heights or text-xs tokens in upgraded DealCard & Inbox UI files", () => {

@@ -67,9 +67,14 @@ export function SubscriberDetailPanel({ subscriberId, fallbackName, onClose }: P
       side="right"
     >
       {state.status === 'loading' ? (
-        <p role="status" className="py-10 text-center text-base text-slate-300">불러오는 중…</p>
+        <p role="status" className="py-10 text-center text-base text-slate-600">불러오는 중…</p>
       ) : state.status === 'error' ? (
-        <ErrorState title="열람 이력을 불러오지 못했습니다" description={state.message} onRetry={retry} />
+        <ErrorState
+          title="열람 이력을 불러오지 못했습니다"
+          description={state.message}
+          onRetry={retry}
+          className="border-rose-200 bg-rose-50 [&_p]:text-rose-900 [&>p:nth-of-type(2)]:text-rose-800"
+        />
       ) : (
         <DetailBody data={state.data} />
       )}
@@ -86,24 +91,24 @@ function DetailBody({ data }: { data: SubscriberDetail }) {
   const formattedPhone = formatKrPhoneDisplay(sub.subscriber_phone) || sub.subscriber_phone;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 text-slate-900">
       {/* 구독자 기본 요약 + 빠른 통화 */}
-      <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/30 p-3.5 flex-wrap">
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3.5 flex-wrap">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-bold text-white">{sub.subscriber_name}</span>
-            <span className="rounded-md bg-slate-800 px-2.5 py-0.5 text-sm font-semibold text-slate-200">
+            <span className="text-base font-bold text-slate-900">{sub.subscriber_name}</span>
+            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-0.5 text-sm font-semibold text-slate-800">
               {segmentKo}
             </span>
           </div>
           {formattedPhone ? (
-            <p className="font-mono text-sm font-semibold text-slate-300">{formattedPhone}</p>
+            <p className="font-mono text-sm font-semibold text-slate-700">{formattedPhone}</p>
           ) : null}
         </div>
         {sub.subscriber_phone ? (
           <a
             href={`tel:${sub.subscriber_phone}`}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-emerald-500 transition-colors"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-sm font-bold text-white hover:bg-emerald-800 transition-colors"
           >
             <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>전화 걸기</span>
@@ -113,37 +118,40 @@ function DetailBody({ data }: { data: SubscriberDetail }) {
 
       {/* 핵심 지표 3종 */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-black/30 p-3">
-          <div className="text-lg font-black text-white">{a.totalViews}</div>
-          <div className="text-sm text-slate-300">열람 횟수</div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="text-lg font-black text-slate-900">{a.totalViews}</div>
+          <div className="text-sm text-slate-600">열람 횟수</div>
         </div>
-        <div className="rounded-lg bg-black/30 p-3">
-          <div className="text-lg font-black text-white">{formatSeconds(a.avgDwellSeconds, a.avgDwellSamples)}</div>
-          <div className="text-sm text-slate-300">평균 체류</div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="text-lg font-black text-slate-900">{formatSeconds(a.avgDwellSeconds, a.avgDwellSamples)}</div>
+          <div className="text-sm text-slate-600">평균 체류</div>
         </div>
-        <div className="rounded-lg bg-black/30 p-3">
-          <div className="text-sm font-bold text-white">{formatKstDateTime(a.lastActivityAt)}</div>
-          <div className="text-sm text-slate-300">마지막 활동</div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="text-sm font-bold text-slate-900">{formatKstDateTime(a.lastActivityAt)}</div>
+          <div className="text-sm text-slate-600">마지막 활동</div>
         </div>
       </div>
 
       {a.temperature ? (
-        <p className="text-sm text-slate-300">
-          매수 온도 <strong className="text-white">{a.temperature.label}</strong> · 점수 {a.temperature.score}
+        <p className="text-sm text-slate-700">
+          매수 온도 <strong className="text-slate-900">{a.temperature.label}</strong> · 점수 {a.temperature.score}
           (관심사 {a.temperature.engagementScore} · 행동 {a.temperature.crossChannelScore})
         </p>
       ) : null}
 
       <section aria-labelledby="sub-sections">
-        <h3 id="sub-sections" className="mb-2 text-base font-bold text-white">본 섹션</h3>
+        <h3 id="sub-sections" className="mb-2 text-base font-bold text-slate-900">본 섹션</h3>
         {sections.length === 0 ? (
-          <EmptyState title="섹션 열람 기록이 없습니다" />
+          <EmptyState
+            title="섹션 열람 기록이 없습니다"
+            className="border-slate-300 bg-white [&_p]:text-slate-900 [&>p:nth-of-type(2)]:text-slate-600"
+          />
         ) : (
           <ul className="space-y-1.5">
             {sections.map((s) => (
-              <li key={s.sectionId} className="flex items-center justify-between rounded-lg bg-black/20 px-3.5 py-2.5 text-base">
-                <span className="text-slate-100 font-medium">{formatSectionLabelKo(s.label || s.sectionId)}</span>
-                <span className="text-sm text-slate-300">
+              <li key={s.sectionId} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-base">
+                <span className="text-slate-900 font-medium">{formatSectionLabelKo(s.label || s.sectionId)}</span>
+                <span className="text-sm text-slate-600">
                   {s.count}회 · 체류 {formatSeconds(s.avgDwellSeconds)}
                 </span>
               </li>
@@ -153,17 +161,18 @@ function DetailBody({ data }: { data: SubscriberDetail }) {
       </section>
 
       <section aria-labelledby="sub-events">
-        <h3 id="sub-events" className="mb-2 text-base font-bold text-white">최근 활동 (최대 30건)</h3>
+        <h3 id="sub-events" className="mb-2 text-base font-bold text-slate-900">최근 활동 (최대 30건)</h3>
         {a.recentEvents.length === 0 ? (
           <EmptyState
             title="최근 30일 활동 기록이 없습니다"
             description="아직 이 구독자의 열람 이벤트가 연결되지 않았습니다. 개인 링크로 접속한 열람만 구독자에게 연결됩니다."
+            className="border-slate-300 bg-white [&_p]:text-slate-900 [&>p:nth-of-type(2)]:text-slate-600"
           />
         ) : (
           <ul className="space-y-1.5">
             {a.recentEvents.map((ev) => (
-              <li key={ev.id} className="flex items-start justify-between gap-3 rounded-lg bg-black/20 px-3.5 py-2.5 text-sm">
-                <span className="text-slate-100">
+              <li key={ev.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm">
+                <span className="text-slate-900">
                   {describeEvent({
                     ...ev,
                     section_label: ev.section_id
@@ -171,7 +180,7 @@ function DetailBody({ data }: { data: SubscriberDetail }) {
                       : null,
                   })}
                 </span>
-                <span className="shrink-0 font-mono text-sm text-slate-300">{formatKstDateTime(ev.created_at)}</span>
+                <span className="shrink-0 font-mono text-sm text-slate-600">{formatKstDateTime(ev.created_at)}</span>
               </li>
             ))}
           </ul>

@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const guard = await requireRole(req, ["admin"]);
     if (guard.error) return guard.error;
-    const user = guard.user;
 
     const { data: logs, error } = await supabase
       .from("match_failure_logs")
@@ -48,8 +47,8 @@ export async function GET(req: NextRequest) {
         recentLogs: (logs || []).slice(0, 15),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[GET /api/admin/match-failures]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "매칭 실패 이력 조회에 실패했습니다." }, { status: 500 });
   }
 }

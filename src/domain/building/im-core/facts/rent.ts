@@ -4,6 +4,8 @@
  * ZERO imports of sharp, pptxgenjs, or fs.
  */
 
+import { m2ToPyeong, pyeongToM2 } from './area';
+
 export interface PureRentUnit {
   floor: string;
   tenantName?: string;
@@ -175,13 +177,13 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       explicitSqm > 0
         ? explicitSqm
         : explicitPy > 0
-        ? Math.round(explicitPy * 3.305785 * 100) / 100
+        ? Math.round(pyeongToM2(explicitPy) * 100) / 100
         : 0;
     const areaPyeong =
       explicitPy > 0
         ? explicitPy
         : areaSqm > 0
-        ? Math.round((areaSqm / 3.305785) * 10) / 10
+        ? Math.round(m2ToPyeong(areaSqm) * 10) / 10
         : 0;
 
     return {
@@ -193,7 +195,7 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
           u.use ||
           u.tenant_type ||
           u.tenantOrUse ||
-          (isVacant ? '공실' : status === 'owner' ? '자가사용' : '근린생활시설')
+          (isVacant ? '공실' : status === 'owner' ? '자가사용' : '임차인 미상')
       ),
       rentKrw,
       depositKrw,

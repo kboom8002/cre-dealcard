@@ -462,15 +462,18 @@ describe("Wave 4 WP-13: KakaoTalk WebView Download, copyText Unification, Safe-A
         expect(shellWrapper.className).not.toContain("pb-16");
       }
 
-      // Non-recipient public route (/hub) still renders ThemeToggle and pb-16
-      mockPathnameRef.current = "/hub";
-      expect(isFixedLightPaperRoute("/hub")).toBe(false);
+      // Fixed daylight public routes include /hub, /search, /space/* (D3); non-fixed public route (/insight) still renders ThemeToggle and pb-16
+      expect(isFixedLightPaperRoute("/hub")).toBe(true);
+      expect(isFixedLightPaperRoute("/search")).toBe(true);
+      expect(isFixedLightPaperRoute("/space/gbd")).toBe(true);
+      mockPathnameRef.current = "/insight";
+      expect(isFixedLightPaperRoute("/insight")).toBe(false);
       await act(async () => {
         root!.render(
           <div>
             <ThemeToggle />
             <PublicContentShell>
-              <span data-testid="shell-child">허브</span>
+              <span data-testid="shell-child">시장 인사이트</span>
             </PublicContentShell>
           </div>
         );
@@ -657,10 +660,11 @@ describe("Wave 4 WP-13: KakaoTalk WebView Download, copyText Unification, Safe-A
 
       expect(result).not.toBeNull();
       expect(totalMs).toBeLessThan(1600);
-      expect(orFilterCalls.length).toBe(2);
-      expect(orFilterCalls[0]).toContain(targetUuid);
-      expect(orFilterCalls[1]).toContain(targetUuid);
-      expect(limitCalls).toEqual([20, 20]);
+      expect(orFilterCalls.length).toBe(3);
+      for (const expr of orFilterCalls) {
+        expect(expr).toContain(targetUuid);
+      }
+      expect(limitCalls).toEqual([20, 20, 20]);
     });
   });
 });

@@ -1,44 +1,20 @@
 "use client";
 
-import React, {
-  Suspense,
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  AlertCircle,
-  CheckCircle2,
-  ExternalLink,
-  Loader2,
-  Save,
-  Send,
-} from "lucide-react";
+import { AlertCircle, BarChart3, CheckCircle2, ExternalLink, Loader2, Save, Send } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
-  useEditorPreviewSync,
-  PreviewCausalityBar,
-  PreviewPregenerationCard,
-  type PreviewLifecycleState,
-  type EditorUnitTarget,
+  useEditorPreviewSync, PreviewCausalityBar, PreviewPregenerationCard,
+  type PreviewLifecycleState, type EditorUnitTarget,
 } from "@/components/workspace/preview-sync";
 import { SelectedItemActions } from "@/components/workspace/list/WorkspaceList";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import {
-  UndoToastProvider,
-  useUndoToast,
-} from "@/components/workspace/UndoConfirmToast";
-import {
-  getLastActiveBrokerUserId,
-  purgeWorkspaceClientStorage,
-  readScopedWorkspaceJson,
-  removeScopedWorkspaceKey,
-  resolveBrowserBrokerUserId,
-  syncActiveBrokerSessionStorage,
-  writeScopedWorkspaceJson,
+  getLastActiveBrokerUserId, purgeWorkspaceClientStorage, readScopedWorkspaceJson,
+  removeScopedWorkspaceKey, resolveBrowserBrokerUserId, syncActiveBrokerSessionStorage, writeScopedWorkspaceJson,
 } from "@/lib/workspace/storage-namespace";
 import type { AutoIssueMetadata } from "@/components/magazine-editor/IssueMetadataForm";
 import type { AssignableDealItem } from "@/components/magazine-editor/DealSlotAssigner";
@@ -81,7 +57,8 @@ import type {
 } from "@/domain/magazine/types";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
-import { kstParts, todayKst } from "@/lib/magazine/kst";
+import { kstParts, toKstDate, todayKst } from "@/lib/magazine/kst";
+import { buildOgImageUrl, resolvePublicBaseUrl } from "@/lib/magazine/share-urls";
 import {
   NEWSLETTER_CADENCE_META,
   deriveCadenceIssueMeta,
@@ -91,29 +68,13 @@ import {
 } from "@/lib/magazine/newsletter-cadence";
 import type { HonestSaveState } from "@/lib/ux/lexicon";
 import {
-  LEGACY_DRAFT_STORAGE_KEY,
-  SLOT_DRAFT_PREFIX,
-  appendTargetSegmentToUrl,
-  buildDefaultEditorSections,
-  clearLastActiveSlotKey,
-  isBrokerMismatch,
-  isUuidLike,
-  isValidIsoDate,
-  makeSlotStorageKey,
-  mapBuildingRowsToAssignableDeals,
-  mapServerEditionRowToSummary,
-  normalizeEditorSections,
-  normalizeMonthlyPairId,
-  normalizeMonthlyRegion,
-  normalizeSavedMonthlyCharts,
-  normalizeTargetSegment,
-  readLastActiveSlotKey,
-  resolveNewsletterScopeUid,
-  writeLastActiveSlotKey,
-  type LocalNewsletterDraft,
-  type NewsletterStepKey,
-  type SavedEditionSummary,
-  type StatusBannerState,
+  LEGACY_DRAFT_STORAGE_KEY, SLOT_DRAFT_PREFIX, appendTargetSegmentToUrl, buildApiErrorStatusBanner,
+  buildDefaultEditorSections, buildSafePublicUrl, clearLastActiveSlotKey, isBrokerMismatch,
+  isUuidLike, isValidIsoDate, makeSlotStorageKey, mapBuildingRowsToAssignableDeals,
+  mapServerEditionRowToSummary, normalizeEditorSections, normalizeMonthlyPairId,
+  normalizeMonthlyRegion, normalizeSavedMonthlyCharts, normalizeTargetSegment, readLastActiveSlotKey,
+  resolveMagazineQueryAction, resolveNewsletterScopeUid, writeLastActiveSlotKey,
+  type LocalNewsletterDraft, type NewsletterStepKey, type SavedEditionSummary, type StatusBannerState,
 } from "./_components/magazine-workspace-types";
 import { EditionDeleteModal } from "./_components/EditionDeleteModal";
 import {
@@ -123,7 +84,12 @@ import {
 import { NewsletterTitleStepPanel } from "./_components/NewsletterTitleStepPanel";
 import { NewsletterContentStepPanel } from "./_components/NewsletterContentStepPanel";
 import { NewsletterSendStepPanel } from "./_components/NewsletterSendStepPanel";
+import {
+  formatDistributeOutcomeBanner,
+  type DistributeOutcomeCardData,
+} from "./_components/distribute-result-helper";
 import { NewsletterPreviewCard } from "./_components/NewsletterPreviewCard";
+import { NewsletterInsightsModal } from "./_components/NewsletterInsightsModal";
 import { useNewsletterServerDraftSync } from "./_hooks/useNewsletterServerDraftSync";
 
 export {
@@ -142,33 +108,6 @@ const STEP_TABS: readonly {
   { key: "content", label: "② 내용", shortDesc: "시장 브리핑과 추천 매물" },
   { key: "send", label: "③ 보내기", shortDesc: "받을 고객 확인 및 발송" },
 ] as const;
-
-function buildSafePublicUrl(params: {
-  brokerSlug: string;
-  issueDate?: string | null;
-  fallbackAnchorDate?: string | null;
-  editionId?: string | null;
-  targetSegment?: NewsletterTargetSegment;
-}): string | null {
-  const cleanSlug = params.brokerSlug.trim();
-  if (!cleanSlug || cleanSlug === "me" || isUuidLike(cleanSlug)) {
-    return null;
-  }
-  const isoDate = isValidIsoDate(params.issueDate)
-    ? params.issueDate.trim()
-    : isValidIsoDate(params.fallbackAnchorDate)
-      ? params.fallbackAnchorDate.trim()
-      : todayKst();
-  const qs = new URLSearchParams();
-  if (params.editionId && params.editionId.trim()) {
-    qs.set("edition", params.editionId.trim());
-  }
-  if (params.targetSegment && params.targetSegment !== "all") {
-    qs.set("target", params.targetSegment);
-  }
-  const query = qs.toString();
-  return `${getSiteOrigin()}/magazine/${encodeURIComponent(cleanSlug)}/${encodeURIComponent(isoDate)}${query ? `?${query}` : ""}`;
-}
 
 function MagazineEditorWorkspace() {
   const router = useRouter();
@@ -262,7 +201,11 @@ function MagazineEditorWorkspace() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [sending, setSending] = useState<boolean>(false);
   const [isPrefsOpen, setIsPrefsOpen] = useState<boolean>(false);
+  const [isInsightsOpen, setIsInsightsOpen] = useState<boolean>(false);
+  const [insightsTab, setInsightsTab] = useState<"subscribers" | "analytics">("subscribers");
+  const [sendDisabled, setSendDisabled] = useState<boolean>(false);
   const [statusBanner, setStatusBanner] = useState<StatusBannerState | null>(null);
+  const [distributeOutcome, setDistributeOutcome] = useState<DistributeOutcomeCardData | null>(null);
   const [pendingDeleteEdition, setPendingDeleteEdition] = useState<SavedEditionSummary | null>(
     null,
   );
@@ -279,6 +222,7 @@ function MagazineEditorWorkspace() {
   const hydratedSlotKeyRef = useRef<string | null>(null);
   const scopeUidRef = useRef<string | null>(getLastActiveBrokerUserId());
   const userEditedSinceMountRef = useRef<boolean>(false);
+  const appliedInitialParamsRef = useRef<boolean>(false);
 
   const syncUrlParams = useCallback(
     (
@@ -610,7 +554,7 @@ function MagazineEditorWorkspace() {
   );
 
   const persistCurrentSlotIfDirty = useCallback(() => {
-    if (saveState !== "dirty" && localStorageMode !== "local_only") return;
+    if (saveState !== "dirty" && saveState !== "conflict" && localStorageMode !== "local_only") return;
     try {
       if (typeof window === "undefined") return;
       const activeScopeUid = resolveNewsletterScopeUid(
@@ -780,7 +724,11 @@ function MagazineEditorWorkspace() {
         appendTargetSegmentToUrl(ed.publicUrl, resolvedSeg) ||
         buildSafePublicUrl({
           brokerSlug: activeBrokerSlug,
-          issueDate: ed.issueDate || ed.publishedAt?.slice(0, 10),
+          issueDate:
+            ed.issueDate ||
+            (ed.publishedAt && !Number.isNaN(new Date(ed.publishedAt).getTime())
+              ? toKstDate(new Date(ed.publishedAt))
+              : undefined),
           fallbackAnchorDate: anchor.dateStr,
           editionId: ed.id,
           targetSegment: resolvedSeg,
@@ -1146,13 +1094,13 @@ function MagazineEditorWorkspace() {
       };
 
       try {
-        const [authUid, editionsRes, buildingsRes] = await Promise.all([
+        const buildingsPromise = fetch("/api/broker/buildings").then(
+          (r) => r,
+          () => null,
+        );
+        const [authUid, editionsRes] = await Promise.all([
           resolveBrowserBrokerUserId(),
           fetch("/api/magazine/editions?broker_id=me&type=all&limit=50").then(
-            (r) => r,
-            () => null,
-          ),
-          fetch("/api/broker/buildings").then(
             (r) => r,
             () => null,
           ),
@@ -1211,6 +1159,16 @@ function MagazineEditorWorkspace() {
             }
             if (typeof edJson.highInterestCount === "number") {
               setHighInterestCount(edJson.highInterestCount);
+            }
+            const bootstrapMeta = edJson.meta as { sendEnabled?: unknown } | undefined;
+            const bootstrapSendEnabled =
+              typeof bootstrapMeta?.sendEnabled === "boolean"
+                ? bootstrapMeta.sendEnabled
+                : typeof edJson.sendEnabled === "boolean"
+                ? edJson.sendEnabled
+                : undefined;
+            if (typeof bootstrapSendEnabled === "boolean") {
+              setSendDisabled(!bootstrapSendEnabled);
             }
 
             let purgedActiveDraft = switchedScope;
@@ -1457,6 +1415,8 @@ function MagazineEditorWorkspace() {
           }
         }
 
+        const buildingsRes = await buildingsPromise;
+        if (!mounted) return;
         if (buildingsRes && buildingsRes.ok) {
           const bJson = (await buildingsRes.json().then(
             (v) => v,
@@ -1490,23 +1450,51 @@ function MagazineEditorWorkspace() {
   const urlEditionId = searchParams?.get?.("editionId") ?? null;
   const urlCadence = searchParams?.get?.("cadence") ?? null;
   useEffect(() => {
-    if (
-      urlCadence &&
-      (urlCadence === "daily" || urlCadence === "weekly" || urlCadence === "monthly") &&
-      !urlEditionId &&
-      lastSyncedEditionQueryRef.current === null
-    ) {
-      setCadence(urlCadence);
-    }
-    if (!urlEditionId) return;
-    if (lastSyncedEditionQueryRef.current === urlEditionId) return;
-    const matched = editions.find((e) => e.id === urlEditionId);
-    if (matched) {
-      lastSyncedEditionQueryRef.current = urlEditionId;
-      applyEditionToEditorState(matched, { syncUrl: false });
-    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (
+        urlCadence &&
+        (urlCadence === "daily" || urlCadence === "weekly" || urlCadence === "monthly") &&
+        !urlEditionId &&
+        lastSyncedEditionQueryRef.current === null
+      ) {
+        setCadence(urlCadence);
+      }
+      if (!urlEditionId) return;
+      if (lastSyncedEditionQueryRef.current === urlEditionId) return;
+      const matched = editions.find((e) => e.id === urlEditionId);
+      if (matched) {
+        lastSyncedEditionQueryRef.current = urlEditionId;
+        applyEditionToEditorState(matched, { syncUrl: false });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlEditionId, urlCadence, editions]);
+
+  useEffect(() => {
+    if (!isWorkspaceHydrated || appliedInitialParamsRef.current) return;
+    appliedInitialParamsRef.current = true;
+    const action = resolveMagazineQueryAction(searchParams);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (action.dealIds.length > 0) {
+        setSelectedDealIds((prev) => Array.from(new Set([...action.dealIds, ...prev])));
+      }
+      if (action.insightsTab) {
+        setInsightsTab(action.insightsTab);
+        setIsInsightsOpen(true);
+      }
+      if (action.step) setActiveStep(action.step);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isWorkspaceHydrated, searchParams]);
 
   // 월간 상단 통계 그래픽 2선 — 공공 DB 적재 행 자동 승격
   useEffect(() => {
@@ -1554,6 +1542,7 @@ function MagazineEditorWorkspace() {
       publicUrl: string | null;
       savedEditionId: string | null;
       savedIssueDate: string;
+      errorBanner?: StatusBannerState;
     }> => {
       const fallbackIsoDate = isValidIsoDate(issueDateStr)
         ? issueDateStr
@@ -1823,6 +1812,9 @@ function MagazineEditorWorkspace() {
           };
         }
 
+        let errorStatus = res.status;
+        let errorJson = await res.json().then((v) => v, () => null);
+
         if (!shouldSaveAsDraft && res.status === 404 && editionId) {
           const patchRes = await fetch(
             `/api/magazine/editions/${encodeURIComponent(editionId)}/publish`,
@@ -1889,14 +1881,23 @@ function MagazineEditorWorkspace() {
               savedIssueDate: fallbackIsoDate,
             };
           }
+          errorStatus = patchRes.status;
+          errorJson = await patchRes.json().then((v) => v, () => null);
         }
 
+        const errorBanner = buildApiErrorStatusBanner(
+          errorStatus,
+          errorJson,
+          "뉴스레터 저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
+        );
         setSaveState("error");
+        setStatusBanner(errorBanner);
         return {
           ok: false,
           publicUrl: null,
           savedEditionId: null,
           savedIssueDate: fallbackIsoDate,
+          errorBanner,
         };
       } catch {
         setSaveState("error");
@@ -1954,10 +1955,12 @@ function MagazineEditorWorkspace() {
           : "발행된 뉴스레터의 수정 내용을 서버에 반영했어요.",
       });
     } else {
-      setStatusBanner({
-        tone: "error",
-        message: "임시저장에 실패했어요. 네트워크 상태를 확인한 뒤 다시 눌러 주세요.",
-      });
+      setStatusBanner(
+        result.errorBanner ?? {
+          tone: "error",
+          message: "임시저장에 실패했어요. 네트워크 상태를 확인한 뒤 다시 눌러 주세요.",
+        },
+      );
     }
   }, [handleServerSave, isPublished]);
 
@@ -2344,15 +2347,12 @@ function MagazineEditorWorkspace() {
       const delRes = await fetch(
         `/api/magazine/editions?id=${encodeURIComponent(ed.id)}`,
         { method: "DELETE" },
-      ).then(
-        (r) => r,
-        () => null,
-      );
-      if (delRes && !delRes.ok && delRes.status !== 404) {
+      ).then((r) => r, () => null);
+      if (!delRes || (!delRes.ok && delRes.status !== 404)) {
         setEditions((prev) => [snapshot, ...prev]);
         setStatusBanner({
           tone: "error",
-          message: "뉴스레터 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.",
+          message: !delRes ? "삭제에 실패했습니다. 네트워크 연결을 확인해 주세요." : "뉴스레터 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.",
         });
         return;
       }
@@ -2766,7 +2766,7 @@ function MagazineEditorWorkspace() {
   );
 
   const previewLifecycle: PreviewLifecycleState = isPublished
-    ? saveState === "dirty" || saveState === "error" || localStorageMode === "local_only"
+    ? saveState === "dirty" || saveState === "error" || saveState === "conflict" || localStorageMode === "local_only"
       ? "published_dirty"
       : "published_clean"
     : !hasBrokerAuthoredContent
@@ -2902,7 +2902,7 @@ function MagazineEditorWorkspace() {
   const handleCopyLink = async () => {
     let targetUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
     const needsServerSave =
-      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error";
+      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error" || saveState === "conflict";
     if (needsServerSave) {
       if (!headline.trim()) {
         setActiveStep("title");
@@ -2914,10 +2914,12 @@ function MagazineEditorWorkspace() {
       }
       const saved = await handleServerSave({ saveAsDraft: false });
       if (!saved.ok || !saved.publicUrl) {
-        setStatusBanner({
-          tone: "error",
-          message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-        });
+        setStatusBanner(
+          saved.errorBanner ?? {
+            tone: "error",
+            message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+          },
+        );
         return;
       }
       targetUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
@@ -2946,25 +2948,33 @@ function MagazineEditorWorkspace() {
     }
 
     let targetUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
+    let shareIssueDate = issueDateStr;
     const needsServerSave =
-      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error";
+      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error" || saveState === "conflict";
     if (needsServerSave) {
       const saved = await handleServerSave({ saveAsDraft: false });
       if (!saved.ok || !saved.publicUrl) {
-        setStatusBanner({
-          tone: "error",
-          message: "뉴스레터 저장에 실패해 공유 창을 열지 못했어요. 잠시 후 다시 눌러 주세요.",
-        });
+        setStatusBanner(
+          saved.errorBanner ?? {
+            tone: "error",
+            message: "뉴스레터 저장에 실패해 공유 창을 열지 못했어요. 잠시 후 다시 눌러 주세요.",
+          },
+        );
         return;
       }
       targetUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+      shareIssueDate = saved.savedIssueDate || issueDateStr;
     }
 
     const briefingSnippet = briefingBody.trim().replace(/\s+/g, " ").slice(0, 80);
+    const pubBase = resolvePublicBaseUrl() ?? getSiteOrigin();
+    const ogSlug = decodeURIComponent(
+      brokerSlug.trim() || targetUrl?.match(/\/magazine\/([^/?#]+)/)?.[1] || "magazine",
+    );
     const shareOutcome = await shareKakaoFeed({
       title: headline.trim(),
       description: briefingSnippet || `${autoMeta.yearMonthLabel} 뉴스레터`,
-      imageUrl: `${getSiteOrigin()}/og-default.png`,
+      imageUrl: buildOgImageUrl({ baseUrl: pubBase, slug: ogSlug, date: shareIssueDate }),
       url: targetUrl!,
       buttonTitle: "뉴스레터 열기",
     });
@@ -3013,17 +3023,23 @@ function MagazineEditorWorkspace() {
       const saved = await handleServerSave({ saveAsDraft: false });
       const publicUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
       if (!saved.ok || !publicUrl) {
-        setStatusBanner({
-          tone: "error",
-          message: "뉴스레터를 발행하지 못했어요. 잠시 후 다시 시도해 주세요.",
-        });
+        setStatusBanner(
+          saved.errorBanner ?? {
+            tone: "error",
+            message: "뉴스레터를 발행하지 못했어요. 잠시 후 다시 시도해 주세요.",
+          },
+        );
         return;
       }
 
       const briefingSnippet = briefingBody.trim().replace(/\s+/g, " ").slice(0, 80);
 
-      let sentCount = 0;
+      setDistributeOutcome(null);
+      let distAttempted = false;
+      let distStatus = 0;
+      let distJson: Record<string, unknown> | null = null;
       if (saved.savedEditionId && isUuidLike(saved.savedEditionId)) {
+        distAttempted = true;
         try {
           const distRes = await fetch("/api/broker/magazine/distribute", {
             method: "POST",
@@ -3038,50 +3054,81 @@ function MagazineEditorWorkspace() {
               target: targetSegment,
             }),
           });
-          if (distRes.ok) {
-            const distJson = (await distRes.json().then(
-              (v) => v,
-              () => null,
-            )) as Record<string, unknown> | null;
-            if (typeof distJson?.sent === "number" && distJson.sent > 0) {
-              sentCount = distJson.sent;
-            } else if (typeof distJson?.sentCount === "number" && distJson.sentCount > 0) {
-              sentCount = distJson.sentCount;
-            }
-          }
+          distStatus = distRes.status;
+          distJson = (await distRes.json().then(
+            (v) => v,
+            () => null,
+          )) as Record<string, unknown> | null;
         } catch {
-          // 수동 공유 안내로 전환
+          distStatus = 500;
+          distJson = { error: "발송 서버와의 연결에 실패했습니다. 잠시 후 다시 시도해 주세요." };
         }
       }
 
-      try {
-        await fetch("/api/broker/inbox/actions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "send_magazine",
-            slug: effectiveSlotSlug,
-            publicUrl,
-            targetSegment,
-            headline: headline.trim(),
-          }),
-        });
-      } catch {
-        // 활동 로그 실패 무시
+      const outcome = distAttempted
+        ? formatDistributeOutcomeBanner(distJson, distStatus || 500, publicUrl)
+        : null;
+      if (outcome) {
+        setDistributeOutcome(outcome);
       }
 
-      const shareResult = await shareKakaoFeed({
-        title: headline.trim(),
-        description: briefingSnippet || `${autoMeta.yearMonthLabel} 뉴스레터`,
-        imageUrl: `${getSiteOrigin()}/og-default.png`,
-        url: publicUrl,
-        buttonTitle: "뉴스레터 열기",
-      });
+      const sentCount = outcome?.sent ?? 0;
+      const queuedCount = outcome?.queued ?? 0;
+      const liveDispatchSucceeded =
+        distAttempted &&
+        distStatus >= 200 &&
+        distStatus < 300 &&
+        distJson?.success !== false &&
+        distJson?.blocked !== "SEND_DISABLED" &&
+        !outcome?.dryRun &&
+        (sentCount > 0 || queuedCount > 0);
 
-      if (sentCount > 0) {
+      if (liveDispatchSucceeded) {
+        try {
+          await fetch("/api/broker/inbox/actions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "send_magazine",
+              slug: effectiveSlotSlug,
+              publicUrl,
+              targetSegment,
+              headline: headline.trim(),
+            }),
+          });
+        } catch {
+          // 활동 로그 실패 무시
+        }
+      }
+
+      const shouldSkipAutoKakaoShare = distAttempted && sentCount === 0 && queuedCount === 0;
+      const pubBase = resolvePublicBaseUrl() ?? getSiteOrigin();
+      const ogSlug = decodeURIComponent(
+        brokerSlug.trim() || publicUrl.match(/\/magazine\/([^/?#]+)/)?.[1] || "magazine",
+      );
+      const shareResult = shouldSkipAutoKakaoShare
+        ? "skipped"
+        : await shareKakaoFeed({
+            title: headline.trim(),
+            description: briefingSnippet || `${autoMeta.yearMonthLabel} 뉴스레터`,
+            imageUrl: buildOgImageUrl({
+              baseUrl: pubBase,
+              slug: ogSlug,
+              date: saved.savedIssueDate || issueDateStr,
+            }),
+            url: publicUrl,
+            buttonTitle: "뉴스레터 열기",
+          });
+
+      if (distStatus === 422) {
+        setStatusBanner(
+          buildApiErrorStatusBanner(distStatus, distJson, outcome?.message || "발송 요건을 충족하지 못했습니다."),
+        );
+      } else if (outcome) {
         setStatusBanner({
-          tone: "success",
-          message: `구독자 ${sentCount}명에게 뉴스레터를 발송했습니다.`,
+          tone: outcome.tone,
+          message: outcome.message,
+          ...(sentCount === 0 && queuedCount === 0 ? { fallbackUrl: publicUrl } : {}),
         });
       } else if (shareResult === "kakao") {
         setStatusBanner({
@@ -3142,11 +3189,14 @@ function MagazineEditorWorkspace() {
       className="p-4 sm:p-6 space-y-5 text-slate-900"
     >
       <div data-testid="magazine-three-column-layout" className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          data-testid="editor-mode-bar"
+          className="space-y-2"
+        >
           <div
             role="tablist"
             aria-label="뉴스레터 작성 3단계"
-            className="grid flex-1 min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs"
+            className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs"
           >
             {STEP_TABS.map((tab) => {
               const selected = activeStep === tab.key;
@@ -3189,7 +3239,7 @@ function MagazineEditorWorkspace() {
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center justify-end gap-2 min-h-[48px]">
             {listViewMode === "simple" && selectedSavedEdition ? (
               <SelectedItemActions
                 itemLabel={editionDisplayTitle(selectedSavedEdition)}
@@ -3197,6 +3247,16 @@ function MagazineEditorWorkspace() {
                 onDelete={(e) => handleRequestDeleteEdition(selectedSavedEdition, e)}
               />
             ) : null}
+
+            <button
+              type="button"
+              data-testid="magazine-insights-open-btn"
+              onClick={() => setIsInsightsOpen(true)}
+              className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-800 shadow-2xs transition hover:bg-slate-50 shrink-0"
+            >
+              <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>구독자·성과</span>
+            </button>
 
             <button
               type="button"
@@ -3243,13 +3303,23 @@ function MagazineEditorWorkspace() {
                     : "border-blue-200 bg-blue-50 text-blue-900"
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               {statusBanner.tone === "success" ? (
                 <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" aria-hidden="true" />
               ) : (
                 <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
               )}
-              <span>{statusBanner.message}</span>
+              <span className="flex-1 min-w-[200px]">{statusBanner.message}</span>
+              {statusBanner.profileCtaHref && (
+                <Link
+                  href={statusBanner.profileCtaHref}
+                  data-testid="statutory-profile-link"
+                  className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-bold text-rose-800 hover:bg-rose-50 shrink-0"
+                >
+                  <span>사무소 프로필 설정</span>
+                  <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+                </Link>
+              )}
             </div>
             {statusBanner.fallbackUrl && (
               <input
@@ -3420,6 +3490,7 @@ function MagazineEditorWorkspace() {
             subscriberCount={subscriberCount}
             highInterestCount={highInterestCount}
             sending={sending}
+            distributeOutcome={distributeOutcome}
             onJumpToStep={(step) => setActiveStep(step)}
             onNotifyEditorFocus={sync.notifyEditorFocus}
             onBulkSubscribersImported={handleBulkSubscribersImported}
@@ -3466,6 +3537,26 @@ function MagazineEditorWorkspace() {
         />
       </div>
 
+      <NewsletterPreviewCard
+        previewLifecycle={previewLifecycle}
+        activeUnitId={sync.activeUnitId}
+        onFocusEditorUnit={sync.focusEditorUnit}
+        yearMonthLabel={autoMeta.yearMonthLabel}
+        marketTemp={marketTemp}
+        headline={headline}
+        brokerName={brokerName}
+        brokerOffice={brokerOffice}
+        brokerPhone={brokerPhone}
+        cadence={cadence}
+        monthlyRegion={monthlyRegion}
+        monthlyCharts={monthlyCharts}
+        formattedPreviewBriefing={formattedPreviewBriefing}
+        unitIssues={unitIssues}
+        selectedDeals={selectedDeals}
+        dealComments={dealComments}
+        isSectionEnabled={isSectionEnabled}
+      />
+
       {activeStep !== "send" && previewLifecycle !== "pre_generation" && (
         <MagazinePublishChecklist
           headline={headline}
@@ -3490,26 +3581,6 @@ function MagazineEditorWorkspace() {
           onSecondaryAction={() => sync.focusEditorUnit("nl-unit-ai-draft")}
         />
       )}
-
-      <NewsletterPreviewCard
-        previewLifecycle={previewLifecycle}
-        activeUnitId={sync.activeUnitId}
-        onFocusEditorUnit={sync.focusEditorUnit}
-        yearMonthLabel={autoMeta.yearMonthLabel}
-        marketTemp={marketTemp}
-        headline={headline}
-        brokerName={brokerName}
-        brokerOffice={brokerOffice}
-        brokerPhone={brokerPhone}
-        cadence={cadence}
-        monthlyRegion={monthlyRegion}
-        monthlyCharts={monthlyCharts}
-        formattedPreviewBriefing={formattedPreviewBriefing}
-        unitIssues={unitIssues}
-        selectedDeals={selectedDeals}
-        dealComments={dealComments}
-        isSectionEnabled={isSectionEnabled}
-      />
     </div>
   );
 
@@ -3566,9 +3637,7 @@ function MagazineEditorWorkspace() {
       manualSyncBusyRef.current = true;
       if (!opts?.silent) setIsManualSyncing(true);
       try {
-        if (!isPublished && isUuidLike(editionId)) {
-          await autosave.saveNow();
-        }
+        if (!isPublished && isUuidLike(editionId) && saveState !== "conflict") await autosave.saveNow();
         const res = await fetch("/api/magazine/editions?broker_id=me&type=all&limit=50", {
           cache: "no-store",
         });
@@ -3599,7 +3668,7 @@ function MagazineEditorWorkspace() {
         setIsManualSyncing(false);
       }
     },
-    [autosave, brokerSlug, editionId, isPublished]
+    [autosave, brokerSlug, editionId, isPublished, saveState]
   );
 
   useEffect(() => {
@@ -3607,7 +3676,7 @@ function MagazineEditorWorkspace() {
     if (/jsdom/i.test(navigator.userAgent || "")) return;
     const pullIfIdle = () => {
       if (document.visibilityState === "hidden") return;
-      if (savingLockRef.current || saveState === "saving") return;
+      if (savingLockRef.current || saveState === "saving" || saveState === "conflict") return;
       const nowMs = Date.now();
       if (nowMs - lastAutoSyncPullAtRef.current < 2500) return;
       lastAutoSyncPullAtRef.current = nowMs;
@@ -3638,9 +3707,14 @@ function MagazineEditorWorkspace() {
           }
           void handleServerSave({ saveAsDraft: !isPublished });
         }}
-        onManualSync={() => {
-          void handleManualSync();
+        onResolveConflict={() => {
+          if (!isPublished && isUuidLike(editionId)) {
+            void autosave.overwriteNow().then((ok) => { if (!ok) void handleServerSave({ saveAsDraft: true }); });
+            return;
+          }
+          void handleServerSave({ saveAsDraft: !isPublished });
         }}
+        onManualSync={() => { void handleManualSync(); }}
         isSyncing={isManualSyncing}
         primaryActionSlot={primaryActionSlot}
         listSlot={listSlot}
@@ -3652,6 +3726,20 @@ function MagazineEditorWorkspace() {
         targetEdition={pendingDeleteEdition}
         onCancel={() => setPendingDeleteEdition(null)}
         onConfirm={() => void handleConfirmDeleteEdition()}
+      />
+      <NewsletterInsightsModal
+        open={isInsightsOpen}
+        onOpenChange={setIsInsightsOpen}
+        insightsTab={insightsTab}
+        onTabChange={setInsightsTab}
+        sendDisabled={sendDisabled}
+        onSendDisabledChange={setSendDisabled}
+        brokerSlug={brokerSlug || "me"}
+        brokerName={brokerName || "공인중개사"}
+        baseUrl={resolvePublicBaseUrl() ?? getSiteOrigin()}
+        editionDate={issueDateStr}
+        shareTitle={headline}
+        deals={deals.map((d) => ({ id: d.id, title: d.title }))}
       />
     </div>
   );

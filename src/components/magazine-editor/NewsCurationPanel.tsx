@@ -296,7 +296,7 @@ export function NewsCurationPanel({
           type="button"
           data-testid="news-balanced-mix-btn"
           onClick={handleBalancedMix}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/20 px-3.5 py-2 text-xs font-extrabold text-indigo-100 hover:bg-indigo-500/30 transition-colors shadow-xs"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/20 px-3.5 py-2 text-sm font-extrabold text-indigo-100 hover:bg-indigo-500/30 transition-colors shadow-xs"
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" aria-hidden="true" />
           <span>✨ 매수자 관심 황금배합 자동 선별</span>
@@ -309,7 +309,7 @@ export function NewsCurationPanel({
           data-testid="selected-channel-mix-bar"
           className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-700/70 bg-slate-900/70 px-3 py-2"
         >
-          <span className="text-xs font-bold text-slate-300 mr-1">현재 담긴 분야:</span>
+          <span className="text-sm font-bold text-slate-300 mr-1">현재 담긴 분야:</span>
           {(
             [
               "real_estate",
@@ -324,7 +324,7 @@ export function NewsCurationPanel({
             return (
               <span
                 key={chKey}
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-sm font-bold ${
                   count > 0
                     ? meta.badgeClass
                     : "border-slate-800 bg-slate-800/40 text-slate-500"
@@ -357,7 +357,7 @@ export function NewsCurationPanel({
               aria-selected={isActive}
               data-testid={`news-channel-tab-${ch.id}`}
               onClick={() => setActiveChannel(ch.id)}
-              className={`flex min-h-11 items-center justify-between gap-1.5 rounded-xl border px-3 py-2 text-left text-xs font-extrabold transition-all ${
+              className={`flex min-h-11 items-center justify-between gap-1.5 rounded-xl border px-3 py-2 text-left text-sm font-extrabold transition-all ${
                 isActive
                   ? "border-indigo-400 bg-indigo-500/25 text-white shadow-xs"
                   : "border-slate-700/70 bg-slate-800/40 text-slate-300 hover:border-slate-600 hover:text-white"
@@ -368,7 +368,7 @@ export function NewsCurationPanel({
                 <span className="truncate">{ch.shortLabel}</span>
               </span>
               <span
-                className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-bold ${
+                className={`shrink-0 rounded-full px-1.5 py-0.5 text-sm font-bold ${
                   isActive ? "bg-indigo-400/30 text-indigo-100" : "bg-slate-700/70 text-slate-300"
                 }`}
               >
@@ -384,10 +384,10 @@ export function NewsCurationPanel({
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-3 space-y-2.5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="space-y-0.5">
-              <p className="text-xs font-bold text-indigo-200">
+              <p className="text-sm font-bold text-indigo-200">
                 {currentChannelMeta.emoji} {currentChannelMeta.label} — {currentChannelMeta.description}
               </p>
-              <p className="text-xs text-slate-300">{currentChannelMeta.buyerAppeal}</p>
+              <p className="text-sm text-slate-300">{currentChannelMeta.buyerAppeal}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -395,7 +395,7 @@ export function NewsCurationPanel({
                 data-testid="news-live-refresh-btn"
                 disabled={fetchingLive}
                 onClick={() => void handleFetchLiveChannelNews()}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-sky-500/35 bg-sky-500/15 px-3 py-1.5 text-xs font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-50 transition-colors"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-sky-500/35 bg-sky-500/15 px-3 py-1.5 text-sm font-bold text-sky-200 hover:bg-sky-500/25 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${fetchingLive ? "animate-spin" : ""}`}
@@ -408,7 +408,7 @@ export function NewsCurationPanel({
                 data-testid="news-custom-toggle-btn"
                 aria-expanded={showCustomForm}
                 onClick={() => setShowCustomForm((v) => !v)}
-                className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-200 hover:bg-emerald-500/25 transition-colors"
+                className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/15 px-3 py-1.5 text-sm font-bold text-emerald-200 hover:bg-emerald-500/25 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>직접 기사 추가</span>
@@ -438,7 +438,7 @@ export function NewsCurationPanel({
                   }
                 }}
                 placeholder="관심 키워드로 필터 또는 실시간 검색 (예: 상속세, 미술품 경매, 한국은행 금리)"
-                className="w-full min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] pl-8 pr-8 py-2 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                className="w-full min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] pl-8 pr-8 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
               />
               {searchQuery && (
                 <button
@@ -456,7 +456,7 @@ export function NewsCurationPanel({
               data-testid="news-keyword-search-btn"
               disabled={fetchingLive}
               onClick={() => void handleFetchLiveChannelNews(searchQuery)}
-              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-indigo-500/40 bg-indigo-600/30 px-3 py-2 text-xs font-bold text-indigo-100 hover:bg-indigo-600/45 disabled:opacity-50"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-indigo-500/40 bg-indigo-600/30 px-3 py-2 text-sm font-bold text-indigo-100 hover:bg-indigo-600/45 disabled:opacity-50"
             >
               <span>채널 검색</span>
             </button>
@@ -464,7 +464,7 @@ export function NewsCurationPanel({
 
           {/* 채널별 원클릭 키워드 칩 */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-slate-400">추천 주제:</span>
+            <span className="text-sm font-semibold text-slate-400">추천 주제:</span>
             {currentChannelMeta.sampleKeywords.map((kw) => (
               <button
                 key={kw}
@@ -473,7 +473,7 @@ export function NewsCurationPanel({
                   setSearchQuery(kw);
                   void handleFetchLiveChannelNews(kw);
                 }}
-                className="inline-flex min-h-9 items-center rounded-lg border border-slate-700 bg-slate-800/70 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:border-indigo-400/50 hover:bg-indigo-500/15 hover:text-indigo-200 transition-colors"
+                className="inline-flex min-h-9 items-center rounded-lg border border-slate-700 bg-slate-800/70 px-2.5 py-1 text-sm font-semibold text-slate-200 hover:border-indigo-400/50 hover:bg-indigo-500/15 hover:text-indigo-200 transition-colors"
               >
                 # {kw}
               </button>
@@ -486,12 +486,12 @@ export function NewsCurationPanel({
               data-testid="news-custom-add-form"
               className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 space-y-2.5"
             >
-              <p className="text-xs font-extrabold text-emerald-200">
+              <p className="text-sm font-extrabold text-emerald-200">
                 ➕ 신문·매거진에서 본 좋은 기사나 칼럼을 직접 추가해 보세요
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label htmlFor={customTitleId} className="text-xs font-bold text-slate-200 block mb-1">
+                  <label htmlFor={customTitleId} className="text-sm font-bold text-slate-200 block mb-1">
                     기사·칼럼 제목 (필수)
                   </label>
                   <input
@@ -500,11 +500,11 @@ export function NewsCurationPanel({
                     value={customTitle}
                     onChange={(e) => setCustomTitle(e.target.value)}
                     placeholder="예: 하반기 미술품 경매 시장과 빌딩 로비 갤러리 트렌드"
-                    className="w-full min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-xs text-white"
+                    className="w-full min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-sm text-white"
                   />
                 </div>
                 <div>
-                  <label htmlFor={customSourceId} className="text-xs font-bold text-slate-200 block mb-1">
+                  <label htmlFor={customSourceId} className="text-sm font-bold text-slate-200 block mb-1">
                     분류 채널 &amp; 출처 매체명
                   </label>
                   <div className="flex gap-1.5">
@@ -512,7 +512,7 @@ export function NewsCurationPanel({
                       aria-label="직접 추가 기사 분류 채널"
                       value={customChannel}
                       onChange={(e) => setCustomChannel(e.target.value as SpecificNewsChannelId)}
-                      className="min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-2.5 py-2 text-xs font-bold text-white"
+                      className="min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-2.5 py-2 text-sm font-bold text-white"
                     >
                       {NEWS_CHANNELS.filter((c) => c.id !== "all").map((c) => (
                         <option key={c.id} value={c.id}>
@@ -526,13 +526,13 @@ export function NewsCurationPanel({
                       value={customSource}
                       onChange={(e) => setCustomSource(e.target.value)}
                       placeholder="출처 (예: 한경 아르떼)"
-                      className="flex-1 min-w-0 min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-xs text-white"
+                      className="flex-1 min-w-0 min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-sm text-white"
                     />
                   </div>
                 </div>
               </div>
               <div>
-                <label htmlFor={customSummaryId} className="text-xs font-bold text-slate-200 block mb-1">
+                <label htmlFor={customSummaryId} className="text-sm font-bold text-slate-200 block mb-1">
                   핵심 내용 또는 중개사 한마디 해설 (선택)
                 </label>
                 <textarea
@@ -541,7 +541,7 @@ export function NewsCurationPanel({
                   onChange={(e) => setCustomSummary(e.target.value)}
                   rows={2}
                   placeholder="비워두셔도 제목을 바탕으로 깔끔한 브리핑 문구가 자동 생성됩니다."
-                  className="w-full rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-xs text-white"
+                  className="w-full rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-sm text-white"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -554,13 +554,13 @@ export function NewsCurationPanel({
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   placeholder="원문 기사 인터넷 주소 https://... (선택)"
-                  className="flex-1 min-w-[200px] min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-xs text-white"
+                  className="flex-1 min-w-[200px] min-h-11 rounded-lg border border-slate-700 bg-[#0f1523] px-3 py-2 text-sm text-white"
                 />
                 <button
                   type="button"
                   data-testid="news-custom-submit-btn"
                   onClick={() => void handleAddCustomNews()}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-extrabold text-white transition-colors"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-extrabold text-white transition-colors"
                 >
                   <Check className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>추가 후 바로 선택</span>
@@ -583,7 +583,7 @@ export function NewsCurationPanel({
           <p className="text-sm font-bold text-slate-200">
             현재 선택한 채널·검색어에 해당하는 기사가 없습니다
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-slate-400">
             아래 버튼을 누르시면 {currentChannelMeta.label} 채널의 최신·엄선 기사를 바로 불러옵니다.
           </p>
           <button
@@ -592,7 +592,7 @@ export function NewsCurationPanel({
               setSearchQuery("");
               void handleFetchLiveChannelNews("");
             }}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/20 px-4 py-2 text-xs font-bold text-indigo-100 hover:bg-indigo-500/30"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/20 px-4 py-2 text-sm font-bold text-indigo-100 hover:bg-indigo-500/30"
           >
             <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{currentChannelMeta.label} 기사 불러오기</span>

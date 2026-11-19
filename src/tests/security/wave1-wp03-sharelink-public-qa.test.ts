@@ -365,8 +365,20 @@ describe('Wave 1 — WP-03 Security Regression Suite', () => {
         }),
       });
 
-      const blindRes = await getPublicImLite(
+      const unauthBlindRes = await getPublicImLite(
         new NextRequest(`http://localhost:3000/api/public/im-lite/${buildingId}`),
+        { params: Promise.resolve({ buildingId }) }
+      );
+      expect(unauthBlindRes.status).toBe(403);
+
+      const issuedBlindToken = await issueShareLinkToken({
+        buildingId,
+        brokerId: 'owner-blind-1',
+      });
+      const blindRes = await getPublicImLite(
+        new NextRequest(
+          `http://localhost:3000/api/public/im-lite/${buildingId}?token=${encodeURIComponent(issuedBlindToken.token)}`
+        ),
         { params: Promise.resolve({ buildingId }) }
       );
       expect(blindRes.status).toBe(200);

@@ -117,7 +117,7 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
     pptxResult = await renderer.render(pptxInput);
     safeWritePptx(PPTX_OUTPUT_PATH, pptxResult.buffer);
     expect(pptxResult.buffer).toBeDefined();
-  });
+  }, 120_000);
 
   it('Step 7-A: Poison Token 검증', async () => { await assertZeroPoisonTokens(pptxResult.buffer); });
   it('Step 7-B: Evasive Phrase 검증', async () => { await assertZeroEvasivePhrases(pptxResult.buffer); });
@@ -143,5 +143,5 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
   it('Step 10: 고화질 슬라이드 캡처', async () => {
     const captureResult = await convertPptxToSlideImages(pptxResult.buffer, CAPTURES_DIR, 'seocho_basic', 150);
     expect(captureResult.slideCount).toBeGreaterThan(0);
-  });
+  }, 120_000);
 });

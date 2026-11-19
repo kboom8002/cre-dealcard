@@ -51,7 +51,7 @@ export function SaveStatusBadge({ status, lastSavedAt, errorMessage, onRetry, on
   const { label, tone } = describeSaveStatus(status, lastSavedAt);
   return (
     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
-      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${TONE_CLASS[tone]}`}>
+      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-sm font-bold ${TONE_CLASS[tone]}`}>
         {label}
       </span>
       {status === 'error' && onRetry && (

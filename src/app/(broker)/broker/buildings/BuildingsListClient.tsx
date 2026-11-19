@@ -63,8 +63,9 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       setBuildings((prev) => prev.filter((b) => b.id !== id));
       setImListState((prev) => prev.filter((d) => d.buildingId !== id));
       toast.success("딜카드가 삭제되었습니다.");
-    } catch (err: any) {
-      toast.error(`삭제 중 오류: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "삭제 실패";
+      toast.error(`삭제 중 오류: ${msg}`);
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -79,8 +80,9 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       setImListState(prev => prev.filter(d => d.docId !== docId));
       setDeletingImId(null);
       toast.success("IM이 삭제되었습니다.");
-    } catch (err: any) {
-      toast.error(`삭제 중 오류: ${err.message || '삭제에 실패했습니다.'}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '삭제에 실패했습니다.';
+      toast.error(`삭제 중 오류: ${msg}`);
     }
   };
 
@@ -163,22 +165,22 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
   return (
     <StaggerContainer className="space-y-6">
     {/* Tab Navigation — SOTA 슬라이딩 세그먼트 필 */}
-    <StaggerItem className="grid grid-cols-2 gap-1.5 p-1.5 bg-neutral-900/80 rounded-2xl border border-neutral-800 shadow-inner">
+    <StaggerItem className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner">
       <button
         type="button"
         onClick={() => setActiveTab("dealcard")}
         data-active-pill={activeTab === "dealcard" ? "true" : undefined}
-        className={`relative flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-extrabold transition-colors ${
+        className={`relative min-h-[44px] flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors cursor-pointer ${
           activeTab === "dealcard"
             ? "text-white"
-            : "text-neutral-400 hover:text-white"
+            : "text-slate-600 hover:text-slate-900"
         }`}
       >
         {activeTab === "dealcard" && (
           <motion.span
             layoutId="buildings-tab-active-pill"
             transition={SOTA_SPRING}
-            className="absolute inset-0 rounded-xl bg-primary shadow-sm"
+            className="absolute inset-0 rounded-xl bg-blue-700 shadow-sm"
           />
         )}
         <span className="relative z-10 flex items-center gap-1.5">
@@ -190,17 +192,17 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         type="button"
         onClick={() => setActiveTab("im")}
         data-active-pill={activeTab === "im" ? "true" : undefined}
-        className={`relative flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-extrabold transition-colors ${
+        className={`relative min-h-[44px] flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors cursor-pointer ${
           activeTab === "im"
             ? "text-white"
-            : "text-neutral-400 hover:text-white"
+            : "text-slate-600 hover:text-slate-900"
         }`}
       >
         {activeTab === "im" && (
           <motion.span
             layoutId="buildings-tab-active-pill"
             transition={SOTA_SPRING}
-            className="absolute inset-0 rounded-xl bg-indigo-600 shadow-sm"
+            className="absolute inset-0 rounded-xl bg-indigo-700 shadow-sm"
           />
         )}
         <span className="relative z-10 flex items-center gap-1.5">
@@ -244,52 +246,54 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
     {activeTab === "im" && (
       <div className="space-y-3">
         {imListState.length === 0 ? (
-          <div className="text-center py-16 space-y-3">
+          <div className="text-center py-16 space-y-3 bg-white rounded-2xl border border-slate-200 p-6">
             <div className="text-4xl">📱</div>
-            <p className="text-sm text-neutral-400">아직 생성된 투자설명서(IM)가 없습니다</p>
-            <p className="text-xs text-neutral-500">딜카드에서 &apos;기본 IM 만들기&apos; 버튼을 눌러 생성하세요</p>
+            <p className="text-base font-bold text-slate-900">아직 생성된 투자설명서(IM)가 없습니다</p>
+            <p className="text-sm text-slate-600">딜카드에서 &apos;기본 IM 만들기&apos; 버튼을 눌러 생성하세요</p>
           </div>
         ) : (
           imListState.map((doc) => (
             <Link
               key={doc.docId}
               href={`/im-lite/${doc.buildingId}?doc=${doc.docId}`}
-              className="block rounded-2xl border border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800/60 hover:border-neutral-700 hover:-translate-y-0.5 p-4 transition-all group shadow-xs"
+              className="block rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:-translate-y-0.5 p-4 transition-all group shadow-xs"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-extrabold ${
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-extrabold ${
                       doc.status === "approved"
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         : doc.status === "published"
-                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                        : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "bg-amber-50 text-amber-800 border border-amber-200"
                     }`}>
                       {doc.status === "approved" ? "승인됨" : doc.status === "published" ? "공개" : "초안"}
                     </span>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-sm text-slate-500">
                       {new Date(doc.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                     </span>
                   </div>
-                  <p className="text-base font-extrabold text-white truncate">
+                  <p className="text-base font-extrabold text-slate-900 truncate">
                     {doc.areaSignal} {doc.assetType}
                   </p>
                   {doc.priceBand && (
-                    <p className="text-sm font-semibold text-neutral-400 mt-0.5">{doc.priceBand}</p>
+                    <p className="text-sm font-semibold text-slate-600 mt-0.5">{doc.priceBand}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/broker/im-approval/${doc.docId}`; }}
-                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/broker/im-approval/${doc.docId}`); }}
+                    className="min-h-[44px] text-sm font-bold px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 hover:bg-slate-200 cursor-pointer"
                   >
                     ✏️ 검토·PPTX
-                  </span>
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingImId(doc.docId); }}
-                    className="text-xs min-w-[36px] min-h-[36px] px-2 py-1.5 rounded-lg bg-neutral-800 text-red-400 hover:bg-red-900/30 flex items-center justify-center"
+                    aria-label="IM 삭제"
+                    className="min-w-[44px] min-h-[44px] px-2.5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-red-700 hover:bg-red-50 hover:border-red-200 flex items-center justify-center text-sm font-bold cursor-pointer"
                   >
                     🗑
                   </button>
@@ -307,57 +311,58 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       {/* Top Professional KPI Board */}
       <div className="grid grid-cols-2 gap-3.5">
         {/* Average Promotion Score Card */}
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-2 flex flex-col justify-between shadow-xs">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 flex flex-col justify-between shadow-xs">
           <div>
-            <span className="flex items-center gap-1.5 text-xs font-extrabold text-neutral-400 tracking-tight">
+            <span className="flex items-center gap-1.5 text-sm font-extrabold text-slate-600 tracking-tight">
               <span>평균 홍보 완성도 점수</span>
               <SeniorTermTooltip termKey="완성도 점수" buttonLabel="도움말" />
             </span>
-            <p className="text-3xl font-black text-primary mt-1 tabular-nums">
-              {metrics.avgScore} <span className="text-xs font-bold text-neutral-400">점</span>
+            <p className="text-3xl font-black text-blue-700 mt-1 tabular-nums">
+              {metrics.avgScore} <span className="text-sm font-bold text-slate-600">점</span>
             </p>
           </div>
-          <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
             <div
-              className="bg-primary h-full rounded-full transition-all duration-500"
+              className="bg-blue-700 h-full rounded-full transition-all duration-500"
               style={{ width: `${Math.min(100, metrics.avgScore)}%` }}
             ></div>
           </div>
         </div>
 
         {/* Active Deals Card */}
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-1 flex flex-col justify-between shadow-xs">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-1 flex flex-col justify-between shadow-xs">
           <div>
-            <span className="block text-xs font-extrabold text-neutral-400 tracking-tight">
+            <span className="block text-sm font-extrabold text-slate-600 tracking-tight">
               진행 중인 매물 현황
             </span>
-            <p className="text-3xl font-black text-emerald-400 mt-1 tabular-nums">
+            <p className="text-3xl font-black text-emerald-700 mt-1 tabular-nums">
               {metrics.activePipelineCount}{" "}
-              <span className="text-xs font-bold text-neutral-400">건 진행</span>
+              <span className="text-sm font-bold text-slate-600">건 진행</span>
             </p>
           </div>
-          <span className="text-xs font-medium text-neutral-500 leading-relaxed">
+          <span className="text-sm font-medium text-slate-600 leading-relaxed">
             전체 매물 {metrics.total}건 중 홍보 중인 실시간 매물
           </span>
         </div>
       </div>
 
       {/* P1-3: Deal Pipeline Stage Counts */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 space-y-3 shadow-xs">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-extrabold text-neutral-300 tracking-tight flex items-center gap-2">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
             <span>🔄 단계별 매물 진행 현황</span>
             <SeniorTermTooltip termKey="매물 진행 단계" buttonLabel="도움말" />
             {stageFilter && (
               <button
+                type="button"
                 onClick={() => setStageFilter(null)}
-                className="text-xs text-amber-400 hover:underline font-bold"
+                className="min-h-[44px] px-2 text-sm text-amber-700 hover:underline font-bold cursor-pointer"
               >
                 ✕ 필터 해제
               </button>
             )}
           </h3>
-          <span className="px-2.5 py-0.5 rounded-md bg-neutral-800 text-xs text-neutral-400 font-bold">
+          <span className="px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-sm text-slate-600 font-bold">
             실시간 집계
           </span>
         </div>
@@ -371,26 +376,26 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                 <button
                   type="button"
                   onClick={() => setStageFilter(isSelected ? null : stage.key)}
-                  className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  className={`min-h-[44px] flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-primary/20 border border-primary/40 text-primary font-bold"
-                      : "hover:bg-neutral-800/60 text-neutral-400"
+                      ? "bg-blue-50 border border-blue-200 text-blue-700 font-bold"
+                      : "hover:bg-slate-100 text-slate-700"
                   }`}
                 >
                   <span className="text-lg">{stage.emoji}</span>
                   <span
                     className={`text-sm font-black ${
-                      count > 0 ? "text-primary scale-110" : "text-neutral-500"
+                      count > 0 ? "text-blue-700 scale-110" : "text-slate-500"
                     }`}
                   >
                     {count}
                   </span>
-                  <span className="text-[10.5px] font-medium whitespace-nowrap">
+                  <span className="text-sm font-medium whitespace-nowrap">
                     {stage.label}
                   </span>
                 </button>
                 {!isLast && (
-                  <span className="text-neutral-700 text-xs shrink-0 font-bold px-0.5">
+                  <span className="text-slate-400 text-sm shrink-0 font-bold px-0.5">
                     →
                   </span>
                 )}
@@ -401,7 +406,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       </div>
 
       {/* Search and Filters panel */}
-      <div className="space-y-3.5 bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
+      <div className="space-y-3.5 bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
         {/* Search */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -410,12 +415,14 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
               placeholder="📍 권역, 유형, 가격대 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+              className="w-full min-h-[44px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/30 transition-all"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-2.5 text-xs text-neutral-500 hover:text-neutral-300 font-semibold"
+                aria-label="검색어 지우기"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm text-slate-500 hover:text-slate-900 font-semibold cursor-pointer"
               >
                 ×
               </button>
@@ -427,33 +434,36 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         {/* Filter buttons & Sort Select */}
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           {/* Asset Type Filter Group */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
+              type="button"
               onClick={() => setFilterType("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${
                 filterType === "all"
-                  ? "bg-neutral-800 text-white border border-neutral-700"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40"
+                  ? "bg-slate-900 text-white border border-slate-900"
+                  : "text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200"
               }`}
             >
               전체 자산 ({totalCount})
             </button>
             <button
+              type="button"
               onClick={() => setFilterType("office")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${
                 filterType === "office"
-                  ? "bg-neutral-800 text-white border border-neutral-700"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40"
+                  ? "bg-slate-900 text-white border border-slate-900"
+                  : "text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200"
               }`}
             >
               오피스
             </button>
             <button
+              type="button"
               onClick={() => setFilterType("retail")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${
                 filterType === "retail"
-                  ? "bg-neutral-800 text-white border border-neutral-700"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40"
+                  ? "bg-slate-900 text-white border border-slate-900"
+                  : "text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200"
               }`}
             >
               리테일/상가
@@ -463,8 +473,8 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
           {/* Sort selection */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-300 focus:outline-none cursor-pointer hover:border-neutral-750 transition-colors"
+            onChange={(e) => setSortBy(e.target.value as "score-desc" | "score-asc" | "created-desc")}
+            className="min-h-[44px] bg-white border border-slate-300 rounded-xl px-3 py-2 text-base text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer transition-colors"
           >
             <option value="score-desc">🔥 노출 점수 높은 순</option>
             <option value="score-asc">❄️ 노출 점수 낮은 순</option>
@@ -476,7 +486,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       {/* Buildings List Output */}
       {filteredAndSortedBuildings.length > 0 ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-neutral-450 px-1 text-[11px] font-semibold">
+          <div className="flex items-center justify-between text-slate-600 px-1 text-sm font-semibold">
             <span>자산명 & 기본 필터</span>
             <span>종합점수</span>
           </div>
@@ -485,10 +495,10 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
             const score = Math.round(b.promotion_score ?? 0);
             const scoreColor =
               score >= 70
-                ? "text-emerald-450 bg-emerald-500/10 border border-emerald-550/20"
+                ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
                 : score >= 40
-                ? "text-amber-450 bg-amber-500/10 border border-amber-550/20"
-                : "text-neutral-450 bg-neutral-800/50 border border-neutral-750/30";
+                ? "text-amber-700 bg-amber-50 border border-amber-200"
+                : "text-slate-700 bg-slate-100 border border-slate-200";
             const matchCount = b.matched_buyer_count ?? 0;
             const hasVacancy = b.vacancy_signal === "있음" || b.vacancy_signal === "부분";
 
@@ -496,22 +506,22 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
               <div key={b.id} className="relative group">
                 <Link
                   href={`/broker/deal-card/${b.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4 hover:border-neutral-700/80 active:scale-[0.99] transition-all hover:scale-[1.01] shadow-sm"
+                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-4 pr-14 hover:border-slate-300 active:scale-[0.99] transition-all hover:scale-[1.01] shadow-xs"
                   id={`building-item-${b.id}`}
                 >
                   {/* Information content */}
                   <div className="flex-1 min-w-0 pr-4 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                      <h3 className="text-base font-bold text-slate-900 tracking-tight truncate">
                         {b.area_signal ?? "권역 미상"} {b.asset_type ?? ""}
                       </h3>
                       {hasVacancy && (
-                        <span className="shrink-0 inline-flex items-center rounded-full bg-amber-500/10 text-amber-400 border border-amber-550/20 px-2 py-0.5 text-[10px] font-bold">
+                        <span className="shrink-0 inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 text-sm font-bold">
                           공실 신호
                         </span>
                       )}
                       {b.status && (
-                        <span className="shrink-0 inline-flex items-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-extrabold">
+                        <span className="shrink-0 inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-sm font-extrabold">
                           {b.status === "public_signal_ready"
                             ? "공개 홍보 중"
                             : PIPELINE_STAGES.find((s) => s.key === b.status)?.label ?? "등록 완료"}
@@ -519,10 +529,10 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-neutral-400 font-semibold">{b.price_band ?? "가격 미확정"}</span>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-slate-600 font-semibold">{b.price_band ?? "가격 미확정"}</span>
                       {matchCount > 0 && (
-                        <span className="text-primary font-bold flex items-center gap-0.5">
+                        <span className="text-blue-700 font-bold flex items-center gap-0.5">
                           🎯 {matchCount}명 매칭
                         </span>
                       )}
@@ -531,25 +541,26 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
 
                   {/* score badge */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center ${scoreColor}`}>
+                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center ${scoreColor}`}>
                       <span className="text-lg font-black leading-none">{score || "-"}</span>
-                      <span className="text-[9px] font-semibold opacity-70 mt-0.5">점</span>
+                      <span className="text-sm font-semibold opacity-80 mt-0.5">점</span>
                     </div>
-                    <span className="text-neutral-600 text-sm font-bold">→</span>
+                    <span className="text-slate-400 text-sm font-bold">→</span>
                   </div>
                 </Link>
 
-                {/* Delete button — visible on hover */}
+                {/* Delete button */}
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setConfirmDeleteId(b.id);
                   }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-500 hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-500/10 flex items-center justify-center opacity-70 hover:opacity-100 transition-all"
+                  className="absolute top-2 right-2 min-w-[44px] min-h-[44px] rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50 flex items-center justify-center transition-all cursor-pointer"
                   title="딜카드 삭제"
                   aria-label="딜카드 삭제"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6" />
                     <path d="M19 6l-1 14H6L5 6" />
                     <path d="M10 11v6M14 11v6" />
@@ -561,10 +572,10 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
           })}
         </div>
       ) : (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-8 text-center space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center space-y-4 shadow-xs">
           <p className="text-4xl">🔍</p>
-          <p className="text-sm font-bold text-neutral-300">일치하는 딜카드가 없습니다.</p>
-          <p className="text-xs text-neutral-400 leading-relaxed">
+          <p className="text-base font-bold text-slate-900">일치하는 딜카드가 없습니다.</p>
+          <p className="text-sm text-slate-600 leading-relaxed">
             필터 조건을 변경하거나 다른 검색어를 입력해보세요.
           </p>
         </div>
@@ -574,16 +585,16 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
 
     {/* IM 삭제 확인 모달 */}
     {deletingImId && (
-      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDeletingImId(null)}>
-        <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-          <h3 className="text-lg font-bold text-white mb-2">IM 삭제</h3>
-          <p className="text-sm text-neutral-400 mb-3">이 투자설명서를 삭제하시겠습니까? 삭제된 IM은 복구할 수 없습니다.</p>
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setDeletingImId(null)}>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+          <h3 className="text-lg font-bold text-slate-900 mb-2">IM 삭제</h3>
+          <p className="text-sm text-slate-600 mb-3">이 투자설명서를 삭제하시겠습니까? 삭제된 IM은 복구할 수 없습니다.</p>
           <div className="mb-5">
             <SeniorTermTooltip termKey="안전한 삭제 규칙" buttonLabel="💡 안전한 삭제 안내" />
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setDeletingImId(null)} className="flex-1 py-2.5 bg-neutral-800 text-white text-sm font-medium rounded-xl">취소</button>
-            <button onClick={() => handleDeleteIM(deletingImId)} className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl">삭제</button>
+            <button type="button" onClick={() => setDeletingImId(null)} className="flex-1 min-h-[44px] py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 text-sm font-medium rounded-xl cursor-pointer">취소</button>
+            <button type="button" onClick={() => handleDeleteIM(deletingImId)} className="flex-1 min-h-[44px] py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl cursor-pointer">삭제</button>
           </div>
         </div>
       </div>
@@ -591,12 +602,12 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
 
     {/* 삭제 확인 모달 (전역) */}
     {confirmDeleteId && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-        <div className="bg-neutral-900 w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl border border-neutral-800">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl border border-slate-200">
           <div className="space-y-1.5">
-            <h3 className="text-base font-bold text-white">딜카드를 삭제하시겠습니까?</h3>
-            <p className="text-sm text-neutral-400 leading-relaxed">
-              이 딜카드와 관련된 <strong className="text-neutral-200">투자설명서, 딜 신호 카드</strong>도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+            <h3 className="text-base font-bold text-slate-900">딜카드를 삭제하시겠습니까?</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              이 딜카드와 관련된 <strong className="text-slate-900">투자설명서, 딜 신호 카드</strong>도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
             </p>
             <div className="pt-1">
               <SeniorTermTooltip termKey="안전한 삭제 규칙" buttonLabel="💡 안전한 삭제 안내" />
@@ -604,20 +615,22 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
           </div>
           <div className="flex gap-2 pt-1">
             <button
+              type="button"
               onClick={() => setConfirmDeleteId(null)}
               disabled={!!deletingId}
-              className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-50"
+              className="flex-1 min-h-[44px] py-2.5 text-sm font-medium rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer"
             >
               취소
             </button>
             <button
+              type="button"
               onClick={() => handleDelete(confirmDeleteId)}
               disabled={!!deletingId}
-              className="flex-1 py-2.5 text-sm font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              className="flex-1 min-h-[44px] py-2.5 text-sm font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {deletingId === confirmDeleteId ? (
                 <>
-                  <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>

@@ -56,7 +56,16 @@ describe("L2 Workspace State, URL Sync & List Navigation Preventive Suite (PT-20
       path.join(process.cwd(), "src/app/(broker)/broker/magazine-editor/page.tsx"),
       "utf-8"
     );
-    expect(nlCode).toContain('qs.set("edition"');
+    const nlTypesCode = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "src/app/(broker)/broker/magazine-editor/_components/magazine-workspace-types.ts"
+      ),
+      "utf-8"
+    );
+    expect(nlCode).toContain("syncUrlParams");
+    expect(nlCode).toContain('params.set("editionId"');
+    expect(nlTypesCode).toContain('qs.set("edition"');
   });
 
   it("[PT-202] WorkspaceShell mobile/tablet list wrapper does not clobber child router.replace query updates", () => {

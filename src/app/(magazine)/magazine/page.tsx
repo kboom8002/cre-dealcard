@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { parseIssueDate, toKstDate } from "@/lib/magazine/kst";
+import { isUnpublishedContent } from "@/lib/magazine/public-page-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getServerViewer } from "@/lib/server-viewer";
 
 /**
  * GET /magazine
  * 소통함 [뉴스레터 보내기] 또는 직접 진입 시 404가 발생하지 않도록
- * 로그인한 중개사 본인의 매거진 허브(/magazine/[brokerSlug]) 또는 최신 발행호로 연결합니다 (L-03 404 방지).
+ * 로그인한 중개사 본인의 매거진 허브(/magazine/[brokerSlug]) 또는 최신 발행호로만 연결합니다.
+ * 비로그인 방문자·발행본이 없는 신규 계정을 타 중개사 뉴스레터로 교차 리다이렉트하지 않습니다.
  */
 export default async function MagazineRootPage({
   searchParams,
@@ -29,46 +32,73 @@ export default async function MagazineRootPage({
   const querySuffix = qs.toString() ? `?${qs.toString()}` : "";
 
   try {
-    const supabase = createServiceClient();
     const viewer = await getServerViewer().catch(() => null);
 
     if (viewer?.userId) {
+      const supabase = createServiceClient();
       const { data: profile } = await supabase
         .from("broker_profiles")
         .select("slug, user_id")
         .eq("user_id", viewer.userId)
         .maybeSingle();
 
-      const slug = profile?.slug || viewer.userId;
+      const ownSlug = profile?.slug || viewer.userId;
+      const ownKeys = Array.from(new Set([ownSlug, viewer.userId].filter(Boolean)));
+
+      const { data: myLatestEdition } = await supabase
+        .from("magazine_editions")
+        .select("id, broker_id, edition_label, published_at, created_at, content")
+        .in("broker_id", ownKeys)
+        .eq("status", "published")
+        .order("published_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (myLatestEdition) {
+        const edContent =
+          myLatestEdition.content && typeof myLatestEdition.content === "object"
+            ? (myLatestEdition.content as Record<string, unknown>)
+            : null;
+        const rawEdDate =
+          typeof edContent?.issueDate === "string" && parseIssueDate(edContent.issueDate)
+            ? edContent.issueDate
+            : typeof myLatestEdition.edition_label === "string" && parseIssueDate(myLatestEdition.edition_label)
+              ? myLatestEdition.edition_label
+              : myLatestEdition.published_at || myLatestEdition.created_at
+                ? toKstDate(new Date(String(myLatestEdition.published_at || myLatestEdition.created_at)))
+                : null;
+        if (rawEdDate && parseIssueDate(rawEdDate)) {
+          redirect(
+            `/magazine/${encodeURIComponent(String(ownSlug))}/${encodeURIComponent(rawEdDate)}${querySuffix}`,
+          );
+        }
+      }
+
       const { data: myLatest } = await supabase
         .from("magazine_issues")
-        .select("broker_id, issue_date")
-        .in("broker_id", [slug, viewer.userId].filter(Boolean))
+        .select("broker_id, issue_date, content")
+        .in("broker_id", ownKeys)
         .order("issue_date", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (myLatest?.broker_id && myLatest?.issue_date) {
+      const myLatestContent =
+        myLatest?.content && typeof myLatest.content === "object"
+          ? (myLatest.content as Record<string, unknown>)
+          : null;
+      if (
+        myLatest?.broker_id &&
+        myLatest?.issue_date &&
+        (!myLatestContent || !isUnpublishedContent(myLatestContent))
+      ) {
+        const redirectSlug = profile?.slug || String(myLatest.broker_id);
         redirect(
-          `/magazine/${encodeURIComponent(String(myLatest.broker_id))}/${encodeURIComponent(String(myLatest.issue_date))}${querySuffix}`
+          `/magazine/${encodeURIComponent(redirectSlug)}/${encodeURIComponent(String(myLatest.issue_date))}${querySuffix}`,
         );
       }
       if (profile?.slug) {
         redirect(`/magazine/${encodeURIComponent(String(profile.slug))}${querySuffix}`);
       }
-    }
-
-    const { data: latestIssue } = await supabase
-      .from("magazine_issues")
-      .select("broker_id, issue_date")
-      .order("issue_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestIssue?.broker_id && latestIssue?.issue_date) {
-      redirect(
-        `/magazine/${encodeURIComponent(String(latestIssue.broker_id))}/${encodeURIComponent(String(latestIssue.issue_date))}${querySuffix}`
-      );
     }
   } catch (err: unknown) {
     if (
@@ -94,13 +124,13 @@ export default async function MagazineRootPage({
         </p>
         <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/broker/magazine-editor"
+            href="/broker/w/newsletter"
             className="min-h-[48px] px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-base font-extrabold flex items-center justify-center transition"
           >
             뉴스레터 작성하기
           </Link>
           <Link
-            href="/pulse"
+            href="/hub"
             className="min-h-[48px] px-5 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-base font-bold flex items-center justify-center transition"
           >
             시장 동향 보러가기

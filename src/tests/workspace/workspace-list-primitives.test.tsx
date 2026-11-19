@@ -217,11 +217,12 @@ describe("Workspace list components (P0)", () => {
     expect(rowB.textContent).not.toContain("✓");
     expect(container.querySelector('[data-testid="dealcard-item-a-date"]')?.textContent).toBe("26-11-13 14:20:00");
     expect(container.querySelector('[data-testid="dealcard-status-badge-a"]')?.textContent).toContain("준비됨");
-    // Negative: no destructive buttons inside simple rows
+    // Native <button> row ensures full keyboard (Enter/Space) + screen-reader activation with no nested buttons
+    expect(rowA.tagName).toBe("BUTTON");
     expect(rowA.querySelectorAll("button").length).toBe(0);
 
     await act(async () => {
-      rowB.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      rowB.click();
     });
     expect(onSelect).toHaveBeenCalledWith("b");
   });

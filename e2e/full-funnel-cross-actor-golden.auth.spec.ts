@@ -128,7 +128,10 @@ test.describe.serial(
 
       const runtimeErrors: string[] = [];
       for (const p of [desktopPage, brokerMobilePage, buyerPage]) {
-        p.on("pageerror", (err) => runtimeErrors.push(err.message));
+        p.on("pageerror", (err) => {
+          runtimeErrors.push(err.message);
+          console.log(`[pageerror] url=${p.url()} :: ${err.message}\n${(err.stack || "").split("\n").slice(0, 6).join("\n")}`);
+        });
       }
 
       try {
@@ -307,6 +310,29 @@ test.describe.serial(
         assertPriceBandBlocked(analysis.fullPptxText);
         assertPriceReflected(analysis.fullPptxText, 920000);
 
+        const pubImRes = await desktopPage.request.patch(
+          "/api/broker/workspace/summary",
+          {
+            data: {
+              action: "publish_im",
+              buildingId,
+              imItem: {
+                id: docId || buildingId,
+                buildingId,
+                title: "당산역 도보권 근생 사옥빌딩",
+                address: "서울특별시 영등포구 당산동1가 72-1",
+                askingPriceManwon: 920000,
+                landAreaSqm: 413.2,
+                gfaSqm: 1315.7,
+                zoning: "준공업지역",
+                completionDate: "2018-06-15",
+                status: "published",
+              },
+            },
+          }
+        );
+        expect(pubImRes.status()).toBe(200);
+
         // ────────────────────────────────────────────────────────────────────
         // STEP 4: Inbox Custom Client + 3-Preset Polite Kakao Outreach
         // ────────────────────────────────────────────────────────────────────
@@ -331,6 +357,21 @@ test.describe.serial(
         const upsertJson = await upsertRes.json();
         const clientId = String(upsertJson?.client?.id || upsertJson?.clientId || "");
         if (clientId) createdClientIds.push(clientId);
+
+        const approveGateRes = await desktopPage.request.post(
+          "/api/broker/inbox/actions",
+          {
+            data: {
+              action: "approve_gate",
+              threadId: clientId || `custom_${Date.now()}`,
+              buildingId,
+            },
+          }
+        );
+        expect(approveGateRes.status()).toBe(200);
+        const approveGateJson = await approveGateRes.json();
+        const shareToken = String(approveGateJson?.shareToken || "");
+        expect(shareToken).toMatch(/^slk\./);
 
         await desktopPage.goto("/broker/w/inbox", { waitUntil: "load" });
         await hideDevOverlay(desktopPage);
@@ -415,10 +456,11 @@ test.describe.serial(
         await expect(submittedCard).toContainText("010-2548-2548");
         await expect(submittedCard).toContainText("buyer.qa@company.co.kr");
 
-        // Open /im-lite/[buildingId] inside KakaoTalk UA context
-        await buyerPage.goto(`/im-lite/${buildingId}`, {
-          waitUntil: "networkidle",
-        });
+        // Open /im-lite/[buildingId]?token=... inside KakaoTalk UA context
+        await buyerPage.goto(
+          `/im-lite/${buildingId}?token=${encodeURIComponent(shareToken)}`,
+          { waitUntil: "networkidle" }
+        );
         await hideDevOverlay(buyerPage);
         await expect(
           buyerPage.getByTestId("inapp-webview-banner")
@@ -448,9 +490,10 @@ test.describe.serial(
         );
         expect(revokeRes.ok()).toBe(true);
 
-        await buyerPage.goto(`/im-lite/${buildingId}`, {
-          waitUntil: "networkidle",
-        });
+        await buyerPage.goto(
+          `/im-lite/${buildingId}?token=${encodeURIComponent(shareToken)}`,
+          { waitUntil: "networkidle" }
+        );
         await expect(
           buyerPage.getByTestId("revoked-im-screen")
         ).toBeVisible({ timeout: 15_000 });

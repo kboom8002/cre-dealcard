@@ -260,7 +260,17 @@ function renderCommonCoverContent(
     });
 
     const brokerPhone = cleanBrokerVal(d.brokerPhone || d.phone);
-    const registrationNo = cleanBrokerVal(d.registrationNo);
+    const registrationNo = cleanBrokerVal(
+      d.registrationNo || input.data?.brokerContact?.registrationNo
+    );
+    const officeAddress = cleanBrokerVal(
+      d.officeAddress ||
+        (d as Record<string, unknown>).office_address ||
+        (d as Record<string, unknown>).brokerOfficeAddress ||
+        (input.data?.brokerContact as Record<string, unknown> | undefined)?.officeAddress ||
+        (input.data?.brokerContact as Record<string, unknown> | undefined)?.office_address ||
+        (d as Record<string, any>)?.brokerOffice?.officeAddress
+    );
     const docDate = String(d.documentDate || '').trim();
     const cleanBrokerName = brokerName.replace(/^담당\s*(?:자)?\s*[:：]?\s*/, '').trim();
     const secondaryParts = [
@@ -268,13 +278,14 @@ function renderCommonCoverContent(
       docDate,
       brokerPhone,
       registrationNo ? `등록번호 ${registrationNo}` : '',
+      officeAddress ? `소재지 ${officeAddress}` : '',
     ].filter(Boolean);
 
     if (secondaryParts.length > 0) {
       slide.addText(secondaryParts.join('  |  '), {
-        x: M, y: 6.05, w: 7.50, h: 0.28,
-        fontSize: 11.5, color: CD.body,
-        fontFace: KR, margin: 0,
+        x: M, y: 6.05, w: Math.min(8.60, CW), h: 0.45,
+        fontSize: 10.5, color: CD.body,
+        fontFace: KR, margin: 0, shrinkText: true, lineSpacingMultiple: 1.15,
       });
     }
     return;
@@ -388,15 +399,33 @@ function renderCommonCoverContent(
     });
   }
 
-  const broker = d.brokerName || '';
-  let infoText = [broker, companyName].filter(Boolean).join('  |  ');
-  if (d.documentDate) {
-    infoText = [d.documentDate, infoText].filter(Boolean).join('  |  ');
-  }
+  const broker = String(d.brokerName || '').trim();
+  const proRegNo = String(
+    d.registrationNo || (input.data?.brokerContact as Record<string, unknown> | undefined)?.registrationNo || ''
+  ).trim();
+  const proOfficeAddress = String(
+    d.officeAddress ||
+      (d as Record<string, unknown>).office_address ||
+      (d as Record<string, unknown>).brokerOfficeAddress ||
+      (input.data?.brokerContact as Record<string, unknown> | undefined)?.officeAddress ||
+      (input.data?.brokerContact as Record<string, unknown> | undefined)?.office_address ||
+      ''
+  ).trim();
+  const proPhone = String(d.brokerPhone || d.phone || '').trim();
+  const infoText = [
+    d.documentDate || '',
+    broker,
+    companyName,
+    proRegNo ? `등록번호 ${proRegNo}` : '',
+    proOfficeAddress ? `소재지 ${proOfficeAddress}` : '',
+    proPhone,
+  ]
+    .filter(Boolean)
+    .join('  |  ');
   slide.addText(infoText, {
-    x: M, y: 6.50, w: CW, h: 0.22,
+    x: M, y: 6.46, w: CW, h: 0.24,
     fontSize: 9, color: CD.faint, // D30 m-4: 최소 캡션 9pt
-    fontFace: KR, margin: 0,
+    fontFace: KR, margin: 0, shrinkText: true,
   });
 }
 

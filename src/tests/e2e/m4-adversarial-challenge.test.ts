@@ -645,22 +645,31 @@ describe('Empirical Adversarial Challenge Suite: Milestone M4', () => {
       }).not.toThrow();
     });
 
-    it('SSR 4.2: NDAPage handles ID resolution server-side without window/localStorage dependencies', async () => {
+    it('SSR 4.2: NDAPage resolves grant ID server-side without window/localStorage and blocks raw buildingId enumeration', async () => {
       const bldgId = 'bldg-ssr-nda-001';
+      const grantId = 'grant-ssr-nda-001';
       mockDb.building_ssot_lite.set(bldgId, {
         id: bldgId,
         address: '서울시 서초구 서초대로 456',
         asset_type: '근린생활시설',
         area_signal: '강남역 5분',
       });
+      mockDb.im_pro_grants.set(grantId, {
+        id: grantId,
+        building_id: bldgId,
+        requester_name: '박매수',
+        requester_phone: '010-1234-5678',
+        status: 'pending_nda',
+        nda_signed_at: null,
+      });
 
-      let pageOutput: any;
-      expect(async () => {
-        pageOutput = await NDAPage({ params: Promise.resolve({ id: bldgId }) });
-      }).not.toThrow();
-
-      pageOutput = await NDAPage({ params: Promise.resolve({ id: bldgId }) });
+      const pageOutput = await NDAPage({ params: Promise.resolve({ id: grantId }) });
       expect(pageOutput).toBeDefined();
+
+      // Raw buildingId must NOT resolve an NDA grant (prevents public buildingId enumeration)
+      await expect(
+        NDAPage({ params: Promise.resolve({ id: bldgId }) })
+      ).rejects.toThrow('NOT_FOUND');
     });
 
     it('SSR 4.3: NDAPage throws NOT_FOUND error when ID cannot be matched to any building or request', async () => {

@@ -25,8 +25,17 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Lint Check
-      run: npx eslint "src/domain/magazine" "src/lib/magazine" "src/app/(magazine)/magazine" "src/app/api/cron" "src/lib/observability" "src/lib/security/cron-auth.ts" "src/app/global-error.tsx" "src/app/error.tsx" "src/app/(public)/error.tsx" "src/app/(broker)/error.tsx" "src/app/(admin)/error.tsx" "src/app/(public)/dc/[id]/error.tsx" "src/app/(public)/im-lite/[buildingId]/error.tsx" "src/app/(broker)/broker/deal-card/[id]/error.tsx" "src/app/(broker)/broker/magazine-editor/error.tsx"
+    - name: Lint Check (Clean Paths & Baseline Ratchet)
+      run: |
+        npx eslint "src/domain/magazine" "src/lib/magazine" "src/domain/inbox" "src/lib/inbox/inbox-actions-clients.ts" "src/lib/inbox/inbox-actions-outbound.ts" "src/lib/inbox/inbox-client-threads.ts" "src/lib/inbox/inbox-helpers.ts" "src/lib/inbox/inbox-query.ts" "src/app/api/broker/inbox" "src/app/api/webhooks/resend/route.ts" "src/components/workspace/WorkspaceShell.tsx" "src/components/workspace/FontScaleToggle.tsx" "src/components/workspace/GlobalJobTray.tsx" "src/components/workspace/RentRollGrid.tsx" "src/components/workspace/list" "src/components/workspace/preview-sync" "src/components/hub" "src/components/search" "src/app/(public)/search" "src/app/(public)/deal" "src/app/(public)/space" "src/app/(magazine)/magazine" "src/app/api/cron" "src/lib/observability" "src/lib/security/cron-auth.ts" "src/app/global-error.tsx" "src/app/error.tsx" "src/app/(public)/error.tsx" "src/app/(broker)/error.tsx" "src/app/(admin)/error.tsx" "src/app/(public)/dc/[id]/error.tsx" "src/app/(public)/im-lite/[buildingId]/error.tsx" "src/app/(broker)/broker/deal-card/[id]/error.tsx" "src/app/(broker)/broker/magazine-editor/error.tsx"
+        # Sub-14px gate: keep this path list in sync with SUB14_LOCKED_FILES in eslint.config.mjs (WP-7.3A / WP-7.5 / WP-7.7C / WP-7.8C).
+        npx eslint --rule "no-restricted-syntax: error" "src/components/workspace" "src/components/teaser" "src/components/public" "src/app/(public)/dc" "src/app/(broker)/broker/tutorial" "src/app/(magazine)/magazine" "src/app/(broker)/broker/magazine-editor" "src/components/magazine" "src/components/magazine-editor" "src/components/ui" "src/components/help" "src/components/layout" "src/app/(auth)" "src/app/(broker)/broker/clients" "src/app/(public)/im-pro" "src/app/(broker)/broker/w/inbox" "src/app/(broker)/broker/w/im" "src/app/(broker)/broker/w/newsletter" "src/app/(public)/im-lite" "src/app/(public)/nda" "src/app/(public)/powered-by" "src/app/(public)/guide" "src/app/(public)/broker-profile" "src/app/(admin)" "src/app/admin" "src/components/admin" "src/app/(broker)/broker/buildings" "src/app/(broker)/broker/im-approval" "src/app/(broker)/broker/inbox" "src/components/feedback" "src/app/(broker)/broker/w/dealcards" "src/components/broker/deal-card" "src/app/(broker)/broker/deal-card" "src/app/(broker)/broker/_components" "src/app/(broker)/broker/profile" "src/app/(public)/hub" "src/app/(public)/search" "src/app/(public)/deal" "src/app/(public)/space" "src/components/hub" "src/components/search" "src/app/(broker)/broker/basic-im-studio" "src/components/broker/im-studio" "src/app/error.tsx" "src/app/global-error.tsx" "src/app/(public)/error.tsx" "src/app/(broker)/error.tsx" --format json -o sub14-report.json || true
+        npx eslint src/app src/lib src/domain src/components --format json -o eslint-report.json || true
+        node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('sub14-report.json','utf8')); const sub14=s.flatMap(f=>f.messages||[]).filter(m=>m.ruleId==='no-restricted-syntax').length; console.log('Sub-14px AST violations in guarded paths:', sub14); if(sub14>0) process.exit(1); const r=JSON.parse(fs.readFileSync('eslint-report.json','utf8')); let errs=0; for(const f of r){ errs += f.errorCount || 0; } console.log('Total ESLint errors:', errs); if(errs > 3540) { console.error('ESLint error ratchet exceeded baseline 3540:', errs); process.exit(1); }"
+        rm -f sub14-report.json eslint-report.json
+
+    - name: Schema Drift Gate (--strict-magazine)
+      run: npx tsx scripts/check-schema-drift.ts --strict-magazine
 
     - name: Type Check
       run: npx tsc --noEmit
@@ -70,12 +79,39 @@ jobs:
       run: npx playwright install --with-deps chromium
 
     - name: Run Playwright tests
-      run: npx playwright test --reporter=list
+      run: |
+        DEFAULT_SPECS="e2e/deal-card-flow.spec.ts e2e/dealcard-viewer.spec.ts e2e/im-posture-approval.spec.ts e2e/magazine-proxy-bot.spec.ts e2e/mobile-im-viewer.spec.ts e2e/mobile-im.spec.ts e2e/newsletter-inbox-golden30.spec.ts e2e/wave5-public-and-qa-gates.spec.ts e2e/public-ux-smoke.spec.ts"
+        AUTH_SPECS="e2e/full-funnel-cross-actor-golden.auth.spec.ts e2e/magazine-authz-matrix.auth.spec.ts e2e/magazine-ux60-reader.auth.spec.ts e2e/preventive-mece-suite.auth.spec.ts e2e/wave5-commercialization-gates.auth.spec.ts e2e/wave5-overflow-and-perf-budget.auth.spec.ts e2e/ws-dealcard-inbox-sota-golden.auth.spec.ts e2e/ws-im-newsletter-sota-golden.auth.spec.ts"
+        npx playwright test $DEFAULT_SPECS --project=default --reporter=list
+        if [ -n "${E2E_TEST_EMAIL:-}" ] && [ -n "${E2E_TEST_PASSWORD:-}" ]; then
+          npx playwright test $AUTH_SPECS --project=authenticated --reporter=list
+        else
+          # P1-6 (WP-7.3A): never skip the authenticated suite silently.
+          echo "::warning title=Authenticated E2E specs SKIPPED::E2E_TEST_EMAIL / E2E_TEST_PASSWORD secrets are not configured — the following auth specs did NOT run: ${AUTH_SPECS}"
+          {
+            echo "### ⚠️ Authenticated E2E specs skipped"
+            echo ""
+            echo "E2E_TEST_EMAIL / E2E_TEST_PASSWORD secrets are missing, so these specs did not run:"
+            for spec in $AUTH_SPECS; do echo "- \`$spec\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
       env:
-        NEXT_PUBLIC_SUPABASE_URL: "https://mock.supabase.co"
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key"
-        SUPABASE_SERVICE_ROLE_KEY: "mock-key"
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://mock.supabase.co' }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key' }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'mock-key' }}
         SHARE_LINK_SECRET: "ci-test-share-link-secret-minimum-32-chars-ok"
+        UNSUBSCRIBE_SECRET: "ci-test-unsub-secret-minimum-32-chars-ok"
+        CRON_SECRET: "ci-test-cron-secret-minimum-32-chars-ok"
+        # P1-4 (WP-7.3A): Playwright's webServer runs `next dev` (NODE_ENV=development),
+        # where proxy.ts only enforces the internal QA gate when CRE_ENFORCE_QA_GATE=1.
+        # Without these the "QA portals fail closed" spec could never observe a 404.
+        # Values are CI-only test keys and match the defaults used by the e2e specs.
+        CRE_ENFORCE_QA_GATE: "1"
+        QA_ACCESS_KEY: "test-qa-tester-key"
+        QA_TESTER_ACCESS_KEY: "test-qa-tester-key"
+        QA_BROKER_ACCESS_KEY: "test-qa-broker-key"
+        E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+        E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
     - name: Upload Playwright report
       uses: actions/upload-artifact@v4
@@ -84,6 +120,57 @@ jobs:
         name: playwright-report
         path: test-results/
         retention-days: 7
+
+  pglite-integration:
+    name: PGlite Real-SQL & RLS Integration Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run PGlite integration tests
+      run: npx vitest run --pool=forks --maxWorkers=2 src/tests/foundations/pglite-*.test.ts src/tests/im-versioning/pglite-versioning-migration.test.ts src/tests/adversarial/m1-pglite-migration-stress.test.ts
+      env:
+        SHARE_LINK_SECRET: "ci-test-share-link-secret-minimum-32-chars-ok"
+        UNSUBSCRIBE_SECRET: "ci-test-unsub-secret-minimum-32-chars-ok"
+        CRON_SECRET: "ci-test-cron-secret-minimum-32-chars-ok"
+
+  pptx-visual-gate:
+    name: PPTX Visual Regression Gate (Core 8 Decks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Install LibreOffice & Poppler
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends libreoffice-impress libreoffice-writer poppler-utils fonts-noto-cjk
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Verify PPTX visual snapshots (core)
+      run: npm run visual:check -- core
 
   # Note: Vercel handles the actual deployment automatically
   # when pushed to the main branch if the repo is connected.

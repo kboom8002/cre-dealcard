@@ -37,11 +37,15 @@ export default function StudioLegalPage() {
     if (!id) return;
     (async () => {
       try {
-        const res = await fetch(`/api/v1/buildings/${id}/ssot`);
+        const res = await fetch(`/api/broker/buildings/${encodeURIComponent(id)}/legal`);
         if (!res.ok) return;
-        const data = await res.json();
-        if (data.korean_legal) {
-          setFields((prev) => ({ ...prev, ...data.korean_legal }));
+        const json = await res.json();
+        const legalData =
+          json?.data?.layers?.legal ||
+          json?.data?.korean_legal ||
+          json?.korean_legal;
+        if (legalData && typeof legalData === "object") {
+          setFields((prev) => ({ ...prev, ...legalData }));
         }
       } catch {
         /* 초기 로드 실패는 무시 */
@@ -59,14 +63,14 @@ export default function StudioLegalPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/buildings/${id}/ssot`, {
+      const res = await fetch(`/api/broker/buildings/${encodeURIComponent(id)}/legal`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ korean_legal: fields }),
+        body: JSON.stringify(fields),
       });
       if (!res.ok) throw new Error("저장 실패");
       toast.success("한국법 필수 항목이 저장되었습니다.");
-    } catch (err) {
+    } catch {
       toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
     } finally {
       setSaving(false);
@@ -101,18 +105,19 @@ export default function StudioLegalPage() {
   return (
     <div>
       <StudioTabs buildingId={id} activeTab="legal" />
-      <div className="bg-neutral-900/60 border border-neutral-800 rounded-b-2xl p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border border-t-0 border-slate-200 rounded-b-2xl p-6 space-y-6 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-white">⚖️ 한국법 필수 항목</h2>
-            <p className="text-xs text-neutral-400 mt-1">
+            <h2 className="text-lg font-bold text-slate-900">⚖️ 한국법 필수 항목</h2>
+            <p className="text-sm text-slate-600 mt-1">
               D36 §3.4~§3.7 — IM 생성 시 ClaimRegistry에 자동 등록됩니다
             </p>
           </div>
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm font-bold bg-primary hover:bg-primary/90 text-white rounded-lg disabled:opacity-50 transition-colors"
+            className="min-h-[44px] px-5 py-2.5 text-sm font-bold bg-blue-700 hover:bg-blue-800 text-white rounded-xl disabled:opacity-50 transition-colors cursor-pointer"
           >
             {saving ? "저장 중..." : "💾 저장"}
           </button>
@@ -120,9 +125,9 @@ export default function StudioLegalPage() {
 
         {FIELD_GROUPS.map((group) => (
           <div key={group.title} className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-neutral-200 border-b border-neutral-800 pb-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 border-b border-slate-200 pb-2">
               <span>{group.title}</span>
-              <span className="text-[10px] text-neutral-500 font-mono">{group.desc}</span>
+              <span className="text-sm text-slate-500 font-mono">{group.desc}</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -132,43 +137,53 @@ export default function StudioLegalPage() {
                   return null;
                 }
 
+                const controlId = `studio-legal-${item.key}`;
                 return (
                   <div
                     key={item.key}
-                    className="flex items-center justify-between bg-neutral-800/40 border border-neutral-700/50 rounded-lg px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
                   >
-                    <label className="text-xs font-medium text-neutral-300">
+                    <label htmlFor={controlId} className="text-sm font-semibold text-slate-800">
                       {item.label}
                     </label>
 
                     {item.type === "bool" && (
                       <button
+                        id={controlId}
                         type="button"
-                        onClick={() => update(item.key, !fields[item.key] as any)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                          fields[item.key] ? "bg-red-500" : "bg-neutral-600"
-                        }`}
+                        role="switch"
+                        aria-checked={Boolean(fields[item.key])}
+                        aria-label={item.label}
+                        onClick={() => update(item.key, !fields[item.key])}
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-end cursor-pointer"
                       >
                         <span
-                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                            fields[item.key] ? "translate-x-4" : "translate-x-0.5"
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            fields[item.key] ? "bg-red-600" : "bg-slate-300"
                           }`}
-                        />
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
+                              fields[item.key] ? "translate-x-6" : "translate-x-1"
+                            }`}
+                          />
+                        </span>
                       </button>
                     )}
 
                     {item.type === "tri" && (
                       <select
+                        id={controlId}
                         value={
                           fields[item.key] === true ? "yes" : fields[item.key] === false ? "no" : "unknown"
                         }
                         onChange={(e) =>
                           update(
                             item.key,
-                            e.target.value === "yes" ? true : e.target.value === "no" ? false : (null as any)
+                            e.target.value === "yes" ? true : e.target.value === "no" ? false : null
                           )
                         }
-                        className="bg-neutral-700 border border-neutral-600 rounded px-2 py-1 text-xs text-neutral-200"
+                        className="min-h-[44px] bg-white border border-slate-300 rounded-lg px-3 py-2 text-base text-slate-900"
                       >
                         <option value="unknown">미확인</option>
                         <option value="yes">확인됨</option>
@@ -178,9 +193,16 @@ export default function StudioLegalPage() {
 
                     {item.type === "select" && 'options' in item && (
                       <select
+                        id={controlId}
                         value={(fields[item.key] as string) ?? ""}
-                        onChange={(e) => update(item.key, e.target.value as any)}
-                        className="bg-neutral-700 border border-neutral-600 rounded px-2 py-1 text-xs text-neutral-200"
+                        onChange={(e) => {
+                          if (item.key === "transaction_structure") {
+                            update(item.key, e.target.value as TransactionStructure);
+                          } else if (item.key === "mgmt_fee_structure") {
+                            update(item.key, e.target.value as MgmtFeeStructure);
+                          }
+                        }}
+                        className="min-h-[44px] bg-white border border-slate-300 rounded-lg px-3 py-2 text-base text-slate-900"
                       >
                         {item.options!.map((opt: string) => (
                           <option key={opt} value={opt}>
@@ -192,23 +214,28 @@ export default function StudioLegalPage() {
 
                     {item.type === "number" && (
                       <input
+                        id={controlId}
                         type="number"
                         step="0.1"
                         min="0"
                         max="1"
                         value={(fields[item.key] as number) ?? 0}
-                        onChange={(e) => update(item.key, parseFloat(e.target.value) as any)}
-                        className="w-20 bg-neutral-700 border border-neutral-600 rounded px-2 py-1 text-xs text-neutral-200 text-right"
+                        onChange={(e) => {
+                          const parsed = parseFloat(e.target.value);
+                          update(item.key, Number.isFinite(parsed) ? parsed : 0);
+                        }}
+                        className="w-28 min-h-[44px] bg-white border border-slate-300 rounded-lg px-3 py-2 text-base text-slate-900 text-right"
                       />
                     )}
 
                     {item.type === "text" && (
                       <input
+                        id={controlId}
                         type="text"
                         value={(fields[item.key] as string) ?? ""}
-                        onChange={(e) => update(item.key, (e.target.value || null) as any)}
+                        onChange={(e) => update(item.key, e.target.value || null)}
                         placeholder="미입력"
-                        className="w-40 bg-neutral-700 border border-neutral-600 rounded px-2 py-1 text-xs text-neutral-200"
+                        className="w-full sm:w-48 min-h-[44px] bg-white border border-slate-300 rounded-lg px-3 py-2 text-base text-slate-900 placeholder:text-slate-400"
                       />
                     )}
                   </div>

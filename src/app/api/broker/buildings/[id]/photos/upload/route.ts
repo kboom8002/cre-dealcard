@@ -55,6 +55,57 @@ function isHeicOrHeifUpload(fileName: string, mimeType: string, buf: Buffer): bo
   return hasHeicMagicBytes(buf);
 }
 
+type DetectedImageFormat =
+  | { kind: "png"; ext: "png"; contentType: "image/png" }
+  | { kind: "jpeg"; ext: "jpg"; contentType: "image/jpeg" }
+  | { kind: "webp"; ext: "webp"; contentType: "image/webp" }
+  | { kind: "heic"; ext: "heic"; contentType: "image/heic" };
+
+function detectSupportedImageFormat(buf: Buffer): DetectedImageFormat | null {
+  if (!buf || buf.byteLength < 3) return null;
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf.byteLength >= 8 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  ) {
+    return { kind: "png", ext: "png", contentType: "image/png" };
+  }
+
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return { kind: "jpeg", ext: "jpg", contentType: "image/jpeg" };
+  }
+
+  // WEBP: RIFF....WEBP
+  if (
+    buf.byteLength >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return { kind: "webp", ext: "webp", contentType: "image/webp" };
+  }
+
+  if (hasHeicMagicBytes(buf)) {
+    return { kind: "heic", ext: "heic", contentType: "image/heic" };
+  }
+
+  return null;
+}
+
 async function convertHeicBufferWithSharp(
   rawBuffer: Buffer
 ): Promise<{ buffer: Buffer; ext: string; contentType: string }> {
@@ -197,14 +248,32 @@ export async function POST(
         }
 
         const rawBuffer = Buffer.from(await file.arrayBuffer());
-        const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
-        const isHeic = isHeicOrHeifUpload(file.name, file.type || "", rawBuffer);
+        const detectedFormat = detectSupportedImageFormat(rawBuffer);
+        const isHeic =
+          detectedFormat?.kind === "heic" ||
+          (!detectedFormat && isHeicOrHeifUpload(file.name, file.type || "", rawBuffer));
+
+        if (!detectedFormat) {
+          log.warn(`[Photo Upload API] Rejected unsupported/spoofed file ${file.name} (${file.type || "unknown"})`);
+          return NextResponse.json(
+            {
+              ok: false,
+              error: isHeic
+                ? HEIC_UNSUPPORTED_MESSAGE_KO
+                : "지원되지 않는 파일 형식입니다. PNG, JPEG, WEBP, HEIC 이미지 파일만 업로드할 수 있습니다.",
+              message: isHeic
+                ? HEIC_UNSUPPORTED_MESSAGE_KO
+                : "지원되지 않는 파일 형식입니다. PNG, JPEG, WEBP, HEIC 이미지 파일만 업로드할 수 있습니다.",
+            },
+            { status: 415 }
+          );
+        }
 
         let uploadBuffer: Buffer = rawBuffer;
-        let ext = ["jpg", "jpeg", "png", "webp", "gif"].includes(rawExt) ? rawExt : "jpg";
-        let contentType = file.type || "image/jpeg";
+        let ext: string = detectedFormat.ext;
+        let contentType: string = detectedFormat.contentType;
 
-        if (isHeic) {
+        if (detectedFormat.kind === "heic") {
           try {
             const converted = await convertHeicBufferWithSharp(rawBuffer);
             uploadBuffer = converted.buffer;
@@ -236,7 +305,7 @@ export async function POST(
               contentType = ext === "webp" ? "image/webp" : "image/jpeg";
             }
           } catch {
-            // Keep original raster buffer if sharp optimization is skipped
+            // Keep original verified raster buffer if sharp optimization is skipped
           }
         }
 

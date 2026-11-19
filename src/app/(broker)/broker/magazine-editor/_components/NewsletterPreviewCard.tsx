@@ -73,15 +73,6 @@ export function NewsletterPreviewCard({
           : "border border-slate-200"
       }`}
     >
-      {previewLifecycle === "pre_generation" && (
-        <div
-          data-testid="preview-sample-framing-banner"
-          className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-700"
-        >
-          기본 예시 구성 · 제목을 입력하면 내 뉴스레터로 전환됩니다
-        </div>
-      )}
-
       <header className="border-b border-slate-200 pb-4 space-y-3">
         <PreviewEditableUnit
           unitId="nl-unit-issue-meta"
@@ -183,7 +174,7 @@ export function NewsletterPreviewCard({
           data-testid="preview-axios-postit-section"
           className="space-y-3"
         >
-          <div className="space-y-4" role="list">
+          <div className="space-y-4">
             {unitIssues.slice(0, 5).map((issue, idx) => {
               const chMeta =
                 issue.channel && NEWS_CHANNEL_MAP[issue.channel as NewsChannelId]
@@ -242,7 +233,7 @@ export function NewsletterPreviewCard({
               선택된 추천 매물이 아직 없습니다.
             </div>
           ) : (
-            <ul className="space-y-2.5" role="list">
+            <ul className="space-y-2.5">
               {selectedDeals.map((deal) => (
                 <li key={deal.id}>
                   <PreviewEditableUnit
@@ -320,6 +311,15 @@ export function NewsletterPreviewCard({
           추천 매물 상세 자료(IM) 열람이나 매수·임대·자산관리 상담이 필요하시면 언제든 편하게 문의해 주세요.
         </p>
       </PreviewEditableUnit>
+
+      {previewLifecycle === "pre_generation" && (
+        <div
+          data-testid="preview-sample-framing-banner"
+          className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-700"
+        >
+          기본 예시 구성 · 제목을 입력하면 내 뉴스레터로 전환됩니다
+        </div>
+      )}
     </article>
   );
 }

@@ -1,10 +1,19 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import { stripHeavyBase64ForDb } from '@/lib/supabase/jsonb-diet';
+import { m2ToPyeong as sqmToPyeong, pyeongToM2 } from '@/domain/building/im-core/facts/area';
+import {
+  getWorkspaceItemByAnyId,
+  upsertWorkspaceItem,
+} from '@/lib/workspace/workspace-repository';
 import { randomUUID } from 'crypto';
 import type { StudioStage } from './project/types';
 import type { HeaderFooterConfig } from '../mobile-im/pptx/header-footer';
 import { DEFAULT_HEADER_FOOTER } from '../mobile-im/pptx/header-footer';
 import { parseStationName, formatStationLabel } from '../mobile-im/pptx/binder/station-name';
+
+const STUDIO_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isStudioUuid = (val: unknown): val is string =>
+  typeof val === 'string' && STUDIO_UUID_REGEX.test(val.trim());
 
 export interface PptxSlide {
   id: string;
@@ -25,6 +34,7 @@ export interface PptxSlide {
 export interface PptxProject {
   id: string;
   dealId: string;
+  ownerId?: string;
   packageId: string;
   version: number;
   title: string;
@@ -88,11 +98,11 @@ export function buildBasicImSlideDefaults(
     : (hero.askingPriceBil || ssot.price_band || '');
 
   const landSqm = Math.round(Number(br.platArea || ssot.land_area_sqm || hero.landAreaM2 || 0) * 100) / 100;
-  const landPy = landSqm > 0 ? Number((landSqm * 0.3025).toFixed(1)) : 0;
+  const landPy = landSqm > 0 ? Number(sqmToPyeong(landSqm).toFixed(1)) : 0;
   const grossSqm = Math.round(Number(br.totalArea || br.totArea || ssot.total_gross_area_sqm || hero.totalGrossAreaSqm || 0) * 100) / 100;
-  const grossPy = grossSqm > 0 ? Number((grossSqm * 0.3025).toFixed(1)) : 0;
+  const grossPy = grossSqm > 0 ? Number(sqmToPyeong(grossSqm).toFixed(1)) : 0;
   const archSqm = Math.round(Number(br.archArea || ssot.arch_area_sqm || 0) * 100) / 100;
-  const archPy = archSqm > 0 ? Number((archSqm * 0.3025).toFixed(1)) : 0;
+  const archPy = archSqm > 0 ? Number(sqmToPyeong(archSqm).toFixed(1)) : 0;
 
   const unitPriceManwon = (askManwon > 0 && landPy > 0)
     ? Math.round(askManwon / landPy)
@@ -196,7 +206,7 @@ export function buildBasicImSlideDefaults(
       0
   );
   const officialPriceStr = latestOfficialSqm > 0
-    ? `${Math.round(latestOfficialSqm / 10000).toLocaleString()}만원/㎡ (약 ${Math.round((latestOfficialSqm * 3.305785) / 10000).toLocaleString()}만원/평)`
+    ? `${Math.round(latestOfficialSqm / 10000).toLocaleString()}만원/㎡ (약 ${Math.round(pyeongToM2(latestOfficialSqm) / 10000).toLocaleString()}만원/평)`
     : '';
 
   const cleanStudioBrokerCompany = (val: unknown): string => {
@@ -459,7 +469,8 @@ export class PptxStudioService {
     buildingId: string,
     buildingName: string,
     docBody: Record<string, any>,
-    brokerInfo?: Record<string, any>
+    brokerInfo?: Record<string, any>,
+    ownerId?: string
   ): Promise<PptxProject> {
     const projectId = randomUUID();
     const now = new Date().toISOString();
@@ -467,6 +478,10 @@ export class PptxStudioService {
     const title = `${cleanBuildingName} Basic IM`;
 
     const defaultsByKey = buildBasicImSlideDefaults(cleanBuildingName, docBody || {}, brokerInfo);
+    const savedSlideOverrides =
+      docBody?.studioOverrides && typeof docBody.studioOverrides === 'object'
+        ? (docBody.studioOverrides as Record<string, Record<string, unknown>>)
+        : {};
     const hasComps = Array.isArray(defaultsByKey.comps?.compsRows) && defaultsByKey.comps.compsRows.length > 0;
 
     // Canonical 10-Slide Basic IM Studio Sequence (Rule 47 + Optional Market Comps)
@@ -492,6 +507,7 @@ export class PptxStudioService {
 
     const slides: PptxSlide[] = basicImSlides.map((spec, idx) => {
       const initial = defaultsByKey[spec.dataKey] ? { ...defaultsByKey[spec.dataKey] } : {};
+      const persistedOv = savedSlideOverrides[spec.dataKey] || {};
       return {
         id: randomUUID(),
         projectId,
@@ -502,7 +518,7 @@ export class PptxStudioService {
         kicker: spec.kicker,
         dataKey: spec.dataKey,
         contentUnitIds: [],
-        slideOverrides: initial,
+        slideOverrides: { ...initial, ...persistedOv },
         initialOverrides: { ...initial },
         hidden: Boolean(spec.defaultHidden),
         createdAt: now,
@@ -512,6 +528,7 @@ export class PptxStudioService {
     const project: PptxProject = {
       id: projectId,
       dealId: buildingId,
+      ...(ownerId ? { ownerId } : {}),
       packageId: `basic-im-${Date.now()}`,
       version: 1,
       title,
@@ -553,7 +570,7 @@ export class PptxStudioService {
       updatedAt: now,
     };
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
@@ -565,7 +582,8 @@ export class PptxStudioService {
     project: PptxProject,
     docBody: Record<string, any>,
     buildingName?: string,
-    brokerInfo?: Record<string, any>
+    brokerInfo?: Record<string, any>,
+    ownerId?: string
   ): Promise<PptxProject> {
     if (!docBody || Object.keys(docBody).length === 0) return project;
     const cleanName = String(buildingName || project.title || 'CRE 빌딩')
@@ -669,7 +687,7 @@ export class PptxStudioService {
       };
     }
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
@@ -694,26 +712,52 @@ export class PptxStudioService {
     return project;
   }
 
-  async findProjectByDealId(dealId: string): Promise<PptxProject | undefined> {
+  async findProjectByDealId(dealId: string, ownerId?: string): Promise<PptxProject | undefined> {
     for (const project of this.projects.values()) {
-      if (project.dealId === dealId) {
+      if (
+        project.dealId === dealId &&
+        (!ownerId || !project.ownerId || project.ownerId === ownerId)
+      ) {
         return project;
       }
     }
     const supabase = createServiceClient();
-    const { data: rows } = await supabase
-      .from('document_objects')
-      .select('body')
-      .eq('building_id', dealId)
-      .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
-      .order('created_at', { ascending: false })
-      .limit(10);
+    if (isStudioUuid(dealId)) {
+      const { data: rows } = await supabase
+        .from('document_objects')
+        .select('body, owner_id')
+        .eq('building_id', dealId)
+        .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-    const match = (rows || []).find(r => r?.body && Array.isArray((r.body as any).slides));
-    if (match?.body) {
-      const proj = match.body as unknown as PptxProject;
-      this.projects.set(proj.id, proj);
-      return proj;
+      const match = (rows || []).find(
+        r =>
+          r?.body &&
+          Array.isArray((r.body as any).slides) &&
+          (!ownerId || !(r as any).owner_id || String((r as any).owner_id) === ownerId)
+      );
+      if (match?.body) {
+        const proj = match.body as unknown as PptxProject;
+        if (ownerId && !proj.ownerId) proj.ownerId = ownerId;
+        this.projects.set(proj.id, proj);
+        return proj;
+      }
+    }
+    try {
+      const wsItem = await getWorkspaceItemByAnyId(supabase, dealId, 'im', ownerId);
+      const snapProj = wsItem?.draftPayload?.studioProjectSnapshot as PptxProject | undefined;
+      if (snapProj && Array.isArray(snapProj.slides) && snapProj.id) {
+        const restored: PptxProject = {
+          ...snapProj,
+          dealId: snapProj.dealId || dealId,
+          ownerId: snapProj.ownerId || wsItem?.ownerId || ownerId,
+        };
+        this.projects.set(restored.id, restored);
+        return restored;
+      }
+    } catch {
+      // Ignore workspace_items lookup fallback error
     }
     return undefined;
   }
@@ -728,7 +772,8 @@ export class PptxStudioService {
       layoutStyle?: PptxProject['layoutStyle'];
       headerFooter?: Partial<HeaderFooterConfig>;
     },
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -754,14 +799,15 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
   async resetSlideOverrides(
     projectId: string,
     slideId: string,
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -781,7 +827,7 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
@@ -789,7 +835,8 @@ export class PptxStudioService {
     projectId: string,
     slideIndex: number,
     layoutType: string,
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -809,14 +856,15 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
   async reorderSlides(
     projectId: string,
     orderedSlideIds: string[],
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -850,7 +898,7 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
@@ -858,7 +906,8 @@ export class PptxStudioService {
     projectId: string,
     slideId: string,
     hidden?: boolean,
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -884,7 +933,7 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
@@ -892,7 +941,8 @@ export class PptxStudioService {
     projectId: string,
     slideId: string,
     overrides: Record<string, unknown>,
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -929,14 +979,15 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
   async advanceStage(
     projectId: string,
     nextStage: StudioStage,
-    expectedLockVersion?: number
+    expectedLockVersion?: number,
+    ownerId?: string
   ): Promise<PptxProject> {
     const project = await this.getProject(projectId);
 
@@ -950,27 +1001,119 @@ export class PptxStudioService {
     project.lockVersion += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project);
+    await this.saveProject(project, ownerId);
     return project;
   }
 
-  async saveProject(project: PptxProject): Promise<void> {
+  async saveProject(project: PptxProject, ownerId?: string): Promise<void> {
     project.updatedAt = new Date().toISOString();
+    const effectiveOwnerId = ownerId || project.ownerId;
+    if (effectiveOwnerId) {
+      project.ownerId = effectiveOwnerId;
+    }
     this.projects.set(project.id, project);
     try {
       const supabase = createServiceClient();
       const { error } = await supabase.from('document_objects').upsert({
         id: project.id,
-        building_id: project.dealId,
+        building_id: isStudioUuid(project.dealId) ? project.dealId : null,
+        ...(effectiveOwnerId && isStudioUuid(effectiveOwnerId)
+          ? { owner_id: effectiveOwnerId }
+          : {}),
         document_type: 'snapshot',
         source_type: 'manual',
         title: project.title,
         body: stripHeavyBase64ForDb(project) as any,
         status: 'draft',
-        visibility: 'internal_only'
+        visibility: 'internal_only',
       });
       if (error) {
         console.warn('[studio-service] saveProject upsert to DB failed, maintaining in-memory project:', error.message);
+      }
+
+      if (effectiveOwnerId && isStudioUuid(effectiveOwnerId) && project.dealId) {
+        try {
+          const existingWs = await getWorkspaceItemByAnyId(
+            supabase,
+            project.dealId,
+            'im',
+            effectiveOwnerId
+          ).catch(() => null);
+
+          const studioOverridesByKey: Record<string, Record<string, unknown>> = {};
+          for (const sl of project.slides || []) {
+            if (sl.dataKey && sl.slideOverrides && Object.keys(sl.slideOverrides).length > 0) {
+              studioOverridesByKey[sl.dataKey] = { ...sl.slideOverrides };
+            }
+          }
+          const coverOv = studioOverridesByKey.cover || {};
+          const overviewOv = studioOverridesByKey.overview || {};
+          const rrOv = studioOverridesByKey.rentroll || studioOverridesByKey.rentRoll || {};
+          const syncedTitle = String(
+            coverOv.title ||
+              overviewOv.buildingName ||
+              project.title?.replace(/\s*Basic\s*IM$/i, '') ||
+              existingWs?.title ||
+              '매물 IM'
+          ).trim();
+          const syncedAddress = String(
+            coverOv.address ||
+              overviewOv.address ||
+              existingWs?.address ||
+              project.buildingContext?.ssot_summary?.address ||
+              ''
+          ).trim();
+
+          const baseDraft =
+            existingWs?.draftPayload && typeof existingWs.draftPayload === 'object'
+              ? existingWs.draftPayload
+              : (stripHeavyBase64ForDb(project.buildingContext || {}) as Record<string, unknown>);
+          const nextDraftPayload: Record<string, unknown> = {
+            ...baseDraft,
+            title: syncedTitle,
+            ...(syncedAddress ? { address: syncedAddress } : {}),
+            ...(Array.isArray(rrOv.tenantData) && rrOv.tenantData.length > 0
+              ? { rentRoll: rrOv.tenantData, floor_leases: rrOv.tenantData }
+              : {}),
+            studioOverrides: stripHeavyBase64ForDb(studioOverridesByKey),
+            studioProjectSnapshot: stripHeavyBase64ForDb({
+              id: project.id,
+              dealId: project.dealId,
+              ownerId: effectiveOwnerId,
+              packageId: project.packageId,
+              version: project.version,
+              title: project.title,
+              themeId: project.themeId,
+              visualPreset: project.visualPreset,
+              brandAccent: project.brandAccent,
+              coverStyle: project.coverStyle,
+              layoutStyle: project.layoutStyle,
+              headerFooter: project.headerFooter,
+              targetAudience: project.targetAudience,
+              lockVersion: project.lockVersion,
+              stage: project.stage,
+              slides: project.slides,
+              createdAt: project.createdAt,
+              updatedAt: project.updatedAt,
+            }),
+          };
+
+          await upsertWorkspaceItem(supabase, {
+            id: existingWs?.id,
+            legacyId: !isStudioUuid(project.dealId) ? project.dealId : existingWs?.legacyId ?? null,
+            buildingId: isStudioUuid(project.dealId) ? project.dealId : existingWs?.buildingId ?? null,
+            ownerId: effectiveOwnerId,
+            kind: 'im',
+            status: existingWs?.status ?? 'draft',
+            title: syncedTitle,
+            address: syncedAddress,
+            priceBand: existingWs?.priceBand ?? null,
+            draftPayload: nextDraftPayload,
+            publishedSnapshot: existingWs ? existingWs.publishedSnapshot : null,
+          });
+        } catch (wsErr: any) {
+          console.warn('[studio-service] workspace_items sync skipped:', wsErr?.message || wsErr);
+        }
       }
     } catch (err: any) {
       console.warn('[studio-service] saveProject DB client failed, maintaining in-memory project:', err?.message || err);

@@ -1090,4 +1090,66 @@ describe('Wave 5 — WP-18: Structured Inbox CRM, Dispatch Audit Timeline, Resen
     expect(buyer2VerifyAfterBuildingLock.valid).toBe(false);
     expect(buyer2VerifyAfterBuildingLock.reason).toBe('revoked');
   });
+
+  it('keeps Buyer B token valid when Buyer A non-empty token is revoked with scope: "thread" on the same building', async () => {
+    const buyerAIssued = await issueShareLinkToken({
+      buildingId: BUILDING_ID,
+      brokerId: BROKER_ID,
+      recipientId: GATE_BUYER_1,
+      ttlDays: 14,
+    });
+    const buyerBIssued = await issueShareLinkToken({
+      buildingId: BUILDING_ID,
+      brokerId: BROKER_ID,
+      recipientId: GATE_BUYER_2,
+      ttlDays: 14,
+    });
+    db.gate_requests.find((g) => g.id === GATE_BUYER_1)!.status = 'approved';
+    db.gate_requests.find((g) => g.id === GATE_BUYER_2)!.status = 'approved';
+
+    const threadRevokeWithTokenRes = await postShareLinkRevoke(
+      new NextRequest('http://localhost:3000/api/broker/share-links/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope: 'thread',
+          token: buyerAIssued.token,
+          buildingId: BUILDING_ID,
+          gateRequestId: GATE_BUYER_1,
+          threadId: GATE_BUYER_1,
+          reason: 'buyer_a_token_only_lock',
+        }),
+      })
+    );
+    expect(threadRevokeWithTokenRes.status).toBe(200);
+    const revokeJson = await threadRevokeWithTokenRes.json();
+    expect(revokeJson.ok).toBe(true);
+    expect(revokeJson.scope).toBe('thread');
+
+    // Building-wide lock MUST NOT be set and NO global link_revoked event emitted
+    expect(isBuildingShareLinkRevoked(BUILDING_ID)).toBe(false);
+    expect(db.activity_events.some((e) => e.event_type === 'link_revoked')).toBe(false);
+    expect(
+      db.activity_events.some(
+        (e) =>
+          e.event_type === 'thread_link_revoked' &&
+          e.metadata?.share_token === buyerAIssued.token
+      )
+    ).toBe(true);
+
+    // Buyer A's token MUST be revoked while Buyer B's token on the same buildingId stays valid
+    const verifyBuyerA = await verifyShareLinkToken({
+      token: buyerAIssued.token,
+      buildingId: BUILDING_ID,
+    });
+    expect(verifyBuyerA.valid).toBe(false);
+    expect(verifyBuyerA.reason).toBe('revoked');
+
+    const verifyBuyerB = await verifyShareLinkToken({
+      token: buyerBIssued.token,
+      buildingId: BUILDING_ID,
+    });
+    expect(verifyBuyerB.valid).toBe(true);
+    expect(verifyBuyerB.buildingId).toBe(BUILDING_ID);
+  });
 });

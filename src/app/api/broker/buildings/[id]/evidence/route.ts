@@ -13,23 +13,91 @@ import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
 import { z } from 'zod';
 
+const MAX_EVIDENCE_FILE_BYTES = 10 * 1024 * 1024;
+
+const ALLOWED_EVIDENCE_STORAGE_BUCKETS = new Set([
+  'building-photos',
+  'building_photos',
+  'evidence-files',
+  'evidence',
+  'evidence-private',
+]);
+
+const layerCategoryEnum = z.enum([
+  'building_register',
+  'registry_docs',
+  'land_use_plan',
+  'rent_roll',
+  'photos',
+  'floor_plan',
+  'repair_history',
+  'vacancy_docs',
+  'asking_price',
+  'disclosure_policy',
+  'other',
+]);
+
+function detectEvidenceMagicMime(bytes: Uint8Array): { mimeType: string; ext: string } | null {
+  // %PDF-
+  if (
+    bytes.length >= 5 &&
+    bytes[0] === 0x25 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x44 &&
+    bytes[3] === 0x46 &&
+    bytes[4] === 0x2d
+  ) {
+    return { mimeType: 'application/pdf', ext: 'pdf' };
+  }
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return { mimeType: 'image/png', ext: 'png' };
+  }
+  // JPEG: FF D8 FF
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { mimeType: 'image/jpeg', ext: 'jpg' };
+  }
+  // WEBP: RIFF....WEBP
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return { mimeType: 'image/webp', ext: 'webp' };
+  }
+  return null;
+}
+
+function isValidEvidenceStoragePath(storagePath: string, buildingId: string): boolean {
+  const trimmed = storagePath.trim();
+  if (!trimmed || trimmed.length > 512) return false;
+  if (trimmed.startsWith('/') || trimmed.includes('\\') || trimmed.includes('..')) return false;
+  if (!/^[A-Za-z0-9_./-]+$/.test(trimmed)) return false;
+  const segments = trimmed.split('/').filter(Boolean);
+  return segments.includes(buildingId);
+}
+
 const postSchema = z.object({
-  fileName: z.string().optional(),
-  fileSizeBytes: z.number().optional(),
-  mimeType: z.string().optional(),
-  layerCategory: z.enum([
-    'building_register',
-    'registry_docs',
-    'land_use_plan',
-    'rent_roll',
-    'photos',
-    'floor_plan',
-    'repair_history',
-    'vacancy_docs',
-    'asking_price',
-    'disclosure_policy',
-    'other',
-  ]),
+  fileName: z.string().max(255).optional(),
+  fileSizeBytes: z.number().nonnegative().optional(),
+  mimeType: z.string().max(128).optional(),
+  layerCategory: layerCategoryEnum,
   storageBucket: z.string(),
   storagePath: z.string(),
   visibility: z.string().optional(),
@@ -61,26 +129,219 @@ export async function POST(
   if (!ownership.ok) return ownership.response;
   const building = ownership.row as any;
 
-  let body;
-  try {
-    const raw = await req.json();
-    body = postSchema.parse(raw);
-  } catch (e) {
-    if (e instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: e.issues }, { status: 400 });
-    }
-    return NextResponse.json({ error: '잘못된 요청 형식입니다' }, { status: 400 });
-  }
+  const contentTypeHeader = String(req.headers.get('content-type') || '').toLowerCase();
+  let fileName: string | undefined;
+  let fileSizeBytes: number | undefined;
+  let mimeType: string | undefined;
+  let layerCategory: LayerCategory;
+  let storageBucket: string;
+  let storagePath: string;
+  let visibility: string | undefined;
 
-  const {
-    fileName,
-    fileSizeBytes,
-    mimeType,
-    layerCategory,
-    storageBucket,
-    storagePath,
-    visibility,
-  } = body;
+  if (contentTypeHeader.includes('multipart/form-data')) {
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json(
+        { ok: false, code: 'INVALID_FORM_DATA', error: '잘못된 파일 업로드 요청 형식입니다.' },
+        { status: 400 },
+      );
+    }
+
+    const rawFile = formData.get('file');
+    const rawCategory = String(formData.get('layerCategory') || '').trim();
+    const parsedCategory = layerCategoryEnum.safeParse(rawCategory);
+    if (!parsedCategory.success) {
+      return NextResponse.json(
+        { ok: false, code: 'VALIDATION_FAILED', error: '증빙 서류 분류가 올바르지 않습니다.' },
+        { status: 400 },
+      );
+    }
+    if (!rawFile || typeof (rawFile as Blob).arrayBuffer !== 'function') {
+      return NextResponse.json(
+        { ok: false, code: 'MISSING_FILE', error: '업로드할 파일을 선택해 주세요.' },
+        { status: 400 },
+      );
+    }
+
+    const fileObj = rawFile as File;
+    if (!fileObj.size || fileObj.size <= 0) {
+      return NextResponse.json(
+        { ok: false, code: 'EMPTY_FILE', error: '비어 있는 파일은 업로드할 수 없습니다.' },
+        { status: 400 },
+      );
+    }
+    if (fileObj.size > MAX_EVIDENCE_FILE_BYTES) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'FILE_TOO_LARGE',
+          error: '파일 크기는 10MB 이하여야 합니다.',
+        },
+        { status: 413 },
+      );
+    }
+
+    const arrayBuffer = await fileObj.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    if (bytes.byteLength === 0 || bytes.byteLength > MAX_EVIDENCE_FILE_BYTES) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: bytes.byteLength > MAX_EVIDENCE_FILE_BYTES ? 'FILE_TOO_LARGE' : 'EMPTY_FILE',
+          error:
+            bytes.byteLength > MAX_EVIDENCE_FILE_BYTES
+              ? '파일 크기는 10MB 이하여야 합니다.'
+              : '비어 있는 파일은 업로드할 수 없습니다.',
+        },
+        { status: bytes.byteLength > MAX_EVIDENCE_FILE_BYTES ? 413 : 400 },
+      );
+    }
+
+    const detected = detectEvidenceMagicMime(bytes);
+    if (!detected) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'UNSUPPORTED_FILE_TYPE',
+          error: '지원하지 않는 파일 형식입니다. PDF, PNG, JPEG, WEBP 파일만 업로드할 수 있습니다.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const rawOriginalName =
+      typeof fileObj.name === 'string' && fileObj.name.trim()
+        ? fileObj.name.trim()
+        : `evidence.${detected.ext}`;
+    const safeStem =
+      rawOriginalName
+        .replace(/[^A-Za-z0-9_.-]/g, '_')
+        .replace(/\.+/g, '.')
+        .replace(/^[_.-]+|[_.-]+$/g, '')
+        .slice(0, 80) || `evidence.${detected.ext}`;
+    const safeFileName = /\.[A-Za-z0-9]{2,5}$/.test(safeStem)
+      ? safeStem
+      : `${safeStem}.${detected.ext}`;
+    const safeBuildingSeg = id.replace(/[^A-Za-z0-9_-]/g, '');
+    const safeCategory = parsedCategory.data.replace(/[^a-z0-9_]/g, '');
+
+    layerCategory = parsedCategory.data;
+    fileName = rawOriginalName.slice(0, 255);
+    fileSizeBytes = bytes.byteLength;
+    mimeType = detected.mimeType;
+    storageBucket = 'evidence-private';
+    storagePath = `${safeBuildingSeg}/${safeCategory}/${Date.now()}_${safeFileName}`;
+    visibility = 'private';
+
+    const storageApi = (supabase as unknown as { storage?: { from?: (b: string) => any } })?.storage;
+    if (!storageApi || typeof storageApi.from !== 'function') {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'STORAGE_UPLOAD_FAILED',
+          error: '파일 스토리지 업로드에 실패했습니다.',
+        },
+        { status: 502 },
+      );
+    }
+
+    try {
+      const uploadRes = await storageApi
+        .from(storageBucket)
+        .upload(storagePath, Buffer.from(bytes), {
+          contentType: detected.mimeType,
+          upsert: false,
+        });
+      if (uploadRes?.error) {
+        console.error('[evidence] Storage upload error:', uploadRes.error);
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'STORAGE_UPLOAD_FAILED',
+            error: '파일 스토리지 업로드에 실패했습니다.',
+          },
+          { status: 502 },
+        );
+      }
+    } catch (uploadErr) {
+      console.error('[evidence] Storage upload exception:', uploadErr);
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'STORAGE_UPLOAD_FAILED',
+          error: '파일 스토리지 업로드에 실패했습니다.',
+        },
+        { status: 502 },
+      );
+    }
+  } else {
+    let body;
+    try {
+      const raw = await req.json();
+      body = postSchema.parse(raw);
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        return NextResponse.json(
+          { ok: false, code: 'VALIDATION_FAILED', error: '입력값이 올바르지 않습니다.' },
+          { status: 400 },
+        );
+      }
+      return NextResponse.json({ ok: false, error: '잘못된 요청 형식입니다' }, { status: 400 });
+    }
+
+    fileName = body.fileName;
+    fileSizeBytes = body.fileSizeBytes;
+    mimeType = body.mimeType;
+    layerCategory = body.layerCategory;
+    storageBucket = body.storageBucket;
+    storagePath = body.storagePath;
+    visibility = body.visibility;
+
+    if (!ALLOWED_EVIDENCE_STORAGE_BUCKETS.has(storageBucket)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'INVALID_STORAGE_BUCKET',
+          error: '허용되지 않은 저장소 버킷입니다.',
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!isValidEvidenceStoragePath(storagePath, id)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'INVALID_STORAGE_PATH',
+          error: '유효하지 않은 증빙 파일 경로입니다.',
+        },
+        { status: 400 },
+      );
+    }
+
+    const storageBucketClient =
+      typeof (supabase as unknown as { storage?: { from?: (b: string) => any } })?.storage?.from ===
+      'function'
+        ? (supabase as unknown as { storage: { from: (b: string) => any } }).storage.from(
+            storageBucket,
+          )
+        : null;
+    if (storageBucketClient && typeof storageBucketClient.download === 'function') {
+      const dlRes = await storageBucketClient.download(storagePath);
+      if (dlRes?.error || !dlRes?.data) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'EVIDENCE_FILE_NOT_UPLOADED',
+            error: '업로드된 원본 파일을 확인할 수 없습니다.',
+          },
+          { status: 400 },
+        );
+      }
+    }
+  }
 
   // 1. Fetch previously uploaded evidence file categories
   const { data: existingFiles } = await supabase

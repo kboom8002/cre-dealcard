@@ -7,9 +7,63 @@
  */
 import { PYEONG_RATIO } from '@/lib/utils/area-conversion';
 import { buildYieldSetFromBody } from '@/domain/building/mobile-im/yield-set';
+import { maskAddressForPublic } from '@/lib/magazine/public-page-data';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('magazine-deal-adapter');
+
+const PRIVATE_DEAL_KEYS = new Set([
+  'raw_address',
+  'exact_address',
+  'jibun_address',
+  'road_address',
+  'rent_roll',
+  'rentRoll',
+  'owner_phone',
+  'ownerPhone',
+  'seller_phone',
+  'sellerPhone',
+  'landlord_phone',
+  'landlordPhone',
+  'raw_register',
+  'pnu',
+  'lot_number',
+]);
+
+const EXPLICIT_ADDR_RE = /\d+-\d+|(?:대로|번길|로|길)\s+\d+(?!\s*일대)/;
+
+/**
+ * Recursively strips private/unmasked keys (`raw_address`, `exact_address`, `jibun_address`,
+ * `road_address`, `rent_roll`, `owner_phone`, etc.) and masks any explicit address strings
+ * before deal metadata is persisted into `magazine_editions.content`.
+ */
+export function stripMagazinePrivateDealFields<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map((item) => stripMagazinePrivateDealFields(item)) as unknown as T;
+  }
+  if (!input || typeof input !== 'object') {
+    return input;
+  }
+  const src = input as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(src)) {
+    if (PRIVATE_DEAL_KEYS.has(k) || k === 'layers') {
+      continue;
+    }
+    if (typeof v === 'string') {
+      if (k === 'address' || k === 'location' || EXPLICIT_ADDR_RE.test(v)) {
+        out[k] = maskAddressForPublic(v);
+      } else {
+        out[k] = v;
+      }
+    } else if (v && typeof v === 'object') {
+      out[k] = stripMagazinePrivateDealFields(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out as T;
+}
 
 export const VALID_MAGAZINE_DEAL_STATUSES = [
   'public_signal_ready',
@@ -207,8 +261,9 @@ export interface AdaptBuildingParams {
     [key: string]: unknown;
   };
   imDoc?: {
+    document_type?: string;
     doc_type?: string;
-    body?: Record<string, any>;
+    body?: Record<string, unknown>;
     [key: string]: unknown;
   } | null;
   pendingSnippet?: {
@@ -225,13 +280,23 @@ export interface AdaptBuildingParams {
 export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): MagazineDealItem {
   const { building, imDoc, pendingSnippet } = params;
   const layers = (building.layers && typeof building.layers === 'object' ? building.layers : {}) as Record<string, unknown>;
-  const body = imDoc?.body ?? {};
+  const body = (imDoc?.body && typeof imDoc.body === 'object' ? imDoc.body : {}) as Record<string, unknown>;
+  const ssotSummary = (body.ssot_summary && typeof body.ssot_summary === 'object' ? body.ssot_summary : {}) as Record<string, unknown>;
+  const heroCard = (body.heroCard && typeof body.heroCard === 'object' ? body.heroCard : {}) as Record<string, unknown>;
+  const studioOverrides = (body._studioSlideOverrides && typeof body._studioSlideOverrides === 'object'
+    ? body._studioSlideOverrides
+    : {}) as Record<string, unknown>;
+  const studioOverview = (studioOverrides.overview && typeof studioOverrides.overview === 'object'
+    ? studioOverrides.overview
+    : {}) as Record<string, unknown>;
 
-  // 1. Basic Identity
+  // 1. Basic Identity (blind-safe: never persist raw lot/street building numbers)
   const id = String(building.id);
-  const address = String(building.raw_address ?? body.ssot_summary?.address ?? '');
-  const areaSignal = String(building.area_signal ?? body.ssot_summary?.area_signal ?? '');
-  const assetType = String(building.asset_type ?? body.ssot_summary?.asset_type ?? body.heroCard?.assetType ?? '상업용 부동산');
+  const rawAreaSignal = String(building.area_signal ?? ssotSummary.area_signal ?? '');
+  const areaSignal = rawAreaSignal ? maskAddressForPublic(rawAreaSignal) || rawAreaSignal : '';
+  const rawAddressCandidate = String(building.raw_address ?? ssotSummary.address ?? '');
+  const address = maskAddressForPublic(rawAddressCandidate) || areaSignal;
+  const assetType = String(building.asset_type ?? ssotSummary.asset_type ?? heroCard.assetType ?? '상업용 부동산');
 
   // 2. Photos
   // Extract photos from body or layers
@@ -240,14 +305,14 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
   const photoUrl = resolveDealCoverPhoto(photoSource) ?? pendingSnippet?.photoUrl ?? (photoUrls[0] ?? null);
 
   // 3. Price & Financial Parity
-  const askingPriceDisplay = body.heroCard?.askingPriceDisplay ?? building.price_band ?? (layers.askingPriceDisplay as string | undefined);
+  const askingPriceDisplay = heroCard.askingPriceDisplay ?? building.price_band ?? (layers.askingPriceDisplay as string | undefined);
   const price = askingPriceDisplay ? String(askingPriceDisplay) : '가격 비공개';
   
   // Calculate price in KRW
   const layersPriceWon = typeof layers.askingPriceManwon === 'number' ? layers.askingPriceManwon * 10_000 : null;
   let rawPriceForParse: string | number | null = layersPriceWon;
-  if (rawPriceForParse == null && body.ssot_summary?.asking_price_manwon != null) {
-    rawPriceForParse = body.ssot_summary.asking_price_manwon * 10_000;
+  if (rawPriceForParse == null && typeof ssotSummary.asking_price_manwon === 'number') {
+    rawPriceForParse = ssotSummary.asking_price_manwon * 10_000;
   }
   if (rawPriceForParse == null) {
     rawPriceForParse = price;
@@ -255,7 +320,7 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
   const priceWon = parsePriceBandToWon(rawPriceForParse);
 
   // Financial metrics from YieldSet
-  const yieldSet = body && Object.keys(body).length > 0 ? buildYieldSetFromBody(body) : null;
+  const yieldSet = Object.keys(body).length > 0 ? buildYieldSetFromBody(body) : null;
 
   let grossYieldNetOfDeposit: number | null = yieldSet?.grossYieldNetOfDeposit ?? null;
   let noiCapRate: number | null = yieldSet?.noiCapRate ?? null;
@@ -294,30 +359,34 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
   }
 
   // 4. Physical Specs & Area Conversion (PYEONG_RATIO = 0.3025)
-  const rawLandM2 = Number(layers.landAreaM2 ?? body.ssot_summary?.land_area_sqm);
+  const rawLandM2 = Number(layers.landAreaM2 ?? ssotSummary.land_area_sqm);
   const landAreaM2 = Number.isFinite(rawLandM2) && rawLandM2 > 0 ? Number(rawLandM2.toFixed(2)) : null;
-  const landAreaPyeong = landAreaM2 != null ? Number((landAreaM2 * PYEONG_RATIO).toFixed(1)) : (Number(body.heroCard?.landAreaPyeong) || null);
+  const landAreaPyeong = landAreaM2 != null ? Number((landAreaM2 * PYEONG_RATIO).toFixed(1)) : (Number(heroCard.landAreaPyeong) || null);
 
-  const rawGrossM2 = Number(layers.grossFloorAreaM2 ?? body.ssot_summary?.total_gross_area_sqm);
+  const rawGrossM2 = Number(layers.grossFloorAreaM2 ?? ssotSummary.total_gross_area_sqm);
   const grossFloorAreaM2 = Number.isFinite(rawGrossM2) && rawGrossM2 > 0 ? Number(rawGrossM2.toFixed(2)) : null;
-  const grossFloorAreaPyeong = grossFloorAreaM2 != null ? Number((grossFloorAreaM2 * PYEONG_RATIO).toFixed(1)) : (Number(body.heroCard?.grossFloorAreaPyeong) || null);
+  const grossFloorAreaPyeong = grossFloorAreaM2 != null ? Number((grossFloorAreaM2 * PYEONG_RATIO).toFixed(1)) : (Number(heroCard.grossFloorAreaPyeong) || null);
 
   // Floors & Zoning
-  const floors = body._studioSlideOverrides?.overview?.floors ?? body.heroCard?.floors ?? body.ssot_summary?.floors ?? (layers.floors as string | undefined) ?? null;
-  const zoning = body._studioSlideOverrides?.overview?.zoning ?? body.ssot_summary?.zoning ?? (layers.zoning as string | undefined) ?? null;
+  const rawFloors = studioOverview.floors ?? heroCard.floors ?? ssotSummary.floors ?? layers.floors;
+  const floors = typeof rawFloors === 'string' && rawFloors ? rawFloors : null;
+  const rawZoning = studioOverview.zoning ?? ssotSummary.zoning ?? layers.zoning;
+  const zoning = typeof rawZoning === 'string' && rawZoning ? rawZoning : null;
 
   // 5. Investment Thesis & Key Points
-  let investmentPoint = body._studioSlideOverrides?.overview?.investmentPoint
-    ?? body.heroCard?.keyInvestmentPoint
-    ?? pendingSnippet?.investmentPoint
-    ?? (layers.keyInvestmentPoint as string | undefined);
+  const rawInvestmentPoint =
+    studioOverview.investmentPoint ??
+    heroCard.keyInvestmentPoint ??
+    pendingSnippet?.investmentPoint ??
+    layers.keyInvestmentPoint;
+  let investmentPoint = typeof rawInvestmentPoint === 'string' && rawInvestmentPoint ? rawInvestmentPoint : undefined;
 
   if (!investmentPoint && Array.isArray(body.sections)) {
-    const thesisSection = body.sections.find(
-      (s: any) => s.sectionId === '06_buyer_fit' || s.sectionId === 'investment_thesis',
+    const thesisSection = (body.sections as Array<Record<string, unknown>>).find(
+      (s) => s?.sectionId === '06_buyer_fit' || s?.sectionId === 'investment_thesis',
     );
-    if (thesisSection?.content && typeof thesisSection.content === 'string') {
-      const match = thesisSection.content.match(/[•\-\*]\s*(.+)/);
+    if (thesisSection && typeof thesisSection.content === 'string') {
+      const match = thesisSection.content.match(/[•\-*]\s*(.+)/);
       if (match && match[1]) {
         investmentPoint = match[1].trim();
       } else {
@@ -328,10 +397,13 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
 
   if (!investmentPoint) {
     investmentPoint = `${areaSignal ? `${areaSignal} ` : ''}핵심 상권 ${assetType}`;
+  } else if (EXPLICIT_ADDR_RE.test(investmentPoint)) {
+    investmentPoint = maskAddressForPublic(investmentPoint);
   }
 
   // 6. Router & IM Link
   const imUrl = `/im-lite/${id}`;
+  const safeAttrs = stripMagazinePrivateDealFields(layers);
 
   return {
     id,
@@ -358,7 +430,43 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
     floors,
     zoning,
     status: String(building.status ?? 'draft'),
-    attrs: layers,
+    attrs: safeAttrs,
+  };
+}
+
+interface CandidateDealRow {
+  id: string;
+  raw_address?: string | null;
+  area_signal?: string | null;
+  asset_type?: string | null;
+  price_band?: string | null;
+  status?: string | null;
+  matched_buyer_count?: number | null;
+  layers?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+interface CandidateDocRow {
+  building_id?: string | null;
+  document_type?: string;
+  body?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface CandidateQueryClient {
+  from: (table: string) => {
+    select: (cols: string) => {
+      eq: (col: string, val: string) => {
+        in: (col: string, vals: string[]) => {
+          order: (col: string, opts: { ascending: boolean }) => {
+            limit: (n: number) => Promise<{ data: CandidateDealRow[] | null; error: unknown }>;
+          };
+        };
+      };
+      in: (col: string, vals: string[]) => {
+        in: (col: string, vals: string[]) => Promise<{ data: CandidateDocRow[] | null; error?: unknown }>;
+      };
+    };
   };
 }
 
@@ -367,16 +475,17 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
  * joining corresponding document_objects for rich SSOT metrics.
  */
 export async function fetchMagazineCandidateDeals(
-  supabase: any,
+  supabase: unknown,
   userId: string,
   options?: { limit?: number; includeDrafts?: boolean },
 ): Promise<MagazineDealItem[]> {
+  const db = supabase as CandidateQueryClient;
   const limit = options?.limit ?? 10;
   const statuses = options?.includeDrafts === false
     ? ['public_signal_ready', 'snapshot_draft_ready']
     : [...VALID_MAGAZINE_DEAL_STATUSES];
 
-  const { data: dealsData, error: dealsErr } = await supabase
+  const { data: dealsData, error: dealsErr } = await db
     .from('building_ssot_lite')
     .select('id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers, owner_id, updated_at')
     .eq('owner_id', userId)
@@ -394,22 +503,22 @@ export async function fetchMagazineCandidateDeals(
   }
 
   // Fetch corresponding document_objects if available
-  const dealIds = dealsData.map((d: any) => d.id);
-  let docData: any[] | null = null;
+  const dealIds = dealsData.map((d) => d.id);
+  let docData: CandidateDocRow[] | null = null;
   if (dealIds.length > 0) {
     try {
-      const res = await supabase
+      const res = await db
         .from('document_objects')
-        .select('building_id, doc_type, body')
+        .select('building_id, document_type, body')
         .in('building_id', dealIds)
-        .in('doc_type', ['im_lite', 'im_lite_draft', 'mobile_im']);
+        .in('document_type', ['im_lite', 'im_lite_draft', 'mobile_im']);
       docData = res?.data ?? null;
     } catch {
       docData = null;
     }
   }
 
-  const docsByBuildingId = new Map<string, any>();
+  const docsByBuildingId = new Map<string, CandidateDocRow>();
   if (Array.isArray(docData)) {
     for (const doc of docData) {
       if (doc.building_id && !docsByBuildingId.has(doc.building_id)) {
@@ -418,7 +527,7 @@ export async function fetchMagazineCandidateDeals(
     }
   }
 
-  return dealsData.map((building: any) =>
+  return dealsData.map((building) =>
     adaptBuildingToMagazineDeal({
       building,
       imDoc: docsByBuildingId.get(building.id) ?? null,

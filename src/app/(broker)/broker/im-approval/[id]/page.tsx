@@ -10,7 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { IMApprovalClient } from './im-approval-client';
 
 export const metadata: Metadata = {
-  title: 'IM 승인 — 크리딜 중개인',
+  title: 'IM 승인 — 크리딜 공인중개사',
   description: 'AI 생성 IM을 검토하고 승인하거나 수정을 요청합니다.',
 };
 
@@ -42,11 +42,15 @@ export default async function IMApprovalPage({ params }: Props) {
     .maybeSingle();
 
   if (!doc) {
-    const fallbackRes = await serviceClient
+    let fallbackQuery: any = serviceClient
       .from('document_objects')
       .select('id, title, body, status, created_at, building_id, owner_id')
-      .eq('building_id', id)
-      .eq('document_type', 'im_lite')
+      .eq('building_id', id);
+    fallbackQuery =
+      typeof fallbackQuery.in === 'function'
+        ? fallbackQuery.in('document_type', ['im_lite', 'mobile_im'])
+        : fallbackQuery.eq('document_type', 'im_lite');
+    const fallbackRes = await fallbackQuery
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -58,8 +62,13 @@ export default async function IMApprovalPage({ params }: Props) {
     notFound();
   }
 
-  const isE2eUser = user.email === 'e2e-playwright@credeal.test';
-  if (doc.owner_id && doc.owner_id !== user.id && !isE2eUser) {
+  const { data: profile } = await serviceClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === 'admin';
+  if (doc.owner_id !== user.id && !isAdmin) {
     notFound();
   }
 
@@ -68,14 +77,19 @@ export default async function IMApprovalPage({ params }: Props) {
     ? (doc.body as Record<string, unknown>)
     : {};
 
-  const ssot = bodyObj.ssot_summary as Record<string, any> | undefined;
-  const identity = bodyObj.identity as Record<string, any> | undefined;
+  const ssot = bodyObj.ssot_summary as Record<string, unknown> | undefined;
+  const identity = bodyObj.identity as Record<string, unknown> | undefined;
   const posture = String(ssot?.investment_posture || identity?.investmentPosture || 'income');
 
   // 카카오맵 URL 생성 (coordinates가 없으면 주소 기반 geocoding 시도)
-  let coordinates = (bodyObj as any)?.coordinates ?? ssot?.coordinates ?? identity?.coordinates;
+  let coordinates = (bodyObj.coordinates ?? ssot?.coordinates ?? identity?.coordinates) as
+    | { lat?: number | string; lng?: number | string }
+    | undefined;
   if (!coordinates?.lat || !coordinates?.lng) {
-    const rawAddr = (ssot?.address as string) || (bodyObj as any)?.resolved_address || (ssot?.raw_address as string);
+    const rawAddr =
+      (ssot?.address as string | undefined) ||
+      (bodyObj.resolved_address as string | undefined) ||
+      (ssot?.raw_address as string | undefined);
     if (rawAddr) {
       try {
         const { geocodeAddress } = await import('@/domain/verification/address-resolver');

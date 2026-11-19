@@ -73,35 +73,51 @@ export async function insertCondition(input: InsertConditionInput): Promise<Buye
   };
 }
 
+const CONFIDENCE_RANK: Readonly<Record<string, number>> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
 /**
  * Party의 최신 조건을 조회합니다.
- * confidence 최고 + observed_at 최근 조합.
+ * confidence 최고(high > medium > low) + observed_at 최근 조합.
  */
 export async function getLatestCondition(partyId: string): Promise<BuyerCondition | null> {
   const supabase = createServiceClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('buyer_condition')
     .select()
     .eq('party_id', partyId)
-    .order('confidence', { ascending: false })  // high > medium > low
     .order('observed_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(20);
 
-  if (!data) return null;
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+
+  const sorted = [...data].sort((a, b) => {
+    const rankA = CONFIDENCE_RANK[String(a?.confidence || '').toLowerCase()] ?? 0;
+    const rankB = CONFIDENCE_RANK[String(b?.confidence || '').toLowerCase()] ?? 0;
+    if (rankB !== rankA) return rankB - rankA;
+    const timeA = a?.observed_at ? new Date(String(a.observed_at)).getTime() : 0;
+    const timeB = b?.observed_at ? new Date(String(b.observed_at)).getTime() : 0;
+    return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
+  });
+
+  const best = sorted[0];
+  if (!best) return null;
 
   return {
-    id: data.id,
-    partyId: data.party_id,
-    source: data.source,
-    confidence: data.confidence,
-    budgetBand: data.budget_band,
-    regions: data.regions,
-    assetTypes: data.asset_types,
-    purpose: data.purpose,
-    financing: data.financing,
-    observedAt: data.observed_at,
+    id: best.id,
+    partyId: best.party_id,
+    source: best.source,
+    confidence: best.confidence,
+    budgetBand: best.budget_band,
+    regions: best.regions,
+    assetTypes: best.asset_types,
+    purpose: best.purpose,
+    financing: best.financing,
+    observedAt: best.observed_at,
   };
 }
 

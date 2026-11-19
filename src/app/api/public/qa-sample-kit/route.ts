@@ -1,11 +1,61 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 import sharp from "sharp";
+import { requireBroker } from "@/lib/auth-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function timingSafeMatchKey(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
+function hasValidQaAccessKey(req: NextRequest): boolean {
+  const candidates = [
+    (req.headers.get("x-qa-access-key") || "").trim(),
+    (req.cookies.get("cre_qa_key")?.value || "").trim(),
+    (req.nextUrl.searchParams.get("qaKey") || req.nextUrl.searchParams.get("key") || "").trim(),
+  ].filter(Boolean);
+
+  if (candidates.length === 0) return false;
+
+  const configuredKeys = [
+    process.env.QA_ACCESS_KEY,
+    process.env.QA_TESTER_ACCESS_KEY,
+    process.env.QA_BROKER_ACCESS_KEY,
+  ]
+    .map((v) => (v || "").trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    for (const key of configuredKeys) {
+      if (timingSafeMatchKey(key, candidate)) return true;
+    }
+  }
+  return false;
+}
+
+async function resolveOptionalBrokerUser(
+  req: NextRequest
+): Promise<{ id: string } | null> {
+  try {
+    const guard = await requireBroker(req);
+    if (!guard.error && guard.user?.id) {
+      return { id: String(guard.user.id) };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 const SAMPLE_RENTROLL_CSV_ROWS = [
   ["층/호실", "임차인(상호)", "업종", "전용면적(㎡)", "보증금(만원)", "월임대료(만원)", "월관리비(만원)", "계약만료일", "비고"],
@@ -107,6 +157,19 @@ async function resolveSamplePhotoBuffer(
 }
 
 export async function GET(req: NextRequest) {
+  const enforceGate =
+    process.env.NODE_ENV === "production" ||
+    process.env.CRE_ENFORCE_QA_GATE === "1";
+  if (enforceGate) {
+    const brokerUser = await resolveOptionalBrokerUser(req);
+    if (!brokerUser?.id && !hasValidQaAccessKey(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Not Found" },
+        { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+      );
+    }
+  }
+
   const format = (req.nextUrl.searchParams.get("format") || "zip").trim().toLowerCase();
 
   if (format === "csv") {

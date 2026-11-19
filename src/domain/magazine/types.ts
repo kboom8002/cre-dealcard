@@ -331,7 +331,8 @@ export type MonthlyRegionalChartType =
   | 'reb_vacancy_cap_spread'
   | 'kosis_commercial_vitality'
   | 'bok_loan_rate_cap_spread'
-  | 'molit_price_band_mix';
+  | 'molit_price_band_mix'
+  | 'reference_cost_financing';
 
 export interface MonthlyChartReferenceLine {
   label: string;

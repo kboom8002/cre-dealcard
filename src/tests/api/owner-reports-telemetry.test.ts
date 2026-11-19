@@ -257,7 +257,7 @@ describe('Milestone M3: Owner Reports & Analytics Feedback Loop Test Suite', () 
       expect(mockDb.activity_events[0]).toMatchObject({
         building_id: 'bld-01',
         building_ssot_lite_id: 'bld-01',
-        event_type: 'view',
+        event_type: 'deal_card_view',
       });
     });
 
@@ -327,13 +327,23 @@ describe('Milestone M3: Owner Reports & Analytics Feedback Loop Test Suite', () 
   // Feature 10: Telemetry Database Column Alignment
   // ══════════════════════════════════════════════════════════════
   describe('Feature 10: Telemetry Database Column Alignment', () => {
+    // WP-7.3D P2-3 (intentional hardening): view events are recorded only for share-token
+    // authorized views of the same building, so these column-alignment tests send a real token.
+    const issueViewToken = async (buildingId: string) => {
+      const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+      const issued = await issueShareLinkToken({ buildingId, brokerId: 'test-broker-uuid' });
+      return issued.token;
+    };
+
     test('F10-01 (Positive): im-lite/view inserts both building_id AND building_ssot_lite_id for standard view', async () => {
+      const shareToken = await issueViewToken('bld-gangnam-101');
       const req = new NextRequest('http://localhost:3000/api/public/im-lite/bld-gangnam-101/view', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           section_viewed: 'location_access',
           blind_name: '강남 프라임 오피스',
+          share_token: shareToken,
         }),
       });
 
@@ -352,12 +362,14 @@ describe('Milestone M3: Owner Reports & Analytics Feedback Loop Test Suite', () 
     });
 
     test('F10-02 (Positive): im-lite/view inserts both building_id AND building_ssot_lite_id for dwell time event', async () => {
+      const shareToken = await issueViewToken('bld-gangnam-102');
       const req = new NextRequest('http://localhost:3000/api/public/im-lite/bld-gangnam-102/view', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dwell_seconds: 75,
           blind_name: '역삼 메디컬 빌딩',
+          share_token: shareToken,
         }),
       });
 

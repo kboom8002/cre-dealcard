@@ -3,6 +3,8 @@ import { requireBrokerContext, assertOwnsRow, jsonError, notFoundResponse } from
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseIssueDate, todayKst } from "@/lib/magazine/kst";
 import { distributeMagazine, type DistributeMagazineEditionInput } from "@/domain/magazine/distribute-magazine";
+import { enqueueMagazineDispatch } from "@/domain/magazine/distribute-queue";
+import { assertPublishable } from "@/lib/legal/publish-gate";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-broker-magazine-distribute");
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // 소유한 에디션만 대상 (불일치는 404) + 발행 여부 확인(에디터 안내용)
+    // 소유한 에디션만 대상 (불일치는 404) + 발행 여부 확인
     let published: boolean | null = null;
     if (editionId) {
       const row = await assertOwnsRow<{ id: string; status: string }>(supabase, "magazine_editions", editionId, ctx, {
@@ -56,16 +58,85 @@ export async function POST(req: NextRequest) {
       });
       if (!row) return notFoundResponse();
       published = row.status === "published";
+      // P2-2: 발행되지 않은(초안·검토 대기) 에디션은 발송하지 않는다 — 수신자 링크가 빈 페이지/이전 호를 가리키게 된다.
+      if (!published) {
+        return jsonError("EDITION_NOT_PUBLISHED", "발행되지 않은 에디션은 발송할 수 없습니다. 먼저 발행해 주세요.", 409);
+      }
+    }
+
+    const statutoryGate = await assertPublishable({
+      supabase,
+      userId: ctx.userId,
+      kind: "magazine",
+    });
+    if (!statutoryGate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: statutoryGate.code, message: statutoryGate.message },
+          missingFields: statutoryGate.missingFields,
+          missingLabels: statutoryGate.missingLabels,
+        },
+        { status: 422 },
+      );
     }
 
     const edition: DistributeMagazineEditionInput = {
       id: editionId,
+      editionType: typeof body.editionType === "string" ? body.editionType : undefined,
       title: title || `${issueDate} 주간 리포트`,
       headline,
       market_temp: marketTemp,
       date: issueDate,
       target,
     };
+
+    const forceAsync = body.async === true;
+    const forceSync = body.sync === true;
+    let useAsyncQueue = forceAsync;
+    if (!forceAsync && !forceSync) {
+      const { count: activeSubCount } = await supabase
+        .from("magazine_subscribers")
+        .select("id", { count: "exact", head: true })
+        .in("broker_id", ctx.brokerKeys)
+        .eq("status", "active");
+      if ((activeSubCount ?? 0) > 50) {
+        useAsyncQueue = true;
+      }
+    }
+
+    if (useAsyncQueue) {
+      const queueRes = await enqueueMagazineDispatch(supabase, ctx.slug, edition);
+      if (queueRes.queueUnavailable) {
+        // D2 사전 컷오버: 대기열 스키마(000003) 미적용 → 기존 동기 발송 경로로 폴백(아래로 진행)
+        log.warn(`[api/broker/magazine/distribute] queue unavailable — falling back to sync send for ${ctx.slug}`);
+      } else {
+        if (!queueRes.ok && queueRes.blockedReason) {
+          return NextResponse.json({
+            success: false,
+            blocked: queueRes.blockedReason,
+            message: queueRes.message,
+            published,
+            sent: 0,
+            result: queueRes,
+          });
+        }
+        return NextResponse.json({
+          success: true,
+          asyncQueued: true,
+          published,
+          dryRun: queueRes.dryRun,
+          subscriberCount: queueRes.subscriberCount,
+          total: queueRes.total,
+          queued: queueRes.queued,
+          sent: 0,
+          failed: 0,
+          blocked: queueRes.blocked,
+          result: queueRes,
+        });
+      }
+    }
+
     const result = await distributeMagazine(supabase, ctx.slug, edition);
 
     if (!result.ok && result.blockedReason === "SEND_DISABLED") {

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-// Mock Supabase for import resolution
+const mockRequireBroker = vi.fn();
+
+// Mock Supabase & auth for import resolution
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: vi.fn(() => ({
     from: vi.fn(() => ({
@@ -10,10 +12,20 @@ vi.mock('@/lib/supabase/service', () => ({
   })),
 }));
 
+vi.mock('@/lib/auth-guard', () => ({
+  requireBroker: (...args: unknown[]) => mockRequireBroker(...args),
+}));
+
 describe('/api/im/validate', () => {
   let POST: typeof import('@/app/api/im/validate/route').POST;
 
   beforeEach(async () => {
+    mockRequireBroker.mockReset();
+    mockRequireBroker.mockResolvedValue({
+      error: null,
+      user: { id: 'broker-1', role: 'broker' },
+      role: 'broker',
+    });
     const mod = await import('@/app/api/im/validate/route');
     POST = mod.POST;
   });
@@ -78,10 +90,25 @@ describe('/api/im/validate', () => {
       asking_price_manwon: 25000,
       monthly_rent_total_krw: 4657,
     });
-    // Without address/PNU, grade is unlikely A, so pro should be blocked
-    if (result.grade !== 'A') {
+    // Without address/PNU, grade is unlikely A or B, so pro should be blocked
+    if (result.grade !== 'A' && result.grade !== 'B') {
       expect(result.canGenerate).toBe(false);
       expect(result.errors.some((e: string) => e.includes('Pro'))).toBe(true);
     }
+  });
+
+  it('VR-06: returns 401 when caller is unauthenticated', async () => {
+    mockRequireBroker.mockResolvedValueOnce({
+      error: Response.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 }),
+      user: null,
+      role: null,
+    });
+    const req = new NextRequest('http://localhost/api/im/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ investment_posture: 'income', tier: 'basic' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(401);
   });
 });

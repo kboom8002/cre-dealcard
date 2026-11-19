@@ -34,7 +34,7 @@ export interface AddSubscriberFormProps {
 }
 
 const INPUT =
-  'min-h-11 w-full rounded-lg border bg-slate-900/60 px-3 text-reader text-white placeholder:text-ink-subtle outline-none focus:border-indigo-500/60';
+  'min-h-[44px] w-full rounded-lg border bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600';
 
 export interface ParsedBulkItem {
   raw: string;
@@ -211,10 +211,10 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
         const channel: AddChannel = item.email && item.phone ? 'both' : item.email ? 'email' : 'kakao';
         const payload = {
           name: item.name,
-          phone: item.phone || '010-0000-0000',
+          phone: item.phone || undefined,
           email: item.email || undefined,
           channel,
-          attested: true,
+          consentAttested: true,
         };
         const res = await fetch('/api/broker/magazine/subscribers', {
           method: 'POST',
@@ -252,22 +252,22 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
       size="sm"
       closeOnBackdrop={!saving}
     >
-      <div className="space-y-4">
+      <div className="space-y-4 text-slate-900">
         {/* 등록 방식 탭 토글 */}
-        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-700 bg-slate-900/80 p-1">
+        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => {
               setMode('single');
               setFormError('');
             }}
-            className={`flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-all ${
               mode === 'single'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-indigo-700 text-white shadow-xs'
+                : 'text-slate-700 hover:bg-white/70 hover:text-slate-900'
             }`}
           >
-            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
             단건 직접 등록
           </button>
           <button
@@ -277,13 +277,13 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
               setMode('bulk');
               setFormError('');
             }}
-            className={`flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-all ${
               mode === 'bulk'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-indigo-700 text-white shadow-xs'
+                : 'text-slate-700 hover:bg-white/70 hover:text-slate-900'
             }`}
           >
-            <ClipboardPaste className="h-3.5 w-3.5" aria-hidden="true" />
+            <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
             여러 명 일괄 붙여넣기
           </button>
         </div>
@@ -292,7 +292,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
           type="button"
           data-testid="open-bulk-subscriber-import-btn"
           onClick={() => setBulkWizardOpen(true)}
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-900/50"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 text-sm font-bold text-emerald-900 transition-colors hover:bg-emerald-100"
         >
           📋 엑셀·명단 한 번에 등록
         </button>
@@ -300,7 +300,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
         {mode === 'single' ? (
           <form onSubmit={handleSubmit} noValidate className="space-y-3">
             <div className="space-y-1">
-              <label htmlFor={`${uid}-name`} className="text-label font-bold text-slate-300">
+              <label htmlFor={`${uid}-name`} className="text-sm font-bold text-slate-800">
                 이름 <span aria-hidden="true">*</span>
               </label>
               <input
@@ -311,17 +311,17 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                 onChange={(e) => set('name', e.target.value)}
                 aria-invalid={!!errors.name}
                 aria-describedby={errors.name ? `${uid}-name-err` : undefined}
-                className={`${INPUT} ${errors.name ? 'border-rose-500/60' : 'border-slate-700'}`}
+                className={`${INPUT} ${errors.name ? 'border-rose-500' : 'border-slate-300'}`}
               />
               {errors.name ? (
-                <p id={`${uid}-name-err`} role="alert" className="text-caption text-rose-300">
+                <p id={`${uid}-name-err`} role="alert" className="text-sm font-medium text-rose-700">
                   {errors.name}
                 </p>
               ) : null}
             </div>
 
             <div className="space-y-1">
-              <label htmlFor={`${uid}-phone`} className="text-label font-bold text-slate-300">
+              <label htmlFor={`${uid}-phone`} className="text-sm font-bold text-slate-800">
                 휴대폰 번호 <span aria-hidden="true">*</span>
               </label>
               <input
@@ -334,17 +334,17 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                 onChange={(e) => set('phone', formatKrPhoneInput(e.target.value))}
                 aria-invalid={!!errors.phone}
                 aria-describedby={errors.phone ? `${uid}-phone-err` : undefined}
-                className={`${INPUT} ${errors.phone ? 'border-rose-500/60' : 'border-slate-700'}`}
+                className={`${INPUT} ${errors.phone ? 'border-rose-500' : 'border-slate-300'}`}
               />
               {errors.phone ? (
-                <p id={`${uid}-phone-err`} role="alert" className="text-caption text-rose-300">
+                <p id={`${uid}-phone-err`} role="alert" className="text-sm font-medium text-rose-700">
                   {errors.phone}
                 </p>
               ) : null}
             </div>
 
             <fieldset className="space-y-1">
-              <legend className="text-label font-bold text-slate-300">수신 채널</legend>
+              <legend className="text-sm font-bold text-slate-800">수신 채널</legend>
               <div className="flex gap-1.5" role="radiogroup" aria-label="수신 채널">
                 {CHANNELS.map(({ key, label, icon: Icon }) => (
                   <button
@@ -353,10 +353,10 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                     role="radio"
                     aria-checked={form.channel === key}
                     onClick={() => set('channel', key)}
-                    className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg border text-label font-bold transition-all ${
+                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-lg border text-sm font-bold transition-all ${
                       form.channel === key
-                        ? 'border-indigo-500/40 bg-indigo-500/20 text-indigo-200'
-                        : 'border-slate-700/50 bg-slate-800/50 text-ink-muted hover:text-slate-200'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
@@ -366,8 +366,8 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
             </fieldset>
 
             <div className="space-y-1">
-              <label htmlFor={`${uid}-email`} className="text-label font-bold text-slate-300">
-                이메일 {needsEmail ? <span aria-hidden="true">*</span> : <span className="font-normal text-ink-subtle">(선택)</span>}
+              <label htmlFor={`${uid}-email`} className="text-sm font-bold text-slate-800">
+                이메일 {needsEmail ? <span aria-hidden="true">*</span> : <span className="font-normal text-slate-600">(선택)</span>}
               </label>
               <input
                 id={`${uid}-email`}
@@ -378,22 +378,22 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                 aria-required={needsEmail}
                 aria-invalid={!!errors.email}
                 aria-describedby={errors.email ? `${uid}-email-err` : undefined}
-                className={`${INPUT} ${errors.email ? 'border-rose-500/60' : 'border-slate-700'}`}
+                className={`${INPUT} ${errors.email ? 'border-rose-500' : 'border-slate-300'}`}
               />
               {errors.email ? (
-                <p id={`${uid}-email-err`} role="alert" className="text-caption text-rose-300">
+                <p id={`${uid}-email-err`} role="alert" className="text-sm font-medium text-rose-700">
                   {errors.email}
                 </p>
               ) : null}
               {form.channel === 'kakao' && !form.email.trim() ? (
-                <p className="text-sm text-indigo-200/90 leading-relaxed pt-1">
+                <p className="text-sm text-indigo-900 leading-relaxed pt-1">
                   💡 <strong>이메일</strong>을 함께 입력하시면 매주 발행 시 소식지가 이메일로 <strong>자동 발송</strong>됩니다. (카카오톡 단독 선택 시 카톡 링크 수동 공유 대상 고객으로 즉시 등록됩니다)
                 </p>
               ) : null}
             </div>
 
-            <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
-              <label className="flex min-h-11 cursor-pointer items-start gap-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <label className="flex min-h-[44px] cursor-pointer items-start gap-2">
                 <input
                   type="checkbox"
                   checked={form.attested}
@@ -402,20 +402,20 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                   aria-describedby={`${uid}-attest-hint`}
                   className="mt-1 h-4 w-4 rounded"
                 />
-                <span className="text-label font-bold text-slate-200">{CONSENT_ATTEST_TEXT}</span>
+                <span className="text-sm font-bold text-slate-900">{CONSENT_ATTEST_TEXT}</span>
               </label>
-              <p id={`${uid}-attest-hint`} className="mt-1 text-caption text-ink-muted">
+              <p id={`${uid}-attest-hint`} className="mt-1 text-sm text-slate-700">
                 {CONSENT_ATTEST_HINT}
               </p>
               {errors.attested ? (
-                <p role="alert" className="mt-1 text-caption text-rose-300">
+                <p role="alert" className="mt-1 text-sm font-medium text-rose-700">
                   {errors.attested}
                 </p>
               ) : null}
             </div>
 
             {formError ? (
-              <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2 text-label text-rose-200">
+              <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-900">
                 {formError}
               </p>
             ) : null}
@@ -423,7 +423,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
             <button
               type="submit"
               disabled={saving}
-              className="flex min-h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-600/30 text-body font-bold text-indigo-100 transition-colors hover:bg-indigo-600/40 disabled:opacity-50"
+              className="flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-700 text-base font-bold text-white transition-colors hover:bg-indigo-800 disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               {saving ? '추가 중...' : '구독자 추가'}
@@ -433,7 +433,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
           /* 여러 줄 일괄 붙여넣기 폼 */
           <form onSubmit={handleBulkSubmit} noValidate className="space-y-3">
             <div className="space-y-1.5">
-              <label htmlFor={`${uid}-bulk-text`} className="text-label font-bold text-slate-300 block">
+              <label htmlFor={`${uid}-bulk-text`} className="text-sm font-bold text-slate-800 block">
                 고객 명단 붙여넣기 (한 줄에 1명씩)
               </label>
               <textarea
@@ -443,37 +443,37 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
                 placeholder={"예시 (엑셀/메모장에서 복사해 바로 붙여넣기):\n홍길동 010-1234-5678 hong@example.com\n김철수 010-9876-5432\n이영희, 010-1111-2222, young@cre.kr"}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-indigo-500 font-mono leading-relaxed resize-none"
+                className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 font-mono leading-relaxed resize-none"
               />
-              <div className="flex items-center justify-between text-caption text-slate-400">
+              <div className="flex items-center justify-between text-sm text-slate-600">
                 <span>공백, 쉼표, 탭 구분자를 자동으로 인식합니다.</span>
-                <span className="font-bold text-indigo-300">
+                <span className="font-bold text-indigo-700">
                   인식된 고객: {validBulkCount}명
                 </span>
               </div>
             </div>
 
             {parsedBulkItems.length > 0 && (
-              <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/60 p-2 space-y-1 text-xs">
+              <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1 text-sm">
                 {parsedBulkItems.slice(0, 10).map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-800/50 last:border-0">
-                    <span className="font-bold text-slate-200">{item.name || '(이름 없음)'}</span>
-                    <span className="text-slate-400">{item.phone || item.email || '(연락처 없음)'}</span>
-                    <span className={item.valid ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                  <div key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-200 last:border-0">
+                    <span className="font-bold text-slate-900">{item.name || '(이름 없음)'}</span>
+                    <span className="text-slate-700">{item.phone || item.email || '(연락처 없음)'}</span>
+                    <span className={item.valid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
                       {item.valid ? '✓ 정상' : '⚠️ 확인 필요'}
                     </span>
                   </div>
                 ))}
                 {parsedBulkItems.length > 10 && (
-                  <p className="text-center text-xs text-slate-500 pt-1">
+                  <p className="text-center text-sm text-slate-600 pt-1">
                     ...외 {parsedBulkItems.length - 10}명
                   </p>
                 )}
               </div>
             )}
 
-            <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
-              <label className="flex min-h-11 cursor-pointer items-start gap-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <label className="flex min-h-[44px] cursor-pointer items-start gap-2">
                 <input
                   type="checkbox"
                   data-testid="bulk-attest-checkbox"
@@ -481,14 +481,14 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                   onChange={(e) => setBulkAttested(e.target.checked)}
                   className="mt-1 h-4 w-4 rounded"
                 />
-                <span className="text-label font-bold text-slate-200">
+                <span className="text-sm font-bold text-slate-900">
                   붙여넣은 명단은 정보통신망법에 따라 수신 동의를 받은 고객임을 보증합니다.
                 </span>
               </label>
             </div>
 
             {formError ? (
-              <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2 text-label text-rose-200">
+              <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-900">
                 {formError}
               </p>
             ) : null}
@@ -497,7 +497,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
               type="submit"
               disabled={saving || validBulkCount === 0}
               data-testid="bulk-submit-btn"
-              className="flex min-h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-600 text-body font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 cursor-pointer shadow-md"
+              className="flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-700 text-base font-bold text-white transition-colors hover:bg-indigo-800 disabled:opacity-50 cursor-pointer shadow-sm"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Users className="h-4 w-4" aria-hidden="true" />}
               {saving ? '일괄 등록 진행 중...' : `총 ${validBulkCount}명 일괄 등록하기`}

@@ -44,7 +44,7 @@ export function ScheduleSection({ buildingId }: ScheduleSectionProps) {
         </h2>
         <Link 
           href={`/broker/schedule?buildingId=${buildingId}`}
-          className="text-xs font-semibold text-amber-600 dark:text-amber-500 hover:underline flex items-center"
+          className="text-sm font-semibold text-amber-600 dark:text-amber-500 hover:underline flex items-center"
         >
           상세 설정 <ChevronRight className="w-3 h-3 ml-0.5" />
         </Link>
@@ -52,11 +52,11 @@ export function ScheduleSection({ buildingId }: ScheduleSectionProps) {
 
       <div className="flex gap-4">
         <div className="flex-1 bg-card rounded-lg p-3 border border-border/50 text-center shadow-sm">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">예약 대기/확정</p>
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">예약 대기/확정</p>
           <p className="text-xl font-black text-foreground mt-1">{bookingsCount}건</p>
         </div>
         <div className="flex-1 bg-card rounded-lg p-3 border border-border/50 text-center shadow-sm">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">오픈된 슬롯</p>
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">오픈된 슬롯</p>
           <p className="text-xl font-black text-foreground mt-1">{slotsCount}개</p>
         </div>
       </div>
@@ -65,7 +65,7 @@ export function ScheduleSection({ buildingId }: ScheduleSectionProps) {
         <div className="mt-2 text-center">
           <Link
             href={`/broker/schedule?buildingId=${buildingId}&setup=true`}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-600 shadow-sm"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-amber-600 shadow-sm"
           >
             임장 가능 시간 등록하기
           </Link>

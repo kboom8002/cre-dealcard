@@ -126,26 +126,18 @@ export function useMagazineDraft(brokerSlug?: string): UseMagazineDraftReturn {
         draft_blocks: currentBlocks
       };
 
-      // Route draft autosave through PATCH API with status='draft' filtering
+      // Route draft autosave through server PATCH API (status changes are handled by dedicated publish routes)
       const patchRes = await fetch('/api/magazine/editions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editionId,
           content: updatedContent,
-          status: 'draft',
         }),
       });
 
       if (!patchRes.ok) {
-        // Fallback to supabase update with strict status = 'draft' guard
-        const { error } = await supabase
-          .from('magazine_editions')
-          .update({ content: updatedContent })
-          .eq('id', editionId)
-          .eq('status', 'draft');
-
-        if (error) throw error;
+        throw new Error(`Draft autosave failed (${patchRes.status})`);
       }
 
       setSaveStatus('saved');

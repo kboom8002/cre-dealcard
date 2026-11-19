@@ -105,7 +105,11 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
     });
 
     it("shows confirmed state badge + tel: CTA when hasImDoc={false} and visitor is already verified", async () => {
-      localStorage.setItem("contact_verified_bldg-no-im-02", "true");
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ verified: true }),
+      } as Response);
 
       await act(async () => {
         root.render(
@@ -117,6 +121,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
           />
         );
       });
+      await act(async () => {});
 
       const confirmedEl = container.querySelector(
         '[data-testid="public-dealcard-im-request-btn"]'
@@ -129,7 +134,11 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
     });
 
     it("preserves /im-lite/${buildingId}?pro=true navigation when hasImDoc={true}", async () => {
-      localStorage.setItem("contact_verified_bldg-with-im-01", "true");
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ verified: true }),
+      } as Response);
 
       await act(async () => {
         root.render(
@@ -140,6 +149,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
           />
         );
       });
+      await act(async () => {});
 
       const primaryBtn = container.querySelector(
         '[data-testid="public-dealcard-im-request-btn"]'

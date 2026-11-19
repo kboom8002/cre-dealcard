@@ -87,7 +87,7 @@ function LineRepairHint({
           data-testid={`${testId}-apply`}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onApply(a.repaired)}
-          className="min-h-[44px] px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 border border-red-300 text-sm font-extrabold transition cursor-pointer shrink-0"
+          className="min-h-[48px] px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 border border-red-300 text-sm font-extrabold transition cursor-pointer shrink-0"
         >
           적용
         </button>
@@ -607,14 +607,13 @@ export function Card4ConfirmCard({
           {/* 4-Item Thumbnail Input Grid (2x2) */}
           <div
             data-testid="card4-og-quadrant-grid"
-            data-theme-lock="dark"
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-slate-900 text-white border border-slate-700"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-slate-50 text-slate-900 border border-slate-300"
           >
             {/* Item 1: 지역 */}
-            <div className="p-3.5 rounded-lg bg-slate-800/90 border border-slate-700 space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
               <label
                 htmlFor="card4-region-input"
-                className="block text-sm font-bold text-slate-200"
+                className="block text-sm font-bold text-slate-700"
               >
                 {TERMS.regionLabel}
               </label>
@@ -624,16 +623,16 @@ export function Card4ConfirmCard({
                 data-testid="card4-region-input"
                 value={card4.region}
                 onChange={(e) => handleFieldChange('region', e.target.value)}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-white bg-slate-900/90 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-600 transition"
                 placeholder="예: 서초구 잠원동"
               />
             </div>
 
             {/* Item 2: 용도 */}
-            <div className="p-3.5 rounded-lg bg-slate-800/90 border border-slate-700 space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
               <label
                 htmlFor="card4-use-input"
-                className="block text-sm font-bold text-sky-300"
+                className="block text-sm font-bold text-sky-800"
               >
                 {TERMS.useLabel}
               </label>
@@ -643,16 +642,16 @@ export function Card4ConfirmCard({
                 data-testid="card4-use-input"
                 value={card4.use}
                 onChange={(e) => handleFieldChange('use', e.target.value)}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-sky-300 bg-slate-900/90 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-sky-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-600 transition"
                 placeholder="예: 근린생활시설"
               />
             </div>
 
             {/* Item 3: 면적 (연면적 / 토지면적) */}
-            <div className="p-3.5 rounded-lg bg-slate-800/90 border border-slate-700 space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
               <label
                 htmlFor="card4-area-input"
-                className="block text-sm font-bold text-emerald-300"
+                className="block text-sm font-bold text-emerald-800"
               >
                 {postureInfo.areaFieldLabel}
               </label>
@@ -662,16 +661,16 @@ export function Card4ConfirmCard({
                 data-testid="card4-area-input"
                 value={currentArea}
                 onChange={(e) => handleFieldChange('area', e.target.value)}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-white bg-slate-900/90 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition"
                 placeholder={postureInfo.areaPlaceholder}
               />
             </div>
 
             {/* Item 4: 가격 */}
-            <div className="p-3.5 rounded-lg bg-slate-800/90 border border-slate-700 space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
               <label
                 htmlFor="card4-priceband-input"
-                className="block text-sm font-bold text-amber-300"
+                className="block text-sm font-bold text-amber-800"
               >
                 {TERMS.priceLabel}
               </label>
@@ -687,7 +686,7 @@ export function Card4ConfirmCard({
                     handleFieldChange('priceBand', norm);
                   }
                 }}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-amber-300 bg-slate-900/90 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-amber-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-600 transition"
                 placeholder="예: 80~90억"
               />
             </div>
@@ -751,7 +750,7 @@ export function Card4ConfirmCard({
                   data-testid="card4-headline-suggestion-apply"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleApplySuggestedHeadline}
-                  className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
+                  className="min-h-[48px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
                 >
                   적용
                 </button>

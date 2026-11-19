@@ -12,16 +12,22 @@ import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
 
+type EditableSection = Omit<MobileIMSection, 'section_type'> & {
+  section_type: MobileIMSection['section_type'] | 'disclaimer';
+  title?: string;
+  markdown?: string;
+};
+
 // D37 H-3: 섹션 저장 시 수치 검증 유틸
 function validateSectionClaims(
-  sections: MobileIMSection[],
-  ssotSummary?: Record<string, any>,
+  sections: EditableSection[],
+  ssotSummary?: Record<string, unknown>,
 ): string[] {
   const warnings: string[] = [];
   if (!ssotSummary) return warnings;
 
   for (const sec of sections) {
-    const md = (sec as any).markdown as string || '';
+    const md = typeof sec.markdown === 'string' ? sec.markdown : '';
 
     // 가격 불일치 검증
     if (sec.section_type === 'property_overview' && ssotSummary.asking_price) {
@@ -60,7 +66,7 @@ export async function PUT(
       { status: 410 }
     );
   }
-  let sections: MobileIMSection[];
+  let sections: EditableSection[];
   let newTitle: string | undefined;
   let hiddenSections: string[] | undefined;
   let photos: Array<{ url: string; caption?: string; order?: number }> | undefined;
@@ -89,20 +95,20 @@ export async function PUT(
 
     for (const sec of sections) {
       // 레거시 호환: section_type 없이 저장된 '면책 조항' 섹션은 disclaimer 로 보정 (미보정 시 모든 저장이 400)
-      if (!sec.section_type && typeof (sec as any).title === 'string' && /면책/.test((sec as any).title)) {
-        (sec as any).section_type = 'disclaimer';
+      if (!sec.section_type && typeof sec.title === 'string' && /면책/.test(sec.title)) {
+        sec.section_type = 'disclaimer';
       }
-      if (!sec.section_type || typeof (sec as any).markdown !== 'string') {
+      if (!sec.section_type || typeof sec.markdown !== 'string') {
         return NextResponse.json({ error: "Invalid section structure" }, { status: 400 });
       }
-      let markdown = (sec as any).markdown;
+      let markdown = sec.markdown;
       markdown = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
       markdown = markdown.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
       markdown = markdown.replace(/(\s)on[a-z]+\s*=\s*(['"])(?:(?!\2).)*\2/gi, '$1');
       markdown = markdown.replace(/(\s)on[a-z]+\s*=\s*[^>\s]+/gi, '$1');
       markdown = markdown.replace(/href\s*=\s*(['"])javascript:[^'"]*\1/gi, 'href="#"');
       markdown = markdown.replace(/src\s*=\s*(['"])javascript:[^'"]*\1/gi, 'src=""');
-      (sec as any).markdown = markdown;
+      sec.markdown = markdown;
     }
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
@@ -125,7 +131,7 @@ export async function PUT(
       .select('id, owner_id, broker_id, body, status, building_id')
       .eq('id', id)
       .maybeSingle();
-    doc = fallbackRes.data as any;
+    doc = fallbackRes.data as typeof doc;
     fetchErr = fallbackRes.error;
   }
 
@@ -134,7 +140,7 @@ export async function PUT(
   }
 
   const ownerId = doc.broker_id ?? doc.owner_id;
-  if (ownerId !== guard.user!.id) {
+  if (guard.role !== 'admin' && ownerId !== guard.user!.id) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
@@ -153,22 +159,22 @@ export async function PUT(
   // 중개인 사진 태깅(유형/역할/캡션/제외)을 photos_v2에도 동기화.
   // resolvePhotos(PPTX)는 photos_v2를 photos보다 우선하므로, 미동기화 시 승인 화면 편집이 PPTX에 반영되지 않음.
   const syncedPhotosV2 = (() => {
-    const v2 = (content as Record<string, any>).photos_v2;
+    const v2 = content.photos_v2;
     if (photos === undefined || !Array.isArray(v2) || v2.length === 0) return undefined;
-    const editedByUrl = new Map(photos.filter((p: any) => p?.url).map((p: any) => [p.url, p]));
+    const editedByUrl = new Map(photos.filter((p) => Boolean(p?.url)).map((p) => [p.url, p as Record<string, unknown>]));
     const TAG_KEYS = ['category', 'type', 'label', 'caption', 'role', 'isHero', 'excluded', 'order'] as const;
-    return v2.map((item: any) => {
-      const url = typeof item === 'string' ? item : item?.url;
-      const edited: any = url ? editedByUrl.get(url) : undefined;
-      if (!edited) return item;
-      const base = typeof item === 'string' ? { url: item } : item;
+    return v2.map((item: unknown) => {
+      const rec = typeof item === 'string' ? { url: item } : (item as Record<string, unknown> | null);
+      const url = typeof rec?.url === 'string' ? rec.url : undefined;
+      const edited = url ? editedByUrl.get(url) : undefined;
+      if (!edited || !rec) return item;
       const patch: Record<string, unknown> = {};
       for (const k of TAG_KEYS) if (edited[k] !== undefined) patch[k] = edited[k];
-      return { ...base, ...patch };
+      return { ...rec, ...patch };
     });
   })();
   
-  const updatedContent: Record<string, any> = {
+  const updatedContent: Record<string, unknown> = {
     ...content,
     sections: sections,
     ...(newTitle ? { title: newTitle } : {}),
@@ -180,14 +186,14 @@ export async function PUT(
     ...(heroTitle !== undefined ? { heroTitle } : {}),
     ...(heroSubtitle !== undefined ? { heroSubtitle } : {}),
     ...(keyInvestmentPoint !== undefined || keyPoints !== undefined ? { heroCard: {
-      ...((content as Record<string, any>).heroCard || {}),
+      ...((content.heroCard as Record<string, unknown> | undefined) || {}),
       ...(keyInvestmentPoint !== undefined ? { keyInvestmentPoint } : {}),
       ...(keyPoints !== undefined ? { keyPoints } : {}),
     } } : {}),
   };
 
   // Compute deterministic SHA-256 target hash
-  const tier = updatedContent.releaseTier ?? 'fact_om';
+  const tier = typeof updatedContent.releaseTier === 'string' ? updatedContent.releaseTier : 'fact_om';
   const newTargetHash = computeTargetHash({
     body: updatedContent,
     releaseTier: tier,
@@ -196,11 +202,11 @@ export async function PUT(
   updatedContent.targetHash = newTargetHash;
   updatedContent.approval_target_hash = newTargetHash;
 
-  const existingSections = (content.sections as any[]) || [];
+  const existingSections = (content.sections as EditableSection[] | undefined) || [];
   
   for (const section of sections) {
-    const prev = existingSections.find((s: any) => s.section_type === section.section_type);
-    if (prev && typeof prev.markdown === 'string' && prev.markdown !== section.markdown) {
+    const prev = existingSections.find((s) => s.section_type === section.section_type);
+    if (prev && typeof prev.markdown === 'string' && typeof section.markdown === 'string' && prev.markdown !== section.markdown) {
       const prevLen = prev.markdown.length;
       const currLen = section.markdown.length;
       const maxLen = Math.max(prevLen, currLen);
@@ -236,11 +242,23 @@ export async function PUT(
     .eq('id', id);
 
   if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    log.error('[save-sections] document_objects update failed:', {
+      code: updateErr.code,
+      message: updateErr.message,
+      id,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'SECTION_SAVE_FAILED',
+        error: '섹션 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      { status: 500 }
+    );
   }
 
   // Forward sync to PPTX Studio project if exists
-  const buildingId = (doc as any).building_id || id;
+  const buildingId = doc.building_id || id;
   try {
     const pptxProject =
       await studioService.findProjectByDealId(buildingId) ||
@@ -290,8 +308,8 @@ export async function PUT(
   }
 
   // D37 H-3: Claim 수치 검증 (non-blocking warnings)
-  const ssotSummary = (content as Record<string, any>).ssot_summary;
-  const claimWarnings = validateSectionClaims(sections, ssotSummary);
+  const ssotSummary = content.ssot_summary as Record<string, unknown> | undefined;
+  const claimWarnings = validateSectionClaims(sections as MobileIMSection[], ssotSummary);
 
   return NextResponse.json({
     ok: true,

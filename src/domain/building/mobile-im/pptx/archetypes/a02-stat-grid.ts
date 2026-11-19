@@ -115,12 +115,12 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       margin: 0,
     });
     // Brass 강조선
-    const lineY = 1.28 + leadH + 0.06;
+    const lineY = 1.28 + leadH + 0.08;
     slide.addShape('line', {
       x: M, y: lineY, w: CW, h: 0,
       line: { color: C.brass, width: 1.5 },
     });
-    startY = lineY + 0.14;
+    startY = lineY + 0.15;
   }
   
   // Stat grid

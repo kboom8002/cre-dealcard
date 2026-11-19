@@ -85,7 +85,7 @@ describe("AI 1st — Human 2nd: 12-Scenario Pseudo-Golden Dataset Suite (PG-01 ~
     expect(parsed3.rows.filter((r) => r.status === "owner").map((r) => r.unit)).toEqual(["303호"]);
   });
 
-  it("PG-05: Sparse & Non-standard Floor Labels (-1, 1, 2, 5) normalize to B1, 1F, 2F, 5F and synthesize missing vacant floors (3F, 4F)", () => {
+  it("PG-05: Sparse & Non-standard Floor Labels (-1, 1, 2, 5) normalize to B1, 1F, 2F, 5F without fabricating vacant floors", () => {
     expect(normalizeFloorName("-1")).toBe("B1");
     expect(normalizeFloorName("-2F")).toBe("B2");
     expect(normalizeFloorName("1")).toBe("1F");
@@ -101,14 +101,7 @@ describe("AI 1st — Human 2nd: 12-Scenario Pseudo-Golden Dataset Suite (PG-01 ~
     ].join("\n");
 
     const parsed = parseTsvRentRoll(sparseTsv);
-    expect(parsed.rows.map((r) => r.floor)).toEqual(["B1", "1F", "2F", "3F", "4F", "5F"]);
-
-    const floor3 = parsed.rows.find((r) => r.floor === "3F")!;
-    const floor4 = parsed.rows.find((r) => r.floor === "4F")!;
-    expect(floor3.status).toBe("vacant");
-    expect(floor3.use).toBe("공실");
-    expect(floor4.status).toBe("vacant");
-    expect(floor4.use).toBe("공실");
+    expect(parsed.rows.map((r) => r.floor)).toEqual(["B1", "1F", "2F", "5F"]);
 
     // 점유 합산 금액은 기존 4개 점유층(B1, 1F, 2F, 5F)과 정확히 일치
     expect(parsed.totalDepositManwon).toBe(3000 + 5000 + 4000 + 3000);

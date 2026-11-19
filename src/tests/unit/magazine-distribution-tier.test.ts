@@ -97,10 +97,12 @@ describe('Magazine Distribution Tier Guard (무료 이메일 우선 & Pro 유료
       expect(providers.sendEmailProvider).toHaveBeenCalledWith(
         expect.objectContaining({ to: 'hong@example.com', subject: expect.stringContaining('(광고)') }),
       );
-      // 개인화 링크(매거진 URL)는 렌더 입력으로 전달된다
+      // 개인화 링크(매거진 URL + ?sid= 추적 토큰)는 렌더 입력으로 전달된다
       expect(renderSpy.email).toHaveBeenCalledWith(
         expect.objectContaining({
-          edition: expect.objectContaining({ url: 'https://www.credeal.net/magazine/kim-broker/2026-09-28' }),
+          edition: expect.objectContaining({
+            url: expect.stringMatching(/^https:\/\/www\.credeal\.net\/magazine\/kim-broker\/2026-09-28(?:\?sid=|$)/),
+          }),
         }),
       );
     });
@@ -129,7 +131,9 @@ describe('Magazine Distribution Tier Guard (무료 이메일 우선 & Pro 유료
       );
       expect(renderSpy.kakao).toHaveBeenCalledWith(
         expect.objectContaining({
-          edition: expect.objectContaining({ url: 'https://www.credeal.net/magazine/kim-broker/2026-09-28' }),
+          edition: expect.objectContaining({
+            url: expect.stringMatching(/^https:\/\/www\.credeal\.net\/magazine\/kim-broker\/2026-09-28(?:\?sid=|$)/),
+          }),
         }),
       );
     });

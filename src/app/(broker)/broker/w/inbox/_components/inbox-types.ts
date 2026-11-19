@@ -31,12 +31,22 @@ export interface RecipientEvent {
   sectionName?: string;
 }
 
+export type InboxDispatchStatus =
+  | "sent"
+  | "delivered"
+  | "bounced"
+  | "complained"
+  | "copied"
+  | "prepared"
+  | "imported"
+  | "logged";
+
 export interface InboxDispatchHistoryItem {
   id: string;
   eventType: string;
-  channel: "email" | "kakao_copy" | "newsletter" | "alimtalk";
+  channel: "email" | "kakao_copy" | "copy" | "newsletter" | "alimtalk" | "link" | "import" | "system";
   title: string;
-  status: "sent" | "delivered" | "bounced" | "complained";
+  status: InboxDispatchStatus;
   createdAt: string;
   bounceReason?: string;
 }
@@ -297,9 +307,12 @@ export function formatDispatchChannelLabel(
   channel: InboxDispatchHistoryItem["channel"] | string
 ): string {
   if (channel === "email") return "이메일";
-  if (channel === "kakao_copy") return "카톡 복사";
+  if (channel === "kakao_copy" || channel === "copy") return "카톡 복사";
   if (channel === "newsletter") return "뉴스레터";
   if (channel === "alimtalk") return "알림톡";
+  if (channel === "import") return "연락처 등록";
+  if (channel === "link") return "전용 링크";
+  if (channel === "system") return "시스템";
   return "발송";
 }
 
@@ -322,6 +335,30 @@ export function formatDispatchStatusBadge(
     return {
       label: "전달 완료",
       cls: "border border-emerald-200 bg-emerald-100 text-emerald-900",
+    };
+  }
+  if (status === "copied") {
+    return {
+      label: "링크 복사됨",
+      cls: "border border-sky-200 bg-sky-50 text-sky-900",
+    };
+  }
+  if (status === "prepared") {
+    return {
+      label: "링크 준비됨",
+      cls: "border border-indigo-200 bg-indigo-50 text-indigo-900",
+    };
+  }
+  if (status === "imported") {
+    return {
+      label: "연락처 등록됨",
+      cls: "border border-teal-200 bg-teal-50 text-teal-900",
+    };
+  }
+  if (status === "logged") {
+    return {
+      label: "기록됨",
+      cls: "border border-slate-200 bg-slate-50 text-slate-700",
     };
   }
   return {
@@ -485,7 +522,8 @@ export function matchesInboxThreadFilter(
   return true;
 }
 
-export function normalizeServerThread(raw: any): InboxThreadItem {
+export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
+  const raw = (rawInput && typeof rawInput === "object" ? rawInput : {}) as Record<string, unknown>;
   const parsedReason = parseRawGateReason(raw?.detail || raw?.reason || raw?.cleanMessage);
   const rawStatus = String(raw?.status || "active");
   const mappedStatus: InboxThreadItem["status"] =
@@ -519,25 +557,28 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
     ).trim() || "상세 자료를 열람했습니다.";
 
   const focusedSections = Array.isArray(raw?.focusedSections)
-    ? raw.focusedSections.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+    ? raw.focusedSections.filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0)
     : [];
 
   const events: RecipientEvent[] =
     Array.isArray(raw?.events) && raw.events.length > 0
-      ? raw.events.map((ev: any, idx: number) => ({
-          id: String(ev?.id || `ev-${raw?.id || idx}-${idx}`),
-          eventType:
-            ev?.eventType === "gate_request" ||
-            ev?.eventType === "dwell" ||
-            ev?.eventType === "share"
-              ? ev.eventType
-              : "open",
-          description:
-            parseRawGateReason(ev?.description).cleanMessage ||
-            String(ev?.description || "상세 자료를 열람했습니다."),
-          timestamp: String(ev?.timestamp || "방금"),
-          sectionName: typeof ev?.sectionName === "string" ? ev.sectionName : undefined,
-        }))
+      ? raw.events.map((evRaw: unknown, idx: number) => {
+          const ev = (evRaw && typeof evRaw === "object" ? evRaw : {}) as Record<string, unknown>;
+          return {
+            id: String(ev?.id || `ev-${raw?.id || idx}-${idx}`),
+            eventType:
+              ev?.eventType === "gate_request" ||
+              ev?.eventType === "dwell" ||
+              ev?.eventType === "share"
+                ? ev.eventType
+                : "open",
+            description:
+              parseRawGateReason(ev?.description).cleanMessage ||
+              String(ev?.description || "상세 자료를 열람했습니다."),
+            timestamp: String(ev?.timestamp || "방금"),
+            sectionName: typeof ev?.sectionName === "string" ? ev.sectionName : undefined,
+          };
+        })
       : [
           {
             id: `ev-${raw?.id || Date.now()}`,
@@ -577,8 +618,8 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
       : "buyer";
 
   const preferredRegions = Array.isArray(raw?.preferredRegions)
-    ? parsePreferredRegionsList(raw.preferredRegions)
-    : parsePreferredRegionsList(raw?.preferredRegion);
+    ? parsePreferredRegionsList(raw.preferredRegions as string[])
+    : parsePreferredRegionsList(typeof raw?.preferredRegion === "string" ? raw.preferredRegion : "");
 
   const preferredRegion =
     String(raw?.preferredRegion || "").trim() || preferredRegions.join(", ");
@@ -597,27 +638,40 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
       : "ok";
 
   const dispatchHistory: InboxDispatchHistoryItem[] = Array.isArray(raw?.dispatchHistory)
-    ? raw.dispatchHistory.map((d: any, idx: number) => ({
-        id: String(d?.id || `disp-${raw?.id || idx}-${idx}`),
-        eventType: String(d?.eventType || "inbox_outbound_copied"),
-        channel:
-          d?.channel === "email" ||
-          d?.channel === "kakao_copy" ||
-          d?.channel === "newsletter" ||
-          d?.channel === "alimtalk"
-            ? d.channel
-            : "kakao_copy",
-        title: String(d?.title || buildingTitle),
-        status:
-          d?.status === "bounced" ||
-          d?.status === "complained" ||
-          d?.status === "delivered"
-            ? d.status
-            : "sent",
-        createdAt: String(d?.createdAt || "방금"),
-        bounceReason: typeof d?.bounceReason === "string" ? d.bounceReason : undefined,
-      }))
+    ? raw.dispatchHistory.map((dRaw: unknown, idx: number) => {
+        const d = (dRaw && typeof dRaw === "object" ? dRaw : {}) as Record<string, unknown>;
+        return {
+          id: String(d?.id || `disp-${raw?.id || idx}-${idx}`),
+          eventType: String(d?.eventType || "inbox_outbound_copied"),
+          channel:
+            d?.channel === "email" ||
+            d?.channel === "kakao_copy" ||
+            d?.channel === "copy" ||
+            d?.channel === "newsletter" ||
+            d?.channel === "alimtalk" ||
+            d?.channel === "link" ||
+            d?.channel === "import" ||
+            d?.channel === "system"
+              ? d.channel
+              : "kakao_copy",
+          title: String(d?.title || buildingTitle),
+          status:
+            d?.status === "bounced" ||
+            d?.status === "complained" ||
+            d?.status === "delivered" ||
+            d?.status === "copied" ||
+            d?.status === "prepared" ||
+            d?.status === "imported" ||
+            d?.status === "logged"
+              ? d.status
+              : "sent",
+          createdAt: String(d?.createdAt || "방금"),
+          bounceReason: typeof d?.bounceReason === "string" ? d.bounceReason : undefined,
+        };
+      })
     : [];
+
+  const rawClientComp = raw?.clientCompany || raw?.requesterCompany || parsedReason.requesterCompany;
 
   return {
     id: String(raw?.id || `thread-${Date.now()}`),
@@ -642,8 +696,7 @@ export function normalizeServerThread(raw: any): InboxThreadItem {
       typeof raw?.hasTransactionalBasis === "boolean"
         ? raw.hasTransactionalBasis
         : Boolean(raw?.transactionalBasis) || mappedStatus === "pending_gate",
-    clientCompany:
-      raw?.clientCompany || raw?.requesterCompany || parsedReason.requesterCompany || undefined,
+    clientCompany: typeof rawClientComp === "string" && rawClientComp.trim() ? rawClientComp.trim() : undefined,
     clientGrade,
     isVip,
     clientRole,

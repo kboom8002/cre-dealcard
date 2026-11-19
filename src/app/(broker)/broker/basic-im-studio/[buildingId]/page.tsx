@@ -258,10 +258,12 @@ function BasicImStudioInner({
             hidden: nextHidden,
           }),
         });
-        const data = await res.json();
-        if (data.ok && data.project) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.ok && data.project) {
           setProject(data.project);
           toast.success(nextHidden ? '슬라이드가 다운로드에서 제외되었습니다.' : '슬라이드가 다운로드에 포함됩니다.');
+        } else {
+          toast.error(data?.error || '표시 상태 변경에 실패했습니다.');
         }
       } catch {
         toast.error('표시 상태 변경에 실패했습니다.');
@@ -293,9 +295,11 @@ function BasicImStudioInner({
             orderedSlideIds,
           }),
         });
-        const data = await res.json();
-        if (data.ok && data.project) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.ok && data.project) {
           setProject(data.project);
+        } else {
+          toast.error(data?.error || '슬라이드 순서 저장에 실패했습니다.');
         }
       } catch {
         toast.error('슬라이드 순서 저장에 실패했습니다.');
@@ -314,7 +318,7 @@ function BasicImStudioInner({
         currentSlide.id
       );
       try {
-        await fetch(`/api/broker/basic-im-studio/${project.id}`, {
+        const res = await fetch(`/api/broker/basic-im-studio/${project.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -323,9 +327,18 @@ function BasicImStudioInner({
             layoutType,
           }),
         });
+        // WP-7.3D P2-11: only report success when the server actually persisted the change.
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.ok === false)) {
+          toast.error(
+            (data && typeof data.error === 'string' && data.error) ||
+              '슬라이드 레이아웃 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+          );
+          return;
+        }
         toast.success('슬라이드 레이아웃이 변경되었습니다.');
       } catch {
-        // Non-blocking
+        toast.error('슬라이드 레이아웃 저장에 실패했습니다. 네트워크 상태를 확인해 주세요.');
       }
     },
     [project, currentSlide, commitSlideChange]
@@ -344,11 +357,13 @@ function BasicImStudioInner({
           slideId: currentSlide.id,
         }),
       });
-      const data = await res.json();
-      if (data.ok && data.project) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok && data.project) {
         setProject(data.project);
         hydrateSlides(data.project.slides);
         toast.success('이 슬라이드를 공부·초기 추출값으로 복원했습니다.');
+      } else {
+        toast.error(data?.error || '초기값 복원에 실패했습니다.');
       }
     } catch {
       toast.error('초기값 복원에 실패했습니다.');
@@ -400,9 +415,13 @@ function BasicImStudioInner({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (dirtySlideIds.size > 0) {
-          void flushAllDirtySlides().then(() => {
-            toast.success('💾 모든 슬라이드 변경사항이 저장되었습니다.');
-          });
+          void flushAllDirtySlides()
+            .then(() => {
+              toast.success('💾 모든 슬라이드 변경사항이 저장되었습니다.');
+            })
+            .catch(() => {
+              toast.error('일부 슬라이드 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+            });
         } else {
           void handleSaveSlide();
         }
@@ -577,7 +596,7 @@ function BasicImStudioInner({
             data-testid="studio-back-btn"
             disabled={navigatingBack}
             onClick={() => void handleNavigateBack()}
-            className="px-3 py-1.5 rounded-lg text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] disabled:opacity-50 transition-colors shrink-0"
+            className="min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] disabled:opacity-50 transition-colors shrink-0 cursor-pointer"
           >
             {navigatingBack ? '저장 후 이동 중…' : '← 돌아가기'}
           </button>
@@ -592,7 +611,7 @@ function BasicImStudioInner({
                   setRightTab('theme');
                   setMobileStudioPane('inspector');
                 }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8] shrink-0"
+                className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-full text-sm font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8] shrink-0 cursor-pointer"
                 title="클릭하여 프리셋·테마 변경"
               >
                 <span
@@ -612,7 +631,7 @@ function BasicImStudioInner({
             <button
               type="button"
               onClick={() => setShowQualityPopover(v => !v)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-colors flex items-center gap-1.5 ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-xl text-sm font-extrabold border transition-colors flex items-center gap-1.5 cursor-pointer ${
                 passedCount === 5
                   ? 'bg-[#ECFDF5] text-[#065F46] border-[#6EE7B7] hover:bg-[#D1FAE5]'
                   : 'bg-[#FFFBEB] text-[#92400E] border-[#FCD34D] hover:bg-[#FEF3C7]'
@@ -622,15 +641,15 @@ function BasicImStudioInner({
               <span>{passedCount === 5 ? `✅ IM 품질 ${passedCount}/5` : `⚡ IM 점검 ${passedCount}/5`}</span>
             </button>
             {showQualityPopover && (
-              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-[#CBD5E1] bg-white shadow-xl p-3 z-50">
+              <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-[#CBD5E1] bg-white shadow-xl p-3.5 z-50">
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E2E8F0]">
-                  <span className="text-xs font-black text-[#0F172A]">
+                  <span className="text-sm font-black text-[#0F172A]">
                     📋 Basic IM 5대 핵심 품질 점검 ({passedCount}/5)
                   </span>
                   <button
                     type="button"
                     onClick={() => setShowQualityPopover(false)}
-                    className="text-xs font-bold text-[#64748B] hover:text-[#0F172A]"
+                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-sm font-bold text-[#64748B] hover:text-[#0F172A] cursor-pointer"
                   >
                     ✕
                   </button>
@@ -646,11 +665,11 @@ function BasicImStudioInner({
                         setMobileStudioPane('inspector');
                         setShowQualityPopover(false);
                       }}
-                      className="w-full px-2.5 py-2 rounded-xl border border-[#E2E8F0] hover:border-[#1D4ED8] hover:bg-[#F8FAFC] flex items-center justify-between text-left transition-all"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-[#E2E8F0] hover:border-[#1D4ED8] hover:bg-[#F8FAFC] flex items-center justify-between text-left transition-all cursor-pointer"
                     >
-                      <span className="text-xs font-extrabold text-[#0F172A]">{item.label}</span>
+                      <span className="text-sm font-extrabold text-[#0F172A]">{item.label}</span>
                       <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                        className={`px-2 py-0.5 rounded-md text-sm font-black ${
                           item.passed
                             ? 'bg-[#DCFCE7] text-[#166534]'
                             : 'bg-[#FEF3C7] text-[#92400E]'
@@ -661,7 +680,7 @@ function BasicImStudioInner({
                     </button>
                   ))}
                 </div>
-                <div className="mt-2 pt-2 border-t border-[#E2E8F0] text-[10px] font-medium text-[#475569]">
+                <div className="mt-2 pt-2 border-t border-[#E2E8F0] text-sm font-medium text-[#475569]">
                   💡 항목을 클릭하면 해당 슬라이드 편집 화면으로 즉시 이동합니다. (단축키: Ctrl+S 저장, Alt+↑/↓ 이동)
                 </div>
               </div>
@@ -683,7 +702,7 @@ function BasicImStudioInner({
             type="button"
             data-testid="studio-shortcut-help-btn"
             onClick={() => setShowShortcutHelp(true)}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] transition-colors shrink-0"
+            className="min-h-[44px] px-3 py-2 rounded-xl text-sm font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:bg-[#E2E8F0] transition-colors shrink-0 cursor-pointer"
             title="키보드 단축키 도움말 (?)"
           >
             ⌨️ 단축키
@@ -694,7 +713,7 @@ function BasicImStudioInner({
               type="button"
               onClick={() => undo()}
               disabled={!canUndo}
-              className="px-2.5 py-1.5 text-xs font-bold text-[#0F172A] hover:bg-white rounded-lg disabled:opacity-35 transition-all"
+              className="min-h-[44px] px-3 py-1.5 text-sm font-bold text-[#0F172A] hover:bg-white rounded-lg disabled:opacity-35 transition-all cursor-pointer"
               title="실행 취소 (Ctrl+Z)"
             >
               ↩ 실행취소
@@ -703,7 +722,7 @@ function BasicImStudioInner({
               type="button"
               onClick={() => redo()}
               disabled={!canRedo}
-              className="px-2.5 py-1.5 text-xs font-bold text-[#0F172A] hover:bg-white rounded-lg disabled:opacity-35 transition-all"
+              className="min-h-[44px] px-3 py-1.5 text-sm font-bold text-[#0F172A] hover:bg-white rounded-lg disabled:opacity-35 transition-all cursor-pointer"
               title="다시 실행 (Ctrl+Shift+Z)"
             >
               ↪ 다시실행
@@ -715,7 +734,7 @@ function BasicImStudioInner({
               type="button"
               onClick={flushAllDirtySlides}
               disabled={saving}
-              className="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] hover:bg-[#FDE68A] transition-colors"
+              className="min-h-[44px] px-3.5 py-2 rounded-xl text-sm font-extrabold bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] hover:bg-[#FDE68A] transition-colors cursor-pointer"
             >
               💾 변경사항 전체 저장 ({dirtySlideIds.size}면)
             </button>
@@ -726,7 +745,7 @@ function BasicImStudioInner({
             data-testid="studio-download-pptx-btn"
             onClick={handleDownload}
             disabled={downloading}
-            className="px-4 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl text-xs sm:text-sm font-black transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5"
+            className="min-h-[44px] px-4 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl text-sm font-black transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 cursor-pointer"
           >
             <span>{downloading ? '⏳ PPTX 빌드 중...' : '📥 편집 반영 PPTX 다운로드'}</span>
           </button>
@@ -741,7 +760,7 @@ function BasicImStudioInner({
         <button
           type="button"
           onClick={() => setMobileStudioPane('slides')}
-          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-extrabold border transition-colors ${
+          className={`flex-1 min-h-[44px] py-2 px-2.5 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
             mobileStudioPane === 'slides'
               ? 'bg-[#0F172A] text-white border-[#0F172A]'
               : 'bg-[#F8FAFC] text-[#334155] border-[#CBD5E1]'
@@ -752,7 +771,7 @@ function BasicImStudioInner({
         <button
           type="button"
           onClick={() => setMobileStudioPane('canvas')}
-          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-extrabold border transition-colors ${
+          className={`flex-1 min-h-[44px] py-2 px-2.5 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
             mobileStudioPane === 'canvas'
               ? 'bg-[#0F172A] text-white border-[#0F172A]'
               : 'bg-[#F8FAFC] text-[#334155] border-[#CBD5E1]'
@@ -763,7 +782,7 @@ function BasicImStudioInner({
         <button
           type="button"
           onClick={() => setMobileStudioPane('inspector')}
-          className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-extrabold border transition-colors ${
+          className={`flex-1 min-h-[44px] py-2 px-2.5 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
             mobileStudioPane === 'inspector'
               ? 'bg-[#0F172A] text-white border-[#0F172A]'
               : 'bg-[#F8FAFC] text-[#334155] border-[#CBD5E1]'
@@ -861,7 +880,7 @@ function BasicImStudioInner({
                 type="button"
                 data-testid="studio-shortcut-help-close-btn"
                 onClick={() => setShowShortcutHelp(false)}
-                className="px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-xs font-extrabold text-[#0F172A]"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-sm font-extrabold text-[#0F172A] cursor-pointer"
               >
                 ✕ 닫기 (Esc)
               </button>
@@ -869,19 +888,19 @@ function BasicImStudioInner({
             <div className="space-y-2.5 text-sm">
               <div className="flex items-center justify-between py-1.5 border-b border-[#F1F5F9]">
                 <span className="font-semibold text-[#334155]">변경사항 저장</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Ctrl + S</kbd>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-sm font-bold">Ctrl + S</kbd>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-[#F1F5F9]">
                 <span className="font-semibold text-[#334155]">실행 취소 / 다시 실행</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Ctrl + Z / Ctrl + Shift + Z</kbd>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-sm font-bold">Ctrl + Z / Ctrl + Shift + Z</kbd>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-[#F1F5F9]">
                 <span className="font-semibold text-[#334155]">이전 · 다음 슬라이드 이동</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Alt + ↑ / ↓</kbd>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-sm font-bold">Alt + ↑ / ↓</kbd>
               </div>
               <div className="flex items-center justify-between py-1.5">
                 <span className="font-semibold text-[#334155]">전체화면 · 창 닫기</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-xs font-bold">Esc</kbd>
+                <kbd className="px-2 py-0.5 rounded bg-[#F1F5F9] border border-[#CBD5E1] text-sm font-bold">Esc</kbd>
               </div>
             </div>
           </div>

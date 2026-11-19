@@ -57,17 +57,39 @@ interface Opts {
   editions?: unknown[];
   dbError?: boolean;
   upsertError?: { code?: string; message: string } | null;
+  incompleteStatutory?: boolean;
 }
 
 function setupDb(o: Opts = {}) {
   h.db = createFakeDb((call: FakeCall) => {
     switch (call.table) {
       case 'broker_profiles':
-        return eqValue(call, 'slug') === 'broker-a'
-          ? { data: { user_id: UA, slug: 'broker-a', bio: null, specialty_regions: ['성수동'], specialty_assets: ['꼬마빌딩'], is_public: true } }
+        return eqValue(call, 'slug') === 'broker-a' || eqValue(call, 'user_id') === UA
+          ? {
+              data: {
+                user_id: UA,
+                slug: 'broker-a',
+                bio: null,
+                office_address: o.incompleteStatutory ? null : '서울특별시 성동구 성수이로 88',
+                office_reg_number: o.incompleteStatutory ? null : '11200-2023-04567',
+                representative_name: '김중개',
+                specialty_regions: ['성수동'],
+                specialty_assets: ['꼬마빌딩'],
+                is_public: true,
+              },
+            }
           : { data: null };
       case 'profiles':
-        return { data: { id: UA, display_name: '홍길동', photo_url: null, company: 'ABC', tagline: null } };
+        return {
+          data: {
+            id: UA,
+            display_name: '김중개',
+            photo_url: null,
+            company: o.incompleteStatutory ? null : '성수공인중개사사무소',
+            phone: o.incompleteStatutory ? null : '010-1234-5678',
+            tagline: null,
+          },
+        };
       case 'magazine_issues':
         if (call.op === 'upsert') return { data: null, error: o.upsertError ?? null };
         if (o.dbError) return { data: null, error: { code: 'XX000', message: 'boom' } };
@@ -212,6 +234,15 @@ describe('POST — 인증/소유 (T1-02)', () => {
     setupDb({ upsertError: { code: '42P01', message: 'relation does not exist' } });
     const res = await POST(postReq({ issueDate: PAST, headline: 'x' }), ctx('broker-a'));
     expect(res.status).toBe(500);
+  });
+
+  it('법정 표시사항(5대 항목) 누락 시 422 STATUTORY_DISCLOSURE_INCOMPLETE, upsert 0건', async () => {
+    setupDb({ incompleteStatutory: true });
+    const res = await POST(postReq({ issueDate: PAST, headline: 'x' }), ctx('broker-a'));
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error.code).toBe('STATUTORY_DISCLOSURE_INCOMPLETE');
+    expect(writes()).toHaveLength(0);
   });
 });
 

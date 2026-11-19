@@ -92,17 +92,17 @@ function UpdatePasswordContent() {
   };
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 shadow-2xl">
+    <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-slate-900">
       <div className="mb-8">
-        <p className="text-xs font-bold tracking-wider text-primary mb-1.5">
+        <p className="text-sm font-bold tracking-wider text-blue-700 mb-1.5">
           {COMPANY_LEGAL_CONFIG.serviceName}
         </p>
-        <h1 className="text-2xl font-black text-white mb-1">새 비밀번호 설정</h1>
-        <p className="text-[15px] text-neutral-400">8자 이상의 새로운 비밀번호를 입력해주세요.</p>
+        <h1 className="text-2xl font-black text-slate-900 mb-1">새 비밀번호 설정</h1>
+        <p className="text-[15px] text-slate-600">8자 이상의 새로운 비밀번호를 입력해주세요.</p>
       </div>
 
       {verifyingCode && (
-        <div className="mb-5 p-3.5 bg-neutral-950 border border-neutral-800 rounded-lg text-[15px] text-neutral-300">
+        <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-[15px] text-slate-700">
           재설정 링크의 보안 인증을 확인하고 있습니다...
         </div>
       )}
@@ -110,13 +110,13 @@ function UpdatePasswordContent() {
       {error && (
         <div
           role="alert"
-          className="mb-5 p-4 bg-red-900/30 border border-red-800/50 rounded-xl space-y-3"
+          className="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl space-y-3"
         >
-          <p className="text-[15px] text-red-200 leading-relaxed">{error}</p>
+          <p className="text-[15px] text-red-800 leading-relaxed">{error}</p>
           {linkExpired && (
             <Link
               href="/reset-password"
-              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 px-4 py-2.5 text-[15px] font-bold text-white transition-colors"
+              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-white hover:bg-slate-50 border border-red-300 px-4 py-2.5 text-[15px] font-bold text-red-800 transition-colors"
             >
               비밀번호 재설정 링크 다시 받기 →
             </Link>
@@ -126,7 +126,7 @@ function UpdatePasswordContent() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-[15px] font-semibold text-neutral-200">
+          <label htmlFor="password" className="block text-[15px] font-semibold text-slate-800">
             새 비밀번호
           </label>
           <input
@@ -138,12 +138,12 @@ function UpdatePasswordContent() {
             required
             minLength={8}
             placeholder="8자 이상 입력"
-            className="w-full min-h-[48px] bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-[16px] text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+            className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="confirm" className="block text-[15px] font-semibold text-neutral-200">
+          <label htmlFor="confirm" className="block text-[15px] font-semibold text-slate-800">
             새 비밀번호 확인
           </label>
           <input
@@ -155,25 +155,25 @@ function UpdatePasswordContent() {
             required
             minLength={8}
             placeholder="비밀번호 다시 입력"
-            className="w-full min-h-[48px] bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-[16px] text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+            className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading || verifyingCode}
-          className="w-full min-h-[52px] bg-primary hover:bg-primary/90 text-primary-foreground font-black rounded-lg px-4 py-3 text-[16px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full min-h-[52px] bg-blue-700 hover:bg-blue-800 text-white font-black rounded-lg px-4 py-3 text-[16px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         >
           {loading ? '변경 중...' : '비밀번호 변경'}
         </button>
       </form>
 
-      <div className="mt-6 flex items-center justify-center gap-4 text-[14px] text-neutral-400">
-        <Link href="/reset-password" className="hover:text-primary transition-colors py-1">
+      <div className="mt-6 flex items-center justify-center gap-4 text-sm text-slate-600">
+        <Link href="/reset-password" className="inline-flex min-h-[44px] items-center hover:text-blue-700 transition-colors py-1">
           재설정 링크 다시 받기
         </Link>
-        <span className="text-neutral-700">·</span>
-        <Link href="/login" className="hover:text-primary transition-colors py-1">
+        <span className="text-slate-300">·</span>
+        <Link href="/login" className="inline-flex min-h-[44px] items-center hover:text-blue-700 transition-colors py-1">
           로그인 화면
         </Link>
       </div>
@@ -185,7 +185,7 @@ export default function UpdatePasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 shadow-2xl min-h-[360px]" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm min-h-[360px]" />
       }
     >
       <UpdatePasswordContent />

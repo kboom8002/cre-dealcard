@@ -104,7 +104,7 @@ export function MagazineView({
     sanitizeStatutoryField(broker.phone, "phone") ||
     sanitizeStatutoryField(brokerVibe?.phone, "phone");
   const dateLabel = dateLabelProp ?? formatKoreanDate(date);
-  void (targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment));
+  const target = targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment);
   const scoreEvidence = hasScoreEvidence(data);
   const title = buildMagazineTitle(cleanScoreText(data.headline as string | null | undefined, scoreEvidence), broker.name);
 
@@ -171,8 +171,7 @@ export function MagazineView({
     <Section>
       <div
         data-testid="viewer-market-briefing"
-        className="overflow-hidden rounded-2xl border border-indigo-500/15 p-4"
-        style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.07) 0%, rgba(15,15,35,0.8) 100%)" }}
+        className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
       >
         <RichBriefing text={briefingText} />
       </div>
@@ -193,7 +192,7 @@ export function MagazineView({
             <span
               data-deals-counter=""
               data-deals-total={featuredDeals.length}
-              className="rounded-full border border-rose-500/25 bg-rose-500/15 px-2.5 py-1 text-sm font-bold text-rose-200"
+              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-sm font-bold text-rose-800"
             >
               1 / {featuredDeals.length}
             </span>
@@ -202,7 +201,7 @@ export function MagazineView({
                 type="button"
                 data-carousel-dir="prev"
                 aria-label="이전 매물 보기"
-                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-2.5 text-sm font-bold text-slate-100 hover:bg-white/10"
+                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50"
               >
                 ◀ 이전
               </button>
@@ -210,7 +209,7 @@ export function MagazineView({
                 type="button"
                 data-carousel-dir="next"
                 aria-label="다음 매물 보기"
-                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-2.5 text-sm font-bold text-slate-100 hover:bg-white/10"
+                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50"
               >
                 다음 ▶
               </button>
@@ -299,7 +298,7 @@ export function MagazineView({
             return (
               <li
                 key={i}
-                className="block w-[300px] sm:w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/15 bg-white/[0.035] transition-all duration-300 hover:border-white/25"
+                className="block w-[300px] sm:w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-slate-300"
               >
                 <a
                   href={`#deal-inquiry-${encodeURIComponent(dealIdStr)}`}
@@ -314,20 +313,20 @@ export function MagazineView({
                     {deal.photoUrl
                       // eslint-disable-next-line @next/next/no-img-element
                       ? <img src={deal.photoUrl} alt="" width={320} height={145} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-                      : <div className="flex h-full w-full items-center justify-center"><Building2 className="h-8 w-8 text-indigo-300/50" aria-hidden="true" /></div>}
+                      : <div className="flex h-full w-full items-center justify-center"><Building2 className="h-8 w-8 text-indigo-300/60" aria-hidden="true" /></div>}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                     <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-1.5">
                       {yieldLabel ? (
-                        <span className="rounded-lg bg-emerald-950/90 border border-emerald-400/40 px-2 py-0.5 text-sm font-extrabold text-emerald-300 shadow">
+                        <span className="rounded-lg bg-emerald-950 border border-emerald-400/40 px-2 py-0.5 text-sm font-extrabold text-emerald-200 shadow">
                           실질 {yieldLabel}
                         </span>
                       ) : deal.areaSignal ? (
-                        <span className="rounded-lg bg-black/75 px-2 py-0.5 text-sm font-bold text-white">
+                        <span className="rounded-lg bg-slate-900/90 px-2 py-0.5 text-sm font-bold text-white">
                           {deal.areaSignal}
                         </span>
                       ) : <span />}
                       {deal.buyerInterestCount > 0 && (
-                        <span className="rounded-lg border border-rose-500/30 bg-rose-950/80 px-2 py-0.5 text-xs font-bold text-rose-200">
+                        <span className="rounded-lg border border-rose-400/40 bg-rose-950 px-2 py-0.5 text-sm font-bold text-rose-100">
                           관심 {deal.buyerInterestCount}명
                         </span>
                       )}
@@ -336,19 +335,19 @@ export function MagazineView({
                   <div className="p-3.5 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="line-clamp-1 text-[16px] font-bold text-white leading-tight">
+                        <h3 className="line-clamp-1 text-body font-bold text-slate-900 leading-tight">
                           {deal.title || deal.assetType || "상업용 빌딩"}
                         </h3>
                         {deal.title && deal.assetType && deal.title !== deal.assetType && (
-                          <span className="mt-0.5 inline-block text-xs font-semibold text-indigo-300">
+                          <span className="mt-0.5 inline-block text-sm font-semibold text-indigo-700">
                             {deal.assetType}
                           </span>
                         )}
-                        <p className="mt-0.5 line-clamp-1 text-sm text-slate-300">{safeAddress}</p>
+                        <p className="mt-0.5 line-clamp-1 text-sm text-slate-700">{safeAddress}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-xs text-slate-300 block font-medium">매매가</span>
-                        <span className="text-[17px] font-extrabold font-mono text-indigo-200">
+                        <span className="text-sm text-slate-700 block font-medium">매매가</span>
+                        <span className="text-reader font-extrabold font-mono text-indigo-800">
                           {priceDisplay}
                         </span>
                       </div>
@@ -356,17 +355,17 @@ export function MagazineView({
 
                     {/* 스펙 그리드: 면적(평) / 용도·층수 */}
                     {(areaDisplay || specLine) && (
-                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2 space-y-1 text-sm">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1 text-sm">
                         {areaDisplay && (
-                          <div className="flex items-center justify-between gap-2 text-slate-200">
-                            <span className="text-slate-300 shrink-0 text-xs font-medium">면적</span>
-                            <span className="font-semibold truncate text-xs sm:text-sm">{areaDisplay}</span>
+                          <div className="flex items-center justify-between gap-2 text-slate-900">
+                            <span className="text-slate-700 shrink-0 text-sm font-medium">면적</span>
+                            <span className="font-semibold truncate text-sm">{areaDisplay}</span>
                           </div>
                         )}
                         {specLine && (
-                          <div className="flex items-center justify-between gap-2 text-slate-200">
-                            <span className="text-slate-300 shrink-0 text-xs font-medium">용도·층수</span>
-                            <span className="font-semibold truncate text-xs sm:text-sm">{specLine}</span>
+                          <div className="flex items-center justify-between gap-2 text-slate-900">
+                            <span className="text-slate-700 shrink-0 text-sm font-medium">용도·층수</span>
+                            <span className="font-semibold truncate text-sm">{specLine}</span>
                           </div>
                         )}
                       </div>
@@ -374,7 +373,7 @@ export function MagazineView({
 
                     {/* 1줄 핵심 투자 포인트 */}
                     {investmentPoint && (
-                      <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 text-sm text-indigo-200 font-medium line-clamp-2">
+                      <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 text-sm text-indigo-900 font-medium line-clamp-2">
                         💡 {investmentPoint}
                       </div>
                     )}
@@ -393,7 +392,7 @@ export function MagazineView({
                         data-track-click="featured_deal_im"
                         data-track-listing-id={deal.id}
                         data-track-from="featured"
-                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-indigo-400/40 bg-indigo-600/30 hover:bg-indigo-600/50 px-2 text-center text-sm font-extrabold text-indigo-100 transition-colors shadow-sm"
+                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-2 text-center text-sm font-extrabold text-white transition-colors shadow-sm"
                       >
                         <span aria-hidden="true">📄</span>
                         <span>모바일 IM 열람</span>
@@ -406,7 +405,7 @@ export function MagazineView({
                         data-track-click="featured_deal_im"
                         data-track-listing-id={deal.id}
                         data-track-from="featured"
-                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-indigo-400/40 bg-indigo-600/30 hover:bg-indigo-600/50 px-2 text-center text-sm font-extrabold text-indigo-100 transition-colors shadow-sm"
+                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-2 text-center text-sm font-extrabold text-white transition-colors shadow-sm"
                       >
                         <span aria-hidden="true">📄</span>
                         <span>모바일 IM 열람</span>
@@ -420,14 +419,14 @@ export function MagazineView({
                     data-track="listing_click"
                     data-track-listing-id={deal.id}
                     data-track-from="featured_detail"
-                    className="flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-2 text-center text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-2 text-center text-sm font-semibold text-slate-800 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                   >
                     상세 정보 · 문의
                   </a>
                 </div>
 
                 {deal.actionCard && (
-                  <div className="border-t border-white/5 px-3.5 pb-3.5 pt-2">
+                  <div className="border-t border-slate-200 px-3.5 pb-3.5 pt-2">
                     <ActionCardView actionCard={deal.actionCard} />
                   </div>
                 )}
@@ -454,10 +453,10 @@ export function MagazineView({
               className="space-y-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-extrabold text-white">
+                <h2 className="text-base font-extrabold text-slate-900">
                   이달의 주요 시장 그래프 {validMonthlyCharts.length}선
                 </h2>
-                <span className="text-sm font-semibold text-slate-300">
+                <span className="text-sm font-semibold text-slate-700">
                   {validMonthlyCharts[0]?.regionLabel ?? "주요 권역"}
                 </span>
               </div>
@@ -529,8 +528,32 @@ export function MagazineView({
     "broker_profile",
     "subscribe_cta",
   ];
+  const BUYER_VIEWER_ORDER: readonly string[] = [
+    "market_data",
+    "ai_briefing",
+    "field_note",
+    "featured_deals",
+    "news_curation",
+    "broker_profile",
+    "subscribe_cta",
+  ];
+  const SELLER_VIEWER_ORDER: readonly string[] = [
+    "market_data",
+    "ai_briefing",
+    "field_note",
+    "news_curation",
+    "featured_deals",
+    "broker_profile",
+    "subscribe_cta",
+  ];
+  const targetSectionOrder =
+    target === "buyer"
+      ? BUYER_VIEWER_ORDER
+      : target === "seller"
+      ? SELLER_VIEWER_ORDER
+      : UNIFIED_VIEWER_ORDER;
 
-  const order = UNIFIED_VIEWER_ORDER.filter((id) =>
+  const order = targetSectionOrder.filter((id) =>
     isSectionEnabled(data.sections, id)
   );
   const rendered = order
@@ -552,45 +575,63 @@ export function MagazineView({
       editionId={data.id ?? `${brokerId}-${date}`}
       brokerId={brokerId}
       preview={preview}
-      className="dark min-h-screen w-full text-white"
-      style={{ background: "linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)", "--accent": accent, "--foreground": "#F8FAFC" } as React.CSSProperties}
+      className="min-h-screen w-full bg-[#FAF9F5] text-slate-900"
+      style={{ "--accent": accent, "--foreground": "#0F172A" } as React.CSSProperties}
     >
       <Wrapper id={preview ? undefined : "magazine-main"} className="mx-auto max-w-[440px] px-4 pb-12">
 
         {/* ── HERO / COVER (깔끔한 발행인 · 날짜 · 자연 줄바꿈 제목) ─────────────────── */}
         <header
-          className="relative overflow-hidden px-1 pb-5 pt-8"
+          className={
+            coverImageUrl
+              ? "relative mb-4 overflow-hidden rounded-2xl bg-slate-900 px-4 pb-5 pt-8 text-white"
+              : "relative overflow-hidden bg-[#FAF9F5] px-1 pb-5 pt-8 text-slate-900"
+          }
           data-section-id="cover"
-          style={{ background: coverImageUrl ? undefined : `linear-gradient(160deg, ${accent}18 0%, transparent 55%)` }}
         >
           {coverImageUrl && (
             <>
               {/* 표지는 첫 화면(LCP) — 우선 로드, 크기 명시로 레이아웃 이동 방지. 임의 외부 URL 이라 next/image 대신 <img>. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={coverImageUrl} alt="" width={440} height={320} decoding="async" fetchPriority="high" className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(5,5,16,0.75) 0%, rgba(5,5,16,0.95) 100%)" }} />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(15,23,42,0.78) 0%, rgba(15,23,42,0.92) 100%)" }} />
             </>
           )}
-          <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full opacity-20 blur-3xl" style={{ background: `radial-gradient(circle, ${accent}, transparent)` }} />
 
           {/* Broker row */}
           <div className="relative mb-5 flex items-center gap-2.5">
             <InitialAvatar name={brokerName} size={40} decorative />
             <div>
-              <p className="text-label font-bold text-white">{brokerName}</p>
-              {broker.company && <p className="text-sm text-slate-300">{broker.company}</p>}
+              <p className={coverImageUrl ? "text-sm font-bold text-white" : "text-sm font-bold text-slate-900"}>
+                {brokerName}
+              </p>
+              {broker.company && (
+                <p className={coverImageUrl ? "text-sm text-slate-200" : "text-sm text-slate-700"}>
+                  {broker.company}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Date + Clean Break-Keep Title */}
           <div className="relative">
-            <p className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-300">
+            <p
+              className={
+                coverImageUrl
+                  ? "mb-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-200"
+                  : "mb-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-700"
+              }
+            >
               <time dateTime={date}>{dateLabel}</time>
             </p>
             <h1
               data-single-line-title="true"
               title={title}
-              className="mb-1.5 break-keep text-xl sm:text-2xl font-extrabold leading-snug tracking-tight text-white"
+              className={
+                coverImageUrl
+                  ? "mb-1.5 break-keep text-xl sm:text-2xl font-extrabold leading-snug tracking-tight text-white"
+                  : "mb-1.5 break-keep text-xl sm:text-2xl font-extrabold leading-snug tracking-tight text-slate-900"
+              }
             >
               {title}
             </h1>
@@ -601,11 +642,19 @@ export function MagazineView({
                   <span
                     key={i}
                     className="rounded-lg px-3 py-1 text-sm font-bold tracking-tight"
-                    style={{
-                      color: "#FFFFFF",
-                      background: "rgba(99, 102, 241, 0.36)",
-                      border: "1px solid rgba(199, 210, 254, 0.65)",
-                    }}
+                    style={
+                      coverImageUrl
+                        ? {
+                            color: "#FFFFFF",
+                            background: "rgba(30, 41, 59, 0.85)",
+                            border: "1px solid rgba(199, 210, 254, 0.65)",
+                          }
+                        : {
+                            color: "#3730A3",
+                            background: "#EEF2FF",
+                            border: "1px solid #C7D2FE",
+                          }
+                    }
                   >
                     {r}
                   </span>
@@ -619,9 +668,10 @@ export function MagazineView({
         {isEmpty ? (
           <div className="space-y-5">
             <EmptyState
-              icon={<Newspaper className="h-8 w-8" />}
+              icon={<Newspaper className="h-8 w-8 text-slate-600" />}
               title="아직 게시된 내용이 없습니다"
               description="이번 호에는 표시할 콘텐츠가 없어요. 구독하시면 다음 호를 보내드립니다."
+              className="border-slate-300 bg-white [&_p]:text-slate-800"
             />
             <div data-section-id="subscribe_cta">{sectionNode("subscribe_cta")}</div>
           </div>

@@ -499,9 +499,11 @@ describe('Adversarial Stress Test: Milestone 1 Backend & Security', () => {
         }),
       };
 
-      // 50 concurrent requests
+      // 50 concurrent requests with valid UUIDs (so UUID guard passes through to SELECTs)
       const promises = Array.from({ length: 50 }, (_, i) =>
-        readBuildingPure(`concurrent-bld-${i}`, { client: mockSupabase as any })
+        readBuildingPure(`00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, {
+          client: mockSupabase as any,
+        })
       );
 
       const results = await Promise.all(promises);

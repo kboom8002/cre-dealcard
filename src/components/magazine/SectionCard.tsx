@@ -25,8 +25,8 @@ export function SectionCard({
   const headingId = `${uid}-title`;
   return (
     <div
-      className={`overflow-hidden rounded-lg border transition-colors duration-300 ${
-        isOpen ? "border-white/15 bg-white/[0.03]" : "border-white/10 bg-white/[0.02]"
+      className={`overflow-hidden rounded-2xl border shadow-sm transition-colors duration-300 ${
+        isOpen ? "border-slate-200 bg-white" : "border-slate-200 bg-white"
       }`}
     >
       <h2 className="m-0">
@@ -40,14 +40,14 @@ export function SectionCard({
             setIsOpen(next);
             onToggle?.(next);
           }}
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50"
         >
           {icon}
-          <span className="flex-1 text-label font-bold text-white">{title}</span>
+          <span className="flex-1 text-sm font-bold text-slate-900">{title}</span>
           {badge}
           <ChevronDown
             aria-hidden="true"
-            className={`h-4 w-4 text-slate-300 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-slate-600 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
           />
         </button>
       </h2>

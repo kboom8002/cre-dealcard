@@ -9,20 +9,22 @@ export const TEST_SCHEMA: Record<string, readonly string[]> = {
   magazine_subscribers: [
     'id', 'broker_id', 'subscriber_phone', 'subscriber_email', 'subscriber_name', 'channel', 'status', 'source',
     'subscribed_at', 'unsubscribed_at', 'metadata', 'created_at', 'client_id', 'segment', 'interest_profile',
-    // 마이그레이션 20261004000006 적용 후
+    // 마이그레이션 20261004000006 + 20261117000002 적용 후
     'broker_user_id', 'privacy_consent_at', 'marketing_consent_at', 'consent_version', 'consent_channel', 'night_consent',
     'consent_ip_hash', 'confirm_status', 'confirm_token_hash', 'reconfirm_due_at', 'phone_e164', 'age_confirmed',
+    'consent_status', 'consent_source', 'consented_at', 'reconfirm_notified_at',
   ],
-  broker_profiles: ['id', 'user_id', 'slug', 'name', 'contact_email', 'specialty_regions', 'specialty_assets'],
+  broker_profiles: ['id', 'user_id', 'slug', 'name', 'contact_email', 'office_address', 'specialty_regions', 'specialty_assets'],
   profiles: ['id', 'role', 'display_name', 'phone', 'company'],
   user_subscriptions: ['id', 'user_id', 'tier', 'status', 'current_period_start', 'current_period_end', 'updated_at'],
   activity_events: ['id', 'actor_id', 'actor_role', 'event_type', 'entity_type', 'metadata', 'created_at'],
   magazine_dispatch_logs: [
     'id', 'idempotency_key', 'edition_id', 'broker_id', 'broker_user_id', 'subscriber_id', 'channel', 'kind', 'status',
-    'blocked_reason', 'provider_msg_id', 'error', 'recipient_hash', 'created_at',
+    'blocked_reason', 'provider_msg_id', 'error', 'recipient_hash', 'payload', 'attempt_count', 'queued_at', 'updated_at', 'created_at',
   ],
   magazine_editions: ['id', 'broker_id', 'edition_type', 'edition_label', 'status', 'title', 'content'],
   magazine_cron_runs: ['id', 'run_id', 'broker_id', 'broker_user_id', 'issue_date', 'kind', 'status', 'reason', 'duration_ms', 'created_at'],
+  email_suppressions: ['id', 'email_hash', 'broker_id', 'scope', 'reason', 'source', 'created_at'],
 };
 
 type Row = Record<string, unknown>;
@@ -37,6 +39,9 @@ interface State {
   count?: boolean;
   head?: boolean;
   filters: Array<{ col: string; test: (v: unknown) => boolean }>;
+  orFilter?: (row: Row) => boolean;
+  orderBy?: { col: string; ascending: boolean };
+  range?: [number, number];
   limit?: number;
 }
 
@@ -75,6 +80,25 @@ export class FakeDb {
       eq(col: string, v: unknown) { state.filters.push({ col, test: (x) => x === v }); return q; },
       in(col: string, vs: unknown[]) { state.filters.push({ col, test: (x) => vs.includes(x) }); return q; },
       gte(col: string, v: string) { state.filters.push({ col, test: (x) => new Date(String(x)).getTime() >= new Date(v).getTime() }); return q; },
+      lte(col: string, v: string) { state.filters.push({ col, test: (x) => new Date(String(x)).getTime() <= new Date(v).getTime() }); return q; },
+      or(expr: string) {
+        const clauses = expr.split(',').map((s) => s.trim()).filter(Boolean);
+        state.orFilter = (row: Row) =>
+          clauses.some((cl) => {
+            const m = /^([a-zA-Z0-9_]+)\.eq\.(.+)$/.exec(cl);
+            if (!m) return false;
+            return String(row[m[1]] ?? '') === m[2];
+          });
+        return q;
+      },
+      order(col: string, opts?: { ascending?: boolean }) {
+        state.orderBy = { col, ascending: opts?.ascending !== false };
+        return q;
+      },
+      range(from: number, to: number) {
+        state.range = [from, to];
+        return q;
+      },
       limit(n: number) { state.limit = n; return q; },
       single() { return Promise.resolve(db.exec(table, state, 'single')); },
       maybeSingle() { return Promise.resolve(db.exec(table, state, 'maybe')); },
@@ -106,7 +130,7 @@ export class FakeDb {
     }
 
     const rows = this.rows(table);
-    const match = (r: Row) => s.filters.every((f) => f.test(r[f.col]));
+    const match = (r: Row) => s.filters.every((f) => f.test(r[f.col])) && (!s.orFilter || s.orFilter(r));
     const finish = (list: Row[]) => {
       if (mode === 'many') return { data: list, error: null, count: list.length };
       if (list.length === 0) {
@@ -140,7 +164,16 @@ export class FakeDb {
     }
     // select
     const list = rows.filter(match);
-    const limited = s.limit ? list.slice(0, s.limit) : list;
+    if (s.orderBy) {
+      const { col, ascending } = s.orderBy;
+      list.sort((a, b) => {
+        const av = String(a[col] ?? '');
+        const bv = String(b[col] ?? '');
+        return ascending ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+    }
+    const ranged = s.range ? list.slice(s.range[0], s.range[1] + 1) : list;
+    const limited = s.limit ? ranged.slice(0, s.limit) : ranged;
     if (s.head) return { data: null, error: null, count: list.length };
     const res = finish(limited.map(project));
     return s.count ? { ...res, count: list.length } : res;

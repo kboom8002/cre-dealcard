@@ -13,7 +13,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 
 function IslandSkeleton({ className }: { className: string }) {
-  return <div aria-hidden="true" className={`animate-pulse rounded-2xl bg-white/[0.04] motion-reduce:animate-none ${className}`} />;
+  return <div aria-hidden="true" className={`animate-pulse rounded-2xl bg-slate-200/70 motion-reduce:animate-none ${className}`} />;
 }
 
 export const LazyRoiCalculator = dynamic(() => import("@/components/magazine/RoiIsland"), {

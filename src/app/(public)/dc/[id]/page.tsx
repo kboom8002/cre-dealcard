@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
-import { QaFeedbackPinWidget } from '@/components/workspace/QaFeedbackPinWidget';
+import { LazyQaFeedbackPinWidget } from '@/components/workspace/LazyQaFeedbackPinWidget';
 import { createServiceClient } from "@/lib/supabase/service";
 import { readBuilding } from '@/domain/building/im-core/read-building';
 import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
-import { toPublicDealCard } from '@/domain/public-projection/deal-card';
+import {
+  toPublicDealCard,
+  type PublicDealCardBrokerInput,
+} from '@/domain/public-projection/deal-card';
 import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/visibility';
 import { isOwnerOrAdmin } from '@/domain/public-projection/access';
 import { getServerViewer } from '@/lib/server-viewer';
+import type { Card4Data } from '@/lib/deal-card/card4-schema';
 import {
   getInboxState,
   getQuickImRecord,
@@ -19,16 +22,20 @@ import {
   updateQuickImCard4,
   type StoredQuickImRecord,
 } from '@/lib/im-lite/quick-generate-store';
-import { isBuildingShareLinkRevoked } from '@/lib/security/share-link-tokens';
+import {
+  isBuildingShareLinkRevoked,
+  verifyShareLinkToken,
+} from '@/lib/security/share-link-tokens';
+import {
+  allowDealPublicMemoryFallback,
+  resolvePublicDealWorkspaceGuard,
+} from '@/lib/og/deal-public-guard';
 
 // v3 Goldilocks components
-import { TeaserHeroHeader } from '@/components/teaser/TeaserHeroHeader';
-import { PostureWidget } from '@/components/teaser/PostureWidget';
-import { PublicPolicyBlock } from '@/components/teaser/PublicPolicyBlock';
 import { CTALadder } from '@/components/teaser/CTALadder';
 import { TrustLine } from '@/components/teaser/TrustLine';
-import { PoweredByBadge } from '@/components/ui/PoweredByBadge';
 import { ReaderFontScaleToggle } from '@/components/ui/ReaderFontScaleToggle';
+import { InAppBrowserBanner } from '@/components/public/InAppBrowserBanner';
 
 import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
@@ -39,7 +46,233 @@ interface PageProps {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
+const BROKER_PROFILE_SELECT_FULL =
+  "user_id, slug, card_name, photo_url, deal_specialty, license_number, office_reg_number, office_address, representative_name, response_time_hours, total_deal_count_self";
+const BROKER_PROFILE_SELECT_CORE =
+  "user_id, slug, photo_url, deal_specialty, license_number, office_reg_number, response_time_hours, total_deal_count_self";
+const BROKER_PROFILE_SELECT_MIN =
+  "user_id, slug, license_number, office_reg_number";
+
+function isSchemaColumnError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "42703" || err.code === "PGRST204") return true;
+  return /does not exist|schema cache/i.test(String(err.message || ""));
+}
+
+type SignalCardView = {
+  id?: string;
+  title?: string | null;
+  area_signal?: string | null;
+  asset_type?: string | null;
+  price_band?: string | null;
+  deal_points?: unknown;
+  body?: unknown;
+  status?: string | null;
+  visibility?: string | null;
+};
+
+type TeaserDocView = {
+  status?: string | null;
+  body?: Record<string, unknown> | null;
+};
+
+interface LegacyDealCardActivityEvent {
+  actor_id?: string | null;
+  entity_id?: string | null;
+  event_type?: string | null;
+  metadata?: {
+    building_id?: string;
+    status?: string;
+    card4?: Card4Data;
+    broker_profile?: Record<string, unknown>;
+  } | null;
+  created_at?: string | null;
+}
+
+interface ActivityEventQueryLike
+  extends PromiseLike<{ data?: LegacyDealCardActivityEvent[] | null }> {
+  in?: (col: string, vals: string[]) => ActivityEventQueryLike;
+  contains?: (col: string, val: Record<string, unknown>) => ActivityEventQueryLike;
+  order?: (col: string, opts: { ascending: boolean }) => ActivityEventQueryLike;
+  limit?: (n: number) => ActivityEventQueryLike;
+}
+
+function strOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function numOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeSnapshotBrokerProfile(raw: Record<string, unknown>): PublicDealCardBrokerInput {
+  const rawReg =
+    raw.office_reg_number ??
+    raw.officeRegNumber ??
+    raw.registrationNo ??
+    raw.registration_no ??
+    raw.license_number ??
+    null;
+  const cleanReg =
+    typeof rawReg === "string" && rawReg.trim() && rawReg.trim() !== "-" && !/미입력|미등록/.test(rawReg)
+      ? rawReg.trim()
+      : null;
+  const resolvedSpecialty =
+    strOrNull(raw.specialty) ||
+    strOrNull(raw.company) ||
+    strOrNull(raw.office_name) ||
+    (cleanReg ? "검증 공인중개사" : null);
+  return {
+    display_name:
+      strOrNull(raw.display_name) ||
+      strOrNull(raw.displayName) ||
+      strOrNull(raw.card_name) ||
+      strOrNull(raw.representative_name) ||
+      strOrNull(raw.representativeName) ||
+      "담당 중개사",
+    phone: strOrNull(raw.phone),
+    slug: strOrNull(raw.slug),
+    avatar_url: strOrNull(raw.avatar_url) || strOrNull(raw.photoUrl) || strOrNull(raw.photo_url),
+    ...(resolvedSpecialty ? { specialty: resolvedSpecialty } : {}),
+    company: strOrNull(raw.company),
+    office_name: strOrNull(raw.office_name) || strOrNull(raw.officeName),
+    office_address: strOrNull(raw.office_address) || strOrNull(raw.officeAddress),
+    office_reg_number:
+      strOrNull(raw.office_reg_number) ||
+      strOrNull(raw.officeRegNumber) ||
+      strOrNull(raw.registrationNo) ||
+      strOrNull(raw.registration_no) ||
+      cleanReg,
+    representative_name: strOrNull(raw.representative_name) || strOrNull(raw.representativeName),
+    response_guarantee_hours: numOrNull(raw.response_guarantee_hours),
+    closed_deals: numOrNull(raw.closed_deals),
+    is_licensed: Boolean(raw.is_licensed === true || raw.license_number || cleanReg),
+  };
+}
+
+async function fetchPublicBrokerProfile(
+  supabase: ReturnType<typeof createServiceClient>,
+  ownerId: string
+): Promise<PublicDealCardBrokerInput | null> {
+  if (!ownerId || !supabase || typeof supabase.from !== "function") return null;
+
+  const queryBrokerProfileRow = async () => {
+    const full = await supabase
+      .from("broker_profiles")
+      .select(BROKER_PROFILE_SELECT_FULL)
+      .eq("user_id", ownerId)
+      .maybeSingle();
+    if (!full?.error || !isSchemaColumnError(full.error)) return full;
+
+    const core = await supabase
+      .from("broker_profiles")
+      .select(BROKER_PROFILE_SELECT_CORE)
+      .eq("user_id", ownerId)
+      .maybeSingle();
+    if (!core?.error || !isSchemaColumnError(core.error)) return core;
+
+    return await supabase
+      .from("broker_profiles")
+      .select(BROKER_PROFILE_SELECT_MIN)
+      .eq("user_id", ownerId)
+      .maybeSingle();
+  };
+
+  const queryBaseProfileRow = async () => {
+    const full = await supabase
+      .from("profiles")
+      .select("display_name, phone, company, tagline, photo_url, role")
+      .eq("id", ownerId)
+      .maybeSingle();
+    if (!full?.error || !isSchemaColumnError(full.error)) return full;
+    return await supabase
+      .from("profiles")
+      .select("display_name, phone, company, role")
+      .eq("id", ownerId)
+      .maybeSingle();
+  };
+
+  const [bProfileRes, baseProfileRes] = await Promise.all([
+    queryBrokerProfileRow(),
+    queryBaseProfileRow(),
+  ]);
+
+  const bProfile = (bProfileRes?.data as Record<string, unknown> | null) ?? null;
+  const baseProfile = (baseProfileRes?.data as Record<string, unknown> | null) ?? null;
+  if (!bProfile && !baseProfile) return null;
+
+  const avatarUrl = strOrNull(bProfile?.photo_url) || strOrNull(baseProfile?.photo_url);
+  const displayName =
+    strOrNull(baseProfile?.display_name) ||
+    strOrNull(bProfile?.card_name) ||
+    strOrNull(bProfile?.representative_name) ||
+    "담당 중개사";
+  const phone = strOrNull(baseProfile?.phone);
+  const company = strOrNull(baseProfile?.company);
+  const rawSpec = bProfile?.deal_specialty;
+  const specStr = Array.isArray(rawSpec)
+    ? rawSpec.map((item) => strOrNull(item)).filter(Boolean).join(", ")
+    : typeof rawSpec === "string"
+    ? rawSpec
+    : undefined;
+  const rawReg = bProfile?.office_reg_number ?? bProfile?.license_number ?? null;
+  const cleanReg =
+    typeof rawReg === "string" && rawReg.trim() && rawReg.trim() !== "-" && !/미입력|미등록/.test(rawReg)
+      ? rawReg.trim()
+      : null;
+  const specialty =
+    company ||
+    specStr ||
+    (baseProfile?.tagline ? String(baseProfile.tagline) : null) ||
+    "검증 공인중개사";
+
+  return {
+    display_name: displayName,
+    phone,
+    specialty,
+    company,
+    office_address: strOrNull(bProfile?.office_address),
+    office_reg_number: strOrNull(bProfile?.office_reg_number),
+    representative_name:
+      strOrNull(bProfile?.representative_name) ??
+      strOrNull(baseProfile?.display_name) ??
+      strOrNull(bProfile?.card_name) ??
+      null,
+    avatar_url: avatarUrl,
+    is_licensed: Boolean(bProfile?.license_number || cleanReg),
+    response_guarantee_hours: numOrNull(bProfile?.response_time_hours),
+    closed_deals: numOrNull(bProfile?.total_deal_count_self),
+    slug: strOrNull(bProfile?.slug),
+  };
+}
+
+function extractCorrectionNotice(
+  raw: unknown
+): { message: string; updatedAt?: string } | null {
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    return t ? { message: t } : null;
+  }
+  if (raw && typeof raw === "object") {
+    const rec = raw as Record<string, unknown>;
+    const msg = strOrNull(rec.message ?? rec.text);
+    if (!msg) return null;
+    const updatedAt = strOrNull(rec.updatedAt ?? rec.updated_at);
+    return updatedAt ? { message: msg, updatedAt } : { message: msg };
+  }
+  return null;
+}
+
+function buildDealCardDataFromQuickRecord(
+  quickRec: StoredQuickImRecord,
+  extra?: {
+    workspaceItemStatus?: string | null;
+    blockedReason?: string;
+    buildingStatus?: string | null;
+    draftOnly?: boolean;
+    correctionNotice?: { message: string; updatedAt?: string } | null;
+  }
+) {
   return {
     building: {
       id: quickRec.buildingId,
@@ -55,7 +288,7 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
       total_floor_area_pyung: quickRec.specs?.gfaSqm ? Math.round(m2ToPyeong(quickRec.specs.gfaSqm)) : undefined,
       land_area_pyung: quickRec.specs?.landAreaSqm ? Math.round(m2ToPyeong(quickRec.specs.landAreaSqm)) : undefined,
       zoning: quickRec.specs?.zoning,
-    } as Record<string, any>,
+    } as Record<string, unknown>,
     signalCard: {
       id: quickRec.buildingId,
       title: `${quickRec.card4.region} ${quickRec.card4.use} ${quickRec.card4.priceBand}`.trim(),
@@ -64,10 +297,11 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
       price_band: quickRec.card4.priceBand,
       deal_points: quickRec.card4.points,
       body: { shortSummary: quickRec.card4.points.join(" · ") },
-      status: "published",
+      status: extra?.draftOnly ? "draft" : "published",
       visibility: "public",
-    },
+    } as SignalCardView,
     teaserDoc: {
+      status: extra?.draftOnly ? "draft" : "published",
       body: {
         card4: quickRec.card4,
         kakaoOgTitle: quickRec.card4.headline || undefined,
@@ -77,83 +311,324 @@ function buildDealCardDataFromQuickRecord(quickRec: StoredQuickImRecord) {
         region_display: quickRec.card4.region,
         key_points: quickRec.card4.points,
       },
-    },
+    } as TeaserDocView,
     brokerProfile: (quickRec.brokerProfile || quickRec.basicImDoc?.facts?.brokerOffice
       ? (() => {
-          const bp = (quickRec.brokerProfile ?? {}) as Record<string, any>;
-          const bo = (quickRec.basicImDoc?.facts?.brokerOffice ?? {}) as Record<string, any>;
+          const bp = (quickRec.brokerProfile ?? {}) as Record<string, unknown>;
+          const bo = (quickRec.basicImDoc?.facts?.brokerOffice ?? {}) as Record<string, unknown>;
+          const bpPhone = strOrNull(bp.phone);
+          const boPhone = strOrNull(bo.phone);
           return {
-            display_name: bp.displayName || bo.representative || "담당 중개사",
+            display_name: strOrNull(bp.displayName) || strOrNull(bo.representative) || "담당 중개사",
             phone:
-              (bp.phone && bp.phone !== "-" ? bp.phone : null) ||
-              (bo.phone && bo.phone !== "-" ? bo.phone : null),
-            specialty: bp.company || bo.name || "검증 공인중개사",
-            company: bp.company || bp.officeName || bo.name || null,
+              (bpPhone && bpPhone !== "-" ? bpPhone : null) ||
+              (boPhone && boPhone !== "-" ? boPhone : null),
+            specialty: strOrNull(bp.company) || strOrNull(bo.name) || "검증 공인중개사",
+            company: strOrNull(bp.company) || strOrNull(bp.officeName) || strOrNull(bo.name),
             office_address:
-              bp.officeAddress || bp.office_address || bo.address || bo.officeAddress || null,
+              strOrNull(bp.officeAddress) ||
+              strOrNull(bp.office_address) ||
+              strOrNull(bo.address) ||
+              strOrNull(bo.officeAddress),
             office_reg_number:
-              bp.registrationNo || bp.office_reg_number || bo.registrationNo || null,
+              strOrNull(bp.registrationNo) ||
+              strOrNull(bp.office_reg_number) ||
+              strOrNull(bo.registrationNo),
             representative_name:
-              bp.representativeName ||
-              bp.representative_name ||
-              bo.representative ||
-              bp.displayName ||
-              null,
-            avatar_url: bp.photoUrl || null,
+              strOrNull(bp.representativeName) ||
+              strOrNull(bp.representative_name) ||
+              strOrNull(bo.representative) ||
+              strOrNull(bp.displayName),
+            avatar_url: strOrNull(bp.photoUrl),
             is_licensed: Boolean(bp.registrationNo || bp.office_reg_number || bo.registrationNo),
             response_guarantee_hours: null,
             closed_deals: null,
-            slug: bp.slug || null,
+            slug: strOrNull(bp.slug),
           };
         })()
-      : null) as Record<string, any> | null,
+      : null) as PublicDealCardBrokerInput | null,
     hasImDoc: true,
     isPptxApproved: true,
     pptxDownloadUrl: `/api/public/im-lite/${quickRec.buildingId}/pptx`,
     ownerId: quickRec.ownerId ?? null,
-    buildingStatus: "public_signal_ready" as string | null,
+    buildingStatus: (extra?.buildingStatus ?? "public_signal_ready") as string | null,
+    workspaceItemStatus: (extra?.workspaceItemStatus ?? null) as string | null,
+    blockedReason: extra?.blockedReason as string | undefined,
+    correctionNotice: extra?.correctionNotice ?? null,
+  };
+}
+
+function synthesizeReadOnlyQuickRecord(
+  rawId: string,
+  matched: LegacyDealCardActivityEvent
+): StoredQuickImRecord {
+  const card4 = matched.metadata!.card4!;
+  return {
+    buildingId: rawId,
+    documentId: rawId,
+    ownerId: matched.actor_id ?? undefined,
+    buildingName: String(card4.headline || ""),
+    address: String(card4.region || ""),
+    askingPriceManwon: 0,
+    posture: String(card4.posture || "income"),
+    card4,
+    brokerProfile: matched.metadata?.broker_profile as StoredQuickImRecord["brokerProfile"],
+    rentRoll: [],
+    fullDocBody: { ssot_summary: card4 },
+    basicImDoc: {} as unknown as StoredQuickImRecord["basicImDoc"],
+    createdAt: String(matched.created_at || new Date().toISOString()),
+    updatedAt: String(matched.created_at || new Date().toISOString()),
   };
 }
 
 // ── 데이터 조회 ──
+/**
+ * WP-7.3C P1-1: legacy activity_events fallback must never present an unpublished
+ * draft as published. A legacy card is public only when the latest lifecycle
+ * transition is an explicit `dealcard_sent` (written by the gated publish paths);
+ * `dealcard_upserted` (draft save) / `dealcard_restored` (restore → draft) alone
+ * yield an owner-only draft preview.
+ */
+const DEALCARD_LIFECYCLE_EVENT_TYPES = new Set([
+  "dealcard_upserted",
+  "dealcard_sent",
+  "dealcard_restored",
+  "dealcard_deleted",
+]);
+
+function isVerifiedLifecycleActivityEvent(
+  ev: LegacyDealCardActivityEvent | null | undefined
+): boolean {
+  if (!ev) return false;
+  const evType = String(ev.event_type || "");
+  if (DEALCARD_LIFECYCLE_EVENT_TYPES.has(evType)) {
+    return Boolean(ev.actor_id);
+  }
+  return true;
+}
+
+function resolveLegacyEventPublication(matchingActs: LegacyDealCardActivityEvent[]): {
+  matched: LegacyDealCardActivityEvent | null;
+  isExplicitlySent: boolean;
+} {
+  const verifiedActs = matchingActs.filter(isVerifiedLifecycleActivityEvent);
+  const matched =
+    verifiedActs.find(
+      (a) =>
+        (a?.event_type === "dealcard_upserted" ||
+          a?.event_type === "dealcard_sent" ||
+          a?.event_type === "dealcard_restored") &&
+        Boolean(a?.metadata?.card4)
+    ) ?? null;
+  const latestTransition = verifiedActs.find((a) =>
+    ["dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(String(a?.event_type || ""))
+  );
+  const isExplicitlySent =
+    latestTransition?.event_type === "dealcard_sent" ||
+    (latestTransition?.event_type !== "dealcard_deleted" &&
+      latestTransition?.event_type !== "dealcard_restored" &&
+      ["sent", "published"].includes(String(matched?.metadata?.status || "")));
+  return { matched, isExplicitlySent };
+}
+
+function legacyEventExtra(
+  isExplicitlySent: boolean,
+  guard: { workspaceItemStatus: string | null; reason?: string }
+): { workspaceItemStatus?: string | null; blockedReason?: string; buildingStatus?: string | null; draftOnly?: boolean } {
+  if (isExplicitlySent) {
+    return { workspaceItemStatus: guard.workspaceItemStatus, blockedReason: guard.reason };
+  }
+  return {
+    workspaceItemStatus: "draft",
+    blockedReason: guard.reason ?? "not_published",
+    buildingStatus: "draft",
+    draftOnly: true,
+  };
+}
+
 // P0-SEC: React cache() — generateMetadata 와 page 가 같은 요청에서 한 번만 조회한다
 // (readWithMigration 의 lazy-write 부수효과 중복 방지).
 const getDealCardData = cache(async (id: string) => {
   const emptyData = {
-    building: {} as Record<string, any>,
-    signalCard: null as any,
-    teaserDoc: null as any,
-    brokerProfile: null as Record<string, any> | null,
+    building: {} as Record<string, unknown>,
+    signalCard: null as SignalCardView | null,
+    teaserDoc: null as TeaserDocView | null,
+    brokerProfile: null as PublicDealCardBrokerInput | null,
     hasImDoc: false,
     isPptxApproved: false,
     pptxDownloadUrl: `/api/public/im-lite/${id}/pptx`,
     ownerId: null as string | null,
     buildingStatus: "archived" as string | null,
+    workspaceItemStatus: null as string | null,
+    blockedReason: undefined as string | undefined,
+    correctionNotice: null as { message: string; updatedAt?: string } | null,
   };
 
+  const memoryFallbackAllowed = allowDealPublicMemoryFallback();
   if (
-    isDealCardDeleted(id) ||
-    Boolean(getInboxState().revokedBuildings[id]?.revoked) ||
-    isBuildingShareLinkRevoked(id)
+    memoryFallbackAllowed &&
+    (isDealCardDeleted(id) ||
+      Boolean(getInboxState().revokedBuildings[id]?.revoked) ||
+      isBuildingShareLinkRevoked(id))
   ) {
-    return { ...emptyData, buildingStatus: "archived" };
-  }
-
-  const quickRec = getQuickImRecord(id);
-  if (quickRec?.isRevoked) {
-    return { ...emptyData, buildingStatus: "archived" };
-  }
-  if (quickRec && quickRec.ownerId) {
-    return buildDealCardDataFromQuickRecord(quickRec);
+    return { ...emptyData, buildingStatus: "archived", workspaceItemStatus: "revoked", blockedReason: "revoked" };
   }
 
   const supabase = createServiceClient();
+  const guard = await resolvePublicDealWorkspaceGuard({ id, supabase });
+  if (
+    guard.blocked &&
+    (guard.reason === "demo_disabled_prod" || guard.reason === "deleted" || guard.reason === "lookup_failed")
+  ) {
+    // WP-7.3C P1-1: lookup_failed = unexpected workspace_items DB error → fail closed (404).
+    return {
+      ...emptyData,
+      buildingStatus: "archived",
+      workspaceItemStatus: "archived",
+      blockedReason: guard.reason,
+    };
+  }
+  if (guard.blocked && guard.reason === "revoked") {
+    return {
+      ...emptyData,
+      ownerId: guard.ownerId,
+      buildingStatus: "archived",
+      workspaceItemStatus: "revoked",
+      blockedReason: "revoked",
+    };
+  }
+
+  // Prefer canonical workspace_items projection when available (published_snapshot for public;
+  // draftPayloadForOwnerOnly strictly hidden behind !isPublicDealCard for owner preview only).
+  const activeSnapshot = guard.projection?.snapshot || (guard.reason === "not_published" ? guard.draftPayloadForOwnerOnly : null);
+  if (guard.item && activeSnapshot) {
+    const snap = activeSnapshot as Record<string, unknown>;
+    const rawSnapCard4 =
+      snap.card4 && typeof snap.card4 === "object"
+        ? (snap.card4 as Record<string, unknown>)
+        : null;
+    const snapHeadline =
+      strOrNull(rawSnapCard4?.headline) || strOrNull(snap.headline) || guard.item.title;
+    const snapRegion =
+      strOrNull(rawSnapCard4?.region) ||
+      strOrNull(snap.region) ||
+      strOrNull(snap.area_signal) ||
+      guard.item.address ||
+      "";
+    const snapUse =
+      strOrNull(rawSnapCard4?.use) || strOrNull(snap.use) || strOrNull(snap.asset_type) || "";
+    const snapPriceBand =
+      strOrNull(rawSnapCard4?.priceBand) ||
+      strOrNull(snap.priceBand) ||
+      strOrNull(snap.price_band) ||
+      guard.item.priceBand ||
+      "";
+    const snapArea =
+      strOrNull(rawSnapCard4?.area) || strOrNull(snap.area) || strOrNull(snap.size_signal) || "";
+    const snapPoints = Array.isArray(rawSnapCard4?.points)
+      ? rawSnapCard4.points
+      : Array.isArray(snap.points)
+      ? snap.points
+      : [];
+    const snapPosture = strOrNull(rawSnapCard4?.posture) || strOrNull(snap.posture) || "income";
+    const snapCard4 = rawSnapCard4
+      ? {
+          ...rawSnapCard4,
+          headline: snapHeadline,
+          region: snapRegion,
+          use: snapUse,
+          priceBand: snapPriceBand,
+          area: snapArea,
+          points: snapPoints,
+          posture: snapPosture,
+        }
+      : {
+          headline: snapHeadline,
+          region: snapRegion,
+          use: snapUse,
+          priceBand: snapPriceBand,
+          area: snapArea,
+          points: snapPoints,
+          posture: snapPosture,
+        };
+    const isPublishedProjection = Boolean(guard.projection?.snapshot);
+    const rawSnapshotProfile = snap.brokerProfile || snap.broker_profile || null;
+    let resolvedBrokerProfile: PublicDealCardBrokerInput | null =
+      rawSnapshotProfile && typeof rawSnapshotProfile === "object"
+        ? normalizeSnapshotBrokerProfile(rawSnapshotProfile as Record<string, unknown>)
+        : null;
+    if (!resolvedBrokerProfile && guard.ownerId) {
+      resolvedBrokerProfile = await fetchPublicBrokerProfile(supabase, guard.ownerId);
+    } else if (
+      resolvedBrokerProfile &&
+      guard.ownerId &&
+      (!resolvedBrokerProfile.office_reg_number && !resolvedBrokerProfile.officeRegNumber)
+    ) {
+      const dbProfile = await fetchPublicBrokerProfile(supabase, guard.ownerId);
+      if (dbProfile) {
+        resolvedBrokerProfile = {
+          ...dbProfile,
+          ...resolvedBrokerProfile,
+          avatar_url: resolvedBrokerProfile.avatar_url || dbProfile.avatar_url || null,
+          is_licensed: Boolean(resolvedBrokerProfile.is_licensed || dbProfile.is_licensed),
+        };
+      }
+    }
+    return {
+      building: {
+        id: guard.item.buildingId || guard.item.id,
+        area_signal: snapRegion,
+        asset_type: snapUse,
+        price_band: snapPriceBand,
+        size_signal: snapArea,
+        investment_posture: snapPosture,
+        is_verified: Boolean(snap.is_verified),
+      } as Record<string, unknown>,
+      signalCard: {
+        id: guard.item.id,
+        title: snapHeadline,
+        area_signal: snapRegion,
+        asset_type: snapUse,
+        price_band: snapPriceBand,
+        deal_points: snapPoints,
+        status: isPublishedProjection ? "published" : "draft",
+        visibility: "public_blind",
+      } as SignalCardView,
+      teaserDoc: {
+        status: isPublishedProjection ? "published" : "draft",
+        body: {
+          card4: snapCard4,
+          ogTitle: snapHeadline,
+        },
+      } as TeaserDocView,
+      brokerProfile: resolvedBrokerProfile,
+      hasImDoc: Boolean(snap.hasImDoc),
+      isPptxApproved: Boolean(snap.isPptxApproved),
+      pptxDownloadUrl: `/api/public/im-lite/${guard.item.buildingId || guard.item.legacyId || id}/pptx`,
+      ownerId: guard.ownerId,
+      buildingStatus: isPublishedProjection ? "public_signal_ready" : "draft",
+      workspaceItemStatus: guard.workspaceItemStatus,
+      blockedReason: guard.reason,
+      correctionNotice: extractCorrectionNotice(guard.item.correctionNotice),
+    };
+  }
+
+  const quickRec = memoryFallbackAllowed ? getQuickImRecord(id) : undefined;
+  if (quickRec?.isRevoked) {
+    return { ...emptyData, buildingStatus: "archived", workspaceItemStatus: "revoked", blockedReason: "revoked" };
+  }
+  if (quickRec && quickRec.ownerId) {
+    return buildDealCardDataFromQuickRecord(quickRec, {
+      workspaceItemStatus: guard.workspaceItemStatus,
+      blockedReason: guard.reason,
+    });
+  }
 
   if (!isUuid(id)) {
     try {
-      let actQuery: any = supabase
+      let actQuery = supabase
         .from("activity_events")
-        .select("actor_id, entity_id, event_type, metadata, created_at");
+        .select("actor_id, entity_id, event_type, metadata, created_at") as unknown as ActivityEventQueryLike;
       if (typeof actQuery.in === "function") {
         actQuery = actQuery.in("event_type", [
           "dealcard_upserted",
@@ -175,13 +650,17 @@ const getDealCardData = cache(async (id: string) => {
       }
       const { data: acts } = await actQuery;
       const matchingActs = (acts || []).filter(
-        (a: any) => String(a?.metadata?.building_id || a?.entity_id || "").trim() === id
+        (a) =>
+          String(a?.metadata?.building_id || a?.entity_id || "").trim() === id &&
+          isVerifiedLifecycleActivityEvent(a)
       );
-      const latestLifecycle = matchingActs.find((a: any) =>
-        ["dealcard_upserted", "dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
+      const latestLifecycle = matchingActs.find((a) =>
+        ["dealcard_upserted", "dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(
+          String(a?.event_type || "")
+        )
       );
-      const latestRevoke = matchingActs.find((a: any) =>
-        ["link_revoked", "link_restored"].includes(a?.event_type)
+      const latestRevoke = matchingActs.find((a) =>
+        ["link_revoked", "link_restored"].includes(String(a?.event_type || ""))
       );
       if (
         latestLifecycle?.event_type === "dealcard_deleted" ||
@@ -190,35 +669,34 @@ const getDealCardData = cache(async (id: string) => {
         return { ...emptyData, buildingStatus: "archived" };
       }
 
-      const matched = matchingActs.find(
-        (a: any) =>
-          (a?.event_type === "dealcard_upserted" ||
-            a?.event_type === "dealcard_sent" ||
-            a?.event_type === "dealcard_restored") &&
-          a?.metadata?.card4
-      );
-      if (matched) {
-        const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
-          ownerId: matched.actor_id,
-          brokerProfile: matched.metadata.broker_profile,
-        });
-        if (hydrated) {
-          return buildDealCardDataFromQuickRecord(hydrated);
-        }
-      }
-
-      const synthesizedNonUuid = await resolveOrSynthesizeQuickImRecord(id, supabase);
-      if (synthesizedNonUuid) {
-        if (matched?.metadata?.card4) {
-          const updated = updateQuickImCard4(id, matched.metadata.card4, {
-            ownerId: matched.actor_id,
-            brokerProfile: matched.metadata.broker_profile,
+      const { matched, isExplicitlySent } = resolveLegacyEventPublication(matchingActs);
+      if (matched && matched.metadata?.card4) {
+        const legacyExtra = legacyEventExtra(isExplicitlySent, guard);
+        // Only hydrate the memory store with explicitly sent cards (a hydrated draft
+        // would otherwise be re-served as published by the quickRec branch above).
+        if (memoryFallbackAllowed && isExplicitlySent) {
+          const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
+            ownerId: matched.actor_id ?? undefined,
+            brokerProfile: matched.metadata.broker_profile as StoredQuickImRecord["brokerProfile"],
           });
-          if (updated) {
-            return buildDealCardDataFromQuickRecord(updated);
+          if (hydrated) {
+            return buildDealCardDataFromQuickRecord(hydrated, legacyExtra);
           }
         }
-        return buildDealCardDataFromQuickRecord(synthesizedNonUuid);
+        return buildDealCardDataFromQuickRecord(
+          synthesizeReadOnlyQuickRecord(String(id), matched),
+          legacyExtra
+        );
+      }
+
+      if (memoryFallbackAllowed) {
+        const synthesizedNonUuid = await resolveOrSynthesizeQuickImRecord(id, supabase);
+        if (synthesizedNonUuid) {
+          return buildDealCardDataFromQuickRecord(synthesizedNonUuid, {
+            workspaceItemStatus: guard.workspaceItemStatus,
+            blockedReason: guard.reason,
+          });
+        }
       }
     } catch {
       // ignore if activity_events unavailable
@@ -252,7 +730,7 @@ const getDealCardData = cache(async (id: string) => {
       .maybeSingle(),
     supabase
       .from("document_objects")
-      .select("body")
+      .select("body, status")
       .eq("building_id", targetBuildingId)
       .eq("document_type", "blind_teaser")
       .neq("status", "archived")
@@ -262,7 +740,7 @@ const getDealCardData = cache(async (id: string) => {
     // IM 문서 존재 여부 및 공식 승인 상태 확인 (im_lite, im_lite_draft, mobile_im)
     supabase
       .from("document_objects")
-      .select("id, status, approval_stage, pptx_file_hash, pptx_download_url")
+      .select("id, status, body")
       .eq("building_id", targetBuildingId)
       .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
       .neq("status", "archived")
@@ -297,7 +775,7 @@ const getDealCardData = cache(async (id: string) => {
           .maybeSingle(),
         supabase
           .from("document_objects")
-          .select("body")
+          .select("body, status")
           .eq("building_id", targetBuildingId)
           .eq("document_type", "blind_teaser")
           .neq("status", "archived")
@@ -306,7 +784,7 @@ const getDealCardData = cache(async (id: string) => {
           .maybeSingle(),
         supabase
           .from("document_objects")
-          .select("id, status, approval_stage, pptx_file_hash, pptx_download_url")
+          .select("id, status, body")
           .eq("building_id", targetBuildingId)
           .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
           .neq("status", "archived")
@@ -315,16 +793,24 @@ const getDealCardData = cache(async (id: string) => {
           .maybeSingle(),
       ]);
     } else if (quickRec) {
-      return buildDealCardDataFromQuickRecord(quickRec);
+      return buildDealCardDataFromQuickRecord(quickRec, {
+        workspaceItemStatus: guard.workspaceItemStatus,
+        blockedReason: guard.reason,
+      });
     } else {
-      const synthesized = await resolveOrSynthesizeQuickImRecord(id, supabase);
+      const synthesized = memoryFallbackAllowed
+        ? await resolveOrSynthesizeQuickImRecord(id, supabase)
+        : null;
       if (synthesized) {
-        return buildDealCardDataFromQuickRecord(synthesized);
+        return buildDealCardDataFromQuickRecord(synthesized, {
+          workspaceItemStatus: guard.workspaceItemStatus,
+          blockedReason: guard.reason,
+        });
       }
       try {
-        let actQuery: any = supabase
+        let actQuery = supabase
           .from("activity_events")
-          .select("actor_id, entity_id, event_type, metadata, created_at");
+          .select("actor_id, entity_id, event_type, metadata, created_at") as unknown as ActivityEventQueryLike;
         if (typeof actQuery.in === "function") {
           actQuery = actQuery.in("event_type", [
             "dealcard_upserted",
@@ -346,35 +832,40 @@ const getDealCardData = cache(async (id: string) => {
         }
         const { data: acts } = await actQuery;
         const matchingActs = (acts || []).filter(
-          (a: any) => String(a?.metadata?.building_id || a?.entity_id || "").trim() === id
+          (a) =>
+            String(a?.metadata?.building_id || a?.entity_id || "").trim() === id &&
+            isVerifiedLifecycleActivityEvent(a)
         );
-        const latestLifecycle = matchingActs.find((a: any) =>
-          ["dealcard_upserted", "dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(a?.event_type)
+        const latestLifecycle = matchingActs.find((a) =>
+          ["dealcard_upserted", "dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(
+            String(a?.event_type || "")
+          )
         );
-        const latestRevoke = matchingActs.find((a: any) =>
-          ["link_revoked", "link_restored"].includes(a?.event_type)
+        const latestRevoke = matchingActs.find((a) =>
+          ["link_revoked", "link_restored"].includes(String(a?.event_type || ""))
         );
         if (
           latestLifecycle?.event_type === "dealcard_deleted" ||
           latestRevoke?.event_type === "link_revoked"
         ) {
-          return { ...emptyData, buildingStatus: "archived" };
+          return { ...emptyData, buildingStatus: "archived", workspaceItemStatus: "revoked", blockedReason: "revoked" };
         }
-        const matched = matchingActs.find(
-          (a: any) =>
-            (a?.event_type === "dealcard_upserted" ||
-              a?.event_type === "dealcard_sent" ||
-              a?.event_type === "dealcard_restored") &&
-            a?.metadata?.card4
-        );
-        if (matched) {
-          const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
-            ownerId: matched.actor_id,
-            brokerProfile: matched.metadata.broker_profile,
-          });
-          if (hydrated) {
-            return buildDealCardDataFromQuickRecord(hydrated);
+        const { matched, isExplicitlySent } = resolveLegacyEventPublication(matchingActs);
+        if (matched && matched.metadata?.card4) {
+          const legacyExtra = legacyEventExtra(isExplicitlySent, guard);
+          if (memoryFallbackAllowed && isExplicitlySent) {
+            const hydrated = updateQuickImCard4(id, matched.metadata.card4, {
+              ownerId: matched.actor_id ?? undefined,
+              brokerProfile: matched.metadata.broker_profile as StoredQuickImRecord["brokerProfile"],
+            });
+            if (hydrated) {
+              return buildDealCardDataFromQuickRecord(hydrated, legacyExtra);
+            }
           }
+          return buildDealCardDataFromQuickRecord(
+            synthesizeReadOnlyQuickRecord(String(id), matched),
+            legacyExtra
+          );
         }
       } catch {
         // ignore if activity_events unavailable
@@ -384,101 +875,51 @@ const getDealCardData = cache(async (id: string) => {
 
   const ownerId: string | null = ssotMetaRes.data?.owner_id ?? null;
   const isTeaserRevoked = Boolean(
-    (teaserDocRes.data?.body as Record<string, any> | undefined)?.is_revoked === true
+    (teaserDocRes.data?.body as Record<string, unknown> | undefined)?.is_revoked === true
   );
   const buildingStatus: string | null = isTeaserRevoked
     ? "archived"
     : (ssotMetaRes.data?.status ?? null);
 
-  let brokerProfile: Record<string, any> | null = null;
+  let brokerProfile: PublicDealCardBrokerInput | null = null;
   if (ownerId) {
-    const [bProfileRes, { data: baseProfile }] = await Promise.all([
-      supabase
-        .from("broker_profiles")
-        .select(
-          "user_id, slug, name, avatar_url, specialty, license_number, office_reg_number, office_address, representative_name, response_time_hours, total_deal_count_self"
-        )
-        .eq("user_id", ownerId)
-        .maybeSingle(),
-      supabase
-        .from("profiles")
-        .select("display_name, phone, company, tagline, photo_url, role")
-        .eq("id", ownerId)
-        .maybeSingle(),
-    ]);
-
-    let bProfile: Record<string, any> | null =
-      (bProfileRes.data as Record<string, any> | null) ?? null;
-    if (bProfileRes.error) {
-      const fallbackRes = await supabase
-        .from("broker_profiles")
-        .select("*")
-        .eq("user_id", ownerId)
-        .maybeSingle();
-      bProfile = (fallbackRes.data as Record<string, any> | null) ?? null;
-    }
-
-    const avatarUrl =
-      (bProfile as any)?.avatar_url ||
-      baseProfile?.photo_url ||
-      (baseProfile as any)?.avatar_url ||
-      null;
-    const displayName =
-      baseProfile?.display_name || (bProfile as any)?.name || (bProfile as any)?.display_name || "담당 중개사";
-    const phone = baseProfile?.phone || (bProfile as any)?.phone || null;
-    const company =
-      baseProfile?.company ||
-      (bProfile as any)?.office_name ||
-      (bProfile as any)?.company ||
-      null;
-    const specialty =
-      company ||
-      (bProfile as any)?.specialty ||
-      ((baseProfile as any)?.tagline ? (baseProfile as any).tagline : "검증 공인중개사");
-
-    brokerProfile = {
-      display_name: displayName,
-      phone,
-      specialty,
-      company,
-      office_address: (bProfile as any)?.office_address ?? null,
-      office_reg_number: (bProfile as any)?.office_reg_number ?? null,
-      representative_name:
-        (bProfile as any)?.representative_name ??
-        baseProfile?.display_name ??
-        (bProfile as any)?.name ??
-        null,
-      avatar_url: avatarUrl,
-      is_licensed: Boolean((bProfile as any)?.license_number || (bProfile as any)?.office_reg_number),
-      response_guarantee_hours:
-        (bProfile as any)?.response_time_hours ?? (bProfile as any)?.response_guarantee_hours ?? null,
-      closed_deals:
-        (bProfile as any)?.total_deal_count_self ?? (bProfile as any)?.closed_deals ?? null,
-      slug: (bProfile as any)?.slug ?? null,
-    };
+    brokerProfile = await fetchPublicBrokerProfile(supabase, ownerId);
   }
 
+  const imDocRow = imDocRes.data as Record<string, unknown> | null;
+  const imDocBody = (imDocRow?.body as Record<string, unknown> | undefined) ?? {};
+  const imApprovalStage =
+    imDocRow?.approval_stage ?? imDocBody.approval_stage;
+  const imPptxHash =
+    imDocRow?.pptx_file_hash ?? imDocBody.pptx_file_hash;
+  const imPptxDownloadUrl =
+    (typeof imDocRow?.pptx_download_url === "string" ? imDocRow.pptx_download_url : undefined) ??
+    (typeof imDocBody.pptx_download_url === "string" ? imDocBody.pptx_download_url : undefined);
   const isPptxApproved =
-    imDocRes.data?.approval_stage === 'S70_FILE_APPROVAL' ||
-    (imDocRes.data?.status === 'published' && !!imDocRes.data?.pptx_file_hash);
-  const pptxDownloadUrl = imDocRes.data?.pptx_download_url || `/api/public/im-lite/${id}/pptx`;
+    imApprovalStage === 'S70_FILE_APPROVAL' ||
+    (imDocRes.data?.status === 'published' && !!imPptxHash);
+  const pptxDownloadUrl = imPptxDownloadUrl || `/api/public/im-lite/${id}/pptx`;
 
   return {
-    building: (buildingRes?.data ?? buildingRes ?? {}) as Record<string, any>,
-    signalCard: signalCardRes.data,
-    teaserDoc: teaserDocRes.data,
+    building: ((buildingRes as { data?: unknown } | null)?.data ?? buildingRes ?? {}) as Record<string, unknown>,
+    signalCard: (signalCardRes.data as SignalCardView | null) ?? null,
+    teaserDoc: (teaserDocRes.data as TeaserDocView | null) ?? null,
     brokerProfile,
     hasImDoc: !!imDocRes.data,
     isPptxApproved,
     pptxDownloadUrl,
     ownerId,
     buildingStatus,
+    workspaceItemStatus: guard.workspaceItemStatus,
+    blockedReason: guard.reason,
+    correctionNotice: extractCorrectionNotice(guard.item?.correctionNotice),
   };
 });
 
 type DealCardData = Awaited<ReturnType<typeof getDealCardData>>;
 
-function PostureMeta(_props: { input: DealCardData extends never ? never : unknown }) {
+function PostureMeta(props: { input: DealCardData extends never ? never : unknown }) {
+  void props.input;
   return null;
 }
 
@@ -497,10 +938,15 @@ function projectPublic(id: string, data: DealCardData) {
 }
 
 function isPublicDealCard(data: DealCardData): boolean {
+  if (data.blockedReason === "demo_disabled_prod" || data.blockedReason === "deleted" || data.blockedReason === "revoked") {
+    return false;
+  }
   return evaluateDealCardPublicVisibility({
     buildingStatus: data.buildingStatus,
     signalCardVisibility: data.signalCard?.visibility,
     signalCardStatus: data.signalCard?.status,
+    teaserDocStatus: data.teaserDoc?.status,
+    workspaceItemStatus: data.workspaceItemStatus,
   }).isPublic;
 }
 
@@ -522,7 +968,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const ogDescription = og.description || "상업용 부동산 비공개 매각 티저 — 담당 중개사 직통 문의";
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
-  const card4Hash = (data.teaserDoc?.body as Record<string, any> | undefined)?.card4?.card4_hash;
+  const teaserCard4 = (data.teaserDoc?.body as Record<string, unknown> | undefined)?.card4 as
+    | Record<string, unknown>
+    | undefined;
+  const card4Hash = typeof teaserCard4?.card4_hash === "string" ? teaserCard4.card4_hash : undefined;
   const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao-v2${card4Hash ? `?v=${encodeURIComponent(card4Hash)}` : ''}`;
 
   return {
@@ -535,8 +984,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: [
         {
           url: absoluteOgImage,
-          width: 800,
-          height: 400,
+          width: 1200,
+          height: 630,
           alt: ogTitle,
         }
       ],
@@ -556,12 +1005,34 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
   const isPreviewMode = sParams.preview === "1" || sParams.preview === "true";
+  const shareToken = typeof sParams.token === "string" ? sParams.token.trim() : "";
   const data = await getDealCardData(id);
 
-  // P0-SEC: 비공개 상태(building archived / signal card internal_only·archived)는 공개 404.
-  // 소유 중개사(또는 admin)는 인증 쿠키로 확인되어 계속 볼 수 있다
-  // (LiveDealCardPreviewCard 의 same-origin iframe `/dc/{id}?preview=1` 포함).
-  if (!isPublicDealCard(data)) {
+  // Deleted / archived / prod-disabled demo seeds are blocked for everyone.
+  if (
+    data.blockedReason === "demo_disabled_prod" ||
+    data.blockedReason === "deleted" ||
+    data.workspaceItemStatus === "archived"
+  ) {
+    notFound();
+  }
+
+  // Verify optional ?token= when provided.
+  if (shareToken) {
+    const tokenCheck = await verifyShareLinkToken({ token: shareToken, buildingId: id });
+    if (!tokenCheck.valid) {
+      const viewer = await getServerViewer();
+      if (!isOwnerOrAdmin(viewer, data.ownerId)) notFound();
+    }
+  }
+
+  // P0-SEC: 비공개 상태(building archived / signal card internal_only·archived / revoked / draft)는 공개 404.
+  // 소유 중개사(또는 admin)는 인증 쿠키로 확인되어 계속 볼 수 있다 (revoked/draft preview).
+  if (
+    data.workspaceItemStatus === "revoked" ||
+    data.blockedReason === "revoked" ||
+    !isPublicDealCard(data)
+  ) {
     const viewer = await getServerViewer();
     if (!isOwnerOrAdmin(viewer, data.ownerId)) notFound();
   }
@@ -574,10 +1045,10 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   // 데이터 최소성 검사
   if (!card.hasMinimalData && !isPreviewMode) {
     return (
-      <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] flex items-center justify-center p-4">
-        <div className="max-w-[392px] w-full bg-[#141A21] border border-[#252E39] rounded-2xl p-6 text-center space-y-4">
-          <h1 className="text-lg font-bold text-white">매물 안내 준비 중</h1>
-          <p className="text-base text-slate-300 break-keep">
+      <main className="min-h-screen bg-[#F3F2EE] text-slate-900 flex items-center justify-center p-4">
+        <div className="max-w-[392px] w-full bg-white border border-slate-300 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+          <h1 className="text-lg font-bold text-slate-950">매물 안내 준비 중</h1>
+          <p className="text-base text-slate-700 break-keep">
             담당 중개사가 매물 정보를 정리하고 있습니다. 잠시 후 다시 확인해 주세요.
           </p>
         </div>
@@ -586,38 +1057,55 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] pb-12">
+    <main className="min-h-screen bg-[#F3F2EE] text-slate-900 pb-12">
       <TeaserEventTracker teaserConfigId={card.teaserConfigId} />
       <PostureMeta input={card.postureWidget} />
 
       <div className="max-w-[420px] mx-auto px-4 pt-4 space-y-4">
+        <InAppBrowserBanner />
+
+        {data.correctionNotice?.message ? (
+          <section
+            role="status"
+            data-testid="public-dealcard-correction-notice"
+            className="rounded-xl bg-amber-50 border border-amber-300 px-4 py-3.5 shadow-sm space-y-1"
+          >
+            <p className="text-sm font-extrabold text-amber-900">
+              📢 담당 개업공인중개사 정정 안내
+            </p>
+            <p className="text-base font-medium text-slate-900 break-keep leading-relaxed">
+              {data.correctionNotice.message}
+            </p>
+          </section>
+        ) : null}
+
         {/* 상단 글자 크기 조절 바 (60~70대 매수인 배려) */}
         <div
           data-testid="public-dealcard-top-bar"
           className="flex items-center justify-between gap-2"
         >
-          <span className="text-sm font-bold text-slate-200 tracking-tight">
+          <span className="text-sm font-bold text-slate-800 tracking-tight">
             매물 핵심 요약
           </span>
-          <ReaderFontScaleToggle variant="dark" />
+          <ReaderFontScaleToggle variant="light" />
         </div>
 
         {/* 상단 4항목 요약 (지역 · 용도 · 면적 · 가격) + 한 줄 제목 */}
         <section
           data-testid="public-dealcard-4fact-header"
-          className="rounded-xl bg-[#141A21] border border-slate-800 p-4 space-y-3 shadow-md"
+          className="rounded-xl bg-white border border-slate-300 p-4 space-y-3 shadow-sm"
         >
           <div className="grid grid-cols-2 gap-2 text-center text-base font-extrabold">
-            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-white break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-slate-100 text-slate-950 border border-slate-200 break-keep">
               {hero.regionLabel || "—"}
             </div>
-            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-sky-400 break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-sky-50 text-sky-900 border border-sky-200 break-keep">
               {useDisplay}
             </div>
-            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-slate-200 break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-slate-100 text-slate-900 border border-slate-200 break-keep">
               {areaDisplay}
             </div>
-            <div className="py-2.5 px-3 rounded-lg bg-slate-800/90 text-amber-400 break-keep">
+            <div className="py-2.5 px-3 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 break-keep">
               {hero.bandedPrice || "—"}
             </div>
           </div>
@@ -626,7 +1114,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             as="h1"
             testId="public-dealcard-title"
             text={og.title || hero.title}
-            className="text-lg font-extrabold text-white text-center pt-1"
+            className="text-lg font-extrabold text-slate-950 text-center pt-1"
           />
         </section>
 
@@ -659,10 +1147,10 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           return dp.length > 0 ? (
             <div
               data-testid="public-dealcard-points"
-              className="rounded-xl bg-slate-900/90 border border-slate-700/70 p-4 space-y-3"
+              className="rounded-xl bg-white border border-slate-300 p-4 space-y-3 shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <p className="text-base font-extrabold text-amber-400 tracking-wide">
+                <p className="text-base font-extrabold text-amber-800 tracking-wide">
                   장점 3줄
                 </p>
               </div>
@@ -727,7 +1215,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
       </div>
       {sParams.qa === "1" && !isPreviewMode && (
         <Suspense fallback={null}>
-          <QaFeedbackPinWidget workspace="public-dealcard" requireExplicitQueryParam />
+          <LazyQaFeedbackPinWidget workspace="public-dealcard" requireExplicitQueryParam />
         </Suspense>
       )}
     </main>

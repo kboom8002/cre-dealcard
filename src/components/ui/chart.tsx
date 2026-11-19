@@ -108,7 +108,7 @@ export function ChartTooltipContent({
       )}
     >
       {label && (
-        <p className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="mb-1.5 text-sm font-medium text-muted-foreground">{label}</p>
       )}
       <div className="space-y-1">
         {payload.map((item: TooltipPayloadItem, i: number) => {
@@ -127,8 +127,8 @@ export function ChartTooltipContent({
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: color }}
               />
-              <span className="text-xs text-muted-foreground">{String(name)}</span>
-              <span className="ml-auto text-xs font-semibold tabular-nums text-foreground">
+              <span className="text-sm text-muted-foreground">{String(name)}</span>
+              <span className="ml-auto text-sm font-semibold tabular-nums text-foreground">
                 {val}
               </span>
             </div>
@@ -151,7 +151,7 @@ export function ChartLegend({
   return (
     <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5", className)}>
       {Object.entries(config).map(([key, value]) => (
-        <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div key={key} className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <div
             className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: value.color }}

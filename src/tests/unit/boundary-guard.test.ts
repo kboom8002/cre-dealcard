@@ -102,7 +102,8 @@ describe('boundary-guard: pptx 렌더러의 원시 건축물대장 키 직접 �
     const used = new Set(scan.strict.map(o => o.file));
     const stale = [...STRICT_ALLOWLIST].filter(f => !used.has(f));
     if (stale.length) console.warn(`[boundary-guard] 정리 가능한 STRICT allowlist 항목: ${stale.join(', ')}`);
-    expect(true).toBe(true);
+    expect(stale.every((item) => STRICT_ALLOWLIST.has(item))).toBe(true);
+    expect([...used].every((item) => STRICT_ALLOWLIST.has(item))).toBe(true);
   });
 
   it('BASELINE: 동일 키 이름의 접근 횟수가 기록된 부채(파일별)를 넘지 않는다 — 신규 파일/증가 금지', () => {

@@ -9,6 +9,8 @@ import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 import { validateSnapshotOutput } from '@/domain/building/snapshot-generator';
 import { recordEvent } from '@/domain/analytics/record-event';
 import { requireBroker } from '@/lib/auth-guard';
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
 
 export async function POST(
   req: NextRequest,
@@ -19,6 +21,14 @@ export async function POST(
   const guard = await requireBroker(req);
   if (guard.error) return guard.error;
   const { user } = guard;
+
+  const rateAllowed = await checkRateLimit(user!.id, 'building_snapshot_generate', 10, 60_000);
+  if (!rateAllowed) {
+    return NextResponse.json(
+      { ok: false, code: 'RATE_LIMITED', error: '스냅샷 생성 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+      { status: 429 },
+    );
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,6 +59,12 @@ export async function POST(
     );
   }
 
+  // Enforce daily AI generation quota before invoking LLM (gracefully degrades on partial unit-test mocks)
+  const quotaErr = await enforceBrokerAiQuota(req, user!.id, 'building_snapshot_generate', {
+    perMinute: 10,
+  });
+  if (quotaErr) return quotaErr;
+
   // Fetch evidence files to get available layers
   const { data: files } = await supabase
     .from('evidence_files')
@@ -65,8 +81,9 @@ export async function POST(
       availableEvidenceLayers: uploadedCategories,
     });
   } catch (agentErr: any) {
+    console.error('[snapshot/generate] AI agent failed:', agentErr);
     return NextResponse.json(
-      { error: 'AI 스냅샷 생성 중 오류가 발생했습니다: ' + agentErr.message },
+      { error: 'AI 스냅샷 생성 중 오류가 발생했습니다.' },
       { status: 500 },
     );
   }
@@ -105,8 +122,9 @@ export async function POST(
     .single();
 
   if (docErr || !doc) {
+    console.error('[snapshot/generate] document_objects insert failed:', docErr);
     return NextResponse.json(
-      { error: '스냅샷 문서 저장에 실패했습니다: ' + docErr?.message },
+      { error: '스냅샷 문서 저장에 실패했습니다.' },
       { status: 500 },
     );
   }

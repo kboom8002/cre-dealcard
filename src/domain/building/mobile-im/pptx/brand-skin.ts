@@ -183,8 +183,8 @@ export async function resolveBrandAccent(args: {
   try {
     let companyId: string | null = null;
     try {
-      const { data: profile } = await supabase.from('broker_profiles').select('company_id').eq('user_id', ownerId).maybeSingle();
-      companyId = profile?.company_id ?? null;
+      const { data: profile } = await supabase.from('broker_profiles').select('*').eq('user_id', ownerId).maybeSingle();
+      companyId = (profile as { company_id?: string | null } | null)?.company_id ?? null;
     } catch { /* company 조회 실패는 개인 프리셋으로 폴백 */ }
 
     if (presetParam && UUID_RE.test(presetParam)) {

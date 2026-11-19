@@ -58,6 +58,7 @@ export function tryBuildImItemFromDealCardCache(
 export interface UseImServerHydrationOptions {
   buildingIdParam: string | null;
   isFreshParam?: boolean;
+  initialFreshStarterItem?: ImListItem | null;
   initialHydrationDoneRef: React.MutableRefObject<boolean>;
   currentUserIdRef: React.MutableRefObject<string | null>;
   hydratedUserIdRef: React.MutableRefObject<string | null>;
@@ -86,6 +87,7 @@ export interface UseImServerHydrationOptions {
 export function useImServerHydration({
   buildingIdParam,
   isFreshParam = false,
+  initialFreshStarterItem = null,
   initialHydrationDoneRef,
   currentUserIdRef,
   hydratedUserIdRef,
@@ -166,7 +168,13 @@ export function useImServerHydration({
                   (it) =>
                     !(it?.ownerUserId && activeUid && it.ownerUserId !== activeUid)
                 );
-          const sourceList = basePrev.length > 0 ? basePrev : INITIAL_IM_LIST;
+          const rawSourceList = basePrev.length > 0 ? basePrev : INITIAL_IM_LIST;
+          const sourceList =
+            isFreshParam &&
+            initialFreshStarterItem &&
+            !rawSourceList.some((it) => it.id === initialFreshStarterItem.id)
+              ? [initialFreshStarterItem, ...rawSourceList]
+              : rawSourceList;
           const next = sourceList.map((it) => ({
             ...it,
             ...(profileUid ? { ownerUserId: profileUid } : {}),
@@ -198,12 +206,13 @@ export function useImServerHydration({
     const initialQueryId = buildingIdParam;
     let initialTargetId: string | null = null;
     const freshStarterItem: ImListItem | null = isFreshParam
-      ? createBlankImItem({
-          ownerUserId: initialUid,
-          brokerName: profileDefaultsRef.current.brokerName,
-          brokerageName: profileDefaultsRef.current.brokerageName,
-          brokerPhone: profileDefaultsRef.current.brokerPhone,
-        })
+      ? (initialFreshStarterItem ??
+          createBlankImItem({
+            ownerUserId: initialUid,
+            brokerName: profileDefaultsRef.current.brokerName,
+            brokerageName: profileDefaultsRef.current.brokerageName,
+            brokerPhone: profileDefaultsRef.current.brokerPhone,
+          }))
       : null;
     try {
       const rawParsed = readScopedWorkspaceJson<ImListItem[]>(
@@ -217,7 +226,10 @@ export function useImServerHydration({
           )
         : [];
       if (freshStarterItem) {
-        const workingList = [freshStarterItem, ...parsed];
+        const workingList = [
+          freshStarterItem,
+          ...parsed.filter((p) => p.id !== freshStarterItem.id),
+        ];
         itemsRef.current = workingList;
         setItems(workingList);
         initialTargetId = freshStarterItem.id;
@@ -513,16 +525,30 @@ export function useImServerHydration({
                 );
               }
             }
+            const candidateRank = (it: ImListItem): number => {
+              const matchesQuery = Boolean(
+                initialQueryId && (it.id === initialQueryId || it.buildingId === initialQueryId)
+              );
+              const isPublished = it.status === "published";
+              const hasUuidBld = Boolean(it.buildingId && UUID_REGEX.test(it.buildingId));
+              return (matchesQuery ? 4 : 0) + (isPublished ? 2 : 0) + (hasUuidBld ? 1 : 0);
+            };
+            const prioritizedCandidates = [...localOnlyItems, ...srvItems].sort(
+              (a, b) => candidateRank(b) - candidateRank(a)
+            );
             const seenBldIds = new Set<string>();
             const seenAddrTitleKeys = new Set<string>();
-            const merged = [...localOnlyItems, ...srvItems].filter((it) => {
+            const merged = prioritizedCandidates.filter((it) => {
+              const isExplicitTarget = Boolean(
+                initialQueryId && (it.id === initialQueryId || it.buildingId === initialQueryId)
+              );
               if (it.buildingId && UUID_REGEX.test(it.buildingId)) {
-                if (seenBldIds.has(it.buildingId)) return false;
+                if (!isExplicitTarget && seenBldIds.has(it.buildingId)) return false;
                 seenBldIds.add(it.buildingId);
               }
               const key = normalizeDedupeKey(it);
               if (key && !it.title.includes("(사본)")) {
-                if (seenAddrTitleKeys.has(key)) return false;
+                if (!isExplicitTarget && seenAddrTitleKeys.has(key)) return false;
                 seenAddrTitleKeys.add(key);
               }
               return true;
@@ -614,22 +640,17 @@ export function useImServerHydration({
                 (p) => p.id === selectedIdRef.current
               )?.buildingId;
               const remapped =
-                (pendingUrlBuildingIdRef.current &&
-                  resolvedList.find(
-                    (i) =>
-                      i.id === pendingUrlBuildingIdRef.current ||
-                      i.buildingId === pendingUrlBuildingIdRef.current
-                  )) ||
-                (initialQueryId &&
-                  resolvedList.find(
-                    (i) =>
-                      i.id === initialQueryId || i.buildingId === initialQueryId
-                  )) ||
                 (prevSelectedBldId &&
                   resolvedList.find(
                     (i) =>
                       i.id === prevSelectedBldId ||
                       i.buildingId === prevSelectedBldId
+                  )) ||
+                (pendingUrlBuildingIdRef.current &&
+                  resolvedList.find(
+                    (i) =>
+                      i.id === pendingUrlBuildingIdRef.current ||
+                      i.buildingId === pendingUrlBuildingIdRef.current
                   )) ||
                 resolvedList[0];
               if (remapped) {
@@ -637,7 +658,7 @@ export function useImServerHydration({
                 setSelectedId(remapped.id);
               }
             }
-            return resolvedList;
+            return activeResolvedList;
           });
         } else if (scopedLocalForResolvedUser !== null) {
           const fromDcCache =

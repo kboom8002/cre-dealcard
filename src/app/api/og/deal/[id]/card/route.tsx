@@ -6,15 +6,16 @@ import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
+import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
 import {
-  getInboxState,
-  getQuickImRecord,
-  isDealCardDeleted,
-  isUuid,
-  resolveOrSynthesizeQuickImRecord,
-} from "@/lib/im-lite/quick-generate-store";
-import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
+  isBuildingStatusPublic,
+  isSignalCardStatusPublic,
+  PUBLIC_IM_DOC_STATUSES,
+} from "@/domain/public-projection/visibility";
 import { loadOgFonts } from "@/lib/magazine/og-fonts";
+
+const PUBLIC_OG_DOC_STATUSES = new Set<string>(["published", ...PUBLIC_IM_DOC_STATUSES]);
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -26,33 +27,30 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  if (
-    isDealCardDeleted(id) ||
-    getInboxState().revokedBuildings[id]?.revoked ||
-    isBuildingShareLinkRevoked(id)
-  ) {
-    return new Response("Not Found", { status: 404 });
-  }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
   const landingUrl = `${siteUrl}/dc/${id}`;
 
-  let building: Record<string, any> | null = null;
-  let teaserDoc: Record<string, any> | null = null;
-  let quickRec = getQuickImRecord(id);
+  let building: Record<string, unknown> | null = null;
+  let teaserDoc: Record<string, unknown> | null = null;
+  let ssotStatus: string | null = null;
+  let signalCardStatus: string | null = null;
+  let hasVerifiedSentEvent = false;
+  let quickRec: Awaited<ReturnType<typeof resolveOgDealGuard>>["quickRec"] = null;
+  let snapshotCard4: Record<string, unknown> | null = null;
 
   try {
     const supabase = createServiceClient();
-    if (!quickRec) {
-      quickRec = await resolveOrSynthesizeQuickImRecord(id, supabase);
-    }
-    if (quickRec?.isRevoked) {
+    const ogGuard = await resolveOgDealGuard(id, supabase);
+    if (ogGuard.blocked) {
       return new Response("Not Found", { status: 404 });
     }
+    quickRec = ogGuard.quickRec;
+    snapshotCard4 = ogGuard.snapshotCard4;
 
     const bData = await readBuilding(id);
-    building = bData as Record<string, any>;
-    if (building?.status === "archived") {
+    building = (bData && typeof bData === "object" ? (bData as Record<string, unknown>) : null);
+    if (building && !isBuildingStatusPublic(building.status as string | null | undefined)) {
       return new Response("Not Found", { status: 404 });
     }
 
@@ -62,17 +60,23 @@ export async function GET(
         .select("id, status")
         .eq("id", id)
         .maybeSingle();
-      if (ssotRow?.status === "archived") {
+      ssotStatus = ssotRow?.status ? String(ssotRow.status) : null;
+      if (ssotRow && !isBuildingStatusPublic(ssotRow.status)) {
         return new Response("Not Found", { status: 404 });
       }
 
       const { data: sData } = await supabase
         .from("building_signal_cards")
-        .select("area_signal, asset_type, price_band, title")
+        .select("area_signal, asset_type, price_band, title, status, visibility")
         .eq("building_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      signalCardStatus = sData?.status ? String(sData.status) : null;
+
+      if (sData?.visibility === "internal_only" || sData?.status === "archived") {
+        return new Response("Not Found", { status: 404 });
+      }
 
       const { data: tData } = await supabase
         .from("document_objects")
@@ -83,7 +87,7 @@ export async function GET(
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      teaserDoc = tData;
+      teaserDoc = (tData && typeof tData === "object" ? (tData as Record<string, unknown>) : null);
 
       if (sData) {
         if (!building) building = { id };
@@ -91,44 +95,147 @@ export async function GET(
         building.asset_type = building.asset_type || sData.asset_type;
         building.price_band = building.price_band || sData.price_band;
       }
+
+      const isTeaserPublicEarly =
+        Boolean(teaserDoc) &&
+        teaserDoc?.visibility !== "internal_only" &&
+        PUBLIC_OG_DOC_STATUSES.has(String(teaserDoc?.status || ""));
+      if (
+        String(ssotStatus || building?.status || "") === "draft" &&
+        !snapshotCard4 &&
+        !quickRec &&
+        !isTeaserPublicEarly &&
+        !isSignalCardStatusPublic(signalCardStatus)
+      ) {
+        try {
+          interface CardActivityQueryLike
+            extends PromiseLike<{ data?: Array<Record<string, unknown>> | null }> {
+            in?: (col: string, vals: string[]) => CardActivityQueryLike;
+            contains?: (col: string, val: Record<string, unknown>) => CardActivityQueryLike;
+            order?: (col: string, opts: { ascending: boolean }) => CardActivityQueryLike;
+            limit?: (n: number) => CardActivityQueryLike;
+          }
+          let actQ = supabase
+            .from("activity_events")
+            .select("actor_id, event_type, metadata, created_at") as unknown as CardActivityQueryLike;
+          if (typeof actQ?.in === "function") {
+            actQ = actQ.in("event_type", [
+              "dealcard_sent",
+              "dealcard_restored",
+              "dealcard_deleted",
+              "link_revoked",
+              "link_restored",
+            ]);
+          }
+          if (typeof actQ?.contains === "function") {
+            actQ = actQ.contains("metadata", { building_id: id });
+          }
+          if (typeof actQ?.order === "function") {
+            actQ = actQ.order("created_at", { ascending: false });
+          }
+          if (typeof actQ?.limit === "function") {
+            actQ = actQ.limit(50);
+          }
+          const { data: acts } = await actQ;
+          const matching = (Array.isArray(acts) ? acts : []).filter((a) => {
+            const meta = (a?.metadata as Record<string, unknown> | undefined) || {};
+            return (
+              String(meta.building_id || "").trim() === id &&
+              (["link_revoked", "link_restored"].includes(String(a?.event_type || "")) ||
+                Boolean(a?.actor_id))
+            );
+          });
+          const latestRevoke = matching.find((a) =>
+            ["link_revoked", "link_restored"].includes(String(a?.event_type || ""))
+          );
+          const latestTransition = matching.find((a) =>
+            ["dealcard_sent", "dealcard_restored", "dealcard_deleted"].includes(
+              String(a?.event_type || "")
+            )
+          );
+          if (
+            latestRevoke?.event_type !== "link_revoked" &&
+            latestTransition?.event_type === "dealcard_sent" &&
+            Boolean(latestTransition?.actor_id)
+          ) {
+            hasVerifiedSentEvent = true;
+          }
+        } catch {
+          // Ignore if activity_events unavailable
+        }
+      }
     }
   } catch (e) {
     log.warn("Data fetch warning in 1-page card generator:", e);
   }
 
-  if (teaserDoc?.body?.is_revoked === true) {
+  const teaserDocBody =
+    teaserDoc?.body && typeof teaserDoc.body === "object"
+      ? (teaserDoc.body as Record<string, unknown>)
+      : null;
+
+  if (teaserDocBody?.is_revoked === true || teaserDoc?.status === "archived") {
     return new Response("Not Found", { status: 404 });
   }
 
-  const card4 = quickRec?.card4 || (teaserDoc?.body as Record<string, any>)?.card4;
-  const safeBuilding = building || {
+  const isTeaserDocPublic =
+    Boolean(teaserDoc) &&
+    teaserDoc?.visibility !== "internal_only" &&
+    PUBLIC_OG_DOC_STATUSES.has(String(teaserDoc?.status || ""));
+
+  if (teaserDoc && !isTeaserDocPublic && !snapshotCard4 && !quickRec) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  if (
+    String(ssotStatus || building?.status || "") === "draft" &&
+    !snapshotCard4 &&
+    !quickRec &&
+    !isTeaserDocPublic &&
+    !isSignalCardStatusPublic(signalCardStatus) &&
+    !hasVerifiedSentEvent
+  ) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  if (!building && !snapshotCard4 && !quickRec && !isTeaserDocPublic) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const publishedTeaserCard4 =
+    isTeaserDocPublic && teaserDocBody?.card4 && typeof teaserDocBody.card4 === "object"
+      ? (teaserDocBody.card4 as Record<string, unknown>)
+      : undefined;
+  const card4 = (snapshotCard4 || (quickRec?.card4 as Record<string, unknown> | undefined) || publishedTeaserCard4);
+  const safeBuilding: Record<string, unknown> = building || {
     id,
-    area_signal: card4?.region || "서울 주요 권역",
-    asset_type: card4?.use || "상업용 빌딩",
-    price_band: card4?.priceBand || "가격 협의",
+    area_signal: (card4?.region as string | undefined) || "서울 주요 권역",
+    asset_type: (card4?.use as string | undefined) || "상업용 빌딩",
+    price_band: (card4?.priceBand as string | undefined) || "가격 협의",
   };
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
   const attrs = {
     ...rawAttrs,
-    areaSignal: card4?.region || rawAttrs.areaSignal || safeBuilding.area_signal,
-    priceBand: card4?.priceBand || rawAttrs.priceBand || safeBuilding.price_band,
-    assetType: card4?.use || rawAttrs.assetType || safeBuilding.asset_type,
-    investmentPosture: card4?.posture || rawAttrs.investmentPosture,
+    areaSignal: (card4?.region as string | undefined) || rawAttrs.areaSignal || (safeBuilding.area_signal as string | undefined),
+    priceBand: (card4?.priceBand as string | undefined) || rawAttrs.priceBand || (safeBuilding.price_band as string | undefined),
+    assetType: (card4?.use as string | undefined) || rawAttrs.assetType || (safeBuilding.asset_type as string | undefined),
+    investmentPosture: ((card4?.posture as string | undefined) || rawAttrs.investmentPosture) as typeof rawAttrs.investmentPosture,
   };
   const teaserView = projectToTeaser(attrs);
-  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
+  const imBody: Record<string, unknown> = teaserDocBody ?? {};
 
-  const regionDisplay = cleanBlindPoints([card4?.region || teaserView.region || "서울 주요 권역"])[0] || "서울 주요 권역";
-  const useDisplay = cleanBlindPoints([card4?.use || teaserView.assetType || "상업용 빌딩"])[0] || "상업용 빌딩";
-  const priceBandDisplay = card4?.priceBand || teaserView.bandedPrice || "가격 협의";
+  const regionDisplay = cleanBlindPoints([String(card4?.region || teaserView.region || "서울 주요 권역")])[0] || "서울 주요 권역";
+  const useDisplay = cleanBlindPoints([String(card4?.use || teaserView.assetType || "상업용 빌딩")])[0] || "상업용 빌딩";
+  const priceBandDisplay = String(card4?.priceBand || teaserView.bandedPrice || "가격 협의");
 
-  const rawHookCopy =
+  const rawHookCopy = String(
     card4?.headline ||
     imBody.hookCopy ||
     teaserView.hookCopy ||
-    `${regionDisplay} 핵심 ${useDisplay}`;
+    `${regionDisplay} 핵심 ${useDisplay}`
+  );
   const hookCopy = cleanBlindPoints([rawHookCopy])[0] || `${regionDisplay} 핵심 ${useDisplay}`;
-  const posture = card4?.posture || teaserView.posture || "income";
+  const posture = String(card4?.posture || teaserView.posture || "income");
   const postureLabel = teaserView.postureLabel || "임대수익형";
 
   const rawTiles = (teaserView.postureHeroTiles || [
@@ -141,10 +248,12 @@ export async function GET(
   });
   const heroTiles = filterValidTiles(rawTiles).slice(0, 4);
 
-  const rawDealPoints =
-    (Array.isArray(card4?.points) && card4.points.length > 0 ? card4.points : imBody.dealPoints) || [
-      teaserView.highlightText || "안정적 임차 구성 및 우수한 접근성",
-    ];
+  const rawDealPointsSource = Array.isArray(card4?.points) && card4.points.length > 0
+    ? (card4.points as string[])
+    : Array.isArray(imBody.dealPoints)
+    ? (imBody.dealPoints as string[])
+    : [teaserView.highlightText || "안정적 임차 구성 및 우수한 접근성"];
+  const rawDealPoints = rawDealPointsSource;
   const dealPoints = cleanBlindPoints(rawDealPoints);
   if (dealPoints.length === 0) {
     dealPoints.push("안정적 임차 구성 및 우수한 접근성");
@@ -197,7 +306,8 @@ export async function GET(
     accentColor = "#F59E0B";
   }
 
-  const cacheControl = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400";
+  // WP-7.3C P2: short CDN TTL so revoked/deleted cards stop rendering within minutes.
+  const cacheControl = "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
 
   const jsx = (
       <div
@@ -274,6 +384,7 @@ export async function GET(
           {/* QR Code Container */}
           {qrDataUrl ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#FFFFFF", padding: "16px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrDataUrl} width={150} height={150} alt="QR Code" />
               <span style={{ display: "flex", fontSize: "14px", fontWeight: 700, color: "#0B0F14", marginTop: "8px" }}>스캔 시 NDA/상세 열람</span>
             </div>

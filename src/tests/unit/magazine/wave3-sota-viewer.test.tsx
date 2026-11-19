@@ -125,7 +125,7 @@ describe('Wave 3 SOTA Mobile Reader & Calculator Enhancements', () => {
       );
 
       expect(html).toContain('grid grid-cols-2 sm:grid-cols-3 gap-2');
-      expect(html).toContain('col-span-2 sm:col-span-1 border-emerald-500/30 bg-emerald-500/10 py-3');
+      expect(html).toContain('col-span-2 sm:col-span-1 border-emerald-200 bg-emerald-50/70 py-3');
       expect(html).toContain('Cap Rate');
       expect(html).toContain('Cash-on-Cash');
       expect(html).toContain('Net Cash Flow');

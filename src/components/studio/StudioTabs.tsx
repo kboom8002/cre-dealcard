@@ -17,17 +17,17 @@ export function StudioTabs({ buildingId, activeTab }: StudioTabsProps) {
   ] as const;
 
   return (
-    <div className="flex border-b border-neutral-800 bg-neutral-900/40 p-1 rounded-t-2xl gap-1 overflow-x-auto scrollbar-none">
+    <div className="flex border border-slate-200 bg-slate-100 p-1.5 rounded-t-2xl gap-1 overflow-x-auto scrollbar-none">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         return (
           <Link
             key={tab.key}
             href={tab.href}
-            className={`flex-1 shrink-0 text-center py-3 px-4 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+            className={`flex-1 shrink-0 min-h-[44px] flex items-center justify-center text-center py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
               isActive
-                ? 'bg-neutral-800 text-white shadow-sm border border-neutral-700'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/30'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
             }`}
           >
             {tab.label}

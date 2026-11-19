@@ -85,7 +85,7 @@ export function DealCardPipelineContainer({ buildingId }: DealCardPipelineContai
     return (
       <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-center gap-3">
         <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs text-muted-foreground">실시간 파이프라인 단계를 동기화하는 중...</p>
+        <p className="text-sm text-muted-foreground">실시간 파이프라인 단계를 동기화하는 중...</p>
       </div>
     );
   }
@@ -93,7 +93,7 @@ export function DealCardPipelineContainer({ buildingId }: DealCardPipelineContai
   if (error || !authToken || !currentStage) {
     return (
       <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
-        <p className="text-xs text-destructive font-semibold flex items-center gap-1.5">
+        <p className="text-sm text-destructive font-semibold flex items-center gap-1.5">
           ⚠️ 파이프라인 관리 비활성화: {error || "인증 토큰 확보 실패"}
         </p>
       </div>
@@ -103,10 +103,10 @@ export function DealCardPipelineContainer({ buildingId }: DealCardPipelineContai
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-3 shadow-sm">
       <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-2">
-        <h2 className="text-xs font-extrabold text-foreground flex items-center gap-1.5 tracking-wide">
+        <h2 className="text-sm font-extrabold text-foreground flex items-center gap-1.5 tracking-wide">
           <span>⚡</span> 딜 파이프라인 진행 현황
         </h2>
-        <span className="text-[10px] text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded">
+        <span className="text-sm text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded">
           {holdDays}일째 대기 중
         </span>
       </div>

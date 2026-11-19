@@ -20,7 +20,8 @@ export type MonthlyChartType =
   | 'reb_vacancy_cap_spread'
   | 'kosis_commercial_vitality'
   | 'bok_loan_rate_cap_spread'
-  | 'molit_price_band_mix';
+  | 'molit_price_band_mix'
+  | 'reference_cost_financing';
 
 export const MONTHLY_STATS_PREPARING_LABEL = '통계 준비 중' as const;
 
@@ -118,6 +119,12 @@ export const MONTHLY_CHART_TYPE_META: Readonly<
     shortTitle: '국토부 금액대별 통건물 실거래 비중',
     authority: '국토교통부 실거래가 공개시스템 (상업·업무용)',
     buyerReason: '50억 미만·50~100억·100억+ 어느 가격대에 매수 거래가 몰리는지 확인합니다.',
+  },
+  reference_cost_financing: {
+    chartType: 'reference_cost_financing',
+    shortTitle: '표준 건축단가 및 담보·조달 금리 참고치',
+    authority: '상업용 빌딩 금융·건축원가 기준 참고치',
+    buyerReason: '실거래 추이 데이터가 없을 때 신축 원가와 담보대출 금리 기준을 참고합니다.',
   },
 };
 

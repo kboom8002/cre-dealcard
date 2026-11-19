@@ -64,7 +64,7 @@ export function AiTextGenerator({
           setIsOpen(true);
           handleGenerate('balanced');
         }}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1E3A8A] border border-[#BFDBFE] transition-colors"
+        className="inline-flex min-h-[44px] items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1E3A8A] border border-[#BFDBFE] transition-colors cursor-pointer"
         title="공적장부·실데이터 기반으로 문구를 전문적인 IM 톤으로 다듬습니다"
       >
         <span>✨ AI 문구 다듬기</span>
@@ -75,7 +75,7 @@ export function AiTextGenerator({
   return (
     <div className="mt-1.5 p-3 rounded-xl bg-[#F8FAFC] border border-[#BFDBFE] space-y-2.5 text-[#0F172A]">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-extrabold text-[#1E3A8A]">
+        <span className="text-sm font-extrabold text-[#1E3A8A]">
           ✨ 실데이터 기반 AI 문구 다듬기
         </span>
         <button
@@ -84,7 +84,7 @@ export function AiTextGenerator({
             setIsOpen(false);
             setSuggestion(null);
           }}
-          className="text-xs font-bold text-[#64748B] hover:text-[#0F172A]"
+          className="min-h-[44px] px-2.5 text-sm font-bold text-[#64748B] hover:text-[#0F172A] cursor-pointer"
         >
           닫기 ✕
         </button>
@@ -100,7 +100,7 @@ export function AiTextGenerator({
               type="button"
               onClick={() => handleGenerate(t.id)}
               disabled={loading}
-              className={`px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+              className={`min-h-[44px] px-2 py-1.5 rounded-lg text-sm font-bold border transition-all cursor-pointer ${
                 active
                   ? 'border-[#1D4ED8] bg-[#EFF6FF] text-[#1E3A8A]'
                   : 'border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F1F5F9]'
@@ -114,19 +114,19 @@ export function AiTextGenerator({
 
       {/* 생성 결과 미리보기 */}
       {loading ? (
-        <div className="py-3 text-center text-xs font-bold text-[#475569] animate-pulse">
+        <div className="py-3 text-center text-sm font-bold text-[#475569] animate-pulse">
           ⏳ 건물 제원·수익률 데이터를 반영해 문구를 다듬는 중...
         </div>
       ) : suggestion ? (
         <div className="space-y-2">
-          <div className="p-2.5 rounded-lg bg-white border border-[#CBD5E1] text-xs font-medium text-[#0F172A] whitespace-pre-wrap leading-relaxed">
+          <div className="p-2.5 rounded-lg bg-white border border-[#CBD5E1] text-sm font-medium text-[#0F172A] whitespace-pre-wrap leading-relaxed">
             {suggestion}
           </div>
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => handleGenerate(selectedTone)}
-              className="px-2.5 py-1 text-xs font-bold text-[#334155] hover:text-[#0F172A] border border-[#CBD5E1] rounded-lg bg-white"
+              className="min-h-[44px] px-3 py-1.5 text-sm font-bold text-[#334155] hover:text-[#0F172A] border border-[#CBD5E1] rounded-lg bg-white cursor-pointer"
             >
               ↻ 다시 제안받기
             </button>
@@ -137,7 +137,7 @@ export function AiTextGenerator({
                 setIsOpen(false);
                 setSuggestion(null);
               }}
-              className="px-3 py-1 text-xs font-extrabold text-white bg-[#1D4ED8] hover:bg-[#1E40AF] rounded-lg shadow-xs"
+              className="min-h-[44px] px-3.5 py-1.5 text-sm font-extrabold text-white bg-[#1D4ED8] hover:bg-[#1E40AF] rounded-lg shadow-xs cursor-pointer"
             >
               ✓ 이 문구 적용하기
             </button>

@@ -1,27 +1,94 @@
 /**
  * GET /api/public/broker-profile/[slug]
  *
- * 브로커 프로필 + 실적 통계를 공개 반환합니다.
- * slug = 이메일 prefix 또는 display_name 기반 매칭
- * Auth: None (public endpoint).
+ * 공개 설정(`broker_profiles.is_public = true`)된 공인중개사 프로필 + 검증된 공개 딜카드 통계를 반환합니다.
+ * Auth: None (public endpoint, IP rate-limited, strict opt-in visibility).
  */
 import { createServiceClient } from "@/lib/supabase/service";
-import { toApiError } from "@/lib/api-error";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 import { aggregateBrokerStats } from "@/domain/broker-card/broker-stats-aggregator";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+const log = createModuleLogger("route");
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SAFE_BROKER_SLUG_RE = /^[a-zA-Z0-9가-힣._\s-]{1,80}$/;
+
+interface BrokerProfilePublicRow {
+  user_id: string;
+  slug?: string | null;
+  specialty_regions?: string[] | null;
+  specialty_assets?: string[] | null;
+  bio?: string | null;
+  is_verified?: boolean | null;
+  is_public?: boolean | null;
+  created_at?: string | null;
+}
+
+async function findOptedInBrokerProfile(
+  supabase: ReturnType<typeof createServiceClient>,
+  column: "slug" | "user_id",
+  value: string,
+): Promise<BrokerProfilePublicRow | null> {
+  const { data } = await supabase
+    .from("broker_profiles")
+    .select(
+      "user_id, slug, specialty_regions, specialty_assets, bio, is_verified, is_public, created_at",
+    )
+    .eq(column, value)
+    .eq("is_public", true)
+    .limit(1)
+    .maybeSingle();
+
+  const row = (data as BrokerProfilePublicRow | null) ?? null;
+  if (!row || row.is_public !== true || !row.user_id) {
+    return null;
+  }
+  return row;
+}
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
-    const { slug } = await params;
-    const decoded = decodeURIComponent(slug);
+    const ip = getClientIp(req) ?? "anonymous";
+    const allowed = await checkRateLimit(ip, "public_broker_profile", 60, 60_000);
+    if (!allowed) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "요청 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+          },
+        },
+        { status: 429 },
+      );
+    }
 
-    if (!decoded || decoded.length > 100) {
+    const { slug } = await params;
+    let decoded = "";
+    try {
+      decoded = decodeURIComponent(String(slug ?? "")).trim();
+    } catch {
+      return Response.json(
+        {
+          ok: false,
+          error: { code: "VALIDATION_ERROR", message: "유효하지 않은 슬러그입니다." },
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !decoded ||
+      decoded.length > 80 ||
+      !SAFE_BROKER_SLUG_RE.test(decoded)
+    ) {
       return Response.json(
         {
           ok: false,
@@ -33,45 +100,49 @@ export async function GET(
 
     const supabase = createServiceClient();
 
-    // 먼저 display_name으로 검색, 없으면 이메일 prefix로 검색
-    let profile: Record<string, unknown> | null = null;
-    let userId: string | null = null;
+    // 1) exact broker_profiles.slug (is_public = true)
+    let brokerProfile = await findOptedInBrokerProfile(supabase, "slug", decoded);
 
-    // 1) display_name 기반 검색
-    const { data: byName } = await supabase
-      .from("profiles")
-      .select("id, role, display_name, phone, company, created_at")
-      .eq("display_name", decoded)
-      .eq("role", "broker")
-      .limit(1)
-      .maybeSingle();
-
-    if (byName) {
-      profile = byName;
-      userId = byName.id;
+    // 2) exact broker_profiles.user_id when UUID (is_public = true)
+    if (!brokerProfile && UUID_REGEX.test(decoded)) {
+      brokerProfile = await findOptedInBrokerProfile(
+        supabase,
+        "user_id",
+        decoded.toLowerCase(),
+      );
     }
 
-    // 2) 이메일 prefix 기반 검색 (display_name으로 못 찾은 경우)
-    if (!profile) {
-      const { data: allBrokers } = await supabase
-        .from("profiles")
-        .select("id, role, display_name, phone, company, created_at")
-        .eq("role", "broker");
-
-      // Supabase auth에서 이메일을 조회하기 어려우므로
-      // display_name이 slug를 포함하는 경우도 fallback으로 검색
-      const match = (allBrokers ?? []).find((p) => {
-        const name = (p.display_name ?? "").toLowerCase();
-        return name.includes(decoded.toLowerCase());
-      });
-
-      if (match) {
-        profile = match;
-        userId = match.id;
+    // 3) exact display_name match (NO substring .includes() scan; requires unique match + is_public = true)
+    if (!brokerProfile) {
+      const candidates = Array.from(
+        new Set(
+          [decoded, decoded.replace(/-/g, " ").replace(/\s+/g, " ").trim()].filter(
+            Boolean,
+          ),
+        ),
+      );
+      const matchedIds = new Set<string>();
+      for (const candidate of candidates) {
+        const { data: nameMatches } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("role", "broker")
+          .ilike("display_name", escapeIlike(candidate))
+          .limit(2);
+        for (const row of (nameMatches as Array<{ id?: string }> | null) ?? []) {
+          if (row?.id) matchedIds.add(row.id);
+        }
+      }
+      if (matchedIds.size === 1) {
+        brokerProfile = await findOptedInBrokerProfile(
+          supabase,
+          "user_id",
+          [...matchedIds][0],
+        );
       }
     }
 
-    if (!profile || !userId) {
+    if (!brokerProfile || brokerProfile.is_public !== true) {
       return Response.json(
         {
           ok: false,
@@ -81,14 +152,35 @@ export async function GET(
       );
     }
 
-    // 브로커 프로필 추가 정보
-    const { data: brokerProfile } = await supabase
-      .from("broker_profiles")
-      .select("specialty_regions, specialty_assets, bio, is_verified, created_at")
-      .eq("user_id", userId)
+    const userId = brokerProfile.user_id;
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("id, role, display_name, company, created_at")
+      .eq("id", userId)
+      .limit(1)
       .maybeSingle();
 
-    // 실적 통계
+    const profile = profileRow as {
+      id: string;
+      role?: string | null;
+      display_name?: string | null;
+      company?: string | null;
+      created_at?: string | null;
+    } | null;
+
+    if (
+      !profile ||
+      (profile.role !== "broker" && profile.role !== "admin")
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error: { code: "NOT_FOUND", message: "브로커를 찾을 수 없습니다." },
+        },
+        { status: 404 },
+      );
+    }
+
     const stats = await aggregateBrokerStats(userId);
 
     return Response.json({
@@ -96,17 +188,16 @@ export async function GET(
       data: {
         profile: {
           id: profile.id,
-          displayName: profile.display_name,
-          company: profile.company,
-          createdAt: profile.created_at,
-          broker: brokerProfile
-            ? {
-                specialtyRegions: brokerProfile.specialty_regions,
-                specialtyAssets: brokerProfile.specialty_assets,
-                bio: brokerProfile.bio,
-                isVerified: brokerProfile.is_verified,
-              }
-            : null,
+          displayName: profile.display_name ?? null,
+          company: profile.company ?? null,
+          createdAt: profile.created_at ?? null,
+          broker: {
+            slug: brokerProfile.slug ?? null,
+            specialtyRegions: brokerProfile.specialty_regions ?? [],
+            specialtyAssets: brokerProfile.specialty_assets ?? [],
+            bio: brokerProfile.bio ?? null,
+            isVerified: brokerProfile.is_verified === true,
+          },
         },
         stats,
         recentDeals: stats.recentDeals,
@@ -114,6 +205,15 @@ export async function GET(
     });
   } catch (error) {
     log.error("Public Broker Profile Route Error:", error);
-    return toApiError(error);
+    return Response.json(
+      {
+        ok: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "프로필 정보를 불러오는 중 오류가 발생했습니다.",
+        },
+      },
+      { status: 500 },
+    );
   }
 }

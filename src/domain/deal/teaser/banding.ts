@@ -5,6 +5,11 @@
  * @see docs/credal_v3/specs/teaser.md
  */
 
+import {
+  formatPriceRange,
+  parseLegacyBand,
+} from '@/lib/deal-card/price-band';
+
 export interface BandingConfig {
   priceUnit: number;  // KRW band width
   areaUnit: number;   // pyung band width
@@ -23,18 +28,10 @@ function getBandConfig(priceKrw: number): BandingConfig {
   return DEFAULT_BANDS.large;
 }
 
-/** Bands a price to a range string like "50~60억원대" */
+/** Bands a price through canonical SSOT (guarantees >=5% width & 조/억/만 formatting) */
 export function bandPrice(exactKrw: number): string {
   if (!Number.isFinite(exactKrw) || exactKrw <= 0) return '가격 미정';
-  const config = getBandConfig(exactKrw);
-  const lower = Math.floor(exactKrw / config.priceUnit) * config.priceUnit;
-  const upper = lower + config.priceUnit;
-  const format = (v: number) => {
-    if (v >= 1_0000_0000) return `${Math.round(v / 1_0000_0000)}억`;
-    if (v >= 1_0000) return `${Math.round(v / 1_0000)}만`;
-    return `${v}`;
-  };
-  return `${format(lower)}~${format(upper)}원대`;
+  return formatPriceRange(exactKrw, 'standard');
 }
 
 /** Bands area to a range string like "300~400평대" */
@@ -96,7 +93,16 @@ export function assertBandContains(band: Band, actual: number): void {
 }
 
 export function parseBandRange(bandString: string): Band | null {
-  const match = bandString.match(/(\d+)~(\d+)/);
+  if (/[조억만]/.test(bandString)) {
+    const parsed = parseLegacyBand(bandString);
+    if (parsed.maxKrw > parsed.minKrw) {
+      return { label: bandString, lo: parsed.minKrw, hi: parsed.maxKrw };
+    }
+  }
+  const match = bandString.match(/(\d+(?:,\d{3})*(?:\.\d+)?)~(\d+(?:,\d{3})*(?:\.\d+)?)/);
   if (!match) return null;
-  return { label: bandString, lo: Number(match[1]), hi: Number(match[2]) };
+  const lo = Number(match[1].replace(/,/g, ''));
+  const hi = Number(match[2].replace(/,/g, ''));
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+  return { label: bandString, lo, hi };
 }

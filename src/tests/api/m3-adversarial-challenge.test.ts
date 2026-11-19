@@ -425,7 +425,7 @@ describe('Adversarial Challenge & Stress Verification Suite for Milestone M3', (
       expect(res2.status).toBe(400);
     });
 
-    test('ADV-TEASER-11 (Vulnerability Check): JSON null literal payload triggers 500 due to unguarded destructuring', async () => {
+    test('ADV-TEASER-11 (Security Regression Check): JSON null literal payload returns 400 without crashing', async () => {
       const req = new NextRequest('http://localhost:3000/api/public/teaser/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -435,12 +435,8 @@ describe('Adversarial Challenge & Stress Verification Suite for Milestone M3', (
       const res = await postTeaserEvent(req);
       const data = await res.json();
 
-      // Empirically reproduced vulnerability:
-      // 'const { teaserConfigId, ... } = body;' with body === null throws TypeError and returns 500.
-      // Recommendation for remediation: use 'const { ... } = body || {};'
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(400);
       expect(data.ok).toBe(false);
-      expect(data.error).toBe('Internal error');
     });
 
     test('ADV-TEASER-10: Gate request event triggers intent inference flow', async () => {
@@ -467,7 +463,31 @@ describe('Adversarial Challenge & Stress Verification Suite for Milestone M3', (
   // 2. Challenge POST /api/public/im-lite/[buildingId]/view
   // ══════════════════════════════════════════════════════════════
   describe('2. Challenge POST /api/public/im-lite/[buildingId]/view', () => {
+    // WP-7.3D P2-3 (intentional hardening): the public view beacon now only records events (and
+    // fires broker alerts) for share-token-authorized views of THAT building. Token-less beacons
+    // for non-demo IMs are acknowledged with { ok: true, recorded: false } and no write.
+    const issueViewToken = async (buildingId: string) => {
+      const { issueShareLinkToken } = await import('@/lib/security/share-link-tokens');
+      const issued = await issueShareLinkToken({ buildingId, brokerId: 'test-broker-uuid' });
+      return issued.token;
+    };
+
+    test('ADV-IMVIEW-00 (Hardening): token-less view for a non-demo IM is not recorded and fires no alert', async () => {
+      const req = new NextRequest('http://localhost:3000/api/public/im-lite/bld-target-300/view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dwell_seconds: 600, blind_name: '위조 체류' }),
+      });
+      const res = await postImLiteView(req, { params: Promise.resolve({ buildingId: 'bld-target-300' }) });
+      const data = await res.json();
+      expect(res.status).toBe(200);
+      expect(data.recorded).toBe(false);
+      expect(mockDb.activity_events).toHaveLength(0);
+      expect(alertTracker.imViewAlertCount).toBe(0);
+    });
+
     test('ADV-IMVIEW-01: Standard view event writes both building_id AND building_ssot_lite_id', async () => {
+      const shareToken = await issueViewToken('bld-target-301');
       const req = new NextRequest('http://localhost:3000/api/public/im-lite/bld-target-301/view', {
         method: 'POST',
         headers: {
@@ -479,6 +499,7 @@ describe('Adversarial Challenge & Stress Verification Suite for Milestone M3', (
         body: JSON.stringify({
           section_viewed: 'financial_summary',
           blind_name: '역삼 랜드마크',
+          share_token: shareToken,
         }),
       });
 
@@ -500,12 +521,14 @@ describe('Adversarial Challenge & Stress Verification Suite for Milestone M3', (
     });
 
     test('ADV-IMVIEW-02: Dwell time event writes both IDs and triggers alert when dwellSeconds >= 60', async () => {
+      const shareToken = await issueViewToken('bld-target-302');
       const req = new NextRequest('http://localhost:3000/api/public/im-lite/bld-target-302/view', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dwell_seconds: 90,
           blind_name: '성수 헤리티지 타워',
+          share_token: shareToken,
         }),
       });
 

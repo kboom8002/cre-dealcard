@@ -15,25 +15,46 @@ import {
 } from "lucide-react";
 import type { AggregatedBrokerHomeData } from "@/domain/broker/home-aggregated";
 import { FontScaleToggle } from "@/components/workspace/FontScaleToggle";
+import { WorkspaceHelpButton } from "@/components/workspace/WorkspaceHelpButton";
 
 interface BrokerHome4DoorsProps {
   data: AggregatedBrokerHomeData;
+}
+
+/** True when a 1~4 keydown must NOT trigger door navigation. */
+export function shouldIgnoreDoorShortcut(e: KeyboardEvent): boolean {
+  if (e.defaultPrevented || e.repeat) return true;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return true;
+  if (e.isComposing || e.keyCode === 229) return true;
+  const target = e.target;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    return true;
+  }
+  if (target instanceof HTMLElement) {
+    if (target.isContentEditable) return true;
+    const editableAncestor = target.closest(
+      '[contenteditable=""], [contenteditable="true"], [role="textbox"], [role="combobox"]'
+    );
+    if (editableAncestor) return true;
+  }
+  return false;
 }
 
 export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
   const router = useRouter();
   const { doors, resumeItem } = data;
 
-  // Keyboard shortcuts: 1~4 to immediately navigate to task doors
+  // Keyboard shortcuts: 1~4 to immediately navigate to task doors.
+  // P2 (WP-7.3A): ignore modified keys (Ctrl/Cmd/Alt/Shift+digit are browser/OS
+  // shortcuts), IME composition (Korean input), auto-repeat, and any editable focus
+  // (input/textarea/select/contentEditable) so typing a digit never navigates away.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement
-      ) {
-        return;
-      }
+      if (shouldIgnoreDoorShortcut(e)) return;
 
       if (e.key === "1") {
         router.push(doors.dealcards.href);
@@ -146,6 +167,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
 
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap sm:items-center gap-2.5 w-full sm:w-auto min-w-0">
           <FontScaleToggle />
+          <WorkspaceHelpButton workspace="home" />
           <Link
             href="/broker/profile"
             data-testid="home-profile-settings-btn"
@@ -199,6 +221,9 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
         {doorList.map((door) => (
           <div
             key={door.config.id}
+            role="button"
+            tabIndex={0}
+            aria-label={door.config.title}
             data-testid={`home-door-card-${door.config.id}`}
             onClick={(e) => {
               const target = e.target as HTMLElement | null;

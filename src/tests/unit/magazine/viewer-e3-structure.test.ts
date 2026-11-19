@@ -4,7 +4,7 @@
  *  - 클라이언트 섬은 zod / supabase / node: 내장 / 도메인(값) 을 import 하지 않아 독자 번들에 들어가지 않는다
  *  - 클라이언트 섬은 서버 전용 DOMPurify 를 끌어오는 viewer-primitives 를 import 하지 않는다
  *  - next/dynamic 은 클라이언트 래퍼(LazyIslands)에서만 호출한다 (Server Component 에서는 코드 분할 안 됨)
- *  - (magazine) 라우트 그룹 레이아웃: PublicBottomNav·ThemeToggle·PageTransition 제외, color-scheme dark, 스킵 링크
+ *  - (magazine) 라우트 그룹 레이아웃: PublicBottomNav·ThemeToggle·PageTransition 제외, color-scheme light, 스킵 링크
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -111,13 +111,13 @@ describe('U-07 (magazine) 라우트 그룹', () => {
     expect(exists('app/(public)/terms')).toBe(true);
   });
 
-  it('그룹 레이아웃: 하단 내비·테마 토글·전환 효과 제외, color-scheme dark, 스킵 링크, <style> 우회 없음', () => {
+  it('그룹 레이아웃: 하단 내비·테마 토글·전환 효과 제외, color-scheme light, 스킵 링크, <style> 우회 없음', () => {
     const layout = read('app/(magazine)/layout.tsx');
     expect(layout).not.toMatch(/import[^;]*PublicBottomNav/);
     expect(layout).not.toMatch(/import[^;]*ThemeToggle/);
     expect(layout).not.toMatch(/import[^;]*PageTransition/);
     expect(layout).not.toMatch(/<style[\s>]/);
-    expect(layout).toMatch(/colorScheme:\s*["']dark["']/);
+    expect(layout).toMatch(/colorScheme:\s*["']light["']/);
     expect(layout).toMatch(/href="#magazine-main"/);
     expect(layout).toMatch(/template:\s*["']%s \| DealCard["']/);
     // (public) 의 홈 canonical 상속이 사라졌으므로 그룹 기본 canonical 은 두지 않는다 (페이지별 지정)

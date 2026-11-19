@@ -4,6 +4,14 @@ import * as path from 'path';
 import AdmZip from 'adm-zip';
 import { createClient } from '@supabase/supabase-js';
 import { MobileImPptxRenderer } from '../../domain/building/mobile-im/pptx/pptx-renderer';
+import { setOfflineEnrichment } from '../../domain/building/mobile-im/pptx/basic-im-enrichment';
+import {
+  hasSnapshot,
+  loadSnapshot,
+  loadPoiPool,
+  buildRenderInput,
+  installOfflineGuard,
+} from '../../../scripts/golden-snapshot/lib';
 
 /**
  * Basic IM SOTA 렌더 정합성 테스트 (vitest 통합)
@@ -27,6 +35,8 @@ import { MobileImPptxRenderer } from '../../domain/building/mobile-im/pptx/pptx-
  */
 describe('Basic IM SOTA Render Verification Test', () => {
   afterAll(() => {
+    setOfflineEnrichment(null);
+    delete process.env.OFFLINE_RENDER;
     try {
       const outDir = path.resolve(process.cwd(), 'docs', 'test', 'stress', 'e2e-outputs', 'render-verification');
       const outPath = path.join(outDir, 'seocho_basic_sota.pptx');
@@ -37,25 +47,114 @@ describe('Basic IM SOTA Render Verification Test', () => {
   it('renders Basic IM with all 7 SOTA improvements and passes 26-point assertion suite', async () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-      console.log('Skipping DB test: no supabase env');
-      return;
-    }
-    const s = createClient(supabaseUrl, supabaseKey);
-
     const docId = '8bc302d8-dbe0-4109-ba49-9573e8e78dc3';
-    const { data: doc } = await s.from('document_objects').select('*').eq('id', docId).single();
-    const { data: bldg } = await s.from('building_ssot_lite').select('*').eq('id', doc.building_id).single();
+    let doc: any = null;
+    let bldg: any = null;
+    if (supabaseUrl && supabaseKey) {
+      const s = createClient(supabaseUrl, supabaseKey);
+      const { data: dbDoc } = await s.from('document_objects').select('*').eq('id', docId).maybeSingle();
+      if (dbDoc?.building_id) {
+        const { data: dbBldg } = await s.from('building_ssot_lite').select('*').eq('id', dbDoc.building_id).maybeSingle();
+        if (dbBldg) {
+          doc = dbDoc;
+          bldg = dbBldg;
+        }
+      }
+    }
 
     const renderer = new MobileImPptxRenderer();
-    const result = await renderer.render({
-      buildingId: doc.building_id,
-      doc,
-      building: bldg,
-      grade: 'B',
-      preset: 'credeal_basic',
-      posture: 'income',
-    });
+    let result: Awaited<ReturnType<MobileImPptxRenderer['render']>>;
+    if (doc && bldg) {
+      result = await renderer.render({
+        buildingId: doc.building_id,
+        doc,
+        building: bldg,
+        grade: 'B',
+        preset: 'credeal_basic',
+        posture: 'income',
+      });
+    } else if (hasSnapshot('owner-seocho-r3')) {
+      await installOfflineGuard();
+      const snap = loadSnapshot('owner-seocho-r3');
+      const fallbackLeases = [
+        { floor: '1F', tenant_name: '스타벅스', tenant_type: '카페', area_sqm: 140, deposit_manwon: 30000, rent_manwon: 1800, mgmt_fee_manwon: 0, lease_state: '임대중', is_vacant: false },
+        { floor: '2F', tenant_name: '', tenant_type: '공실', area_sqm: 140, deposit_manwon: 0, rent_manwon: 0, mgmt_fee_manwon: 0, lease_state: '공실', is_vacant: true },
+        { floor: '3F', tenant_name: '더블유클리닉', tenant_type: '병원', area_sqm: 140, deposit_manwon: 25000, rent_manwon: 1300, mgmt_fee_manwon: 0, lease_state: '임대중', is_vacant: false },
+        { floor: '4F', tenant_name: '', tenant_type: '공실', area_sqm: 140, deposit_manwon: 0, rent_manwon: 0, mgmt_fee_manwon: 0, lease_state: '공실', is_vacant: true },
+      ];
+      const baseSections = Array.isArray(snap.doc.body.sections)
+        ? snap.doc.body.sections.filter(
+            (s: any) => s.section_type !== 'cost_comparison' && s.section_type !== 'occupancy_fit',
+          )
+        : [];
+      const fallbackSections = [
+        ...baseSections.filter(
+          (s: any) => s.section_type !== 'lease_status' && s.section_type !== 'income_analysis',
+        ),
+        {
+          section_type: 'lease_status',
+          title: '임대차 현황',
+          markdown:
+            '| 층 | 임차인 | 보증금 | 월임대료 |\n|---|---|---|---|\n| 1F | 스타벅스 | 3억 | 1,800만원 |\n| 2F | 공실 | - | - |\n| 3F | 더블유클리닉 | 2.5억 | 1,300만원 |\n| 4F | 공실 | - | - |',
+        },
+        {
+          section_type: 'income_analysis',
+          title: '수익률 분석',
+          markdown: '연간 임대수입 3.72억 원, 보증금 차감 임대수익률 1.66%',
+        },
+      ];
+      snap.doc.body = {
+        ...snap.doc.body,
+        tier: 'basic',
+        preset: 'credeal_basic',
+        investment_posture: 'income',
+        investmentPosture: 'income',
+        posture: 'income',
+        asking_price_manwon: 2300000,
+        floor_leases: fallbackLeases,
+        rentRoll: fallbackLeases,
+        sections: fallbackSections,
+        photos_v2: Array.isArray(snap.doc.body.photos_v2) ? snap.doc.body.photos_v2.slice(0, 4) : [],
+        broker_extras: undefined,
+        _studioSlideOverrides: undefined,
+        market_rent_per_pyeong: undefined,
+        target_monthly_rent_manwon: undefined,
+        stabilized_yield_pct: undefined,
+        turnaround_plan: undefined,
+        financials: {
+          depositKrw: 550_000_000,
+        },
+        ssot_summary: {
+          ...(snap.doc.body.ssot_summary || {}),
+          asking_price_manwon: 2300000,
+          total_deposit_manwon: 55000,
+          deposit_total_krw: 550_000_000,
+          monthly_rent_total_krw: 31_000_000,
+          maintenance_fee_monthly_krw: 0,
+          investment_posture: 'income',
+        },
+      };
+      if (snap.building) {
+        snap.building.investment_posture = 'income';
+      }
+      setOfflineEnrichment(
+        snap.liveEnrichment
+          ? { ...snap.liveEnrichment, cadastralMapImage: undefined }
+          : null,
+      );
+      const renderInput = await buildRenderInput(snap);
+      const pool = loadPoiPool('owner-seocho-r3');
+      if (pool) renderInput.landmarkPoolFixture = pool;
+      result = await renderer.render({
+        ...(renderInput as any),
+        grade: 'B',
+        preset: 'credeal_basic',
+        posture: 'income',
+      });
+    } else {
+      console.log('Skipping render test: no DB doc and no local snapshot');
+      return;
+    }
 
     // ═══════════════════════════════════════════════════
     // 기본 검증: 버퍼 유효성 + 면수

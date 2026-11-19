@@ -13,6 +13,7 @@
 
 import type { Card4Data, DealCardGenerationSource, DealCardPosture } from "./card4-schema";
 import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
+import { formatPriceRange, parseKoreanPriceKrw, validateBlindPriceBand } from "./price-band";
 import { cleanBlindPoints, validateBlindPoints } from "./blind-guard";
 import {
   deriveDealCardHeadline,
@@ -333,44 +334,66 @@ export function parseMemoIntoCard4(
     area = `토지 ${landAreaPyung.toLocaleString("ko-KR")}평`;
   }
 
-  // 5. 가격 구간(priceBand) 추출 (보증금/대출 숫자와 구분하여 안전 구간화)
+  // 5. 가격 구간(priceBand) 추출 (price-band SSOT 위임, >= 5% 폭 & 조~조/억~억 단위 지원)
   let priceBand = baseCard4.priceBand || "";
-  const explicitBandMatch = text.match(/(\d+(?:\.\d+)?)\s*~\s*(\d+(?:\.\d+)?)\s*억/);
-  if (explicitBandMatch) {
-    priceBand = `${explicitBandMatch[1]}~${explicitBandMatch[2]}억`;
+  const explicitJoRangeMatch = text.match(
+    /(\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|억))?)\s*~\s*(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?)/
+  );
+  const explicitBandMatch = explicitJoRangeMatch
+    ? null
+    : text.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*~\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*억/);
+  if (explicitJoRangeMatch) {
+    const rawLeft = explicitJoRangeMatch[1].trim();
+    const rawRight = explicitJoRangeMatch[2].trim();
+    const normalizedLeft = /(조|억|만)/.test(rawLeft) ? rawLeft : `${rawLeft}조`;
+    const candidate = `${rawLeft}~${rawRight}`;
+    const check = validateBlindPriceBand(candidate);
+    if (check.valid) {
+      priceBand = candidate;
+    } else {
+      const minKrw = parseKoreanPriceKrw(normalizedLeft);
+      const maxKrw = parseKoreanPriceKrw(rawRight);
+      if (minKrw && maxKrw && maxKrw > 0) {
+        priceBand = formatPriceRange((minKrw + maxKrw) / 2);
+      }
+    }
+  } else if (explicitBandMatch) {
+    const lo = parseFloat(explicitBandMatch[1].replace(/,/g, ""));
+    const hi = parseFloat(explicitBandMatch[2].replace(/,/g, ""));
+    const candidate = `${explicitBandMatch[1]}~${explicitBandMatch[2]}억`;
+    const check = validateBlindPriceBand(candidate);
+    if (check.valid) {
+      priceBand = candidate;
+    } else if (Number.isFinite(lo) && Number.isFinite(hi) && hi > 0) {
+      priceBand = formatPriceRange(((lo + hi) / 2) * 100_000_000);
+    }
   } else {
     const explicitAskMatch = text.match(
-      /(?:매매가|매각가|희망가|매매\s*희망가|매가|매매|호가)\s*[:：]?\s*(?:약\s*)?(\d+(?:[.,]\d+)?)\s*억(?:\s*(\d+)\s*천)?/
+      /(?:매매가|매각가|희망가|매매\s*희망가|매가|매매|호가)\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:[.,]\d+)?\s*억(?:\s*\d+\s*천)?)/
     );
-    let askEok: number | null = null;
+    let askKrw: number | null = null;
     if (explicitAskMatch) {
-      askEok =
-        parseFloat(explicitAskMatch[1].replace(/,/g, "")) +
-        (explicitAskMatch[2] ? parseFloat(explicitAskMatch[2]) * 0.1 : 0);
+      askKrw = parseKoreanPriceKrw(explicitAskMatch[1]);
     } else {
       const strippedSubAmounts = text.replace(
         /(?:보증금|전세금|대출|융자|근저당|임대보증금)\s*[:：]?\s*(?:약\s*)?\d+(?:[.,]\d+)?\s*억/g,
         ""
       );
-      const allEok = Array.from(strippedSubAmounts.matchAll(/(\d+(?:[.,]\d+)?)\s*억/g))
-        .map((m) => parseFloat(m[1].replace(/,/g, "")))
-        .filter((n) => Number.isFinite(n) && n > 0);
-      if (allEok.length > 0) {
-        askEok = Math.max(...allEok);
+      const joHit = strippedSubAmounts.match(/\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?/);
+      if (joHit) {
+        askKrw = parseKoreanPriceKrw(joHit[0]);
+      } else {
+        const allEok = Array.from(strippedSubAmounts.matchAll(/(\d+(?:[.,]\d+)?)\s*억/g))
+          .map((m) => parseFloat(m[1].replace(/,/g, "")))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (allEok.length > 0) {
+          askKrw = Math.max(...allEok) * 100_000_000;
+        }
       }
     }
 
-    if (askEok !== null && askEok > 0) {
-      if (askEok >= 100) {
-        const low = Math.floor(askEok / 10) * 10;
-        priceBand = `${low}~${low + 10}억`;
-      } else if (askEok >= 20) {
-        const low = Math.floor(askEok / 5) * 5;
-        priceBand = `${low}~${low + 5}억`;
-      } else {
-        const low = Math.max(1, Math.floor(askEok));
-        priceBand = `${low}~${low + 2}억`;
-      }
+    if (askKrw !== null && askKrw > 0) {
+      priceBand = formatPriceRange(askKrw);
     }
   }
 
@@ -386,20 +409,40 @@ export function parseMemoIntoCard4(
     .map((c) => c.trim())
     .filter((c) => c.length >= 3);
 
+  const formatManWithoutDecimalEok = (totalMan: number): string => {
+    if (totalMan >= 10000) {
+      const wholeEok = Math.floor(totalMan / 10000);
+      const remMan = Math.round(totalMan % 10000);
+      return remMan > 0 ? `${wholeEok}억 ${remMan.toLocaleString("ko-KR")}` : `${wholeEok}억`;
+    }
+    return `${Math.round(totalMan).toLocaleString("ko-KR")}만`;
+  };
+
+  const normalizeRentToken = (raw: string): string => {
+    const compactRaw = raw.replace(/\s+/g, "");
+    const decEok = compactRaw.match(/^(\d+)\.(\d+)억$/);
+    if (decEok) {
+      const totalMan = Math.round(parseFloat(`${decEok[1]}.${decEok[2]}`) * 10000);
+      return formatManWithoutDecimalEok(totalMan);
+    }
+    return compactRaw;
+  };
+
   const compactRentClause = (clause: string): string => {
-    // 예: "보증금 2억7,950만 월세 809만" (20자) -> 18자 이내에서 월세 핵심이 잘리지 않도록 정돈
+    // 예: "보증금 2억7,950만 월세 809만" (20자) -> 18자 이내에서 월세 핵심이 잘리지 않도록 정돈 (소수점 억 금지)
     if (clause.length <= 18) return clause;
     const rentMatch = clause.match(/월세\s*([\d,.]+\s*(?:억(?:\s*[\d,.]+\s*만)?|만|천만?))\s*(?:원)?/);
     const depEokManMatch = clause.match(/보증금\s*(\d+)\s*억\s*(\d[\d,]*)\s*만/);
     if (depEokManMatch && rentMatch) {
       const eok = parseInt(depEokManMatch[1], 10);
       const man = parseInt(depEokManMatch[2].replace(/,/g, ""), 10);
-      const roundedEok = Math.round((eok + man / 10000) * 10) / 10;
-      const compact = `보증금 ${roundedEok}억·월세 ${rentMatch[1].replace(/\s+/g, "")}`;
+      const totalMan = eok * 10000 + man;
+      const depDisplay = formatManWithoutDecimalEok(totalMan);
+      const compact = `보증금 ${depDisplay}·월세 ${normalizeRentToken(rentMatch[1])}`;
       if (compact.length <= 18) return compact;
     }
     if (rentMatch) {
-      return `월세 ${rentMatch[1].replace(/\s+/g, "")} 임대수익`;
+      return `월세 ${normalizeRentToken(rentMatch[1])} 임대수익`;
     }
     return clause;
   };

@@ -74,7 +74,7 @@ describe("Wave 2 Adversarial Stress Suite", () => {
       expect(redirectEl).not.toBeNull();
       expect(redirectEl?.textContent).toContain("뉴스레터 편집실로 이동 중입니다");
       expect(mockReplace).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith("/broker/magazine-editor");
+      expect(mockReplace).toHaveBeenCalledWith("/broker/w/newsletter");
     });
 
     it("renders safely when complex query params are passed (?tab=theme_deals&mode=simple&edition=ed-999&utm_source=kakao)", async () => {
@@ -87,8 +87,8 @@ describe("Wave 2 Adversarial Stress Suite", () => {
       expect(redirectEl).not.toBeNull();
       expect(redirectEl?.textContent).toContain("뉴스레터 편집실로 이동 중입니다");
       expect(mockReplace).toHaveBeenCalledTimes(1);
-      // Query parameters are forwarded to /broker/magazine-editor preserving deep links
-      expect(mockReplace).toHaveBeenCalledWith("/broker/magazine-editor?tab=theme_deals&mode=simple&edition=ed-999&utm_source=kakao");
+      // Query parameters are forwarded to canonical /broker/w/newsletter preserving deep links
+      expect(mockReplace).toHaveBeenCalledWith("/broker/w/newsletter?tab=theme_deals&mode=simple&edition=ed-999&utm_source=kakao");
     });
 
     it("does not trigger infinite loop or multiple router.replace calls on re-renders when router reference is stable", async () => {

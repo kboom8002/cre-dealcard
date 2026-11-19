@@ -15,10 +15,15 @@ export async function GET(
   }
 
   const { id } = await params;
+  const ownerScopeId =
+    studioGuard?.role === 'admin' ? undefined : studioGuard?.user?.id;
   try {
     let project;
-    try { project = await studioService.getProject(id); }
-    catch { project = await studioService.findProjectByDealId(id); }
+    try {
+      project = await studioService.getProject(id);
+    } catch {
+      project = await studioService.findProjectByDealId(id, ownerScopeId);
+    }
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
@@ -28,7 +33,11 @@ export async function GET(
     if (denied) return denied;
     return NextResponse.json({ ok: true, project });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    console.error('[basic-im-studio/[id]] GET failed:', err);
+    return NextResponse.json(
+      { ok: false, error: '스튜디오 프로젝트를 불러오지 못했습니다.' },
+      { status: 500 }
+    );
   }
 }
 
@@ -44,6 +53,8 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const ownerId = studioGuard?.user?.id;
+  const ownerScopeId = studioGuard?.role === 'admin' ? undefined : ownerId;
   try {
     const body = await req.json();
     const {
@@ -55,12 +66,19 @@ export async function PATCH(
       orderedSlideIds,
       hidden,
       themePatch,
-      expectedLockVersion,
     } = body;
+    const rawExpectedLock = body.expectedLockVersion ?? body.lockVersion;
+    const expectedLockVersion =
+      typeof rawExpectedLock === 'number' && Number.isFinite(rawExpectedLock)
+        ? rawExpectedLock
+        : undefined;
 
     let project;
-    try { project = await studioService.getProject(id); }
-    catch { project = await studioService.findProjectByDealId(id); }
+    try {
+      project = await studioService.getProject(id);
+    } catch {
+      project = await studioService.findProjectByDealId(id, ownerScopeId);
+    }
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
@@ -75,27 +93,54 @@ export async function PATCH(
       if (!Array.isArray(orderedSlideIds)) {
         return NextResponse.json({ ok: false, error: 'orderedSlideIds array is required' }, { status: 400 });
       }
-      updated = await studioService.reorderSlides(project.id, orderedSlideIds, expectedLockVersion);
+      updated = await studioService.reorderSlides(
+        project.id,
+        orderedSlideIds,
+        expectedLockVersion,
+        ownerId
+      );
     } else if (action === 'toggle') {
       if (!slideId) {
         return NextResponse.json({ ok: false, error: 'slideId is required' }, { status: 400 });
       }
-      updated = await studioService.toggleSlideVisibility(project.id, slideId, hidden, expectedLockVersion);
+      updated = await studioService.toggleSlideVisibility(
+        project.id,
+        slideId,
+        hidden,
+        expectedLockVersion,
+        ownerId
+      );
     } else if (action === 'layout') {
       if (typeof slideIndex !== 'number' || !layoutType) {
         return NextResponse.json({ ok: false, error: 'slideIndex and layoutType are required' }, { status: 400 });
       }
-      updated = await studioService.updateSlideLayout(project.id, slideIndex, layoutType, expectedLockVersion);
+      updated = await studioService.updateSlideLayout(
+        project.id,
+        slideIndex,
+        layoutType,
+        expectedLockVersion,
+        ownerId
+      );
     } else if (action === 'theme') {
       if (!themePatch || typeof themePatch !== 'object') {
         return NextResponse.json({ ok: false, error: 'themePatch object is required' }, { status: 400 });
       }
-      updated = await studioService.updateProjectTheme(project.id, themePatch, expectedLockVersion);
+      updated = await studioService.updateProjectTheme(
+        project.id,
+        themePatch,
+        expectedLockVersion,
+        ownerId
+      );
     } else if (action === 'reset') {
       if (!slideId) {
         return NextResponse.json({ ok: false, error: 'slideId is required' }, { status: 400 });
       }
-      updated = await studioService.resetSlideOverrides(project.id, slideId, expectedLockVersion);
+      updated = await studioService.resetSlideOverrides(
+        project.id,
+        slideId,
+        expectedLockVersion,
+        ownerId
+      );
     } else {
       if (!slideId || !overrides) {
         return NextResponse.json(
@@ -104,16 +149,31 @@ export async function PATCH(
         );
       }
       updated = await studioService.patchSlideOverrides(
-        project.id, slideId, overrides, expectedLockVersion
+        project.id,
+        slideId,
+        overrides,
+        expectedLockVersion,
+        ownerId
       );
     }
 
     return NextResponse.json({ ok: true, project: updated });
   } catch (err: any) {
-    const isStale = err.message?.includes('STALE_LOCK_ERROR');
+    const isStale = Boolean(err?.message?.includes('STALE_LOCK_ERROR'));
+    if (isStale) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'STALE_LOCK_ERROR',
+          error: 'STALE_LOCK_ERROR: 다른 화면에서 먼저 수정되었습니다. 새로고침 후 다시 시도해 주세요.',
+        },
+        { status: 409 }
+      );
+    }
+    console.error('[basic-im-studio/[id]] PATCH failed:', err);
     return NextResponse.json(
-      { ok: false, error: err.message },
-      { status: isStale ? 409 : 500 }
+      { ok: false, error: '슬라이드 변경사항 저장에 실패했습니다.' },
+      { status: 500 }
     );
   }
 }

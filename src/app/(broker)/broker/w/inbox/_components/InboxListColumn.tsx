@@ -36,6 +36,10 @@ export interface InboxListColumnProps {
   onApproveAndSendIm: (thread: InboxThreadItem) => void;
   onOpenNewClientModal: () => void;
   onOpenBulkImportModal: () => void;
+  hasMoreClients?: boolean;
+  loadingMoreClients?: boolean;
+  totalClientsCount?: number | null;
+  onLoadMoreClients?: () => void;
 }
 
 const CRM_FILTER_CHIPS: ReadonlyArray<{
@@ -67,6 +71,9 @@ export function InboxListColumn({
   onApproveAndSendIm,
   onOpenNewClientModal,
   onOpenBulkImportModal,
+  hasMoreClients = false,
+  loadingMoreClients = false,
+  onLoadMoreClients,
 }: InboxListColumnProps) {
   const [mobileExtraOpen, setMobileExtraOpen] = React.useState(false);
 
@@ -427,6 +434,19 @@ export function InboxListColumn({
             );
           })
         )}
+        {hasMoreClients && onLoadMoreClients ? (
+          <div className="pt-2">
+            <button
+              type="button"
+              data-testid="inbox-load-more-clients"
+              disabled={loadingMoreClients}
+              onClick={onLoadMoreClients}
+              className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-slate-50 disabled:opacity-50 cursor-pointer transition-colors"
+            >
+              {loadingMoreClients ? "불러오는 중..." : "더 보기"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </WorkspaceListPanel>
   );

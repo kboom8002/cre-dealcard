@@ -186,13 +186,23 @@ function QaBrokerSignoffInner() {
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
           QA_BROKER_SHOWCASE_SESSION_ID
         )}`,
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          headers: {
+            ...buildQaAuthHeaders("broker"),
+          },
+        }
       ),
       fetch(
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
           QA_BROKER_SIGNOFF_SESSION_ID
         )}`,
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          headers: {
+            ...buildQaAuthHeaders("broker"),
+          },
+        }
       ),
       fetch("/api/public/qa-workbench?mode=pins", {
         cache: "no-store",
@@ -204,13 +214,23 @@ function QaBrokerSignoffInner() {
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
           QA_TESTER_SHOWCASE_SESSION_ID
         )}`,
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          headers: {
+            ...buildQaAuthHeaders("broker"),
+          },
+        }
       ),
       fetch(
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
           QA_TESTER_SIGNOFF_SESSION_ID
         )}`,
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          headers: {
+            ...buildQaAuthHeaders("broker"),
+          },
+        }
       ),
     ]);
 
@@ -613,8 +633,8 @@ function QaBrokerSignoffInner() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div data-testid="broker-signoff-font-toggle-wrap">
+            <div className="flex flex-wrap items-center gap-2 max-w-full">
+              <div data-testid="broker-signoff-font-toggle-wrap" className="max-w-full">
                 <FontScaleToggle />
               </div>
               <button
@@ -791,7 +811,7 @@ function QaBrokerSignoffInner() {
                       `/qa-broker/showcase?case=${item.id}`,
                       "broker"
                     )}
-                    className="min-h-[40px] inline-flex items-center rounded-lg border border-amber-300 bg-white hover:bg-amber-100 px-3 text-sm font-extrabold text-slate-900"
+                    className="min-h-[44px] inline-flex items-center rounded-lg border border-amber-300 bg-white hover:bg-amber-100 px-3 text-sm font-extrabold text-slate-900"
                   >
                     {item.id} ({item.status === "FAIL" ? "보완 필요" : "다듬기"}) ↗
                   </Link>
@@ -1018,10 +1038,10 @@ function QaBrokerSignoffInner() {
                   >
                     <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white text-xs font-extrabold">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-900 text-white text-sm font-extrabold">
                           {reqItem.id}
                         </span>
-                        <span className="text-xs font-bold text-indigo-800">
+                        <span className="text-sm font-bold text-indigo-800">
                           {BROKER_AREA_LABELS[reqItem.area]}
                         </span>
                       </div>
@@ -1215,7 +1235,7 @@ function QaBrokerSignoffInner() {
                           alt={`${pin.targetLabel} 캡처 미리보기`}
                           className="w-full max-h-32 object-contain bg-white"
                         />
-                        <span className="block w-full py-1 text-center text-xs font-bold text-slate-600 bg-slate-100/90 group-hover:text-slate-900">
+                        <span className="block w-full py-1 text-center text-sm font-bold text-slate-600 bg-slate-100/90 group-hover:text-slate-900">
                           🔍 눌러서 크게 보기
                         </span>
                       </button>
@@ -1306,7 +1326,7 @@ function QaBrokerSignoffInner() {
                 type="button"
                 data-testid="broker-pin-zoom-close-btn"
                 onClick={() => setZoomPin(null)}
-                className="min-h-[40px] px-3.5 rounded-lg bg-slate-900 text-white text-sm font-extrabold cursor-pointer hover:bg-slate-800"
+                className="min-h-[44px] px-3.5 rounded-lg bg-slate-900 text-white text-sm font-extrabold cursor-pointer hover:bg-slate-800"
               >
                 ✕ 닫기 (ESC)
               </button>

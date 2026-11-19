@@ -20,11 +20,14 @@ function resolveModuleForPathname(pathname: string, overrideId: string | null): 
   if (pathname === "/broker") {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-01") || BROKER_TUTORIAL_MODULES[0];
   }
-  if (pathname.startsWith("/broker/deal-card/new")) {
+  if (pathname.startsWith("/broker/w/dealcards") || pathname.startsWith("/broker/deal-card/new")) {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-02") || BROKER_TUTORIAL_MODULES[0];
   }
   if (pathname.startsWith("/broker/deal-card/")) {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-03") || BROKER_TUTORIAL_MODULES[0];
+  }
+  if (pathname.startsWith("/broker/w/im")) {
+    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-04") || BROKER_TUTORIAL_MODULES[0];
   }
   if (pathname.startsWith("/broker/basic-im-studio") || pathname.includes("/im-lite")) {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-05") || BROKER_TUTORIAL_MODULES[0];
@@ -32,10 +35,18 @@ function resolveModuleForPathname(pathname: string, overrideId: string | null): 
   if (pathname.startsWith("/broker/buildings")) {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-06") || BROKER_TUTORIAL_MODULES[0];
   }
-  if (pathname.startsWith("/broker/magazine-editor")) {
+  if (
+    pathname.startsWith("/broker/w/newsletter") ||
+    pathname.startsWith("/broker/w/magazine") ||
+    pathname.startsWith("/broker/magazine-editor")
+  ) {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-07") || BROKER_TUTORIAL_MODULES[0];
   }
-  if (pathname.startsWith("/broker/clients") || pathname.startsWith("/broker/inbox")) {
+  if (
+    pathname.startsWith("/broker/w/inbox") ||
+    pathname.startsWith("/broker/clients") ||
+    pathname.startsWith("/broker/inbox")
+  ) {
     return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-08") || BROKER_TUTORIAL_MODULES[0];
   }
   if (pathname.startsWith("/broker/profile")) {
@@ -265,7 +276,7 @@ export function ContextualHelpDrawer() {
                   className="rounded-2xl border border-slate-300 bg-white p-4 space-y-2 shadow-2xs"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-xs font-black">
+                    <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-sm font-black">
                       {faq.qNumber} · {faq.category}
                     </span>
                   </div>
@@ -309,7 +320,7 @@ export function ContextualHelpDrawer() {
           <Link
             href="/broker/tutorial"
             onClick={closeHelpDrawer}
-            className="text-sm font-extrabold text-blue-700 hover:underline"
+            className="inline-flex min-h-[44px] items-center text-sm font-extrabold text-blue-700 hover:underline"
           >
             📖 전체 큰글씨 설명서 · 인쇄 화면으로 이동 →
           </Link>
