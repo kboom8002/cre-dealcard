@@ -951,7 +951,9 @@ export class PgliteSupabaseHarness {
           .filter(
             (name) =>
               name.endsWith('.sql') &&
-              (name.startsWith('20261115') || name.startsWith('20261117'))
+              (name.startsWith('20261115') ||
+                name.startsWith('20261117') ||
+                name.startsWith('20261119'))
           )
           .sort()
       : [];

@@ -7,10 +7,10 @@ on:
     branches: [ "main" ]
 
 jobs:
-  quality-gate:
-    name: Quality Gate (lint + typecheck + test + build)
+  lint-type-build:
+    name: Lint, Drift, Typecheck & Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
     - name: Checkout repository
@@ -40,15 +40,6 @@ jobs:
     - name: Type Check
       run: npx tsc --noEmit
 
-    - name: Run Vitest (2490+ tests)
-      run: npm run test
-      env:
-        NEXT_PUBLIC_SUPABASE_URL: "https://mock.supabase.co"
-        SUPABASE_SERVICE_ROLE_KEY: "mock-key"
-        APP_BASE_URL: "http://localhost:3000"
-        TEST_AUTH_TOKEN: "dummy-token"
-        SHARE_LINK_SECRET: "ci-test-share-link-secret-minimum-32-chars-ok"
-
     - name: Production Build
       run: npm run build
       env:
@@ -56,11 +47,42 @@ jobs:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key"
         SHARE_LINK_SECRET: "ci-test-share-link-secret-minimum-32-chars-ok"
 
+  vitest:
+    name: Vitest Suite (Shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run Vitest shard ${{ matrix.shard }}/4
+      run: npx vitest run --shard=${{ matrix.shard }}/4
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: "https://mock.supabase.co"
+        SUPABASE_SERVICE_ROLE_KEY: "mock-key"
+        APP_BASE_URL: "http://localhost:3000"
+        TEST_AUTH_TOKEN: "dummy-token"
+        SHARE_LINK_SECRET: "ci-test-share-link-secret-minimum-32-chars-ok"
+
   playwright:
     name: Playwright E2E (55+ tests)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: quality-gate
+    needs: [lint-type-build, vitest]
 
     steps:
     - name: Checkout repository

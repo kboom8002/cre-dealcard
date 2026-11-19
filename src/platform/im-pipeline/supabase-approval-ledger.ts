@@ -14,6 +14,7 @@ import type {
   ReleaseRecordUpdates,
 } from '@/domain/building/im-core/approval/ledger-port';
 import { ApprovalLedgerService } from '@/domain/building/im-core/approval/ledger-service';
+import { isRealProductionRuntime } from '@/lib/env';
 
 export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
   private client: any | null = null;
@@ -29,20 +30,29 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
   private initClient(): any | null {
     try {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (url && key) {
-        return createClient(url, key, { auth: { persistSession: false } });
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (url && serviceRoleKey) {
+        return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
       }
     } catch {
-      // Graceful offline fallback
+      // Graceful offline fallback outside production writes
+    }
+    return null;
+  }
+
+  private assertWriteClient(): any | null {
+    if (this.client) return this.client;
+    if (isRealProductionRuntime()) {
+      throw new Error('SUPABASE_APPROVAL_LEDGER_UNAVAILABLE: service role key is required');
     }
     return null;
   }
 
   async recordApprovalEvent(event: ApprovalEvent): Promise<void> {
-    if (!this.client) return;
+    const client = this.assertWriteClient();
+    if (!client) return;
 
-    const { error } = await this.client.from('approval_events').insert({
+    const { error } = await client.from('approval_events').insert({
       id: event.id,
       artifact_run_id: event.artifactRunId,
       event_type: event.eventType,
@@ -116,9 +126,10 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
   }
 
   async saveReleaseRecord(record: ReleaseRecord): Promise<void> {
-    if (!this.client) return;
+    const client = this.assertWriteClient();
+    if (!client) return;
 
-    const { error } = await this.client.from('release_records').insert({
+    const { error } = await client.from('release_records').insert({
       id: record.id,
       artifact_run_id: record.artifactRunId,
       channel: record.channel,
@@ -136,7 +147,8 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
   }
 
   async updateReleaseStatus(releaseId: string, updates: ReleaseRecordUpdates): Promise<void> {
-    if (!this.client) return;
+    const client = this.assertWriteClient();
+    if (!client) return;
 
     const dbUpdates: Record<string, any> = {
       status: updates.status,
@@ -149,7 +161,7 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
       dbUpdates.artifact_file_hash = updates.artifactFileHash;
     }
 
-    const { error } = await this.client
+    const { error } = await client
       .from('release_records')
       .update(dbUpdates)
       .eq('id', releaseId);

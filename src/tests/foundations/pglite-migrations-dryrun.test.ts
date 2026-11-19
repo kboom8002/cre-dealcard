@@ -219,4 +219,85 @@ describe('P0.5 Foundation Verification: PGlite Hermetic Migration & Rollback Dry
     `);
     expect(finalCheck.rows.length).toBe(0);
   });
+
+  it('PR-1A RLS & queue: enforces FORCE RLS on ledger/studio tables, filters inactive lease_spaces for anon, and adds next_attempt_at', async () => {
+    const ledgerSql = fs.readFileSync(
+      path.resolve(process.cwd(), 'supabase/migrations/20260903000003_approval_release_ledger.sql'),
+      'utf8',
+    );
+    const studioSql = fs.readFileSync(
+      path.resolve(process.cwd(), 'supabase/migrations/20260903000005_pptx_studio.sql'),
+      'utf8',
+    );
+    const leaseSql = fs.readFileSync(
+      path.resolve(process.cwd(), 'supabase/migrations/00021_lease_spaces.sql'),
+      'utf8',
+    );
+    const hardeningSql = fs.readFileSync(
+      path.resolve(process.cwd(), 'supabase/migrations/20261119000001_commercialization_rls_and_queue.sql'),
+      'utf8',
+    );
+
+    await db.exec(`
+      CREATE OR REPLACE FUNCTION public.set_updated_at()
+      RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+      CREATE TABLE IF NOT EXISTS public.artifact_runs (id UUID PRIMARY KEY DEFAULT gen_random_uuid());
+      CREATE TABLE IF NOT EXISTS public.harness_reports (id UUID PRIMARY KEY DEFAULT gen_random_uuid());
+      CREATE TABLE IF NOT EXISTS public.broker_clients (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), broker_id UUID NOT NULL);
+      CREATE TABLE IF NOT EXISTS public.magazine_dispatch_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        status TEXT NOT NULL DEFAULT 'pending_worker',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+
+    await db.exec(ledgerSql);
+    await db.exec(studioSql);
+    await db.exec(leaseSql);
+    await db.exec(hardeningSql);
+    // Replay idempotently
+    await db.exec(hardeningSql);
+    await db.exec(`GRANT USAGE ON SCHEMA public TO anon, authenticated; GRANT SELECT ON public.lease_spaces TO anon, authenticated;`);
+
+    // 1. FORCE RLS enabled on all 4 ledger/studio tables
+    const rlsRes = await db.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(`
+      SELECT relname, relrowsecurity, relforcerowsecurity
+      FROM pg_class
+      WHERE relname IN ('approval_events', 'release_records', 'pptx_projects', 'pptx_slides')
+      ORDER BY relname;
+    `);
+    expect(rlsRes.rows).toHaveLength(4);
+    for (const row of rlsRes.rows) {
+      expect(row.relrowsecurity).toBe(true);
+      expect(row.relforcerowsecurity).toBe(true);
+    }
+
+    // 2. anon cannot read or insert into approval_events / pptx_projects
+    await expect(db.exec(`SET LOCAL ROLE anon; SELECT * FROM public.pptx_projects;`)).rejects.toThrow();
+    await expect(db.exec(`SET LOCAL ROLE authenticated; SELECT * FROM public.approval_events;`)).rejects.toThrow();
+
+    // 3. lease_spaces marketplace policy hides inactive and contracted listings from anon
+    const brokerId = '11111111-1111-4111-8111-111111111111';
+    await db.exec(`
+      INSERT INTO public.profiles (id, email) VALUES ('${brokerId}', 'lease@test.local');
+      INSERT INTO public.lease_spaces (broker_id, deal_type, space_type, status, is_marketplace_listed) VALUES
+        ('${brokerId}', 'lease', 'office', 'active', true),
+        ('${brokerId}', 'lease', 'office', 'inactive', true),
+        ('${brokerId}', 'lease', 'retail', 'contracted', true);
+    `);
+    const anonLeaseRes = await db.exec(`
+      SET ROLE anon;
+      SELECT status FROM public.lease_spaces ORDER BY status;
+      RESET ROLE;
+    `);
+    const rows = (anonLeaseRes[1]?.rows ?? []) as Array<{ status: string }>;
+    expect(rows.map((r) => r.status)).toEqual(['active']);
+
+    // 4. magazine_dispatch_logs.next_attempt_at exists
+    const colRes = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'magazine_dispatch_logs' AND column_name = 'next_attempt_at';
+    `);
+    expect(colRes.rows).toHaveLength(1);
+  });
 });
