@@ -56,6 +56,10 @@ import {
   OUTPUT_SHOWCASE_SCENARIOS,
 } from "@/lib/qa/output-showcase-scenarios";
 import {
+  BROKER_FOLLOWUP_QUESTION_IDS,
+  QA_BROKER_FOLLOWUP_WORKBENCH_ID,
+} from "@/lib/qa/broker-followup-questions";
+import {
   QA_ROUND2_WORKBENCH_ID,
   ROUND1_REMEDIATION_28_ITEMS,
   ROUND2_CORE_MISSIONS_6,
@@ -495,6 +499,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
           key: s.id,
           severity: "S1",
         }))
+      : workbenchId === QA_BROKER_FOLLOWUP_WORKBENCH_ID
+      ? BROKER_FOLLOWUP_QUESTION_IDS.map((id) => ({
+          key: id,
+          severity: "S1",
+        }))
       : workbenchId === QA_ROUND2_WORKBENCH_ID
       ? [
           ...ROUND1_REMEDIATION_28_ITEMS.map((r) => ({
@@ -555,19 +564,26 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
   const totalCount = steps.length;
   const completedCount = passCount + polishCount + failCount;
 
-  let verdictLabel = `점검 진행 중 (${completedCount}/${totalCount})`;
-  if (s0FailCount > 0) {
-    verdictLabel = `즉시 출시 중단 (S0 치명 ${s0FailCount}건)`;
-  } else if (s1FailCount > 0) {
-    verdictLabel = `당일 핫픽스 후 재승인 (S1 ${s1FailCount}건)`;
-  } else if (completedCount === totalCount && s2FailCount > 0) {
-    verdictLabel = `조건부 상용화 승인 (S2 경미 ${s2FailCount}건)`;
-  } else if (completedCount === totalCount && polishCount > 0) {
-    verdictLabel = `산출물 손질 후 확정 (손질 요청 ${polishCount}건 · ${completedCount}/${totalCount})`;
-  } else if (polishCount > 0) {
-    verdictLabel = `점검 진행 중 (통과 ${passCount} · 손질 ${polishCount}/${totalCount})`;
-  } else if (completedCount === totalCount && passCount === totalCount) {
-    verdictLabel = `상용화 최종 승인 (GO — ${totalCount}/${totalCount} PASS)`;
+  let verdictLabel =
+    workbenchId === QA_BROKER_FOLLOWUP_WORKBENCH_ID
+      ? completedCount === totalCount
+        ? `중개인 질문지 응답 완료 (${completedCount}/${totalCount})`
+        : `질문지 응답 진행 중 (${completedCount}/${totalCount})`
+      : `점검 진행 중 (${completedCount}/${totalCount})`;
+  if (workbenchId !== QA_BROKER_FOLLOWUP_WORKBENCH_ID) {
+    if (s0FailCount > 0) {
+      verdictLabel = `즉시 출시 중단 (S0 치명 ${s0FailCount}건)`;
+    } else if (s1FailCount > 0) {
+      verdictLabel = `당일 핫픽스 후 재승인 (S1 ${s1FailCount}건)`;
+    } else if (completedCount === totalCount && s2FailCount > 0) {
+      verdictLabel = `조건부 상용화 승인 (S2 경미 ${s2FailCount}건)`;
+    } else if (completedCount === totalCount && polishCount > 0) {
+      verdictLabel = `산출물 손질 후 확정 (손질 요청 ${polishCount}건 · ${completedCount}/${totalCount})`;
+    } else if (polishCount > 0) {
+      verdictLabel = `점검 진행 중 (통과 ${passCount} · 손질 ${polishCount}/${totalCount})`;
+    } else if (completedCount === totalCount && passCount === totalCount) {
+      verdictLabel = `상용화 최종 승인 (GO — ${totalCount}/${totalCount} PASS)`;
+    }
   }
 
   return {

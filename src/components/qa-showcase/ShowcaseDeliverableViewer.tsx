@@ -28,9 +28,11 @@ import {
 } from "@/lib/qa/output-showcase-scenarios";
 import {
   appendQaParamsToHref,
+  buildQaAuthHeaders,
   syncQaKeyFromSearchParams,
   type QaPortalRole,
 } from "@/lib/qa/qa-client-auth";
+import { BrokerFollowupQuestionsPanel } from "@/components/qa-showcase/BrokerFollowupQuestionsPanel";
 
 export type ImViewMode = "grid" | "single" | "mobile" | "split";
 export type MobileOrOgMode = "mobile" | "og";
@@ -229,6 +231,10 @@ function ShowcaseDeliverableViewerInner({
     return getShowcaseScenariosByCategory(resolvedInitialCategory)[0].id;
   }, [initialCaseParam, resolvedInitialCategory]);
 
+  const showQuestionsTab = portalRole !== "tester";
+  const [isQuestionsMode, setIsQuestionsMode] = useState<boolean>(
+    () => showQuestionsTab && initialTabParam === "questions"
+  );
   const [activeCategory, setActiveCategory] = useState<ShowcaseCategory>(
     resolvedInitialCategory
   );
@@ -343,6 +349,7 @@ function ShowcaseDeliverableViewerInner({
       try {
         const res = await fetch("/api/public/qa-workbench?mode=showcase", {
           cache: "no-store",
+          headers: buildQaAuthHeaders(portalRole),
         });
         if (res.ok) {
           const json = (await res.json()) as {
@@ -369,7 +376,7 @@ function ShowcaseDeliverableViewerInner({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [portalRole]);
 
   const handleDownloadPptx = useCallback(async () => {
     if (!activeLiveEntry.pptxDownloadUrl || pptxDownloading) return;
@@ -414,6 +421,7 @@ function ShowcaseDeliverableViewerInner({
 
   const handleSelectCategory = useCallback(
     (nextCategory: ShowcaseCategory) => {
+      setIsQuestionsMode(false);
       const first = getShowcaseScenariosByCategory(nextCategory)[0];
       setActiveCategory(nextCategory);
       setActiveCaseId(first.id);
@@ -435,6 +443,7 @@ function ShowcaseDeliverableViewerInner({
 
   const handleSelectScenario = useCallback(
     (scenario: ShowcaseScenarioUnion) => {
+      setIsQuestionsMode(false);
       setActiveCategory(scenario.category);
       setActiveCaseId(scenario.id);
       setSelectedSlideIdx(0);
@@ -449,6 +458,20 @@ function ShowcaseDeliverableViewerInner({
       onScenarioChange?.(scenario);
     },
     [applyFontScale, onScenarioChange]
+  );
+
+  const handleJumpFromQuestion = useCallback(
+    (scenarioId: string) => {
+      const matched = OUTPUT_SHOWCASE_SCENARIOS.find(
+        (s) => s.id === scenarioId
+      );
+      if (!matched) return;
+      handleSelectScenario(matched);
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    },
+    [handleSelectScenario]
   );
 
   const viewerContext: ShowcaseActiveContext = useMemo(
@@ -526,10 +549,12 @@ function ShowcaseDeliverableViewerInner({
 
           <nav
             aria-label="산출물 대분류"
-            className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1"
+            className={`grid grid-cols-1 gap-2 pt-1 ${
+              showQuestionsTab ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
+            }`}
           >
             {CATEGORY_TABS.map((tab) => {
-              const selected = activeCategory === tab.id;
+              const selected = !isQuestionsMode && activeCategory === tab.id;
               return (
                 <button
                   key={tab.id}
@@ -547,12 +572,74 @@ function ShowcaseDeliverableViewerInner({
                 </button>
               );
             })}
+            {showQuestionsTab ? (
+              <button
+                type="button"
+                data-testid="showcase-tab-questions"
+                onClick={() => setIsQuestionsMode(true)}
+                aria-pressed={isQuestionsMode}
+                className={`min-h-[44px] w-full rounded-xl border px-4 py-2 text-left sm:text-center text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  isQuestionsMode
+                    ? "border-emerald-700 bg-emerald-700 text-white"
+                    : "border-emerald-400 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"
+                }`}
+              >
+                📋 확인·추가 질문지 (14문항 · 답변)
+              </button>
+            ) : null}
           </nav>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-3 sm:px-6 py-5 space-y-5">
         {renderTopBanner ? renderTopBanner(viewerContext) : null}
+
+        {isQuestionsMode ? (
+          <BrokerFollowupQuestionsPanel
+            manifest={manifest}
+            portalRole={portalRole}
+            onJumpToScenario={handleJumpFromQuestion}
+          />
+        ) : (
+          <>
+            {showQuestionsTab ? (
+              <section
+                data-testid="showcase-questions-callout"
+                className="rounded-2xl border border-emerald-300 bg-emerald-50/90 px-4 py-3.5 flex flex-wrap items-center justify-between gap-3"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-[15px] font-extrabold text-emerald-950">
+                    📋 중개인 1차 의견 반영 완료 · 확인 질문(8문항) &amp; 추가 질문(6문항) 답변 요청
+                  </p>
+                  <p className="text-[14px] text-emerald-900">
+                    대상 슬라이드·카드 이미지를 보시면서 보기를 클릭하면 즉시 서버에 저장됩니다.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="showcase-open-questions-btn"
+                    onClick={() => setIsQuestionsMode(true)}
+                    className="min-h-[42px] rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 text-[14px] font-extrabold text-white cursor-pointer"
+                  >
+                    질문지(14문항) 바로 열기 →
+                  </button>
+                  <a
+                    href={appendQaParamsToHref(
+                      portalRole === "broker"
+                        ? "/qa-showcase/questions?from=broker"
+                        : "/qa-showcase/questions",
+                      portalRole
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[42px] inline-flex items-center rounded-xl border border-emerald-400 bg-white hover:bg-emerald-100 px-3.5 text-[14px] font-extrabold text-emerald-950"
+                  >
+                    📄 단독 HTML 창 열기 ↗
+                  </a>
+                </div>
+              </section>
+            ) : null}
 
         {/* 시나리오 선택 목록 */}
         <section
@@ -1237,7 +1324,9 @@ function ShowcaseDeliverableViewerInner({
           </section>
         )}
 
-        {renderBottomPanel ? renderBottomPanel(viewerContext) : null}
+            {renderBottomPanel ? renderBottomPanel(viewerContext) : null}
+          </>
+        )}
       </main>
     </div>
   );
