@@ -1,6 +1,6 @@
 import { getBrokerSubscriptionTier, type SubscriptionTier } from '@/domain/subscription/tier-gate';
 import { hashEmailForSuppression, loadSuppressedEmailHashesForBroker } from '@/lib/legal/email-suppression';
-import { isQuietHoursKst, todayKst } from '@/lib/magazine/kst';
+import { addDays, isQuietHoursKst, kstParts, toKstDate, todayKst } from '@/lib/magazine/kst';
 import { isMagazineSendDryRun, isMagazineSendEnabled, SEND_DISABLED_MESSAGE } from '@/lib/magazine/send-flags';
 import { isUuid } from '@/lib/magazine/slug';
 import { createModuleLogger } from '@/lib/logger';
@@ -316,6 +316,14 @@ export interface ProcessDispatchWorkerResult {
   deferred: number;
 }
 
+/** 다음 KST 오전 08:00 시각을 UTC ISO 문자열로 반환 (QUIET_HOURS 보류 재개 시각) */
+export function computeNextKst0800Iso(now: Date = new Date()): string {
+  const parts = kstParts(now);
+  const kstDay = toKstDate(now);
+  const targetDay = parts.hour < 8 ? kstDay : addDays(kstDay, 1);
+  return new Date(`${targetDay}T08:00:00+09:00`).toISOString();
+}
+
 export async function processMagazineDispatchQueueBatch(
   supabase: MagazineDbClient,
   opts: {
@@ -346,28 +354,90 @@ export async function processMagazineDispatchQueueBatch(
   const { reclaimed } = await reclaimStaleQueuedDispatches(supabase, { staleMinutes: 15, now });
 
   let hasBlockedReasonCol = true;
-  let fetchRes = await supabase
-    .from(DISPATCH_LEDGER_TABLE)
-    .select('id, idempotency_key, edition_id, broker_id, broker_user_id, subscriber_id, channel, kind, status, blocked_reason, attempt_count, updated_at, payload')
-    .in('status', ['pending_worker', 'retryable'])
-    .order('created_at', { ascending: true })
-    .limit(batchSize);
+  const COLS_WITH_BLOCKED =
+    'id, idempotency_key, edition_id, broker_id, broker_user_id, subscriber_id, channel, kind, status, blocked_reason, attempt_count, updated_at, payload';
+  const COLS_BASE =
+    'id, idempotency_key, edition_id, broker_id, broker_user_id, subscriber_id, channel, kind, status, attempt_count, updated_at, payload';
 
-  if (
-    fetchRes.error &&
-    ((fetchRes.error as { code?: string }).code === '42703' ||
-      /blocked_reason/i.test(fetchRes.error.message ?? ''))
-  ) {
-    hasBlockedReasonCol = false;
-    fetchRes = await supabase
-      .from(DISPATCH_LEDGER_TABLE)
-      .select('id, idempotency_key, edition_id, broker_id, broker_user_id, subscriber_id, channel, kind, status, attempt_count, updated_at, payload')
-      .in('status', ['pending_worker', 'retryable'])
-      .order('created_at', { ascending: true })
-      .limit(batchSize);
+  const isBlockedReasonMissingErr = (err: unknown) => {
+    if (!err || typeof err !== 'object') return false;
+    const e = err as { code?: string; message?: string };
+    return e.code === '42703' || /blocked_reason/i.test(e.message ?? '');
+  };
+
+  interface QueueQueryChain
+    extends PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }> {
+    select: (cols: string) => QueueQueryChain;
+    eq: (col: string, val: string) => QueueQueryChain;
+    or?: (expr: string) => QueueQueryChain;
+    order: (col: string, opts: { ascending: boolean }) => QueueQueryChain;
+    limit: (n: number) => QueueQueryChain;
   }
 
-  const { data: pendingRows, error: fetchErr } = fetchRes;
+  // 1) pending_worker 우선 디큐 — 야간 보류된 retryable 행이 신규/야간동의 발송을 굶기지 않도록 분리
+  const fetchPendingWorker = async (cols: string) =>
+    (supabase.from(DISPATCH_LEDGER_TABLE) as unknown as QueueQueryChain)
+      .select(cols)
+      .eq('status', 'pending_worker')
+      .order('created_at', { ascending: true })
+      .limit(batchSize);
+
+  let pwRes = await fetchPendingWorker(COLS_WITH_BLOCKED);
+  if (pwRes.error && isBlockedReasonMissingErr(pwRes.error)) {
+    hasBlockedReasonCol = false;
+    pwRes = await fetchPendingWorker(COLS_BASE);
+  }
+
+  let fetchErr = pwRes.error;
+  const combinedRows: unknown[] = Array.isArray(pwRes.data) ? [...pwRes.data] : [];
+
+  // 2) 남은 배치 여유분만큼 next_attempt_at 이 도래(또는 null)한 retryable 행 조회
+  const remainingSlots = batchSize - combinedRows.length;
+  if (!fetchErr && remainingSlots > 0) {
+    const fetchDueRetryable = async (cols: string, withNextAttemptFilter: boolean) => {
+      let q = (supabase.from(DISPATCH_LEDGER_TABLE) as unknown as QueueQueryChain)
+        .select(cols)
+        .eq('status', 'retryable');
+      if (withNextAttemptFilter && typeof q.or === 'function') {
+        q = q.or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso}`);
+      }
+      return q.order('created_at', { ascending: true }).limit(remainingSlots);
+    };
+
+    const cols = hasBlockedReasonCol ? COLS_WITH_BLOCKED : COLS_BASE;
+    let rRes = await fetchDueRetryable(cols, true);
+    if (rRes.error && isBlockedReasonMissingErr(rRes.error)) {
+      hasBlockedReasonCol = false;
+      rRes = await fetchDueRetryable(COLS_BASE, true);
+    }
+    if (
+      rRes.error &&
+      ((rRes.error as { code?: string }).code === '42703' ||
+        /next_attempt_at/i.test(rRes.error.message ?? ''))
+    ) {
+      rRes = await fetchDueRetryable(hasBlockedReasonCol ? COLS_WITH_BLOCKED : COLS_BASE, false);
+    }
+    if (rRes.error) {
+      fetchErr = rRes.error;
+    } else if (Array.isArray(rRes.data)) {
+      const seenIds = new Set(
+        combinedRows
+          .map((item) => (item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined))
+          .filter((v): v is string => typeof v === 'string' && v.length > 0),
+      );
+      for (const item of rRes.data) {
+        const itemId =
+          item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined;
+        if (typeof itemId === 'string' && itemId.length > 0) {
+          if (seenIds.has(itemId)) continue;
+          seenIds.add(itemId);
+        }
+        combinedRows.push(item);
+      }
+    }
+  }
+
+  const pendingRows = combinedRows;
 
   if (fetchErr && isQueueSchemaMissing(fetchErr)) {
     // D2 사전 컷오버(000003 미적용): 대기열 자체가 없으므로 처리할 행도 없다 — 매 분 500 을 내지 않는다.
@@ -453,11 +523,20 @@ export async function processMagazineDispatchQueueBatch(
   const settleClaimed = async (rowId: string, patch: Record<string, unknown>) => {
     const effectivePatch: Record<string, unknown> = { ...patch };
     if (!hasBlockedReasonCol) delete effectivePatch.blocked_reason;
-    await casUpdateLedger(
+    const first = await casUpdateLedger(
       (p) => supabase.from(DISPATCH_LEDGER_TABLE).update(p).eq('id', rowId).eq('status', 'queued'),
       effectivePatch,
-      ['blocked_reason'],
+      ['next_attempt_at'],
     );
+    if (first.error && isMissingLedgerColumn(first.error)) {
+      const withoutNext = { ...effectivePatch };
+      delete withoutNext.next_attempt_at;
+      await casUpdateLedger(
+        (p) => supabase.from(DISPATCH_LEDGER_TABLE).update(p).eq('id', rowId).eq('status', 'queued'),
+        withoutNext,
+        ['blocked_reason'],
+      );
+    }
   };
 
   for (let idx = 0; idx < rows.length; idx++) {
@@ -683,6 +762,7 @@ export async function processMagazineDispatchQueueBatch(
         attempt_count: prevAttempts,
         updated_at: nowIso,
         blocked_reason: 'QUIET_HOURS',
+        next_attempt_at: computeNextKst0800Iso(now),
       });
       blocked += 1;
     } else if ((res.failed || res.blocked === 'PROVIDER_FAILED') && isRateLimitErrorDetail(res.detail)) {

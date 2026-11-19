@@ -32,6 +32,7 @@ export interface UseNewsletterServerDraftSyncOptions {
   briefingTitle: string;
   briefingBody: string;
   marketTemp: MarketTemperature | null;
+  coverImageUrl?: string | null;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
   monthlyCharts: MonthlyRegionalChart[];
@@ -69,6 +70,7 @@ export function useNewsletterServerDraftSync(
     briefingTitle,
     briefingBody,
     marketTemp,
+    coverImageUrl,
     monthlyRegion,
     monthlyPairId,
     monthlyCharts,
@@ -150,7 +152,7 @@ export function useNewsletterServerDraftSync(
       title: headline.trim(),
       market_temp: marketTemp,
       cover_keywords: [],
-      cover_image_url: null,
+      ...(coverImageUrl !== undefined ? { cover_image_url: coverImageUrl } : {}),
       field_note: {
         question: "",
         buyerReaction: "",
@@ -173,6 +175,7 @@ export function useNewsletterServerDraftSync(
     briefingTitle,
     briefingBody,
     marketTemp,
+    coverImageUrl,
     monthlyRegion,
     monthlyPairId,
     monthlyCharts,

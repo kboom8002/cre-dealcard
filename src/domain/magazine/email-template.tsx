@@ -223,6 +223,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   const unsubUrl = wrapUrl(input.unsubscribeUrl, 'unsubscribeUrl');
 
   const who = safePersonName(input.subscriberName);
+  const officeName = pt(sanitizeStatutoryField(input.officeName, 'officeName'), 50);
   const contact = safeTemplateVar(input.brokerContact, { max: 40 });
   const telHref = contact ? toTelHref(contact) : null;
   const address = pt(input.senderAddress, 80);
@@ -311,7 +312,7 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   // 푸터: 전송자 명칭·연락처·주소·전자우편·대표자·등록번호, 수신동의 안내, 수신거부 버튼(48px 이상 터치 영역)
   const footerLines: string[] = [];
   footerLines.push(
-    `전송자: ${escapeHtml(broker)}${contact ? ` · 연락처 ${escapeHtml(contact)}` : ''}${address ? ` · ${escapeHtml(address)}` : ''}${email ? ` · 전자우편 ${escapeHtml(email)}` : ''}${repName ? ` · 대표자 ${escapeHtml(repName)}` : ''}${regNo ? ` · 중개사무소 등록번호 ${escapeHtml(regNo)}` : ''}`,
+    `전송자: ${escapeHtml(broker)}${officeName && officeName !== broker ? ` · 상호 ${escapeHtml(officeName)}` : ''}${contact ? ` · 연락처 ${escapeHtml(contact)}` : ''}${address ? ` · ${escapeHtml(address)}` : ''}${email ? ` · 전자우편 ${escapeHtml(email)}` : ''}${repName ? ` · 대표자 ${escapeHtml(repName)}` : ''}${regNo ? ` · 중개사무소 등록번호 ${escapeHtml(regNo)}` : ''}`,
   );
   footerLines.push(
     consentDateKo
@@ -380,7 +381,7 @@ ${blocks.join('\n')}
   textParts.push(
     '',
     '----',
-    `전송자: ${broker}${contact ? ` · 연락처 ${contact}` : ''}${address ? ` · ${address}` : ''}${email ? ` · 전자우편 ${email}` : ''}${repName ? ` · 대표자 ${repName}` : ''}${regNo ? ` · 중개사무소 등록번호 ${regNo}` : ''}`,
+    `전송자: ${broker}${officeName && officeName !== broker ? ` · 상호 ${officeName}` : ''}${contact ? ` · 연락처 ${contact}` : ''}${address ? ` · ${address}` : ''}${email ? ` · 전자우편 ${email}` : ''}${repName ? ` · 대표자 ${repName}` : ''}${regNo ? ` · 중개사무소 등록번호 ${regNo}` : ''}`,
     consentDateKo ? `이 메일은 ${consentDateKo} 광고성 정보 수신에 동의하신 분께 발송되었습니다.` : '이 메일은 광고성 정보 수신에 동의하신 분께 발송되었습니다.',
     `수신거부: ${unsubUrl}`,
   );

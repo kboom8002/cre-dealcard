@@ -357,7 +357,7 @@ export interface EditionPatchPayload {
   title: string;
   market_temp: string | null;
   cover_keywords: string[];
-  cover_image_url: string | null;
+  cover_image_url?: string | null;
   field_note: BrokerFieldNote;
   theme_title: string;
   theme_body_md: string;

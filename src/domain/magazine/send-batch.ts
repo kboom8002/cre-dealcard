@@ -67,6 +67,8 @@ export interface BrokerIdentity {
   userId: string | null;
   /** profiles.display_name — 없으면 null (발송 차단: MISSING_SENDER) */
   senderName: string | null;
+  /** profiles.company (중개사무소 명칭) */
+  officeName?: string | null;
   /** profiles.phone → broker_profiles.contact_email */
   senderContact: string | null;
   /** broker_profiles.office_address (표시 의무 푸터) */
@@ -105,12 +107,18 @@ export async function loadBrokerIdentity(supabase: MagazineDbClient, brokerKey: 
   if (!bp) return null;
 
   let senderName: string | null = null;
+  let officeName: string | null = null;
   let phone: string | null = null;
   if (bp.user_id) {
-    const { data: pf, error: pfErr } = await supabase.from('profiles').select('display_name, phone').eq('id', bp.user_id).maybeSingle();
-    if (pfErr) throw new Error(`발신자 프로필 조회 실패: ${errMessage(pfErr)}`);
-    senderName = (pf?.display_name as string | null)?.trim() || null;
-    phone = (pf?.phone as string | null)?.trim() || null;
+    let pfRes = await supabase.from('profiles').select('display_name, phone, company').eq('id', bp.user_id).maybeSingle();
+    if (pfRes.error && isMissingColumnDbError(pfRes.error)) {
+      pfRes = await supabase.from('profiles').select('display_name, phone').eq('id', bp.user_id).maybeSingle();
+    }
+    if (pfRes.error) throw new Error(`발신자 프로필 조회 실패: ${errMessage(pfRes.error)}`);
+    const pfRec = (pfRes.data ?? null) as Record<string, unknown> | null;
+    officeName = sanitizeStatutoryField(pfRec?.company, 'officeName') ?? null;
+    senderName = (pfRec?.display_name as string | null)?.trim() || officeName || null;
+    phone = (pfRec?.phone as string | null)?.trim() || null;
   }
   const bpRec = bp as Record<string, unknown>;
   const contactEmail = typeof bpRec.contact_email === 'string' ? bpRec.contact_email.trim() || null : null;
@@ -121,6 +129,7 @@ export async function loadBrokerIdentity(supabase: MagazineDbClient, brokerKey: 
     slug: (bpRec.slug as string | null) ?? brokerKey,
     userId: (bpRec.user_id as string | null) ?? null,
     senderName,
+    officeName,
     senderContact: phone || contactEmail,
     senderAddress: officeAddress,
     senderEmail: contactEmail,
@@ -498,6 +507,7 @@ export function appendSid(url: string, subscriberId: string, brokerKey: string):
 export function renderFor(ctx: RunContext, t: PlannedTarget, unsubscribeUrl: string): GateRendered {
   const base: MagazineEmailInput = {
     brokerName: ctx.broker.senderName ?? '',
+    officeName: ctx.broker.officeName ?? undefined,
     brokerContact: ctx.broker.senderContact ?? undefined,
     senderAddress: ctx.broker.senderAddress ?? undefined,
     senderEmail: ctx.broker.senderEmail ?? undefined,

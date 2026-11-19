@@ -27,6 +27,8 @@ export type MagazineTaxClinicInput = Partial<Pick<TaxClinicScenario, 'title' | '
 export interface MagazineEmailInput {
   /** profiles.display_name — 비어 있으면 렌더 거부(MISSING_SENDER). slug/'담당 중개사' 폴백 금지(M2-26) */
   brokerName: string;
+  /** profiles.company (중개사무소 상호) */
+  officeName?: string | null;
   /** 전송자 연락처(전화번호 등). 없으면 hasSenderContact=false → sendGate가 차단해야 한다 */
   brokerContact?: string;
   subscriberName?: string;

@@ -189,6 +189,17 @@ export async function POST(request: NextRequest) {
         { ...ctx, slug: brokerSlug, brokerKeys },
         { select: "*" }
       );
+      if (!targetEdition) {
+        const { data: existingRow } = await supabase
+          .from("magazine_editions")
+          .select("id")
+          .eq("id", data.editionId)
+          .maybeSingle();
+        if (existingRow) {
+          return jsonError("FORBIDDEN", "다른 중개사의 매거진 초안은 수정할 수 없습니다.", 403);
+        }
+        return jsonError("NOT_FOUND", "요청한 매거진 에디션을 찾을 수 없습니다.", 404);
+      }
     }
 
     if (!targetEdition) {

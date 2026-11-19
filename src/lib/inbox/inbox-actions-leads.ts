@@ -81,7 +81,7 @@ export async function handleGateDecisionAction(params: {
   buildingId: string;
   threadId: string;
   shareToken: string;
-  body: Record<string, any>;
+  body: Record<string, unknown>;
 }) {
   const { action, userId, threadId, shareToken, body } = params;
   let buildingId = params.buildingId;
@@ -106,8 +106,8 @@ export async function handleGateDecisionAction(params: {
     supabaseClient = null;
   }
 
-  let existingGateRow: Record<string, any> | null = null;
-  let existingInqRow: Record<string, any> | null = null;
+  let existingGateRow: Record<string, unknown> | null = null;
+  let existingInqRow: Record<string, unknown> | null = null;
   if (supabaseClient && rawId && isUuid(rawId) && !isClientOrViewThread) {
     const [{ data: grRow }, inqLookup] = await Promise.all([
       supabaseClient
@@ -425,7 +425,7 @@ export async function handleSendDealcardOrMagazineAction(params: {
   buildingId: string;
   threadId: string;
   clientId: string;
-  body: Record<string, any>;
+  body: Record<string, unknown>;
 }) {
   const { action, userId, buildingId, threadId, clientId, body } = params;
 
@@ -467,6 +467,15 @@ export async function handleSendDealcardOrMagazineAction(params: {
   }
 
   // send_magazine | send_newsletter
+  let supabaseForGate: ReturnType<typeof createServiceClient> | null = null;
+  try {
+    supabaseForGate = createServiceClient();
+  } catch {
+    supabaseForGate = null;
+  }
+  const magGateErr = await enforceLeadStatutoryPublishGate(supabaseForGate, userId, 'magazine');
+  if (magGateErr) return magGateErr;
+
   let resolvedMagazineUrl =
     typeof body?.publicUrl === 'string' && body.publicUrl.trim()
       ? body.publicUrl.trim()
@@ -590,9 +599,8 @@ export async function handleSendDealcardOrMagazineAction(params: {
       }
     };
 
-    const dbClientRows = Array.isArray((brokerClientsRes as any)?.data)
-      ? (brokerClientsRes as any).data
-      : [];
+    const rawClientData = (brokerClientsRes as { data?: unknown } | null)?.data;
+    const dbClientRows = (Array.isArray(rawClientData) ? rawClientData : []) as Array<Record<string, unknown>>;
     const pendingOrUnconfirmedKeys = new Set<string>();
     const confirmedSubKeys = new Set<string>();
     const registerUnconfirmedContactKeys = (
@@ -665,7 +673,8 @@ export async function handleSendDealcardOrMagazineAction(params: {
       applyConsentState(key, hasExplicitOptIn && !hasExplicitOptOut, ts, isVip, cType);
     }
 
-    const subRows = Array.isArray((subRes as any)?.data) ? (subRes as any).data : [];
+    const rawSubData = (subRes as { data?: unknown } | null)?.data;
+    const subRows = (Array.isArray(rawSubData) ? rawSubData : []) as Array<Record<string, unknown>>;
     for (const s of subRows) {
       const phoneVal = s?.subscriber_phone ?? s?.phone_e164 ?? s?.phone;
       const emailVal = s?.subscriber_email ?? s?.email;
@@ -739,9 +748,11 @@ export async function handleSendDealcardOrMagazineAction(params: {
       }
     }
 
-    const eventRows = [
-      ...(Array.isArray((clientEventsRes as any)?.data) ? (clientEventsRes as any).data : []),
-    ].sort((a, b) => toSafeEpochMs(a?.created_at) - toSafeEpochMs(b?.created_at));
+    const rawEventData = (clientEventsRes as { data?: unknown } | null)?.data;
+    const eventRows = (
+      Array.isArray(rawEventData) ? [...rawEventData] : []
+    ) as Array<Record<string, unknown>>;
+    eventRows.sort((a, b) => toSafeEpochMs(a?.created_at) - toSafeEpochMs(b?.created_at));
 
     for (const ev of eventRows) {
       const meta = (

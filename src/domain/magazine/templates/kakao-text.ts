@@ -4,8 +4,10 @@
  * (승인된 템플릿 변수 치환 방식은 B1/notification-service 담당 — 여기서는 최종 본문 텍스트 계약만 제공)
  */
 import { decodeEntities, safePersonName, safeTemplateVar, stripTags } from '@/lib/magazine/escape';
+import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 import { clip } from './format';
-import { MagazineRenderError, type MagazineEmailInput, type MagazineKakaoRendered } from './types';
+import { MagazineRenderError, type MagazineKakaoRendered } from './types';
+import type { MagazineEmailInput } from '../email-template';
 import { assertAbsoluteHttpsUrl, toTelHref } from './url-guard';
 
 export const KAKAO_MAX_LENGTH = 1000;
@@ -42,13 +44,29 @@ export function renderMagazineKakaoText(input: MagazineEmailInput): MagazineKaka
 
   const who = safePersonName(input.subscriberName);
   const contact = safeTemplateVar(input.brokerContact, { max: 40 });
+  const officeName = plain(sanitizeStatutoryField(input.officeName, 'officeName'), 40);
+  const officeAddress = plain(sanitizeStatutoryField(input.senderAddress, 'address'), 60);
+  const repName = plain(sanitizeStatutoryField(input.representativeName, 'name'), 30);
+  const regNo = plain(sanitizeStatutoryField(input.officeRegNumber, 'regNo'), 30);
+  const senderEmail = plain(input.senderEmail, 50);
   const title = plain(input.edition.title, 50);
 
-  // 고정부(헤더+링크+푸터)를 먼저 만들고, 남는 길이만큼 요약 본문을 넣는다
+  // 고정부(헤더+링크+법정표기 푸터)를 먼저 만들고, 남는 길이만큼 요약 본문을 넣는다
   const head = [`(광고) ${broker}`, who ? `${who}님, 이번 주 매거진이 도착했습니다.` : '이번 주 매거진이 도착했습니다.', title];
   const tail: string[] = [`▶ 매거진 보기: ${viewUrl}`];
   if (contact && toTelHref(contact)) tail.push(`▶ 전화 상담: ${contact}`);
-  tail.push('', `발신: ${broker}${contact ? ` (${contact})` : ''}`, '수신 동의하신 분께 발송됩니다.', `수신거부: ${unsubUrl}`);
+  const statutoryParts = [
+    officeName && officeName !== broker ? `상호 ${officeName}` : '',
+    repName ? `대표 ${repName}` : '',
+    officeAddress ? `소재지 ${officeAddress}` : '',
+    regNo ? `등록번호 ${regNo}` : '',
+    senderEmail || '',
+  ].filter(Boolean);
+  tail.push('', `발신: ${broker}${contact ? ` (${contact})` : ''}`);
+  if (statutoryParts.length > 0) {
+    tail.push(statutoryParts.join(' · '));
+  }
+  tail.push('수신 동의하신 분께 발송됩니다.', `수신거부: ${unsubUrl}`);
 
   const fixedLen = [...head, '', ...tail].join('\n').length + 2; // 요약 앞뒤 개행 여유
   const room = Math.max(0, Math.min(160, KAKAO_MAX_LENGTH - fixedLen - 10));

@@ -409,8 +409,9 @@ describe('P1: distribute-queue flash weekly cap, QUIET_HOURS retryable, attempt_
       expect(row.attempt_count).toBe(0);
     }
 
-    // Subsequent DAYTIME run dispatches cleanly
-    const dayRes = await processMagazineDispatchQueueBatch(db as never, { now: DAYTIME, gateDeps: { dryRun: true } });
+    // Subsequent NEXT MORNING (10:00 KST next day, past 08:00 KST next_attempt_at) run dispatches cleanly
+    const nextMorningDaytime = new Date(NIGHT.getTime() + 12 * 60 * 60_000);
+    const dayRes = await processMagazineDispatchQueueBatch(db as never, { now: nextMorningDaytime, gateDeps: { dryRun: true } });
     expect(dayRes.failed).toBe(0);
     expect(dayRes.recorded).toBe(1);
     const finalRow = db.rows('magazine_dispatch_logs').find((r) => r.id === 'q-1')!;

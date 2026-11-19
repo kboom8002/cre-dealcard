@@ -20,7 +20,7 @@ export const TEST_SCHEMA: Record<string, readonly string[]> = {
   activity_events: ['id', 'actor_id', 'actor_role', 'event_type', 'entity_type', 'metadata', 'created_at'],
   magazine_dispatch_logs: [
     'id', 'idempotency_key', 'edition_id', 'broker_id', 'broker_user_id', 'subscriber_id', 'channel', 'kind', 'status',
-    'blocked_reason', 'provider_msg_id', 'error', 'recipient_hash', 'payload', 'attempt_count', 'queued_at', 'updated_at', 'created_at',
+    'blocked_reason', 'provider_msg_id', 'error', 'recipient_hash', 'payload', 'attempt_count', 'queued_at', 'next_attempt_at', 'updated_at', 'created_at',
   ],
   magazine_editions: ['id', 'broker_id', 'edition_type', 'edition_label', 'status', 'title', 'content'],
   magazine_cron_runs: ['id', 'run_id', 'broker_id', 'broker_user_id', 'issue_date', 'kind', 'status', 'reason', 'duration_ms', 'created_at'],
@@ -65,7 +65,6 @@ export class FakeDb {
   from(table: string): any {
     this.fromCalls.push(table);
     const state: State = { op: null, filters: [] };
-    const db = this;
     const q: Record<string, unknown> = {
       insert(row: Row) { state.op = 'insert'; state.row = row; return q; },
       upsert(row: Row, opts?: State['opts']) { state.op = 'upsert'; state.row = row; state.opts = opts; return q; },
@@ -85,6 +84,21 @@ export class FakeDb {
         const clauses = expr.split(',').map((s) => s.trim()).filter(Boolean);
         state.orFilter = (row: Row) =>
           clauses.some((cl) => {
+            const isNullMatch = /^([a-zA-Z0-9_]+)\.is\.null$/i.exec(cl);
+            if (isNullMatch) {
+              return row[isNullMatch[1]] === null || row[isNullMatch[1]] === undefined;
+            }
+            const lteMatch = /^([a-zA-Z0-9_]+)\.lte\.(.+)$/i.exec(cl);
+            if (lteMatch) {
+              const raw = row[lteMatch[1]];
+              if (raw === null || raw === undefined) return false;
+              const rawTs = Date.parse(String(raw));
+              const targetTs = Date.parse(lteMatch[2]);
+              if (Number.isFinite(rawTs) && Number.isFinite(targetTs)) {
+                return rawTs <= targetTs;
+              }
+              return String(raw) <= lteMatch[2];
+            }
             const m = /^([a-zA-Z0-9_]+)\.eq\.(.+)$/.exec(cl);
             if (!m) return false;
             return String(row[m[1]] ?? '') === m[2];
@@ -100,11 +114,10 @@ export class FakeDb {
         return q;
       },
       limit(n: number) { state.limit = n; return q; },
-      single() { return Promise.resolve(db.exec(table, state, 'single')); },
-      maybeSingle() { return Promise.resolve(db.exec(table, state, 'maybe')); },
-      then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
-        return Promise.resolve(db.exec(table, state, 'many')).then(resolve, reject);
-      },
+      single: () => Promise.resolve(this.exec(table, state, 'single')),
+      maybeSingle: () => Promise.resolve(this.exec(table, state, 'maybe')),
+      then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+        Promise.resolve(this.exec(table, state, 'many')).then(resolve, reject),
     };
     return q;
   }
