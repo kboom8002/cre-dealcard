@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { setBuildingRevokedState } from '@/lib/im-lite/quick-generate-store';
 import { isRealProductionRuntime } from '@/lib/env';
 import { createModuleLogger } from '@/lib/logger';
+import { recordFunnelEvent } from '@/lib/observability/funnel-slo';
 import {
   getWorkspaceItemByAnyId,
   isMissingRelationOrColumnError,
@@ -1204,6 +1205,17 @@ export async function verifyShareLinkToken(
     return { valid: false, reason: 'invalid' };
   }
   const targetBuildingId = expectedBuildingId || preDecodedBuildingId;
+  const failClosedLookup = (): VerifyShareLinkResult => {
+    recordFunnelEvent({
+      funnel: 'api_availability',
+      outcome: 'failed',
+      code: 'LOOKUP_FAILED',
+      entityId: targetBuildingId || null,
+      meta: { source: 'verifyShareLinkToken' },
+    });
+    const out: VerifyShareLinkResult = { valid: false, reason: 'lookup_failed' };
+    return out;
+  };
 
   // 2. Check Supabase im_share_links & activity_events tables when available (Serverless Cold-Start Resilience)
   // Kernel K1 Fail-Closed: DB outages/errors must return lookup_failed and NEVER fall through to HMAC.
@@ -1217,12 +1229,12 @@ export async function verifyShareLinkToken(
       canUseMemFallback && errMsg.includes('getServerEnv must not be called on the client');
     if (!isJsdomClientGuard) {
       log.warn({ errMsg }, 'verifyShareLinkToken service client init failed (fail-closed)');
-      return { valid: false, reason: 'lookup_failed' };
+      return failClosedLookup();
     }
   }
 
   if (!supabase && !canUseMemFallback) {
-    return { valid: false, reason: 'lookup_failed' };
+    return failClosedLookup();
   }
 
   let buildingRestoredInDb = false;
@@ -1253,7 +1265,7 @@ export async function verifyShareLinkToken(
       const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
       if (evRes?.error && !isMissingRelationOrColumnError(evRes.error)) {
         log.warn({ code: evRes.error.code, message: evRes.error.message }, 'verifyShareLinkToken activity_events query failed (fail-closed)');
-        return { valid: false, reason: 'lookup_failed' };
+        return failClosedLookup();
       }
 
       const events = Array.isArray(evRes?.data) ? evRes.data : [];
@@ -1310,7 +1322,7 @@ export async function verifyShareLinkToken(
     } catch (evThrown) {
       if (!isMissingRelationOrColumnError(evThrown)) {
         log.warn({ err: evThrown }, 'verifyShareLinkToken activity_events check threw (fail-closed)');
-        return { valid: false, reason: 'lookup_failed' };
+        return failClosedLookup();
       }
     }
 
@@ -1339,7 +1351,7 @@ export async function verifyShareLinkToken(
       }
       if (res?.error && !isMissingRelationOrColumnError(res.error)) {
         log.warn({ code: res.error.code, message: res.error.message }, 'verifyShareLinkToken im_share_links query failed (fail-closed)');
-        return { valid: false, reason: 'lookup_failed' };
+        return failClosedLookup();
       }
 
       const row = toFirstShareRow(res?.data);
@@ -1403,7 +1415,7 @@ export async function verifyShareLinkToken(
     } catch (dbThrown) {
       if (!isMissingRelationOrColumnError(dbThrown)) {
         log.warn({ err: dbThrown }, 'verifyShareLinkToken DB lookup threw (fail-closed)');
-        return { valid: false, reason: 'lookup_failed' };
+        return failClosedLookup();
       }
     }
   }

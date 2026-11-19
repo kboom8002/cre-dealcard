@@ -17,6 +17,7 @@ import { bindViewerHistory } from '@/domain/identity/bind';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { createModuleLogger } from '@/lib/logger';
+import { recordFunnelEvent } from '@/lib/observability/funnel-slo';
 import { getInboxState, getQuickImRecord, isUuid } from '@/lib/im-lite/quick-generate-store';
 import { getPublicWorkspaceProjection } from '@/lib/workspace/workspace-repository';
 import { isLegacyBuildingRowPublic } from '@/lib/deal-card/publish-sync';
@@ -409,6 +410,13 @@ export async function POST(req: NextRequest) {
       // non-blocking
     }
 
+    recordFunnelEvent({
+      funnel: 'share_view_to_gate',
+      outcome: 'ok',
+      entityId: effectiveDealId,
+      meta: { budgetBand: formData.budgetBand, purpose: formData.purpose },
+    });
+
     return NextResponse.json(
       {
         ok: true,
@@ -418,6 +426,11 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch {
+    recordFunnelEvent({
+      funnel: 'share_view_to_gate',
+      outcome: 'failed',
+      code: 'GATE_SUBMIT_ERROR',
+    });
     return NextResponse.json(
       { ok: false, accessGranted: false, error: '열람 자격 처리 중 서버 오류가 발생했습니다.' },
       { status: 500 }

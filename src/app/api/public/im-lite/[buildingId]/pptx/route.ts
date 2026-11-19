@@ -28,6 +28,7 @@ import {
 import { verifyShareLinkToken } from '@/lib/security/share-link-tokens';
 
 import { createModuleLogger } from '@/lib/logger';
+import { recordFunnelEvent } from '@/lib/observability/funnel-slo';
 const log = createModuleLogger('route');
 
 function mergeNonZeroFields(
@@ -70,6 +71,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ buildingId: string }> }
 ) {
+  const startedAt = Date.now();
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
   const rateLimit = process.env.NODE_ENV === 'development' ? 1000 : 60;
   const isAllowed = await checkRateLimit(ip, 'rate_limit', rateLimit, 3600 * 1000);
@@ -838,10 +840,25 @@ export async function GET(
           .createSignedUrl(filePath, 1800, { download: safeName });
 
         if (signedData?.signedUrl) {
+          recordFunnelEvent({
+            funnel: 'deal_creation',
+            outcome: 'ok',
+            latencyMs: Date.now() - startedAt,
+            entityId: buildingId,
+            meta: { channel: 'pptx_signed_redirect', tier: effectiveTier },
+          });
           return NextResponse.redirect(signedData.signedUrl, 302);
         }
       }
     }
+
+    recordFunnelEvent({
+      funnel: 'deal_creation',
+      outcome: 'ok',
+      latencyMs: Date.now() - startedAt,
+      entityId: buildingId,
+      meta: { channel: 'pptx_direct_download', tier: effectiveTier },
+    });
 
     return new NextResponse(new Uint8Array(result.buffer), {
       status: 200,

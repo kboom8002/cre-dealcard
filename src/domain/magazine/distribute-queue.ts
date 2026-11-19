@@ -4,6 +4,7 @@ import { addDays, isQuietHoursKst, kstParts, toKstDate, todayKst } from '@/lib/m
 import { isMagazineSendDryRun, isMagazineSendEnabled, SEND_DISABLED_MESSAGE } from '@/lib/magazine/send-flags';
 import { isUuid } from '@/lib/magazine/slug';
 import { createModuleLogger } from '@/lib/logger';
+import { recordFunnelEvent } from '@/lib/observability/funnel-slo';
 import type { DistributeMagazineEditionInput } from './distribute-magazine';
 import {
   BATCH_429_BASE_DELAY_MS,
@@ -817,6 +818,20 @@ export async function processMagazineDispatchQueueBatch(
       blocked += 1;
     }
   }
+
+  recordFunnelEvent({
+    funnel: 'newsletter_dispatch',
+    outcome: failed > 0 ? 'degraded' : 'ok',
+    meta: {
+      reclaimed,
+      fetched: rows.length,
+      sent,
+      recorded,
+      blocked,
+      failed,
+      deferred,
+    },
+  });
 
   return { reclaimed, fetched: rows.length, sent, recorded, blocked, failed, deferred };
 }

@@ -11,6 +11,7 @@ import { validateBlindPriceBand } from '@/lib/deal-card/price-band';
 import { evaluateDealCardPublishContent } from '@/lib/deal-card/publish-content-gate';
 import { fetchVerifiedBrokerSnapshotProfile } from '@/lib/deal-card/verified-broker-profile';
 import { syncLegacyBuildingPublishedStatus } from '@/lib/deal-card/publish-sync';
+import { recordFunnelEvent } from '@/lib/observability/funnel-slo';
 import {
   assertLegacyOrDbOwnership,
   buildSanitizedDealCardPublicSnapshot,
@@ -485,13 +486,29 @@ export async function POST(
       // Ignore outside request context
     }
 
+    recordFunnelEvent({
+      funnel: 'deal_creation',
+      outcome: 'ok',
+      entityId: resolvedBuildingId,
+      meta: { channel: 'dealcard_publish' },
+    });
+
     return NextResponse.json({
       success: true,
       buildingId: resolvedBuildingId,
       safetyResult,
       transition
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    recordFunnelEvent({
+      funnel: 'deal_creation',
+      outcome: 'failed',
+      code: 'DEALCARD_PUBLISH_ERROR',
+    });
+    const safeMsg =
+      error instanceof WorkspaceRepositoryError
+        ? error.message
+        : '딜카드 발행 처리 중 서버 오류가 발생했습니다.';
+    return NextResponse.json({ success: false, error: safeMsg }, { status: 500 });
   }
 }
