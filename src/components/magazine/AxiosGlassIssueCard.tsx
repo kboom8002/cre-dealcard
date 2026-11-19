@@ -66,8 +66,8 @@ export function AxiosGlassIssueCard({
   size = "viewer",
   channelEmoji,
   channelLabel,
-  sentimentSymbol,
-  sentimentLabel,
+  sentimentSymbol: _sentimentSymbol,
+  sentimentLabel: _sentimentLabel,
   topic,
   source,
   safeUrl,
@@ -82,6 +82,10 @@ export function AxiosGlassIssueCard({
   const s = SIZE_CLASS[size];
   const TitleTag = titleAs;
   const categoryText = channelLabel?.trim() || topic?.trim() || "";
+  const cleanSource =
+    source && source.trim() && source.trim() !== "AI 클러스터링 종합"
+      ? source.trim()
+      : "";
 
   return (
     <li
@@ -91,45 +95,20 @@ export function AxiosGlassIssueCard({
       data-contrast-tier="wcag-aaa"
       className="relative isolate overflow-hidden rounded-3xl border"
       style={{
-        background: meta.glassBackground,
-        borderColor: meta.glassBorder,
-        boxShadow: meta.glassGlow,
+        backgroundColor: "#FFFFFF",
+        borderColor: "#E2E8F0",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
         color: meta.titleColor,
       }}
     >
-      {/* 우상단 소프트 오로라 글로우 오브 */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full opacity-20 blur-2xl"
-        style={{ background: meta.glassAccent }}
-      />
-      {/* 상단 유리 스페큘러 하이라이트 헤어라인 */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.95), rgba(255,255,255,0.2))",
-        }}
-      />
-      {/* 좌측 에디토리얼 시그니처 컬러 스트립 (포스트잇 컬러 아이덴티티) */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-4 left-0 top-4 w-[3.5px] rounded-r-full"
-        style={{
-          background: `linear-gradient(180deg, ${meta.glassAccent} 0%, ${meta.cardBorder} 100%)`,
-        }}
-      />
-
-      {/* 반투명 프로스티드 펄 글래스 패널 */}
+      {/* 프로스티드 글래스 패널 (그라데이션 테두리·오브 제거) */}
       <div
-        className={`relative m-[3px] rounded-[1.35rem] backdrop-blur-xl ${s.pad}`}
+        className={`relative rounded-[1.35rem] backdrop-blur-xl ${s.pad}`}
         style={{
-          backgroundColor: "rgba(255, 255, 255, 0.58)",
-          boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.92)",
+          backgroundColor: "rgba(255, 255, 255, 0.96)",
         }}
       >
-        <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {categoryText && (
               <span
@@ -146,26 +125,21 @@ export function AxiosGlassIssueCard({
                   className="h-1.5 w-1.5 rounded-full"
                   style={{
                     background: meta.glassAccent,
-                    boxShadow: `0 0 6px ${meta.glassAccent}66`,
                   }}
                 />
                 {channelEmoji && <span aria-hidden="true">{channelEmoji}</span>}
                 <span>{categoryText}</span>
               </span>
             )}
-            {sentimentLabel && (
-              <span
-                className={`rounded-full border px-2 py-0.5 font-bold ${s.chip}`}
-                style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.80)",
-                  borderColor: "rgba(15, 23, 42, 0.10)",
-                  color: "#334155",
-                }}
-              >
-                {sentimentSymbol && <span aria-hidden="true">{sentimentSymbol}</span>} {sentimentLabel}
-              </span>
-            )}
           </div>
+          {cleanSource && (
+            <span
+              data-testid="axios-postit-source"
+              className="text-[13px] font-medium text-slate-500 shrink-0"
+            >
+              {cleanSource}
+            </span>
+          )}
         </div>
 
         {/* 카드뉴스 헤드라인 — 2줄 44자 예산 · #0F172A 15:1+ 초고대비 · 자연 줄바꿈 · 잘림 없음 */}
@@ -184,14 +158,6 @@ export function AxiosGlassIssueCard({
           {title}
         </TitleTag>
 
-        <span
-          aria-hidden="true"
-          className="mt-2.5 block h-[3px] w-10 rounded-full"
-          style={{
-            background: `linear-gradient(90deg, ${meta.glassAccent} 0%, ${meta.cardBorder} 100%)`,
-          }}
-        />
-
         {/* AXIOS 부제형 상세 해설 — 3줄 74자 예산 · #1E293B 12:1+ 고대비 · 자연 줄바꿈 · 잘림 없음 */}
         {brief && (
           <p
@@ -209,36 +175,24 @@ export function AxiosGlassIssueCard({
           </p>
         )}
 
-        {(source || safeUrl) && (
+        {safeUrl && (
           <div
-            className="mt-3 flex items-center justify-between gap-2 border-t pt-2.5"
+            className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t pt-2.5"
             style={{ borderColor: "rgba(15, 23, 42, 0.09)" }}
           >
-            {source ? (
-              <p
-                className={`font-semibold ${s.chip}`}
-                style={{ color: "#475569" }}
-              >
-                출처: {source}
-              </p>
-            ) : (
-              <span />
-            )}
-            {safeUrl && (
-              <a
-                href={safeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-track="news_click"
-                className={`font-extrabold underline underline-offset-2 hover:opacity-80 ${s.chip}`}
-                style={{
-                  color: meta.metaColor,
-                  textDecorationColor: meta.glassBorder,
-                }}
-              >
-                원문 보기 ↗
-              </a>
-            )}
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-track="news_click"
+              className={`inline-flex min-h-[44px] items-center shrink-0 whitespace-nowrap font-extrabold underline underline-offset-2 hover:opacity-80 ${s.chip}`}
+              style={{
+                color: meta.metaColor,
+                textDecorationColor: meta.glassBorder,
+              }}
+            >
+              원문 보기 ↗
+            </a>
           </div>
         )}
       </div>

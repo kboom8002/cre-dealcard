@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, KR } from '../imlib';
+import { C, M, CW, KR, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { stripMarkdown } from '../data-binder';
 import { optimizeImageForPptx, isNonPhotoGraphic, type OptimizedImage } from '../utils/image-optimizer';
@@ -250,19 +250,29 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
 
   if (photoImg) {
-    // 우측 하단: 핵심 강점 콜아웃 문구 결정
+    const kickerLower = (input.data.kicker || '').toLowerCase();
+    const titleLower = (input.data.title || '').toLowerCase();
+    const isEviction = kickerLower.includes('eviction') || titleLower.includes('명도') || titleLower.includes('철거');
+    const isLand = kickerLower.includes('land') || titleLower.includes('부지') || titleLower.includes('도로') || titleLower.includes('인허가');
+    const suppressBasicHighlight =
+      !isEviction &&
+      !isLand &&
+      Boolean(
+        input.data.suppressAssetHighlight ||
+          input.data.isBasicPreset ||
+          THEME_META.presetId === 'credeal_basic',
+      );
+
+    // 우측 하단: 핵심 강점 콜아웃 문구 결정 (Basic IM 물건개요는 하이라이트 삭제 후 사진 풀사이즈 확장)
     let calloutLines: string[] = [];
-    if (Array.isArray(input.data.assetHighlights) && input.data.assetHighlights.length > 0) {
+    if (suppressBasicHighlight) {
+      calloutLines = [];
+    } else if (Array.isArray(input.data.assetHighlights) && input.data.assetHighlights.length > 0) {
       // 2026-10-05: 렌더러가 실데이터(역·임대·대지)로 합성한 짧은 하이라이트 우선
       calloutLines = input.data.assetHighlights.map((s: unknown) => String(s ?? '').trim()).filter(Boolean).slice(0, 3);
     } else {
       let calloutText = stripMarkdown(right.callouts?.[0]?.body || '');
       if (!calloutText || calloutText.length < 15) {
-        const kickerLower = (input.data.kicker || '').toLowerCase();
-        const titleLower = (input.data.title || '').toLowerCase();
-        const isEviction = kickerLower.includes('eviction') || titleLower.includes('명도') || titleLower.includes('철거');
-        const isLand = kickerLower.includes('land') || titleLower.includes('부지') || titleLower.includes('도로') || titleLower.includes('인허가');
-
         if (isEviction) {
           calloutText = '• 매도인/임차인 명도 현황 및 퇴거 확약 조건 확인 필요\n• 임차인 권리금·명도 분쟁 리스크 사전 실사 권고\n• 명도 완료 시 즉시 철거·착공 가능 여부 일정 확인';
         } else if (isLand) {

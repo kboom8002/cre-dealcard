@@ -1169,7 +1169,7 @@ export function ImEditorPanels({
                     value={brokerName}
                     onFocus={(e) => e.currentTarget.select()}
                     onChange={(e) => onChangeBrokerName(e.target.value)}
-                    placeholder="예: 홍길동 대표공인중개사"
+                    placeholder="예: 김크리 대표공인중개사"
                     className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
                   />
                 </div>
@@ -1189,7 +1189,7 @@ export function ImEditorPanels({
                     onChange={(e) =>
                       onChangeBrokerPhone(formatPhoneHyphen(e.target.value))
                     }
-                    placeholder="예: 010-1234-5678"
+                    placeholder="예: 010-2345-6789"
                     className="w-full min-h-[48px] px-3 text-base rounded-xl border border-[#64748B] bg-white outline-none focus:border-[#1D4ED8]"
                   />
                 </div>

@@ -68,7 +68,7 @@ export function GateRequestReviewModal({
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold">자료 요청(Gate) 응대 수락</h2>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               요청한 매수자의 자격을 확인하고 Full IM 공유를 수락합니다.
             </p>
           </div>
@@ -87,24 +87,24 @@ export function GateRequestReviewModal({
             
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground mb-0.5">투자 예산</p>
+                <p className="text-sm text-muted-foreground mb-0.5">투자 예산</p>
                 <p className="font-semibold">{buyerBudget || '미기재'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-0.5">매수 목적</p>
+                <p className="text-sm text-muted-foreground mb-0.5">매수 목적</p>
                 <p className="font-semibold truncate">{buyerPurpose || '미기재'}</p>
               </div>
             </div>
 
             <div className="pt-2 border-t border-border mt-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground">NDA(비밀유지계약) 서명</span>
+                <span className="text-sm font-semibold text-muted-foreground">NDA(비밀유지계약) 서명</span>
                 {ndaSigned ? (
-                  <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
                     <CheckCircle className="w-3.5 h-3.5" /> 완료됨
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
                     <XCircle className="w-3.5 h-3.5" /> 미완료
                   </span>
                 )}
@@ -113,7 +113,7 @@ export function GateRequestReviewModal({
           </div>
 
           {error && (
-            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-xs font-medium border border-destructive/20">
+            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm font-medium border border-destructive/20">
               {error}
             </div>
           )}
@@ -137,7 +137,7 @@ export function GateRequestReviewModal({
             </button>
           </div>
           
-          <button onClick={onClose} className="w-full text-center text-xs text-muted-foreground hover:underline mt-2">
+          <button onClick={onClose} className="w-full text-center text-sm text-muted-foreground hover:underline mt-2">
             나중에 결정하기
           </button>
         </div>

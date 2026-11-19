@@ -16,6 +16,7 @@ import {
   type QaKeyRole,
 } from "@/lib/security/qa-gate";
 import {
+  issueShareLinkToken,
   verifyShareLinkToken,
   isBuildingShareLinkRevoked,
 } from "@/lib/security/share-link-tokens";
@@ -603,6 +604,86 @@ function hasUnmaskedAddressString(val: string): boolean {
   return UNMASKED_LOT_RE.test(s) || UNMASKED_ROAD_BLDG_RE.test(s);
 }
 
+async function attachShowcaseImShareTokens(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  rawManifest: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const entriesObj = rawManifest.entries;
+  if (!entriesObj || typeof entriesObj !== "object" || Array.isArray(entriesObj)) {
+    return rawManifest;
+  }
+  const sourceEntries = entriesObj as Record<string, unknown>;
+  const clonedEntries: Record<string, unknown> = { ...sourceEntries };
+  const minExpiryIso = new Date(Date.now() + 86_400_000).toISOString();
+
+  await Promise.all(
+    Object.entries(sourceEntries).map(async ([caseId, rawEntry]) => {
+      if (!rawEntry || typeof rawEntry !== "object") return;
+      const entry = { ...(rawEntry as Record<string, unknown>) };
+      const category = String(entry.category || "");
+      const buildingId = typeof entry.buildingId === "string" ? entry.buildingId.trim() : "";
+      const liveUrl = typeof entry.liveUrl === "string" ? entry.liveUrl.trim() : "";
+      if (
+        category !== "im" ||
+        !buildingId ||
+        !liveUrl.startsWith("/im-lite/") ||
+        liveUrl.includes("token=")
+      ) {
+        return;
+      }
+
+      try {
+        let token: string | null = null;
+        if (supabase && typeof supabase.from === "function") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let q: any = supabase.from("im_share_links");
+          if (typeof q?.select === "function") q = q.select("token, status, expires_at");
+          if (typeof q?.eq === "function") q = q.eq("building_id", buildingId);
+          if (typeof q?.eq === "function") q = q.eq("status", "active");
+          if (typeof q?.gt === "function") q = q.gt("expires_at", minExpiryIso);
+          if (typeof q?.order === "function") q = q.order("created_at", { ascending: false });
+          if (typeof q?.limit === "function") q = q.limit(1);
+          const res = q && typeof q.then === "function" ? await q : null;
+          const firstRow = Array.isArray(res?.data) ? res.data[0] : null;
+          const candidateToken =
+            typeof firstRow?.token === "string" ? firstRow.token.trim() : "";
+          if (candidateToken.startsWith("slk.")) {
+            const check = await verifyShareLinkToken({
+              token: candidateToken,
+              buildingId,
+            });
+            if (check.valid) {
+              token = candidateToken;
+            }
+          }
+        }
+
+        if (!token) {
+          const issued = await issueShareLinkToken({
+            buildingId,
+            kind: "im",
+            ttlDays: 30,
+          });
+          token = issued.token;
+        }
+
+        if (token) {
+          entry.liveUrl = `${liveUrl}${liveUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+          clonedEntries[caseId] = entry;
+        }
+      } catch {
+        // Non-blocking fallback for offline/mock environments
+      }
+    })
+  );
+
+  return {
+    ...rawManifest,
+    entries: clonedEntries,
+  };
+}
+
 /**
  * GET /api/public/qa-workbench?sessionId=<id>
  * Recover latest synced or submitted QA workbench session.
@@ -696,7 +777,7 @@ export async function GET(req: NextRequest) {
               ? meta
               : null;
           if (rawManifest) {
-            manifest = rawManifest;
+            manifest = await attachShowcaseImShareTokens(supabase, rawManifest);
             publishedAt =
               typeof rawManifest.generatedAt === "string"
                 ? rawManifest.generatedAt

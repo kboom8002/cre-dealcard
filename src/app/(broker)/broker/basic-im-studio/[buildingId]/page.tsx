@@ -590,7 +590,7 @@ function BasicImStudioInner({
     <div className="flex flex-col h-screen bg-[#F1F5F9] text-[#0F172A]">
       {/* Top Studio Header Bar */}
       <header className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-[#CBD5E1] bg-white shrink-0 shadow-2xs">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex flex-wrap items-center gap-2.5 min-w-0 max-w-full">
           <button
             type="button"
             data-testid="studio-back-btn"
@@ -600,7 +600,7 @@ function BasicImStudioInner({
           >
             {navigatingBack ? '저장 후 이동 중…' : '← 돌아가기'}
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 max-w-full">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-black text-[#0F172A] break-keep">
                 📐 {project.title}
@@ -611,11 +611,11 @@ function BasicImStudioInner({
                   setRightTab('theme');
                   setMobileStudioPane('inspector');
                 }}
-                className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-full text-sm font-extrabold border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8] shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 max-w-full min-h-[44px] px-3 py-1.5 rounded-full text-sm font-extrabold text-left leading-snug break-keep border border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#1D4ED8] cursor-pointer"
                 title="클릭하여 프리셋·테마 변경"
               >
                 <span
-                  className="w-3 h-3 rounded-full border border-black/20"
+                  className="w-3 h-3 rounded-full border border-black/20 shrink-0"
                   style={{ backgroundColor: `#${tokens.accent}` }}
                 />
                 <span>테마: {tokens.presetName}</span>

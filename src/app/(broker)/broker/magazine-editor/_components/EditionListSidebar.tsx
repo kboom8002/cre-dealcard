@@ -172,7 +172,7 @@ export function EditionListSidebar({
             {yearMonthLabel} 뉴스레터
           </h2>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="shrink-0 whitespace-nowrap text-sm font-bold text-slate-700">
               발행 주기
             </span>
@@ -180,7 +180,7 @@ export function EditionListSidebar({
               role="radiogroup"
               aria-label="뉴스레터 발행 주기 선택"
               data-testid="quickstart-cadence-selector"
-              className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-0.5"
+              className="grid min-w-[180px] flex-1 grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-0.5"
             >
               {NEWSLETTER_CADENCES.map((key) => {
                 const meta = NEWSLETTER_CADENCE_META[key];

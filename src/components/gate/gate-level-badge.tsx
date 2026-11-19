@@ -48,7 +48,7 @@ export function GateLevelBadge({ level, showLabel = true }: GateLevelBadgeProps)
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-semibold ${config.bg} ${config.text} ${config.border}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm font-semibold ${config.bg} ${config.text} ${config.border}`}
     >
       {config.label}
       {showLabel && config.sublabel && (

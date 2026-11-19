@@ -124,6 +124,9 @@ export function buildShowcaseFallbackEntry(
       category: "dealcard",
       title: scenario.title,
       subtitle: scenario.subtitle,
+      deliverableTitle: scenario.deliverableTitle,
+      ogTitle: scenario.deliverableTitle || scenario.title,
+      ogDescription: scenario.ogDescription || scenario.subtitle,
       postureOrCadence: scenario.card4Posture,
       edgeFocus: scenario.edgeFocus,
       liveUrl: `/dc/${scenario.buildingId}`,
@@ -140,6 +143,7 @@ export function buildShowcaseFallbackEntry(
       category: "im",
       title: scenario.title,
       subtitle: scenario.subtitle,
+      deliverableTitle: scenario.deliverableTitle,
       postureOrCadence: scenario.postureLabel,
       edgeFocus: scenario.edgeFocus,
       liveUrl: `/im-lite/${scenario.buildingId}`,
@@ -166,6 +170,8 @@ export function buildShowcaseFallbackEntry(
     category: "newsletter",
     title: scenario.title,
     subtitle: scenario.subtitle,
+    ogTitle: scenario.headlineTemplate,
+    ogDescription: scenario.ogDescription || scenario.subtitle,
     postureOrCadence: scenario.cadenceLabel,
     edgeFocus: scenario.edgeFocus,
     liveUrl,
@@ -790,11 +796,24 @@ function ShowcaseDeliverableViewerInner({
                     </div>
                   )}
                   <div className="p-4 space-y-1">
-                    <p className="text-[16px] font-extrabold text-slate-900">
-                      {activeScenario.title}
+                    <p
+                      data-testid="showcase-og-card-title"
+                      className="text-[16px] font-extrabold text-slate-900"
+                    >
+                      {activeLiveEntry.ogTitle ||
+                        (activeScenario.category === "newsletter"
+                          ? activeScenario.headlineTemplate
+                          : activeScenario.deliverableTitle || activeScenario.title)}
                     </p>
-                    <p className="text-[15px] text-slate-700">
-                      {activeScenario.subtitle}
+                    <p
+                      data-testid="showcase-og-card-description"
+                      className="text-[15px] text-slate-700"
+                    >
+                      {activeLiveEntry.ogDescription ||
+                        ("ogDescription" in activeScenario &&
+                        activeScenario.ogDescription
+                          ? activeScenario.ogDescription
+                          : activeScenario.subtitle)}
                     </p>
                     <p className="text-[15px] font-bold text-indigo-700">
                       credeal.net

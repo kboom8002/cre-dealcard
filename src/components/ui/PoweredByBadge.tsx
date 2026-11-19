@@ -10,6 +10,8 @@ export interface PoweredByBadgeProps {
   context?: 'dealcard' | 'magazine' | 'im';
   buildingId?: string;
   brokerId?: string;
+  /** 공적장부 교차검증 매물 또는 공공 DB 통계가 실제 포함된 호수인지 여부 (무매물 호수 과장 방지) */
+  hasVerifiedLedger?: boolean;
   className?: string;
 }
 
@@ -18,6 +20,7 @@ export function PoweredByBadge({
   context = 'dealcard',
   buildingId,
   brokerId,
+  hasVerifiedLedger = false,
   className = '',
 }: PoweredByBadgeProps) {
   const pathname = usePathname();
@@ -31,7 +34,7 @@ export function PoweredByBadge({
       <div className={`flex items-center justify-center py-2 ${className}`}>
         <span className="inline-flex min-h-12 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-sm font-semibold text-emerald-800">
           <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
-          <span>CREDEAL 안심 매거진 · 공적장부 교차검증</span>
+          <span>{hasVerifiedLedger ? 'CREDEAL 안심 매거진 · 공적장부 교차검증' : 'CREDEAL 안심 매거진'}</span>
         </span>
       </div>
     );

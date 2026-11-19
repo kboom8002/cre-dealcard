@@ -140,21 +140,6 @@ function BrokerFooter({ m, t, scale }: { m: ImageModel; t: Translate; scale: num
           ) : null}
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-        <div
-          style={{
-            display: 'flex',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: '#fff',
-            padding: '10px 22px',
-            borderRadius: '20px',
-            fontSize: `${Math.max(20, Math.round(22 * scale))}px`,
-            fontWeight: 800,
-          }}
-        >
-          credeal.net
-        </div>
-      </div>
     </div>
   );
 }
@@ -309,29 +294,13 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
   return (
     <PageBg width={width} height={height}>
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, padding: '48px 60px' }}>
-        {/* 1. 발행일자 + 매거진 헤더 (260px 말풍선 고대비) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* 1. 매거진 헤더 (카카오 링크 영역 날짜·도메인 중복 방지) */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <BrandMark size={20} />
-            <span style={{ color: '#E2E8F0', fontSize: '26px', fontWeight: 800, letterSpacing: '1.5px' }}>
+            <span style={{ color: '#E2E8F0', fontSize: '24px', fontWeight: 800, letterSpacing: '1.5px' }}>
               {t('CRE 매거진', 'CRE MAGAZINE')}
             </span>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(199,210,254,0.45)',
-              borderRadius: '14px',
-              padding: '10px 20px',
-            }}
-          >
-            <span style={{ color: '#FFFFFF', fontSize: '28px', fontWeight: 800 }}>{m.dateLabel}</span>
-            {t(m.dateKorean) === m.dateKorean && m.dateKorean ? (
-              <span style={{ color: '#E0E7FF', fontSize: '22px', fontWeight: 600 }}>({m.dateKorean})</span>
-            ) : null}
           </div>
         </div>
 

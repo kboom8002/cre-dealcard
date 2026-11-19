@@ -43,10 +43,11 @@ export function QuickRemedyPopover({
         type="button"
         onClick={() => setIsOpen(true)}
         data-testid="studio-quick-remedy-btn"
-        className="px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-xl text-sm font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+        className="px-3 py-1.5 min-h-[44px] min-w-[44px] max-w-full whitespace-normal text-left rounded-xl text-sm font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
         title="고객이 수익률·시세비교표·색상·흑백인쇄 수정을 요청했을 때 30초 만에 고치는 방법"
       >
-        <span>🛠️ 고객 수정 요청 30초 해결사</span>
+        <span className="sm:hidden">🛠️ 30초 해결사</span>
+        <span className="hidden sm:inline">🛠️ 고객 수정 요청 30초 해결사</span>
       </button>
 
       {isOpen &&

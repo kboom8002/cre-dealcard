@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import {
   ConsentCheckboxes, EMPTY_CONSENT, PRIVACY_POLICY_HREF, allConsented, toConsentPayload, type ConsentState,
 } from '@/components/magazine/ConsentCheckboxes';
 import { TrackingNotice } from '@/components/magazine/TrackingNotice';
 import { postSubscribe } from '@/components/magazine/subscribe-api';
+import { hasLocalBrokerSubscribed, markBrokerSubscribed } from '@/lib/magazine/subscriber-local-state';
 import { digitsOnly, formatKrPhoneInput, isPlausiblePhoneDigits } from '@/lib/magazine/phone-input';
 import { MAGAZINE_SEND_DAY_LABEL } from '@/lib/magazine/schedule-labels';
 
@@ -68,6 +69,13 @@ export function SubscribeCard({
   const [name, setName] = useState('');
   const [consent, setConsent] = useState<ConsentState>(EMPTY_CONSENT);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [alreadySubscribedLocally, setAlreadySubscribedLocally] = useState(false);
+
+  useEffect(() => {
+    if (effectiveVariant === 'minimal' && hasLocalBrokerSubscribed(brokerId)) {
+      setAlreadySubscribedLocally(true);
+    }
+  }, [brokerId, effectiveVariant]);
   const [done, setDone] = useState<{
     status: 'pending' | 'confirmed';
     message?: string;
@@ -123,6 +131,7 @@ export function SubscribeCard({
     const submittedEmailVal = needEmail ? email.trim() || undefined : undefined;
     const submittedPhoneVal = needPhone ? phone.trim() || undefined : undefined;
     if (outcome.ok) {
+      markBrokerSubscribed(brokerId);
       setDone({
         status: outcome.status,
         message: outcome.message,
@@ -171,6 +180,7 @@ export function SubscribeCard({
     });
 
     if (outcome.ok) {
+      markBrokerSubscribed(brokerId);
       setDone({
         status: outcome.status,
         message: outcome.message,
@@ -209,6 +219,9 @@ export function SubscribeCard({
         : '이메일로 신청하시면 확인 링크 클릭 즉시 매주 자동 발송되며, 휴대폰 안내도 함께 등록됩니다.';
 
   if (effectiveVariant === 'minimal') {
+    if (alreadySubscribedLocally && status === 'idle') {
+      return null;
+    }
     return (
       <div
         data-testid="minimal-subscribe-optin"

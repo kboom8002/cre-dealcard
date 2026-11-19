@@ -31,9 +31,9 @@ function ScenarioCard({ scenario }: { scenario: Scenario }) {
         <span>{cfg.icon}</span>
         <h4 className={`text-sm font-bold ${cfg.color}`}>{cfg.label}</h4>
       </div>
-      <p className="text-xs text-neutral-300 font-medium">{scenario.title}</p>
+      <p className="text-sm text-neutral-300 font-medium">{scenario.title}</p>
 
-      <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="bg-neutral-800/50 rounded-lg p-2">
           <span className="text-neutral-500 block">월 임대료</span>
           <span className="text-neutral-200 font-bold">{formatKrw(scenario.stabilizedMonthlyRent)}</span>
@@ -53,15 +53,15 @@ function ScenarioCard({ scenario }: { scenario: Scenario }) {
       </div>
 
       <div className="bg-neutral-800/30 rounded-lg p-2 text-center">
-        <span className="text-neutral-500 text-[10px] block">예상 가치</span>
+        <span className="text-neutral-500 text-sm block">예상 가치</span>
         <span className={`text-base font-black ${cfg.color}`}>{formatKrw(scenario.estimatedValue)}</span>
       </div>
 
       {scenario.actions.length > 0 && (
         <div className="space-y-1.5">
-          <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">실행 항목</span>
+          <span className="text-sm font-bold text-neutral-500 uppercase tracking-wider">실행 항목</span>
           {scenario.actions.map((action, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs">
+            <div key={i} className="flex items-start gap-2 text-sm">
               <span className="text-neutral-600 mt-0.5">•</span>
               <div className="flex-1">
                 <span className="text-neutral-300">{action.description}</span>
@@ -93,12 +93,12 @@ export function ActionCardView({ actionCard }: ActionCardViewProps) {
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           🎯 Value-Add 시나리오
           {actionCard.involvesTenantRelocation && (
-            <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+            <span className="text-sm bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
               임차인 이전 포함
             </span>
           )}
         </h3>
-        <p className="text-xs text-neutral-400 mt-1">{actionCard.currentStateSummary}</p>
+        <p className="text-sm text-neutral-400 mt-1">{actionCard.currentStateSummary}</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {sorted.map((scenario) => (

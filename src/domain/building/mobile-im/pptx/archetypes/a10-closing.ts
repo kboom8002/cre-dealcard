@@ -1,7 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM, CD } from '../imlib';
-import { MOBILE_IM_STANDARD_DISCLAIMER } from '../../guardrails';
 import type { ProvenanceKind } from '../imlib';
 import { optimizeImageForPptx } from '../utils/image-optimizer';
 
@@ -82,37 +81,8 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     }
   });
 
-  // ── 좌측: provenance 배지 리스트 (점수 제거, 아이콘만) ──
-  const sectionY = stepY + stepH + 0.30;
-  L.sub(slide, M, sectionY, 6.0, '데이터 출처 표기', true);
-  
-  const badges = (input.data.badges || []).slice(0, 6);
-  badges.forEach((b: any, i: number) => {
-    const by = sectionY + 0.36 + i * 0.44;
-    
-    // 배지 라운드 사각형
-    slide.addShape('roundRect', {
-      x: M, y: by, w: 1.40, h: 0.32,
-      rectRadius: 0.04,
-      fill: { color: CD.block },
-    });
-    slide.addText(b.label || '', {
-      x: M, y: by, w: 1.40, h: 0.32,
-      align: 'center', valign: 'middle',
-      fontFace: KR, fontSize: 9, bold: true, color: 'FFFFFF', margin: 0,
-    });
-    
-    // 설명 (점수 제거 — 사용자에게 불필요)
-    slide.addText(b.description || '', {
-      x: M + 1.56, y: by - 0.02, w: 4.20, h: 0.36,
-      fontFace: KR, fontSize: 9, color: CD.body, margin: 0,
-      valign: 'middle',
-    });
-  });
-  
-  // ── 우측: 한 줄 매수 제안(closingLine) + 중개사 문의처 카드 + 면책 박스 ──
-  const rx = 7.10;
-  const rw = 5.61;
+  // ── 중앙: 한 줄 매수 제안(closingLine) + 담당 중개사 와이드 카드 (데이터 출처 표기·면책 카드 제거) ──
+  const sectionY = stepY + stepH + 0.42;
 
   const closingLine = String(
     (input.data as any)?.closingLine ?? (input.data?.brokerContact as any)?.closingLine ?? ''
@@ -120,31 +90,25 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
 
   let brokerSectionY = sectionY;
   if (closingLine) {
-    const quoteY = sectionY;
-    const quoteH = 0.54;
+    const quoteH = 0.58;
     slide.addShape('roundRect', {
-      x: rx, y: quoteY, w: rw, h: quoteH,
-      rectRadius: 0.04,
+      x: M, y: sectionY, w: CW, h: quoteH,
+      rectRadius: 0.05,
       fill: { color: CD.block },
     });
     slide.addShape('rect', {
-      x: rx, y: quoteY, w: 0.06, h: quoteH,
+      x: M, y: sectionY, w: 0.06, h: quoteH,
       fill: { color: C.brass },
     });
     slide.addText(closingLine, {
-      x: rx + 0.18, y: quoteY + 0.06, w: rw - 1.15, h: quoteH - 0.12,
-      fontFace: KR, fontSize: 9.5, bold: true, color: 'FFFFFF',
+      x: M + 0.22, y: sectionY + 0.06, w: CW - 0.40, h: quoteH - 0.12,
+      fontFace: KR, fontSize: 10.5, bold: true, color: 'FFFFFF',
       margin: 0, valign: 'middle', shrinkText: true,
     });
-    slide.addText('● 중개인입력', {
-      x: rx + rw - 0.95, y: quoteY + 0.06, w: 0.85, h: 0.20,
-      fontFace: KR, fontSize: 7.5, color: C.brass,
-      align: 'right', margin: 0,
-    });
-    brokerSectionY = quoteY + quoteH + 0.14;
+    brokerSectionY = sectionY + quoteH + 0.22;
   }
 
-  // 중개사 문의처 카드 (basic-im-guide.md §2 #9)
+  // 중개사 문의처 와이드 카드
   const rawBroker = input.data.brokerContact || {};
   const DUMMY_BROKER_VALUES = new Set([
     '담당 공인중개사',
@@ -174,125 +138,104 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   const hasBrokerInfo = Boolean(
     broker.name || broker.phone || broker.company || broker.officeAddress || broker.registrationNo
   );
-  let disclaimerStartY = brokerSectionY + 0.36;
 
-  if (hasBrokerInfo) {
-    L.sub(slide, rx, brokerSectionY, rw, '담당 중개사', true);
-    const contactY = brokerSectionY + 0.34;
-    const contactH = closingLine ? 0.96 : 1.10;
-
-    slide.addShape('roundRect', {
-      x: rx, y: contactY, w: rw, h: contactH,
-      rectRadius: 0.04,
-      fill: { color: CD.block },
-      line: { color: C.brass, width: 0.75 },
-    });
-
-    // 이름 + 직급 (부재 필드 생략 — 📞 아이콘은 실제 전화번호 행에만)
-    const nameLine = [broker.name, broker.title].filter((s: unknown) => typeof s === 'string' && s.trim()).join('  ');
-    const hasAddressLine = Boolean(broker.officeAddress);
-    if (nameLine) {
-      slide.addText(nameLine, {
-        x: rx + 0.20, y: contactY + (hasAddressLine ? 0.04 : 0.06), w: rw - 0.40, h: hasAddressLine ? 0.24 : 0.28,
-        fontFace: KR, fontSize: hasAddressLine ? 10.5 : 11, bold: true, color: 'FFFFFF', margin: 0,
-      });
-    }
-
-    // 연락처
-    const contactLine = [
-      broker.phone ? `☎ ${broker.phone}` : '',
-      broker.email ? `✉ ${broker.email}` : '',
-    ].filter(Boolean).join('    ');
-    if (contactLine) {
-      slide.addText(contactLine, {
-        x: rx + 0.20,
-        y: contactY + (hasAddressLine ? (closingLine ? 0.27 : 0.30) : (closingLine ? 0.34 : 0.38)),
-        w: rw - 0.40,
-        h: hasAddressLine ? 0.22 : 0.26,
-        fontFace: KR, fontSize: 9.5, color: CD.body, margin: 0,
-      });
-    }
-
-    // 법인 + 등록번호
-    const companyLine = [
-      broker.company ? `🏢 ${broker.company}` : '',
-      broker.registrationNo ? `등록번호: ${broker.registrationNo}` : '',
-    ].filter(Boolean).join('    ');
-    if (companyLine) {
-      slide.addText(companyLine, {
-        x: rx + 0.20,
-        y: contactY + (hasAddressLine ? (closingLine ? 0.49 : 0.54) : (closingLine ? 0.60 : 0.64)),
-        w: rw - 0.40,
-        h: hasAddressLine ? 0.21 : 0.26,
-        fontFace: KR, fontSize: 9, color: CD.mute, margin: 0,
-      });
-    }
-
-    // 중개사무소 소재지 (법정 표시사항)
-    if (hasAddressLine) {
-      slide.addText(`소재지: ${broker.officeAddress}`, {
-        x: rx + 0.20,
-        y: contactY + (closingLine ? 0.70 : 0.78),
-        w: rw - 0.40,
-        h: 0.22,
-        fontFace: KR, fontSize: 8.5, color: CD.mute, margin: 0, shrinkText: true,
-      });
-    }
-
-    disclaimerStartY = contactY + contactH + (closingLine ? 0.42 : 0.52);
-  } else {
-    disclaimerStartY = brokerSectionY + 0.36;
-  }
-
-  // 면책 조항
-  L.sub(slide, rx, disclaimerStartY - 0.34, rw, '면책 조항', true);
-  
-  const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
-  const maxCardH = 6.10 - disclaimerStartY;
-  const cardH = Math.max(1.10, Math.min(maxCardH, 0.45 + Math.ceil(disclaimerText.length / 55) * 0.24));
-
-  // 면책 배경 카드
-  slide.addShape('roundRect', {
-    x: rx, y: disclaimerStartY, w: rw, h: cardH,
-    rectRadius: 0.04,
-    fill: { color: C.ink2 },
-  });
-  
-  slide.addText(disclaimerText, {
-    x: rx + 0.20, y: disclaimerStartY + 0.12, w: rw - 0.40, h: cardH - 0.24,
-    fontFace: KR, fontSize: 9, color: CD.mute,
-    lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
-  });
-  
-  // ── 하단 푸터 바 ──
-  const footerY = 6.20;
-  slide.addShape('rect', {
-    x: M, y: footerY, w: CW, h: 0.44,
-    fill: { color: CD.accentBg },
-  });
-  const footerText = input.data.footerText || '본 자료의 모든 수치는 예비 검토용이며, 상세 실사 자료 및 비밀 상담은 담당 전문 중개사를 통해 제공됩니다.';
-  slide.addText(footerText, {
-    x: M + 0.20, y: footerY + 0.04, w: CW - 0.40, h: 0.36,
-    fontFace: KR, fontSize: 9, color: CD.accentText, margin: 0,
-    valign: 'middle',
-  });
-  
-  // Phase 4: 로고 이미지 삽입 (푸터 바 우측)
+  let logoImg: Awaited<ReturnType<typeof optimizeImageForPptx>> | null = null;
   if (input.data?.logoUrl) {
     try {
-      const logo = await optimizeImageForPptx(input.data.logoUrl as string, 200, 90);
-      if (logo) {
-        slide.addImage({
-          data: logo.base64,
-          x: M + CW - 1.44, y: footerY + 0.04,
-          w: 1.20, h: 0.36,
-          sizing: { type: 'contain', w: 1.20, h: 0.36 },
-        });
-      }
+      logoImg = await optimizeImageForPptx(input.data.logoUrl as string, 200, 90);
     } catch {
       warnings.push('로고 이미지 로딩 실패 (closing)');
     }
   }
+
+  if (hasBrokerInfo) {
+    L.sub(slide, M, brokerSectionY, CW, '담당 중개사', true);
+    const contactY = brokerSectionY + 0.36;
+    const contactH = closingLine ? 1.95 : 2.25;
+
+    slide.addShape('roundRect', {
+      x: M, y: contactY, w: CW, h: contactH,
+      rectRadius: 0.06,
+      fill: { color: CD.block },
+      line: { color: C.brass, width: 0.9 },
+    });
+
+    const nameLine = [broker.name, broker.title].filter((s: unknown) => typeof s === 'string' && s.trim()).join('  ');
+    const contactLine = [
+      broker.phone ? `☎ ${broker.phone}` : '',
+      broker.email ? `✉ ${broker.email}` : '',
+    ].filter(Boolean).join('    ');
+    const companyLine = [
+      broker.company ? `🏢 ${broker.company}` : '',
+      broker.registrationNo ? `등록번호: ${broker.registrationNo}` : '',
+    ].filter(Boolean).join('    ');
+    const addressLine = broker.officeAddress ? `소재지: ${broker.officeAddress}` : '';
+
+    const cardLines: Array<{ text: string; fontSize: number; bold: boolean; color: string }> = [
+      ...(nameLine ? [{ text: nameLine, fontSize: 14, bold: true, color: 'FFFFFF' }] : []),
+      ...(contactLine ? [{ text: contactLine, fontSize: 11.5, bold: false, color: CD.body }] : []),
+      ...(companyLine ? [{ text: companyLine, fontSize: 10.5, bold: false, color: CD.mute }] : []),
+      ...(addressLine ? [{ text: addressLine, fontSize: 10, bold: false, color: CD.mute }] : []),
+    ];
+
+    const textW = logoImg ? CW - 2.10 : CW - 0.56;
+    const rowStep = cardLines.length <= 3 ? 0.44 : 0.38;
+    const contentH = cardLines.length * rowStep;
+    const startLineY = contactY + Math.max(0.18, (contactH - contentH) / 2);
+
+    cardLines.forEach((line, idx) => {
+      slide.addText(line.text, {
+        x: M + 0.28,
+        y: startLineY + idx * rowStep,
+        w: textW,
+        h: rowStep - 0.04,
+        fontFace: KR,
+        fontSize: line.fontSize,
+        bold: line.bold,
+        color: line.color,
+        valign: 'middle',
+        shrinkText: true,
+        margin: 0,
+      });
+    });
+
+    if (logoImg) {
+      slide.addImage({
+        data: logoImg.base64,
+        x: M + CW - 1.75,
+        y: contactY + (contactH - 0.85) / 2,
+        w: 1.45,
+        h: 0.85,
+        sizing: { type: 'contain', w: 1.45, h: 0.85 },
+      });
+    }
+  } else if (logoImg) {
+    slide.addImage({
+      data: logoImg.base64,
+      x: M + CW - 1.45,
+      y: brokerSectionY + 0.20,
+      w: 1.45,
+      h: 0.85,
+      sizing: { type: 'contain', w: 1.45, h: 0.85 },
+    });
+  }
+
+  // ── 하단 1줄 미세 면책 안내 (카드·제목 박스 제거, 법적 보호용 최소 표기) ──
+  const singleLineDisclaimer =
+    '※ 면책 안내: 본 자료는 매수 검토 참고용이며 공부 및 현장 실사를 통해 최종 확인하시기 바랍니다.';
+  slide.addText(singleLineDisclaimer, {
+    x: M,
+    y: 6.44,
+    w: CW,
+    h: 0.28,
+    fontFace: KR,
+    fontSize: 8,
+    color: CD.mute,
+    align: 'left',
+    valign: 'middle',
+    shrinkText: true,
+    margin: 0,
+  });
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
   L.foot(slide, input.slideNum, input.docno, true);

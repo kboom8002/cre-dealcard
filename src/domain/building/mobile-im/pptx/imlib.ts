@@ -1524,6 +1524,9 @@ export function getDynamicTableMargin(rowH: number): [number, number, number, nu
   if (rowH < 0.22) {
     return [1.5, 3, 1.5, 3];
   }
+  if (rowH >= 0.34) {
+    return [3.5, 6, 3.5, 6];
+  }
   return [2, 4, 2, 4];
 }
 

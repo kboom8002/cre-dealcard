@@ -23,7 +23,7 @@ export const BROKER_PLAN_IMAGE_CATEGORIES: ReadonlySet<string> = new Set(['distr
 /** 출처 태그 (provenance 'broker' 라벨과 동일: imlib.PV.broker) */
 export const BROKER_SOURCE_TAG = '● 중개인입력';
 export const BROKER_UNVERIFIED_TAG = '중개인 제공 · 미검증';
-export const COMPS_FOOTNOTE = '※ 중개인 제공 자료, 실거래·매물 기준일 미검증. 본건 환산 = 매매가 ÷ 대지평수';
+export const COMPS_FOOTNOTE = '※ 중개인 제공 자료(기준일 미검증) · 본건 환산 = 매매가 ÷ 대지평수';
 export const COMPS_GAP_FORMULA = '괴리율 = (본건 환산 − 실거래 평균) ÷ 실거래 평균';
 
 export interface BrokerImage {
@@ -486,14 +486,20 @@ export function buildBrokerCompsData(extras: BrokerExtras, opts: BrokerDataMapOp
     summaryCards.push({ label: '매물 평균', value: `${fmtNum(stats.listingAvg, 0)}만원/평`, sub: `토지평당가 · ${stats.listingCount}건` });
   }
   if (stats.subject !== undefined) {
-    summaryCards.push({ label: '본건 환산', value: `${fmtNum(stats.subject, 0)}만원/평`, sub: '토지평당가 · 산식은 각주' });
+    summaryCards.push({ label: '본건 환산', value: `${fmtNum(stats.subject, 0)}만원/평`, sub: '매매가 ÷ 대지평수 기준' });
   }
   if (stats.gapPct !== undefined && stats.gapBasis) {
-    const levelSub = stats.levelPct != null ? ` (평균의 ${stats.levelPct.toFixed(1)}% 수준)` : '';
+    const absGap = Math.abs(stats.gapPct).toFixed(1);
+    const gapDirectionSub =
+      stats.gapPct < 0
+        ? `${stats.gapBasis} 대비 ${absGap}% 낮음`
+        : stats.gapPct > 0
+          ? `${stats.gapBasis} 대비 ${absGap}% 높음`
+          : `${stats.gapBasis}과 동일 수준`;
     summaryCards.push({
       label: '괴리율',
       value: formatGapPct(stats.gapPct),
-      sub: `본건 vs ${stats.gapBasis}${levelSub}`,
+      sub: gapDirectionSub,
     });
   }
 

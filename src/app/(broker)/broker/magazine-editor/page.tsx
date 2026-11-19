@@ -160,6 +160,7 @@ function MagazineEditorWorkspace() {
     buildDefaultMonthlyGraphicPair("gbd", "molit_bok"),
   );
   const [monthlyLiveDbAvailable, setMonthlyLiveDbAvailable] = useState<boolean>(false);
+  const [statTuneOpen, setStatTuneOpen] = useState<boolean>(false);
   const [marketTemp, setMarketTemp] = useState<MarketTemperature | null>(null);
 
   // ── 3. 매물·코너·발송 대상·중개사 개인 설정 상태 ──
@@ -2802,6 +2803,7 @@ function MagazineEditorWorkspace() {
         tab: "content",
         onBeforeFocus: () => {
           if (!isSectionEnabled("market_data")) handleToggleSection("market_data", true);
+          setStatTuneOpen(true);
         },
         editorSelector: '[data-testid="monthly-stats-authoring-card"]',
         focusSelector: "#monthly-stat-val-0",
@@ -2812,6 +2814,7 @@ function MagazineEditorWorkspace() {
         tab: "content",
         onBeforeFocus: () => {
           if (!isSectionEnabled("market_data")) handleToggleSection("market_data", true);
+          setStatTuneOpen(true);
         },
         editorSelector: '[data-testid="monthly-stats-authoring-card"]',
         focusSelector: "#monthly-stat-val-1",
@@ -3434,6 +3437,8 @@ function MagazineEditorWorkspace() {
             onChangeMonthlyPair={handleChangeMonthlyPair}
             onUpdateMonthlyChartField={handleUpdateMonthlyChartField}
             onResetMonthlyCharts={handleResetMonthlyCharts}
+            statTuneOpen={statTuneOpen}
+            onToggleStatTune={(next) => setStatTuneOpen((prev) => (next !== undefined ? next : !prev))}
             briefingBody={briefingBody}
             onChangeBriefingBody={(val) => {
               setBriefingBody(val);

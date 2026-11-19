@@ -1599,8 +1599,8 @@ export function MobileIMViewer({
           data-doc-hash={docHash}
           className="bg-white rounded-lg border border-[#CBD5E1] p-6 shadow-xs space-y-4"
         >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="shrink-0 whitespace-nowrap text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
               01 표지
             </span>
             {hasVerifiedPublicLedger ? (
@@ -2530,30 +2530,35 @@ export function MobileIMViewer({
         )}
 
         <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-2 min-h-14 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
-          <a
-            href={brokerPhone && brokerPhone !== "-" ? `tel:${brokerPhone}` : "#10_contact"}
-            className="flex-1 min-w-[130px] min-h-[48px] px-3 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-base whitespace-nowrap"
-          >
-            <span>📞</span> 전화 문의
-          </a>
-          {realKakaoChannelUrl ? (
+          <div className="flex items-stretch gap-2 w-full sm:flex-1 min-w-0">
             <a
-              href={realKakaoChannelUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 min-w-[130px] min-h-[48px] px-3 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-base whitespace-nowrap"
+              href={brokerPhone && brokerPhone !== "-" ? `tel:${brokerPhone}` : "#10_contact"}
+              className="shrink-0 min-h-[48px] px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
             >
-              <span>💬</span> 카톡 상담
+              <span>📞</span>
+              <span>전화 문의</span>
             </a>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowInquiry(true)}
-              className="flex-1 min-w-[150px] min-h-[48px] px-3 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E40AF] transition-colors cursor-pointer text-base whitespace-nowrap"
-            >
-              <span>📩</span> 간편 문의 · 자료 요청
-            </button>
-          )}
+            {realKakaoChannelUrl ? (
+              <a
+                href={realKakaoChannelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#FDD835] transition-colors cursor-pointer text-sm sm:text-base leading-snug break-keep text-center overflow-hidden"
+              >
+                <span>💬</span>
+                <span>카톡 상담</span>
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowInquiry(true)}
+                className="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#1E40AF] transition-colors cursor-pointer text-sm sm:text-base leading-snug break-keep text-center overflow-hidden"
+              >
+                <span aria-hidden="true" className="shrink-0">📩</span>
+                <span>간편 문의 · 자료 요청</span>
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
             <a
               href={resolvedPptxDownloadUrl}

@@ -11,6 +11,7 @@ import {
 } from '@/components/magazine/ConsentCheckboxes';
 import { TrackingNotice } from '@/components/magazine/TrackingNotice';
 import { postSubscribe } from '@/components/magazine/subscribe-api';
+import { markBrokerSubscribed } from '@/lib/magazine/subscriber-local-state';
 import { digitsOnly, formatKrPhoneInput, isPlausiblePhoneDigits } from '@/lib/magazine/phone-input';
 import { REGION_LABELS, ASSET_LABELS } from '@/lib/magazine/tags';
 
@@ -109,6 +110,7 @@ export function SubscribeFormClient({
       toast.error(outcome.message);
       return;
     }
+    markBrokerSubscribed(brokerId);
     const submittedEmailTrim = emailTrim || undefined;
     const submittedPhoneRaw = isPlausiblePhoneDigits(phone) ? phone.trim() : undefined;
     setResult({
@@ -155,6 +157,7 @@ export function SubscribeFormClient({
       toast.error(outcome.message);
       return;
     }
+    markBrokerSubscribed(brokerId);
     setEmail(trimmedEmail);
     setResult({
       status: outcome.status,

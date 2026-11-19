@@ -328,14 +328,14 @@ export function StackingPlanView({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="px-2 py-0.5 rounded text-sm font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
               ARCHITECTURAL STACKING
             </span>
             <h3 className="text-base sm:text-lg font-black text-white">
               {buildingName ? `${buildingName} ` : ''}층별 스태킹 플랜
             </h3>
           </div>
-          <p className="text-xs text-neutral-400 mt-1">
+          <p className="text-sm text-neutral-400 mt-1">
             렌트롤 기준 층별 임차 구성 · 만기 · 공실 현황
           </p>
         </div>
@@ -344,7 +344,7 @@ export function StackingPlanView({
         <div className="flex flex-wrap gap-1.5 items-center">
           <button
             onClick={() => setFilterCategory('all')}
-            className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all border ${
+            className={`px-2 py-1 rounded-lg text-sm font-semibold transition-all border ${
               filterCategory === 'all'
                 ? 'bg-neutral-100 text-neutral-950 border-white'
                 : 'bg-neutral-800/60 text-neutral-400 border-neutral-700 hover:text-white'
@@ -359,7 +359,7 @@ export function StackingPlanView({
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold transition-all border ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm font-semibold transition-all border ${
                   isFilter
                     ? 'bg-primary/20 text-primary border-primary'
                     : 'bg-neutral-800/60 text-neutral-400 border-neutral-700 hover:text-neutral-200'
@@ -376,32 +376,32 @@ export function StackingPlanView({
       {/* ── 4대 핵심 KPI 카드 ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
-          <p className="text-[11px] font-medium text-neutral-400">{summary.gfaIsRegister ? '연면적' : '임대면적 합계'}</p>
+          <p className="text-sm font-medium text-neutral-400">{summary.gfaIsRegister ? '연면적' : '임대면적 합계'}</p>
           <p className="text-base sm:text-lg font-black text-white mt-0.5">
-            {summary.totalGfa.toLocaleString()} <span className="text-xs font-normal text-neutral-400">평</span>
+            {summary.totalGfa.toLocaleString()} <span className="text-sm font-normal text-neutral-400">평</span>
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">{summary.gfaIsRegister ? '건축물대장 기준' : `렌트롤 ${floors.length}개 구획 합산`}</p>
+          <p className="text-sm text-neutral-500 mt-0.5">{summary.gfaIsRegister ? '건축물대장 기준' : `렌트롤 ${floors.length}개 구획 합산`}</p>
         </div>
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
-          <p className="text-[11px] font-medium text-neutral-400">전용률</p>
+          <p className="text-sm font-medium text-neutral-400">전용률</p>
           <p className="text-base sm:text-lg font-black text-white mt-0.5">
-            {summary.exclusiveRate != null ? <>{summary.exclusiveRate} <span className="text-xs font-normal text-neutral-400">%</span></> : '-'}
+            {summary.exclusiveRate != null ? <>{summary.exclusiveRate} <span className="text-sm font-normal text-neutral-400">%</span></> : '-'}
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">{summary.exclusiveRate != null ? '전용/임대 면적 기준' : '공용면적 자료 없음'}</p>
+          <p className="text-sm text-neutral-500 mt-0.5">{summary.exclusiveRate != null ? '전용/임대 면적 기준' : '공용면적 자료 없음'}</p>
         </div>
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
-          <p className="text-[11px] font-medium text-neutral-400">WALE (잔여 임대)</p>
+          <p className="text-sm font-medium text-neutral-400">WALE (잔여 임대)</p>
           <p className="text-base sm:text-lg font-black text-amber-400 mt-0.5">
-            {summary.wale != null ? <>{summary.wale} <span className="text-xs font-normal text-neutral-400">년</span></> : '-'}
+            {summary.wale != null ? <>{summary.wale} <span className="text-sm font-normal text-neutral-400">년</span></> : '-'}
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">{summary.wale != null ? '면적 가중 · 만기연도 기준' : '렌트롤 만기 정보 없음'}</p>
+          <p className="text-sm text-neutral-500 mt-0.5">{summary.wale != null ? '면적 가중 · 만기연도 기준' : '렌트롤 만기 정보 없음'}</p>
         </div>
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
-          <p className="text-[11px] font-medium text-neutral-400">공실률</p>
+          <p className="text-sm font-medium text-neutral-400">공실률</p>
           <p className={`text-base sm:text-lg font-black mt-0.5 ${summary.vacancy ? 'text-red-400' : 'text-emerald-400'}`}>
-            {summary.vacancy != null ? <>{summary.vacancy} <span className="text-xs font-normal text-neutral-400">%</span></> : '-'}
+            {summary.vacancy != null ? <>{summary.vacancy} <span className="text-sm font-normal text-neutral-400">%</span></> : '-'}
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">
+          <p className="text-sm text-neutral-500 mt-0.5">
             {summary.vacancy == null
               ? '면적 자료 없음'
               : summary.vacantCount === 0
@@ -415,11 +415,11 @@ export function StackingPlanView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* 좌측: 건축 입면 셋백 단면 실루엣 (7 cols) */}
         <div className="lg:col-span-7 flex flex-col items-center justify-start bg-neutral-950/80 rounded-xl border border-neutral-800 p-4 sm:p-5 relative overflow-hidden">
-          <div className="w-full flex items-center justify-between text-xs text-neutral-400 mb-3 px-1">
+          <div className="w-full flex items-center justify-between text-sm text-neutral-400 mb-3 px-1">
             <span className="font-bold flex items-center gap-1.5">
               <span>🏢</span> 건축 입면 단면 실루엣
             </span>
-            <span className="text-[11px] text-neutral-500">
+            <span className="text-sm text-neutral-500">
               * 층을 탭/클릭하면 상세 제원이 동기화됩니다
             </span>
           </div>
@@ -441,7 +441,7 @@ export function StackingPlanView({
                   <button
                     onClick={() => setSelectedFloor(isSelected ? null : floor.floor)}
                     style={{ width: `${widthPct}%` }}
-                    className={`h-7 sm:h-8 rounded-md transition-all duration-200 px-2 flex items-center justify-between border text-xs font-semibold relative ${
+                    className={`min-h-[34px] sm:min-h-[38px] rounded-md transition-all duration-200 px-2 py-1 flex items-center justify-between border text-sm font-semibold relative ${
                       isSelected
                         ? 'ring-2 ring-amber-400 border-amber-300 shadow-lg scale-[1.02] z-10'
                         : isDimmed
@@ -449,14 +449,14 @@ export function StackingPlanView({
                         : `${style.bg} ${style.border} shadow-sm`
                     }`}
                   >
-                    <span className="font-bold shrink-0 text-[11px] sm:text-xs">
+                    <span className="font-bold shrink-0 text-sm">
                       {floor.floor}
                     </span>
-                    <span className="truncate mx-2 text-[11px] font-normal text-left flex-1">
+                    <span className="truncate mx-2 text-sm font-normal text-left flex-1">
                       {floor.tenant || floor.use || '-'}
                     </span>
                     {floor.expiryYear && floor.expiryYear > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${style.badgeBg} ${style.badgeText}`}>
+                      <span className={`text-sm px-1.5 py-0.5 rounded font-bold shrink-0 ${style.badgeBg} ${style.badgeText}`}>
                         &apos;{String(floor.expiryYear).slice(-2)}
                       </span>
                     )}
@@ -464,7 +464,7 @@ export function StackingPlanView({
 
                   {/* 옥외 테라스 셋백 태그 */}
                   {floor.hasTerrace && (
-                    <span className="absolute right-0 sm:right-2 text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30 shrink-0 hidden sm:inline-block">
+                    <span className="absolute right-0 sm:right-2 text-sm text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30 shrink-0 hidden sm:inline-block">
                       🌿 테라스
                     </span>
                   )}
@@ -475,7 +475,7 @@ export function StackingPlanView({
             {/* 2) 지표면 GL 라인 */}
             <div className="w-full flex items-center gap-2 py-1.5 my-0.5">
               <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-neutral-500 to-transparent" />
-              <span className="text-[10px] sm:text-[11px] font-bold text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded-full border border-neutral-700">
+              <span className="text-sm font-bold text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded-full border border-neutral-700">
                 지표면 (GL ±0.0m)
               </span>
               <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-neutral-500 to-transparent" />
@@ -498,7 +498,7 @@ export function StackingPlanView({
                   >
                     {/* 지하 심도 지표 (실데이터 있을 때만) */}
                     {depth != null && (
-                      <span className="absolute left-1 text-[9px] text-neutral-500 font-mono hidden sm:inline-block">
+                      <span className="absolute left-1 text-sm text-neutral-500 font-mono hidden sm:inline-block">
                         {depth}m
                       </span>
                     )}
@@ -506,7 +506,7 @@ export function StackingPlanView({
                     <button
                       onClick={() => setSelectedFloor(isSelected ? null : floor.floor)}
                       style={{ width: `${widthPct}%` }}
-                      className={`h-6 sm:h-7 rounded-md transition-all duration-200 px-2 flex items-center justify-between border text-xs font-semibold relative ${
+                      className={`min-h-[32px] sm:min-h-[36px] rounded-md transition-all duration-200 px-2 py-1 flex items-center justify-between border text-sm font-semibold relative ${
                         isSelected
                           ? 'ring-2 ring-amber-400 border-amber-300 shadow-lg scale-[1.02] z-10'
                           : isDimmed
@@ -514,14 +514,14 @@ export function StackingPlanView({
                           : `${style.bg} ${style.border} shadow-sm`
                       }`}
                     >
-                      <span className="font-bold shrink-0 text-[10px] sm:text-[11px]">
+                      <span className="font-bold shrink-0 text-sm">
                         {floor.floor}
                       </span>
-                      <span className="truncate mx-2 text-[10px] sm:text-[11px] font-normal text-left flex-1">
+                      <span className="truncate mx-2 text-sm font-normal text-left flex-1">
                         {floor.tenant || floor.use || '-'}
                       </span>
                       {floor.expiryYear && floor.expiryYear > 0 && (
-                        <span className={`text-[9px] px-1 py-0.2 rounded font-bold shrink-0 ${style.badgeBg} ${style.badgeText}`}>
+                        <span className={`text-sm px-1 py-0.2 rounded font-bold shrink-0 ${style.badgeBg} ${style.badgeText}`}>
                           &apos;{String(floor.expiryYear).slice(-2)}
                         </span>
                       )}
@@ -538,15 +538,15 @@ export function StackingPlanView({
           {/* 활성 층 인스펙터 카드 */}
           <div className="rounded-xl bg-neutral-950/80 border border-neutral-800 p-4">
             <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2.5">
-              <span className="text-xs font-bold text-neutral-400">
+              <span className="text-sm font-bold text-neutral-400">
                 🔍 층별 상세 인스펙터
               </span>
               {activeFloor ? (
-                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${CATEGORY_STYLES[activeFloor.category || 'general'].badgeBg} ${CATEGORY_STYLES[activeFloor.category || 'general'].badgeText}`}>
+                <span className={`px-2 py-0.5 rounded text-sm font-bold ${CATEGORY_STYLES[activeFloor.category || 'general'].badgeBg} ${CATEGORY_STYLES[activeFloor.category || 'general'].badgeText}`}>
                   {CATEGORY_STYLES[activeFloor.category || 'general'].label}
                 </span>
               ) : (
-                <span className="text-[11px] text-neutral-500">층을 선택하세요</span>
+                <span className="text-sm text-neutral-500">층을 선택하세요</span>
               )}
             </div>
 
@@ -554,30 +554,30 @@ export function StackingPlanView({
               <div className="mt-3 space-y-2.5">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xl font-black text-white">{activeFloor.floor}</span>
-                  <span className="text-xs font-medium text-neutral-300 truncate max-w-[200px]">
+                  <span className="text-sm font-medium text-neutral-300 truncate max-w-[200px]">
                     {activeFloor.tenant}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-neutral-900/60 p-2 rounded-lg border border-neutral-800">
-                    <p className="text-[10px] text-neutral-400">주용도</p>
+                    <p className="text-sm text-neutral-400">주용도</p>
                     <p className="font-semibold text-neutral-200 truncate mt-0.5">{activeFloor.use || '-'}</p>
                   </div>
                   <div className="bg-neutral-900/60 p-2 rounded-lg border border-neutral-800">
-                    <p className="text-[10px] text-neutral-400">계약 만기</p>
+                    <p className="text-sm text-neutral-400">계약 만기</p>
                     <p className="font-semibold text-amber-400 mt-0.5">
                       {activeFloor.expiryYear ? `${activeFloor.expiryYear}년` : '해당없음'}
                     </p>
                   </div>
                   <div className="bg-neutral-900/60 p-2 rounded-lg border border-neutral-800">
-                    <p className="text-[10px] text-neutral-400">전용면적</p>
+                    <p className="text-sm text-neutral-400">전용면적</p>
                     <p className="font-semibold text-neutral-200 mt-0.5">
                       {fmtFloorArea(activeFloor.exclusiveAreaM2, activeFloor.exclusiveAreaPy, displayUnit)}
                     </p>
                   </div>
                   <div className="bg-neutral-900/60 p-2 rounded-lg border border-neutral-800">
-                    <p className="text-[10px] text-neutral-400">임대면적</p>
+                    <p className="text-sm text-neutral-400">임대면적</p>
                     <p className="font-semibold text-neutral-200 mt-0.5">
                       {fmtFloorArea(activeFloor.leasableAreaM2, activeFloor.leasableAreaPy, displayUnit)}
                     </p>
@@ -587,14 +587,14 @@ export function StackingPlanView({
                 {activeFloor.hasTerrace && (
                   <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 flex items-center gap-2">
                     <span className="text-emerald-400 text-sm">🌿</span>
-                    <span className="text-xs text-emerald-300 font-medium">
+                    <span className="text-sm text-emerald-300 font-medium">
                       건축 인허가 셋백 구조로 전용 옥외 테라스 서비스 공간 제공
                     </span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="py-8 text-center text-xs text-neutral-500">
+              <div className="py-8 text-center text-sm text-neutral-500">
                 좌측 단면 실루엣에서 층을 클릭하거나 아래 표에서 행을 선택하세요.
               </div>
             )}
@@ -603,13 +603,13 @@ export function StackingPlanView({
           {/* 층별 데이터 매트릭스 표 (미니 테이블) */}
           <div className="rounded-xl bg-neutral-950/80 border border-neutral-800 p-4 overflow-x-auto">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-neutral-400">📊 층별 임대차 매트릭스</span>
-              <span className="text-[11px] text-neutral-500">{floors.length}개 층</span>
+              <span className="text-sm font-bold text-neutral-400">📊 층별 임대차 매트릭스</span>
+              <span className="text-sm text-neutral-500">{floors.length}개 층</span>
             </div>
 
-            <div className="max-h-[260px] overflow-y-auto rounded border border-neutral-800 text-xs">
+            <div className="max-h-[260px] overflow-y-auto rounded border border-neutral-800 text-sm">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-neutral-900 text-[11px] text-neutral-400 sticky top-0 border-b border-neutral-800">
+                <thead className="bg-neutral-900 text-sm text-neutral-400 sticky top-0 border-b border-neutral-800">
                   <tr>
                     <th className="py-1.5 px-2">층</th>
                     <th className="py-1.5 px-2">주요 입주사</th>
@@ -617,7 +617,7 @@ export function StackingPlanView({
                     <th className="py-1.5 px-2 text-right">만기</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800/60 font-mono text-[11px]">
+                <tbody className="divide-y divide-neutral-800/60 font-mono text-sm">
                   {floors.map((f, tIdx) => {
                     const isSelected = selectedFloor === f.floor;
                     return (
@@ -647,7 +647,7 @@ export function StackingPlanView({
       </div>
 
       {/* 하단 법적/실무 주석 */}
-      <div className="text-[11px] text-neutral-500 leading-relaxed border-t border-neutral-800 pt-3 flex items-start gap-1.5">
+      <div className="text-sm text-neutral-500 leading-relaxed border-t border-neutral-800 pt-3 flex items-start gap-1.5">
         <span className="text-amber-500 shrink-0">※</span>
         <span>
           본 스태킹 플랜은 중개인 제공 렌트롤 기준이며, 단면 형상은 층 구성을 보여주는 도식으로 실제 건축 형태와 다를 수 있습니다.

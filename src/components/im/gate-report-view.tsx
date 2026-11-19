@@ -26,12 +26,12 @@ const GateRow = React.memo(function GateRow({ result }: { result: GateResult }) 
   return (
     <div className={`flex items-center justify-between px-3 py-1.5 rounded ${bg}`}>
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-xs shrink-0">{icon}</span>
-        <span className="text-[11px] text-neutral-500 font-mono shrink-0 w-8">{result.id}</span>
-        <span className={`text-xs truncate ${color}`}>{result.label}</span>
+        <span className="text-sm shrink-0">{icon}</span>
+        <span className="text-sm text-neutral-500 font-mono shrink-0 w-8">{result.id}</span>
+        <span className={`text-sm truncate ${color}`}>{result.label}</span>
       </div>
       <span
-        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+        className={`text-sm font-bold px-1.5 py-0.5 rounded ${
           result.passed
             ? "text-emerald-400"
             : result.severity === "block"
@@ -71,18 +71,18 @@ export function GateReportView({ report, defaultCollapsed = true }: GateReportVi
           <span className="text-sm font-bold text-white">
             {report.blocked ? "🛑" : report.allPassed ? "✅" : "⚠️"} 품질 게이트
           </span>
-          <span className="text-xs text-neutral-400">
+          <span className="text-sm text-neutral-400">
             {passedCount}/{totalCount} 통과
           </span>
         </div>
         <div className="flex items-center gap-2">
           {blockCount > 0 && (
-            <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold">
+            <span className="text-sm bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold">
               {blockCount} 차단
             </span>
           )}
           {warnCount > 0 && (
-            <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold">
+            <span className="text-sm bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold">
               {warnCount} 경고
             </span>
           )}
@@ -103,7 +103,7 @@ export function GateReportView({ report, defaultCollapsed = true }: GateReportVi
           {/* Failed blocks first */}
           {report.failedBlocks.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+              <div className="px-3 py-1 text-sm font-bold text-red-400 uppercase tracking-wider">
                 발행 차단 ({report.failedBlocks.length})
               </div>
               {report.failedBlocks.map((r) => (
@@ -115,7 +115,7 @@ export function GateReportView({ report, defaultCollapsed = true }: GateReportVi
           {/* Warnings */}
           {report.failedWarns.length > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+              <div className="px-3 py-1 text-sm font-bold text-amber-400 uppercase tracking-wider">
                 품질 경고 ({report.failedWarns.length})
               </div>
               {report.failedWarns.map((r) => (
@@ -127,7 +127,7 @@ export function GateReportView({ report, defaultCollapsed = true }: GateReportVi
           {/* Passed */}
           {passedCount > 0 && (
             <>
-              <div className="px-3 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+              <div className="px-3 py-1 text-sm font-bold text-neutral-500 uppercase tracking-wider">
                 통과 ({passedCount})
               </div>
               {report.results

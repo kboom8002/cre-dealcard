@@ -275,11 +275,11 @@ export function SimpleListRow({
       {selected && (
         <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
       )}
-      <div className="flex min-w-0 w-full items-baseline justify-between gap-2">
+      <div className="min-w-0 w-full">
         <span
           data-single-line-title="true"
           title={title}
-          className={`ws-simple-row-title min-w-0 flex-1 truncate text-base font-bold break-keep ${
+          className={`ws-simple-row-title block w-full min-w-0 truncate text-base font-bold break-keep ${
             selected ? "text-[#0040DD]" : "text-[#1D1D1F]"
           }`}
         >
@@ -291,36 +291,38 @@ export function SimpleListRow({
           {selected && <span className="sr-only">선택됨: </span>}
           {title}
         </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 w-full min-w-0 text-sm">
+        {(status || meta) && (
+          <div className="flex min-w-0 items-center gap-1.5 flex-wrap">
+            {status && tone && (
+              <span
+                data-testid={status.testId}
+                title={status.title}
+                className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${tone.text}`}
+              >
+                <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${tone.dot}`} />
+                <span>
+                  {tone.mark}
+                  {status.label}
+                </span>
+              </span>
+            )}
+            {status && meta ? (
+              <span aria-hidden="true" className="text-[#AEAEB2]">
+                ·
+              </span>
+            ) : null}
+            {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
+          </div>
+        )}
         <span
           data-testid={`${testId}-date`}
-          className="shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
+          className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
         >
           {dateLabel}
         </span>
       </div>
-      {(status || meta) && (
-        <div className="flex min-w-0 w-full items-center gap-1.5 text-sm">
-          {status && tone && (
-            <span
-              data-testid={status.testId}
-              title={status.title}
-              className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${tone.text}`}
-            >
-              <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${tone.dot}`} />
-              <span>
-                {tone.mark}
-                {status.label}
-              </span>
-            </span>
-          )}
-          {status && meta ? (
-            <span aria-hidden="true" className="text-[#AEAEB2]">
-              ·
-            </span>
-          ) : null}
-          {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
-        </div>
-      )}
     </button>
   );
 }

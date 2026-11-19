@@ -61,6 +61,8 @@ interface MagazineViewProps {
    * 에디터 미리보기처럼 전달하지 않으면 'all'.
    */
   target?: string;
+  /** 발송 링크(?sid=) 검증으로 확인된 기존 활성 구독자 여부 — true 시 하단 신청 폼 숨김 */
+  isSubscribedViewer?: boolean;
 }
 
 export type MagazineData = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -75,7 +77,7 @@ function strArray(v: unknown): string[] {
 
 // ── Main Component ───────────────────────────────────────────────────
 export function MagazineView({
-  data, brokerId, brokerSlug = null, date, dateLabel: dateLabelProp, brokerVibe, preview = false, target: targetProp,
+  data, brokerId, brokerSlug = null, date, dateLabel: dateLabelProp, brokerVibe, preview = false, target: targetProp, isSubscribedViewer = false,
 }: MagazineViewProps) {
   const broker = (data.broker as Record<string, any>) ?? {}; // eslint-disable-line @typescript-eslint/no-explicit-any
   const brokerName: string = typeof broker.name === "string" && broker.name.trim() ? broker.name : "중개사";
@@ -506,6 +508,7 @@ export function MagazineView({
           </Section>
         );
       case "subscribe_cta":
+        if (isSubscribedViewer) return null;
         return (
           <Section>
             <div className={preview ? "pointer-events-none select-none" : undefined} aria-hidden={preview || undefined}>
@@ -635,32 +638,6 @@ export function MagazineView({
             >
               {title}
             </h1>
-
-            {strArray(broker.specialtyRegions).length > 0 && (
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {strArray(broker.specialtyRegions).map((r, i) => (
-                  <span
-                    key={i}
-                    className="rounded-lg px-3 py-1 text-sm font-bold tracking-tight"
-                    style={
-                      coverImageUrl
-                        ? {
-                            color: "#FFFFFF",
-                            background: "rgba(30, 41, 59, 0.85)",
-                            border: "1px solid rgba(199, 210, 254, 0.65)",
-                          }
-                        : {
-                            color: "#3730A3",
-                            background: "#EEF2FF",
-                            border: "1px solid #C7D2FE",
-                          }
-                    }
-                  >
-                    {r}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </header>
 
@@ -683,21 +660,27 @@ export function MagazineView({
           </div>
         )}
 
-        {/* ── Footer: 법정 표시의무 + 추적·개인정보 고지 + 브랜딩 ───────────────── */}
+        {/* ── Footer: 법정 표시의무(접힘) + 추적·개인정보 고지 + 브랜딩 ───────────────── */}
         <footer className="mt-6 space-y-3">
-          {!renderedIdSet.has("broker_profile") && (
-            <BrokerStatutoryFooter
-              company={brokerCompany}
-              officeAddress={brokerOfficeAddress}
-              officeRegNumber={brokerOfficeRegNumber}
-              representativeName={brokerRepresentativeName}
-              displayName={brokerName}
-              phone={brokerPhone}
-            />
-          )}
+          <BrokerStatutoryFooter
+            company={brokerCompany}
+            officeAddress={brokerOfficeAddress}
+            officeRegNumber={brokerOfficeRegNumber}
+            representativeName={brokerRepresentativeName}
+            displayName={brokerName}
+            phone={brokerPhone}
+          />
           {!renderedIdSet.has("subscribe_cta") && <TrackingNotice />}
           <div className="pt-1">
-            <PoweredByBadge variant="subtle" context="magazine" brokerId={brokerId} />
+            <PoweredByBadge
+              variant="subtle"
+              context="magazine"
+              brokerId={brokerId}
+              hasVerifiedLedger={
+                featuredDeals.length > 0 ||
+                validMonthlyCharts.some((c) => c.sourceMode === "public_db")
+              }
+            />
           </div>
         </footer>
       </Wrapper>

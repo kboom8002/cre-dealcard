@@ -66,6 +66,7 @@ export interface ShowcaseNewsletterScenario {
   defaultFontScale: ShowcaseFontScale;
   inputSummary: string;
   oracleCriteria: string[];
+  ogDescription?: string;
 }
 
 export interface ShowcaseDealCardScenario {
@@ -74,6 +75,8 @@ export interface ShowcaseDealCardScenario {
   buildingId: string;
   title: string;
   subtitle: string;
+  deliverableTitle?: string;
+  ogDescription?: string;
   edgeFocus: string;
   posture: "income_producing" | "owner_occupier" | "development";
   card4Posture: "income" | "owner_occupied" | "value_add";
@@ -99,6 +102,7 @@ export interface ShowcaseImScenario {
   buildingId: string;
   title: string;
   subtitle: string;
+  deliverableTitle?: string;
   edgeFocus: string;
   posture: "income_producing" | "owner_occupier" | "development";
   postureLabel: string;
@@ -135,6 +139,9 @@ export interface ShowcaseLiveEntry {
   category: ShowcaseCategory;
   title: string;
   subtitle: string;
+  deliverableTitle?: string;
+  ogTitle?: string;
+  ogDescription?: string;
   postureOrCadence: string;
   edgeFocus: string;
   liveUrl: string;
@@ -316,6 +323,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     category: "newsletter",
     title: "일간 · 표준형 (강남·서초 핵심 시황 + 추천 매물 2건)",
     subtitle: "5줄 500자 평문 브리핑 + 70대 눈높이 이슈 3선 + 옵트인 단독 푸터",
+    ogDescription: "강남·마포 코너 꼬마빌딩 시황 브리핑과 추천 매물 2건을 정리해 보내드립니다.",
     edgeFocus: "일간 표준 5단(제목-브리핑-이슈-매물-연락처+구독) 정합성",
     editionType: "daily",
     cadenceLabel: "일간 뉴스레터 · 표준",
@@ -373,6 +381,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     category: "newsletter",
     title: "일간 · 엣지 (매물 0건 순수 브리핑 + 500자 상한 경계)",
     subtitle: "추천 매물 0건일 때 빈 박스 제거 + 480자 장문 브리핑·3줄 이슈 경계",
+    ogDescription: "오늘의 금리·상가 공실 동향과 건물 관리 체크포인트를 정리해 보내드립니다.",
     edgeFocus: "매물 0건 조건부 미노출 & 500자·2줄제목·3줄해설 텍스트 예산 경계",
     editionType: "daily",
     cadenceLabel: "일간 뉴스레터 · 엣지",
@@ -420,6 +429,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     category: "newsletter",
     title: "주간 · 표준형 (5대 관심 채널 황금배합 + 매물 3건)",
     subtitle: "성수·마포·부천 다권역 주간 요약 + 5개 분야 4선 + 추천 매물 3건",
+    ogDescription: "금주 주요 상권 매수 흐름과 리모델링·수익형 추천 매물 3건을 안내드립니다.",
     edgeFocus: "표준 주간호 캐러셀(3매물) + 5대 분야 배지 + 지번 마스킹",
     editionType: "weekly",
     cadenceLabel: "주간 뉴스레터 · 표준",
@@ -487,6 +497,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     category: "newsletter",
     title: "주간 · 엣지 (중개인명 결합 제목 프리셋 + 단일 급매 1건)",
     subtitle: "제목 짓기 부담 해소 프리셋 '[중개인명]의 이번 주 빌딩 시장 브리핑' + 매물 1건",
+    ogDescription: "서교동 역세권 급매물 1건과 만실 기준 수익성 검토 포인트를 전해드립니다.",
     edgeFocus: "중개인명 자동 결합 제목 프리셋 & 1건 매물 카드(카운터 미노출)",
     editionType: "weekly",
     cadenceLabel: "주간 뉴스레터 · 엣지",
@@ -534,6 +545,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     category: "newsletter",
     title: "월간 · 표준형 옵션 A (강남·서초 실거래 + 한은 대출금리 비교 그래프 2선)",
     subtitle: "월간 최상단 공공 통계 그래픽 2선(국토부 실거래 + 한국은행 금리) + 매물 3건",
+    ogDescription: "강남·서초 통건물 실거래 흐름과 상업대출 금리 비교 리포트를 보내드립니다.",
     edgeFocus: "월간 옵션 A(molit_bok) 상단 그래프 2건 + 출처 투명성 표기 검증",
     editionType: "monthly",
     cadenceLabel: "월간 뉴스레터 · 옵션 A",
@@ -593,6 +605,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     category: "newsletter",
     title: "월간 · 엣지 (영등포·여의도 옵션 B 금액대 그래프 + 초고령 21px 모드)",
     subtitle: "비강남(YBD) 금액대별 거래 비중 + 다필지·무사진 매물 + 아주 크게(21px) 줄바꿈",
+    ogDescription: "여의도·영등포 권역 금액대별 거래 비중과 핵심 추천 매물을 확인해 보세요.",
     edgeFocus: "옵션 B(molit_band) 그래프 + 70대 아주 크게(xlarge) 모드 레이아웃 무결성",
     editionType: "monthly",
     cadenceLabel: "월간 뉴스레터 · 엣지(21px)",
@@ -648,6 +661,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000001",
     title: "수익형 표준 · 동교동 경의선숲길 코너 근생 (77억)",
     subtitle: "만실 리테일 빌딩 + 실사진 4장 + 지번 블라인드 방어",
+    deliverableTitle: "동교동 경의선숲길 코너 근생 (70~80억대)",
+    ogDescription: "마포구 동교동 만실 수익형 근린생활시설 매물 요약",
     edgeFocus: "수익형 표준 4분할(지역·용도·면적·가격대) & 지번 '189-6' 블라인드 차단",
     posture: "income_producing",
     card4Posture: "income",
@@ -683,6 +698,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000002",
     title: "수익형 부분 공실 · 서교동 합정역세권 밸류애드 (68억)",
     subtitle: "1층 만실 + 2층 공실 리스업 밸류애드 기회",
+    deliverableTitle: "서교동 합정역세권 리모델링 근생 (60~70억대)",
+    ogDescription: "마포구 서교동 합정역 도보권 근린생활시설 · 2층 공실 임대 재구성 가능",
     edgeFocus: "부분 공실 상태의 수익·밸류애드 포인트 정직 표기",
     posture: "income_producing",
     card4Posture: "value_add",
@@ -715,6 +732,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000003",
     title: "100% 전층 공실 · 부천 명도완료 밸류애드 (52억 · 0나누기 방어)",
     subtitle: "전층 명도 완료 (보증금 0 · 월세 0) Zero-Division 방어 검증",
+    deliverableTitle: "부천 심곡동 역세권 명도완료 빌딩 (50억대)",
+    ogDescription: "전층 명도 완료 · 매수 후 즉시 리모델링 또는 통사옥 입주 가능",
     edgeFocus: "월세 0원 · 점유율 0% 상태에서 NaN / Infinity 미발생 방어",
     posture: "income_producing",
     card4Posture: "value_add",
@@ -747,6 +766,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000004",
     title: "사옥형 자가사용 · 서초동 법인 사옥 즉시 입주 (230억)",
     subtitle: "owner_occupier 포스처 · 임대료 대신 사옥 활용·주차·접근성 부각",
+    deliverableTitle: "서초동 즉시 입주 가능 법인 사옥 (200억대)",
+    ogDescription: "서초구 서초동 자가 사옥 적합 빌딩 · 전층 즉시 입주 및 주차 14대",
     edgeFocus: "사옥형 포스처 격리(수익형 문구 혼입 차단)",
     posture: "owner_occupier",
     card4Posture: "owner_occupied",
@@ -780,6 +801,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000005",
     title: "개발형 신축부지 · 마포 대흥동 대지 중심 매각 (78억)",
     subtitle: "development 포스처 · 대지면적·용적률·신축 잠재력 중심 표기",
+    deliverableTitle: "마포 대흥동 역세권 코너 신축부지 (70~80억대)",
+    ogDescription: "대흥역 도보 3분 대지 110평 정방형 코너 · 단기 임대 후 신축 가능",
     edgeFocus: "개발형 매물에서 연면적 대신 대지면적 우선 노출",
     posture: "development",
     card4Posture: "value_add",
@@ -811,6 +834,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000006",
     title: "초고가 프라임 대형 · 강남 역삼동 오피스 빌딩 (2,000억)",
     subtitle: "초대형 2,000억대 숫자 말줄임(…) & 레이아웃 겹침 방어",
+    deliverableTitle: "강남 역삼동 테헤란로 코어 오피스 빌딩 (2,000억대)",
+    ogDescription: "연면적 4,313평 대형 오피스 빌딩 · 금융·우량 법인 임대 안정 운영",
     edgeFocus: "4자리 억 단위(2,000억대) UI 말줄임·오버플로우 방어",
     posture: "income_producing",
     card4Posture: "income",
@@ -843,6 +868,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000007",
     title: "다필지 & 블라인드 경계 · 영등포 당산동 코너 (115억)",
     subtitle: "메모 속 지번(72-1)·브랜드(스타벅스)·연락처(010-9999-8888) 자동 방역",
+    deliverableTitle: "영등포 당산동 코너 근생·업무 빌딩 (110~120억대)",
+    ogDescription: "당산권역 다필지 통합 코너 건물 · 연면적 499평 대형 카페·의원 입점",
     edgeFocus: "오염 메모 투입 → fast-fill 블라인드 가드 실작동 검증",
     posture: "income_producing",
     card4Posture: "income",
@@ -875,6 +902,8 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
     buildingId: "5c0ca5e0-0001-4000-8000-000000000008",
     title: "가격 협의 · 초단문(1줄) 메모 폴백 · 용인 보정동 역세권 빌딩",
     subtitle: "매매가 미입력('가격 협의') + 1줄 초단문 메모일 때도 깔끔한 블라인드 폴백 카드",
+    deliverableTitle: "용인 보정동 역세권 근생 빌딩 (가격 협의)",
+    ogDescription: "보정역 도보권 근린생활시설 · 장기 우량 임차 운영 중인 비공개 매물",
     edgeFocus: "매매가 미기재('가격 협의') 및 초단문 1줄 입력 상태 웹뷰 + 카카오 OG 정상 렌더링",
     posture: "income_producing",
     card4Posture: "income",
@@ -912,6 +941,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000001",
     title: "수익형 표준 · 동교동 THE.PARK (77억 · 통합임차 0원행 방어)",
     subtitle: "B1~B2 통합임차 0원 행 공실 오판 방지 & 멀티포맷 실사진 4장(JPG·PNG·WebP)",
+    deliverableTitle: "동교동 THE PARK 빌딩 (근생, 77억)",
     edgeFocus: "CSV_01 B2F 0원 행 '임대중' 보존 + 승강기 0대 명시 + OpenXML 5대 단언",
     posture: "income_producing",
     postureLabel: "수익형 (표준)",
@@ -953,6 +983,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000002",
     title: "수익형 부분공실 · 부천 동아빌딩 (58억 · 17호실 + 201호 공실)",
     subtitle: "현행 임대 vs 만실 가정(Stabilized) 분리 + 기계식 주차 부대수익",
+    deliverableTitle: "심곡동 동아빌딩 (근생, 58억)",
     edgeFocus: "CSV_02 201호 공실 잠재임대료 분리 & 부대수익 반영",
     posture: "income_producing",
     postureLabel: "수익형 (부분공실)",
@@ -991,6 +1022,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000003",
     title: "100% 전층 공실 · 심곡동 명도완료 빌딩 (52억 · Zero-Division)",
     subtitle: "B1~4F 전층 공실 상태 — 보증금 0 · 월세 0일 때 수익률 슬라이드 방어",
+    deliverableTitle: "심곡동 근생 빌딩 (근생, 52억)",
     edgeFocus: "점유율 0% · 월세 0원 조건에서도 NaN / Infinity% 0건 방어",
     posture: "income_producing",
     postureLabel: "수익형 (전층공실)",
@@ -1022,6 +1054,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000004",
     title: "사옥형 자가사용 · 서초동 법인 사옥 (230억 · 포스처 격리)",
     subtitle: "owner_occupier 전용 7~10면 구조 — 임대수익률 대신 사옥 스펙 중심",
+    deliverableTitle: "서초동 법인 사옥 빌딩 (업무, 230억)",
     edgeFocus: "사옥형 포스처 격리(Rule 26~30) & 230억 정확 반영",
     posture: "owner_occupier",
     postureLabel: "사옥형 (자가사용)",
@@ -1052,6 +1085,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000005",
     title: "개발형 신축부지 · 마포 대흥동 토지 중심 (78억 · 지적도)",
     subtitle: "development 전용 구조 — 대지면적 · 지적도 · 법정 건폐율/용적률 중심",
+    deliverableTitle: "대흥동 신축부지 (토지, 78억)",
     edgeFocus: "개발형 포스처(Rule 26~30) & 토지·지적도 슬라이드 품질",
     posture: "development",
     postureLabel: "개발형 (신축부지)",
@@ -1080,6 +1114,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000006",
     title: "프라임 21호실 대형 · 역삼동 여삼빌딩 (2,000억 · 표 넘침 방어)",
     subtitle: "CSV_03 B1~15F 21개 호실 + 303호 자가사용 + 마스터리스 합산 처리",
+    deliverableTitle: "역삼동 여삼빌딩 (오피스, 2,000억)",
     edgeFocus: "21행 대용량 렌트롤 PPTX 표/스태킹 오버플로우 0건 & 2,000억",
     posture: "income_producing",
     postureLabel: "수익형 (대형 21호실)",
@@ -1106,6 +1141,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000007",
     title: "현장 변이 A · 당산동5가 비정형층·원단위 오타 보정 (95억)",
     subtitle: "'-1, 1, 2, 5' 입력 → 3F·4F 공실 자동 합성 + 원단위(50,000,000) 1/10,000 보정",
+    deliverableTitle: "당산동5가 근생 빌딩 (근생, 95억)",
     edgeFocus: "parseTsvRentRoll 원→만원 보정 + synthesizeMissingVacantFloors 공실 보간",
     posture: "income_producing",
     postureLabel: "수익형 (TSV 자동 보정)",
@@ -1132,6 +1168,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
     buildingId: "5c0ca5e0-0002-4000-8000-000000000008",
     title: "현장 변이 B · 보정동 무사진(0장) & 장문 특기사항 방어 (77억)",
     subtitle: "실사진 0장일 때 지도·지적도 폴백 + 280자 장문 인수인계 노트 레이아웃 방어",
+    deliverableTitle: "보정동 근생 빌딩 (근생, 77억)",
     edgeFocus: "무사진(0장) 갤러리/표지 폴백 무결성 + 장문 노트 박스 침범 방지",
     posture: "income_producing",
     postureLabel: "수익형 (무사진·장문)",

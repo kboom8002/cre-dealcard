@@ -48,6 +48,8 @@ export interface NewsletterContentStepPanelProps {
     patch: { highlightValue?: string; buyerImplication?: string },
   ) => void;
   onResetMonthlyCharts: () => void;
+  statTuneOpen?: boolean;
+  onToggleStatTune?: (next?: boolean) => void;
   briefingBody: string;
   onChangeBriefingBody: (val: string) => void;
   unitIssues: AxiosUnitIssue[];
@@ -88,6 +90,8 @@ export function NewsletterContentStepPanel({
   onChangeMonthlyPair,
   onUpdateMonthlyChartField,
   onResetMonthlyCharts,
+  statTuneOpen,
+  onToggleStatTune,
   briefingBody,
   onChangeBriefingBody,
   unitIssues,
@@ -111,6 +115,17 @@ export function NewsletterContentStepPanel({
   onBackToTitle,
   onNextToSend,
 }: NewsletterContentStepPanelProps) {
+  const [localStatTuneOpen, setLocalStatTuneOpen] = React.useState<boolean>(() =>
+    monthlyCharts.some((c) => c.sourceMode === "broker_custom"),
+  );
+  const isStatTuneOpen =
+    statTuneOpen !== undefined ? statTuneOpen : localStatTuneOpen;
+  const handleToggleStatTune = () => {
+    const next = !isStatTuneOpen;
+    if (onToggleStatTune) onToggleStatTune(next);
+    else setLocalStatTuneOpen(next);
+  };
+
   return (
     <div
       id="newsletter-panel-content"
@@ -215,78 +230,91 @@ export function NewsletterContentStepPanel({
           </div>
 
           <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-extrabold text-slate-800">
                 ③ 대표 수치 · 매수자 체크포인트 다듬기 (선택)
               </p>
-              {monthlyCharts.some((c) => c.sourceMode === "broker_custom") && (
+              <div className="flex flex-wrap items-center gap-2">
+                {monthlyCharts.some((c) => c.sourceMode === "broker_custom") && (
+                  <button
+                    type="button"
+                    data-testid="monthly-stat-reset-btn"
+                    onClick={onResetMonthlyCharts}
+                    className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>기준치 복원</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  data-testid="monthly-stat-reset-btn"
-                  onClick={onResetMonthlyCharts}
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                  data-testid="monthly-stat-tune-toggle"
+                  aria-expanded={isStatTuneOpen}
+                  onClick={handleToggleStatTune}
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>기준치 복원</span>
+                  <span>{isStatTuneOpen ? "직접 다듬기 접기" : "대표 수치·해설 직접 다듬기"}</span>
                 </button>
-              )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              {monthlyCharts.slice(0, 2).map((chart, idx) => (
-                <div
-                  key={chart.id || idx}
-                  onFocusCapture={() => onNotifyEditorFocus(`nl-unit-stats-${idx}`)}
-                  className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5"
-                >
-                  <p className="text-sm font-extrabold text-slate-900">
-                    그래픽 0{idx + 1} · {chart.title}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <div className="space-y-1">
-                      <label
-                        htmlFor={`monthly-stat-val-${idx}`}
-                        className="block text-sm font-bold text-slate-700"
-                      >
-                        대표 수치 강조
-                      </label>
-                      <input
-                        id={`monthly-stat-val-${idx}`}
-                        data-testid={`monthly-stat-highlight-input-${idx}`}
-                        type="text"
-                        value={chart.highlightMetric?.value ?? ""}
-                        onChange={(e) =>
-                          onUpdateMonthlyChartField(idx, {
-                            highlightValue: e.target.value,
-                          })
-                        }
-                        className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
-                    <div className="sm:col-span-2 space-y-1">
-                      <label
-                        htmlFor={`monthly-stat-imp-${idx}`}
-                        className="block text-sm font-bold text-slate-700"
-                      >
-                        매수자 체크포인트 한 줄 해설
-                      </label>
-                      <input
-                        id={`monthly-stat-imp-${idx}`}
-                        data-testid={`monthly-stat-implication-input-${idx}`}
-                        type="text"
-                        value={chart.buyerImplication ?? ""}
-                        onChange={(e) =>
-                          onUpdateMonthlyChartField(idx, {
-                            buyerImplication: e.target.value,
-                          })
-                        }
-                        className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-medium text-slate-900 focus:border-blue-600 focus:outline-none"
-                      />
+            {isStatTuneOpen && (
+              <div className="grid grid-cols-1 gap-3">
+                {monthlyCharts.slice(0, 2).map((chart, idx) => (
+                  <div
+                    key={chart.id || idx}
+                    onFocusCapture={() => onNotifyEditorFocus(`nl-unit-stats-${idx}`)}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5"
+                  >
+                    <p className="text-sm font-extrabold text-slate-900">
+                      그래픽 0{idx + 1} · {chart.title}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={`monthly-stat-val-${idx}`}
+                          className="block text-sm font-bold text-slate-700"
+                        >
+                          대표 수치 강조
+                        </label>
+                        <input
+                          id={`monthly-stat-val-${idx}`}
+                          data-testid={`monthly-stat-highlight-input-${idx}`}
+                          type="text"
+                          value={chart.highlightMetric?.value ?? ""}
+                          onChange={(e) =>
+                            onUpdateMonthlyChartField(idx, {
+                              highlightValue: e.target.value,
+                            })
+                          }
+                          className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-2 space-y-1">
+                        <label
+                          htmlFor={`monthly-stat-imp-${idx}`}
+                          className="block text-sm font-bold text-slate-700"
+                        >
+                          매수자 체크포인트 한 줄 해설
+                        </label>
+                        <input
+                          id={`monthly-stat-imp-${idx}`}
+                          data-testid={`monthly-stat-implication-input-${idx}`}
+                          type="text"
+                          value={chart.buyerImplication ?? ""}
+                          onChange={(e) =>
+                            onUpdateMonthlyChartField(idx, {
+                              buyerImplication: e.target.value,
+                            })
+                          }
+                          className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-medium text-slate-900 focus:border-blue-600 focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}

@@ -156,4 +156,7 @@ export const BANNED_UI_TERMS: ReadonlyArray<{ term: RegExp; use: string }> = [
   { term: /\(Slug\)|\(slug\)/, use: '내 뉴스레터 주소' },
   { term: /k-?익명성|재식별/, use: '(쉬운 안내 문구)' },
   { term: /바이너리 해시/, use: '(표시하지 않음)' },
+  { term: /네이밍 ?라이츠|브랜딩 ?라이츠/, use: '사옥 단독 명칭 표기(간판 설치권)' },
+  { term: /캡레이트/, use: '연 순수익률 (Cap Rate)' },
+  { term: /(?:60대 자산가를 위한|법인 대표 맞춤|디벨로퍼 맞춤)/, use: '(Rule 1: 외부 문서에 페르소나 직접 표기 금지)' },
 ];

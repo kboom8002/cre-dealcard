@@ -1694,18 +1694,16 @@ export function SlidePreview({
   return (
     <div className="w-full flex flex-col items-center gap-3">
       {/* Top Canvas Helper Bar */}
-      <div className="w-full max-w-4xl flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span
-            data-active-pill="true"
-            className="px-2.5 py-1 rounded-lg text-sm font-extrabold bg-[#1D4ED8] text-white whitespace-nowrap shrink-0"
-          >
-            SLIDE {String(slideNo).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
-          </span>
-          <span className="text-sm font-bold text-[#334155]">
-            슬라이드 안의 글자나 숫자를 마우스로 직접 클릭해 바로 고칠 수 있습니다.
-          </span>
-        </div>
+      <div className="w-full max-w-4xl flex flex-wrap items-center justify-between gap-2 px-1">
+        <span
+          data-active-pill="true"
+          className="px-2.5 py-1 rounded-lg text-sm font-extrabold bg-[#1D4ED8] text-white whitespace-nowrap shrink-0"
+        >
+          SLIDE {String(slideNo).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}
+        </span>
+        <span className="order-3 w-full sm:order-none sm:w-auto sm:flex-1 text-sm font-bold text-[#334155] leading-snug break-keep">
+          슬라이드 안의 글자나 숫자를 직접 눌러 바로 고칠 수 있습니다.
+        </span>
         {onToggleFullscreen && (
           <button
             type="button"

@@ -34,6 +34,29 @@ export interface ArchetypeOutput {
 const FOOTNOTE_H = 0.24;
 
 /**
+ * 연도별 수평 막대 차트 행 높이·막대 두께·세로 시작 좌표 산출.
+ * 데이터 연도 수가 적을 때(예: 4개년) 상단에 다닥다닥 몰리지 않도록 가용 영역 내에서 균등 분배한다.
+ */
+export function computeHorizontalBarLayout(
+  count: number,
+  barAreaY: number,
+  barAreaH: number,
+): {
+  rowPitch: number;
+  visualBarH: number;
+  startY: number;
+  fontSize: number;
+} {
+  const safeCount = Math.max(1, count);
+  const rowPitch = Math.min(0.46, barAreaH / safeCount);
+  const visualBarH = Math.max(0.08, Math.min(0.22, rowPitch * 0.54));
+  const totalBarsH = rowPitch * safeCount;
+  const startY = barAreaY + Math.max(0, (barAreaH - totalBarsH) / 2);
+  const fontSize = safeCount <= 5 ? 9.0 : 8.0;
+  return { rowPitch, visualBarH, startY, fontSize };
+}
+
+/**
  * A23 — 투자수익률 분석 슬라이드 (Basic IM v2.1 — R9/R10)
  *
  *  - Cap Rate (NOI 기준) 및 중복 인근 시세 문구 완전 배제
@@ -405,8 +428,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     });
     slide.addText(hasLandHistory ? '국토교통부 공시지가' : '한국부동산원 공표', {
       x: rightX + rightW - 1.65, y: chartY + 0.11, w: 1.45, h: 0.22,
-      color: hasLandHistory ? C.brass : C.navy, fontFace: KR, fontSize: 7.5, bold: true,
-      align: 'center', valign: 'middle', margin: 0,
+      color: hasLandHistory ? C.brass : C.navy, fontFace: KR, fontSize: 8.0, bold: true,
+      align: 'center', valign: 'middle', shrinkText: true, margin: 0,
     });
 
     // ── Top 1 & 2: 대지 평당 매매가 vs 평당 개별공시지가 + 공시지가 대비 배율 스트립 ──
@@ -457,7 +480,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       });
       slide.addText(cell.label, {
         x: cx + 0.06, y: stripY + 0.04, w: stripCellW - 0.12, h: 0.18,
-        fontFace: KR, fontSize: 7.5, color: C.mute, align: 'center', valign: 'middle', shrinkText: true, margin: 0,
+        fontFace: KR, fontSize: 8.0, color: C.mute, align: 'center', valign: 'middle', shrinkText: true, margin: 0,
       });
       slide.addText(cell.value, {
         x: cx + 0.06, y: stripY + 0.22, w: stripCellW - 0.12, h: 0.26,
@@ -522,27 +545,27 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         fontFace: KR, fontSize: 8.0, bold: true, color: C.ink2, valign: 'middle', margin: 0,
       });
       const maxPrice = Math.max(...history.map((h: { pricePerSqm: number }) => h.pricePerSqm));
-      const barH = Math.min(0.195, barAreaH / Math.max(1, history.length));
+      const { rowPitch, visualBarH, startY, fontSize } = computeHorizontalBarLayout(history.length, barAreaY, barAreaH);
       const maxBarW = innerW - 1.75;
 
       history.forEach((item: { year: string; pricePerSqm: number }, i: number) => {
-        const y = barAreaY + i * barH;
+        const y = startY + i * rowPitch;
         const ratio = maxPrice > 0 ? item.pricePerSqm / maxPrice : 0;
         const bw = Math.max(0.06, maxBarW * ratio);
         const isLatest = i === history.length - 1;
 
         slide.addText(item.year, {
-          x: innerX, y, w: 0.45, h: barH,
-          fontFace: NUM, fontSize: 8.0, color: isLatest ? C.ink : C.mute, bold: isLatest,
+          x: innerX, y, w: 0.45, h: rowPitch,
+          fontFace: NUM, fontSize, color: isLatest ? C.ink : C.mute, bold: isLatest,
           align: 'right', valign: 'middle', margin: 0,
         });
         slide.addShape('rect', {
-          x: innerX + 0.52, y: y + 0.025, w: bw, h: Math.max(0.07, barH - 0.05),
+          x: innerX + 0.52, y: y + (rowPitch - visualBarH) / 2, w: bw, h: visualBarH,
           fill: { color: isLatest ? C.brass : (C.navy || C.brand || '1E3A8A') },
         });
         slide.addText(`${item.pricePerSqm.toLocaleString()}원`, {
-          x: innerX + 0.58 + bw, y, w: 1.15, h: barH,
-          fontFace: NUM, fontSize: 8.0, color: isLatest ? C.ink : C.mute, bold: isLatest,
+          x: innerX + 0.58 + bw, y, w: 1.15, h: rowPitch,
+          fontFace: NUM, fontSize, color: isLatest ? C.ink : C.mute, bold: isLatest,
           align: 'left', valign: 'middle', margin: 0,
         });
       });
@@ -553,28 +576,28 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         fontFace: KR, fontSize: 8.0, bold: true, color: C.ink2, valign: 'middle', margin: 0,
       });
       const maxRate = Math.max(0.5, ...pts.map((pt) => Math.abs(pt.ratePct)));
-      const barH = Math.min(0.195, barAreaH / Math.max(1, pts.length));
+      const { rowPitch, visualBarH, startY, fontSize } = computeHorizontalBarLayout(pts.length, barAreaY, barAreaH);
       const maxBarW = innerW - 1.55;
 
       pts.forEach((pt, i) => {
-        const y = barAreaY + i * barH;
+        const y = startY + i * rowPitch;
         const ratio = Math.max(0.05, Math.abs(pt.ratePct) / maxRate);
         const bw = Math.max(0.08, maxBarW * ratio);
         const isLatest = i === pts.length - 1;
         const barColor = pt.ratePct < 0 ? '94A3B8' : isLatest ? C.brass : (C.navy || C.brand || '1E3A8A');
 
         slide.addText(String(pt.year), {
-          x: innerX, y, w: 0.45, h: barH,
-          fontFace: NUM, fontSize: 8.0, color: isLatest ? C.ink : C.mute, bold: isLatest,
+          x: innerX, y, w: 0.45, h: rowPitch,
+          fontFace: NUM, fontSize, color: isLatest ? C.ink : C.mute, bold: isLatest,
           align: 'right', valign: 'middle', margin: 0,
         });
         slide.addShape('rect', {
-          x: innerX + 0.52, y: y + 0.025, w: bw, h: Math.max(0.07, barH - 0.05),
+          x: innerX + 0.52, y: y + (rowPitch - visualBarH) / 2, w: bw, h: visualBarH,
           fill: { color: barColor },
         });
         slide.addText(`${pt.ratePct >= 0 ? '+' : ''}${pt.ratePct.toFixed(2)}%`, {
-          x: innerX + 0.58 + bw, y, w: 0.90, h: barH,
-          fontFace: NUM, fontSize: 8.0, color: isLatest ? C.ink : C.mute, bold: isLatest,
+          x: innerX + 0.58 + bw, y, w: 0.90, h: rowPitch,
+          fontFace: NUM, fontSize, color: isLatest ? C.ink : C.mute, bold: isLatest,
           align: 'left', valign: 'middle', margin: 0,
         });
       });
@@ -586,7 +609,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       : '※ 국토교통부 개별공시지가 기준 (투자 판단 참고 자료)';
     slide.addText(srcNote, {
       x: innerX, y: chartY + chartH - 0.22, w: innerW, h: 0.18,
-      fontSize: 7.5, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,
+      fontSize: 8.0, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,
     });
   }
 
@@ -595,7 +618,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ══════════════════════════════════════════════════════════════
   const opYieldPct = hasTrueStabilized ? stabVal : numCapRate;
   const opYieldBasisLabel = hasTrueStabilized
-    ? (ysStab?.kind === 'broker_plan' ? '안정화 기대수익률' : '안정화 가정 수익률')
+    ? (ysStab?.kind === 'broker_plan' ? '안정화 계획' : '안정화 가정')
     : '현행 임대수익률';
   const capGainPct = roneSeries
     ? roneSeries.geometricMeanPct
@@ -606,8 +629,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   if (opYieldPct > 0 && capGainPct != null) {
     const combinedPct = parseFloat((opYieldPct + capGainPct).toFixed(2));
     const capBasisLabel = roneSeries
-      ? `${roneSeries.regionName} 10년 지가변동률 연평균`
-      : '개별공시지가 10년 연평균 변동률';
+      ? `${roneSeries.regionName} 10년 지가변동률`
+      : '공시지가 10년 연평균';
     const landRatioNote = landRatio != null ? ` · 토지가치 비중 ${fmtFixed(landRatio, 1, '%')}` : '';
 
     slide.addShape('roundRect', {
@@ -652,7 +675,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     });
 
     // Column 2: + 자본수익률 (참고)
-    slide.addText(`+ 자본수익률 (참고 · ${capBasisLabel})`, {
+    slide.addText(`+ 자본수익률 (${capBasisLabel}, 참고)`, {
       x: col2X, y: lblY, w: col2W, h: lblH,
       fontFace: KR, fontSize: 11.0, bold: true, color: C.ink2, align: 'center', valign: 'middle', shrinkText: true, margin: 0,
     });
@@ -680,7 +703,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ── 각주: 보증금 승계 및 산출 기준 (8pt, Cap Rate 문구 배제) ──
   const footnoteText = yieldSet
     ? yieldFootnote(yieldSet.assumptions)
-    : '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 차감 전) 기준이며, 안정화 기대수익률은 공실·자가사용 임대 전환 가정치입니다.';
+    : '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 포함) 기준, 안정화 수익률은 공실·자가사용 임대 전환 가정치입니다.';
   slide.addText(footnoteText, {
     x: M, y: footY, w: CW, h: FOOTNOTE_H,
     fontSize: 8, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,

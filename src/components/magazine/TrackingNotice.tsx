@@ -13,16 +13,26 @@ export const TRACKING_OPTOUT_TEXT =
 
 export function TrackingNotice({ className = '' }: { className?: string }) {
   return (
-    <p className={`text-sm leading-relaxed text-slate-700 ${className}`} data-testid="tracking-notice">
-      {TRACKING_NOTICE_TEXT} {TRACKING_OPTOUT_TEXT}{' '}
-      <a
-        href="/privacy"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex min-h-12 items-center px-1 font-semibold underline text-indigo-700 hover:text-indigo-900"
-      >
-        개인정보 처리방침
-      </a>
-    </p>
+    <div className={`text-sm leading-relaxed text-slate-700 ${className}`} data-testid="tracking-notice">
+      <p>
+        {TRACKING_NOTICE_TEXT}{' '}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-12 items-center px-1 font-semibold underline text-indigo-700 hover:text-indigo-900"
+        >
+          개인정보 처리방침
+        </a>
+      </p>
+      <details className="mt-1">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-slate-600 underline underline-offset-2 hover:text-slate-900">
+          수집 거부 · 삭제 문의 안내 보기
+        </summary>
+        <p className="mt-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          {TRACKING_OPTOUT_TEXT}
+        </p>
+      </details>
+    </div>
   );
 }

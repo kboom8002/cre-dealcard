@@ -1235,7 +1235,12 @@ export class MobileImPptxRenderer {
         if (hl.lead) dataMap['summary'].leadSentence = hl.lead;
         else if (isBoilerplateHighlight(String(dataMap['summary'].leadSentence ?? ''))) dataMap['summary'].leadSentence = '';
         if (hl.hasBrokerInput) dataMap['summary'].hasBrokerInput = true;
-        if (dataMap['building'] && hl.shortHighlights.length > 0) dataMap['building'].assetHighlights = hl.shortHighlights;
+        if (!isBasicPreset && dataMap['building'] && hl.shortHighlights.length > 0) {
+          dataMap['building'].assetHighlights = hl.shortHighlights;
+        }
+        if (isBasicPreset && dataMap['building']) {
+          dataMap['building'].suppressAssetHighlight = true;
+        }
       }
 
       if (posture === 'owner_occupied' && (!dataMap['summary'].keyPoints || dataMap['summary'].keyPoints.length === 0)) {
@@ -1331,9 +1336,15 @@ export class MobileImPptxRenderer {
           const hasPlan = Array.isArray(baseRr.brokerPostAcquisitionPlan) && baseRr.brokerPostAcquisitionPlan.length > 0;
           const p1Cap = (physFlCnt >= 11 && allRrRows.length > physFlCnt && allRrRows.length > 11) ? 11 : (hasPlan ? 11 : 14);
           if (allRrRows.length > p1Cap) {
-            const p1Rows = allRrRows.slice(0, p1Cap);
-            const restRows = allRrRows.slice(p1Cap);
             const rrSlideCnt = sequenceInput.rentRollSlideCount ?? 2;
+            const orphanTail = allRrRows.length - p1Cap;
+            // Prevent 1~3 row orphan continuation slides on 2-page rent rolls by splitting evenly (e.g. 15 -> 8 + 7 instead of 14 + 1)
+            const splitAt =
+              rrSlideCnt === 2 && orphanTail >= 1 && orphanTail <= 3 && allRrRows.length >= 8
+                ? Math.ceil(allRrRows.length / 2)
+                : p1Cap;
+            const p1Rows = allRrRows.slice(0, splitAt);
+            const restRows = allRrRows.slice(splitAt);
             const savedPlan = baseRr.brokerPostAcquisitionPlan;
             const savedPlanTitle = baseRr.brokerPostAcquisitionTitle;
             dataMap['rentRoll'] = {

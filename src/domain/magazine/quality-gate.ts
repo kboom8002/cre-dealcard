@@ -15,6 +15,10 @@
  */
 
 import { EDITION_STATUS_DRAFT, EDITION_STATUS_NEEDS_REVIEW } from './types';
+import { FORBIDDEN_SOLICITATION_PHRASES } from '@/ai/prompts/magazine-taskflow';
+import { hasReaderTextLeak } from '@/lib/magazine/llm-guard';
+import { CURATED_CHANNEL_POOL, isCreRelevantArticle } from './news-channels';
+import { isDanglingKoreanWord } from './issue-clustering';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────
 
@@ -369,3 +373,304 @@ export const runMagazineQualityGate = (
     details: validationIssues,
   };
 };
+
+// ── 뉴스레터 콘텐츠 적합성 통합 게이트 (발행 관문 · 오라클 공용) ─────────────
+
+export type NewsletterCadence = 'daily' | 'weekly' | 'monthly' | 'special';
+
+export interface NewsletterSuitabilityResult {
+  passed: boolean;
+  /** 발행 422 차단 대상: 투자 권유 단정 표현, 시스템/내부 라벨 독자 문구 유출 */
+  hardViolations: string[];
+  /** 409 검토 경고 대상: 가십 기사, 미완결·말줄임 잘림, 발행 주기↔시점 표현 불일치, 지표 모순 */
+  reviewWarnings: string[];
+  /** 실시간 RSS 없이 CURATED_CHANNEL_POOL 정적 예시만 사용 중인지 여부 */
+  isFallbackCuratedOnly: boolean;
+  cadence: NewsletterCadence;
+  detectedSolicitations: string[];
+  gossipIssueTitles: string[];
+  truncatedFields: string[];
+  cadenceMismatches: string[];
+}
+
+const INTERNAL_READER_LABEL_RE =
+  /(핵심\s*팩트|브로커\s*임플리케이션|Why\s*it\s*matters|Bottom\s*line)\s*[:：]/i;
+const TRAILING_ELLIPSIS_RE = /(?:\.{3}|…)\s*$/;
+const CURATED_ID_SET = new Set(CURATED_CHANNEL_POOL.map((item) => item.id));
+const CURATED_TITLE_SET = new Set(
+  CURATED_CHANNEL_POOL.flatMap((item) =>
+    [item.title, item.cardTitle]
+      .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+      .map((t) => t.replace(/^\[.*?\]\s*/, '').trim()),
+  ),
+);
+
+function normalizeNewsletterCadence(
+  rawCadence: string | null | undefined,
+  contentKind: unknown,
+): NewsletterCadence {
+  const candidate =
+    typeof rawCadence === 'string' && rawCadence.trim()
+      ? rawCadence.trim().toLowerCase()
+      : typeof contentKind === 'string'
+        ? contentKind.trim().toLowerCase()
+        : 'weekly';
+  if (candidate === 'daily') return 'daily';
+  if (candidate === 'monthly') return 'monthly';
+  if (candidate === 'special' || candidate === 'quick_flash') return 'special';
+  return 'weekly';
+}
+
+function asSuitabilityRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function asSuitabilityString(v: unknown): string {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+function isCuratedFallbackEntry(item: Record<string, unknown>): boolean {
+  if (item.isFallback === true) return true;
+  const id = asSuitabilityString(item.id);
+  if (id && (CURATED_ID_SET.has(id) || /^curated-/i.test(id))) return true;
+  const rawTitle = asSuitabilityString(item.title ?? item.cardTitle);
+  const normTitle = rawTitle.replace(/^\[.*?\]\s*/, '').trim();
+  return Boolean(normTitle && CURATED_TITLE_SET.has(normTitle));
+}
+
+function collectSuitabilityTextEntries(
+  content: Record<string, unknown>,
+): Array<{ label: string; text: string }> {
+  const entries: Array<{ label: string; text: string }> = [];
+  const push = (label: string, v: unknown) => {
+    const s = asSuitabilityString(v);
+    if (s) entries.push({ label, text: s });
+  };
+
+  push('제목(headline)', content.headline);
+  push('부제목(subheadline)', content.subheadline);
+  push('브리핑(briefing)', content.briefing ?? content.ai_briefing ?? content.summary);
+  push('테마 제목(theme_title)', content.theme_title);
+  push('테마 본문(theme_body_md)', content.theme_body_md);
+  push('한줄 메모(quickNote)', content.quickNote);
+
+  const fieldNote = asSuitabilityRecord(content.field_note);
+  if (fieldNote) {
+    for (const [k, v] of Object.entries(fieldNote)) {
+      push(`현장노트(${k})`, v);
+    }
+  }
+
+  const unitIssues = Array.isArray(content.unitIssues) ? content.unitIssues : [];
+  unitIssues.forEach((raw, idx) => {
+    const issue = asSuitabilityRecord(raw);
+    if (!issue) return;
+    push(`핵심이슈#${idx + 1} 제목`, issue.title ?? issue.cardTitle);
+    push(`핵심이슈#${idx + 1} 요약`, issue.brief ?? issue.cardBrief ?? issue.summary);
+    push(`핵심이슈#${idx + 1} 시사점`, issue.whyMatters ?? issue.brokerImplication);
+  });
+
+  for (const dealKey of ['featured_deals', 'featuredDeals', 'dealHighlights'] as const) {
+    const deals = Array.isArray(content[dealKey]) ? (content[dealKey] as unknown[]) : [];
+    deals.forEach((raw, idx) => {
+      const deal = asSuitabilityRecord(raw);
+      if (!deal) return;
+      push(`추천매물#${idx + 1} 제목`, deal.title);
+      push(`추천매물#${idx + 1} 코멘트`, deal.comment ?? deal.brokerComment ?? deal.summary);
+    });
+  }
+
+  const charts = Array.isArray(content.monthlyCharts) ? content.monthlyCharts : [];
+  charts.forEach((raw, idx) => {
+    const chart = asSuitabilityRecord(raw);
+    if (!chart) return;
+    push(`통계#${idx + 1} 제목`, chart.title);
+    push(`통계#${idx + 1} 메모`, chart.brokerNote ?? chart.summary ?? chart.commentary);
+  });
+
+  return entries;
+}
+
+/**
+ * 뉴스레터 발행 관문 및 오프라인 오라클 공용 콘텐츠 적합성 5축 검사.
+ * - 투자 권유 단정 표현(FORBIDDEN_SOLICITATION_PHRASES) & 내부 문구/라벨 누출 → hardViolations (422 차단)
+ * - 비CRE 연예·정치 가십(!isCreRelevantArticle), 말줄임·조사 미완결(isDanglingKoreanWord),
+ *   발행 주기↔시점 불일치, 지표-서사 모순 → reviewWarnings (409 확인 필요)
+ * - 실시간 기사 없이 정적 CURATED_CHANNEL_POOL만 사용 중인지 → isFallbackCuratedOnly 메타데이터 반환
+ */
+export function runNewsletterContentSuitabilityGate(
+  content: Record<string, unknown>,
+  opts: { cadence?: string | null } = {},
+): NewsletterSuitabilityResult {
+  const safeContent = asSuitabilityRecord(content) ?? {};
+  const cadence = normalizeNewsletterCadence(opts.cadence, safeContent.kind);
+
+  const hardViolations: string[] = [];
+  const reviewWarnings: string[] = [];
+  const detectedSolicitations: string[] = [];
+  const gossipIssueTitles: string[] = [];
+  const truncatedFields: string[] = [];
+  const cadenceMismatches: string[] = [];
+
+  const textEntries = collectSuitabilityTextEntries(safeContent);
+  const fullText = textEntries.map((e) => e.text).join('\n');
+
+  // 1. 투자 권유·확정 수익 금지 표현 검사 (hardViolations)
+  for (const phrase of FORBIDDEN_SOLICITATION_PHRASES) {
+    if (fullText.includes(phrase)) {
+      detectedSolicitations.push(phrase);
+      hardViolations.push(`투자 권유·확정 수익 금지 표현("${phrase}")이 포함되어 있습니다.`);
+    }
+  }
+
+  // 2. 시스템/내부 AI 라벨 독자 본문 유출 검사 (hardViolations)
+  for (const entry of textEntries) {
+    if (hasReaderTextLeak(entry.text)) {
+      hardViolations.push(`${entry.label}에 시스템 오류 문자열(undefined/NaN/mocked 등)이 노출되었습니다.`);
+    }
+    const labelMatch = entry.text.match(INTERNAL_READER_LABEL_RE);
+    if (labelMatch) {
+      hardViolations.push(`${entry.label}에 내부 AI 라벨("${labelMatch[1]}:")이 제거되지 않고 남았습니다.`);
+    }
+  }
+
+  // 3. 비CRE 가십 기사 포함 검사 (reviewWarnings)
+  const unitIssues = Array.isArray(safeContent.unitIssues) ? safeContent.unitIssues : [];
+  const topNews = Array.isArray(safeContent.topNews)
+    ? safeContent.topNews
+    : Array.isArray(safeContent.news_pool)
+      ? safeContent.news_pool
+      : [];
+
+  for (const [idx, raw] of unitIssues.entries()) {
+    const issue = asSuitabilityRecord(raw);
+    if (!issue) continue;
+    const title = asSuitabilityString(issue.title ?? issue.cardTitle);
+    const summary = asSuitabilityString(issue.brief ?? issue.cardBrief ?? issue.summary);
+    if (title && !isCreRelevantArticle({ title, summary })) {
+      gossipIssueTitles.push(title);
+      reviewWarnings.push(
+        `핵심 이슈 #${idx + 1}("${title}")이 상업용 부동산·자산관리 품격에 맞지 않는 가십성 기사일 수 있습니다.`,
+      );
+    }
+
+    // 4. 말줄임(…) 및 한국어 조사/어미 미완결 검사 (reviewWarnings)
+    if (title && TRAILING_ELLIPSIS_RE.test(title)) {
+      truncatedFields.push(`핵심이슈#${idx + 1} 제목(말줄임표 끊김)`);
+      reviewWarnings.push(`핵심 이슈 #${idx + 1} 제목("${title}")이 말줄임표로 잘려 있습니다.`);
+    } else if (title) {
+      const lastToken = title.split(/\s+/).pop() ?? '';
+      if (lastToken && isDanglingKoreanWord(lastToken)) {
+        truncatedFields.push(`핵심이슈#${idx + 1} 제목(미완결 어절 "${lastToken}")`);
+        reviewWarnings.push(
+          `핵심 이슈 #${idx + 1} 제목("${title}")이 조사·수식어("${lastToken}")로 미완결 종료되었습니다.`,
+        );
+      }
+    }
+
+    if (summary && TRAILING_ELLIPSIS_RE.test(summary)) {
+      truncatedFields.push(`핵심이슈#${idx + 1} 요약(말줄임표 끊김)`);
+      reviewWarnings.push(`핵심 이슈 #${idx + 1} 요약 문장이 말줄임표(…)로 끊겨 있습니다.`);
+    }
+  }
+
+  for (const [idx, raw] of topNews.entries()) {
+    const item = asSuitabilityRecord(raw);
+    if (!item) continue;
+    const title = asSuitabilityString(item.title ?? item.cardTitle);
+    const summary = asSuitabilityString(item.summary ?? item.brief ?? item.cardBrief);
+    if (title && !isCreRelevantArticle({ title, summary })) {
+      gossipIssueTitles.push(title);
+      reviewWarnings.push(
+        `추천 뉴스 #${idx + 1}("${title}")에 비부동산 가십·사건 키워드가 포함되어 있습니다.`,
+      );
+    }
+  }
+
+  // 헤드라인 미완결·말줄임 검사
+  const headline = asSuitabilityString(safeContent.headline);
+  if (headline) {
+    if (TRAILING_ELLIPSIS_RE.test(headline)) {
+      truncatedFields.push('제목(말줄임표 끊김)');
+      reviewWarnings.push(`뉴스레터 제목("${headline}")이 말줄임표(…)로 잘려 있습니다.`);
+    } else {
+      const lastHeadlineWord = headline.split(/\s+/).pop() ?? '';
+      if (lastHeadlineWord && isDanglingKoreanWord(lastHeadlineWord)) {
+        truncatedFields.push(`제목(미완결 어절 "${lastHeadlineWord}")`);
+        reviewWarnings.push(
+          `뉴스레터 제목("${headline}")이 조사·어미("${lastHeadlineWord}")로 미완결 종료되었습니다.`,
+        );
+      }
+    }
+  }
+
+  // 5. 발행 주기(daily/weekly/monthly/special) ↔ 시점 표현 불일치 검사 (reviewWarnings)
+  const subheadline = asSuitabilityString(safeContent.subheadline);
+  const themeTitle = asSuitabilityString(safeContent.theme_title);
+  const framingHeader = [headline, subheadline, themeTitle].filter(Boolean).join(' ');
+  const briefingFirstLine = asSuitabilityString(safeContent.briefing ?? safeContent.ai_briefing).split('\n')[0] ?? '';
+
+  const pushMismatch = (reason: string) => {
+    cadenceMismatches.push(reason);
+    reviewWarnings.push(reason);
+  };
+
+  if (cadence === 'monthly') {
+    const m = framingHeader.match(
+      /(오늘의\s*일간|일간\s*(?:브리핑|이슈|요약|리포트|시황|뉴스)|오늘의\s*(?:핵심|브리핑|부동산)|데일리\s*(?:브리핑|리포트)|이번\s*주\s*(?:핵심|브리핑|리포트|시황|매거진)|금주\s*(?:핵심|브리핑|리포트))/,
+    );
+    if (m) {
+      pushMismatch(`월간호인데 제목·부제에 다른 주기 표현("${m[1]}")이 포함되었습니다.`);
+    } else if (/오늘의\s*(?:일간|데일리)|이번\s*주\s*브리핑/.test(briefingFirstLine)) {
+      pushMismatch('월간호 브리핑 도입부에 일간·주간 시점 표현이 혼입되었습니다.');
+    }
+  } else if (cadence === 'daily') {
+    const m = framingHeader.match(
+      /(월간\s*(?:리포트|브리핑|매거진|시황|호)|이번\s*달\s*(?:핵심|브리핑|시황)|주간\s*(?:리포트|브리핑|매거진|시황)|이번\s*주\s*(?:브리핑|시황))/,
+    );
+    if (m) {
+      pushMismatch(`일간 브리핑인데 제목·부제에 주간·월간 표현("${m[1]}")이 포함되었습니다.`);
+    }
+  } else if (cadence === 'weekly') {
+    const m = framingHeader.match(
+      /(월간\s*(?:리포트|종합|매거진|시황|정기호)|이번\s*달\s*(?:정기호|월간)|일간\s*(?:브리핑|리포트)|오늘의\s*데일리)/,
+    );
+    if (m) {
+      pushMismatch(`주간 브리핑인데 제목·부제에 일간·월간 표현("${m[1]}")이 포함되었습니다.`);
+    }
+  } else if (cadence === 'special') {
+    const m = framingHeader.match(/(일간\s*정기\s*브리핑|월간\s*정기호)/);
+    if (m) {
+      pushMismatch(`호외 특집인데 제목·부제에 정기호 표현("${m[1]}")이 포함되었습니다.`);
+    }
+  }
+
+  // 6. 지표-서사 모순 재확인 (수동 편집으로 들어온 모순 차단)
+  const marketTemp = asSuitabilityString(safeContent.market_temp);
+  const contradictions = detectContradictions(fullText, {
+    marketTemp: marketTemp || null,
+  });
+  for (const c of contradictions) {
+    reviewWarnings.push(c);
+  }
+
+  // 7. 폴백 예시 기사 풀 단독 사용 여부 메타데이터
+  const newsSourceList = unitIssues.length > 0 ? unitIssues : topNews;
+  const issueRecords = newsSourceList
+    .map(asSuitabilityRecord)
+    .filter((r): r is Record<string, unknown> => r !== null);
+  const isFallbackCuratedOnly =
+    issueRecords.length > 0 && issueRecords.every((item) => isCuratedFallbackEntry(item));
+
+  return {
+    passed: hardViolations.length === 0 && reviewWarnings.length === 0,
+    hardViolations: Array.from(new Set(hardViolations)),
+    reviewWarnings: Array.from(new Set(reviewWarnings)),
+    isFallbackCuratedOnly,
+    cadence,
+    detectedSolicitations: Array.from(new Set(detectedSolicitations)),
+    gossipIssueTitles: Array.from(new Set(gossipIssueTitles)),
+    truncatedFields: Array.from(new Set(truncatedFields)),
+    cadenceMismatches: Array.from(new Set(cadenceMismatches)),
+  };
+}

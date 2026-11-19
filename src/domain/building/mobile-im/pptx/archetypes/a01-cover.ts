@@ -206,6 +206,11 @@ function renderCommonCoverContent(
   const isBasicCover = isBasicCoverMode(input);
 
   const rawKicker = d.kicker && d.kicker !== '표지' ? d.kicker : 'INVESTMENT MEMORANDUM';
+  const displayKicker =
+    rawKicker === 'INVESTMENT MEMORANDUM'
+      ? '매각 투자설명서 · INVESTMENT MEMORANDUM'
+      : rawKicker;
+  const kickerIsKorean = /[가-힣]/.test(displayKicker);
   const titleText = d.title || '투자설명서';
   const titleLen = titleText.length;
   const fontSize = titleLen > 35 ? 20 : titleLen > 28 ? 24 : titleLen > 20 ? 26 : titleLen > 14 ? 30 : 38;
@@ -214,10 +219,10 @@ function renderCommonCoverContent(
   // R1: Basic IM 표지 — 제목 + 중개법인 브랜딩 집중 (주소·태그·매각 희망가 박스 비표시)
   if (isBasicCover) {
     const basicKickerY = 2.45;
-    slide.addText(rawKicker, {
+    slide.addText(displayKicker, {
       x, y: basicKickerY, w: titleW, h: 0.30,
-      fontSize: 10, bold: true, color: C.brass,
-      fontFace: NUM, charSpacing: 2.5, margin: 0, align,
+      fontSize: kickerIsKorean ? 10.5 : 10, bold: true, color: C.brass,
+      fontFace: kickerIsKorean ? KR : NUM, charSpacing: kickerIsKorean ? 1.2 : 2.5, margin: 0, align,
     });
 
     slide.addShape('rect', {
@@ -252,7 +257,7 @@ function renderCommonCoverContent(
 
     const companyName = cleanBrokerVal(d.companyName);
     const brokerName = cleanBrokerVal(d.brokerName);
-    const primaryBrand = companyName || brokerName || 'INVESTMENT MEMORANDUM';
+    const primaryBrand = companyName || brokerName || '매각 투자설명서';
     slide.addText(primaryBrand, {
       x: M, y: 5.65, w: 7.50, h: 0.36,
       fontSize: 16, bold: true, color: 'FFFFFF',
@@ -292,10 +297,10 @@ function renderCommonCoverContent(
   }
 
   // kicker (Pro IM)
-  slide.addText(rawKicker, {
+  slide.addText(displayKicker, {
     x, y: kickerY, w: titleW, h: 0.3,
-    fontSize: 10, bold: true, color: C.brass,
-    fontFace: NUM, charSpacing: 2.5, margin: 0, align,
+    fontSize: kickerIsKorean ? 10.5 : 10, bold: true, color: C.brass,
+    fontFace: kickerIsKorean ? KR : NUM, charSpacing: kickerIsKorean ? 1.2 : 2.5, margin: 0, align,
   });
 
   // 대제목 (Pro IM)

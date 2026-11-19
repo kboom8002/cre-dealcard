@@ -127,7 +127,7 @@ export function MonthlyGlassStatCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <span
-              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-black tracking-[0.04em]"
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm font-black leading-snug break-keep tracking-[0.04em]"
               style={{
                 backgroundColor: theme.pillBg,
                 borderColor: theme.pillBorder,
@@ -136,13 +136,13 @@ export function MonthlyGlassStatCard({
             >
               <span
                 aria-hidden="true"
-                className="h-2 w-2 rounded-full"
+                className="h-2 w-2 shrink-0 rounded-full"
                 style={{
                   background: theme.accent,
                   boxShadow: `0 0 6px ${theme.accent}66`,
                 }}
               />
-              통계 {statNo} · {chart.regionLabel}
+              <span>통계 {statNo} · {chart.regionLabel}</span>
             </span>
             {sourceBadge && (
               <span

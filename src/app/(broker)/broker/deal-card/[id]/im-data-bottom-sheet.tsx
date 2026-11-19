@@ -91,7 +91,7 @@ function formatManwonToKorean(val: string | number | undefined | null): string |
 }
 
 const MISSING_FIELD_LABELS: Record<string, string> = {
-  investmentPosture: "① 투자 유형(포스처) 선택",
+  investmentPosture: "① 투자 목적 선택",
   address: "① 정확한 주소 검색",
   askingPrice: "② 매각 희망가",
   monthlyRent: "② 월 임대료 합계",
@@ -496,7 +496,7 @@ export function ImDataBottomSheet({
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-4 pb-10">
           {/* 🎯 투자 포스처 선택 */}
-          <div id="bs-step-1" className="space-y-2"><div className="flex items-center justify-end"><SeniorTermTooltip termKey="투자 포스처" buttonLabel="❓ 5대 투자 목적(포스처) 고르는 기준 보기" showPostureTable={true} /></div>
+          <div id="bs-step-1" className="space-y-2"><div className="flex items-center justify-end"><SeniorTermTooltip termKey="투자 목적" buttonLabel="❓ 5대 투자 목적 고르는 기준 보기" showPostureTable={true} /></div>
             <PostureSelector
               investmentPosture={investmentPosture}
               setInvestmentPosture={setInvestmentPosture}

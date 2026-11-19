@@ -34,8 +34,8 @@ const STRUCTURED_FIELD_LABELS: Record<string, string> = {
   effectiveTaxRate: '실효세율',
   netYieldAfterTax: '세후 수익률',
   annualAfterTaxCashFlow: '연 세후 현금흐름',
-  ltv: 'LTV (%)',
-  ltvPct: 'LTV (%)',
+  ltv: '담보인정비율·LTV (%)',
+  ltvPct: '담보인정비율·LTV (%)',
   loanAmount: '대출금액',
   loanAmountManwon: '대출금액 (만원)',
   equityAmount: '자기자본',
@@ -44,10 +44,10 @@ const STRUCTURED_FIELD_LABELS: Record<string, string> = {
   interestRatePct: '대출 금리 (%)',
   annualInterest: '연 이자비용',
   annualInterestManwon: '연 이자비용 (만원)',
-  annualNoiManwon: '연 NOI (만원)',
+  annualNoiManwon: '연 순영업소득·NOI (만원)',
   leveredCashFlowManwon: '레버리지 세전 현금흐름 (만원)',
-  cashOnCashPct: 'Cash-on-Cash (%)',
-  dscr: 'DSCR (배)',
+  cashOnCashPct: '자기자본수익률·CoC (%)',
+  dscr: '부채상환비율·DSCR (배)',
   note: '비고',
   summary: '요약',
 };
@@ -543,7 +543,7 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
                 </span>
               </div>
               <div className="p-3 bg-[#FAF9F5] rounded-lg border border-[#E2E8F0]">
-                <span className="text-[#64748B] block">WALT</span>
+                <span className="text-[#64748B] block">평균 잔여임대기간(WALT)</span>
                 <span className="font-extrabold text-[#0F172A] tabular-nums">
                   {building.leaseSummary.walt_months ?? '-'}개월
                 </span>

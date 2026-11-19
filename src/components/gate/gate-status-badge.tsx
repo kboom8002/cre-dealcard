@@ -71,7 +71,7 @@ export function GateStatusBadge({
   };
 
   const padding = size === "md" ? "px-3 py-1" : "px-2 py-0.5";
-  const textSize = size === "md" ? "text-sm" : "text-xs";
+  const textSize = "text-sm";
 
   return (
     <span

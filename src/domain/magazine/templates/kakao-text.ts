@@ -28,6 +28,14 @@ function expandKakaoCreTerms(text: string): string {
   return out;
 }
 
+function resolveKakaoArrivalPhrase(cadence?: string | null): string {
+  const norm = typeof cadence === 'string' ? cadence.trim().toLowerCase() : '';
+  if (norm === 'monthly') return '이번 달 매거진이 도착했습니다.';
+  if (norm === 'daily') return '오늘의 부동산 브리핑이 도착했습니다.';
+  if (norm === 'special' || norm === 'flash') return '부동산 호외 브리핑이 도착했습니다.';
+  return '이번 주 매거진이 도착했습니다.';
+}
+
 export function renderMagazineKakaoText(input: MagazineEmailInput): MagazineKakaoRendered {
   if (input.isAd !== true) throw new MagazineRenderError('MISSING_AD_FLAG', 'isAd must be true');
   const broker = safeTemplateVar(input.brokerName, { max: 40 });
@@ -52,7 +60,8 @@ export function renderMagazineKakaoText(input: MagazineEmailInput): MagazineKaka
   const title = plain(input.edition.title, 50);
 
   // 고정부(헤더+링크+법정표기 푸터)를 먼저 만들고, 남는 길이만큼 요약 본문을 넣는다
-  const head = [`(광고) ${broker}`, who ? `${who}님, 이번 주 매거진이 도착했습니다.` : '이번 주 매거진이 도착했습니다.', title];
+  const arrivalPhrase = resolveKakaoArrivalPhrase(input.edition.cadence);
+  const head = [`(광고) ${broker}`, who ? `${who}님, ${arrivalPhrase}` : arrivalPhrase, title];
   const tail: string[] = [`▶ 매거진 보기: ${viewUrl}`];
   if (contact && toTelHref(contact)) tail.push(`▶ 전화 상담: ${contact}`);
   const statutoryParts = [

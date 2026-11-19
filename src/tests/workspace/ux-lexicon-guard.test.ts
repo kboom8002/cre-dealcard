@@ -46,6 +46,8 @@ const FILES: string[] = [
   'src/components/workspace/ZeroBlankStarterCard.tsx',
   'src/app/qa-broker/showcase/page.tsx',
   'src/app/qa-broker/signoff/page.tsx',
+  'src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx',
+  'src/app/(broker)/broker/deal-card/[id]/im-management-panel.tsx',
 ];
 
 function walkTsSources(dir: string, out: string[]): void {
@@ -64,6 +66,45 @@ function walkTsSources(dir: string, out: string[]): void {
 function magazineEditorComponents(): string[] {
   const out: string[] = [];
   walkTsSources(path.join(ROOT, 'src/components/magazine-editor'), out);
+  return out;
+}
+
+const IM_SURFACE_ROOTS: readonly string[] = [
+  'src/app/(broker)/broker/basic-im-studio',
+  'src/app/(public)/im-lite',
+  'src/app/(public)/im-pro',
+  'src/app/(broker)/broker/im-approval',
+  'src/components/im',
+  'src/components/broker/im-studio',
+];
+
+function imSurfaceModules(): string[] {
+  const out: string[] = [];
+  for (const root of IM_SURFACE_ROOTS) {
+    walkTsSources(path.join(ROOT, root), out);
+  }
+  return out;
+}
+
+const NEWSLETTER_SURFACE_ROOTS: readonly string[] = [
+  'src/app/(magazine)/magazine',
+  'src/app/(public)/m',
+  'src/app/(broker)/broker/w/newsletter',
+  'src/app/(broker)/broker/w/magazine',
+  'src/components/magazine',
+  'src/domain/magazine/templates',
+];
+
+const NEWSLETTER_EXPLICIT_FILES: readonly string[] = [
+  'src/domain/magazine/email-template.tsx',
+  'src/lib/magazine/og-image-render.tsx',
+];
+
+function newsletterSurfaceModules(): string[] {
+  const out: string[] = [...NEWSLETTER_EXPLICIT_FILES];
+  for (const root of NEWSLETTER_SURFACE_ROOTS) {
+    walkTsSources(path.join(ROOT, root), out);
+  }
   return out;
 }
 
@@ -89,7 +130,8 @@ export function stripNonUiCode(src: string): string {
     .replace(/(^|[^:"'`])\/\/.*$/gm, '$1')
     .replace(/^\s*import .*$/gm, '')
     .replace(/data-testid=(?:"[^"]*"|\{[^}]*\})/g, '')
-    .replace(/className=(?:"[^"]*"|\{`[^`]*`\})/g, '');
+    .replace(/className=(?:"[^"]*"|\{`[^`]*`\})/g, '')
+    .replace(/encodeURIComponent\([a-zA-Z_$][\w$.]*\)/g, '');
 }
 
 describe('UX lexicon guard (사용자 대면 금지어)', () => {
@@ -98,6 +140,8 @@ describe('UX lexicon guard (사용자 대면 금지어)', () => {
       ...FILES,
       ...magazineEditorComponents(),
       ...workspaceExtractedModules(),
+      ...imSurfaceModules(),
+      ...newsletterSurfaceModules(),
     ]),
   ).filter((f) => fs.existsSync(path.join(ROOT, f)));
 

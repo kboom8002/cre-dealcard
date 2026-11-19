@@ -15,6 +15,7 @@ import {
   formatAxiosTwoLineBrief,
 } from "@/domain/magazine/issue-clustering";
 import {
+  CURATED_CHANNEL_POOL,
   NEWS_CHANNELS,
   NEWS_CHANNEL_MAP,
   isCreRelevantArticle,
@@ -23,6 +24,25 @@ import {
   type NewsPoolItem,
   type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
+
+const CURATED_FALLBACK_ID_SET = new Set(CURATED_CHANNEL_POOL.map((item) => item.id));
+const CURATED_FALLBACK_TITLE_SET = new Set(
+  CURATED_CHANNEL_POOL.flatMap((item) =>
+    [item.title, item.cardTitle]
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .map((t) => t.replace(/^\[.*?\]\s*/, "").trim()),
+  ),
+);
+
+function isCuratedFallbackPoolOnly(issues: readonly AxiosUnitIssue[]): boolean {
+  if (issues.length === 0) return false;
+  return issues.every((issue) => {
+    const id = typeof issue.id === "string" ? issue.id.trim() : "";
+    if (id && (CURATED_FALLBACK_ID_SET.has(id) || /^curated-/i.test(id))) return true;
+    const normTitle = typeof issue.title === "string" ? issue.title.replace(/^\[.*?\]\s*/, "").trim() : "";
+    return Boolean(normTitle && CURATED_FALLBACK_TITLE_SET.has(normTitle));
+  });
+}
 import { editorToast } from "@/components/magazine-editor/editor-toaster";
 
 export interface AxiosIssuesEditorPanelProps {
@@ -194,6 +214,17 @@ export function AxiosIssuesEditorPanel({
           </div>
         </div>
       </div>
+
+      {/* 정적 큐레이션 예시 풀 단독 사용 시 정직한 출처 고지 배지 */}
+      {issues.length > 0 && isCuratedFallbackPoolOnly(issues) && (
+        <div
+          data-testid="axios-fallback-pool-notice"
+          role="status"
+          className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm font-medium text-amber-900"
+        >
+          참고 예시 카드(실시간 기사 아님)가 표시 중입니다. 상단 &lsquo;최신 뉴스 새로고침&rsquo;을 눌러 실시간 기사를 불러오거나 직접 수정해 주세요.
+        </div>
+      )}
 
       {/* 핵심 이슈 카드 편집 리스트 또는 빈 상태 안내 */}
       {issues.length === 0 ? (

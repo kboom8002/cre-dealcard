@@ -286,15 +286,15 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
   if (stackingData.length === 0 && tableRows.length === 0) {
     L.fallbackCard(slide, M, 1.62, CW, 4.80, {
-      badge: '임대차 실사 안내',
+      badge: '임대차 확인 안내',
       badgeKind: 'brass',
-      title: '임대차 계약 및 렌트롤 상세 실사 프로토콜',
-      leadText: '본 자산의 세부 층별 임대차 계약 원장 및 정산 내역은 매수 의향 접수 및 비밀유지협약(NDA) 체결 후 실측 대조가 진행됩니다.',
+      title: '임대차 계약 및 임대현황 확인 안내',
+      leadText: '층별 세부 임대차 계약서와 월세 정산 내역은 매수 의향 접수 및 비밀유지약정(NDA) 체결 후 원본 대조로 확인하실 수 있습니다.',
       checklist: [
-        '임대차 계약서 원본 전수 대조 (임대료, 관리비, 계약기간, 만기일 및 갱신 옵션)',
-        '보증금 및 월임대료 입금 금융 원장 대조·검증 (체납 내역 및 부가가치세 신고서 정합성)',
-        '특약 사항 및 렌트프리(Rent-Free), 핏아웃(Fit-out) 등 실질 유효 임대료(Net Effective Rent) 산정',
-        '상가건물 임대차보호법상 계약갱신요구권 행사 가능 여부 및 명도/재계약 리스크 검토',
+        '층별 임대차 계약서 원본 확인 (임대료, 관리비, 계약기간, 만기일 및 갱신 조건)',
+        '보증금·월세 입금 내역 대조 (통장 거래내역, 세금계산서 및 연체 여부 확인)',
+        '무상임대(렌트프리)·인테리어 지원 등 특약을 반영한 실질 월세 확인',
+        '상가임대차보호법상 계약갱신요구권 행사 가능 여부 및 명도·재계약 조건 점검',
       ],
       icon: 'document',
     });
@@ -429,7 +429,10 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   const hasTable = displayRows.length > 0;
   const totalRenderRows = displayRows.length + 1; // +1 for header
   const tableBudgetH = bottomLimit - topY - (truncated ? 0.22 : 0);
-  const rowH = hasTable ? Math.max(0.22, Math.min(0.36, tableBudgetH / totalRenderRows)) : 0.32;
+  // Compact / balanced 2-page rent-roll tables (<=9 total rows incl. header+summary) expand rowH up to 0.45"
+  // to stay balanced (<30% bottom blank) while keeping >=10-row decks bit-for-bit identical.
+  const maxRowH = totalRenderRows <= 9 ? 0.45 : 0.36;
+  const rowH = hasTable ? Math.max(0.22, Math.min(maxRowH, tableBudgetH / totalRenderRows)) : 0.32;
   const bodyFontSize = rowH >= 0.32 ? 8.5 : rowH >= 0.28 ? 8 : rowH >= 0.25 ? 7.5 : 7;
   const headerFontSize = rowH >= 0.30 ? 9 : bodyFontSize + 0.5;
   const summaryInDisplay = hasTable && isSummaryRowOf(displayRows[displayRows.length - 1]);
@@ -563,10 +566,15 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const bodyTop = topY + bandH;
     const maxBodyH = Math.max(0.5, bottomLimit - topY - bandH * 2);
     const targetBodyH = hasTable ? bodyRowCount * rowH : maxBodyH;
-    const lo = Math.min(0.22, maxBodyH / G);
-    const hi = Math.min(0.65, maxBodyH / G);
-    const hPerFloor = Math.min(hi, Math.max(lo, targetBodyH / G));
+    const spPad = G <= 10 ? 0.08 : 0.03;
+    const maxInnerH = Math.max(0.4, maxBodyH - spPad * 2);
+    const targetInnerH = Math.max(0.4, targetBodyH - spPad * 2);
+    const lo = Math.min(0.22, maxInnerH / G);
+    const hi = Math.min(0.62, maxInnerH / G);
+    const hPerFloor = Math.min(hi, Math.max(lo, targetInnerH / G));
     const bodyH = G * hPerFloor;
+    const panelBodyH = bodyH + spPad * 2;
+    const barsTop = bodyTop + spPad;
 
     // 헤더 띠 (표 헤더 행과 동일 높이·색) — 단위 명시
     slide.addShape('rect', {
@@ -579,6 +587,12 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       x: spX, y: topY, w: spW, h: bandH,
       fontSize: fitSingleLine(stripTitle, spW * 0.80, stripMaxPt, 6.5, true).fontSize,
       bold: true, color: C.bg, align: 'center', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
+    });
+
+    // 스태킹 본문 패널 배경·테두리 — 상하 여백과 시각적 경계 제공
+    slide.addShape('rect', {
+      x: spX, y: bodyTop, w: spW, h: panelBodyH,
+      fill: { color: 'FAFBFD' }, line: { color: C.line, width: 0.5 },
     });
 
     // R8: 건물용도 카테고리 색상 및 범례 수집
@@ -607,22 +621,24 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
     const labelW = 0.52; // Rule 70: 층 라벨 ≥ 0.50"
     const barRegionX = spX + 0.60;
-    const maxBarW = spW - 0.62;
+    const maxBarW = spW - 0.66;
     const unitW = maxBarW / maxRatio;
 
     // D45: 층수가 많을수록 폰트 축소
     const floorFontSize = hPerFloor >= 0.40 ? 10 : hPerFloor >= 0.30 ? 9 : hPerFloor >= 0.22 ? 8 : 7;
-    const labelBasePt = Math.min(hPerFloor >= 0.40 ? 8.5 : hPerFloor >= 0.30 ? 8 : 7.5, ((hPerFloor - 0.08) * 72) / 1.15);
+    const barGap = hPerFloor >= 0.36 ? 0.045 : 0.035;
+    const barH = Math.max(0.10, hPerFloor - barGap * 2);
+    const labelBasePt = Math.min(hPerFloor >= 0.40 ? 8.5 : hPerFloor >= 0.30 ? 8 : 7.5, (barH * 72) / 1.15);
     const labelMinPt = Math.min(STACK_MIN_PT, labelBasePt);
 
     groups.forEach((group, idx) => {
-      const rowY = bodyTop + bodyH - (idx + 1) * hPerFloor;
+      const rowY = barsTop + bodyH - (idx + 1) * hPerFloor;
       const floorBarW = unitW * ratios[idx];
       const floorBarX = barRegionX + (maxBarW - floorBarW) / 2;
 
       // Floor label
       slide.addText(String(group.key).replace(/층$/, ''), {
-        x: spX, y: rowY, w: labelW, h: hPerFloor,
+        x: spX + 0.02, y: rowY, w: labelW, h: hPerFloor,
         fontSize: floorFontSize, bold: true, color: C.ink, align: 'right', valign: 'middle',
         fontFace: KR, margin: 0, wrap: false,
       });
@@ -670,7 +686,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
         // Bar segment
         slide.addShape('rect', {
-          x: segX, y: rowY + 0.035, w: segW, h: hPerFloor - 0.07,
+          x: segX, y: rowY + barGap, w: segW, h: barH,
           fill: { color: palette.fill },
           line: isVacant
             ? { dashType: 'dash' as const, color: palette.border, width: 1.0 }
@@ -682,7 +698,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
           const fitted = fitSingleLine(useKey, Math.max(0.10, segW - 0.08), labelBasePt, labelMinPt, true);
           if (!fitted.truncated) {
             slide.addText(fitted.text, {
-              x: segX + 0.02, y: rowY + 0.035, w: Math.max(0.05, segW - 0.04), h: hPerFloor - 0.07,
+              x: segX + 0.02, y: rowY + barGap, w: Math.max(0.05, segW - 0.04), h: barH,
               fontSize: fitted.fontSize, bold: true, color: palette.text,
               align: 'center', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
             });
@@ -695,19 +711,21 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Ground line divider if B floors exist — 'GL' 라벨은 스태킹 바 우측 끝 여백(테이블과의 0.25" 간격 구간)에 두어 층 라벨·바 내부 텍스트와 바운딩 박스 중첩을 원천 차단
     const bCount = groups.filter(g => g.isSubterranean).length;
     if (bCount > 0 && bCount < G) {
-      const groundY = bodyTop + bodyH - bCount * hPerFloor;
+      const groundY = barsTop + bodyH - bCount * hPerFloor;
       slide.addShape('line', {
         x: barRegionX - 0.04, y: groundY, w: maxBarW + 0.05, h: 0,
         line: { color: '94A3B8', width: 1.25, dashType: 'dash' as const },
       });
       slide.addText('GL', {
-        x: barRegionX + maxBarW + 0.02, y: groundY - 0.08, w: 0.22, h: 0.16,
+        x: spX + spW + 0.03, y: groundY - 0.08, w: 0.20, h: 0.16,
         fontSize: 6.5, color: '64748B', fontFace: KR, align: 'left', valign: 'middle', bold: true, margin: 0, wrap: false,
       });
     }
 
     // 범례 띠 (표 합계 행과 같은 높이) — 건물용도 카테고리 + (공실 존재 시) 공실
-    const legendY = bodyTop + bodyH;
+    const legendGap = bandH >= 0.30 ? 0.04 : 0.02;
+    const legendY = bodyTop + panelBodyH + legendGap;
+    const legendH = Math.max(0.20, bandH - legendGap);
     type LegendItem = { label: string; fill: string; border: string; text: string; vacant?: boolean };
     const legendPt = bandH < 0.26 ? 6.5 : 7;
     const legendItems: LegendItem[] = [
@@ -728,18 +746,18 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         : []),
     ];
     const labelBoxW = (it: LegendItem) => Math.max(0.28, textWidthIn(it.label, legendPt, true) / 0.80 + 0.06);
-    const itemW = (it: LegendItem) => 0.15 + labelBoxW(it) + 0.04;
-    let lx = spX + 0.02;
+    const itemW = (it: LegendItem) => 0.15 + labelBoxW(it) + 0.08;
+    let lx = spX + 0.04;
     for (const item of legendItems) {
       const w = itemW(item);
       if (lx + w - 0.06 > spX + spW + 0.18) break;
       slide.addShape('rect', {
-        x: lx, y: legendY + (bandH - 0.11) / 2, w: 0.12, h: 0.11, fill: { color: item.fill },
+        x: lx, y: legendY + (legendH - 0.11) / 2, w: 0.12, h: 0.11, fill: { color: item.fill },
         line: item.vacant ? { dashType: 'dash' as const, color: item.border, width: 0.75 } : { color: item.border, width: 0.5 },
       });
-      const tx = lx + 0.14;
+      const tx = lx + 0.15;
       slide.addText(item.label, {
-        x: tx, y: legendY, w: labelBoxW(item), h: bandH,
+        x: tx, y: legendY, w: labelBoxW(item), h: legendH,
         fontSize: legendPt, color: item.text, bold: true,
         fontFace: KR, valign: 'middle', margin: 0, wrap: false,
       });
@@ -772,7 +790,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Render table
     const tableData: any[][] = [];
     const cellMargin = L.getDynamicTableMargin(rowH);
-    const usable = (w: number) => Math.max(0.1, (w - 0.12) * (rowH < 0.26 ? 0.84 : 0.94));
+    const hPadIn = rowH >= 0.34 ? 0.17 : 0.12;
+    const usable = (w: number) => Math.max(0.1, (w - hPadIn) * (rowH < 0.26 ? 0.84 : 0.94));
 
     // Header
     tableData.push(HEADERS.map((h, cIdx) => {

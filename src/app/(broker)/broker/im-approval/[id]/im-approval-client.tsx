@@ -909,7 +909,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 {
                   ok: hasRealAddress,
                   label: '정확한 주소',
-                  detail: (ssotSummary?.address as string) || (ssotSummary?.raw_address as string) || (ssotSummary?.pnu ? '정부 토지·건축물대장 연결됨' : '바텀시트에서 주소 검색 필요'),
+                  detail: (ssotSummary?.address as string) || (ssotSummary?.raw_address as string) || (ssotSummary?.pnu ? '정부 토지·건축물대장 연결됨' : '상세 입력 창에서 주소 검색 필요'),
                 },
                 {
                   ok: !!(enriched.meta.hasPublicData || enriched.meta.enrichedAt),

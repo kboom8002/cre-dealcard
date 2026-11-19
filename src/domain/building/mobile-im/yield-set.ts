@@ -451,7 +451,7 @@ function buildMarketRentCaption(m: MarketRentSimulation): string {
     .map((c) => `${MARKET_CLASS_LABEL[c]} ${m.usedSources[c] ? m.usedSources[c] : '출처 미기재'}`)
     .join('; ');
   const total = Number(m.appliedExclusivePyeong.toFixed(1)).toLocaleString();
-  return `${m.kinds.join('·')} 전용 ${total}평에 시장 임대료(${rates}/전용평·월)를 적용해 임대 가정 (출처: ${sources})`;
+  return `${m.kinds.join('·')} 전용 ${total}평 · 시장 임대료 ${rates}/전용평·월 적용 (${sources})`;
 }
 
 /* ─────────────────────────── 요약 슬라이드 부제 / 각주 ─────────────────────────── */
@@ -487,7 +487,7 @@ export function yieldFootnote(a: YieldAssumptions, opts?: { includeCapRateInFoot
     const vac = a.vacancyReservePct != null && a.vacancyReservePct > 0 ? `, 공실충당 ${trimNum(a.vacancyReservePct)}%` : '';
     return `※ ${opex}${vac}, 보증금 승계 가정. 임대수익률은 운영비 차감 전, Cap Rate는 차감 후.`;
   }
-  return '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 차감 전) 기준이며, 안정화 기대수익률은 공실·자가사용 임대 전환 가정치입니다.';
+  return '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 포함) 기준, 안정화 수익률은 공실·자가사용 임대 전환 가정치입니다.';
 }
 
 /* ─────────────────────────── 문서 body → YieldSet ─────────────────────────── */

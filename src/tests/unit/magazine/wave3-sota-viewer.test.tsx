@@ -204,8 +204,19 @@ describe('Wave 3 SOTA Mobile Reader & Calculator Enhancements', () => {
       const matches = html.match(/data-testid="tracking-notice"/g) ?? [];
       expect(matches).toHaveLength(1);
 
-      // PoweredByBadge는 subtle/compact 형태
+      // PoweredByBadge는 subtle/compact 형태 (공적장부 검증 매물이 있을 때만 교차검증 표기)
       expect(html).toContain('CREDEAL 안심 매거진 · 공적장부 교차검증');
+    });
+
+    it('매물·공공 DB 통계가 없는 순수 브리핑 호수는 과장 없이 CREDEAL 안심 매거진만 표시한다', () => {
+      const html = renderMagazine({
+        headline: '일간 뉴스 브리핑',
+        briefing: '매물 없이 핵심 뉴스만 요약한 호수입니다.',
+        featured_deals: [],
+      });
+
+      expect(html).toContain('CREDEAL 안심 매거진');
+      expect(html).not.toContain('공적장부 교차검증');
     });
   });
 

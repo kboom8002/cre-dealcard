@@ -239,48 +239,52 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
       )
     )
   );
-  if (!isPreview && rawSid && isUuid(brokerUserId) && isMagazineTrackingEnabled()) {
-    let reqHeaders: Awaited<ReturnType<typeof headers>> | null = null;
-    try {
-      reqHeaders = await headers();
-    } catch {
-      reqHeaders = null;
-    }
-    if (!isPrefetchOrScannerRequest(reqHeaders)) {
-      const verifiedSid = verifySidToken(rawSid);
-      if (verifiedSid.ok && sidBrokerKeys.includes(verifiedSid.brokerKey)) {
-        try {
-          const svc = createServiceClient();
-          const { data: sub } = await svc
-            .from("magazine_subscribers")
-            .select("id, status")
-            .eq("id", verifiedSid.subscriberId)
-            .in("broker_id", sidBrokerKeys)
-            .maybeSingle();
-          if (sub && sub.status !== "unsubscribed") {
-            const resolvedEditionUuid =
-              typeof state.data.id === "string" && isUuid(state.data.id) ? state.data.id : null;
-            await svc.from("activity_events").insert({
-              actor_id: brokerUserId,
-              actor_role: "system",
-              event_type: "magazine_view",
-              entity_type: "building_ssot_lite",
-              entity_id: brokerUserId,
-              metadata: {
-                broker_id: brokerUserId,
-                viewer_role: "subscriber",
-                recipient_id: verifiedSid.subscriberId,
-                subscriber_id: verifiedSid.subscriberId,
-                issue_date: date,
-                ...(resolvedEditionUuid ? { edition_id: resolvedEditionUuid } : {}),
-                source: "sid_link",
-              },
-              created_at: new Date().toISOString(),
-            });
+  let isSubscribedViewer = false;
+  if (!isPreview && rawSid && isUuid(brokerUserId)) {
+    const verifiedSid = verifySidToken(rawSid);
+    if (verifiedSid.ok && sidBrokerKeys.includes(verifiedSid.brokerKey)) {
+      try {
+        const svc = createServiceClient();
+        const { data: sub } = await svc
+          .from("magazine_subscribers")
+          .select("id, status")
+          .eq("id", verifiedSid.subscriberId)
+          .in("broker_id", sidBrokerKeys)
+          .maybeSingle();
+        if (sub && sub.status !== "unsubscribed") {
+          isSubscribedViewer = true;
+          if (isMagazineTrackingEnabled()) {
+            let reqHeaders: Awaited<ReturnType<typeof headers>> | null = null;
+            try {
+              reqHeaders = await headers();
+            } catch {
+              reqHeaders = null;
+            }
+            if (!isPrefetchOrScannerRequest(reqHeaders)) {
+              const resolvedEditionUuid =
+                typeof state.data.id === "string" && isUuid(state.data.id) ? state.data.id : null;
+              await svc.from("activity_events").insert({
+                actor_id: brokerUserId,
+                actor_role: "system",
+                event_type: "magazine_view",
+                entity_type: "building_ssot_lite",
+                entity_id: brokerUserId,
+                metadata: {
+                  broker_id: brokerUserId,
+                  viewer_role: "subscriber",
+                  recipient_id: verifiedSid.subscriberId,
+                  subscriber_id: verifiedSid.subscriberId,
+                  issue_date: date,
+                  ...(resolvedEditionUuid ? { edition_id: resolvedEditionUuid } : {}),
+                  source: "sid_link",
+                },
+                created_at: new Date().toISOString(),
+              });
+            }
           }
-        } catch {
-          // Non-blocking magazine view tracking
         }
+      } catch {
+        // Non-blocking magazine view tracking
       }
     }
   }
@@ -295,6 +299,7 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
         dateLabel={dateLabel}
         brokerVibe={state.brokerVibe}
         target={sp.target !== undefined ? parseViewerTarget(sp.target) : undefined}
+        isSubscribedViewer={isSubscribedViewer}
       />
       {showPublicQaPin && (
         <React.Suspense fallback={null}>

@@ -22,6 +22,7 @@ import { resolveDisplayAreas } from '../binder/display-areas';
 import { parseBrokerParcels, summarizeParcels, type BrokerParcel } from '../../parcel-input';
 import { readBrokerExtras } from '../broker-extras-slides';
 import { REGULATORY_KIND_LABELS } from '../../broker-extras';
+import { SQM_RATIO } from '@/lib/utils/area-conversion';
 
 const { C, KR, NUM, M, CW } = L;
 
@@ -341,16 +342,23 @@ export function buildBasicLandSlideData(params: {
 
   let officialPriceText = '';
   if (pricePerSqm > 0) {
-    const yy = priceYear >= 2000 ? `'${String(priceYear).slice(-2)}년 ${priceMonth}월 기준` : '';
-    const multiTag =
+    const pyeongMan = Math.round((pricePerSqm * SQM_RATIO) / 10_000);
+    const pyeongPart = pyeongMan >= 1 ? `약 ${pyeongMan.toLocaleString('ko-KR')}만원/평` : '';
+    const datePart =
+      priceYear >= 2000
+        ? `'${String(priceYear).slice(-2)}.${String(priceMonth).padStart(2, '0')}`
+        : '';
+    const multiPart =
       parcelSummary.isMulti && parcelSummary.weightedOfficialPricePerM2
-        ? ' · 가중평균'
+        ? '가중평균'
         : parcelSummary.isMulti
-          ? ' · 대표필지'
+          ? '대표필지'
           : '';
-    officialPriceText = yy
-      ? `${Math.round(pricePerSqm).toLocaleString('ko-KR')}원/㎡ (${yy}${multiTag})`
-      : `${Math.round(pricePerSqm).toLocaleString('ko-KR')}원/㎡${multiTag}`;
+    const metaTail = [datePart, multiPart].filter(Boolean).join(' ');
+    const parenParts = [pyeongPart, metaTail].filter(Boolean);
+    const baseSqm = `${Math.round(pricePerSqm).toLocaleString('ko-KR')}원/㎡`;
+    officialPriceText =
+      parenParts.length > 0 ? `${baseSqm} (${parenParts.join(' · ')})` : baseSqm;
   }
 
   const overviewRows: Array<[string, string]> = [];
@@ -667,7 +675,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
         );
       }
       const compactVal =
-        valText.length > 42 ? `${valText.slice(0, 41).trimEnd()}…` : valText;
+        valText.length > 48 ? `${valText.slice(0, 47).trimEnd()}…` : valText;
       const valueFontSize = compactVal.length > 33 ? 8.0 : 8.5;
       return [
         {

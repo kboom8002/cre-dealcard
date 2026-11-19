@@ -7,6 +7,7 @@ import { resolveBroker } from "@/lib/magazine/resolve-broker";
 import { toKstDate, todayKst } from "@/lib/magazine/kst";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, needsQualityReview } from "@/lib/magazine/edition-save";
+import { runNewsletterContentSuitabilityGate } from "@/domain/magazine/quality-gate";
 import { sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
 import { isUuid } from "@/lib/magazine/slug";
 import { kindOfEditionType } from "@/lib/magazine/edition-draft";
@@ -195,11 +196,40 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    if (needsQualityReview(normalized.content, edition.status) && !acknowledged) {
-      return jsonError(
-        "QUALITY_GATE_REVIEW",
-        "자동 품질 점검을 통과하지 못한 콘텐츠입니다. 내용을 확인한 뒤 확인 체크 후 발행해 주세요.",
-        409,
+    const suitability = runNewsletterContentSuitabilityGate(normalized.content, {
+      cadence: typeof edition.edition_type === "string" ? edition.edition_type : null,
+    });
+    if (suitability.hardViolations.length > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "CONTENT_POLICY_BLOCKED",
+            message: suitability.hardViolations[0],
+          },
+          issues: suitability.hardViolations,
+        },
+        { status: 422 },
+      );
+    }
+
+    if (
+      (needsQualityReview(normalized.content, edition.status) ||
+        suitability.reviewWarnings.length > 0) &&
+      !acknowledged
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "QUALITY_GATE_REVIEW",
+            message:
+              suitability.reviewWarnings[0] ??
+              "자동 품질 점검을 통과하지 못한 콘텐츠입니다. 내용을 확인한 뒤 확인 체크 후 발행해 주세요.",
+          },
+          issues: suitability.reviewWarnings,
+        },
+        { status: 409 },
       );
     }
 

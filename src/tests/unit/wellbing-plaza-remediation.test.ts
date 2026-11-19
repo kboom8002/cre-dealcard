@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import PptxGenJS from 'pptxgenjs';
 import { splitFloorAndUnit } from '@/domain/building/mobile-im/floor-unit-resolver';
 import { parseRentRollData } from '@/lib/rentroll/parse-rentroll-sheet';
@@ -7,6 +7,8 @@ import { buildA24RentrollStacking } from '@/domain/building/mobile-im/pptx/arche
 import { planGallerySlides } from '@/domain/building/mobile-im/pptx/gallery-planner';
 import { buildDeckSequence } from '@/domain/building/mobile-im/pptx/deck-sequencer';
 import { applyStudioSlideOverrides } from '@/domain/building/mobile-im/pptx/studio-overrides-applier';
+import { MobileImPptxRenderer, type MobileImPptxInput } from '@/domain/building/mobile-im/pptx/pptx-renderer';
+import { extractSlideTexts } from '@/assurance/im-harness/golden-test-utils';
 
 describe('Wellbing Plaza Forensic Audit Remediation (Waves 1-5)', () => {
   describe('Wave 3: splitFloorAndUnit SSOT', () => {
@@ -236,6 +238,93 @@ describe('Wellbing Plaza Forensic Audit Remediation (Waves 1-5)', () => {
       expect(dataMap.location.right.rows[0][1]).toBe('보정역(수인분당선) 도보 12분 (약 951m)');
       // 4. Boilerplate landCallout did NOT set brokerConfirmNote
       expect(dataMap.land.brokerConfirmNote).toBeUndefined();
+    });
+  });
+
+  describe('Wave 6: Balanced 2-Page Rent Roll Split (Orphan Slide Prevention)', () => {
+    it('splits a 15-row Basic IM rent roll into 8 + 7 rows across (1/2) and (2/2) instead of 14 + 1 orphan row', async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(async () => new Response(null, { status: 404 }));
+      try {
+        const pngDataUrl =
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        const leases = Array.from({ length: 15 }, (_, idx) => {
+          const fl = `${Math.min(5, Math.floor(idx / 3) + 1)}F`;
+          const room = `${Math.min(5, Math.floor(idx / 3) + 1)}0${(idx % 3) + 1}호`;
+          return {
+            floor: `${fl} ${room}`,
+            tenant_name: `임차인_${idx + 1}`,
+            use: '근린생활',
+            area_sqm: 60.5,
+            exclusive_area_sqm: 45.2,
+            deposit_manwon: 2000,
+            rent_manwon: 150,
+            mgmt_manwon: 15,
+            is_vacant: false,
+            lease_end: '2027-12-31',
+          };
+        });
+
+        const input: MobileImPptxInput = {
+          buildingId: 'balanced-rr-15',
+          preset: 'credeal_basic',
+          posture: 'income',
+          grade: 'B',
+          doc: {
+            title: '균형 렌트롤 테스트',
+            body: {
+              preset: 'credeal_basic',
+              identity: { investmentPosture: 'income', assetType: 'nbhd_building' },
+              heroCard: {
+                askingPriceDisplay: '95.0억 원',
+                capRateBase: 3.1,
+                posture: 'income',
+                landAreaM2: 400,
+                totalGrossAreaM2: 907.5,
+                zoning: '근린상업지역',
+              },
+              photos: [{ url: pngDataUrl, category: 'exterior', role: 'cover', isHero: true }],
+              floor_leases: leases,
+              ssot_summary: {
+                address: '서울특별시 영등포구 당산동 12-3',
+                building_name: '당산 균형 빌딩',
+                asking_price_manwon: 950000,
+                total_deposit_manwon: 30000,
+                monthly_rent_total_krw: 22500000,
+                land_area_sqm: 400,
+                total_gross_area_sqm: 907.5,
+                zoning: '근린상업지역',
+              },
+              enrichment: { hasCadastralMap: false },
+            },
+            sections: [
+              { title: '건물 개요', section_type: 'property_overview', markdown: '### 개요' },
+              { title: '임대차 현황', section_type: 'lease_status', markdown: '### 렌트롤' },
+            ],
+          },
+          building: { area_signal: '95억', asset_type: 'nbhd_building', price_band: '95억' },
+          broker: { display_name: '김크리', company_name: '크리딜중개', phone: '010-2345-6789' },
+        } as unknown as MobileImPptxInput;
+
+        const rendered = await new MobileImPptxRenderer().render(input);
+        const slides = await extractSlideTexts(rendered.buffer);
+        const rr1 = slides.find((s) => s.text.includes('렌트롤 (1/2)'));
+        const rr2 = slides.find((s) => s.text.includes('렌트롤 (2/2)'));
+
+        expect(rr1, '렌트롤 (1/2) 슬라이드 존재').toBeDefined();
+        expect(rr2, '렌트롤 (2/2) 슬라이드 존재').toBeDefined();
+        expect(rr1!.text).toContain('소계');
+        expect(rr2!.text).toContain('합계');
+        expect(rr2!.text).toContain('15개 호실');
+        // First 8 tenants go to slide 1, remaining 7 tenants go to slide 2 (balanced split)
+        expect(rr1!.text).toContain('임차인_8');
+        expect(rr1!.text).not.toContain('임차인_9');
+        expect(rr2!.text).toContain('임차인_9');
+        expect(rr2!.text).toContain('임차인_15');
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 });

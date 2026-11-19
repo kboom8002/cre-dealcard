@@ -8,7 +8,6 @@ import React from "react";
 import {
   BarChart3, BookOpen, Globe, Hammer, Lightbulb, PenLine, Quote, ShieldAlert, TrendingUp,
 } from "lucide-react";
-import { BrokerAvatar } from "@/components/magazine/BrokerAvatar";
 import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
 import { AxiosGlassIssueCard } from "@/components/magazine/AxiosGlassIssueCard";
@@ -19,7 +18,6 @@ import {
   cleanNewsTitle,
   formatPhoneDisplay,
   formatPriceKo,
-  newsSentimentMeta,
   sanitizeDealAddress,
   sanitizeTelHref,
   sentimentMeta,
@@ -342,10 +340,13 @@ export function NewsSection({
           typeof u.url === "string" && /^https?:\/\//i.test(u.url.trim())
             ? u.url.trim()
             : null;
+        const rawSourceLabel =
+          typeof (u as AnyRec).sourceLabel === "string"
+            ? (u as AnyRec).sourceLabel.trim()
+            : "";
         const sourceText =
           (Array.isArray(u.sources) && u.sources.length > 0 ? u.sources.join(", ") : "") ||
-          (u as AnyRec).sourceLabel ||
-          "AI 클러스터링 종합";
+          (rawSourceLabel && rawSourceLabel !== "AI 클러스터링 종합" ? rawSourceLabel : "");
         return {
           id: u.id || `issue-${idx + 1}`,
           tone,
@@ -353,7 +354,6 @@ export function NewsSection({
           brief: cleanedBrief,
           topic,
           channelMeta,
-          sentiment: newsSentimentMeta(u.sentiment || "neutral"),
           source: sourceText,
           clusterCount: u.articleCount || (u as AnyRec).clusterCount || 1,
           safeUrl,
@@ -361,7 +361,6 @@ export function NewsSection({
       })
     : validItems.slice(0, 5).map((n, idx) => {
         const tone: PostItTone = POST_IT_TONES[idx % POST_IT_TONES.length];
-        const s = newsSentimentMeta(n.sentiment);
         const topic = topicLabelKo(n.topic);
         const channelId = resolveNewsChannel(n);
         const channelMeta = NEWS_CHANNEL_MAP[channelId];
@@ -381,8 +380,7 @@ export function NewsSection({
           brief: cleanedBrief,
           topic,
           channelMeta,
-          sentiment: s,
-          source: n.source,
+          source: n.source && n.source !== "AI 클러스터링 종합" ? n.source : "",
           clusterCount: 1,
           safeUrl,
         };
@@ -402,8 +400,6 @@ export function NewsSection({
             size="viewer"
             channelEmoji={card.channelMeta?.emoji}
             channelLabel={card.channelMeta?.shortLabel || card.topic || "부동산·시장"}
-            sentimentSymbol={card.sentiment.symbol}
-            sentimentLabel={card.sentiment.label}
             topic={undefined}
             source={card.source}
             safeUrl={card.safeUrl}
@@ -625,20 +621,20 @@ export function TaxClinicSection({
 // ── 전달하기(ForwardSection)는 클립보드/공유 API 가 필요해 클라이언트 섬 `ForwardSection.tsx` 로 분리 (U-06) ──
 
 
-// ── 중개사 프로필 (실적 0건 숨김, 사진 실패 시 이니셜 아바타, 60대 친화 직통번호·안내 포함) ──────────────
+// ── 중개사 연락처 간소화 바 (이름 + 원터치 전화 걸기, 부수 링크/아바타 제거) ──────────────
 export function BrokerProfileSection({
   name,
-  company,
-  photoUrl,
-  specialties,
-  slug,
-  dealCount,
-  listingCount,
-  bio,
+  company: _company,
+  photoUrl: _photoUrl,
+  specialties: _specialties,
+  slug: _slug,
+  dealCount: _dealCount,
+  listingCount: _listingCount,
+  bio: _bio,
   phone,
-  officeAddress,
-  officeRegNumber,
-  representativeName,
+  officeAddress: _officeAddress,
+  officeRegNumber: _officeRegNumber,
+  representativeName: _representativeName,
 }: {
   name: string;
   company?: string | null;
@@ -653,89 +649,33 @@ export function BrokerProfileSection({
   officeRegNumber?: string | null;
   representativeName?: string | null;
 }) {
-  const stats = [
-    dealCount && dealCount > 0 ? { label: "거래 실적", value: `${dealCount}건` } : null,
-    listingCount && listingCount > 0 ? { label: "진행 매물", value: `${listingCount}건` } : null,
-  ].filter((s): s is { label: string; value: string } => s !== null);
-
-  const safeCompany = sanitizeStatutoryField(company, "officeName");
   const safePhone = sanitizeStatutoryField(phone, "phone");
   const formattedPhone = formatPhoneDisplay(safePhone);
   const telDigits = sanitizeTelHref(safePhone);
 
   return (
-    <div className="space-y-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" style={{ wordBreak: "keep-all" }}>
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm" style={{ wordBreak: "keep-all" }}>
       <h2 className="sr-only">담당 중개사</h2>
-      <div className="flex items-center gap-3">
-        <BrokerAvatar name={name} photoUrl={photoUrl} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-body font-bold text-slate-900">{name}</p>
-          {safeCompany && <p className="truncate text-sm text-slate-700">{safeCompany}</p>}
-          {formattedPhone && (
-            <p className="mt-1 font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums">
-              📞 {formattedPhone}
-            </p>
-          )}
-        </div>
-      </div>
-      {specialties.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {specialties.slice(0, 8).map((s, i) => (
-            <span key={i} className="rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-sm font-medium text-slate-800">{s}</span>
-          ))}
-        </div>
-      )}
-      {bio && <p className="line-clamp-3 text-sm leading-relaxed text-slate-700">{bio}</p>}
-      {stats.length > 0 && (
-        <dl className="flex gap-4 text-sm">
-          {stats.map((s) => (
-            <div key={s.label}>
-              <dt className="text-slate-700">{s.label}</dt>
-              <dd className="font-bold text-slate-900">{s.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      <div className="flex flex-wrap gap-2 pt-1">
-        {telDigits && (
-          <a
-            href={`tel:${telDigits}`}
-            data-track="cta_click"
-            className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2.5 text-[15px] font-bold text-white hover:bg-emerald-800"
-          >
-            <span>📞 전화 걸기</span>
-          </a>
-        )}
-        {slug && (
-          <a
-            href={`/magazine/${encodeURIComponent(slug)}`}
-            className="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-[15px] font-bold text-slate-900 hover:bg-slate-50"
-          >
-            지난 매거진 목록 보기
-          </a>
-        )}
-        {slug && (
-          <a
-            href={`/broker-profile/${encodeURIComponent(slug)}?ref=magazine-profile`}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-sm font-semibold text-indigo-800 underline underline-offset-4 hover:bg-indigo-100"
-          >
-            중개사 프로필 보기
-          </a>
-        )}
-      </div>
-      <BrokerStatutoryFooter
-        company={company}
-        officeAddress={officeAddress}
-        officeRegNumber={officeRegNumber}
-        representativeName={representativeName}
-        displayName={name}
-        phone={phone}
-      />
+      <p className="text-body font-bold text-slate-900">{name}</p>
+      {formattedPhone && telDigits ? (
+        <a
+          href={`tel:${telDigits}`}
+          data-track="cta_click"
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums hover:bg-indigo-50 transition-colors"
+        >
+          <span aria-hidden="true">📞</span>
+          <span>{formattedPhone}</span>
+        </a>
+      ) : formattedPhone ? (
+        <p className="font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums">
+          📞 {formattedPhone}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-// ── 뉴스레터 하단 법정 표시의무 안내 (공인중개사법 제18조의2 — 실제 입력 항목만 노출, 샘플 번호 제외) ──
+// ── 뉴스레터 하단 법정 표시의무 안내 (공인중개사법 제18조의2 — 접힘 기본으로 시각 부담 최소화, text-sm 준수) ──
 export function BrokerStatutoryFooter({
   company,
   officeAddress,
@@ -773,27 +713,32 @@ export function BrokerStatutoryFooter({
   });
 
   return (
-    <div
+    <details
       data-testid="magazine-broker-statutory-disclosure"
-      className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 space-y-1.5 shadow-xs"
+      className="rounded-xl border border-slate-200/80 bg-transparent px-3 py-2 text-sm text-slate-600"
       style={{ wordBreak: "keep-all" }}
     >
-      <p className="text-sm font-bold text-slate-900">중개사무소 법정 표시사항</p>
-      {statutory.hasAny ? (
-        <dl className="space-y-1 text-sm">
-          {statutory.items.map((item) => (
-            <div key={item.key} className="flex flex-wrap items-baseline gap-x-2">
-              <dt className="shrink-0 font-semibold text-slate-700">{item.label}</dt>
-              <dd className="text-slate-900">{item.value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <p className="text-sm text-slate-700">
-          담당 중개사무소의 상세 표시사항은 중개사 프로필에서 최신 정보로 확인하실 수 있습니다.
-        </p>
-      )}
-    </div>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-slate-500 select-none">
+        <span>중개사무소 법정 표시사항</span>
+        <span aria-hidden="true" className="text-slate-400">▾</span>
+      </summary>
+      <div className="mt-2 border-t border-slate-200/70 pt-2">
+        {statutory.hasAny ? (
+          <dl className="space-y-1 text-sm">
+            {statutory.items.map((item) => (
+              <div key={item.key} className="flex flex-wrap items-baseline gap-x-2">
+                <dt className="shrink-0 font-semibold text-slate-600">{item.label}</dt>
+                <dd className="text-slate-800">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-slate-600">
+            담당 중개사무소의 상세 표시사항은 중개사 프로필에서 최신 정보로 확인하실 수 있습니다.
+          </p>
+        )}
+      </div>
+    </details>
   );
 }
 
