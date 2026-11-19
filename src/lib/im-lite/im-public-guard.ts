@@ -19,6 +19,32 @@ export type PublicImDenyReason = 'token_required' | 'revoked' | 'not_found';
 
 type ImSnapshotRecord = Record<string, unknown>;
 
+export function isPreCutoverSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code = String((err as { code?: unknown }).code || '').trim();
+  const msg = String((err as { message?: unknown }).message || '');
+  if (code === '42703' || code === '42P01' || code === 'PGRST204' || code === 'PGRST205') {
+    return true;
+  }
+  return /column .* does not exist|relation .* does not exist|could not find the (?:table|column)/i.test(
+    msg
+  );
+}
+
+export function buildGovernanceUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: 'GOVERNANCE_CHECK_UNAVAILABLE',
+      error: {
+        code: 'GOVERNANCE_CHECK_UNAVAILABLE',
+        message: '공유 링크 상태를 확인할 수 없어 잠시 열람이 제한됩니다. 잠시 후 다시 시도해 주세요.',
+      },
+    },
+    { status: 503 }
+  );
+}
+
 export interface WorkspaceImGuardResult {
   item: WorkspaceItemRecord | null;
   projection: PublicWorkspaceProjectionResult['projection'];
@@ -29,6 +55,7 @@ export interface WorkspaceImGuardResult {
   ownerId: string | null;
   snapshot: ImSnapshotRecord | null;
   dbShareRevoked: boolean;
+  governanceUnavailable: boolean;
 }
 
 export async function resolveWorkspaceImGuard(
@@ -36,14 +63,24 @@ export async function resolveWorkspaceImGuard(
   buildingId: string
 ): Promise<WorkspaceImGuardResult> {
   const cleanId = String(buildingId || '').trim();
+  let governanceUnavailable = false;
   const [item, projectionRes, dbShareRevoked] = await Promise.all([
     supabase
-      ? getWorkspaceItemByAnyId(supabase, cleanId, 'im').catch(() => null)
+      ? getWorkspaceItemByAnyId(supabase, cleanId, 'im').catch((err) => {
+          if (!isPreCutoverSchemaError(err)) governanceUnavailable = true;
+          return null;
+        })
       : Promise.resolve(null),
     supabase
-      ? getPublicWorkspaceProjection(supabase, cleanId, 'im').catch(() => null)
+      ? getPublicWorkspaceProjection(supabase, cleanId, 'im').catch((err) => {
+          if (!isPreCutoverSchemaError(err)) governanceUnavailable = true;
+          return null;
+        })
       : Promise.resolve(null),
-    isBuildingShareLinkRevokedAsync(cleanId, supabase).catch(() => false),
+    isBuildingShareLinkRevokedAsync(cleanId, supabase, { strict: true }).catch((err) => {
+      if (!isPreCutoverSchemaError(err)) governanceUnavailable = true;
+      return false;
+    }),
   ]);
 
   const isDeleted = Boolean(item && (item.deletedAt || item.status === 'archived'));
@@ -64,6 +101,7 @@ export async function resolveWorkspaceImGuard(
         ? projectionRes.projection.snapshot
         : null,
     dbShareRevoked,
+    governanceUnavailable,
   };
 }
 
@@ -107,12 +145,15 @@ export async function verifyPublicImShareToken(params: {
   isDemo?: boolean;
 }): Promise<
   | { allowed: true; reason?: undefined }
-  | { allowed: false; reason: 'invalid_token' | 'revoked' | 'token_required'; status: 403 | 410 }
+  | { allowed: false; reason: 'invalid_token' | 'revoked' | 'token_required' | 'lookup_failed'; status: 403 | 410 | 503 }
 > {
   const token = String(params.token || '').trim();
   if (token) {
     const check = await verifyShareLinkToken({ token, buildingId: params.buildingId });
     if (!check.valid) {
+      if (check.reason === 'lookup_failed') {
+        return { allowed: false, reason: 'lookup_failed', status: 503 };
+      }
       return {
         allowed: false,
         reason: check.reason === 'revoked' ? 'revoked' : 'invalid_token',

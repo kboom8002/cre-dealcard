@@ -18,37 +18,14 @@ import {
 } from '@/lib/security/share-link-tokens';
 import {
   allowDealPublicMemoryFallback,
+  buildGovernanceUnavailableResponse,
   buildLinkRevokedResponse,
   buildShareTokenRequiredResponse,
   isAllowedPublicDemoIm,
   isDemoSeedDisabledForProd,
+  isPreCutoverSchemaError,
   resolveWorkspaceImGuard,
 } from '@/lib/im-lite/im-public-guard';
-
-function isPreCutoverSchemaError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const code = String((err as { code?: unknown }).code || '');
-  const msg = String((err as { message?: unknown }).message || '');
-  if (code === '42703' || code === '42P01' || code === 'PGRST204' || code === 'PGRST205') return true;
-  if (/column .* does not exist|relation .* does not exist|could not find the (?:table|column)/i.test(msg)) {
-    return true;
-  }
-  return !code && !msg.trim();
-}
-
-function buildGovernanceUnavailableResponse(): NextResponse {
-  return NextResponse.json(
-    {
-      ok: false,
-      code: 'GOVERNANCE_CHECK_UNAVAILABLE',
-      error: {
-        code: 'GOVERNANCE_CHECK_UNAVAILABLE',
-        message: '공유 링크 상태를 확인할 수 없어 잠시 열람이 제한됩니다. 잠시 후 다시 시도해 주세요.',
-      },
-    },
-    { status: 503 }
-  );
-}
 
 function escapeHtml(s: string): string {
   if (!s) return '';
@@ -779,6 +756,9 @@ export async function GET(
   if (token) {
     const tokenCheck = await verifyShareLinkToken({ token, buildingId });
     if (!tokenCheck.valid) {
+      if (tokenCheck.reason === 'lookup_failed') {
+        return buildGovernanceUnavailableResponse();
+      }
       return buildLinkRevokedResponse(403);
     }
   }
@@ -794,6 +774,9 @@ export async function GET(
   }
 
   const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
+  if (wsGuard.governanceUnavailable) {
+    return buildGovernanceUnavailableResponse();
+  }
   if (wsGuard.isDeleted) {
     return NextResponse.json({ error: 'IM document has been deleted' }, { status: 404 });
   }

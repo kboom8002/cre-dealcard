@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getInboxState, isUuid } from '@/lib/im-lite/quick-generate-store';
-import { issueShareLinkToken, type ShareLinkChannel } from '@/lib/security/share-link-tokens';
+import {
+  isBuildingShareLinkRevokedAsync,
+  issueShareLinkToken,
+  verifyShareLinkToken,
+  type ShareLinkChannel,
+} from '@/lib/security/share-link-tokens';
 import { getBrokerSubscriptionTier } from '@/domain/subscription/tier-gate';
 import { createModuleLogger } from '@/lib/logger';
 import {
@@ -540,6 +545,67 @@ async function checkEmailDeliveryEligibility(params: {
   };
 }
 
+async function isOutboundTargetLocked(params: {
+  supabase: ServiceSupabase;
+  buildingId: string;
+  threadId: string;
+  clientId: string;
+  shareToken: string;
+}): Promise<boolean> {
+  const { supabase, buildingId, threadId, clientId, shareToken } = params;
+
+  if (buildingId && (await isBuildingShareLinkRevokedAsync(buildingId, supabase))) {
+    return true;
+  }
+
+  if (shareToken) {
+    const check = await verifyShareLinkToken({
+      token: shareToken,
+      ...(buildingId ? { buildingId } : {}),
+    });
+    if (!check.valid && check.reason === 'revoked') {
+      return true;
+    }
+  }
+
+  const candidateThreadIds = Array.from(new Set([threadId, clientId].filter(Boolean)));
+  for (const tid of candidateThreadIds) {
+    if (!isUuid(tid)) continue;
+    try {
+      const { data: gr } = await supabase
+        .from('gate_requests')
+        .select('status')
+        .eq('id', tid)
+        .maybeSingle();
+      if (gr?.status === 'revoked') return true;
+    } catch {
+      // non-blocking on schema gap
+    }
+  }
+
+  if (candidateThreadIds.length > 0) {
+    try {
+      const { data: evRows } = await supabase
+        .from('activity_events')
+        .select('event_type, entity_id, metadata, created_at')
+        .in('event_type', ['thread_link_revoked', 'thread_link_restored', 'link_revoked', 'link_restored'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+      for (const ev of Array.isArray(evRows) ? evRows : []) {
+        const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
+        if (meta.scope === 'recipient_approval') continue;
+        const evTid = String(meta.thread_id || meta.gate_request_id || ev?.entity_id || '').trim();
+        if (!evTid || !candidateThreadIds.includes(evTid)) continue;
+        return ev.event_type === 'thread_link_revoked' || ev.event_type === 'link_revoked';
+      }
+    } catch {
+      // ignore if activity_events mock does not support full chain
+    }
+  }
+
+  return false;
+}
+
 export async function handleOutboundChannelAction(params: {
   action: string;
   userId: string;
@@ -623,6 +689,16 @@ export async function handleOutboundChannelAction(params: {
       relShareUrl = `${relShareUrl}${relShareUrl.includes('?') ? '&' : '?'}sid=${encodeURIComponent(recipientRef)}`;
     }
   } else if (buildingId) {
+    if (await isOutboundTargetLocked({ supabase, buildingId, threadId, clientId, shareToken })) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'LINK_REVOKED_LOCKED',
+          error: '잠금 처리된 스레드 또는 매물에는 공유 링크를 재발급·발송할 수 없습니다. 잠금 해제 후 다시 시도해 주세요.',
+        },
+        { status: 409 }
+      );
+    }
     const issued = await issueShareLinkToken({
       buildingId,
       brokerId: userId,

@@ -65,7 +65,7 @@ export interface VerifyShareLinkInput {
 
 export interface VerifyShareLinkResult {
   valid: boolean;
-  reason?: 'revoked' | 'expired' | 'invalid';
+  reason?: 'revoked' | 'expired' | 'invalid' | 'lookup_failed';
   buildingId?: string;
   brokerId?: string | null;
   recipientId?: string | null;
@@ -862,11 +862,15 @@ export async function restoreShareLinkToken(input: {
   token?: string | null;
   buildingId?: string | null;
   brokerId?: string | null;
+  threadId?: string | null;
+  scope?: 'thread' | 'building';
   isAdmin?: boolean;
-}): Promise<{ ok: boolean; status: number; buildingId?: string; error?: string }> {
+}): Promise<{ ok: boolean; status: number; buildingId?: string; scope?: 'thread' | 'building'; error?: string }> {
   const rawToken = input.token ? String(input.token).trim() : '';
   const rawBuildingId = input.buildingId ? String(input.buildingId).trim() : '';
   const brokerId = input.brokerId ? String(input.brokerId).trim() : null;
+  const rawThreadId = input.threadId ? String(input.threadId).trim() : null;
+  const scope: 'thread' | 'building' = input.scope ?? (rawToken ? 'thread' : 'building');
   const isAdmin = Boolean(input.isAdmin);
 
   if (!rawToken && !rawBuildingId) {
@@ -986,7 +990,7 @@ export async function restoreShareLinkToken(input: {
     }
   }
 
-  if (resolvedBuildingId) {
+  if (scope !== 'thread' && resolvedBuildingId) {
     delete store.revokedBuildings[resolvedBuildingId];
     if (!rawToken) {
       for (const entry of Object.values(store.tokens)) {
@@ -1015,27 +1019,33 @@ export async function restoreShareLinkToken(input: {
       supabaseConfigured = true;
       const table = supabase.from('im_share_links');
       if (rawToken && table && typeof table.update === 'function') {
-        const updQ = table
+        let updQ: ShareDbQueryLike | undefined = table
           .update({
             status: 'active',
             revoked_at: null,
             revoked_reason: null,
           })
           ?.eq?.('token', rawToken);
+        if (brokerId && !isAdmin && typeof updQ?.eq === 'function') {
+          updQ = updQ.eq('broker_id', brokerId);
+        }
         const res = updQ ? await updQ : null;
         if (!res?.error) durablePersisted = true;
-      } else if (resolvedBuildingId && table && typeof table.update === 'function') {
-        const updQ = table
+      } else if (scope !== 'thread' && resolvedBuildingId && table && typeof table.update === 'function') {
+        let updQ: ShareDbQueryLike | undefined = table
           .update({
             status: 'active',
             revoked_at: null,
             revoked_reason: null,
           })
           ?.eq?.('building_id', resolvedBuildingId);
+        if (brokerId && !isAdmin && typeof updQ?.eq === 'function') {
+          updQ = updQ.eq('broker_id', brokerId);
+        }
         const res = updQ ? await updQ : null;
         if (!res?.error) durablePersisted = true;
       }
-      if (resolvedBuildingId && (brokerId || tokenOwnerId || isAdmin)) {
+      if (scope !== 'thread' && resolvedBuildingId && (brokerId || tokenOwnerId || isAdmin)) {
         await updateWorkspaceItemState(supabase, {
           id: resolvedBuildingId,
           userId: brokerId || tokenOwnerId || '',
@@ -1055,6 +1065,8 @@ export async function restoreShareLinkToken(input: {
                 ? resolvedBuildingId
                 : null,
               metadata: {
+                scope,
+                thread_id: rawThreadId || null,
                 building_id: resolvedBuildingId || null,
                 share_token: rawToken || null,
                 revoked: false,
@@ -1080,7 +1092,7 @@ export async function restoreShareLinkToken(input: {
     };
   }
 
-  return { ok: true, status: 200, buildingId: resolvedBuildingId || undefined };
+  return { ok: true, status: 200, buildingId: resolvedBuildingId || undefined, scope };
 }
 
 export function isBuildingShareLinkRevoked(buildingId: string): boolean {
@@ -1091,53 +1103,69 @@ export function isBuildingShareLinkRevoked(buildingId: string): boolean {
 
 export async function isBuildingShareLinkRevokedAsync(
   buildingId: string,
-  supabaseOverride?: unknown
+  supabaseOverride?: unknown,
+  opts?: { strict?: boolean }
 ): Promise<boolean> {
   if (!buildingId) return false;
   if (isBuildingShareLinkRevoked(buildingId)) return true;
+  const strict = Boolean(opts?.strict);
+
+  let supabase: ShareDbClientLike | null = null;
+  try {
+    supabase = asShareDbClient(supabaseOverride) || asShareDbClient(createServiceClient());
+  } catch (err) {
+    if (strict) throw err;
+    return false;
+  }
+  if (!supabase) return false;
 
   try {
-    const supabase = asShareDbClient(supabaseOverride) || asShareDbClient(createServiceClient());
-    if (!supabase) return false;
-
-    const wsItem = await getWorkspaceItemByAnyId(supabase, buildingId).catch(() => null);
+    const wsItem = await getWorkspaceItemByAnyId(supabase, buildingId);
     if (wsItem && (wsItem.revokedAt || wsItem.status === 'revoked')) {
       return true;
     }
+  } catch (err) {
+    if (strict && !isMissingRelationOrColumnError(err)) {
+      throw err;
+    }
+  }
 
-    const safeToken = /^[A-Za-z0-9_.:-]+$/.test(buildingId);
-    const evTable = supabase.from('activity_events');
-    let evQuery: ShareDbQueryLike | undefined =
-      typeof evTable.select === 'function'
-        ? evTable
-            .select('event_type, entity_id, metadata, created_at')
-            ?.in?.('event_type', ['link_revoked', 'link_restored'])
-        : evTable;
-    if (typeof evQuery?.or === 'function' && safeToken) {
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(buildingId)) {
-        evQuery = evQuery.or(`entity_id.eq.${buildingId},metadata->>building_id.eq.${buildingId}`);
-      } else {
-        evQuery = evQuery.or(`metadata->>building_id.eq.${buildingId}`);
-      }
+  const safeToken = /^[A-Za-z0-9_.:-]+$/.test(buildingId);
+  const evTable = supabase.from('activity_events');
+  let evQuery: ShareDbQueryLike | undefined =
+    typeof evTable.select === 'function'
+      ? evTable
+          .select('event_type, entity_id, metadata, created_at')
+          ?.in?.('event_type', ['link_revoked', 'link_restored'])
+      : evTable;
+  if (typeof evQuery?.or === 'function' && safeToken) {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(buildingId)) {
+      evQuery = evQuery.or(`entity_id.eq.${buildingId},metadata->>building_id.eq.${buildingId}`);
+    } else {
+      evQuery = evQuery.or(`metadata->>building_id.eq.${buildingId}`);
     }
-    if (typeof evQuery?.order === 'function') {
-      evQuery = evQuery.order('created_at', { ascending: false });
+  }
+  if (typeof evQuery?.order === 'function') {
+    evQuery = evQuery.order('created_at', { ascending: false });
+  }
+  if (typeof evQuery?.limit === 'function') {
+    evQuery = evQuery.limit(20);
+  }
+  const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
+  if (evRes?.error) {
+    if (strict && !isMissingRelationOrColumnError(evRes.error)) {
+      throw evRes.error;
     }
-    if (typeof evQuery?.limit === 'function') {
-      evQuery = evQuery.limit(20);
-    }
-    const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
-    const evList = Array.isArray(evRes?.data) ? evRes.data : [];
-    for (const ev of evList) {
-      const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
-      const evBId = String(meta.building_id || ev?.entity_id || '').trim();
-      if (evBId !== buildingId) continue;
-      if (meta.scope === 'recipient_approval') continue;
-      if (ev.event_type === 'link_revoked') return true;
-      if (ev.event_type === 'link_restored') return false;
-    }
-  } catch {
-    // ignore
+    return false;
+  }
+  const evList = Array.isArray(evRes?.data) ? evRes.data : [];
+  for (const ev of evList) {
+    const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
+    const evBId = String(meta.building_id || ev?.entity_id || '').trim();
+    if (evBId !== buildingId) continue;
+    if (meta.scope === 'recipient_approval' || meta.scope === 'thread') continue;
+    if (ev.event_type === 'link_revoked') return true;
+    if (ev.event_type === 'link_restored') return false;
   }
   return false;
 }
@@ -1178,64 +1206,115 @@ export async function verifyShareLinkToken(
   const targetBuildingId = expectedBuildingId || preDecodedBuildingId;
 
   // 2. Check Supabase im_share_links & activity_events tables when available (Serverless Cold-Start Resilience)
+  // Kernel K1 Fail-Closed: DB outages/errors must return lookup_failed and NEVER fall through to HMAC.
+  const canUseMemFallback = isVitestTokenStoreEnabled() && !isRealProductionRuntime();
+  let supabase: ShareDbClientLike | null = null;
   try {
-    const supabase = asShareDbClient(createServiceClient());
-    if (supabase) {
-      try {
-        const evTable = supabase.from('activity_events');
-        let evQuery: ShareDbQueryLike | undefined =
-          typeof evTable.select === 'function'
-            ? evTable.select('event_type, entity_id, metadata, created_at')
-            : evTable;
-        if (typeof evQuery?.in === 'function') {
-          evQuery = evQuery.in('event_type', ['link_revoked', 'link_restored', 'thread_link_revoked']);
-        }
-        const safeTarget = /^[A-Za-z0-9_.:-]+$/.test(targetBuildingId);
-        if (targetBuildingId && safeTarget && typeof evQuery?.or === 'function') {
-          if (UUID_RE.test(targetBuildingId)) {
-            evQuery = evQuery.or(`entity_id.eq.${targetBuildingId},metadata->>building_id.eq.${targetBuildingId}`);
-          } else {
-            evQuery = evQuery.or(`metadata->>building_id.eq.${targetBuildingId}`);
-          }
-        }
-        if (typeof evQuery?.order === 'function') {
-          evQuery = evQuery.order('created_at', { ascending: false });
-        }
-        if (typeof evQuery?.limit === 'function') {
-          evQuery = evQuery.limit(50);
-        }
-        const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
-        const events = Array.isArray(evRes?.data) ? evRes.data : [];
-        for (const ev of events) {
-          const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
-          const evToken = String(meta.share_token || meta.token || '').trim();
-          const evBId = String(meta.building_id || ev?.entity_id || '').trim();
-          const matchesToken = Boolean(evToken && evToken === token);
-          const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
-          if (!matchesToken && !matchesBuilding) continue;
+    supabase = asShareDbClient(createServiceClient());
+  } catch (clientErr) {
+    const errMsg = clientErr instanceof Error ? clientErr.message : String(clientErr || '');
+    const isJsdomClientGuard =
+      canUseMemFallback && errMsg.includes('getServerEnv must not be called on the client');
+    if (!isJsdomClientGuard) {
+      log.warn({ errMsg }, 'verifyShareLinkToken service client init failed (fail-closed)');
+      return { valid: false, reason: 'lookup_failed' };
+    }
+  }
 
-          if (ev.event_type === 'thread_link_revoked') {
-            if (matchesToken) {
-              return { valid: false, reason: 'revoked' };
-            }
-            continue;
-          }
-          if (ev.event_type === 'link_revoked') {
-            if (meta.scope === 'thread' ? matchesToken : matchesToken || matchesBuilding) {
-              return { valid: false, reason: 'revoked' };
-            }
-            continue;
-          }
-          if (ev.event_type === 'link_restored') {
-            if (matchesToken || (!evToken && meta.scope !== 'recipient_approval')) {
-              break;
-            }
-          }
+  if (!supabase && !canUseMemFallback) {
+    return { valid: false, reason: 'lookup_failed' };
+  }
+
+  let buildingRestoredInDb = false;
+  if (supabase) {
+    try {
+      const evTable = supabase.from('activity_events');
+      let evQuery: ShareDbQueryLike | undefined =
+        typeof evTable.select === 'function'
+          ? evTable.select('event_type, entity_id, metadata, created_at')
+          : evTable;
+      if (typeof evQuery?.in === 'function') {
+        evQuery = evQuery.in('event_type', ['link_revoked', 'link_restored', 'thread_link_revoked']);
+      }
+      const safeTarget = /^[A-Za-z0-9_.:-]+$/.test(targetBuildingId);
+      if (targetBuildingId && safeTarget && typeof evQuery?.or === 'function') {
+        if (UUID_RE.test(targetBuildingId)) {
+          evQuery = evQuery.or(`entity_id.eq.${targetBuildingId},metadata->>building_id.eq.${targetBuildingId}`);
+        } else {
+          evQuery = evQuery.or(`metadata->>building_id.eq.${targetBuildingId}`);
         }
-      } catch {
-        // non-blocking if activity_events unavailable
+      }
+      if (typeof evQuery?.order === 'function') {
+        evQuery = evQuery.order('created_at', { ascending: false });
+      }
+      if (typeof evQuery?.limit === 'function') {
+        evQuery = evQuery.limit(50);
+      }
+      const evRes = evQuery && typeof evQuery.then === 'function' ? await evQuery : null;
+      if (evRes?.error && !isMissingRelationOrColumnError(evRes.error)) {
+        log.warn({ code: evRes.error.code, message: evRes.error.message }, 'verifyShareLinkToken activity_events query failed (fail-closed)');
+        return { valid: false, reason: 'lookup_failed' };
       }
 
+      const events = Array.isArray(evRes?.data) ? evRes.data : [];
+      let buildingLockState: boolean | null = null;
+      let tokenLockState: boolean | null = null;
+
+      for (const ev of events) {
+        const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
+        if (meta.scope === 'recipient_approval') continue;
+        const evToken = String(meta.share_token || meta.token || '').trim();
+        const evBId = String(meta.building_id || ev?.entity_id || '').trim();
+        const matchesToken = Boolean(evToken && evToken === token);
+        const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
+        if (!matchesToken && !matchesBuilding) continue;
+
+        if (ev.event_type === 'thread_link_revoked') {
+          if (matchesToken && tokenLockState === null) {
+            tokenLockState = true;
+          }
+          continue;
+        }
+        if (ev.event_type === 'link_revoked') {
+          if (meta.scope === 'thread') {
+            if (matchesToken && tokenLockState === null) {
+              tokenLockState = true;
+            }
+          } else if ((matchesToken || matchesBuilding) && buildingLockState === null) {
+            buildingLockState = true;
+          }
+          continue;
+        }
+        if (ev.event_type === 'link_restored') {
+          if (meta.scope === 'thread') {
+            if (matchesToken && tokenLockState === null) {
+              tokenLockState = false;
+            }
+          } else {
+            if (matchesToken && tokenLockState === null) {
+              tokenLockState = false;
+            }
+            if ((matchesBuilding || !evToken) && buildingLockState === null) {
+              buildingLockState = false;
+            }
+          }
+        }
+      }
+
+      if (buildingLockState === true || tokenLockState === true) {
+        return { valid: false, reason: 'revoked' };
+      }
+      if (buildingLockState === false) {
+        buildingRestoredInDb = true;
+      }
+    } catch (evThrown) {
+      if (!isMissingRelationOrColumnError(evThrown)) {
+        log.warn({ err: evThrown }, 'verifyShareLinkToken activity_events check threw (fail-closed)');
+        return { valid: false, reason: 'lookup_failed' };
+      }
+    }
+
+    try {
       const q = supabase
         .from('im_share_links')
         .select?.('token, building_id, broker_id, created_by, recipient_id, status, expires_at, revoked_at')
@@ -1258,6 +1337,11 @@ export async function verifyShareLinkToken(
             ? await fbQ.single()
             : null;
       }
+      if (res?.error && !isMissingRelationOrColumnError(res.error)) {
+        log.warn({ code: res.error.code, message: res.error.message }, 'verifyShareLinkToken im_share_links query failed (fail-closed)');
+        return { valid: false, reason: 'lookup_failed' };
+      }
+
       const row = toFirstShareRow(res?.data);
       if (row) {
         const rowBuildingId = row.building_id ? String(row.building_id).trim() : '';
@@ -1268,6 +1352,10 @@ export async function verifyShareLinkToken(
           return { valid: false, reason: 'invalid' };
         }
         if (row.status === 'revoked' || Boolean(row.revoked_at)) {
+          return { valid: false, reason: 'revoked' };
+        }
+        const effectiveBuildingCheck = rowBuildingId || preDecodedBuildingId || expectedBuildingId;
+        if (effectiveBuildingCheck && store.revokedBuildings[effectiveBuildingCheck] && !buildingRestoredInDb) {
           return { valid: false, reason: 'revoked' };
         }
         if (row.status === 'expired') {
@@ -1283,7 +1371,7 @@ export async function verifyShareLinkToken(
           return { valid: false, reason: 'expired' };
         }
 
-        const effectiveBuildingId = rowBuildingId || preDecodedBuildingId || expectedBuildingId;
+        const effectiveBuildingId = effectiveBuildingCheck;
         if (!isSignedSlk) {
           const canonicalOwnerId = effectiveBuildingId
             ? await resolveCanonicalBuildingOwnerId(supabase, effectiveBuildingId)
@@ -1312,9 +1400,12 @@ export async function verifyShareLinkToken(
           channel: decodedMeta?.ch || null,
         };
       }
+    } catch (dbThrown) {
+      if (!isMissingRelationOrColumnError(dbThrown)) {
+        log.warn({ err: dbThrown }, 'verifyShareLinkToken DB lookup threw (fail-closed)');
+        return { valid: false, reason: 'lookup_failed' };
+      }
     }
-  } catch {
-    // Fall through to HMAC & in-memory verification
   }
 
   // 3. Verify HMAC-SHA256 signed token (slk.<payload>.<sig>)
@@ -1323,7 +1414,7 @@ export async function verifyShareLinkToken(
     if (expectedBuildingId && b !== expectedBuildingId) {
       return { valid: false, reason: 'invalid' };
     }
-    if (store.revokedBuildings[b]) {
+    if (store.revokedBuildings[b] && !buildingRestoredInDb) {
       return { valid: false, reason: 'revoked' };
     }
     if (exp <= Date.now()) {
@@ -1339,7 +1430,10 @@ export async function verifyShareLinkToken(
     };
   }
 
-  // 4. Check registered in-memory token entry if any
+  // 4. Check registered in-memory token entry if any (test/vitest fallback only)
+  if (!canUseMemFallback) {
+    return { valid: false, reason: 'invalid' };
+  }
   const memEntry = store.tokens[token];
   if (memEntry) {
     if (expectedBuildingId && memEntry.buildingId !== expectedBuildingId) {

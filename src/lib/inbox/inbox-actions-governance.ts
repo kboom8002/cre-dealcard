@@ -109,11 +109,15 @@ export async function handleLinkRevokeAction(params: {
       loggedViaTokenHelper = true;
     }
   } else {
+    const restoreScope: 'thread' | 'building' =
+      shareToken && body?.scope !== 'building' ? 'thread' : 'building';
     if (shareToken) {
       const restoreRes = await restoreShareLinkToken({
         token: shareToken,
         buildingId: buildingId || undefined,
         brokerId: userId,
+        threadId: threadId || undefined,
+        scope: restoreScope,
         isAdmin,
       });
       if (!restoreRes.ok) {
@@ -125,17 +129,13 @@ export async function handleLinkRevokeAction(params: {
       if (!buildingId && restoreRes.buildingId) {
         buildingId = restoreRes.buildingId;
       }
-      const memStore = (globalThis as any).__CRE_SHARE_LINK_TOKEN_STORE__;
-      if (buildingId && memStore?.revokedBuildings?.[buildingId]) {
-        delete memStore.revokedBuildings[buildingId];
-      }
-      if (buildingId) {
-        setBuildingRevokedState(buildingId, false, shareToken);
-      }
+      loggedViaTokenHelper = true;
     } else if (buildingId) {
       const restoreRes = await restoreShareLinkToken({
         buildingId,
         brokerId: userId,
+        threadId: threadId || undefined,
+        scope: 'building',
         isAdmin,
       });
       if (!restoreRes.ok) {
@@ -144,6 +144,7 @@ export async function handleLinkRevokeAction(params: {
           { status: restoreRes.status || 400 }
         );
       }
+      loggedViaTokenHelper = true;
     }
   }
 
@@ -166,7 +167,7 @@ export async function handleLinkRevokeAction(params: {
   }
 
   if (supabase) {
-    if (buildingId && (!shareToken || !revoked)) {
+    if (buildingId && !shareToken) {
       try {
         await updateWorkspaceItemState(supabase, {
           id: buildingId,
@@ -185,7 +186,7 @@ export async function handleLinkRevokeAction(params: {
       }
     }
 
-    if (buildingId && isUuid(buildingId) && (!shareToken || !revoked)) {
+    if (buildingId && isUuid(buildingId) && !shareToken) {
       const docErrRes = await updateLatestDocumentObjectBody(supabase, {
         buildingId,
         userId,
