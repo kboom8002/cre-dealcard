@@ -24,6 +24,8 @@ const SENSITIVE_KEY_PREFIXES: readonly string[] = [
   "cre-newsletter-",
   "cre_im_draft_",
   "ideal_personas_",
+  "kakao_text_",
+  "cre_qa_",
 ];
 
 export function normalizeWorkspaceUserId(userId?: string | null): string | null {
@@ -50,6 +52,7 @@ const SENSITIVE_EXACT_STORAGE_KEYS = new Set<string>([
   "credeal-qa-pin-role",
   "credeal-qa-signoff-session-v1",
   "dealcard_recent_searches",
+  "memo_transfer",
 ]);
 
 export function isSensitiveWorkspaceStorageKey(key: string): boolean {

@@ -31,6 +31,7 @@ import {
   markInboxSchemaCapUnsupported,
 } from './inbox-schema-caps';
 import {
+  hashEmailForSuppression,
   isEmailSuppressed,
   recordEmailSuppression,
   SUPPRESSION_LOOKUP_FAILED,
@@ -712,6 +713,7 @@ export async function handleToggleNewsletterAction(params: {
     }
 
     const optInPending = subscribed && !hasConfirmedConsentRecord;
+    const toggleEmailHash = hashEmailForSuppression(lookupEmail || clientEmail || '') || null;
     const { error: toggleEvErr } = await supabaseClient.from('activity_events').insert({
       actor_id: userId,
       event_type: 'newsletter_subscription_toggled',
@@ -721,9 +723,8 @@ export async function handleToggleNewsletterAction(params: {
         thread_id: threadId || targetKey,
         client_id: targetKey,
         raw_client_id: rawClientId,
-        client_name: clientName || null,
-        client_phone: clientPhone || null,
-        client_email: lookupEmail || clientEmail || null,
+        email_hash: toggleEmailHash,
+        client_email_hash: toggleEmailHash,
         newsletter_subscribed: subscribed && hasConfirmedConsentRecord,
         subscribed,
         newsletter_opt_in_pending: optInPending,
@@ -1566,7 +1567,12 @@ export async function handleDeleteClientAction(params: {
 }
 
 /** Non-statutory CRM events whose metadata carries client PII (name/phone/email/memo). */
-const CLIENT_PII_EVENT_TYPES = ['custom_client_upserted', 'inbox_custom_client_upserted', 'call_note_recorded'] as const;
+const CLIENT_PII_EVENT_TYPES = [
+  'custom_client_upserted',
+  'inbox_custom_client_upserted',
+  'call_note_recorded',
+  'newsletter_subscription_toggled',
+] as const;
 
 /**
  * WP-7.3E P1-10: on client deletion, scrub PII from that client's prior non-statutory CRM events.
@@ -1607,12 +1613,22 @@ async function scrubDeletedClientPiiEvents(
       const entityMatches =
         String(ev.event_type) === 'call_note_recorded' && rawClientId && isUuid(rawClientId) && ev.entity_id === rawClientId;
       if (!refs.some((r) => keys.has(r)) && !entityMatches) continue;
+      const legacyEmailHash =
+        (typeof meta.email_hash === 'string' && meta.email_hash.trim()) ||
+        (typeof meta.client_email_hash === 'string' && meta.client_email_hash.trim()) ||
+        (typeof meta.client_email === 'string' && meta.client_email.trim()
+          ? hashEmailForSuppression(meta.client_email)
+          : '') ||
+        null;
       const scrubbed: Record<string, unknown> = {
         client_id: meta.client_id ?? null,
         raw_client_id: meta.raw_client_id ?? null,
         thread_id: meta.thread_id ?? null,
         building_id: meta.building_id ?? null,
         consent_status: meta.consent_status ?? null,
+        ...(legacyEmailHash
+          ? { email_hash: legacyEmailHash, client_email_hash: legacyEmailHash }
+          : {}),
         newsletter_subscribed: false,
         pii_scrubbed_at: new Date().toISOString(),
         pii_scrub_reason: 'client_deleted',

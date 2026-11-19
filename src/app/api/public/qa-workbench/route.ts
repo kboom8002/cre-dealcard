@@ -3,13 +3,18 @@
  * @description Server-synced QA Workbench persistence (A-1), Live Auto-Verifier Probe (A-2),
  * and 1-Click Axis 4~6 Test Lead & Subscriber Fixture Seeder (A-3) for /newsletter-inbox-test.
  */
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBroker } from "@/lib/auth-guard";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { isRealProductionRuntime } from "@/lib/env";
 import { getClientIp } from "@/lib/magazine/public-guard";
+import {
+  getConfiguredQaSecrets,
+  isPublicQaFlagEnabled,
+  resolveQaKeyFromRequest,
+  type QaKeyRole,
+} from "@/lib/security/qa-gate";
 import {
   verifyShareLinkToken,
   isBuildingShareLinkRevoked,
@@ -292,82 +297,12 @@ function sanitizePinForViewer(
   };
 }
 
-type QaKeyRole = "master" | "tester" | "broker" | "none";
-
-function timingSafeMatchKey(a: string, b: string): boolean {
-  if (!a || !b || a.length !== b.length) {
-    return false;
-  }
-  try {
-    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-  } catch {
-    return false;
-  }
-}
-
-function getConfiguredQaSecrets(): {
-  masterKey: string;
-  portalPasscode: string;
-  testerKey: string;
-  brokerKey: string;
-  anyConfigured: boolean;
-} {
-  const masterKey = (process.env.QA_ACCESS_KEY || "").trim();
-  const portalPasscode = (process.env.QA_PORTAL_PASSCODE || "").trim();
-  const testerKey = (process.env.QA_TESTER_ACCESS_KEY || "").trim();
-  const brokerKey = (process.env.QA_BROKER_ACCESS_KEY || "").trim();
-  return {
-    masterKey,
-    portalPasscode,
-    testerKey,
-    brokerKey,
-    anyConfigured: Boolean(masterKey || portalPasscode || testerKey || brokerKey),
-  };
-}
-
-function isPublicQaFlagEnabled(): boolean {
-  const flag = (process.env.CREDEAL_ENABLE_PUBLIC_QA || "").trim().toLowerCase();
-  return flag === "true" || flag === "1";
-}
-
-function matchQaKeyRole(candidate: string): QaKeyRole {
-  if (!candidate) return "none";
-  const { masterKey, portalPasscode, testerKey, brokerKey, anyConfigured } =
-    getConfiguredQaSecrets();
-  if (!anyConfigured) return "none";
-
-  if (timingSafeMatchKey(masterKey, candidate)) return "master";
-  if (timingSafeMatchKey(portalPasscode, candidate)) return "master";
-  if (timingSafeMatchKey(testerKey, candidate)) return "tester";
-  if (timingSafeMatchKey(brokerKey, candidate)) return "broker";
-  return "none";
-}
-
 function resolveQaKeyRole(req: NextRequest): QaKeyRole {
-  if (!getConfiguredQaSecrets().anyConfigured) {
-    return "none";
-  }
-  const candidates = [
-    (req.headers.get("x-qa-access-key") || "").trim(),
-    (req.headers.get("x-qa-passcode") || "").trim(),
-    (req.cookies.get("cre_qa_key")?.value || "").trim(),
-    (
-      req.nextUrl.searchParams.get("qaKey") ||
-      req.nextUrl.searchParams.get("key") ||
-      req.nextUrl.searchParams.get("passcode") ||
-      ""
-    ).trim(),
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    const matched = matchQaKeyRole(candidate);
-    if (matched !== "none") return matched;
-  }
-  return "none";
+  return resolveQaKeyFromRequest(req).role;
 }
 
 function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
-  return resolveQaKeyRole(req) !== "none";
+  return resolveQaKeyFromRequest(req).allowed;
 }
 
 function isQaEnforceFlagEnabled(): boolean {
@@ -1587,7 +1522,7 @@ export async function POST(req: NextRequest) {
                       .maybeSingle();
                     if (ssotRow) {
                       dbDocExists = true;
-                      const pubLayer = (ssotRow.layers as Record<string, any>)?.public_data;
+                      const pubLayer = (ssotRow.layers as Record<string, unknown> | null | undefined)?.public_data as Record<string, unknown> | undefined;
                       const priceVal = Number(
                         (ssotRow as Record<string, unknown>).official_land_price_per_sqm ??
                           pubLayer?.officialLandPricePerSqm ??

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { isUuid } from "@/lib/im-lite/quick-generate-store";
+import { getPublicWorkspaceProjection } from "@/lib/workspace/workspace-repository";
+import { isLegacyBuildingRowPublic } from "@/lib/deal-card/publish-sync";
+import { safeErrorMessage } from "@/lib/api-error";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -40,24 +45,63 @@ function parseBudgetToNumeric(budgetText: string): { min: number; max: number } 
  */
 export async function POST(req: NextRequest) {
   try {
+    if (process.env.NODE_ENV !== "test") {
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+      const allowed = await checkRateLimit(ip, "reverse_onboarding", 10, 60_000);
+      if (!allowed) {
+        return NextResponse.json(
+          { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+          { status: 429, headers: { "Retry-After": "60" } }
+        );
+      }
+    }
+
     const json = await req.json();
     const { buildingId, name, phone, company, budget, message } = json;
 
     if (!buildingId || !name || !phone || !budget) {
       return NextResponse.json({ ok: false, error: "필수 정보가 누락되었습니다." }, { status: 400 });
     }
+    const cleanBuildingId = String(buildingId).trim();
+    if (!isUuid(cleanBuildingId)) {
+      return NextResponse.json({ ok: false, error: "유효한 매물 식별자가 아닙니다." }, { status: 400 });
+    }
 
     const supabase = createServiceClient();
+
+    // 0. Kernel K2: workspace_items 공개/잠금/초안 여부 선검증
+    const wsProj = await getPublicWorkspaceProjection(supabase, cleanBuildingId).catch(() => null);
+    if (wsProj?.found) {
+      if (wsProj.revoked) {
+        return NextResponse.json(
+          { ok: false, error: "담당 공인중개사가 열람 링크를 잠근 매물입니다." },
+          { status: 403 }
+        );
+      }
+      if (wsProj.deleted || !wsProj.projection) {
+        return NextResponse.json(
+          { ok: false, error: "비공개 또는 존재하지 않는 매물입니다." },
+          { status: 404 }
+        );
+      }
+    }
 
     // 1. 매물 정보 및 소유주(브로커) 확인
     const { data: building, error: bldgError } = await supabase
       .from("building_ssot_lite")
-      .select("owner_id, area_signal, asset_type")
-      .eq("id", buildingId)
+      .select("owner_id, area_signal, asset_type, status")
+      .eq("id", cleanBuildingId)
       .single();
 
     if (bldgError || !building) {
       return NextResponse.json({ ok: false, error: "존재하지 않는 매물입니다." }, { status: 404 });
+    }
+
+    if (!wsProj?.found && !isLegacyBuildingRowPublic((building as { status?: string | null }).status)) {
+      return NextResponse.json(
+        { ok: false, error: "비공개 또는 작성 중인 매물입니다." },
+        { status: 404 }
+      );
     }
 
     const brokerId = building.owner_id;
@@ -121,8 +165,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ ok: true, buyerIntentId: buyerIntent.id });
-  } catch (err: any) {
+  } catch (err: unknown) {
     log.error("Reverse onboarding error:", err);
-    return NextResponse.json({ ok: false, error: err.message || "서버 내부 오류" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: safeErrorMessage(err, "요청 처리 중 서버 오류가 발생했습니다.") },
+      { status: 500 }
+    );
   }
 }

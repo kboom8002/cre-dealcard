@@ -40,12 +40,16 @@ const serverEnvSchema = z.object({
 export { serverEnvSchema as serverSchema };
 
 export function isRealProductionRuntime(): boolean {
-  return (
-    process.env.NODE_ENV === "production" &&
-    !process.env.CI &&
-    !String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").includes("mock.supabase.co") &&
-    process.env.NEXT_PHASE !== "phase-production-build"
+  const notBuild =
+    process.env.NEXT_PHASE !== "phase-production-build" &&
+    process.env.NEXT_PHASE !== "phase-export";
+  const notMockUrl = !String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").includes(
+    "mock.supabase.co"
   );
+  if (process.env.VERCEL_ENV === "production") {
+    return notBuild && notMockUrl;
+  }
+  return process.env.NODE_ENV === "production" && !process.env.CI && notMockUrl && notBuild;
 }
 
 // For testing or build environments, we might have partial environment variables.

@@ -94,61 +94,126 @@ function isMissingColumnErr(err: { code?: string; message?: string } | null | un
   );
 }
 
+interface PersistSuppressionResult {
+  ok: boolean;
+  persisted: number;
+  skippedMissingTable?: boolean;
+  error?: string;
+}
+
+const BACKFILL_PAGE_SIZE = 500;
+
+interface BackfillQueryChain
+  extends PromiseLike<{
+    data: unknown;
+    error: { code?: string; message?: string } | null;
+  }> {
+  select: (cols: string) => BackfillQueryChain;
+  eq: (col: string, val: string) => BackfillQueryChain;
+  not?: (col: string, op: string, val: null) => BackfillQueryChain;
+  order?: (col: string, opts: { ascending: boolean }) => BackfillQueryChain;
+  range?: (from: number, to: number) => BackfillQueryChain;
+}
+
 /**
- * WP-7.8B NL P0-3b: `magazine_purge_unsubscribed(30)` sets `subscriber_email = null`.
- * Persist SHA-256 email hashes into `public.email_suppressions` BEFORE running the RPC
- * so PII scrubbing never erases permanent opt-out suppression.
+ * WP-7.8B / PR-1D (Kernel K3): `magazine_purge_unsubscribed(30)` sets `subscriber_email = null`.
+ * Page through all unsubscribed `magazine_subscribers` rows (`500` per batch) and persist
+ * SHA-256 email hashes into `public.email_suppressions` BEFORE running the RPC.
+ * Never swallows DB errors; returns `{ ok: false }` so callers abort PII scrubbing.
  */
 async function persistUnsubscribedHashesBeforePurge(
   supabase: ReturnType<typeof createServiceClient>,
-): Promise<void> {
-  try {
-    const cutoffMs = Date.now() - 30 * 86_400_000;
-    let subRes = await supabase
-      .from('magazine_subscribers')
-      .select('id, broker_id, broker_user_id, subscriber_email, status, unsubscribed_at');
+): Promise<PersistSuppressionResult> {
+  let persisted = 0;
+  const userIdBySlug = new Map<string, string>();
+  const unresolvedSlugs = new Set<string>();
+
+  for (let offset = 0; ; offset += BACKFILL_PAGE_SIZE) {
+    const buildQuery = (withBrokerUserId: boolean) => {
+      const cols = withBrokerUserId
+        ? 'id, broker_id, broker_user_id, subscriber_email, status, unsubscribed_at'
+        : 'id, broker_id, subscriber_email, status, unsubscribed_at';
+      const table = supabase.from('magazine_subscribers') as unknown as BackfillQueryChain;
+      let q: BackfillQueryChain = table
+        .select(cols)
+        .eq('status', 'unsubscribed');
+      if (typeof q?.not === 'function') {
+        q = q.not('subscriber_email', 'is', null);
+      }
+      if (typeof q?.order === 'function') {
+        q = q.order('id', { ascending: true });
+      }
+      if (typeof q?.range === 'function') {
+        q = q.range(offset, offset + BACKFILL_PAGE_SIZE - 1);
+      }
+      return { q, hasRange: typeof q?.range === 'function' };
+    };
+
+    let { q, hasRange } = buildQuery(true);
+    let subRes = await q;
     if (subRes?.error && isMissingColumnErr(subRes.error)) {
-      subRes = await supabase
-        .from('magazine_subscribers')
-        .select('id, broker_id, subscriber_email, status, unsubscribed_at');
+      const fb = buildQuery(false);
+      q = fb.q;
+      hasRange = fb.hasRange;
+      subRes = await q;
     }
+
+    if (subRes?.error) {
+      const errCode = String(subRes.error.code || '');
+      const errMsg = String(subRes.error.message || '');
+      const missingTable =
+        errCode === '42P01' ||
+        errCode === 'PGRST205' ||
+        /relation .* does not exist|could not find the table/i.test(errMsg);
+      if (missingTable) {
+        return { ok: true, persisted, skippedMissingTable: true };
+      }
+      return {
+        ok: false,
+        persisted,
+        error: `수신거부 구독자 조회 실패: ${errMsg || errCode || 'UNKNOWN_ERROR'}`,
+      };
+    }
+
     const rawRows = (Array.isArray(subRes?.data) ? subRes.data : []) as UnsubscribedSubscriberRow[];
+    if (rawRows.length === 0) break;
+
     const candidates = rawRows.filter((row) => {
       const email = typeof row?.subscriber_email === 'string' ? row.subscriber_email.trim() : '';
-      if (!email || !hashEmailForSuppression(email)) return false;
-      const isStatusUnsub = String(row?.status || '').toLowerCase() === 'unsubscribed';
-      const unsubMs = row?.unsubscribed_at ? Date.parse(String(row.unsubscribed_at)) : Number.NaN;
-      const isOlderThanCutoff = Number.isFinite(unsubMs) && unsubMs <= cutoffMs;
-      return isOlderThanCutoff || isStatusUnsub;
+      return Boolean(email && hashEmailForSuppression(email));
     });
-    if (candidates.length === 0) return;
 
-    const slugSet = new Set<string>();
+    const batchSlugs: string[] = [];
     for (const row of candidates) {
       const bUid = typeof row.broker_user_id === 'string' ? row.broker_user_id.trim() : '';
       const bId = typeof row.broker_id === 'string' ? row.broker_id.trim() : '';
-      if (!isUuid(bUid) && bId && !isUuid(bId)) {
-        slugSet.add(bId);
+      if (!isUuid(bUid) && bId && !isUuid(bId) && !userIdBySlug.has(bId) && !unresolvedSlugs.has(bId)) {
+        batchSlugs.push(bId);
       }
     }
 
-    const userIdBySlug = new Map<string, string>();
-    if (slugSet.size > 0) {
-      try {
-        const { data: bpRows } = await supabase
-          .from('broker_profiles')
-          .select('user_id, slug')
-          .in('slug', Array.from(slugSet));
-        for (const bp of (Array.isArray(bpRows) ? bpRows : []) as Array<{
-          user_id?: string | null;
-          slug?: string | null;
-        }>) {
-          if (bp?.slug && bp?.user_id && isUuid(bp.user_id)) {
-            userIdBySlug.set(String(bp.slug).trim(), String(bp.user_id).trim());
-          }
+    if (batchSlugs.length > 0) {
+      const { data: bpRows, error: bpErr } = await supabase
+        .from('broker_profiles')
+        .select('user_id, slug')
+        .in('slug', Array.from(new Set(batchSlugs)));
+      if (bpErr && !isMissingColumnErr(bpErr)) {
+        return {
+          ok: false,
+          persisted,
+          error: `중개사 슬러그 조회 실패: ${bpErr.message || bpErr.code || 'UNKNOWN_ERROR'}`,
+        };
+      }
+      for (const s of batchSlugs) unresolvedSlugs.add(s);
+      for (const bp of (Array.isArray(bpRows) ? bpRows : []) as Array<{
+        user_id?: string | null;
+        slug?: string | null;
+      }>) {
+        if (bp?.slug && bp?.user_id && isUuid(bp.user_id)) {
+          const cleanSlug = String(bp.slug).trim();
+          userIdBySlug.set(cleanSlug, String(bp.user_id).trim());
+          unresolvedSlugs.delete(cleanSlug);
         }
-      } catch {
-        // non-blocking slug resolution fallback
       }
     }
 
@@ -167,34 +232,65 @@ async function persistUnsubscribedHashesBeforePurge(
         ? userIdBySlug.get(rawBrokerId) ?? null
         : null;
 
-      await recordEmailSuppression(supabase, {
+      const recRes = await recordEmailSuppression(supabase, {
         email,
         brokerId: resolvedBrokerUuid,
         scope: resolvedBrokerUuid ? 'broker' : 'global',
         reason: 'unsubscribe',
         source: 'retention_purge_unsubscribed',
       });
+      if (!recRes?.ok) {
+        return {
+          ok: false,
+          persisted,
+          error: `수신거부 해시 저장 실패: ${recRes?.error || 'RECORD_SUPPRESSION_FAILED'}`,
+        };
+      }
+      persisted += 1;
     }
-  } catch {
-    // Non-blocking pre-cutover fallback
+
+    if (!hasRange || rawRows.length < BACKFILL_PAGE_SIZE) break;
   }
+
+  return { ok: true, persisted };
 }
 
 /**
  * 매거진 파기 RPC. 함수가 아직 없으면(마이그레이션 20261004000014 미적용) 성공으로 위장하지 않고 정직한 에러를 기록한다.
- * 한 RPC 실패가 다른 파기를 막지 않도록 개별 try/catch.
+ * 한 RPC 실패가 다른 파기를 막지 않도록 개별 try/catch, 단 수신거부 사전 해시 백필 실패 시 unsubscribed 스크럽 RPC는 즉시 중단한다.
  */
 async function purgeMagazine(
   supabase: ReturnType<typeof createServiceClient>,
 ): Promise<Record<string, MagazinePurgeEntry>> {
-  await persistUnsubscribedHashesBeforePurge(supabase);
+  const out: Record<string, MagazinePurgeEntry> = {};
+  let backfill: PersistSuppressionResult;
+  try {
+    backfill = await persistUnsubscribedHashesBeforePurge(supabase);
+  } catch (err) {
+    backfill = {
+      ok: false,
+      persisted: 0,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  out.suppressionBackfill = {
+    ok: backfill.ok,
+    result: backfill.persisted,
+    ...(backfill.error ? { error: backfill.error } : {}),
+  };
 
   const steps: Array<[string, string, Record<string, number>]> = [
     ['unsubscribed', 'magazine_purge_unsubscribed', { p_days: 30 }],
     ['oldEvents', 'magazine_purge_old_events', { p_days: 365 }],
   ];
-  const out: Record<string, MagazinePurgeEntry> = {};
   for (const [key, fn, args] of steps) {
+    if (key === 'unsubscribed' && !backfill.ok) {
+      out[key] = {
+        ok: false,
+        error: backfill.error || '수신거부 해시 백필 실패로 파기 RPC 실행이 중단되었습니다.',
+      };
+      continue;
+    }
     try {
       const { data, error } = await supabase.rpc(fn, args);
       if (error) {

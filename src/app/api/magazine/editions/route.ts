@@ -19,6 +19,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
 import { loadBrokerNewsletterPreferences } from "@/app/api/broker/magazine/preferences/route";
 import { getInboxState } from "@/lib/im-lite/quick-generate-store";
+import { hashEmailForSuppression } from "@/lib/legal/email-suppression";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -348,6 +349,11 @@ export async function GET(request: NextRequest) {
         const rawCId = String(meta.raw_client_id ?? cId.replace(/^(?:custom[-_]|cli-)/, "")).trim();
         const pKey = normalizePhoneKey(meta.client_phone ?? meta.phone);
         const eKey = normalizeEmailKey(meta.client_email ?? meta.email);
+        const rawEmailHash = String(meta.email_hash ?? meta.client_email_hash ?? "").trim().toLowerCase();
+        const computedEmailHash = !rawEmailHash && (meta.client_email ?? meta.email)
+          ? hashEmailForSuppression(String(meta.client_email ?? meta.email))
+          : "";
+        const effEmailHash = rawEmailHash || computedEmailHash;
         if (cId) recordToggleOverride(cId, subVal, evTs);
         if (rawCId) {
           recordToggleOverride(rawCId, subVal, evTs);
@@ -356,6 +362,7 @@ export async function GET(request: NextRequest) {
         }
         if (pKey) recordToggleOverride(pKey, subVal, evTs);
         if (eKey) recordToggleOverride(eKey, subVal, evTs);
+        if (effEmailHash) recordToggleOverride(`eh:${effEmailHash}`, subVal, evTs);
       } else if (
         ev?.event_type === "magazine_subscribed" ||
         ev?.event_type === "magazine_subscribe" ||
@@ -423,7 +430,15 @@ export async function GET(request: NextRequest) {
         recordDbUnsub(eKey, unsubTs);
       } else if (statusVal === "active" && confirmVal !== "pending" && k) {
         const subId = s?.id ? String(s.id).trim() : "";
-        const override = resolveLatestOverride(subId ? `sub_${subId}` : "", subId, k, pKey, eKey);
+        const emailHash = typeof emailVal === "string" && emailVal.trim() ? hashEmailForSuppression(emailVal) : "";
+        const override = resolveLatestOverride(
+          subId ? `sub_${subId}` : "",
+          subId,
+          k,
+          pKey,
+          eKey,
+          emailHash ? `eh:${emailHash}` : ""
+        );
         if (override && !override.subscribed) {
           eventUnsubscribedKeys.add(k);
           continue;
@@ -473,7 +488,8 @@ export async function GET(request: NextRequest) {
 
       const pKey = normalizePhoneKey(c?.phone);
       const eKey = normalizeEmailKey(c?.email);
-      const override = resolveLatestOverride(cliKey, rawId, customKey, key, pKey, eKey);
+      const cEmailHash = typeof c?.email === "string" && c.email.trim() ? hashEmailForSuppression(c.email) : "";
+      const override = resolveLatestOverride(cliKey, rawId, customKey, key, pKey, eKey, cEmailHash ? `eh:${cEmailHash}` : "");
       const cRec = c as Record<string, unknown>;
       const rowConsentStatus = String(cRec?.consent_status ?? "").trim().toLowerCase();
       const isRowOptInPending =
@@ -536,8 +552,19 @@ export async function GET(request: NextRequest) {
 
       const pKey = normalizePhoneKey(meta.client_phone ?? meta.phone);
       const eKey = normalizeEmailKey(meta.client_email ?? meta.email);
+      const metaEmail = String(meta.client_email ?? meta.email ?? "").trim();
+      const metaEmailHash = String(meta.email_hash ?? meta.client_email_hash ?? "").trim().toLowerCase()
+        || (metaEmail ? hashEmailForSuppression(metaEmail) : "");
       const customTags = Array.isArray(meta.tags) ? meta.tags.map((t: unknown) => String(t)) : [];
-      const override = resolveLatestOverride(cId, rawCId, rawCId ? `custom_${rawCId}` : "", key, pKey, eKey);
+      const override = resolveLatestOverride(
+        cId,
+        rawCId,
+        rawCId ? `custom_${rawCId}` : "",
+        key,
+        pKey,
+        eKey,
+        metaEmailHash ? `eh:${metaEmailHash}` : ""
+      );
       const metaConsentStatus = String(meta.consent_status ?? meta.consentStatus ?? "").trim().toLowerCase();
       const isMetaOptInPending =
         meta.newsletter_opt_in_pending === true ||

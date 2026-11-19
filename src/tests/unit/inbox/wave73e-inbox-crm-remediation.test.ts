@@ -5,6 +5,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { saveInboxState } from '@/lib/im-lite/quick-generate-store';
+import { hashEmailForSuppression } from '@/lib/legal/email-suppression';
 
 const BROKER_A = '11111111-1111-4111-8111-111111111111';
 const BROKER_B = '22222222-2222-4222-8222-222222222222';
@@ -773,7 +774,9 @@ describe('WP-7.3E Inbox CRM remediation', () => {
       expect(byId('ev-upsert').metadata.free_memo).toBeUndefined();
       expect(byId('ev-upsert').metadata.pii_scrubbed_at).toBeTruthy();
       expect(byId('ev-note').metadata.note).toBeUndefined();
-      expect(byId('ev-toggle').metadata.client_email).toBe('del@buyer.kr');
+      expect(byId('ev-toggle')).toBeDefined();
+      expect(byId('ev-toggle').metadata.client_email).toBeUndefined();
+      expect(byId('ev-toggle').metadata.email_hash).toBe(hashEmailForSuppression('del@buyer.kr'));
       expect(byId('ev-other-broker').metadata.client_name).toBe('타사');
     });
   });

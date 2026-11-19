@@ -12,6 +12,7 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { env } from '@/lib/env';
 import { isSocialBotUA } from '@/lib/social-bot';
+import { resolveQaKeyFromRequest } from '@/lib/security/qa-gate';
 
 const PROTECTED_BROKER = '/broker';
 const PROTECTED_ADMIN = '/admin';
@@ -67,46 +68,12 @@ export function isQaGatedPath(pathname: string): boolean {
   return QA_GATED_PREFIXES.some((prefix) => matchesRoutePrefix(pathname, prefix));
 }
 
-function constantTimeEqualStr(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  const maxLen = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < maxLen; i += 1) {
-    diff |= (a.charCodeAt(i % a.length) || 0) ^ (b.charCodeAt(i % b.length) || 0);
-  }
-  return diff === 0;
-}
-
-function resolveConfiguredQaKeys(): string[] {
-  return [
-    process.env.QA_ACCESS_KEY,
-    process.env.QA_TESTER_ACCESS_KEY,
-    process.env.QA_BROKER_ACCESS_KEY,
-  ]
-    .map((v) => (v || '').trim())
-    .filter(Boolean);
-}
-
 export function isValidQaGateRequest(request: NextRequest): {
   allowed: boolean;
   queryKey: string;
 } {
-  const url = request.nextUrl;
-  const queryKey = (url.searchParams.get('qaKey') || url.searchParams.get('key') || '').trim();
-  const headerKey = (request.headers.get('x-qa-access-key') || '').trim();
-  const cookieKey = (request.cookies.get('cre_qa_key')?.value || '').trim();
-  const provided = queryKey || headerKey || cookieKey;
-  const configuredKeys = resolveConfiguredQaKeys();
-  if (!provided || configuredKeys.length === 0) {
-    return { allowed: false, queryKey: '' };
-  }
-  let matched = false;
-  for (const key of configuredKeys) {
-    if (constantTimeEqualStr(provided, key)) {
-      matched = true;
-    }
-  }
-  return { allowed: matched, queryKey: matched ? queryKey : '' };
+  const { allowed, queryKey } = resolveQaKeyFromRequest(request);
+  return { allowed, queryKey };
 }
 
 /**
