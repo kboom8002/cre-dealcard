@@ -435,18 +435,17 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       expect(data).toHaveProperty('cautions');
     });
 
-    test('MATCH-E2E-11: POST /api/broker/campaign → sms/instagram/blog copies', async () => {
-      // 멀티 채널(SMS, IG, Blog) 캠페인 초안 생성 테스트
+    test('MATCH-E2E-11: POST /api/broker/campaign → 410 Deprecated route integrated to /broker/w/newsletter', async () => {
       const res = await fetch(`${BASE_URL}/api/broker/campaign`, {
         method: 'POST',
         headers: HEADERS,
         body: JSON.stringify({ dealId: "8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f" })
       });
-      expect(res.ok).toBe(true);
+      expect(res.status).toBe(410);
       const data = await res.json();
-      expect(data).toHaveProperty('smsCopy');
-      expect(data).toHaveProperty('instagramCopy');
-      expect(data).toHaveProperty('blogCopy');
+      expect(data.ok).toBe(false);
+      expect(data.code).toBe('DEPRECATED_ROUTE');
+      expect(data.redirect).toBe('/broker/w/newsletter');
     });
 
     test('MATCH-E2E-12: POST /api/broker/pitch → warm/cold pitch messages', async () => {

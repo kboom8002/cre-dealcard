@@ -56,12 +56,26 @@ export const DORMANT_PUBLIC_PREFIXES = [
   '/building-radar',
 ] as const;
 
+export const EXPERIMENTAL_VERTICAL_PREFIXES = [
+  '/funding',
+  '/broker/circles',
+] as const;
+
+const EXPERIMENTAL_SCHEDULE_RE = /^\/buildings\/[^/]+\/schedule(\/|$)/;
+
 function matchesRoutePrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 export function isDormantPublicPath(pathname: string): boolean {
   return DORMANT_PUBLIC_PREFIXES.some((prefix) => matchesRoutePrefix(pathname, prefix));
+}
+
+export function isExperimentalVerticalPath(pathname: string): boolean {
+  return (
+    EXPERIMENTAL_VERTICAL_PREFIXES.some((prefix) => matchesRoutePrefix(pathname, prefix)) ||
+    EXPERIMENTAL_SCHEDULE_RE.test(pathname)
+  );
 }
 
 export function isQaGatedPath(pathname: string): boolean {
@@ -124,8 +138,12 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Dormant public feature routes return 404 until restored
-  if (isDormantPublicPath(pathname)) {
+  // Dormant public feature & unreleased experimental vertical routes return 404 until enabled
+  if (
+    isDormantPublicPath(pathname) ||
+    (process.env.CRE_ENABLE_EXPERIMENTAL_VERTICALS !== '1' &&
+      isExperimentalVerticalPath(pathname))
+  ) {
     return new NextResponse('Not Found', {
       status: 404,
       headers: { 'X-Robots-Tag': 'noindex, nofollow' },
@@ -253,11 +271,20 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Canonical newsletter workspace redirect (after auth gate so unauth bots redirect to /login):
-  if (pathname === '/broker/w/magazine' || pathname === '/broker/magazine-editor') {
+  // Canonical newsletter & inbox workspace redirects (308 permanent, after auth gate):
+  if (
+    pathname === '/broker/w/magazine' ||
+    pathname === '/broker/magazine-editor' ||
+    pathname === '/broker/campaign'
+  ) {
     const targetUrl = request.nextUrl.clone();
     targetUrl.pathname = '/broker/w/newsletter';
-    return NextResponse.redirect(targetUrl, 307);
+    return NextResponse.redirect(targetUrl, 308);
+  }
+  if (pathname === '/broker/inbox') {
+    const targetUrl = request.nextUrl.clone();
+    targetUrl.pathname = '/broker/w/inbox';
+    return NextResponse.redirect(targetUrl, 308);
   }
 
   // 2. Admin route → also check admin role via custom header set downstream

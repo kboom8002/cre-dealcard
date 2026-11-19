@@ -269,13 +269,13 @@ describe("Wave 4 · Help Entry, In-App WebView Banner, & Route Governance", () =
     expect(unauthMag.status).toBe(307);
     expect(unauthMag.headers.get("location")).toContain("/login");
 
-    // Authenticated/E2E access to /broker/w/magazine & /broker/magazine-editor 307-redirects to /broker/w/newsletter
+    // Authenticated/E2E access to /broker/w/magazine & /broker/magazine-editor 308-redirects to /broker/w/newsletter
     const magRedirect1 = await proxy(
       new NextRequest("https://credeal.net/broker/w/magazine?edition=ed-1&step=send", {
         headers: { "x-playwright-test": "true" },
       })
     );
-    expect(magRedirect1.status).toBe(307);
+    expect(magRedirect1.status).toBe(308);
     expect(magRedirect1.headers.get("location")).toBe(
       "https://credeal.net/broker/w/newsletter?edition=ed-1&step=send"
     );
@@ -285,7 +285,7 @@ describe("Wave 4 · Help Entry, In-App WebView Banner, & Route Governance", () =
         headers: { "x-playwright-test": "true" },
       })
     );
-    expect(magRedirect2.status).toBe(307);
+    expect(magRedirect2.status).toBe(308);
     expect(magRedirect2.headers.get("location")).toBe(
       "https://credeal.net/broker/w/newsletter?mode=simple"
     );
