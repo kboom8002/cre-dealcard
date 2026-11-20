@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
+import { buildSlidesHtmlExport } from '@/lib/im-lite/slides-html-builder';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { getServerViewer } from '@/lib/server-viewer';
@@ -1102,16 +1103,27 @@ export async function GET(
   }
 
   const content = doc.body as any;
+  const formatParam = searchParams.get('format');
 
-  const html = buildHtmlExport({
-    buildingId,
-    title: doc.title ?? 'CREDEAL 모바일 투자설명서',
-    content,
-    building,
-    brokerInfo,
-    generatedAt: (content?.generated_at as string) ?? doc.created_at,
-    qrDataUri,
-  });
+  const html = formatParam === 'slides'
+    ? buildSlidesHtmlExport({
+        buildingId,
+        title: doc.title ?? 'CREDEAL 모바일 투자설명서',
+        content,
+        building,
+        brokerInfo,
+        generatedAt: (content?.generated_at as string) ?? doc.created_at,
+        qrDataUri,
+      })
+    : buildHtmlExport({
+        buildingId,
+        title: doc.title ?? 'CREDEAL 모바일 투자설명서',
+        content,
+        building,
+        brokerInfo,
+        generatedAt: (content?.generated_at as string) ?? doc.created_at,
+        qrDataUri,
+      });
 
   return new NextResponse(html, {
     headers: {

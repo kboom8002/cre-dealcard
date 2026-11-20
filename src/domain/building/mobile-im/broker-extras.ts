@@ -54,12 +54,16 @@ export interface AcquisitionPlanUnit {
   source?: 'broker' | 'legacy_text';
 }
 
+export type LocationGradeKey = 'walk' | 'transit' | 'commercial' | 'amenity';
+export type LocationGradeValue = '우수' | '양호' | '보통' | '보완 필요';
+
 export interface BrokerExtras {
   investment_points?: string[];
   closing_line?: string;
   regulatory_notes?: BrokerRegulatoryNote[];
   market_comps?: BrokerMarketComp[];
   location_note?: string;
+  location_grades?: Partial<Record<LocationGradeKey, LocationGradeValue>>;
   post_acquisition_plan?: string[];
   post_acquisition_units?: AcquisitionPlanUnit[];
   summary_yield_basis?: 'auto' | 'current' | 'stabilized';
@@ -463,6 +467,20 @@ export function parseBrokerExtras(input: unknown): BrokerExtrasParseResult {
     const loc = cleanString(input.location_note, '입지 설명');
     if (loc) value.location_note = checkMax(loc, L.locationNoteChars, '입지 설명');
 
+    if (input.location_grades && typeof input.location_grades === 'object') {
+      const validKeys = new Set<LocationGradeKey>(['walk', 'transit', 'commercial', 'amenity']);
+      const validGrades = new Set<LocationGradeValue>(['우수', '양호', '보통', '보완 필요']);
+      const cleanedGrades: Partial<Record<LocationGradeKey, LocationGradeValue>> = {};
+      for (const [k, v] of Object.entries(input.location_grades as Record<string, unknown>)) {
+        if (validKeys.has(k as LocationGradeKey) && validGrades.has(String(v) as LocationGradeValue)) {
+          cleanedGrades[k as LocationGradeKey] = String(v) as LocationGradeValue;
+        }
+      }
+      if (Object.keys(cleanedGrades).length > 0) {
+        value.location_grades = cleanedGrades;
+      }
+    }
+
     const plan = cleanStringList(input.post_acquisition_plan, '매입 후 전략', L.postAcquisitionPlanMax, L.postAcquisitionPlanChars);
     if (plan) value.post_acquisition_plan = plan;
 
@@ -496,6 +514,7 @@ export function hasBrokerExtras(x?: BrokerExtras | null): boolean {
     x.regulatory_notes?.length ||
     x.market_comps?.length ||
     x.location_note ||
+    (x.location_grades && Object.keys(x.location_grades).length > 0) ||
     x.post_acquisition_plan?.length ||
     x.post_acquisition_units?.length ||
     x.summary_yield_basis ||
@@ -600,6 +619,7 @@ export interface BrokerExtrasFormState {
   regulatoryRows: BrokerRegulatoryRowForm[];
   compRows: BrokerCompRowForm[];
   locationNote: string;
+  locationGrades?: Partial<Record<LocationGradeKey, LocationGradeValue>>;
   postAcquisitionPlanText: string;
   targetRent: string;
 }
@@ -610,6 +630,7 @@ export const EMPTY_BROKER_EXTRAS_FORM: BrokerExtrasFormState = {
   regulatoryRows: [],
   compRows: [],
   locationNote: '',
+  locationGrades: {},
   postAcquisitionPlanText: '',
   targetRent: '',
 };
@@ -650,6 +671,7 @@ export function brokerExtrasFormToInput(f: BrokerExtrasFormState): Record<string
       ...(c.selected !== undefined ? { selected: c.selected } : {}),
     })),
     location_note: f.locationNote,
+    ...(f.locationGrades && Object.keys(f.locationGrades).length > 0 ? { location_grades: f.locationGrades } : {}),
     post_acquisition_plan: splitLines(f.postAcquisitionPlanText),
     target_rent_per_pyeong_manwon: formNum(f.targetRent),
   };
@@ -657,7 +679,7 @@ export function brokerExtrasFormToInput(f: BrokerExtrasFormState): Record<string
 
 /** 저장된 body.broker_extras → 폼 상태 (시트 재오픈 복원) */
 export function brokerExtrasToForm(x?: BrokerExtras | null): BrokerExtrasFormState {
-  if (!x) return { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [] };
+  if (!x) return { ...EMPTY_BROKER_EXTRAS_FORM, regulatoryRows: [], compRows: [], locationGrades: {} };
   return {
     investmentPointsText: (x.investment_points ?? []).join('\n'),
     closingLine: x.closing_line ?? '',
@@ -682,6 +704,7 @@ export function brokerExtrasToForm(x?: BrokerExtras | null): BrokerExtrasFormSta
       ...(c.selected !== undefined ? { selected: c.selected } : {}),
     })),
     locationNote: x.location_note ?? '',
+    locationGrades: x.location_grades ?? {},
     postAcquisitionPlanText: (x.post_acquisition_plan ?? []).join('\n'),
     targetRent: x.target_rent_per_pyeong_manwon !== undefined ? String(x.target_rent_per_pyeong_manwon) : '',
   };

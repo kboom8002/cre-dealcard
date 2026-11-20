@@ -7,10 +7,12 @@ export interface ImBottomActionBarProps {
   isGenerating: boolean;
   isProvisioningSheet: boolean;
   isDownloadingPptx: boolean;
+  isDownloadingPdf?: boolean;
   previewLifecycle: PreviewLifecycleState;
   generateButtonLabel: string;
   onQuickGenerate: () => void;
   onDownloadPptx: (e: React.MouseEvent<HTMLElement>) => void;
+  onDownloadPdf?: (e: React.MouseEvent<HTMLElement>) => void;
   onOpenStudio: (e: React.MouseEvent<HTMLElement>) => void;
 }
 
@@ -25,10 +27,12 @@ export function ImBottomActionBar({
   isGenerating,
   isProvisioningSheet,
   isDownloadingPptx,
+  isDownloadingPdf = false,
   previewLifecycle,
   generateButtonLabel,
   onQuickGenerate,
   onDownloadPptx,
+  onDownloadPdf,
   onOpenStudio,
 }: ImBottomActionBarProps) {
   return (
@@ -49,16 +53,17 @@ export function ImBottomActionBar({
 
       <div
         data-testid="im-secondary-actions-row"
-        className="grid grid-cols-2 gap-1.5 md:gap-2"
+        className="grid grid-cols-3 gap-1.5 md:gap-2"
       >
         <button
           type="button"
           data-testid="im-download-pptx-btn"
-          disabled={isProvisioningSheet || isDownloadingPptx}
+          disabled={isProvisioningSheet || isDownloadingPptx || isDownloadingPdf}
           aria-busy={isDownloadingPptx}
           aria-disabled={
             isProvisioningSheet ||
             isDownloadingPptx ||
+            isDownloadingPdf ||
             previewLifecycle === "pre_generation"
           }
           onClick={onDownloadPptx}
@@ -67,7 +72,28 @@ export function ImBottomActionBar({
           }`}
         >
           <span>
-            {isDownloadingPptx ? "PPTX 생성 중…" : "📥 PPTX 받기"}
+            {isDownloadingPptx ? "PPTX 중…" : "📥 PPTX 받기"}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          data-testid="im-download-pdf-btn"
+          disabled={isProvisioningSheet || isDownloadingPdf || isDownloadingPptx || !onDownloadPdf}
+          aria-busy={isDownloadingPdf}
+          aria-disabled={
+            isProvisioningSheet ||
+            isDownloadingPdf ||
+            previewLifecycle === "pre_generation" ||
+            !onDownloadPdf
+          }
+          onClick={onDownloadPdf}
+          className={`min-h-[44px] px-2 py-2 bg-[#F8FAFC] text-[#0F172A] border border-[#CBD5E1] rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+            previewLifecycle === "pre_generation" ? "opacity-50" : ""
+          }`}
+        >
+          <span>
+            {isDownloadingPdf ? "PDF 중…" : "📄 PDF 저장"}
           </span>
         </button>
 

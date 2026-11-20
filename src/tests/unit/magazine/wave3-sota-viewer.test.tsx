@@ -132,46 +132,27 @@ describe('Wave 3 SOTA Mobile Reader & Calculator Enhancements', () => {
     });
   });
 
-  describe('3. Featured Deal Cards & Rich CRE Specs in MagazineView', () => {
-    it('추천 매물 카드에 대표 사진, 매매가(억 원), 실질 수익률, 대지/연면적(평), 용도/층수, 1줄 투자포인트가 렌더된다', () => {
+  describe('3. Featured Deal Cards (검은 바탕 2×2 딜카드 썸네일) in MagazineView', () => {
+    it('추천 매물 카드가 검은 바탕 2×2 딜카드 썸네일(권역·용도·면적·가격대) + 1줄 특징 + /dc/[id] 링크로 간소화된다', () => {
       const html = renderMagazine({
         headline: '테헤란로 블록 단독 기획',
         briefing: '금주 매물 브리핑입니다.',
         featured_deals: [SAMPLE_DEAL],
       });
 
-      // 사진 썸네일
-      expect(html).toContain('src="https://images.unsplash.com/photo-building.jpg"');
+      // 검은 바탕 2×2 딜카드 썸네일
+      expect(html).toContain('data-testid="newsletter-dealcard-thumb"');
+      expect(html).toContain('bg-[#0F172A]');
 
-      // 매매가 (125억 원)
-      expect(html).toContain('125억 원');
-
-      // 실질 수익률 (5.25%)
-      expect(html).toContain('5.25%');
-
-      // 면적 평 단위 (450.5 * 0.3025 = 136.3평, 1488.2 * 0.3025 = 450.2평)
-      expect(html).toContain('136.3평');
-      expect(html).toContain('450.2평');
-
-      // 용도지역 및 층수
-      expect(html).toContain('제2종일반주거지역');
-      expect(html).toContain('지하1층/지상6층');
-
-      // 1줄 투자 포인트
+      // 금액 구간(120~140억), 연면적 평수, 용도, 1줄 특징
+      expect(html).toContain('120~140억');
+      expect(html).toContain('450평');
       expect(html).toContain('테헤란로 이면 코너 입지, 전 층 사옥 임차 수요 최상');
-    });
+      expect(html).toContain('딜카드 보기');
 
-    it('매물 카드에 [📄 모바일 IM 열람] 직결 링크와 [🧮 이 매물 수지분석] 프리필 버튼이 배치된다', () => {
-      const html = renderMagazine({
-        headline: '테헤란로 블록 단독 기획',
-        briefing: '금주 매물 브리핑입니다.',
-        featured_deals: [SAMPLE_DEAL],
-      });
-
-      // 모바일 IM 열람 직결 링크 유지, 하단 ROI 유틸리티 이동 링크 제거
-      expect(html).toContain('href="/im-lite/33333333-3333-4333-8333-333333333333"');
-      expect(html).toContain('모바일 IM 열람');
-      expect(html).toContain('data-track="im_request"');
+      // 뉴스레터 내 IM 직결 링크·긴 세부 스펙 제거, 딜카드 상세(/dc/[id])로 이동
+      expect(html).toContain('href="/dc/33333333-3333-4333-8333-333333333333"');
+      expect(html).not.toContain('모바일 IM 열람');
       expect(html).not.toContain('href="#section-roi_calculator"');
       expect(html).not.toContain('data-prefill-roi="true"');
     });

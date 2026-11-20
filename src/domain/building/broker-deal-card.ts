@@ -65,7 +65,7 @@ import {
   repairDealCardLine,
   repairDealCardPoints,
 } from "@/lib/deal-card/copy-limits";
-import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { cleanBlindPoints, stripSubjectiveNumericSpin } from "@/lib/deal-card/blind-guard";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('broker-deal-card');
@@ -349,7 +349,7 @@ export async function brokerDealCardFromMemo(
       blindTeaser.card4Points && blindTeaser.card4Points.length > 0
         ? blindTeaser.card4Points
         : blindTeaser.dealPoints || [],
-    ),
+    ).map((pt) => stripSubjectiveNumericSpin(pt)),
     { fillEmpty: true },
   );
   const card4Headline =

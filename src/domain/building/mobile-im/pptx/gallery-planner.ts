@@ -97,13 +97,42 @@ export function planGallerySlides(
     return !isExcluded && !!p.url;
   });
 
-  // Basic IM: 최대 6컷을 1개 슬라이드에 강제 배치 (basic-im-guide.md §2 #8)
+  // Basic IM: 외부·전경 vs 내부·층별 각 2장 이상이면 분리 슬라이드, 순차 캡션 기본 부여
   if (preset === 'credeal_basic') {
     if (validPhotos.length === 0) return [];
     const prioritized = [...validPhotos].sort((a, b) => {
-      const rank = (p: PhotoMeta) => (p.isHero || (p as any).role === 'cover') ? 0 : (p as any).role === 'exterior' ? 1 : 2;
+      const rank = (p: PhotoMeta) => (p.isHero || (p as any).role === 'cover') ? 0 : (p as any).role === 'exterior' || String(p.category || '').toLowerCase() === 'exterior' ? 1 : 2;
       return rank(a) - rank(b);
     });
+    const isExtPhoto = (p: PhotoMeta) => {
+      const cat = String(p.category || (p as any).type || '').toLowerCase();
+      const role = String((p as any).role || '').toLowerCase();
+      return cat === 'exterior' || role === 'exterior' || role === 'cover' || Boolean(p.isHero) || cat === 'surrounding';
+    };
+    const isIntPhoto = (p: PhotoMeta) => {
+      const cat = String(p.category || (p as any).type || '').toLowerCase();
+      const role = String((p as any).role || '').toLowerCase();
+      return ['interior', 'lobby', 'facility', 'common', 'rooftop', 'parking'].includes(cat) || role === 'interior';
+    };
+
+    const withSequentialCaptions = (items: PhotoMeta[], kind: 'exterior' | 'interior' | 'mixed'): PhotoMeta[] => {
+      let extIdx = 0;
+      let intIdx = 0;
+      return items.map((p) => {
+        const cap = String(p.caption ?? '').trim();
+        if (cap) return p;
+        if (kind === 'exterior' || (kind === 'mixed' && isExtPhoto(p))) {
+          extIdx += 1;
+          return { ...p, caption: extIdx === 1 ? '외관 1 (대표)' : `외관 ${extIdx}` };
+        }
+        if (kind === 'interior' || (kind === 'mixed' && isIntPhoto(p))) {
+          intIdx += 1;
+          return { ...p, caption: `내부 ${intIdx}` };
+        }
+        return p;
+      });
+    };
+
     const photos12 = prioritized.slice(0, 12);
     const pickBasicLayout = (batch: PhotoMeta[]): GalleryLayoutType =>
       batch.length >= 5 ? 'GRID_2X3'
@@ -111,19 +140,47 @@ export function planGallerySlides(
       : batch.length === 3 ? 'ONE_LARGE_TWO_SMALL_H'
       : batch.length === 2 ? 'DUAL_LANDSCAPE'
       : 'FULL_WIDE';
-    if (photos12.length <= 6) {
+
+    const extGroup = photos12.filter(isExtPhoto).slice(0, 6);
+    const intGroup = photos12.filter((p) => !isExtPhoto(p) && isIntPhoto(p)).slice(0, 6);
+
+    if (extGroup.length >= 2 && intGroup.length >= 2) {
+      const extWithCaps = withSequentialCaptions(extGroup, 'exterior');
+      const intWithCaps = withSequentialCaptions(intGroup, 'interior');
+      return [
+        {
+          slideIndex: 0,
+          kicker: 'Exterior Gallery',
+          title: '외부·전경 사진',
+          layout: pickBasicLayout(extWithCaps),
+          photos: extWithCaps,
+          dataKey: 'gallery_0',
+        },
+        {
+          slideIndex: 1,
+          kicker: 'Interior Gallery',
+          title: '내부·층별 사진',
+          layout: pickBasicLayout(intWithCaps),
+          photos: intWithCaps,
+          dataKey: 'gallery_1',
+        },
+      ];
+    }
+
+    const captioned12 = withSequentialCaptions(photos12, 'mixed');
+    if (captioned12.length <= 6) {
       return [{
         slideIndex: 0,
         kicker: 'Gallery',
         title: '현장 사진',
-        layout: pickBasicLayout(photos12),
-        photos: photos12,
+        layout: pickBasicLayout(captioned12),
+        photos: captioned12,
         dataKey: 'gallery_0',
       }];
     }
-    const firstCount = Math.ceil(photos12.length / 2);
-    const page1 = photos12.slice(0, firstCount);
-    const page2 = photos12.slice(firstCount);
+    const firstCount = Math.ceil(captioned12.length / 2);
+    const page1 = captioned12.slice(0, firstCount);
+    const page2 = captioned12.slice(firstCount);
     return [
       {
         slideIndex: 0,

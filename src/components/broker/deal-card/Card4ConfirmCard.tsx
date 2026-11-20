@@ -20,7 +20,12 @@ import {
   type DealCardPosture,
   type ProvenanceSource,
 } from '@/lib/deal-card/card4-schema';
-import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
+import {
+  cleanBlindPoints,
+  detectSubjectiveNumericPhrases,
+  validateBlindPoints,
+} from '@/lib/deal-card/blind-guard';
+import { getFieldStrengthTagsForPosture } from '@/lib/deal-card/field-strength-tags';
 import {
   DEAL_CARD_LINE_MAX,
   assessDealCardLine,
@@ -235,6 +240,43 @@ export function Card4ConfirmCard({
     ]);
     return check.violations;
   }, [card4.region, card4.use, card4.area, card4.priceBand, card4.headline]);
+
+  const numericSpinWarnings = useMemo(
+    () => detectSubjectiveNumericPhrases(card4.points),
+    [card4.points],
+  );
+
+  const availableStrengthTags = useMemo(
+    () => getFieldStrengthTagsForPosture(currentPosture),
+    [currentPosture],
+  );
+
+  const handleApplyStrengthTag = (tagLabel: string) => {
+    const trimmed = repairDealCardLine(tagLabel);
+    if (!trimmed) return;
+    if (card4.points.some((p) => p.trim() === trimmed)) return;
+    const prevSnapshot: Card4Data = {
+      ...card4,
+      points: [...card4.points] as [string, string, string],
+    };
+    const emptyIdx = card4.points.findIndex((p) => !p || !p.trim());
+    const targetIdx: 0 | 1 | 2 = emptyIdx >= 0 ? (emptyIdx as 0 | 1 | 2) : 2;
+    const nextPoints: [string, string, string] = [...card4.points];
+    nextPoints[targetIdx] = trimmed;
+    const provenanceList: [ProvenanceSource, ProvenanceSource, ProvenanceSource] = [
+      ...(card4.provenance?.points ?? ['public', 'public', 'public']),
+    ];
+    provenanceList[targetIdx] = 'broker';
+    onChange({
+      ...card4,
+      points: nextPoints,
+      provenance: { points: provenanceList },
+    });
+    showUndoToast({
+      message: `장점 ${targetIdx + 1}에 '${trimmed}'를 넣었어요`,
+      undoAction: () => onChange(prevSnapshot),
+    });
+  };
 
   const handleHeadlineChange = (headline: string) => {
     onChange({
@@ -794,6 +836,48 @@ export function Card4ConfirmCard({
         </div>
 
         <div className="p-5 space-y-3">
+          {/* 현장 장점 원클릭 추천 태그칩 (Q5-2 확정) */}
+          <div
+            data-testid="dealcard-strength-tag-chips"
+            className="rounded-xl border border-amber-200 bg-amber-50/75 p-3 space-y-2"
+          >
+            <p className="text-sm font-extrabold text-amber-950">
+              현장 장점 바로 넣기 (누르면 빈 칸에 들어갑니다)
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {availableStrengthTags.map((tag) => {
+                const alreadyAdded = card4.points.some((p) => p.trim() === tag.label);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    data-testid={`dealcard-strength-chip-${tag.id}`}
+                    aria-pressed={alreadyAdded}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleApplyStrengthTag(tag.label)}
+                    className={`min-h-[38px] px-3 py-1 rounded-lg border text-sm font-bold transition cursor-pointer ${
+                      alreadyAdded
+                        ? 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-amber-300 bg-white text-amber-950 hover:bg-amber-100'
+                    }`}
+                  >
+                    + {tag.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {numericSpinWarnings.length > 0 && (
+            <div
+              data-testid="card4-numeric-spin-advisory"
+              role="status"
+              className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-sm font-bold space-y-1"
+            >
+              <p>💡 {numericSpinWarnings[0].reason}</p>
+            </div>
+          )}
+
           {aiFeedback && (
             <div
               role="alert"

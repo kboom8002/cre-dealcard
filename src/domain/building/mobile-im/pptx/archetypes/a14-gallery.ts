@@ -40,6 +40,7 @@ export function isCaptionRedundantWithLabel(caption: string | undefined | null, 
 /** 칩과 구분되는 실제 정보를 담은 캡션인지 */
 export function hasRealCaption(caption: string | undefined | null, label: string | undefined | null): boolean {
   if (!caption || caption.trim().length === 0) return false;
+  if (/^(외관|내부)\s*\d+/.test(caption.trim())) return true;
   return !isCaptionRedundantWithLabel(caption, label);
 }
 

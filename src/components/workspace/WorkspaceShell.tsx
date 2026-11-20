@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav";
 import { SAVE_STATE_LABELS, formatRelativeKo, type HonestSaveState } from "@/lib/ux/lexicon";
+import { WORKSPACE_IDENTITY, type WorkspaceServiceId } from "@/lib/ux/workspace-identity";
 import {
   FontScaleToggle,
   FONT_SCALE_STORAGE_KEY,
@@ -157,10 +158,10 @@ export interface WorkspaceShellProps {
 
 export const WS_TOPBAR_LINKS = [
   { id: "home", label: "🏠 홈", href: "/broker" },
-  { id: "dealcards", label: "📄 딜카드", href: "/broker/w/dealcards" },
-  { id: "im", label: "📊 IM", href: "/broker/w/im" },
-  { id: "magazine", label: "📰 뉴스레터", href: "/broker/w/newsletter" },
-  { id: "inbox", label: "💬 소통함", href: "/broker/w/inbox" },
+  { id: "magazine", label: WORKSPACE_IDENTITY.magazine.topbarLabel, href: WORKSPACE_IDENTITY.magazine.href },
+  { id: "dealcards", label: WORKSPACE_IDENTITY.dealcards.topbarLabel, href: WORKSPACE_IDENTITY.dealcards.href },
+  { id: "im", label: WORKSPACE_IDENTITY.im.topbarLabel, href: WORKSPACE_IDENTITY.im.href },
+  { id: "inbox", label: WORKSPACE_IDENTITY.inbox.topbarLabel, href: WORKSPACE_IDENTITY.inbox.href },
 ] as const;
 
 /**
@@ -789,6 +790,11 @@ export function WorkspaceShell({
                 (link.id !== "home" && pathname.startsWith(link.href));
               const badge = link.id !== "home" ? effectiveBadges[link.id as "dealcards" | "im" | "magazine" | "inbox"] : undefined;
 
+              const activeClass =
+                link.id === "home"
+                  ? "bg-slate-900 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_2px_8px_rgba(15,23,42,0.24)]"
+                  : WORKSPACE_IDENTITY[link.id as WorkspaceServiceId].activePillClass;
+
               return (
                 <Link
                   key={link.id}
@@ -799,7 +805,7 @@ export function WorkspaceShell({
                   aria-current={isActive ? "page" : undefined}
                   className={`relative px-2.5 sm:px-3.5 py-1.5 min-h-[44px] rounded-xl text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                     isActive
-                      ? "bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(0,122,255,0.28)]"
+                      ? activeClass
                       : "text-[#3A3A3C] hover:text-[#1D1D1F] hover:bg-white/60"
                   }`}
                 >

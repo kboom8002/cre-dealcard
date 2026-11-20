@@ -61,7 +61,7 @@ describe('D10 YieldSet — 산식', () => {
     // 추가 임대료 = 100평 × 10만원 × 12개월 × 10,000원 = 1.2억 → (3억+1.2억) ÷ 90억 = 4.67%
     expect(ys.stabilized?.kind).toBe('target_rent');
     expect(ys.stabilized?.value).toBe(4.67);
-    expect(ys.stabilized?.label).toBe('안정화 수익률');
+    expect(ys.stabilized?.label).toBe('기대수익률(추정수익률)');
     expect(ys.stabilized?.appliedAreaPyeong).toBe(100);
     expect(ys.stabilized?.caption).toBe('공실 100평을 목표임대료 평당 10만원으로 임대 가정 (중개인 입력)');
   });
@@ -289,7 +289,7 @@ describe('R9 — broker_plan 안정화 기대수익률 (2.75% on income-ig1-corr
     expect(ys.grossYieldNetOfDeposit).toBe(2.08);
     expect(ys.stabilized).not.toBeNull();
     expect(ys.stabilized?.kind).toBe('broker_plan');
-    expect(ys.stabilized?.label).toBe('안정화 기대수익률');
+    expect(ys.stabilized?.label).toBe('기대수익률(추정수익률)');
     expect(ys.stabilized?.value).toBe(2.75);
     expect(ys.stabilized?.planSummary?.addedDepositKrw).toBe(80_000_000);
     expect(ys.stabilized?.planSummary?.addedMonthlyRentKrw).toBe(6_020_000);
@@ -347,38 +347,38 @@ describe('D9 / R10 — A23 하단 문구 및 운영+자본수익률 밴드: 근�
   const FORBIDDEN = ['시장 평균', '시장 평균 하회', '평균 수준', '양호한 수준', '검토 필요', '서울 소형빌딩', '4.5~5.5%', '토지가치 보존력', '감가 리스크', 'Cap Rate'];
 
   for (const cap of [2.29, 4.8, 7.5]) {
-    it(`임대수익률 ${cap}% — 시장 평균 비교/평가 문구 및 Cap Rate 문구 없음`, async () => {
+    it(`임대수익률 ${cap}% — 시장 평균 비교/평가 문구·Cap Rate·단순 합산 기대수익률 제거`, async () => {
       const xml = await renderA23({
         annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
         capRateAsIs: cap, landPriceHistory: HISTORY, landAreaSqm: 400,
       });
       for (const w of FORBIDDEN) expect(xml).not.toContain(w);
       expect(xml).toContain(`${cap.toFixed(2)}%`);
-      expect(xml).toContain('단순 합산 기대수익률 (참고)');
+      expect(xml).not.toContain('단순 합산 기대수익률');
     });
   }
 
-  it('우측 칩 및 하단 밴드에 공시지가 CAGR·지역 지가변동률·토지 비중 표기', async () => {
+  it('우측 칩·X축=연도 세로 차트에 대지 평당 매매가·지역 10년 지가변동률 표기 (공시지가 배율 비교 제거)', async () => {
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
       capRateAsIs: 3.33, landPriceHistory: HISTORY, landAreaSqm: 400, pnu: '1156011500103370019',
     });
-    expect(xml).toContain('본건 공시지가 10년 연평균(CAGR)');
-    expect(xml).toContain('+5.2% (누적 +54%)');
-    expect(xml).toContain('서울 영등포구 지가변동률 10년 연평균');
-    expect(xml).toContain('+3.90% (한국부동산원)');
-    expect(xml).toContain('매매가 대비 토지 비중');
-    expect(xml).toContain('= 단순 합산 기대수익률 (참고)');
-    expect(xml).toContain('7.23%');
+    expect(xml).toContain('대지 평당 매매가');
+    expect(xml).toContain('서울 영등포구 10년 연평균 지가변동률');
+    expect(xml).toContain('+3.90%');
+    expect(xml).not.toContain('매매가 대비 토지 비중');
+    expect(xml).not.toContain('단순 합산 기대수익률');
+    expect(xml).toContain('2025');
   });
 
-  it('[Negative Pair] 근거가 전혀 없으면 콜아웃 불릿은 수익률 사실만 (공시지가·토지 비중 불릿 없음)', async () => {
+  it('[Negative Pair] 근거가 전혀 없으면 수익성 참고 카드와 현행 임대수익률 밴드만 렌더 (공시지가·토지 비중 불릿 없음)', async () => {
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw, capRateAsIs: 3.33,
     });
     expect(xml).not.toContain('개별공시지가 연평균');
     expect(xml).not.toContain('토지 가치 비중');
-    expect(xml).toContain('임대수익률 3.33% (운영비 차감 전, 보증금 차감 매입가 기준)');
+    expect(xml).toContain('현행 임대수익률 (보증금 차감 실투자금 기준)');
+    expect(xml).toContain('3.33%');
   });
 
   it('[R10] 중개인 인근 시세는 전용 시세 비교 면(A26)에서 다루므로 A23에서 중복 서술하지 않는다', async () => {
@@ -418,7 +418,7 @@ describe('D10 / R10 — A23 안정화 라벨 정직성 / 각주 / 레이아웃',
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
       capRateAsIs: ys.grossYieldNetOfDeposit, capRateStabilized: ys.stabilized?.value, stabilizedAssumption: ys.stabilized?.caption ?? undefined, yieldSet: ys,
     });
-    expect(xml).toContain('안정화 수익률');
+    expect(xml).toContain('기대수익률(추정수익률)');
     expect(xml).toContain('◇ 분석가정: 공실 100평을 목표임대료 평당 10만원으로 임대 가정 (중개인 입력)');
     expect(xml).toContain(`${ys.stabilized!.value.toFixed(2)}%`);
   });

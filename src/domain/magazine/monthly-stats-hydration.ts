@@ -23,6 +23,9 @@ import {
 } from '@/domain/ontology/market-defaults';
 import type { BokMonthlyLoanRatePoint } from '@/lib/external/bok-ecos-api';
 import {
+  getRegionalCommercialBenchmarks,
+} from '@/lib/external/rone-api';
+import {
   MONTHLY_REGION_PRESETS,
   normalizeMonthlyRegionKey,
   type MonthlyChartType,
@@ -34,6 +37,7 @@ export type MonthlyChartPairId =
   | 'molit_bok'
   | 'molit_band'
   | 'reb_molit'
+  | 'reb_core3'
   | 'molit_kosis'
   | 'reb_kosis';
 
@@ -52,6 +56,13 @@ export const MONTHLY_GRAPHIC_PAIR_PRESETS: readonly MonthlyChartPairPreset[] = [
     shortLabel: '실거래 추이 + 대출금리·수익률 비교',
     badge: '추천 · 옵션 A',
     pair: ['molit_tx_price_trend', 'bok_loan_rate_cap_spread'],
+  },
+  {
+    id: 'reb_core3',
+    label: '① 국토부 통건물 실거래 추이 + ② 부동산원 3대 지표 (지가·임대수익률·공실률 12M)',
+    shortLabel: '실거래 추이 + R-ONE 3대 지표',
+    badge: 'R-ONE 3대 지표',
+    pair: ['molit_tx_price_trend', 'reb_core3_trend'],
   },
   {
     id: 'molit_band',
@@ -81,6 +92,7 @@ const ALL_PAIR_MAP: Readonly<Record<MonthlyChartPairId, readonly [MonthlyChartTy
   molit_bok: ['molit_tx_price_trend', 'bok_loan_rate_cap_spread'],
   molit_band: ['molit_tx_price_trend', 'molit_price_band_mix'],
   reb_molit: ['reb_vacancy_cap_spread', 'molit_tx_price_trend'],
+  reb_core3: ['molit_tx_price_trend', 'reb_core3_trend'],
   molit_kosis: ['molit_tx_price_trend', 'kosis_commercial_vitality'],
   reb_kosis: ['reb_vacancy_cap_spread', 'kosis_commercial_vitality'],
 };
@@ -627,12 +639,75 @@ function isWholeBuildingDbRow(row: DbTransactionRow): boolean {
   return true;
 }
 
+export function buildRebCore3TrendChart(
+  regionKeyInput: unknown,
+  regionLabel: string,
+  rentalRows?: readonly DbRentalTrendRow[],
+): MonthlyRegionalChart {
+  const regionKey = normalizeMonthlyRegionKey(regionKeyInput);
+  const bm = getRegionalCommercialBenchmarks(regionKey)[0] ?? getRegionalCommercialBenchmarks('gbd')[0];
+  const latestDbVacancy =
+    Array.isArray(rentalRows) && rentalRows.length > 0
+      ? Number(rentalRows[rentalRows.length - 1]?.vacancy_rate)
+      : NaN;
+  const vacancyPct =
+    Number.isFinite(latestDbVacancy) && latestDbVacancy >= 0
+      ? parseFloat(latestDbVacancy.toFixed(1))
+      : bm.vacancyRatePct;
+
+  const series: MonthlyChartSeriesPoint[] = [
+    {
+      label: '지가변동률(12M)',
+      primaryValue: bm.landPriceRatePct,
+      displayPrimary: `${bm.landPriceRatePct >= 0 ? '+' : ''}${bm.landPriceRatePct.toFixed(2)}%`,
+      displaySecondary: 'R-ONE 지가',
+    },
+    {
+      label: '임대수익률(12M)',
+      primaryValue: bm.rentalYieldPct,
+      displayPrimary: `${bm.rentalYieldPct.toFixed(2)}%`,
+      displaySecondary: '연간 기준',
+    },
+    {
+      label: '상권공실률(12M)',
+      primaryValue: vacancyPct,
+      displayPrimary: `${vacancyPct.toFixed(1)}%`,
+      displaySecondary: Number.isFinite(latestDbVacancy) ? 'DB 최신' : '12M 평균',
+    },
+  ];
+
+  return {
+    id: `${regionKey}-reb_core3_trend`,
+    regionKey,
+    regionLabel,
+    chartType: 'reb_core3_trend',
+    title: `${regionLabel} 한국부동산원 3대 핵심 지표 (12M 평균)`,
+    subtitle: '지가변동률 · 임대수익률 · 공실률 최근 12개월 이동평균 비교',
+    authorityLabel: bm.source,
+    asOf: bm.quarterLabel,
+    unit: '%',
+    highlightMetric: {
+      label: '12M 평균 임대수익률 · 공실률',
+      value: `${bm.rentalYieldPct.toFixed(2)}% · ${vacancyPct.toFixed(1)}%`,
+      deltaText: `지가 +${bm.landPriceRatePct.toFixed(2)}%`,
+      tone: 'positive',
+    },
+    series,
+    buyerImplication: `${regionLabel} 최근 12개월 이동평균 기준 임대수익률 ${bm.rentalYieldPct.toFixed(2)}%, 공실률 ${vacancyPct.toFixed(1)}%, 지가상승률 +${bm.landPriceRatePct.toFixed(2)}% 흐름입니다.`,
+    isPlaceholder: false,
+    sourceMode: Number.isFinite(latestDbVacancy) ? 'public_db' : 'reference_benchmark',
+  };
+}
+
 export function buildReferenceChartByType(
   regionKeyInput: unknown,
   chartType: MonthlyChartType,
 ): MonthlyRegionalChart {
   const regionKey = normalizeMonthlyRegionKey(regionKeyInput);
   const preset = MONTHLY_REGION_PRESETS.find((p) => p.key === regionKey) ?? MONTHLY_REGION_PRESETS[0];
+  if (chartType === 'reb_core3_trend') {
+    return buildRebCore3TrendChart(regionKey, preset.label);
+  }
   if (chartType === 'reb_vacancy_cap_spread') {
     return buildReferenceYieldChart(regionKey, preset.label);
   }
@@ -1080,6 +1155,9 @@ function finalizeHydratedMonthlyPair(params: {
     }
     if (type === 'molit_price_band_mix') {
       return bandChart;
+    }
+    if (type === 'reb_core3_trend') {
+      return buildRebCore3TrendChart(regionKey, preset.label, params.rentalRows);
     }
     if (type === 'reb_vacancy_cap_spread') {
       return liveRentalChart ?? buildReferenceChartByType(regionKey, type);

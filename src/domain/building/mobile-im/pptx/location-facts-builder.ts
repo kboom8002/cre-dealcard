@@ -32,6 +32,110 @@ export interface BuildBasicLocationRightParams {
   existingRight?: any;
 }
 
+export type LocationGradeLevel = '우수' | '양호' | '보통' | '보완 필요';
+export type LocationGradeKey = 'walk' | 'transit' | 'commercial' | 'amenity';
+
+export interface LocationGradeItem {
+  key: LocationGradeKey;
+  label: string;
+  grade: LocationGradeLevel;
+  basis: string;
+  isManual?: boolean;
+}
+
+const VALID_LOCATION_GRADE_LEVELS = new Set<LocationGradeLevel>(['우수', '양호', '보통', '보완 필요']);
+
+export function computeLocationFourGrades(params: {
+  mergedStations: MergedSubwayStation[];
+  roadSummaryShort?: string | null;
+  arterialSummary?: string | null;
+  icSpotName?: string | null;
+  foodCount?: number;
+  cafeCount?: number;
+  convCount?: number;
+  aptHouseholds?: number;
+  facilityLabels?: string[];
+  manualOverrides?: Partial<Record<LocationGradeKey, LocationGradeLevel>> | null;
+}): LocationGradeItem[] {
+  const {
+    mergedStations,
+    roadSummaryShort,
+    arterialSummary,
+    icSpotName,
+    foodCount = 0,
+    cafeCount = 0,
+    convCount = 0,
+    aptHouseholds = 0,
+    facilityLabels = [],
+    manualOverrides,
+  } = params;
+
+  const primarySt = mergedStations[0];
+  let walkAuto: LocationGradeLevel = '보통';
+  let walkBasis = '인근 역세권 도보권';
+  if (primarySt) {
+    walkBasis = `${primarySt.formattedName} 도보 ${primarySt.walkMinutes}분`;
+    if (primarySt.walkMinutes <= 5) walkAuto = '우수';
+    else if (primarySt.walkMinutes <= 10) walkAuto = '양호';
+    else if (primarySt.walkMinutes <= 15) walkAuto = '보통';
+    else walkAuto = '보완 필요';
+  } else {
+    walkAuto = '보완 필요';
+    walkBasis = '인근 버스 정류장 도보 이용';
+  }
+
+  let transitAuto: LocationGradeLevel = '보통';
+  const lineCount = primarySt?.lines?.length ?? 0;
+  const transitParts = [
+    lineCount >= 2 ? `${primarySt?.baseName ?? ''} ${lineCount}개 노선 환승`.trim() : '',
+    roadSummaryShort || '',
+    arterialSummary || icSpotName || '',
+  ].filter(Boolean);
+  const transitBasis = transitParts.slice(0, 2).join(' · ') || '간선도로 및 버스 노선 연계';
+  if ((lineCount >= 2 && (arterialSummary || icSpotName || roadSummaryShort)) || mergedStations.length >= 2) {
+    transitAuto = '우수';
+  } else if (primarySt || roadSummaryShort || arterialSummary) {
+    transitAuto = '양호';
+  }
+
+  const commercialPoiCount = foodCount + cafeCount + convCount;
+  let commercialAuto: LocationGradeLevel = '보통';
+  const commercialParts = [
+    commercialPoiCount > 0 ? `500m 음식·카페·편의점 ${commercialPoiCount}곳` : '',
+    aptHouseholds > 0 ? `배후 아파트 ${aptHouseholds.toLocaleString('ko-KR')}세대` : '',
+  ].filter(Boolean);
+  const commercialBasis = commercialParts[0] || '주변 근린생활·업무 배후';
+  if (commercialPoiCount >= 40 || aptHouseholds >= 2000) commercialAuto = '우수';
+  else if (commercialPoiCount >= 15 || aptHouseholds >= 800) commercialAuto = '양호';
+  else if (commercialPoiCount > 0 || aptHouseholds > 0) commercialAuto = '보통';
+  else commercialAuto = '보완 필요';
+
+  let amenityAuto: LocationGradeLevel = '보통';
+  const topFacility = facilityLabels[0]?.replace(/\s+도보.*$/, '').replace(/\s+\(약.*$/, '') || '';
+  const amenityBasis = topFacility ? `${topFacility} 등 편의시설` : '생활·금융·의료 인프라';
+  if (facilityLabels.length >= 2 && convCount >= 5) amenityAuto = '우수';
+  else if (facilityLabels.length >= 1 || convCount >= 2) amenityAuto = '양호';
+
+  const defs: Array<{ key: LocationGradeKey; label: string; autoGrade: LocationGradeLevel; basis: string }> = [
+    { key: 'walk', label: '도보 접근성', autoGrade: walkAuto, basis: walkBasis },
+    { key: 'transit', label: '광역 접근성', autoGrade: transitAuto, basis: transitBasis },
+    { key: 'commercial', label: '상권 활성화', autoGrade: commercialAuto, basis: commercialBasis },
+    { key: 'amenity', label: '편의시설', autoGrade: amenityAuto, basis: amenityBasis },
+  ];
+
+  return defs.map((d) => {
+    const manual = manualOverrides?.[d.key];
+    const hasManual = Boolean(manual && VALID_LOCATION_GRADE_LEVELS.has(manual));
+    return {
+      key: d.key,
+      label: d.label,
+      grade: hasManual ? manual! : d.autoGrade,
+      basis: d.basis,
+      ...(hasManual ? { isManual: true } : {}),
+    };
+  });
+}
+
 export interface BasicLocationRightResult {
   sub: string;
   rows: Array<[string, string]>;
@@ -43,6 +147,7 @@ export interface BasicLocationRightResult {
   source: string;
   warnings: string[];
   mergedStations: MergedSubwayStation[];
+  locationGrades: LocationGradeItem[];
 }
 
 function cleanRoadNameFromAddress(address?: string | null): string | null {
@@ -553,6 +658,19 @@ export function buildBasicLocationRightData(
         }
       : undefined;
 
+  const locationGrades = computeLocationFourGrades({
+    mergedStations,
+    roadSummaryShort,
+    arterialSummary,
+    icSpotName,
+    foodCount,
+    cafeCount,
+    convCount,
+    aptHouseholds,
+    facilityLabels,
+    manualOverrides: brokerExtras?.location_grades ?? null,
+  });
+
   return {
     sub: '입지 및 접근성 분석',
     rows,
@@ -560,5 +678,6 @@ export function buildBasicLocationRightData(
     source: '© 카카오맵 · V-World 국토교통부 공간정보',
     warnings,
     mergedStations,
+    locationGrades,
   };
 }

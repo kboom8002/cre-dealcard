@@ -329,6 +329,7 @@ export type MonthlyChartSourceMode = 'public_db' | 'reference_benchmark' | 'brok
 export type MonthlyRegionalChartType =
   | 'molit_tx_price_trend'
   | 'reb_vacancy_cap_spread'
+  | 'reb_core3_trend'
   | 'kosis_commercial_vitality'
   | 'bok_loan_rate_cap_spread'
   | 'molit_price_band_mix'
@@ -364,6 +365,8 @@ export interface MonthlyRegionalChart {
   isPlaceholder?: boolean;
   placeholderNotice?: string;
   sourceMode?: MonthlyChartSourceMode;
+  privateResearchNote?: string;
+  privateResearchSource?: string;
 }
 
 export interface EditionContentBroker {

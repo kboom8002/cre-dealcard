@@ -803,6 +803,20 @@ export async function getAggregatedBrokerHomeData(
   const recentImTarget = recentImItem || recentBuilding;
 
   const doors: AggregatedBrokerHomeData["doors"] = {
+    magazine: {
+      id: "magazine",
+      title: "부동산뉴스",
+      subtitle: "주간·월간 고객 소식지",
+      href: "/broker/w/newsletter",
+      icon: "📰",
+      badge: {
+        count: magazineCount,
+        label: magazineCount > 0 ? `발행 ${magazineCount}건` : "0건",
+        href: "/broker/w/newsletter",
+        highlight: magazineCount > 0,
+      },
+      shortcutNumber: 1,
+    },
     dealcards: {
       id: "dealcards",
       title: "딜카드",
@@ -817,12 +831,12 @@ export async function getAggregatedBrokerHomeData(
           : "/broker/w/dealcards",
         highlight: totalBuildings > 0,
       },
-      shortcutNumber: 1,
+      shortcutNumber: 2,
     },
     im: {
       id: "im",
-      title: "기본 IM",
-      subtitle: "3분 완성 / 10개 섹션 리포트",
+      title: "IM",
+      subtitle: "3분 완성 / 발표자료 & PDF",
       href: "/broker/w/im",
       icon: "📊",
       badge: {
@@ -833,25 +847,11 @@ export async function getAggregatedBrokerHomeData(
           : "/broker/w/im",
         highlight: imCount > 0,
       },
-      shortcutNumber: 2,
-    },
-    magazine: {
-      id: "magazine",
-      title: "뉴스레터",
-      subtitle: "주간 매물 소식지",
-      href: "/broker/w/newsletter",
-      icon: "📰",
-      badge: {
-        count: magazineCount,
-        label: magazineCount > 0 ? `발행 ${magazineCount}건` : "0건",
-        href: "/broker/w/newsletter",
-        highlight: magazineCount > 0,
-      },
       shortcutNumber: 3,
     },
     inbox: {
       id: "inbox",
-      title: "고객 소통함",
+      title: "고객 소통",
       subtitle: "열람 고객 / 피드백",
       href: "/broker/w/inbox",
       icon: "💬",

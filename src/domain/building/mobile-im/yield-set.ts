@@ -97,9 +97,9 @@ export const YIELD_LABELS = {
   grossOnPrice: '임대수익률 (Gross, 매매가 대비)',
   grossInclOtherIncome: '임대수익률 (기타수입 포함, 참고)',
   noiCapRate: 'Cap Rate (NOI 기준)',
-  stabilizedBrokerPlan: '안정화 기대수익률',
-  stabilizedTargetRent: '안정화 수익률',
-  stabilizedMarketRent: '안정화 수익률 (시장 임대료 가정)',
+  stabilizedBrokerPlan: '기대수익률(추정수익률)',
+  stabilizedTargetRent: '기대수익률(추정수익률)',
+  stabilizedMarketRent: '기대수익률(추정수익률) (시장 임대료 가정)',
 } as const;
 
 export const stabilizedReserveLabel = (vacancyReservePct: number | null | undefined): string =>

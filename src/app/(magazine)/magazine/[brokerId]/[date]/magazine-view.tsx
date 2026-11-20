@@ -11,8 +11,9 @@
  * - M2-20(테마 LLM 중복 호출)은 뷰어가 읽기 전용 GET 이라 LLM 호출 자체가 없어 해당 없음(N/A).
  */
 import React from "react";
-import { Building2, Newspaper } from "lucide-react";
+import { Newspaper } from "lucide-react";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
+import { SubscriberShareButton } from "@/components/magazine/SubscriberShareButton";
 import { MonthlyGlassStatCard } from "@/components/magazine/MonthlyGlassStatCard";
 import { ActionCardView } from "@/components/im/action-card-view";
 import { PoweredByBadge } from "@/components/ui/PoweredByBadge";
@@ -30,6 +31,7 @@ import {
 } from "@/components/magazine/viewer-sections";
 import type { AxiosUnitIssue, MonthlyRegionalChart } from "@/domain/magazine/types";
 import { formatKoreanDate } from "@/lib/magazine/kst";
+import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { sanitizeStatutoryField } from "@/lib/legal/broker-statutory-disclosure";
 import {
   buildMagazineTitle,
@@ -67,7 +69,6 @@ interface MagazineViewProps {
 
 export type MagazineData = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const DEAL_FALLBACK_BG = "linear-gradient(135deg, #1e1b4b, #312e81)";
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
 const PYEONG_RATIO = 0.3025;
 
@@ -111,7 +112,7 @@ export function MagazineView({
   const title = buildMagazineTitle(cleanScoreText(data.headline as string | null | undefined, scoreEvidence), broker.name);
 
   const briefingText = cleanScoreText((data.briefing as string | undefined) ?? "", scoreEvidence);
-  const accent = (data.themeColor as string | undefined) || (data.theme_color as string | undefined) || "#6366f1";
+  const accent = (data.themeColor as string | undefined) || (data.theme_color as string | undefined) || "#059669";
   const coverImageUrl = data.cover_image_url as string | null | undefined;
 
   // ── Field note (ai_briefing이 없을 때만 폴백으로 표시) ──
@@ -189,21 +190,28 @@ export function MagazineView({
   const renderFeaturedDeals = () => (
     <Section>
       <div className="space-y-3">
-        {featuredDeals.length > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-1.5">
-            <span
-              data-deals-counter=""
-              data-deals-total={featuredDeals.length}
-              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-sm font-bold text-rose-800"
-            >
-              1 / {featuredDeals.length}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center rounded-lg bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-sm font-extrabold text-amber-950">
+              딜카드 추천 매물
             </span>
+            {featuredDeals.length > 1 && (
+              <span
+                data-deals-counter=""
+                data-deals-total={featuredDeals.length}
+                className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-sm font-bold text-amber-900"
+              >
+                1 / {featuredDeals.length}
+              </span>
+            )}
+          </div>
+          {featuredDeals.length > 1 && (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 data-carousel-dir="prev"
                 aria-label="이전 매물 보기"
-                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50"
+                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center rounded-xl border border-amber-300 bg-white px-2.5 text-sm font-bold text-amber-950 hover:bg-amber-50"
               >
                 ◀ 이전
               </button>
@@ -211,13 +219,14 @@ export function MagazineView({
                 type="button"
                 data-carousel-dir="next"
                 aria-label="다음 매물 보기"
-                className="inline-flex h-12 min-h-12 min-w-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50"
+                className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center rounded-xl border border-amber-300 bg-white px-2.5 text-sm font-bold text-amber-950 hover:bg-amber-50"
               >
                 다음 ▶
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
         <ul
           data-deals-carousel=""
           className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
@@ -230,205 +239,121 @@ export function MagazineView({
                 : typeof deal.price === "number" && deal.price > 0
                 ? deal.price
                 : null;
-            const priceLabel = formatPriceKo(rawPriceWon || deal.price);
-            const priceDisplay =
-              priceLabel === "-" ||
-              priceLabel.endsWith("원") ||
-              /(?:억대|만대|협의|문의|확인)/.test(priceLabel)
-                ? priceLabel
-                : `${priceLabel} 원`;
-
-            // 실질 수익률 (보증금 차감)
-            const yieldVal =
-              typeof deal.grossYieldNetOfDeposit === "number" && deal.grossYieldNetOfDeposit > 0
-                ? deal.grossYieldNetOfDeposit
-                : typeof deal.netYieldOnDeposit === "number" && deal.netYieldOnDeposit > 0
-                ? deal.netYieldOnDeposit
-                : typeof deal.grossYieldOnPrice === "number" && deal.grossYieldOnPrice > 0
-                ? deal.grossYieldOnPrice
+            const explicitBand =
+              typeof deal.priceBand === "string" && deal.priceBand.trim()
+                ? deal.priceBand.trim()
+                : typeof deal.price_band === "string" && deal.price_band.trim()
+                ? deal.price_band.trim()
                 : null;
-            const yieldLabel = yieldVal !== null ? `${yieldVal.toFixed(2)}%` : null;
+            const priceLabel =
+              explicitBand ||
+              (rawPriceWon ? formatPriceRange(rawPriceWon) : formatPriceKo(deal.price));
+            const priceDisplay = priceLabel && priceLabel !== "-" ? priceLabel : "가격 협의";
 
-            // 대지 및 연면적 (평) - PYEONG_RATIO = 0.3025
-            const landPyeong =
-              typeof deal.landAreaPyeong === "number"
-                ? deal.landAreaPyeong
-                : typeof deal.landAreaM2 === "number"
-                ? Math.round(deal.landAreaM2 * PYEONG_RATIO * 10) / 10
-                : null;
             const gfaPyeong =
               typeof deal.grossFloorAreaPyeong === "number"
-                ? deal.grossFloorAreaPyeong
-                : typeof deal.grossFloorAreaM2 === "number"
-                ? Math.round(deal.grossFloorAreaM2 * PYEONG_RATIO * 10) / 10
+                ? Math.round(deal.grossFloorAreaPyeong)
+                : typeof deal.grossFloorAreaM2 === "number" && deal.grossFloorAreaM2 > 0
+                ? Math.round(deal.grossFloorAreaM2 * PYEONG_RATIO)
                 : null;
-            const areaDisplay =
-              landPyeong !== null && gfaPyeong !== null
-                ? `대지 ${landPyeong}평 · 연 ${gfaPyeong}평`
-                : gfaPyeong !== null
-                ? `연면적 ${gfaPyeong}평`
-                : landPyeong !== null
-                ? `대지 ${landPyeong}평`
+            const landPyeong =
+              typeof deal.landAreaPyeong === "number"
+                ? Math.round(deal.landAreaPyeong)
+                : typeof deal.landAreaM2 === "number" && deal.landAreaM2 > 0
+                ? Math.round(deal.landAreaM2 * PYEONG_RATIO)
                 : null;
+            const quadArea =
+              (typeof deal.areaLabel === "string" && deal.areaLabel.trim()) ||
+              (gfaPyeong ? `연면적 ${gfaPyeong}평` : landPyeong ? `대지 ${landPyeong}평` : "규모 상세확인");
 
-            // 용도지역 및 층수
-            const zoning = deal.zoning ? String(deal.zoning) : null;
-            const floorsStr = deal.floors
-              ? String(deal.floors)
-              : typeof deal.totalFloors === "number"
-              ? `지상 ${deal.totalFloors}층`
-              : null;
-            const specLine = [zoning, floorsStr].filter(Boolean).join(" · ");
+            const quadRegion =
+              (typeof deal.areaSignal === "string" && deal.areaSignal.trim()) ||
+              safeAddress ||
+              "서울 주요권역";
+            const quadUse =
+              (typeof deal.assetType === "string" && deal.assetType.trim()) ||
+              "근린생활시설";
 
-            // 1줄 핵심 투자 포인트
-            const investmentPoint = deal.investmentPoint || deal.point || null;
+            const investmentPoint =
+              deal.headline ||
+              deal.investmentPoint ||
+              deal.point ||
+              "핵심 상권 매물 · 딜카드에서 세부 특징 확인";
 
-            // IM URL / 직결 여부
             const dealIdStr = String(deal.id ?? i);
-            const isUuidDeal = UUID_PREFIX_RE.test(String(deal.id ?? ""));
-            const directImUrl = deal.imUrl || (isUuidDeal ? `/im-lite/${encodeURIComponent(String(deal.id))}` : null);
+            const isUuidDeal = UUID_PREFIX_RE.test(dealIdStr);
+            const dealCardHref = isUuidDeal
+              ? `/dc/${encodeURIComponent(dealIdStr)}`
+              : `#deal-inquiry-${encodeURIComponent(dealIdStr)}`;
 
-            const inquiryProps = {
-              "data-deal-inquiry": "true",
-              "data-deal-id": String(deal.id ?? ""),
-              "data-deal-asset": String(deal.assetType ?? "상업용 부동산"),
-              "data-deal-address": safeAddress,
-              "data-deal-price": priceLabel,
-              "data-deal-signal": String(deal.areaSignal ?? ""),
-            };
+            const inquiryProps = isUuidDeal
+              ? {}
+              : {
+                  "data-deal-inquiry": "true",
+                  "data-deal-id": String(deal.id ?? ""),
+                  "data-deal-asset": quadUse,
+                  "data-deal-address": safeAddress,
+                  "data-deal-price": priceDisplay,
+                  "data-deal-signal": quadRegion,
+                };
 
             return (
               <li
                 key={i}
-                className="block w-[300px] sm:w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-slate-300"
+                className="block w-[300px] sm:w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl border-2 border-amber-400/75 bg-white shadow-sm transition-all duration-300 hover:border-amber-500"
               >
                 <a
-                  href={`#deal-inquiry-${encodeURIComponent(dealIdStr)}`}
+                  href={dealCardHref}
+                  target={isUuidDeal ? "_blank" : undefined}
+                  rel={isUuidDeal ? "noopener noreferrer" : undefined}
                   {...inquiryProps}
+                  data-testid="newsletter-dealcard-thumb"
                   data-track-click="featured_deal"
                   data-track="listing_click"
                   data-track-listing-id={deal.id}
                   data-track-from="featured"
                   className="block min-h-12"
                 >
-                  <div className="relative h-[145px] w-full overflow-hidden" style={{ background: DEAL_FALLBACK_BG }}>
-                    {deal.photoUrl
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={deal.photoUrl} alt="" width={320} height={145} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-                      : <div className="flex h-full w-full items-center justify-center"><Building2 className="h-8 w-8 text-indigo-300/60" aria-hidden="true" /></div>}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-1.5">
-                      {yieldLabel ? (
-                        <span className="rounded-lg bg-emerald-950 border border-emerald-400/40 px-2 py-0.5 text-sm font-extrabold text-emerald-200 shadow">
-                          실질 {yieldLabel}
-                        </span>
-                      ) : deal.areaSignal ? (
-                        <span className="rounded-lg bg-slate-900/90 px-2 py-0.5 text-sm font-bold text-white">
-                          {deal.areaSignal}
-                        </span>
-                      ) : <span />}
-                      {deal.buyerInterestCount > 0 && (
-                        <span className="rounded-lg border border-rose-400/40 bg-rose-950 px-2 py-0.5 text-sm font-bold text-rose-100">
-                          관심 {deal.buyerInterestCount}명
-                        </span>
-                      )}
+                  {/* 검은 바탕 2×2 딜카드 썸네일 그대로 노출 */}
+                  <div
+                    data-theme-lock="dark"
+                    className="grid grid-cols-2 grid-rows-2 aspect-[1200/630] w-full bg-[#0F172A] text-white"
+                  >
+                    <div className="flex items-center justify-center border-b border-r border-slate-400/25 px-3 py-2 text-center">
+                      <span className="line-clamp-2 text-base font-extrabold text-slate-50 leading-snug">
+                        {quadRegion}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-center border-b border-slate-400/25 px-3 py-2 text-center">
+                      <span className="line-clamp-2 text-base font-extrabold text-sky-400 leading-snug">
+                        {quadUse}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-center border-r border-slate-400/25 px-3 py-2 text-center">
+                      <span className="line-clamp-2 text-base font-extrabold text-slate-200 leading-snug">
+                        {quadArea}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-center px-3 py-2 text-center">
+                      <span className="line-clamp-2 text-[17px] font-extrabold text-amber-400 leading-snug">
+                        {priceDisplay}
+                      </span>
                     </div>
                   </div>
-                  <div className="p-3.5 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="line-clamp-1 text-body font-bold text-slate-900 leading-tight">
-                          {deal.title || deal.assetType || "상업용 빌딩"}
-                        </h3>
-                        {deal.title && deal.assetType && deal.title !== deal.assetType && (
-                          <span className="mt-0.5 inline-block text-sm font-semibold text-indigo-700">
-                            {deal.assetType}
-                          </span>
-                        )}
-                        <p className="mt-0.5 line-clamp-1 text-sm text-slate-700">{safeAddress}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm text-slate-700 block font-medium">매매가</span>
-                        <span className="text-reader font-extrabold font-mono text-indigo-800">
-                          {priceDisplay}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* 스펙 그리드: 면적(평) / 용도·층수 */}
-                    {(areaDisplay || specLine) && (
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1 text-sm">
-                        {areaDisplay && (
-                          <div className="flex items-center justify-between gap-2 text-slate-900">
-                            <span className="text-slate-700 shrink-0 text-sm font-medium">면적</span>
-                            <span className="font-semibold truncate text-sm">{areaDisplay}</span>
-                          </div>
-                        )}
-                        {specLine && (
-                          <div className="flex items-center justify-between gap-2 text-slate-900">
-                            <span className="text-slate-700 shrink-0 text-sm font-medium">용도·층수</span>
-                            <span className="font-semibold truncate text-sm">{specLine}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 1줄 핵심 투자 포인트 */}
-                    {investmentPoint && (
-                      <div className="rounded-lg bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 text-sm text-indigo-900 font-medium line-clamp-2">
-                        💡 {investmentPoint}
-                      </div>
-                    )}
+                  {/* 하단 골드 포인트: 한 줄 핵심 특징 + 딜카드 이동 안내 */}
+                  <div className="flex items-center justify-between gap-2 bg-amber-50/90 px-3.5 py-2.5 border-t border-amber-300">
+                    <p className="min-w-0 flex-1 line-clamp-1 text-sm font-extrabold text-slate-900">
+                      {investmentPoint}
+                    </p>
+                    <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-sm font-extrabold text-slate-950">
+                      딜카드 보기 ›
+                    </span>
                   </div>
                 </a>
 
-                {/* Primary CTAs: [📄 모바일 IM 열람] + [🧮 이 매물 수지분석] */}
-                <div className="flex flex-col gap-2 px-3.5 pb-3.5 pt-1">
-                  <div className="flex gap-2">
-                    {directImUrl ? (
-                      <a
-                        href={directImUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        data-track="im_request"
-                        data-track-click="featured_deal_im"
-                        data-track-listing-id={deal.id}
-                        data-track-from="featured"
-                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-2 text-center text-sm font-extrabold text-white transition-colors shadow-sm"
-                      >
-                        <span aria-hidden="true">📄</span>
-                        <span>모바일 IM 열람</span>
-                      </a>
-                    ) : (
-                      <a
-                        href={`#deal-inquiry-im-${encodeURIComponent(dealIdStr)}`}
-                        {...inquiryProps}
-                        data-track="im_request"
-                        data-track-click="featured_deal_im"
-                        data-track-listing-id={deal.id}
-                        data-track-from="featured"
-                        className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-2 text-center text-sm font-extrabold text-white transition-colors shadow-sm"
-                      >
-                        <span aria-hidden="true">📄</span>
-                        <span>모바일 IM 열람</span>
-                      </a>
-                    )}
-                  </div>
-
-                  <a
-                    href={`#deal-inquiry-detail-${encodeURIComponent(dealIdStr)}`}
-                    {...inquiryProps}
-                    data-track="listing_click"
-                    data-track-listing-id={deal.id}
-                    data-track-from="featured_detail"
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-2 text-center text-sm font-semibold text-slate-800 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                  >
-                    상세 정보 · 문의
-                  </a>
-                </div>
-
                 {deal.actionCard && (
-                  <div className="border-t border-slate-200 px-3.5 pb-3.5 pt-2">
+                  <div className="border-t border-amber-200 px-3.5 pb-3 pt-2">
                     <ActionCardView actionCard={deal.actionCard} />
                   </div>
                 )}
@@ -508,7 +433,18 @@ export function MagazineView({
           </Section>
         );
       case "subscribe_cta":
-        if (isSubscribedViewer) return null;
+        if (isSubscribedViewer) {
+          return (
+            <Section>
+              <SubscriberShareButton
+                brokerId={brokerId}
+                brokerName={brokerName}
+                date={date}
+                preview={preview}
+              />
+            </Section>
+          );
+        }
         return (
           <Section>
             <div className={preview ? "pointer-events-none select-none" : undefined} aria-hidden={preview || undefined}>
@@ -670,7 +606,7 @@ export function MagazineView({
             displayName={brokerName}
             phone={brokerPhone}
           />
-          {!renderedIdSet.has("subscribe_cta") && <TrackingNotice />}
+          {(!renderedIdSet.has("subscribe_cta") || isSubscribedViewer) && <TrackingNotice />}
           <div className="pt-1">
             <PoweredByBadge
               variant="subtle"

@@ -14,6 +14,7 @@ import {
   UserCog,
 } from "lucide-react";
 import type { AggregatedBrokerHomeData } from "@/domain/broker/home-aggregated";
+import { WORKSPACE_IDENTITY } from "@/lib/ux/workspace-identity";
 import { FontScaleToggle } from "@/components/workspace/FontScaleToggle";
 import { WorkspaceHelpButton } from "@/components/workspace/WorkspaceHelpButton";
 
@@ -48,20 +49,17 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
   const router = useRouter();
   const { doors, resumeItem } = data;
 
-  // Keyboard shortcuts: 1~4 to immediately navigate to task doors.
-  // P2 (WP-7.3A): ignore modified keys (Ctrl/Cmd/Alt/Shift+digit are browser/OS
-  // shortcuts), IME composition (Korean input), auto-repeat, and any editable focus
-  // (input/textarea/select/contentEditable) so typing a digit never navigates away.
+  // Keyboard shortcuts: 1~4 in confirmed order: 1. 부동산뉴스 → 2. 딜카드 → 3. IM → 4. 고객 소통.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (shouldIgnoreDoorShortcut(e)) return;
 
       if (e.key === "1") {
-        router.push(doors.dealcards.href);
-      } else if (e.key === "2") {
-        router.push(doors.im.href);
-      } else if (e.key === "3") {
         router.push(doors.magazine.href);
+      } else if (e.key === "2") {
+        router.push(doors.dealcards.href);
+      } else if (e.key === "3") {
+        router.push(doors.im.href);
       } else if (e.key === "4") {
         router.push(doors.inbox.href);
       }
@@ -71,67 +69,66 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router, doors]);
 
+  const neutralBadgeClass =
+    "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]";
+
   const doorList = [
+    {
+      config: doors.magazine,
+      testId: "home-task-magazine",
+      aliasTestId: "quick-action-magazine",
+      badgeTestId: "home-door-badge-magazine",
+      glowClass: WORKSPACE_IDENTITY.magazine.doorGlowClass,
+      accentBg: WORKSPACE_IDENTITY.magazine.doorAccentBgClass,
+      badgeClass: doors.magazine.badge.highlight
+        ? WORKSPACE_IDENTITY.magazine.doorBadgeHighlightClass
+        : neutralBadgeClass,
+    },
     {
       config: doors.dealcards,
       testId: "home-task-dealcards",
       aliasTestId: "quick-action-dealcard",
       badgeTestId: "home-door-badge-dealcards",
-      glowClass: "from-[#007AFF]/[0.07] via-transparent to-transparent",
-      accentBg:
-        "bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(0,122,255,0.28)]",
+      glowClass: WORKSPACE_IDENTITY.dealcards.doorGlowClass,
+      accentBg: WORKSPACE_IDENTITY.dealcards.doorAccentBgClass,
       badgeClass: doors.dealcards.badge.highlight
-        ? "bg-[#007AFF]/10 text-[#0040DD] border-[#007AFF]/22 hover:bg-[#007AFF]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
+        ? WORKSPACE_IDENTITY.dealcards.doorBadgeHighlightClass
+        : neutralBadgeClass,
     },
     {
       config: doors.im,
       testId: "home-task-im",
       aliasTestId: "quick-action-im",
       badgeTestId: "home-door-badge-im",
-      glowClass: "from-[#28CD41]/[0.07] via-transparent to-transparent",
-      accentBg:
-        "bg-gradient-to-b from-[#24B63E] to-[#188C2C] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(29,158,52,0.25)]",
+      glowClass: WORKSPACE_IDENTITY.im.doorGlowClass,
+      accentBg: WORKSPACE_IDENTITY.im.doorAccentBgClass,
       badgeClass: doors.im.badge.highlight
-        ? "bg-[#28CD41]/10 text-[#116B22] border-[#28CD41]/25 hover:bg-[#28CD41]/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
-    },
-    {
-      config: doors.magazine,
-      testId: "home-task-magazine",
-      aliasTestId: "quick-action-magazine",
-      badgeTestId: "home-door-badge-magazine",
-      glowClass: "from-[#5856D6]/[0.07] via-transparent to-transparent",
-      accentBg:
-        "bg-gradient-to-b from-[#6B69E6] to-[#4A48C4] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(88,86,214,0.26)]",
-      badgeClass: doors.magazine.badge.highlight
-        ? "bg-[#5856D6]/10 text-[#3634A3] border-[#5856D6]/22 hover:bg-[#5856D6]/16 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
+        ? WORKSPACE_IDENTITY.im.doorBadgeHighlightClass
+        : neutralBadgeClass,
     },
     {
       config: doors.inbox,
       testId: "home-task-inbox",
       aliasTestId: "quick-action-inbox",
       badgeTestId: "home-door-badge-inbox",
-      glowClass: "from-[#FF9500]/[0.08] via-transparent to-transparent",
-      accentBg:
-        "bg-gradient-to-b from-[#FFAA00] to-[#E68600] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(255,149,0,0.28)]",
+      glowClass: WORKSPACE_IDENTITY.inbox.doorGlowClass,
+      accentBg: WORKSPACE_IDENTITY.inbox.doorAccentBgClass,
       badgeClass: doors.inbox.badge.highlight
-        ? "bg-[#FF9500]/12 text-[#8A4B00] border-[#FF9500]/26 hover:bg-[#FF9500]/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
-        : "bg-[#767680]/10 text-[#3A3A3C] border-slate-900/[0.08] hover:bg-[#767680]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
+        ? WORKSPACE_IDENTITY.inbox.doorBadgeHighlightClass
+        : neutralBadgeClass,
     },
   ];
 
   const renderDoorIcon = (id: string) => {
     switch (id) {
-      case "dealcards":
-        return <FileSpreadsheet className="w-6 h-6 text-[#007AFF]" strokeWidth={2.2} aria-hidden="true" />;
-      case "im":
-        return <Presentation className="w-6 h-6 text-[#188C2C]" strokeWidth={2.2} aria-hidden="true" />;
       case "magazine":
-        return <Newspaper className="w-6 h-6 text-[#4A48C4]" strokeWidth={2.2} aria-hidden="true" />;
+        return <Newspaper className="w-6 h-6 text-[#059669]" strokeWidth={2.2} aria-hidden="true" />;
+      case "dealcards":
+        return <FileSpreadsheet className="w-6 h-6 text-[#D97706]" strokeWidth={2.2} aria-hidden="true" />;
+      case "im":
+        return <Presentation className="w-6 h-6 text-[#1D4ED8]" strokeWidth={2.2} aria-hidden="true" />;
       case "inbox":
-        return <MessageSquareMore className="w-6 h-6 text-[#E68600]" strokeWidth={2.2} aria-hidden="true" />;
+        return <MessageSquareMore className="w-6 h-6 text-[#DB2777]" strokeWidth={2.2} aria-hidden="true" />;
       default:
         return <Building2 className="w-6 h-6 text-[#1D1D1F]" strokeWidth={2.2} aria-hidden="true" />;
     }

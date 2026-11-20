@@ -24,7 +24,13 @@ import {
   type DealCardCopyLLMOutput,
 } from '@/ai/schemas/broker-deal-card';
 import { requireBroker } from '@/lib/auth-guard';
-import { cleanBlindPoints, validateBlindPoints } from '@/lib/deal-card/blind-guard';
+import {
+  cleanBlindPoints,
+  stripSubjectiveNumericSpin,
+  validateBlindPoints,
+} from '@/lib/deal-card/blind-guard';
+import { getMarketDefaults } from '@/domain/ontology/market-data-provider';
+import { getCapRateBenchmark } from '@/domain/ontology/market-defaults';
 import {
   dealCardAiCopyRequestSchema,
   type DealCardAiCopyResponse,
@@ -110,9 +116,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const input = parsed.data;
+    const defaults = await getMarketDefaults().catch(() => null);
+    const regionText = String(input.region || '');
+    const sigunguBench =
+      defaults?.capRateBenchmarks
+        ? Object.entries(defaults.capRateBenchmarks).find(([k]) => regionText.includes(k))?.[1]
+        : getCapRateBenchmark(regionText);
+
     const sanitizedFacts = input.facts
       ? {
           ...input.facts,
+          ...(sigunguBench && Number.isFinite(sigunguBench)
+            ? { regionalBenchmarkYieldPct: sigunguBench }
+            : {}),
           ...(input.facts.memoSummary
             ? {
                 memoSummary:
@@ -120,6 +136,8 @@ export async function POST(req: NextRequest) {
               }
             : {}),
         }
+      : sigunguBench && Number.isFinite(sigunguBench)
+      ? { regionalBenchmarkYieldPct: sigunguBench }
       : undefined;
     const postureInfo = POSTURE_LABELS[input.posture];
     const prompt = buildDealCardCopyPrompt({
@@ -161,6 +179,7 @@ export async function POST(req: NextRequest) {
       const { cleaned, stripped } = stripUngroundedNumbers(text, prompt.factContext);
       if (stripped.length > 0) warnings.add(WARN_NUMBERS);
       let line = humanizeSeniorBrokerTone(cleanBlindPoints([cleaned || ''])[0] || '');
+      line = stripSubjectiveNumericSpin(line);
       if (isHeadline) line = stripChipRepetition(line, { region: input.region, use: input.use });
       const repaired = repairDealCardLine(line);
       if (repaired !== line.trim()) warnings.add(WARN_REPAIRED);

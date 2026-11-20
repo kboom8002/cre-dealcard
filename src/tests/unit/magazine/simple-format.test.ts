@@ -338,7 +338,8 @@ describe('FieldNoteSection & MagazineView — 중개사의 한마디 인용 카�
 
     expect(html).toContain('data-testid="viewer-market-briefing"');
     expect(html).toContain('data-testid="axios-postit-card"');
-    expect(html).toContain('모바일 IM 열람');
+    expect(html).toContain('data-testid="newsletter-dealcard-thumb"');
+    expect(html).toContain('딜카드 보기');
     expect(html).toContain('data-testid="minimal-subscribe-optin"');
     expect(html).not.toContain('data-magazine-bottom-bar');
     expect(html).not.toContain('수익률 계산기');

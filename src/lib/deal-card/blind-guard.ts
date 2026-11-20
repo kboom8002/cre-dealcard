@@ -602,3 +602,105 @@ export function sanitizeBrokerPhone(raw?: string | null): string {
   if (digits.length < 7) return '';
   return cleaned;
 }
+
+export interface SubjectiveNumericWarning {
+  pointIndex: number;
+  pointText: string;
+  keyword: string;
+  reason: string;
+}
+
+/**
+ * Q5-1 중개인 원칙:
+ * 수익률·면적 등 정량 숫자에 대한 주관적·정성적 수식어("양호한 수익률", "넓은 대지" 등) 금지.
+ */
+export const SUBJECTIVE_NUMERIC_PHRASE_RULES: ReadonlyArray<{
+  pattern: RegExp;
+  label: string;
+  reason: string;
+}> = [
+  {
+    pattern: /(?:양호한?|높은|우수한?|우량한?|뛰어난?|매력적인?|좋은|괜찮은|준수한?|탁월한?|안정적(?:인)?)\s*(?:임대\s*)?(?:수익률|연\s*수익률|배당|금리)/g,
+    label: '주관적 수익률 수식어',
+    reason: '수익률에 "양호한/높은" 같은 주관적 평가를 붙이지 말고, 수치 팩트나 현장 장점으로 적어 주세요.',
+  },
+  {
+    pattern: /(?:수익률|연\s*수익률)(?:이|가)?\s*(?:양호|우수|높음|높은|탁월|매력)/g,
+    label: '주관적 수익률 수식어',
+    reason: '수익률 평가는 매수자마다 다르므로 주관적 판단 표현 대신 객관 팩트만 적어 주세요.',
+  },
+  {
+    pattern: /(?:넓은|넉넉한?|알찬|풍부한?|우수한?|적정한?|쾌적한?|큰|거대한?)\s*(?:대지(?:면적)?|토지(?:면적)?|연면적|전용면적|면적|평수|규모)/g,
+    label: '주관적 면적 수식어',
+    reason: '면적·평수에 주관적 수식어("넓은/알찬" 등)를 붙이지 말고 현장 특장점을 적어 주세요.',
+  },
+];
+
+const PURE_AREA_REPETITION_RE =
+  /^(?:대지|토지|연면적|연|건축면적)\s*\d+(?:\.\d+)?\s*(?:평|㎡)(?:\s*[·,/]?\s*(?:대지|토지|연면적|연|건축면적)?\s*\d+(?:\.\d+)?\s*(?:평|㎡))+\s*$/;
+
+export function isPureAreaRepetitionPoint(text: string): boolean {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return false;
+  return PURE_AREA_REPETITION_RE.test(trimmed);
+}
+
+/**
+ * 딜카드 장점 3줄에서 수익률/면적의 주관적 수식어 또는 단순 면적 반복을 탐지한다.
+ */
+export function detectSubjectiveNumericPhrases(
+  points: readonly string[],
+): SubjectiveNumericWarning[] {
+  const out: SubjectiveNumericWarning[] = [];
+  points.forEach((raw, pointIndex) => {
+    const pointText = String(raw || '').trim();
+    if (!pointText) return;
+
+    if (isPureAreaRepetitionPoint(pointText)) {
+      out.push({
+        pointIndex,
+        pointText,
+        keyword: pointText,
+        reason: '상단 썸네일에 이미 표시된 면적 숫자만 반복되었습니다. 입지·외관·임차 장점을 적어 주세요.',
+      });
+      return;
+    }
+
+    for (const rule of SUBJECTIVE_NUMERIC_PHRASE_RULES) {
+      const re = new RegExp(rule.pattern.source, rule.pattern.flags);
+      const match = re.exec(pointText);
+      if (match) {
+        out.push({
+          pointIndex,
+          pointText,
+          keyword: match[0],
+          reason: rule.reason,
+        });
+        break;
+      }
+    }
+  });
+  return out;
+}
+
+/**
+ * AI 생성/후처리 시 수익률·면적의 주관적 형용사를 제거한다.
+ */
+export function stripSubjectiveNumericSpin(text: string): string {
+  let next = String(text || '').trim();
+  if (!next) return '';
+  if (isPureAreaRepetitionPoint(next)) return '';
+
+  next = next
+    .replace(
+      /(?:양호한?|높은|우수한?|우량한?|뛰어난?|매력적인?|좋은|괜찮은|준수한?|탁월한?|안정적(?:인)?)\s*((?:임대\s*)?(?:수익률|연\s*수익률))/g,
+      '$1',
+    )
+    .replace(
+      /(?:넓은|넉넉한?|알찬|풍부한?|우수한?|적정한?|쾌적한?|큰|거대한?)\s*(대지(?:면적)?|토지(?:면적)?|연면적|전용면적|면적|평수|규모)/g,
+      '$1',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return next;
+}

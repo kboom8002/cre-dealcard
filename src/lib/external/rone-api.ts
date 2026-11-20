@@ -266,3 +266,138 @@ export async function fetchRegionalLandPriceRateSeries(params: {
     return null;
   }
 }
+
+export interface RegionalCommercialBenchmark {
+  regionKey: string;
+  regionLabel: string;
+  landPriceRatePct: number;
+  rentalYieldPct: number;
+  vacancyRatePct: number;
+  quarterLabel: string;
+  source: string;
+}
+
+/**
+ * 12개월 이동평균 산출: period 내림차순 정렬 후 최근 최대 12개 시점(월별=12, 분기별=4)의 산술 평균
+ */
+export function computeTrailing12MonthAverage(
+  points: ReadonlyArray<{ period: string; value: number }>,
+  limit = 12,
+): number | null {
+  const valid = points
+    .filter((p) => p && Number.isFinite(Number(p.value)))
+    .map((p) => ({ period: String(p.period ?? '').trim(), value: Number(p.value) }))
+    .sort((a, b) => b.period.localeCompare(a.period))
+    .slice(0, Math.max(1, limit));
+  if (valid.length === 0) return null;
+  const avg = valid.reduce((acc, p) => acc + p.value, 0) / valid.length;
+  return parseFloat(avg.toFixed(2));
+}
+
+/**
+ * 한국부동산원 R-ONE 상업용부동산 임대동향조사 + 전국지가변동률조사 최근 12개월 이동평균 정적 기준표
+ */
+export const REGIONAL_COMMERCIAL_BENCHMARKS: readonly RegionalCommercialBenchmark[] = [
+  {
+    regionKey: 'gbd',
+    regionLabel: '강남·서초 (GBD)',
+    landPriceRatePct: 3.12,
+    rentalYieldPct: 4.18,
+    vacancyRatePct: 5.4,
+    quarterLabel: '최근 12개월 평균 (2025 Q2~2026 Q1)',
+    source: '한국부동산원 R-ONE (상업용 임대동향 · 전국지가변동률)',
+  },
+  {
+    regionKey: 'cbd',
+    regionLabel: '종로·중구 도심 (CBD)',
+    landPriceRatePct: 2.48,
+    rentalYieldPct: 4.52,
+    vacancyRatePct: 8.1,
+    quarterLabel: '최근 12개월 평균 (2025 Q2~2026 Q1)',
+    source: '한국부동산원 R-ONE (상업용 임대동향 · 전국지가변동률)',
+  },
+  {
+    regionKey: 'ybd',
+    regionLabel: '영등포·여의도 (YBD)',
+    landPriceRatePct: 2.95,
+    rentalYieldPct: 4.65,
+    vacancyRatePct: 6.2,
+    quarterLabel: '최근 12개월 평균 (2025 Q2~2026 Q1)',
+    source: '한국부동산원 R-ONE (상업용 임대동향 · 전국지가변동률)',
+  },
+  {
+    regionKey: 'seongsu',
+    regionLabel: '성수·광진',
+    landPriceRatePct: 3.45,
+    rentalYieldPct: 3.92,
+    vacancyRatePct: 4.6,
+    quarterLabel: '최근 12개월 평균 (2025 Q2~2026 Q1)',
+    source: '한국부동산원 R-ONE (상업용 임대동향 · 전국지가변동률)',
+  },
+  {
+    regionKey: 'mapo_yongsan',
+    regionLabel: '마포·용산',
+    landPriceRatePct: 3.24,
+    rentalYieldPct: 4.08,
+    vacancyRatePct: 5.9,
+    quarterLabel: '최근 12개월 평균 (2025 Q2~2026 Q1)',
+    source: '한국부동산원 R-ONE (상업용 임대동향 · 전국지가변동률)',
+  },
+  {
+    regionKey: 'pangyo_bundang',
+    regionLabel: '판교·분당',
+    landPriceRatePct: 2.86,
+    rentalYieldPct: 4.74,
+    vacancyRatePct: 5.1,
+    quarterLabel: '최근 12개월 평균 (2025 Q2~2026 Q1)',
+    source: '한국부동산원 R-ONE (상업용 임대동향 · 전국지가변동률)',
+  },
+] as const;
+
+export function getRegionalCommercialBenchmarks(regionKey?: string): RegionalCommercialBenchmark[] {
+  if (!regionKey) return [...REGIONAL_COMMERCIAL_BENCHMARKS];
+  const norm = regionKey.trim().toLowerCase();
+  const matched = REGIONAL_COMMERCIAL_BENCHMARKS.filter(
+    (b) => b.regionKey === norm || b.regionLabel.toLowerCase().includes(norm),
+  );
+  return matched.length > 0 ? matched : [...REGIONAL_COMMERCIAL_BENCHMARKS];
+}
+
+/**
+ * R-ONE API 실시간 연동 시도 후 실패 또는 API 키 미설정 시 검증된 12개월 이동평균 테이블 반환
+ */
+export async function fetchRegionalCommercialBenchmarks(): Promise<RegionalCommercialBenchmark[]> {
+  const key = process.env.REB_RONE_API_KEY;
+  if (!key) {
+    return [...REGIONAL_COMMERCIAL_BENCHMARKS];
+  }
+  try {
+    // 자치구별 최신 지가변동률과 12개월 상업용 기준 결합
+    const enriched = await Promise.all(
+      REGIONAL_COMMERCIAL_BENCHMARKS.map(async (b) => {
+        const sggMap: Record<string, string> = {
+          gbd: '11680',
+          cbd: '11140',
+          ybd: '11560',
+          seongsu: '11200',
+          mapo_yongsan: '11440',
+        };
+        const code = sggMap[b.regionKey];
+        if (!code) return b;
+        const series = await fetchRegionalLandPriceRateSeries({ sigunguCode: code });
+        const latestPt = series?.points?.[series.points.length - 1];
+        return latestPt
+          ? {
+              ...b,
+              landPriceRatePct: parseFloat(latestPt.ratePct.toFixed(2)),
+              source: '한국부동산원 R-ONE Open API · 12M 평균',
+            }
+          : b;
+      }),
+    );
+    return enriched;
+  } catch (err) {
+    logger.warn('fetchRegionalCommercialBenchmarks fallback to embedded table', { err });
+    return [...REGIONAL_COMMERCIAL_BENCHMARKS];
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { RentRollGrid } from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
@@ -74,6 +74,9 @@ export interface ImEditorPanelsProps {
   // Step 2: Rent Roll
   rentRoll: RentRollRowItem[];
   onChangeRentRoll: (rows: RentRollRowItem[]) => void;
+  expectedRentRoll?: RentRollRowItem[];
+  onChangeExpectedRentRoll?: (rows: RentRollRowItem[]) => void;
+  onCopyActualToExpectedRentRoll?: () => void;
   totalDepositManwon: number;
   totalRentManwon: number;
   calculatedYield: number;
@@ -87,6 +90,8 @@ export interface ImEditorPanelsProps {
   postitStyles: Record<"amber" | "sky" | "mint", ImPostitStyle>;
   isAiPointsBusy: boolean;
   onReclusterImAxios: () => void;
+  locationGrades?: Partial<Record<"walk" | "transit" | "commercial" | "amenity", "우수" | "양호" | "보통" | "보완 필요">>;
+  onChangeLocationGrade?: (key: "walk" | "transit" | "commercial" | "amenity", grade: "우수" | "양호" | "보통" | "보완 필요" | "") => void;
   isBrokerSectionOpen: boolean;
   onToggleBrokerSection: () => void;
   onMarkBrokerSectionTouched: () => void;
@@ -105,7 +110,8 @@ export interface ImEditorPanelsProps {
   isDraggingPhotos: boolean;
   onSetDraggingPhotos: (dragging: boolean) => void;
   isCompressingPhotos: boolean;
-  onFilesSelected: (files: File[]) => void;
+  onFilesSelected: (files: File[], forcedCategory?: "exterior" | "interior") => void;
+  onUpdatePhotoMeta?: (idx: number, patch: { caption?: string; category?: "exterior" | "interior" }) => void;
   onRemovePhotoAtIndex: (entry: ImPhotoEntry, idx: number) => void;
   isGenerating: boolean;
   generateButtonLabel: string;
@@ -158,6 +164,9 @@ export function ImEditorPanels({
   onChangeCompletionDate,
   rentRoll,
   onChangeRentRoll,
+  expectedRentRoll = [],
+  onChangeExpectedRentRoll,
+  onCopyActualToExpectedRentRoll,
   totalDepositManwon,
   totalRentManwon,
   calculatedYield,
@@ -169,6 +178,8 @@ export function ImEditorPanels({
   postitStyles,
   isAiPointsBusy,
   onReclusterImAxios,
+  locationGrades = {},
+  onChangeLocationGrade,
   isBrokerSectionOpen,
   onToggleBrokerSection,
   onMarkBrokerSectionTouched,
@@ -186,12 +197,17 @@ export function ImEditorPanels({
   onSetDraggingPhotos,
   isCompressingPhotos,
   onFilesSelected,
+  onUpdatePhotoMeta,
   onRemovePhotoAtIndex,
   isGenerating,
   generateButtonLabel,
   onQuickGenerate,
 }: ImEditorPanelsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exteriorFileInputRef = useRef<HTMLInputElement>(null);
+  const interiorFileInputRef = useRef<HTMLInputElement>(null);
+  const [rentRollSubTab, setRentRollSubTab] = useState<"actual" | "expected">("actual");
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
 
   const showSampleBanner = isSampleSeedImItem(
     currentItem ? { ...currentItem, address } : null
@@ -908,60 +924,128 @@ export function ImEditorPanels({
           {activeEditorTab === "rentroll" && selectedItemActionsNode}
         </div>
 
-        <div
-          className={isRentRollImportOpen ? "block" : "hidden"}
-          data-testid="im-rentroll-xlsx-importer"
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const droppedFile = e.dataTransfer?.files?.[0];
-            if (!droppedFile) return;
-            const fileInput = e.currentTarget.querySelector(
-              'input[data-testid="rentroll-file-input"]'
-            ) as HTMLInputElement | null;
-            if (fileInput && typeof DataTransfer !== "undefined") {
-              const dt = new DataTransfer();
-              dt.items.add(droppedFile);
-              fileInput.files = dt.files;
-              fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-          }}
-        >
-          <RentRollImporter
-            key={currentItem?.id || selectedId}
-            hasExistingData={false}
-            onImport={onExcelRentRollImport}
-          />
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+          <button
+            type="button"
+            data-testid="im-rentroll-subtab-actual"
+            aria-pressed={rentRollSubTab === "actual"}
+            onClick={() => setRentRollSubTab("actual")}
+            className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
+              rentRollSubTab === "actual"
+                ? "bg-[#0F172A] text-white border-[#0F172A]"
+                : "bg-slate-50 text-slate-700 border-[#CBD5E1] hover:bg-slate-100"
+            }`}
+          >
+            현황 렌트롤 ({rentRoll.length}행)
+          </button>
+          <button
+            type="button"
+            data-testid="im-rentroll-subtab-expected"
+            aria-pressed={rentRollSubTab === "expected"}
+            onClick={() => setRentRollSubTab("expected")}
+            className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
+              rentRollSubTab === "expected"
+                ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
+                : "bg-blue-50/70 text-[#1D4ED8] border-blue-200 hover:bg-blue-100/70"
+            }`}
+          >
+            + 기대수익률(추정수익률) 렌트롤{" "}
+            {expectedRentRoll.length > 0 ? `(${expectedRentRoll.length}행 · 6-2면 반영)` : "(선택)"}
+          </button>
+          {rentRollSubTab === "expected" && onCopyActualToExpectedRentRoll && (
+            <button
+              type="button"
+              data-testid="im-expected-rentroll-copy-btn"
+              onClick={onCopyActualToExpectedRentRoll}
+              className="ml-auto min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-sm font-extrabold cursor-pointer transition-colors"
+            >
+              현황 렌트롤에서 복사
+            </button>
+          )}
         </div>
 
-        <div onFocusCapture={() => onNotifyEditorFocus("im-unit-rentroll")}>
-          <RentRollGrid
-            rows={rentRoll}
-            onChange={onChangeRentRoll}
-            floorsAbove={currentItem?.floorsAbove}
-            floorsBelow={currentItem?.floorsBelow}
-            askingPriceManwon={askingPriceManwon}
-            extraToolbarAction={
-              <button
-                type="button"
-                data-testid="im-rentroll-import-toggle"
-                aria-expanded={isRentRollImportOpen}
-                onClick={onToggleRentRollImport}
-                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
-              >
-                <span>
-                  {isRentRollImportOpen
-                    ? "📁 엑셀 파일 접기 ▴"
-                    : "📁 엑셀 파일 불러오기 ▾"}
-                </span>
-              </button>
-            }
-          />
-        </div>
+        {rentRollSubTab === "actual" ? (
+          <>
+            <div
+              className={isRentRollImportOpen ? "block" : "hidden"}
+              data-testid="im-rentroll-xlsx-importer"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const droppedFile = e.dataTransfer?.files?.[0];
+                if (!droppedFile) return;
+                const fileInput = e.currentTarget.querySelector(
+                  'input[data-testid="rentroll-file-input"]'
+                ) as HTMLInputElement | null;
+                if (fileInput && typeof DataTransfer !== "undefined") {
+                  const dt = new DataTransfer();
+                  dt.items.add(droppedFile);
+                  fileInput.files = dt.files;
+                  fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+              }}
+            >
+              <RentRollImporter
+                key={currentItem?.id || selectedId}
+                hasExistingData={false}
+                onImport={onExcelRentRollImport}
+              />
+            </div>
+
+            <div onFocusCapture={() => onNotifyEditorFocus("im-unit-rentroll")}>
+              <RentRollGrid
+                rows={rentRoll}
+                onChange={onChangeRentRoll}
+                floorsAbove={currentItem?.floorsAbove}
+                floorsBelow={currentItem?.floorsBelow}
+                askingPriceManwon={askingPriceManwon}
+                extraToolbarAction={
+                  <button
+                    type="button"
+                    data-testid="im-rentroll-import-toggle"
+                    aria-expanded={isRentRollImportOpen}
+                    onClick={onToggleRentRollImport}
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+                  >
+                    <span>
+                      {isRentRollImportOpen
+                        ? "📁 엑셀 파일 접기 ▴"
+                        : "📁 엑셀 파일 불러오기 ▾"}
+                    </span>
+                  </button>
+                }
+              />
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3" data-testid="im-expected-rentroll-panel">
+            <div className="rounded-xl bg-blue-50/70 border border-blue-200 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-800">
+              <span className="font-semibold break-keep">
+                공실 해소·리모델링 후 임대가정 행을 입력하면 IM <strong>6-2면 기대수익률(추정수익률) 렌트롤</strong> 슬라이드가 자동 추가됩니다.
+              </span>
+              {expectedRentRoll.length > 0 && onChangeExpectedRentRoll && (
+                <button
+                  type="button"
+                  onClick={() => onChangeExpectedRentRoll([])}
+                  className="min-h-[38px] px-3 py-1 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 cursor-pointer shrink-0"
+                >
+                  초기화
+                </button>
+              )}
+            </div>
+            <RentRollGrid
+              rows={expectedRentRoll}
+              onChange={(rows) => onChangeExpectedRentRoll?.(rows)}
+              floorsAbove={currentItem?.floorsAbove}
+              floorsBelow={currentItem?.floorsBelow}
+              askingPriceManwon={askingPriceManwon}
+            />
+          </div>
+        )}
 
         <div className="pt-3 border-t border-slate-200 flex justify-end">
           <button
@@ -1068,6 +1152,70 @@ export function ImEditorPanels({
               </div>
             );
           })}
+        </div>
+
+        {/* 입지 4대 등급 수동 조정 (IM 4면 카드 반영) */}
+        <div
+          data-testid="im-location-grades-box"
+          className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-extrabold text-[#0F172A]">
+              📍 입지 4대 등급 조정 (IM 4면 카드 반영)
+            </h3>
+            <span className="text-sm font-semibold text-slate-600">
+              자동 계산된 등급을 현장에 맞게 한 번에 조정할 수 있습니다
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(
+              [
+                { key: "walk", label: "도보 접근성" },
+                { key: "transit", label: "광역 접근성" },
+                { key: "commercial", label: "상권 활성화" },
+                { key: "amenity", label: "편의시설" },
+              ] as const
+            ).map((item) => {
+              const currentGrade = locationGrades?.[item.key] || "";
+              const opts = ["", "우수", "양호", "보통", "보완 필요"] as const;
+              return (
+                <div
+                  key={item.key}
+                  data-testid={`im-location-grade-${item.key}`}
+                  className="rounded-xl bg-white border border-slate-200 p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-extrabold text-[#0F172A]">
+                      {item.label}
+                    </span>
+                    <span className="text-xs font-bold text-slate-500">
+                      {currentGrade ? `수동: ${currentGrade}` : "자동 산출"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {opts.map((opt) => {
+                      const active = currentGrade === opt;
+                      return (
+                        <button
+                          key={opt || "auto"}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => onChangeLocationGrade?.(item.key, opt)}
+                          className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-extrabold border transition-colors cursor-pointer ${
+                            active
+                              ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
+                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {opt || "자동"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="pt-2 border-t border-slate-200 space-y-3">
@@ -1230,6 +1378,39 @@ export function ImEditorPanels({
         <div
           data-testid="im-photo-dropzone"
           onFocusCapture={() => onNotifyEditorFocus("im-unit-photos")}
+          onPaste={(e) => {
+            const clipboardFiles: File[] = [];
+            const items = Array.from(e.clipboardData?.items || []);
+            items.forEach((it, idx) => {
+              if (it.kind === "file" && it.type.startsWith("image/")) {
+                const blob = it.getAsFile();
+                if (blob) {
+                  clipboardFiles.push(
+                    new File([blob], `roadview_${Date.now()}_${idx}.png`, {
+                      type: blob.type || "image/png",
+                    })
+                  );
+                }
+              }
+            });
+            if (clipboardFiles.length === 0 && e.clipboardData?.files?.length) {
+              Array.from(e.clipboardData.files).forEach((f, idx) => {
+                if (f.type.startsWith("image/")) {
+                  clipboardFiles.push(
+                    new File([f], `roadview_${Date.now()}_${idx}.png`, {
+                      type: f.type || "image/png",
+                    })
+                  );
+                }
+              });
+            }
+            if (clipboardFiles.length > 0) {
+              e.preventDefault();
+              onFilesSelected(clipboardFiles, "exterior");
+              setPasteNotice(`로드뷰/외부 사진 ${clipboardFiles.length}장을 붙여넣었습니다.`);
+              setTimeout(() => setPasteNotice(null), 4000);
+            }
+          }}
           onDragOver={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -1254,37 +1435,161 @@ export function ImEditorPanels({
             }
           }}
           data-compressing={isCompressingPhotos ? "true" : "false"}
-          className={`p-6 rounded-2xl border-2 border-dashed text-center space-y-4 transition-colors ${
+          className={`p-5 rounded-2xl border-2 border-dashed space-y-4 transition-colors ${
             isDraggingPhotos
               ? "bg-blue-50 border-[#1D4ED8]"
               : "bg-[#FAF9F5] border-[#64748B]"
           }`}
         >
-          <p className="text-base font-semibold text-[#334155] break-keep">
-            건물 외관·내부 사진을 올려 주세요 (휴대폰 사진 그대로 가능 · 지적도는 주소로 자동 생성됩니다)
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*,.heic,.heif,image/heic,image/heif"
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files || []);
-              if (files.length > 0) {
-                onFilesSelected(files);
-              }
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            data-testid="im-photo-select-btn"
-            onClick={() => fileInputRef.current?.click()}
-            className="min-h-[48px] px-5 py-2.5 bg-white border border-[#64748B] rounded-xl text-base font-bold text-[#0F172A] hover:bg-[#F3F2EE] cursor-pointer"
-          >
-            + 사진 파일 선택
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-base font-semibold text-[#334155] break-keep">
+              외부·내부 사진을 구분해 올려 주세요 (0장일 때는 위성·지적 위치도가 자동 삽입됩니다)
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.heic,.heif,image/heic,image/heif"
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length > 0) {
+                  onFilesSelected(files);
+                }
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              data-testid="im-photo-select-btn"
+              onClick={() => fileInputRef.current?.click()}
+              className="min-h-[44px] px-4 py-2 bg-white border border-[#64748B] rounded-xl text-sm font-bold text-[#0F172A] hover:bg-[#F3F2EE] cursor-pointer"
+            >
+              + 전체 사진 일괄 선택
+            </button>
+          </div>
+
+          {pasteNotice && (
+            <div
+              data-testid="im-photo-paste-notice"
+              className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm font-bold text-emerald-900"
+            >
+              ✓ {pasteNotice}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+            <div
+              data-testid="im-photo-dropzone-exterior"
+              tabIndex={0}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(
+                  (f) =>
+                    f.type.startsWith("image/") ||
+                    /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)
+                );
+                if (droppedFiles.length > 0) {
+                  onFilesSelected(droppedFiles, "exterior");
+                }
+              }}
+              className="rounded-xl border border-blue-200 bg-white p-3.5 space-y-2 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-extrabold text-[#0F172A]">
+                  ① 외부·전경 사진 (1번 = 대표)
+                </span>
+                <span className="text-xs font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded">
+                  Ctrl+V 로드뷰
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 break-keep">
+                카카오/네이버 로드뷰 캡처 후 이 영역에서 Ctrl+V로 바로 붙여넣을 수 있습니다.
+              </p>
+              <input
+                ref={exteriorFileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.heic,.heif,image/heic,image/heif"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length > 0) {
+                    onFilesSelected(files, "exterior");
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                data-testid="im-photo-select-exterior-btn"
+                onClick={() => exteriorFileInputRef.current?.click()}
+                className="w-full min-h-[42px] px-3 py-2 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
+              >
+                + 외부·전경 사진 올리기
+              </button>
+            </div>
+
+            <div
+              data-testid="im-photo-dropzone-interior"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(
+                  (f) =>
+                    f.type.startsWith("image/") ||
+                    /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)
+                );
+                if (droppedFiles.length > 0) {
+                  onFilesSelected(droppedFiles, "interior");
+                }
+              }}
+              className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-extrabold text-[#0F172A]">
+                  ② 내부·층별 사진
+                </span>
+                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                  각 2장+ 분리 슬라이드
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 break-keep">
+                로비·엘리베이터·층별 내부 전경을 올리면 외부/내부 갤러리 면으로 자동 분리됩니다.
+              </p>
+              <input
+                ref={interiorFileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.heic,.heif,image/heic,image/heif"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length > 0) {
+                    onFilesSelected(files, "interior");
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                data-testid="im-photo-select-interior-btn"
+                onClick={() => interiorFileInputRef.current?.click()}
+                className="w-full min-h-[42px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
+              >
+                + 내부·층별 사진 올리기
+              </button>
+            </div>
+          </div>
 
           {(photoEntries.length > 0 || photoNames.length > 0) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-left">
@@ -1295,53 +1600,102 @@ export function ImEditorPanels({
                       id: `legacy-${idx}-${n}`,
                       name: n,
                       url: resolveKnownTestAssetUrl(n),
+                      category: idx === 0 ? "exterior" : "interior",
                     })
                   )
               ).map((entry, idx) => {
                 const name = entry.name;
                 const thumbSrc = resolveRenderablePhotoSrc(entry);
+                const isExt = entry.category === "exterior" || (!entry.category && idx === 0);
+                const defaultCap = isExt
+                  ? idx === 0
+                    ? "외관 1 (대표)"
+                    : `외관 ${idx + 1}`
+                  : `내부 ${idx + 1}`;
                 return (
                   <div
                     key={entry.id || `${name}-${idx}`}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-[#CBD5E1]"
+                    data-testid={`im-photo-card-${idx}`}
+                    className="p-3 rounded-xl bg-white border border-[#CBD5E1] space-y-2"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {thumbSrc ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={thumbSrc}
-                          alt={name}
-                          onError={(e) => {
-                            const fallback = resolveKnownTestAssetUrl(name);
-                            if (
-                              fallback &&
-                              e.currentTarget.src !==
-                                window.location.origin + fallback
-                            ) {
-                              e.currentTarget.src = fallback;
-                            } else {
-                              e.currentTarget.style.display = "none";
-                            }
-                          }}
-                          className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 shrink-0">
-                          사진
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {thumbSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={thumbSrc}
+                            alt={name}
+                            onError={(e) => {
+                              const fallback = resolveKnownTestAssetUrl(name);
+                              if (
+                                fallback &&
+                                e.currentTarget.src !==
+                                  window.location.origin + fallback
+                              ) {
+                                e.currentTarget.src = fallback;
+                              } else {
+                                e.currentTarget.style.display = "none";
+                              }
+                            }}
+                            className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 shrink-0">
+                            사진
+                          </div>
+                        )}
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`text-xs font-extrabold px-1.5 py-0.5 rounded ${
+                                isExt
+                                  ? "bg-blue-50 text-[#1D4ED8]"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {isExt ? "외부·전경" : "내부·층별"}
+                            </span>
+                            <span className="text-xs font-medium text-slate-500 truncate">
+                              {name}
+                            </span>
+                          </div>
+                          {onUpdatePhotoMeta && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onUpdatePhotoMeta(idx, {
+                                    category: isExt ? "interior" : "exterior",
+                                  })
+                                }
+                                className="text-xs font-bold text-[#1D4ED8] hover:underline cursor-pointer"
+                              >
+                                {isExt ? "내부로 변경" : "외부로 변경"}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <span className="text-sm font-semibold text-[#0F172A] truncate">
-                        {name}
-                      </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onRemovePhotoAtIndex(entry, idx)}
+                        className="min-h-[40px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
+                        aria-label={`${name} 삭제`}
+                      >
+                        삭제
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onRemovePhotoAtIndex(entry, idx)}
-                      className="min-h-[44px] px-3.5 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer"
-                      aria-label={`${name} 삭제`}
-                    >
-                      삭제
-                    </button>
+                    <input
+                      type="text"
+                      aria-label={`${name} 캡션`}
+                      data-testid={`im-photo-caption-input-${idx}`}
+                      value={entry.caption ?? ""}
+                      placeholder={defaultCap}
+                      onChange={(e) =>
+                        onUpdatePhotoMeta?.(idx, { caption: e.target.value })
+                      }
+                      className="w-full min-h-[38px] px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50/70 text-sm font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                    />
                   </div>
                 );
               })}

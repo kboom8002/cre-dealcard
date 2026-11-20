@@ -166,6 +166,7 @@ function ImWorkspaceInner() {
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [pendingDeleteIm, setPendingDeleteIm] = useState<ImListItem | null>(null);
   const [isAiPointsBusy, setIsAiPointsBusy] = useState(false);
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
@@ -324,6 +325,9 @@ function ImWorkspaceInner() {
   const [rentRoll, setRentRoll] = useState<RentRollRowItem[]>(
     currentItem?.rentRoll || generateFloorScaffolding(3, 1)
   );
+  const [expectedRentRoll, setExpectedRentRoll] = useState<RentRollRowItem[]>(
+    currentItem?.expectedRentRoll || []
+  );
   const [investmentPosture, setInvestmentPosture] = useState<string>(
     currentItem?.investmentPosture || "core_income"
   );
@@ -398,6 +402,7 @@ function ImWorkspaceInner() {
         : ""
     );
     setRentRoll(item.rentRoll || generateFloorScaffolding(3, 1));
+    setExpectedRentRoll(item.expectedRentRoll || []);
     setInvestmentPosture(item.investmentPosture || "core_income");
     setGfaSqm(item.gfaSqm ?? "");
     setCompletionDate(item.completionDate ?? "");
@@ -1390,13 +1395,27 @@ function ImWorkspaceInner() {
     });
   };
 
-  const handlePhotoFilesSelected = (files: File[]) => {
+  const handlePhotoFilesSelected = (
+    files: File[],
+    forcedCategory?: "exterior" | "interior"
+  ) => {
     if (files.length === 0) return;
     const targetId = currentItem?.id || selectedIdRef.current;
     const baseEntries = latestPhotoEntriesRef.current;
     const baseOffset = baseEntries.length;
+    let extCounter = baseEntries.filter((p) => p.category === "exterior").length;
+    let intCounter = baseEntries.filter((p) => p.category !== "exterior").length;
     const addedEntries: ImPhotoEntry[] = files.map((f, idx) => {
       const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
+      const resolvedCategory = forcedCategory || inferred.category;
+      let resolvedCaption = inferred.caption;
+      if (forcedCategory === "exterior") {
+        extCounter += 1;
+        resolvedCaption = extCounter === 1 ? "외관 1 (대표)" : `외관 ${extCounter}`;
+      } else if (forcedCategory === "interior") {
+        intCounter += 1;
+        resolvedCaption = `내부 ${intCounter}`;
+      }
       const knownUrl = resolveKnownTestAssetUrl(f.name);
       const blobUrl =
         !isHeicLikeFile(f) &&
@@ -1408,8 +1427,8 @@ function ImWorkspaceInner() {
         id: `photo-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
         name: f.name,
         url: knownUrl,
-        category: inferred.category,
-        caption: inferred.caption,
+        category: resolvedCategory,
+        caption: resolvedCaption,
         previewUrl: blobUrl || knownUrl,
       };
     });
@@ -1529,6 +1548,29 @@ function ImWorkspaceInner() {
     setIsCompressingPhotos(true);
   };
 
+  const handleUpdatePhotoMeta = (
+    idx: number,
+    patch: { caption?: string; category?: "exterior" | "interior" }
+  ) => {
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const baseList =
+      latestPhotoEntriesRef.current.length > 0
+        ? latestPhotoEntriesRef.current
+        : photoEntries;
+    const nextEntries = baseList.map((pe, i) =>
+      i === idx ? { ...pe, ...patch } : pe
+    );
+    latestPhotoEntriesRef.current = nextEntries;
+    setPhotoEntries(nextEntries);
+    syncCurrentItemPatch(
+      {
+        photoNames: nextEntries.map((pe) => pe.name),
+        photos: sanitizePhotosForSync(nextEntries),
+      },
+      targetId
+    );
+  };
+
   const handleRemovePhotoAtIndex = (entry: ImPhotoEntry, idx: number) => {
     const targetId = currentItem?.id || selectedIdRef.current;
     const nextEntries =
@@ -1567,6 +1609,7 @@ function ImWorkspaceInner() {
     investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
     axiosHighlights,
     rentRoll,
+    ...(expectedRentRoll.length > 0 ? { expectedRentRoll } : {}),
     posture: investmentPosture,
     gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
     completionDate: completionDate || undefined,
@@ -1822,6 +1865,48 @@ function ImWorkspaceInner() {
       setActionAlert("네트워크 오류로 PPTX 다운로드에 실패했습니다.");
     } finally {
       setIsDownloadingPptx(false);
+    }
+  };
+
+  const handleDownloadPdf = async (e?: React.MouseEvent<HTMLElement>) => {
+    e?.preventDefault();
+    if (isProvisioningSheet || isDownloadingPdf || isDownloadingPptx) return;
+    const existingBid = currentItem?.buildingId || "";
+    let targetBuildingId = existingBid;
+    let targetDocId = currentItem?.documentId;
+
+    if (
+      !UUID_REGEX.test(existingBid) ||
+      currentItem?.isDirty ||
+      currentItem?.hasUnpublishedEdits
+    ) {
+      const target = await ensureProvisionedImTarget("PDF 저장");
+      if (!target) return;
+      targetBuildingId = target.buildingId;
+      targetDocId = target.documentId;
+    }
+    if (!targetBuildingId) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      const { exportSlidesToLandscapePdf } = await import(
+        "@/lib/im-lite/slides-pdf-exporter"
+      );
+      const res = await exportSlidesToLandscapePdf({
+        buildingId: targetBuildingId,
+        docId: targetDocId,
+        filename: imTitle || currentItem?.title || "투자설명서",
+      });
+      if (res.ok) {
+        showUndoToast({
+          message: `📄 16:9 가로형 PDF(${res.pageCount}면) 저장을 완료했습니다.`,
+          variant: "success",
+        });
+      }
+    } catch {
+      setActionAlert("PDF 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -2670,6 +2755,16 @@ function ImWorkspaceInner() {
               setRentRoll(nextRows);
               syncCurrentItemPatch({ rentRoll: nextRows });
             }}
+            expectedRentRoll={expectedRentRoll}
+            onChangeExpectedRentRoll={(nextRows) => {
+              setExpectedRentRoll(nextRows);
+              syncCurrentItemPatch({ expectedRentRoll: nextRows });
+            }}
+            onCopyActualToExpectedRentRoll={() => {
+              const cloned = rentRoll.map((r) => ({ ...r }));
+              setExpectedRentRoll(cloned);
+              syncCurrentItemPatch({ expectedRentRoll: cloned });
+            }}
             totalDepositManwon={totalDepositManwon}
             totalRentManwon={totalRentManwon}
             calculatedYield={calculatedYield}
@@ -2684,6 +2779,15 @@ function ImWorkspaceInner() {
             postitStyles={postitStyles}
             isAiPointsBusy={isAiPointsBusy}
             onReclusterImAxios={handleReclusterImAxios}
+            locationGrades={brokerExtrasForm.locationGrades || {}}
+            onChangeLocationGrade={(key, grade) => {
+              const nextGrades = { ...(brokerExtrasForm.locationGrades || {}) };
+              if (!grade) delete nextGrades[key];
+              else nextGrades[key] = grade;
+              const nextForm = { ...brokerExtrasForm, locationGrades: nextGrades };
+              setBrokerExtrasForm(nextForm);
+              syncCurrentItemPatch({ brokerExtrasForm: nextForm });
+            }}
             isBrokerSectionOpen={isBrokerSectionOpen}
             onToggleBrokerSection={() => setIsBrokerSectionOpen((prev) => !prev)}
             onMarkBrokerSectionTouched={() => {
@@ -2715,6 +2819,7 @@ function ImWorkspaceInner() {
             onSetDraggingPhotos={setIsDraggingPhotos}
             isCompressingPhotos={isCompressingPhotos}
             onFilesSelected={handlePhotoFilesSelected}
+            onUpdatePhotoMeta={handleUpdatePhotoMeta}
             onRemovePhotoAtIndex={handleRemovePhotoAtIndex}
             isGenerating={isGenerating}
             generateButtonLabel={generateButtonLabel}
@@ -2768,10 +2873,12 @@ function ImWorkspaceInner() {
             isGenerating={isGenerating}
             isProvisioningSheet={isProvisioningSheet}
             isDownloadingPptx={isDownloadingPptx}
+            isDownloadingPdf={isDownloadingPdf}
             previewLifecycle={previewLifecycle}
             generateButtonLabel={generateButtonLabel}
             onQuickGenerate={handleQuickGenerate}
             onDownloadPptx={handleDownloadPptx}
+            onDownloadPdf={handleDownloadPdf}
             onOpenStudio={handleOpenStudio}
           />
         }

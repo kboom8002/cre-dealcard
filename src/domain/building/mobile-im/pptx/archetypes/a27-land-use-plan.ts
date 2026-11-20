@@ -529,7 +529,7 @@ export function buildBasicLandSlideData(params: {
     cadastralImage: resolvedMapImg,
     zoningMapImage: resolvedMapImg,
     mapImageUrl: resolvedMapImg,
-    source: '출처: 토지이음 · V-World 국토교통부',
+    source: '출처: 토지이음(eum.go.kr) · V-World 공적장부',
   };
 }
 
@@ -921,7 +921,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   // ─────────────────────────────────────────────────────────────
   // 좌측 하단: 출처 주석 (SAFE_BOTTOM = 6.75 이내)
   // ─────────────────────────────────────────────────────────────
-  const sourceText = String(d.source || '출처: 토지이음 · V-World 국토교통부');
+  const sourceText = String(d.source || '출처: 토지이음(eum.go.kr) · V-World 공적장부');
   s.addText(sourceText, {
     x: leftX,
     y: 6.40,

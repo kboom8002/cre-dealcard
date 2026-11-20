@@ -33,6 +33,12 @@ const CHART_PAIR_PRESETS: readonly {
     badge: "추천 기본",
   },
   {
+    id: "reb_core3",
+    label: "① 국토부 실거래가 + ② 한국부동산원 3대 지표 (지가·임대수익률·공실률 12M 평균)",
+    pair: ["molit_tx_price_trend", "reb_core3_trend"],
+    badge: "R-ONE 3대 지표",
+  },
+  {
     id: "molit_kosis",
     label: "① 국토부 실거래량·평당가 + ② 통계청(KOSIS) 상권 활력지수",
     pair: ["molit_tx_price_trend", "kosis_commercial_vitality"],
@@ -235,6 +241,52 @@ export function MonthlyStatsEditorPanel({
                   value={chart.buyerImplication}
                   onChange={(e) => handleUpdateImplication(idx, e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:border-blue-600 resize-y"
+                />
+              </div>
+
+              {/* 선택: 민간 리서치 출처 + 1줄 참고 메모 슬롯 */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold text-slate-700">
+                    민간 리서치 참고 메모 (선택 · 교보리얼코 / 메이트플러스 등)
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {(["교보리얼코", "메이트플러스", "CBRE Korea", "직접 입력"] as const).map((src) => {
+                      const active = chart.privateResearchSource === src;
+                      return (
+                        <button
+                          key={src}
+                          type="button"
+                          onClick={() => {
+                            const next = activeCharts.map((c, i) =>
+                              i === idx ? { ...c, privateResearchSource: active ? "" : src } : c,
+                            );
+                            onChangeCharts(next);
+                          }}
+                          className={`min-h-[30px] px-2 py-0.5 rounded-md text-xs font-bold border transition-colors cursor-pointer ${
+                            active
+                              ? "bg-blue-700 text-white border-blue-700"
+                              : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                          }`}
+                        >
+                          {src}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  data-testid={`monthly-chart-research-note-${idx}`}
+                  value={chart.privateResearchNote ?? ""}
+                  onChange={(e) => {
+                    const next = activeCharts.map((c, i) =>
+                      i === idx ? { ...c, privateResearchNote: e.target.value } : c,
+                    );
+                    onChangeCharts(next);
+                  }}
+                  placeholder="예: 2026 Q1 프라임·중소형 임차 수요 회복 및 주요 권역 공실률 하락 추세"
+                  className="w-full min-h-[38px] rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>

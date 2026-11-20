@@ -209,12 +209,12 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       const opt = await optimizeImageForPptx(url, 1200, 85, 850);
       if (!opt) continue;
       if (!firstValid) firstValid = opt;
-      if (!isNonPhotoGraphic(opt)) {
+      if (!isNonPhotoGraphic(opt) || input.data.allowMapFallbackPhoto) {
         photoImg = opt;
         break;
       }
     }
-    if (!photoImg && firstValid && candidateUrls.length === 1) {
+    if (!photoImg && firstValid && (candidateUrls.length === 1 || input.data.allowMapFallbackPhoto)) {
       photoImg = firstValid;
     }
     if (!photoImg && photoCandidate && candidateUrls.length === 1 && isSafePptxBase64(photoCandidate)) {
@@ -315,6 +315,22 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       h: fitPlan.drawn.h,
       line: { color: C.line, width: 0.75 },
     });
+    if (typeof input.data.photoCaption === 'string' && input.data.photoCaption.trim()) {
+      slide.addShape('rect', {
+        x: fitPlan.drawn.x,
+        y: fitPlan.drawn.y + fitPlan.drawn.h - 0.30,
+        w: fitPlan.drawn.w,
+        h: 0.30,
+        fill: { color: '0F172A', transparency: 18 },
+      });
+      slide.addText(input.data.photoCaption.trim(), {
+        x: fitPlan.drawn.x + 0.12,
+        y: fitPlan.drawn.y + fitPlan.drawn.h - 0.30,
+        w: Math.max(0.5, fitPlan.drawn.w - 0.24),
+        h: 0.30,
+        fontFace: KR, fontSize: 8.5, bold: true, color: 'FFFFFF', valign: 'middle', shrinkText: true, margin: 0,
+      });
+    }
 
     if (boxH > 0) {
       // 매각가 박스와 같은 브라스 톤 팔레트 (F6F1E4 / B8860B)

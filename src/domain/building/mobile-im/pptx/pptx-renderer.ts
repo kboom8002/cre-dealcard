@@ -54,12 +54,75 @@ import { getRegionalLandPriceRateSeries } from '@/lib/external/rone-api';
 import { applyStudioThemeOverrides, applyStudioSlideOverrides } from './studio-overrides-applier';
 import { splitFloorAndUnit } from '../floor-unit-resolver';
 import { parseStationName, formatStationLabel } from './binder/station-name';
+import { sortRentRollTopDown } from './archetypes/a24-rentroll-stacking';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
 
 
 export { resetFallbackTracker, addFallbackContent, parseInlineMarkdown };
+
+const COVER_SIDO_PREFIX_RE = /^(?:서울특별시|서울시|서울|부산광역시|부산시|부산|대구광역시|대구시|대구|인천광역시|인천시|인천|광주광역시|광주시|광주|대전광역시|대전시|대전|울산광역시|울산시|울산|세종특별자치시|세종시|세종|경기도|경기|강원특별자치도|강원도|강원|충청북도|충북|충청남도|충남|전북특별자치도|전라북도|전북|전라남도|전남|경상북도|경북|경상남도|경남|제주특별자치도|제주도|제주)\s+/;
+
+function normalizeBasicCoverPurpose(rawPurpose?: string | null): string {
+  const s = String(rawPurpose ?? '').trim();
+  if (!s || s === '기타' || s === '미분류' || s === '미상' || s === '-') return '빌딩';
+  if (/근린생활|근생/.test(s)) return '근생';
+  if (/업무|오피스/.test(s)) return '오피스';
+  if (/숙박|호텔|모텔/.test(s)) return '숙박';
+  if (/판매|상가/.test(s)) return '상가';
+  if (/의료|병원/.test(s)) return '의료';
+  if (/교육|학원/.test(s)) return '교육';
+  if (/지식산업/.test(s)) return '지산';
+  return s.replace(/시설$/, '').trim() || '빌딩';
+}
+
+function formatBasicCoverPrice(krw?: number | null, manwon?: number | null): string {
+  const won = (typeof krw === 'number' && Number.isFinite(krw) && krw > 0)
+    ? krw
+    : ((typeof manwon === 'number' && Number.isFinite(manwon) && manwon > 0) ? manwon * 10000 : 0);
+  if (!won || !Number.isFinite(won)) return '';
+  if (won >= 1_0000_0000) {
+    const eok = won / 1_0000_0000;
+    const rounded = Number(eok.toFixed(1));
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded}억`;
+  }
+  return `${Math.round(won / 10000).toLocaleString('en-US')}만`;
+}
+
+/**
+ * Basic IM 표지 제목 표준 공식:
+ * `{시군구} {읍면동} {건물명|주용도 빌딩} ({용도}, {매매가})`
+ */
+export function formatBasicCoverTitle(params: {
+  address?: string | null;
+  buildingName?: string | null;
+  mainPurpose?: string | null;
+  askingPriceKrw?: number | null;
+  askingPriceManwon?: number | null;
+}): string {
+  const addrRaw = String(params.address ?? '').trim().replace(COVER_SIDO_PREFIX_RE, '');
+  const parenDongMatch = addrRaw.match(/\(([^)]*(?:동|읍|면|리|\d*가))\)/);
+  const cleanedAddr = addrRaw.replace(/\([^)]*\)/g, ' ').trim();
+  const tokens = cleanedAddr.split(/\s+/).filter(Boolean);
+
+  const sigunguToken = tokens.find((t) => /(?:구|군)$/.test(t)) ?? tokens.find((t) => /시$/.test(t)) ?? '';
+  const dongFromTokens = tokens.find((t) => /(?:동|읍|면|리|\d+가)$/.test(t)) ?? '';
+  const dongToken = dongFromTokens || (parenDongMatch ? parenDongMatch[1].trim() : '');
+  const locPrefix = [sigunguToken, dongToken].filter(Boolean).join(' ');
+
+  const shortPurpose = normalizeBasicCoverPurpose(params.mainPurpose);
+  const rawBldgName = String(params.buildingName ?? '').trim();
+  const invalidBldgNames = new Set(['', '기타', '미분류', '미상', '-', '건물', '빌딩']);
+  const buildingLabel = !invalidBldgNames.has(rawBldgName)
+    ? rawBldgName
+    : (shortPurpose === '빌딩' ? '상업용 빌딩' : `${shortPurpose} 빌딩`);
+
+  const priceStr = formatBasicCoverPrice(params.askingPriceKrw, params.askingPriceManwon);
+  const metaParts = [shortPurpose, priceStr].filter(Boolean);
+  const head = [locPrefix, buildingLabel].filter(Boolean).join(' ').trim();
+  return metaParts.length > 0 ? `${head} (${metaParts.join(', ')})` : head;
+}
 
 export interface MobileImPptxInput {
   buildingId: string;
@@ -304,6 +367,9 @@ export class MobileImPptxRenderer {
         // Basic IM 전용 슬라이드 편성 (A23 산식 등)
         preset: theme.presetId,
         isPro: input.isPro || input.proMode || (input.releaseTier as string) === 'pro',
+        hasExpectedRentRoll: theme.presetId === 'credeal_basic'
+          && Array.isArray(input.doc.body?.expected_rent_roll)
+          && input.doc.body.expected_rent_roll.length > 0,
         rentRollSlideCount: (() => {
           if (theme.presetId !== 'credeal_basic') return 1;
           const fls = Array.isArray(input.doc.body?.floor_leases) ? input.doc.body.floor_leases : [];
@@ -431,6 +497,18 @@ export class MobileImPptxRenderer {
       if (isBasicPreset) {
         const ssotCover = input.doc.body?.ssot_summary ?? {};
         dataMap['cover'].address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
+        const manuallyOverriddenCover = Boolean(input.doc.body?.manual_cover_title || input.doc.body?.cover_title_override);
+        if (!manuallyOverriddenCover && (!rawCoverTitle || /기타|매각|Basic IM|^$/i.test(rawCoverTitle))) {
+          const formattedTitle = formatBasicCoverTitle({
+            address: dataMap['cover'].address || input.building?.address || input.doc.body?.heroCard?.address,
+            buildingName: ssotCover.building_name ?? input.doc.body?.building_name ?? input.building?.building_name ?? enrichment?.buildingRegister?.bldNm,
+            mainPurpose: normalizedCoverAssetType || ssotCover.main_purpose || enrichment?.buildingRegister?.mainPurpose,
+            askingPriceManwon: Number(ssotCover.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0) || undefined,
+          });
+          if (formattedTitle) {
+            dataMap['cover'].title = formattedTitle;
+          }
+        }
         const rawCoverAsk = Number(ssotCover.asking_price_manwon);
         const safeCoverAsk = (Number.isFinite(rawCoverAsk) && rawCoverAsk > 0)
           ? `${Number((rawCoverAsk / 10000).toFixed(2))}억 원`
@@ -870,6 +948,7 @@ export class MobileImPptxRenderer {
         for (const w of locRight.warnings) warnings.push(w);
 
         if (!dataMap['location'].right) dataMap['location'].right = { sub: locRight.sub };
+        dataMap['location'].right.locationGrades = locRight.locationGrades;
         if (locRight.rows.length >= 2) {
           dataMap['location'].right.sub = locRight.sub;
           dataMap['location'].right.rows = locRight.rows.slice(0, 6);
@@ -906,9 +985,25 @@ export class MobileImPptxRenderer {
       }
 
       // 건물 개요 슬라이드에 외관 사진 우선 사용 (비사진 그래픽 제외 폴백용 후보 목록 포함)
-      if (dataMap['building'] && exteriorPhoto) {
-        dataMap['building'].photoUrl = exteriorPhoto.url;
-        dataMap['building'].candidatePhotoUrls = realPhotos.map(p => p.url);
+      // 사진 0장일 때는 위성/지적 위치도를 자동 대체 이미지로 삽입
+      if (dataMap['building']) {
+        if (exteriorPhoto) {
+          dataMap['building'].photoUrl = exteriorPhoto.url;
+          dataMap['building'].candidatePhotoUrls = realPhotos.map(p => p.url);
+        } else if (isBasicPreset) {
+          const fallbackMapUrl =
+            enrichment?.cadastralMapImage
+            || input.doc.body?.cadastralImage
+            || input.doc.body?.mapImageUrl
+            || dataMap['location']?.left?.mapImageUrl
+            || dataMap['land']?.cadastralImage
+            || null;
+          if (fallbackMapUrl) {
+            dataMap['building'].photoUrl = fallbackMapUrl;
+            dataMap['building'].allowMapFallbackPhoto = true;
+            dataMap['building'].photoCaption = '지적·위성 위치도 (건물 사진 미등록 시 자동 대체)';
+          }
+        }
       }
 
       // Phase 4: SSoT 기반 토지 콜아웃 보강 — V-World 데이터 없이도 실데이터 표시
@@ -1012,6 +1107,54 @@ export class MobileImPptxRenderer {
           if (!rrData.areaInputUnit) rrData.areaInputUnit = resolveAreaInputUnit(input.doc.body?.rent_roll_meta);
           const factsNote = buildRentrollFactsNote(input.doc.body?.rentroll_checks);
           if (factsNote) rrData.rentrollFactsNote = factsNote;
+          if (isBasicPreset && input.doc.body?.show_stacking_plan !== true) {
+            rrData.hideStackingPlan = true;
+          }
+        }
+
+        // 기대수익률(추정수익률) 렌트롤 별도 슬라이드(6-2p) 바인딩
+        if (sequenceInput.hasExpectedRentRoll && Array.isArray(input.doc.body?.expected_rent_roll)) {
+          const expRaw = input.doc.body.expected_rent_roll as any[];
+          const toNumStr = (v: unknown) => {
+            const n = Number(String(v ?? '').replace(/,/g, ''));
+            return Number.isFinite(n) && n > 0 ? String(n) : (v === 0 || String(v).trim() === '0' ? '0' : '-');
+          };
+          const expRows = sortRentRollTopDown(
+            expRaw.map((r: any) => {
+              if (Array.isArray(r)) return r;
+              const leaseSqm = r.leasableAreaSqm ?? r.areaSqm ?? r.area_sqm ?? '';
+              const exclSqm = r.exclusiveAreaSqm ?? r.exclusive_area_sqm ?? '';
+              const dep = Number(r.depositManwon ?? r.deposit_manwon ?? 0) || 0;
+              const rent = Number(r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? 0) || 0;
+              const mgmt = Number(r.managementFeeManwon ?? r.mgmt_fee_manwon ?? 0) || 0;
+              const totalM = rent + mgmt;
+              return [
+                String(r.floor ?? '-'),
+                String(r.tenantName ?? r.tenant_name ?? r.tenant ?? '공실 임대 예정'),
+                String(r.sector ?? r.use ?? r.purpose ?? '-'),
+                toNumStr(leaseSqm),
+                toNumStr(exclSqm),
+                dep > 0 ? dep.toLocaleString('en-US') : '-',
+                rent > 0 ? rent.toLocaleString('en-US') : '-',
+                mgmt > 0 ? mgmt.toLocaleString('en-US') : '-',
+                totalM > 0 ? totalM.toLocaleString('en-US') : '-',
+                String(r.expiryDate ?? r.expiry_date ?? '-'),
+              ];
+            }),
+          );
+          const defaultHead = ['층', '임차인', '용도', '임대면적(㎡)', '전용면적(㎡)', '보증금(만원)', '월임대료(만원)', '관리비(만원)', '월합계(만원)', '만기일'];
+          dataMap['expectedRentRoll'] = {
+            kicker: 'Expected Rent Roll',
+            title: '기대수익률(추정수익률) 렌트롤',
+            content: '',
+            metrics: {},
+            tableHead: (dataMap['rentRoll'] as any)?.tableHead ?? defaultHead,
+            tableRows: expRows,
+            tables: [{ headers: (dataMap['rentRoll'] as any)?.tableHead ?? defaultHead, rows: expRows }],
+            hideStackingPlan: true,
+            areaInputUnit: (dataMap['rentRoll'] as any)?.areaInputUnit ?? resolveAreaInputUnit(input.doc.body?.rent_roll_meta),
+            commonNote: '공실 해소·리모델링 등 임대 전환 가정 기준 기대수익률(추정수익률) 렌트롤',
+          };
         }
       }
 
@@ -1330,7 +1473,10 @@ export class MobileImPptxRenderer {
         });
         if ((sequenceInput.rentRollSlideCount ?? 1) > 1 && dataMap['rentRoll'] && Array.isArray(dataMap['rentRoll'].tableRows)) {
           const baseRr = dataMap['rentRoll'] as any;
-          const allRrRows = (baseRr.tableRows as any[][]).filter(r => !/합계|총계|소계|Total|Summary/i.test(String(r?.[0] ?? '').trim()));
+          const allRrRows = sortRentRollTopDown(
+            (baseRr.tableRows as any[][]).filter(r => !/합계|총계|소계|Total|Summary/i.test(String(r?.[0] ?? '').trim())),
+            () => false,
+          );
           const fls = Array.isArray(input.doc.body?.floor_leases) ? input.doc.body.floor_leases : [];
           const physFlCnt = new Set(fls.map((l: any) => splitFloorAndUnit(String(l?.floor ?? ''), l?.unit_label ?? l?.unit_number ?? l?.unit).floorKey)).size;
           const hasPlan = Array.isArray(baseRr.brokerPostAcquisitionPlan) && baseRr.brokerPostAcquisitionPlan.length > 0;

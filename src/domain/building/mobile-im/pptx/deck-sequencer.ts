@@ -67,6 +67,8 @@ export interface DeckSequenceInput {
   isPro?: boolean;
   /** 렌트롤 복수 지면 확장 슬라이드 수 (15행 초과 또는 11층 이상 + 다수 호실) */
   rentRollSlideCount?: number;
+  /** 기대수익률(추정수익률) 렌트롤 별도 슬라이드(6-2p) 포함 여부 */
+  hasExpectedRentRoll?: boolean;
 }
 
 /** 갤러리 슬라이드 목록을 SlideSpec[]으로 생성 */
@@ -108,6 +110,9 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     : BASIC_IM_OPTIONAL_SLIDES.brokerRegulationImages.afterSeq;
   const pushBrokerSlides = (seq: number): void => {
     const o = BASIC_IM_OPTIONAL_SLIDES;
+    if (seq === o.expectedRentRoll.afterSeq && (input.hasExpectedRentRoll || (da as any).hasExpectedRentRoll === true)) {
+      sequence.push({ archetype: o.expectedRentRoll.archetype, kicker: 'Expected Rent Roll', title: o.expectedRentRoll.label, dataKey: o.expectedRentRoll.dataKey });
+    }
     if (seq === o.brokerRegulationImages.afterSeq && regImages) {
       sequence.push({ archetype: o.brokerRegulationImages.archetype, kicker: 'Plan Drawings', title: o.brokerRegulationImages.label, dataKey: o.brokerRegulationImages.dataKey });
     }

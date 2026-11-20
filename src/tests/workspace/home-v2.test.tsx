@@ -4,11 +4,11 @@
  * @description Milestone 3 Test Suite: Broker Home 4-Door Hub & 1-Line Resume Bar
  *
  * Requirements:
- * 1. 4 Task Doors:
+ * 1. 4 Task Doors (confirmed order: 1 부동산뉴스 → 2 딜카드 → 3 IM → 4 고객 소통):
+ *    - 🚪 [부동산뉴스] (data-testid="home-task-magazine", alias="quick-action-magazine")
  *    - 🚪 [딜카드] (data-testid="home-task-dealcards", alias="quick-action-dealcard")
- *    - 🚪 [기본 IM] (data-testid="home-task-im", alias="quick-action-im")
- *    - 🚪 [뉴스레터] (data-testid="home-task-magazine", alias="quick-action-magazine")
- *    - 🚪 [고객 소통함] (data-testid="home-task-inbox", alias="quick-action-inbox")
+ *    - 🚪 [IM] (data-testid="home-task-im", alias="quick-action-im")
+ *    - 🚪 [고객 소통] (data-testid="home-task-inbox", alias="quick-action-inbox")
  *    - Shortcut keys 1~4 navigate directly to each door.
  * 2. Zero GNB & Distraction-Free Layout:
  *    - No duplicate widgets or hardcoded pipeline numbers (PipelineSnapshot(0), MarketBreakthroughMode removed).
@@ -55,13 +55,27 @@ const mockHomeData: AggregatedBrokerHomeData = {
     href: '/broker/w/dealcards?buildingId=bld-recent-01',
   },
   doors: {
+    magazine: {
+      id: 'magazine',
+      title: '부동산뉴스',
+      subtitle: '매물 3종 원클릭 삽입 · VIP 고객 발송',
+      icon: '📰',
+      href: '/broker/w/newsletter',
+      shortcutNumber: 1,
+      badge: {
+        count: 1,
+        label: '이번 주 초안',
+        href: '/broker/w/newsletter?tab=list',
+        highlight: false,
+      },
+    },
     dealcards: {
       id: 'dealcards',
-      title: '딜카드 만들기',
+      title: '딜카드',
       subtitle: '30초 생성 · 카카오톡 안심 전송',
       icon: '📄',
       href: '/broker/w/dealcards',
-      shortcutNumber: 1,
+      shortcutNumber: 2,
       badge: {
         count: 2,
         label: '작성 중 2건',
@@ -71,11 +85,11 @@ const mockHomeData: AggregatedBrokerHomeData = {
     },
     im: {
       id: 'im',
-      title: '기본 IM 제안서',
+      title: 'IM',
       subtitle: '3분 완성 · 10개 섹션 리포트 & PPTX',
       icon: '📊',
       href: '/broker/w/im',
-      shortcutNumber: 2,
+      shortcutNumber: 3,
       badge: {
         count: 1,
         label: '검토 대기 1건',
@@ -83,23 +97,9 @@ const mockHomeData: AggregatedBrokerHomeData = {
         highlight: false,
       },
     },
-    magazine: {
-      id: 'magazine',
-      title: '주간 매물 소식지',
-      subtitle: '매물 3종 원클릭 삽입 · VIP 고객 발송',
-      icon: '📰',
-      href: '/broker/w/magazine',
-      shortcutNumber: 3,
-      badge: {
-        count: 1,
-        label: '이번 주 초안',
-        href: '/broker/w/magazine?tab=list',
-        highlight: false,
-      },
-    },
     inbox: {
       id: 'inbox',
-      title: '고객 소통함',
+      title: '고객 소통',
       subtitle: '열람 고객 확인 · 맞춤 안부 카톡 전송',
       icon: '💬',
       href: '/broker/w/inbox',
@@ -147,10 +147,21 @@ describe('M3 Workspace: Broker Home 4-Door Hub (WP-P2-04 & WP-P2-05)', () => {
     expect(magazineDoor).not.toBeNull();
     expect(inboxDoor).not.toBeNull();
 
-    expect(dealcardsDoor?.textContent).toContain('딜카드 만들기');
-    expect(imDoor?.textContent).toContain('기본 IM 제안서');
-    expect(magazineDoor?.textContent).toContain('주간 매물 소식지');
-    expect(inboxDoor?.textContent).toContain('고객 소통함');
+    expect(dealcardsDoor?.textContent).toContain('딜카드');
+    expect(imDoor?.textContent).toContain('IM');
+    expect(magazineDoor?.textContent).toContain('부동산뉴스');
+    expect(inboxDoor?.textContent).toContain('고객 소통');
+
+    // Verify funnel order: 부동산뉴스 -> 딜카드 -> IM -> 고객 소통
+    const renderedIds = Array.from(
+      container.querySelectorAll('[data-testid^="home-door-card-"]'),
+    ).map((el) => el.getAttribute('data-testid'));
+    expect(renderedIds).toEqual([
+      'home-door-card-magazine',
+      'home-door-card-dealcards',
+      'home-door-card-im',
+      'home-door-card-inbox',
+    ]);
 
     // Backward-compatible alias testids
     expect(container.querySelector('[data-alias-testid="quick-action-dealcard"]')).not.toBeNull();
@@ -213,25 +224,25 @@ describe('M3 Workspace: Broker Home 4-Door Hub (WP-P2-04 & WP-P2-05)', () => {
       root.render(<BrokerHome4Doors data={mockHomeData} />);
     });
 
-    // Press '1' -> dealcards
+    // Press '1' -> magazine (부동산뉴스)
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
     });
-    expect(mockPush).toHaveBeenCalledWith('/broker/w/dealcards');
+    expect(mockPush).toHaveBeenCalledWith('/broker/w/newsletter');
 
-    // Press '2' -> im
+    // Press '2' -> dealcards (딜카드)
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: '2' }));
     });
-    expect(mockPush).toHaveBeenCalledWith('/broker/w/im');
+    expect(mockPush).toHaveBeenCalledWith('/broker/w/dealcards');
 
-    // Press '3' -> magazine
+    // Press '3' -> im (IM)
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: '3' }));
     });
-    expect(mockPush).toHaveBeenCalledWith('/broker/w/magazine');
+    expect(mockPush).toHaveBeenCalledWith('/broker/w/im');
 
-    // Press '4' -> inbox
+    // Press '4' -> inbox (고객 소통)
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }));
     });

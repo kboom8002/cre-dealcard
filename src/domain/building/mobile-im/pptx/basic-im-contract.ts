@@ -61,6 +61,14 @@ export const BASIC_IM_OPTIONAL_SLIDES = {
     label: '지구단위계획·도면',
     condition: 'hasBrokerRegulationImages' as const,
   },
+  /** 기대수익률(추정수익률) 렌트롤: 현황 렌트롤(seq6) 바로 뒤 (중개인 기대 렌트롤 입력 시) */
+  expectedRentRoll: {
+    afterSeq: 6,
+    archetype: 'A24' as const,
+    dataKey: 'expectedRentRoll' as const,
+    label: '기대수익률(추정수익률) 렌트롤',
+    condition: 'hasExpectedRentRoll' as const,
+  },
   /** 인근 시세 비교: 수익률(seq7) 바로 뒤 (수익률 면이 없는 포스처는 토지 뒤) */
   brokerComps: {
     afterSeq: 7,
@@ -73,7 +81,7 @@ export const BASIC_IM_OPTIONAL_SLIDES = {
 
 /** 중개인 제공 정보 면 dataKey — 면수 초과 절삭 대상에서 보호된다 */
 export const BASIC_IM_BROKER_SLIDE_KEYS = [
-  'brokerRegulationImages', 'brokerComps',
+  'brokerRegulationImages', 'expectedRentRoll', 'brokerComps',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════

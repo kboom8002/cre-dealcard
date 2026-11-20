@@ -1492,6 +1492,13 @@ export function rows(
   return currentY;
 }
 
+export const UNIFIED_TABLE_STYLE = {
+  headerFontSize: 10.5,
+  bodyFontSize: 10.5,
+  compactBodyFontSize: 9.5,
+  rowH: 0.30,
+} as const;
+
 export type CellValue = string | {
   t: string;
   b?: boolean;
@@ -1575,8 +1582,8 @@ export function styledTable(
   opt: StyledTableOpts = {},
 ): number {
   const rh = opt.rh ?? 0.28;
-  const bfs = opt.bfs ?? 10;
-  const hfs = opt.hfs ?? 9;
+  const bfs = opt.bfs ?? UNIFIED_TABLE_STYLE.bodyFontSize;
+  const hfs = opt.hfs ?? UNIFIED_TABLE_STYLE.headerFontSize;
   const isDark = opt.onDark ?? false;
   const cellMargin = getDynamicTableMargin(rh);
 

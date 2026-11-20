@@ -48,6 +48,7 @@ export interface ImListItem {
   versionLabel: string;
   updatedAt: string;
   rentRoll?: RentRollRowItem[];
+  expectedRentRoll?: RentRollRowItem[];
   investmentPosture?: string;
   gfaSqm?: string;
   completionDate?: string;

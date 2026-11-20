@@ -370,6 +370,25 @@ export function MonthlyGlassStatCard({
             {chart.buyerImplication}
           </div>
         )}
+
+        {/* 5. 선택적 민간 리서치 참고 슬롯 (교보리얼코 / 메이트플러스 등) */}
+        {chart.privateResearchNote && chart.privateResearchNote.trim() !== "" && (
+          <div
+            data-testid="monthly-stat-private-research"
+            className="rounded-xl border px-3 py-2 text-xs font-semibold leading-relaxed break-keep"
+            style={{
+              backgroundColor: "rgba(248, 250, 252, 0.92)",
+              borderColor: "rgba(15, 23, 42, 0.14)",
+              color: "#334155",
+            }}
+          >
+            <span className="font-extrabold text-[#1E3A8A]">
+              [민간 리서치 참고
+              {chart.privateResearchSource ? ` · ${chart.privateResearchSource}` : ""}]
+            </span>{" "}
+            {chart.privateResearchNote}
+          </div>
+        )}
       </div>
     </div>
   );

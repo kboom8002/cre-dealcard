@@ -137,6 +137,27 @@ export function physicalFloorKey(label: string): { key: string; order: number; i
   return { key: s, order, isSubterranean: isSub };
 }
 
+/** 렌트롤 행을 최고층 → 1층 → 지하층(B1, B2) 순으로 정렬하고 합계/소계 행은 항상 맨 아래에 둔다 */
+export function sortRentRollTopDown<T extends any[]>(
+  rows: T[],
+  isSummaryFn?: (row: T) => boolean,
+): T[] {
+  const summaryCheck = isSummaryFn ?? ((r: T) => Array.isArray(r) && r.some((c: any) => RENTROLL_SUMMARY_CELL.test(String(c || '').trim())));
+  const decorated = rows.map((row, idx) => ({
+    row,
+    idx,
+    isSummary: summaryCheck(row),
+    order: physicalFloorKey(String(Array.isArray(row) ? (row[0] ?? '') : '')).order,
+  }));
+  decorated.sort((a, b) => {
+    if (a.isSummary !== b.isSummary) return a.isSummary ? 1 : -1;
+    if (a.isSummary && b.isSummary) return a.idx - b.idx;
+    if (a.order !== b.order) return b.order - a.order;
+    return a.idx - b.idx;
+  });
+  return decorated.map((d) => d.row);
+}
+
 /** 렌트롤 단위를 물리 층별로 묶어 아래(지하)→위 순으로 정렬 */
 export function groupStackingFloors(units: StackingUnit[]): StackingFloorGroup[] {
   const map = new Map<string, StackingFloorGroup>();
@@ -416,6 +437,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       ]);
     }
 
+    rawRows = sortRentRollTopDown(rawRows, isSummaryRowOf);
     displayRows = rawRows;
     totalCount = rawRows.length;
     if (rawRows.length > maxRowsToFit) {
@@ -433,8 +455,12 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   // to stay balanced (<30% bottom blank) while keeping >=10-row decks bit-for-bit identical.
   const maxRowH = totalRenderRows <= 9 ? 0.45 : 0.36;
   const rowH = hasTable ? Math.max(0.22, Math.min(maxRowH, tableBudgetH / totalRenderRows)) : 0.32;
-  const bodyFontSize = rowH >= 0.32 ? 8.5 : rowH >= 0.28 ? 8 : rowH >= 0.25 ? 7.5 : 7;
-  const headerFontSize = rowH >= 0.30 ? 9 : bodyFontSize + 0.5;
+  const bodyFontSize = hideStackingPlan
+    ? (rowH >= 0.34 ? 10.5 : rowH >= 0.28 ? 9.5 : rowH >= 0.24 ? 8.5 : 8)
+    : (rowH >= 0.32 ? 8.5 : rowH >= 0.28 ? 8 : rowH >= 0.25 ? 7.5 : 7);
+  const headerFontSize = hideStackingPlan
+    ? (rowH >= 0.30 ? 10.5 : bodyFontSize + 0.5)
+    : (rowH >= 0.30 ? 9 : bodyFontSize + 0.5);
   const summaryInDisplay = hasTable && isSummaryRowOf(displayRows[displayRows.length - 1]);
   const bodyRowCount = displayRows.length - (summaryInDisplay ? 1 : 0);
 

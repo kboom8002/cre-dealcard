@@ -388,10 +388,63 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     y += 0.35;
   }
 
+  // R2-G1/Wave2: 입지 4대 등급 2×2 카드 그리드 (네이티브 PPTX 도형+텍스트 — Rule 66 Sharp CJK 금지 준수)
+  const locationGrades: Array<{ key?: string; label: string; grade: string; basis?: string }> =
+    Array.isArray(right.locationGrades) && right.locationGrades.length === 4 ? right.locationGrades : [];
+  if (locationGrades.length === 4) {
+    const gGapX = 0.14;
+    const gGapY = 0.10;
+    const cardW = (textW - gGapX) / 2;
+    const cardH = 0.78;
+    const gradeStyles: Record<string, { bg: string; border: string; pillBg: string; pillFg: string }> = {
+      우수: { bg: 'ECFDF5', border: '10B981', pillBg: '059669', pillFg: 'FFFFFF' },
+      양호: { bg: 'EFF6FF', border: '3B82F6', pillBg: '1D4ED8', pillFg: 'FFFFFF' },
+      보통: { bg: 'FFFBEB', border: 'F59E0B', pillBg: 'D97706', pillFg: 'FFFFFF' },
+      '보완 필요': { bg: 'FFF1F2', border: 'F43F5E', pillBg: 'E11D48', pillFg: 'FFFFFF' },
+    };
+
+    locationGrades.forEach((item, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const gx = textX + col * (cardW + gGapX);
+      const gy = y + row * (cardH + gGapY);
+      const st = gradeStyles[item.grade] ?? gradeStyles['보통'];
+      const pillW = item.grade.length >= 4 ? 0.88 : 0.62;
+
+      slide.addShape('roundRect', {
+        x: gx, y: gy, w: cardW, h: cardH,
+        fill: { color: st.bg },
+        line: { color: st.border, width: 0.75 },
+        rectRadius: 0.05,
+      });
+      slide.addText(String(item.label || ''), {
+        x: gx + 0.12, y: gy + 0.08, w: Math.max(0.8, cardW - pillW - 0.28), h: 0.26,
+        fontFace: KR, fontSize: 10.5, bold: true, color: C.ink, valign: 'middle', shrinkText: true, margin: 0,
+      });
+      slide.addShape('roundRect', {
+        x: gx + cardW - pillW - 0.10, y: gy + 0.09, w: pillW, h: 0.24,
+        fill: { color: st.pillBg },
+        line: { color: st.pillBg, width: 0 },
+        rectRadius: 0.04,
+      });
+      slide.addText(String(item.grade || '보통'), {
+        x: gx + cardW - pillW - 0.10, y: gy + 0.09, w: pillW, h: 0.24,
+        fontFace: KR, fontSize: 9.0, bold: true, color: st.pillFg, align: 'center', valign: 'middle', shrinkText: true, margin: 0,
+      });
+      if (item.basis) {
+        slide.addText(String(item.basis), {
+          x: gx + 0.12, y: gy + 0.39, w: cardW - 0.24, h: 0.31,
+          fontFace: KR, fontSize: 8.5, color: C.mute, valign: 'top', shrinkText: true, margin: 0,
+        });
+      }
+    });
+    y += cardH * 2 + gGapY + 0.14;
+  }
+
   let rightRows = (right.rows ?? [])
     // 지도 번호 범례에 랜드마크가 표시되면 keySpots 파생 랜드마크 행은 제거 (Rule 4 비중복)
     .filter((r: any) => !(poiLegendRendered && Array.isArray(r) && POI_DERIVED_ROW_LABELS.has(String(r[0] ?? ''))))
-    .slice(0, 7);
+    .slice(0, locationGrades.length === 4 ? 4 : 7);
   if (rightRows.length === 0 && input.data.content) {
     // 마크다운 콘텐츠에서 키-값 불릿을 동적 추출 (Rule 26: 특정 지역명 하드코딩 금지)
     const contentText = String(input.data.content);
@@ -452,14 +505,17 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
     const numRows = safeRows.length;
     const hasCallout = Boolean(right.callout);
-    let rowH = 0.50;
-    let fs = 12.0;
-    if (numRows >= 6 || (numRows >= 5 && hasCallout)) {
-      rowH = 0.38;
-      fs = 11.0;
-    } else if (numRows >= 4 && hasCallout) {
-      rowH = 0.42;
-      fs = 11.5;
+    const hasGrades = locationGrades.length === 4;
+    let rowH = hasGrades ? 0.32 : 0.50;
+    let fs = hasGrades ? 10.5 : 12.0;
+    if (!hasGrades) {
+      if (numRows >= 6 || (numRows >= 5 && hasCallout)) {
+        rowH = 0.38;
+        fs = 11.0;
+      } else if (numRows >= 4 && hasCallout) {
+        rowH = 0.42;
+        fs = 11.5;
+      }
     }
 
     y = L.rows(slide, textX, y, textW, safeRows, { rh: rowH, fs });

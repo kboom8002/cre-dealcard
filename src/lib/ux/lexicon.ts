@@ -89,10 +89,10 @@ export const TERMS = {
   rentRoll: '임대 현황',
   annualYield: '연 수익률',
   investmentPoint: '투자포인트',
-  // 뉴스레터
-  newsletter: '뉴스레터',
-  // 고객소통함
-  inbox: '소통함',
+  // 부동산뉴스
+  newsletter: '부동산뉴스',
+  // 고객 소통
+  inbox: '고객 소통',
   docRequest: '자료 요청',
   sendDocs: '자료 보내기',
   reject: '거절',

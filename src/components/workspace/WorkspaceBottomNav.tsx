@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { WORKSPACE_IDENTITY, type WorkspaceServiceId } from "@/lib/ux/workspace-identity";
+
 export interface WorkspaceTabItem {
   id: "home" | "dealcards" | "im" | "magazine" | "inbox" | "more";
   label: string;
@@ -14,10 +16,10 @@ export interface WorkspaceTabItem {
 
 export const DEFAULT_WORKSPACE_TABS: WorkspaceTabItem[] = [
   { id: "home", label: "홈", href: "/broker", icon: "🏠" },
-  { id: "dealcards", label: "딜카드", href: "/broker/w/dealcards", icon: "📄" },
-  { id: "im", label: "IM", href: "/broker/w/im", icon: "📊" },
-  { id: "magazine", label: "뉴스레터", href: "/broker/w/newsletter", icon: "📰" },
-  { id: "inbox", label: "소통함", href: "/broker/w/inbox", icon: "💬" },
+  { id: "magazine", label: WORKSPACE_IDENTITY.magazine.label, href: WORKSPACE_IDENTITY.magazine.href, icon: WORKSPACE_IDENTITY.magazine.icon },
+  { id: "dealcards", label: WORKSPACE_IDENTITY.dealcards.label, href: WORKSPACE_IDENTITY.dealcards.href, icon: WORKSPACE_IDENTITY.dealcards.icon },
+  { id: "im", label: WORKSPACE_IDENTITY.im.label, href: WORKSPACE_IDENTITY.im.href, icon: WORKSPACE_IDENTITY.im.icon },
+  { id: "inbox", label: WORKSPACE_IDENTITY.inbox.label, href: WORKSPACE_IDENTITY.inbox.href, icon: WORKSPACE_IDENTITY.inbox.icon },
 ];
 
 export interface WorkspaceBottomNavProps {
@@ -71,6 +73,17 @@ export function WorkspaceBottomNav({
                 (tab.id === "magazine" && pathname.startsWith("/broker/w/newsletter"))
               : matchesPath;
 
+          const identitySpec =
+            tab.id !== "home" && tab.id !== "more"
+              ? WORKSPACE_IDENTITY[tab.id as WorkspaceServiceId]
+              : null;
+          const activeClass = identitySpec
+            ? identitySpec.bottomTabActiveClass
+            : "bg-slate-900/10 text-[#1D1D1F] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]";
+          const activeBarClass = identitySpec
+            ? identitySpec.bottomTabBarClass
+            : "bg-[#1D1D1F]";
+
           return (
             <Link
               key={tab.id}
@@ -80,13 +93,13 @@ export function WorkspaceBottomNav({
               data-active={isActive ? "true" : undefined}
               className={`relative flex flex-col items-center justify-center min-h-[48px] min-w-[48px] rounded-2xl transition-all py-1 ${
                 isActive
-                  ? "bg-[#007AFF]/10 text-[#0051D5] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+                  ? activeClass
                   : "text-[#515154] hover:text-[#1D1D1F] hover:bg-black/[0.04] font-medium"
               }`}
             >
               {/* Active indicator top capsule */}
               {isActive && (
-                <span className="absolute top-0.5 left-4 right-4 h-0.5 bg-[#007AFF] rounded-full" />
+                <span className={`absolute top-0.5 left-4 right-4 h-0.5 rounded-full ${activeBarClass}`} />
               )}
 
               {/* Icon & optional badge */}

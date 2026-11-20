@@ -161,6 +161,8 @@ export async function POST(req: NextRequest) {
     address,
     askingPriceManwon,
     rentRoll = [],
+    expectedRentRoll: rawExpectedRentRoll = [],
+    expected_rent_roll: rawExpectedRentRollSnake = [],
     title,
     buildingName,
     pnu: rawPnu,
@@ -1963,6 +1965,14 @@ export async function POST(req: NextRequest) {
     card4,
     rent_roll: safeRentRollWithAreas,
     floor_leases: mappedFloorLeases,
+    ...(() => {
+      const expSrc = Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
+        ? rawExpectedRentRoll
+        : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
+          ? rawExpectedRentRollSnake
+          : [];
+      return expSrc.length > 0 ? { expected_rent_roll: expSrc } : {};
+    })(),
     ssot_summary: ssotSummary,
     ...(mergedEnrichment ? { enrichment: mergedEnrichment } : {}),
     ...(normalizedAxiosHighlights ? { axios_highlights: normalizedAxiosHighlights } : {}),
@@ -2432,6 +2442,11 @@ export async function POST(req: NextRequest) {
           capRatePct: basicImDoc.facts.valuation.capRatePct,
           rentRoll: safeRentRollWithAreas,
           floor_leases: mappedFloorLeases,
+          ...(Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
+            ? { expectedRentRoll: rawExpectedRentRoll }
+            : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
+              ? { expectedRentRoll: rawExpectedRentRollSnake }
+              : {}),
           sections: pptxSections,
           basicImDocument: basicImDoc,
           ssot_summary: ssotSummary,

@@ -41,6 +41,7 @@ function BasicImStudioInner({
   const [saving, setSaving] = useState(false);
   const [navigatingBack, setNavigatingBack] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showQualityPopover, setShowQualityPopover] = useState(false);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
@@ -408,6 +409,29 @@ function BasicImStudioInner({
     }
   }, [project, dirtySlideIds.size, flushAllDirtySlides, presetId, coverStyle, layoutStyle, brandAccent, headerFooterConfig]);
 
+  const handleDownloadPdf = useCallback(async () => {
+    if (!project) return;
+    setDownloadingPdf(true);
+    try {
+      if (dirtySlideIds.size > 0) {
+        await flushAllDirtySlides();
+      }
+      const { exportSlidesToLandscapePdf } = await import('@/lib/im-lite/slides-pdf-exporter');
+      const result = await exportSlidesToLandscapePdf({
+        buildingId,
+        docId: project.id,
+        filename: project.title || 'Basic_IM',
+      });
+      if (result.ok) {
+        toast.success(`📄 16:9 가로형 PDF (${result.pageCount}면) 다운로드가 완료되었습니다!`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'PDF 저장 중 오류가 발생했습니다.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [project, buildingId, dirtySlideIds.size, flushAllDirtySlides]);
+
   // Keyboard shortcuts: Ctrl+S (save), Alt+ArrowUp/Down/Left/Right (slide nav), ? (shortcut help), Escape (exit fullscreen / close modal & popover)
   useEffect(() => {
     if (loading) return;
@@ -742,9 +766,19 @@ function BasicImStudioInner({
 
           <button
             type="button"
+            data-testid="studio-download-pdf-btn"
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf || downloading}
+            className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-[#F8FAFC] text-[#0F172A] border border-[#CBD5E1] rounded-xl text-sm font-black transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>{downloadingPdf ? '⏳ PDF 저장 중...' : '📄 PDF 저장'}</span>
+          </button>
+
+          <button
+            type="button"
             data-testid="studio-download-pptx-btn"
             onClick={handleDownload}
-            disabled={downloading}
+            disabled={downloading || downloadingPdf}
             className="min-h-[44px] px-4 py-2 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl text-sm font-black transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 cursor-pointer"
           >
             <span>{downloading ? '⏳ PPTX 빌드 중...' : '📥 편집 반영 PPTX 다운로드'}</span>

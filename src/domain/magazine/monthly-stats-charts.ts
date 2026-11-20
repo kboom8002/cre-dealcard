@@ -18,6 +18,7 @@ export type MonthlyRegionKey = 'gbd' | 'seongsu' | 'ybd' | 'mapo_yongsan' | 'cbd
 export type MonthlyChartType =
   | 'molit_tx_price_trend'
   | 'reb_vacancy_cap_spread'
+  | 'reb_core3_trend'
   | 'kosis_commercial_vitality'
   | 'bok_loan_rate_cap_spread'
   | 'molit_price_band_mix'
@@ -102,6 +103,12 @@ export const MONTHLY_CHART_TYPE_META: Readonly<
     authority: '국토교통부·한국부동산원 상업용부동산 임대동향조사',
     buyerReason: '공실 위험과 대출 금리 대비 실질 연 수익률 우위를 점검합니다.',
   },
+  reb_core3_trend: {
+    chartType: 'reb_core3_trend',
+    shortTitle: '한국부동산원 3대 지표 (지가·임대수익률·공실률 12M 평균)',
+    authority: '한국부동산원 R-ONE 상업용 임대동향 · 전국지가변동률조사',
+    buyerReason: '지가 상승률·실질 임대수익률·공실률 12개월 이동평균 3박자를 권역별로 한눈에 봅니다.',
+  },
   kosis_commercial_vitality: {
     chartType: 'kosis_commercial_vitality',
     shortTitle: '통계청(KOSIS) 상권 소비 · 서비스업 활력 지수',
@@ -136,6 +143,7 @@ type PlaceholderChartBase = Omit<
 interface RegionChartDataset {
   txPriceTrend: PlaceholderChartBase;
   vacancyCapSpread: PlaceholderChartBase;
+  rebCore3Trend: PlaceholderChartBase;
   commercialVitality: PlaceholderChartBase;
   bokLoanRateSpread: PlaceholderChartBase;
   molitPriceBandMix: PlaceholderChartBase;
@@ -196,6 +204,12 @@ function createRegionPlaceholderDataset(regionShortLabel: string): RegionChartDa
       authorityLabel: '한국은행 ECOS 경제통계시스템 (통계 준비 중)',
       unit: '%',
     }),
+    rebCore3Trend: buildPlaceholderChartBase({
+      title: `${regionShortLabel} 한국부동산원 3대 지표 (12개월 평균)`,
+      subtitle: '지가변동률(%) · 임대수익률(%) · 공실률(%) 12개월 이동평균 비교',
+      authorityLabel: '한국부동산원 R-ONE 상업용 임대동향 · 전국지가변동률조사 (통계 준비 중)',
+      unit: '%',
+    }),
     molitPriceBandMix: buildPlaceholderChartBase({
       title: `${regionShortLabel} 금액대별 통건물 실거래 비중`,
       subtitle: '50억 미만 · 50~100억 · 100억 이상 거래 비중(%)',
@@ -249,11 +263,13 @@ export function getMonthlyChartsForRegion(
         ? dataset.txPriceTrend
         : type === 'reb_vacancy_cap_spread'
           ? dataset.vacancyCapSpread
-          : type === 'bok_loan_rate_cap_spread'
-            ? dataset.bokLoanRateSpread
-            : type === 'molit_price_band_mix'
-              ? dataset.molitPriceBandMix
-              : dataset.commercialVitality;
+          : type === 'reb_core3_trend'
+            ? dataset.rebCore3Trend
+            : type === 'bok_loan_rate_cap_spread'
+              ? dataset.bokLoanRateSpread
+              : type === 'molit_price_band_mix'
+                ? dataset.molitPriceBandMix
+                : dataset.commercialVitality;
 
     return {
       id: `${regionKey}-${type}`,
