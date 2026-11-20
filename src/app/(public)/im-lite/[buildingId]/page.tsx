@@ -138,11 +138,14 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
           data-testid="token-required-im-screen"
         >
           <div className="max-w-md w-full min-w-0 bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 text-center space-y-4 shadow-sm">
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full font-bold text-sm">
-              전용 열람 링크 필요
+            <div
+              data-testid="public-ledger-gate-badge"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full font-bold text-sm"
+            >
+              전용 열람 링크 필요 · 중개인 입력 기준 보호 자료
             </div>
             <h1 className="text-xl font-extrabold text-stone-900 leading-snug break-keep">
-              🔒 담당 중개인이 발급한 열람 토큰 링크로만 확인 가능한 자료입니다
+              🔒 담당 중개인이 발급한 승인 전용 링크로만 확인 가능한 자료입니다
             </h1>
             <p className="text-base text-stone-600 leading-relaxed break-keep">
               상세 투자설명서(IM)는 비공개 매물 보호를 위해 승인된 공유 링크를 통해서만 열람됩니다. 매물 요약 딜카드에서 열람을 요청해 주세요.

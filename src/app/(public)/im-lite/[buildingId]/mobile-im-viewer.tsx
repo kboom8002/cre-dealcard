@@ -1003,13 +1003,30 @@ export function MobileIMViewer({
     Boolean(coverPhotoUrl) &&
     !String(coverPhotoUrl).includes("map.kakao.com/link/map");
 
-  // [A4-01] Rent roll rows derivation (supports both PureRentUnit & RentRollRowItem)
+  // [A4-01] Rent roll rows derivation — 최고층 → 1층 → 지하층(PPTX·PDF 동일 정렬)
   const rawRentRows =
     rentrollSec?.data?.rows ||
     rentrollSec?.data?.units ||
     basicDoc.facts.rent.units ||
     [];
-  const rentRows = rawRentRows;
+  const rentRows = useMemo(() => {
+    if (!Array.isArray(rawRentRows) || rawRentRows.length <= 1) return rawRentRows;
+    const rankFloor = (raw: unknown): number => {
+      const s = String(raw ?? "").trim().toUpperCase();
+      if (!s || /합계|총계|소계/.test(s)) return -9999;
+      const b = s.match(/^(?:B|지하\s*)(\d+)/);
+      if (b) return -Number(b[1]);
+      const neg = s.match(/^-(\d+)$/);
+      if (neg) return -Number(neg[1]);
+      if (/^(?:RF|옥상|루프탑)/.test(s)) return 900;
+      const ab = s.match(/^(\d+)\s*(?:F|층)?/);
+      if (ab) return Number(ab[1]);
+      return -500;
+    };
+    return [...rawRentRows].sort(
+      (a: any, b: any) => rankFloor(b?.floor) - rankFloor(a?.floor),
+    );
+  }, [rawRentRows]);
 
   // [A4-05] Location, Land, Yield, Comps, Photos section data bindings
   const legacyLocationContent = useMemo(() => {

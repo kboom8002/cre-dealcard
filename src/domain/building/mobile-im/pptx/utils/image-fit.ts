@@ -56,9 +56,11 @@ export function addImageFit(
 ): FitPlan {
   const plan = planImageFit(box, natW, natH, mode);
   if (plan.mode === 'cover') {
-    // PptxGenJS cover: w/h = 원본 비율, sizing.w/h = 박스 → srcRect 로 중앙 크롭
-    const imgW = box.w;
-    const imgH = box.w * ((natH as number) / (natW as number));
+    // PptxGenJS cover: w/h = 원본 비율 유지하되 항상 box 내부(imgW<=box.w, imgH<=box.h)에 수렴하도록 스케일 후 sizing.w/h 로 중앙 크롭
+    const imgRatio = (natW as number) / (natH as number);
+    const boxRatio = box.w / box.h;
+    const imgW = imgRatio >= boxRatio ? box.w : box.h * imgRatio;
+    const imgH = imgRatio >= boxRatio ? box.w / imgRatio : box.h;
     slide.addImage({ data, x: box.x, y: box.y, w: imgW, h: imgH, sizing: { type: 'cover', w: box.w, h: box.h }, ...extra } as any);
   } else {
     const d = plan.drawn;

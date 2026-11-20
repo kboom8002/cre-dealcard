@@ -135,7 +135,7 @@ export function AxiosGlassIssueCard({
           {cleanSource && (
             <span
               data-testid="axios-postit-source"
-              className="text-[13px] font-medium text-slate-500 shrink-0"
+              className="text-sm font-semibold text-slate-600 shrink-0"
             >
               {cleanSource}
             </span>

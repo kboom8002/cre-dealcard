@@ -19,12 +19,18 @@ import { z } from 'zod';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
 import { parseLegacyBand } from '@/lib/deal-card/price-band';
+import { buildDeal3TierSpecs } from '@/lib/deal-card/field-strength-tags';
 import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
 const TileSchema = z.object({
   emoji: z.string(),
+  label: z.string(),
+  value: z.string(),
+}).strict();
+
+const SpecRowSchema = z.object({
   label: z.string(),
   value: z.string(),
 }).strict();
@@ -81,6 +87,11 @@ export const PublicDealCardSchema = z.object({
     urgencyTag: z.enum(['urgent', 'reviewing', 'flexible']).nullable(),
   }).strict(),
   dealPoints: z.array(z.string()),
+  threeTierSpecs: z.object({
+    commonSpecs: z.array(SpecRowSchema),
+    buildingSpecs: z.array(SpecRowSchema),
+    purposeSpecs: z.array(SpecRowSchema),
+  }).strict(),
   postureWidget: PublicPostureWidgetInputSchema,
   broker: z.object({
     displayName: z.string(),
@@ -485,6 +496,115 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
   );
   const sanitizedPhone = pickBrokerStatutory('phone', brokerProfile?.phone);
 
+  const normalizedCard4Posture: 'income' | 'owner_occupied' | 'value_add' =
+    posture === 'owner_occupied' || posture === 'owner_occupier'
+      ? 'owner_occupied'
+      : posture === 'development' || posture === 'value_add'
+        ? 'value_add'
+        : 'income';
+
+  const resolvedBandedPrice = str(card4.priceBand) || str(teaserView.bandedPrice) || '가격 협의';
+  const rawLandSqm = positiveOrNull(safeBuilding.land_area_sqm ?? attrs.landAreaSqm ?? attrs.land_area_sqm);
+  const rawLandPyung =
+    positiveOrNull(attrs.landAreaPyung) ??
+    (rawLandSqm !== null ? Math.round(rawLandSqm * 0.3025) : null);
+  const rawGfaSqm = positiveOrNull(
+    safeBuilding.total_area_sqm ?? attrs.totalFloorAreaSqm ?? attrs.total_area_sqm,
+  );
+  const rawGfaPyung =
+    positiveOrNull(attrs.totalFloorAreaPyung) ??
+    (rawGfaSqm !== null ? Math.round(rawGfaSqm * 0.3025) : null);
+
+  const landAreaDisplay =
+    rawLandPyung !== null && rawLandPyung > 0 ? `약 ${Math.round(rawLandPyung).toLocaleString()}평` : null;
+  const gfaAreaDisplay =
+    rawGfaPyung !== null && rawGfaPyung > 0 ? `약 ${Math.round(rawGfaPyung).toLocaleString()}평` : null;
+
+  const rawZoning = clean(
+    str(safeBuilding.zoning) || str(attrs.zoning) || str(imBody.zoning) || '',
+  ).trim();
+  const rawCompletion = str(
+    safeBuilding.completion_date ?? attrs.completionDate ?? attrs.completion_date ?? '',
+  ).trim();
+  const completionYearMatch = rawCompletion.match(/(19\d{2}|20\d{2})/);
+  const completionDisplay = completionYearMatch ? `${completionYearMatch[1]}년` : null;
+
+  const grndFloors = positiveOrNull(
+    safeBuilding.ground_floors ?? attrs.groundFloors ?? attrs.grnd_flr_cnt,
+  );
+  const bsmtFloors = positiveOrNull(
+    safeBuilding.basement_floors ?? attrs.basementFloors ?? attrs.ugrnd_flr_cnt,
+  );
+  const floorsDisplay =
+    grndFloors !== null
+      ? bsmtFloors !== null && bsmtFloors > 0
+        ? `지하 ${Math.round(bsmtFloors)}층 / 지상 ${Math.round(grndFloors)}층`
+        : `지상 ${Math.round(grndFloors)}층`
+      : strOrNull(attrs.floorsDisplay ?? attrs.floorScale) || '상세 제안서 확인';
+
+  const parkingCnt = positiveOrNull(safeBuilding.parking_count ?? attrs.parkingCount);
+  const parkingDisplay = parkingCnt !== null ? `${Math.round(parkingCnt)}대` : '상세 제안서 확인';
+
+  const landUnitManwon =
+    bandedMidKrw !== null && rawLandPyung !== null && rawLandPyung > 0
+      ? Math.round(bandedMidKrw / 10_000 / rawLandPyung)
+      : positiveOrNull(attrs.pricePerPyung);
+  const landUnitDisplay =
+    landUnitManwon !== null && landUnitManwon > 0
+      ? `약 ${Math.round(landUnitManwon).toLocaleString()}만 원/평`
+      : '상세 제안서 확인';
+
+  const monthlyManwon =
+    monthlyRentKrw !== null && monthlyRentKrw > 0 ? Math.round(monthlyRentKrw / 10_000) : null;
+  const depositKrw = positiveOrNull(attrs.depositKrw ?? attrs.totalDepositKrw);
+  const depositManwon =
+    depositKrw !== null && depositKrw > 0 ? Math.round(depositKrw / 10_000) : null;
+
+  const rawCapBand = str(teaserView.bandedCapRate);
+  const computedYieldDisplay = (() => {
+    if (rawCapBand && rawCapBand !== '수익률 미정') return rawCapBand;
+    if (monthlyManwon !== null && bandedMidKrw !== null && bandedMidKrw > 0) {
+      const pct = ((monthlyManwon * 10_000 * 12) / bandedMidKrw) * 100;
+      if (pct > 0.5 && pct < 25) {
+        const low = Math.floor(pct * 2) / 2;
+        return `약 ${low.toFixed(1)}~${(low + 0.5).toFixed(1)}%대`;
+      }
+    }
+    return '상세 제안서 확인';
+  })();
+
+  const rawThreeTier = buildDeal3TierSpecs({
+    posture: normalizedCard4Posture,
+    priceDisplay: clean(resolvedBandedPrice),
+    landAreaDisplay: landAreaDisplay ?? '상세 제안서 확인',
+    zoningDisplay: rawZoning || '상세 제안서 확인',
+    gfaDisplay: gfaAreaDisplay ?? (clean(str(card4.area)) || '상세 제안서 확인'),
+    floorsDisplay: clean(floorsDisplay),
+    completionDateDisplay: completionDisplay ?? '상세 제안서 확인',
+    depositDisplay:
+      depositManwon !== null ? `${depositManwon.toLocaleString()}만` : '상세 확인',
+    monthlyRentDisplay:
+      monthlyManwon !== null ? `${monthlyManwon.toLocaleString()}만` : '상세 확인',
+    yieldDisplay: clean(computedYieldDisplay),
+    usableAreaDisplay: gfaAreaDisplay ?? '전 층 실사용 협의',
+    parkingDisplay,
+    evictionDisplay: '입주 일정 협의 가능',
+    landUnitPriceDisplay: landUnitDisplay,
+    farPlanDisplay: rawZoning ? `${rawZoning} 기준 신축 검토` : '용적률 상세 제안서 확인',
+    roadWidthDisplay: '접면 도로 상세 제안서 확인',
+  });
+
+  const sanitizeSpecList = (list: Array<{ label: string; value: string }>) =>
+    list.map((item) => ({ label: clean(item.label), value: clean(item.value) }));
+
+  const resolvedHeroArea = (() => {
+    const c4Area = clean(str(card4.area));
+    if (normalizedCard4Posture === 'value_add' && (!c4Area || (/연면적/.test(c4Area) && rawLandPyung))) {
+      if (rawLandPyung) return `토지면적 ${Math.round(rawLandPyung).toLocaleString()}평`;
+    }
+    return c4Area || clean(str(teaserView.bandedArea));
+  })();
+
   const dto: PublicDealCard = {
     id,
     teaserConfigId: str(safeBuilding.id) || id,
@@ -502,13 +622,18 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
         label: str(t.label),
         value: clean(str(t.label) === '매각가' && str(card4.priceBand) ? str(card4.priceBand) : str(t.value)),
       })),
-      bandedPrice: str(card4.priceBand) || str(teaserView.bandedPrice),
+      bandedPrice: resolvedBandedPrice,
       bandedCapRate: str(teaserView.bandedCapRate),
-      bandedArea: clean(str(card4.area) || str(teaserView.bandedArea)),
+      bandedArea: resolvedHeroArea,
       vacancyLabel: strOrNull(teaserView.vacancyLabel),
       urgencyTag,
     },
     dealPoints,
+    threeTierSpecs: {
+      commonSpecs: sanitizeSpecList(rawThreeTier.commonSpecs),
+      buildingSpecs: sanitizeSpecList(rawThreeTier.buildingSpecs),
+      purposeSpecs: sanitizeSpecList(rawThreeTier.purposeSpecs),
+    },
     postureWidget,
     broker: {
       displayName: sanitizedDisplayName || '담당 중개사',

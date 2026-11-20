@@ -855,7 +855,7 @@ export function Card4ConfirmCard({
                     aria-pressed={alreadyAdded}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleApplyStrengthTag(tag.label)}
-                    className={`min-h-[38px] px-3 py-1 rounded-lg border text-sm font-bold transition cursor-pointer ${
+                    className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-sm font-bold transition cursor-pointer ${
                       alreadyAdded
                         ? 'border-amber-600 bg-amber-600 text-white'
                         : 'border-amber-300 bg-white text-amber-950 hover:bg-amber-100'

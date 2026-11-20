@@ -330,7 +330,8 @@ const PRICE_ADDRESS_FRAGMENT_RE =
 
 /**
  * 매물 주소 필드에 "매각가 230", "매매 150억", "매각가 인근" 등 가격 파편이 잘못 들어간 경우
- * 주소 마스킹 전후에 감지하여 "위치 문의 시 안내"로 정제한다 (U-F1-16).
+ * "위치 문의 시 안내"로 정제하고, 상세 번지·도로명 건물번호(예: "동교동 189-6", "심곡동 385",
+ * "당산동1가 72-1 외 2필지", "테헤란로 142")가 남아 있으면 동·로 단위 + "인근"으로 마스킹한다.
  */
 export function sanitizeDealAddress(address: unknown): string {
   if (typeof address !== 'string') return '위치 문의 시 안내';
@@ -341,6 +342,38 @@ export function sanitizeDealAddress(address: unknown): string {
   if (/(?:매각가|매매가|매매|호가|분양가)\s*\d/.test(trimmed)) {
     return '위치 문의 시 안내';
   }
+
+  // 이미 "인근" / "일대"로 마스킹되어 있고 번지 패턴이 없으면 그대로 반환
+  if (/(?:인근|일대)$/.test(trimmed) && !/\d{1,5}-\d{1,5}|\d+\s*번지/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 동/읍/면/리/가 + 산? + 번지(예: 189-6, 385, 1263번지) + 외 N필지 제거 → "...동 인근"
+  const dongJibunMasked = trimmed.replace(
+    /([가-힣0-9]+(?:동|읍|면|리|가))\s+(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*외\s*\d+\s*필지)?.*$/,
+    '$1 인근',
+  );
+  if (dongJibunMasked !== trimmed) {
+    return dongJibunMasked.trim();
+  }
+
+  // 도로명(대로/로/길) + 건물번호(예: 테헤란로 142, 양평로22길 21) 제거 → "...로 인근"
+  const roadNumMasked = trimmed.replace(
+    /([가-힣0-9]+(?:대로|로|길))\s+\d{1,5}(?:-\d{1,5})?(?:\s*외\s*\d+\s*필지)?.*$/,
+    '$1 인근',
+  );
+  if (roadNumMasked !== trimmed) {
+    return roadNumMasked.trim();
+  }
+
+  // 잔여 하이픈 지번 토큰 방어
+  if (/\b\d{1,5}-\d{1,5}(?:번지)?\b/.test(trimmed)) {
+    const stripped = trimmed
+      .replace(/\s*(?:산\s*)?\b\d{1,5}-\d{1,5}(?:번지)?\b(?:\s*외\s*\d+\s*필지)?.*$/, '')
+      .trim();
+    return stripped ? `${stripped} 인근` : '위치 문의 시 안내';
+  }
+
   return trimmed;
 }
 

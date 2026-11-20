@@ -1201,7 +1201,7 @@ export function ImEditorPanels({
                           type="button"
                           aria-pressed={active}
                           onClick={() => onChangeLocationGrade?.(item.key, opt)}
-                          className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-extrabold border transition-colors cursor-pointer ${
+                          className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-extrabold border transition-colors cursor-pointer ${
                             active
                               ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
                               : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -1529,7 +1529,7 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-exterior-btn"
                 onClick={() => exteriorFileInputRef.current?.click()}
-                className="w-full min-h-[42px] px-3 py-2 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
+                className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
               >
                 + 외부·전경 사진 올리기
               </button>
@@ -1584,7 +1584,7 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-interior-btn"
                 onClick={() => interiorFileInputRef.current?.click()}
-                className="w-full min-h-[42px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
+                className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
               >
                 + 내부·층별 사진 올리기
               </button>
@@ -1668,7 +1668,7 @@ export function ImEditorPanels({
                                     category: isExt ? "interior" : "exterior",
                                   })
                                 }
-                                className="text-xs font-bold text-[#1D4ED8] hover:underline cursor-pointer"
+                                className="min-h-[44px] inline-flex items-center px-2 rounded-lg text-sm font-bold text-[#1D4ED8] hover:bg-blue-50 cursor-pointer"
                               >
                                 {isExt ? "내부로 변경" : "외부로 변경"}
                               </button>
@@ -1679,7 +1679,7 @@ export function ImEditorPanels({
                       <button
                         type="button"
                         onClick={() => onRemovePhotoAtIndex(entry, idx)}
-                        className="min-h-[40px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
+                        className="min-h-[44px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
                         aria-label={`${name} 삭제`}
                       >
                         삭제

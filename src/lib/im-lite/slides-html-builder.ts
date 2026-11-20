@@ -40,15 +40,44 @@ export function buildSlidesHtmlExport(params: {
     ? content.photos_v2
     : (Array.isArray(content?.photos) ? content.photos : []);
 
+  const parseFloorRank = (rawFloor: unknown): number => {
+    const s = String(rawFloor ?? '').trim().toUpperCase();
+    if (!s || /합계|총계|소계/.test(s)) return -9999;
+    const baseMatch = s.match(/^(?:B|지하\s*)(\d+)/);
+    if (baseMatch) return -Number(baseMatch[1]);
+    const negMatch = s.match(/^-(\d+)$/);
+    if (negMatch) return -Number(negMatch[1]);
+    const roofMatch = s.match(/^(?:RF|옥상|루프탑)/);
+    if (roofMatch) return 900;
+    const aboveMatch = s.match(/^(\d+)\s*(?:F|층)?$/);
+    if (aboveMatch) return Number(aboveMatch[1]);
+    return -500;
+  };
+
   const renderLeaseTable = (rows: any[], heading: string, note: string) => {
-    const bodyRows = rows.slice(0, 12).map((r: any) => {
-      const floor = escapeHtml(String(r.floor ?? '-'));
-      const tenant = escapeHtml(String(r.tenant_name ?? r.tenantName ?? r.tenant ?? '-'));
-      const dep = Number(r.deposit_manwon ?? r.depositManwon ?? 0);
-      const rent = Number(r.rent_manwon ?? r.monthlyRentManwon ?? 0);
-      const mgmt = Number(r.mgmt_fee_manwon ?? r.managementFeeManwon ?? 0);
-      const area = Number(r.leasable_area_sqm ?? r.area_sqm ?? r.leasableAreaSqm ?? 0);
-      return `<tr>
+    const sorted = [...rows].sort((a, b) => parseFloorRank(b?.floor) - parseFloorRank(a?.floor));
+    const pageSize = 12;
+    const chunks: any[][] = [];
+    if (sorted.length === 0) {
+      chunks.push([]);
+    } else {
+      for (let i = 0; i < sorted.length; i += pageSize) {
+        chunks.push(sorted.slice(i, i + pageSize));
+      }
+    }
+
+    return chunks
+      .map((chunk, pageIdx) => {
+        const pageSuffix = chunks.length > 1 ? ` (${pageIdx + 1}/${chunks.length})` : '';
+        const bodyRows = chunk
+          .map((r: any) => {
+            const floor = escapeHtml(String(r.floor ?? '-'));
+            const tenant = escapeHtml(String(r.tenant_name ?? r.tenantName ?? r.tenant ?? '-'));
+            const dep = Number(r.deposit_manwon ?? r.depositManwon ?? 0);
+            const rent = Number(r.rent_manwon ?? r.monthlyRentManwon ?? 0);
+            const mgmt = Number(r.mgmt_fee_manwon ?? r.managementFeeManwon ?? 0);
+            const area = Number(r.leasable_area_sqm ?? r.area_sqm ?? r.leasableAreaSqm ?? 0);
+            return `<tr>
         <td>${floor}</td>
         <td style="text-align:left;font-weight:700;">${tenant}</td>
         <td>${area > 0 ? `${area.toFixed(1)}㎡` : '-'}</td>
@@ -56,10 +85,11 @@ export function buildSlidesHtmlExport(params: {
         <td>${rent > 0 ? `${rent.toLocaleString()}만` : '-'}</td>
         <td>${mgmt > 0 ? `${mgmt.toLocaleString()}만` : '-'}</td>
       </tr>`;
-    }).join('');
-    return `
+          })
+          .join('');
+        return `
       <section class="im-slide-page">
-        <div class="slide-head"><span class="kicker">RENT ROLL</span><h2>${escapeHtml(heading)}</h2></div>
+        <div class="slide-head"><span class="kicker">RENT ROLL</span><h2>${escapeHtml(heading + pageSuffix)}</h2></div>
         <div class="slide-body">
           <p class="sub-note">${escapeHtml(note)}</p>
           <table class="slide-table">
@@ -70,6 +100,8 @@ export function buildSlidesHtmlExport(params: {
         <div class="slide-foot"><span>${escapeHtml(brokerInfo.company || 'CREDEAL')}</span><span>${escapeHtml(addr)}</span></div>
       </section>
     `;
+      })
+      .join('');
   };
 
   return `<!DOCTYPE html>
