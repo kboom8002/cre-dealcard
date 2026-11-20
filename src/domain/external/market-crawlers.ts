@@ -1,10 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
+import {
+  CHANNEL_SEARCH_QUERIES,
+  MULTI_CHANNEL_RSS_FEEDS,
+  OFFICIAL_GOV_GOOGLE_QUERIES,
+  OFFICIAL_PUBLIC_RSS_FEEDS,
+  areArticlesSameEvent,
+  hasStrongCreOrChannelSignal,
+  isCreRelevantArticle,
+  resolveNewsChannel,
+  type SpecificNewsChannelId,
+} from "@/domain/magazine/news-channels";
 import { decodeEntities, safeHttpUrl } from "@/lib/magazine/escape";
 import { todayKst, toKstDate, addDays, parseIssueDate } from "@/lib/magazine/kst";
 import {
   trackNaverCommunity,
-  crawlNaverCRENews,
+  fetchNaverCRENewsRaw,
   cleanNewsText,
   detectRegions,
   computeNewsImportance,
@@ -15,16 +27,6 @@ import { crawlYoutubeTrends } from "./youtube-crawler";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('market-crawlers');
 
-
-// ─── RSS 피드 목록: 6개 주요 경제지 부동산 섹션 ─────────────────────────────────
-const CRE_RSS_FEEDS = [
-  { name: "Hankyung RE",  url: "https://www.hankyung.com/feed/realestate" },
-  { name: "MK Estate",    url: "https://www.mk.co.kr/rss/estate" },
-  { name: "Edaily RE",    url: "https://www.edaily.co.kr/rss/realestate" },
-  { name: "ChosunBiz",   url: "https://biz.chosun.com/rss/realty" },
-  { name: "SedailyRE",   url: "https://www.sedaily.com/RSS/RealEstate" },
-  { name: "MT Estate",   url: "https://news.mt.co.kr/rss/estate.xml" },
-];
 
 // ─── BigKinds API 설정 ─────────────────────────────────────────────────────────
 const BIGKINDS_API_URL = "https://tools.kinds.or.kr:8443/search/news";
@@ -49,7 +51,7 @@ export function unwrapCdata(s: string): string {
   return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
 }
 
-export interface RssItem { title: string; link: string; description: string }
+export interface RssItem { title: string; link: string; description: string; pubDate?: string }
 
 /**
  * RSS/Atom 아이템 파싱. title/description 은 CDATA 제거 + 태그 제거 + 엔티티 디코드,
@@ -66,7 +68,10 @@ export function parseRSSItems(xml: string, limit = 5): RssItem[] {
       innerTag(block, "link") || (block.match(/<link\s[^>]*href="([^"]+)"/i)?.[1] ?? "");
     const link = decodeEntities(unwrapCdata(rawLink)).trim();
     const desc = cleanNewsText(unwrapCdata(innerTag(block, "description"))).slice(0, 500);
-    if (title && link && safeHttpUrl(link)) items.push({ title, link, description: desc });
+    const pubDate = cleanNewsText(unwrapCdata(innerTag(block, "pubDate"))) || undefined;
+    if (title && link && safeHttpUrl(link)) {
+      items.push({ title, link, description: desc, ...(pubDate ? { pubDate } : {}) });
+    }
   }
   return items.slice(0, limit);
 }
@@ -119,15 +124,18 @@ async function fetchBigKindsNews(): Promise<RssItem[]> {
   return results;
 }
 
-// ─── E2: RSS + BigKinds + 네이버뉴스 통합 크롤러 (LLM 기반 고도화) ──────────────
+// ─── E2: 다채널 RSS + 정부 공식 RSS + Google News 5채널 + BigKinds + 네이버뉴스 통합 크롤러 ──
 interface RawNewsItem {
   title: string;
   link: string;
   description: string;
   feedSource: string;
+  defaultTopic?: string;
+  defaultChannel?: SpecificNewsChannelId;
+  topicPrior?: number;
 }
 
-interface ScoredNews {
+export interface ScoredNews {
   title: string;
   link: string;
   description: string;
@@ -135,77 +143,155 @@ interface ScoredNews {
   score: number;
   regions: string[];
   topic: string;
+  channel: SpecificNewsChannelId;
   sentiment: string;
   summary: string;
 }
 
 /** LLM 점수를 얻지 못했을 때의 규칙 기반 폴백 (고정 5점 금지 — 기사 텍스트 근거로 산정). */
 function ruleBasedScore(item: RawNewsItem): ScoredNews {
+  const topic = item.defaultTopic || "market_trend";
+  const channel = resolveNewsChannel({
+    channel: item.defaultChannel,
+    topic,
+    title: item.title,
+    summary: item.description,
+    source: item.feedSource,
+  });
   return {
-    ...item,
-    score: computeNewsImportance(item.title, item.description, 5),
+    title: item.title,
+    link: item.link,
+    description: item.description,
+    feedSource: item.feedSource,
+    score: computeNewsImportance(item.title, item.description, item.topicPrior ?? 6),
     regions: detectRegions(`${item.title} ${item.description}`),
-    topic: "market_trend",
+    topic,
+    channel,
     sentiment: "neutral",
     summary: item.description.slice(0, 150),
   };
 }
 
-// LLM 배치: 수집된 뉴스에 CRE 적합성 점수 + 권역 + 토픽 + 감성을 한 번에 부여
-async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
+/**
+ * 5대 채널(부동산·경제금리·절세상속·상권트렌드·문화라이프) 균형 선별기 (최대 maxTotal건)
+ * - 부동산 기사 대량 유입으로 절세·상권·문화 채널이 0건으로 밀리는 현상을 원천 방지
+ */
+export function selectBalancedTopNews(
+  scored: readonly ScoredNews[],
+  maxTotal = 25,
+): ScoredNews[] {
+  const relevant = scored
+    .filter((item) => item.score >= 4 && isCreRelevantArticle({ title: item.title, summary: item.description, topic: item.topic }))
+    .sort((a, b) => b.score - a.score);
+
+  const channels: SpecificNewsChannelId[] = [
+    "real_estate",
+    "economy_finance",
+    "tax_wealth",
+    "commercial_trend",
+    "culture_lifestyle",
+  ];
+  const minQuota: Record<SpecificNewsChannelId, number> = {
+    real_estate: 8,
+    economy_finance: 4,
+    tax_wealth: 4,
+    commercial_trend: 4,
+    culture_lifestyle: 3,
+  };
+
+  const picked: ScoredNews[] = [];
+  const pickedUrls = new Set<string>();
+  const tryAdd = (item: ScoredNews): boolean => {
+    if (picked.length >= maxTotal) return false;
+    if (pickedUrls.has(item.link)) return false;
+    if (picked.some((prev) => areArticlesSameEvent(prev.title, item.title))) return false;
+    pickedUrls.add(item.link);
+    picked.push(item);
+    return true;
+  };
+
+  // 1단계: 5대 채널별 최소 쿼터 우선 확보
+  for (const ch of channels) {
+    let added = 0;
+    for (const item of relevant) {
+      if (added >= minQuota[ch] || picked.length >= maxTotal) break;
+      if (item.channel !== ch) continue;
+      if (tryAdd(item)) added += 1;
+    }
+  }
+
+  // 2단계: 잔여 슬롯을 전체 점수 순으로 채움
+  for (const item of relevant) {
+    if (picked.length >= maxTotal) break;
+    tryAdd(item);
+  }
+
+  return picked;
+}
+
+async function scoreNewsChunk(items: RawNewsItem[]): Promise<ScoredNews[]> {
   if (items.length === 0) return [];
 
-  const newsListText = items.map((item, i) => 
-    `[${i}] ${item.title}\n    ${item.description.slice(0, 200)}`
-  ).join("\n");
+  const newsListText = items
+    .map((item, i) => `[${i}] (${item.feedSource}) ${item.title}\n    ${item.description.slice(0, 180)}`)
+    .join("\n");
 
   try {
-    const aiRes = await callLLM({
-      systemPrompt: `당신은 상업용 부동산(CRE) 꼬마빌딩 전문 브로커의 뉴스 에디터입니다.
-아래 뉴스 목록을 분석하여, 각 뉴스의 CRE 적합성을 평가하세요.
+    const aiRes = await callLLM(
+      {
+        systemPrompt: `당신은 한국 상업용 부동산(CRE) 꼬마빌딩·건물주·자산가 대상 뉴스레터의 수석 에디터입니다.
+아래 뉴스 목록을 분석하여, 각 뉴스의 5대 채널 적합성과 중요도를 엄격히 평가하세요.
 
-■ 판단 기준:
-- 직접 CRE (빌딩 매매/임대/경매/공실/개발) → 8~10점
-- 간접 CRE (금리/LTV/DSR/세제/도시계획/재개발/인프라/교통) → 6~8점
-- 관련 경제 (GDP/물가/건설경기/부동산시장 전반) → 4~6점
-- 무관 (주거/아파트/전원주택/연예/스포츠) → 1~3점
+■ 채점 기준 (1~10점):
+- 8~10점: 직접 CRE(꼬마빌딩·오피스·상가·근생 매매/임대/공실/경매/개발/리츠/CBRE·JLL 등 리서치), 빌딩 증여·상속·감정평가·가족법인 세무, 핵심 상권(성수·한남·강남 등) 리테일·우량임차 트렌드, 국토부·서울시·한국은행·국세청 공식 정책
+- 6~7점: 상업용 대출금리·기준금리·채권·거시금융, 건축·공간 리모델링·미술품 전시 등 건물주·자산가 품격 교양
+- 4~5점: 간접 관련 건설·경기 지표
+- 1~3점 (반드시 탈락): 순수 아파트 청약·국평·재초환·전세·시공사 수주, 책 출간·세미나·강의 홍보 PR, 개별 주식 종목 리포트(목표가/자본비율), 연예·정치·가십
 
-■ 권역 판단: 뉴스 내용이 특정 권역과 관련되면 해당 코드 사용
-- gbd: 강남/서초/송파/GBD 권역
-- seongsu: 성수/성동/왕십리/뚝섬
-- ybd: 여의도/영등포/마포/YBD 권역
-- 전국/일반적 내용이면 all
-
-■ 토픽 분류: market_trend, transaction, auction, rental, policy, development, finance, regulation 중 1개
-
-■ 감성 판단: 상업용 부동산 시장 관점에서
-- bullish: 시장에 호재 (금리인하, 공실률 하락, 거래량 증가 등)
-- bearish: 시장에 악재 (금리인상, 공실률 상승, 규제 강화 등)
-- neutral: 중립
+■ 권역 판단: gbd(강남/서초/송파), seongsu(성수/성동/왕십리), ybd(여의도/영등포/마포), 그 외 all
+■ 토픽 분류 (반드시 1개): transaction, rental, market_trend, development, policy, auction, finance, economy, tax, commercial_trend, culture
+■ 감성 판단: bullish, bearish, neutral
 
 반드시 아래 JSON 배열만 출력 (설명 없이):
 [{"idx":0,"score":8,"regions":["gbd"],"topic":"transaction","sentiment":"bullish"}]`,
-      userPrompt: newsListText,
-      model: "gpt-5.6-luna",
-      temperature: 0.15,
-      maxTokens: 2500,
-    }, { allowMock: false });
+        userPrompt: newsListText,
+        model: getModel("luna"),
+        temperature: 0.15,
+        maxTokens: 2500,
+      },
+      { allowMock: false },
+    );
 
     const arrMatch = aiRes.content.match(/\[[\s\S]*\]/);
     if (!arrMatch) return items.map(ruleBasedScore);
 
-    const scored: { idx: number; score: number; regions: string[]; topic: string; sentiment: string }[] = JSON.parse(arrMatch[0]);
-    const scoredMap = new Map(scored.map(s => [s.idx, s]));
+    const scored: { idx: number; score: number; regions: string[]; topic: string; sentiment: string }[] =
+      JSON.parse(arrMatch[0]);
+    const scoredMap = new Map(scored.map((s) => [s.idx, s]));
 
     return items.map((item, i) => {
       const s = scoredMap.get(i);
-      // LLM 이 해당 항목을 평가하지 않았거나 점수가 유효하지 않으면 규칙 기반으로 산정
       if (!s || typeof s.score !== "number" || !Number.isFinite(s.score)) return ruleBasedScore(item);
+      const topic = s.topic || item.defaultTopic || "market_trend";
+      const channel = resolveNewsChannel({
+        channel: item.defaultChannel,
+        topic,
+        title: item.title,
+        summary: item.description,
+        source: item.feedSource,
+      });
       return {
-        ...item,
+        title: item.title,
+        link: item.link,
+        description: item.description,
+        feedSource: item.feedSource,
         score: Math.max(1, Math.min(10, s.score)),
-        regions: Array.isArray(s.regions) && s.regions.length ? s.regions : detectRegions(`${item.title} ${item.description}`),
-        topic: s.topic || "market_trend",
+        regions:
+          Array.isArray(s.regions) && s.regions.length
+            ? s.regions
+            : detectRegions(`${item.title} ${item.description}`),
+        topic,
+        channel,
         sentiment: s.sentiment || "neutral",
         summary: item.description.slice(0, 150),
       };
@@ -216,93 +302,207 @@ async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
   }
 }
 
+// LLM 배치: 30건 단위 청크로 분할해 JSON 잘림 없이 전체 후보 채점
+async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
+  if (items.length === 0) return [];
+  const CHUNK_SIZE = 30;
+  const out: ScoredNews[] = [];
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    const scoredChunk = await scoreNewsChunk(chunk);
+    out.push(...scoredChunk);
+  }
+  return out;
+}
+
 // LLM 강화 요약: 1줄 40자 → 3줄 브로커 관점 요약 (원문에 없는 수치 생성 금지)
 async function enhancedSummarize(title: string, content: string): Promise<string> {
   try {
-    const aiRes = await callLLM({
-      systemPrompt: NEWS_SUMMARY_SYSTEM_PROMPT,
-      userPrompt: `제목: ${title}\n내용: ${content}`,
-      model: "gpt-5.6-luna",
-      temperature: 0.2,
-      maxTokens: 1200,
-    }, { allowMock: false });
+    const aiRes = await callLLM(
+      {
+        systemPrompt: NEWS_SUMMARY_SYSTEM_PROMPT,
+        userPrompt: `제목: ${title}\n내용: ${content}`,
+        model: getModel("luna"),
+        temperature: 0.2,
+        maxTokens: 1200,
+      },
+      { allowMock: false },
+    );
     return cleanNewsText(aiRes.content) || content.slice(0, 150);
   } catch {
     return content.slice(0, 150);
   }
 }
 
+async function fetchGoogleNewsRssQuery(query: string, limit = 5): Promise<RssItem[]> {
+  try {
+    const gUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+    const res = await fetch(gUrl, {
+      headers: { "User-Agent": "CREDealCard-Bot/1.0" },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    return parseRSSItems(xml, limit);
+  } catch {
+    return [];
+  }
+}
+
 export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
   const results: any[] = [];
   const rawItems: RawNewsItem[] = [];
+  const seenUrls = new Set<string>();
 
-  // Phase 1: RSS 피드 수집 (6개 언론사, 각 최대 8건)
-  for (const feed of CRE_RSS_FEEDS) {
-    try {
-      const res = await fetch(feed.url, {
-        headers: { "User-Agent": "CREDealCard-Bot/1.0" },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
-      const xml = await res.text();
-      const items = parseRSSItems(xml);
-      for (const item of items) {
-        rawItems.push({ ...item, feedSource: feed.name });
-      }
-    } catch (err) {
-      log.warn(`[crawlCreNews] Feed ${feed.name} failed:`, err);
+  const pushCandidate = (cand: RawNewsItem) => {
+    if (!cand.title || !cand.link || seenUrls.has(cand.link)) return;
+    if (!isCreRelevantArticle({ title: cand.title, summary: cand.description, topic: cand.defaultTopic })) {
+      return;
     }
-  }
+    if (rawItems.some((prev) => areArticlesSameEvent(prev.title, cand.title))) {
+      return;
+    }
+    seenUrls.add(cand.link);
+    rawItems.push(cand);
+  };
 
-  // Phase 2: BigKinds API
+  // Phase 1-A: 실측 검증된 경제지 13종 + 정부·지자체 1차 공식 RSS 2종
+  // - 일반 종합 피드는 앞 5건 절단 대신 최대 50건을 전수 스캔해 CRE/5채널 고신호 기사만 추출
+  const allRssFeeds = [...OFFICIAL_PUBLIC_RSS_FEEDS, ...MULTI_CHANNEL_RSS_FEEDS];
+  await Promise.allSettled(
+    allRssFeeds.map(async (feed) => {
+      try {
+        const res = await fetch(feed.url, {
+          headers: { "User-Agent": "CREDealCard-Bot/1.0" },
+          signal: AbortSignal.timeout(7000),
+        });
+        if (!res.ok) return;
+        const xml = await res.text();
+        const items = parseRSSItems(xml, 50);
+        let pickedForFeed = 0;
+        for (const item of items) {
+          if (pickedForFeed >= 5) break;
+          if (!feed.isOfficialPublic && !hasStrongCreOrChannelSignal({ title: item.title, summary: item.description })) {
+            continue;
+          }
+          const beforeLen = rawItems.length;
+          pushCandidate({
+            ...item,
+            feedSource: feed.name,
+            defaultTopic: feed.defaultTopic,
+            defaultChannel: feed.channel,
+            topicPrior: feed.baseScore,
+          });
+          if (rawItems.length > beforeLen) pickedForFeed += 1;
+        }
+      } catch (err) {
+        log.warn(`[crawlCreNews] Feed ${feed.name} failed:`, err);
+      }
+    }),
+  );
+
+  // Phase 1-B: Google News 한국어 정밀 RSS (5대 채널 각 2쿼리 + 정부/리서치 공식 3쿼리 = 13쿼리)
+  const googleTargets: Array<{
+    query: string;
+    channel: SpecificNewsChannelId;
+    topic: string;
+    score: number;
+    fallbackSource: string;
+  }> = [
+    ...OFFICIAL_GOV_GOOGLE_QUERIES.map((q) => ({
+      query: q.query,
+      channel: q.channel,
+      topic: q.topic,
+      score: q.score,
+      fallbackSource: q.label,
+    })),
+    ...(Object.keys(CHANNEL_SEARCH_QUERIES) as SpecificNewsChannelId[]).flatMap((ch) =>
+      CHANNEL_SEARCH_QUERIES[ch].slice(0, 2).map((q) => ({
+        query: q.query,
+        channel: ch,
+        topic: q.topic,
+        score: q.score,
+        fallbackSource: "구글뉴스",
+      })),
+    ),
+  ];
+
+  await Promise.allSettled(
+    googleTargets.map(async (target) => {
+      const items = await fetchGoogleNewsRssQuery(target.query, 4);
+      for (const item of items) {
+        const parts = item.title.split(/\s+-\s+/);
+        const press = parts.length > 1 ? parts.pop()!.trim() : target.fallbackSource;
+        const cleanTitle = parts.join(" - ").trim() || item.title;
+        pushCandidate({
+          title: cleanTitle,
+          link: item.link,
+          description: item.description || cleanTitle,
+          feedSource: press,
+          defaultTopic: target.topic,
+          defaultChannel: target.channel,
+          topicPrior: target.score,
+        });
+      }
+    }),
+  );
+
+  // Phase 2: BigKinds API (키 보유 시)
   if (BIGKINDS_ACCESS_KEY) {
     try {
       const bkNews = await fetchBigKindsNews();
       for (const item of bkNews) {
-        rawItems.push({ ...item, feedSource: "BigKinds" });
+        pushCandidate({ ...item, feedSource: "BigKinds", topicPrior: 8 });
       }
     } catch (err) {
       log.warn("[crawlCreNews] BigKinds failed:", err);
     }
   }
 
-  // Phase 3: 네이버뉴스
+  // Phase 3: 네이버 뉴스 (5대 채널 정밀 쿼리 — 이제 LLM 배치 심사 scoreNewsBatch 에 통합 투입)
   try {
-    const naverNews = await crawlNaverCRENews(supabase);
-    results.push(...naverNews);
+    const naverCandidates = await fetchNaverCRENewsRaw(3);
+    for (const item of naverCandidates) {
+      pushCandidate(item);
+    }
   } catch (err) {
     log.warn("[crawlCreNews] Naver news failed:", err);
   }
 
-  // ── LLM 배치 적합성 판단 ─────────────────────────────────────────────────
+  // ── LLM 배치 적합성 판단 (전 소스 통합 게이트) ───────────────────────────────
   const scoredItems = await scoreNewsBatch(rawItems);
 
-  // CRE 적합성 4점 이상만 저장 (주거/무관 뉴스 제외)
-  const relevantItems = scoredItems.filter(item => item.score >= 4);
-  // 점수 높은 순 정렬, 최대 15건
-  relevantItems.sort((a, b) => b.score - a.score);
-  const topItems = relevantItems.slice(0, 15);
+  // ── 5대 채널 균형 상위 25건 선별 + 동일 사건 중복 배제 ───────────────────────
+  const topItems = selectBalancedTopNews(scoredItems, 25);
 
-  // ── 상위 뉴스 강화 요약 + DB 저장 ────────────────────────────────────────
+  // ── 상위 뉴스 강화 요약(유계 동시성 5) + DB 저장 ───────────────────────────
   const newsMap = new Map<string, any>();
-  for (const item of topItems) {
-    if (!item.link) continue;
-    // 점수 7 이상은 강화 요약, 나머지는 기본 요약
-    const summary = item.score >= 7
-      ? await enhancedSummarize(item.title, item.description)
-      : item.summary;
-
-    newsMap.set(item.link, {
-      url: item.link,
-      title: item.feedSource === "BigKinds" ? `[BigKinds] ${item.title}` : item.title,
-      source: item.feedSource,
-      summary,
-      content: item.description.slice(0, 500),
-      sentiment: item.sentiment,
-      importance_score: item.score,
-      regions: item.regions,
-      topic: item.topic,
-    });
+  const SUMMARIZE_CONCURRENCY = 5;
+  for (let i = 0; i < topItems.length; i += SUMMARIZE_CONCURRENCY) {
+    const batch = topItems.slice(i, i + SUMMARIZE_CONCURRENCY);
+    const enrichedBatch = await Promise.all(
+      batch.map(async (item) => {
+        if (!item.link) return null;
+        const summary =
+          item.score >= 7
+            ? await enhancedSummarize(item.title, item.description)
+            : item.summary;
+        return {
+          url: item.link,
+          title: item.feedSource === "BigKinds" ? `[BigKinds] ${item.title}` : item.title,
+          source: item.feedSource,
+          summary,
+          content: item.description.slice(0, 500),
+          sentiment: item.sentiment,
+          importance_score: item.score,
+          regions: item.regions,
+          topic: item.topic,
+        };
+      }),
+    );
+    for (const row of enrichedBatch) {
+      if (row) newsMap.set(row.url, row);
+    }
   }
 
   const newsToUpsert = Array.from(newsMap.values());
@@ -324,82 +524,161 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
   return results;
 }
 
-// ─── E3: 리서치 리포트 — 네이버뉴스 "부동산 리포트" 실제 검색 ─────────────────────
+export const CRE_RESEARCH_REPORT_RE =
+  /오피스|빌딩|상업용|리포트|보고서|공실률|거래량|거래액|임대료|상권|물류|리테일|매매|투자\s*시장|수익률|캡레이트|Cap\s*Rate/i;
+
+const RESEARCH_REPORT_TARGETS: ReadonlyArray<{ institution: string; query: string }> = [
+  { institution: "CBRE Korea", query: "CBRE 오피스 리포트" },
+  { institution: "Cushman & Wakefield", query: "쿠시먼 상업용 부동산 리포트" },
+  { institution: "JLL Korea", query: "JLL 코리아 서울 오피스 시장" },
+  { institution: "Savills Korea", query: "세빌스 코리아 오피스 리포트" },
+  { institution: "부동산플래닛", query: "부동산플래닛 상업업무용 빌딩 거래" },
+  { institution: "알스퀘어", query: "알스퀘어 서울 오피스 공실률" },
+];
+
+// ─── E3: 리서치 리포트 — 6대 글로벌·국내 CRE 리서치 (네이버 API + Google News RSS 병행 + 42P10 안전 적재) ──
 export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any[]> {
   const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
   const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
-  if (!NAVER_ID || !NAVER_SECRET) {
-    log.warn("[ingestGlobalReports] Naver API credentials missing");
-    return [];
-  }
-
-  const keywords = ["CBRE 오피스 리포트", "쿠시먼 부동산", "부동산플래닛 거래", "알스퀘어 오피스"];
   const results: any[] = [];
-  const reportsMap = new Map<string, any>();
+  const reportsMap = new Map<
+    string,
+    { institution: string; title: string; url: string; summary: string; published_date: string }
+  >();
 
-  for (const keyword of keywords) {
+  const considerCandidate = async (params: {
+    institution: string;
+    title: string;
+    desc: string;
+    reportUrl: string;
+    rawPubDate?: string;
+  }) => {
+    const title = cleanNewsText(params.title);
+    const desc = cleanNewsText(params.desc).slice(0, 300);
+    const reportUrl = params.reportUrl.trim();
+    const pubDate = params.rawPubDate ? new Date(params.rawPubDate) : null;
+    if (!title || !safeHttpUrl(reportUrl) || !pubDate || Number.isNaN(pubDate.getTime())) return;
+    if (reportsMap.has(reportUrl)) return;
+    if (!isCreRelevantArticle({ title, summary: desc })) return;
+    if (!CRE_RESEARCH_REPORT_RE.test(`${title} ${desc}`)) return;
+    for (const existing of reportsMap.values()) {
+      if (areArticlesSameEvent(existing.title, title)) return;
+    }
+
+    let summary = desc.slice(0, 150) || title;
     try {
-      const url = new URL("https://openapi.naver.com/v1/search/news.json");
-      url.searchParams.set("query", keyword);
-      url.searchParams.set("display", "2");
-      url.searchParams.set("sort", "date");
-      const res = await fetch(url.toString(), {
-        headers: { "X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
-      const json = await res.json();
+      const aiRes = await callLLM(
+        {
+          systemPrompt:
+            "부동산 리포트 뉴스를 1줄(50자 이내)로 요약. 제목·내용에 있는 수치만 사용하고, 없는 수치는 만들지 마세요.",
+          userPrompt: `${title}: ${desc}`,
+          model: getModel("luna"),
+          temperature: 0.2,
+          maxTokens: 80,
+        },
+        { allowMock: false },
+      );
+      summary = cleanNewsText(aiRes.content) || summary;
+    } catch {
+      /* 원문 발췌 사용 */
+    }
 
-      for (const item of (json.items || []).slice(0, 1)) {
-        const title = cleanNewsText(item.title);
-        const desc = cleanNewsText(item.description).slice(0, 300);
-        // 실제 기사 URL / 발행일이 없으면 저장하지 않는다 (가짜 URL·수집일=발행일 금지)
-        const reportUrl: string = (item.link || item.originallink || "").trim();
-        const pubDate = item.pubDate ? new Date(item.pubDate) : null;
-        if (!title || !safeHttpUrl(reportUrl) || !pubDate || Number.isNaN(pubDate.getTime())) continue;
+    reportsMap.set(reportUrl, {
+      institution: params.institution,
+      title,
+      url: reportUrl,
+      summary,
+      published_date: toKstDate(pubDate),
+    });
+  };
 
-        // 기관명 추출
-        const institution = keyword.includes("CBRE") ? "CBRE Korea"
-          : keyword.includes("쿠시먼") ? "Cushman & Wakefield"
-          : keyword.includes("부동산플래닛") ? "부동산플래닛"
-          : "알스퀘어";
+  for (const target of RESEARCH_REPORT_TARGETS) {
+    let foundForInstitution = 0;
 
-        let summary = desc.slice(0, 150);
-        try {
-          const aiRes = await callLLM({
-            systemPrompt: "부동산 리포트 뉴스를 1줄(50자 이내)로 요약. 제목·내용에 있는 수치만 사용하고, 없는 수치는 만들지 마세요.",
-            userPrompt: `${title}: ${desc}`,
-            model: "gpt-5.6-luna",
-            temperature: 0.2,
-            maxTokens: 80,
-          }, { allowMock: false });
-          summary = cleanNewsText(aiRes.content) || summary;
-        } catch { /* */ }
-
-        reportsMap.set(reportUrl, {
-          institution,
-          title,
-          url: reportUrl,
-          summary,
-          published_date: toKstDate(pubDate),
+    // 1) 네이버 뉴스 API 우선 조회 (키 보유 시)
+    if (NAVER_ID && NAVER_SECRET) {
+      try {
+        const url = new URL("https://openapi.naver.com/v1/search/news.json");
+        url.searchParams.set("query", target.query);
+        url.searchParams.set("display", "4");
+        url.searchParams.set("sort", "date");
+        const res = await fetch(url.toString(), {
+          headers: { "X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET },
+          signal: AbortSignal.timeout(8000),
         });
+        if (res.ok) {
+          const json = await res.json();
+          for (const item of json.items || []) {
+            if (foundForInstitution >= 2) break;
+            const before = reportsMap.size;
+            await considerCandidate({
+              institution: target.institution,
+              title: String(item.title || ""),
+              desc: String(item.description || ""),
+              reportUrl: String(item.link || item.originallink || ""),
+              rawPubDate: item.pubDate,
+            });
+            if (reportsMap.size > before) foundForInstitution += 1;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 120));
+      } catch (err) {
+        log.warn(`[ingestGlobalReports] Naver "${target.query}" failed:`, err);
       }
-      await new Promise(r => setTimeout(r, 120));
-    } catch (err) {
-      log.warn(`[ingestGlobalReports] "${keyword}" failed:`, err);
+    }
+
+    // 2) Google News KR RSS 보충 (네이버 키 없거나 관련 리포트 부족 시)
+    if (foundForInstitution < 2) {
+      const gItems = await fetchGoogleNewsRssQuery(target.query, 4);
+      for (const item of gItems) {
+        if (foundForInstitution >= 2) break;
+        const parts = item.title.split(/\s+-\s+/);
+        if (parts.length > 1) parts.pop();
+        const cleanTitle = parts.join(" - ").trim() || item.title;
+        const before = reportsMap.size;
+        await considerCandidate({
+          institution: target.institution,
+          title: cleanTitle,
+          desc: item.description || cleanTitle,
+          reportUrl: item.link,
+          rawPubDate: item.pubDate,
+        });
+        if (reportsMap.size > before) foundForInstitution += 1;
+      }
     }
   }
 
-  const reportsToUpsert = Array.from(reportsMap.values());
-  if (reportsToUpsert.length > 0) {
+  const candidateReports = Array.from(reportsMap.values());
+  if (candidateReports.length === 0) return results;
+
+  // external_reports.url 은 초기 마이그레이션(00034)에 UNIQUE 제약이 없었으므로
+  // 기존 URL 조회로 앱 레벨 중복 제거 후 insert 수행 (42P10 ON CONFLICT 실패 영구 해결)
+  const candidateUrls = candidateReports.map((r) => r.url);
+  const existingUrlSet = new Set<string>();
+  try {
+    const { data: existingRows } = await supabase
+      .from("external_reports")
+      .select("url")
+      .in("url", candidateUrls);
+    for (const row of existingRows || []) {
+      if (typeof (row as { url?: unknown }).url === "string") {
+        existingUrlSet.add((row as { url: string }).url);
+      }
+    }
+  } catch (lookupErr) {
+    log.warn("[ingestGlobalReports] Existing URL lookup failed, proceeding with insert:", lookupErr);
+  }
+
+  const newReports = candidateReports.filter((r) => !existingUrlSet.has(r.url));
+  if (newReports.length > 0) {
     const { data, error } = await supabase
       .from("external_reports")
-      .upsert(reportsToUpsert, { onConflict: "url" })
+      .insert(newReports)
       .select();
     if (!error && data) {
       results.push(...data);
     } else if (error) {
-      log.warn("[ingestGlobalReports] Bulk upsert failed:", error);
+      log.warn("[ingestGlobalReports] Bulk insert failed:", error);
     }
   }
 
@@ -458,7 +737,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
             systemPrompt: `경매 뉴스에서 다음 JSON을 추출하세요. 원문에 없는 값은 반드시 null (추측·생성 금지):
 {"case_number":"사건번호","court":"법원명","address":"소재지","appraised_value":감정가(원),"minimum_bid":최저가(원),"status":"진행상태","auction_date":"YYYY-MM-DD"}`,
             userPrompt: `${title}\n${desc}`,
-            model: "gpt-5.6-luna",
+            model: getModel("luna"),
             temperature: 0.1,
             maxTokens: 200,
           }, { allowMock: false });
@@ -553,7 +832,7 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
 [{"building_type":"office_prime 또는 retail","deposit_avg":보증금(원/평),"monthly_rent_avg":월세(원/평),"vacancy_rate":공실률(%),"source":"출처"}]
 원문에 명시된 수치만 사용하고 없는 값은 null. 정보가 부족하면 빈 배열 []을 출력하세요.`,
           userPrompt: `권역: ${rk.region}\n\n뉴스:\n${articleTexts}`,
-          model: "gpt-5.6-luna",
+          model: getModel("luna"),
           temperature: 0.1,
           maxTokens: 300,
         }, { allowMock: false });

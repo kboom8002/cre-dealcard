@@ -9,7 +9,11 @@ import {
   CURATED_CHANNEL_POOL,
   MULTI_CHANNEL_RSS_FEEDS,
   NEWS_CHANNELS,
+  OFFICIAL_GOV_GOOGLE_QUERIES,
+  OFFICIAL_PUBLIC_RSS_FEEDS,
+  areArticlesSameEvent,
   enrichNewsPoolWithChannels,
+  hasStrongCreOrChannelSignal,
   isCreRelevantArticle,
   isSpecificNewsChannelId,
   resolveNewsChannel,
@@ -71,12 +75,18 @@ async function fetchLiveChannelNews(opts: {
     for (const q of CHANNEL_SEARCH_QUERIES[targetChannel].slice(0, 2)) {
       searchTargets.push({ ...q, channel: targetChannel });
     }
+    for (const oq of OFFICIAL_GOV_GOOGLE_QUERIES.filter((x) => x.channel === targetChannel)) {
+      searchTargets.push({ query: oq.query, channel: oq.channel, topic: oq.topic, score: oq.score });
+    }
   } else {
-    // 전체 채널 새로고침: 5대 채널 대표 키워드 각 1개씩
+    // 전체 채널 새로고침: 5대 채널 대표 키워드 각 1개씩 + 공공·리서치 공식 쿼리
     (Object.keys(CHANNEL_SEARCH_QUERIES) as SpecificNewsChannelId[]).forEach((ch) => {
       const first = CHANNEL_SEARCH_QUERIES[ch][0];
       if (first) searchTargets.push({ ...first, channel: ch });
     });
+    for (const oq of OFFICIAL_GOV_GOOGLE_QUERIES) {
+      searchTargets.push({ query: oq.query, channel: oq.channel, topic: oq.topic, score: oq.score });
+    }
   }
 
   const naverId = process.env.NAVER_CLIENT_ID || "";
@@ -176,24 +186,33 @@ async function fetchLiveChannelNews(opts: {
     }),
   );
 
-  // 2. 언론사 섹션별 직접 RSS 피드 (검색어가 없을 때)
+  // 2. 언론사 섹션별 직접 RSS 피드 + 정부·지자체 1차 공식 RSS (검색어가 없을 때)
   if (!trimmedQuery) {
+    const allFeeds = [...OFFICIAL_PUBLIC_RSS_FEEDS, ...MULTI_CHANNEL_RSS_FEEDS];
     const feeds = targetChannel
-      ? MULTI_CHANNEL_RSS_FEEDS.filter((f) => f.channel === targetChannel)
-      : MULTI_CHANNEL_RSS_FEEDS.slice(0, 5);
+      ? allFeeds.filter((f) => f.channel === targetChannel)
+      : [...OFFICIAL_PUBLIC_RSS_FEEDS, ...MULTI_CHANNEL_RSS_FEEDS.slice(0, 6)];
 
     await Promise.allSettled(
       feeds.map(async (feed) => {
         try {
           const res = await fetch(feed.url, {
             headers: { "User-Agent": "CREDealCard-Bot/1.0" },
-            signal: AbortSignal.timeout(3500),
+            signal: AbortSignal.timeout(4000),
           });
           if (!res.ok) return;
           const xml = await res.text();
-          const items = parseRSSItems(xml, 3);
+          // 일반 종합 피드는 앞 3건 대신 최대 40건을 훑어 CRE/채널 고신호 기사 3건만 정밀 추출
+          const items = parseRSSItems(xml, 40);
+          let picked = 0;
           for (const item of items) {
+            if (picked >= 3) break;
             if (seenUrls.has(item.link)) continue;
+            if (!feed.isOfficialPublic && !hasStrongCreOrChannelSignal({ title: item.title, summary: item.description })) {
+              continue;
+            }
+            if (!isCreRelevantArticle({ title: item.title, summary: item.description })) continue;
+            if (collected.some((prev) => areArticlesSameEvent(prev.title, item.title))) continue;
             seenUrls.add(item.link);
             const ch = resolveNewsChannel({
               channel: feed.channel,
@@ -215,6 +234,7 @@ async function fetchLiveChannelNews(opts: {
               topic: feed.defaultTopic,
               channel: ch,
             });
+            picked += 1;
           }
         } catch {
           // 개별 RSS 실패 무시
@@ -223,7 +243,14 @@ async function fetchLiveChannelNews(opts: {
     );
   }
 
-  return collected.filter((item) => isCreRelevantArticle(item));
+  // 노이즈 차단 + 동일 사건 중복 제거
+  const deduped: CuratedChannelNewsItem[] = [];
+  for (const item of collected) {
+    if (!isCreRelevantArticle(item)) continue;
+    if (deduped.some((prev) => areArticlesSameEvent(prev.title, item.title))) continue;
+    deduped.push(item);
+  }
+  return deduped;
 }
 
 export async function GET(req: NextRequest) {
@@ -250,9 +277,9 @@ export async function GET(req: NextRequest) {
     const { data: dbRows } = await supabase
       .from("external_news")
       .select("id, title, summary, source, url, sentiment, importance_score, topic, created_at")
-      .order("importance_score", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(40);
+      .order("importance_score", { ascending: false })
+      .limit(60);
 
     const dbNews = ((dbRows ?? []) as Record<string, unknown>[])
       .map((n) => ({

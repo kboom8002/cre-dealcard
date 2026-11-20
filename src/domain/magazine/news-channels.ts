@@ -125,9 +125,29 @@ const NON_CRE_GOSSIP_RE =
 const CELEBRITY_HOME_GOSSIP_RE =
   /(?:여가수|연예인|아이돌|걸그룹|보이그룹|가수|배우|탤런트|개그맨|개그우먼|아나운서|방송인|유명인|톱스타|셀럽)[\s\S]*(?:집|자택|빌라|아파트|저택|펜트하우스|경매|공매|낙찰)|(?:집|자택|빌라|아파트|저택|펜트하우스|경매|공매|낙찰)[\s\S]*(?:여가수|연예인|아이돌|걸그룹|보이그룹|가수|배우|탤런트|개그맨|개그우먼|아나운서|방송인|유명인|톱스타|셀럽)/i;
 
+/** 책 출간 홍보·무료 특강·모집·무관 생활 잡담 등 PR/스팸성 노이즈 차단 */
+const PROMO_PR_NOISE_RE =
+  /신간\s*(?:출간|출시|발간|펴내)|출간\s*기념|저서\s*(?:출간|발간)|북토크|무료\s*세미나|특강\s*(?:개최|모집)|수강생\s*모집|웨비나\s*참여|참여기업\s*모집|모델하우스\s*오픈|홍보관\s*오픈|유료\s*강의|김치의\s*날|김장\s*체험|결혼식장|하객\s*\d+명/i;
+
+/** 개별 주식 종목 리포트·주가조작·어닝 리포트 차단 */
+const STOCK_TICKER_NOISE_RE =
+  /\[핀포인트\]|목표주가|목표가\s*(?:상향|하향|유지)|투자의견\s*(?:매수|중립|매도)|어닝\s*서프라이즈|자본비율\s*복병|주가조작|시세조종|상장폐지|코스닥\s*상장/i;
+
+/** 순수 주거용 아파트·청약·재초환·시공사 수주 노이즈 (직접 CRE 시그널 동반 없을 때만 차단) */
+const RESIDENTIAL_ONLY_NOISE_RE =
+  /국평|재초환|재건축\s*초과이익|청약\s*경쟁률|일반분양|입주자\s*모집|무순위\s*청약|줍줍|신생아\s*특례|전세사기|빌라왕|재당첨\s*제한|정비사업\s*(?:수주|시공|\d+(?:\.\d+)?조)|시공권\s*수주|주공\s*\d|래미안|힐스테이트|디에이치|아크로\s*(?:리버|베스티뉴)|자이\s*분양|올파포|헬리오시티|둔촌주공|아파트\s*(?:값|매매|전세|청약|분양|경매|포기|단지)|전세\s*물건|월세\s*전환.*아파트/i;
+
+/** 직접 CRE·빌딩·오피스·상권·빌딩세무 핵심 시그널 (주거 노이즈 오차단 방지용) */
+const DIRECT_CRE_OVERRIDE_RE =
+  /꼬마빌딩|상업용\s*부동산|오피스\s*(?:공실|임대|거래|시장|빌딩)|근린생활|근생\s*빌딩|통건물|사옥\s*(?:매수|매입|이전|임대)|빌딩\s*(?:매매|거래|증여|상속|감정평가|리모델링|경매|임대|담보대출)|리츠\s*\(?REIT|상권\s*(?:활성|임대료|팝업|트렌드)|물류센터|지식산업센터|역세권\s*(?:개발|지구단위|복합)|철도\s*지하화|도심\s*복합/i;
+
+/** 일반 종합지 50건 피드에서 CRE·자산가 핵심 기사만 골라내는 채널별 강한 시그널 판별 */
+const STRONG_CHANNEL_SIGNAL_RE =
+  /꼬마빌딩|상업용\s*부동산|오피스|근린생활|근생|빌딩|사옥|통건물|상가\s*(?:임대|매매|공실|경매)|물류센터|지식산업센터|리츠|REIT|지구단위계획|역세권\s*(?:개발|활성화|확대)|철도\s*지하화|기준금리|금통위|한국은행|연준|담보대출\s*금리|기업대출\s*금리|회사채|국고채|상속세|증여세|양도소득세|양도세|종부세|감정평가|가족법인|가업승계|세법\s*개정|상권|팝업스토어|플래그십|리테일|병의원\s*임차|미술품\s*경매|아트페어|프리즈\s*서울|건축\s*디자인|공간\s*리모델링|CBRE|쿠시먼|JLL|세빌스|부동산플래닛|알스퀘어/i;
+
 /**
- * 상업용 부동산(CRE) 및 자산가 뉴스레터 품격에 맞지 않는 연예·가십·사건사고 노이즈 기사를 차단한다.
- * (예: "유명 여가수 200억짜리 집 경매 나왔다" 등 가십성 경매/사생활 기사 차단)
+ * 상업용 부동산(CRE) 및 자산가 뉴스레터 품격에 맞지 않는
+ * 연예·가십·사건사고·신간/세미나 홍보·주식종목 리포트·순수 아파트 노이즈 기사를 차단한다.
  */
 export function isCreRelevantArticle(item: {
   title?: string | null;
@@ -145,7 +165,126 @@ export function isCreRelevantArticle(item: {
   if (NON_CRE_GOSSIP_RE.test(combined)) {
     return false;
   }
+  if (PROMO_PR_NOISE_RE.test(combined)) {
+    return false;
+  }
+  if (STOCK_TICKER_NOISE_RE.test(combined)) {
+    return false;
+  }
+  if (RESIDENTIAL_ONLY_NOISE_RE.test(combined) && !DIRECT_CRE_OVERRIDE_RE.test(combined)) {
+    return false;
+  }
   return true;
+}
+
+/**
+ * 일반 종합·경제지 RSS 50건 전수 스캔 시, 뉴스레터 5대 채널과 직접 연관이 있는 고신호 기사만 사전 선별한다.
+ */
+export function hasStrongCreOrChannelSignal(item: {
+  title?: string | null;
+  summary?: string | null;
+  topic?: string | null;
+}): boolean {
+  if (!isCreRelevantArticle(item)) return false;
+  const combined = `${item.title ?? ""} ${item.summary ?? ""}`;
+  return STRONG_CHANNEL_SIGNAL_RE.test(combined);
+}
+
+const EVENT_STOPWORDS = new Set([
+  "서울",
+  "국내",
+  "전국",
+  "올해",
+  "내년",
+  "최근",
+  "오늘",
+  "이번",
+  "전망",
+  "관련",
+  "시장",
+  "부동산",
+  "뉴스",
+  "브리핑",
+  "기자",
+  "단독",
+  "속보",
+  "종합",
+  "코주부",
+  "네이버뉴스",
+  "한국경제",
+  "매일경제",
+  "서울경제",
+  "파이낸셜뉴스",
+  "아시아경제",
+  "연합뉴스",
+  "조선비즈",
+  "투자",
+  "거래",
+  "임대",
+  "매매",
+  "추진",
+  "발표",
+  "개최",
+  "증가",
+  "감소",
+  "상승",
+  "하락",
+  "확대",
+]);
+
+/**
+ * 기사 제목에서 동일 사건(Event) 판별용 핵심 어절 토큰을 추출한다.
+ */
+export function extractEventTokens(title: string): Set<string> {
+  const cleaned = String(title ?? "")
+    .replace(/^\[[^\]]+\]\s*/g, "")
+    .replace(/\[[^\]]+\]/g, " ")
+    .replace(/["'“”‘’`()<>·…,.!?:;~\-\/]+/g, " ")
+    .toLowerCase();
+
+  const tokens = new Set<string>();
+  for (const raw of cleaned.split(/\s+/)) {
+    const trimmed = raw
+      .replace(/(?:에서|으로|까지|부터|보다|처럼|에게|한테|에는|에도|과는|와는|은|는|이|가|을|를|의|에|도|로|와|과)$/g, "")
+      .trim();
+    if (trimmed.length < 2) continue;
+    if (EVENT_STOPWORDS.has(trimmed)) continue;
+    tokens.add(trimmed);
+  }
+  return tokens;
+}
+
+/**
+ * 두 기사가 같은 뉴스 사건을 다루는 중복 보도인지 판별한다 (P1-6 동일 사건 병합).
+ * - 정규화 제목이 동일하거나,
+ * - 핵심 토큰 2개 이상 공유하면서 Jaccard >= 0.38 또는 Overlap(min) >= 0.58 이면 동일 사건으로 간주
+ */
+export function areArticlesSameEvent(titleA: string, titleB: string): boolean {
+  const normA = String(titleA ?? "")
+    .replace(/^\[[^\]]+\]\s*/g, "")
+    .replace(/["'“”‘’\s·…,.!?()\[\]\-]+/g, "")
+    .toLowerCase();
+  const normB = String(titleB ?? "")
+    .replace(/^\[[^\]]+\]\s*/g, "")
+    .replace(/["'“”‘’\s·…,.!?()\[\]\-]+/g, "")
+    .toLowerCase();
+  if (!normA || !normB) return false;
+  if (normA === normB) return true;
+
+  const setA = extractEventTokens(titleA);
+  const setB = extractEventTokens(titleB);
+  if (setA.size < 2 || setB.size < 2) return false;
+
+  let inter = 0;
+  for (const tok of setA) {
+    if (setB.has(tok)) inter += 1;
+  }
+  if (inter < 2) return false;
+
+  const union = setA.size + setB.size - inter;
+  const jaccard = union > 0 ? inter / union : 0;
+  const overlap = inter / Math.min(setA.size, setB.size);
+  return jaccard >= 0.38 || overlap >= 0.58;
 }
 
 export interface CuratedChannelNewsItem {
@@ -182,7 +321,7 @@ export type NewsPoolItem = {
 };
 
 /**
- * 다채널 RSS 피드 정의 (서버 수집기·온디맨드 채널 새로고침 공용)
+ * 다채널 RSS 피드 정의 (서버 크론 수집기·온디맨드 채널 새로고침 공용, 전수 HTTP 200 실측 검증)
  */
 export interface ChannelRssFeedSpec {
   name: string;
@@ -190,21 +329,82 @@ export interface ChannelRssFeedSpec {
   channel: SpecificNewsChannelId;
   defaultTopic: string;
   baseScore: number;
+  /** true이면 정부·지자체 1차 공식 보도자료 RSS */
+  isOfficialPublic?: boolean;
 }
 
 export const MULTI_CHANNEL_RSS_FEEDS: readonly ChannelRssFeedSpec[] = [
-  // 1. 부동산·빌딩
+  // 1. 부동산·빌딩 (5개 주요 경제지 실측 검증 완료)
   { name: "한국경제 부동산", url: "https://www.hankyung.com/feed/realestate", channel: "real_estate", defaultTopic: "market_trend", baseScore: 8 },
   { name: "매일경제 부동산", url: "https://www.mk.co.kr/rss/50300009/", channel: "real_estate", defaultTopic: "market_trend", baseScore: 8 },
   { name: "서울경제 부동산", url: "https://www.sedaily.com/RSS/RealEstate", channel: "real_estate", defaultTopic: "transaction", baseScore: 8 },
-  // 2. 경제·금리·금융
+  { name: "파이낸셜뉴스 부동산", url: "https://www.fnnews.com/rss/r20/fn_realnews_realestate.xml", channel: "real_estate", defaultTopic: "market_trend", baseScore: 8 },
+  { name: "아시아경제 부동산", url: "https://www.asiae.co.kr/rss/realestate.htm", channel: "real_estate", defaultTopic: "transaction", baseScore: 8 },
+  // 2. 경제·금리·금융 (5개 주요 경제지·통신사 실측 검증 완료)
   { name: "한국경제 경제·금융", url: "https://www.hankyung.com/feed/economy", channel: "economy_finance", defaultTopic: "economy", baseScore: 8 },
   { name: "매일경제 경제", url: "https://www.mk.co.kr/rss/30100041/", channel: "economy_finance", defaultTopic: "finance", baseScore: 8 },
   { name: "서울경제 경제·금융", url: "https://www.sedaily.com/RSS/Economy", channel: "economy_finance", defaultTopic: "finance", baseScore: 7 },
+  { name: "조선비즈 정책·경제", url: "https://biz.chosun.com/arc/outboundfeeds/rss/category/policy/?outputType=xml", channel: "economy_finance", defaultTopic: "policy", baseScore: 8 },
+  { name: "연합뉴스 경제", url: "https://www.yna.co.kr/rss/economy.xml", channel: "economy_finance", defaultTopic: "economy", baseScore: 8 },
   // 3. 문화·예술·라이프
   { name: "한국경제 문화·아르떼", url: "https://www.hankyung.com/feed/life", channel: "culture_lifestyle", defaultTopic: "culture", baseScore: 8 },
   { name: "매일경제 문화·라이프", url: "https://www.mk.co.kr/rss/30000023/", channel: "culture_lifestyle", defaultTopic: "lifestyle", baseScore: 7 },
   { name: "서울경제 문화·라이프", url: "https://www.sedaily.com/RSS/Culture", channel: "culture_lifestyle", defaultTopic: "culture", baseScore: 7 },
+] as const;
+
+/**
+ * P1-4 정부·지자체 1차 원천 공식 RSS 피드 (HTTP 200 실측 검증 완료)
+ */
+export const OFFICIAL_PUBLIC_RSS_FEEDS: readonly ChannelRssFeedSpec[] = [
+  {
+    name: "서울시 도시계획 공식",
+    url: "https://news.seoul.go.kr/citybuild/feed",
+    channel: "real_estate",
+    defaultTopic: "development",
+    baseScore: 9,
+    isOfficialPublic: true,
+  },
+  {
+    name: "서울시 경제 공식",
+    url: "https://news.seoul.go.kr/economy/feed",
+    channel: "commercial_trend",
+    defaultTopic: "commercial_trend",
+    baseScore: 8,
+    isOfficialPublic: true,
+  },
+] as const;
+
+/**
+ * P1-4 공공기관(국토부·서울시·한국은행·국세청) 및 글로벌 CRE 리서치 정밀 Google News RSS 쿼리
+ */
+export const OFFICIAL_GOV_GOOGLE_QUERIES: readonly {
+  label: string;
+  query: string;
+  channel: SpecificNewsChannelId;
+  topic: string;
+  score: number;
+}[] = [
+  {
+    label: "국토부·서울시 도시계획",
+    query: "(국토교통부 OR 서울시) (지구단위계획 OR 상업용 OR 역세권 OR 재정비)",
+    channel: "real_estate",
+    topic: "policy",
+    score: 9,
+  },
+  {
+    label: "한국은행·국세청 금리·빌딩세무",
+    query: "(한국은행 OR 국세청) (기준금리 OR 기업대출 금리 OR 꼬마빌딩 감정평가 OR 상속증여)",
+    channel: "tax_wealth",
+    topic: "tax",
+    score: 9,
+  },
+  {
+    label: "글로벌·국내 CRE 리서치",
+    query: "(CBRE OR 쿠시먼 OR JLL OR 세빌스 OR 부동산플래닛 OR 알스퀘어) (오피스 OR 빌딩 OR 상업용)",
+    channel: "real_estate",
+    topic: "market_trend",
+    score: 9,
+  },
 ] as const;
 
 /**
@@ -584,6 +784,7 @@ export function enrichNewsPoolWithChannels<
     if (!id || !normTitle) continue;
     if (!isCreRelevantArticle(item as { title?: string; summary?: string; topic?: string })) continue;
     if (seenIds.has(id) || seenTitles.has(normTitle)) continue;
+    if (out.some((existing) => areArticlesSameEvent(existing.title, normTitle))) continue;
     seenIds.add(id);
     seenTitles.add(normTitle);
     const channel = resolveNewsChannel(item as Record<string, unknown>);

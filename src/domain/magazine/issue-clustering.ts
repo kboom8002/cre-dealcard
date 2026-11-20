@@ -14,6 +14,7 @@ import type { AxiosUnitIssue, PostItTone } from './types';
 import {
   CURATED_CHANNEL_POOL,
   NEWS_CHANNEL_MAP,
+  areArticlesSameEvent,
   isCreRelevantArticle,
   isSpecificNewsChannelId,
   resolveNewsChannel,
@@ -1136,6 +1137,24 @@ export function clusterArticlesIntoFiveIssues(
   }> = [];
   const usedIds = new Set<string>();
 
+  const isAlreadyCoveredEvent = (candidateTitle: string): boolean =>
+    clusters.some((c) => areArticlesSameEvent(c.primary.title, candidateTitle));
+
+  // 동일 사건(제목 핵심 토큰 유사) 복수 언론사 기사를 1개 클러스터로 병합하고 출처에 묶는다
+  const collectSameEventArticles = (primary: NewsPoolItem, related: NewsPoolItem[]) => {
+    for (const entry of pool) {
+      const cand = entry.item;
+      const key = String(cand.id ?? cand.title);
+      if (usedIds.has(key)) continue;
+      if (areArticlesSameEvent(primary.title, cand.title)) {
+        usedIds.add(key);
+        if (related.length < 3) {
+          related.push(cand);
+        }
+      }
+    }
+  };
+
   // 라운드로빈으로 선호 채널에서 먼저 5개 이슈를 채운다
   let pass = 0;
   while (clusters.length < ISSUE_CARD_COUNT && pass < ISSUE_CARD_COUNT) {
@@ -1143,7 +1162,7 @@ export function clusterArticlesIntoFiveIssues(
     for (const ch of activeChannels) {
       if (clusters.length >= ISSUE_CARD_COUNT) break;
       const list = (buckets.get(ch) ?? []).filter(
-        (x) => !usedIds.has(String(x.id ?? x.title)),
+        (x) => !usedIds.has(String(x.id ?? x.title)) && !isAlreadyCoveredEvent(x.title),
       );
       if (list.length === 0) continue;
 
@@ -1151,14 +1170,20 @@ export function clusterArticlesIntoFiveIssues(
       usedIds.add(String(primary.id ?? primary.title));
 
       const related: NewsPoolItem[] = [];
-      // 후보 기사가 충분할 때만 동일 토픽 보조 기사를 클러스터로 병합
-      const canMergeRelated = totalPreferredCandidates - usedIds.size >= ISSUE_CARD_COUNT - clusters.length;
-      if (canMergeRelated) {
+      // 1) 전 채널에서 동일 사건 중복 보도 자동 병합 (복수 출처 표기 + 5선 다양성 확보)
+      collectSameEventArticles(primary, related);
+
+      // 2) 후보 기사가 충분할 때만 동일 토픽 보조 기사를 추가 병합
+      const canMergeRelated =
+        totalPreferredCandidates - usedIds.size >= ISSUE_CARD_COUNT - clusters.length;
+      if (canMergeRelated && related.length < 2) {
         for (let i = 1; i < list.length && related.length < 2; i++) {
           const cand = list[i];
+          const candKey = String(cand.id ?? cand.title);
+          if (usedIds.has(candKey)) continue;
           if (cand.topic && cand.topic === primary.topic) {
             related.push(cand);
-            usedIds.add(String(cand.id ?? cand.title));
+            usedIds.add(candKey);
           }
         }
       }
@@ -1170,13 +1195,15 @@ export function clusterArticlesIntoFiveIssues(
     pass += 1;
   }
 
-  // 선호 채널만으로 5개가 안 채워졌을 경우 전체 풀에서 점수순 보충
+  // 선호 채널만으로 5개가 안 채워졌을 경우 전체 풀에서 점수순 보충 (동일 사건 중복 제외)
   for (const entry of pool) {
     if (clusters.length >= ISSUE_CARD_COUNT) break;
     const key = String(entry.item.id ?? entry.item.title);
-    if (usedIds.has(key)) continue;
+    if (usedIds.has(key) || isAlreadyCoveredEvent(entry.item.title)) continue;
     usedIds.add(key);
-    clusters.push({ primary: entry.item, related: [], channel: entry.channel });
+    const related: NewsPoolItem[] = [];
+    collectSameEventArticles(entry.item, related);
+    clusters.push({ primary: entry.item, related, channel: entry.channel });
   }
 
   // 3. 각 클러스터를 AXIOS 카드뉴스형 2줄 헤드라인 + 2줄 부제 브리프 + 포스트잇 5톤으로 변환

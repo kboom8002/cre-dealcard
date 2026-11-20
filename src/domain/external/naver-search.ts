@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
+import {
+  areArticlesSameEvent,
+  isCreRelevantArticle,
+  type SpecificNewsChannelId,
+} from "@/domain/magazine/news-channels";
 import { decodeEntities, stripTags, safeHttpUrl } from "@/lib/magazine/escape";
 import { todayKst } from "@/lib/magazine/kst";
 
@@ -131,7 +137,7 @@ async function scoreSentiment(articles: NaverSearchItem[], keyword: string): Pro
     const res = await callLLM({
       systemPrompt: "한국 꼬마빌딩 부동산 커뮤니티 글들의 투자 감성을 분석하세요. 0(극단적 위축)~100(극단적 과열) 점수를 숫자만 출력하세요.",
       userPrompt: `키워드: ${keyword}\n\n글 샘플:\n${sampleTexts}`,
-      model: "gpt-5.6-luna",
+      model: getModel("luna"),
       temperature: 0.1,
       maxTokens: 10,
     }, { allowMock: false });
@@ -204,33 +210,59 @@ export async function trackNaverCommunity(supabase: SupabaseClient): Promise<any
   return results;
 }
 
-// 네이버 뉴스 검색 (다각화 키워드 + 강화 요약)
-export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]> {
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) return [];
+export interface NaverRawNewsCandidate {
+  title: string;
+  link: string;
+  description: string;
+  feedSource: string;
+  defaultTopic: string;
+  defaultChannel: SpecificNewsChannelId;
+  topicPrior: number;
+}
 
-  // 직접 CRE + 간접 CRE(금리/정책) 키워드 모두 포함. score = 검색 주제 사전점수(기사별 규칙으로 보정됨)
-  const newsKeywords = [
-    { query: "꼬마빌딩 거래", topic: "transaction", score: 9 },
-    { query: "상업용부동산 동향", topic: "market_trend", score: 8 },
-    { query: "오피스 공실률 임대", topic: "rental", score: 8 },
-    { query: "기준금리 부동산 영향", topic: "finance", score: 7 },
-    { query: "부동산 규제 LTV DSR", topic: "regulation", score: 7 },
-    { query: "서울시 도시계획 재개발", topic: "development", score: 6 },
-  ];
-  const results: any[] = [];
-  const newsMap = new Map<string, any>();
+/**
+ * 5대 채널(부동산·경제금리·절세상속·상권트렌드·문화라이프) 고신호 CRE 전용 네이버 뉴스 쿼리
+ * - 기존 광역 아파트·주가 노이즈 유발어("부동산 규제 LTV DSR", "서울시 도시계획 재개발") 교체
+ */
+export const NAVER_CRE_NEWS_KEYWORDS: ReadonlyArray<{
+  query: string;
+  topic: string;
+  channel: SpecificNewsChannelId;
+  score: number;
+}> = [
+  { query: "꼬마빌딩 매매 실거래", topic: "transaction", channel: "real_estate", score: 9 },
+  { query: "상업용부동산 오피스 공실률 임대", topic: "rental", channel: "real_estate", score: 9 },
+  { query: "서울 역세권 지구단위계획 빌딩 개발", topic: "development", channel: "real_estate", score: 8 },
+  { query: "상업용부동산 담보대출 금리 한국은행", topic: "finance", channel: "economy_finance", score: 8 },
+  { query: "꼬마빌딩 증여 상속 감정평가 절세", topic: "tax", channel: "tax_wealth", score: 9 },
+  { query: "성수 한남 강남 상권 리테일 임차", topic: "commercial_trend", channel: "commercial_trend", score: 8 },
+  { query: "건축 디자인 공간 리모델링 미술 전시", topic: "culture", channel: "culture_lifestyle", score: 7 },
+];
 
-  for (const kw of newsKeywords) {
+/**
+ * 네이버 뉴스 API에서 5대 채널 고신호 후보 기사를 수집한다.
+ * - 아파트/홍보/주식/가십 노이즈(`isCreRelevantArticle`) 및 동일 사건 중복(`areArticlesSameEvent`) 사전 제거
+ * - `crawlCreNews()`가 LLM 적합성 배치 심사(`scoreNewsBatch`)에 통합 투입할 수 있도록 순수 후보 배열 반환
+ */
+export async function fetchNaverCRENewsRaw(perQueryLimit = 4): Promise<NaverRawNewsCandidate[]> {
+  const clientId = process.env.NAVER_CLIENT_ID || NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET || NAVER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return [];
+
+  const collected: NaverRawNewsCandidate[] = [];
+  const seenUrls = new Set<string>();
+
+  for (const kw of NAVER_CRE_NEWS_KEYWORDS) {
     try {
       const url = new URL(NAVER_NEWS_URL);
       url.searchParams.set("query", kw.query);
-      url.searchParams.set("display", "5");
+      url.searchParams.set("display", String(Math.max(5, perQueryLimit + 2)));
       url.searchParams.set("sort", "date");
 
       const res = await fetch(url.toString(), {
         headers: {
-          "X-Naver-Client-Id": NAVER_CLIENT_ID,
-          "X-Naver-Client-Secret": NAVER_CLIENT_SECRET,
+          "X-Naver-Client-Id": clientId,
+          "X-Naver-Client-Secret": clientSecret,
         },
         signal: AbortSignal.timeout(8000),
       });
@@ -238,63 +270,100 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
       if (!res.ok) continue;
       const json = await res.json();
 
-      for (const item of (json.items || []).slice(0, 3)) {
+      let addedForQuery = 0;
+      for (const item of json.items || []) {
+        if (addedForQuery >= perQueryLimit) break;
         const title = cleanNewsText(item.title);
         const desc = cleanNewsText(item.description).slice(0, 300);
-
-        // 실제 기사 URL 이 없으면 저장하지 않는다 (가짜 URL 생성 금지)
         const newsUrl: string = (item.link || item.originallink || "").trim();
-        if (!safeHttpUrl(newsUrl) || !title) continue;
 
-        // LLM 강화 요약 (3줄) — Mock 응답은 저장하지 않는다(allowMock:false)
-        let summary = desc.slice(0, 150);
-        try {
-          const aiRes = await callLLM({
-            systemPrompt: NEWS_SUMMARY_SYSTEM_PROMPT,
-            userPrompt: `${title}: ${desc}`,
-            model: "gpt-5.6-luna",
-            temperature: 0.2,
-            maxTokens: 200,
-          }, { allowMock: false });
-          const cleaned = cleanNewsText(aiRes.content);
-          if (cleaned) summary = cleaned;
-        } catch { /* LLM 불가 시 원문 발췌 사용 */ }
+        if (!safeHttpUrl(newsUrl) || !title || seenUrls.has(newsUrl)) continue;
+        if (!isCreRelevantArticle({ title, summary: desc, topic: kw.topic })) continue;
+        if (collected.some((prev) => areArticlesSameEvent(prev.title, title))) continue;
 
-        // LLM 기반 감성 판단 (정규식 폐기)
-        let sentiment = "neutral";
-        try {
-          const sentRes = await callLLM({
-            systemPrompt: "상업용 부동산 시장 관점에서 이 뉴스가 호재(bullish), 악재(bearish), 중립(neutral) 중 하나만 답하세요. 단어 하나만 출력.",
-            userPrompt: `${title}: ${desc}`,
-            model: "gpt-5.6-luna",
-            temperature: 0.1,
-            maxTokens: 10,
-          }, { allowMock: false });
-          const word = sentRes.content.trim().toLowerCase();
-          if (word.includes("bullish")) sentiment = "bullish";
-          else if (word.includes("bearish")) sentiment = "bearish";
-        } catch { /* 판단 불가 → neutral */ }
-
-        // 권역 판단 (제목+내용 기반)
-        const regions = detectRegions(`${title} ${desc}`);
-
-        newsMap.set(newsUrl, {
-          url: newsUrl,
-          title: `[네이버뉴스] ${title}`,
-          source: "네이버뉴스",
-          summary,
-          content: desc,
-          sentiment,
-          importance_score: computeNewsImportance(title, desc, kw.score),
-          regions,
-          topic: kw.topic,
+        seenUrls.add(newsUrl);
+        collected.push({
+          title,
+          link: newsUrl,
+          description: desc,
+          feedSource: "네이버뉴스",
+          defaultTopic: kw.topic,
+          defaultChannel: kw.channel,
+          topicPrior: kw.score,
         });
+        addedForQuery += 1;
       }
 
-      await new Promise(r => setTimeout(r, 120));
+      await new Promise((r) => setTimeout(r, 120));
     } catch (err) {
       log.warn(`[NaverNews] "${kw.query}" failed:`, err);
     }
+  }
+
+  return collected;
+}
+
+// 네이버 뉴스 단독 크롤러 (직접 호출 호환 유지 — 노이즈 가드 + 5채널 쿼리 적용)
+export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]> {
+  const candidates = await fetchNaverCRENewsRaw(3);
+  if (candidates.length === 0) return [];
+
+  const results: any[] = [];
+  const newsMap = new Map<string, any>();
+
+  for (const item of candidates) {
+    // LLM 강화 요약 (3줄) — Mock 응답은 저장하지 않는다(allowMock:false)
+    let summary = item.description.slice(0, 150);
+    try {
+      const aiRes = await callLLM(
+        {
+          systemPrompt: NEWS_SUMMARY_SYSTEM_PROMPT,
+          userPrompt: `${item.title}: ${item.description}`,
+          model: getModel("luna"),
+          temperature: 0.2,
+          maxTokens: 200,
+        },
+        { allowMock: false },
+      );
+      const cleaned = cleanNewsText(aiRes.content);
+      if (cleaned) summary = cleaned;
+    } catch {
+      /* LLM 불가 시 원문 발췌 사용 */
+    }
+
+    let sentiment = "neutral";
+    try {
+      const sentRes = await callLLM(
+        {
+          systemPrompt:
+            "상업용 부동산 시장 관점에서 이 뉴스가 호재(bullish), 악재(bearish), 중립(neutral) 중 하나만 답하세요. 단어 하나만 출력.",
+          userPrompt: `${item.title}: ${item.description}`,
+          model: getModel("luna"),
+          temperature: 0.1,
+          maxTokens: 10,
+        },
+        { allowMock: false },
+      );
+      const word = sentRes.content.trim().toLowerCase();
+      if (word.includes("bullish")) sentiment = "bullish";
+      else if (word.includes("bearish")) sentiment = "bearish";
+    } catch {
+      /* 판단 불가 → neutral */
+    }
+
+    const regions = detectRegions(`${item.title} ${item.description}`);
+
+    newsMap.set(item.link, {
+      url: item.link,
+      title: item.title,
+      source: "네이버뉴스",
+      summary,
+      content: item.description,
+      sentiment,
+      importance_score: computeNewsImportance(item.title, item.description, item.topicPrior),
+      regions,
+      topic: item.defaultTopic,
+    });
   }
 
   const newsToUpsert = Array.from(newsMap.values());

@@ -217,7 +217,7 @@ export async function fetchRegionalLandPriceRateSeries(params: {
   if (cached) return cached;
 
   if (process.env.OFFLINE_RENDER === '1') return null;
-  const key = params.apiKey ?? process.env.RONE_API_KEY ?? '';
+  const key = params.apiKey ?? process.env.RONE_API_KEY ?? process.env.REB_RONE_API_KEY ?? '';
   const clsId = (params.clsId ?? '').trim();
   if (!key || !clsId) return null;
 

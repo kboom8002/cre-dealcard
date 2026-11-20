@@ -39,7 +39,12 @@ function formatPeriodLabel(ym: string): string {
 export async function fetchBokMonthlyLoanRates(
   months = 6,
 ): Promise<BokMonthlyLoanRatePoint[]> {
-  const apiKey = (process.env.BOK_ECOS_API_KEY || process.env.BOK_API_KEY || '').trim();
+  const apiKey = (
+    process.env.BOK_ECOS_API_KEY ||
+    process.env.BOK_API_KEY ||
+    process.env.ECOS_API_KEY ||
+    ''
+  ).trim();
   if (!apiKey) {
     return [];
   }
