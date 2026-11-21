@@ -24,8 +24,12 @@ import type {
   DealCardPpgtScoreResult,
   DealCardPpgtBacklogCluster,
 } from './dealcard-ppgt-personas';
+import type {
+  InboxPpgtScoreResult,
+  InboxPpgtBacklogCluster,
+} from './inbox-ppgt-personas';
 
-export type CreSubsystemId = 'im' | 'newsletter' | 'dealcard';
+export type CreSubsystemId = 'im' | 'newsletter' | 'dealcard' | 'inbox';
 
 export interface FourPillarBreakdown100 {
   /** ① 콘텐츠 적합성 (0 ~ 30) */
@@ -103,7 +107,12 @@ export interface LayerDR3SubsystemSummary extends LayerDR3SubsystemInput {
 }
 
 export interface UnifiedLayerDR3Report {
-  subsystems: Record<CreSubsystemId, LayerDR3SubsystemSummary>;
+  subsystems: {
+    im: LayerDR3SubsystemSummary;
+    newsletter: LayerDR3SubsystemSummary;
+    dealcard: LayerDR3SubsystemSummary;
+    inbox?: LayerDR3SubsystemSummary;
+  };
   overallR3LinearMean100: number;
   overallBlendedEffective100: number;
   anyR3FloorRisk: boolean;
@@ -118,7 +127,12 @@ export interface UnifiedLayerDR3Report {
 export interface UnifiedCreReport100 {
   generatedAt: string;
   targetScore100: 90;
-  subsystems: Record<CreSubsystemId, SubsystemScorecard100>;
+  subsystems: {
+    im: SubsystemScorecard100;
+    newsletter: SubsystemScorecard100;
+    dealcard: SubsystemScorecard100;
+    inbox?: SubsystemScorecard100;
+  };
   overallRawMean100: number;
   overallEffectiveMean100: number;
   totalFloorRiskCount: number;
@@ -137,7 +151,11 @@ function norm5To01(axisScore5: number): number {
   return Math.min(1, Math.max(0, (axisScore5 - 1.0) / 4.0));
 }
 
-type AnyPpgtScoreResult = ImPpgtScoreResult | NewsletterPpgtScoreResult | DealCardPpgtScoreResult;
+type AnyPpgtScoreResult =
+  | ImPpgtScoreResult
+  | NewsletterPpgtScoreResult
+  | DealCardPpgtScoreResult
+  | InboxPpgtScoreResult;
 
 export function convertPpgtRunTo100(
   subsystem: CreSubsystemId,
@@ -189,6 +207,7 @@ const SUBSYSTEM_LABELS: Record<CreSubsystemId, string> = {
   im: 'IM (모바일 뷰어 · Basic/Pro PPTX · 16:9 PDF · 스튜디오)',
   newsletter: '부동산뉴스 (에디터 · 매거진 뷰어 · 구독 · OG)',
   dealcard: '딜카드 (메모 Fast-Fill · 블라인드 가드 · /dc/[id] · 카톡 OG)',
+  inbox: '소통함 (고객 CRM · 409 미생성 IM 가드 · AI 답장 · VIP/중복 보호)',
 };
 
 export function summarizeSubsystem100(
@@ -305,7 +324,8 @@ export function blendScore100WithR3(params: {
 type AnyBacklogCluster =
   | ImPpgtBacklogCluster
   | NewsletterPpgtBacklogCluster
-  | DealCardPpgtBacklogCluster;
+  | DealCardPpgtBacklogCluster
+  | InboxPpgtBacklogCluster;
 
 function mapClusters(
   subsystem: CreSubsystemId,
@@ -357,20 +377,25 @@ export function buildUnifiedCreReport100(params: {
   imRuns: readonly ImPpgtScoreResult[];
   newsletterRuns: readonly NewsletterPpgtScoreResult[];
   dealcardRuns: readonly DealCardPpgtScoreResult[];
+  inboxRuns?: readonly InboxPpgtScoreResult[];
   imBacklog?: readonly ImPpgtBacklogCluster[];
   newsletterBacklog?: readonly NewsletterPpgtBacklogCluster[];
   dealcardBacklog?: readonly DealCardPpgtBacklogCluster[];
+  inboxBacklog?: readonly InboxPpgtBacklogCluster[];
   r3Inputs?: {
     im: LayerDR3SubsystemInput;
     newsletter: LayerDR3SubsystemInput;
     dealcard: LayerDR3SubsystemInput;
+    inbox?: LayerDR3SubsystemInput;
   };
 }): UnifiedCreReport100 {
   const imCard = summarizeSubsystem100('im', params.imRuns);
   const nlCard = summarizeSubsystem100('newsletter', params.newsletterRuns);
   const dcCard = summarizeSubsystem100('dealcard', params.dealcardRuns);
+  const inboxCard =
+    params.inboxRuns !== undefined ? summarizeSubsystem100('inbox', params.inboxRuns) : undefined;
 
-  const cards = [imCard, nlCard, dcCard];
+  const cards = inboxCard ? [imCard, nlCard, dcCard, inboxCard] : [imCard, nlCard, dcCard];
   const overallRawMean100 = round2(
     cards.reduce((s, c) => s + c.rawMeanScore100, 0) / cards.length,
   );
@@ -385,6 +410,7 @@ export function buildUnifiedCreReport100(params: {
     ...mapClusters('im', params.imBacklog ?? []),
     ...mapClusters('newsletter', params.newsletterBacklog ?? []),
     ...mapClusters('dealcard', params.dealcardBacklog ?? []),
+    ...mapClusters('inbox', params.inboxBacklog ?? []),
   ].sort((a, b) => b.pScore - a.pScore);
 
   let r3Audit: UnifiedLayerDR3Report | undefined;
@@ -392,13 +418,22 @@ export function buildUnifiedCreReport100(params: {
     const imR3 = summarizeLayerDR3Subsystem('im', imCard, params.r3Inputs.im);
     const nlR3 = summarizeLayerDR3Subsystem('newsletter', nlCard, params.r3Inputs.newsletter);
     const dcR3 = summarizeLayerDR3Subsystem('dealcard', dcCard, params.r3Inputs.dealcard);
-    const r3List = [imR3, nlR3, dcR3];
+    const inboxR3 =
+      inboxCard && params.r3Inputs.inbox
+        ? summarizeLayerDR3Subsystem('inbox', inboxCard, params.r3Inputs.inbox)
+        : undefined;
+    const r3List = inboxR3 ? [imR3, nlR3, dcR3, inboxR3] : [imR3, nlR3, dcR3];
     const anyR3FloorRisk = r3List.some((x) => x.effectiveFloorRisk);
     const meanBlended = round2(
       r3List.reduce((s, x) => s + x.blendedEffective100, 0) / r3List.length,
     );
     r3Audit = {
-      subsystems: { im: imR3, newsletter: nlR3, dealcard: dcR3 },
+      subsystems: {
+        im: imR3,
+        newsletter: nlR3,
+        dealcard: dcR3,
+        ...(inboxR3 ? { inbox: inboxR3 } : {}),
+      },
       overallR3LinearMean100: round2(
         r3List.reduce((s, x) => s + x.r3Linear100, 0) / r3List.length,
       ),
@@ -421,7 +456,8 @@ export function buildUnifiedCreReport100(params: {
     overallEffectiveMean100 >= 90.0 &&
     imCard.meetsTarget90 &&
     nlCard.meetsTarget90 &&
-    dcCard.meetsTarget90;
+    dcCard.meetsTarget90 &&
+    (inboxCard ? inboxCard.meetsTarget90 : true);
 
   const r3Ready = r3Audit
     ? !r3Audit.anyR3FloorRisk &&
@@ -430,7 +466,8 @@ export function buildUnifiedCreReport100(params: {
       r3Audit.overallBlendedEffective100 >= 90.0 &&
       r3Audit.subsystems.im.meetsBlendedTarget90 &&
       r3Audit.subsystems.newsletter.meetsBlendedTarget90 &&
-      r3Audit.subsystems.dealcard.meetsBlendedTarget90
+      r3Audit.subsystems.dealcard.meetsBlendedTarget90 &&
+      (r3Audit.subsystems.inbox ? r3Audit.subsystems.inbox.meetsBlendedTarget90 : true)
     : true;
 
   const readyForHuman2nd = r2Ready && r3Ready;
@@ -442,6 +479,7 @@ export function buildUnifiedCreReport100(params: {
       im: imCard,
       newsletter: nlCard,
       dealcard: dcCard,
+      ...(inboxCard ? { inbox: inboxCard } : {}),
     },
     overallRawMean100,
     overallEffectiveMean100,
@@ -453,10 +491,19 @@ export function buildUnifiedCreReport100(params: {
 }
 
 export function formatUnifiedCreScorecardMarkdown(report: UnifiedCreReport100): string {
-  const rows = (['im', 'newsletter', 'dealcard'] as const).map((id) => {
-    const s = report.subsystems[id];
+  const activeIds: CreSubsystemId[] = report.subsystems.inbox
+    ? ['im', 'newsletter', 'dealcard', 'inbox']
+    : ['im', 'newsletter', 'dealcard'];
+  const countLabel = activeIds.length === 4 ? '4대' : '3대';
+
+  const rows = activeIds.map((id) => {
+    const s = report.subsystems[id]!;
     return `| **${id.toUpperCase()}** | ${s.runCount} | ${s.pillarsMean.contentSuitability30.toFixed(1)} / 30 | ${s.pillarsMean.uxWriting20.toFixed(1)} / 20 | ${s.pillarsMean.zeroFrictionUx25.toFixed(1)} / 25 | ${s.pillarsMean.functionalCompleteness25.toFixed(1)} / 25 | **${s.effectiveScore100.toFixed(2)} / 100** | ${s.floorRiskCount}건 | ${s.meetsTarget90 ? 'PASS (90+)' : 'REMEDIATE'} |`;
   });
+
+  const r3ActiveIds: CreSubsystemId[] = report.r3Audit?.subsystems.inbox
+    ? ['im', 'newsletter', 'dealcard', 'inbox']
+    : ['im', 'newsletter', 'dealcard'];
 
   const r3Section = report.r3Audit
     ? [
@@ -464,20 +511,20 @@ export function formatUnifiedCreScorecardMarkdown(report: UnifiedCreReport100): 
         '## 1-B. Layer D (`R3` 반아첨 멀티모달 Vision + Span-Grounded) Blended 100점 스코어카드 (`0.70 * R2 + 0.30 * R3`)',
         `- R3 실측 API 총계: \`${report.r3Audit.totalCalls}\` calls · \`${report.r3Audit.totalPromptTokens.toLocaleString()}\` prompt / \`${report.r3Audit.totalCompletionTokens.toLocaleString()}\` completion tokens · 총 비용 **\`$${report.r3Audit.totalEstimatedCostUsd.toFixed(4)}\`**`,
         `- 반아첨 음성 대조군 전체 통과: **${report.r3Audit.allNegativeControlsPassed ? 'PASS' : 'FAIL'}** · 최소 원문 접지율(\`isSpanGrounded\`): **${(report.r3Audit.minGroundedRatio * 100).toFixed(1)}%** (기준 >= 50%)`,
-        `- 3대 서브시스템 통합 **Blended 유효 평균: \`${report.r3Audit.overallBlendedEffective100.toFixed(2)} / 100점\`** (R3 단독 평균: ${report.r3Audit.overallR3LinearMean100.toFixed(2)}점, 과락: ${report.r3Audit.anyR3FloorRisk ? 'YES' : '0건'})`,
+        `- ${r3ActiveIds.length}대 서브시스템 통합 **Blended 유효 평균: \`${report.r3Audit.overallBlendedEffective100.toFixed(2)} / 100점\`** (R3 단독 평균: ${report.r3Audit.overallR3LinearMean100.toFixed(2)}점, 과락: ${report.r3Audit.anyR3FloorRisk ? 'YES' : '0건'})`,
         '',
         '| 서브시스템 | R2 유효(100) | R3 UI(5.0) | R3 산출물(5.0) | R3 환산(100) | **Blended(100)** | 음성대조군 | 접지율 | 판정 |',
         '|:--|--:|--:|--:|--:|--:|:--:|--:|:--:|',
-        ...(['im', 'newsletter', 'dealcard'] as const).map((id) => {
-          const r2 = report.subsystems[id];
-          const r3 = report.r3Audit!.subsystems[id];
+        ...r3ActiveIds.map((id) => {
+          const r2 = report.subsystems[id]!;
+          const r3 = report.r3Audit!.subsystems[id]!;
           return `| **${id.toUpperCase()}** | ${r2.effectiveScore100.toFixed(2)} | ${r3.uiPersonaR3Mean5.toFixed(2)} | ${r3.deliverableR3Score5.toFixed(2)} | ${r3.r3Linear100.toFixed(2)} | **${r3.blendedEffective100.toFixed(2)} / 100** | ${r3.negativeControlsPassed ? 'PASS' : 'FAIL'} | ${(r3.groundedRatio * 100).toFixed(1)}% | ${r3.meetsBlendedTarget90 ? 'PASS (90+)' : 'REMEDIATE'} |`;
         }),
       ]
     : [];
 
   const lines = [
-    '# CRE 3대 서브시스템 통합 100점 루브릭 스코어카드 (AI 1st Gate)',
+    `# CRE ${countLabel} 서브시스템 통합 100점 루브릭 스코어카드 (AI 1st Gate)`,
     '',
     `- 생성 시각: ${report.generatedAt}`,
     `- 결정론(R1+R2) 유효 평균: **${report.overallEffectiveMean100.toFixed(2)} / 100점** (산술 원점수 평균: ${report.overallRawMean100.toFixed(2)}점)`,
@@ -512,8 +559,10 @@ export function formatUnifiedCreScorecardMarkdown(report: UnifiedCreReport100): 
 
   if (report.totalFloorRiskCount > 0) {
     lines.push('', '## 3. 과락(floorRisk) 상세 사유');
-    for (const id of ['im', 'newsletter', 'dealcard'] as const) {
-      for (const reason of report.subsystems[id].floorReasons) {
+    for (const id of activeIds) {
+      const card = report.subsystems[id];
+      if (!card) continue;
+      for (const reason of card.floorReasons) {
         lines.push(`- [${id.toUpperCase()}] ${reason}`);
       }
     }

@@ -125,10 +125,16 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     // 필수 여부 판정: income 전용 슬롯은 income 포스처에서만 포함
     // 단, owner_occupied에서도 렌트롤(A24)은 hasRentRoll이면 공실 현황으로 포함 (D45)
     if (slot.required === 'income' && posture !== 'income') {
+      const hasExplicitExpectedRentRoll = Boolean(
+        input.hasExpectedRentRoll || (da as any).hasExpectedRentRoll === true,
+      );
       const isOwnerRentRoll = posture === 'owner_occupied'
         && slot.dataKey === 'rentRoll'
         && da.hasRentRoll !== false;
-      if (!isOwnerRentRoll) continue;
+      const isBrokerExpectedYieldFlow =
+        hasExplicitExpectedRentRoll &&
+        (slot.dataKey === 'rentRoll' || slot.dataKey === 'yieldFormula');
+      if (!isOwnerRentRoll && !isBrokerExpectedYieldFlow) continue;
     }
     if (slot.required === false) {
       // F-04: Basic IM에서는 갤러리 슬라이드를 무조건 포함하여 9면을 보장 (사진 없으면 플레이스홀더)

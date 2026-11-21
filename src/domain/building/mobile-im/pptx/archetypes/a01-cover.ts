@@ -213,7 +213,7 @@ function renderCommonCoverContent(
   const kickerIsKorean = /[가-힣]/.test(displayKicker);
   const titleText = d.title || '투자설명서';
   const titleLen = titleText.length;
-  const fontSize = titleLen > 35 ? 20 : titleLen > 28 ? 24 : titleLen > 20 ? 26 : titleLen > 14 ? 30 : 38;
+  const fontSize = titleLen > 35 ? 20 : titleLen > 27 ? 22 : titleLen > 20 ? 25 : titleLen > 14 ? 30 : 38;
   const titleH = titleLen > 14 ? 1.15 : 0.80;
 
   // R1: Basic IM 표지 — 제목 + 중개법인 브랜딩 집중 (주소·태그·매각 희망가 박스 비표시)

@@ -1186,15 +1186,32 @@ export function buildAddedPhotoEntries(
   return files.map((f, idx) => {
     const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
     const resolvedCategory = forcedCategory || inferred.category;
-    let resolvedCaption = inferred.caption;
-    if (forcedCategory === "exterior") {
+    const rawBaseName = f.name
+      .replace(/\.[^.]+$/, "")
+      .replace(/^[0-9]+[_-\s]*/, "")
+      .replace(/^(외관|내부|전경|실내)[_-\s]*/, "")
+      .replace(/[_-]+/g, " ")
+      .replace(/\s*(세로형|가로형)\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const hasMeaningfulKoreanName =
+      /[가-힣]{2,}/.test(rawBaseName) &&
+      !/^(카톡|카카오톡|스크린샷|사진|이미지|캡처|화면)/.test(rawBaseName);
+    let resolvedCaption = hasMeaningfulKoreanName ? rawBaseName.slice(0, 24) : inferred.caption;
+    if (!hasMeaningfulKoreanName) {
+      if (forcedCategory === "exterior") {
+        extCounter += 1;
+        resolvedCaption =
+          EXTERIOR_PRESET_CAPTIONS[extCounter - 1] || `외관 전경 ${extCounter}`;
+      } else if (forcedCategory === "interior") {
+        intCounter += 1;
+        resolvedCaption =
+          INTERIOR_PRESET_CAPTIONS[intCounter - 1] || `내부 공간 ${intCounter}`;
+      }
+    } else if (forcedCategory === "exterior") {
       extCounter += 1;
-      resolvedCaption =
-        EXTERIOR_PRESET_CAPTIONS[extCounter - 1] || `외관 전경 ${extCounter}`;
     } else if (forcedCategory === "interior") {
       intCounter += 1;
-      resolvedCaption =
-        INTERIOR_PRESET_CAPTIONS[intCounter - 1] || `내부 공간 ${intCounter}`;
     }
     const knownUrl = resolveKnownTestAssetUrl(f.name);
     const blobUrl =

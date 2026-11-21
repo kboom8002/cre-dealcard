@@ -1034,10 +1034,18 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       : rawPosture;
     const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const metrics: Array<{label: string; value: string; unit?: string; sub?: string}> = [];
+    const formatAskManwonKo = (rawManwon: unknown): string | undefined => {
+      const m = Number(rawManwon);
+      if (!Number.isFinite(m) || m <= 0) return undefined;
+      const eok = Math.floor(m / 10000);
+      const rem = Math.round(m % 10000);
+      if (eok > 0 && rem > 0) return `${eok.toLocaleString()}억 ${rem.toLocaleString()}만 원`;
+      if (eok > 0) return `${eok.toLocaleString()}억 원`;
+      return `${Math.round(m).toLocaleString()}만 원`;
+    };
     const ssotAskManwon = body?.ssot_summary?.asking_price_manwon;
-    const askPrice = (ssotAskManwon && Number.isFinite(Number(ssotAskManwon)) && Number(ssotAskManwon) > 0)
-            ? `${(Number(ssotAskManwon) / 10000).toLocaleString()}억 원`
-            : (heroCard.askingPrice ?? heroCard.askingPriceDisplay);
+    const askPrice =
+      formatAskManwonKo(ssotAskManwon) ?? (heroCard.askingPrice ?? heroCard.askingPriceDisplay);
     let summaryYield: Yield | null = null;
     const isBasicIM = body?.preset === 'credeal_basic' || body?.heroCard?.preset === 'credeal_basic' || body?.templateId === 'credeal_basic';
     if (posture === 'income' && isBasicIM) {

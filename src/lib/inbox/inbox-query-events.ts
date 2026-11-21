@@ -165,26 +165,37 @@ export function mapGateAndViewAndInquiryItems(params: {
     .slice(0, limit)
     .map((evt: any) => {
       const meta = (evt.metadata as Record<string, any>) || {};
+      const RAW_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const nonUuid = (val: unknown): string => {
+        const s = typeof val === 'string' ? val.trim() : '';
+        return s && !RAW_UUID_RE.test(s) ? s : '';
+      };
+      const isMagazineView =
+        evt.event_type === 'magazine_view' || evt.event_type === 'magazine_section_view';
+      const isVibeCardView = evt.event_type === 'vibe_card_view';
       const label =
         evt.event_type === 'mobile_im_view' || evt.event_type === 'im_lite_view'
           ? 'IM 자료를 열람했습니다'
           : evt.event_type === 'blind_teaser_view' || evt.event_type === 'deal_card_view'
             ? '딜카드를 열람했습니다'
-            : evt.event_type === 'magazine_view' || evt.event_type === 'magazine_section_view'
+            : isMagazineView
               ? '뉴스레터를 열람했습니다'
               : evt.event_type === 'magazine_to_im_click'
                 ? '뉴스레터에서 매물 자료를 열람했습니다'
-                : evt.event_type === 'vibe_card_view'
+                : isVibeCardView
                   ? '프로필 카드를 열람했습니다'
                   : '상세 자료를 열람했습니다';
-      const subLabel =
-        evt.event_type === 'vibe_card_view'
-          ? ''
-          : evt.event_type === 'magazine_view' || evt.event_type === 'magazine_section_view'
-            ? meta.issue_date || meta.edition_id || meta.section || '뉴스레터'
-            : evt.event_type === 'magazine_to_im_click'
-              ? meta.building_name || meta.edition_id || '뉴스레터'
-              : meta.building_name || meta.area_signal || '매물';
+      const subLabel = isVibeCardView
+        ? '중개사 프로필 카드'
+        : isMagazineView
+          ? nonUuid(meta.edition_title) ||
+            nonUuid(meta.title) ||
+            (nonUuid(meta.issue_date) ? `부동산뉴스 (${nonUuid(meta.issue_date)})` : '') ||
+            nonUuid(meta.section) ||
+            '부동산뉴스'
+          : evt.event_type === 'magazine_to_im_click'
+            ? nonUuid(meta.building_name) || nonUuid(meta.edition_title) || '부동산뉴스 추천 매물'
+            : nonUuid(meta.building_name) || nonUuid(meta.area_signal) || '매물';
       const viewerName =
         typeof meta.viewer_name === 'string' && meta.viewer_name.trim()
           ? meta.viewer_name.trim()
@@ -206,7 +217,8 @@ export function mapGateAndViewAndInquiryItems(params: {
         event_type: evt.event_type,
         label,
         sub_label: subLabel,
-        building_id: evt.entity_id || meta.building_id,
+        entity_id: evt.entity_id || meta.edition_id || meta.building_id || '',
+        building_id: isMagazineView || isVibeCardView ? '' : evt.entity_id || meta.building_id || '',
         viewer_info: viewerName,
         viewerName,
         visitorFp,

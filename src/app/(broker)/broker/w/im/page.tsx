@@ -1382,8 +1382,27 @@ function ImWorkspaceInner() {
         if (rentM) rent = parseFloat(rentM[1].replace(/,/g, "")) || 0;
         if (mgmtM) mgmt = parseFloat(mgmtM[1].replace(/,/g, "")) || 0;
       }
-      const tenantNameTrimmed = r.tenant_name?.trim() || undefined;
-      const tenantTypeTrimmed = r.tenant_type?.trim() || undefined;
+      const rawTenantName = r.tenant_name?.trim() || undefined;
+      const rawTenantType = r.tenant_type?.trim() || undefined;
+      // v1.5 표준양식 E열은 '업종/상호 (원문)' (예: '약국 / 고은약국', '클라우드솔루션 / 네오테크아이티').
+      // 파서가 bizTenant 단일 열을 tenant_type·tenant_name 양쪽에 동일 문자열로 담으므로,
+      // tenant_name이 비어 있거나 tenant_type과 동일하면서 '/' 구분자가 있으면 앞쪽=용도(업종), 뒤쪽=임차인(상호)으로 정규 분리한다.
+      let tenantNameTrimmed = rawTenantName;
+      let tenantTypeTrimmed = rawTenantType;
+      if (
+        tenantTypeTrimmed &&
+        tenantTypeTrimmed.includes("/") &&
+        (!tenantNameTrimmed || tenantNameTrimmed === tenantTypeTrimmed)
+      ) {
+        const slashParts = tenantTypeTrimmed
+          .split(/\s*\/\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (slashParts.length >= 2) {
+          tenantTypeTrimmed = slashParts[0];
+          tenantNameTrimmed = slashParts.slice(1).join(" / ");
+        }
+      }
       const useLabel =
         tenantTypeTrimmed || (r.is_vacant ? "공실" : tenantNameTrimmed ? "근린생활시설" : "근린생활시설");
       return {

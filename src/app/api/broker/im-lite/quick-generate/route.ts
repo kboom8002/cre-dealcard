@@ -1660,7 +1660,16 @@ export async function POST(req: NextRequest) {
       : 0;
 
   const exactEokNum = Math.round((priceNum / 10000) * 100) / 100;
-  const exactEokDisplay = priceNum > 0 ? `${exactEokNum}억 원` : '가격 협의';
+  const exactEokWhole = Math.floor(priceNum / 10000);
+  const exactRemManwon = Math.round(priceNum % 10000);
+  const exactEokDisplay =
+    priceNum > 0
+      ? exactRemManwon > 0 && exactEokWhole > 0
+        ? `${exactEokWhole.toLocaleString()}억 ${exactRemManwon.toLocaleString()}만 원`
+        : exactEokWhole > 0
+          ? `${exactEokWhole.toLocaleString()}억 원`
+          : `${priceNum.toLocaleString()}만 원`
+      : '가격 협의';
 
   const ssotSummary = {
     address: cleanAddress,
@@ -1735,17 +1744,29 @@ export async function POST(req: NextRequest) {
         `| 연면적 | ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평) |`,
         `| 용도지역 | ${effectiveZoning} |`,
         `| 건축규모 | 지하 ${effectiveFloorsBelow}층 / 지상 ${effectiveFloorsAbove}층 |`,
-        `| 건폐율 / 용적률 | ${bcrPct}% / ${farPct}% |`,
+        ...(bcrPct > 0 || farPct > 0
+          ? [
+              `| 건폐율 / 용적률 | ${bcrPct > 0 ? `${bcrPct}%` : '-'} / ${farPct > 0 ? `${farPct}%` : '-'} |`,
+            ]
+          : []),
         `| 사용승인일 | ${effectiveCompletionDate} |`,
         ...(parkingSpaces > 0 || elevators > 0
-          ? [
-              `| 주차 / 승강기 | ${
-                String(body.parkingType || (existingEnrichment?.buildingRegister as any)?.parkingType || '').trim() === '자주식' ||
-                String(body.parkingType || (existingEnrichment?.buildingRegister as any)?.parkingType || '').trim() === 'self'
+          ? (() => {
+              const pType = String(
+                body.parkingType || (existingEnrichment?.buildingRegister as any)?.parkingType || ''
+              ).trim();
+              const parkingLabel =
+                pType === '자주식' || pType === 'self'
                   ? `자주식 ${parkingSpaces}대`
-                  : `총 ${parkingSpaces}대`
-              } / 승용 ${elevators}대 |`,
-            ]
+                  : `총 ${parkingSpaces}대`;
+              if (parkingSpaces > 0 && elevators > 0) {
+                return [`| 주차 / 승강기 | ${parkingLabel} / 승용 ${elevators}대 |`];
+              }
+              if (parkingSpaces > 0) {
+                return [`| 주차 | ${parkingLabel} |`];
+              }
+              return [`| 승강기 | 승용 ${elevators}대 |`];
+            })()
           : []),
         ``,
         `- **핵심 입지**: ${defaultPoints[0]}`,

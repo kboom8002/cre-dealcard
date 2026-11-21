@@ -563,7 +563,7 @@ export class MobileImPptxRenderer {
           ['건축면적', fmtArea(overviewSpecs.archArea)],
           ['연면적', fmtArea(ssot.total_gross_area_sqm || heroCard.totalGrossAreaSqm || bldg.total_area_sqm)],
           ...specHeadRows, // 용도지역 / 건폐율·용적률(현황+법정) / 사용승인일 / 층수 (알 수 없으면 행 생략)
-          ['주차 / 승강기', (() => {
+          (() => {
             // D4: 건축물대장(br) 값 우선 → 기존 SSoT/hero/bldg 체인 → 중개인 입력(fallback). 전부 없으면 undefined → '-'
             const brokerSpecs = input.doc.body?.broker_physical_inputs;
             const resolvedSpecs = resolvePhysicalSpecs({
@@ -575,9 +575,11 @@ export class MobileImPptxRenderer {
             });
             const park = resolvedSpecs.parkingCount;
             const elev = resolvedSpecs.elevatorCount;
-            if (!park && !elev) return '-'; // 둘 다 부재 → 행 제거 ('-대 / -대' 방지, Rule 37)
-            return `${park ? `${park}대` : '-'} / ${elev ? `${elev}대` : '-'}`;
-          })()],
+            if (!park && !elev) return ['주차 / 승강기', '-'] as [string, string]; // 둘 다 부재 → 행 제거 ('-대 / -대' 방지, Rule 37)
+            if (park && elev) return ['주차 / 승강기', `${park}대 / 승용 ${elev}대`] as [string, string];
+            if (park) return ['주차', `총 ${park}대`] as [string, string];
+            return ['승강기', `승용 ${elev}대`] as [string, string];
+          })(),
           ...specTailRows, // 주용도 / 주구조 (알 수 없으면 행 생략)
         ].filter(([, v]) => !isMissingSpecValue(v)) as [string, string][]; // 값이 없는 행 제거 ('-' / '확인 필요' 행은 출력하지 않음)
 
@@ -792,9 +794,17 @@ export class MobileImPptxRenderer {
 
         const rawAskManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
         const askManwon = Number.isFinite(rawAskManwon) && rawAskManwon > 0 ? rawAskManwon : 0;
-        const askFmt = (v: number) => Number.isFinite(v) && v >= 10000
-          ? `${(v / 10000).toLocaleString()}억 원`
-          : (Number.isFinite(v) && v > 0) ? `${v.toLocaleString()}만원` : '';
+        const askFmt = (v: number) => {
+          if (!Number.isFinite(v) || v <= 0) return '';
+          if (v >= 10000) {
+            const eok = Math.floor(v / 10000);
+            const rem = Math.round(v % 10000);
+            return rem > 0
+              ? `${eok.toLocaleString()}억 ${rem.toLocaleString()}만 원`
+              : `${eok.toLocaleString()}억 원`;
+          }
+          return `${Math.round(v).toLocaleString()}만 원`;
+        };
         const rawHeroAsk = input.doc.body?.heroCard?.askingPriceDisplay ?? input.doc.body?.askingPrice ?? '';
         const safeHeroAsk = typeof rawHeroAsk === 'string' && !rawHeroAsk.includes('Infinity') && !rawHeroAsk.includes('NaN') ? rawHeroAsk : '';
         const askStr = askFmt(askManwon) || safeHeroAsk;

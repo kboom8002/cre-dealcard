@@ -300,34 +300,42 @@ export function appendViewerThreads(ctx: ThreadBuildContext) {
     if (v.gateRequestId && seenThreadIds.has(v.gateRequestId)) continue;
     if (v.shareToken && ownedShareTokenSet.has(v.shareToken)) continue;
     const isAnon = !v.viewerName || v.viewerName === '익명 열람객';
+    const groupEntityId = String(v.building_id || v.entity_id || 'b');
     const key = isAnon
-      ? `${v.building_id || 'b'}::익명 열람객::${v.visitorFp || 'anon_nofp'}`
-      : `${v.building_id || 'b'}::${v.viewerName}`;
+      ? `${groupEntityId}::익명 열람객::${v.visitorFp || 'anon_nofp'}`
+      : `${groupEntityId}::${v.viewerName}`;
     const list = viewGroups.get(key) || [];
     list.push(v);
     viewGroups.set(key, list);
   }
 
+  const RAW_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   for (const [, group] of viewGroups.entries()) {
     const first = group[0];
     const isAnon = !first.viewerName || first.viewerName === '익명 열람객';
+    const isNonBuildingView =
+      first.event_type === 'magazine_view' ||
+      first.event_type === 'magazine_section_view' ||
+      first.event_type === 'vibe_card_view';
+    const groupEntityId = String(first.building_id || first.entity_id || 'b');
     const safeFp = isAnon
       ? String(first.visitorFp || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 16)
       : '';
     const tid =
       isAnon && safeFp
-        ? `view_${first.building_id || 'b'}_anon_${safeFp}`
-        : `view_${first.building_id || 'b'}_${encodeURIComponent(first.viewerName || 'anon')}`;
+        ? `view_${groupEntityId}_anon_${safeFp}`
+        : `view_${groupEntityId}_${encodeURIComponent(first.viewerName || 'anon')}`;
     if (seenThreadIds.has(tid) || isThreadArchived(tid)) continue;
     if (
       first.viewerName !== '익명 열람객' &&
+      !isNonBuildingView &&
       threads.some((t) => t.buildingId === String(first.building_id) && t.clientName === first.viewerName)
     ) {
       continue;
     }
     seenThreadIds.add(tid);
 
-    const bIdStr = String(first.building_id || '');
+    const bIdStr = isNonBuildingView ? '' : String(first.building_id || '');
     const focusedSections = Array.from(
       new Set(group.map((g) => g.sectionName).filter((s): s is string => Boolean(s)))
     );
@@ -378,7 +386,17 @@ export function appendViewerThreads(ctx: ThreadBuildContext) {
       clientGrade: '일반' as const,
       isVip: false,
       clientRole: 'buyer' as InboxCrmClientRole,
-      buildingTitle: buildingTitleById.get(bIdStr) || first.sub_label || '매물',
+      buildingTitle: (() => {
+        const rawTitle = String(
+          (bIdStr ? buildingTitleById.get(bIdStr) : '') ||
+            first.sub_label ||
+            (isNonBuildingView ? '부동산뉴스' : '매물')
+        ).trim();
+        if (!rawTitle || RAW_UUID_RE.test(rawTitle)) {
+          return isNonBuildingView ? '부동산뉴스' : '관심 매물 미지정';
+        }
+        return rawTitle;
+      })(),
       buildingId: bIdStr,
       latestEvent:
         viewCallNotes[0]?.description ||

@@ -175,36 +175,38 @@ export function InboxListColumn({
   const listControls = (
     <>
       {/* 한 줄 할 일 막대: 누르면 '할 일' 필터 적용 */}
-      <div
-        data-testid="inbox-todo-summary-card"
-        className="flex min-h-[48px] flex-wrap items-center gap-2 rounded-xl border border-[#FF9500]/35 bg-[#FFF4E5] px-2.5 py-1"
-      >
-        <button
-          type="button"
-          data-testid="inbox-todo-summary-filter-btn"
-          onClick={() => onFilterChange("todo")}
-          className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-lg px-1 text-base font-bold text-[#8A4B00] cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
+        <div
+          data-testid="inbox-todo-summary-card"
+          className="flex min-h-[48px] flex-col gap-1.5 rounded-xl border border-[#FF9500]/35 bg-[#FFF4E5] px-2.5 py-2"
         >
-          <span aria-hidden="true">🔔</span>
-          <span>지금 할 일 {pendingCount}건</span>
-          <span aria-hidden="true">›</span>
-        </button>
-        {firstPendingThread && (
-          <div
-            key={`todo-quick-${firstPendingThread.id}`}
-            role="button"
-            tabIndex={0}
-            data-testid={`quick-todo-card-${firstPendingThread.id}`}
-            onClick={() => onSelectThread(firstPendingThread.id)}
-            onKeyDown={(e) => {
-              if (e.target !== e.currentTarget) return;
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelectThread(firstPendingThread.id);
-              }
-            }}
-            className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
+          <button
+            type="button"
+            data-testid="inbox-todo-summary-filter-btn"
+            onClick={() => onFilterChange("todo")}
+            className="inline-flex min-h-[44px] w-full items-center justify-between gap-1 rounded-lg px-1 text-base font-bold text-[#8A4B00] cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
           >
+            <span className="inline-flex items-center gap-1 min-w-0 truncate">
+              <span aria-hidden="true">🔔</span>
+              <span>지금 할 일 {pendingCount}건</span>
+            </span>
+            <span aria-hidden="true">›</span>
+          </button>
+          {firstPendingThread && (
+            <div
+              key={`todo-quick-${firstPendingThread.id}`}
+              role="button"
+              tabIndex={0}
+              data-testid={`quick-todo-card-${firstPendingThread.id}`}
+              onClick={() => onSelectThread(firstPendingThread.id)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectThread(firstPendingThread.id);
+                }
+              }}
+              className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg pt-1 border-t border-[#FF9500]/20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
+            >
             <span
               title={firstPendingThread.clientName}
               className="min-w-0 truncate text-sm font-bold text-[#1D1D1F]"

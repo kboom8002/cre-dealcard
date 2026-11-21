@@ -367,7 +367,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // 검증 가능한 구체적 앵커(숫자, 역, 도로, 지표 등)가 있는 문장만 인정
   const VERIFIABLE_ANCHOR = /(역|도보|호선|도로|접면|대로|%|Cap|억|평|㎡|공실|만실|사옥|임대료|임차|호실|수익률|지분|공시지가|용적률|준공|리모델링|코너|랜드마크|실전검증|수동편집)/i;
   // 2026-10-05: 템플릿 상투 문구(premium-template-engine 폴백) 및 리드 문장과 같은 포인트 제거 (Rule 4)
-  const filteredKP = keyPoints.filter(pt => !SPEC_TERMS.test(pt.trim()) && !INTERNAL_MONOLOGUE.test(pt.trim()) && VERIFIABLE_ANCHOR.test(pt.trim())
+  // 2026-11-21: 제목만 남은 단문(<8자, 예: '기대수익률') 제거
+  const filteredKP = keyPoints.filter(pt => pt.trim().length >= 8 && !SPEC_TERMS.test(pt.trim()) && !INTERNAL_MONOLOGUE.test(pt.trim()) && VERIFIABLE_ANCHOR.test(pt.trim())
     && !isBoilerplateHighlight(pt) && !(leadSentence && isNearDuplicate(leadSentence, pt)))
     .filter((pt, i, arr) => arr.findIndex(o => isNearDuplicate(o, pt)) === i);
   keyPoints.length = 0;
@@ -376,11 +377,28 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // 기본 폴백 3대 투자 포인트 — SOTA 중개인 투자 하이라이트 (검증 가능 수치 중심)
   if (keyPoints.length < 3) {
     const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
-    const capNumFb = parseFloat(String(hero?.capRateBase ?? '').replace(/[^0-9.-]/g, ''));
+    const ssotFb = input.data.ssot_summary ?? {};
+    const grossYieldFb = parseFloat(
+      String(hero?.grossYieldPct ?? ssotFb.gross_yield_pct ?? ssotFb.gross_yield ?? '').replace(/[^0-9.-]/g, ''),
+    );
+    const capNumFb = parseFloat(String(hero?.capRateBase ?? ssotFb.cap_rate_pct ?? '').replace(/[^0-9.-]/g, ''));
+    const hasNetYield = Number.isFinite(grossYieldFb) && grossYieldFb > 0;
     const isPosCap = Number.isFinite(capNumFb) && capNumFb > 0;
-    const capRate = isPosCap ? `${capNumFb}%` : '';
-    const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? formatPyeong(hero.totalGrossAreaM2, 1) : '');
-    const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? formatPyeong(hero.landAreaM2, 1) : '');
+    const yieldBullet = hasNetYield
+      ? `수익률 — 현행 임대수익률 ${grossYieldFb.toFixed(2)}% (보증금 차감 기준)`
+      : isPosCap
+        ? `수익률 — 연 순수익률(Cap Rate) ${capNumFb}%`
+        : '';
+    const gfaSqmFb = Number(hero?.totalGrossAreaM2 ?? ssotFb.total_gross_area_sqm ?? 0);
+    const landSqmFb = Number(hero?.landAreaM2 ?? ssotFb.land_area_sqm ?? 0);
+    const gfaPyeong =
+      hero?.totalGrossAreaPyeong ||
+      (gfaSqmFb > 0 ? formatPyeong(gfaSqmFb, 1) : '') ||
+      (metrics.find((m) => m.label.includes('연면적'))?.value ?? '');
+    const landPyeong =
+      hero?.landAreaPyeong ||
+      (landSqmFb > 0 ? formatPyeong(landSqmFb, 1) : '') ||
+      (metrics.find((m) => m.label.includes('대지면적'))?.value ?? '');
 
     // G5 앵커: 역명 및 도보분 동적 결합
     const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;
@@ -398,10 +416,19 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         ? `${stationName} 역세권`
         : '대중교통 역세권 입지';
 
+    const formatAreaScale = (val: unknown) => {
+      const s = String(val || '').trim();
+      if (!s) return '';
+      return /평|㎡/.test(s) ? s : `${s}평`;
+    };
+    const landPart = formatAreaScale(landPyeong);
+    const gfaPart = formatAreaScale(gfaPyeong);
+    const askMetric = metrics.find((m) => m.label.includes('매매') || m.label.includes('매입가'))?.value;
     const fallbackPool = [
       stationName ? `입지 — ${stationPart}` : '',
-      capRate ? `수익률 — 연 순수익률(Cap Rate) ${capRate}` : '',
-      gfaPyeong && landPyeong ? `자산 규모 — 대지 ${landPyeong}평·연면적 ${gfaPyeong}평` : '',
+      yieldBullet,
+      gfaPart && landPart ? `자산 규모 — 대지 ${landPart} · 연면적 ${gfaPart}` : '',
+      askMetric ? `매입 조건 — ${askMetric} 기준 단독 필지·건물 일괄 매각` : '',
     ].filter(Boolean);
     void area;
     for (const fb of fallbackPool) {

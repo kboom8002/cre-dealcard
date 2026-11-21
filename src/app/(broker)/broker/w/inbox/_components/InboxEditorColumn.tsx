@@ -131,56 +131,80 @@ export function InboxEditorColumn({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
-                  <span>관심 매물:</span>
-                  {!activeThread.buildingTitle || activeThread.buildingTitle === "관심 매물 미지정" ? (
-                    <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-600">
-                      관심 매물 연결 전
-                    </span>
-                  ) : (
-                    <span>{activeThread.buildingTitle}</span>
-                  )}
-                </div>
+                {(() => {
+                  const UUID_LIKE_RE =
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                  const rawTitle = (activeThread.buildingTitle || "").trim();
+                  const isRawUuidTitle = UUID_LIKE_RE.test(rawTitle);
+                  const isNewsletterThread =
+                    activeThread.latestEvent?.includes("뉴스레터") ||
+                    rawTitle.startsWith("부동산뉴스");
+                  const hasValidBuildingLink =
+                    activeThread.buildingId.trim().length > 0 &&
+                    !isRawUuidTitle &&
+                    !isNewsletterThread &&
+                    !rawTitle.includes("삭제된 매물");
+                  const showNewsletterLink =
+                    activeThread.newsletterSubscribed ||
+                    activeThread.id.startsWith("sub_") ||
+                    isNewsletterThread;
+                  const displayTitle = isRawUuidTitle
+                    ? isNewsletterThread
+                      ? "부동산뉴스"
+                      : ""
+                    : rawTitle;
 
-                {(activeThread.buildingId.trim().length > 0 &&
-                  !activeThread.buildingTitle.includes("삭제된 매물")) ||
-                activeThread.newsletterSubscribed ||
-                activeThread.id.startsWith("sub_") ? (
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    {activeThread.buildingId.trim().length > 0 &&
-                      !activeThread.buildingTitle.includes("삭제된 매물") && (
-                        <>
-                          <Link
-                            href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
-                              activeThread.buildingId.trim()
-                            )}`}
-                            data-testid="inbox-open-dealcard-link"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
-                          >
-                            📄 딜카드 편집 →
-                          </Link>
-                          <Link
-                            href={`/broker/w/im?buildingId=${encodeURIComponent(
-                              activeThread.buildingId.trim()
-                            )}`}
-                            data-testid="inbox-open-im-link"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
-                          >
-                            {activeThread.hasIm === false ? "📊 IM 먼저 만들기 →" : "📊 IM 편집 →"}
-                          </Link>
-                        </>
-                      )}
-                    {(activeThread.newsletterSubscribed || activeThread.id.startsWith("sub_")) && (
-                      <Link
-                        href="/broker/magazine-editor"
-                        data-testid="inbox-open-magazine-link"
-                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
-                      >
-                        📰 뉴스레터 편집·보내기 →
-                      </Link>
-                    )}
-                  </div>
-                ) : null}
+                  return (
+                    <>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
+                        <span>{isNewsletterThread ? "열람 자료:" : "관심 매물:"}</span>
+                        {!displayTitle || displayTitle === "관심 매물 미지정" ? (
+                          <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-600">
+                            관심 매물 연결 전
+                          </span>
+                        ) : (
+                          <span>{displayTitle}</span>
+                        )}
+                      </div>
+
+                      {hasValidBuildingLink || showNewsletterLink ? (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          {hasValidBuildingLink && (
+                            <>
+                              <Link
+                                href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
+                                  activeThread.buildingId.trim()
+                                )}`}
+                                data-testid="inbox-open-dealcard-link"
+                                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                              >
+                                📄 딜카드 편집 →
+                              </Link>
+                              <Link
+                                href={`/broker/w/im?buildingId=${encodeURIComponent(
+                                  activeThread.buildingId.trim()
+                                )}`}
+                                data-testid="inbox-open-im-link"
+                                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                              >
+                                {activeThread.hasIm === false ? "📊 IM 먼저 만들기 →" : "📊 IM 편집 →"}
+                              </Link>
+                            </>
+                          )}
+                          {showNewsletterLink && (
+                            <Link
+                              href="/broker/magazine-editor"
+                              data-testid="inbox-open-magazine-link"
+                              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
+                            >
+                              📰 뉴스레터 편집·보내기 →
+                            </Link>
+                          )}
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">

@@ -931,10 +931,29 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       });
     }
     // 전 호실 공통 비고(binder 가 열에서 분리) — 단위 표기 줄 왼쪽에 1회만 표기
+    // 공통 비고가 없는 현행 렌트롤 표에서는 임대가능 호실 대비 공실률 요약(비수익형 포함)을 표시
     const rawCommonNote = typeof data.commonNote === 'string' ? data.commonNote.trim() : '';
+    const slideTitleStr = String(data.title || data.kicker || '');
+    const isExpectedSlide =
+      hasAnyDiff || /기대수익률|안정화|예상/.test(slideTitleStr);
+    let occupancyCaption = '';
+    if (!rawCommonNote && !isExpectedSlide && isR2BinderTable && !/\(\d+\/\d+\)/.test(slideTitleStr)) {
+      const dataRows = displayRows.filter((r: any) => !isSummaryRowOf(r));
+      const leasableRows = dataRows.filter((r: any) => {
+        const joined = r.map((c: any) => String(c || '')).join(' ');
+        return !/자가사용|비임대|기계실|설비실/.test(joined);
+      });
+      const vacantRows = leasableRows.filter((r: any) =>
+        r.slice(0, 3).some((c: any) => String(c || '').includes('공실')),
+      );
+      if (leasableRows.length > 0 && vacantRows.length > 0) {
+        const vacPct = Math.round((vacantRows.length / leasableRows.length) * 1000) / 10;
+        occupancyCaption = `임대 현황: 임대가능 ${leasableRows.length}개 호실 중 공실 ${vacantRows.length}건 (공실률 ${vacPct.toFixed(1)}%)`;
+      }
+    }
     const effectiveCommonNote = rawCommonNote || (hasAnyDiff ? '현행 대비 변경 항목은 이탤릭·음영으로 표기됩니다.' : '');
-    if (effectiveCommonNote) {
-      const noteText = `비고(공통): ${effectiveCommonNote}`;
+    if (effectiveCommonNote || occupancyCaption) {
+      const noteText = effectiveCommonNote ? `비고(공통): ${effectiveCommonNote}` : occupancyCaption;
       const fittedNote = fitSingleLine(noteText, tbW * 0.62, 8, 6.5, false);
       slide.addText(fittedNote.text, {
         x: tbX, y: topY - 0.26, w: tbW * 0.62, h: 0.22,

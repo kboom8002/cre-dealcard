@@ -1851,32 +1851,56 @@ export function MobileIMViewer({
                   : "공적장부 확인 필요"}
               </span>
             </div>
-            <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
-              <span className="text-[#64748B]">건폐율 / 용적률</span>
-              <span className="font-bold text-[#0F172A] tabular-nums">
-                {basicDoc.facts.building.buildingCoverageRatioPct ||
-                  Number((initialDoc as any)?.ssotSummary?.bcr_pct || 0)}
-                % /{" "}
-                {basicDoc.facts.building.floorAreaRatioPct ||
-                  Number((initialDoc as any)?.ssotSummary?.far_pct || 0)}
-                %
-              </span>
-            </div>
-            <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
-              <span className="text-[#64748B]">주차 / 승강기</span>
-              <span className="font-bold text-[#0F172A]">
-                {basicDoc.facts.building.parkingSpaces ||
-                  Number(
-                    (initialDoc as any)?.ssotSummary?.parking_total ??
-                      (initialDoc as any)?.ssotSummary?.parking_count ??
-                      0
+            {(() => {
+              const resolvedBcr =
+                Number(basicDoc.facts.building.buildingCoverageRatioPct || 0) ||
+                Number((initialDoc as any)?.ssotSummary?.bcr_pct || 0);
+              const resolvedFar =
+                Number(basicDoc.facts.building.floorAreaRatioPct || 0) ||
+                Number((initialDoc as any)?.ssotSummary?.far_pct || 0);
+              const resolvedParking =
+                Number(basicDoc.facts.building.parkingSpaces || 0) ||
+                Number(
+                  (initialDoc as any)?.ssotSummary?.parking_total ??
+                    (initialDoc as any)?.ssotSummary?.parking_count ??
+                    0
+                );
+              const resolvedElevators =
+                Number(basicDoc.facts.building.elevators || 0) ||
+                Number((initialDoc as any)?.ssotSummary?.elevator_count || 0);
+
+              return (
+                <>
+                  {(resolvedBcr > 0 || resolvedFar > 0) && (
+                    <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
+                      <span className="text-[#64748B]">건폐율 / 용적률</span>
+                      <span className="font-bold text-[#0F172A] tabular-nums">
+                        {resolvedBcr > 0 ? `${resolvedBcr}%` : "-"} /{" "}
+                        {resolvedFar > 0 ? `${resolvedFar}%` : "-"}
+                      </span>
+                    </div>
                   )}
-                대 /{" "}
-                {basicDoc.facts.building.elevators ||
-                  Number((initialDoc as any)?.ssotSummary?.elevator_count ?? 0)}
-                대
-              </span>
-            </div>
+                  {(resolvedParking > 0 || resolvedElevators > 0) && (
+                    <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
+                      <span className="text-[#64748B]">
+                        {resolvedParking > 0 && resolvedElevators > 0
+                          ? "주차 / 승강기"
+                          : resolvedParking > 0
+                          ? "주차"
+                          : "승강기"}
+                      </span>
+                      <span className="font-bold text-[#0F172A]">
+                        {resolvedParking > 0 && resolvedElevators > 0
+                          ? `${resolvedParking}대 / ${resolvedElevators}대`
+                          : resolvedParking > 0
+                          ? `총 ${resolvedParking}대`
+                          : `${resolvedElevators}대`}
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </section>
 
@@ -2274,12 +2298,35 @@ export function MobileIMViewer({
                 </strong>
               </div>
             )}
-            <div className="flex justify-between text-base font-extrabold pt-2 border-t border-[#86EFAC]">
-              <span className="text-[#065F46]">현행 임대수익률</span>
-              <span className="text-[#065F46] tabular-nums">
-                {capRatePct.toFixed(2)}%
-              </span>
-            </div>
+            {(() => {
+              const displayCurrentYieldPct =
+                Number(
+                  coverSec?.data?.grossYieldPct ??
+                    basicDoc.facts.valuation.grossYieldPct ??
+                    0
+                ) || capRatePct;
+              const showCapRateSub =
+                capRatePct > 0 &&
+                Math.abs(capRatePct - displayCurrentYieldPct) >= 0.02;
+              return (
+                <>
+                  <div className="flex justify-between text-base font-extrabold pt-2 border-t border-[#86EFAC]">
+                    <span className="text-[#065F46]">현행 임대수익률 (보증금 차감)</span>
+                    <span className="text-[#065F46] tabular-nums">
+                      {displayCurrentYieldPct.toFixed(2)}%
+                    </span>
+                  </div>
+                  {showCapRateSub && (
+                    <div className="flex justify-between text-sm text-[#475569]">
+                      <span>순수익률 (운영비 차감 추정 Cap Rate)</span>
+                      <span className="font-semibold tabular-nums">
+                        {capRatePct.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {expectedYieldPct > 0 && (
               <div
                 className="flex justify-between text-base font-extrabold pt-1 text-[#92400E]"
