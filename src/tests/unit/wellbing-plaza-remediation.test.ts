@@ -309,11 +309,11 @@ describe('Wellbing Plaza Forensic Audit Remediation (Waves 1-5)', () => {
 
         const rendered = await new MobileImPptxRenderer().render(input);
         const slides = await extractSlideTexts(rendered.buffer);
-        const rr1 = slides.find((s) => s.text.includes('렌트롤 (1/2)'));
-        const rr2 = slides.find((s) => s.text.includes('렌트롤 (2/2)'));
+        const rr1 = slides.find((s) => s.text.includes('층별 임대차 현황 (1/2)'));
+        const rr2 = slides.find((s) => s.text.includes('층별 임대차 현황 (2/2)'));
 
-        expect(rr1, '렌트롤 (1/2) 슬라이드 존재').toBeDefined();
-        expect(rr2, '렌트롤 (2/2) 슬라이드 존재').toBeDefined();
+        expect(rr1, '층별 임대차 현황 (1/2) 슬라이드 존재').toBeDefined();
+        expect(rr2, '층별 임대차 현황 (2/2) 슬라이드 존재').toBeDefined();
         expect(rr1!.text).toContain('소계');
         expect(rr2!.text).toContain('합계');
         expect(rr2!.text).toContain('15개 호실');

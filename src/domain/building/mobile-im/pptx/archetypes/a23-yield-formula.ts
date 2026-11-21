@@ -11,6 +11,7 @@ import {
   type YieldSet,
 } from '../../yield-set';
 import {
+  computeLandPriceRateStats,
   getRegionalLandPriceRateSeries,
   type RegionalLandPriceRateSeries,
 } from '@/lib/external/rone-api';
@@ -230,9 +231,9 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       stabCaption = callerAssumption;
       hasTrueStabilized = true;
     } else if (numCapRate <= 0) {
-      // 공실 100% 또는 현행 임대수입 0원 물건은 기대수익률(추정수익률)을 히어로 카드로 승격
+      // 공실 100% 또는 현행 임대수입 0원 물건은 기대수익률을 히어로 카드로 승격
       stabLabel = YIELD_LABELS.stabilizedBrokerPlan;
-      stabCaption = ysStab?.caption ?? callerAssumption ?? '공실 임대 전환 가정 기준 기대수익률(추정수익률)';
+      stabCaption = ysStab?.caption ?? callerAssumption ?? '공실 임대 전환 가정 기준 기대수익률';
       hasTrueStabilized = true;
     } else {
       stabLabel = ysStab?.label ?? stabilizedReserveLabel(yieldSet?.assumptions.vacancyReservePct);
@@ -322,8 +323,11 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
     if (planSummary) {
       const addedRentMan = Math.round(planSummary.addedMonthlyRentKrw / 10_000);
+      const newAnnualMan = Math.round(planSummary.newAnnualRentKrw / 10_000);
       const newDepBil = (planSummary.newDepositKrw / 1e8).toFixed(1);
-      const formulaLine = `산식: (현행 연임대료 + 전환 월세 ${addedRentMan.toLocaleString()}만×12) ÷ (매매가 − 전환후 보증금 ${newDepBil}억)`;
+      const formulaLine = planSummary.units.length > 0
+        ? `산식: (현행 연임대료 + 전환 월세 ${addedRentMan.toLocaleString()}만×12) ÷ (매매가 − 전환후 보증금 ${newDepBil}억)`
+        : `산식: 기대 연임대료 ${newAnnualMan.toLocaleString()}만 ÷ (매매가 − 기대 보증금 ${newDepBil}억)`;
       slide.addText(formulaLine, {
         x: yLabelX, y: yRowY, w: boxW - 0.34, h: formulaSubH,
         color: 'CBD5E1', fontFace: KR, fontSize: 8, valign: 'middle', shrinkText: true, margin: 0,
@@ -452,7 +456,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       checklist: [
         '한국부동산원 전국지가변동률조사 최근 5개년 권역 상승률 추이',
         '매매가·보증금 승계액 차감 실투자금 기준 임대수익률 산출',
-        '공실·자가사용 임대 전환 시 기대수익률(추정수익률) 시나리오 분석',
+        '공실·자가사용 임대 전환 시 기대수익률 시나리오 분석',
         '인근 거래 사례 및 임차 수요 변동성에 따른 수익률 민감도 점검',
       ],
       icon: 'chart',
@@ -490,12 +494,14 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       align: 'center', valign: 'middle', shrinkText: true, margin: 0,
     });
 
-    // ── 상단 KPI 2셀: 대지 평당 매매가 + 권역 10년 지가변동률 ──
+    // ── 상단 KPI 2셀: 대지 평당 매매가 + 권역 최근 5년 지가변동률 ──
     const askingPerLandPyeong = landAreaSqm > 0 && askingPrice > 0 ? (askingPrice / landAreaSqm) * SQM_RATIO : 0;
     const stripY = chartY + 0.40;
     const stripH = 0.56;
     const stripGap = 0.12;
     const stripCellW = (innerW - stripGap) / 2;
+    const last5Points = hasRoneSeries && roneSeries ? roneSeries.points.slice(-5) : [];
+    const last5Stats = last5Points.length > 0 ? computeLandPriceRateStats(last5Points) : null;
 
     const kpiStripCells: Array<{ label: string; value: string; accent: boolean }> = [
       {
@@ -503,10 +509,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         value: askingPerLandPyeong > 0 ? fmtPyeongPrice(askingPerLandPyeong) : '대지면적 확인 중',
         accent: false,
       },
-      hasRoneSeries && roneSeries
+      hasRoneSeries && roneSeries && last5Stats
         ? {
-            label: `${roneSeries.regionName} 10년 연평균 지가변동률`,
-            value: `+${roneSeries.geometricMeanPct.toFixed(2)}% (누적 +${roneSeries.cumulativePct.toFixed(1)}%)`,
+            label: `${roneSeries.regionName} 최근 ${last5Points.length}년 연평균 지가변동률`,
+            value: `+${last5Stats.geometricMeanPct.toFixed(2)}% (${last5Points.length}년 누적 +${last5Stats.cumulativePct.toFixed(1)}%)`,
             accent: true,
           }
         : {
@@ -539,7 +545,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     const verticalChartY = chartY + 1.06;
     const verticalChartH = chartH - 1.12;
     if (hasRoneSeries && roneSeries) {
-      const vPoints = roneSeries.points.slice(-5).map((pt) => ({
+      const vPoints = last5Points.map((pt) => ({
         year: pt.year,
         value: pt.ratePct,
         formattedLabel: `${pt.ratePct >= 0 ? '+' : ''}${pt.ratePct.toFixed(2)}%`,
@@ -573,7 +579,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 하단 요약 밴드: 현행 임대수익률 ↔ 기대수익률(추정수익률) 산출 기준 (단순 합산 기대수익률 제거)
+  // 하단 요약 밴드: 현행 임대수익률 ↔ 기대수익률 산출 기준 (단순 합산 기대수익률 제거)
   // ══════════════════════════════════════════════════════════════
   if (hasStabilized || numCapRate > 0) {
     slide.addShape('roundRect', {
@@ -619,11 +625,13 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         },
       );
     } else if (roneSeries) {
-      slide.addText(`${roneSeries.regionName} 10년 연평균 지가변동률 (한국부동산원 R-ONE)`, {
+      const bandLast5 = roneSeries.points.slice(-5);
+      const bandLast5Stats = computeLandPriceRateStats(bandLast5);
+      slide.addText(`${roneSeries.regionName} 최근 ${bandLast5.length}년 연평균 지가변동률 (한국부동산원 R-ONE)`, {
         x: rightBoxX, y: bandY + 0.08, w: rightBoxW, h: 0.26,
         fontFace: KR, fontSize: 10.5, bold: true, color: C.navy || C.ink2, valign: 'middle', shrinkText: true, margin: 0,
       });
-      slide.addText(`+${roneSeries.geometricMeanPct.toFixed(2)}% (누적 +${roneSeries.cumulativePct.toFixed(1)}%)`, {
+      slide.addText(`+${bandLast5Stats.geometricMeanPct.toFixed(2)}% (${bandLast5.length}년 누적 +${bandLast5Stats.cumulativePct.toFixed(1)}%)`, {
         x: rightBoxX, y: bandY + 0.36, w: rightBoxW, h: 0.48,
         fontFace: KR, fontSize: 14.5, bold: true, color: C.ink, valign: 'middle', margin: 0,
       });
@@ -633,7 +641,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ── 각주: 보증금 승계 및 산출 기준 (8pt, Cap Rate 문구 배제) ──
   const footnoteText = yieldSet
     ? yieldFootnote(yieldSet.assumptions)
-    : '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 포함) 기준, 기대수익률(추정수익률)은 공실·자가사용 임대 전환 가정치입니다.';
+    : '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 포함) 기준, 기대수익률은 공실·자가사용 임대 전환 가정치입니다.';
   slide.addText(footnoteText, {
     x: M, y: footY, w: CW, h: FOOTNOTE_H,
     fontSize: 8, color: '8A8A8A', fontFace: KR, valign: 'middle', shrinkText: true, margin: 0,

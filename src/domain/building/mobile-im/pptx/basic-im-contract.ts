@@ -37,7 +37,7 @@ export const BASIC_IM_SLIDE_CONTRACT: readonly BasicImSlideSlot[] = [
   { seq: 3, archetype: 'A04', dataKey: 'building',     required: true,     label: '물건 개요' },
   { seq: 4, archetype: 'A06', dataKey: 'location',     required: true,     label: '입지 정보' },
   { seq: 5, archetype: 'A04', dataKey: 'land',         required: true,     label: '토지 정보' },
-  { seq: 6, archetype: 'A24', dataKey: 'rentRoll',     required: 'income', label: '렌트롤' },
+  { seq: 6, archetype: 'A24', dataKey: 'rentRoll',     required: 'income', label: '층별 임대차 현황' },
   { seq: 7, archetype: 'A23', dataKey: 'yieldFormula', required: 'income', label: '수익률' },
   { seq: 8, archetype: 'A14', dataKey: 'gallery',      required: false,    label: '현장 사진', condition: 'hasPhotos' },
   { seq: 9, archetype: 'A10', dataKey: 'closing',      required: true,     label: '문의/유의' },
@@ -61,12 +61,12 @@ export const BASIC_IM_OPTIONAL_SLIDES = {
     label: '지구단위계획·도면',
     condition: 'hasBrokerRegulationImages' as const,
   },
-  /** 기대수익률(추정수익률) 렌트롤: 현황 렌트롤(seq6) 바로 뒤 (중개인 기대 렌트롤 입력 시) */
+  /** 기대수익률 임대차 현황: 현행(seq6) 바로 뒤 (중개인 기대 조건 입력 시) */
   expectedRentRoll: {
     afterSeq: 6,
     archetype: 'A24' as const,
     dataKey: 'expectedRentRoll' as const,
-    label: '기대수익률(추정수익률) 렌트롤',
+    label: '기대수익률 임대차 현황',
     condition: 'hasExpectedRentRoll' as const,
   },
   /** 인근 시세 비교: 수익률(seq7) 바로 뒤 (수익률 면이 없는 포스처는 토지 뒤) */

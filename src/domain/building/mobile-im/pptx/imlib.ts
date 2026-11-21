@@ -630,7 +630,7 @@ export function head(
   title: string,
   sub?: string,
 ): void {
-  const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
+  const numStr = typeof num === 'number' ? (num > 0 ? String(num).padStart(2, '0') : '') : num;
   const style = THEME_META.layoutStyle;
 
   // 프리미엄 템플릿 및 일반 템플릿 공통: 제목/키커에서 모든 이모지 및 Variation Selector, 깨진 기호 제거
@@ -897,7 +897,7 @@ export function headD(
   title: string,
   sub?: string,
 ): void {
-  const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
+  const numStr = typeof num === 'number' ? (num > 0 ? String(num).padStart(2, '0') : '') : num;
   const style = THEME_META.layoutStyle;
 
   // 프리미엄 템플릿 및 일반 템플릿 공통: 제목/키커에서 모든 이모지 및 Variation Selector, 깨진 기호 제거
@@ -1042,15 +1042,16 @@ export function foot(
 ): void {
   // B9 Fix: docno 안전 가드 — undefined/null → 빈 문자열
   const safeDocno = (docno != null && docno !== 'undefined' && docno !== 'null') ? docno : '';
+  const showPage = typeof page === 'number' && Number.isFinite(page) && page > 0;
+  const pageText = showPage ? String(page) : '';
   const textColor = onDark ? CD.faint : C.mute;
   const style = THEME_META.layoutStyle;
 
   switch (style) {
     case 'modern': {
-      // 중앙 도트 구분 + 액센트 페이지 번호
-      const footText = safeDocno
-        ? `${THEME_META.companyName}  ·  ${safeDocno}  ·  ${page}`
-        : `${THEME_META.companyName}  ·  ${page}`;
+      // 중앙 도트 구분 + 액센트 페이지 번호 (표지 page<=0 시 번호 미표기)
+      const footParts = [THEME_META.companyName, safeDocno, pageText].filter(Boolean);
+      const footText = footParts.join('  ·  ');
       s.addText(footText, {
         x: M, y: 7.02, w: CW, h: 0.22,
         align: 'center', fontSize: 9, color: textColor, fontFace: KR, margin: 0,
@@ -1072,18 +1073,22 @@ export function foot(
         x: M, y: 7.00, w: CW * 0.5, h: 0.22,
         fontSize: 9, color: textColor, fontFace: KR, margin: 0,
       });
-      s.addText(String(page), {
-        x: W - M - 0.6, y: 7.00, w: 0.6, h: 0.22,
-        align: 'right', fontSize: 8, bold: true, color: C.brass, fontFace: NUM, margin: 0,
-      });
+      if (showPage) {
+        s.addText(pageText, {
+          x: W - M - 0.6, y: 7.00, w: 0.6, h: 0.22,
+          align: 'right', fontSize: 8, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+        });
+      }
       break;
     }
     case 'minimal': {
       // 페이지 번호만 우측
-      s.addText(String(page), {
-        x: W - M - 0.6, y: 7.02, w: 0.6, h: 0.22,
-        align: 'right', fontSize: 8, color: C.mute2, fontFace: NUM, margin: 0,
-      });
+      if (showPage) {
+        s.addText(pageText, {
+          x: W - M - 0.6, y: 7.02, w: 0.6, h: 0.22,
+          align: 'right', fontSize: 8, color: C.mute2, fontFace: NUM, margin: 0,
+        });
+      }
       break;
     }
     case 'dramatic': {
@@ -1100,10 +1105,12 @@ export function foot(
         x: M, y: 7.12, w: 8, h: 0.20,
         fontSize: 9, color: onDark ? CD.faint : CD.mute, fontFace: KR, margin: 0,
       });
-      s.addText(String(page), {
-        x: W - M - 0.8, y: 7.12, w: 0.8, h: 0.20,
-        align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
-      });
+      if (showPage) {
+        s.addText(pageText, {
+          x: W - M - 0.8, y: 7.12, w: 0.8, h: 0.20,
+          align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+        });
+      }
       break;
     }
     case 'open_frame': {
@@ -1118,10 +1125,12 @@ export function foot(
         x: M, y: 7.00, w: 8, h: 0.22,
         fontSize: 8.5, color: textColor, fontFace: KR, margin: 0,
       });
-      s.addText(String(page), {
-        x: W - M - 0.8, y: 7.00, w: 0.8, h: 0.22,
-        align: 'right', fontSize: 8.5, bold: true, color: C.brass, fontFace: NUM, margin: 0,
-      });
+      if (showPage) {
+        s.addText(pageText, {
+          x: W - M - 0.8, y: 7.00, w: 0.8, h: 0.22,
+          align: 'right', fontSize: 8.5, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+        });
+      }
       break;
     }
     case 'classic':
@@ -1133,10 +1142,12 @@ export function foot(
         x: M, y: 6.98, w: 8, h: 0.24,
         fontSize: 8, color: textColor, fontFace: KR, margin: 0,
       });
-      s.addText(String(page), {
-        x: W - M - 1.0, y: 6.98, w: 1.0, h: 0.24,
-        align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
-      });
+      if (showPage) {
+        s.addText(pageText, {
+          x: W - M - 1.0, y: 6.98, w: 1.0, h: 0.24,
+          align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+        });
+      }
       break;
     }
   }
@@ -1728,11 +1739,13 @@ export function callout(
     .replace(/^[#\s•·\-*]+/g, '')
     .trim();
 
-  s.addText(cleanCalloutTitle, {
-    x: x + 0.16, y: y + 0.10, w: w - 0.28, h: 0.22,
-    fontSize: 10.5, bold: true, color: titleColor,
-    fontFace: KR, margin: 0,
-  });
+  if (cleanCalloutTitle) {
+    s.addText(cleanCalloutTitle, {
+      x: x + 0.16, y: y + 0.10, w: w - 0.28, h: 0.22,
+      fontSize: 10.5, bold: true, color: titleColor,
+      fontFace: KR, margin: 0,
+    });
+  }
 
   // 본문 (불릿 분리 및 행잉 인덴트 렌더링 — 박스 충전율 및 불릿 간격 최적화)
   const bodyLines = (body || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
@@ -1758,8 +1771,10 @@ export function callout(
   });
 
   if (textRuns.length > 0) {
+    const bodyY = cleanCalloutTitle ? y + 0.32 : y + 0.12;
+    const bodyH = cleanCalloutTitle ? Math.max(0.24, h - 0.36) : Math.max(0.24, h - 0.20);
     s.addText(textRuns, {
-      x: x + 0.16, y: y + 0.32, w: w - 0.28, h: h - 0.36,
+      x: x + 0.16, y: bodyY, w: w - 0.28, h: bodyH,
       valign: 'top', margin: 0, lineSpacingMultiple: 1.08,
     });
   }

@@ -736,7 +736,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
   const nationalLawText = String(confirm?.nationalLaw || '').trim();
   if (nationalLawText) {
     planEntries.push({
-      label: '「국토의 계획 및 이용에 관한 법률」에\n따른 지역·지구등',
+      label: '「국토의 계획 및 이용에\n관한 법률」 지역·지구등',
       value: nationalLawText,
       weight: 1,
       fontSize: nationalLawText.length > 90 ? 8.5 : 9.0,
@@ -805,7 +805,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
         text: entry.label,
         options: {
           fontFace: KR,
-          fontSize: 8.5,
+          fontSize: 8.2,
           bold: true,
           color: C.ink2,
           fill: { color: C.tint },
@@ -833,7 +833,7 @@ export async function buildA27LandUsePlan(input: ArchetypeInput): Promise<Archet
       x: leftX,
       y: planTableY,
       w: leftW,
-      colW: [1.95, leftW - 1.95],
+      colW: [2.12, leftW - 2.12],
       rowH: rowHeights,
       border: { type: 'solid', pt: 0.5, color: C.line },
     });

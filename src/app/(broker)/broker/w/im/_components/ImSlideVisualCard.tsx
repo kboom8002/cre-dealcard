@@ -24,6 +24,7 @@ const SLIDE_NO_TO_UNIT_ID: Record<string, string> = {
 
 export interface ImSlideVisualCardProps {
   slide: BasicImSlideSummary;
+  totalSlides?: number;
   activeUnitId?: string | null;
   onFocusUnit: (unitId: string) => void;
   onCloseFullscreenIfOpen?: () => void;
@@ -39,6 +40,7 @@ export interface ImSlideVisualCardProps {
 
 export function ImSlideVisualCard({
   slide,
+  totalSlides = 10,
   activeUnitId,
   onFocusUnit,
   onCloseFullscreenIfOpen,
@@ -51,10 +53,11 @@ export function ImSlideVisualCard({
   totalRentManwon,
   brokerageName,
 }: ImSlideVisualCardProps) {
-  const slideUnitId = SLIDE_NO_TO_UNIT_ID[slide.no] || "im-unit-cover";
+  const semanticId = slide.id || slide.no;
+  const slideUnitId = slide.unitId || SLIDE_NO_TO_UNIT_ID[semanticId] || "im-unit-cover";
   const isSlideActive =
     activeUnitId === slideUnitId ||
-    (slide.no === "02" && Boolean(activeUnitId?.startsWith("im-unit-highlight-")));
+    (semanticId === "02" && Boolean(activeUnitId?.startsWith("im-unit-highlight-")));
   const coverSrc = photoEntries[0]
     ? resolveRenderablePhotoSrc(photoEntries[0])
     : undefined;
@@ -63,7 +66,7 @@ export function ImSlideVisualCard({
     <div
       role="button"
       tabIndex={0}
-      data-testid={`im-slide-preview-${slide.no}`}
+      data-testid={`im-slide-preview-${semanticId}`}
       data-preview-unit-id={slideUnitId}
       data-preview-active={isSlideActive ? "true" : "false"}
       aria-label={`${slide.no} ${slide.title} 편집하기`}
@@ -90,15 +93,15 @@ export function ImSlideVisualCard({
         className="bg-[#0F172A] text-white px-3 py-1.5 flex items-center justify-between shrink-0"
       >
         <span className="text-sm font-extrabold text-[#93C5FD] truncate">
-          {slide.no} · {slide.title}
+          {slide.no === "표지" ? "표지" : `${slide.no} · ${slide.title}`}
         </span>
         <span className="text-sm text-slate-300 font-mono shrink-0">
-          {slide.no} / 10
+          {slide.no === "표지" ? `표지 / ${totalSlides}` : `${slide.no} / ${Math.max(1, totalSlides - 1)}`}
         </span>
       </div>
 
       <div className="px-3 py-2 flex-1 min-h-0 flex flex-col justify-center gap-1.5 overflow-hidden">
-        {slide.no === "01" && coverSrc ? (
+        {semanticId === "01" && coverSrc ? (
           <div className="grid grid-cols-5 gap-2 items-center h-full min-h-0">
             <div className="col-span-3 space-y-1 min-w-0">
               <span className="inline-block text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded">
@@ -119,7 +122,7 @@ export function ImSlideVisualCard({
               className="col-span-2 w-full h-16 object-cover rounded-lg border border-slate-200"
             />
           </div>
-        ) : slide.no === "02" ? (
+        ) : semanticId === "02" ? (
           <div className="space-y-1">
             <p data-single-line-title="true" title={slide.summary} className="sr-only">
               {slide.summary}
@@ -136,7 +139,7 @@ export function ImSlideVisualCard({
               </div>
             ))}
           </div>
-        ) : slide.no === "06" && rentRoll.length > 0 ? (
+        ) : semanticId === "06" && rentRoll.length > 0 ? (
           <div className="space-y-1">
             <p
               data-single-line-title="true"
@@ -152,7 +155,7 @@ export function ImSlideVisualCard({
                   className="flex items-center justify-between gap-2 truncate"
                 >
                   <span className="font-bold text-slate-800">
-                    {r.floor} · {r.use || "임대"}
+                    {r.floor} · {r.tenantName ? `${r.tenantName}(${r.use || "임대"})` : r.use || "임대"}
                   </span>
                   <span className="font-mono text-slate-700 shrink-0">
                     {(r.depositManwon ?? 0).toLocaleString()}/
@@ -162,7 +165,7 @@ export function ImSlideVisualCard({
               ))}
             </div>
           </div>
-        ) : slide.no === "09" && photoEntries.length > 0 ? (
+        ) : semanticId === "09" && photoEntries.length > 0 ? (
           <div className="space-y-1">
             <p
               data-single-line-title="true"
@@ -195,12 +198,12 @@ export function ImSlideVisualCard({
             >
               {slide.summary}
             </p>
-            {(slide.no === "03" || slide.no === "05" || slide.no === "07") && (
+            {(semanticId === "03" || semanticId === "05" || semanticId === "07") && (
               <div className="flex items-center gap-1.5 pt-0.5">
                 <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-sm font-semibold text-slate-700 truncate">
-                  {slide.no === "03"
+                  {semanticId === "03"
                     ? `연면적: ${gfaSqm || "—"}㎡`
-                    : slide.no === "05"
+                    : semanticId === "05"
                     ? `용도지역: ${zoning || "미입력"}`
                     : `월임대료 ${totalRentManwon.toLocaleString()}만원`}
                 </span>

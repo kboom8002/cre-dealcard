@@ -272,9 +272,9 @@ describe("Human Tester V-1.1 Audit Remediation Suite (Positive + Negative Pairs)
       expect(titleInput.value).not.toContain("마포구 수익형 빌딩");
     }
 
-    // Switch to 발표자료 10면 and verify visual white slide cards + fullscreen modal
+    // Switch to 발표자료 미리보기 and verify visual white slide cards + fullscreen modal
     const pptxTab = Array.from(container.querySelectorAll('[role="tab"]')).find((el) =>
-      el.textContent?.includes("발표자료 10면")
+      el.textContent?.includes("발표자료")
     ) as HTMLButtonElement;
     expect(pptxTab).not.toBeNull();
     await act(async () => {

@@ -4,7 +4,11 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } fr
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
-import { generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
+import {
+  generateFloorScaffolding,
+  rankFloorTopDown,
+  type BuildingRegisterFloorItem,
+} from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import {
   normalizeFloorName,
@@ -52,8 +56,10 @@ import {
   SAMPLE_SEED_IDS,
   sortImWorkspaceItems,
   UUID_REGEX,
+  buildAddedPhotoEntries,
   buildBasicImSlides,
   buildFallbackImHighlights,
+  buildImSyncUnits,
   buildPhotosPayloadFromEntries,
   cleanBrokerPlaceholder,
   createBlankImItem,
@@ -353,6 +359,9 @@ function ImWorkspaceInner() {
   const [officialLandPricePerSqm, setOfficialLandPricePerSqm] = useState<
     number | undefined
   >(currentItem?.officialLandPricePerSqm);
+  const [buildingRegisterFloors, setBuildingRegisterFloors] = useState<
+    BuildingRegisterFloorItem[] | undefined
+  >(undefined);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [parcels, setParcels] = useState<any[] | undefined>(currentItem?.parcels);
   const [photoNames, setPhotoNames] = useState<string[]>(
@@ -414,6 +423,7 @@ function ImWorkspaceInner() {
     setParkingTotal(item.parkingTotal);
     setElevatorCount(item.elevatorCount);
     setOfficialLandPricePerSqm(item.officialLandPricePerSqm);
+    setBuildingRegisterFloors(undefined);
     setParcels(item.parcels);
     if (Array.isArray(item.photos) && item.photos.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -567,6 +577,53 @@ function ImWorkspaceInner() {
       ) / 10,
     [rentRoll]
   );
+
+  const expectedRentManwon = useMemo(
+    () =>
+      Math.round(
+        expectedRentRoll.reduce(
+          (s, r) =>
+            s +
+            (r.status !== "vacant" && r.status !== "owner"
+              ? Number(
+                  r.monthlyRentManwon ??
+                    (r as unknown as Record<string, unknown>).rent_manwon ??
+                    0
+                )
+              : 0),
+          0
+        ) * 10
+      ) / 10,
+    [expectedRentRoll]
+  );
+
+  const expectedDepositManwon = useMemo(
+    () =>
+      Math.round(
+        expectedRentRoll.reduce(
+          (s, r) =>
+            s +
+            (r.status !== "vacant" && r.status !== "owner"
+              ? Number(
+                  r.depositManwon ??
+                    (r as unknown as Record<string, unknown>).deposit_manwon ??
+                    0
+                )
+              : 0),
+          0
+        ) * 10
+      ) / 10,
+    [expectedRentRoll]
+  );
+
+  const expectedYieldPct = useMemo(() => {
+    if (!askingPriceManwon || askingPriceManwon <= 0 || expectedRentRoll.length === 0) {
+      return 0;
+    }
+    const netInv = askingPriceManwon - expectedDepositManwon;
+    if (netInv <= 0 || expectedRentManwon <= 0) return 0;
+    return ((expectedRentManwon * 12) / netInv) * 100;
+  }, [askingPriceManwon, expectedDepositManwon, expectedRentManwon, expectedRentRoll.length]);
 
   const calculatedYield = useMemo(() => {
     if (!askingPriceManwon || askingPriceManwon <= 0) return 0;
@@ -1167,6 +1224,9 @@ function ImWorkspaceInner() {
           if (nextOfficialLandPricePerSqm !== undefined) {
             setOfficialLandPricePerSqm(nextOfficialLandPricePerSqm);
           }
+          if (Array.isArray(data.floors) && data.floors.length > 0) {
+            setBuildingRegisterFloors(data.floors);
+          }
           setParcels(nextParcels);
         }
 
@@ -1227,7 +1287,8 @@ function ImWorkspaceInner() {
           if (originRentRoll.some((r) => r.id === "r-b1")) {
             const freshRows = generateFloorScaffolding(
               Number(data.floorsAbove) || 3,
-              Number(data.floorsBelow) || 1
+              Number(data.floorsBelow) || 1,
+              Array.isArray(data.floors) ? data.floors : undefined
             );
             if (isStillSelected) setRentRoll(freshRows);
             patch.rentRoll = freshRows;
@@ -1253,11 +1314,12 @@ function ImWorkspaceInner() {
           originRentRoll.every(
             (r) => r.id.startsWith("scaffold-") && !r.depositManwon && !r.monthlyRentManwon
           ) &&
-          (Number(data.floorsAbove) > 0 || Number(data.floorsBelow) > 0)
+          (Number(data.floorsAbove) > 0 || Number(data.floorsBelow) > 0 || (Array.isArray(data.floors) && data.floors.length > 0))
         ) {
           const freshRows = generateFloorScaffolding(
             Number(data.floorsAbove) || 3,
-            Number(data.floorsBelow) || 1
+            Number(data.floorsBelow) || 1,
+            Array.isArray(data.floors) ? data.floors : undefined
           );
           if (isStillSelected) setRentRoll(freshRows);
           patch.rentRoll = freshRows;
@@ -1323,9 +1385,7 @@ function ImWorkspaceInner() {
       const tenantNameTrimmed = r.tenant_name?.trim() || undefined;
       const tenantTypeTrimmed = r.tenant_type?.trim() || undefined;
       const useLabel =
-        tenantTypeTrimmed && tenantNameTrimmed && tenantTypeTrimmed !== tenantNameTrimmed
-          ? `${tenantNameTrimmed} / ${tenantTypeTrimmed}`
-          : tenantTypeTrimmed || tenantNameTrimmed || (r.is_vacant ? "공실" : "근린생활시설");
+        tenantTypeTrimmed || (r.is_vacant ? "공실" : tenantNameTrimmed ? "근린생활시설" : "근린생활시설");
       return {
         id: `r-xlsx-${Date.now()}-${idx}`,
         floor: normalizeFloorName(r.floor || `${idx + 1}F`),
@@ -1347,10 +1407,12 @@ function ImWorkspaceInner() {
             : "occupied",
       };
     });
-    const normalizedRows = mappedRows.map((r) => ({
-      ...r,
-      floor: normalizeFloorName(r.floor),
-    }));
+    const normalizedRows = mappedRows
+      .map((r) => ({
+        ...r,
+        floor: normalizeFloorName(r.floor),
+      }))
+      .sort((a, b) => rankFloorTopDown(b.floor) - rankFloorTopDown(a.floor));
     const finalRows = normalizedRows;
     const prevRows = [...rentRoll];
     const prevPrice = askingPriceManwon;
@@ -1402,36 +1464,7 @@ function ImWorkspaceInner() {
     if (files.length === 0) return;
     const targetId = currentItem?.id || selectedIdRef.current;
     const baseEntries = latestPhotoEntriesRef.current;
-    const baseOffset = baseEntries.length;
-    let extCounter = baseEntries.filter((p) => p.category === "exterior").length;
-    let intCounter = baseEntries.filter((p) => p.category !== "exterior").length;
-    const addedEntries: ImPhotoEntry[] = files.map((f, idx) => {
-      const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
-      const resolvedCategory = forcedCategory || inferred.category;
-      let resolvedCaption = inferred.caption;
-      if (forcedCategory === "exterior") {
-        extCounter += 1;
-        resolvedCaption = extCounter === 1 ? "외관 1 (대표)" : `외관 ${extCounter}`;
-      } else if (forcedCategory === "interior") {
-        intCounter += 1;
-        resolvedCaption = `내부 ${intCounter}`;
-      }
-      const knownUrl = resolveKnownTestAssetUrl(f.name);
-      const blobUrl =
-        !isHeicLikeFile(f) &&
-        typeof URL !== "undefined" &&
-        typeof URL.createObjectURL === "function"
-          ? URL.createObjectURL(f)
-          : knownUrl;
-      return {
-        id: `photo-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
-        name: f.name,
-        url: knownUrl,
-        category: resolvedCategory,
-        caption: resolvedCaption,
-        previewUrl: blobUrl || knownUrl,
-      };
-    });
+    const addedEntries = buildAddedPhotoEntries(files, baseEntries, forcedCategory);
     const mergedEntries = [...baseEntries, ...addedEntries];
     const nextNames = mergedEntries.map((p) => p.name);
     latestPhotoEntriesRef.current = mergedEntries;
@@ -1562,6 +1595,36 @@ function ImWorkspaceInner() {
     );
     latestPhotoEntriesRef.current = nextEntries;
     setPhotoEntries(nextEntries);
+    syncCurrentItemPatch(
+      {
+        photoNames: nextEntries.map((pe) => pe.name),
+        photos: sanitizePhotosForSync(nextEntries),
+      },
+      targetId
+    );
+  };
+
+  const handleReorderPhoto = (fromIdx: number, toIdx: number) => {
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const baseList =
+      latestPhotoEntriesRef.current.length > 0
+        ? latestPhotoEntriesRef.current
+        : photoEntries;
+    if (
+      fromIdx < 0 ||
+      toIdx < 0 ||
+      fromIdx >= baseList.length ||
+      toIdx >= baseList.length ||
+      fromIdx === toIdx
+    ) {
+      return;
+    }
+    const nextEntries = [...baseList];
+    const [moved] = nextEntries.splice(fromIdx, 1);
+    nextEntries.splice(toIdx, 0, moved);
+    latestPhotoEntriesRef.current = nextEntries;
+    setPhotoEntries(nextEntries);
+    setPhotoNames(nextEntries.map((pe) => pe.name));
     syncCurrentItemPatch(
       {
         photoNames: nextEntries.map((pe) => pe.name),
@@ -2024,6 +2087,7 @@ function ImWorkspaceInner() {
                   versionLabel: nextPublishStatus === "published" ? "발행됨" : "임시저장",
                   updatedAt: new Date().toISOString(),
                   rentRoll: reqRentRoll,
+                  expectedRentRoll: [...expectedRentRoll],
                   investmentPosture: reqPosture,
                   gfaSqm: reqGfa,
                   completionDate: reqCompletion,
@@ -2402,123 +2466,13 @@ function ImWorkspaceInner() {
     ? `✓ ${TERMS.createIm} 완료 (다시 반영하기)`
     : TERMS.createIm;
 
-  const imSyncUnits: Record<string, EditorUnitTarget<ImEditorTabKey>> = {
-    "im-unit-cover": {
-      unitId: "im-unit-cover",
-      label: "01 표지 · 제목",
-      tab: "specs",
-      editorSelector: '[data-testid="im-cover-title-section"]',
-      focusSelector: "#im-title-single-line-input",
+  const imSyncUnits = buildImSyncUnits({
+    askingPriceManwon,
+    onOpenBrokerSection: () => {
+      brokerSectionTouchedRef.current = true;
+      setIsBrokerSectionOpen(true);
     },
-    "im-unit-address": {
-      unitId: "im-unit-address",
-      label: "건물 주소",
-      tab: "specs",
-      editorSelector: '[data-testid="im-address-section"]',
-      focusSelector: "#im-address-input",
-    },
-    "im-unit-price": {
-      unitId: "im-unit-price",
-      label: "희망 매매가",
-      tab: "specs",
-      editorSelector: '[data-testid="im-price-section"]',
-      focusSelector: "#im-price-won-input",
-    },
-    "im-unit-highlights": {
-      unitId: "im-unit-highlights",
-      label: "02 핵심 장점",
-      tab: "axios_brief",
-      editorSelector: '[data-testid="im-axios-postit-0"]',
-      focusSelector: "#im-axios-point-title-0",
-    },
-    "im-unit-highlight-0": {
-      unitId: "im-unit-highlight-0",
-      label: "핵심 장점 01",
-      tab: "axios_brief",
-      editorSelector: '[data-testid="im-axios-postit-0"]',
-      focusSelector: "#im-axios-point-title-0",
-    },
-    "im-unit-highlight-1": {
-      unitId: "im-unit-highlight-1",
-      label: "핵심 장점 02",
-      tab: "axios_brief",
-      editorSelector: '[data-testid="im-axios-postit-1"]',
-      focusSelector: "#im-axios-point-title-1",
-    },
-    "im-unit-highlight-2": {
-      unitId: "im-unit-highlight-2",
-      label: "핵심 장점 03",
-      tab: "axios_brief",
-      editorSelector: '[data-testid="im-axios-postit-2"]',
-      focusSelector: "#im-axios-point-title-2",
-    },
-    "im-unit-building": {
-      unitId: "im-unit-building",
-      label: "03 건축물 개요",
-      tab: "specs",
-      editorSelector: '[data-testid="im-building-specs-section"]',
-      focusSelector: "#im-gfa-input",
-    },
-    "im-unit-location": {
-      unitId: "im-unit-location",
-      label: "04 입지 및 교통",
-      tab: "specs",
-      editorSelector: '[data-testid="im-address-section"]',
-      focusSelector: "#im-address-input",
-    },
-    "im-unit-land": {
-      unitId: "im-unit-land",
-      label: "05 토지 및 도시계획",
-      tab: "specs",
-      editorSelector: '[data-testid="im-building-specs-section"]',
-      focusSelector: "#im-land-area-input",
-    },
-    "im-unit-rentroll": {
-      unitId: "im-unit-rentroll",
-      label: "06 층별 임대차 상세",
-      tab: "rentroll",
-      editorSelector: '[data-testid="rent-roll-grid"]',
-      focusSelector: 'input[data-rr-cell="0:floor"]',
-    },
-    "im-unit-yield": {
-      unitId: "im-unit-yield",
-      label: "07 수지 및 수익률 분석",
-      tab: askingPriceManwon > 0 ? "rentroll" : "specs",
-      editorSelector:
-        askingPriceManwon > 0
-          ? '[data-testid="rent-roll-grid"]'
-          : '[data-testid="im-price-section"]',
-      focusSelector:
-        askingPriceManwon > 0
-          ? 'input[data-rr-cell="0:monthlyRentManwon"]'
-          : "#im-price-won-input",
-    },
-    "im-unit-comps": {
-      unitId: "im-unit-comps",
-      label: "08 인근 실거래 비교",
-      tab: "specs",
-      editorSelector: '[data-testid="im-address-section"]',
-      focusSelector: "#im-address-input",
-    },
-    "im-unit-photos": {
-      unitId: "im-unit-photos",
-      label: "09 현장 사진 및 지적도",
-      tab: "media_publish",
-      editorSelector: '[data-testid="im-photo-dropzone"]',
-      focusSelector: '[data-testid="im-photo-select-btn"]',
-    },
-    "im-unit-broker": {
-      unitId: "im-unit-broker",
-      label: "10 거래 조건 및 담당 중개인",
-      tab: "axios_brief",
-      editorSelector: '[data-testid="im-broker-handover-panel"]',
-      focusSelector: "#im-handover-note-input",
-      onBeforeFocus: () => {
-        brokerSectionTouchedRef.current = true;
-        setIsBrokerSectionOpen(true);
-      },
-    },
-  };
+  });
 
   const sync = useEditorPreviewSync({
     units: imSyncUnits,
@@ -2574,6 +2528,9 @@ function ImWorkspaceInner() {
     postureKoreanLabel,
     axiosHighlights,
     calculatedYield,
+    expectedYieldPct,
+    expectedRentRollLength: expectedRentRoll.length,
+    compCount: (brokerExtrasForm.compRows || []).length,
     gfaSqm,
     completionDate,
     rentRollLength: rentRoll.length,
@@ -2592,6 +2549,7 @@ function ImWorkspaceInner() {
   const renderSlideVisualCard = (slide: (typeof basicImSlides)[number]) => (
     <ImSlideVisualCard
       slide={slide}
+      totalSlides={basicImSlides.length}
       activeUnitId={sync.activeUnitId}
       onFocusUnit={sync.focusEditorUnit}
       onCloseFullscreenIfOpen={
@@ -2621,9 +2579,9 @@ function ImWorkspaceInner() {
     <>
       <WorkspaceShell
         workspace="im"
-        listTitle={TERMS.colPick}
-        editorTitle={TERMS.colFill}
-        previewTitle={TERMS.colPreviewSend}
+        listTitle="매물 선택"
+        editorTitle="내용 입력"
+        previewTitle="미리보기 · 발행"
         listSlot={
           <ImListSidebar
             filteredItems={filteredItems}
@@ -2690,6 +2648,8 @@ function ImWorkspaceInner() {
             }}
             isLookingUpAddress={isLookingUpAddress}
             onLookupAddress={handleLookupAddress}
+            pnu={currentItem?.pnu}
+            buildingFloors={buildingRegisterFloors}
             parcels={parcels}
             askingPriceManwon={askingPriceManwon}
             priceBandStr={priceBandStr}
@@ -2771,6 +2731,12 @@ function ImWorkspaceInner() {
             isRentRollImportOpen={isRentRollImportOpen}
             onToggleRentRollImport={() => setIsRentRollImportOpen((prev) => !prev)}
             onExcelRentRollImport={handleExcelRentRollImport}
+            compRows={brokerExtrasForm.compRows || []}
+            onChangeCompRows={(nextCompRows) => {
+              const nextForm = { ...brokerExtrasForm, compRows: nextCompRows };
+              setBrokerExtrasForm(nextForm);
+              syncCurrentItemPatch({ brokerExtrasForm: nextForm });
+            }}
             axiosHighlights={axiosHighlights}
             onChangeAxiosHighlights={(next) => {
               setAxiosHighlights(next);
@@ -2779,15 +2745,6 @@ function ImWorkspaceInner() {
             postitStyles={postitStyles}
             isAiPointsBusy={isAiPointsBusy}
             onReclusterImAxios={handleReclusterImAxios}
-            locationGrades={brokerExtrasForm.locationGrades || {}}
-            onChangeLocationGrade={(key, grade) => {
-              const nextGrades = { ...(brokerExtrasForm.locationGrades || {}) };
-              if (!grade) delete nextGrades[key];
-              else nextGrades[key] = grade;
-              const nextForm = { ...brokerExtrasForm, locationGrades: nextGrades };
-              setBrokerExtrasForm(nextForm);
-              syncCurrentItemPatch({ brokerExtrasForm: nextForm });
-            }}
             isBrokerSectionOpen={isBrokerSectionOpen}
             onToggleBrokerSection={() => setIsBrokerSectionOpen((prev) => !prev)}
             onMarkBrokerSectionTouched={() => {
@@ -2820,6 +2777,7 @@ function ImWorkspaceInner() {
             isCompressingPhotos={isCompressingPhotos}
             onFilesSelected={handlePhotoFilesSelected}
             onUpdatePhotoMeta={handleUpdatePhotoMeta}
+            onReorderPhoto={handleReorderPhoto}
             onRemovePhotoAtIndex={handleRemovePhotoAtIndex}
             isGenerating={isGenerating}
             generateButtonLabel={generateButtonLabel}
@@ -2850,8 +2808,19 @@ function ImWorkspaceInner() {
             landAreaSqm={landAreaSqm}
             zoning={zoning}
             rentRoll={rentRoll}
+            expectedRentRoll={expectedRentRoll}
             totalDepositManwon={totalDepositManwon}
             totalRentManwon={totalRentManwon}
+            expectedDepositManwon={expectedDepositManwon}
+            expectedRentManwon={expectedRentManwon}
+            expectedYieldPct={expectedYieldPct}
+            compRows={brokerExtrasForm.compRows || []}
+            lat={currentItem?.lat}
+            lng={currentItem?.lng}
+            cadastralImageUrl={
+              (currentItem?.brokerExtras?.enrichment?.cadastralMapImage as string | undefined) ||
+              undefined
+            }
             brokerageName={brokerageName}
             brokerName={brokerName}
             brokerPhone={brokerPhone}
@@ -2866,6 +2835,7 @@ function ImWorkspaceInner() {
           <ImPreviewTabSwitcher
             previewTab={previewTab}
             onChangePreviewTab={setPreviewTab}
+            slideCount={basicImSlides.length}
           />
         }
         primaryActionSlot={

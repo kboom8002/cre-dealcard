@@ -231,9 +231,10 @@ describe("Workspace 4-Screens Selection Lock & UI Malfunction Regression Suite",
         root.render(<ImWorkspacePage />);
       });
 
-      // IM-05: Zero literal backslash quotes in rendered text
+      // IM-05: Zero literal backslash quotes in rendered text & won price input visible
       expect(container.textContent).not.toContain("\\'원\\'");
-      expect(container.textContent).toContain("2. 희망 매매가 ('원' 단위)");
+      expect(container.querySelector('[data-testid="im-price-won-input"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="im-price-eok-input"]')).not.toBeNull();
 
       const card1 = container.querySelector(`[data-testid="im-item-${pinnedId}"]`) as HTMLElement;
       const card3 = container.querySelector(

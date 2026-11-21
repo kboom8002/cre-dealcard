@@ -111,7 +111,7 @@ describe('Round 2 Wave 3 — R-ONE 3대 지표 12M 평균 · 민간리서치 · 
 
     expect(slidesHtml).toContain('@page { size: 13.333in 7.5in landscape; margin: 0; }');
     expect(slidesHtml).toContain('class="im-slide-page');
-    expect(slidesHtml).toContain('기대수익률(추정수익률) 렌트롤');
+    expect(slidesHtml).toContain('기대수익률 임대차 현황');
     expect(slidesHtml).not.toContain('oklch(');
   });
 });

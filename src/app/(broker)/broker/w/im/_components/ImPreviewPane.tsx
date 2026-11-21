@@ -10,6 +10,8 @@ import {
   type PreviewLifecycleState,
 } from "@/components/workspace/preview-sync";
 import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
+import type { BrokerCompRowForm } from "@/domain/building/mobile-im/broker-extras";
+import { KakaoStaticMap } from "@/app/(public)/im-lite/[buildingId]/components/kakao-static-map";
 import { ImDeckReadinessBar } from "./ImDeckReadinessBar";
 import {
   UUID_REGEX,
@@ -32,11 +34,13 @@ export interface ImPostitStyle {
 export interface ImPreviewTabSwitcherProps {
   previewTab: "mobile" | "pptx";
   onChangePreviewTab: (tab: "mobile" | "pptx") => void;
+  slideCount?: number;
 }
 
 export function ImPreviewTabSwitcher({
   previewTab,
   onChangePreviewTab,
+  slideCount,
 }: ImPreviewTabSwitcherProps) {
   return (
     <div
@@ -68,7 +72,7 @@ export function ImPreviewTabSwitcher({
             : "text-[#3A3A3C] hover:text-[#1D1D1F]"
         }`}
       >
-        발표자료 10면
+        {typeof slideCount === "number" ? `발표자료 ${slideCount}면` : "발표자료"}
       </button>
     </div>
   );
@@ -97,8 +101,16 @@ export interface ImPreviewPaneProps {
   landAreaSqm: string;
   zoning: string;
   rentRoll: RentRollRowItem[];
+  expectedRentRoll?: RentRollRowItem[];
   totalDepositManwon: number;
   totalRentManwon: number;
+  expectedDepositManwon?: number;
+  expectedRentManwon?: number;
+  expectedYieldPct?: number;
+  compRows?: BrokerCompRowForm[];
+  lat?: number;
+  lng?: number;
+  cadastralImageUrl?: string;
   brokerageName: string;
   brokerName: string;
   brokerPhone: string;
@@ -132,8 +144,16 @@ export function ImPreviewPane({
   landAreaSqm,
   zoning,
   rentRoll,
+  expectedRentRoll = [],
   totalDepositManwon,
   totalRentManwon,
+  expectedDepositManwon = 0,
+  expectedRentManwon = 0,
+  expectedYieldPct = 0,
+  compRows = [],
+  lat,
+  lng,
+  cadastralImageUrl,
   brokerageName,
   brokerName,
   brokerPhone,
@@ -143,6 +163,26 @@ export function ImPreviewPane({
   basicImSlides,
   renderSlideCard,
 }: ImPreviewPaneProps) {
+  const hasExpectedRentRoll = expectedRentRoll.length > 0;
+  const hasComps = compRows.length > 0;
+
+  // 순차 번호 동적 할당 (표지 미번호 -> 본문 01, 02, ...)
+  const visibleSectionOrder: string[] = [
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    ...(hasExpectedRentRoll ? ["06-2"] : []),
+    "07",
+    ...(hasComps ? ["08"] : []),
+    "09",
+    "10",
+  ];
+  const secNo = (id: string) => {
+    const idx = visibleSectionOrder.indexOf(id);
+    return idx >= 0 ? String(idx + 1).padStart(2, "0") : "";
+  };
   return (
     <div className="w-full min-w-0 max-w-sm mx-auto p-3 sm:p-3.5 space-y-3.5 overflow-x-hidden" data-testid="im-preview-slot">
       <div className="sticky top-0 z-20 bg-[#F5F5F7]/95 backdrop-blur-md py-1 -my-1">
@@ -228,11 +268,11 @@ export function ImPreviewPane({
           className="bg-[#FAF9F5] rounded-[20px] border-2 border-[#334155] p-3 pt-4 shadow-md flex flex-col"
         >
           <div data-testid="im-mobile-preview-scroll" className="space-y-4">
-            {/* Section 01: Cover Card */}
+            {/* Section Cover */}
             <PreviewEditableUnit
               testId="im-mobile-section-01"
               unitId="im-unit-cover"
-              label="01 표지"
+              label="표지"
               isActive={
                 activeUnitId === "im-unit-cover" || activeUnitId === "im-unit-price"
               }
@@ -241,7 +281,7 @@ export function ImPreviewPane({
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded">
-                  01 표지 · {postureKoreanLabel}
+                  표지 · {postureKoreanLabel}
                 </span>
               </div>
               {photoEntries[0] && resolveRenderablePhotoSrc(photoEntries[0]) && (
@@ -288,18 +328,18 @@ export function ImPreviewPane({
               </div>
             </PreviewEditableUnit>
 
-            {/* Section 02: Investment Highlights */}
+            {/* Section: Investment Highlights (Body 01) */}
             <PreviewEditableUnit
               testId="im-mobile-section-02"
               unitId="im-unit-highlights"
-              label="02 핵심 장점"
+              label={`${secNo("02")} 핵심 장점`}
               isActive={activeUnitId === "im-unit-highlights"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2.5"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded">
-                  02 핵심 장점
+                  {secNo("02")} 핵심 장점
                 </span>
               </div>
               <div className="space-y-2 pt-0.5" data-testid="im-preview-axios-list">
@@ -337,17 +377,17 @@ export function ImPreviewPane({
               </div>
             </PreviewEditableUnit>
 
-            {/* Section 03: Building Overview */}
+            {/* Section: Building Overview */}
             <PreviewEditableUnit
               testId="im-mobile-section-03"
               unitId="im-unit-building"
-              label="03 건축물 개요"
+              label={`${secNo("03")} 건축물 개요`}
               isActive={activeUnitId === "im-unit-building"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                03 건축물 개요
+                {secNo("03")} 건축물 개요
               </span>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="p-2.5 bg-[#FAF9F5] rounded-lg border border-slate-200/70">
@@ -367,37 +407,42 @@ export function ImPreviewPane({
               </div>
             </PreviewEditableUnit>
 
-            {/* Section 04: Location & Transit */}
+            {/* Section: Location & Transit */}
             <PreviewEditableUnit
               testId="im-mobile-section-04"
               unitId="im-unit-location"
-              label="04 입지 및 교통"
+              label={`${secNo("04")} 입지 및 교통`}
               isActive={
                 activeUnitId === "im-unit-location" ||
                 activeUnitId === "im-unit-address"
               }
               onActivate={onFocusEditorUnit}
-              className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-1.5"
+              className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                04 입지 및 교통
+                {secNo("04")} 입지 및 교통
               </span>
               <p className="text-sm font-semibold text-slate-900 break-keep">
                 {address || "주소 미입력"}
               </p>
+              {typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) && (
+                <div className="h-32 rounded-lg overflow-hidden border border-slate-200">
+                  <KakaoStaticMap lat={lat} lng={lng} name={cleanCoverTitle || address || "본건"} />
+                </div>
+              )}
             </PreviewEditableUnit>
 
-            {/* Section 05: Land & Zoning */}
+            {/* Section: Land & Zoning */}
             <PreviewEditableUnit
               testId="im-mobile-section-05"
               unitId="im-unit-land"
-              label="05 토지 및 도시계획"
+              label={`${secNo("05")} 토지 및 도시계획`}
               isActive={activeUnitId === "im-unit-land"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                05 토지 및 도시계획
+                {secNo("05")} 토지 및 도시계획
               </span>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="p-2.5 bg-[#FAF9F5] rounded-lg border border-slate-200/70">
@@ -417,23 +462,33 @@ export function ImPreviewPane({
                   </strong>
                 </div>
               </div>
+              {cadastralImageUrl && (
+                <div className="pt-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cadastralImageUrl}
+                    alt="지적도 미리보기"
+                    className="w-full h-36 object-contain bg-[#F8F5EB] rounded-lg border border-slate-200"
+                  />
+                </div>
+              )}
             </PreviewEditableUnit>
 
-            {/* Section 06: Rent Roll preview */}
+            {/* Section: Rent Roll preview */}
             <PreviewEditableUnit
               testId="im-mobile-section-06"
               unitId="im-unit-rentroll"
-              label="06 층별 임대차 상세"
+              label={`${secNo("06")} 층별 임대차 현황`}
               isActive={activeUnitId === "im-unit-rentroll"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded">
-                  06 층별 임대차 상세
+                  {secNo("06")} 층별 임대차 현황
                 </span>
                 <span className="text-sm font-bold text-[#065F46]">
-                  총 {rentRoll.length}개 층
+                  총 {rentRoll.length}개 호실
                 </span>
               </div>
               <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -441,7 +496,7 @@ export function ImPreviewPane({
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                     <tr>
                       <th className="py-1.5 px-2">층</th>
-                      <th className="py-1.5 px-2">업종</th>
+                      <th className="py-1.5 px-2">임차인·업종</th>
                       <th className="py-1.5 px-2 text-right">보증금/월세(만)</th>
                     </tr>
                   </thead>
@@ -452,7 +507,7 @@ export function ImPreviewPane({
                           {r.floor}
                         </td>
                         <td className="py-1.5 px-2 text-slate-700">
-                          {r.use || "—"}
+                          {r.tenantName ? `${r.tenantName} (${r.use || "—"})` : r.use || "—"}
                         </td>
                         <td className="py-1.5 px-2 text-right font-mono text-slate-900">
                           {(r.depositManwon ?? 0).toLocaleString()} /{" "}
@@ -465,66 +520,157 @@ export function ImPreviewPane({
               </div>
             </PreviewEditableUnit>
 
-            {/* Section 07: Yield & Cash Flow */}
+            {/* Conditional Section: Expected Rent Roll */}
+            {hasExpectedRentRoll && (
+              <PreviewEditableUnit
+                testId="im-mobile-section-06-expected"
+                unitId="im-unit-rentroll"
+                label={`${secNo("06-2")} 기대수익률 임대차 현황`}
+                isActive={activeUnitId === "im-unit-rentroll"}
+                onActivate={onFocusEditorUnit}
+                className="bg-white rounded-xl p-3.5 border border-amber-300 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200">
+                    {secNo("06-2")} 기대수익률 임대차 현황
+                  </span>
+                  <span className="text-xs font-extrabold text-amber-800">
+                    {expectedRentRoll.length}개 호실 가정
+                  </span>
+                </div>
+                <div className="rounded-lg border border-amber-200 overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-amber-50/70 border-b border-amber-200 text-amber-950 font-bold">
+                      <tr>
+                        <th className="py-1.5 px-2">층</th>
+                        <th className="py-1.5 px-2">임차인·업종</th>
+                        <th className="py-1.5 px-2 text-right">보증금/월세(만)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100">
+                      {expectedRentRoll.slice(0, 6).map((r, i) => {
+                        const baseMatch = rentRoll.find((b) => b.floor === r.floor);
+                        const changed =
+                          baseMatch &&
+                          (baseMatch.monthlyRentManwon !== r.monthlyRentManwon ||
+                            baseMatch.depositManwon !== r.depositManwon ||
+                            baseMatch.use !== r.use);
+                        return (
+                          <tr key={i} className={changed ? "bg-amber-50/40 italic" : ""}>
+                            <td className="py-1.5 px-2 font-bold text-slate-900">{r.floor}</td>
+                            <td className={`py-1.5 px-2 ${changed ? "text-amber-900 font-semibold" : "text-slate-700"}`}>
+                              {r.tenantName ? `${r.tenantName} (${r.use || "—"})` : r.use || "—"}
+                            </td>
+                            <td className={`py-1.5 px-2 text-right font-mono ${changed ? "text-amber-900 font-bold" : "text-slate-900"}`}>
+                              {(r.depositManwon ?? 0).toLocaleString()} /{" "}
+                              {(r.monthlyRentManwon ?? 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </PreviewEditableUnit>
+            )}
+
+            {/* Section: Yield & Cash Flow */}
             <PreviewEditableUnit
               testId="im-mobile-section-07"
               unitId="im-unit-yield"
-              label="07 수지 및 수익률 분석"
+              label={`${secNo("07")} 수지 및 수익률 분석`}
               isActive={activeUnitId === "im-unit-yield"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                07 수지 및 수익률 분석
+                {secNo("07")} 수지 및 수익률 분석
               </span>
-              <div className="p-3 bg-emerald-50/70 rounded-lg border border-emerald-200 space-y-1 text-sm">
+              <div className="p-3 bg-emerald-50/70 rounded-lg border border-emerald-200 space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-700">보증금 합계 / 월 임대료</span>
+                  <span className="text-slate-700">현행 보증금 / 월 임대료</span>
                   <strong className="text-slate-900">
                     {totalDepositManwon.toLocaleString()}만 /{" "}
                     {totalRentManwon.toLocaleString()}만
                   </strong>
                 </div>
                 <div className="flex justify-between font-extrabold text-[#065F46] pt-1 border-t border-emerald-200/80">
-                  <span>예상 연 수익률</span>
+                  <span>현행 임대수익률</span>
                   <span>{calculatedYield.toFixed(2)}%</span>
                 </div>
+                {hasExpectedRentRoll && expectedYieldPct > 0 && (
+                  <>
+                    <div className="flex justify-between text-xs text-slate-600 pt-1 border-t border-emerald-200/60">
+                      <span>정상화 후 보증금 / 월 임대료</span>
+                      <strong>
+                        {expectedDepositManwon.toLocaleString()}만 /{" "}
+                        {expectedRentManwon.toLocaleString()}만
+                      </strong>
+                    </div>
+                    <div className="flex justify-between font-extrabold text-[#B45309]">
+                      <span>기대수익률 (조건 정상화 가정)</span>
+                      <span>
+                        {expectedYieldPct.toFixed(2)}%
+                        {calculatedYield > 0 && expectedYieldPct > calculatedYield
+                          ? ` (+${(expectedYieldPct - calculatedYield).toFixed(2)}%p)`
+                          : ""}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </PreviewEditableUnit>
 
-            {/* Section 08: Comparable Transactions */}
-            <PreviewEditableUnit
-              testId="im-mobile-section-08"
-              unitId="im-unit-comps"
-              label="08 인근 실거래 비교"
-              isActive={activeUnitId === "im-unit-comps"}
-              onActivate={onFocusEditorUnit}
-              className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-1.5"
-            >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                08 인근 실거래 비교
-              </span>
-              <p className="text-sm text-slate-700">
-                {address.split(" ").slice(1, 3).join(" ") || "인근"} 유사 규모 거래 사례
-                비교
-              </p>
-            </PreviewEditableUnit>
+            {/* Conditional Section: Comparable Transactions (only shown when >= 1 comp) */}
+            {hasComps && (
+              <PreviewEditableUnit
+                testId="im-mobile-section-08"
+                unitId="im-unit-comps"
+                label={`${secNo("08")} 인근 실거래 비교`}
+                isActive={activeUnitId === "im-unit-comps"}
+                onActivate={onFocusEditorUnit}
+                className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
+              >
+                <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+                  {secNo("08")} 인근 실거래 비교 ({compRows.length}건)
+                </span>
+                <div className="space-y-1.5 text-xs">
+                  {compRows.slice(0, 4).map((c, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FAF9F5] border border-slate-200"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate">{c.location || "인근 사례"}</div>
+                        {c.note && <div className="text-slate-500 truncate">{c.note}</div>}
+                      </div>
+                      <div className="font-extrabold text-[#1D4ED8] shrink-0">
+                        {c.price_eok ? `${c.price_eok}억` : ""}
+                        {c.land_price_per_pyeong_manwon
+                          ? ` · 평당 ${Number(c.land_price_per_pyeong_manwon).toLocaleString()}만`
+                          : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </PreviewEditableUnit>
+            )}
 
-            {/* Section 09: Photos & Cadastral Map */}
+            {/* Section: Photos & Cadastral Map */}
             <PreviewEditableUnit
               testId="im-mobile-section-09"
               unitId="im-unit-photos"
-              label="09 현장 사진 및 지적도"
+              label={`${secNo("09")} 현장 사진 및 지적도`}
               isActive={activeUnitId === "im-unit-photos"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                09 현장 사진 및 지적도
+                {secNo("09")} 현장 사진 및 지적도
               </span>
               <p className="text-sm text-slate-700">
                 {photoEntries.length > 0
-                  ? `첨부 사진 ${photoEntries.length}장 및 지적도`
+                  ? `첨부 사진 ${photoEntries.length}장${cadastralImageUrl ? " · 지적도 포함" : ""}`
                   : "외관 사진 및 지적도 자동 배치"}
               </p>
               {photoEntries.length > 0 && (
@@ -557,17 +703,17 @@ export function ImPreviewPane({
               )}
             </PreviewEditableUnit>
 
-            {/* Section 10: Contact & Deal Terms */}
+            {/* Section: Contact & Deal Terms */}
             <PreviewEditableUnit
               testId="im-mobile-section-10"
               unitId="im-unit-broker"
-              label="10 거래 조건 및 담당 중개인"
+              label={`${secNo("10")} 거래 조건 및 담당 중개인`}
               isActive={activeUnitId === "im-unit-broker"}
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-1.5"
             >
               <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
-                10 거래 조건 및 담당 중개인
+                {secNo("10")} 거래 조건 및 담당 중개인
               </span>
               <p className="text-sm font-bold text-slate-900 break-keep">
                 {[brokerageName, brokerName, brokerPhone].filter(Boolean).join(" · ") ||
@@ -591,11 +737,11 @@ export function ImPreviewPane({
                   : "bg-white text-slate-700 border border-slate-300"
               }`}
             >
-              전체 10면
+              전체 {basicImSlides.length}면
             </button>
             {basicImSlides.map((s) => (
               <button
-                key={s.no}
+                key={s.id || s.no}
                 type="button"
                 onClick={() => onChangeSlideFilter(s.no)}
                 className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-bold shrink-0 cursor-pointer ${
@@ -614,7 +760,7 @@ export function ImPreviewPane({
               ? basicImSlides
               : basicImSlides.filter((s) => s.no === activeSlideFilter)
             ).map((slide) => (
-              <React.Fragment key={slide.no}>{renderSlideCard(slide)}</React.Fragment>
+              <React.Fragment key={slide.id || slide.no}>{renderSlideCard(slide)}</React.Fragment>
             ))}
           </div>
         </div>

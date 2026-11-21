@@ -97,9 +97,9 @@ export const YIELD_LABELS = {
   grossOnPrice: '임대수익률 (Gross, 매매가 대비)',
   grossInclOtherIncome: '임대수익률 (기타수입 포함, 참고)',
   noiCapRate: 'Cap Rate (NOI 기준)',
-  stabilizedBrokerPlan: '기대수익률(추정수익률)',
-  stabilizedTargetRent: '기대수익률(추정수익률)',
-  stabilizedMarketRent: '기대수익률(추정수익률) (시장 임대료 가정)',
+  stabilizedBrokerPlan: '기대수익률',
+  stabilizedTargetRent: '기대수익률',
+  stabilizedMarketRent: '기대수익률 (시장 임대료 가정)',
 } as const;
 
 export const stabilizedReserveLabel = (vacancyReservePct: number | null | undefined): string =>
@@ -207,6 +207,8 @@ export interface BuildYieldSetParams {
   marketRent?: RentRollMarketRent | null;
   /** broker_extras.post_acquisition_units (또는 post_acquisition_plan 파싱 결과) — 최우선 안정화 수익률 후보 */
   postAcquisitionUnits?: AcquisitionPlanUnit[] | null;
+  /** body.expected_rent_roll — 중개인 기대수익률 임대차 현황 전체 행 목록 (공실 해소·정상화 후) */
+  expectedRentRoll?: unknown;
   /** broker_extras.summary_yield_basis ('auto' | 'current' | 'stabilized') */
   summaryYieldBasis?: 'auto' | 'current' | 'stabilized' | null;
 }
@@ -326,15 +328,61 @@ export function buildYieldSet(p: BuildYieldSetParams): YieldSet {
   const noiBase = p.noiBaseKrw != null && Number.isFinite(p.noiBaseKrw) ? p.noiBaseKrw : null;
   const noiCapRate = pos(p.noiCapRatePct) ?? (price > 0 && noiBase != null && noiBase > 0 ? r2((noiBase / price) * 100) : null);
 
-  // ④ 안정화 수익률 — 우선순위: broker_plan > market_rent > target_rent > reserve_excluded
+  // ④ 기대수익률(안정화) — 우선순위: expectedRentRoll > broker_plan > market_rent > target_rent > reserve_excluded
   let stabilized: StabilizedYield | null = null;
   const area = summarizeVacantOwnerUseArea(p.floorLeases);
   const appliedArea = area.vacantPyeong + area.ownerUsePyeong;
 
+  const expectedRows = (Array.isArray(p.expectedRentRoll) ? p.expectedRentRoll : []).filter(
+    (r): r is Record<string, any> => !!r && typeof r === 'object',
+  );
+  if (expectedRows.length > 0 && price > 0) {
+    let expDepMan = 0;
+    let expRentMan = 0;
+    const expFloors: string[] = [];
+    for (const r of expectedRows) {
+      if (isNonLeasableLeaseRow(r)) continue;
+      const st = String(r.status ?? r.lease_state ?? '').trim();
+      if (st === 'vacant' || st === '공실' || st === 'owner' || st === '자가사용' || st === '자가' || r.is_vacant === true) {
+        continue;
+      }
+      const depM = Number(r.depositManwon ?? r.deposit_manwon ?? 0);
+      const rentM = Number(r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? 0);
+      if (Number.isFinite(depM) && depM > 0) expDepMan += depM;
+      if (Number.isFinite(rentM) && rentM > 0) expRentMan += rentM;
+      const fl = String(r.floor ?? '').trim();
+      if (fl) expFloors.push(fl);
+    }
+    const newDepositKrw = Math.round(expDepMan * 10_000);
+    const addedDepositKrw = Math.round(newDepositKrw - deposit);
+    const addedMonthlyRentKrw = Math.round(expRentMan * 10_000 - annualRent / 12);
+    const newAnnualRent = Math.round(expRentMan * 12 * 10_000);
+    const newDenom = price - newDepositKrw;
+    if (newDenom > 0 && newAnnualRent > 0) {
+      stabilized = {
+        kind: 'broker_plan',
+        value: r2((newAnnualRent / newDenom) * 100),
+        label: YIELD_LABELS.stabilizedBrokerPlan,
+        caption: `기대 임대차 현황 반영 (연 임대료 ${(newAnnualRent / 1e8).toFixed(2)}억 / 보증금 ${(newDepositKrw / 1e8).toFixed(2)}억 가정)`,
+        addedRentKrw: Math.round(newAnnualRent - annualRent),
+        addedDepositKrw,
+        planSummary: {
+          floors: expFloors,
+          addedDepositKrw,
+          addedMonthlyRentKrw,
+          newAnnualRentKrw: newAnnualRent,
+          newDepositKrw,
+          newNetPurchaseKrw: Math.round(newDenom),
+          units: [],
+        },
+      };
+    }
+  }
+
   const planUnits = (Array.isArray(p.postAcquisitionUnits) ? p.postAcquisitionUnits : []).filter(
     (u): u is AcquisitionPlanUnit => !!u && typeof u === 'object' && u.action !== 'rerent' && Number(u.rent_manwon) > 0,
   );
-  if (planUnits.length > 0 && price > 0 && annualRent > 0) {
+  if (!stabilized && planUnits.length > 0 && price > 0 && annualRent > 0) {
     const addedDepositKrw = planUnits.reduce((acc, u) => acc + Math.max(0, Number(u.deposit_manwon) || 0), 0) * 10_000;
     const addedMonthlyRentKrw = planUnits.reduce((acc, u) => acc + Math.max(0, Number(u.rent_manwon) || 0), 0) * 10_000;
     const addedAnnualRentKrw = addedMonthlyRentKrw * 12;
@@ -487,7 +535,7 @@ export function yieldFootnote(a: YieldAssumptions, opts?: { includeCapRateInFoot
     const vac = a.vacancyReservePct != null && a.vacancyReservePct > 0 ? `, 공실충당 ${trimNum(a.vacancyReservePct)}%` : '';
     return `※ ${opex}${vac}, 보증금 승계 가정. 임대수익률은 운영비 차감 전, Cap Rate는 차감 후.`;
   }
-  return '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 포함) 기준, 안정화 수익률은 공실·자가사용 임대 전환 가정치입니다.';
+  return '※ 보증금 승계 가정. 임대수익률은 운영비 차감 전(제세공과금 포함) 기준, 기대수익률은 공실·자가사용 임대 전환 가정치입니다.';
 }
 
 /* ─────────────────────────── 문서 body → YieldSet ─────────────────────────── */
@@ -565,6 +613,7 @@ export function buildYieldSetFromBody(body: Record<string, any> | null | undefin
         : null),
     marketRent: b.rent_roll_meta && typeof b.rent_roll_meta === 'object' ? (b.rent_roll_meta as RentRollMarketRent) : null,
     postAcquisitionUnits: structuredUnits.length > 0 ? structuredUnits : null,
+    expectedRentRoll: b.expected_rent_roll ?? b.expectedRentRoll ?? null,
     summaryYieldBasis: b.broker_extras?.summary_yield_basis ?? null,
   });
 }

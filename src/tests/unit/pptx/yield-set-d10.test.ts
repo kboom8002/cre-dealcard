@@ -61,7 +61,7 @@ describe('D10 YieldSet — 산식', () => {
     // 추가 임대료 = 100평 × 10만원 × 12개월 × 10,000원 = 1.2억 → (3억+1.2억) ÷ 90억 = 4.67%
     expect(ys.stabilized?.kind).toBe('target_rent');
     expect(ys.stabilized?.value).toBe(4.67);
-    expect(ys.stabilized?.label).toBe('기대수익률(추정수익률)');
+    expect(ys.stabilized?.label).toBe('기대수익률');
     expect(ys.stabilized?.appliedAreaPyeong).toBe(100);
     expect(ys.stabilized?.caption).toBe('공실 100평을 목표임대료 평당 10만원으로 임대 가정 (중개인 입력)');
   });
@@ -289,7 +289,7 @@ describe('R9 — broker_plan 안정화 기대수익률 (2.75% on income-ig1-corr
     expect(ys.grossYieldNetOfDeposit).toBe(2.08);
     expect(ys.stabilized).not.toBeNull();
     expect(ys.stabilized?.kind).toBe('broker_plan');
-    expect(ys.stabilized?.label).toBe('기대수익률(추정수익률)');
+    expect(ys.stabilized?.label).toBe('기대수익률');
     expect(ys.stabilized?.value).toBe(2.75);
     expect(ys.stabilized?.planSummary?.addedDepositKrw).toBe(80_000_000);
     expect(ys.stabilized?.planSummary?.addedMonthlyRentKrw).toBe(6_020_000);
@@ -358,14 +358,14 @@ describe('D9 / R10 — A23 하단 문구 및 운영+자본수익률 밴드: 근�
     });
   }
 
-  it('우측 칩·X축=연도 세로 차트에 대지 평당 매매가·지역 10년 지가변동률 표기 (공시지가 배율 비교 제거)', async () => {
+  it('우측 칩·X축=연도 세로 차트에 대지 평당 매매가·지역 최근 5년 지가변동률 표기 (공시지가 배율 비교 제거)', async () => {
     const xml = await renderA23({
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
       capRateAsIs: 3.33, landPriceHistory: HISTORY, landAreaSqm: 400, pnu: '1156011500103370019',
     });
     expect(xml).toContain('대지 평당 매매가');
-    expect(xml).toContain('서울 영등포구 10년 연평균 지가변동률');
-    expect(xml).toContain('+3.90%');
+    expect(xml).toContain('서울 영등포구 최근 5년 연평균 지가변동률');
+    expect(xml).toContain('+3.19%');
     expect(xml).not.toContain('매매가 대비 토지 비중');
     expect(xml).not.toContain('단순 합산 기대수익률');
     expect(xml).toContain('2025');
@@ -418,7 +418,8 @@ describe('D10 / R10 — A23 안정화 라벨 정직성 / 각주 / 레이아웃',
       annualRent: BASE.annualRentKrw, totalDeposit: BASE.depositKrw, askingPrice: BASE.askingPriceKrw,
       capRateAsIs: ys.grossYieldNetOfDeposit, capRateStabilized: ys.stabilized?.value, stabilizedAssumption: ys.stabilized?.caption ?? undefined, yieldSet: ys,
     });
-    expect(xml).toContain('기대수익률(추정수익률)');
+    expect(xml).toContain('기대수익률');
+    expect(xml).not.toContain('(추정수익률)');
     expect(xml).toContain('◇ 분석가정: 공실 100평을 목표임대료 평당 10만원으로 임대 가정 (중개인 입력)');
     expect(xml).toContain(`${ys.stabilized!.value.toFixed(2)}%`);
   });

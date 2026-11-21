@@ -480,6 +480,12 @@ export function bindSectionData(
     result['farUpside'] = { title: '용적률 여유', content: '', tables: [], metrics: {}, _derived: true, ...farUpsideProps };
   }
 
+  // A24: lease_status 섹션이 없어도 floor_leases가 있으면 rentRoll 바인딩 보장
+  if (!result['rentRoll'] && Array.isArray(doc.body?.floor_leases) && doc.body.floor_leases.length > 0) {
+    result['rentRoll'] = { title: '층별 임대차 현황', content: '', tables: [], metrics: {}, _derived: true };
+    bindRentRollTable(doc, '', result);
+  }
+
   // A22: stackingPlan 슬라이드가 없으면 스태킹 플랜 구조화 데이터 합성
   if (!result['stackingPlan']) {
     const a22Props = buildA22Props('', [], [], doc.body);

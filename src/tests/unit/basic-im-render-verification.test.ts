@@ -258,7 +258,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // ═══════════════════════════════════════════════════
     console.log('Slide 4 Text:', slideTexts[3].slice(0, 200));
     expect(slideTexts[3]).toContain('입지 정보');
-    expect(slideTexts[3]).toContain('입지 요약');
+    expect(slideTexts[3]).not.toContain('입지 요약');
     expect(slideTexts[3]).toContain('대중교통');
     expect(slideTexts[3]).toContain('배후·상권');
 
@@ -274,7 +274,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // G4: 공실 스타일링 검증 + 관리비 배제
     // ═══════════════════════════════════════════════════
     console.log('Slide 6 Text:', slideTexts[5].slice(0, 300));
-    expect(slideTexts[5]).toContain('렌트롤');
+    expect(slideTexts[5]).toContain('층별 임대차 현황');
     expect(slideTexts[5]).toContain('공실');
 
     // G4: 공실 행 배경색 FBEFE8 (basic-im-guide.md §4 공실/경고 강조)

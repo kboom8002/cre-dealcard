@@ -7,6 +7,7 @@ import { fetchKakaoMapImage, generateStaticMapPlaceholder, optimizeImageForPptx,
 import { poiMarkerFill } from '../utils/location-map-overlay';
 import { readMapMarkerMeta, centerCropToAspect, normToSlot } from '@/lib/external/map-overlay-meta';
 import { addImageFit } from '../utils/image-fit';
+import { fitSingleLine } from './a24-rentroll-stacking';
 import sharp from 'sharp';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -169,9 +170,10 @@ function addPoiLegend(
         fontSize: 10, bold: true, color: C.brass, align: 'center', valign: 'middle', fontFace: KR, margin: 0,
       });
     }
-    slide.addText(cell.text, {
+    const poiFitted = fitSingleLine(cell.text, colW - 0.26, 8.5, 6.5, false);
+    slide.addText(poiFitted.text, {
       x: cx + 0.22, y: cy, w: colW - 0.26, h: rowH,
-      fontSize: 8.5, color: '1E293B', valign: 'middle', fontFace: KR, margin: 0, fit: 'shrink',
+      fontSize: poiFitted.fontSize, color: '1E293B', valign: 'middle', fontFace: KR, margin: 0, wrap: false,
     });
   });
 }
@@ -383,68 +385,17 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const right = input.data.right || {};
 
   const subText = right.sub || left.sub;
-  if (subText) {
-    L.sub(slide, textX, y, textW, stripMarkdown(subText));
+  const cleanSub = subText ? stripMarkdown(subText).trim() : '';
+  if (cleanSub && !/^입지\s*요약$/.test(cleanSub)) {
+    L.sub(slide, textX, y, textW, cleanSub);
     y += 0.35;
   }
 
-  // R2-G1/Wave2: 입지 4대 등급 2×2 카드 그리드 (네이티브 PPTX 도형+텍스트 — Rule 66 Sharp CJK 금지 준수)
-  const locationGrades: Array<{ key?: string; label: string; grade: string; basis?: string }> =
-    Array.isArray(right.locationGrades) && right.locationGrades.length === 4 ? right.locationGrades : [];
-  if (locationGrades.length === 4) {
-    const gGapX = 0.14;
-    const gGapY = 0.10;
-    const cardW = (textW - gGapX) / 2;
-    const cardH = 0.78;
-    const gradeStyles: Record<string, { bg: string; border: string; pillBg: string; pillFg: string }> = {
-      우수: { bg: 'ECFDF5', border: '10B981', pillBg: '059669', pillFg: 'FFFFFF' },
-      양호: { bg: 'EFF6FF', border: '3B82F6', pillBg: '1D4ED8', pillFg: 'FFFFFF' },
-      보통: { bg: 'FFFBEB', border: 'F59E0B', pillBg: 'D97706', pillFg: 'FFFFFF' },
-      '보완 필요': { bg: 'FFF1F2', border: 'F43F5E', pillBg: 'E11D48', pillFg: 'FFFFFF' },
-    };
-
-    locationGrades.forEach((item, idx) => {
-      const col = idx % 2;
-      const row = Math.floor(idx / 2);
-      const gx = textX + col * (cardW + gGapX);
-      const gy = y + row * (cardH + gGapY);
-      const st = gradeStyles[item.grade] ?? gradeStyles['보통'];
-      const pillW = item.grade.length >= 4 ? 0.88 : 0.62;
-
-      slide.addShape('roundRect', {
-        x: gx, y: gy, w: cardW, h: cardH,
-        fill: { color: st.bg },
-        line: { color: st.border, width: 0.75 },
-        rectRadius: 0.05,
-      });
-      slide.addText(String(item.label || ''), {
-        x: gx + 0.12, y: gy + 0.08, w: Math.max(0.8, cardW - pillW - 0.28), h: 0.26,
-        fontFace: KR, fontSize: 10.5, bold: true, color: C.ink, valign: 'middle', shrinkText: true, margin: 0,
-      });
-      slide.addShape('roundRect', {
-        x: gx + cardW - pillW - 0.10, y: gy + 0.09, w: pillW, h: 0.24,
-        fill: { color: st.pillBg },
-        line: { color: st.pillBg, width: 0 },
-        rectRadius: 0.04,
-      });
-      slide.addText(String(item.grade || '보통'), {
-        x: gx + cardW - pillW - 0.10, y: gy + 0.09, w: pillW, h: 0.24,
-        fontFace: KR, fontSize: 9.0, bold: true, color: st.pillFg, align: 'center', valign: 'middle', shrinkText: true, margin: 0,
-      });
-      if (item.basis) {
-        slide.addText(String(item.basis), {
-          x: gx + 0.12, y: gy + 0.39, w: cardW - 0.24, h: 0.31,
-          fontFace: KR, fontSize: 8.5, color: C.mute, valign: 'top', shrinkText: true, margin: 0,
-        });
-      }
-    });
-    y += cardH * 2 + gGapY + 0.14;
-  }
-
+  // R2-G1 정제: 입지 4대 주관 등급 카드(도보 접근성/광역 접근성/상권 활성화/편의시설)는 제거하고 객관 입지 행 + 콜아웃에 집중
   let rightRows = (right.rows ?? [])
     // 지도 번호 범례에 랜드마크가 표시되면 keySpots 파생 랜드마크 행은 제거 (Rule 4 비중복)
     .filter((r: any) => !(poiLegendRendered && Array.isArray(r) && POI_DERIVED_ROW_LABELS.has(String(r[0] ?? ''))))
-    .slice(0, locationGrades.length === 4 ? 4 : 7);
+    .slice(0, 7);
   if (rightRows.length === 0 && input.data.content) {
     // 마크다운 콘텐츠에서 키-값 불릿을 동적 추출 (Rule 26: 특정 지역명 하드코딩 금지)
     const contentText = String(input.data.content);
@@ -505,17 +456,14 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
     const numRows = safeRows.length;
     const hasCallout = Boolean(right.callout);
-    const hasGrades = locationGrades.length === 4;
-    let rowH = hasGrades ? 0.32 : 0.50;
-    let fs = hasGrades ? 10.5 : 12.0;
-    if (!hasGrades) {
-      if (numRows >= 6 || (numRows >= 5 && hasCallout)) {
-        rowH = 0.38;
-        fs = 11.0;
-      } else if (numRows >= 4 && hasCallout) {
-        rowH = 0.42;
-        fs = 11.5;
-      }
+    let rowH = 0.50;
+    let fs = 12.0;
+    if (numRows >= 6 || (numRows >= 5 && hasCallout)) {
+      rowH = 0.38;
+      fs = 11.0;
+    } else if (numRows >= 4 && hasCallout) {
+      rowH = 0.42;
+      fs = 11.5;
     }
 
     y = L.rows(slide, textX, y, textW, safeRows, { rh: rowH, fs });
@@ -553,17 +501,20 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       ? nonDuplicateLines.join('\n')
       : bodyLinesArr.map(l => l.replace(/^[•·\-*]\s*[^:：]+[:：]\s*/, '')).join(' · ');
 
+    const rawCalloutTitle = String(c.title ?? '').trim();
+    const effectiveCalloutTitle = /^입지\s*요약$/.test(rawCalloutTitle) ? '' : rawCalloutTitle;
+
     // CJK 기준 줄당 글자 수 계산 (callout 내부 패딩 0.36인치 제거)
     const effectiveW = textW - 0.36;
     const cjkCharsPerLine = Math.max(10, Math.floor(effectiveW / 0.19));
     const bodyLines = Math.max(1, Math.ceil(body.length / cjkCharsPerLine));
-    // 높이 = 타이틀(0.36) + 줄수 × 줄높이(0.24) + 하단패딩(0.12)
-    const calloutH = Math.min(1.85, Math.max(0.68, 0.36 + bodyLines * 0.24 + 0.12));
+    // 높이 = 타이틀여부(0.36 or 0.14) + 줄수 × 줄높이(0.24) + 하단패딩(0.12)
+    const calloutH = Math.min(1.85, Math.max(0.62, (effectiveCalloutTitle ? 0.36 : 0.14) + bodyLines * 0.24 + 0.12));
     // left.source가 있으면 note 공간 확보 및 SAFE_BOTTOM(6.50") 준수
     const maxAvailable = (left.source ? 6.04 : 6.32) - y;
-    if (maxAvailable >= 0.68) {
+    if (maxAvailable >= 0.62) {
       const finalH = Math.min(calloutH, maxAvailable);
-      L.callout(slide, textX, y, textW, finalH, c.kind ?? 'info', c.title ?? '', body);
+      L.callout(slide, textX, y, textW, finalH, c.kind ?? 'info', effectiveCalloutTitle, body);
       y += finalH + 0.08;
     }
   }

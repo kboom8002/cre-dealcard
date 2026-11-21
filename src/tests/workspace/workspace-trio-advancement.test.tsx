@@ -173,10 +173,10 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       expect(container.querySelector('[data-testid="im-axios-postit-1"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="im-axios-postit-2"]')).not.toBeNull();
 
-      // Column 3: Mobile IM preview shows full 10-section scrollable container & 3 highlight cards
+      // Column 3: Mobile IM preview shows full scrollable container & dynamically numbered last section
       const previewScroll = container.querySelector('[data-testid="im-mobile-preview-scroll"]');
       expect(previewScroll).not.toBeNull();
-      expect(previewScroll?.textContent).toContain('10 거래 조건 및 담당 중개인');
+      expect(previewScroll?.textContent).toContain('08 거래 조건 및 담당 중개인');
       const previewAxiosList = container.querySelector('[data-testid="im-preview-axios-list"]');
       expect(previewAxiosList).not.toBeNull();
       expect(previewAxiosList?.children.length).toBe(3);

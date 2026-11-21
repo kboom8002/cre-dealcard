@@ -289,10 +289,10 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
     expect(brokerPanel.classList.contains("hidden")).toBe(false);
     expect(document.activeElement?.id).toBe("im-handover-note-input");
 
-    // Switch Column 3 to PPTX 10-slide preview & click Slide 09 -> switches to Tab 4 & focuses photo select button
+    // Switch Column 3 to PPTX slide preview & click Slide 09 -> switches to Tab 4 & focuses photo select button
     const pptxTabBtn = Array.from(
       container.querySelectorAll('[aria-label="IM 미리보기 방식"] button')
-    ).find((b) => b.textContent?.includes("발표자료 10면")) as HTMLButtonElement;
+    ).find((b) => b.textContent?.includes("발표자료")) as HTMLButtonElement;
     await act(async () => {
       pptxTabBtn.click();
     });
@@ -383,9 +383,9 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
       root.render(<ImWorkspacePage />);
     });
 
-    // Exact regression-guarded price label string
+    // Guarded primary split 억/만원 + direct won price input
     expect(container.querySelector('[data-testid="im-tab-panel-specs"]')?.textContent).toContain(
-      "2. 희망 매매가 ('원' 단위)"
+      "희망 매매가"
     );
 
     // Price calculator toggle defaults collapsed, keeping DOM inputs mounted in strict order
@@ -458,7 +458,7 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
     expect(rrImporterWrap.classList.contains("hidden")).toBe(false);
 
     const pasteBtn = container.querySelector('[data-testid="rent-roll-paste-btn"]');
-    expect(pasteBtn?.textContent).toContain("복사한 임대 표 붙여넣기");
+    expect(pasteBtn?.textContent).toContain("표 붙여넣기");
     expect(pasteBtn?.textContent).not.toContain("Ctrl");
 
     // Tab 4 keeps broker inputs mounted in DOM and triggers generation via im-step4-generate-btn
@@ -472,7 +472,7 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
     expect(container.querySelector('[data-testid="im-brokerage-name-input"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="im-broker-phone-input"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="im-photo-dropzone"]')?.textContent).toContain(
-      "지적도는 주소로 자동 생성됩니다"
+      "위성·지적 위치도가 자동 삽입됩니다"
     );
 
     const step4GenBtn = container.querySelector(

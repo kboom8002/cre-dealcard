@@ -180,17 +180,21 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       metrics.push({ label: '실투자금', value: eq });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('연면적'))) {
-      const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
+      const ssotSummary = input.data.ssot_summary ?? {};
+      const regGfa = Number(ssotSummary.total_gross_area_sqm ?? input.data.enrichment?.buildingRegister?.totalArea ?? input.data.enrichment?.buildingRegister?.totArea ?? 0);
+      const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, '')) || regGfa;
       const gfa = hero.totalGrossAreaPyeong
         ? `${hero.totalGrossAreaPyeong}평`
-        : (!isNaN(gfaM2) && gfaM2 > 0 ? `${formatPyeong(gfaM2, 1)}평` : '-');
+        : (Number.isFinite(gfaM2) && gfaM2 > 0 ? `${Number(gfaM2.toFixed(1)).toLocaleString()}㎡` : '-');
       metrics.push({ label: '연면적', value: gfa });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('대지면적'))) {
-      const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
+      const ssotSummary = input.data.ssot_summary ?? {};
+      const regLand = Number(ssotSummary.land_area_sqm ?? ssotSummary.plat_area_sqm ?? input.data.enrichment?.buildingRegister?.platArea ?? 0);
+      const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, '')) || regLand;
       const site = hero.landAreaPyeong
         ? `${hero.landAreaPyeong}평`
-        : (!isNaN(landM2) && landM2 > 0 ? `${formatPyeong(landM2, 1)}평` : '-');
+        : (Number.isFinite(landM2) && landM2 > 0 ? `${Number(landM2.toFixed(1)).toLocaleString()}㎡` : '-');
       metrics.push({ label: '대지면적', value: site });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('공실'))) {
@@ -224,6 +228,41 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   
   // Basic IM 방어: 요약 슬라이드에서 역레버리지 경고 카드 제거 (자본구조 슬라이드 전용)
   metrics = metrics.filter((m: any) => !String(m?.label || '').includes('역레버리지'));
+
+  // 동의어/중복 라벨 제거 (예: '연면적(총)' vs '연면적', '매각 희망가' vs '매매 희망가')
+  const canonicalMetricKey = (rawLabel: unknown): string => {
+    const s = String(rawLabel ?? '')
+      .replace(/\(총\)/g, '')
+      .replace(/\s+/g, '')
+      .trim();
+    if (s === '매각희망가' || s === '매매희망가') return '매매희망가';
+    return s;
+  };
+  const hasExplicitUnit = (m: any): boolean =>
+    /[㎡평억만원%층호대]/.test(String(m?.value ?? '')) || /[㎡평억만원%층호대]/.test(String(m?.unit ?? ''));
+  const dedupedByKey = new Map<string, number>();
+  const dedupedMetrics: any[] = [];
+  for (const m of metrics) {
+    const key = canonicalMetricKey(m?.label);
+    if (!key) {
+      dedupedMetrics.push(m);
+      continue;
+    }
+    const existingIdx = dedupedByKey.get(key);
+    if (existingIdx == null) {
+      dedupedByKey.set(key, dedupedMetrics.length);
+      dedupedMetrics.push(
+        String(m?.label ?? '').includes('연면적(총)')
+          ? { ...m, label: String(m.label).replace(/연면적\(총\)/g, '연면적') }
+          : m,
+      );
+    } else if (!hasExplicitUnit(dedupedMetrics[existingIdx]) && hasExplicitUnit(m)) {
+      dedupedMetrics[existingIdx] = String(m?.label ?? '').includes('연면적(총)')
+        ? { ...m, label: String(m.label).replace(/연면적\(총\)/g, '연면적') }
+        : m;
+    }
+  }
+  metrics = dedupedMetrics;
 
   // Basic IM (Rule 47): 6대 핵심 지표(3열 × 2행) 표준 유지 — 7~8개 유입 시 리드 문장·물건 개요와 중복되는 '소재지'·'건폐율/용적률' 우선 제외
   if (L.THEME_META.presetId === 'credeal_basic' && metrics.length > 6) {

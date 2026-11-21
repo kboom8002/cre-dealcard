@@ -132,17 +132,15 @@ describe('Round 2 Wave 2 — IM 표지·표스타일·렌트롤·입지4등급·
     });
     const buf = (await pres.write({ outputType: 'nodebuffer' })) as Buffer;
     const xml = new AdmZip(buf).getEntries().find((e) => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
-    expect(xml).toContain('도보 접근성');
-    expect(xml).toContain('광역 접근성');
-    expect(xml).toContain('상권 활성화');
-    expect(xml).toContain('편의시설');
-    expect(xml).toContain('우수');
-    expect(xml).toContain('보통');
+    // 주관적 4대 등급 2x2 배지 카드는 슬라이드에서 제거되고 객관 입지 지표만 렌더링한다
+    expect(xml).not.toContain('도보 접근성');
+    expect(xml).not.toContain('상권 활성화');
+    expect(xml).toContain('강남');
   });
 
-  it('5. 기대수익률(추정수익률) 통일 + 5p 토지이음 출처 + 7p X축=연도 세로 차트 및 공실100% 기대수익률 히어로 승격', async () => {
-    expect(YIELD_LABELS.stabilizedBrokerPlan).toBe('기대수익률(추정수익률)');
-    expect(YIELD_LABELS.stabilizedTargetRent).toBe('기대수익률(추정수익률)');
+  it('5. 기대수익률 통일 + 5p 토지이음 출처 + 7p X축=연도 세로 차트 및 공실100% 기대수익률 히어로 승격', async () => {
+    expect(YIELD_LABELS.stabilizedBrokerPlan).toBe('기대수익률');
+    expect(YIELD_LABELS.stabilizedTargetRent).toBe('기대수익률');
 
     const landData = buildBasicLandSlideData({
       ssot: { pnu: '1168010100107000001', address: '서울 강남구 역삼동 700-1', land_area_sqm: 500 },
@@ -170,7 +168,8 @@ describe('Round 2 Wave 2 — IM 표지·표스타일·렌트롤·입지4등급·
     });
     const buf = (await pres.write({ outputType: 'nodebuffer' })) as Buffer;
     const xml = new AdmZip(buf).getEntries().find((e) => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
-    expect(xml).toContain('기대수익률(추정수익률)');
+    expect(xml).toContain('기대수익률');
+    expect(xml).not.toContain('(추정수익률)');
     expect(xml).toContain('4.50%');
     expect(xml).toContain('대지 평당 매매가');
     expect(xml).toContain('X축=연도');

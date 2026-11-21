@@ -188,8 +188,8 @@ export function buildSlidesHtmlExport(params: {
     <div class="slide-foot"><span>용도지역: ${escapeHtml(String(zoning))}</span><span>${escapeHtml(addr)}</span></div>
   </section>
 
-  ${renderLeaseTable(leases, '층별 임대차 현황 (렌트롤)', '※ 현행 임대차 계약 현황 기준')}
-  ${expectedLeases.length > 0 ? renderLeaseTable(expectedLeases, '기대수익률(추정수익률) 렌트롤', '※ 공실 해소·리모델링 완료 후 임대 전환 가정 기준') : ''}
+  ${renderLeaseTable(leases, '층별 임대차 현황', '※ 현행 임대차 계약 현황 기준')}
+  ${expectedLeases.length > 0 ? renderLeaseTable(expectedLeases, '기대수익률 임대차 현황', '※ 공실 해소·임대조건 정상화 가정 기준') : ''}
 
   ${photos.length > 0 ? `
   <section class="im-slide-page">

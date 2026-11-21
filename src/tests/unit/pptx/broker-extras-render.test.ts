@@ -155,14 +155,15 @@ describe('Basic IM — 중개인 제공 정보 렌더 스모크', () => {
     const slides = await extractSlideTexts(result.buffer);
     const full = slides.map(s => s.text).join(' ');
 
-    // 시세 비교·입지 요약(R5)·매입 후 전략·클로징 한줄 제안 원문 반영
+    // 시세 비교·대중교통·매입 후 전략·클로징 한줄 제안 원문 반영
     for (const s of [
       '인접 필지 A', '맞은편 매물',
-      '입지 요약', '저층부 리모델링 후 임대료 정상화',
+      '대중교통', '저층부 리모델링 후 임대료 정상화',
       '현장 방문은 사전 연락 후 가능합니다',
     ]) {
       expect(full).toContain(s);
     }
+    expect(full).not.toContain('입지 요약');
     // R3/R7: 구형 투자 포인트·제안 및 규제·계획 별도 면은 생성되지 않음
     expect(full).not.toContain('투자 포인트·제안');
     // 출처 / 미검증 / 산식 각주

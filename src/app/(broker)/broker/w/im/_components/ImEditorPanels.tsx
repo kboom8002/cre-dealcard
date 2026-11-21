@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { RentRollGrid } from "@/components/workspace/RentRollGrid";
+import { RentRollGrid, type BuildingRegisterFloorItem } from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
 import {
@@ -11,6 +11,7 @@ import {
 import { TERMS } from "@/lib/ux/lexicon";
 import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
 import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
+import type { BrokerCompRowForm } from "@/domain/building/mobile-im/broker-extras";
 import type { ImPostitStyle } from "./ImPreviewPane";
 import {
   formatPhoneHyphen,
@@ -45,10 +46,12 @@ export interface ImEditorPanelsProps {
   onChangeTitle: (next: string) => void;
   address: string;
   onChangeAddress: (next: string) => void;
+  pnu?: string;
   isLookingUpAddress: boolean;
   onLookupAddress: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parcels?: any[];
+  buildingFloors?: BuildingRegisterFloorItem[];
   askingPriceManwon: number;
   priceBandStr: string;
   formattedWonDisplay: string;
@@ -83,6 +86,8 @@ export interface ImEditorPanelsProps {
   isRentRollImportOpen: boolean;
   onToggleRentRollImport: () => void;
   onExcelRentRollImport: (payload: RentRollImportPayload) => void;
+  compRows?: BrokerCompRowForm[];
+  onChangeCompRows?: (rows: BrokerCompRowForm[]) => void;
 
   // Step 3: Highlights & Broker Info
   axiosHighlights: ImAxiosHighlight[];
@@ -90,8 +95,6 @@ export interface ImEditorPanelsProps {
   postitStyles: Record<"amber" | "sky" | "mint", ImPostitStyle>;
   isAiPointsBusy: boolean;
   onReclusterImAxios: () => void;
-  locationGrades?: Partial<Record<"walk" | "transit" | "commercial" | "amenity", "우수" | "양호" | "보통" | "보완 필요">>;
-  onChangeLocationGrade?: (key: "walk" | "transit" | "commercial" | "amenity", grade: "우수" | "양호" | "보통" | "보완 필요" | "") => void;
   isBrokerSectionOpen: boolean;
   onToggleBrokerSection: () => void;
   onMarkBrokerSectionTouched: () => void;
@@ -112,6 +115,7 @@ export interface ImEditorPanelsProps {
   isCompressingPhotos: boolean;
   onFilesSelected: (files: File[], forcedCategory?: "exterior" | "interior") => void;
   onUpdatePhotoMeta?: (idx: number, patch: { caption?: string; category?: "exterior" | "interior" }) => void;
+  onReorderPhoto?: (fromIdx: number, toIdx: number) => void;
   onRemovePhotoAtIndex: (entry: ImPhotoEntry, idx: number) => void;
   isGenerating: boolean;
   generateButtonLabel: string;
@@ -138,9 +142,11 @@ export function ImEditorPanels({
   onChangeTitle,
   address,
   onChangeAddress,
+  pnu,
   isLookingUpAddress,
   onLookupAddress,
   parcels,
+  buildingFloors,
   askingPriceManwon,
   priceBandStr,
   formattedWonDisplay,
@@ -173,13 +179,13 @@ export function ImEditorPanels({
   isRentRollImportOpen,
   onToggleRentRollImport,
   onExcelRentRollImport,
+  compRows = [],
+  onChangeCompRows,
   axiosHighlights,
   onChangeAxiosHighlights,
   postitStyles,
   isAiPointsBusy,
   onReclusterImAxios,
-  locationGrades = {},
-  onChangeLocationGrade,
   isBrokerSectionOpen,
   onToggleBrokerSection,
   onMarkBrokerSectionTouched,
@@ -198,6 +204,7 @@ export function ImEditorPanels({
   isCompressingPhotos,
   onFilesSelected,
   onUpdatePhotoMeta,
+  onReorderPhoto,
   onRemovePhotoAtIndex,
   isGenerating,
   generateButtonLabel,
@@ -208,6 +215,24 @@ export function ImEditorPanels({
   const interiorFileInputRef = useRef<HTMLInputElement>(null);
   const [rentRollSubTab, setRentRollSubTab] = useState<"actual" | "expected">("actual");
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+  const [isCompsSectionOpen, setIsCompsSectionOpen] = useState<boolean>(compRows.length > 0);
+  const [isLoadingNearbyComps, setIsLoadingNearbyComps] = useState<boolean>(false);
+  const [nearbyCompNotice, setNearbyCompNotice] = useState<string | null>(null);
+  const [nearbyCompCandidates, setNearbyCompCandidates] = useState<
+    Array<{
+      id: string;
+      location: string;
+      dealDate: string;
+      price_eok: number;
+      land_area_pyeong?: number;
+      gfa_pyeong?: number;
+      land_price_per_pyeong_manwon?: number;
+      building_use: string;
+      note: string;
+    }>
+  >([]);
+  const [dragZoneOver, setDragZoneOver] = useState<"exterior" | "interior" | null>(null);
+  const [dragPhotoIdx, setDragPhotoIdx] = useState<number | null>(null);
 
   const showSampleBanner = isSampleSeedImItem(
     currentItem ? { ...currentItem, address } : null
@@ -404,7 +429,7 @@ export function ImEditorPanels({
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
-          <h2 className="text-xl font-extrabold text-[#0F172A]">① 건물 기본 정보</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">건물 기본 정보</h2>
           {activeEditorTab === "specs" && selectedItemActionsNode}
         </div>
 
@@ -427,180 +452,110 @@ export function ImEditorPanels({
           </div>
         )}
 
-        <div
-          className="p-4 rounded-xl bg-[#FAF9F5] border border-[#CBD5E1] space-y-2.5"
-          data-testid="im-posture-selector-section"
-          onFocusCapture={() => onNotifyEditorFocus("im-unit-cover")}
-        >
-          <span className="block text-base font-extrabold text-[#0F172A]">
-            {TERMS.postureSectionTitle}
-          </span>
+        {/* 카드 A: 매물 유형 및 표지 제목 */}
+        <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200 space-y-4">
           <div
-            className="grid grid-cols-1 sm:grid-cols-3 gap-2.5"
-            role="group"
-            aria-label={TERMS.postureSectionTitle}
+            className="space-y-2.5"
+            data-testid="im-posture-selector-section"
+            onFocusCapture={() => onNotifyEditorFocus("im-unit-cover")}
           >
-            {(
-              [
-                {
-                  id: "core_income",
-                  norm: "income",
-                  title: "임대수익용",
-                  desc: "안정적인 월세 수익",
-                },
-                {
-                  id: "owner_occupier",
-                  norm: "owner_occupied",
-                  title: "사옥용",
-                  desc: "직접 입주·주차·접근성",
-                },
-                {
-                  id: "development",
-                  norm: "development",
-                  title: "신축·개발용",
-                  desc: "리모델링·신축·토지 활용",
-                },
-              ] as const
-            ).map((opt) => {
-              const active = normalizedPosture === opt.norm;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => onChangePosture(opt.id)}
-                  className={`min-h-[56px] px-4 py-3 rounded-lg border-2 text-left transition cursor-pointer ${
-                    active
-                      ? "bg-blue-700 text-white border-blue-700 shadow-xs"
-                      : "bg-white text-slate-900 border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="text-base font-extrabold">{opt.title}</div>
-                  <div
-                    className={`text-sm mt-0.5 ${
-                      active ? "text-blue-100" : "text-slate-600"
+            <span className="block text-base font-extrabold text-[#0F172A]">
+              어떤 매물인가요?
+            </span>
+            <div
+              className="grid grid-cols-1 sm:grid-cols-3 gap-2.5"
+              role="group"
+              aria-label="어떤 매물인가요?"
+            >
+              {(
+                [
+                  {
+                    id: "core_income",
+                    norm: "income",
+                    title: "임대수익용",
+                    desc: "안정적인 월세 수익",
+                  },
+                  {
+                    id: "owner_occupier",
+                    norm: "owner_occupied",
+                    title: "사옥용",
+                    desc: "직접 입주·주차·접근성",
+                  },
+                  {
+                    id: "development",
+                    norm: "development",
+                    title: "신축·개발용",
+                    desc: "리모델링·신축·토지 활용",
+                  },
+                ] as const
+              ).map((opt) => {
+                const active = normalizedPosture === opt.norm;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => onChangePosture(opt.id)}
+                    className={`min-h-[56px] px-4 py-3 rounded-xl border-2 text-left transition cursor-pointer ${
+                      active
+                        ? "bg-blue-50 text-blue-950 border-blue-600 ring-1 ring-blue-200 shadow-2xs"
+                        : "bg-white text-slate-900 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
-                    {opt.desc}
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="flex items-center justify-between gap-1 text-base font-extrabold">
+                      <span>{opt.title}</span>
+                      {active && (
+                        <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-blue-600 text-white">
+                          ✓ 선택
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`text-sm mt-0.5 ${
+                        active ? "text-blue-800 font-semibold" : "text-slate-600"
+                      }`}
+                    >
+                      {opt.desc}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        <div
-          className="space-y-1.5"
-          data-testid="im-cover-title-section"
-          onFocusCapture={() => onNotifyEditorFocus("im-unit-cover")}
-        >
-          <label
-            htmlFor="im-title-single-line-input"
-            className="block text-base font-bold text-[#0F172A]"
+          <div
+            className="space-y-1.5 pt-2 border-t border-slate-200/80"
+            data-testid="im-cover-title-section"
+            onFocusCapture={() => onNotifyEditorFocus("im-unit-cover")}
           >
-            표지 제목
-          </label>
-          <input
-            id="im-title-single-line-input"
-            type="text"
-            data-testid="im-title-single-line-input"
-            value={imTitle}
-            onChange={(e) => onChangeTitle(e.target.value)}
-            placeholder="비워 두면 주소에 맞춰 자동 입력됩니다 (예: 마포구 서교동 근생빌딩)"
-            className="w-full min-h-[48px] px-3.5 text-lg font-extrabold rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
-          />
-        </div>
-
-        <div
-          className="space-y-1.5"
-          data-testid="im-address-section"
-          onFocusCapture={() => onNotifyEditorFocus("im-unit-location")}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
             <label
-              htmlFor="im-address-input"
+              htmlFor="im-title-single-line-input"
               className="block text-base font-bold text-[#0F172A]"
             >
-              1. 건물 주소 <span className="text-[#991B1B]">*</span>
+              표지 제목
             </label>
-            <button
-              type="button"
-              data-testid="im-address-lookup-btn"
-              disabled={isLookingUpAddress}
-              onClick={onLookupAddress}
-              className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold transition cursor-pointer"
-            >
-              {isLookingUpAddress ? "불러오는 중…" : "주소로 건물 정보 자동 채우기"}
-            </button>
+            <input
+              id="im-title-single-line-input"
+              type="text"
+              data-testid="im-title-single-line-input"
+              value={imTitle}
+              onChange={(e) => onChangeTitle(e.target.value)}
+              placeholder="비워 두면 주소에 맞춰 자동 입력됩니다 (예: 마포구 서교동 근생빌딩)"
+              className="w-full min-h-[48px] px-3.5 text-lg font-extrabold rounded-xl bg-white border border-slate-300 focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs"
+            />
           </div>
-          <input
-            id="im-address-input"
-            type="text"
-            data-testid="im-address-input"
-            value={address}
-            onChange={(e) => onChangeAddress(e.target.value)}
-            placeholder="예: 서울특별시 마포구 서교동 395-166"
-            className="w-full min-h-[48px] px-3.5 text-lg rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
-          />
-          {Array.isArray(parcels) && parcels.length >= 2 && (
-            <div
-              data-testid="im-multiparcel-summary"
-              className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-2.5 text-sm text-[#1E3A8A] space-y-1.5"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-extrabold">
-                  여러 필지 자동 합산 ({parcels.length}개 필지)
-                </span>
-                <span className="text-sm font-semibold text-[#1D4ED8]">
-                  합산 경계와 평균 공시지가가 자동 반영됩니다
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {parcels.map((p: any, idx: number) => {
-                  const jibunLabel =
-                    p?.jibun ||
-                    (typeof p?.pnu === "string" && /^\d{19}$/.test(p.pnu)
-                      ? `${parseInt(p.pnu.slice(11, 15), 10)}${
-                          parseInt(p.pnu.slice(15, 19), 10) > 0
-                            ? `-${parseInt(p.pnu.slice(15, 19), 10)}`
-                            : ""
-                        }`
-                      : `필지 ${idx + 1}`);
-                  const catLabel = p?.landCategory ? ` · ${p.landCategory}` : "";
-                  const areaLabel =
-                    typeof p?.areaM2 === "number" && p.areaM2 > 0
-                      ? ` · ${Number(p.areaM2).toLocaleString()}㎡`
-                      : "";
-                  return (
-                    <span
-                      key={p?.pnu || idx}
-                      className="inline-flex items-center rounded-md bg-white border border-[#93C5FD] px-2.5 py-1 text-sm font-semibold text-[#0F172A] tabular-nums"
-                    >
-                      {jibunLabel}
-                      {catLabel}
-                      {areaLabel}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
+        {/* 카드 B: 희망 매매가 (억 · 만원 기본 + 원 단위 보조 + 단위 오기 가드) */}
         <div
-          className="space-y-2.5"
+          className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200 space-y-3"
           data-testid="im-price-section"
           onFocusCapture={() => onNotifyEditorFocus("im-unit-cover")}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label
-              htmlFor="im-price-won-input"
-              className="text-base font-bold text-[#0F172A]"
-            >
-              2. 희망 매매가 (&apos;원&apos; 단위){" "}
-              <span className="text-[#991B1B]">*</span>
-            </label>
+            <span className="text-base font-extrabold text-[#0F172A]">
+              희망 매매가 (억 · 만원 단위) <span className="text-[#991B1B]">*</span>
+            </span>
             <div className="flex items-center gap-2">
               <span
                 className="text-base font-extrabold text-[#1D4ED8]"
@@ -614,8 +569,95 @@ export function ImEditorPanels({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="im-price-eok-input"
+                className="text-sm font-extrabold text-slate-800 shrink-0"
+              >
+                억 단위
+              </label>
+              <input
+                id="im-price-eok-input"
+                type="number"
+                min={0}
+                data-testid="im-price-eok-input"
+                value={priceEokPart || ""}
+                onChange={(e) =>
+                  onSplitPriceChange(Number(e.target.value), priceManwonRemainder)
+                }
+                placeholder="예: 77"
+                className="w-full min-h-[48px] px-3.5 text-lg font-extrabold tabular-nums rounded-xl bg-white border-2 border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs"
+              />
+              <span className="text-base font-extrabold text-slate-900 shrink-0">
+                억 원
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="im-price-man-input"
+                className="text-sm font-extrabold text-slate-800 shrink-0"
+              >
+                만원 단위
+              </label>
+              <input
+                id="im-price-man-input"
+                type="number"
+                min={0}
+                max={9999}
+                data-testid="im-price-man-input"
+                value={priceManwonRemainder || ""}
+                onChange={(e) =>
+                  onSplitPriceChange(priceEokPart, Number(e.target.value))
+                }
+                placeholder="0"
+                className="w-full min-h-[48px] px-3.5 text-lg font-extrabold tabular-nums rounded-xl bg-white border border-slate-300 focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs"
+              />
+              <span className="text-base font-extrabold text-slate-900 shrink-0">
+                만 원
+              </span>
+            </div>
+          </div>
+
+          {askingPriceManwon >= 1 && askingPriceManwon < 10_000 && (
+            <div
+              data-testid="im-price-unit-warning"
+              className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-950 font-bold"
+            >
+              <span>
+                ⚠️ 현재{" "}
+                <strong>
+                  {formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}
+                </strong>
+                으로 입력되어 있습니다. 혹시 &lsquo;만원&rsquo; 기준으로 입력하셨나요?
+              </span>
+              {askingPriceManwon * 10_000 <= 50_000_000 && (
+                <button
+                  type="button"
+                  data-testid="im-price-unit-fix-btn"
+                  onClick={() =>
+                    onSetDirectAskingPriceManwon(Math.round(askingPriceManwon * 10_000))
+                  }
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-extrabold cursor-pointer shrink-0"
+                >
+                  {formatKoreanCurrencyReadout(
+                    Math.round(askingPriceManwon * 10_000)
+                  ).replace(/^=\s*/, "")}
+                  으로 변경
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
             <div className="relative flex-1 flex items-center gap-2">
+              <label
+                htmlFor="im-price-won-input"
+                className="text-xs font-bold text-slate-600 shrink-0"
+              >
+                &lsquo;원&rsquo; 직접 입력
+              </label>
               <input
                 id="im-price-won-input"
                 type="text"
@@ -625,21 +667,19 @@ export function ImEditorPanels({
                 onFocus={onWonFocus}
                 onBlur={onWonBlur}
                 onChange={(e) => onWonPriceChange(e.target.value)}
-                placeholder="예: 7,700,000,000 (원 단위로 입력하거나 붙여넣기)"
-                className="w-full min-h-[48px] px-3.5 text-lg font-extrabold tabular-nums rounded-xl border-2 border-[#1D4ED8] bg-white focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+                placeholder="예: 7,700,000,000 (원 단위 붙여넣기 가능)"
+                className="w-full min-h-[42px] px-3 text-sm font-bold tabular-nums rounded-xl border border-slate-300 bg-white focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
-              <span className="text-base font-extrabold text-slate-900 shrink-0">
-                원
-              </span>
+              <span className="text-sm font-bold text-slate-700 shrink-0">원</span>
             </div>
             <button
               type="button"
               data-testid="im-price-calculator-toggle"
               aria-expanded={isPriceCalcOpen}
               onClick={onTogglePriceCalc}
-              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold cursor-pointer shrink-0 whitespace-nowrap transition-colors"
+              className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-sm font-bold cursor-pointer shrink-0 whitespace-nowrap transition-colors"
             >
-              {isPriceCalcOpen ? "간편 계산기 접기 ▴" : "간편 계산기로 입력 ▾"}
+              {isPriceCalcOpen ? "간편 금액 버튼 접기 ▴" : "간편 금액 버튼 ▾"}
             </button>
           </div>
 
@@ -647,7 +687,7 @@ export function ImEditorPanels({
             data-testid="im-price-calculator-panel"
             className={
               isPriceCalcOpen
-                ? "p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3"
+                ? "p-3 rounded-xl bg-white border border-slate-200 space-y-2.5"
                 : "hidden"
             }
           >
@@ -665,7 +705,7 @@ export function ImEditorPanels({
                       (askingPriceManwon || 0) + btn.addManwon
                     )
                   }
-                  className="min-h-[44px] px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold cursor-pointer"
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold cursor-pointer"
                 >
                   {btn.label}
                 </button>
@@ -673,78 +713,106 @@ export function ImEditorPanels({
               <button
                 type="button"
                 onClick={() => onSetDirectAskingPriceManwon(0)}
-                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-sm font-bold cursor-pointer"
+                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 text-sm font-bold cursor-pointer"
               >
                 0원 초기화
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="im-price-eok-input"
-                  className="text-sm font-bold text-slate-700 shrink-0"
-                >
-                  억 단위 간편입력
-                </label>
-                <input
-                  id="im-price-eok-input"
-                  type="number"
-                  min={0}
-                  data-testid="im-price-eok-input"
-                  value={priceEokPart || ""}
-                  onChange={(e) =>
-                    onSplitPriceChange(Number(e.target.value), priceManwonRemainder)
-                  }
-                  placeholder="예: 77"
-                  className="w-full min-h-[44px] px-3 text-base font-bold tabular-nums rounded-xl bg-white border border-[#CBD5E1] focus:border-[#1D4ED8] outline-none"
-                />
-                <span className="text-sm font-extrabold text-slate-800 shrink-0">
-                  억
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="im-price-man-input"
-                  className="text-sm font-bold text-slate-700 shrink-0"
-                >
-                  만원 단위
-                </label>
-                <input
-                  id="im-price-man-input"
-                  type="number"
-                  min={0}
-                  max={9999}
-                  data-testid="im-price-man-input"
-                  value={priceManwonRemainder || ""}
-                  onChange={(e) =>
-                    onSplitPriceChange(priceEokPart, Number(e.target.value))
-                  }
-                  placeholder="0"
-                  className="w-full min-h-[44px] px-3 text-base font-bold tabular-nums rounded-xl bg-white border border-[#CBD5E1] focus:border-[#1D4ED8] outline-none"
-                />
-                <span className="text-sm font-extrabold text-slate-800 shrink-0">
-                  만원
-                </span>
-              </div>
-
-              <div className="sr-only">
-                <input
-                  id="im-asking-price-input"
-                  type="number"
-                  data-testid="im-asking-price-input"
-                  value={askingPriceManwon || ""}
-                  onChange={(e) =>
-                    onSetDirectAskingPriceManwon(Number(e.target.value))
-                  }
-                  placeholder="총액(만원): 950000"
-                  aria-label="희망 매매가 총액(만원 단위)"
-                />
-              </div>
+            <div className="sr-only">
+              <input
+                id="im-asking-price-input"
+                type="number"
+                data-testid="im-asking-price-input"
+                value={askingPriceManwon || ""}
+                onChange={(e) =>
+                  onSetDirectAskingPriceManwon(Number(e.target.value))
+                }
+                placeholder="총액(만원): 950000"
+                aria-label="희망 매매가 총액(만원 단위)"
+              />
             </div>
           </div>
         </div>
+
+        {/* 카드 C: 건물 주소 및 공부 제원 */}
+        <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200 space-y-4">
+          <div
+            className="space-y-1.5"
+            data-testid="im-address-section"
+            onFocusCapture={() => onNotifyEditorFocus("im-unit-location")}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label
+                htmlFor="im-address-input"
+                className="block text-base font-extrabold text-[#0F172A]"
+              >
+                건물 주소 <span className="text-[#991B1B]">*</span>
+              </label>
+              <button
+                type="button"
+                data-testid="im-address-lookup-btn"
+                disabled={isLookingUpAddress}
+                onClick={onLookupAddress}
+                className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold transition cursor-pointer"
+              >
+                {isLookingUpAddress ? "불러오는 중…" : "주소로 건물 정보 자동 채우기"}
+              </button>
+            </div>
+            <input
+              id="im-address-input"
+              type="text"
+              data-testid="im-address-input"
+              value={address}
+              onChange={(e) => onChangeAddress(e.target.value)}
+              placeholder="예: 서울특별시 마포구 서교동 395-166"
+              className="w-full min-h-[48px] px-3.5 text-lg rounded-xl bg-white border border-slate-300 focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs"
+            />
+            {Array.isArray(parcels) && parcels.length >= 2 && (
+              <div
+                data-testid="im-multiparcel-summary"
+                className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-2.5 text-sm text-[#1E3A8A] space-y-1.5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-extrabold">
+                    여러 필지 자동 합산 ({parcels.length}개 필지)
+                  </span>
+                  <span className="text-sm font-semibold text-[#1D4ED8]">
+                    합산 경계와 평균 공시지가가 자동 반영됩니다
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {parcels.map((p: any, idx: number) => {
+                    const jibunLabel =
+                      p?.jibun ||
+                      (typeof p?.pnu === "string" && /^\d{19}$/.test(p.pnu)
+                        ? `${parseInt(p.pnu.slice(11, 15), 10)}${
+                            parseInt(p.pnu.slice(15, 19), 10) > 0
+                              ? `-${parseInt(p.pnu.slice(15, 19), 10)}`
+                              : ""
+                          }`
+                        : `필지 ${idx + 1}`);
+                    const catLabel = p?.landCategory ? ` · ${p.landCategory}` : "";
+                    const areaLabel =
+                      typeof p?.areaM2 === "number" && p.areaM2 > 0
+                        ? ` · ${Number(p.areaM2).toLocaleString()}㎡`
+                        : "";
+                    return (
+                      <span
+                        key={p?.pnu || idx}
+                        className="inline-flex items-center rounded-md bg-white border border-[#93C5FD] px-2.5 py-1 text-sm font-semibold text-[#0F172A] tabular-nums"
+                      >
+                        {jibunLabel}
+                        {catLabel}
+                        {areaLabel}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
         <div
           data-testid="im-building-specs-section"
@@ -869,6 +937,7 @@ export function ImEditorPanels({
               </button>
             </div>
           )}
+        </div>
 
         <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-semibold text-slate-700">
@@ -902,7 +971,7 @@ export function ImEditorPanels({
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-extrabold text-[#0F172A]">② 층별 임대 현황</h2>
+            <h2 className="text-xl font-extrabold text-[#0F172A]">층별 임대차 현황</h2>
             <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
               <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">
                 보증금{" "}
@@ -936,7 +1005,7 @@ export function ImEditorPanels({
                 : "bg-slate-50 text-slate-700 border-[#CBD5E1] hover:bg-slate-100"
             }`}
           >
-            현황 렌트롤 ({rentRoll.length}행)
+            현행 임대차 현황 ({rentRoll.length}행)
           </button>
           <button
             type="button"
@@ -949,8 +1018,8 @@ export function ImEditorPanels({
                 : "bg-blue-50/70 text-[#1D4ED8] border-blue-200 hover:bg-blue-100/70"
             }`}
           >
-            + 기대수익률(추정수익률) 렌트롤{" "}
-            {expectedRentRoll.length > 0 ? `(${expectedRentRoll.length}행 · 6-2면 반영)` : "(선택)"}
+            + 기대수익률 임대차 현황{" "}
+            {expectedRentRoll.length > 0 ? `(${expectedRentRoll.length}행 · 별도 면 반영)` : "(선택)"}
           </button>
           {rentRollSubTab === "expected" && onCopyActualToExpectedRentRoll && (
             <button
@@ -959,7 +1028,7 @@ export function ImEditorPanels({
               onClick={onCopyActualToExpectedRentRoll}
               className="ml-auto min-h-[44px] px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-sm font-extrabold cursor-pointer transition-colors"
             >
-              현황 렌트롤에서 복사
+              현행 현황에서 복사
             </button>
           )}
         </div>
@@ -1002,6 +1071,7 @@ export function ImEditorPanels({
                 onChange={onChangeRentRoll}
                 floorsAbove={currentItem?.floorsAbove}
                 floorsBelow={currentItem?.floorsBelow}
+                buildingFloors={buildingFloors}
                 askingPriceManwon={askingPriceManwon}
                 extraToolbarAction={
                   <button
@@ -1009,7 +1079,7 @@ export function ImEditorPanels({
                     data-testid="im-rentroll-import-toggle"
                     aria-expanded={isRentRollImportOpen}
                     onClick={onToggleRentRollImport}
-                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
                   >
                     <span>
                       {isRentRollImportOpen
@@ -1025,7 +1095,7 @@ export function ImEditorPanels({
           <div className="space-y-3" data-testid="im-expected-rentroll-panel">
             <div className="rounded-xl bg-blue-50/70 border border-blue-200 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-800">
               <span className="font-semibold break-keep">
-                공실 해소·리모델링 후 임대가정 행을 입력하면 IM <strong>6-2면 기대수익률(추정수익률) 렌트롤</strong> 슬라이드가 자동 추가됩니다.
+                공실 해소·임대조건 정상화 후 가정을 입력하면 IM <strong>기대수익률 임대차 현황</strong> 슬라이드와 <strong>기대수익률</strong>이 자동 반영됩니다. (현행과 달라진 항목은 이탤릭으로 구분 표시)
               </span>
               {expectedRentRoll.length > 0 && onChangeExpectedRentRoll && (
                 <button
@@ -1042,10 +1112,261 @@ export function ImEditorPanels({
               onChange={(rows) => onChangeExpectedRentRoll?.(rows)}
               floorsAbove={currentItem?.floorsAbove}
               floorsBelow={currentItem?.floorsBelow}
+              buildingFloors={buildingFloors}
               askingPriceManwon={askingPriceManwon}
             />
           </div>
         )}
+
+        {/* 선택: 인근 실거래 비교 (1건 이상 선택/입력 시에만 IM에 노출) */}
+        <div
+          data-testid="im-comps-selector-section"
+          onFocusCapture={() => onNotifyEditorFocus("im-unit-comps")}
+          className="rounded-2xl border border-slate-200 bg-[#F8FAFC] overflow-hidden"
+        >
+          <button
+            type="button"
+            data-testid="im-comps-toggle-btn"
+            aria-expanded={isCompsSectionOpen}
+            onClick={() => setIsCompsSectionOpen((prev) => !prev)}
+            className="w-full min-h-[48px] px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-left hover:bg-slate-100/80 transition cursor-pointer"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm sm:text-base font-extrabold text-[#0F172A]">
+                인근 실거래 비교 (선택)
+              </span>
+              <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700">
+                {compRows.length > 0
+                  ? `${compRows.length}건 선택됨 · IM 반영`
+                  : "0건 · 미선택 시 IM에서 자동 숨김"}
+              </span>
+            </div>
+            <span className="text-sm font-bold text-[#1D4ED8]">
+              {isCompsSectionOpen ? "접기 ▴" : "공공 실거래 선택 · 직접 추가 ▾"}
+            </span>
+          </button>
+
+          {isCompsSectionOpen && (
+            <div className="p-4 border-t border-slate-200 bg-white space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs sm:text-sm text-slate-600 font-medium break-keep">
+                  인근 유사 매각 사례를 선택하거나 직접 입력하면 IM 미리보기와 발표자료에 비교 면이 자동 추가됩니다.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="im-fetch-nearby-comps-btn"
+                    disabled={isLoadingNearbyComps}
+                    onClick={async () => {
+                      setIsLoadingNearbyComps(true);
+                      setNearbyCompNotice(null);
+                      try {
+                        const qs = new URLSearchParams();
+                        if (pnu) qs.set("pnu", pnu);
+                        if (address.trim()) qs.set("address", address.trim());
+                        const res = await fetch(
+                          `/api/broker/im-lite/nearby-comps?${qs.toString()}`
+                        );
+                        const data = await res.json().catch(() => null);
+                        if (res.ok && Array.isArray(data?.items)) {
+                          setNearbyCompCandidates(data.items);
+                          if (data.items.length === 0) {
+                            setNearbyCompNotice(
+                              data.message ||
+                                "최근 3개월 내 조회된 인근 통건물 실거래가 없습니다."
+                            );
+                          }
+                        } else {
+                          setNearbyCompNotice("인근 실거래를 불러오지 못했습니다.");
+                        }
+                      } catch {
+                        setNearbyCompNotice("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
+                      } finally {
+                        setIsLoadingNearbyComps(false);
+                      }
+                    }}
+                    className="min-h-[38px] px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-300 text-blue-900 text-xs sm:text-sm font-extrabold cursor-pointer"
+                  >
+                    {isLoadingNearbyComps ? "조회 중…" : "🔍 공공 실거래 사례 불러오기"}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="im-add-manual-comp-btn"
+                    onClick={() => {
+                      onChangeCompRows?.([
+                        ...compRows,
+                        {
+                          kind: "transaction",
+                          location: "",
+                          price_eok: "",
+                          land_price_per_pyeong_manwon: "",
+                          note: "",
+                          land_area_pyeong: "",
+                          as_of: "",
+                        },
+                      ]);
+                    }}
+                    className="min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 text-xs sm:text-sm font-extrabold cursor-pointer"
+                  >
+                    + 직접 추가
+                  </button>
+                </div>
+              </div>
+
+              {nearbyCompNotice && (
+                <div className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {nearbyCompNotice}
+                </div>
+              )}
+
+              {nearbyCompCandidates.length > 0 && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-2.5 space-y-1.5 max-h-56 overflow-y-auto">
+                  <div className="text-xs font-extrabold text-blue-950 px-1">
+                    국토교통부 상업·업무용 실거래 (체크하여 비교 목록에 반영)
+                  </div>
+                  {nearbyCompCandidates.map((cand, cIdx) => {
+                    const checked = compRows.some(
+                      (r) =>
+                        r.location === cand.location &&
+                        r.price_eok === String(cand.price_eok) &&
+                        (r.as_of || "") === cand.dealDate
+                    );
+                    return (
+                      <label
+                        key={cand.id}
+                        data-testid={`im-nearby-comp-checkbox-${cIdx}`}
+                        className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-white border border-slate-200 hover:border-blue-400 cursor-pointer text-xs sm:text-sm"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                onChangeCompRows?.([
+                                  ...compRows,
+                                  {
+                                    kind: "transaction",
+                                    location: cand.location,
+                                    price_eok: String(cand.price_eok),
+                                    land_price_per_pyeong_manwon: cand.land_price_per_pyeong_manwon
+                                      ? String(cand.land_price_per_pyeong_manwon)
+                                      : "",
+                                    note: cand.note,
+                                    land_area_pyeong: cand.land_area_pyeong
+                                      ? String(cand.land_area_pyeong)
+                                      : "",
+                                    gfa_pyeong: cand.gfa_pyeong ? String(cand.gfa_pyeong) : "",
+                                    as_of: cand.dealDate,
+                                    selected: true,
+                                  },
+                                ]);
+                              } else {
+                                onChangeCompRows?.(
+                                  compRows.filter(
+                                    (r) =>
+                                      !(
+                                        r.location === cand.location &&
+                                        r.price_eok === String(cand.price_eok) &&
+                                        (r.as_of || "") === cand.dealDate
+                                      )
+                                  )
+                                );
+                              }
+                            }}
+                            className="h-4 w-4 rounded accent-[#1D4ED8]"
+                          />
+                          <span className="font-bold text-slate-900 truncate">
+                            {cand.location}
+                          </span>
+                          <span className="text-slate-500 shrink-0">{cand.dealDate}</span>
+                        </div>
+                        <div className="font-extrabold text-[#1D4ED8] shrink-0 tabular-nums">
+                          {cand.price_eok}억
+                          {cand.land_price_per_pyeong_manwon
+                            ? ` (평당 ${cand.land_price_per_pyeong_manwon.toLocaleString()}만)`
+                            : ""}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {compRows.length > 0 && (
+                <div className="space-y-2">
+                  {compRows.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-12 gap-1.5 items-center rounded-xl border border-slate-200 bg-slate-50/70 p-2 text-xs"
+                    >
+                      <input
+                        type="text"
+                        placeholder="소재지 (예: 동교동 188-4)"
+                        value={row.location}
+                        onChange={(e) => {
+                          const next = compRows.map((r, i) =>
+                            i === idx ? { ...r, location: e.target.value } : r
+                          );
+                          onChangeCompRows?.(next);
+                        }}
+                        className="col-span-4 h-8 px-2 rounded-lg border border-slate-300 bg-white font-semibold"
+                      />
+                      <input
+                        type="text"
+                        placeholder="거래가(억)"
+                        value={row.price_eok}
+                        onChange={(e) => {
+                          const next = compRows.map((r, i) =>
+                            i === idx ? { ...r, price_eok: e.target.value } : r
+                          );
+                          onChangeCompRows?.(next);
+                        }}
+                        className="col-span-2 h-8 px-2 rounded-lg border border-slate-300 bg-white text-right font-bold"
+                      />
+                      <input
+                        type="text"
+                        placeholder="대지평당(만)"
+                        value={row.land_price_per_pyeong_manwon}
+                        onChange={(e) => {
+                          const next = compRows.map((r, i) =>
+                            i === idx
+                              ? { ...r, land_price_per_pyeong_manwon: e.target.value }
+                              : r
+                          );
+                          onChangeCompRows?.(next);
+                        }}
+                        className="col-span-2 h-8 px-2 rounded-lg border border-slate-300 bg-white text-right font-semibold"
+                      />
+                      <input
+                        type="text"
+                        placeholder="거래일/특이사항"
+                        value={row.note}
+                        onChange={(e) => {
+                          const next = compRows.map((r, i) =>
+                            i === idx ? { ...r, note: e.target.value } : r
+                          );
+                          onChangeCompRows?.(next);
+                        }}
+                        className="col-span-3 h-8 px-2 rounded-lg border border-slate-300 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onChangeCompRows?.(compRows.filter((_, i) => i !== idx))
+                        }
+                        aria-label="비교 사례 삭제"
+                        className="col-span-1 h-8 rounded-lg text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="pt-3 border-t border-slate-200 flex justify-end">
           <button
@@ -1072,9 +1393,14 @@ export function ImEditorPanels({
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
-          <h2 className="text-xl font-extrabold text-[#0F172A]">
-            ③ 핵심 장점 3가지 · 담당 중개사 안내
-          </h2>
+          <div>
+            <h2 className="text-xl font-extrabold text-[#0F172A]">
+              핵심 장점 3가지 · 담당 중개사 안내
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              명사형 종결 개조식으로 자동 작성되며, 요약 슬라이드에는 <strong>소제목 + 상세 설명</strong>이 함께 표시됩니다.
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {activeEditorTab === "axios_brief" && selectedItemActionsNode}
             <button
@@ -1093,6 +1419,20 @@ export function ImEditorPanels({
         <div className="space-y-3">
           {axiosHighlights.map((item, idx) => {
             const style = postitStyles[item.tone] || postitStyles.amber;
+            const handleSyncHeadlineFromBrief = () => {
+              const rawBrief = (item.brief || "").trim();
+              if (!rawBrief) return;
+              const firstSeg = rawBrief
+                .split(/[.。\n·—]|,\s+/)[0]
+                .replace(/^[•·\-*]\s*/, "")
+                .trim()
+                .slice(0, 28);
+              if (!firstSeg) return;
+              const next = axiosHighlights.map((h, i) =>
+                i === idx ? { ...h, headline: firstSeg } : h
+              );
+              onChangeAxiosHighlights(next);
+            };
             return (
               <div
                 key={idx}
@@ -1101,121 +1441,87 @@ export function ImEditorPanels({
                 style={{ backgroundColor: style.bg, borderColor: style.border }}
                 className="rounded-xl border border-l-4 p-4 space-y-2.5 shadow-2xs"
               >
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor={`im-axios-point-title-${idx}`}
-                    style={{ backgroundColor: style.badgeBg, color: style.badgeText }}
-                    className="text-sm font-extrabold px-2.5 py-0.5 rounded"
-                  >
-                    {style.label}
-                  </label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-200/80 text-slate-700">
+                      포인트 0{idx + 1} 가이드 · 슬라이드 미표시
+                    </span>
+                    <span
+                      style={{ backgroundColor: style.badgeBg, color: style.badgeText }}
+                      className="text-xs font-extrabold px-2 py-0.5 rounded"
+                    >
+                      {style.label}
+                    </span>
+                  </div>
                   <span
                     data-testid={`im-axios-point-char-count-${idx}`}
-                    className="text-sm font-semibold text-slate-600 tabular-nums"
+                    className="text-xs font-semibold text-slate-600 tabular-nums"
                   >
                     {(item.brief || "").length}/300자
                   </span>
                 </div>
-                <input
-                  id={`im-axios-point-title-${idx}`}
-                  type="text"
-                  maxLength={60}
-                  data-testid={`im-axios-point-title-${idx}`}
-                  value={item.headline}
-                  onChange={(e) => {
-                    const next = axiosHighlights.map((h, i) =>
-                      i === idx ? { ...h, headline: e.target.value } : h
-                    );
-                    onChangeAxiosHighlights(next);
-                  }}
-                  className="w-full min-h-[48px] px-3.5 text-lg font-extrabold text-slate-950 bg-white/95 rounded-lg border border-slate-400/80 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="핵심 장점 소제목"
-                />
-                <label htmlFor={`im-axios-point-brief-${idx}`} className="sr-only">
-                  장점 {idx + 1} 상세 설명
-                </label>
-                <textarea
-                  id={`im-axios-point-brief-${idx}`}
-                  rows={2}
-                  maxLength={300}
-                  data-testid={`im-axios-point-brief-${idx}`}
-                  value={item.brief}
-                  onChange={(e) => {
-                    const next = axiosHighlights.map((h, i) =>
-                      i === idx ? { ...h, brief: e.target.value.slice(0, 300) } : h
-                    );
-                    onChangeAxiosHighlights(next);
-                  }}
-                  className="w-full px-3.5 py-2 text-base font-medium text-slate-800 bg-white/90 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
-                  placeholder="매수자가 주목할 근거를 2~3문장으로 적어 주세요"
-                />
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor={`im-axios-point-title-${idx}`}
+                      className="text-xs font-extrabold text-slate-700"
+                    >
+                      요약 소제목 (슬라이드 굵게 표시됨)
+                    </label>
+                    {item.brief?.trim() && (
+                      <button
+                        type="button"
+                        onClick={handleSyncHeadlineFromBrief}
+                        className="text-xs font-bold text-[#1D4ED8] hover:underline cursor-pointer"
+                      >
+                        ↻ 본문 요약으로 소제목 맞춤
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    id={`im-axios-point-title-${idx}`}
+                    type="text"
+                    maxLength={60}
+                    data-testid={`im-axios-point-title-${idx}`}
+                    value={item.headline}
+                    onChange={(e) => {
+                      const next = axiosHighlights.map((h, i) =>
+                        i === idx ? { ...h, headline: e.target.value } : h
+                      );
+                      onChangeAxiosHighlights(next);
+                    }}
+                    className="w-full min-h-[44px] px-3.5 text-base sm:text-lg font-extrabold text-slate-950 bg-white rounded-lg border border-slate-400/80 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    placeholder="핵심 장점 소제목 (예: 홍대입구역 도보 4분 역세권 코너)"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label
+                    htmlFor={`im-axios-point-brief-${idx}`}
+                    className="text-xs font-extrabold text-slate-700 block"
+                  >
+                    상세 설명 (개조식 표시됨 · 예: ~확보, ~기대)
+                  </label>
+                  <textarea
+                    id={`im-axios-point-brief-${idx}`}
+                    rows={2}
+                    maxLength={300}
+                    data-testid={`im-axios-point-brief-${idx}`}
+                    value={item.brief}
+                    onChange={(e) => {
+                      const next = axiosHighlights.map((h, i) =>
+                        i === idx ? { ...h, brief: e.target.value.slice(0, 300) } : h
+                      );
+                      onChangeAxiosHighlights(next);
+                    }}
+                    className="w-full px-3.5 py-2 text-base font-medium text-slate-800 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 leading-relaxed"
+                    placeholder="매수자가 주목할 핵심 근거를 간결한 개조식으로 적어 주세요"
+                  />
+                </div>
               </div>
             );
           })}
-        </div>
-
-        {/* 입지 4대 등급 수동 조정 (IM 4면 카드 반영) */}
-        <div
-          data-testid="im-location-grades-box"
-          className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-base font-extrabold text-[#0F172A]">
-              📍 입지 4대 등급 조정 (IM 4면 카드 반영)
-            </h3>
-            <span className="text-sm font-semibold text-slate-600">
-              자동 계산된 등급을 현장에 맞게 한 번에 조정할 수 있습니다
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(
-              [
-                { key: "walk", label: "도보 접근성" },
-                { key: "transit", label: "광역 접근성" },
-                { key: "commercial", label: "상권 활성화" },
-                { key: "amenity", label: "편의시설" },
-              ] as const
-            ).map((item) => {
-              const currentGrade = locationGrades?.[item.key] || "";
-              const opts = ["", "우수", "양호", "보통", "보완 필요"] as const;
-              return (
-                <div
-                  key={item.key}
-                  data-testid={`im-location-grade-${item.key}`}
-                  className="rounded-xl bg-white border border-slate-200 p-3 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-extrabold text-[#0F172A]">
-                      {item.label}
-                    </span>
-                    <span className="text-xs font-bold text-slate-500">
-                      {currentGrade ? `수동: ${currentGrade}` : "자동 산출"}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {opts.map((opt) => {
-                      const active = currentGrade === opt;
-                      return (
-                        <button
-                          key={opt || "auto"}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => onChangeLocationGrade?.(item.key, opt)}
-                          className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-extrabold border transition-colors cursor-pointer ${
-                            active
-                              ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
-                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
-                        >
-                          {opt || "자동"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         <div className="pt-2 border-t border-slate-200 space-y-3">
@@ -1371,7 +1677,7 @@ export function ImEditorPanels({
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
-          <h2 className="text-xl font-extrabold text-[#0F172A]">④ 건물 사진 첨부</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">건물 사진 첨부 · 발행</h2>
           {activeEditorTab === "media_publish" && selectedItemActionsNode}
         </div>
 
@@ -1485,10 +1791,17 @@ export function ImEditorPanels({
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (dragZoneOver !== "exterior") setDragZoneOver("exterior");
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragZoneOver((prev) => (prev === "exterior" ? null : prev));
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                setDragZoneOver(null);
                 const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(
                   (f) =>
                     f.type.startsWith("image/") ||
@@ -1498,19 +1811,28 @@ export function ImEditorPanels({
                   onFilesSelected(droppedFiles, "exterior");
                 }
               }}
-              className="rounded-xl border border-blue-200 bg-white p-3.5 space-y-2 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+              className={`rounded-xl border-2 border-dashed p-3.5 space-y-2.5 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] transition-colors ${
+                dragZoneOver === "exterior"
+                  ? "border-blue-600 bg-blue-50/90"
+                  : "border-blue-300 bg-white hover:border-blue-400"
+              }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-extrabold text-[#0F172A]">
-                  ① 외부·전경 사진 (1번 = 대표)
+                  외부·전경 사진 (1번 = 대표 외관)
                 </span>
                 <span className="text-xs font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded">
-                  Ctrl+V 로드뷰
+                  드래그 · Ctrl+V
                 </span>
               </div>
-              <p className="text-xs text-slate-600 break-keep">
-                카카오/네이버 로드뷰 캡처 후 이 영역에서 Ctrl+V로 바로 붙여넣을 수 있습니다.
-              </p>
+              <div
+                onClick={() => exteriorFileInputRef.current?.click()}
+                className="rounded-lg bg-[#F8FAFC] border border-dashed border-blue-200 px-3 py-3 text-center text-xs text-slate-600 cursor-pointer hover:bg-blue-50/50"
+              >
+                {dragZoneOver === "exterior"
+                  ? "여기에 놓으면 외부 사진으로 즉시 추가됩니다"
+                  : "파일을 여기로 끌어다 놓거나 클릭하여 여러 장 선택하세요"}
+              </div>
               <input
                 ref={exteriorFileInputRef}
                 type="file"
@@ -1529,9 +1851,9 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-exterior-btn"
                 onClick={() => exteriorFileInputRef.current?.click()}
-                className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
+                className="w-full min-h-[42px] px-3 py-1.5 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
               >
-                + 외부·전경 사진 올리기
+                + 외부·전경 사진 파일 선택
               </button>
             </div>
 
@@ -1540,10 +1862,17 @@ export function ImEditorPanels({
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (dragZoneOver !== "interior") setDragZoneOver("interior");
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragZoneOver((prev) => (prev === "interior" ? null : prev));
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                setDragZoneOver(null);
                 const droppedFiles = Array.from(e.dataTransfer?.files || []).filter(
                   (f) =>
                     f.type.startsWith("image/") ||
@@ -1553,19 +1882,28 @@ export function ImEditorPanels({
                   onFilesSelected(droppedFiles, "interior");
                 }
               }}
-              className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2"
+              className={`rounded-xl border-2 border-dashed p-3.5 space-y-2.5 transition-colors ${
+                dragZoneOver === "interior"
+                  ? "border-blue-600 bg-blue-50/90"
+                  : "border-slate-300 bg-white hover:border-slate-400"
+              }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-extrabold text-[#0F172A]">
-                  ② 내부·층별 사진
+                  내부·층별 사진
                 </span>
                 <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                  각 2장+ 분리 슬라이드
+                  각 2장+ 슬라이드 분리
                 </span>
               </div>
-              <p className="text-xs text-slate-600 break-keep">
-                로비·엘리베이터·층별 내부 전경을 올리면 외부/내부 갤러리 면으로 자동 분리됩니다.
-              </p>
+              <div
+                onClick={() => interiorFileInputRef.current?.click()}
+                className="rounded-lg bg-[#F8FAFC] border border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-600 cursor-pointer hover:bg-slate-100/70"
+              >
+                {dragZoneOver === "interior"
+                  ? "여기에 놓으면 내부 사진으로 즉시 추가됩니다"
+                  : "로비·승강기·매장 내부 사진을 끌어다 놓거나 클릭하세요"}
+              </div>
               <input
                 ref={interiorFileInputRef}
                 type="file"
@@ -1584,9 +1922,9 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-interior-btn"
                 onClick={() => interiorFileInputRef.current?.click()}
-                className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
+                className="w-full min-h-[42px] px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
               >
-                + 내부·층별 사진 올리기
+                + 내부·층별 사진 파일 선택
               </button>
             </div>
           </div>
@@ -1603,20 +1941,55 @@ export function ImEditorPanels({
                       category: idx === 0 ? "exterior" : "interior",
                     })
                   )
-              ).map((entry, idx) => {
+              ).map((entry, idx, arr) => {
                 const name = entry.name;
                 const thumbSrc = resolveRenderablePhotoSrc(entry);
                 const isExt = entry.category === "exterior" || (!entry.category && idx === 0);
                 const defaultCap = isExt
                   ? idx === 0
-                    ? "외관 1 (대표)"
-                    : `외관 ${idx + 1}`
-                  : `내부 ${idx + 1}`;
+                    ? "전면 외관(대표)"
+                    : `외관 전경 ${idx + 1}`
+                  : `내부 공간 ${idx + 1}`;
+                const captionChips = isExt
+                  ? [
+                      "전면 외관(대표)",
+                      "코너·측면 외관",
+                      "주출입구",
+                      "접면 도로·상권",
+                      "주차장 외관",
+                      "옥상·루프탑",
+                    ]
+                  : [
+                      "1층 로비·출입구",
+                      "승강기 홀",
+                      "기준층 내부",
+                      "1층 매장 내부",
+                      "지층 매장 내부",
+                      "공용부·화장실",
+                    ];
                 return (
                   <div
                     key={entry.id || `${name}-${idx}`}
                     data-testid={`im-photo-card-${idx}`}
-                    className="p-3 rounded-xl bg-white border border-[#CBD5E1] space-y-2"
+                    draggable={Boolean(onReorderPhoto)}
+                    onDragStart={() => setDragPhotoIdx(idx)}
+                    onDragOver={(e) => {
+                      if (dragPhotoIdx !== null) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (dragPhotoIdx !== null && dragPhotoIdx !== idx) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onReorderPhoto?.(dragPhotoIdx, idx);
+                      }
+                      setDragPhotoIdx(null);
+                    }}
+                    onDragEnd={() => setDragPhotoIdx(null)}
+                    className={`p-3 rounded-xl bg-white border space-y-2 transition ${
+                      dragPhotoIdx === idx
+                        ? "border-blue-500 ring-2 ring-blue-200 opacity-75"
+                        : "border-[#CBD5E1]"
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -1659,8 +2032,8 @@ export function ImEditorPanels({
                               {name}
                             </span>
                           </div>
-                          {onUpdatePhotoMeta && (
-                            <div className="flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {onUpdatePhotoMeta && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1668,18 +2041,40 @@ export function ImEditorPanels({
                                     category: isExt ? "interior" : "exterior",
                                   })
                                 }
-                                className="min-h-[44px] inline-flex items-center px-2 rounded-lg text-sm font-bold text-[#1D4ED8] hover:bg-blue-50 cursor-pointer"
+                                className="min-h-[32px] inline-flex items-center px-2 rounded-md text-xs font-bold text-[#1D4ED8] hover:bg-blue-50 cursor-pointer"
                               >
                                 {isExt ? "내부로 변경" : "외부로 변경"}
                               </button>
-                            </div>
-                          )}
+                            )}
+                            {onReorderPhoto && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => onReorderPhoto(idx, idx - 1)}
+                                  title="앞으로 이동"
+                                  className="min-h-[32px] px-1.5 rounded-md text-xs font-bold border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 cursor-pointer"
+                                >
+                                  ←
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx >= arr.length - 1}
+                                  onClick={() => onReorderPhoto(idx, idx + 1)}
+                                  title="뒤로 이동"
+                                  className="min-h-[32px] px-1.5 rounded-md text-xs font-bold border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 cursor-pointer"
+                                >
+                                  →
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => onRemovePhotoAtIndex(entry, idx)}
-                        className="min-h-[44px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
+                        className="min-h-[38px] px-2.5 text-xs text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
                         aria-label={`${name} 삭제`}
                       >
                         삭제
@@ -1694,8 +2089,29 @@ export function ImEditorPanels({
                       onChange={(e) =>
                         onUpdatePhotoMeta?.(idx, { caption: e.target.value })
                       }
-                      className="w-full min-h-[38px] px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50/70 text-sm font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                      className="w-full min-h-[36px] px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50/70 text-sm font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
                     />
+                    {onUpdatePhotoMeta && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {captionChips.map((chipText) => {
+                          const isSelected = entry.caption === chipText;
+                          return (
+                            <button
+                              key={chipText}
+                              type="button"
+                              onClick={() => onUpdatePhotoMeta(idx, { caption: chipText })}
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
+                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"
+                              }`}
+                            >
+                              {chipText}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}

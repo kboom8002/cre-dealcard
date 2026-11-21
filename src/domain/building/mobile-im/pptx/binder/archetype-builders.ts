@@ -1025,7 +1025,13 @@ export function shortenVacancyText(text: string, max = 18): string {
 
 export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body: Record<string, any>, building?: any): Record<string, any> {
     const heroCard = body?.heroCard ?? {};
-    const posture = heroCard.posture || 'income';
+    const rawPosture = String(heroCard.posture || body?.posture || 'income');
+    const posture =
+      rawPosture === 'core_income' ? 'income'
+      : rawPosture === 'owner_occupier' ? 'owner_occupied'
+      : rawPosture === 'value_add' ? 'trading'
+      : rawPosture === 'repositioning' ? 'operating'
+      : rawPosture;
     const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const metrics: Array<{label: string; value: string; unit?: string; sub?: string}> = [];
     const ssotAskManwon = body?.ssot_summary?.asking_price_manwon;
@@ -1219,18 +1225,32 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const yieldVal = heroCard.grossYieldDisplay ?? heroCard.grossYield;
     const area = heroCard.totalAreaDisplay ?? heroCard.totalArea;
     const vacancy = heroCard.vacancyDisplay ?? heroCard.vacancy;
-    if (askPrice) metrics.push({ label: '매각 희망가', value: askPrice, unit: '' });
+    if (askPrice) metrics.push({ label: '매매 희망가', value: askPrice, unit: '' });
     if (yieldVal) metrics.push({ label: '연 수익률', value: yieldVal, unit: '' });
-    if (area) metrics.push({ label: '연면적(총)', value: area, unit: '' }); // D30 BL-5: totalGross 명시
+    if (area) {
+      const areaStr = String(area).trim();
+      const formattedArea = /^\d[\d,.]*$/.test(areaStr) ? `${areaStr}㎡` : areaStr;
+      metrics.push({ label: '연면적', value: formattedArea, unit: '' });
+    }
     if (vacancy) metrics.push({ label: '공실 현황', value: vacancy, unit: '' });
     }
+
+    const normMetricKey = (rawLabel: unknown): string => {
+      const s = String(rawLabel ?? '').replace(/\(총\)/g, '').replace(/\s+/g, '').trim();
+      return s === '매각희망가' ? '매매희망가' : s;
+    };
+    const seenMetricKeys = new Set(metrics.map((m) => normMetricKey(m.label)));
 
     if (metrics.length < 4 && tables.length > 0) {
     const t = tables[0];
     for (const row of t.rows) {
       if (metrics.length >= 8) break;
       if (row.length >= 2) {
-        metrics.push({ label: stripMarkdown(row[0]), value: stripMarkdown(row[1]) });
+        const lbl = stripMarkdown(row[0]).replace(/연면적\(총\)/g, '연면적');
+        const key = normMetricKey(lbl);
+        if (!key || seenMetricKeys.has(key)) continue;
+        seenMetricKeys.add(key);
+        metrics.push({ label: lbl, value: stripMarkdown(row[1]) });
       }
     }
     }
@@ -1242,9 +1262,11 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       const numMatch = strippedLine.match(/(\d[\d,.]*\s*(?:억|만원|원|%|㎡|평|층|호|실|개))/g);
       if (numMatch) {
         const parts = strippedLine.split(/[：:]/);
-        const label = stripMarkdown(parts[0] || '').slice(0, 14).trim();
+        const label = stripMarkdown(parts[0] || '').replace(/연면적\(총\)/g, '연면적').slice(0, 14).trim();
         const value = parts.length >= 2 ? stripMarkdown(parts[1]).trim() : stripMarkdown(numMatch[0]);
-        if (label && value) {
+        const key = normMetricKey(label);
+        if (label && value && !seenMetricKeys.has(key)) {
+          seenMetricKeys.add(key);
           metrics.push({ label, value });
         }
       }

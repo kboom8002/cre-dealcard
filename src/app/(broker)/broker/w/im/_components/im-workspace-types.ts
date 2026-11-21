@@ -7,6 +7,7 @@ import {
 } from "@/lib/rent-roll/tsv-parser";
 import { pyeongToM2 } from "@/domain/building/im-core/facts/area";
 import type { BrokerExtrasFormState } from "@/domain/building/mobile-im/broker-extras";
+import type { EditorUnitTarget } from "@/components/workspace/preview-sync";
 
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -85,10 +86,12 @@ export interface ImListItem {
 }
 
 export interface BasicImSlideSummary {
+  id?: string;
   no: string;
   title: string;
   summary: string;
   metric: string;
+  unitId?: string;
 }
 
 export const IM_POSTURE_FILTER_TABS = [
@@ -102,19 +105,19 @@ export const DEFAULT_IM_AXIOS_HIGHLIGHTS: ImAxiosHighlight[] = [
   {
     headline: "역세권 도보 3분 코너 · 전 층 우량 임차인 만실 운영",
     brief:
-      "지하철역 주동선 코너에 위치해 유동인구 흡인력과 상권 가시성이 검증된 입지입니다. 1층 카페와 상층부 오피스 임차인이 장기 계약으로 안정적인 현금흐름을 창출합니다.",
+      "지하철역 주동선 코너 입지로 유동인구 흡인력·상권 가시성 검증 · 1층 카페 및 상층부 오피스 장기 계약 기반 안정적 현금흐름 확보",
     tone: "amber",
   },
   {
-    headline: "순투자금 대비 연 4.2% 안정 배당 · 공실 위험 낮음",
+    headline: "순투자금 대비 연 4.2% 안정 수익 · 공실 위험 낮음",
     brief:
-      "보증금과 월 임대료 구조가 탄탄하여 인수 즉시 안정적인 배당 수익 확보가 가능합니다. 인근 유사 규모 근생빌딩 대비 임대료 수준이 합리적이어서 임차인 유지율이 높습니다.",
+      "보증금·월 임대료 구조 탄탄해 인수 즉시 안정적 배당 수익 확보 · 인근 유사 규모 근생빌딩 대비 합리적 임대료 수준으로 임차인 유지율 우수",
     tone: "sky",
   },
   {
     headline: "제3종일반주거지역 토지 가치 · 중장기 리모델링 여력",
     brief:
-      "대지면적 420.5㎡의 반듯한 코너 토지로 향후 외관 개선 및 업종 재구성 시 임대수익과 자산가치 동반 상승이 기대됩니다.",
+      "대지면적 420.5㎡ 반듯한 코너 토지 · 향후 외관 개선 및 업종 재구성 시 임대수익과 자산가치 동반 상승 기대",
     tone: "mint",
   },
 ];
@@ -878,6 +881,9 @@ export function buildBasicImSlides(params: {
   postureKoreanLabel: string;
   axiosHighlights: ImAxiosHighlight[];
   calculatedYield: number;
+  expectedYieldPct?: number;
+  expectedRentRollLength?: number;
+  compCount?: number;
   gfaSqm: string;
   completionDate: string;
   rentRollLength: number;
@@ -899,6 +905,9 @@ export function buildBasicImSlides(params: {
     postureKoreanLabel,
     axiosHighlights,
     calculatedYield,
+    expectedYieldPct = 0,
+    expectedRentRollLength = 0,
+    compCount = 0,
     gfaSqm,
     completionDate,
     rentRollLength,
@@ -914,41 +923,43 @@ export function buildBasicImSlides(params: {
     brokerPhone,
   } = params;
 
-  return [
+  const rawBodySlides: Array<Omit<BasicImSlideSummary, "no">> = [
     {
-      no: "01",
-      title: "표지",
-      summary: `${cleanCoverTitle || "매물"} · ${address || "주소 미입력"}`,
-      metric: `${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")} (${postureKoreanLabel})`,
-    },
-    {
-      no: "02",
-      title: "투자 하이라이트",
+      id: "02",
+      unitId: "im-unit-highlights",
+      title: "요약",
       summary:
         axiosHighlights[0]?.headline ||
         `희망 매매가 ${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}`,
-      metric: `기대 수익률 연 ${calculatedYield.toFixed(2)}%`,
+      metric:
+        expectedYieldPct > 0
+          ? `현행 ${calculatedYield.toFixed(2)}% → 기대 ${expectedYieldPct.toFixed(2)}%`
+          : `임대수익률 연 ${calculatedYield.toFixed(2)}%`,
     },
     {
-      no: "03",
-      title: "건축물 개요",
+      id: "03",
+      unitId: "im-unit-building",
+      title: "물건 개요",
       summary: `연면적 ${gfaSqm || "—"}㎡ · 사용승인일 ${completionDate || "—"}`,
-      metric: `총 ${rentRollLength}개 층 구성`,
+      metric: `총 ${rentRollLength}개 행 구성`,
     },
     {
-      no: "04",
-      title: "입지 및 상권 분석",
+      id: "04",
+      unitId: "im-unit-location",
+      title: "입지 정보",
       summary: address || "주소 미입력",
       metric: "교통 접근성 및 배후 상권",
     },
     {
-      no: "05",
-      title: "토지 및 도시계획",
+      id: "05",
+      unitId: "im-unit-land",
+      title: "토지 정보",
       summary: `대지면적 ${landAreaSqm || "—"}㎡`,
       metric: zoning || "용도지역 미입력",
     },
     {
-      no: "06",
+      id: "06",
+      unitId: "im-unit-rentroll",
       title: "층별 임대차 현황",
       summary: `보증금 합계 ${
         formatKoreanCurrencyReadout(totalDepositManwon).replace(/^=\s*/, "") || "0원"
@@ -957,24 +968,48 @@ export function buildBasicImSlides(params: {
         formatKoreanCurrencyReadout(totalRentManwon).replace(/^=\s*/, "") || "0원"
       }`,
     },
+    ...(expectedRentRollLength > 0
+      ? [
+          {
+            id: "06-2",
+            unitId: "im-unit-rentroll",
+            title: "기대수익률 임대차 현황",
+            summary: `정상화 가정 ${expectedRentRollLength}개 호실 기준`,
+            metric:
+              expectedYieldPct > 0
+                ? `기대수익률 연 ${expectedYieldPct.toFixed(2)}%`
+                : "조건 조정 반영",
+          },
+        ]
+      : []),
     {
-      no: "07",
-      title: "수지 및 수익률 분석",
-      summary: `보증금 차감 매입가 ${
+      id: "07",
+      unitId: "im-unit-yield",
+      title: "수익률 분석",
+      summary: `보증금 차감 실투자금 ${
         formatKoreanCurrencyReadout(
           Math.max(0, (askingPriceManwon || 0) - totalDepositManwon)
         ).replace(/^=\s*/, "") || "0원"
       }`,
-      metric: `연 ${calculatedYield.toFixed(2)}%`,
+      metric:
+        expectedYieldPct > 0
+          ? `현행 ${calculatedYield.toFixed(2)}% · 기대 ${expectedYieldPct.toFixed(2)}%`
+          : `연 ${calculatedYield.toFixed(2)}%`,
     },
+    ...(compCount > 0
+      ? [
+          {
+            id: "08",
+            unitId: "im-unit-comps",
+            title: "인근 실거래 비교",
+            summary: `${address.split(" ").slice(1, 3).join(" ") || "인근"} 실거래 ${compCount}건 비교`,
+            metric: `희망 매매가 ${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}`,
+          },
+        ]
+      : []),
     {
-      no: "08",
-      title: "인근 실거래 비교",
-      summary: `${address.split(" ").slice(1, 3).join(" ") || "인근"} 유사 사례 비교`,
-      metric: `희망 매매가 ${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")}`,
-    },
-    {
-      no: "09",
+      id: "09",
+      unitId: "im-unit-photos",
       title: "현장 사진 및 지적도",
       summary:
         photoEntries.length > 0
@@ -983,8 +1018,9 @@ export function buildBasicImSlides(params: {
       metric: `${photoEntries.length}개 파일`,
     },
     {
-      no: "10",
-      title: "문의/안내 및 명도 조건",
+      id: "10",
+      unitId: "im-unit-broker",
+      title: "문의 및 유의사항",
       summary: closingLine
         ? `${closingLine} · ${handoverNote}`
         : handoverNote || "명도 일정 협의 가능",
@@ -992,6 +1028,23 @@ export function buildBasicImSlides(params: {
         [brokerageName, brokerName, brokerPhone].filter(Boolean).join(" · ") ||
         "담당 공인중개사 안내",
     },
+  ];
+
+  const coverSlide: BasicImSlideSummary = {
+    id: "01",
+    no: "표지",
+    unitId: "im-unit-cover",
+    title: "표지",
+    summary: `${cleanCoverTitle || "매물"} · ${address || "주소 미입력"}`,
+    metric: `${formatKoreanCurrencyReadout(askingPriceManwon).replace(/^=\s*/, "")} (${postureKoreanLabel})`,
+  };
+
+  return [
+    coverSlide,
+    ...rawBodySlides.map((s, idx) => ({
+      ...s,
+      no: String(idx + 1).padStart(2, "0"),
+    })),
   ];
 }
 
@@ -1009,28 +1062,29 @@ export function buildFallbackImHighlights(params: {
 }): ImAxiosHighlight[] {
   const regionPart = params.address.split(" ").slice(1, 3).join(" ") || "핵심 지역";
   const priceEok = ((params.askingPriceManwon || 0) / 10000).toFixed(1);
-  const yieldStr = params.calculatedYield.toFixed(2);
+  const saneYield = params.calculatedYield > 0 && params.calculatedYield <= 25 ? params.calculatedYield : 0;
+  const yieldStr = saneYield.toFixed(2);
   const normP = normalizePostureForSelector(params.investmentPosture);
 
   if (normP === "owner_occupied") {
     return [
       {
         headline: `${regionPart} 사옥 추천 · 가시성 우수한 단독 건물`,
-        brief: `${regionPart} 주요 도로 인접 입지로 방문객 접근성과 출퇴근 여건이 뛰어납니다.${
-          params.gfaSqm ? ` 연면적 ${params.gfaSqm}㎡ 규모로 사옥 활용에 적합합니다.` : ""
+        brief: `${regionPart} 주요 도로 인접 입지로 방문객 접근성과 출퇴근 여건 우수${
+          params.gfaSqm ? ` · 연면적 ${params.gfaSqm}㎡ 규모 법인 사옥 활용 적합` : ""
         }`,
         tone: "amber",
       },
       {
         headline: `${params.handoverNote || "입주 일정 협의 가능"} · 사옥 이전 용이`,
-        brief: `명도 및 입주 일정 협의가 가능하여 계획적인 사옥 이전이 가능합니다.`,
+        brief: `명도 및 입주 일정 협의 가능 · 계획적인 사옥 이전 및 자체 공간 구성 유리`,
         tone: "sky",
       },
       {
-        headline: `${priceEok !== "0.0" ? `매매가 ${priceEok}억 · ` : ""}${
+        headline: `${priceEok !== "0.0" && params.askingPriceManwon >= 10000 ? `매매가 ${priceEok}억 · ` : ""}${
           params.zoning || "우수 용도지역"
         } 토지 가치`,
-        brief: `반듯한 대지 여건을 갖추어 실사용 가치는 물론 중장기 자산가치 보존에 유리합니다.`,
+        brief: `반듯한 대지 여건 구비 · 실사용 가치와 중장기 자산가치 보존 동시 유리`,
         tone: "mint",
       },
     ];
@@ -1039,28 +1093,207 @@ export function buildFallbackImHighlights(params: {
   return [
     {
       headline: `${regionPart} 상권 · 총 ${params.rentRollLength}개 층 임차 운영`,
-      brief: `총 ${params.rentRollLength}개 층에 안정적인 업종이 입점해 운영 중입니다.${
+      brief: `총 ${params.rentRollLength}개 층 안정 업종 입점 운영 중${
         params.totalRentManwon > 0
-          ? ` 월 임대료 합계 ${params.totalRentManwon.toLocaleString()}만 원입니다.`
+          ? ` · 월 임대료 합계 ${params.totalRentManwon.toLocaleString()}만 원`
           : ""
       }`,
       tone: "amber",
     },
     {
       headline:
-        params.calculatedYield > 0
+        saneYield > 0
           ? `순투자금 대비 연 ${yieldStr}% 임대 수익`
           : `안정적인 보증금·임대료 수익 구조`,
       brief:
-        params.calculatedYield > 0
-          ? `보증금 합계 ${params.totalDepositManwon.toLocaleString()}만 원을 제외한 순투자금 기준 연 ${yieldStr}% 수익률입니다.`
-          : `임대차 구조가 안정적이어서 꾸준한 배당 수익을 기대할 수 있습니다.`,
+        saneYield > 0
+          ? `보증금 합계 ${params.totalDepositManwon.toLocaleString()}만 원 차감 실투자금 기준 연 ${yieldStr}% 수익률 형성`
+          : `안정적인 임대차 구조 기반 꾸준한 배당 수익 기대`,
       tone: "sky",
     },
     {
       headline: `${params.zoning || "핵심 상권"} 토지 가치 및 가치 상승 여력`,
-      brief: `향후 임대차 갱신 및 건물 관리 개선을 통한 추가 가치 상승 여력이 있습니다.`,
+      brief: `향후 임대차 갱신 및 건물 관리 개선을 통한 추가 자산가치 상승 여력 확보`,
       tone: "mint",
     },
   ];
+}
+
+
+const EXTERIOR_PRESET_CAPTIONS = [
+  "전면 외관(대표)",
+  "코너·측면 외관",
+  "주출입구",
+  "접면 도로·상권",
+  "주차장 외관",
+  "옥상·루프탑",
+] as const;
+
+const INTERIOR_PRESET_CAPTIONS = [
+  "1층 로비·출입구",
+  "승강기 홀",
+  "기준층 내부",
+  "1층 매장 내부",
+  "지층 매장 내부",
+  "공용부·화장실",
+] as const;
+
+export function buildAddedPhotoEntries(
+  files: File[],
+  baseEntries: ImPhotoEntry[],
+  forcedCategory?: "exterior" | "interior"
+): ImPhotoEntry[] {
+  const baseOffset = baseEntries.length;
+  let extCounter = baseEntries.filter((p) => p.category === "exterior").length;
+  let intCounter = baseEntries.filter((p) => p.category !== "exterior").length;
+  return files.map((f, idx) => {
+    const inferred = inferPhotoCategoryFromFilename(f.name, baseOffset + idx);
+    const resolvedCategory = forcedCategory || inferred.category;
+    let resolvedCaption = inferred.caption;
+    if (forcedCategory === "exterior") {
+      extCounter += 1;
+      resolvedCaption =
+        EXTERIOR_PRESET_CAPTIONS[extCounter - 1] || `외관 전경 ${extCounter}`;
+    } else if (forcedCategory === "interior") {
+      intCounter += 1;
+      resolvedCaption =
+        INTERIOR_PRESET_CAPTIONS[intCounter - 1] || `내부 공간 ${intCounter}`;
+    }
+    const knownUrl = resolveKnownTestAssetUrl(f.name);
+    const blobUrl =
+      !isHeicLikeFile(f) &&
+      typeof URL !== "undefined" &&
+      typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL(f)
+        : knownUrl;
+    return {
+      id: `photo-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+      name: f.name,
+      url: knownUrl,
+      category: resolvedCategory,
+      caption: resolvedCaption,
+      previewUrl: blobUrl || knownUrl,
+    };
+  });
+}
+
+export function buildImSyncUnits(params: {
+  askingPriceManwon: number;
+  onOpenBrokerSection: () => void;
+}): Record<string, EditorUnitTarget<ImEditorTabKey>> {
+  const { askingPriceManwon, onOpenBrokerSection } = params;
+  return {
+    "im-unit-cover": {
+      unitId: "im-unit-cover",
+      label: "01 표지 · 제목",
+      tab: "specs",
+      editorSelector: '[data-testid="im-cover-title-section"]',
+      focusSelector: "#im-title-single-line-input",
+    },
+    "im-unit-address": {
+      unitId: "im-unit-address",
+      label: "건물 주소",
+      tab: "specs",
+      editorSelector: '[data-testid="im-address-section"]',
+      focusSelector: "#im-address-input",
+    },
+    "im-unit-price": {
+      unitId: "im-unit-price",
+      label: "희망 매매가",
+      tab: "specs",
+      editorSelector: '[data-testid="im-price-section"]',
+      focusSelector: "#im-price-won-input",
+    },
+    "im-unit-highlights": {
+      unitId: "im-unit-highlights",
+      label: "02 핵심 장점",
+      tab: "axios_brief",
+      editorSelector: '[data-testid="im-axios-postit-0"]',
+      focusSelector: "#im-axios-point-title-0",
+    },
+    "im-unit-highlight-0": {
+      unitId: "im-unit-highlight-0",
+      label: "핵심 장점 01",
+      tab: "axios_brief",
+      editorSelector: '[data-testid="im-axios-postit-0"]',
+      focusSelector: "#im-axios-point-title-0",
+    },
+    "im-unit-highlight-1": {
+      unitId: "im-unit-highlight-1",
+      label: "핵심 장점 02",
+      tab: "axios_brief",
+      editorSelector: '[data-testid="im-axios-postit-1"]',
+      focusSelector: "#im-axios-point-title-1",
+    },
+    "im-unit-highlight-2": {
+      unitId: "im-unit-highlight-2",
+      label: "핵심 장점 03",
+      tab: "axios_brief",
+      editorSelector: '[data-testid="im-axios-postit-2"]',
+      focusSelector: "#im-axios-point-title-2",
+    },
+    "im-unit-building": {
+      unitId: "im-unit-building",
+      label: "03 건축물 개요",
+      tab: "specs",
+      editorSelector: '[data-testid="im-building-specs-section"]',
+      focusSelector: "#im-gfa-input",
+    },
+    "im-unit-location": {
+      unitId: "im-unit-location",
+      label: "04 입지 및 교통",
+      tab: "specs",
+      editorSelector: '[data-testid="im-address-section"]',
+      focusSelector: "#im-address-input",
+    },
+    "im-unit-land": {
+      unitId: "im-unit-land",
+      label: "05 토지 및 도시계획",
+      tab: "specs",
+      editorSelector: '[data-testid="im-building-specs-section"]',
+      focusSelector: "#im-land-area-input",
+    },
+    "im-unit-rentroll": {
+      unitId: "im-unit-rentroll",
+      label: "06 층별 임대차 상세",
+      tab: "rentroll",
+      editorSelector: '[data-testid="rent-roll-grid"]',
+      focusSelector: 'input[data-rr-cell="0:floor"]',
+    },
+    "im-unit-yield": {
+      unitId: "im-unit-yield",
+      label: "07 수지 및 수익률 분석",
+      tab: askingPriceManwon > 0 ? "rentroll" : "specs",
+      editorSelector:
+        askingPriceManwon > 0
+          ? '[data-testid="rent-roll-grid"]'
+          : '[data-testid="im-price-section"]',
+      focusSelector:
+        askingPriceManwon > 0
+          ? 'input[data-rr-cell="0:monthlyRentManwon"]'
+          : "#im-price-won-input",
+    },
+    "im-unit-comps": {
+      unitId: "im-unit-comps",
+      label: "인근 실거래 비교",
+      tab: "rentroll",
+      editorSelector: '[data-testid="im-comps-selector-section"]',
+      focusSelector: '[data-testid="im-comps-toggle-btn"]',
+    },
+    "im-unit-photos": {
+      unitId: "im-unit-photos",
+      label: "09 현장 사진 및 지적도",
+      tab: "media_publish",
+      editorSelector: '[data-testid="im-photo-dropzone"]',
+      focusSelector: '[data-testid="im-photo-select-btn"]',
+    },
+    "im-unit-broker": {
+      unitId: "im-unit-broker",
+      label: "10 거래 조건 및 담당 중개인",
+      tab: "axios_brief",
+      editorSelector: '[data-testid="im-broker-handover-panel"]',
+      focusSelector: "#im-handover-note-input",
+      onBeforeFocus: onOpenBrokerSection,
+    },
+  };
 }

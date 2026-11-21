@@ -79,6 +79,16 @@ export function resolveTenantAndUse(
       if (!biz || biz === slashSource) biz = rightJoined;
     }
   }
+  if (name) {
+    const stripTenantPrefix = (val: string) => {
+      if (!val || !/\s+\/\s+/.test(val)) return val;
+      const [left, ...rest] = val.split(/\s+\/\s+/);
+      const rightJoined = rest.join(' / ').trim();
+      return left.trim() === name && rightJoined ? rightJoined : val;
+    };
+    explicitUse = stripTenantPrefix(explicitUse);
+    biz = stripTenantPrefix(biz);
+  }
   // is_vacant 플래그는 점유 상태 SSOT 로 검증 — 자가사용·통합계약 후행(월세 0 추정)을 '공실'로 표기하지 않는다
   const isVacant = (l.is_vacant === true && isVacantLeaseRow(l as Record<string, any>))
     || VACANT_MARK.test(name) || VACANT_MARK.test(biz)
@@ -305,7 +315,7 @@ export function bindRentRollTable(
       // 임대면적: 레거시 단일 '전용면적' 열에서 복사된 대용값(area_sqm_is_proxy)은 임대면적이 아니므로 비운다
       // §9.1: 입력 단위 단일 값 (㎡ 2자리 / 평 = ㎡÷3.305785 2자리). 면적이 없으면 '-' (날조 금지)
       const areaSqmStr = formatLeaseAreaFromRow(
-        { sqm: l.area_sqm_is_proxy ? undefined : l.area_sqm, pyeong: l.area_pyeong },
+        { sqm: l.area_sqm_is_proxy ? undefined : (l.area_sqm ?? l.lease_area_sqm ?? l.leasableAreaSqm), pyeong: l.area_pyeong },
         areaUnit,
       );
       // 전용면적: 미기입이면 '-' (임대면적 값을 대신 채우지 않는다). 열 표시 여부는 a24 렌더러가 데이터로 결정.

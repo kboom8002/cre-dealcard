@@ -548,6 +548,7 @@ export async function GET(req: NextRequest) {
       mainPurpose,
       floorsAbove,
       floorsBelow,
+      floors: bldReg?.floors && bldReg.floors.length > 0 ? bldReg.floors : undefined,
       buildingName,
       parkingSpaces,
       elevators,

@@ -225,15 +225,19 @@ export function buildAuthoritativeImFactSheet(
   const netInvestmentManwon =
     askingPriceManwon > 0 ? Math.max(0, askingPriceManwon - totalDepositManwon) : 0;
 
-  const grossYieldPct =
+  const rawGrossYieldPct =
     askingPriceManwon > 0 && annualRentManwon > 0
       ? Math.round(((annualRentManwon / askingPriceManwon) * 100) * 100) / 100
       : parsePositiveNum(input.calculatedYieldPct);
 
-  const netYieldPct =
+  const rawNetYieldPct =
     netInvestmentManwon > 0 && annualRentManwon > 0
       ? Math.round(((annualRentManwon / netInvestmentManwon) * 100) * 100) / 100
       : parsePositiveNum(input.calculatedYieldPct);
+
+  // 단위 오기(예: 매매가 '77만원') 등으로 비정상 수익률(>25%)이 계산된 경우 AI 팩트시트 주입 차단
+  const grossYieldPct = rawGrossYieldPct > 0 && rawGrossYieldPct <= 25 ? rawGrossYieldPct : 0;
+  const netYieldPct = rawNetYieldPct > 0 && rawNetYieldPct <= 25 ? rawNetYieldPct : 0;
 
   const landPricePerPyeongManwon =
     askingPriceManwon > 0 && landAreaPyeong > 0
@@ -249,9 +253,14 @@ export function buildAuthoritativeImFactSheet(
     officialLandPriceWonSqm > 0 && landAreaSqm > 0
       ? Math.round((officialLandPriceWonSqm * landAreaSqm) / 10_000)
       : 0;
-  const officialLandCoveragePct =
+  const rawOfficialLandCoveragePct =
     officialLandTotalManwon > 0 && askingPriceManwon > 0
       ? Math.round(((officialLandTotalManwon / askingPriceManwon) * 100) * 10) / 10
+      : 0;
+  // 단위 오기 등으로 500% 초과 공시지가 비율 이상치 차단
+  const officialLandCoveragePct =
+    rawOfficialLandCoveragePct > 0 && rawOfficialLandCoveragePct <= 500
+      ? rawOfficialLandCoveragePct
       : 0;
 
   const askingPriceEokText = formatManwonAsEok(askingPriceManwon);
@@ -808,6 +817,77 @@ export function polishImCopyWithLexiconSync(
 }
 
 /**
+ * 서술형 경어(`~입니다.`, `~합니다.`, `~됩니다.`, `~있습니다.`, `~제시됩니다.`)를
+ * CRE IM 표준 명사형 종결 개조식(`~확보`, `~유리`, `~우수`, `~기대`)으로 정제합니다.
+ */
+export function enforceNominalBulletStyle(rawText: string): string {
+  const s = String(rawText ?? '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+
+  const convertClause = (clause: string): string => {
+    let c = clause.trim().replace(/[.。]+$/u, '');
+    if (!c) return '';
+
+    const rules: Array<[RegExp, string]> = [
+      [/창출\s*(?:하고|중)\s*있습니다$/u, '창출'],
+      [/확보\s*하고\s*있습니다$/u, '확보'],
+      [/보유\s*하고\s*있습니다$/u, '보유'],
+      [/형성\s*하고\s*있습니다$/u, '형성'],
+      [/위치\s*해\s*있습니다$/u, '입지'],
+      [/입점\s*(?:해|되어)\s*있습니다$/u, '입점 완료'],
+      [/충족\s*합니다$/u, '충족'],
+      [/확보\s*합니다$/u, '확보'],
+      [/형성\s*합니다$/u, '형성'],
+      [/창출\s*합니다$/u, '창출'],
+      [/유지\s*합니다$/u, '유지'],
+      [/제공\s*합니다$/u, '제공'],
+      [/가능\s*합니다$/u, '가능'],
+      [/우수\s*합니다$/u, '우수'],
+      [/뛰어\s*납니다$/u, '우수'],
+      [/유리\s*합니다$/u, '유리'],
+      [/적합\s*합니다$/u, '적합'],
+      [/풍부\s*합니다$/u, '풍부'],
+      [/견고\s*합니다$/u, '견고'],
+      [/탄탄\s*합니다$/u, '탄탄'],
+      [/충분\s*합니다$/u, '충분'],
+      [/합리적\s*입니다$/u, '합리적'],
+      [/안정적\s*입니다$/u, '안정적'],
+      [/기대\s*(?:할\s*수\s*있|됩)니다$/u, '기대'],
+      [/예상\s*(?:할\s*수\s*있|됩)니다$/u, '예상'],
+      [/전망\s*됩니다$/u, '전망'],
+      [/제시\s*됩니다$/u, '제시'],
+      [/평가\s*됩니다$/u, '평가'],
+      [/(?:이|가)?\s*높습니다$/u, ' 우수'],
+      [/(?:이|가)?\s*낮습니다$/u, ' 낮음'],
+      [/(?:이|가)?\s*많습니다$/u, ' 풍부'],
+      [/([가-힣0-9]+)\s*(?:되어|돼)\s*있습니다$/u, '$1 완료'],
+      [/할\s*수\s*있습니다$/u, '가능'],
+      [/수\s*있습니다$/u, '가능'],
+      [/([가-힣0-9]+)입니다$/u, '$1'],
+      [/([가-힣0-9]+)됩니다$/u, '$1'],
+      [/([가-힣0-9]+)합니다$/u, '$1'],
+      [/습니다$/u, ''],
+      [/ㅂ니다$/u, ''],
+    ];
+
+    for (const [re, repl] of rules) {
+      if (re.test(c)) {
+        c = c.replace(re, repl).trim();
+        break;
+      }
+    }
+    return c.replace(/[,·—–.\s]+$/u, '').trim();
+  };
+
+  const parts = s
+    .split(/(?<=[.。])\s+|\n+/)
+    .map(convertClause)
+    .filter(Boolean);
+
+  return parts.join(' · ');
+}
+
+/**
  * LLM 장애/오프라인/모의 환경에서도 502 에러 없이 즉시 반환되는 포스처 맞춤형 SSOT 결정론적 3대 장점 생성기.
  */
 export function buildDeterministicImPointsFallback(
@@ -842,9 +922,9 @@ export function buildDeterministicImPointsFallback(
     rawPoints = [
       {
         title: `${regionLabel} 사옥 적격 단독 건물`,
-        body: `${stationPrefix}${regionLabel} 핵심 동선에 위치해 임직원 출퇴근 및 내방객 접근성이 우수합니다.${
+        body: `${stationPrefix}${regionLabel} 핵심 동선 입지로 임직원 출퇴근 및 내방객 접근성 우수${
           gfaSqm > 0
-            ? ` 연면적 ${gfaSqm.toLocaleString()}㎡(약 ${gfaPyeong}평) 규모로 법인 사옥 활용에 적합합니다.`
+            ? ` · 연면적 ${gfaSqm.toLocaleString()}㎡(약 ${gfaPyeong}평) 법인 사옥 활용 적합`
             : ''
         }`,
       },
@@ -852,11 +932,11 @@ export function buildDeterministicImPointsFallback(
         title: `${input.handoverNote ? '명도 협의 용이' : '즉시 입주·공간 구성 유리'} · 설비 양호`,
         body: `${
           input.handoverNote
-            ? `${input.handoverNote} 조건으로 계획적인 사옥 이전 일정 수립이 가능합니다.`
-            : '층별 독립적 공간 구획과 설비 여건을 갖추어 사옥 입주 및 일부 층 임대 병행에 유리합니다.'
+            ? `${input.handoverNote} 조건 기반 계획적 사옥 이전 일정 수립 가능`
+            : '층별 독립적 공간 구획 및 설비 구비로 사옥 입주·일부 임대 병행 유리'
         }${
           input.parkingSpaces
-            ? ` 자주식·전용 주차 ${input.parkingSpaces}대를 확보하고 있습니다.`
+            ? ` · 자주식·전용 주차 ${input.parkingSpaces}대 확보`
             : ''
         }`,
       },
@@ -864,11 +944,11 @@ export function buildDeterministicImPointsFallback(
         title: `${zoningLabel} 토지 자산가치 확보`,
         body: `${
           landAreaSqm > 0
-            ? `대지면적 ${landAreaSqm.toLocaleString()}㎡(약 ${landAreaPyeong}평)${multiParcelBadge} 기반의 `
+            ? `대지면적 ${landAreaSqm.toLocaleString()}㎡(약 ${landAreaPyeong}평)${multiParcelBadge} 기반 `
             : ''
         }${
-          askingPriceEokText ? `매매 희망가 ${askingPriceEokText} 자산으로, ` : ''
-        }임차료 절감 효과와 중장기 기업 자산 확보를 동시에 충족합니다.`,
+          askingPriceEokText ? `매매 희망가 ${askingPriceEokText} 자산, ` : ''
+        }임차료 절감 및 중장기 기업 자산 축적 동시 충족`,
       },
     ];
   } else if (canonicalPosture === 'development') {
@@ -878,8 +958,8 @@ export function buildDeterministicImPointsFallback(
         body: `${stationPrefix}${zoningLabel} 내 ${
           landAreaSqm > 0
             ? `대지 ${landAreaSqm.toLocaleString()}㎡(약 ${landAreaPyeong}평)${multiParcelBadge}`
-            : '우수 필지'
-        }를 확보하여 리모델링 또는 신축 개발 타당성이 뛰어납니다.`,
+            : '우량 필지'
+        } 확보로 리모델링·신축 개발 타당성 우수`,
       },
       {
         title: `${
@@ -887,9 +967,9 @@ export function buildDeterministicImPointsFallback(
         }공간 재구조화 업사이드`,
         body: `${
           input.bcrPct || input.farPct
-            ? `건축물대장 기준 건폐율 ${input.bcrPct ?? '-'}%·용적률 ${input.farPct ?? '-'}% 제원으로, `
+            ? `건축물대장 기준 건폐율 ${input.bcrPct ?? '-'}%·용적률 ${input.farPct ?? '-'}% 제원, `
             : ''
-        }외관 리노베이션 및 우량 업종 리테넌팅(Re-tenanting)을 통한 임대료 현실화 여력이 풍부합니다.`,
+        }외관 리노베이션 및 우량 업종 재구성(Re-tenanting)을 통한 임대료 현실화 여력 확보`,
       },
       {
         title: `${
@@ -899,7 +979,7 @@ export function buildDeterministicImPointsFallback(
         }`,
         body: `${
           askingPriceEokText ? `매매 희망가 ${askingPriceEokText} 기준 ` : ''
-        }인근 상권 대비 합리적인 토지 단가를 형성하고 있어 사업비 통제 및 향후 매각(Exit) 시 자본차익 확보에 유리합니다.`,
+        }인근 상권 대비 합리적 토지 단가 형성으로 사업비 통제 및 향후 매각(Exit) 차익 기대`,
       },
     ];
   } else {
@@ -912,20 +992,20 @@ export function buildDeterministicImPointsFallback(
     rawPoints = [
       {
         title: `${regionLabel} 가시성·접근성 우수 입지`,
-        body: `${stationPrefix}${zoningLabel} 상권 동선에 접한 ${
+        body: `${stationPrefix}${zoningLabel} 상권 동선 인접 ${
           gfaSqm > 0
             ? `연면적 ${gfaSqm.toLocaleString()}㎡(약 ${gfaPyeong}평) `
             : ''
-        }근생·업무 빌딩으로 상시 배후 유동수요 흡입력이 우수합니다.`,
+        }근생·업무 빌딩으로 상시 배후 유동수요 흡입력 우수`,
       },
       {
         title: tenantHighlight.slice(0, 26),
         body: `${
           totalRentManwon > 0
-            ? `현행 보증금 ${totalDepositManwon.toLocaleString()}만원, 월 임대료 ${totalRentManwon.toLocaleString()}만원(연 ${(
+            ? `보증금 ${totalDepositManwon.toLocaleString()}만원 · 월 임대료 ${totalRentManwon.toLocaleString()}만원(연 ${(
                 totalRentManwon * 12
-              ).toLocaleString()}만원) 규모의 안정적인 임대 현금흐름을 창출 중입니다.`
-            : '다층 근린생활·업무 임차 구성으로 공실 위험을 분산하며 안정적인 임대 운용이 가능합니다.'
+              ).toLocaleString()}만원) 규모 안정적 임대 현금흐름 확보`
+            : '다층 근린생활·업무 임차 구성으로 공실 위험 분산 및 안정적 임대 운용 가능'
         }`,
       },
       {
@@ -939,19 +1019,23 @@ export function buildDeterministicImPointsFallback(
           landPricePerPyeongManwon > 0
             ? `(토지 평당 ${landPricePerPyeongManwon.toLocaleString()}만원)`
             : ''
-        } 기준 임대 배당 수익과 중장기 토지 자산가치 보존을 동시에 기대할 수 있습니다.`,
+        } 기준 임대 수익과 중장기 토지 자산가치 보존 동시 기대`,
       },
     ];
   }
 
   return rawPoints.map((pt) => ({
-    title: polishImCopyWithLexiconSync(pt.title, {
-      tenantPoolSource: tenantPoolObjects,
-      isCompactHeadline: true,
-    }).slice(0, 28),
-    body: polishImCopyWithLexiconSync(pt.body, {
-      tenantPoolSource: tenantPoolObjects,
-      isCompactHeadline: false,
-    }).slice(0, 140),
+    title: enforceNominalBulletStyle(
+      polishImCopyWithLexiconSync(pt.title, {
+        tenantPoolSource: tenantPoolObjects,
+        isCompactHeadline: true,
+      }),
+    ).slice(0, 28),
+    body: enforceNominalBulletStyle(
+      polishImCopyWithLexiconSync(pt.body, {
+        tenantPoolSource: tenantPoolObjects,
+        isCompactHeadline: false,
+      }),
+    ).slice(0, 140),
   }));
 }

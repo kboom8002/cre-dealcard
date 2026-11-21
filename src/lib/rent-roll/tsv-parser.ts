@@ -409,7 +409,11 @@ export function parseTsvRentRoll(
       combinedStatusText.includes('공실 아님') ||
       combinedStatusText.includes('공실아님') ||
       combinedStatusText.includes('공실 체크 금지') ||
-      combinedStatusText.includes('임대중 유지');
+      combinedStatusText.includes('임대중 유지') ||
+      combinedStatusText.includes('공실해소') ||
+      combinedStatusText.includes('공실 해소') ||
+      combinedStatusText.includes('공실전환') ||
+      combinedStatusText.includes('임대전환');
 
     if (
       combinedStatusText.includes('자가') ||

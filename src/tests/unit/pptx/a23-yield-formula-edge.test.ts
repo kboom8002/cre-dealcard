@@ -106,7 +106,8 @@ describe('Archetype A23: Yield Formula Edge Case Tests', () => {
       const slideXml = zip.getEntries().find(e => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
 
       expect(slideXml).toContain('◇ 분석가정');
-      expect(slideXml).toContain('기대수익률(추정수익률)');
+      expect(slideXml).toContain('기대수익률');
+      expect(slideXml).not.toContain('(추정수익률)');
       expect(slideXml).toContain('3.50%');
       expect(slideXml).toContain('공실층 시세 100% 임대 달성 시');
     });
@@ -203,7 +204,7 @@ describe('Archetype A23: Yield Formula Edge Case Tests', () => {
           stabilized: {
             kind: 'broker_plan',
             value: 2.75,
-            label: '기대수익률(추정수익률)',
+            label: '기대수익률',
             caption: 'B1·4F 자가사용 임대 전환 가정 (B1 보증 5,000만/월 458만, 4F 보증 3,000만/월 144만 · 보증금 +8,000만원, 월세 +602만원)',
             addedRentKrw: 72_240_000,
             addedDepositKrw: 80_000_000,
@@ -238,12 +239,13 @@ describe('Archetype A23: Yield Formula Edge Case Tests', () => {
       const zip = new AdmZip(buffer);
       const slideXml = zip.getEntries().find(e => e.entryName.includes('slide1.xml'))?.getData().toString('utf-8') || '';
 
-      expect(slideXml).toContain('기대수익률(추정수익률)');
+      expect(slideXml).toContain('기대수익률');
+      expect(slideXml).not.toContain('(추정수익률)');
       expect(slideXml).toContain('2.75%');
       expect(slideXml).toContain('현행 임대수익률 (매매가−보증금 대비)');
       expect(slideXml).toContain('2.08%');
-      expect(slideXml).toContain('서울 영등포구 10년 연평균 지가변동률');
-      expect(slideXml).toContain('+3.90%');
+      expect(slideXml).toContain('서울 영등포구 최근 5년 연평균 지가변동률');
+      expect(slideXml).toContain('+3.19%');
       expect(slideXml).toContain('A_2024_00902');
       expect(slideXml).toContain('2025');
       expect(slideXml).not.toContain('단순 합산 기대수익률');

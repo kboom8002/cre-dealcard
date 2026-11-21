@@ -203,7 +203,7 @@ describe('DealCard PPGT-Loop Persona SSOT, Unified 100pt Rubric & UX Writing/Con
         '<p:sld><a:t>입지 4대 등급</a:t></p:sld>',
         '<p:sld><a:t>토지이음 기준 토지이용계획</a:t></p:sld>',
         '<p:sld><a:t>보증금</a:t><a:t>임대료</a:t><a:t>4F</a:t><a:t>1F</a:t><a:t>B1</a:t></p:sld>',
-        '<p:sld><a:t>기대수익률(추정수익률) 4.5%</a:t></p:sld>',
+        '<p:sld><a:t>기대수익률 4.5%</a:t></p:sld>',
       ],
       slidesHtmlExport: '<style>@page { size: 297mm 167.0625mm; }</style><div>Slide</div>',
       expectedPhotoCount: 4,

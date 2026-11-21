@@ -804,11 +804,27 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const HEADERS = areaProj.headers;
 
     // 셀 문자열 확정 (숫자 열은 천 단위 구분 통일: 2490.3 → 2,490.3)
-    const cellTexts: string[][] = displayRows.map((row: any[]) => areaProj.keep.map((ci, k) => {
-      // D7(d): '미기재/미상/확인 필요/N/A' → '-' 를 맞춤(fit) 이전에 적용 (긴 플레이스홀더가 '미기…' 로 잘리는 문제 방지)
-      const text = normalizeMissing(String(row[ci] ?? '').replace(/\*\*/g, ''));
-      return isNumericRentRollHeader(HEADERS[k]) ? formatNumericCell(text) : text;
-    }));
+    const formatProjectedRow = (row: any[]): string[] =>
+      areaProj.keep.map((ci, k) => {
+        // D7(d): '미기재/미상/확인 필요/N/A' → '-' 를 맞춤(fit) 이전에 적용 (긴 플레이스홀더가 '미기…' 로 잘리는 문제 방지)
+        const text = normalizeMissing(String(row?.[ci] ?? '').replace(/\*\*/g, ''));
+        return isNumericRentRollHeader(HEADERS[k]) ? formatNumericCell(text) : text;
+      });
+    const cellTexts: string[][] = displayRows.map((row: any[]) => formatProjectedRow(row));
+
+    // 기대수익률 임대차 현황 비교용 baselineRows 맵 구축 (층별 순서 매칭)
+    const baselineRawRows: any[][] = Array.isArray(data.baselineRows) ? data.baselineRows : [];
+    const baselineByFloor = new Map<string, string[][]>();
+    for (const bRow of baselineRawRows) {
+      if (!Array.isArray(bRow) || isSummaryRowOf(bRow)) continue;
+      const fKey = String(bRow[0] ?? '').trim().toUpperCase();
+      if (!fKey) continue;
+      const list = baselineByFloor.get(fKey) ?? [];
+      list.push(formatProjectedRow(bRow));
+      baselineByFloor.set(fKey, list);
+    }
+    const floorOccCounter = new Map<string, number>();
+    let hasAnyDiff = false;
 
     // 열폭: 내용 폭 기반 배분 (셀 줄바꿈 방지) — 합계 = tbW
     const colW = computeRentRollColumnWidths(HEADERS, cellTexts, tbW, headerFontSize, bodyFontSize);
@@ -839,6 +855,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       const color = isVacant ? 'B05A2E' : (isSummary ? C.ink : (isSelfUse ? C.slate : '2B2B2B'));
       const bold = isSummary || isVacant;
 
+      let matchedBaseline: string[] | undefined;
+      if (!isSummary && baselineByFloor.size > 0) {
+        const fKey = String(row?.[0] ?? '').trim().toUpperCase();
+        const occIdx = floorOccCounter.get(fKey) ?? 0;
+        floorOccCounter.set(fKey, occIdx + 1);
+        const candidates = baselineByFloor.get(fKey);
+        if (candidates && candidates.length > 0) {
+          matchedBaseline = candidates[occIdx] ?? (candidates.length === 1 ? candidates[0] : undefined);
+        }
+      }
+
       const mappedRow = cellTexts[i].map((text, cIdx) => {
         let fitted = fitSingleLine(text, usable(colW[cIdx] ?? 0.8), bodyFontSize, Math.min(7, bodyFontSize), bold);
         const isTextCol = ['임차인', '용도', '업종', RENTROLL_NOTE_HEADER].includes(HEADERS[cIdx]);
@@ -851,10 +878,25 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
             }
           }
         }
+        const areCellsEquivalent = (a: string, b: string): boolean => {
+          if (a === b) return true;
+          if (/^[+-]?[\d,.]+$/.test(a) && /^[+-]?[\d,.]+$/.test(b)) {
+            const na = Number(a.replace(/,/g, ''));
+            const nb = Number(b.replace(/,/g, ''));
+            if (Number.isFinite(na) && Number.isFinite(nb) && Math.abs(na - nb) < 1e-6) return true;
+          }
+          return false;
+        };
+        const isDiff = !isSummary && cIdx > 0 && Boolean(matchedBaseline) && !areCellsEquivalent(text, matchedBaseline![cIdx]);
+        if (isDiff) hasAnyDiff = true;
         return {
           text: fitted.text,
           options: {
-            fill, color, fontSize: fitted.fontSize, bold,
+            fill: isDiff ? 'FDF8EC' : fill,
+            color: isDiff ? '8E6A20' : color,
+            fontSize: fitted.fontSize,
+            bold,
+            ...(isDiff ? { italic: true } : {}),
             align: isNumericRentRollHeader(HEADERS[cIdx]) ? 'right' : ((cIdx === 1 || HEADERS[cIdx] === RENTROLL_NOTE_HEADER) ? 'left' : 'center'),
             fontFace: KR,
             margin: cellMargin,
@@ -889,11 +931,16 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       });
     }
     // 전 호실 공통 비고(binder 가 열에서 분리) — 단위 표기 줄 왼쪽에 1회만 표기
-    const commonNote = typeof data.commonNote === 'string' ? data.commonNote.trim() : '';
-    if (commonNote) {
-      slide.addText(`비고(공통): ${commonNote}`, {
+    const rawCommonNote = typeof data.commonNote === 'string' ? data.commonNote.trim() : '';
+    const effectiveCommonNote = rawCommonNote || (hasAnyDiff ? '현행 대비 변경 항목은 이탤릭·음영으로 표기됩니다.' : '');
+    if (effectiveCommonNote) {
+      const noteText = `비고(공통): ${effectiveCommonNote}`;
+      const fittedNote = fitSingleLine(noteText, tbW * 0.62, 8, 6.5, false);
+      slide.addText(fittedNote.text, {
         x: tbX, y: topY - 0.26, w: tbW * 0.62, h: 0.22,
-        fontSize: 8, color: '7A8794', align: 'left', valign: 'bottom', fontFace: KR, margin: 0,
+        fontSize: fittedNote.fontSize, color: hasAnyDiff ? '8E6A20' : '7A8794',
+        ...(hasAnyDiff ? { italic: true } : {}),
+        align: 'left', valign: 'bottom', fontFace: KR, margin: 0, wrap: false,
       });
     }
 

@@ -29,6 +29,7 @@ import { LeverageChart } from "./leverage-chart";
 import { StackingPlanView } from "@/components/im/stacking-plan-view";
 import { useDealcardRealtimeSync } from "@/platform/im-pipeline/realtime/use-dealcard-realtime-sync";
 import {
+  KakaoStaticMap,
   PhotoGallery,
   SectionCard,
   FloatingActionBar,
@@ -67,16 +68,16 @@ interface Props {
 }
 
 const CANONICAL_SECTION_CHIPS = [
-  { id: "01_cover", label: "01 표지" },
-  { id: "02_summary", label: "02 하이라이트" },
-  { id: "03_overview", label: "03 개요" },
-  { id: "04_location", label: "04 입지" },
-  { id: "05_land", label: "05 토지" },
-  { id: "06_rentroll", label: "06 렌트롤" },
-  { id: "07_yield", label: "07 수익률" },
-  { id: "08_comps", label: "08 상권" },
-  { id: "09_photos", label: "09 사진" },
-  { id: "10_contact", label: "10 문의" },
+  { id: "01_cover", label: "표지" },
+  { id: "02_summary", label: "투자 하이라이트" },
+  { id: "03_overview", label: "건축물 개요" },
+  { id: "04_location", label: "입지 분석" },
+  { id: "05_land", label: "토지·도시계획" },
+  { id: "06_rentroll", label: "층별 임대차" },
+  { id: "07_yield", label: "수익률" },
+  { id: "08_comps", label: "인근 실거래" },
+  { id: "09_photos", label: "사진·조건" },
+  { id: "10_contact", label: "문의" },
 ] as const;
 
 const VIEWER_CATEGORY_KO: Record<string, string> = {
@@ -1206,6 +1207,58 @@ export function MobileIMViewer({
   );
 
   const compsList: any[] = compsSec?.data?.comparableTransactions || [];
+  const expectedRentRows = useMemo<any[]>(() => {
+    const raw =
+      (initialDoc as any)?.expected_rent_roll ??
+      (initialDoc as any)?.expectedRentRoll ??
+      (ssotData as any)?.expected_rent_roll ??
+      [];
+    return Array.isArray(raw) ? raw : [];
+  }, [initialDoc, ssotData]);
+  const cadastralImageUrl = useMemo(() => {
+    const url =
+      (initialDoc as any)?.enrichment?.cadastralMapImage ??
+      (ssotData as any)?.enrichment?.cadastralMapImage ??
+      (initialDoc as any)?.cadastralMapImage;
+    return typeof url === "string" && url.trim().length > 0 ? url.trim() : "";
+  }, [initialDoc, ssotData]);
+  const visibleChips = useMemo(() => {
+    let bodyIdx = 0;
+    return CANONICAL_SECTION_CHIPS.filter((c) => c.id !== "08_comps" || compsList.length > 0).map(
+      (c) => {
+        if (c.id === "01_cover") {
+          return { id: c.id, no: "표지", label: "표지" };
+        }
+        bodyIdx += 1;
+        const no = String(bodyIdx).padStart(2, "0");
+        return { id: c.id, no, label: `${no} ${c.label}` };
+      },
+    );
+  }, [compsList.length]);
+  const sectionNoById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of visibleChips) map[c.id] = c.no;
+    return map;
+  }, [visibleChips]);
+  const expectedYieldPct = useMemo(() => {
+    const stabVal = ssotYieldSet?.stabilized?.value;
+    if (typeof stabVal === "number" && Number.isFinite(stabVal) && stabVal > 0 && stabVal <= 25) {
+      return stabVal;
+    }
+    if (expectedRentRows.length === 0 || askingManwon <= 0) return 0;
+    let depMan = 0;
+    let rentMan = 0;
+    for (const r of expectedRentRows) {
+      const d = Number(r?.depositManwon ?? r?.deposit_manwon ?? (Number(r?.depositKrw ?? r?.deposit_krw) || 0) / 10000);
+      const m = Number(r?.monthlyRentManwon ?? r?.monthly_rent_manwon ?? (Number(r?.rentKrw ?? r?.monthly_rent_krw) || 0) / 10000);
+      if (Number.isFinite(d) && d > 0) depMan += d;
+      if (Number.isFinite(m) && m > 0) rentMan += m;
+    }
+    const denom = askingManwon - depMan;
+    if (denom <= 0 || rentMan <= 0) return 0;
+    const rawPct = ((rentMan * 12) / denom) * 100;
+    return rawPct <= 25 ? Number(rawPct.toFixed(2)) : 0;
+  }, [ssotYieldSet, expectedRentRows, askingManwon]);
   const hasVerifiedPublicLedger = useMemo(() => {
     const pnuCandidates = [
       basicDoc.facts.land.pnu,
@@ -1562,9 +1615,9 @@ export function MobileIMViewer({
           className="flex items-center gap-1.5 px-4 py-2 overflow-x-auto bg-[#FAF9F5] border-t border-[#E2E8F0] scrollbar-none"
           data-testid="section-chips-bar"
           role="navigation"
-          aria-label="IM 10개 섹션 바로가기"
+          aria-label="IM 섹션 바로가기"
         >
-          {CANONICAL_SECTION_CHIPS.map((chip) => {
+          {visibleChips.map((chip) => {
             const isActive = activeSectionId === chip.id;
             return (
               <button
@@ -1718,7 +1771,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              02 투자 하이라이트
+              {sectionNoById["02_summary"] ?? "01"} 투자 하이라이트
             </span>
             <span className="text-sm font-bold text-[#475569]">핵심 요약</span>
           </div>
@@ -1765,7 +1818,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              03 건축물 기본 정보
+              {sectionNoById["03_overview"] ?? "02"} 건축물 기본 정보
             </span>
           </div>
 
@@ -1837,7 +1890,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              04 입지 분석
+              {sectionNoById["04_location"] ?? "03"} 입지 분석
             </span>
           </div>
 
@@ -1869,6 +1922,21 @@ export function MobileIMViewer({
               </div>
             )}
           </div>
+          {Number.isFinite(Number(initialDoc?.coordinates?.lat)) &&
+            Number.isFinite(Number(initialDoc?.coordinates?.lng)) &&
+            Number(initialDoc?.coordinates?.lat) > 0 &&
+            Number(initialDoc?.coordinates?.lng) > 0 && (
+              <div
+                className="h-[200px] sm:h-[230px] rounded-md overflow-hidden border border-[#CBD5E1]"
+                data-testid="mobile-im-location-map"
+              >
+                <KakaoStaticMap
+                  lat={Number(initialDoc.coordinates.lat)}
+                  lng={Number(initialDoc.coordinates.lng)}
+                  name={basicDoc.metadata.title || basicDoc.facts.address || "본건"}
+                />
+              </div>
+            )}
         </section>
 
         {/* Section 05: Land & Zoning (A27) */}
@@ -1881,7 +1949,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              05 토지 및 도시계획
+              {sectionNoById["05_land"] ?? "04"} 토지 및 도시계획
             </span>
           </div>
 
@@ -1967,6 +2035,23 @@ export function MobileIMViewer({
               </table>
             </div>
           )}
+
+          {cadastralImageUrl && (
+            <div
+              className="rounded-md border border-[#CBD5E1] bg-[#FAF9F5] p-3 space-y-2"
+              data-testid="mobile-im-cadastral-map"
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-[#475569]">
+                <span>지적도 · 토지이용계획</span>
+                <span>토지이음 · V-World</span>
+              </div>
+              <img
+                src={cadastralImageUrl}
+                alt="본건 지적도 및 토지이용계획"
+                className="w-full max-h-[320px] object-contain rounded border border-[#E2E8F0] bg-white"
+              />
+            </div>
+          )}
         </section>
 
         {/* Section 06: Rent Roll (A24) */}
@@ -1982,7 +2067,7 @@ export function MobileIMViewer({
           )}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              06 층별 임대차 상세
+              {sectionNoById["06_rentroll"] ?? "05"} 층별 임대차 상세
             </span>
             <span className="text-sm text-[#065F46] font-bold">
               월 수익 합계: {monthlyRentDisplayManwon.toLocaleString()}만원
@@ -1992,7 +2077,7 @@ export function MobileIMViewer({
             </span>
           </div>
 
-          <h2 className="text-xl font-extrabold text-[#0F172A]">렌트롤 현황</h2>
+          <h2 className="text-xl font-extrabold text-[#0F172A]">층별 임대차 현황</h2>
 
           <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
             <table className="w-full text-left text-sm">
@@ -2015,14 +2100,21 @@ export function MobileIMViewer({
                 ) : (
                   rentRows.map((r: any, idx: number) => {
                     const floorLabel = r.floor || "-";
+                    const cleanTenant = String(r.tenantName ?? r.tenant ?? "").trim();
+                    let rawUse = String(r.use ?? r.tenant_type ?? "").trim();
+                    if (cleanTenant && rawUse.startsWith(`${cleanTenant} / `)) {
+                      rawUse = rawUse.slice(cleanTenant.length + 3).trim();
+                    }
                     const useLabel =
-                      r.use ||
-                      r.tenantName ||
-                      (r.status === "vacant"
-                        ? "공실"
-                        : r.status === "owner"
-                        ? "자가사용"
-                        : "임대중");
+                      cleanTenant && rawUse && rawUse !== cleanTenant
+                        ? `${cleanTenant} (${rawUse})`
+                        : rawUse ||
+                          cleanTenant ||
+                          (r.status === "vacant"
+                            ? "공실"
+                            : r.status === "owner"
+                            ? "자가사용"
+                            : "임대중");
                     const depManwon =
                       r.depositManwon !== undefined
                         ? Number(r.depositManwon)
@@ -2079,6 +2171,71 @@ export function MobileIMViewer({
                 : `전체 ${rentRows.length}개 호실 모두 보기`}
             </button>
           )}
+
+          {expectedRentRows.length > 0 && (
+            <div
+              className="pt-3 mt-3 border-t border-dashed border-[#CBD5E1] space-y-2"
+              data-testid="mobile-im-expected-rentroll"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-extrabold text-[#0F172A]">기대수익률 임대차 현황</h3>
+                {expectedYieldPct > 0 && (
+                  <span className="text-sm font-bold text-[#92400E] bg-[#FEF3C7] px-2.5 py-0.5 rounded-full">
+                    기대수익률 {expectedYieldPct.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+              <div className="overflow-x-auto rounded-md border border-[#FCD34D]">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-[#FFFBEB] border-b border-[#FCD34D] font-bold text-[#0F172A]">
+                    <tr>
+                      <th className="py-2 px-2 sm:px-3 whitespace-nowrap">층</th>
+                      <th className="py-2 px-2 sm:px-3">업종/용도</th>
+                      <th className="py-2 px-2 sm:px-3 text-right whitespace-nowrap">보증금(만)</th>
+                      <th className="py-2 px-2 sm:px-3 text-right whitespace-nowrap">월세(만)</th>
+                      <th className="py-2 px-2 sm:px-3 text-right whitespace-nowrap">비고/조건</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#FDE68A]">
+                    {expectedRentRows.map((er: any, idx: number) => {
+                      const base = rentRows[idx] ?? rentRows.find((br: any) => String(br?.floor ?? "").trim() === String(er?.floor ?? "").trim());
+                      const floorLabel = String(er?.floor ?? "-").trim() || "-";
+                      const cleanTenant = String(er?.tenantName ?? er?.tenant ?? "").trim();
+                      let rawUse = String(er?.use ?? er?.sector ?? er?.purpose ?? "").trim();
+                      if (cleanTenant && rawUse.startsWith(`${cleanTenant} / `)) {
+                        rawUse = rawUse.slice(cleanTenant.length + 3).trim();
+                      }
+                      const useLabel =
+                        cleanTenant && rawUse && rawUse !== cleanTenant
+                          ? `${cleanTenant} (${rawUse})`
+                          : rawUse || cleanTenant || "-";
+                      const baseUseLabel = base ? String(base?.use ?? base?.tenantName ?? "").trim() : "";
+                      const depMan = Number(er?.depositManwon ?? er?.deposit_manwon ?? (Number(er?.depositKrw ?? er?.deposit_krw) || 0) / 10000) || 0;
+                      const baseDep = base ? Number(base?.depositManwon ?? (Number(base?.depositKrw) || 0) / 10000) || 0 : depMan;
+                      const rentMan = Number(er?.monthlyRentManwon ?? er?.monthly_rent_manwon ?? (Number(er?.rentKrw ?? er?.monthly_rent_krw) || 0) / 10000) || 0;
+                      const baseRent = base ? Number(base?.monthlyRentManwon ?? (Number(base?.rentKrw) || 0) / 10000) || 0 : rentMan;
+                      const noteLabel = String(er?.note ?? er?.status ?? "").trim() || "-";
+                      const depChanged = Boolean(base) && Math.round(depMan) !== Math.round(baseDep);
+                      const rentChanged = Boolean(base) && Math.round(rentMan) !== Math.round(baseRent);
+                      const useChanged = Boolean(base) && useLabel !== baseUseLabel && rawUse !== baseUseLabel;
+                      return (
+                        <tr key={idx} className="hover:bg-[#FFFDF5]">
+                          <td className="py-2 px-2 sm:px-3 font-bold text-[#0F172A] whitespace-nowrap">{floorLabel}</td>
+                          <td className={`py-2 px-2 sm:px-3 break-keep ${useChanged ? "italic bg-[#FDF8EC] text-[#8E6A20] font-semibold" : "text-[#334155]"}`}>{useLabel}</td>
+                          <td className={`py-2 px-2 sm:px-3 text-right tabular-nums whitespace-nowrap ${depChanged ? "italic bg-[#FDF8EC] text-[#8E6A20] font-semibold" : "font-semibold text-[#0F172A]"}`}>{depMan.toLocaleString()}</td>
+                          <td className={`py-2 px-2 sm:px-3 text-right tabular-nums whitespace-nowrap ${rentChanged ? "italic bg-[#FDF8EC] text-[#8E6A20] font-bold" : "font-bold text-[#1D4ED8]"}`}>{rentMan.toLocaleString()}</td>
+                          <td className="py-2 px-2 sm:px-3 text-right text-xs text-[#64748B] whitespace-nowrap">{noteLabel}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-[#8E6A20] italic">
+                * 현행 대비 기대수익률 전환으로 변경된 항목은 이탤릭·음영으로 표시됩니다.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Section 07: Cash Flow / Yield (A23) */}
@@ -2091,7 +2248,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              07 수지 분석
+              {sectionNoById["07_yield"] ?? "06"} 수지 분석
             </span>
           </div>
 
@@ -2118,11 +2275,20 @@ export function MobileIMViewer({
               </div>
             )}
             <div className="flex justify-between text-base font-extrabold pt-2 border-t border-[#86EFAC]">
-              <span className="text-[#065F46]">연 환산 수익률</span>
+              <span className="text-[#065F46]">현행 임대수익률</span>
               <span className="text-[#065F46] tabular-nums">
                 {capRatePct.toFixed(2)}%
               </span>
             </div>
+            {expectedYieldPct > 0 && (
+              <div
+                className="flex justify-between text-base font-extrabold pt-1 text-[#92400E]"
+                data-testid="mobile-im-expected-yield-row"
+              >
+                <span>기대수익률 (전환·개선 가정)</span>
+                <span className="tabular-nums">{expectedYieldPct.toFixed(2)}%</span>
+              </div>
+            )}
           </div>
 
           {(pricePerPyeongLandWon > 0 || pricePerPyeongGfaWon > 0) && (
@@ -2144,6 +2310,7 @@ export function MobileIMViewer({
         </section>
 
         {/* Section 08: Comps / Trade Area (A26) */}
+        {compsList.length > 0 && (
         <section
           id="08_comps"
           data-section-id="08_comps"
@@ -2153,7 +2320,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              08 상권 및 배후 수요
+              {sectionNoById["08_comps"] ?? "07"} 인근 실거래 비교
             </span>
           </div>
 
@@ -2176,53 +2343,48 @@ export function MobileIMViewer({
             </div>
           )}
 
-          {compsList.length > 0 ? (
-            <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
-                  <tr>
-                    <th className="py-2.5 px-3">거리/위치</th>
-                    <th className="py-2.5 px-3">시기</th>
-                    <th className="py-2.5 px-3">용도</th>
-                    <th className="py-2.5 px-3 text-right">토지 평당가</th>
-                    <th className="py-2.5 px-3 text-right">본건 대비</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0]">
-                  {compsList.map((c: any, idx: number) => {
-                    const compLandManwon = Math.round(
-                      (Number(c.pricePerPyeongLandWon) || 0) / 10000
-                    );
-                    const diffPct = Number(c.comparisonDiffPct || 0);
-                    return (
-                      <tr key={idx} className="hover:bg-[#F8FAFC]">
-                        <td className="py-2.5 px-3 font-bold text-[#0F172A]">
-                          {c.distance || c.name || "-"}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#475569]">
-                          {c.dealDate || c.date || "-"}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#334155]">
-                          {c.buildingUse || c.use || "-"}
-                        </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-[#0F172A]">
-                          {compLandManwon.toLocaleString()}만 원
-                        </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums font-bold text-[#1D4ED8]">
-                          {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-[#475569] p-3.5 bg-[#FAF9F5] rounded-md border border-[#E2E8F0]">
-              본건 대지·연면적 평당 단가 및 개별공시지가 기준 밸류에이션 지표를 참조해 주십시오.
-            </p>
-          )}
+          <div className="overflow-x-auto rounded-md border border-[#CBD5E1]">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#FAF9F5] border-b border-[#CBD5E1] font-bold text-[#0F172A]">
+                <tr>
+                  <th className="py-2.5 px-3">거리/위치</th>
+                  <th className="py-2.5 px-3">시기</th>
+                  <th className="py-2.5 px-3">용도</th>
+                  <th className="py-2.5 px-3 text-right">토지 평당가</th>
+                  <th className="py-2.5 px-3 text-right">본건 대비</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E2E8F0]">
+                {compsList.map((c: any, idx: number) => {
+                  const compLandManwon = Math.round(
+                    (Number(c.pricePerPyeongLandWon) || 0) / 10000
+                  );
+                  const diffPct = Number(c.comparisonDiffPct || 0);
+                  return (
+                    <tr key={idx} className="hover:bg-[#F8FAFC]">
+                      <td className="py-2.5 px-3 font-bold text-[#0F172A]">
+                        {c.distance || c.name || "-"}
+                      </td>
+                      <td className="py-2.5 px-3 text-[#475569]">
+                        {c.dealDate || c.date || "-"}
+                      </td>
+                      <td className="py-2.5 px-3 text-[#334155]">
+                        {c.buildingUse || c.use || "-"}
+                      </td>
+                      <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-[#0F172A]">
+                        {compLandManwon.toLocaleString()}만 원
+                      </td>
+                      <td className="py-2.5 px-3 text-right tabular-nums font-bold text-[#1D4ED8]">
+                        {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
+        )}
 
         {/* Section 09: Deal Terms & Photos (A14) */}
         <section
@@ -2234,7 +2396,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              09 매각 조건 및 사진
+              {sectionNoById["09_photos"] ?? "07"} 매각 조건 및 사진
             </span>
           </div>
 
@@ -2264,7 +2426,7 @@ export function MobileIMViewer({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-extrabold text-[#1D4ED8] bg-[#EFF6FF] px-3 py-1 rounded-full border border-[#BFDBFE]">
-              10 담당자 및 면책조항
+              {sectionNoById["10_contact"] ?? "08"} 담당자 및 면책조항
             </span>
           </div>
 

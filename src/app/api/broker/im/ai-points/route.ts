@@ -25,6 +25,7 @@ import {
   buildAuthoritativeImFactSheet,
   buildDeterministicImPointsFallback,
   buildImRepairFeedback,
+  enforceNominalBulletStyle,
   fetchDynamicImReferenceBlock,
   polishImCopyWithLexicon,
   validateImGeneratedCopy,
@@ -73,7 +74,7 @@ function buildImAiPointsSystemPrompt(params: {
     `[핵심 작성 규율 — 위반 시 즉시 폐기]`,
     `1. 응답은 정확히 3개 항목의 JSON 배열 "points"로 반환하세요:`,
     `   - "title": 공백 포함 24자 이내의 완결된 명사형 핵심 소제목 (마침표·말줄임표 금지)`,
-    `   - "body": 공백 포함 115자 이내의 구체적이고 밀도 높은 전문 해설 (1~2문장)`,
+    `   - "body": 공백 포함 115자 이내의 명사형 종결 개조식 핵심 설명 (예: "...역세권 핵심 입지 확보 · ...수익성 기대"). 서술형 경어("~입니다", "~합니다", "~됩니다", "~있습니다", "~제시됩니다") 사용을 절대 금지합니다.`,
     `2. [암산·날조 금지]: 평수, 수익률(%), 실투자금, 평당가, 거리, 연도 등 모든 숫자는 반드시 [본건 사전 연산 SSOT 팩트 시트]에 적힌 값만 그대로 인용하세요. 팩트 시트에 없는 숫자는 절대 추정하거나 계산하지 마세요.`,
     `3. [임차인 상호 정책(D1)]: 실제 렌트롤에 확인된 우량 임차인 상호는 적극 표기하되, 렌트롤에 없는 유명 브랜드(스타벅스, 올리브영 등)는 절대 창작하지 마세요.`,
     `4. [표준 CRE 금융 어휘 & 암묵적 페르소나]:`,
@@ -264,16 +265,20 @@ export async function POST(req: NextRequest) {
     const warnings: string[] = [];
     const finalPoints = await Promise.all(
       candidatePoints.slice(0, 3).map(async (pt, idx) => {
-        const polishedTitle = await polishImCopyWithLexicon(pt.title, {
-          tenantPoolSource: factSheet.tenantPoolObjects,
-          isCompactHeadline: true,
-          maxChars: 28,
-        });
-        const polishedBody = await polishImCopyWithLexicon(pt.body, {
-          tenantPoolSource: factSheet.tenantPoolObjects,
-          isCompactHeadline: false,
-          maxChars: 140,
-        });
+        const polishedTitle = enforceNominalBulletStyle(
+          await polishImCopyWithLexicon(pt.title, {
+            tenantPoolSource: factSheet.tenantPoolObjects,
+            isCompactHeadline: true,
+            maxChars: 28,
+          }),
+        );
+        const polishedBody = enforceNominalBulletStyle(
+          await polishImCopyWithLexicon(pt.body, {
+            tenantPoolSource: factSheet.tenantPoolObjects,
+            isCompactHeadline: false,
+            maxChars: 140,
+          }),
+        );
 
         // 2차 교정 후에도 미근거 숫자가 남아 있으면 해당 슬롯만 결정론적 SSOT 문구로 무결점 대체
         const residualUngrounded = findNumbersNotInContext(

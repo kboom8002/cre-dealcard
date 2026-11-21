@@ -313,8 +313,8 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
         await Promise.all(slideFiles.map((f) => zip.files[f].async("string")))
       ).join("\n");
 
-      expect(allXml).toContain("렌트롤 (1/2)");
-      expect(allXml).toContain("렌트롤 (2/2)");
+      expect(allXml).toContain("층별 임대차 현황 (1/2)");
+      expect(allXml).toContain("층별 임대차 현황 (2/2)");
       expect(allXml).toContain("합계");
       // Must never contain truncation notice
       expect(allXml).not.toContain("건 중 ");

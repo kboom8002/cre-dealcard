@@ -1112,12 +1112,15 @@ export class MobileImPptxRenderer {
           }
         }
 
-        // 기대수익률(추정수익률) 렌트롤 별도 슬라이드(6-2p) 바인딩
+        // 기대수익률 임대차 현황 별도 슬라이드(6-2p) 바인딩
         if (sequenceInput.hasExpectedRentRoll && Array.isArray(input.doc.body?.expected_rent_roll)) {
           const expRaw = input.doc.body.expected_rent_roll as any[];
           const toNumStr = (v: unknown) => {
             const n = Number(String(v ?? '').replace(/,/g, ''));
-            return Number.isFinite(n) && n > 0 ? String(n) : (v === 0 || String(v).trim() === '0' ? '0' : '-');
+            if (Number.isFinite(n) && n > 0) {
+              return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return v === 0 || String(v).trim() === '0' ? '0' : '-';
           };
           const expRows = sortRentRollTopDown(
             expRaw.map((r: any) => {
@@ -1128,10 +1131,15 @@ export class MobileImPptxRenderer {
               const rent = Number(r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? 0) || 0;
               const mgmt = Number(r.managementFeeManwon ?? r.mgmt_fee_manwon ?? 0) || 0;
               const totalM = rent + mgmt;
+              const tenantStr = String(r.tenantName ?? r.tenant_name ?? r.tenant ?? '공실 임대 예정').trim();
+              let sectorStr = String(r.sector ?? r.use ?? r.purpose ?? '-').trim();
+              if (tenantStr && sectorStr.startsWith(`${tenantStr} / `)) {
+                sectorStr = sectorStr.slice(tenantStr.length + 3).trim() || '-';
+              }
               return [
                 String(r.floor ?? '-'),
-                String(r.tenantName ?? r.tenant_name ?? r.tenant ?? '공실 임대 예정'),
-                String(r.sector ?? r.use ?? r.purpose ?? '-'),
+                tenantStr,
+                sectorStr,
                 toNumStr(leaseSqm),
                 toNumStr(exclSqm),
                 dep > 0 ? dep.toLocaleString('en-US') : '-',
@@ -1143,17 +1151,23 @@ export class MobileImPptxRenderer {
             }),
           );
           const defaultHead = ['층', '임차인', '용도', '임대면적(㎡)', '전용면적(㎡)', '보증금(만원)', '월임대료(만원)', '관리비(만원)', '월합계(만원)', '만기일'];
+          const baselineRows = Array.isArray((dataMap['rentRoll'] as any)?.fullTableRowsForStacking)
+            ? (dataMap['rentRoll'] as any).fullTableRowsForStacking
+            : Array.isArray((dataMap['rentRoll'] as any)?.tableRows)
+              ? (dataMap['rentRoll'] as any).tableRows
+              : [];
           dataMap['expectedRentRoll'] = {
             kicker: 'Expected Rent Roll',
-            title: '기대수익률(추정수익률) 렌트롤',
+            title: '기대수익률 임대차 현황',
             content: '',
             metrics: {},
             tableHead: (dataMap['rentRoll'] as any)?.tableHead ?? defaultHead,
             tableRows: expRows,
+            baselineRows,
             tables: [{ headers: (dataMap['rentRoll'] as any)?.tableHead ?? defaultHead, rows: expRows }],
             hideStackingPlan: true,
             areaInputUnit: (dataMap['rentRoll'] as any)?.areaInputUnit ?? resolveAreaInputUnit(input.doc.body?.rent_roll_meta),
-            commonNote: '공실 해소·리모델링 등 임대 전환 가정 기준 기대수익률(추정수익률) 렌트롤',
+            commonNote: '현행 대비 전환·개선 가정에 따라 변경된 셀은 이탤릭·음영으로 표시됩니다. (공실 해소·리모델링 등)',
           };
         }
       }
@@ -1400,28 +1414,58 @@ export class MobileImPptxRenderer {
       if ((!existingMetrics || existingMetrics.length === 0) && (!heroCard.stats || heroCard.stats.length === 0)) {
         const ssot = input.doc.body?.ssot_summary ?? {};
         const bldg = input.building ?? {};
-        const autoStats: Array<{label: string; value: string; unit?: string}> = [];
+        const autoStats: Array<{label: string; value: string; unit?: string; sub?: string}> = [];
         // SSoT 우선 소스
-        if (ssot.price_band) autoStats.push({ label: '매각 희망가', value: ssot.price_band });
+        if (ssot.price_band) autoStats.push({ label: '매매 희망가', value: ssot.price_band });
         else if (ssot.asking_price_manwon) {
           const val = Number(ssot.asking_price_manwon);
           const formatted = val >= 10000 ? `${(val / 10000).toFixed(val % 10000 === 0 ? 0 : 1)}억원` : `${val.toLocaleString()}만원`;
-          autoStats.push({ label: '매각 희망가', value: formatted });
+          autoStats.push({ label: '매매 희망가', value: formatted });
         }
-        if (ssot.size_signal) autoStats.push({ label: '연면적', value: ssot.size_signal });
-        else if (bldg.total_area_pyeong) autoStats.push({ label: '연면적', value: `${bldg.total_area_pyeong}평` });
+        const autoYs = buildYieldSetFromBody(input.doc.body as Record<string, any>);
+        const asIsPct = autoYs.grossYieldNetOfDeposit;
+        if (autoYs.stabilized && autoYs.stabilized.kind !== 'reserve_excluded' && autoYs.stabilized.value > 0) {
+          autoStats.push({
+            label: autoYs.stabilized.label || '기대수익률',
+            value: `${autoYs.stabilized.value.toFixed(2)}%`,
+            ...(asIsPct != null && asIsPct > 0 ? { sub: `현행 ${asIsPct.toFixed(2)}%` } : {}),
+          });
+        } else if (asIsPct != null && asIsPct > 0) {
+          autoStats.push({ label: '현행 임대수익률', value: `${asIsPct.toFixed(2)}%` });
+        }
+        const gfaNum = Number(ssot.total_gross_area_sqm ?? bldg.total_gross_area_sqm ?? enrichment?.buildingRegister?.totalArea ?? enrichment?.buildingRegister?.totArea ?? 0);
+        if (Number.isFinite(gfaNum) && gfaNum > 0) {
+          autoStats.push({ label: '연면적', value: `${Number(gfaNum.toFixed(1)).toLocaleString()}㎡` });
+        } else if (ssot.size_signal) {
+          autoStats.push({ label: '연면적', value: ssot.size_signal });
+        } else if (bldg.total_area_pyeong) {
+          autoStats.push({ label: '연면적', value: `${bldg.total_area_pyeong}평` });
+        }
+        const landNum = Number(ssot.land_area_sqm ?? ssot.plat_area_sqm ?? bldg.land_area_sqm ?? enrichment?.buildingRegister?.platArea ?? 0);
+        if (Number.isFinite(landNum) && landNum > 0) {
+          autoStats.push({ label: '대지면적', value: `${Number(landNum.toFixed(1)).toLocaleString()}㎡` });
+        }
+        const askMan = Number(ssot.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
+        const depMan = Number(ssot.total_deposit_manwon ?? 0);
+        if (Number.isFinite(askMan) && askMan > 0 && Number.isFinite(depMan) && askMan > depMan) {
+          const eqMan = askMan - depMan;
+          autoStats.push({
+            label: '실투자금',
+            value: eqMan >= 10000 ? `${(eqMan / 10000).toFixed(1).replace(/\.0$/, '')}억원` : `${eqMan.toLocaleString()}만원`,
+          });
+        }
         // G-02: 사옥형 공실률 카드 압축 — 긴 vacancy_signal 대신 간결 텍스트
         if (posture === 'owner_occupied') {
           const vacVal = Number(ssot.vacancy_pct ?? 0);
-          autoStats.push({ label: '공실률', value: vacVal === 0 ? '사옥 자가사용' : `${vacVal}%` });
+          autoStats.push({ label: '공실 현황', value: vacVal === 0 ? '사옥 자가사용' : `${vacVal}%` });
         } else if (ssot.vacancy_signal) {
-          autoStats.push({ label: '공실률', value: ssot.vacancy_signal });
+          autoStats.push({ label: '공실 현황', value: ssot.vacancy_signal });
         } else if (ssot.vacancy_pct != null) {
-          autoStats.push({ label: '공실률', value: `${Number(Number(ssot.vacancy_pct).toFixed(1))}%` });
+          autoStats.push({ label: '공실 현황', value: `${Number(Number(ssot.vacancy_pct).toFixed(1))}%` });
         }
-        if (input.grade) autoStats.push({ label: '데이터 등급', value: input.grade });
-        if (ssot.area_signal) autoStats.push({ label: '소재지', value: ssot.area_signal });
-        else if (bldg.area_signal) autoStats.push({ label: '소재지', value: bldg.area_signal });
+        if (autoStats.length < 6 && input.grade) autoStats.push({ label: '데이터 등급', value: input.grade });
+        if (autoStats.length < 6 && ssot.area_signal) autoStats.push({ label: '소재지', value: ssot.area_signal });
+        else if (autoStats.length < 6 && bldg.area_signal) autoStats.push({ label: '소재지', value: bldg.area_signal });
         // FIX-RC5: building 테이블 폴백 소스 확대
         if (autoStats.length < 4) {
           if (bldg.built_year && !autoStats.some(s => s.label === '준공연도')) {
@@ -1450,9 +1494,9 @@ export class MobileImPptxRenderer {
         });
       }
 
-      // ── 3. 아키타입별 슬라이드 생성 ──
+      // ── 3. 아키타입별 슬라이드 생성 (Cover=무번호, 본문=01..N) ──
       const slides: any[] = [];
-      let pageNum = 1;
+      let bodyPageNum = 0;
       const watermarkText = input.watermark
         ? `${input.watermark.requesterName} · ${input.watermark.phoneLast4} · ${input.watermark.timestamp}`
         : undefined;
@@ -1495,7 +1539,7 @@ export class MobileImPptxRenderer {
             const savedPlanTitle = baseRr.brokerPostAcquisitionTitle;
             dataMap['rentRoll'] = {
               ...baseRr,
-              title: `렌트롤 (1/${rrSlideCnt})`,
+              title: `층별 임대차 현황 (1/${rrSlideCnt})`,
               tableRows: p1Rows,
               tables: [{ headers: baseRr.tableHead ?? [], rows: p1Rows }],
               fullTableRowsForStacking: allRrRows,
@@ -1508,7 +1552,7 @@ export class MobileImPptxRenderer {
               const pageRows = isLastPage ? restRows.slice(sliceStart) : restRows.slice(sliceStart, sliceStart + 18);
               dataMap[`rentRoll_${p}`] = {
                 ...baseRr,
-                title: `렌트롤 (${p + 1}/${rrSlideCnt})`,
+                title: `층별 임대차 현황 (${p + 1}/${rrSlideCnt})`,
                 tableRows: pageRows,
                 tables: [{ headers: baseRr.tableHead ?? [], rows: pageRows }],
                 hideStackingPlan: true,
@@ -1580,9 +1624,12 @@ export class MobileImPptxRenderer {
           continue;
         }
 
+        const isCoverSlide = spec.dataKey === 'cover' || effectiveArchetype === 'A01';
+        const currentSlideNum = isCoverSlide ? 0 : bodyPageNum + 1;
+
         const archetypeInput: ArchetypeInput = {
           pres,
-          slideNum: pageNum,
+          slideNum: currentSlideNum,
           docno,
           watermarkText: blockedWarning ?? (input.watermark ? watermarkText : undefined),
           data: {
@@ -1620,7 +1667,7 @@ export class MobileImPptxRenderer {
           // W-PPTX-1: addFallbackContent가 false 반환 시 슬라이드 차단 (A03 BLOCK 등)
           const fallbackOk = addFallbackContent(result.slide, archetypeInput.data, theme, {
             archetype: spec.archetype,
-            slideIndex: pageNum,
+            slideIndex: currentSlideNum,
             warnings,
           });
           if (!fallbackOk) {
@@ -1635,7 +1682,7 @@ export class MobileImPptxRenderer {
           }
           slides.push(result.slide);
           warnings.push(...result.warnings);
-          pageNum++;
+          if (!isCoverSlide) bodyPageNum++;
         } catch (err) {
           warnings.push(
             `슬라이드 ${spec.archetype}(${spec.title}) 생성 실패: ${err instanceof Error ? err.message : String(err)}`

@@ -327,111 +327,8 @@ function fromEpsg3857(x: number, y: number): { lat: number; lng: number } {
 }
 
 /**
- * V-World Base 타일(배경 지도)을 가져옵니다.
- * 지적도 WMS 결과(투명 PNG)를 이 배경 위에 합성하여 고품질 지적도를 만듭니다.
- *
- * 임의 EPSG:3857 bbox를 정확히 덮도록 필요한 타일 범위를 계산해 합성 후 크롭합니다.
- * (기존 3×3 고정 그리드는 반경이 클 때 그리드를 벗어나 WMS 레이어와 어긋나는 문제가 있었음)
- * 줌: bbox를 30타일 이내로 덮는 최고 레벨(최대 19) — 실패 시 한 단계 낮춰 1회 재시도.
- */
-async function fetchBaseMapTile(
-  bbox: Bbox3857,
-  w: number, h: number,
-): Promise<Buffer | null> {
-  const apiKey = getVWorldApiKey();
-  if (!apiKey || !sharp) return null;
-
-  const TILE_SIZE = 256;
-  const MAX_TILES = 30;
-  const worldPx = (x: number, y: number, z: number) => {
-    const size = TILE_SIZE * Math.pow(2, z);
-    return {
-      px: ((x + MERC_ORIGIN) / (2 * MERC_ORIGIN)) * size,
-      py: ((MERC_ORIGIN - y) / (2 * MERC_ORIGIN)) * size,
-    };
-  };
-  const planFor = (z: number) => {
-    const p0 = worldPx(bbox.minX, bbox.maxY, z);
-    const p1 = worldPx(bbox.maxX, bbox.minY, z);
-    const tx0 = Math.floor(p0.px / TILE_SIZE);
-    const ty0 = Math.floor(p0.py / TILE_SIZE);
-    const tx1 = Math.floor((p1.px - 1e-6) / TILE_SIZE);
-    const ty1 = Math.floor((p1.py - 1e-6) / TILE_SIZE);
-    const count = (tx1 - tx0 + 1) * (ty1 - ty0 + 1);
-    return { z, p0, p1, tx0, ty0, tx1, ty1, count, spanPx: p1.px - p0.px };
-  };
-
-  let zStart = 19;
-  while (zStart > 12) {
-    const p = planFor(zStart);
-    if (p.count <= MAX_TILES && p.spanPx <= w * 3) break;
-    zStart--;
-  }
-
-  for (const z of [zStart, zStart - 1]) {
-    try {
-      const plan = planFor(z);
-      const tileRequests: { tx: number; ty: number }[] = [];
-      for (let ty = plan.ty0; ty <= plan.ty1; ty++) {
-        for (let tx = plan.tx0; tx <= plan.tx1; tx++) tileRequests.push({ tx, ty });
-      }
-
-      // 타일 병렬 취득 (HP-14)
-      const tileResults = await Promise.all(
-        tileRequests.map(async ({ tx, ty }) => {
-          const url = `https://api.vworld.kr/req/wmts/1.0.0/${apiKey}/Base/${z}/${ty}/${tx}.png`;
-          try {
-            const res = await fetch(url, {
-              headers: { 'Referer': getVWorldReferer() },
-              signal: AbortSignal.timeout(6_000),
-            });
-            if (res.ok) {
-              const ab = await res.arrayBuffer();
-              return { left: (tx - plan.tx0) * TILE_SIZE, top: (ty - plan.ty0) * TILE_SIZE, buf: Buffer.from(ab) };
-            }
-          } catch { /* 개별 타일 실패 무시 */ }
-          return null;
-        })
-      );
-      const tiles: Array<{ left: number; top: number; buf: Buffer }> = [];
-      for (const t of tileResults) {
-        if (t) tiles.push(t);
-      }
-      if (tiles.length < Math.ceil(tileRequests.length / 2)) {
-        log.warn(`[vworld-wms] Base 타일 z=${z} 취득 부족 (${tiles.length}/${tileRequests.length}) — 하위 줌 재시도`);
-        continue;
-      }
-
-      const gridW = (plan.tx1 - plan.tx0 + 1) * TILE_SIZE;
-      const gridH = (plan.ty1 - plan.ty0 + 1) * TILE_SIZE;
-      const grid = await sharp!({
-        create: { width: gridW, height: gridH, channels: 4, background: { r: 248, g: 245, b: 235, alpha: 1 } },
-      }).composite(tiles.map(t => ({ input: t.buf, left: Math.round(t.left), top: Math.round(t.top) }))).png().toBuffer();
-
-      // bbox 영역 정밀 크롭 (Rule 61: 정수 좌표)
-      const left = Math.max(0, Math.min(gridW - 1, Math.round(plan.p0.px - plan.tx0 * TILE_SIZE)));
-      const top = Math.max(0, Math.min(gridH - 1, Math.round(plan.p0.py - plan.ty0 * TILE_SIZE)));
-      const width = Math.max(1, Math.min(gridW - left, Math.round(plan.p1.px - plan.p0.px)));
-      const height = Math.max(1, Math.min(gridH - top, Math.round(plan.p1.py - plan.p0.py)));
-
-      const result = await sharp!(grid)
-        .extract({ left, top, width, height })
-        .resize({ width: w, height: h, fit: 'fill' })
-        .png()
-        .toBuffer() as Buffer;
-
-      log.info(`[vworld-wms] ✅ WMTS Base 타일 합성 완료 (z=${z}, ${tiles.length}타일, ${result.length} bytes)`);
-      return result;
-    } catch (err) {
-      log.warn({ err: err }, `[vworld-wms] WMTS Base tile fetch failed (z=${z}):`);
-    }
-  }
-  return null;
-}
-
-/**
  * V-World WMS GetMap으로 지적도 이미지를 취득합니다.
- * D45: 배경 타일 위에 지적도 선화를 합성하여 고품질 결과를 생성합니다.
+ * 토지이음 스타일 배경(크림 + 용도지역 lt_c_uq111) 위에 지적도 선화(lp_pa_cbnd_bonbun/bubun)를 합성합니다.
  *
  * @param lat - 건물 위도 (WGS84)
  * @param lng - 건물 경도 (WGS84)
@@ -522,9 +419,9 @@ export async function fetchCadastralMapImage(
     // ── 뷰포트 산출: 1순위 필지 맞춤 (합집합 ≥15% 점유, 전 필지 여백 내 포함, 중앙 정렬) ──
     const viewport = rings3857.length > 0
       ? computeParcelViewport(rings3857, w, h, {
-          targetCoverage: 0.2,
-          marginRatio: 0.1,
-          minViewWidthM: 24,
+          targetCoverage: 0.06,
+          marginRatio: 0.12,
+          minViewWidthM: 100,
           unitsPerMeter: meterToUnit,
         })
       : null;
@@ -560,13 +457,18 @@ export async function fetchCadastralMapImage(
       { domain: altDomain, referer: `https://${altDomain}` },
     ];
 
-    const fetchWmsOnce = async (domainVal: string, refererVal: string) => {
+    const fetchWmsOnce = async (
+      domainVal: string,
+      refererVal: string,
+      layers = 'lp_pa_cbnd_bonbun,lp_pa_cbnd_bubun',
+      styles = ',',
+    ) => {
       const p = new URLSearchParams({
         SERVICE: 'WMS',
         REQUEST: 'GetMap',
         VERSION: '1.3.0',
-        LAYERS: 'lp_pa_cbnd_bonbun,lp_pa_cbnd_bubun',
-        STYLES: ',', // 기본 스타일 = 필지별 색상 채움 + 경계선 (D45: _line은 선화만)
+        LAYERS: layers,
+        STYLES: styles,
         CRS: 'EPSG:3857',
         BBOX: [bboxEpsg3857.minX, bboxEpsg3857.minY, bboxEpsg3857.maxX, bboxEpsg3857.maxY]
           .map((v) => v.toFixed(2))
@@ -587,10 +489,15 @@ export async function fetchCadastralMapImage(
       return { res: r, contentType: ct, url: reqUrl, params: p };
     };
 
-    // WMS + 배경 타일 병렬 취득 (1차 도메인 실패 시 www/non-www 교차 재시도)
-    const [firstAttempt, baseTile] = await Promise.all([
+    const isPngBuffer = (buf: Buffer | null): buf is Buffer =>
+      Boolean(buf && buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47);
+
+    // 지적도 + 토지이음 용도지역(lt_c_uq111) WMS 병렬 취득 (Base 타일 대신 클린 크림 배경 + 용도지역·지구 채색 + 지적선)
+    const [firstAttempt, zoningAttempt] = await Promise.all([
       fetchWmsOnce(candidateAuths[0].domain, candidateAuths[0].referer).catch(() => null),
-      sharp ? fetchBaseMapTile(bboxEpsg3857, w, h).catch(() => null) : Promise.resolve(null),
+      sharp
+        ? fetchWmsOnce(candidateAuths[0].domain, candidateAuths[0].referer, 'lt_c_uq111', '').catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     let wmsAttempt = firstAttempt;
@@ -618,6 +525,16 @@ export async function fetchCadastralMapImage(
     const arrayBuffer = await wmsAttempt.res.arrayBuffer();
     const cadastralBuffer = Buffer.from(arrayBuffer);
 
+    let zoningBuffer: Buffer | null = null;
+    if (zoningAttempt && zoningAttempt.res.ok && zoningAttempt.contentType.includes('image')) {
+      try {
+        const zBuf = Buffer.from(await zoningAttempt.res.arrayBuffer());
+        if (isPngBuffer(zBuf)) zoningBuffer = zBuf;
+      } catch {
+        zoningBuffer = null;
+      }
+    }
+
     // ── 본건 마커 위치: 필지 합집합 면적 가중 중심, 폴리곤이 없으면 실제 좌표 ──
     const centroid = rings3857.length > 0 ? ringsCentroid(rings3857) : null;
     const markerPx = centroid
@@ -628,12 +545,12 @@ export async function fetchCadastralMapImage(
       ? { x: Number((markerPx.px / w).toFixed(4)), y: Number((markerPx.py / h).toFixed(4)) }
       : null;
 
-    // ── D45: 배경 Base 타일 합성 ──
+    // ── 토지이음 스타일 합성: 크림 배경 + (선택) 용도지역 + 지적도 + 폴리곤 마커 ──
     let finalBuffer: any = cadastralBuffer;
 
     if (sharp) {
-      // 합성 레이어: 지적도 WMS + (선택) 필지 폴리곤 하이라이트 + 단일 마커
       const compositeLayers: Array<{ input: Buffer; blend: string }> = [
+        ...(zoningBuffer ? [{ input: zoningBuffer, blend: 'over' }] : []),
         { input: cadastralBuffer, blend: 'over' },
       ];
 
@@ -650,26 +567,24 @@ export async function fetchCadastralMapImage(
         }
       }
 
-      if (baseTile) {
-        // Base 타일 위에 투명 지적도 + 폴리곤 합성
-        finalBuffer = await sharp(baseTile)
-          .resize({ width: w, height: h, fit: 'fill' })
-          .composite(compositeLayers as any)
-          .png()
-          .toBuffer() as unknown as Buffer;
-        log.info(`[vworld-wms] ✅ 지적도 + Base 배경 합성 완료 (${finalBuffer.length} bytes, ${w}×${h})`);
-      } else {
-        // 배경 없으면 연한 크림색 배경 합성
-        const bgBuffer = await sharp({
-          create: { width: w, height: h, channels: 4, background: { r: 248, g: 245, b: 235, alpha: 1 } },
-        }).png().toBuffer();
+      const bgBuffer = await sharp({
+        create: { width: w, height: h, channels: 4, background: { r: 248, g: 245, b: 235, alpha: 1 } },
+      }).png().toBuffer();
 
+      try {
         finalBuffer = await sharp(bgBuffer)
           .composite(compositeLayers as any)
           .png()
           .toBuffer() as unknown as Buffer;
-        log.info(`[vworld-wms] ✅ 지적도 + 크림 배경 합성 (${finalBuffer.length} bytes, ${w}×${h})`);
+      } catch {
+        // 용도지역 레이어 합성 오류 시 지적도 + 폴리곤만 안전 합성
+        const safeLayers = compositeLayers.filter((l) => l.input !== zoningBuffer);
+        finalBuffer = await sharp(bgBuffer)
+          .composite(safeLayers as any)
+          .png()
+          .toBuffer() as unknown as Buffer;
       }
+      log.info(`[vworld-wms] ✅ 지적도 + 토지이음 배경 합성 완료 (${finalBuffer.length} bytes, ${w}×${h}, zoning=${Boolean(zoningBuffer)})`);
     } else {
       log.info(`[vworld-wms] ✅ 지적도 이미지 취득 성공 (sharp 미사용, ${cadastralBuffer.length} bytes, ${w}×${h})`);
     }

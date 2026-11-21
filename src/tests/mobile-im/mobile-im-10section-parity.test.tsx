@@ -85,8 +85,31 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
     'repositioning',
   ];
 
+  const withSampleComps = (doc: ReturnType<typeof buildBasicImDocument>) => ({
+    ...doc,
+    sections: doc.sections.map((s) =>
+      s.id === '08_comps'
+        ? {
+            ...s,
+            data: {
+              ...s.data,
+              comparableTransactions: [
+                {
+                  distance: '반경 150m',
+                  dealDate: '2025.11',
+                  buildingUse: '근린생활시설',
+                  pricePerPyeongLandWon: 82_000_000,
+                  comparisonDiffPct: -4,
+                },
+              ],
+            },
+          }
+        : s,
+    ),
+  });
+
   describe('1. Continuous Open Scroll & Sticky Navigation Chips', () => {
-    it('renders all 10 canonical sections in continuous open scroll without accordions', async () => {
+    it('renders all 10 canonical sections when comps exist and hides 08_comps cleanly when empty', async () => {
       const rawFacts = {
         title: '양평동 꼬마빌딩',
         address: '서울특별시 영등포구 양평동 11-47',
@@ -98,7 +121,18 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
         deposit_total_manwon: 30000,
       };
 
-      const doc = buildBasicImDocument(extractPureBuildingFacts(rawFacts));
+      const docWithoutComps = buildBasicImDocument(extractPureBuildingFacts(rawFacts));
+
+      // Without comparableTransactions -> 08_comps hidden, Cover unnumbered, body 01..08
+      await act(async () => {
+        root.render(<MobileIMViewer document={docWithoutComps as any} buildingId="bld-test-01" />);
+      });
+      expect(container.querySelector('[data-section-id="08_comps"]')).toBeNull();
+      expect(container.querySelector('[data-testid="chip-08_comps"]')).toBeNull();
+      expect(container.querySelector('[data-testid="chip-01_cover"]')?.textContent?.trim()).toBe('표지');
+
+      // With comparableTransactions -> all 10 sections open simultaneously
+      const doc = withSampleComps(docWithoutComps);
 
       await act(async () => {
         root.render(<MobileIMViewer document={doc as any} buildingId="bld-test-01" />);
@@ -133,14 +167,14 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
       expect(accordionCollapsedBtns.length).toBe(0);
     });
 
-    it('renders all 10 sticky navigation chips and triggers scroll when clicked', async () => {
+    it('renders all 10 sticky navigation chips when comps exist and triggers scroll when clicked', async () => {
       const rawFacts = {
         title: '신사동 사옥빌딩',
         address: '서울특별시 강남구 신사동 590',
         posture: 'core_income',
         asking_price_manwon: 7600000,
       };
-      const doc = buildBasicImDocument(extractPureBuildingFacts(rawFacts));
+      const doc = withSampleComps(buildBasicImDocument(extractPureBuildingFacts(rawFacts)));
 
       await act(async () => {
         root.render(<MobileIMViewer document={doc as any} buildingId="bld-test-02" />);
@@ -169,6 +203,8 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
 
       // Click on chip-06_rentroll
       const rentrollChip = container.querySelector('[data-testid="chip-06_rentroll"]') as HTMLButtonElement;
+      expect(rentrollChip.textContent).not.toContain('렌트롤');
+      expect(rentrollChip.textContent).toContain('층별 임대차');
       await act(async () => {
         rentrollChip.click();
       });

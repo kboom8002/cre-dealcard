@@ -25,6 +25,8 @@ export interface RegionalLandPriceRateSeries {
   geometricMeanPct: number;    // 10-year geometric mean ((Π(1 + r/100))^(1/n) - 1)*100 rounded to 2dp (e.g. 3.90 for 영등포구)
   arithmeticMeanPct: number;   // 10-year arithmetic mean rounded to 2dp
   cumulativePct: number;       // 10-year cumulative compound rate ((Π(1 + r/100)) - 1)*100 rounded to 2dp (e.g. 46.63 for 영등포구)
+  last5GeometricMeanPct?: number; // recent 5-year geometric mean
+  last5CumulativePct?: number;    // recent 5-year cumulative compound rate
 }
 
 interface RawSeoulDistrictEntry {
@@ -97,6 +99,7 @@ function toSeries(entry: RawSeoulDistrictEntry): RegionalLandPriceRateSeries {
     ratePct: entry.rates2016To2025[idx],
   }));
   const { geometricMeanPct, arithmeticMeanPct, cumulativePct } = computeLandPriceRateStats(years);
+  const last5 = computeLandPriceRateStats(years.slice(-5));
   return {
     sigunguCode: entry.sigunguCd,
     regionName: `서울 ${entry.districtName}`,
@@ -107,6 +110,8 @@ function toSeries(entry: RawSeoulDistrictEntry): RegionalLandPriceRateSeries {
     geometricMeanPct,
     arithmeticMeanPct,
     cumulativePct,
+    last5GeometricMeanPct: last5.geometricMeanPct,
+    last5CumulativePct: last5.cumulativePct,
   };
 }
 
