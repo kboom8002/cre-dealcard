@@ -39,6 +39,7 @@ import {
   GENERIC_POINT_FALLBACKS,
   deriveDealCardHeadline,
   isCompleteDealCardLine,
+  pickFreshDealCardHeadline,
   repairDealCardLine,
   repairDealCardPoints,
   stripChipRepetition,
@@ -76,7 +77,7 @@ async function requestCopy(
   userPrompt: string,
   mode: DealCardCopyMode,
 ): Promise<DealCardCopyLLMOutput | null> {
-  const temperature = isDeterministicLLMMode() ? 0 : 0.3;
+  const temperature = isDeterministicLLMMode() ? 0 : mode === 'headline' ? 0.7 : 0.4;
   let prompt = userPrompt;
   for (let attempt = 0; attempt < 2; attempt++) {
     const llmResult = await callLLM(
@@ -140,6 +141,13 @@ export async function POST(req: NextRequest) {
       ? { regionalBenchmarkYieldPct: sigunguBench }
       : undefined;
     const postureInfo = POSTURE_LABELS[input.posture];
+    const avoidList = Array.from(
+      new Set(
+        [input.currentHeadline, ...(input.avoidHeadlines || [])]
+          .map((s) => String(s ?? '').trim())
+          .filter(Boolean),
+      ),
+    );
     const prompt = buildDealCardCopyPrompt({
       mode: input.mode,
       postureTitle: postureInfo.title,
@@ -149,6 +157,7 @@ export async function POST(req: NextRequest) {
       area: input.area,
       priceBand: input.priceBand,
       currentHeadline: input.currentHeadline,
+      avoidHeadlines: avoidList,
       currentPoints: input.currentPoints,
       facts: sanitizedFacts,
     });
@@ -210,12 +219,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (input.mode === 'headline' || input.mode === 'both') {
+      const finalized = finalizeLine(llmOut?.headline, true);
+      const isRepeated =
+        input.mode === 'headline' &&
+        Boolean(finalized) &&
+        avoidList.some((a) => a.replace(/\s+/g, '') === finalized.replace(/\s+/g, ''));
       const headline =
-        finalizeLine(llmOut?.headline, true) ||
-        deriveDealCardHeadline({
-          posture: input.posture,
-          points: result.points ?? currentRepaired,
-        });
+        finalized && !isRepeated
+          ? finalized
+          : pickFreshDealCardHeadline(
+              {
+                posture: input.posture,
+                points: result.points ?? currentRepaired,
+                headline: input.currentHeadline,
+              },
+              avoidList,
+            );
       result.headline = headline;
     }
 
@@ -225,7 +244,17 @@ export async function POST(req: NextRequest) {
       log.warn('[deal-card/ai-copy] strict 검증 실패 → 결정적 대체:', strict.error.issues[0]?.message);
       if (result.points) result.points = repairDealCardPoints(result.points, { fillEmpty: true });
       if (result.headline !== undefined) {
-        result.headline = deriveDealCardHeadline({ posture: input.posture, points: result.points ?? currentRepaired });
+        result.headline =
+          avoidList.length > 0
+            ? pickFreshDealCardHeadline(
+                {
+                  posture: input.posture,
+                  points: result.points ?? currentRepaired,
+                  headline: input.currentHeadline,
+                },
+                avoidList,
+              )
+            : deriveDealCardHeadline({ posture: input.posture, points: result.points ?? currentRepaired });
       }
     }
 

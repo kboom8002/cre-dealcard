@@ -156,8 +156,8 @@ export function reclusterDealCardPointsAsAxios(card4: Card4Data): Card4Data {
 
   const fallbackPointsByPosture: Record<DealCardPosture, [string, string, string]> = {
     income: ['접근성 좋은 입지', '안정적 임차 구성', '꾸준한 임대수익 구조'],
-    owner_occupied: ['사옥 활용 쉬운 구조', '출퇴근 편한 입지', '즉시 검토 가능 매물'],
-    value_add: ['신축·리모델링 검토 부지', '밸류업 여지 보유', '토지 가치 중심 매물'],
+    owner_occupied: ['사옥 활용 쉬운 구조', '출퇴근 편한 입지', '즉시 입주 협의 매물'],
+    value_add: ['신축·리모델링 유망 부지', '건축·수익 개선 여지', '토지 가치 중심 매물'],
   };
 
   const nextPoints = repairDealCardPoints(card4.points, {
@@ -179,6 +179,7 @@ export function reclusterDealCardPointsAsAxios(card4: Card4Data): Card4Data {
 }
 
 export interface Card4HashInput {
+  posture?: DealCardPosture | string;
   region: string;
   use: string;
   priceBand: string;
@@ -201,11 +202,13 @@ export function computeCard4Hash(card: Card4HashInput): string {
 
   const trimmedArea = (card.area || '').trim();
   const trimmedHeadline = (card.headline || '').trim();
+  const trimmedPosture = (card.posture || '').trim();
 
   const canonicalObj: Record<string, unknown> = {
     ...(trimmedArea ? { area: trimmedArea } : {}),
     ...(trimmedHeadline ? { headline: trimmedHeadline } : {}),
     points: normalizedPoints,
+    ...(trimmedPosture ? { posture: trimmedPosture } : {}),
     priceBand: (card.priceBand || '').trim(),
     region: (card.region || '').trim(),
     use: (card.use || '').trim(),

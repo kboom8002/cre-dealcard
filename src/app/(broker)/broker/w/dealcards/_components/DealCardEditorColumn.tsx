@@ -4,14 +4,13 @@ import React from "react";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
 import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
 import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
-import { SelectedItemActions } from "@/components/workspace/list/WorkspaceList";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import type { Card4Data, DealCardGenerationSource } from "@/lib/deal-card/card4-schema";
 import type { UnconvertedMemoItem } from "@/lib/deal-card/memo-pairing";
 import type { BuildingListItem } from "./dealcards-types";
 
 export interface DealCardEditorColumnProps {
-  viewMode: ListViewMode;
+  viewMode?: ListViewMode;
   selectedMemoOnly: UnconvertedMemoItem | null;
   activeItem: BuildingListItem | null;
   isSampleCard: boolean;
@@ -33,15 +32,14 @@ export interface DealCardEditorColumnProps {
   onOpenMemoImportModal: () => void;
   onCardChange: (targetId: string, next: Card4Data) => void;
   onFocusEditorUnit: (unitId: string) => void;
-  onDuplicateItem: (item: BuildingListItem, e: React.MouseEvent) => void;
-  onDeleteItem: (item: BuildingListItem, e: React.MouseEvent) => void;
-  onDeleteUnconvertedMemo: (memo: UnconvertedMemoItem, e: React.MouseEvent) => void;
+  onDuplicateItem?: (item: BuildingListItem, e: React.MouseEvent) => void;
+  onDeleteItem?: (item: BuildingListItem, e: React.MouseEvent) => void;
+  onDeleteUnconvertedMemo?: (memo: UnconvertedMemoItem, e: React.MouseEvent) => void;
   onOpenImForBuilding: (buildingId: string) => void;
   isSingleUntouchedStarter?: boolean;
 }
 
 export function DealCardEditorColumn({
-  viewMode,
   selectedMemoOnly,
   activeItem,
   isSampleCard,
@@ -63,29 +61,10 @@ export function DealCardEditorColumn({
   onOpenMemoImportModal,
   onCardChange,
   onFocusEditorUnit,
-  onDuplicateItem,
-  onDeleteItem,
-  onDeleteUnconvertedMemo,
   onOpenImForBuilding,
-  isSingleUntouchedStarter = false,
 }: DealCardEditorColumnProps) {
   return (
     <div className="space-y-4">
-      {viewMode === "simple" &&
-        (selectedMemoOnly ? (
-          <SelectedItemActions
-            itemLabel="미생성 매물 메모"
-            onDelete={(e) => onDeleteUnconvertedMemo(selectedMemoOnly, e)}
-          />
-        ) : activeItem ? (
-          <SelectedItemActions
-            itemLabel={activeItem.title || "새 딜카드"}
-            onDuplicate={(e) => onDuplicateItem(activeItem, e)}
-            onDelete={(e) => onDeleteItem(activeItem, e)}
-            deleteLabel={isSingleUntouchedStarter ? "입력 비우기" : "삭제하기"}
-          />
-        ) : null)}
-
       {isSampleCard && (
         <div
           data-testid="dealcard-sample-banner"
@@ -238,6 +217,7 @@ export function DealCardEditorColumn({
         <Card4ConfirmCard
           key={editorTargetId || "memo-only"}
           card4={effectiveCard4}
+          memoText={activeMemoText}
           onChange={(next) => onCardChange(editorTargetId, next)}
           onFocusUnit={onFocusEditorUnit}
         />

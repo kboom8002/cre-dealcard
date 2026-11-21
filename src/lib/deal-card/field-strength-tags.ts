@@ -48,8 +48,32 @@ const POSTURE_FIELD_TAGS: Readonly<
 
 export function getFieldStrengthTagsForPosture(
   posture: DealCardPosture = 'income',
+  memoText?: string | null,
 ): readonly FieldStrengthTag[] {
-  return POSTURE_FIELD_TAGS[posture] ?? POSTURE_FIELD_TAGS.income;
+  const base = POSTURE_FIELD_TAGS[posture] ?? POSTURE_FIELD_TAGS.income;
+  const text = String(memoText ?? '');
+  if (!text) return base;
+  const noElevator =
+    /(?:승강기|엘리베이터|E\/V)\s*[:：]?\s*(?:0\s*대|없음|없다|미설치|×|X)/i.test(text);
+  const noParking = /(?:주차|자주식)\s*[:：]?\s*(?:0\s*대|불가|없음|없다|미확보)/i.test(text);
+  if (!noElevator && !noParking) return base;
+
+  const replacementTag: FieldStrengthTag = /공원|숲길|테라스/.test(text)
+    ? { id: 'loc_park', label: '공원·숲길 전면 입지', axis: 'location' }
+    : { id: 'ext_glass', label: '통창·전면 가시성', axis: 'exterior' };
+
+  const out: FieldStrengthTag[] = [];
+  for (const tag of base) {
+    if (noElevator && tag.id === 'cond_elev') {
+      if (!out.some((t) => t.id === replacementTag.id)) {
+        out.push(replacementTag);
+      }
+      continue;
+    }
+    if (noParking && tag.id === 'cond_parking') continue;
+    out.push(tag);
+  }
+  return out;
 }
 
 /**

@@ -19,7 +19,6 @@ import { POSTIT_TONE_STYLES } from '@/components/broker/deal-card/Card4ConfirmCa
 import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
 import { PreviewEditableUnit } from '@/components/workspace/preview-sync/PreviewEditableUnit';
 import { normalizePriceBandInput } from '@/lib/deal-card/price-band';
-import { buildDeal3TierSpecs } from '@/lib/deal-card/field-strength-tags';
 import { TERMS } from '@/lib/ux/lexicon';
 
 export interface KakaoBubblePreviewProps {
@@ -446,53 +445,6 @@ export function KakaoBubblePreview({
                 );
               })}
             </div>
-
-            {/* 매물 3단 표준 제원 미리보기 (발행본 /dc/[id] 패리티) */}
-            {(() => {
-              const previewSpecs = buildDeal3TierSpecs({
-                posture: card4.posture || 'income',
-                priceDisplay: priceText !== '—' ? priceText : '가격 협의',
-                landAreaDisplay:
-                  card4.posture === 'value_add' && resolvedArea
-                    ? resolvedArea
-                    : '공부 기준 반영',
-                zoningDisplay: '공부 기준 반영',
-                gfaDisplay:
-                  card4.posture !== 'value_add' && resolvedArea
-                    ? resolvedArea
-                    : '공부 기준 반영',
-                floorsDisplay: '건축물대장 반영',
-                completionDateDisplay: '건축물대장 반영',
-              });
-              return (
-                <div
-                  data-testid="preview-dealcard-3tier-specs"
-                  className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-2 shadow-2xs"
-                >
-                  <p className="text-sm font-extrabold text-slate-900">
-                    매물 주요 제원 (발송 시 자동 표시)
-                  </p>
-                  <div className="grid grid-cols-1 gap-1.5 text-sm">
-                    {[
-                      ...previewSpecs.commonSpecs.slice(0, 2),
-                      previewSpecs.buildingSpecs[0],
-                    ].map((row, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-[#FAF9F5] px-2.5 py-1.5 border border-slate-200/80"
-                      >
-                        <span className="font-semibold text-slate-600">
-                          {row.label}
-                        </span>
-                        <span className="font-extrabold text-slate-900">
-                          {row.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* 담당 중개사 안내 카드 */}
             {wrapUnit(

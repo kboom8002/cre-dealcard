@@ -225,8 +225,28 @@ export function hydrateCard4(card4: Card4Data): Card4Data {
   return normalized;
 }
 
-export function hydrateItem<T extends { card4: Card4Data }>(item: T): T {
-  const card4 = hydrateCard4(item.card4);
+export function hydrateItem<T extends { card4: Card4Data; memoText?: string | null }>(item: T): T {
+  let card4 = hydrateCard4(item.card4);
+  if (!(card4.area || "").trim() && item.memoText?.trim()) {
+    const parsedFromMemo = parseMemoIntoCard4(item.memoText, card4);
+    const recoveredArea = (parsedFromMemo.area || "").trim();
+    if (
+      recoveredArea ||
+      parsedFromMemo.gfaPyung !== undefined ||
+      parsedFromMemo.landAreaPyung !== undefined
+    ) {
+      card4 = {
+        ...card4,
+        ...(recoveredArea ? { area: recoveredArea } : {}),
+        ...(card4.gfaPyung === undefined && parsedFromMemo.gfaPyung !== undefined
+          ? { gfaPyung: parsedFromMemo.gfaPyung }
+          : {}),
+        ...(card4.landAreaPyung === undefined && parsedFromMemo.landAreaPyung !== undefined
+          ? { landAreaPyung: parsedFromMemo.landAreaPyung }
+          : {}),
+      };
+    }
+  }
   return card4 === item.card4 ? item : { ...item, card4 };
 }
 

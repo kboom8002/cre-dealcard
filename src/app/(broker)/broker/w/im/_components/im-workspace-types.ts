@@ -1,5 +1,6 @@
 import { generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
 import { toListTime } from "@/lib/workspace/list-date";
+import { extractMemoExactAddressAndPrice } from "@/lib/deal-card/memo-pairing";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import {
   formatKoreanCurrencyReadout,
@@ -310,6 +311,10 @@ export function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     any
   >;
+  const exact =
+    typeof dc.memoText === "string" && dc.memoText.trim()
+      ? extractMemoExactAddressAndPrice(dc.memoText)
+      : {};
   const gfaPyung = Number(c4.gfaPyung || 0);
   const landPyung = Number(c4.landAreaPyung || 0);
   const postureRaw = String(c4.posture || "");
@@ -319,28 +324,60 @@ export function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
       : postureRaw === "value_add"
       ? "development"
       : "core_income";
+  const rawTitle = String(dc.title || "").trim();
+  const resolvedTitle =
+    exact.buildingName && !rawTitle.includes(exact.buildingName)
+      ? `${String(c4.region || dc.region || "").trim()} ${exact.buildingName}`.trim() ||
+        rawTitle ||
+        String(c4.headline || "새 IM")
+      : rawTitle || String(c4.headline || c4.region || "새 IM");
+  const tones = ["amber", "sky", "mint"] as const;
+  const hasCardPoints =
+    Array.isArray(c4.points) &&
+    c4.points.some((p: unknown) => typeof p === "string" && p.trim().length > 0);
+  const resolvedHighlights: ImAxiosHighlight[] = hasCardPoints
+    ? ([0, 1, 2] as const).map((idx) => ({
+        headline: typeof c4.points[idx] === "string" ? c4.points[idx].trim() : "",
+        brief: "",
+        tone: tones[idx],
+        bullets: [],
+      }))
+    : BLANK_IM_HIGHLIGHTS;
   return {
     id: `im-${targetBid}`,
     buildingId: targetBid,
-    title: String(dc.title || c4.headline || c4.region || "새 IM"),
-    address: String(dc.address || c4.region || dc.region || ""),
-    askingPriceManwon: parseAskingManwonFromPriceBand(
-      String(c4.priceBand || dc.priceBand || "")
-    ),
+    title: resolvedTitle,
+    address: exact.exactAddress || String(dc.address || c4.region || dc.region || ""),
+    askingPriceManwon:
+      exact.askingPriceManwon ??
+      parseAskingManwonFromPriceBand(String(c4.priceBand || dc.priceBand || "")),
     grossYieldPct: 0,
     status: dc.status === "sent" || dc.status === "published" ? "published" : "draft",
     versionLabel: dc.status === "sent" || dc.status === "published" ? "v1 공개 중 ★" : "작성 중",
     updatedAt: new Date().toISOString(),
     investmentPosture: posture,
-    gfaSqm: gfaPyung > 0 ? String(Math.round(pyeongToM2(gfaPyung) * 10) / 10) : "",
-    completionDate: "",
-    landAreaSqm:
-      landPyung > 0 ? String(Math.round(pyeongToM2(landPyung) * 10) / 10) : "",
-    zoning: "",
+    gfaSqm: exact.gfaSqm
+      ? String(exact.gfaSqm)
+      : gfaPyung > 0
+      ? String(Math.round(pyeongToM2(gfaPyung) * 10) / 10)
+      : "",
+    completionDate: exact.completionYear ? `${exact.completionYear}-01-01` : "",
+    landAreaSqm: exact.landAreaSqm
+      ? String(exact.landAreaSqm)
+      : landPyung > 0
+      ? String(Math.round(pyeongToM2(landPyung) * 10) / 10)
+      : "",
+    zoning: exact.zoning || "",
+    ...(exact.floorsAbove !== undefined ? { floorsAbove: exact.floorsAbove } : {}),
+    ...(exact.floorsBelow !== undefined ? { floorsBelow: exact.floorsBelow } : {}),
+    ...(exact.parkingCount !== undefined ? { parkingTotal: exact.parkingCount } : {}),
     handoverNote: "",
-    axiosHighlights: BLANK_IM_HIGHLIGHTS,
+    axiosHighlights: resolvedHighlights,
     photoNames: [],
-    rentRoll: generateFloorScaffolding(3, 1),
+    rentRoll: generateFloorScaffolding(
+      exact.floorsAbove ?? 3,
+      exact.floorsBelow ?? 1
+    ),
     isSample: false,
   };
 }

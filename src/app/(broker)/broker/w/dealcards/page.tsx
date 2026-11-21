@@ -2248,7 +2248,6 @@ function DealCardsWorkspaceInner() {
 
   const editorSlot = (
     <DealCardEditorColumn
-      viewMode={viewMode}
       selectedMemoOnly={selectedMemoOnly}
       activeItem={activeItem}
       isSampleCard={isSampleCard}
@@ -2261,7 +2260,6 @@ function DealCardsWorkspaceInner() {
       memoTextareaRef={memoTextareaRef}
       editorTargetId={editorTargetId}
       effectiveCard4={effectiveCard4}
-      isSingleUntouchedStarter={isSingleUntouchedStarter}
       onCreateNew={handleCreateNew}
       onFillSample={handleFillSample}
       onMemoTextChange={handleMemoTextChange}
@@ -2275,9 +2273,6 @@ function DealCardsWorkspaceInner() {
       onOpenMemoImportModal={() => setIsMemoModalOpen(true)}
       onCardChange={(targetId, next) => handleCardChangeFor(targetId, next)}
       onFocusEditorUnit={notifyDealCardEditorFocus}
-      onDuplicateItem={handleDuplicateItem}
-      onDeleteItem={handleDeleteItem}
-      onDeleteUnconvertedMemo={handleDeleteUnconvertedMemo}
       onOpenImForBuilding={(buildingId) => {
         void handleFlushSave();
         router.push(`/broker/w/im?buildingId=${encodeURIComponent(buildingId)}`);
@@ -2341,13 +2336,22 @@ function DealCardsWorkspaceInner() {
       autosave.status === "saved"
   );
 
+  const pendingDealCardRequireMatch =
+    pendingDeleteModal?.kind === "dealcard" &&
+    !isBlankStarterDealCard(pendingDeleteModal.target) &&
+    !isSampleDealCardItem(pendingDeleteModal.target, syncedServerIds) &&
+    pendingDeleteModal.target.title?.trim() &&
+    pendingDeleteModal.target.title.trim() !== "새 딜카드"
+      ? pendingDeleteModal.target.title.trim()
+      : undefined;
+
   return (
     <>
       <WorkspaceShell
         workspace="dealcards"
-        listTitle={TERMS.colPick}
-        editorTitle={TERMS.colFill}
-        previewTitle={TERMS.colPreviewSend}
+        listTitle="딜카드 선택"
+        editorTitle="내용 입력"
+        previewTitle="미리보기 · 보내기"
         listSlot={listSlot}
         editorSlot={editorSlot}
         previewSlot={previewSlot}
@@ -2394,6 +2398,20 @@ function DealCardsWorkspaceInner() {
         isOpen={isMemoModalOpen}
         onClose={() => setIsMemoModalOpen(false)}
         onSelectMemo={handleSelectMemo}
+        extraMemos={unconvertedMemos}
+        onDeleteMemo={(memoId) => {
+          const found = unconvertedMemos.find((m) => m.id === memoId);
+          if (found) {
+            executeDeleteUnconvertedMemo(found);
+          } else {
+            void fetch("/api/broker/workspace/summary", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "delete_memo", memoId }),
+            }).catch(() => {});
+            showUndoToast({ message: "메모함에서 메모를 삭제했어요" });
+          }
+        }}
       />
       <ConfirmDeleteModal
         isOpen={pendingDeleteModal !== null}
@@ -2402,6 +2420,8 @@ function DealCardsWorkspaceInner() {
             ? `'${pendingDeleteModal.target.title || "새 딜카드"}'을(를) 삭제할까요?`
             : "이 매물 메모를 삭제할까요?"
         }
+        requireMatchText={pendingDealCardRequireMatch}
+        matchInputLabel="삭제를 확정하려면 위 딜카드 제목을 그대로 입력해 주세요."
         onCancel={() => setPendingDeleteModal(null)}
         onConfirm={() => {
           if (!pendingDeleteModal) return;

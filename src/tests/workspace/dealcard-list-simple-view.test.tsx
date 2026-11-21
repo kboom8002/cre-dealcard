@@ -125,7 +125,7 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     });
   };
 
-  it("[SV-01] defaults to 간단히: date-grouped rows with title · date · status only and no buttons inside rows", async () => {
+  it("[SV-01] defaults to 간단히: date-grouped rows with inline 복제/삭제 actions and no floating editor bar", async () => {
     await renderPage();
 
     const list = q(container, "dealcard-airtable-list");
@@ -140,7 +140,7 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     for (const row of [readyRow, draftRow, memoRow]) {
       expect(row).not.toBeNull();
       expect(row?.getAttribute("data-list-row")).toBe("simple");
-      expect(row?.querySelectorAll("button").length).toBe(0);
+      expect(row?.tagName).toBe("DIV");
     }
 
     expect(readyRow?.textContent).toContain("마포구 서교동 근린생활시설");
@@ -157,22 +157,23 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     expect(draftRow?.getAttribute("data-origin-group")).toBe("manual");
     expect(memoRow?.getAttribute("data-origin-group")).toBe("unconverted_memo");
 
-    // Private memo text and row-level danger buttons are NOT shown in 간단히
+    // Private memo text is NOT shown in 간단히, while inline 복제/삭제 actions live cleanly inside Column 1
     expect(q(container, "dealcard-paired-memo-preview-dc-ready-1")).toBeNull();
     expect(readyRow?.textContent).not.toContain("김사장");
-    expect(q(container, "dealcard-delete-dc-ready-1")).toBeNull();
-    expect(q(container, "dealcard-duplicate-dc-ready-1")).toBeNull();
-    expect(q(container, "unconverted-memo-delete-memo-deal-1")).toBeNull();
+    expect(q(container, "dealcard-delete-dc-ready-1")).not.toBeNull();
+    expect(q(container, "dealcard-duplicate-dc-ready-1")).not.toBeNull();
+    expect(q(container, "unconverted-memo-delete-memo-deal-1")).not.toBeNull();
     expect(q(container, "dealcard-group-section-ai_memo")).toBeNull();
+    expect(q(container, "ws-selected-item-actions")).toBeNull();
 
     // First server dealcard is selected (selection semantics preserved)
     expect(readyRow?.getAttribute("data-selected")).toBe("true");
     expect(readyRow?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("[SV-02] switching to 자세히 restores the grouped rich cards with thumbnail and row buttons; editor actions disappear", async () => {
+  it("[SV-02] switching to 자세히 restores the grouped rich cards with thumbnail and keeps floating bar removed", async () => {
     await renderPage();
-    expect(q(container, "ws-selected-item-actions")).not.toBeNull();
+    expect(q(container, "ws-selected-item-actions")).toBeNull();
 
     await act(async () => {
       q(container, "ws-list-view-detailed")?.click();
@@ -194,7 +195,7 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     const thumbImg = readyRow?.querySelector('[data-testid="ws-list-thumbnail"] img');
     expect(thumbImg).toBeNull();
 
-    // No duplicated action testids in 자세히 mode
+    // No duplicated action bar in 자세히 mode
     expect(q(container, "ws-selected-item-actions")).toBeNull();
   });
 
@@ -238,12 +239,12 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     expect(q(container, "dealcard-item-dc-ready-1")).not.toBeNull();
   });
 
-  it("[SV-04] SelectedItemActions duplicates via the existing handler and deletes only after the existing confirmation", async () => {
+  it("[SV-04] Column 1 inline 복제/삭제 duplicates and enforces title-match confirmation on real DealCards", async () => {
     await renderPage();
 
-    // Duplicate the selected dealcard
+    // Duplicate the first dealcard from Column 1 inline action
     await act(async () => {
-      q(container, "ws-selected-duplicate-btn")?.click();
+      q(container, "dealcard-duplicate-dc-ready-1")?.click();
     });
     const copyRow = Array.from(
       container.querySelectorAll<HTMLElement>('[data-testid^="dealcard-item-"][data-list-row="simple"]')
@@ -252,14 +253,15 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     expect(copyRow?.getAttribute("data-selected")).toBe("true");
     expect(patchBodies.some((b) => b.action === "upsert")).toBe(true);
 
-    // Select the original and delete: confirmation first, cancel keeps the item
+    // Click Column 1 inline delete on dc-owner-2: requires exact title match before delete
     await act(async () => {
-      q(container, "dealcard-item-dc-owner-2")?.click();
-    });
-    await act(async () => {
-      q(container, "ws-selected-delete-btn")?.click();
+      q(container, "dealcard-delete-dc-owner-2")?.click();
     });
     expect(q(container, "confirm-delete-modal")).not.toBeNull();
+    expect(q(container, "confirm-delete-match-input")).not.toBeNull();
+    expect(
+      (q(container, "confirm-delete-confirm-btn") as HTMLButtonElement | null)?.disabled
+    ).toBe(true);
     expect(q(container, "dealcard-item-dc-owner-2")).not.toBeNull();
     expect(patchBodies.some((b) => b.action === "delete")).toBe(false);
 
@@ -270,8 +272,21 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     expect(q(container, "dealcard-item-dc-owner-2")).not.toBeNull();
 
     await act(async () => {
-      q(container, "ws-selected-delete-btn")?.click();
+      q(container, "dealcard-delete-dc-owner-2")?.click();
     });
+    const matchInput = q(container, "confirm-delete-match-input") as HTMLInputElement;
+    expect(matchInput).not.toBeNull();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      setter?.call(matchInput, "강남구 역삼동 업무시설");
+      matchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(
+      (q(container, "confirm-delete-confirm-btn") as HTMLButtonElement | null)?.disabled
+    ).toBe(false);
     await act(async () => {
       q(container, "confirm-delete-confirm-btn")?.click();
     });
@@ -280,15 +295,12 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
       patchBodies.some((b) => b.action === "delete" && b.buildingId === "dc-owner-2")
     ).toBe(true);
 
-    // Unconverted memo: delete only (no duplicate), still behind confirmation
+    // Unconverted memo: inline delete works with 1-click modal confirmation (no title typing required)
     await act(async () => {
-      q(container, "unconverted-memo-item-memo-deal-1")?.click();
-    });
-    expect(q(container, "ws-selected-duplicate-btn")).toBeNull();
-    await act(async () => {
-      q(container, "ws-selected-delete-btn")?.click();
+      q(container, "unconverted-memo-delete-memo-deal-1")?.click();
     });
     expect(q(container, "confirm-delete-modal")).not.toBeNull();
+    expect(q(container, "confirm-delete-match-input")).toBeNull();
     expect(q(container, "unconverted-memo-item-memo-deal-1")).not.toBeNull();
     await act(async () => {
       q(container, "confirm-delete-confirm-btn")?.click();

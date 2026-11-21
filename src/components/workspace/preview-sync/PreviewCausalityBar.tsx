@@ -39,7 +39,7 @@ export function PreviewCausalityBar({
         data-lifecycle="pre_generation"
         role="status"
         aria-live="polite"
-        className="rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2.5 flex flex-col items-stretch gap-1.5 shadow-2xs"
+        className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 flex flex-col items-stretch gap-1.5 shadow-2xs"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-2 text-sm font-bold text-slate-900 min-w-0">
@@ -110,7 +110,7 @@ export function PreviewCausalityBar({
         data-lifecycle="published_clean"
         role="status"
         aria-live="polite"
-        className="rounded-xl border border-emerald-300 bg-emerald-50/90 px-3.5 py-2.5 flex flex-col items-stretch gap-1.5 shadow-xs"
+        className="rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 flex flex-col items-stretch gap-1.5 shadow-xs"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-extrabold text-emerald-900 break-keep">
@@ -142,7 +142,7 @@ export function PreviewCausalityBar({
       data-lifecycle="live_draft"
       role="status"
       aria-live="polite"
-      className="rounded-xl border border-blue-200 bg-blue-50/85 px-3.5 py-2.5 flex flex-col items-stretch gap-1"
+      className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 flex flex-col items-stretch gap-1"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-950 min-w-0">

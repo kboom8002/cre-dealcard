@@ -76,7 +76,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
   });
 
   describe("1. CTALadder hasImDoc Dead-End Closure", () => {
-    it("renders '담당 중개사에게 상세 자료 요청' when hasImDoc={false} and NEVER links or navigates to /im-lite", async () => {
+    it("renders '상세 제안서(IM) 요청' when hasImDoc={false} and NEVER links or navigates to /im-lite", async () => {
       await act(async () => {
         root.render(
           <CTALadder
@@ -88,7 +88,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
         );
       });
 
-      expect(container.textContent).toContain("담당 중개사에게 상세 자료 요청");
+      expect(container.textContent).toContain("상세 제안서(IM) 요청");
       expect(container.querySelector('a[href*="/im-lite"]')).toBeNull();
 
       const primaryBtn = container.querySelector(

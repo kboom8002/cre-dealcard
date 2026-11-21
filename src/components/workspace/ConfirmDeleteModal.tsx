@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId, useRef } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import {
   FOCUSABLE_SELECTOR,
@@ -18,6 +18,9 @@ export interface ConfirmDeleteModalProps {
   cancelLabel?: string;
   tone?: "danger" | "primary";
   portal?: boolean;
+  /** When non-empty, requires the user to type this exact trimmed text to enable deletion. */
+  requireMatchText?: string;
+  matchInputLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -48,19 +51,33 @@ export function ConfirmDeleteModal({
   cancelLabel = "취소",
   tone = "danger",
   portal = false,
+  requireMatchText,
+  matchInputLabel,
   onCancel,
   onConfirm,
 }: ConfirmDeleteModalProps) {
   const uid = useId();
   const titleId = `confirm-delete-modal-title-${uid}`;
   const descId = `confirm-delete-modal-desc-${uid}`;
+  const matchInputId = `confirm-delete-match-input-${uid}`;
   const panelRef = useRef<HTMLDivElement | null>(null);
   const cancelBtnRef = useRef<HTMLButtonElement | null>(null);
   const onCancelRef = useRef(onCancel);
+  const [typedText, setTypedText] = useState("");
+
+  const normalizedMatch = typeof requireMatchText === "string" ? requireMatchText.trim() : "";
+  const needsMatch = normalizedMatch.length > 0;
+  const isConfirmDisabled = needsMatch && typedText.trim() !== normalizedMatch;
 
   useEffect(() => {
     onCancelRef.current = onCancel;
   });
+
+  useEffect(() => {
+    if (!isOpen) {
+      setTypedText("");
+    }
+  }, [isOpen, normalizedMatch]);
 
   useEffect(() => {
     if (!isOpen || portal) return;
@@ -113,8 +130,43 @@ export function ConfirmDeleteModal({
 
   const confirmBtnClass =
     tone === "primary"
-      ? "min-h-[44px] px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap"
-      : "min-h-[44px] px-4 py-2 rounded-xl bg-[#D70015] hover:bg-[#B80012] text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap";
+      ? "min-h-[44px] px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] disabled:opacity-45 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap"
+      : "min-h-[44px] px-4 py-2 rounded-xl bg-[#D70015] hover:bg-[#B80012] disabled:opacity-45 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap";
+
+  const handleSafeConfirm = () => {
+    if (isConfirmDisabled) return;
+    onConfirm();
+  };
+
+  const matchConfirmationBlock = needsMatch ? (
+    <div
+      data-testid="confirm-delete-match-box"
+      className="rounded-xl border border-rose-200 bg-rose-50/75 p-3.5 space-y-2"
+    >
+      <label
+        htmlFor={matchInputId}
+        className="block text-sm font-bold text-rose-950 break-keep"
+      >
+        {matchInputLabel || "삭제하려면 아래 제목을 그대로 입력해 주세요."}
+      </label>
+      <p
+        data-testid="confirm-delete-match-target"
+        className="px-2.5 py-1.5 rounded-lg bg-white border border-rose-200 text-sm font-extrabold text-slate-900 select-all break-keep"
+      >
+        {normalizedMatch}
+      </p>
+      <input
+        id={matchInputId}
+        type="text"
+        data-testid="confirm-delete-match-input"
+        value={typedText}
+        onChange={(e) => setTypedText(e.target.value)}
+        placeholder={normalizedMatch}
+        autoComplete="off"
+        className="w-full min-h-[44px] px-3 rounded-lg bg-white border border-rose-300 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
+      />
+    </div>
+  ) : null;
 
   if (portal) {
     return (
@@ -129,6 +181,7 @@ export function ConfirmDeleteModal({
         initialFocusRef={cancelBtnRef}
       >
         <div data-testid="confirm-delete-modal" className="space-y-4">
+          {matchConfirmationBlock}
           <div className="flex items-center justify-end gap-2 pt-1">
             <button
               ref={cancelBtnRef}
@@ -142,7 +195,8 @@ export function ConfirmDeleteModal({
             <button
               type="button"
               data-testid="confirm-delete-confirm-btn"
-              onClick={onConfirm}
+              disabled={isConfirmDisabled}
+              onClick={handleSafeConfirm}
               className={confirmBtnClass}
             >
               {confirmLabel}
@@ -197,6 +251,8 @@ export function ConfirmDeleteModal({
           )}
         </div>
 
+        {matchConfirmationBlock}
+
         <div className="flex items-center justify-end gap-2 pt-1">
           <button
             ref={cancelBtnRef}
@@ -210,7 +266,8 @@ export function ConfirmDeleteModal({
           <button
             type="button"
             data-testid="confirm-delete-confirm-btn"
-            onClick={onConfirm}
+            disabled={isConfirmDisabled}
+            onClick={handleSafeConfirm}
             className={confirmBtnClass}
           >
             {confirmLabel}

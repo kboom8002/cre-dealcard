@@ -54,6 +54,9 @@ const TONE_REPLACEMENTS: ReadonlyArray<{ pattern: RegExp; replaceWith: string }>
   { pattern: /금리\s*스프레드/g, replaceWith: '금리 대비 수익 여유' },
   { pattern: /효과\s*시현/g, replaceWith: '효과 확보' },
   { pattern: /수익\s*시현/g, replaceWith: '수익 확보' },
+  { pattern: /신축·밸류업/g, replaceWith: '신축·리모델링' },
+  { pattern: /밸류업\s*여지/g, replaceWith: '건축·수익 개선 여지' },
+  { pattern: /밸류업/g, replaceWith: '가치 개선' },
 ];
 
 /**

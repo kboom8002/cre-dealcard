@@ -83,7 +83,7 @@ const SUMMARY_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
   // 월 임대수입/월세 총액
   { key: 'monthlyRentKrw', regex: /(?:월\s*임대수입\s*총액|월\s*임대료\s*총액|월세\s*총액|총\s*월세|월\s*차임\s*합계|월\s*임대수입|임대수입\s*총액)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   // 매매가 (총액/합계 블록에도 가끔 등장)
-  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
+  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|매매\s*희망가|희망가|매가|매각(?!\s*사례))[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
 ];
 
 // ── 2순위: 개별 항목 패턴 (일반 매칭 — 총괄 지표 부재 시 폴백) ──
@@ -94,7 +94,7 @@ const FALLBACK_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
 
 // ── 공통 패턴 (총괄/개별 구분 불필요한 일반 슬롯) ──
 const GENERAL_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
-  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
+  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|매매\s*희망가|희망가|매가|매각(?!\s*사례))[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   // 2026-10 RCA: 맨 '면적' 대안이 '대지면적/토지면적/건축면적' 의 접미 '면적' 에 매칭되어 대지면적이 연면적 슬롯에 중복 저장됨 → 한글 직전 문자 금지(lookbehind).
   { key: 'totalFloorAreaPyung', regex: /(?:연면적|전용면적|(?<![가-힣])면적)[:\s]*(?:약\s*)?([\d,.]+)\s*(평|㎡|py)/i, type: 'number' },
   { key: 'buildYear', regex: /(?:준공|건축|신축|완공)[:\s]*(\d{4})\s*(?:년)?/i, type: 'number' },
@@ -247,7 +247,9 @@ const POSTURE_KEYWORDS: Record<InvestmentPosture, string[]> = {
 };
 
 export function extractPostureProposal(memo: string): PostureProposal {
-  const normalizedMemo = memo.toLowerCase();
+  const normalizedMemo = memo
+    .replace(/(?:(?:19|20)\d{2}\s*년\s*)?(?:신축급|준신축|신축\s*(?:첫\s*입주|완료|건물|빌딩)|올\s*신축)/g, '기존건물')
+    .toLowerCase();
   const scores: Record<string, number> = {};
   
   for (const [posture, keywords] of Object.entries(POSTURE_KEYWORDS)) {

@@ -42,7 +42,7 @@ export function WorkspaceListPanel({
     <div data-testid={testId} className={`-m-3 flex min-h-full flex-col ${className}`}>
       <div
         data-testid="ws-list-control-zone"
-        className="lg:sticky lg:-top-3 z-10 -mx-3 -mt-3 mb-2 space-y-2.5 border-b-2 border-slate-300 bg-white px-3 pb-3 pt-3 shadow-[0_8px_14px_-10px_rgba(15,23,42,0.28)]"
+        className="lg:sticky lg:top-0 z-10 mb-2 space-y-2.5 border-b-2 border-slate-300 bg-white px-3.5 pb-3 pt-3 shadow-[0_8px_14px_-10px_rgba(15,23,42,0.28)]"
       >
         {controls}
       </div>
@@ -237,6 +237,8 @@ export interface SimpleListRowProps {
   meta?: React.ReactNode;
   selected?: boolean;
   onSelect: () => void;
+  /** Optional inline action buttons (e.g. 복제 / 삭제). Uses <div role="button"> wrapper so buttons are never nested. */
+  actions?: React.ReactNode;
   /** Extra data-* attributes preserved for tests/analytics */
   dataAttrs?: Record<string, string>;
   /** Override the "now" used for date formatting (tests) */
@@ -251,27 +253,20 @@ export function SimpleListRow({
   meta,
   selected = false,
   onSelect,
+  actions,
   dataAttrs,
   now,
 }: SimpleListRowProps) {
   const tone = status ? TONE_STYLES[status.tone] : null;
   const dateLabel = formatListDate(date, now);
+  const sharedClassName = `group relative flex w-full min-h-[3.5rem] cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-xl border py-2.5 pl-4 pr-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#007AFF]/60 ${
+    selected
+      ? "border-[#007AFF] bg-[#EAF3FF] shadow-[0_2px_8px_rgba(0,122,255,0.16)]"
+      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-[#FAFAFC]"
+  }`;
 
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      data-list-row="simple"
-      data-selected={selected ? "true" : "false"}
-      aria-current={selected ? "true" : undefined}
-      onClick={onSelect}
-      {...(dataAttrs || {})}
-      className={`relative flex w-full min-h-[3.5rem] cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-xl border py-2.5 pl-4 pr-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#007AFF]/60 ${
-        selected
-          ? "border-[#007AFF] bg-[#EAF3FF] shadow-[0_2px_8px_rgba(0,122,255,0.16)]"
-          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-[#FAFAFC]"
-      }`}
-    >
+  const innerContent = (
+    <>
       {selected && (
         <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
       )}
@@ -323,6 +318,55 @@ export function SimpleListRow({
           {dateLabel}
         </span>
       </div>
+      {actions ? (
+        <div
+          className={`flex flex-wrap items-center justify-end gap-1.5 w-full mt-2 pt-2 border-t ${
+            selected ? "border-[#007AFF]/20" : "border-slate-200/80"
+          }`}
+        >
+          {actions}
+        </div>
+      ) : null}
+    </>
+  );
+
+  if (actions) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        data-testid={testId}
+        data-list-row="simple"
+        data-selected={selected ? "true" : "false"}
+        aria-current={selected ? "true" : undefined}
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect();
+          }
+        }}
+        {...(dataAttrs || {})}
+        className={sharedClassName}
+      >
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      data-list-row="simple"
+      data-selected={selected ? "true" : "false"}
+      aria-current={selected ? "true" : undefined}
+      onClick={onSelect}
+      {...(dataAttrs || {})}
+      className={sharedClassName}
+    >
+      {innerContent}
     </button>
   );
 }

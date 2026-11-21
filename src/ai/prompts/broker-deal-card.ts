@@ -347,7 +347,7 @@ export const DEAL_CARD_COPY_TF8_SPEC: DealCardCopyTf8Spec = {
     "[칩 중복 금지] 썸네일 칩(지역·용도·면적·가격)에 이미 보이는 지역명·용도명·면적·가격을 headline 에 반복하지 마십시오.",
     "[장점 비중복] 장점 3줄은 서로 다른 축(①수익·임차 ②입지·교통 ③건물·활용)으로 쓰고, 같은 내용을 다른 표현으로 반복하지 마십시오. headline 을 장점에 그대로 복사하지 마십시오.",
     "[블라인드] 상세 지번(번지), 건물 고유 이름(OO빌딩·OO타워), 프랜차이즈 상호, 소유주 정보를 쓰지 마십시오.",
-    "[금지 표현·용어] 투자 권유, 원금·수익 보장, 시세차익 단정 표현 금지. 수익률·면적 숫자에 '양호한/높은/우수한/넓은/알찬' 같은 주관적 형용사 금지(객관 수치나 입지·외관·올수리 같은 현장 매력으로 작성). '60대', '자산가', '시니어' 등 독자 연령·계층 직접 표기 절대 금지. 한국 실무 용어 사용: '연 순수익률(Cap Rate)', '인테리어 지원금', '렌트프리(무상임대)'. 번역체·외래어 남용 금지.",
+    "[금지 표현·용어] 투자 권유, 원금·수익 보장, 시세차익 단정 표현 금지. 수익률·면적 숫자에 '양호한/높은/우수한/넓은/알찬' 같은 주관적 형용사 금지(객관 수치나 입지·외관·올수리 같은 현장 매력으로 작성). '60대', '자산가', '시니어' 등 독자 연령·계층 직접 표기 절대 금지. '밸류업', '검토(검토 부지/매물)', '캡레이트', '캡익스' 등 번역체·모호 표현 금지('신축·리모델링', '수익률', '추천', '즉시 입주' 등 한국 중개사 현장 어휘 사용).",
   ],
   outputContract: [
     "반드시 아래 JSON 객체 하나만 반환하십시오 (설명·마크다운·코드펜스 금지):",
@@ -418,6 +418,7 @@ export interface DealCardCopyPromptInput {
   area?: string;
   priceBand?: string;
   currentHeadline?: string;
+  avoidHeadlines?: readonly string[];
   currentPoints?: readonly string[];
   facts?: Record<string, string | number | undefined>;
 }
@@ -434,6 +435,13 @@ export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
   factContext: string;
 } {
   const points = (input.currentPoints ?? []).map((p) => String(p ?? "").trim()).filter(Boolean);
+  const avoidList = Array.from(
+    new Set(
+      [input.currentHeadline, ...(input.avoidHeadlines ?? [])]
+        .map((h) => String(h ?? "").trim())
+        .filter(Boolean),
+    ),
+  );
   const factEntries = Object.entries(input.facts ?? {}).filter(
     ([, v]) => (typeof v === "string" && v.trim().length > 0) || (typeof v === "number" && Number.isFinite(v)),
   );
@@ -456,11 +464,17 @@ export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
       : "- 추가 사실: (없음 — 숫자 없이 정성 표현만 사용)",
   ].join("\n");
 
-  const situation = [
+  const situationLines = [
     `요청모드: ${input.mode}`,
     `매물 유형: ${input.postureTitle}${input.postureSubtitle ? ` (${input.postureSubtitle})` : ""}`,
     "중개사 현재 문구가 문장형이거나 18자를 넘으면, 같은 사실로 18자 이내 체언형으로 다시 쓰십시오.",
-  ].join("\n");
+  ];
+  if ((input.mode === "headline" || input.mode === "both") && avoidList.length > 0) {
+    situationLines.push(
+      `중복 회피 (반드시 새로운 소구 각도): [${avoidList.join(" / ")}] 와 같거나 어순만 바꾼 제목은 금지하며, FactBook의 수익·임차·교통·도로·건물활용 중 다른 축으로 새 18자 제목을 작성하십시오.`,
+    );
+  }
+  const situation = situationLines.join("\n");
 
   const factContext = [
     input.region,

@@ -184,6 +184,32 @@ export function ImListSidebar({
                 }
                 selected={item.id === selectedItemId}
                 onSelect={() => onSelectItem(item.id)}
+                actions={
+                  <>
+                    <button
+                      type="button"
+                      data-testid={`im-duplicate-${item.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicateItem(item, e);
+                      }}
+                      className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
+                    >
+                      복제
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`im-delete-${item.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteItem(item, e);
+                      }}
+                      className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
+                    >
+                      삭제
+                    </button>
+                  </>
+                }
               />
             );
           }}

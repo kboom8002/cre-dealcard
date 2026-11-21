@@ -407,11 +407,36 @@ const FEATURE_RULES: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /사옥/, label: '사옥 적합' },
 ];
 
+const POSTURE_HEADLINE_POOL: Readonly<Record<string, readonly string[]>> = {
+  income: [
+    '안정 임대수익 매물',
+    '현금흐름 탄탄한 수익 빌딩',
+    '공실 부담 적은 상권 매물',
+    '임대 수요 탄탄한 수익형',
+    '핵심 상권 수익형 꼬마빌딩',
+  ],
+  owner_occupied: [
+    '사옥 활용 추천 매물',
+    '법인 본사 사옥 최적 매물',
+    '출퇴근 편한 단독 사옥형',
+    '전면 가시성 우수한 사옥용',
+    '즉시 입주 협의 가능한 사옥',
+  ],
+  value_add: [
+    '신축·리모델링 유망 부지',
+    '토지 활용가치 높은 부지',
+    '재건축·신축 추천 우수 부지',
+    '건축 여력 큰 알짜 개발 부지',
+    '장기 성장성 높은 입지 부지',
+  ],
+};
+
 /**
- * 장점 3줄에서 **근거가 있는 특징만** 뽑아 ≤18자 한 줄 제목을 만든다.
+ * 장점 3줄에서 **근거가 있는 특징만** 뽑아 중복 없는 ≤18자 한 줄 제목 후보 목록을 만든다.
  * - 수익률(%)은 입력 장점에 실제로 있을 때만 사용한다 (임의 "연 4%대" 생성 금지).
+ * - '밸류업'·'검토' 등 모호·번역체 어휘를 배제하고 한국 중개사 현장 어휘만 사용한다.
  */
-export function deriveDealCardHeadline(src: DealCardHeadlineSource): string {
+export function deriveDealCardHeadlineCandidates(src: DealCardHeadlineSource): string[] {
   const posture = src.posture || 'income';
   const joined = (src.points || []).filter(Boolean).join(' ');
   const yieldMatch = joined.match(/(\d+(?:\.\d+)?)\s*%(대)?/);
@@ -420,26 +445,81 @@ export function deriveDealCardHeadline(src: DealCardHeadlineSource): string {
   const features: string[] = [];
   for (const rule of FEATURE_RULES) {
     if (rule.re.test(joined) && !features.includes(rule.label)) features.push(rule.label);
-    if (features.length >= 3) break;
+    if (features.length >= 4) break;
   }
   if (features.includes('더블 역세권')) {
     const i = features.indexOf('역세권');
     if (i >= 0) features.splice(i, 1);
   }
 
+  const rawCandidates: string[] = [];
   const parts: string[] = [];
   if (posture === 'income' && yieldStr) parts.push(`연 ${yieldStr}`);
-  parts.push(...features);
+  parts.push(...features.slice(0, 3));
 
-  let base: string;
-  if (parts.length === 0) {
-    base = posture === 'owner_occupied' ? '사옥 활용 추천 매물' : posture === 'value_add' ? '신축·밸류업 검토 매물' : '안정 임대수익 매물';
-  } else if (parts.length === 1) {
-    base = `${parts[0]} ${posture === 'owner_occupied' ? '사옥' : posture === 'value_add' ? '개발 부지' : '수익형 매물'}`;
-  } else {
-    base = parts.join(' ');
+  const postureNoun =
+    posture === 'owner_occupied' ? '사옥' : posture === 'value_add' ? '개발 부지' : '수익형 매물';
+
+  if (parts.length === 1) {
+    rawCandidates.push(`${parts[0]} ${postureNoun}`);
+  } else if (parts.length >= 2) {
+    rawCandidates.push(parts.join(' '));
   }
-  return repairDealCardLine(base) || '안정 임대수익 매물';
+
+  if (posture === 'income' && yieldStr) {
+    rawCandidates.push(`연 ${yieldStr} 임대수익 매물`);
+    if (features[0]) rawCandidates.push(`연 ${yieldStr} ${features[0]} 매물`);
+  }
+
+  for (const feat of features) {
+    rawCandidates.push(`${feat} ${postureNoun}`);
+  }
+
+  if (features.length >= 2) {
+    rawCandidates.push(`${features[0]} ${features[1]}`);
+  }
+  if (features.length >= 3) {
+    rawCandidates.push(`${features[1]} ${features[2]}`);
+  }
+
+  const pool = POSTURE_HEADLINE_POOL[posture] ?? POSTURE_HEADLINE_POOL.income;
+  rawCandidates.push(...pool);
+
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of rawCandidates) {
+    const cleaned = repairDealCardLine(raw);
+    if (!cleaned || !isCompleteDealCardLine(cleaned)) continue;
+    const key = cleaned.replace(/\s+/g, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(cleaned);
+  }
+  return unique.length > 0 ? unique : ['안정 임대수익 매물'];
+}
+
+export function deriveDealCardHeadline(src: DealCardHeadlineSource): string {
+  return deriveDealCardHeadlineCandidates(src)[0] || '안정 임대수익 매물';
+}
+
+/**
+ * 직전/제외 제목 목록과 겹치지 않는 새로운 ≤18자 근거 기반 제목을 고른다.
+ * 후보가 모두 소진되면 제외 목록 크기를 기준으로 순환해 매 클릭마다 문구가 바뀌도록 보장한다.
+ */
+export function pickFreshDealCardHeadline(
+  src: DealCardHeadlineSource,
+  avoidHeadlines: readonly (string | null | undefined)[] = [],
+): string {
+  const candidates = deriveDealCardHeadlineCandidates(src);
+  const avoidSet = new Set(
+    [src.headline, ...avoidHeadlines]
+      .map((h) => String(h ?? '').replace(/\s+/g, '').trim())
+      .filter(Boolean),
+  );
+  const fresh = candidates.find((c) => !avoidSet.has(c.replace(/\s+/g, '')));
+  if (fresh) return fresh;
+  const fallbackIdx = avoidSet.size % candidates.length;
+  return candidates[fallbackIdx] ?? candidates[0] ?? '안정 임대수익 매물';
 }
 
 /** 제목에서 썸네일 칩(지역/용도)과 중복되는 어구를 제거한다 (AI 출력 전용). */

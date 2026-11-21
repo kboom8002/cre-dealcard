@@ -34,7 +34,6 @@ import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
-import { SelectedItemActions } from "@/components/workspace/list/WorkspaceList";
 import {
   useEditorPreviewSync,
   type PreviewLifecycleState,
@@ -54,6 +53,7 @@ import {
   IM_STORAGE_KEY,
   INITIAL_IM_LIST,
   SAMPLE_SEED_IDS,
+  isSampleSeedImItem,
   sortImWorkspaceItems,
   UUID_REGEX,
   buildAddedPhotoEntries,
@@ -2566,14 +2566,7 @@ function ImWorkspaceInner() {
     />
   );
 
-  const selectedItemActionsNode =
-    viewMode === "simple" && currentItem ? (
-      <SelectedItemActions
-        itemLabel={currentItem.title || "새 IM"}
-        onDuplicate={(e) => handleDuplicateIm(currentItem, e)}
-        onDelete={(e) => handleDeleteIm(currentItem, e)}
-      />
-    ) : null;
+  const selectedItemActionsNode = null;
 
   return (
     <>
@@ -2886,6 +2879,15 @@ function ImWorkspaceInner() {
             ? "이미 발행된 IM 자료입니다. 삭제하더라도 하단 되돌리기 버튼으로 잠시 복구할 수 있습니다."
             : "삭제한 IM은 하단 되돌리기 버튼으로 잠시 복구할 수 있습니다."
         }
+        requireMatchText={
+          pendingDeleteIm &&
+          !isSampleSeedImItem(pendingDeleteIm) &&
+          pendingDeleteIm.title?.trim() &&
+          pendingDeleteIm.title.trim() !== "새 IM"
+            ? pendingDeleteIm.title.trim()
+            : undefined
+        }
+        matchInputLabel="삭제를 확정하려면 위 IM 제목을 그대로 입력해 주세요."
         onCancel={() => setPendingDeleteIm(null)}
         onConfirm={() => {
           if (pendingDeleteIm) {

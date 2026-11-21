@@ -50,8 +50,8 @@ export function PairedMemoTopCard({
       aria-label="원본 매물 메모 및 딜카드 생성"
       className={`rounded-2xl border transition-all ${
         isCaptureMode
-          ? "p-5 bg-gradient-to-b from-white via-white to-[#F2F7FF] border-[#007AFF]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_28px_-8px_rgba(0,122,255,0.18)] ring-2 ring-[#007AFF]/12"
-          : "p-4 bg-white/95 border-slate-900/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_4px_14px_rgba(15,23,42,0.06)]"
+          ? "p-5 bg-[#F8FAFC] border-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_24px_-8px_rgba(37,99,235,0.16)]"
+          : "p-4 bg-[#F8FAFC] border-slate-200 shadow-xs"
       }`}
     >
       {/* Header Row */}
@@ -68,8 +68,8 @@ export function PairedMemoTopCard({
             </h2>
 
             {isCaptureMode ? (
-              <span className="px-2.5 py-0.5 rounded-full bg-[#007AFF]/12 text-[#0040DD] border border-[#007AFF]/25 text-sm font-bold">
-                1단계 · 메모 입력
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-sm font-bold">
+                메모 입력
               </span>
             ) : generationSource === "ai_memo" ? (
               <span

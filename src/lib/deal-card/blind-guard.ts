@@ -214,7 +214,97 @@ const SENSITIVE_BRANDS = [
   '할리스',
   '파리바게뜨',
   '뚜레쥬르',
+  '기아자동차',
+  '기아오토큐',
+  '현대자동차',
+  '제네시스',
+  '메르세데스벤츠',
+  '벤츠',
+  'BMW',
+  '아우디',
+  '포르쉐',
+  '테슬라',
+  '볼보',
+  '렉서스',
+  '애플스토어',
+  '무신사',
+  '유니클로',
+  '자라',
+  '노브랜드',
+  'KB국민은행',
+  '국민은행',
+  '신한은행',
+  '하나은행',
+  '우리은행',
+  '농협은행',
+  '기업은행',
 ];
+
+const AUTO_BRAND_MASK_SET = new Set([
+  '기아자동차',
+  '현대자동차',
+  '제네시스',
+  '메르세데스벤츠',
+  '벤츠',
+  'BMW',
+  '아우디',
+  '포르쉐',
+  '테슬라',
+  '볼보',
+  '렉서스',
+]);
+
+const BANK_BRAND_MASK_SET = new Set([
+  'KB국민은행',
+  '국민은행',
+  '신한은행',
+  '하나은행',
+  '우리은행',
+  '농협은행',
+  '기업은행',
+]);
+
+const GENERIC_CLINIC_PHARMACY_PREFIXES = new Set([
+  '대형',
+  '유명',
+  '프랜차이즈',
+  '메디컬',
+  '종합',
+  '전문',
+  '신경',
+  '정형',
+  '성형',
+  '흉부',
+  '일반',
+  '가정의학',
+  '소아',
+  '소아청소년',
+  '이비인후',
+  '산부인',
+  '비뇨기',
+  '비뇨의학',
+  '재활의학',
+  '마취통증의학',
+  '정신건강의학',
+  '가정',
+  '어린이',
+  '여성',
+  '연합',
+  '인근',
+  '문전',
+  '병원',
+  '상가',
+  '단지',
+  '1층',
+  '2층',
+  '지하',
+]);
+
+const NAMED_CLINIC_PHARMACY_RE =
+  /([가-힣A-Za-z0-9]{2,10}?)(약국|한의원|이비인후과|정형외과|성형외과|산부인과|소아과|피부과|치과|안과|내과|외과)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만·,/])|[^\w가-힣]|$)/g;
+
+const EXECUTIVE_TITLE_PII_RE =
+  /(?<![가-힣])([김이박최정강조윤장임한오서신권황안송류전홍고문양손배조백허유남심노하곽성차주우구신임전민유류]\s*(?:대표님?|사장님?|전무님?|상무님?|원장님?|이사님?|회장님?|부장님?))(?![가-힣])/g;
 
 // PII and ownership keywords
 const PII_KEYWORDS = [
@@ -365,6 +455,22 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     }
   }
 
+  // 4b. Named clinic / pharmacy brands (e.g. "고은약국", "로뎀나무내과")
+  NAMED_CLINIC_PHARMACY_RE.lastIndex = 0;
+  let ncMatch: RegExpExecArray | null;
+  while ((ncMatch = NAMED_CLINIC_PHARMACY_RE.exec(text)) !== null) {
+    const prefix = ncMatch[1].trim();
+    if (!GENERIC_CLINIC_PHARMACY_PREFIXES.has(prefix)) {
+      violations.push({
+        pointIndex,
+        pointText: text,
+        reason: `특정 병원·약국 상호(${ncMatch[0]})는 위치가 드러날 수 있어 일반 진료과목(${ncMatch[2]})으로 적어 주세요.`,
+        keyword: ncMatch[0],
+        severity: 'error',
+      });
+    }
+  }
+
   // 5. PII and owner names
   for (const pii of PII_KEYWORDS) {
     if (text.includes(pii)) {
@@ -376,6 +482,17 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
         severity: 'error',
       });
     }
+  }
+  EXECUTIVE_TITLE_PII_RE.lastIndex = 0;
+  let exMatch: RegExpExecArray | null;
+  while ((exMatch = EXECUTIVE_TITLE_PII_RE.exec(text)) !== null) {
+    violations.push({
+      pointIndex,
+      pointText: text,
+      reason: `담당자·소유주 직함 및 성명(${exMatch[1]})은 적을 수 없어요.`,
+      keyword: exMatch[1],
+      severity: 'error',
+    });
   }
 
   return violations;
@@ -575,12 +692,30 @@ export function cleanBlindPoints(points: string[]): string[] {
       },
     );
 
-    // Replace sensitive brands
+    // Mask named clinics/pharmacies (e.g. "고은약국" -> "약국", "로뎀나무내과" -> "내과", never "의원")
+    NAMED_CLINIC_PHARMACY_RE.lastIndex = 0;
+    cleaned = cleaned.replace(
+      NAMED_CLINIC_PHARMACY_RE,
+      (match, prefix: string, suffix: string) =>
+        GENERIC_CLINIC_PHARMACY_PREFIXES.has(prefix.trim()) ? match : suffix,
+    );
+
+    // Replace sensitive brands (preserve generic business category where helpful)
     for (const brand of SENSITIVE_BRANDS) {
-      cleaned = cleaned.replace(new RegExp(brand, 'g'), '대형 프랜차이즈');
+      if (!cleaned.includes(brand)) continue;
+      if (AUTO_BRAND_MASK_SET.has(brand)) {
+        cleaned = cleaned
+          .replace(new RegExp(`${brand}\\s*전시장`, 'g'), '자동차 전시장')
+          .replace(new RegExp(brand, 'g'), '자동차 브랜드');
+      } else if (BANK_BRAND_MASK_SET.has(brand)) {
+        cleaned = cleaned.replace(new RegExp(brand, 'g'), '시중 은행');
+      } else {
+        cleaned = cleaned.replace(new RegExp(brand, 'g'), '대형 프랜차이즈');
+      }
     }
 
-    // Mask PII
+    // Mask PII and executive titles
+    cleaned = cleaned.replace(EXECUTIVE_TITLE_PII_RE, '관계자');
     for (const pii of PII_KEYWORDS) {
       cleaned = cleaned.replace(new RegExp(pii, 'g'), '관계자');
     }

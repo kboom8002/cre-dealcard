@@ -347,8 +347,18 @@ function buildDealCardDataFromQuickRecord(
           };
         })()
       : null) as PublicDealCardBrokerInput | null,
-    hasImDoc: true,
-    isPptxApproved: true,
+    hasImDoc: Boolean(
+      quickRec.basicImDoc &&
+        typeof quickRec.basicImDoc === "object" &&
+        "facts" in quickRec.basicImDoc &&
+        quickRec.basicImDoc.facts
+    ),
+    isPptxApproved: Boolean(
+      quickRec.basicImDoc &&
+        typeof quickRec.basicImDoc === "object" &&
+        "facts" in quickRec.basicImDoc &&
+        quickRec.basicImDoc.facts
+    ),
     pptxDownloadUrl: `/api/public/im-lite/${quickRec.buildingId}/pptx`,
     ownerId: quickRec.ownerId ?? null,
     buildingStatus: (extra?.buildingStatus ?? "public_signal_ready") as string | null,
@@ -1185,48 +1195,6 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             </div>
           ) : null;
         })()}
-
-        {/* ①-b 매물 3단 표준 제원 (공통 · 건물 · 매수 목적별 맞춤 지표) */}
-        <section
-          data-testid="public-dealcard-3tier-specs"
-          className="rounded-xl bg-white border border-slate-300 p-4 space-y-3 shadow-sm"
-        >
-          <p className="text-base font-extrabold text-slate-900 tracking-tight">
-            매물 주요 제원
-          </p>
-          {(
-            [
-              { key: "common", title: "기본 제원", rows: card.threeTierSpecs.commonSpecs },
-              { key: "building", title: "건물 내역", rows: card.threeTierSpecs.buildingSpecs },
-              { key: "purpose", title: "투자 검토 지표", rows: card.threeTierSpecs.purposeSpecs },
-            ] as const
-          ).map((group) => (
-            <div
-              key={group.key}
-              data-testid={`public-dealcard-spec-group-${group.key}`}
-              className="rounded-lg bg-[#FAF9F5] border border-slate-200 p-3 space-y-1.5"
-            >
-              <p className="text-sm font-extrabold text-slate-700">
-                {group.title}
-              </p>
-              <dl className="space-y-1">
-                {group.rows.map((row, idx) => (
-                  <div
-                    key={`${group.key}-${idx}`}
-                    className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm"
-                  >
-                    <dt className="font-semibold text-slate-600 shrink-0">
-                      {row.label}
-                    </dt>
-                    <dd className="font-extrabold text-slate-900 text-right break-keep">
-                      {row.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ))}
-        </section>
 
         {/* ② 담당 중개사 프로필 & 전화하기 단추 (TrustLine) */}
         <TrustLine

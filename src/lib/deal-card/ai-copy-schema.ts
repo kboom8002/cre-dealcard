@@ -17,6 +17,7 @@ export const dealCardAiCopyRequestSchema = z.object({
   area: z.string().trim().max(60).optional().default(''),
   priceBand: z.string().trim().max(60).optional().default(''),
   currentHeadline: z.string().trim().max(100).optional().default(''),
+  avoidHeadlines: z.array(z.string().trim().max(100)).max(10).optional().default([]),
   currentPoints: z.array(z.string().trim().max(120)).max(5).optional().default([]),
   facts: z
     .object({

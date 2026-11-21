@@ -29,7 +29,7 @@ export interface ImEditorPanelsProps {
   selectedId: string;
   activeEditorTab: ImEditorTabKey;
   onChangeEditorTab: (tab: ImEditorTabKey) => void;
-  selectedItemActionsNode: React.ReactNode;
+  selectedItemActionsNode?: React.ReactNode;
   isProvisioningSheet: boolean;
   onOpenBottomSheet: () => void;
   isDownloadingPptx: boolean;

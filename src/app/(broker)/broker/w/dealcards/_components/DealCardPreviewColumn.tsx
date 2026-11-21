@@ -46,7 +46,13 @@ export function DealCardPreviewColumn({
 }: DealCardPreviewColumnProps) {
   return (
     <div className="space-y-4" data-testid="dealcard-preview-slot">
-      <div className="sticky top-0 z-10">
+      <div
+        className={
+          lifecycle === "published_dirty"
+            ? "sticky -top-4 z-20 -mx-4 -mt-4 bg-[#F5F5F7] px-4 pt-3 pb-2 shadow-[0_6px_12px_-8px_rgba(15,23,42,0.18)]"
+            : ""
+        }
+      >
         <PreviewCausalityBar
           lifecycle={lifecycle}
           onStartInput={onStartInput}
@@ -87,12 +93,12 @@ export function DealCardPreviewColumn({
           description="왼쪽 메모창에 매물을 붙여넣고 생성하거나 직접 항목을 입력하면 고객에게 보일 카톡 말풍선과 받는 화면이 즉시 만들어집니다."
           checklist={[
             {
-              label: "1. 권역·동명 및 매물 용도",
+              label: "권역·동명 및 매물 용도",
               done: Boolean(effectiveCard4.region?.trim() && effectiveCard4.use?.trim()),
               onClick: onSkipMemoManual,
             },
             {
-              label: "2. 희망 가격대 및 핵심 장점",
+              label: "희망 가격대 및 핵심 장점",
               done: Boolean(
                 effectiveCard4.priceBand?.trim() &&
                   effectiveCard4.points.some((p) => Boolean(p?.trim()))

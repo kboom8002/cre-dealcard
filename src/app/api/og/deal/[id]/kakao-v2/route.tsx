@@ -407,6 +407,7 @@ export async function GET(
     card4Hash =
       bodyCard4.card4_hash ||
       computeCard4Hash({
+        posture: bodyCard4.posture,
         region,
         use,
         priceBand,
@@ -430,7 +431,22 @@ export async function GET(
         : '안정적 임차 수요 확보',
     ];
     points = cleanBlindPoints(rawPoints) as [string, string, string];
-    card4Hash = computeCard4Hash({ region, use, priceBand, points });
+    const explicitFallbackPosture =
+      safeBuilding.investment_posture === 'development' ||
+      safeBuilding.investment_posture === 'value_add'
+        ? 'value_add'
+        : safeBuilding.investment_posture === 'owner_occupied'
+        ? 'owner_occupied'
+        : safeBuilding.investment_posture
+        ? 'income'
+        : undefined;
+    card4Hash = computeCard4Hash({
+      ...(explicitFallbackPosture ? { posture: explicitFallbackPosture } : {}),
+      region,
+      use,
+      priceBand,
+      points,
+    });
   }
 
   const fallbackGfaPyung =

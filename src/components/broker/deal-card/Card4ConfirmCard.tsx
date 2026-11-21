@@ -11,7 +11,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  generateAiOgHeadline,
   reclusterDealCardPointsAsAxios,
   resolveAreaOnPostureChange,
   resolveCard4AreaLabel,
@@ -31,10 +30,17 @@ import {
   assessDealCardLine,
   countDealCardChars,
   deriveDealCardHeadline,
+  pickFreshDealCardHeadline,
   repairDealCardLine,
 } from '@/lib/deal-card/copy-limits';
+import { extractMemoStructuredFacts } from '@/lib/deal-card/memo-pairing';
 import { POSTURE_LABELS, TERMS } from '@/lib/ux/lexicon';
-import { normalizePriceBandInput } from '@/lib/deal-card/price-band';
+import {
+  formatPriceRange,
+  normalizePriceBandInput,
+  parseKoreanPriceKrw,
+  validateBlindPriceBand,
+} from '@/lib/deal-card/price-band';
 import { showUndoToast } from '@/components/workspace/UndoConfirmToast';
 
 /**
@@ -103,6 +109,7 @@ function LineRepairHint({
 
 export interface Card4ConfirmCardProps {
   card4: Card4Data;
+  memoText?: string;
   onChange: (updated: Card4Data) => void;
   onSave?: () => void;
   onOpenPreSend?: () => void;
@@ -175,6 +182,7 @@ const POSTURE_IDS: DealCardPosture[] = ['income', 'owner_occupied', 'value_add']
 
 export function Card4ConfirmCard({
   card4,
+  memoText,
   onChange,
   onOpenPreSend,
   onFocusUnit,
@@ -183,13 +191,20 @@ export function Card4ConfirmCard({
   const [aiHeadlineBusy, setAiHeadlineBusy] = useState(false);
   const [aiPointsBusy, setAiPointsBusy] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+  const [focusedPointIdx, setFocusedPointIdx] = useState<0 | 1 | 2 | null>(null);
 
   const isMountedRef = useRef(true);
   const card4Ref = useRef(card4);
   const onChangeRef = useRef(onChange);
   const blurTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const lastFocusedPointIdxRef = useRef<0 | 1 | 2 | null>(null);
+  const recentHeadlinesRef = useRef<string[]>([]);
   card4Ref.current = card4;
   onChangeRef.current = onChange;
+
+  useEffect(() => {
+    recentHeadlinesRef.current = [];
+  }, [card4.region, card4.posture]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -222,7 +237,22 @@ export function Card4ConfirmCard({
     [hasCardContent, currentHeadline, card4],
   );
 
-  // Validate blind guard rules across points + headline + quadrant fields
+  const memoFacts = useMemo(() => extractMemoStructuredFacts(memoText || ''), [memoText]);
+
+  const priceBandCheck = useMemo(() => {
+    const raw = (card4.priceBand || '').trim();
+    if (!raw) return null;
+    const check = validateBlindPriceBand(raw);
+    if (check.valid) return null;
+    const compactRaw = raw.replace(/,/g, '');
+    const parsedKrw =
+      parseKoreanPriceKrw(raw) ??
+      (/^\d{5,7}$/.test(compactRaw) ? Number(compactRaw) * 10_000 : null);
+    const suggested = parsedKrw && parsedKrw > 0 ? formatPriceRange(parsedKrw) : null;
+    return { reason: check.reason, suggested };
+  }, [card4.priceBand]);
+
+  // Validate blind guard rules across points + headline + fields
   const validation = useMemo(() => {
     return validateBlindPoints(card4.points, {
       region: card4.region,
@@ -247,20 +277,29 @@ export function Card4ConfirmCard({
   );
 
   const availableStrengthTags = useMemo(
-    () => getFieldStrengthTagsForPosture(currentPosture),
-    [currentPosture],
+    () => getFieldStrengthTagsForPosture(currentPosture, memoText),
+    [currentPosture, memoText],
   );
 
   const handleApplyStrengthTag = (tagLabel: string) => {
     const trimmed = repairDealCardLine(tagLabel);
     if (!trimmed) return;
-    if (card4.points.some((p) => p.trim() === trimmed)) return;
     const prevSnapshot: Card4Data = {
       ...card4,
       points: [...card4.points] as [string, string, string],
     };
-    const emptyIdx = card4.points.findIndex((p) => !p || !p.trim());
-    const targetIdx: 0 | 1 | 2 = emptyIdx >= 0 ? (emptyIdx as 0 | 1 | 2) : 2;
+    let targetIdx: 0 | 1 | 2;
+    if (focusedPointIdx !== null) {
+      targetIdx = focusedPointIdx;
+    } else {
+      const emptyIdx = card4.points.findIndex((p) => !p || !p.trim());
+      if (emptyIdx >= 0) {
+        targetIdx = emptyIdx as 0 | 1 | 2;
+      } else {
+        targetIdx = lastFocusedPointIdxRef.current ?? 2;
+      }
+    }
+    if ((card4.points[targetIdx] ?? '').trim() === trimmed) return;
     const nextPoints: [string, string, string] = [...card4.points];
     nextPoints[targetIdx] = trimmed;
     const provenanceList: [ProvenanceSource, ProvenanceSource, ProvenanceSource] = [
@@ -310,6 +349,13 @@ export function Card4ConfirmCard({
   const handleAiHeadlineGenerate = async () => {
     const prevSnapshot: Card4Data = { ...card4, points: [...card4.points] as [string, string, string] };
     const commitForCard = onChange;
+    const avoidHeadlines = Array.from(
+      new Set(
+        [currentHeadline, ...recentHeadlinesRef.current]
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ).slice(-8);
     setAiHeadlineBusy(true);
     setAiFeedback(null);
     try {
@@ -324,12 +370,15 @@ export function Card4ConfirmCard({
           area: currentArea,
           priceBand: prevSnapshot.priceBand,
           currentHeadline,
+          avoidHeadlines,
           currentPoints: prevSnapshot.points,
+          ...(Object.keys(memoFacts).length > 0 ? { facts: memoFacts } : {}),
         }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok && typeof data.result?.headline === 'string') {
         const nextHeadline = repairDealCardLine(data.result.headline);
+        recentHeadlinesRef.current = [...recentHeadlinesRef.current.slice(-7), nextHeadline];
         commitForCard({
           ...prevSnapshot,
           headline: nextHeadline,
@@ -346,7 +395,15 @@ export function Card4ConfirmCard({
       }
     } catch {
       // Fallback for offline/unit test environment
-      const fallbackHeadline = generateAiOgHeadline(prevSnapshot);
+      const fallbackHeadline = pickFreshDealCardHeadline(
+        {
+          posture: currentPosture,
+          points: prevSnapshot.points,
+          headline: currentHeadline,
+        },
+        avoidHeadlines,
+      );
+      recentHeadlinesRef.current = [...recentHeadlinesRef.current.slice(-7), fallbackHeadline];
       commitForCard({
         ...prevSnapshot,
         headline: fallbackHeadline,
@@ -397,6 +454,9 @@ export function Card4ConfirmCard({
   };
 
   const handlePointBlur = (index: 0 | 1 | 2, e: React.FocusEvent<HTMLInputElement>) => {
+    if (!shouldDeferBlurRepair(e)) {
+      setFocusedPointIdx((prev) => (prev === index ? null : prev));
+    }
     const raw = card4.points[index] ?? '';
     if (!raw.trim() || assessDealCardLine(raw).ok) return;
     if (shouldDeferBlurRepair(e)) {
@@ -435,6 +495,7 @@ export function Card4ConfirmCard({
           priceBand: prevSnapshot.priceBand,
           currentHeadline,
           currentPoints: prevSnapshot.points,
+          ...(Object.keys(memoFacts).length > 0 ? { facts: memoFacts } : {}),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -562,9 +623,9 @@ export function Card4ConfirmCard({
        * ══════════════════════════════════════════════════════════════════ */}
       <section
         data-testid="card4-section-posture"
-        className="bg-white rounded-xl border-2 border-slate-300 shadow-xs overflow-hidden"
+        className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
       >
-        <div className="bg-slate-100 border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-[#F8FAFC] border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
             {TERMS.postureSectionTitle}
           </h3>
@@ -582,10 +643,10 @@ export function Card4ConfirmCard({
                   aria-pressed={active}
                   data-testid={`card4-posture-chip-${id}`}
                   onClick={() => handlePostureChange(id)}
-                  className={`min-h-[64px] px-4 py-3.5 rounded-lg border-2 text-left transition cursor-pointer ${
+                  className={`min-h-[64px] px-4 py-3.5 rounded-xl border-2 text-left transition cursor-pointer ${
                     active
-                      ? 'bg-blue-700 text-white border-blue-700 shadow-sm'
-                      : 'bg-slate-50 text-slate-800 border-slate-300 hover:bg-slate-100'
+                      ? 'bg-blue-50/90 text-blue-950 border-blue-500 ring-1 ring-blue-500/25 shadow-2xs'
+                      : 'bg-[#F8FAFC] text-slate-800 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <div className="text-base font-extrabold break-keep">
@@ -593,7 +654,7 @@ export function Card4ConfirmCard({
                   </div>
                   <div
                     className={`text-sm mt-1 break-keep ${
-                      active ? 'text-blue-100' : 'text-slate-600'
+                      active ? 'text-blue-800' : 'text-slate-600'
                     }`}
                   >
                     {opt.subtitle} · {opt.areaRuleNote}
@@ -610,9 +671,9 @@ export function Card4ConfirmCard({
        * ══════════════════════════════════════════════════════════════════ */}
       <section
         data-testid="card4-section-og-editor"
-        className="bg-white rounded-xl border-2 border-blue-300 shadow-xs overflow-hidden"
+        className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
       >
-        <div className="bg-blue-50/90 border-b border-blue-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-[#F8FAFC] border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
             {TERMS.thumbnailSectionTitle}
           </h3>
@@ -649,10 +710,10 @@ export function Card4ConfirmCard({
           {/* 4-Item Thumbnail Input Grid (2x2) */}
           <div
             data-testid="card4-og-quadrant-grid"
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-slate-50 text-slate-900 border border-slate-300"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-[#F8FAFC] text-slate-900 border border-slate-200"
           >
             {/* Item 1: 지역 */}
-            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1.5">
               <label
                 htmlFor="card4-region-input"
                 className="block text-sm font-bold text-slate-700"
@@ -665,16 +726,16 @@ export function Card4ConfirmCard({
                 data-testid="card4-region-input"
                 value={card4.region}
                 onChange={(e) => handleFieldChange('region', e.target.value)}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-600 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
                 placeholder="예: 서초구 잠원동"
               />
             </div>
 
             {/* Item 2: 용도 */}
-            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1.5">
               <label
                 htmlFor="card4-use-input"
-                className="block text-sm font-bold text-sky-800"
+                className="block text-sm font-bold text-slate-700"
               >
                 {TERMS.useLabel}
               </label>
@@ -684,16 +745,16 @@ export function Card4ConfirmCard({
                 data-testid="card4-use-input"
                 value={card4.use}
                 onChange={(e) => handleFieldChange('use', e.target.value)}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-sky-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-600 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
                 placeholder="예: 근린생활시설"
               />
             </div>
 
             {/* Item 3: 면적 (연면적 / 토지면적) */}
-            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1.5">
               <label
                 htmlFor="card4-area-input"
-                className="block text-sm font-bold text-emerald-800"
+                className="block text-sm font-bold text-slate-700"
               >
                 {postureInfo.areaFieldLabel}
               </label>
@@ -703,16 +764,16 @@ export function Card4ConfirmCard({
                 data-testid="card4-area-input"
                 value={currentArea}
                 onChange={(e) => handleFieldChange('area', e.target.value)}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
                 placeholder={postureInfo.areaPlaceholder}
               />
             </div>
 
             {/* Item 4: 가격 */}
-            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-sm space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1.5">
               <label
                 htmlFor="card4-priceband-input"
-                className="block text-sm font-bold text-amber-800"
+                className="block text-sm font-bold text-slate-700"
               >
                 {TERMS.priceLabel}
               </label>
@@ -728,9 +789,30 @@ export function Card4ConfirmCard({
                     handleFieldChange('priceBand', norm);
                   }
                 }}
-                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-amber-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-600 transition"
+                className="w-full min-h-[48px] px-3 text-[18px] font-extrabold text-slate-900 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
                 placeholder="예: 80~90억"
               />
+              {priceBandCheck && (
+                <div className="pt-1 space-y-1.5" role="status">
+                  <p
+                    data-testid="card4-priceband-warning"
+                    className="text-sm font-bold text-amber-800 break-keep"
+                  >
+                    ⚠ {priceBandCheck.reason || '구간 형태(예: 70~80억)로 적어 주세요.'}
+                  </p>
+                  {priceBandCheck.suggested && (
+                    <button
+                      type="button"
+                      data-testid="card4-priceband-convert-btn"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleFieldChange('priceBand', priceBandCheck.suggested!)}
+                      className="min-h-[44px] px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-sm font-extrabold transition cursor-pointer"
+                    >
+                      {priceBandCheck.suggested} 구간으로 변환
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -766,7 +848,7 @@ export function Card4ConfirmCard({
                 value={currentHeadline}
                 onChange={(e) => handleHeadlineChange(e.target.value)}
                 onBlur={handleHeadlineBlur}
-                className="w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-900 bg-slate-50 rounded-xl border border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-900 bg-white rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 placeholder="지역·용도 반복 없이 핵심 장점을 18자 이내로 적어 주세요"
               />
               <LineCounter text={currentHeadline} testId="card4-headline-counter" id="card4-headline-counter" />
@@ -816,9 +898,9 @@ export function Card4ConfirmCard({
        * ══════════════════════════════════════════════════════════════════ */}
       <section
         data-testid="card4-section-detail-points"
-        className="bg-white rounded-xl border-2 border-indigo-300 shadow-xs overflow-hidden"
+        className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
       >
-        <div className="bg-indigo-50/90 border-b border-indigo-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-[#F8FAFC] border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
             {TERMS.pointsSectionTitle} (각 18자 이내)
           </h3>
@@ -836,38 +918,6 @@ export function Card4ConfirmCard({
         </div>
 
         <div className="p-5 space-y-3">
-          {/* 현장 장점 원클릭 추천 태그칩 (Q5-2 확정) */}
-          <div
-            data-testid="dealcard-strength-tag-chips"
-            className="rounded-xl border border-amber-200 bg-amber-50/75 p-3 space-y-2"
-          >
-            <p className="text-sm font-extrabold text-amber-950">
-              현장 장점 바로 넣기 (누르면 빈 칸에 들어갑니다)
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {availableStrengthTags.map((tag) => {
-                const alreadyAdded = card4.points.some((p) => p.trim() === tag.label);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    data-testid={`dealcard-strength-chip-${tag.id}`}
-                    aria-pressed={alreadyAdded}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleApplyStrengthTag(tag.label)}
-                    className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-sm font-bold transition cursor-pointer ${
-                      alreadyAdded
-                        ? 'border-amber-600 bg-amber-600 text-white'
-                        : 'border-amber-300 bg-white text-amber-950 hover:bg-amber-100'
-                    }`}
-                  >
-                    + {tag.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {numericSpinWarnings.length > 0 && (
             <div
               data-testid="card4-numeric-spin-advisory"
@@ -917,6 +967,7 @@ export function Card4ConfirmCard({
             const ptText = card4.points[idx] || '';
             const ptTone: DealCardPointTone = card4.pointTones?.[idx] || DEFAULT_TONES[idx];
             const toneStyle = POSTIT_TONE_STYLES[ptTone] || POSTIT_TONE_STYLES.amber;
+            const isSlotFocused = focusedPointIdx === idx;
 
             const pointViolations = validation.violations.filter(
               (v) => v.pointIndex === idx
@@ -930,7 +981,9 @@ export function Card4ConfirmCard({
                   backgroundColor: toneStyle.bgHex,
                   borderColor: toneStyle.borderHex,
                 }}
-                className="rounded-lg border border-l-4 p-3.5 space-y-2 shadow-2xs transition-colors"
+                className={`rounded-lg border border-l-4 p-3.5 space-y-2 shadow-2xs transition ${
+                  isSlotFocused ? 'ring-2 ring-blue-500/40' : ''
+                }`}
               >
                 <div className="flex items-center gap-2.5">
                   <label
@@ -950,12 +1003,16 @@ export function Card4ConfirmCard({
                     data-single-line-title="true"
                     aria-describedby={`card4-point-counter-${idx}`}
                     value={ptText}
+                    onFocus={() => {
+                      setFocusedPointIdx(idx);
+                      lastFocusedPointIdxRef.current = idx;
+                    }}
                     onChange={(e) => handlePointChange(idx, e.target.value)}
                     onBlur={(e) => handlePointBlur(idx, e)}
                     className={`w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-950 rounded-lg border ${
                       pointViolations.length > 0
                         ? 'border-red-400 bg-red-50/60 focus:ring-red-500'
-                        : 'border-slate-400/80 bg-white/95 focus:ring-blue-600'
+                        : 'border-slate-300 bg-white focus:ring-blue-600'
                     } focus:outline-none focus:ring-2 transition`}
                     placeholder={`장점 ${idx + 1} (18자 이내로 적어 주세요)`}
                   />
@@ -992,6 +1049,43 @@ export function Card4ConfirmCard({
               </div>
             );
           })}
+
+          {/* 현장 장점 원클릭 추천 태그칩 (장점 1~3 하단 배치 + 커서 위치 교체) */}
+          <div
+            data-testid="dealcard-strength-tag-chips"
+            className="rounded-xl border border-amber-200 bg-amber-50/75 p-3 space-y-2"
+          >
+            <p
+              data-testid="dealcard-strength-tag-caption"
+              className="text-sm font-extrabold text-amber-950"
+            >
+              {focusedPointIdx !== null
+                ? `현장 장점 바로 넣기 — 현재 장점 ${focusedPointIdx + 1} 선택됨 (누르면 장점 ${focusedPointIdx + 1}이 바뀝니다)`
+                : '현장 장점 바로 넣기 (원하는 장점 칸을 클릭한 뒤 누르면 그 칸이 바뀝니다)'}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {availableStrengthTags.map((tag) => {
+                const alreadyAdded = card4.points.some((p) => p.trim() === tag.label);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    data-testid={`dealcard-strength-chip-${tag.id}`}
+                    aria-pressed={alreadyAdded}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleApplyStrengthTag(tag.label)}
+                    className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-sm font-bold transition cursor-pointer ${
+                      alreadyAdded
+                        ? 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-amber-300 bg-white text-amber-950 hover:bg-amber-100'
+                    }`}
+                  >
+                    + {tag.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {onOpenPreSend && (

@@ -155,6 +155,96 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
   return facts;
 }
 
+export interface ExtractedMemoExactDetails {
+  exactAddress?: string;
+  buildingName?: string;
+  askingPriceManwon?: number;
+  completionYear?: number;
+  floorsAbove?: number;
+  floorsBelow?: number;
+  landAreaSqm?: number;
+  gfaSqm?: number;
+  zoning?: string;
+  parkingCount?: number;
+}
+
+const PYEONG_TO_SQM = 3.305785;
+const GENERIC_BLDG_NAMES = new Set(["근생", "올근생", "꼬마", "신축", "오피스", "메디컬", "리모델링"]);
+
+/**
+ * [IM 연계 전용] 중개사 원본 메모에서 IM 프리필용 정밀 원시 수치(실주소·건물명·정확한 매매가·층수·준공연도·면적)를 추출한다.
+ * 공개 딜카드(Card4)가 아닌 브로커 내부 IM 워크스페이스 초안 생성에만 사용한다.
+ */
+export function extractMemoExactAddressAndPrice(memoText: string): ExtractedMemoExactDetails {
+  const text = String(memoText || "").trim();
+  if (!text) return {};
+  const details: ExtractedMemoExactDetails = {};
+
+  const addrMatch = text.match(
+    /((?:서울(?:특별시|시)?|부산(?:광역시|시)?|대구(?:광역시|시)?|인천(?:광역시|시)?|광주(?:광역시|시)?|대전(?:광역시|시)?|울산(?:광역시|시)?|세종(?:특별자치시|시)?|경기(?:도)?|강원(?:특별자치도|도)?|충북|충남|전북|전남|경북|경남|제주(?:특별자치도|도)?|[가-힣]{2,6}(?:시|구|군))\s+(?:[가-힣]{1,6}(?:구|군|시)\s+)?[가-힣0-9]{1,8}(?:동(?:\d+가)?|읍|면|리|\d+가)\s+(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*,\s*\d{1,5}(?:-\d{1,5})?)*)/
+  );
+  if (addrMatch) {
+    details.exactAddress = addrMatch[1].replace(/\s+/g, " ").trim();
+    const tail = text.slice((addrMatch.index ?? 0) + addrMatch[0].length);
+    const bldgMatch = tail.match(
+      /^\s+([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션)(?=\s|,|$)/
+    );
+    if (bldgMatch && !GENERIC_BLDG_NAMES.has(bldgMatch[1])) {
+      details.buildingName = bldgMatch[0];
+    }
+  }
+
+  const askMatch = text.match(
+    /(?:매매가|매각가|매매\s*희망가|희망가|매가|호가|매매(?!\s*사례)|매각(?!\s*사례))\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:[.,]\d+)?\s*억(?:\s*[\d,]+\s*만(?:\s*원)?|\s*\d+\s*천)?)/
+  );
+  if (askMatch) {
+    const krw = parseKoreanPriceKrw(askMatch[1]);
+    if (krw && krw > 0) {
+      details.askingPriceManwon = Math.round(krw / 10_000);
+    }
+  }
+
+  const yearMatch = text.match(/(19\d{2}|20\d{2})\s*년\s*(?:준공|신축급|신축|리모델링|사용승인)/);
+  if (yearMatch) {
+    const yr = parseInt(yearMatch[1], 10);
+    if (yr >= 1960 && yr <= 2035) {
+      details.completionYear = yr;
+    }
+  }
+
+  const korFloorMatch = text.match(/지하\s*(\d+)\s*층\s*[~/·-]\s*지상\s*(\d+)\s*층/);
+  const engFloorMatch = text.match(/\bB(\d+)\s*[~/·-]\s*(\d+)F\b/i);
+  if (korFloorMatch) {
+    details.floorsBelow = parseInt(korFloorMatch[1], 10);
+    details.floorsAbove = parseInt(korFloorMatch[2], 10);
+  } else if (engFloorMatch) {
+    details.floorsBelow = parseInt(engFloorMatch[1], 10);
+    details.floorsAbove = parseInt(engFloorMatch[2], 10);
+  }
+
+  const toSqm = (raw: string, unit: string) => {
+    const n = parseFloat(raw.replace(/,/g, ""));
+    if (!Number.isFinite(n) || n <= 0) return undefined;
+    return /㎡|m2/i.test(unit) ? Math.round(n * 100) / 100 : Math.round(n * PYEONG_TO_SQM * 100) / 100;
+  };
+  const landM = text.match(
+    /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?(?:합산|합계|총합?|통합)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+  );
+  if (landM) details.landAreaSqm = toSqm(landM[1], landM[2]);
+  const gfaM = text.match(
+    /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?(?:합산|합계|총합?|통합)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+  );
+  if (gfaM) details.gfaSqm = toSqm(gfaM[1], gfaM[2]);
+
+  const zoningM = text.match(/(?:제[123]종\s*)?(?:일반|전용|준)?(?:주거|상업|공업)지역/);
+  if (zoningM) details.zoning = zoningM[0];
+
+  const parkingM = text.match(/주차\s*(?:[:：]?\s*)?(\d+)\s*대/);
+  if (parkingM) details.parkingCount = parseInt(parkingM[1], 10);
+
+  return details;
+}
+
 /**
  * 카톡·문자·메모 원문에서 딜카드 4항목 + 장점 3줄 + 한 줄 제목을 안전하게 추출한다.
  * - 번지/건물명/상호 등 민감 식별자는 cleanBlindPoints 및 validateBlindPoints 로 자동 마스킹
@@ -182,19 +272,26 @@ export function parseMemoIntoCard4(
   const text = String(memoText || "").trim();
   if (!text) return baseCard4;
 
-  // 1. 매물 유형(posture) 추정
+  // 1. 매물 유형(posture) 추정 — "2019년 신축급 / 준신축 / 신축 첫 입주" 같은 기축 상태 수식어는 개발 시그널에서 중립화
+  const textForPosture = text.replace(
+    /(?:(?:19|20)\d{2}\s*년\s*)?(?:신축급|준신축|신축\s*(?:첫\s*입주|완료|건물|빌딩)|올\s*신축)/g,
+    "기존건물"
+  );
   let posture: DealCardPosture = baseCard4.posture || "income";
   if (
-    /(?:신축[·\s/]*개발|신축\s*(?:용\s*)?부지|개발\s*(?:용\s*)?부지|합필\s*신축|나대지|철거\s*후|재건축\s*부지|부지\s*매각)/.test(
-      text
+    /(?:신축[·\s/]*(?:개발|리모델링)\s*부지|신축[·\s/]*개발|신축\s*(?:용\s*)?부지|개발\s*(?:용\s*)?부지|리모델링\s*부지|합필\s*신축|나대지|철거\s*후|재건축\s*부지|부지\s*매각)/.test(
+      textForPosture
     )
   ) {
     posture = "value_add";
-  } else if (/신축|개발|철거|부지|재건축|용적률/.test(text) && !/사옥/.test(text)) {
+  } else if (
+    /(?:신축|개발|철거|부지|재건축|용적률|대수선|밸류애드)/.test(textForPosture) &&
+    !/사옥/.test(textForPosture)
+  ) {
     posture = "value_add";
-  } else if (/사옥|자가\s*사용|본사|직접\s*입주|통임대\s*사옥/.test(text)) {
+  } else if (/사옥|자가\s*사용|본사|직접\s*입주|통임대\s*사옥/.test(textForPosture)) {
     posture = "owner_occupied";
-  } else if (/임대|수익|월세|만실|보증금|임차/.test(text)) {
+  } else if (/임대|수익|월세|만실|보증금|임차/.test(textForPosture)) {
     posture = "income";
   }
 
@@ -276,19 +373,19 @@ export function parseMemoIntoCard4(
 
   const gfaTotalMatch =
     text.match(
-      /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?(?:합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+      /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?(?:합산|합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
     ) ||
-    text.match(/(?:총|합계|통합)\s*(?:연면적|건평)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
+    text.match(/(?:\d+\s*(?:개동|필지)\s*)?(?:합산|총|합계|통합)\s*(?:연면적|건평)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
   const gfaSingleMatch = text.match(
     /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
 
   const landTotalMatch =
     text.match(
-      /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?(?:합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+      /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?(?:합산|합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
     ) ||
     text.match(
-      /(?:합계|총|전체|통합)\s*(?:대지면적|토지면적|대지|토지)(?:\s*\d+\s*필지)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+      /(?:\d+\s*필지\s*)?(?:합산|합계|총|전체|통합)\s*(?:대지면적|토지면적|대지|토지)(?:\s*\d+\s*필지)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
     );
   const landPlusExprMatch = text.match(
     /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?[:：]?\s*((?:(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2)\s*\+\s*)+(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2))/i
@@ -369,7 +466,7 @@ export function parseMemoIntoCard4(
     }
   } else {
     const explicitAskMatch = text.match(
-      /(?:매매가|매각가|희망가|매매\s*희망가|매가|매매|호가)\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:[.,]\d+)?\s*억(?:\s*\d+\s*천)?)/
+      /(?:매매가|매각가|매매\s*희망가|매각\s*희망가|희망가|매가|호가|매매(?!\s*사례)|매각(?!\s*사례))\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:[.,]\d+)?\s*억(?:\s*[\d,]+\s*만(?:\s*원)?|\s*\d+\s*천)?)/
     );
     let askKrw: number | null = null;
     if (explicitAskMatch) {
@@ -397,17 +494,64 @@ export function parseMemoIntoCard4(
     }
   }
 
-  // 6. 장점 3줄 추출 (블라인드 정제 + 천단위 쉼표 보존 + 18자 어절 경계 교정)
+  // 6. 장점 3줄 추출 (블라인드 정제 + 천단위 쉼표·괄호 보존 + 18자 어절 경계 교정)
   const sanitizedForClauses = text
     // 괄호 안 연락처·소유주 비공개 메모 제거 (앞부분 핵심 장점 문구는 살림)
-    .replace(/\([^)]*(?:01[016789]|\d{2,3}-\d{3,4}-\d{4}|사장님|대표님|소유주|건물주|연락처|비공개)[^)]*\)/g, "")
-    .replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g, "");
+    .replace(
+      /\([^)]*(?:01[016789]|\d{2,4}[-\s]?\d{3,4}[-\s]?\d{4}|사장님?|대표님?|전무님?|상무님?|원장님?|이사님?|부장님?|소유주|건물주|연락처|비공개)[^)]*\)/g,
+      ""
+    )
+    .replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g, "")
+    .replace(/\d{2,3}-\d{3,4}-\d{4}/g, "");
 
-  // 천단위 숫자 쉼표(예: 2억7,950만 / 1,230평)와 단어 내부 가운뎃점(예: 학원·카페)은 분할하지 않음
-  const rawClauses = sanitizedForClauses
-    .split(/\r?\n|;|,(?!\d{3}(?:\D|$))|\s+[\/·]\s+/)
-    .map((c) => c.trim())
-    .filter((c) => c.length >= 3);
+  // 다필지 지번 쉼표 및 건물명을 선행 마스킹한 뒤 괄호 깊이 0에서만 절 분할
+  const preCleanedForSplit = cleanBlindPoints([sanitizedForClauses])[0] ?? sanitizedForClauses;
+  const rawClauses: string[] = [];
+  let clauseBuf = "";
+  let parenDepth = 0;
+  for (let idx = 0; idx < preCleanedForSplit.length; idx++) {
+    const ch = preCleanedForSplit[idx];
+    if (ch === "(") {
+      parenDepth++;
+      clauseBuf += ch;
+      continue;
+    }
+    if (ch === ")") {
+      if (parenDepth > 0) parenDepth--;
+      clauseBuf += ch;
+      continue;
+    }
+    if (parenDepth === 0) {
+      if (ch === "\n" || ch === ";") {
+        if (clauseBuf.trim().length >= 3) rawClauses.push(clauseBuf.trim());
+        clauseBuf = "";
+        continue;
+      }
+      if (ch === ",") {
+        const prev = idx > 0 ? preCleanedForSplit[idx - 1] : "";
+        const rest = preCleanedForSplit.slice(idx + 1);
+        const isThousandsComma = /\d/.test(prev) && /^\d{3}(?:\D|$)/.test(rest);
+        if (!isThousandsComma) {
+          if (clauseBuf.trim().length >= 3) rawClauses.push(clauseBuf.trim());
+          clauseBuf = "";
+          continue;
+        }
+      }
+      if (/\s/.test(ch)) {
+        const sepMatch = preCleanedForSplit.slice(idx).match(/^\s+[\/·]\s+/);
+        if (sepMatch) {
+          if (clauseBuf.trim().length >= 3) rawClauses.push(clauseBuf.trim());
+          clauseBuf = "";
+          idx += sepMatch[0].length - 1;
+          continue;
+        }
+      }
+    }
+    clauseBuf += ch;
+  }
+  if (clauseBuf.trim().length >= 3) {
+    rawClauses.push(clauseBuf.trim());
+  }
 
   const formatManWithoutDecimalEok = (totalMan: number): string => {
     if (totalMan >= 10000) {
@@ -456,7 +600,7 @@ export function parseMemoIntoCard4(
     // 다필지 부속 지번 조각(예: "315-3", "315-7 외 1필지", "1필지 82평")이나 가격/면적 스펙 절은 장점 후보에서 제외
     if (
       /^(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*외\s*\d*\s*필지)?$/.test(clause) ||
-      /^(?:\d+\s*필지|(?:대지|토지|대지면적|토지면적|연면적|건평|매가|매매가|매각가|희망가)(?:\s*\d+\s*필지)?(?:\s*합계|\s*총)?)\s*[:：]?\s*(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2|억)/i.test(
+      /^(?:\d+\s*필지(?:\s*합산)?\s*)?(?:대지|토지|대지면적|토지면적|연면적|건평|매가|매매가|매각가|희망가)(?:\s*\d+\s*필지)?(?:\s*합산|\s*합계|\s*총)?\s*[:：]?\s*(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2|억)/i.test(
         clause
       )
     ) {
@@ -469,6 +613,10 @@ export function parseMemoIntoCard4(
       cleaned.includes("●●●") ||
       cleaned.includes("OO-OO") ||
       cleaned.includes("OO번지") ||
+      /인근\s*OO(?:빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션)/.test(cleaned) ||
+      /^(?:서울|경기|인천|부산|대구|광주|대전|울산|세종|[가-힣]{2,6}(?:시|도|구|군|동|읍|면)).*(?:매각|매매가|매매\s*희망가|매각\s*희망가|희망가|매가)\s*[\d,.]+\s*(?:억|조)/.test(
+        cleaned
+      ) ||
       /^(?:서울(?:특별시|시)?|경기(?:도)?|인천(?:광역시|시)?|부산(?:광역시|시)?|[가-힣]{2,6}(?:시|도|구|군))(?:\s+[가-힣0-9]{2,8}(?:구|군|시|동|읍|면|리|가))*\s*인근(?:\s*외\s*\d*\s*필지|\s*다필지)?$/.test(
         cleaned
       )
@@ -493,8 +641,8 @@ export function parseMemoIntoCard4(
 
   const fallbackByPosture: Record<DealCardPosture, [string, string, string]> = {
     income: ["접근성 좋은 입지", "안정적 임차 구성", "꾸준한 임대수익 구조"],
-    owner_occupied: ["사옥 활용 쉬운 구조", "출퇴근 편한 입지", "즉시 검토 가능 매물"],
-    value_add: ["신축·리모델링 검토 부지", "가치 상승 여지 보유", "토지 활용도 높은 입지"],
+    owner_occupied: ["사옥 활용 쉬운 구조", "출퇴근 편한 입지", "즉시 입주 협의 매물"],
+    value_add: ["신축·리모델링 유망 부지", "건축·수익 개선 여지", "토지 활용도 높은 입지"],
   };
 
   const existingValid = (baseCard4.points || []).map((p) => p.trim()).filter(Boolean);

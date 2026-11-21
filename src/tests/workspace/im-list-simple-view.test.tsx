@@ -119,7 +119,7 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     global.fetch = originalFetch;
   });
 
-  it("defaults to 간단히: rows show title · date · status only, no row buttons, no black banner", async () => {
+  it("defaults to 간단히: rows show inline 복제/삭제 actions, no floating editor bar, no black banner", async () => {
     await renderPage();
 
     const listSlot = q('[data-testid="im-list-slot"]');
@@ -138,11 +138,8 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     expect(q('[data-testid="im-item-im-c-date"]')?.textContent).toBe(formatListDate(OLD_DATE));
     expect(rowC?.textContent).not.toContain("서울특별시");
 
-    for (const row of rows()) {
-      expect(row.querySelectorAll("button").length).toBe(0);
-    }
-    expect(container.querySelector('[data-testid^="im-duplicate-"]')).toBeNull();
-    expect(container.querySelector('[data-testid^="im-delete-"]')).toBeNull();
+    expect(container.querySelector('[data-testid="im-duplicate-im-a"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="im-delete-im-a"]')).not.toBeNull();
 
     // Newest first, grouped by date
     expect(rows().map((r) => r.getAttribute("data-testid"))).toEqual([
@@ -155,15 +152,15 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     // No nested scroller inside the panel
     expect(listSlot?.querySelector(".overflow-y-auto")).toBeNull();
 
-    // Selected-item actions live in the editor column in simple mode
+    // Floating editor action bar is removed from Column 2
     const editor = q('[data-testid="im-editor-slot"]');
-    expect(editor?.querySelector('[data-testid="ws-selected-item-actions"]')).not.toBeNull();
+    expect(editor?.querySelector('[data-testid="ws-selected-item-actions"]')).toBeNull();
 
     // Bottom primary actions are untouched
     expect(q('[data-testid="im-quick-generate-btn"]')).not.toBeNull();
   });
 
-  it("switching to 자세히 restores the rich card with 복제/삭제 + thumbnail and hides editor actions", async () => {
+  it("switching to 자세히 restores the rich card with 복제/삭제 + thumbnail and keeps editor actions removed", async () => {
     await renderPage();
 
     await act(async () => {
@@ -215,16 +212,11 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     expect(q('[data-testid="im-posture-tab-all"]')?.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("editor 복제하기 duplicates the selected IM via the existing flow", async () => {
+  it("inline 복제 duplicates the selected IM via the existing flow", async () => {
     await renderPage();
 
     await act(async () => {
-      q<HTMLElement>('[data-testid="im-item-im-b"]')!.click();
-    });
-    expect(q('[data-testid="im-item-im-b"]')?.getAttribute("aria-current")).toBe("true");
-
-    await act(async () => {
-      q<HTMLButtonElement>('[data-testid="ws-selected-duplicate-btn"]')!.click();
+      q<HTMLButtonElement>('[data-testid="im-duplicate-im-b"]')!.click();
     });
 
     expect(rows().length).toBe(4);
@@ -238,17 +230,15 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     expect(storedCopy?.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it("editor 삭제하기 still requires the existing confirmation modal before deleting", async () => {
+  it("inline 삭제 enforces title-match confirmation before deleting populated IM", async () => {
     await renderPage();
 
     await act(async () => {
-      q<HTMLElement>('[data-testid="im-item-im-c"]')!.click();
-    });
-
-    await act(async () => {
-      q<HTMLButtonElement>('[data-testid="ws-selected-delete-btn"]')!.click();
+      q<HTMLButtonElement>('[data-testid="im-delete-im-c"]')!.click();
     });
     expect(q('[data-testid="confirm-delete-modal"]')).not.toBeNull();
+    expect(q('[data-testid="confirm-delete-match-input"]')).not.toBeNull();
+    expect(q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.disabled).toBe(true);
     expect(rows().length).toBe(3);
 
     await act(async () => {
@@ -258,8 +248,18 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     expect(q('[data-testid="im-item-im-c"]')).not.toBeNull();
 
     await act(async () => {
-      q<HTMLButtonElement>('[data-testid="ws-selected-delete-btn"]')!.click();
+      q<HTMLButtonElement>('[data-testid="im-delete-im-c"]')!.click();
     });
+    const matchInput = q<HTMLInputElement>('[data-testid="confirm-delete-match-input"]')!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      setter?.call(matchInput, "성수동 신축 부지");
+      matchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.disabled).toBe(false);
     await act(async () => {
       q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.click();
     });

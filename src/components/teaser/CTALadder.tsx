@@ -143,9 +143,7 @@ export function CTALadder({
             data-cta-action={hasImDoc ? "상세 IM 신청하기" : "담당 중개사에게 상세 자료 요청"}
             className="min-h-[52px] bg-amber-400 hover:bg-amber-500 text-slate-950 text-sm sm:text-base font-extrabold py-3 px-4 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-1.5 text-center active:scale-95 cursor-pointer"
           >
-            <span>
-              {hasImDoc ? TERMS.recipientImRequestCta : "📩 담당 중개사에게 상세 자료 요청"}
-            </span>
+            <span>{TERMS.recipientImRequestCta}</span>
           </button>
         )}
       </div>
