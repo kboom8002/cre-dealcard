@@ -174,8 +174,18 @@ export function InboxDispatchTimeline({
         </h3>
         <ul className="mt-3 space-y-2.5">
           {thread.events.length === 0 ? (
-            <li className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-600">
-              상세 자료를 열람했습니다
+            <li
+              data-testid="inbox-events-empty"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-600 space-y-1"
+            >
+              <p className="font-semibold text-slate-700">
+                아직 열람 및 상담 기록이 없습니다.
+              </p>
+              {dispatchHistory.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  우측 자료 전달에서 딜카드·IM·뉴스레터를 보내면 기록이 자동으로 쌓입니다.
+                </p>
+              )}
             </li>
           ) : (
             thread.events.map((ev) => (

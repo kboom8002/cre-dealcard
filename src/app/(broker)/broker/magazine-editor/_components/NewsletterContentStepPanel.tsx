@@ -169,7 +169,7 @@ export function NewsletterContentStepPanel({
             onFocusCapture={() => onNotifyEditorFocus("nl-unit-stats-0")}
           >
             <p className="text-sm font-extrabold text-slate-800">
-              ① 기준 권역 선택
+              기준 권역 선택
             </p>
             <div className="flex flex-wrap gap-2" role="group" aria-label="월간 통계 권역 선택">
               {MONTHLY_REGION_PRESETS.map((preset) => {
@@ -183,7 +183,7 @@ export function NewsletterContentStepPanel({
                     onClick={() => onChangeMonthlyRegion(preset.key)}
                     className={`min-h-[44px] rounded-xl border px-3.5 py-2 text-sm font-extrabold transition ${
                       selected
-                        ? "border-blue-600 bg-blue-700 text-white shadow-2xs"
+                        ? "border-blue-500 bg-blue-50/90 text-blue-950 shadow-2xs"
                         : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
@@ -199,7 +199,7 @@ export function NewsletterContentStepPanel({
             onFocusCapture={() => onNotifyEditorFocus("nl-unit-stats-0")}
           >
             <p className="text-sm font-extrabold text-slate-800">
-              ② 상단 그래픽 2선 조합 선택
+              상단 그래픽 2선 조합 선택
             </p>
             <div className="grid grid-cols-1 gap-2.5" role="group" aria-label="통계 그래픽 2선 조합">
               {MONTHLY_GRAPHIC_PAIR_PRESETS.map((pairPreset) => {
@@ -232,7 +232,7 @@ export function NewsletterContentStepPanel({
           <div className="space-y-3 pt-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-extrabold text-slate-800">
-                ③ 대표 수치 · 매수자 체크포인트 다듬기 (선택)
+                대표 수치 · 매수자 체크포인트 다듬기 (선택)
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {monthlyCharts.some((c) => c.sourceMode === "broker_custom") && (
@@ -357,7 +357,7 @@ export function NewsletterContentStepPanel({
             </div>
             <p className="text-sm text-slate-600">
               {isSectionEnabled("field_note")
-                ? "1~3줄만 간단히 적고 [AI로 5줄 윤문하기]를 누르면 70대 매수자도 읽기 쉽게 다듬어 드립니다."
+                ? "1~3줄만 간단히 적고 [AI로 5줄 윤문하기]를 누르면 매수자·건물주도 한눈에 읽기 쉽게 다듬어 드립니다."
                 : "코너가 꺼져 있어 입력칸을 접어 두었습니다. 위 [코너 켜기]를 누르면 바로 작성할 수 있습니다."}
             </p>
           </div>

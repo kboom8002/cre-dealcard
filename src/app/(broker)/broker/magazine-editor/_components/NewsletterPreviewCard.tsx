@@ -234,43 +234,66 @@ export function NewsletterPreviewCard({
             </div>
           ) : (
             <ul className="space-y-2.5">
-              {selectedDeals.map((deal) => (
-                <li key={deal.id}>
-                  <PreviewEditableUnit
-                    unitId={`nl-unit-deal-${deal.id}`}
-                    label={`${deal.title} 추천글`}
-                    isActive={activeUnitId === `nl-unit-deal-${deal.id}`}
-                    onActivate={onFocusEditorUnit}
-                    className="rounded-xl border border-slate-200 bg-white p-3.5 flex items-start gap-3"
-                  >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                      {deal.photoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={deal.photoUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Building2 className="h-6 w-6 text-slate-500" aria-hidden="true" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <p className="text-base font-extrabold text-slate-900 truncate">
-                        {deal.title}
-                      </p>
-                      <p className="text-sm font-medium text-slate-600">
-                        {deal.address} · 매매가 {deal.price}
-                      </p>
-                      {dealComments[deal.id]?.trim() && (
-                        <p className="text-sm font-bold text-blue-900 bg-blue-50 rounded-lg px-2.5 py-1.5">
-                          {dealComments[deal.id]}
+              {selectedDeals.map((deal) => {
+                const quadRegion =
+                  (deal.areaSignal && deal.areaSignal.trim()) ||
+                  (deal.address && deal.address !== "주소 미입력" ? deal.address : "서울 주요권역");
+                const quadUse =
+                  (deal.assetType && deal.assetType.trim()) || "근린생활시설";
+                const quadArea =
+                  (deal.areaLabel && deal.areaLabel.trim()) || "규모 상세확인";
+                const quadPrice =
+                  (deal.priceBand && deal.priceBand.trim()) ||
+                  (deal.price && deal.price !== "-" ? deal.price : "가격 협의");
+                return (
+                  <li key={deal.id}>
+                    <PreviewEditableUnit
+                      unitId={`nl-unit-deal-${deal.id}`}
+                      label={`${deal.title} 추천글`}
+                      isActive={activeUnitId === `nl-unit-deal-${deal.id}`}
+                      onActivate={onFocusEditorUnit}
+                      className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-white"
+                    >
+                      <div
+                        data-testid={`preview-deal-blind-grid-${deal.id}`}
+                        className="grid grid-cols-2 grid-rows-2 bg-[#0F172A] text-white"
+                      >
+                        <div className="flex items-center justify-center border-b border-r border-slate-400/25 px-3 py-2 text-center">
+                          <span className="line-clamp-1 text-sm font-extrabold text-slate-50">
+                            {quadRegion}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center border-b border-slate-400/25 px-3 py-2 text-center">
+                          <span className="line-clamp-1 text-sm font-extrabold text-sky-400">
+                            {quadUse}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center border-r border-slate-400/25 px-3 py-2 text-center">
+                          <span className="line-clamp-1 text-sm font-extrabold text-slate-200">
+                            {quadArea}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center px-3 py-2 text-center">
+                          <span className="line-clamp-1 text-sm font-extrabold text-amber-400">
+                            {quadPrice}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 bg-amber-50/90 px-3.5 py-2.5 border-t border-amber-200">
+                        <p className="min-w-0 flex-1 line-clamp-1 text-sm font-extrabold text-slate-900">
+                          {dealComments[deal.id]?.trim() ||
+                            (deal.yield && deal.yield !== "-"
+                              ? `연 수익률 ${deal.yield} · 핵심 상권 추천 매물`
+                              : "핵심 상권 매물 · 딜카드에서 세부 특징 확인")}
                         </p>
-                      )}
-                    </div>
-                  </PreviewEditableUnit>
-                </li>
-              ))}
+                        <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-sm font-extrabold text-slate-950">
+                          {deal.hasIm === true ? "IM · 딜카드" : "딜카드 보기"}
+                        </span>
+                      </div>
+                    </PreviewEditableUnit>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </PreviewEditableUnit>

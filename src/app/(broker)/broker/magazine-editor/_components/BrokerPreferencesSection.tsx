@@ -45,7 +45,7 @@ export function BrokerPreferencesSection({
   return (
     <section
       data-testid="broker-newsletter-preferences-card"
-      aria-label="내 주력 권역 및 뉴스 큐레이션 분야 설정"
+      aria-label="내 주력 권역 및 맞춤 뉴스 분야 설정"
       className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 shadow-2xs space-y-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -100,7 +100,7 @@ export function BrokerPreferencesSection({
 
         <div className="space-y-2">
           <p className="text-sm font-extrabold text-slate-800">
-            ① 주력 상권 · 권역 선택 (복수 선택 가능)
+            주력 상권 · 권역 선택 (복수 선택 가능)
           </p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="주력 권역 선택">
             {BROKER_REGION_PRESETS.map((preset) => {
@@ -113,20 +113,13 @@ export function BrokerPreferencesSection({
                   data-active-pill={active ? "true" : undefined}
                   aria-pressed={active}
                   onClick={() => onTogglePreferredRegion(preset.label)}
-                  style={{
-                    backgroundColor: active ? "#1D4ED8" : "#F8FAFC",
-                    borderColor: active ? "#1E40AF" : "#CBD5E1",
-                    color: active ? "#FFFFFF" : "#1E293B",
-                  }}
                   className={`min-h-[44px] rounded-xl border px-3.5 py-2 text-sm font-extrabold transition ${
                     active
-                      ? "border-blue-700 bg-blue-700 text-white shadow-xs"
+                      ? "border-blue-500 bg-blue-50/90 text-blue-950 shadow-2xs"
                       : "border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100"
                   }`}
                 >
-                  <span style={{ color: active ? "#FFFFFF" : "#1E293B" }}>
-                    {preset.label}
-                  </span>
+                  <span>{preset.label}</span>
                 </button>
               );
             })}
@@ -135,9 +128,9 @@ export function BrokerPreferencesSection({
 
         <div className="space-y-2">
           <p className="text-sm font-extrabold text-slate-800">
-            ② 뉴스 큐레이션 관심 분야 (복수 선택 가능)
+            관심 분야 맞춤 뉴스 선택 (복수 선택 가능)
           </p>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="뉴스 큐레이션 분야 선택">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="맞춤 뉴스 분야 선택">
             {SPECIFIC_NEWS_CHANNELS.map((ch) => {
               const active = preferredChannels.includes(ch.id);
               return (

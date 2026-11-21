@@ -125,8 +125,8 @@ describe("P2 뉴스레터 에디터 미니멀리스트 인지 최적화 & 양방
       Boolean(dealsSection.compareDocumentPosition(brokerSection) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true);
 
-    // [① 표지 제목 입력하기] 클릭 -> #newsletter-headline-input 포커스
-    const primaryBtn = within(pregenCard).getByRole("button", { name: "① 표지 제목 입력하기" });
+    // [표지 제목 입력하기] 클릭 -> #newsletter-headline-input 포커스
+    const primaryBtn = within(pregenCard).getByRole("button", { name: "표지 제목 입력하기" });
     await act(async () => {
       fireEvent.click(primaryBtn);
     });

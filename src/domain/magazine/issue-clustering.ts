@@ -234,9 +234,17 @@ const BUYER_JARGON_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/아트테크/gi, '미술품 전시·절세'],
   [/플래그십/gi, '대표 매장'],
   [/앵커\s*테넌트/gi, '핵심 우량 세입자'],
+  [/신축·밸류업/gi, '신축·리모델링'],
+  [/밸류업\s*여지/gi, '건축·수익 개선 여지'],
+  [/밸류업/gi, '가치 제고'],
+  [/캡레이트|Cap\s*Rate/gi, '연 임대수익률'],
+  [/캡익스|\bCapEx\b/gi, '시설 보수비'],
+  [/AI\s*인텔리전스/gi, '시장 분석'],
+  [/큐레이션/gi, '맞춤 선별'],
+  [/(?:신중한|면밀한)\s*검토/gi, '현장 확인'],
 ];
 
-/** 전문용어·영문 외래어를 70대 매수자도 바로 이해할 수 있는 일상 한국어로 풀어쓴다. */
+/** 전문용어·영문 외래어를 매수자·건물주가 바로 이해할 수 있는 일상 한국어로 풀어쓴다. */
 export function humanizeBuyerCopy(text: string): string {
   if (!text) return '';
   let out = text;

@@ -7,6 +7,7 @@ export type InboxFilterType =
   | "vip"
   | "buyer"
   | "seller"
+  | "newsletter"
   | "emailable"
   | "clients"
   | "all";
@@ -89,6 +90,8 @@ export interface InboxThreadItem {
   hasCorrectionNotice?: boolean;
   correctionMessage?: string;
   newsletterSubscribed?: boolean;
+  hasIm?: boolean;
+  hasDealCard?: boolean;
 }
 
 export interface BrokerInventoryDeal {
@@ -98,6 +101,8 @@ export interface BrokerInventoryDeal {
   priceBand: string;
   askingPriceManwon: number;
   capRatePct: number;
+  hasIm?: boolean;
+  hasDealCard?: boolean;
 }
 
 export interface InboxWorkspacePageProps {
@@ -437,6 +442,7 @@ export function parseFilterParam(raw: string | null): InboxFilterType | null {
   if (normalized === "vip") return "vip";
   if (normalized === "buyer") return "buyer";
   if (normalized === "seller") return "seller";
+  if (normalized === "newsletter") return "newsletter";
   if (normalized === "emailable") return "emailable";
   if (normalized === "clients" || normalized === "subscribers") return "clients";
   if (normalized === "all") return "all";
@@ -503,6 +509,12 @@ export function matchesInboxThreadFilter(
   if (filter === "seller") {
     return thread.clientRole === "seller";
   }
+  if (filter === "newsletter") {
+    return (
+      !thread.id.startsWith("view_") &&
+      (Boolean(thread.newsletterSubscribed) || thread.id.startsWith("sub_"))
+    );
+  }
   if (filter === "emailable") {
     const email = (thread.clientEmail || "").trim();
     return (
@@ -548,55 +560,71 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
   const buildingTitle =
     String(raw?.buildingTitle || raw?.building_label || "관심 매물").trim() || "관심 매물";
   const buildingId = String(raw?.buildingId || raw?.building_id || "").trim();
+  const hasIm: boolean | undefined =
+    typeof raw?.hasIm === "boolean" ? raw.hasIm : undefined;
+  const hasDealCard: boolean | undefined =
+    typeof raw?.hasDealCard === "boolean" ? raw.hasDealCard : undefined;
+  const openCountRaw = Math.max(0, Number(raw?.openCount ?? 0));
+  const rawIdStr = String(raw?.id || "");
+  const hasActualView = openCountRaw > 0 || rawIdStr.startsWith("view_");
   const cleanMessage =
     String(
       raw?.cleanMessage ||
         parsedReason.cleanMessage ||
         raw?.latestEvent ||
-        "상세 자료를 열람했습니다."
-    ).trim() || "상세 자료를 열람했습니다.";
+        (hasActualView ? "상세 자료를 열람했습니다." : "")
+    ).trim() || (hasActualView ? "상세 자료를 열람했습니다." : "상담 이력을 확인해 주세요.");
 
   const focusedSections = Array.isArray(raw?.focusedSections)
     ? raw.focusedSections.filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0)
     : [];
 
-  const events: RecipientEvent[] =
-    Array.isArray(raw?.events) && raw.events.length > 0
-      ? raw.events.map((evRaw: unknown, idx: number) => {
-          const ev = (evRaw && typeof evRaw === "object" ? evRaw : {}) as Record<string, unknown>;
-          return {
-            id: String(ev?.id || `ev-${raw?.id || idx}-${idx}`),
-            eventType:
-              ev?.eventType === "gate_request" ||
-              ev?.eventType === "dwell" ||
-              ev?.eventType === "share"
-                ? ev.eventType
-                : "open",
-            description:
-              parseRawGateReason(ev?.description).cleanMessage ||
-              String(ev?.description || "상세 자료를 열람했습니다."),
-            timestamp: String(ev?.timestamp || "방금"),
-            sectionName: typeof ev?.sectionName === "string" ? ev.sectionName : undefined,
-          };
-        })
-      : [
-          {
-            id: `ev-${raw?.id || Date.now()}`,
-            eventType: mappedStatus === "pending_gate" ? "gate_request" : "open",
-            description:
-              mappedStatus === "pending_gate"
-                ? `IM 열람 요청: ${cleanMessage}`
-                : "상세 자료를 열람했습니다",
-            timestamp: String(raw?.updatedAt || "방금"),
-          },
-        ];
+  const events: RecipientEvent[] = Array.isArray(raw?.events)
+    ? raw.events.map((evRaw: unknown, idx: number) => {
+        const ev = (evRaw && typeof evRaw === "object" ? evRaw : {}) as Record<string, unknown>;
+        return {
+          id: String(ev?.id || `ev-${raw?.id || idx}-${idx}`),
+          eventType:
+            ev?.eventType === "gate_request" ||
+            ev?.eventType === "dwell" ||
+            ev?.eventType === "share"
+              ? ev.eventType
+              : "open",
+          description:
+            parseRawGateReason(ev?.description).cleanMessage ||
+            String(ev?.description || "상세 자료를 열람했습니다."),
+          timestamp: String(ev?.timestamp || "방금"),
+          sectionName: typeof ev?.sectionName === "string" ? ev.sectionName : undefined,
+        };
+      })
+    : mappedStatus === "pending_gate"
+    ? [
+        {
+          id: `ev-${raw?.id || Date.now()}`,
+          eventType: "gate_request",
+          description: `IM 열람 요청: ${cleanMessage}`,
+          timestamp: String(raw?.updatedAt || "방금"),
+        },
+      ]
+    : hasActualView
+    ? [
+        {
+          id: `ev-${raw?.id || Date.now()}`,
+          eventType: "open",
+          description: "상세 자료를 열람했습니다",
+          timestamp: String(raw?.updatedAt || "방금"),
+        },
+      ]
+    : [];
 
   const shareToken = String(raw?.shareToken || "").trim();
   const shareUrl =
     typeof raw?.shareUrl === "string" && raw.shareUrl
       ? raw.shareUrl
       : buildingId
-      ? shareToken
+      ? hasIm === false
+        ? `/dc/${encodeURIComponent(buildingId)}`
+        : shareToken
         ? `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`
         : `/im-lite/${encodeURIComponent(buildingId)}`
       : "";
@@ -738,6 +766,8 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
     correctionMessage:
       typeof raw?.correctionMessage === "string" ? raw.correctionMessage : undefined,
     newsletterSubscribed: Boolean(raw?.newsletterSubscribed),
+    ...(hasIm !== undefined ? { hasIm } : {}),
+    ...(hasDealCard !== undefined ? { hasDealCard } : {}),
   };
 }
 

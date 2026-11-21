@@ -152,7 +152,7 @@ export async function handleGetInbox(req: NextRequest) {
             dispatchHistory: [] as InboxDispatchHistoryItem[],
             buildingId: c.buildingId || '',
             buildingTitle: c.buildingTitle || '관심 매물 상담',
-            shareUrl: c.buildingId ? `/im-lite/${encodeURIComponent(c.buildingId)}` : '',
+            shareUrl: c.buildingId ? `/dc/${encodeURIComponent(c.buildingId)}` : '',
             shareToken: '',
             status: 'active',
             gateStatus: 'none',
@@ -338,15 +338,34 @@ export async function handleGetInbox(req: NextRequest) {
   const quickRecords = allowMem
     ? listAllQuickImRecords().filter((r) => Boolean(r.ownerId) && r.ownerId === userId && !isDealCardDeleted(r.buildingId))
     : [];
-  let quickInventory = quickRecords.map((r) => ({
-    buildingId: r.buildingId,
-    title: r.buildingName || `${r.card4.region} ${r.card4.use}`.trim(),
-    region: r.card4.region || r.address,
-    priceBand: r.card4.priceBand,
-    askingPriceManwon: r.askingPriceManwon,
-    capRatePct: r.basicImDoc?.facts?.valuation?.capRatePct ?? null,
-    posture: r.posture,
-  }));
+  const imBuildingIdSet = new Set<string>();
+  const dealCardBuildingIdSet = new Set<string>();
+  let quickInventory: Array<{
+    buildingId: string;
+    title: string;
+    region: string;
+    priceBand: string;
+    askingPriceManwon: number;
+    capRatePct: number | null;
+    posture: string;
+    hasIm?: boolean;
+    hasDealCard?: boolean;
+  }> = quickRecords.map((r) => {
+    const hasQuickIm = Boolean(r.basicImDoc);
+    if (hasQuickIm) imBuildingIdSet.add(r.buildingId);
+    if (r.card4) dealCardBuildingIdSet.add(r.buildingId);
+    return {
+      buildingId: r.buildingId,
+      title: r.buildingName || `${r.card4.region} ${r.card4.use}`.trim(),
+      region: r.card4.region || r.address,
+      priceBand: r.card4.priceBand,
+      askingPriceManwon: r.askingPriceManwon,
+      capRatePct: r.basicImDoc?.facts?.valuation?.capRatePct ?? null,
+      posture: r.posture,
+      hasIm: hasQuickIm,
+      hasDealCard: Boolean(r.card4),
+    };
+  });
 
   let buildingIds: string[] = [];
   const verifiedOwnedUuidSet = new Set<string>();
@@ -365,6 +384,11 @@ export async function handleGetInbox(req: NextRequest) {
     if (wsItem.buildingId) verifiedOwnedUuidSet.add(wsItem.buildingId);
     if (!buildingIds.includes(primaryBId)) buildingIds.push(primaryBId);
     if (wsItem.title && !buildingTitleById.has(primaryBId)) buildingTitleById.set(primaryBId, wsItem.title);
+    if (wsItem.kind === 'im') {
+      keys.forEach((k) => imBuildingIdSet.add(k));
+    } else if (wsItem.kind === 'dealcard') {
+      keys.forEach((k) => dealCardBuildingIdSet.add(k));
+    }
   }
 
   for (const bRaw of Array.isArray(bldgRes?.data) ? bldgRes.data : []) {
@@ -399,7 +423,15 @@ export async function handleGetInbox(req: NextRequest) {
     const imItem = asRecord(meta.im_item);
     const card4 = asRecord(meta.card4);
     const bIdStr = String(meta.building_id || imItem.buildingId || imItem.id || act.entity_id || '').trim();
-    if (!bIdStr || bIdStr === userId || seenLatestActPerBuilding.has(bIdStr)) continue;
+    if (!bIdStr || bIdStr === userId) continue;
+
+    if (act.event_type === 'im_upserted' || act.event_type === 'im_restored') {
+      imBuildingIdSet.add(bIdStr);
+    } else if (act.event_type === 'dealcard_upserted' || act.event_type === 'dealcard_restored') {
+      dealCardBuildingIdSet.add(bIdStr);
+    }
+
+    if (seenLatestActPerBuilding.has(bIdStr)) continue;
     seenLatestActPerBuilding.add(bIdStr);
 
     if (
@@ -447,7 +479,22 @@ export async function handleGetInbox(req: NextRequest) {
   }
 
   buildingIds = buildingIds.filter((id) => !forbiddenBuildingSet.has(id) && !deletedBuildingSet.has(id));
-  quickInventory = quickInventory.filter((q) => !forbiddenBuildingSet.has(String(q.buildingId)) && !deletedBuildingSet.has(String(q.buildingId)));
+  quickInventory = quickInventory
+    .filter((q) => !forbiddenBuildingSet.has(String(q.buildingId)) && !deletedBuildingSet.has(String(q.buildingId)))
+    .map((q) => {
+      const bid = String(q.buildingId);
+      const hasIm =
+        typeof q.hasIm === 'boolean'
+          ? q.hasIm
+          : imBuildingIdSet.has(bid)
+            ? true
+            : dealCardBuildingIdSet.has(bid)
+              ? false
+              : true;
+      const hasDealCard =
+        typeof q.hasDealCard === 'boolean' ? q.hasDealCard : dealCardBuildingIdSet.has(bid) || true;
+      return { ...q, hasIm, hasDealCard };
+    });
   const allOwnedBuildingIds = Array.from(new Set([...buildingIds, ...quickInventory.map((q) => String(q.buildingId)).filter(Boolean)]));
 
   const uuidOwnedIds = isUuid(userId) ? allOwnedBuildingIds.filter((id) => isUuid(id)) : allOwnedBuildingIds;
@@ -736,6 +783,8 @@ export async function handleGetInbox(req: NextRequest) {
     allOwnedBuildingIds,
     deletedBuildingSet,
     buildingTitleById,
+    imBuildingIdSet,
+    dealCardBuildingIdSet,
     isThreadArchived,
   };
 

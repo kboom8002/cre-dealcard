@@ -268,9 +268,24 @@ export function appendCrmAndSubscriberThreads(
           Boolean(recipientLink?.revoked_at) ||
           Boolean(bId && inboxState.revokedBuildings?.[bId]?.revoked)));
 
+    const resolvedHasIm =
+      !bId || !ctx.imBuildingIdSet
+        ? undefined
+        : ctx.imBuildingIdSet.has(bId)
+          ? true
+          : ctx.dealCardBuildingIdSet?.has(bId)
+            ? false
+            : true;
+    const resolvedHasDealCard =
+      !bId || !ctx.dealCardBuildingIdSet
+        ? undefined
+        : ctx.dealCardBuildingIdSet.has(bId);
     const resolvedShareToken =
       issuedTokenByThreadId.get(tid) || issuedTokenByThreadId.get(rawId) || recipientLink?.token || threadRevoke?.shareToken || '';
-    const resolvedShareUrl = !isRevoked && bId ? buildThreadShareUrl(bId, resolvedShareToken) : '';
+    const resolvedShareUrl =
+      !isRevoked && bId
+        ? buildThreadShareUrl(bId, resolvedShareToken, resolvedHasIm !== false)
+        : '';
 
     const rowConsentStatus = String(row.consent_status ?? dbSup?.consent_status ?? '').trim().toLowerCase();
     const isRowConsentPendingOrBlocked =
@@ -359,6 +374,8 @@ export function appendCrmAndSubscriberThreads(
       freeMemo: resolvedFreeMemo,
       focusedSections: customViews.focusedSections,
       newsletterSubscribed: resolvedNewsletterSubscribed,
+      ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
+      ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       events: [
         ...customViews.scopedViews.map((vRaw: unknown) => {
           const v = asRecord(vRaw);
@@ -688,6 +705,8 @@ export function attachDispatchAndFilterThreads(params: {
         return !isAnonView && t.clientRole === 'buyer';
       case 'seller':
         return !isAnonView && t.clientRole === 'seller';
+      case 'newsletter':
+        return !isAnonView && (t.newsletterSubscribed === true || String(t.id || '').startsWith('sub_'));
       case 'tenant':
         return !isAnonView && t.clientRole === 'tenant';
       case 'partner':

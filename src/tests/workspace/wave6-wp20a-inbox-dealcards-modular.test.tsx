@@ -627,6 +627,19 @@ describe("Wave 6 — WP-20A: Inbox & DealCards Modularization + CRM/Audit/Profil
     const confirmDeleteBtn = container.querySelector(
       '[data-testid="confirm-delete-confirm-btn"]'
     ) as HTMLButtonElement;
+    // Decision 1-B: VIP 고객 삭제는 고객 성함 재입력 후 확정 활성화
+    const matchInput = container.querySelector(
+      '[data-testid="confirm-delete-match-input"]'
+    ) as HTMLInputElement | null;
+    expect(matchInput).not.toBeNull();
+    expect(confirmDeleteBtn.disabled).toBe(true);
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(matchInput, "한대표");
+      matchInput!.dispatchEvent(new Event("input", { bubbles: true }));
+      matchInput!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(confirmDeleteBtn.disabled).toBe(false);
     await act(async () => {
       confirmDeleteBtn.click();
     });

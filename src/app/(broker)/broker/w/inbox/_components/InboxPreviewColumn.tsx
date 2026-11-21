@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { PreviewEditableUnit } from "@/components/workspace/preview-sync/PreviewEditableUnit";
 import {
   ALIMTALK_EARLY_ACCESS_NOTICE,
@@ -23,7 +24,8 @@ export interface InboxPreviewColumnProps {
   activeThread: InboxThreadItem | null;
   activeInboxUnitId: string | null;
   busyAction: string | null;
-  showShareSheet: boolean;
+  showShareSheet?: boolean;
+  outboundAssetKind?: "im" | "dealcard" | "magazine";
   subscriptionTier: "free" | "pro" | "premium";
   outboundEmail: string;
   outboundBasis: "" | InboxTransactionalBasis;
@@ -39,6 +41,7 @@ export interface InboxPreviewColumnProps {
   onFocusEditorUnit: (unitId: string) => void;
   onCopyActiveShareLink: () => void;
   onSendMaterial: (kind: "im" | "dealcard" | "newsletter" | "magazine") => void;
+  onOutboundAssetKindChange?: (next: "im" | "dealcard" | "magazine") => void;
   onOutboundEmailChange: (next: string) => void;
   onOutboundBasisChange: (next: "" | InboxTransactionalBasis) => void;
   onMarketingConsentConfirmedChange?: (checked: boolean) => void;
@@ -67,7 +70,7 @@ export function InboxPreviewColumn({
   activeThread,
   activeInboxUnitId,
   busyAction,
-  showShareSheet,
+  outboundAssetKind = "im",
   subscriptionTier,
   outboundEmail,
   outboundBasis,
@@ -82,7 +85,7 @@ export function InboxPreviewColumn({
   correctionNoticeText,
   onFocusEditorUnit,
   onCopyActiveShareLink,
-  onSendMaterial,
+  onOutboundAssetKindChange,
   onOutboundEmailChange,
   onOutboundBasisChange,
   onMarketingConsentConfirmedChange,
@@ -107,6 +110,21 @@ export function InboxPreviewColumn({
   onClearCorrectionNotice,
 }: InboxPreviewColumnProps) {
   const prioritySignal = computePriorityContactSignal(activeThread);
+  const [localAssetKind, setLocalAssetKind] = React.useState<"im" | "dealcard" | "magazine">(outboundAssetKind);
+  React.useEffect(() => {
+    setLocalAssetKind(outboundAssetKind);
+  }, [outboundAssetKind, activeThread?.id]);
+  const effectiveAssetKind = onOutboundAssetKindChange ? outboundAssetKind : localAssetKind;
+  const selectAssetKind = (next: "im" | "dealcard" | "magazine") => {
+    setLocalAssetKind(next);
+    onOutboundAssetKindChange?.(next);
+  };
+  const isUrgentSticky =
+    activeThread?.status === "pending_gate" || activeThread?.status === "revoked";
+  const hasBuildingAttached = Boolean(activeThread?.buildingId?.trim());
+  const imNotGenerated =
+    Boolean(activeThread?.buildingId?.trim()) && activeThread?.hasIm === false;
+
   return (
     <div className="space-y-4" data-testid="inbox-preview-slot">
       {!activeThread ? (
@@ -117,17 +135,24 @@ export function InboxPreviewColumn({
         </div>
       ) : (
         <>
-          {/* Column 3 최상단 연동 요약 바 */}
+          {/* Column 3 최상단 연동 요약 바 — 승인 대기/링크 잠금 시에만 불투명 상단 고정 */}
           <div
-            data-testid="inbox-causality-bar"
-            className={`sticky top-0 z-10 rounded-xl border px-3.5 py-2.5 shadow-2xs backdrop-blur-md flex flex-col gap-2 ${
-              activeThread.status === "pending_gate"
-                ? "border-amber-400 bg-amber-50/95"
-                : activeThread.status === "revoked"
-                ? "border-rose-300 bg-rose-50/95"
-                : "border-blue-200 bg-blue-50/95"
-            }`}
+            className={
+              isUrgentSticky
+                ? "sticky top-0 z-20 -mx-4 -mt-4 bg-[#F5F5F7] px-4 pt-3 pb-2 shadow-[0_6px_12px_-8px_rgba(15,23,42,0.18)]"
+                : ""
+            }
           >
+            <div
+              data-testid="inbox-causality-bar"
+              className={`rounded-xl border px-3.5 py-2.5 shadow-2xs flex flex-col gap-2 ${
+                activeThread.status === "pending_gate"
+                  ? "border-amber-400 bg-amber-50"
+                  : activeThread.status === "revoked"
+                  ? "border-rose-300 bg-rose-50"
+                  : "border-blue-200 bg-blue-50"
+              }`}
+            >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-extrabold text-slate-900 break-keep">
                 {activeThread.status === "pending_gate"
@@ -170,6 +195,7 @@ export function InboxPreviewColumn({
                 안내 메시지 ›
               </button>
             </div>
+            </div>
           </div>
 
           {prioritySignal?.isPriority && activeThread.gateStatus !== "pending" && (
@@ -198,52 +224,7 @@ export function InboxPreviewColumn({
             </button>
           )}
 
-          {/* 카톡으로 자료 보내기 선택 시트 */}
-          {showShareSheet && (
-            <div
-              data-testid="inbox-share-option-sheet"
-              className="space-y-2 rounded-2xl border-2 border-slate-900 bg-white p-4 shadow-sm"
-            >
-              <p className="text-sm font-bold text-slate-900">
-                보낼 자료를 선택하세요
-              </p>
-              <button
-                type="button"
-                disabled={activeThread.status === "revoked" || Boolean(busyAction)}
-                onClick={() => onSendMaterial("im")}
-                className={`flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm font-bold ${
-                  activeThread.status === "revoked"
-                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                    : "border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-                }`}
-              >
-                <span>IM 전용 링크 보내기</span>
-                <span className="text-sm text-blue-700">
-                  {activeThread.status === "revoked" ? "잠김" : "선택 →"}
-                </span>
-              </button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => onSendMaterial("dealcard")}
-                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-              >
-                <span>딜카드 링크 보내기</span>
-                <span className="text-sm text-blue-700">선택 →</span>
-              </button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => onSendMaterial("newsletter")}
-                className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-              >
-                <span>뉴스레터 보내기</span>
-                <span className="text-sm text-blue-700">선택 →</span>
-              </button>
-            </div>
-          )}
-
-          {/* 무료(인사말·링크 복사 + 이메일) · 유료(카카오 알림톡 PRO) 자료 전달 카드 */}
+          {/* 단일 자료 발송 허브: 보낼 자료 선택 + 카톡·문자 복사 + 이메일 + 알림톡 */}
           <div
             data-testid="inbox-outbound-channel-bar"
             className="space-y-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
@@ -263,8 +244,67 @@ export function InboxPreviewColumn({
               </span>
             </div>
 
+            {/* Step 1. 보낼 자료 선택 (IM · 딜카드 · 뉴스레터) */}
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-slate-700">
+                1. 보낼 자료 고르기
+              </p>
+              <div
+                role="tablist"
+                aria-label="보낼 자료 선택"
+                data-testid="inbox-outbound-asset-tabs"
+                className="grid grid-cols-3 gap-1.5"
+              >
+                {(
+                  [
+                    { key: "im", label: "제안서(IM)" },
+                    { key: "dealcard", label: "딜카드" },
+                    { key: "magazine", label: "부동산뉴스" },
+                  ] as const
+                ).map((opt) => {
+                  const isSelected = effectiveAssetKind === opt.key;
+                  const disabledNoBuilding = !hasBuildingAttached && opt.key !== "magazine";
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      disabled={disabledNoBuilding}
+                      data-testid={`inbox-asset-tab-${opt.key}`}
+                      onClick={() => selectAssetKind(opt.key)}
+                      className={`min-h-[44px] rounded-xl border px-2 py-1.5 text-sm font-bold transition cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50/90 text-blue-950"
+                          : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {effectiveAssetKind === "im" && imNotGenerated && (
+                <div
+                  data-testid="inbox-im-not-generated-notice"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                >
+                  <span className="font-bold">
+                    IM 미생성 · 먼저 작성하기 (딜카드 바로 보내기 가능)
+                  </span>
+                  <Link
+                    href={`/broker/w/im?buildingId=${encodeURIComponent(activeThread.buildingId)}`}
+                    className="inline-flex min-h-[44px] items-center font-extrabold text-amber-900 underline"
+                  >
+                    IM 만들기 →
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <p className="text-sm leading-relaxed text-slate-600 break-keep">
-              상황에 맞는 인사말을 고른 뒤 버튼을 누르면 인사말과 추적 링크가 한 번에 복사됩니다.
+              2. 상황에 맞는 인사말을 고른 뒤 복사하거나 이메일로 바로 보내세요.
             </p>
 
             {/* 상황별 3종 인사말 선택 (동심원 12px / 3px / 9px) */}
@@ -355,78 +395,86 @@ export function InboxPreviewColumn({
               </button>
             </div>
 
-            {/* 전 플랜 공통 발송 근거 · 알림톡 양식 선택 (zero CLS) */}
-            <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
-              <div>
-                <label
-                  htmlFor="inbox-client-basis-select"
-                  className="mb-1 block text-sm font-bold text-slate-700"
-                >
-                  발송 근거 (요청 답변 · 1:1 안내)
-                </label>
-                <select
-                  id="inbox-client-basis-select"
-                  data-testid="inbox-client-basis-select"
-                  value={outboundBasis}
-                  onChange={(e) =>
-                    onOutboundBasisChange(
-                      e.target.value as "" | InboxTransactionalBasis
-                    )
-                  }
-                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="">고객 요청·상담 근거 선택</option>
-                  <option value="im_request">고객 IM 열람 요청</option>
-                  <option value="property_inquiry">고객 매물 문의 접수</option>
-                  <option value="tour_booking">현장 임장·미팅 예약</option>
-                  <option value="broker_manual">기존 상담 고객 1:1 안내</option>
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="inbox-alimtalk-template-select"
-                  className="mb-1 block text-sm font-bold text-slate-700"
-                >
-                  알림톡 양식 선택
-                </label>
-                <select
-                  id="inbox-alimtalk-template-select"
-                  data-testid="inbox-alimtalk-template-select"
-                  value={alimtalkTemplateId}
-                  onChange={(e) =>
-                    onAlimtalkTemplateChange(
-                      e.target.value as InboxAlimtalkTemplateId
-                    )
-                  }
-                  className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="TPL_INBOX_IM_APPROVED">IM 열람 승인 안내</option>
-                  <option value="TPL_INBOX_INQUIRY_REPLY">매물 문의 답변 안내</option>
-                  <option value="TPL_INBOX_TOUR_CONFIRMED">임장·미팅 일정 안내</option>
-                  <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
-                </select>
-              </div>
+            {/* 발송 근거 (이메일·알림톡 공통 1:1 안내 근거) */}
+            <div>
+              <label
+                htmlFor="inbox-client-basis-select"
+                className="mb-1 block text-sm font-bold text-slate-700"
+              >
+                발송 근거 (요청 답변 · 1:1 안내)
+              </label>
+              <select
+                id="inbox-client-basis-select"
+                data-testid="inbox-client-basis-select"
+                value={outboundBasis}
+                onChange={(e) =>
+                  onOutboundBasisChange(
+                    e.target.value as "" | InboxTransactionalBasis
+                  )
+                }
+                className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="">고객 요청·상담 근거 선택</option>
+                <option value="im_request">고객 IM 열람 요청</option>
+                <option value="property_inquiry">고객 매물 문의 접수</option>
+                <option value="tour_booking">현장 임장·미팅 예약</option>
+                <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+              </select>
             </div>
 
-            <div className="space-y-2 border-t border-slate-100 pt-2.5">
-              <button
-                type="button"
-                data-testid="inbox-send-alimtalk-btn"
-                disabled={Boolean(busyAction)}
-                onClick={onSendInboxAlimtalk}
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-center text-sm font-extrabold text-amber-950 whitespace-normal transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
-              >
-                💬 카카오 알림톡 자동 발송 · PRO (사후 오픈 예정)
-              </button>
+            {/* 카카오 알림톡 PRO (사후 오픈 예정) — 1줄 컴팩트 접힘 안내 */}
+            <details
+              data-testid="inbox-alimtalk-disclosure"
+              className="rounded-xl border border-amber-200 bg-amber-50/40 px-3 py-2"
+            >
+              <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold text-amber-950 cursor-pointer list-none">
+                <span>💬 카카오 알림톡 자동 발송 · PRO (오픈 예정)</span>
+                <span className="text-sm font-semibold text-amber-800">자세히 ▾</span>
+              </summary>
+              <div className="mt-2.5 space-y-2.5 border-t border-amber-200/70 pt-2.5">
+                <div>
+                  <label
+                    htmlFor="inbox-alimtalk-template-select"
+                    className="mb-1 block text-sm font-bold text-slate-700"
+                  >
+                    알림톡 양식 선택
+                  </label>
+                  <select
+                    id="inbox-alimtalk-template-select"
+                    data-testid="inbox-alimtalk-template-select"
+                    value={alimtalkTemplateId}
+                    onChange={(e) =>
+                      onAlimtalkTemplateChange(
+                        e.target.value as InboxAlimtalkTemplateId
+                      )
+                    }
+                    className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                  >
+                    <option value="TPL_INBOX_IM_APPROVED">IM 열람 승인 안내</option>
+                    <option value="TPL_INBOX_INQUIRY_REPLY">매물 문의 답변 안내</option>
+                    <option value="TPL_INBOX_TOUR_CONFIRMED">임장·미팅 일정 안내</option>
+                    <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
+                  </select>
+                </div>
 
-              <p
-                data-testid="inbox-alimtalk-early-access-hint"
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700"
-              >
-                {ALIMTALK_EARLY_ACCESS_NOTICE}
-              </p>
-            </div>
+                <button
+                  type="button"
+                  data-testid="inbox-send-alimtalk-btn"
+                  disabled={Boolean(busyAction)}
+                  onClick={onSendInboxAlimtalk}
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-center text-sm font-extrabold text-amber-950 whitespace-normal transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                >
+                  💬 카카오 알림톡 자동 발송 · PRO (사후 오픈 예정)
+                </button>
+              </div>
+            </details>
+
+            <p
+              data-testid="inbox-alimtalk-early-access-hint"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700"
+            >
+              {ALIMTALK_EARLY_ACCESS_NOTICE}
+            </p>
 
             {copiedBundlePreview && (
               <div
@@ -508,9 +556,17 @@ export function InboxPreviewColumn({
               <div className="flex items-center justify-between gap-2">
                 <dt className="font-semibold text-slate-500">연락처</dt>
                 <dd className="font-bold text-slate-900">
-                  {activeThread.clientPhone
-                    ? formatPhoneKo(activeThread.clientPhone)
-                    : "전화번호 없음"}
+                  {activeThread.clientPhone ? (
+                    <a
+                      href={`tel:${activeThread.clientPhone}`}
+                      data-testid="preview-call-link"
+                      className="text-blue-700 hover:underline font-bold"
+                    >
+                      {formatPhoneKo(activeThread.clientPhone)}
+                    </a>
+                  ) : (
+                    "전화번호 없음"
+                  )}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-2">
@@ -657,27 +713,7 @@ export function InboxPreviewColumn({
               </div>
             )}
 
-            {/* 전화 걸기 버튼 */}
-            <div className="pt-2">
-              {activeThread.clientPhone ? (
-                <a
-                  href={`tel:${activeThread.clientPhone}`}
-                  data-testid="preview-call-link"
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-base font-bold text-slate-900 transition hover:bg-slate-100"
-                >
-                  전화 걸기 ({formatPhoneKo(activeThread.clientPhone)})
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  data-testid="preview-call-disabled"
-                  className="inline-flex min-h-[48px] w-full cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-base font-semibold text-slate-400"
-                >
-                  전화번호 없음
-                </button>
-              )}
-            </div>
+            {/* 전화 걸기는 2열 헤더에 단일 배치하고 3열 요약 카드는 정보·수정/삭제에 집중 */}
           </div>
 
           {/* 하단: 보낸 링크 잠그기 (기본 scope: "thread", 선택 시 건물 전체 잠금) */}

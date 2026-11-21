@@ -141,11 +141,14 @@ describe("W1 WorkspaceShell 편입 및 밝은 테마 통일 (NL-07 ~ NL-11, NL-2
 });
 
 describe("W2 흐름 단순화 (NL-12 ~ NL-17)", () => {
-  it("NL-12: 에디터가 3단계 탭(① 제목 · ② 내용 · ③ 보내기)으로 구성된다", () => {
+  it("NL-12: 에디터가 3단계 탭(제목 · 내용 · 보내기, 원문자 번호 없음)으로 구성된다", () => {
     const html = renderToStaticMarkup(<MagazineEditorPage />);
-    expect(html).toContain("① 제목");
-    expect(html).toContain("② 내용");
-    expect(html).toContain("③ 보내기");
+    expect(html).toContain("제목");
+    expect(html).toContain("내용");
+    expect(html).toContain("보내기");
+    expect(html).not.toContain("① 제목");
+    expect(html).not.toContain("② 내용");
+    expect(html).not.toContain("③ 보내기");
   });
 
   it("NL-14: IssueMetadataForm 은 발행 호수·Slug 입력칸을 숨기고 연·월에서 자동 생성하며, 글자 수 카운터 상시 노출이 없다", () => {

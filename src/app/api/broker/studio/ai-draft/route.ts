@@ -15,6 +15,7 @@ import {
   charLength,
   condenseKoreanParagraph,
   formatSingleLineTitle,
+  humanizeBuyerCopy,
   normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
 import {
@@ -46,15 +47,15 @@ export const FORBIDDEN_INVESTMENT_PHRASES = [
 export function sanitizeInvestmentSolicitation(text: string): string {
   let out = text;
   for (const phrase of FORBIDDEN_INVESTMENT_PHRASES) {
-    out = out.split(phrase).join("신중한 검토");
+    out = out.split(phrase).join("현장 확인");
   }
   return out;
 }
 
 export const AI_DRAFT_SYSTEM_PROMPT = [
   "# TaskFlow TF8 Prompt Contract (magazine_draft_tf8 v3.0)",
-  "[T] Task: 공인중개사가 입력한 발행 연·월, 주력 권역, 관심 큐레이션 분야, 추천 매물, 기존 메모만을 바탕으로 70대 매수자도 쉽게 이해할 수 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
-  "[A] Audience: 60~70대 중소형 빌딩 매수 검토자, 법인 사옥 실수요 대표, 건물주.",
+  "[T] Task: 공인중개사가 입력한 발행 연·월, 주력 권역, 관심 분야, 추천 매물, 기존 메모만을 바탕으로 일반 매수자·건물주도 쉽게 이해할 수 있는 한국어 뉴스레터 초안 JSON을 작성하세요.",
+  "[A] Audience: 중소형 빌딩 매수자, 법인 사옥 실수요 대표, 건물주.",
   "[W] Warnings & Hard Constraints:",
   "1) [No-LLM-Numbers] 입력에 없는 구체 숫자(수익률, 매매가, 공실률, 거래건수, 변동률 등)를 임의로 추가하지 마세요.",
   "2) [No-Solicitation] 투자 권유·단정 표현(원금 보장, 확정 수익, 무조건 상승 등)을 사용하지 마세요.",
@@ -73,6 +74,8 @@ export const aiDraftRequestSchema = z.object({
   newsTitles: z.array(z.string().trim().max(240)).max(20).optional(),
   currentHeadline: z.string().trim().max(300).optional(),
   currentBriefing: z.string().trim().max(5000).optional(),
+  avoidHeadlines: z.array(z.string().trim().max(120)).max(8).optional(),
+  attemptSeed: z.number().int().min(0).max(1000).optional(),
 });
 
 export const aiDraftResultSchema = z.object({
@@ -200,13 +203,23 @@ export async function POST(req: NextRequest) {
     currentBriefing: input.currentBriefing,
   });
 
+  const avoidList = (input.avoidHeadlines ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  const temperature = avoidList.length === 0 ? 0.4 : avoidList.length === 1 ? 0.72 : 0.85;
+  const userPromptWithAvoid =
+    avoidList.length > 0
+      ? `${tf8.userPrompt}\n\n[중복 표현 금지 — 아래 이전에 사용한 제목·표현과 겹치지 않는 새로운 어휘와 문장 구조로 작성하세요]\n${avoidList.map((item, idx) => `${idx + 1}. ${item}`).join("\n")}`
+      : tf8.userPrompt;
+
   try {
     const llmResult = await callLLM(
       {
         systemPrompt: tf8.systemPrompt,
-        userPrompt: tf8.userPrompt,
+        userPrompt: userPromptWithAvoid,
         model: getModel("luna"),
-        temperature: 0.4,
+        temperature,
         responseFormat: "json_object",
       },
       { allowMock: false },
@@ -263,8 +276,17 @@ export async function POST(req: NextRequest) {
       preferredRegions,
     });
 
-    const finalValidated = aiDraftResultSchema.safeParse(repaired.result);
-    const finalResult = finalValidated.success ? finalValidated.data : validatedRaw.data;
+    const humanizedCandidate = {
+      headline: clampText(humanizeBuyerCopy(repaired.result.headline), 45, "title"),
+      summary: repaired.result.summary ? clampText(humanizeBuyerCopy(repaired.result.summary), 80) : "",
+      briefingTitle: repaired.result.briefingTitle
+        ? clampText(humanizeBuyerCopy(repaired.result.briefingTitle), 30, "title")
+        : "",
+      briefingBody: normalizeMarketBriefingPlain(humanizeBuyerCopy(repaired.result.briefingBody), 500, 5),
+    };
+
+    const finalValidated = aiDraftResultSchema.safeParse(humanizedCandidate);
+    const finalResult = finalValidated.success ? finalValidated.data : repaired.result;
 
     const responseBody: AiDraftResponse = {
       ok: true,

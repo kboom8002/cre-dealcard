@@ -162,7 +162,7 @@ export function NewsletterTitleStepPanel({
           onClick={onNextToContent}
           className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[#1D1D1F] px-5 py-3 text-base font-extrabold text-white transition hover:bg-[#2C2C2E]"
         >
-          <span>다음: ② 내용 작성하기</span>
+          <span>다음: 내용 작성하기</span>
           <ArrowRight className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>

@@ -10,6 +10,8 @@ export interface DealInquiryItem {
   address: string;
   price: string;
   areaSignal: string;
+  hasIm?: boolean;
+  imUrl?: string;
 }
 
 export interface DealInquirySheetProps {
@@ -21,7 +23,7 @@ export interface DealInquirySheetProps {
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
 
 /**
- * 60대 독자용 매물 상세 안내 & 1-탭 상담 모달 (U-F0-3 / R-02).
+ * 독자용 매물 상세 안내 & 1-탭 상담 모달 (U-F0-3 / R-02).
  *
  * - 서버 컴포넌트(`magazine-view.tsx`)의 정적 HTML 제약을 지키기 위해
  *   문서 레벨 이벤트 위임(`data-deal-inquiry`, `data-quick-scroll`, `data-carousel-dir`)으로 동작한다.
@@ -66,8 +68,24 @@ export function DealInquirySheet({
         const address = inquiryTrigger.getAttribute('data-deal-address') || '위치 문의 시 안내';
         const price = inquiryTrigger.getAttribute('data-deal-price') || '가격 협의';
         const areaSignal = inquiryTrigger.getAttribute('data-deal-signal') || '';
+        const rawHasImAttr = inquiryTrigger.getAttribute('data-deal-has-im');
+        const imUrlAttr = inquiryTrigger.getAttribute('data-deal-im-url') || '';
+        const hasIm =
+          rawHasImAttr === 'true'
+            ? true
+            : rawHasImAttr === 'false'
+            ? false
+            : Boolean(imUrlAttr);
 
-        setActiveDeal({ id, assetType, address, price, areaSignal });
+        setActiveDeal({
+          id,
+          assetType,
+          address,
+          price,
+          areaSignal,
+          hasIm,
+          imUrl: imUrlAttr || undefined,
+        });
 
         try {
           window.history.pushState(
@@ -216,24 +234,36 @@ export function DealInquirySheet({
           </p>
 
           <div className="mt-4 space-y-2.5">
-            {/* #1 Primary Action: 모바일 IM 열람하기 */}
-            {isUuidDeal ? (
+            {/* #1 Primary Action: IM 존재 시에만 IM 연결, 미생성 시 딜카드(/dc)로 안전 분기 */}
+            {isUuidDeal && (activeDeal.hasIm === true || Boolean(activeDeal.imUrl)) ? (
               <a
-                href={`/im-lite/${encodeURIComponent(activeDeal.id)}`}
+                href={activeDeal.imUrl || `/im-lite/${encodeURIComponent(activeDeal.id)}`}
                 data-track="im_request"
+                data-testid="deal-inquiry-primary-im-link"
                 className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
               >
                 <span aria-hidden="true">📄</span>
-                <span>모바일 IM 열람하기</span>
+                <span>상세 제안서(IM) 보기</span>
+              </a>
+            ) : isUuidDeal ? (
+              <a
+                href={`/dc/${encodeURIComponent(activeDeal.id)}`}
+                data-track="listing_click"
+                data-testid="deal-inquiry-primary-dealcard-link"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
+              >
+                <span aria-hidden="true">📄</span>
+                <span>딜카드 먼저 보기</span>
               </a>
             ) : (
               <a
                 href={smsHref}
                 data-track="im_request"
+                data-testid="deal-inquiry-primary-sms-link"
                 className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
               >
                 <span aria-hidden="true">📄</span>
-                <span>모바일 IM 열람하기 (문자 즉시 요청)</span>
+                <span>상세 제안서(IM) 요청하기</span>
               </a>
             )}
 
@@ -249,14 +279,14 @@ export function DealInquirySheet({
               </a>
             ) : null}
 
-            {/* #3 문자 투자설명서 요청 */}
+            {/* #3 문자 상세 제안서(IM) 요청 */}
             <a
               href={smsHref}
               data-track="im_request"
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 text-[16px] font-bold text-indigo-900 transition-colors"
             >
               <span aria-hidden="true">💬</span>
-              <span>문자로 투자설명서(IM)·상세자료 요청</span>
+              <span>문자로 상세 제안서(IM) 요청</span>
             </a>
 
             {/* #4 중개사 프로필 보기 */}

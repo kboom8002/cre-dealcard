@@ -286,7 +286,7 @@ export function NewsCurationPanel({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <div>
           <p className="text-label font-semibold text-slate-300">
-            뉴스 큐레이션 ({selectedNewsIds.size}/{maxSelection} 선택)
+            맞춤 뉴스 선택 ({selectedNewsIds.size}/{maxSelection} 선택)
           </p>
           <span className="text-caption text-ink-subtle">
             최대 {maxSelection}개까지 선택할 수 있습니다 · 부동산 외 경제·절세·문화 소식을 섞으면 열람률이 높아집니다

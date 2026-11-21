@@ -286,6 +286,9 @@ export function MagazineView({
               ? `/dc/${encodeURIComponent(dealIdStr)}`
               : `#deal-inquiry-${encodeURIComponent(dealIdStr)}`;
 
+            const hasExplicitIm =
+              deal.hasIm === true ||
+              (typeof deal.imUrl === "string" && deal.imUrl.trim().length > 0);
             const inquiryProps = isUuidDeal
               ? {}
               : {
@@ -295,6 +298,10 @@ export function MagazineView({
                   "data-deal-address": safeAddress,
                   "data-deal-price": priceDisplay,
                   "data-deal-signal": quadRegion,
+                  "data-deal-has-im": String(hasExplicitIm),
+                  ...(typeof deal.imUrl === "string" && deal.imUrl.trim()
+                    ? { "data-deal-im-url": deal.imUrl.trim() }
+                    : {}),
                 };
 
             return (

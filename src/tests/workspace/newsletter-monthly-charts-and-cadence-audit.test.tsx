@@ -442,7 +442,7 @@ describe("월간 상단 통계 그래픽 2선 복원 및 일간·주간·월간 
     const pBriefingIdx = publicHtml.indexOf('data-testid="viewer-market-briefing"');
     const pIssuesIdx = publicHtml.indexOf('data-testid="axios-postit-list"');
     const pDealsIdx = publicHtml.indexOf('data-deals-carousel');
-    const pContactIdx = publicHtml.lastIndexOf("02-555-1234");
+    const pContactIdx = publicHtml.indexOf("02-555-1234", pDealsIdx);
     const pOptinIdx = publicHtml.indexOf('data-testid="minimal-subscribe-optin"');
 
     expect(pChartsIdx).toBeGreaterThan(0);

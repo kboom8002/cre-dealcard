@@ -198,8 +198,15 @@ export function toSafeEpochMs(isoLike: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function buildThreadShareUrl(buildingId: string, shareToken: string): string {
+export function buildThreadShareUrl(
+  buildingId: string,
+  shareToken: string,
+  hasIm = true
+): string {
   if (!buildingId) return '';
+  if (!hasIm) {
+    return `/dc/${encodeURIComponent(buildingId)}`;
+  }
   if (shareToken) {
     return `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`;
   }

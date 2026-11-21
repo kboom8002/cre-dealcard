@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { getInboxState, isUuid } from '@/lib/im-lite/quick-generate-store';
+import { getInboxState, isUuid, listAllQuickImRecords } from '@/lib/im-lite/quick-generate-store';
+import { listWorkspaceItemsForOwner } from '@/lib/workspace/workspace-repository';
 import {
   isBuildingShareLinkRevokedAsync,
   issueShareLinkToken,
@@ -606,6 +607,50 @@ async function isOutboundTargetLocked(params: {
   return false;
 }
 
+/**
+ * 딜카드만 존재하고 아직 IM이 한 번도 생성되지 않은 매물인지 확인한다.
+ * DB 테이블이나 모킹 환경에서 판단이 불가능할 때는 false(기존 동작 유지)를 반환해
+ * 테스트/레거시 오차단을 방지한다.
+ */
+async function isDealCardOnlyWithoutIm(
+  supabase: ServiceSupabase,
+  userId: string,
+  buildingId: string
+): Promise<boolean> {
+  const bid = buildingId.trim();
+  if (!bid) return false;
+  try {
+    const quickHit = listAllQuickImRecords().find((r) => r.buildingId === bid);
+    if (quickHit?.basicImDoc) return false;
+  } catch {
+    // non-blocking
+  }
+  try {
+    const wsRes = await listWorkspaceItemsForOwner(supabase, { ownerId: userId, limit: 200 });
+    if (wsRes.tableAvailable && Array.isArray(wsRes.items)) {
+      const matching = wsRes.items.filter(
+        (w) => !w.deletedAt && w.status !== 'archived' && (w.buildingId === bid || w.legacyId === bid || w.id === bid)
+      );
+      if (matching.some((w) => w.kind === 'im')) return false;
+      if (matching.some((w) => w.kind === 'dealcard')) {
+        // Confirm no document_objects IM row exists before blocking
+        try {
+          const docRes = await maybeSingleRow(
+            (supabase as unknown as LooseDb).from('document_objects').select('id').eq?.('building_id', bid)
+          );
+          if (docRes.data?.id) return false;
+        } catch {
+          // ignore schema gap
+        }
+        return true;
+      }
+    }
+  } catch {
+    // non-blocking on mocked/offline DB
+  }
+  return false;
+}
+
 export async function handleOutboundChannelAction(params: {
   action: string;
   userId: string;
@@ -689,6 +734,16 @@ export async function handleOutboundChannelAction(params: {
       relShareUrl = `${relShareUrl}${relShareUrl.includes('?') ? '&' : '?'}sid=${encodeURIComponent(recipientRef)}`;
     }
   } else if (buildingId) {
+    if (assetKind === 'im' && (await isDealCardOnlyWithoutIm(supabase, userId, buildingId))) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'IM_NOT_GENERATED',
+          error: '아직 상세 제안서(IM)가 생성되지 않은 매물입니다. 딜카드를 보내시거나 IM을 먼저 만들어 주세요.',
+        },
+        { status: 409 }
+      );
+    }
     if (await isOutboundTargetLocked({ supabase, buildingId, threadId, clientId, shareToken })) {
       return NextResponse.json(
         {

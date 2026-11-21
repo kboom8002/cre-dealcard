@@ -55,6 +55,8 @@ export function MagazineQuickDraftCard({
   const [loading, setLoading] = useState(false);
   const [localRegion, setLocalRegion] = useState(regionFocus);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [recentHeadlines, setRecentHeadlines] = useState<string[]>([]);
+  const [attemptSeed, setAttemptSeed] = useState(0);
   const showUndoToast = useSafeShowUndoToast();
 
   const effectiveRegion = onChangeRegionFocus ? regionFocus : localRegion;
@@ -93,6 +95,7 @@ export function MagazineQuickDraftCard({
           newsTitles: newsTitles.filter(Boolean),
           currentHeadline: currentDraft.headline.trim() || undefined,
           currentBriefing: currentDraft.briefingBody.trim() || undefined,
+          ...(recentHeadlines.length > 0 ? { avoidHeadlines: recentHeadlines, attemptSeed } : {}),
         }),
       });
 
@@ -118,6 +121,10 @@ export function MagazineQuickDraftCard({
       };
 
       onApplyDraft(nextSnapshot);
+      setRecentHeadlines((prev) =>
+        Array.from(new Set([...prev, nextSnapshot.headline.trim()].filter(Boolean))).slice(-5),
+      );
+      setAttemptSeed((prev) => prev + 1);
 
       showUndoToast({
         message: "AI가 초안을 작성했어요",

@@ -39,6 +39,8 @@ export function EditionDeleteModal({
       confirmLabel="삭제하기"
       cancelLabel="취소"
       tone="danger"
+      requireMatchText={isPublishedEdition ? displayLabel : undefined}
+      matchInputLabel="발행본을 삭제하려면 아래 뉴스레터 제목을 그대로 입력해 주세요."
       onCancel={onCancel}
       onConfirm={onConfirm}
     />

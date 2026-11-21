@@ -24,7 +24,7 @@ export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enab
   {
     id: "news_curation",
     label: "핵심 이슈 브리핑",
-    description: "70대 매수자도 쉽게 이해하는 분야별 이슈 카드",
+    description: "매수자·건물주도 쉽게 이해하는 분야별 이슈 카드",
   },
   {
     id: "featured_deals",

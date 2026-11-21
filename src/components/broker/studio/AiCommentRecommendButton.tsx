@@ -48,6 +48,8 @@ export function AiCommentRecommendButton({
   testId = "ai-comment-recommend-btn",
 }: AiCommentRecommendButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [recentComments, setRecentComments] = useState<string[]>([]);
+  const [attemptSeed, setAttemptSeed] = useState(0);
   const showUndoToast = useSafeShowUndoToast();
 
   const handleRecommend = async () => {
@@ -71,6 +73,9 @@ export function AiCommentRecommendButton({
     setLoading(true);
 
     try {
+      const avoidList = Array.from(
+        new Set([...recentComments, ...(trimmedDraft ? [trimmedDraft] : [])].filter(Boolean)),
+      ).slice(0, 5);
       const res = await fetch("/api/broker/studio/ai-comment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,6 +84,7 @@ export function AiCommentRecommendButton({
           mode,
           ...(mode === "market_briefing" && trimmedDraft ? { draftText: trimmedDraft } : {}),
           ...(cadence ? { cadence } : {}),
+          ...(avoidList.length > 0 ? { avoidComments: avoidList, attemptSeed } : {}),
         }),
       });
 
@@ -97,6 +103,8 @@ export function AiCommentRecommendButton({
 
       const nextText = json.result.comment.trim();
       onChangeValue(nextText);
+      setRecentComments((prev) => Array.from(new Set([...prev, nextText])).slice(-5));
+      setAttemptSeed((prev) => prev + 1);
 
       if (
         Array.isArray(json.warnings) &&

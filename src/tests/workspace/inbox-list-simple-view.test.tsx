@@ -149,15 +149,25 @@ describe('Inbox left list — simple / detailed view', () => {
     expect(bar!.querySelector('[data-testid^="quick-todo-card-"]')).toBeNull();
   });
 
-  it('defaults to 간단히 rows: name · date · status only, no buttons inside rows; filter tabs stay visible', async () => {
+  it('defaults to 간단히 rows with inline quick actions while keeping top-3 filter tabs visible and CRM chips in folded filter panel', async () => {
     await renderPage();
 
-    // Filter tabs are the primary classification — never folded
+    // Primary 3 filter tabs stay visible; secondary CRM chips (incl. newsletter) live inside folded filter panel
     const tabs = q(container, 'inbox-filter-tabs');
     expect(tabs).not.toBeNull();
     expect(isInsideHidden(tabs)).toBe(false);
     expect(tabs!.querySelectorAll('[role="tab"]').length).toBe(3);
-    expect(q(container, 'ws-list-filter-toggle')).toBeNull();
+
+    const filterToggle = q(container, 'ws-list-filter-toggle');
+    expect(filterToggle).not.toBeNull();
+    const filterPanel = q(container, 'ws-list-filter-panel');
+    expect(filterPanel).not.toBeNull();
+    expect(filterPanel!.hasAttribute('hidden')).toBe(true);
+
+    await click(filterToggle);
+    expect(filterPanel!.hasAttribute('hidden')).toBe(false);
+    expect(q(container, 'inbox-filter-chip-newsletter')).not.toBeNull();
+    expect(q(container, 'inbox-filter-chip-vip')).not.toBeNull();
 
     await click(q(container, 'inbox-filter-chip-all'));
 
@@ -178,10 +188,10 @@ describe('Inbox left list — simple / detailed view', () => {
       /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
     );
 
-    // Rich detail is NOT in simple rows
+    // Rich detail is NOT in simple rows, while 1-click inline actions (approve/archive) ARE available
     expect(pendingRow!.textContent).not.toContain('IM 열람 요청:');
-    expect(pendingRow!.querySelectorAll('button').length).toBe(0);
-    expect(activeRow!.querySelectorAll('button').length).toBe(0);
+    expect(q(pendingRow!, 'inbox-row-approve-thr-pending-1')).not.toBeNull();
+    expect(q(activeRow!, 'inbox-row-archive-thr-active-2')).not.toBeNull();
     expect(pendingRow!.querySelector('[data-testid="ws-list-thumbnail"]')).toBeNull();
 
     // Date groups (오늘 / 어제)

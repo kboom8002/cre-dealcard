@@ -29,6 +29,8 @@ export interface ThreadBuildContext {
   allOwnedBuildingIds: string[];
   deletedBuildingSet: Set<string>;
   buildingTitleById: Map<string, string>;
+  imBuildingIdSet?: Set<string>;
+  dealCardBuildingIdSet?: Set<string>;
   isThreadArchived: (id: string) => boolean;
 }
 
@@ -135,7 +137,22 @@ export function appendGateAndInquiryThreads(
         : isRevoked
           ? recipientLink?.token || threadRevokeState?.shareToken || decisionOverride?.shareToken || ''
           : '';
-    const resolvedShareUrl = isApproved && !isRevoked ? buildThreadShareUrl(bIdStr, resolvedShareToken) : '';
+    const resolvedHasIm =
+      !bIdStr || !ctx.imBuildingIdSet
+        ? undefined
+        : ctx.imBuildingIdSet.has(bIdStr)
+          ? true
+          : ctx.dealCardBuildingIdSet?.has(bIdStr)
+            ? false
+            : true;
+    const resolvedHasDealCard =
+      !bIdStr || !ctx.dealCardBuildingIdSet
+        ? undefined
+        : ctx.dealCardBuildingIdSet.has(bIdStr);
+    const resolvedShareUrl =
+      isApproved && !isRevoked
+        ? buildThreadShareUrl(bIdStr, resolvedShareToken, resolvedHasIm !== false)
+        : '';
 
     const viewStats = aggregateThreadViews(viewItems, tid, String(gr.building_id || ''), false, resolvedShareToken);
     const threadCallNotes = callNotesByThreadId.get(tid) || [];
@@ -253,6 +270,8 @@ export function appendGateAndInquiryThreads(
       freeMemo: '',
       focusedSections: viewStats.focusedSections,
       newsletterSubscribed: Boolean(nlDecision?.subscribed),
+      ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
+      ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       events: threadEvents,
     });
   }
@@ -321,8 +340,23 @@ export function appendViewerThreads(ctx: ThreadBuildContext) {
       (bIdStr && inboxState.correctionNotices?.[bIdStr]?.message) ||
       inboxState.correctionNotices?.[tid]?.message ||
       '';
+    const resolvedHasIm =
+      !bIdStr || !ctx.imBuildingIdSet
+        ? undefined
+        : ctx.imBuildingIdSet.has(bIdStr)
+          ? true
+          : ctx.dealCardBuildingIdSet?.has(bIdStr)
+            ? false
+            : true;
+    const resolvedHasDealCard =
+      !bIdStr || !ctx.dealCardBuildingIdSet
+        ? undefined
+        : ctx.dealCardBuildingIdSet.has(bIdStr);
     const resolvedShareToken = issuedTokenByThreadId.get(tid) || threadRevokeState?.shareToken || '';
-    const resolvedShareUrl = !isRevoked && bIdStr ? buildThreadShareUrl(bIdStr, resolvedShareToken) : '';
+    const resolvedShareUrl =
+      !isRevoked && bIdStr
+        ? buildThreadShareUrl(bIdStr, resolvedShareToken, resolvedHasIm !== false)
+        : '';
     const viewCallNotes = callNotesByThreadId.get(tid) || [];
 
     const viewOpenEvents = group.filter((g) => !(g.dwellSeconds > 0));
@@ -376,6 +410,8 @@ export function appendViewerThreads(ctx: ThreadBuildContext) {
       freeMemo: '',
       focusedSections,
       newsletterSubscribed: Boolean(newsletterStateByKey.get(tid)?.subscribed),
+      ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
+      ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       events: [
         ...viewCallNotes.map((n) => ({
           id: n.id,

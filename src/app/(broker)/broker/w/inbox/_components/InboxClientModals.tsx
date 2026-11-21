@@ -5,6 +5,7 @@ import { formatKrPhoneInput } from "@/lib/format/phone";
 import type {
   BrokerInventoryDeal,
   InboxClientRole,
+  InboxThreadItem,
   InboxTransactionalBasis,
 } from "./inbox-types";
 
@@ -26,6 +27,7 @@ export interface InboxNewClientModalProps {
   open: boolean;
   values: InboxClientFormValues;
   inventory: BrokerInventoryDeal[];
+  existingThreads?: InboxThreadItem[];
   busyAction: string | null;
   onChange: (patch: Partial<InboxClientFormValues>) => void;
   onClose: () => void;
@@ -36,12 +38,23 @@ export function InboxNewClientModal({
   open,
   values,
   inventory,
+  existingThreads = [],
   busyAction,
   onChange,
   onClose,
   onSubmit,
 }: InboxNewClientModalProps) {
   if (!open) return null;
+
+  const phoneDigits = values.phone.replace(/\D/g, "");
+  const emailLower = values.email.trim().toLowerCase();
+  const duplicateClientMatch = existingThreads.find((thread) => {
+    const tPhone = (thread.clientPhone || "").replace(/\D/g, "");
+    const tEmail = (thread.clientEmail || "").trim().toLowerCase();
+    const matchedPhone = phoneDigits.length >= 9 && tPhone.length >= 9 && tPhone === phoneDigits;
+    const matchedEmail = emailLower.includes("@") && tEmail.length > 0 && tEmail === emailLower;
+    return matchedPhone || matchedEmail;
+  });
 
   return (
     <div
@@ -130,6 +143,17 @@ export function InboxNewClientModal({
             </div>
           </div>
 
+          {duplicateClientMatch && (
+            <div
+              data-testid="new-client-duplicate-warning"
+              role="status"
+              className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm font-medium text-amber-900"
+            >
+              이미 등록된 고객과 연락처 또는 이메일이 같습니다:{" "}
+              <strong className="font-extrabold">{duplicateClientMatch.clientName}</strong>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label
@@ -210,6 +234,30 @@ export function InboxNewClientModal({
             >
               관심 매물명 (선택)
             </label>
+            {inventory.length > 0 && (
+              <select
+                data-testid="new-client-building-select"
+                aria-label="보유 매물에서 선택"
+                value={
+                  inventory.some((deal) => deal.title === values.buildingTitle)
+                    ? values.buildingTitle
+                    : ""
+                }
+                onChange={(e) => {
+                  if (e.target.value) {
+                    onChange({ buildingTitle: e.target.value });
+                  }
+                }}
+                className="mb-2 min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="">보유 매물 목록에서 선택하거나 아래에 직접 입력</option>
+                {inventory.map((deal) => (
+                  <option key={deal.buildingId} value={deal.title}>
+                    {deal.title}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               id="new-client-building"
               list="inbox-inventory-buildings"
@@ -278,7 +326,7 @@ export function InboxNewClientModal({
               rows={2}
               value={values.freeMemo}
               onChange={(e) => onChange({ freeMemo: e.target.value })}
-              placeholder="예: 보유 건물 매각 후 대토 매입 검토 중"
+              placeholder="예: 역세권 30~50억대 신축 우선, 이번 주 현장 답사 희망"
               className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
             />
           </div>

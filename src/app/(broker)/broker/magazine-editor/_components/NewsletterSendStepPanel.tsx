@@ -241,7 +241,7 @@ export function NewsletterSendStepPanel({
           className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-800 hover:bg-slate-50"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-          <span>이전: ② 내용 수정하기</span>
+          <span>이전: 내용 수정하기</span>
         </button>
 
         <button

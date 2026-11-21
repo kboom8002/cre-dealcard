@@ -30,6 +30,8 @@ export const aiCommentRequestSchema = z.preprocess(
     mode: z.enum(AI_COMMENT_MODES).optional().default('deal_comment'),
     draftText: z.string().max(AI_COMMENT_MAX_LENGTH).optional(),
     cadence: z.enum(['daily', 'weekly', 'monthly']).optional(),
+    avoidComments: z.array(z.string().trim().max(AI_COMMENT_MAX_LENGTH)).max(8).optional(),
+    attemptSeed: z.number().int().min(0).max(1000).optional(),
   }),
 );
 

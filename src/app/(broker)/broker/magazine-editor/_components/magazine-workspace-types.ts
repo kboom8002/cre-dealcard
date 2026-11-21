@@ -23,6 +23,7 @@ import {
   type NewsletterCadence,
 } from "@/lib/magazine/newsletter-cadence";
 import { formatPriceKo, sanitizeDealAddress } from "@/lib/magazine/view-helpers";
+import { formatPriceRange } from "@/lib/deal-card/price-band";
 import {
   getLastActiveBrokerUserId,
   normalizeWorkspaceUserId,
@@ -393,7 +394,7 @@ export function formatDealPriceLabel(rawWon: unknown, priceBand?: unknown): stri
     return priceBand.trim();
   }
   const n = typeof rawWon === "number" ? rawWon : Number(rawWon);
-  if (Number.isFinite(n) && n > 0) return formatPriceKo(n);
+  if (Number.isFinite(n) && n > 0) return formatPriceRange(n);
   if (typeof priceBand === "string" && priceBand.trim()) return priceBand.trim();
   return "-";
 }
@@ -629,10 +630,44 @@ export function mapBuildingRowsToAssignableDeals(
     .filter((b): b is Record<string, unknown> => !!b && typeof b === "object")
     .map((b, idx) => {
       const address = sanitizeDealAddress(String(b.address ?? b.dong ?? ""));
+      const areaSignal = sanitizeDealAddress(
+        String(b.area_signal ?? b.areaSignal ?? b.dong ?? address ?? ""),
+      );
+      const assetType = String(b.asset_type ?? b.assetType ?? "근린생활시설").trim();
       const rawName = String(
         b.building_name ?? b.buildingName ?? b.name ?? b.title ?? "",
       ).trim();
-      const title = rawName || address || `등록 매물 ${idx + 1}`;
+      const title =
+        rawName ||
+        (areaSignal ? `${areaSignal} ${assetType}` : address) ||
+        `등록 매물 ${idx + 1}`;
+      const priceBand = formatDealPriceLabel(
+        b.sale_price ?? b.askingPriceWon ?? b.price,
+        b.price_band ?? b.priceBand,
+      );
+      const gfaPyeong =
+        typeof b.gross_floor_area_pyeong === "number" && b.gross_floor_area_pyeong > 0
+          ? Math.round(b.gross_floor_area_pyeong)
+          : typeof b.grossFloorAreaPyeong === "number" && b.grossFloorAreaPyeong > 0
+            ? Math.round(b.grossFloorAreaPyeong)
+            : null;
+      const landPyeong =
+        typeof b.land_area_pyeong === "number" && b.land_area_pyeong > 0
+          ? Math.round(b.land_area_pyeong)
+          : typeof b.landAreaPyeong === "number" && b.landAreaPyeong > 0
+            ? Math.round(b.landAreaPyeong)
+            : null;
+      const areaLabel = gfaPyeong
+        ? `연면적 ${gfaPyeong}평`
+        : landPyeong
+          ? `대지 ${landPyeong}평`
+          : undefined;
+      const hasIm =
+        typeof b.has_im === "boolean"
+          ? b.has_im
+          : typeof b.hasIm === "boolean"
+            ? b.hasIm
+            : undefined;
       const yieldNum =
         typeof b.cap_rate === "number"
           ? b.cap_rate
@@ -645,10 +680,12 @@ export function mapBuildingRowsToAssignableDeals(
         id: String(b.id ?? `deal-${idx}`),
         title,
         address: address || "주소 미입력",
-        price: formatDealPriceLabel(
-          b.sale_price ?? b.askingPriceWon ?? b.price,
-          b.price_band,
-        ),
+        price: priceBand,
+        priceBand,
+        areaSignal: areaSignal || address || undefined,
+        assetType,
+        ...(areaLabel ? { areaLabel } : {}),
+        ...(hasIm !== undefined ? { hasIm } : {}),
         yield: yieldNum && yieldNum > 0 ? `${yieldNum.toFixed(1)}%` : "-",
         photoUrl:
           typeof b.photo_url === "string" && b.photo_url.trim() ? b.photo_url : null,

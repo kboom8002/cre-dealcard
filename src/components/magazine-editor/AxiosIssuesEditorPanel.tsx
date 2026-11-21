@@ -79,7 +79,18 @@ export function AxiosIssuesEditorPanel({
   const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
   const [expandedToolsIdx, setExpandedToolsIdx] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState<NewsChannelId>("all");
+  const [isRefreshingLive, setIsRefreshingLive] = useState(false);
   const replaceSeqRef = useRef(0);
+
+  const handleRefreshAllLive = async () => {
+    if (isRefreshingLive) return;
+    setIsRefreshingLive(true);
+    try {
+      await Promise.resolve(onRefreshLiveChannel?.("all"));
+    } finally {
+      setIsRefreshingLive(false);
+    }
+  };
 
   // 실제 상태(unitIssues)와 화면 표시를 1:1 일치시켜 미저장 유령 카드 발생을 원천 차단한다
   const issues: AxiosUnitIssue[] = unitIssues.slice(0, ISSUE_CARD_COUNT);
@@ -172,6 +183,18 @@ export function AxiosIssuesEditorPanel({
               <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-sm font-extrabold text-blue-800 whitespace-nowrap">
                 {issues.length > 0 ? `${issues.length}건 구성됨` : "미작성"}
               </span>
+              {issues.length > 0 && (
+                <span
+                  data-testid="axios-source-freshness-badge"
+                  className={
+                    isCuratedFallbackPoolOnly(issues)
+                      ? "rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-sm font-bold text-amber-800 whitespace-nowrap"
+                      : "rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-sm font-bold text-emerald-800 whitespace-nowrap"
+                  }
+                >
+                  {isCuratedFallbackPoolOnly(issues) ? "참고 예시" : "실시간 기사 반영"}
+                </span>
+              )}
             </div>
             <p className="mt-1 text-sm font-medium text-slate-600">
               분야별 핵심 뉴스를 매수자가 바로 이해할 수 있는 쉬운 말로 정리했습니다.
@@ -179,6 +202,19 @@ export function AxiosIssuesEditorPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              data-testid="refresh-live-news-btn"
+              disabled={isRefreshingLive}
+              onClick={() => void handleRefreshAllLive()}
+              className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-60 px-3 py-2 text-sm font-extrabold text-slate-800 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <RefreshCw
+                className={`w-4 h-4 text-slate-700 ${isRefreshingLive ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              />
+              <span>{isRefreshingLive ? "뉴스 불러오는 중..." : "최신 뉴스 새로고침"}</span>
+            </button>
             {onOpenPreferences && (
               <button
                 type="button"
@@ -215,7 +251,7 @@ export function AxiosIssuesEditorPanel({
         </div>
       </div>
 
-      {/* 정적 큐레이션 예시 풀 단독 사용 시 정직한 출처 고지 배지 */}
+      {/* 참고 예시 풀 단독 사용 시 정직한 출처 고지 배지 */}
       {issues.length > 0 && isCuratedFallbackPoolOnly(issues) && (
         <div
           data-testid="axios-fallback-pool-notice"
@@ -242,11 +278,10 @@ export function AxiosIssuesEditorPanel({
             type="button"
             data-testid="seed-five-issues-empty-btn"
             onClick={handleSeedInitialIssues}
-            style={{ backgroundColor: "#1D4ED8", borderColor: "#1E40AF", color: "#FFFFFF" }}
             className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-blue-700 bg-blue-700 hover:bg-blue-800 px-4 py-2.5 text-sm font-extrabold text-white shadow-xs transition-colors"
           >
             <Sparkles className="w-4 h-4" aria-hidden="true" />
-            <span style={{ color: "#FFFFFF" }}>핵심 이슈 5선 자동 채우기</span>
+            <span>핵심 이슈 5선 자동 채우기</span>
           </button>
         </div>
       ) : (
@@ -445,7 +480,7 @@ export function AxiosIssuesEditorPanel({
                         editorToast.success(`제목을 ${AXIOS_TITLE_MAX_CHARS}자 이내 완결된 문장으로 다듬었습니다.`);
                       }
                     }}
-                    placeholder={`70대 매수자도 바로 이해할 수 있는 쉬운 제목 (${AXIOS_TITLE_MAX_CHARS}자 이내)`}
+                    placeholder={`매수자·건물주도 바로 이해할 수 있는 쉬운 제목 (${AXIOS_TITLE_MAX_CHARS}자 이내)`}
                     className={`w-full min-h-[48px] rounded-xl border bg-white/95 px-3.5 py-2.5 text-base font-extrabold text-slate-900 placeholder:text-slate-400 focus:outline-none ${
                       titleOver
                         ? "border-rose-500 focus:border-rose-600"

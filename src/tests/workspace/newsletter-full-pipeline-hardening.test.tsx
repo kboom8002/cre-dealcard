@@ -712,15 +712,17 @@ describe("Newsletter System Full-Pipeline MECE Audit & Hardening Suite", () => {
       />,
     );
 
-    expect(container.textContent).toContain("제2종일반주거지역");
-    expect(container.textContent).toMatch(/대지\s*74평/);
+    // 2x2 블라인드 딜카드 썸네일은 권역·용도·연면적·가격밴드만 노출하고, public card는 /dc/[id]로 이동한다
+    expect(container.textContent).toContain("마포구 동교동");
+    expect(container.textContent).toContain("연면적 211평");
+    expect(container.textContent).toContain("70~80억");
     // Must NEVER render neighborhood name under 면적 label
     expect(container.textContent).not.toContain("면적마포구 동교동");
 
     // 2026-11 Overhaul: 모바일 뷰어 하단 유틸리티(수익률 계산기 등) 제거 + 최소 뉴스레터 신청 옵트인만 유지
     expect(container.querySelector("[data-prefill-roi]")).toBeNull();
     expect(container.querySelector('[data-testid="minimal-subscribe-optin"]')).toBeTruthy();
-    expect(container.querySelector(`a[href="/im-lite/${BUILDING_A_ID}"]`)).toBeTruthy();
+    expect(container.querySelector(`a[href="/dc/${BUILDING_A_ID}"]`)).toBeTruthy();
 
     // 2. C-S1-02: findIssueForDate with non-UUID editionId ("2026-11") must NOT throw 22P02
     const foundByLabel = await findIssueForDate(

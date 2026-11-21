@@ -81,7 +81,7 @@ function extractJsonIssues(rawContent: string): Partial<AxiosUnitIssue>[] | null
 
 /**
  * POST /api/broker/studio/ai-news-cluster
- * 중개인 개인 설정(권역 preferredRegions, 뉴스 큐레이션 분야 preferredChannels) 및 보유 매물 키워드를 바탕으로
+ * 중개인 개인 설정(권역 preferredRegions, 관심 분야 preferredChannels) 및 보유 매물 키워드를 바탕으로
  * 5대 핵심 이슈를 클러스터링하고, TaskFlow TF8 + M11 핀포인트 교정을 통해
  * AXIOS 카드뉴스형(2줄 제목 + 2줄 부제 해설) 포스트잇 5선을 생성한다.
  */

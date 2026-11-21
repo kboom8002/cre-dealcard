@@ -80,7 +80,7 @@ async function renderAndWaitForRows() {
 }
 
 describe("뉴스레터 좌측 목록 — 간단히/자세히 보기", () => {
-  it("기본은 간단히 보기: 제목·날짜·상태만 보이고 행 안에 버튼이 없다", async () => {
+  it("기본은 간단히 보기: 제목·날짜·상태와 1클릭 복제·삭제 인라인 액션을 노출하고 썸네일은 숨긴다", async () => {
     await renderAndWaitForRows();
 
     const listSlot = screen.getByTestId("magazine-list-slot");
@@ -108,11 +108,11 @@ describe("뉴스레터 좌측 목록 — 간단히/자세히 보기", () => {
     expect(monthlyRow.textContent).toContain("11월 월간 브리핑");
     expect(monthlyRow.textContent).toContain("작성 중");
 
-    // 행 안 위험 버튼 0개
-    expect(weeklyRow.querySelectorAll("button")).toHaveLength(0);
-    expect(monthlyRow.querySelectorAll("button")).toHaveLength(0);
-    expect(screen.queryByTestId(`edition-duplicate-btn-${WEEKLY_ID}`)).toBeNull();
-    expect(screen.queryByTestId(`edition-delete-btn-${WEEKLY_ID}`)).toBeNull();
+    // 1클릭 인라인 복제·삭제 버튼이 행 내부에 제공되고 상단 중복 액션바는 제거됨
+    expect(screen.getByTestId(`edition-duplicate-btn-${WEEKLY_ID}`)).toBeTruthy();
+    expect(screen.getByTestId(`edition-delete-btn-${WEEKLY_ID}`)).toBeTruthy();
+    expect(screen.getByTestId(`edition-delete-btn-${MONTHLY_ID}`)).toBeTruthy();
+    expect(screen.queryByTestId("ws-selected-item-actions")).toBeNull();
     expect(screen.queryByTestId("ws-list-thumbnail")).toBeNull();
   });
 
@@ -188,8 +188,8 @@ describe("뉴스레터 좌측 목록 — 접힌 필터 패널", () => {
   });
 });
 
-describe("뉴스레터 편집 화면 상단 — 선택 항목 작업(SelectedItemActions)", () => {
-  it("선택한 저장 호가 있을 때만 보이고, 복제하기는 기존 복제 흐름(새 초안)으로 이어진다", async () => {
+describe("뉴스레터 인라인 복제·삭제(Decision 1-B 안전망) — 상단 SelectedItemActions 제거", () => {
+  it("인라인 복제 버튼 클릭 시 새 초안으로 복제되고 상단 작업 막대는 렌더되지 않는다", async () => {
     await renderAndWaitForRows();
 
     await act(async () => {
@@ -198,32 +198,26 @@ describe("뉴스레터 편집 화면 상단 — 선택 항목 작업(SelectedIte
     expect(
       screen.getByTestId(`magazine-edition-item-${WEEKLY_ID}`).getAttribute("aria-current"),
     ).toBe("true");
-    const editorSlot = screen.getByTestId("magazine-editor-slot");
-    expect(within(editorSlot).getByTestId("ws-selected-item-actions")).toBeTruthy();
+    expect(screen.queryByTestId("ws-selected-item-actions")).toBeNull();
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("ws-selected-duplicate-btn"));
+      fireEvent.click(screen.getByTestId(`edition-duplicate-btn-${WEEKLY_ID}`));
     });
     await waitFor(() =>
       expect(document.body.textContent).toContain("선택한 뉴스레터를 새 초안으로 복제했어요"),
     );
-    // 복제본은 아직 저장되지 않은 새 초안 → 선택 해제되어 작업 막대가 사라짐
     expect(screen.queryByTestId("ws-selected-item-actions")).toBeNull();
     expect(screen.getByTestId(`magazine-edition-item-${WEEKLY_ID}`).getAttribute("aria-current")).toBeNull();
   });
 
-  it("삭제하기는 확인 모달을 거쳐 기존 삭제 흐름(서버 DELETE + 되돌리기 안내)을 그대로 수행한다", async () => {
+  it("작성 중 초안은 단일 확인 모달로 삭제되고, 발행 완료 호는 제목 재입력 안전망을 거친다", async () => {
     await renderAndWaitForRows();
 
+    // 1) 초안(작성 중)은 재입력 칸 없이 단일 확인
     await act(async () => {
-      fireEvent.click(screen.getByTestId(`magazine-edition-item-${MONTHLY_ID}`));
+      fireEvent.click(screen.getByTestId(`edition-delete-btn-${MONTHLY_ID}`));
     });
-    expect(screen.getByTestId("ws-selected-item-actions")).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("ws-selected-delete-btn"));
-    });
-
+    expect(screen.queryByTestId("confirm-delete-match-input")).toBeNull();
     const confirmBtn = await screen.findByTestId("confirm-delete-confirm-btn");
     await act(async () => {
       fireEvent.click(confirmBtn);
@@ -244,7 +238,24 @@ describe("뉴스레터 편집 화면 상단 — 선택 항목 작업(SelectedIte
     await waitFor(() =>
       expect(document.body.textContent).toContain("\"11월 월간 브리핑\" 뉴스레터를 삭제했어요."),
     );
-    expect(screen.queryByTestId("ws-selected-item-actions")).toBeNull();
-    expect(screen.getByTestId(`magazine-edition-item-${WEEKLY_ID}`)).toBeTruthy();
+
+    // 2) 발행 완료 호는 제목 재입력 시에만 삭제 확정 버튼 활성화
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(`edition-delete-btn-${WEEKLY_ID}`));
+    });
+    const matchInput = await screen.findByTestId("confirm-delete-match-input");
+    const pubConfirmBtn = screen.getByTestId("confirm-delete-confirm-btn") as HTMLButtonElement;
+    expect(pubConfirmBtn.disabled).toBe(true);
+    await act(async () => {
+      fireEvent.input(matchInput, { target: { value: "이번 주 강남 빌딩 브리핑" } });
+      fireEvent.change(matchInput, { target: { value: "이번 주 강남 빌딩 브리핑" } });
+    });
+    expect(pubConfirmBtn.disabled).toBe(false);
+    await act(async () => {
+      fireEvent.click(pubConfirmBtn);
+    });
+    await waitFor(() =>
+      expect(screen.queryByTestId(`magazine-edition-item-${WEEKLY_ID}`)).toBeNull(),
+    );
   });
 });

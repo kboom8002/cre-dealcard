@@ -196,7 +196,7 @@ export function MarketDataSection({
             <h3 className="mb-2 text-sm font-bold text-sky-800">임대 동향</h3>
             <div className="grid grid-cols-2 gap-3">
               <Stat value={`${rentalTrend.vacancy_rate}%`} label="공실률" tone="text-sky-800" />
-              <Stat value={String(rentalTrend.rental_index)} label="렌탈 인덱스" tone="text-indigo-800" />
+              <Stat value={String(rentalTrend.rental_index)} label="임대료 지수" tone="text-indigo-800" />
             </div>
             <p className="mt-1 text-sm text-slate-700">
               <GlossaryText text={String(rentalTrend.region ?? "")} seen={seen} /> · {rentalTrend.quarter}
@@ -427,13 +427,13 @@ export function AuctionSection({ picks }: { picks: AnyRec[] }) {
       badge={
         // 헤더는 <button> 이므로 용어 설명 버튼(GlossaryText)을 넣지 않는다 — 중첩 button 은 hydration 오류. 설명은 패널 본문에 둔다.
         <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-sm font-bold text-amber-900">
-          NPL 소싱
+          경매·부실채권(NPL) 발굴
         </span>
       }
     >
       <div className="space-y-2">
         <p className="text-sm leading-relaxed text-slate-700">
-          <GlossaryText text="NPL 기반 경매 물건 — 최저입찰가와 감정가를 비교해 보세요." seen={seen} />
+          <GlossaryText text="경매·부실채권(NPL) 물건 — 최저입찰가와 감정가를 비교해 보세요." seen={seen} />
         </p>
         {picks.map((a, i) => (
           <div key={i} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5">

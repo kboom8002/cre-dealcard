@@ -8,6 +8,7 @@ import {
   repairCommentOutputBlock,
 } from "@/ai/prompts/magazine-taskflow";
 import { requireBroker } from "@/lib/auth-guard";
+import { humanizeBuyerCopy } from "@/domain/magazine/issue-clustering";
 import {
   AI_COMMENT_SYSTEM_PROMPT,
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
@@ -55,7 +56,9 @@ export async function POST(req: NextRequest) {
 
   const quotaErr = await enforceBrokerAiQuota(req, auth.user?.id ?? "", "studio_ai_comment");
   if (quotaErr) return quotaErr;
-  const { comment, mode, draftText, cadence } = parsed.data;
+  const { comment, mode, draftText, cadence, avoidComments } = parsed.data;
+  const avoidList = (avoidComments ?? []).map((item) => item.trim()).filter(Boolean).slice(0, 8);
+  const temperature = avoidList.length === 0 ? 0.4 : avoidList.length === 1 ? 0.72 : 0.85;
   const isBriefingMode = mode === "market_briefing";
   const groundingContext = [draftText ?? "", comment].filter(Boolean).join(" ");
   const tf8 = isBriefingMode
@@ -66,13 +69,18 @@ export async function POST(req: NextRequest) {
       })
     : buildTf8CommentPrompt({ comment });
 
+  const userPromptWithAvoid =
+    avoidList.length > 0
+      ? `${tf8.userPrompt}\n\n[중복 표현 금지 — 아래 기존 문구와 다른 어휘·문장 구조로 작성하세요]\n${avoidList.map((item, idx) => `${idx + 1}. ${item}`).join("\n")}`
+      : tf8.userPrompt;
+
   try {
     const result = await callLLM(
       {
         systemPrompt: `${AI_COMMENT_SYSTEM_PROMPT}\n\n${tf8.systemPrompt}`,
-        userPrompt: tf8.userPrompt,
+        userPrompt: userPromptWithAvoid,
         model: getModel("luna"),
-        temperature: 0.4,
+        temperature,
       },
       { allowMock: false },
     );
@@ -97,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     const body: AiCommentResponse & { envelope?: unknown } = {
       ok: true,
-      result: { comment: repaired.comment || text },
+      result: { comment: humanizeBuyerCopy(repaired.comment || text) },
       ...(warnings.length > 0 ? { warnings } : {}),
       envelope: repaired.envelope,
     };

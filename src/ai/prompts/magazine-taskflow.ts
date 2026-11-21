@@ -165,7 +165,7 @@ export function buildTf8DraftPrompt(
     `- 발행 호수/시기: ${input.monthLabel}`,
     `- 발행 주기: ${cad.label} 뉴스레터 (기간 표현은 '${cad.period}'을 사용)`,
     regions.length > 0 ? `- 중개사 주력 권역: ${regions.join(", ")}` : "- 중개사 주력 권역: 서울·수도권 주요 상권",
-    `- 큐레이션 관심 분야: ${channelLabels.join(", ")}`,
+    `- 관심 분야: ${channelLabels.join(", ")}`,
     deals.length > 0 ? `- 추천 매물 Fact: ${deals.join(" | ")}` : "- 추천 매물 Fact: (선택된 매물 없음 — 일반 시장 브리핑 중심)",
     news.length > 0 ? `- 핵심 뉴스 헤드라인 Fact: ${news.slice(0, 5).join(" | ")}` : "",
     input.currentHeadline ? `- 중개사 작성 제목 메모: ${input.currentHeadline}` : "",
@@ -177,9 +177,9 @@ export function buildTf8DraftPrompt(
   const spec: TaskFlow8PromptSpec = {
     slotKey: "magazine_draft_tf8",
     version: "3.0",
-    task: `상업용 부동산 공인중개사가 70대 매수자·건물주 고객에게 발송할 ${cad.label} 뉴스레터(${input.monthLabel})의 제목(headline)과 5줄 이내 간단한 시장 브리핑(briefingBody)을 JSON으로 작성합니다.`,
+    task: `상업용 부동산 공인중개사가 일반 매수자·건물주 고객에게 발송할 ${cad.label} 뉴스레터(${input.monthLabel})의 제목(headline)과 5줄 이내 간단한 시장 브리핑(briefingBody)을 JSON으로 작성합니다.`,
     audience:
-      "모바일 카카오톡으로 소식지를 열어보시는 60~70대 빌딩 매수 검토자, 법인 대표, 건물주 어르신. 어려운 금융·부동산 전문용어와 영어 약어를 빼고, 익숙한 우리말로 따뜻하고 분명하게 설명해 드리는 20년 경력 담당 공인중개사 어조(존댓말 평서문 '~합니다/~입니다')로 작성합니다.",
+      "모바일 카카오톡으로 소식지를 열어보시는 중소형 빌딩 매수 검토자, 법인 대표, 건물주 독자. 어려운 금융·부동산 전문용어와 영어 약어를 빼고, 익숙한 우리말로 따뜻하고 분명하게 설명해 드리는 20년 경력 담당 공인중개사 어조(존댓말 평서문 '~합니다/~입니다')로 작성합니다.",
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[70s-Buyer-Plain-Korean] '금리 스프레드', '조달 금리', '자기자본수익률', '표면 수익률', '밸류애드', '리파이낸싱', '레버리지', '명도' 같은 어려운 전문용어·외래어 대신 '은행 대출금리 차이', '대출 이자', '내 돈 대비 실제 수익', '단순 연 월세 수익', '건물 수리·세입자 개선', '대출 갈아타기', '기존 세입자 퇴거 협의' 등 쉬운 일상어를 쓰십시오.",
@@ -198,12 +198,12 @@ export function buildTf8DraftPrompt(
     situation: [
       `발송 대상 가시성: ${envelope?.targetVisibility ?? "public_named"}`,
       `발행 주기: ${cad.label} (${input.monthLabel})`,
-      `중개사 주력 권역(${regions.join(", ") || "주요 업무·상업 권역"})과 관심 큐레이션 분야(${channelLabels.join(", ")}) 관점을 담아 바로 이해되는 쉬운 글로 작성하십시오.`,
+      `중개사 주력 권역(${regions.join(", ") || "주요 업무·상업 권역"})과 관심 분야(${channelLabels.join(", ")}) 관점을 담아 바로 이해되는 쉬운 글로 작성하십시오.`,
     ].join("\n"),
     knowledge: factBookContext,
     logicChain: [
       "[K] FactBook에서 발행 시기·주기, 주력 권역, 포함 매물, 뉴스 헤드라인, 중개사 메모의 핵심 키워드와 숫자(있는 것만)를 추출합니다.",
-      "70대 매수자 어르신도 한 번에 뜻을 알아들을 수 있도록 전문용어를 쉬운 일상어로 바꿉니다.",
+      "일반 매수자·건물주 독자도 한 번에 뜻을 알아들을 수 있도록 전문용어를 쉬운 일상어로 바꿉니다.",
       "45자 이내의 명확한 뉴스레터 제목(headline)을 씁니다.",
       `소제목이나 꾸밈 기호 없이 최대 5줄(${cad.bodyRange}) 분량의 시장 브리핑 본문(briefingBody)을 작성합니다.`,
       "[V] 체크리스트로 글자 수·줄 수(<=5줄)·쉬운 용어·종결어미·미출처 숫자·금지어를 검증한 뒤 JSON만 출력합니다.",
@@ -271,7 +271,7 @@ export function buildTf8AxiosClusterPrompt(
   const factBookContext = [
     `발행 주기: ${cad.label} 뉴스레터${input.cadenceLabel ? ` (${input.cadenceLabel})` : ""}`,
     regions.length > 0 ? `중개사 주력 권역: ${regions.join(", ")}` : "중개사 주력 권역: 서울·수도권 핵심 권역",
-    `중개사 선택 큐레이션 분야: ${channelLabels.join(", ")}`,
+    `중개사 선택 관심 분야: ${channelLabels.join(", ")}`,
     ...(input.dealTitles && input.dealTitles.length > 0
       ? [`보유 추천 매물: ${input.dealTitles.join(" | ")}`]
       : []),
@@ -283,11 +283,11 @@ export function buildTf8AxiosClusterPrompt(
     version: "3.0",
     task: `클러스터링된 5개 상업용 부동산·자산관리 이슈 후보를 고객용 ${cad.label} 뉴스레터 카드(2줄 권장 제목 ${AXIOS_TITLE_MAX_CHARS}자 이내 + 제목과 자연스럽게 이어지는 3줄 상세 해설 ${AXIOS_BRIEF_MAX_CHARS}자 이내)로 정밀 재작성합니다.`,
     audience:
-      "모바일 카카오톡으로 소식지를 읽으시는 70대 건물 매수자·건물주 어르신. 금융·부동산 전문용어나 영어 약어 설명 없이도, 카드 제목(2줄)과 상세 해설(3줄)만 읽고 '지금 무슨 일이 벌어졌고, 내 건물 매수·월세·세금에 어떤 유불리가 생기는지' 3초 만에 쏙 이해하셔야 합니다. 작성자 화법: 옆자리에서 20년 경력 담당 공인중개사가 차분하고 쉬운 한국어로 조근조근 짚어 주는 구어 기반 정중한 설명문.",
+      "모바일 카카오톡으로 소식지를 읽으시는 건물 매수자·건물주 독자. 금융·부동산 전문용어나 영어 약어 설명 없이도, 카드 제목(2줄)과 상세 해설(3줄)만 읽고 '지금 무슨 일이 벌어졌고, 내 건물 매수·월세·세금에 어떤 유불리가 생기는지' 3초 만에 쏙 이해하셔야 합니다. 작성자 화법: 옆자리에서 20년 경력 담당 공인중개사가 차분하고 쉬운 한국어로 조근조근 짚어 주는 구어 기반 정중한 설명문.",
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[70s-Buyer-Plain-Korean] 한자식 압축 조어나 금융 외래어를 절대 그대로 쓰지 말고 쉬운 일상어로 풀어쓰십시오: '금리 스프레드→은행 대출금리 차이', '조달 금리→대출 이자', '자기자본수익률(ROE)→내 돈 대비 실제 수익률', '표면 수익률→단순 연 월세 수익률', '밸류애드→건물 수리·세입자 개선', '리파이낸싱→기존 대출 갈아타기', '레버리지→대출 활용', '명도 여건→기존 세입자 퇴거 협의', '플래그십→대표 매장', '아트테크→미술품 전시·절세', '프롭테크→디지털 건물 관리'.",
-      "[No-Broker-Coaching] 중개사에게 지시하는 내부 말투('소구가 가능합니다', '성사율을 높입니다', '브리핑에 활용하세요', '안내하세요')를 절대 쓰지 말고, 오직 70대 매수자·건물주 본인에게 직접 전하는 말씀('~보시면 유리합니다', '~부담이 줄어듭니다', '~미리 챙기셔야 합니다')으로 쓰십시오.",
+      "[No-Broker-Coaching] 중개사에게 지시하는 내부 말투('소구가 가능합니다', '성사율을 높입니다', '브리핑에 활용하세요', '안내하세요')를 절대 쓰지 말고, 오직 건물 매수자·건물주 본인에게 직접 전하는 말씀('~보시면 유리합니다', '~부담이 줄어듭니다', '~미리 챙기셔야 합니다')으로 쓰십시오.",
       `[${AXIOS_TITLE_MAX_CHARS}-Char Card Title] [Card-News 2-Line Title] 각 title은 공백 포함 24~38자 권장(최대 ${AXIOS_TITLE_MAX_CHARS}자)으로, 모바일 360~390px 화면에서 딱 2줄 안팎(3줄 절대 미초과)에 읽히게 씁니다. 한자 명사만 4개 이상 겹쳐 나열하지 말고 '무엇이 어떻게 변했는가 / 왜 살펴야 하는가'가 자연스럽게 읽히는 주어+서술형 문장으로 쓰십시오.`,
       `[${AXIOS_BRIEF_MAX_CHARS}-Char Detailed Brief] [Detailed 3-Line Subtitle Brief] 각 brief는 공백 포함 52~68자 권장(최대 ${AXIOS_BRIEF_MAX_CHARS}자)의 1~2문장으로, 모바일 화면에서 3줄 분량(4줄 절대 미초과)으로 렌더링됩니다. title과 똑같은 말을 되풀이하지 말고, (앞부분) 제목의 배경이나 이유를 이어 설명하고 + (뒷부분) 매수자·건물주에게 실제로 무엇이 유리하거나 조심할 점인지 '~합니다/~됩니다/~입니다'로 친절히 풀어 주십시오.`,
       "[Grounding] 후보의 원문제목·원문요약에 있는 사실만 사용하고, 후보 id·채널을 바꾸지 마십시오. 5개 카드의 주제가 서로 겹치지 않게 하십시오.",
@@ -296,15 +296,15 @@ export function buildTf8AxiosClusterPrompt(
       "반드시 아래 JSON 형식으로 정확히 5개(unitIssues 배열 길이 5)를 반환하십시오 (추가 설명·코드펜스 금지):",
       "{",
       '  "unitIssues": [',
-      `    { "id": "후보 id 그대로", "title": "70대 매수자가 바로 이해하는 2줄 제목(24~38자 권장, 최대 ${AXIOS_TITLE_MAX_CHARS}자)", "brief": "제목과 자연스럽게 이어지는 3줄 상세 해설(52~68자 권장, 최대 ${AXIOS_BRIEF_MAX_CHARS}자, ~다.로 종결)", "channel": "real_estate|economy_finance|tax_wealth|culture_lifestyle|commercial_trend", "sentiment": "bullish|bearish|neutral" }`,
+      `    { "id": "후보 id 그대로", "title": "일반 매수자·건물주가 바로 이해하는 2줄 제목(24~38자 권장, 최대 ${AXIOS_TITLE_MAX_CHARS}자)", "brief": "제목과 자연스럽게 이어지는 3줄 상세 해설(52~68자 권장, 최대 ${AXIOS_BRIEF_MAX_CHARS}자, ~다.로 종결)", "channel": "real_estate|economy_finance|tax_wealth|culture_lifestyle|commercial_trend", "sentiment": "bullish|bearish|neutral" }`,
       "  ]",
       "}",
     ].join("\n"),
-    situation: `${cad.label} 뉴스레터 독자(${cad.period} 소식)에게, 중개사의 주력 권역(${regions.join(", ") || "주요 상권"})과 관심 분야(${channelLabels.join(", ")}) 관점에서 70대 빌딩 매수자가 자기 상황과 연결해 즉시 이해할 수 있도록 카피를 고도화하십시오.`,
+    situation: `${cad.label} 뉴스레터 독자(${cad.period} 소식)에게, 중개사의 주력 권역(${regions.join(", ") || "주요 상권"})과 관심 분야(${channelLabels.join(", ")}) 관점에서 빌딩 매수자가 자기 상황과 연결해 즉시 이해할 수 있도록 카피를 고도화하십시오.`,
     knowledge: factBookContext,
     logicChain: [
       "5개 후보 각각의 원문에서 전문용어·외래어를 먼저 쉬운 우리말로 바꾸고 '무슨 변화인가'와 '내 건물·매수 자금·세금에 어떤 의미인가'를 뽑아냅니다.",
-      `title: 전문 한자어나 약어를 빼고, 70대 매수자가 제목만 읽어도 요점이 바로 잡히는 자연스러운 2줄 제목(24~38자, 최대 ${AXIOS_TITLE_MAX_CHARS}자)으로 씁니다.`,
+      `title: 전문 한자어나 약어를 빼고, 일반 매수자·건물주가 제목만 읽어도 요점이 바로 잡히는 자연스러운 2줄 제목(24~38자, 최대 ${AXIOS_TITLE_MAX_CHARS}자)으로 씁니다.`,
       `brief: title에 바로 이어져 구체적 이유와 매수자·건물주 실질 득실을 친절히 풀어 주는 3줄 분량 해설(52~68자, 최대 ${AXIOS_BRIEF_MAX_CHARS}자, ~합니다/~입니다)을 작성합니다.`,
       "권역·관심 분야 관련성이 높은 카드를 앞 순서로 유지하되 후보 id 집합은 그대로 둡니다.",
       "[V] 체크리스트로 글자 수(제목<=44, 해설<=74)·줄 수(제목 2줄/해설 3줄)·쉬운 용어·매수자 시점 화법·미출처 숫자 0건을 검증한 뒤 JSON만 출력합니다.",
@@ -312,7 +312,7 @@ export function buildTf8AxiosClusterPrompt(
     examples: [
       "✅ title (31자): \"시중은행 빌딩 담보대출 금리 완화, 매수 이자 부담 줄어드나\"",
       "✅ brief (56자): \"대출 이자가 내려가면 내 돈 대비 실제 남는 수익이 커져 매수를 결정하기가 한결 수월해집니다.\"",
-      "❌ title (어려운 전문용어): \"통화정책 전환기, 빌딩 담보대출 금리 스프레드 점검\" (70대 매수자가 '스프레드' 뜻을 바로 이해하기 어려움)",
+      "❌ title (어려운 전문용어): \"통화정책 전환기, 빌딩 담보대출 금리 스프레드 점검\" (일반 매수자가 '스프레드' 뜻을 바로 이해하기 어려움)",
       "❌ brief (내부 코칭 화법): \"자기자본에 맞춘 레버리지 비율 안내가 거래 성사율을 높입니다.\" (중개사 내부 화법·영문 조어 노출 금지)",
       "❌ title (미완결 절단): \"일부 공간 호황을 건물 전체 임대수입으로 계산해선\" (보조용언 '안 된다' 누락 금지 → ✅ \"일부 가게 잘된다고 건물 전체 월세 수입으로 계산해선 안 된다\")",
       "❌ brief (개조식 종결): \"10년 전 공사비 영수증이 꼬마빌딩 양도세를 좌우할 수 있음.\" (~음/~됨 금지 → ✅ \"~양도세를 수천만 원 줄여 줄 수 있습니다.\")",
@@ -637,7 +637,7 @@ export interface Tf8BriefingPolishPromptInput {
 }
 
 /**
- * 1~3줄 거친 중개인 메모 → 70대 매수자 눈높이의 5줄·500자 이내 순수 시장 브리핑 윤문 프롬프트
+ * 1~3줄 거친 중개인 메모 → 일반 매수자·건물주 눈높이의 5줄·500자 이내 순수 시장 브리핑 윤문 프롬프트
  */
 export function buildTf8BriefingPolishPrompt(
   input: Tf8BriefingPolishPromptInput,
@@ -662,9 +662,9 @@ export function buildTf8BriefingPolishPrompt(
   const spec: TaskFlow8PromptSpec = {
     slotKey: "magazine_briefing_polish_tf8",
     version: "1.0",
-    task: `중개사가 적은 1~3줄의 짧은 메모를 바탕으로, 60~70대 건물 매수자·건물주가 읽기 편한 ${cad.label} 시장 브리핑(3~5줄 · 500자 이내 순수 텍스트)으로 정중하고 자연스럽게 윤문합니다.`,
+    task: `중개사가 적은 1~3줄의 짧은 메모를 바탕으로, 건물 매수자·건물주가 읽기 편한 ${cad.label} 시장 브리핑(3~5줄 · 500자 이내 순수 텍스트)으로 정중하고 자연스럽게 윤문합니다.`,
     audience:
-      "모바일로 소식지를 받아보는 60~70대 빌딩 매수자·건물주. 한 번에 쏙 읽히는 쉬운 우리말 존댓말('~합니다/~입니다')을 선호하며, 별도 소제목이나 장식 기호 없이 간결한 3~5줄 브리핑을 원합니다.",
+      "모바일로 소식지를 받아보는 빌딩 매수자·건물주. 한 번에 쏙 읽히는 쉬운 우리말 존댓말('~합니다/~입니다')을 선호하며, 별도 소제목이나 장식 기호 없이 간결한 3~5줄 브리핑을 원합니다.",
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[70s-Buyer-Plain-Korean] '스프레드', '레버리지', '자기자본수익률', '밸류애드', '리파이낸싱' 등 어려운 금융·영문 전문용어를 쉬운 일상 우리말로 풀어쓰십시오.",
@@ -677,7 +677,7 @@ export function buildTf8BriefingPolishPrompt(
     knowledge: factBookContext || "상업용 빌딩 시장의 전반적인 매수·임대 흐름",
     logicChain: [
       "중개사 초안의 핵심 뜻(입지, 금리 분위기, 매수·세입자 흐름, 당부 말씀)과 입력된 숫자만 그대로 추출합니다.",
-      "70대 어르신이 읽기 편하도록 짧은 문장 3~5줄(한 줄 한 생각)로 다듬어 연결합니다.",
+      "독자가 읽기 편하도록 짧은 문장 3~5줄(한 줄 한 생각)로 다듬어 연결합니다.",
       "줄 수(<=5줄), 글자 수(<=500자), 미출처 숫자 0건, 소제목/기호 0건을 검증한 뒤 본문만 출력합니다.",
     ],
     fallbackRepair:

@@ -47,6 +47,7 @@ interface ViewerBottomBarProps {
   /** 정규 slug (공유 URL용) */
   brokerId: string;
   headline?: string | null;
+  cadence?: string | null;
   date: string;
   dateLabel: string;
   target: ViewerTarget;
@@ -67,6 +68,7 @@ export function ViewerBottomBar({
   brokerName,
   brokerId,
   headline,
+  cadence,
   date,
   target,
   preview = false,
@@ -137,14 +139,17 @@ export function ViewerBottomBar({
     );
     if (target !== "all") link.searchParams.set("target", target);
     const who = brokerName?.trim() || "중개사";
+    const cadenceKo =
+      cadence === "daily" ? "일간" : cadence === "weekly" ? "주간" : "월간";
+    const fallbackDesc = `${cadenceKo} 꼬마빌딩 시장 핵심 요약`;
     const outcome = await shareMagazine(
       {
-        title: `[${who}] 주간 부동산 AI 매거진`,
-        description: clipDescription(headline || "주간 꼬마빌딩 시장 AI 인텔리전스"),
+        title: `[${who}] ${cadenceKo} 부동산 브리핑`,
+        description: clipDescription(headline || fallbackDesc),
         imageUrl: buildOgImageUrl(baseUrl, brokerId, date),
         link: link.toString(),
-        buttonTitle: "매거진 열람",
-        shareText: headline || "주간 꼬마빌딩 시장 AI 인텔리전스",
+        buttonTitle: "브리핑 열람",
+        shareText: headline || fallbackDesc,
       },
       {
         kakao: (window as unknown as { Kakao?: KakaoLike }).Kakao ?? null,

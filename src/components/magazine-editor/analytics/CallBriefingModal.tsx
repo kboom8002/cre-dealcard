@@ -27,7 +27,7 @@ const SUBSCRIBER_SEGMENT_KO_MAP: Record<string, string> = {
 };
 
 /**
- * C-18: 영문 세그먼트 코드를 60대 친화 한국어 라벨로 변환한다.
+ * C-18: 영문 세그먼트 코드를 독자 친화 한국어 라벨로 변환한다.
  * - 'investor' -> '투자 관심'
  * - 'buyer' -> '매수 희망'
  * - 'seller' -> '건물주·매도'
@@ -91,7 +91,7 @@ export function formatSectionLabelKo(section: string | null | undefined): string
 }
 
 /**
- * 60대 친화 통화 브리핑 스크립트 생성기 (AI 생성 아님 — 실제 열람·관심 데이터만 반영).
+ * 독자 친화 통화 브리핑 스크립트 생성기 (AI 생성 아님 — 실제 열람·관심 데이터만 반영).
  * - 중개사 표시 이름(없으면 '담당 공인중개사')을 인사말에 반영
  * - 관심 섹션/매물 요약을 자연스러운 한국어로 정돈
  */

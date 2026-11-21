@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { formatListDate } from "@/lib/workspace/list-date";
 import {
   type InboxEditorTabType,
@@ -26,8 +27,11 @@ export interface InboxEditorColumnProps {
   onSaveCallNote: () => void;
   onApproveAndSendIm: (thread: InboxThreadItem) => void;
   onRejectRequest: (thread: InboxThreadItem) => void;
-  onSendMaterial: (kind: "im" | "dealcard" | "newsletter" | "magazine") => void;
+  onSendMaterial?: (kind: "im" | "dealcard" | "newsletter" | "magazine") => void;
   onArchiveThread: (thread: InboxThreadItem) => void;
+  onGenerateAiReply?: (thread: InboxThreadItem) => Promise<void> | void;
+  aiReplyLoading?: boolean;
+  aiReplyCount?: number;
 }
 
 export function InboxEditorColumn({
@@ -45,8 +49,10 @@ export function InboxEditorColumn({
   onSaveCallNote,
   onApproveAndSendIm,
   onRejectRequest,
-  onSendMaterial,
   onArchiveThread,
+  onGenerateAiReply,
+  aiReplyLoading = false,
+  aiReplyCount = 0,
 }: InboxEditorColumnProps) {
   return (
     <div
@@ -125,33 +131,56 @@ export function InboxEditorColumn({
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-base font-semibold text-slate-800">
-                  관심 매물: {activeThread.buildingTitle}
-                </p>
-
-                {activeThread.buildingId.trim().length > 0 &&
-                  !activeThread.buildingTitle.includes("삭제된 매물") && (
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      <Link
-                        href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
-                          activeThread.buildingId.trim()
-                        )}`}
-                        data-testid="inbox-open-dealcard-link"
-                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
-                      >
-                        📄 딜카드 편집 →
-                      </Link>
-                      <Link
-                        href={`/broker/w/im?buildingId=${encodeURIComponent(
-                          activeThread.buildingId.trim()
-                        )}`}
-                        data-testid="inbox-open-im-link"
-                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
-                      >
-                        📊 IM 편집 →
-                      </Link>
-                    </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
+                  <span>관심 매물:</span>
+                  {!activeThread.buildingTitle || activeThread.buildingTitle === "관심 매물 미지정" ? (
+                    <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-600">
+                      관심 매물 연결 전
+                    </span>
+                  ) : (
+                    <span>{activeThread.buildingTitle}</span>
                   )}
+                </div>
+
+                {(activeThread.buildingId.trim().length > 0 &&
+                  !activeThread.buildingTitle.includes("삭제된 매물")) ||
+                activeThread.newsletterSubscribed ||
+                activeThread.id.startsWith("sub_") ? (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {activeThread.buildingId.trim().length > 0 &&
+                      !activeThread.buildingTitle.includes("삭제된 매물") && (
+                        <>
+                          <Link
+                            href={`/broker/w/dealcards?buildingId=${encodeURIComponent(
+                              activeThread.buildingId.trim()
+                            )}`}
+                            data-testid="inbox-open-dealcard-link"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                          >
+                            📄 딜카드 편집 →
+                          </Link>
+                          <Link
+                            href={`/broker/w/im?buildingId=${encodeURIComponent(
+                              activeThread.buildingId.trim()
+                            )}`}
+                            data-testid="inbox-open-im-link"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                          >
+                            {activeThread.hasIm === false ? "📊 IM 먼저 만들기 →" : "📊 IM 편집 →"}
+                          </Link>
+                        </>
+                      )}
+                    {(activeThread.newsletterSubscribed || activeThread.id.startsWith("sub_")) && (
+                      <Link
+                        href="/broker/magazine-editor"
+                        data-testid="inbox-open-magazine-link"
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
+                      >
+                        📰 뉴스레터 편집·보내기 →
+                      </Link>
+                    )}
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -276,60 +305,48 @@ export function InboxEditorColumn({
                   </h3>
                   <p className="mt-1.5 text-base text-slate-700">
                     {activeThread.gateStatus === "rejected"
-                      ? "IM 열람 요청을 거절했습니다. 다시 자료를 보내시려면 아래 버튼을 눌러 주세요."
+                      ? "IM 열람 요청을 거절했습니다. 다시 자료를 보내시려면 우측 [자료 전달 방법]에서 바로 선택해 주세요."
                       : activeThread.focusedSections &&
                         activeThread.focusedSections.length > 0
                       ? `집중 열람 항목: ${activeThread.focusedSections.join(" · ")}`
                       : activeThread.openCount > 0
                       ? `발송한 자료를 총 ${activeThread.openCount}회 열람했습니다.`
-                      : "아직 자료를 열람하지 않았습니다. 아래 버튼으로 맞춤 매물 자료를 보내 보세요."}
+                      : "아직 자료를 열람하지 않았습니다. 우측 [자료 전달 방법]에서 IM·딜카드·뉴스레터를 선택해 바로 보낼 수 있습니다."}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2.5">
-                    <button
-                      type="button"
-                      disabled={activeThread.status === "revoked" || Boolean(busyAction)}
-                      onClick={() => onSendMaterial("im")}
-                      className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold ${
-                        activeThread.status === "revoked"
-                          ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-                          : "bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-                      }`}
-                    >
-                      {activeThread.status === "revoked"
-                        ? "IM 전용 링크 (잠김)"
-                        : "IM 전용 링크 보내기"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={Boolean(busyAction)}
-                      onClick={() => onSendMaterial("dealcard")}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-                    >
-                      딜카드 보내기
-                    </button>
-                    <button
-                      type="button"
-                      disabled={Boolean(busyAction)}
-                      onClick={() => onSendMaterial("newsletter")}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-                    >
-                      뉴스레터 보내기
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* 탭 2: 메시지 (카톡 안내 문구 편집 및 발송) */}
+          {/* 탭 2: 메시지 (카톡 안내 문구 편집) */}
           {activeEditorTab === "message" && (
             <div
               className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
               data-testid="inbox-tab-panel-message"
             >
-              <h3 className="text-base font-bold text-slate-900">
-                카카오톡 자료 발송 메시지
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-bold text-slate-900">
+                  카카오톡 자료 발송 메시지
+                </h3>
+                {onGenerateAiReply && (
+                  <button
+                    type="button"
+                    data-testid="inbox-ai-reply-btn"
+                    disabled={aiReplyLoading || busyAction !== null}
+                    onClick={() => void onGenerateAiReply(activeThread)}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3.5 py-2 text-sm font-extrabold text-blue-900 transition hover:bg-blue-100 disabled:opacity-60 cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4 text-blue-700" aria-hidden="true" />
+                    <span>
+                      {aiReplyLoading
+                        ? "AI 문구 작성 중..."
+                        : aiReplyCount > 0
+                        ? "다른 표현으로 다시 쓰기"
+                        : "AI 맞춤 답장 작성"}
+                    </span>
+                  </button>
+                )}
+              </div>
               <div>
                 <label
                   htmlFor="inbox-kakao-headline-input"
@@ -362,39 +379,9 @@ export function InboxEditorColumn({
                   className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
               </div>
-              <div className="flex flex-wrap gap-2.5">
-                <button
-                  type="button"
-                  data-testid="send-im-link-btn"
-                  disabled={activeThread.status === "revoked" || Boolean(busyAction)}
-                  onClick={() => onSendMaterial("im")}
-                  className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-5 py-2.5 text-base font-bold ${
-                    activeThread.status === "revoked"
-                      ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-                      : "bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-                  }`}
-                >
-                  {activeThread.status === "revoked"
-                    ? "IM 전용 링크 (잠김)"
-                    : "IM 전용 링크 보내기"}
-                </button>
-                <button
-                  type="button"
-                  disabled={Boolean(busyAction)}
-                  onClick={() => onSendMaterial("dealcard")}
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-                >
-                  딜카드 보내기
-                </button>
-                <button
-                  type="button"
-                  disabled={Boolean(busyAction)}
-                  onClick={() => onSendMaterial("newsletter")}
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-                >
-                  뉴스레터 보내기
-                </button>
-              </div>
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600">
+                자료 종류 선택 및 카톡 복사·이메일 발송은 우측 <strong>[자료 전달 방법]</strong>에서 한 번에 진행할 수 있습니다.
+              </p>
             </div>
           )}
 

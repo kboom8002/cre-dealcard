@@ -109,6 +109,8 @@ export async function GET(request: NextRequest) {
   // 1. Fetch activity_events & broker_profiles.pending_magazine_deals (non-blocking)
   const deletedIds = new Set<string>();
   const activeIds = new Set<string>();
+  const activeImIds = new Set<string>();
+  const activeDealCardIds = new Set<string>();
   const customImByBuildingId = new Map<string, { item: Record<string, unknown>; updatedAt: string }>();
   const customCard4ByBuildingId = new Map<string, { card4: Record<string, unknown>; updatedAt: string }>();
   let pendingDeals: Array<Record<string, unknown>> = [];
@@ -155,7 +157,11 @@ export async function GET(request: NextRequest) {
       if (act.event_type === "im_upserted" || act.event_type === "im_restored") {
         if (imKey && !deletedIds.has(imKey) && (!bId || !deletedIds.has(bId))) {
           activeIds.add(imKey);
-          if (bId && bId !== userId) activeIds.add(bId);
+          activeImIds.add(imKey);
+          if (bId && bId !== userId) {
+            activeIds.add(bId);
+            activeImIds.add(bId);
+          }
           if (meta.im_item && typeof meta.im_item === "object") {
             const imItem = meta.im_item as Record<string, unknown>;
             const targetKey = bId && bId !== userId ? bId : imKey;
@@ -173,6 +179,7 @@ export async function GET(request: NextRequest) {
       if (act.event_type === "dealcard_upserted" || act.event_type === "dealcard_restored") {
         if (bId && bId !== userId && !deletedIds.has(bId)) {
           activeIds.add(bId);
+          activeDealCardIds.add(bId);
           if (meta.card4 && typeof meta.card4 === "object" && !customCard4ByBuildingId.has(bId)) {
             customCard4ByBuildingId.set(bId, {
               card4: meta.card4 as Record<string, unknown>,
@@ -347,12 +354,21 @@ export async function GET(request: NextRequest) {
       realPhotoByBuildingId.get(id) ||
       null;
 
+    const hasImDoc =
+      Boolean(customIm) ||
+      Boolean(bestDoc) ||
+      activeImIds.has(id) ||
+      allQuickRecords.some((r) => r.buildingId === id && Boolean(r.basicImDoc));
+    const hasDealCard = Boolean(customCard4) || activeDealCardIds.has(id);
+
     return {
       id,
       title: displayTitle,
       building_name: displayTitle,
       address: rawAddr,
       dong: region,
+      area_signal: region,
+      asset_type: use,
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(
         salePriceWon,
@@ -360,6 +376,8 @@ export async function GET(request: NextRequest) {
       ),
       cap_rate: capRate,
       photo_url: photoUrl,
+      has_im: hasImDoc,
+      has_dealcard: hasDealCard,
       status:
         customIm?.status === "completed" ||
         customIm?.status === "published" ||
@@ -384,6 +402,20 @@ export async function GET(request: NextRequest) {
     wsItems = [];
   }
 
+  const wsImIds = new Set<string>();
+  const wsDealCardIds = new Set<string>();
+  for (const ws of wsItems) {
+    if (ws.deletedAt || ws.status === "archived") continue;
+    const keys = [ws.buildingId, ws.legacyId, ws.id].filter((x): x is string => Boolean(x));
+    if (ws.kind === "im") keys.forEach((k) => wsImIds.add(k));
+    else if (ws.kind === "dealcard") keys.forEach((k) => wsDealCardIds.add(k));
+  }
+
+  for (const b of buildings) {
+    if (!b.has_im && wsImIds.has(b.id)) b.has_im = true;
+    if (!b.has_dealcard && wsDealCardIds.has(b.id)) b.has_dealcard = true;
+  }
+
   for (const ws of wsItems) {
     if (ws.deletedAt || ws.status === "archived") continue;
     const wsKey = String(ws.buildingId || ws.legacyId || ws.id).trim();
@@ -404,6 +436,8 @@ export async function GET(request: NextRequest) {
       if (ws.priceBand && !existing.price_band) {
         existing.price_band = ws.priceBand;
       }
+      if (ws.kind === "im") existing.has_im = true;
+      if (ws.kind === "dealcard") existing.has_dealcard = true;
       if (wsPublished) {
         existing.status = "published";
       }
@@ -434,10 +468,14 @@ export async function GET(request: NextRequest) {
         building_name: `${region} ${use}`.trim(),
         address: ws.address || region,
         dong: region,
+        area_signal: region,
+        asset_type: use,
         sale_price: salePriceWon,
         price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
         cap_rate: null,
         photo_url: realPhotoByBuildingId.get(wsKey) || null,
+        has_im: wsImIds.has(wsKey) || activeImIds.has(wsKey) || Boolean(bestDocByBuildingId.get(wsKey)),
+        has_dealcard: true,
         status: wsStatus,
         updated_at: ws.updatedAt || null,
       });
@@ -464,10 +502,14 @@ export async function GET(request: NextRequest) {
         building_name: title,
         address: addr,
         dong: addr,
+        area_signal: addr,
+        asset_type: String(imPayload.assetType || "상업용 빌딩"),
         sale_price: salePriceWon,
         price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
         cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
         photo_url: photoUrl,
+        has_im: true,
+        has_dealcard: wsDealCardIds.has(wsKey) || activeDealCardIds.has(wsKey),
         status: wsStatus,
         updated_at: ws.updatedAt || null,
       });
@@ -492,10 +534,14 @@ export async function GET(request: NextRequest) {
       building_name: title,
       address: addr,
       dong: addr,
+      area_signal: addr,
+      asset_type: String(it.assetType || "상업용 빌딩"),
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(salePriceWon, null),
       cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
       photo_url: photoUrl,
+      has_im: true,
+      has_dealcard: wsDealCardIds.has(bId) || activeDealCardIds.has(bId),
       status: it.status === "completed" || it.status === "published" ? "published" : "draft",
       updated_at: entry.updatedAt || null,
     });
@@ -519,10 +565,14 @@ export async function GET(request: NextRequest) {
       building_name: `${region} ${use}`.trim(),
       address: region,
       dong: region,
+      area_signal: region,
+      asset_type: use,
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
       cap_rate: null,
       photo_url: realPhotoByBuildingId.get(bId) || null,
+      has_im: false,
+      has_dealcard: true,
       status: "draft",
       updated_at: entry.updatedAt || null,
     });
@@ -552,6 +602,8 @@ export async function GET(request: NextRequest) {
       building_name: title,
       address: addr,
       dong: addr,
+      area_signal: addr,
+      asset_type: String(pd.assetType || pd.asset_type || "상업용 빌딩"),
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(
         salePriceWon,
@@ -559,6 +611,8 @@ export async function GET(request: NextRequest) {
       ),
       cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
       photo_url: photoUrl,
+      has_im: true,
+      has_dealcard: true,
       status: "published",
       updated_at: typeof pd.updated_at === "string" ? pd.updated_at : null,
     });
@@ -595,10 +649,14 @@ export async function GET(request: NextRequest) {
         building_name: title,
         address: rec.address || region,
         dong: region,
+        area_signal: region,
+        asset_type: use,
         sale_price: salePriceWon,
         price_band: formatWonToPriceBand(salePriceWon, rec.card4?.priceBand || null),
         cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
         photo_url: firstQuickPhoto || realPhotoByBuildingId.get(rec.buildingId) || null,
+        has_im: Boolean(rec.basicImDoc),
+        has_dealcard: true,
         status: "draft",
         updated_at: rec.updatedAt || null,
       });

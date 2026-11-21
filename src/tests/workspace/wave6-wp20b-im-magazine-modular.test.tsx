@@ -194,15 +194,19 @@ describe("Wave 6 WP-20B: IM & Newsletter Domain Modularization + Mobile Footer +
       '[data-testid="im-secondary-actions-row"]',
     ) as HTMLElement | null;
     expect(secondaryRow).not.toBeNull();
-    expect(secondaryRow?.className).toContain("grid-cols-2");
+    expect(secondaryRow?.className).toContain("grid-cols-3");
 
     const pptxBtn = secondaryRow?.querySelector(
       '[data-testid="im-download-pptx-btn"]',
+    ) as HTMLButtonElement | null;
+    const pdfBtn = secondaryRow?.querySelector(
+      '[data-testid="im-download-pdf-btn"]',
     ) as HTMLButtonElement | null;
     const studioBtn = secondaryRow?.querySelector(
       '[data-testid="im-open-studio-btn"]',
     ) as HTMLButtonElement | null;
     expect(pptxBtn?.className).toContain("min-h-[44px]");
+    expect(pdfBtn?.className).toContain("min-h-[44px]");
     expect(studioBtn?.className).toContain("min-h-[44px]");
 
     // 3) Mandatory ConfirmDeleteModal on delete
@@ -464,13 +468,25 @@ describe("Wave 6 WP-20B: IM & Newsletter Domain Modularization + Mobile Footer +
       container.querySelector(`[data-testid="magazine-edition-item-${publishedId}"]`),
     ).not.toBeNull();
 
-    // Confirm sends DELETE and removes edition from list
+    // Confirm published edition deletion (Decision 1-B requires title match before confirming)
     await act(async () => {
       deleteBtn!.click();
     });
     const confirmBtn = document.querySelector(
       '[data-testid="confirm-delete-confirm-btn"]',
     ) as HTMLButtonElement;
+    const matchInput = document.querySelector(
+      '[data-testid="confirm-delete-match-input"]',
+    ) as HTMLInputElement | null;
+    expect(matchInput).not.toBeNull();
+    expect(confirmBtn.disabled).toBe(true);
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(matchInput, "강남권 11월 빌딩 시장 브리핑");
+      matchInput!.dispatchEvent(new Event("input", { bubbles: true }));
+      matchInput!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(confirmBtn.disabled).toBe(false);
     await act(async () => {
       confirmBtn.click();
     });

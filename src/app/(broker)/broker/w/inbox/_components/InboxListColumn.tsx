@@ -40,6 +40,9 @@ export interface InboxListColumnProps {
   loadingMoreClients?: boolean;
   totalClientsCount?: number | null;
   onLoadMoreClients?: () => void;
+  onQuickEditClient?: (thread: InboxThreadItem) => void;
+  onQuickDeleteClient?: (thread: InboxThreadItem) => void;
+  onQuickArchiveThread?: (thread: InboxThreadItem) => void;
 }
 
 const CRM_FILTER_CHIPS: ReadonlyArray<{
@@ -51,6 +54,7 @@ const CRM_FILTER_CHIPS: ReadonlyArray<{
   { key: "vip", label: "⭐ VIP", testId: "inbox-filter-chip-vip" },
   { key: "buyer", label: "매수", testId: "inbox-filter-chip-buyer" },
   { key: "seller", label: "매도", testId: "inbox-filter-chip-seller" },
+  { key: "newsletter", label: "뉴스레터 구독", testId: "inbox-filter-chip-newsletter" },
   { key: "emailable", label: "이메일 가능", testId: "inbox-filter-chip-emailable" },
 ];
 
@@ -74,8 +78,99 @@ export function InboxListColumn({
   hasMoreClients = false,
   loadingMoreClients = false,
   onLoadMoreClients,
+  onQuickEditClient,
+  onQuickDeleteClient,
+  onQuickArchiveThread,
 }: InboxListColumnProps) {
   const [mobileExtraOpen, setMobileExtraOpen] = React.useState(false);
+
+  const activeCrmChip = CRM_FILTER_CHIPS.find(
+    (c) => c.key !== "all" && c.key === activeFilter
+  );
+  const toolbarActiveFilters = activeCrmChip
+    ? [
+        {
+          key: `crm-${activeCrmChip.key}`,
+          label: activeCrmChip.label,
+          onClear: () => onFilterChange("all"),
+        },
+      ]
+    : [];
+
+  const renderInlineActions = (item: InboxThreadItem) => {
+    if (item.status === "pending_gate") {
+      return (
+        <button
+          type="button"
+          data-testid={`inbox-row-approve-${item.id}`}
+          disabled={Boolean(busyAction)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onApproveAndSendIm(item);
+          }}
+          className="min-h-[44px] rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 text-sm font-bold text-emerald-900 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
+        >
+          승인
+        </button>
+      );
+    }
+    if (item.id.startsWith("custom_") && (onQuickEditClient || onQuickDeleteClient)) {
+      return (
+        <>
+          {onQuickEditClient && (
+            <button
+              type="button"
+              data-testid={`inbox-row-edit-${item.id}`}
+              disabled={Boolean(busyAction)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickEditClient(item);
+              }}
+              className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-sm font-bold text-slate-700 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
+            >
+              수정
+            </button>
+          )}
+          {onQuickDeleteClient && (
+            <button
+              type="button"
+              data-testid={`inbox-row-delete-${item.id}`}
+              disabled={Boolean(busyAction)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickDeleteClient(item);
+              }}
+              className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:border-rose-300 hover:bg-rose-50 px-2.5 py-1 text-sm font-bold text-slate-700 hover:text-rose-700 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
+            >
+              삭제
+            </button>
+          )}
+        </>
+      );
+    }
+    if (
+      onQuickArchiveThread &&
+      !item.id.startsWith("custom_") &&
+      !item.id.startsWith("cli-") &&
+      !item.id.startsWith("sub_")
+    ) {
+      return (
+        <button
+          type="button"
+          data-testid={`inbox-row-archive-${item.id}`}
+          disabled={Boolean(busyAction)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onQuickArchiveThread(item);
+          }}
+          className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-sm font-bold text-slate-700 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
+        >
+          보관
+        </button>
+      );
+    }
+    return undefined;
+  };
 
   const listControls = (
     <>
@@ -153,6 +248,7 @@ export function InboxListColumn({
               (activeFilter === "vip" ||
                 activeFilter === "buyer" ||
                 activeFilter === "seller" ||
+                activeFilter === "newsletter" ||
                 activeFilter === "emailable" ||
                 activeFilter === "clients"));
           return (
@@ -202,34 +298,6 @@ export function InboxListColumn({
         <span aria-hidden="true">{mobileExtraOpen ? "접기 ▲" : "열기 ▼"}</span>
       </button>
 
-      {/* 구조화 CRM 세부 필터 칩: 전체 · ⭐ VIP · 매수 · 매도 · 이메일 가능 */}
-      <div
-        role="group"
-        aria-label="고객 조건 필터"
-        data-testid="inbox-crm-filter-chips"
-        className={`${mobileExtraOpen ? "flex" : "hidden lg:flex"} flex-wrap items-center gap-1.5`}
-      >
-        {CRM_FILTER_CHIPS.map((chip) => {
-          const isPressed = activeFilter === chip.key;
-          return (
-            <button
-              key={chip.key}
-              type="button"
-              aria-pressed={isPressed}
-              data-testid={chip.testId}
-              onClick={() => onFilterChange(chip.key)}
-              className={`inline-flex min-h-[44px] items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
-                isPressed
-                  ? "border-slate-900 bg-slate-900 text-white shadow-2xs"
-                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
-              }`}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* 상단 고객 등록 액션 바 (직접 등록 + 3-Way 엑셀·명단 대량 등록) */}
       <div className={`${mobileExtraOpen ? "flex" : "hidden lg:flex"} flex-wrap items-center gap-2`}>
         <button
@@ -250,8 +318,44 @@ export function InboxListColumn({
         </button>
       </div>
 
+      {/* SOTA 접이식 필터(필터 ▾) + 간단히/자세히 보기 통일 */}
       <div className={mobileExtraOpen ? "block" : "hidden lg:block"}>
-        <ListToolbar viewMode={viewMode} onViewModeChange={onViewModeChange} />
+        <ListToolbar
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange}
+          activeFilters={toolbarActiveFilters}
+          filterPanel={
+            <div className="space-y-1.5">
+              <p className="px-0.5 text-sm font-bold text-slate-600">고객 조건</p>
+              <div
+                role="group"
+                aria-label="고객 조건 필터"
+                data-testid="inbox-crm-filter-chips"
+                className="flex flex-wrap items-center gap-1.5"
+              >
+                {CRM_FILTER_CHIPS.map((chip) => {
+                  const isPressed = activeFilter === chip.key;
+                  return (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      aria-pressed={isPressed}
+                      data-testid={chip.testId}
+                      onClick={() => onFilterChange(chip.key)}
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                        isPressed
+                          ? "border-blue-500 bg-blue-50/90 text-blue-950 shadow-2xs"
+                          : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          }
+        />
       </div>
     </>
   );
@@ -334,6 +438,7 @@ export function InboxListColumn({
                   }
                   selected={activeThread?.id === item.id}
                   onSelect={() => onSelectThread(item.id)}
+                  actions={renderInlineActions(item)}
                   dataAttrs={{ "data-unread": item.isRead ? "false" : "true" }}
                 />
               );
@@ -425,9 +530,17 @@ export function InboxListColumn({
                         {item.latestEvent}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
-                      {formatListDate(item.updatedAt)}
-                    </span>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
+                        {formatListDate(item.updatedAt)}
+                      </span>
+                      {(() => {
+                        const cardActions = renderInlineActions(item);
+                        return cardActions ? (
+                          <div className="flex items-center gap-1">{cardActions}</div>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>

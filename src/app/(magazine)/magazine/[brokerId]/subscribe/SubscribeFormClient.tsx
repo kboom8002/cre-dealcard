@@ -31,7 +31,7 @@ interface SubscribeFormClientProps {
 const REGION_OPTIONS: readonly string[] = REGION_LABELS;
 const ASSET_OPTIONS: readonly string[] = ASSET_LABELS;
 
-// 입력은 16px(text-[16px]) 이상 — iOS 확대 방지 및 60대 가독성 보장.
+// 입력은 16px(text-[16px]) 이상 — iOS 확대 방지 및 가독성 보장.
 const INPUT_CLS =
   // eslint-disable-next-line cre-magazine/no-restricted-syntax
   'w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20';

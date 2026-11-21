@@ -1,15 +1,13 @@
 "use client";
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, BarChart3, CheckCircle2, ExternalLink, Loader2, Save, Send } from "lucide-react";
+import { BarChart3, ExternalLink, Save } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
-  useEditorPreviewSync, PreviewCausalityBar, PreviewPregenerationCard,
+  useEditorPreviewSync, PreviewCausalityBar,
   type PreviewLifecycleState, type EditorUnitTarget,
 } from "@/components/workspace/preview-sync";
-import { SelectedItemActions } from "@/components/workspace/list/WorkspaceList";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import {
@@ -18,10 +16,7 @@ import {
 } from "@/lib/workspace/storage-namespace";
 import type { AutoIssueMetadata } from "@/components/magazine-editor/IssueMetadataForm";
 import type { AssignableDealItem } from "@/components/magazine-editor/DealSlotAssigner";
-import {
-  MagazinePublishChecklist,
-  getNextPublishHint,
-} from "@/components/magazine-editor/MagazinePublishChecklist";
+import { getNextPublishHint } from "@/components/magazine-editor/MagazinePublishChecklist";
 import type { MagazineDraftSnapshot } from "@/components/broker/studio/MagazineQuickDraftCard";
 import type { NewsletterTargetSegment } from "@/components/broker/studio/SendListSummaryBar";
 import type { BulkImportApiResult } from "@/components/workspace/inbox/ContactBulkImportModal";
@@ -88,9 +83,46 @@ import {
   formatDistributeOutcomeBanner,
   type DistributeOutcomeCardData,
 } from "./_components/distribute-result-helper";
-import { NewsletterPreviewCard } from "./_components/NewsletterPreviewCard";
 import { NewsletterInsightsModal } from "./_components/NewsletterInsightsModal";
+import {
+  MagazineStatusBanner,
+  NewsletterPreviewBody,
+  NewsletterPrimaryActionButton,
+} from "./_components/NewsletterPreviewSlot";
 import { useNewsletterServerDraftSync } from "./_hooks/useNewsletterServerDraftSync";
+import {
+  buildIssueRequestBody,
+  buildLocalDraftStorageRecord,
+  buildPublishPatchBody,
+  buildSelectedDealSnapshots,
+  parseServerSaveSuccess,
+  resolveFallbackIssueIsoDate,
+  resolvePopulatedMonthlyCharts,
+  resolvePublishPatchSuccessUrl,
+  saveDraftRecordToSlots,
+  upsertSavedEditionSummary,
+  upsertBootstrappedDraftSummary,
+  applyServerDraftSyncedUpdate,
+} from "./_lib/edition-payload";
+import {
+  applyMonthlyChartFieldPatch,
+  buildClonedEditionState,
+  buildNewsletterEditorSyncUnits,
+  dispatchEditionDistribution,
+  executeRemoteEditionDelete,
+  executeRemoteEditionRestore,
+  requestAiNewsClusterIssues,
+  resolveSendCompletionBanner,
+} from "./_lib/edition-helpers";
+import {
+  findScopedInitialDraftRecord,
+  markSlotSyncedOnServer,
+  mergeIncomingNewsPool,
+  parseHydratedDraftData,
+  purgeMismatchedLegacyDraftKeys,
+  resolveAppliedEditionFields,
+  writeExplicitNewSlotMarker,
+} from "./_lib/edition-bootstrap";
 
 export {
   getPrimaryTabsForCadence,
@@ -104,9 +136,9 @@ const STEP_TABS: readonly {
   label: string;
   shortDesc: string;
 }[] = [
-  { key: "title", label: "① 제목", shortDesc: "연·월 선택 및 표지 제목" },
-  { key: "content", label: "② 내용", shortDesc: "시장 브리핑과 추천 매물" },
-  { key: "send", label: "③ 보내기", shortDesc: "받을 고객 확인 및 발송" },
+  { key: "title", label: "제목", shortDesc: "연·월 선택 및 표지 제목" },
+  { key: "content", label: "내용", shortDesc: "시장 브리핑과 추천 매물" },
+  { key: "send", label: "보내기", shortDesc: "받을 고객 확인 및 발송" },
 ] as const;
 
 function MagazineEditorWorkspace() {
@@ -266,30 +298,13 @@ function MagazineEditorWorkspace() {
       if (slotKey) {
         hydratedSlotKeyRef.current = slotKey;
       }
-      const nextCadence =
-        typeof parsed.cadence === "string"
-          ? normalizeNewsletterCadence(parsed.cadence)
-          : "monthly";
-      const parsedPrefs =
-        Array.isArray(parsed.preferredRegions) && parsed.preferredRegions.length > 0
-          ? normalizeBrokerPreferences({
-              preferredRegions: parsed.preferredRegions,
-              preferredChannels: parsed.preferredChannels,
-            })
-          : {
-              preferredRegions: [...DEFAULT_PREFERRED_REGIONS],
-              preferredChannels: [...DEFAULT_PREFERRED_CHANNELS],
-            };
-      if (parsed.isExplicitNewSlot === true) {
-        setCadence(nextCadence);
-        if (typeof parsed.issueYear === "number") setIssueYear(parsed.issueYear);
-        if (typeof parsed.issueMonth === "number") setIssueMonth(parsed.issueMonth);
-        if (isValidIsoDate(parsed.issueDateStr)) setIssueDateStr(parsed.issueDateStr);
-        setDraftSlotSlugOverride(
-          typeof parsed.slotSlug === "string" && parsed.slotSlug.trim()
-            ? parsed.slotSlug.trim()
-            : null,
-        );
+      const data = parseHydratedDraftData(parsed);
+      if (data.isExplicitNewSlot) {
+        setCadence(data.cadence);
+        if (typeof data.issueYear === "number") setIssueYear(data.issueYear);
+        if (typeof data.issueMonth === "number") setIssueMonth(data.issueMonth);
+        if (data.issueDateStr) setIssueDateStr(data.issueDateStr);
+        setDraftSlotSlugOverride(data.slotSlug);
         setEditionId(null);
         setHeadline("");
         setSummary("");
@@ -298,16 +313,10 @@ function MagazineEditorWorkspace() {
         setMarketTemp(null);
         setSelectedDealIds([]);
         setDealComments({});
-        setSections(buildDefaultEditorSections(nextCadence));
-        setMonthlyPairId("molit_bok");
-        setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "molit_bok"));
-        setUnitIssues(
-          clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
-            cadence: nextCadence,
-            preferredRegions: parsedPrefs.preferredRegions,
-            preferredChannels: parsedPrefs.preferredChannels,
-          }),
-        );
+        setSections(data.sections);
+        setMonthlyPairId(data.monthlyPairId);
+        setMonthlyCharts(data.monthlyCharts);
+        if (data.unitIssuesUpdate) setUnitIssues(data.unitIssuesUpdate.issues);
         setIsPublished(false);
         setPublishedUrl(null);
         setLocalStorageMode("none");
@@ -317,109 +326,46 @@ function MagazineEditorWorkspace() {
         return;
       }
 
-      if (typeof parsed.headline === "string") setHeadline(parsed.headline);
-      if (typeof parsed.summary === "string") setSummary(parsed.summary);
-      if (typeof parsed.briefingTitle === "string") setBriefingTitle(parsed.briefingTitle);
-      if (typeof parsed.briefingBody === "string") setBriefingBody(parsed.briefingBody);
-      if (typeof parsed.issueYear === "number") setIssueYear(parsed.issueYear);
-      if (typeof parsed.issueMonth === "number") setIssueMonth(parsed.issueMonth);
-      if (typeof parsed.cadence === "string") setCadence(nextCadence);
-      if (isValidIsoDate(parsed.issueDateStr)) setIssueDateStr(parsed.issueDateStr);
-      if (typeof parsed.slotSlug === "string" && parsed.slotSlug.trim()) {
-        setDraftSlotSlugOverride(parsed.slotSlug.trim());
-      } else {
-        setDraftSlotSlugOverride(null);
+      if (typeof data.headline === "string") setHeadline(data.headline);
+      if (typeof data.summary === "string") setSummary(data.summary);
+      if (typeof data.briefingTitle === "string") setBriefingTitle(data.briefingTitle);
+      if (typeof data.briefingBody === "string") setBriefingBody(data.briefingBody);
+      if (typeof data.issueYear === "number") setIssueYear(data.issueYear);
+      if (typeof data.issueMonth === "number") setIssueMonth(data.issueMonth);
+      if (typeof parsed.cadence === "string") setCadence(data.cadence);
+      if (data.issueDateStr) setIssueDateStr(data.issueDateStr);
+      setDraftSlotSlugOverride(data.slotSlug);
+      if (data.hasMarketTemp) setMarketTemp(data.marketTemp);
+      setMonthlyRegion(data.monthlyRegion);
+      setMonthlyPairId(data.monthlyPairId);
+      setMonthlyCharts(data.monthlyCharts);
+      setSections(data.sections);
+      if (data.targetSegment) setTargetSegment(data.targetSegment);
+      if (data.selectedDealIds) setSelectedDealIds(data.selectedDealIds);
+      if (data.dealComments) setDealComments(data.dealComments);
+      if (data.preferredPrefs) {
+        setPreferredRegions(data.preferredPrefs.preferredRegions);
+        setPreferredChannels(data.preferredPrefs.preferredChannels);
+        setRegionFocus(data.preferredPrefs.preferredRegions.join(", "));
       }
-      if (typeof parsed.marketTemp === "string" || parsed.marketTemp === null) {
-        setMarketTemp((parsed.marketTemp as MarketTemperature | null) ?? null);
+      if (data.unitIssuesUpdate) {
+        setUnitIssues(data.unitIssuesUpdate.issues);
+        if (data.unitIssuesUpdate.markRestored) restoredLocalIssuesRef.current = true;
       }
-      const normMonthly = normalizeMonthlyRegion(parsed.monthlyRegion) ?? "gbd";
-      const normPair = normalizeMonthlyPairId(parsed.monthlyPairId);
-      setMonthlyRegion(normMonthly);
-      setMonthlyPairId(normPair);
-      const restoredCharts = normalizeSavedMonthlyCharts(parsed.monthlyCharts);
-      setMonthlyCharts(
-        restoredCharts ?? buildDefaultMonthlyGraphicPair(normMonthly, normPair),
-      );
+      if (data.editionIdUpdate?.hasValue) setEditionId(data.editionIdUpdate.value);
 
-      const normSections = normalizeEditorSections(parsed.sections, nextCadence);
-      setSections(normSections ?? buildDefaultEditorSections(nextCadence));
-      const normSegment = normalizeTargetSegment(parsed.targetSegment);
-      if (normSegment) setTargetSegment(normSegment);
-
-      if (Array.isArray(parsed.selectedDealIds)) {
-        setSelectedDealIds(
-          parsed.selectedDealIds.filter((v): v is string => typeof v === "string"),
-        );
-      }
-      if (parsed.dealComments && typeof parsed.dealComments === "object") {
-        const restoredComments: Record<string, string> = {};
-        for (const [k, v] of Object.entries(parsed.dealComments as Record<string, unknown>)) {
-          if (typeof v === "string") restoredComments[k] = v;
-        }
-        setDealComments(restoredComments);
-      }
-      if (Array.isArray(parsed.preferredRegions) && parsed.preferredRegions.length > 0) {
-        const normPrefs = normalizeBrokerPreferences({
-          preferredRegions: parsed.preferredRegions,
-          preferredChannels: parsed.preferredChannels,
-        });
-        setPreferredRegions(normPrefs.preferredRegions);
-        setPreferredChannels(normPrefs.preferredChannels);
-        setRegionFocus(normPrefs.preferredRegions.join(", "));
-      }
-      const effectiveSections = normSections ?? buildDefaultEditorSections(nextCadence);
-      const newsEnabledInDraft = effectiveSections.some(
-        (s) => s.id === "news_curation" && s.enabled,
-      );
-      const hasSavedServerEdition =
-        typeof parsed.editionId === "string" && parsed.editionId.trim().length > 0;
-
-      if (Array.isArray(parsed.unitIssues)) {
-        if (parsed.unitIssues.length > 0) {
-          const restoredIssues = resolveUnitIssuesFromData(
-            { unitIssues: parsed.unitIssues },
-            { fallbackFromTopNews: false },
-          );
-          if (restoredIssues.length > 0) {
-            setUnitIssues(restoredIssues);
-            restoredLocalIssuesRef.current = true;
-          }
-        } else if (!hasSavedServerEdition && newsEnabledInDraft) {
-          setUnitIssues(
-            clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
-              cadence: nextCadence,
-              preferredRegions: parsedPrefs.preferredRegions,
-              preferredChannels: parsedPrefs.preferredChannels,
-            }),
-          );
-          restoredLocalIssuesRef.current = true;
-        } else {
-          setUnitIssues([]);
-          restoredLocalIssuesRef.current = true;
-        }
-      }
-
-      if (typeof parsed.editionId === "string" && parsed.editionId) {
-        setEditionId(parsed.editionId);
-      } else if (parsed.editionId === null) {
-        setEditionId(null);
-      }
-
-      if (parsed.serverPublished === true) {
-        if (typeof parsed.publishedUrl === "string" && parsed.publishedUrl) {
-          setPublishedUrl(parsed.publishedUrl);
-        }
+      if (data.syncStatus === "published") {
+        if (data.publishedUrl) setPublishedUrl(data.publishedUrl);
         setIsPublished(true);
         setLocalStorageMode("none");
         setSaveState("saved");
-        if (typeof parsed.savedAt === "string") setLastSavedAt(parsed.savedAt);
-      } else if (parsed.serverSavedDraft === true) {
+        if (data.savedAt) setLastSavedAt(data.savedAt);
+      } else if (data.syncStatus === "server_draft") {
         setPublishedUrl(null);
         setIsPublished(false);
         setLocalStorageMode("none");
         setSaveState("saved");
-        if (typeof parsed.savedAt === "string") setLastSavedAt(parsed.savedAt);
+        if (data.savedAt) setLastSavedAt(data.savedAt);
       } else {
         setLocalStorageMode("local_only");
         setSaveState("dirty");
@@ -474,47 +420,41 @@ function MagazineEditorWorkspace() {
 
       try {
         if (typeof window !== "undefined") {
-          const activeScopeUid = resolveNewsletterScopeUid(
-            brokerId,
-            brokerSlug,
+          const { payload, activeScopeUid } = buildLocalDraftStorageRecord(
+            {
+              brokerId,
+              brokerSlug,
+              editionId: targetEditionId,
+              slotSlug: targetSlotSlug,
+              headline: nextPatch?.headline ?? headline,
+              summary: nextPatch?.summary ?? summary,
+              briefingTitle: nextPatch?.briefingTitle ?? briefingTitle,
+              briefingBody: nextPatch?.briefingBody ?? briefingBody,
+              issueYear: targetYear,
+              issueMonth: targetMonth,
+              cadence: targetCadence,
+              issueDateStr: targetDateStr,
+              marketTemp:
+                nextPatch && "marketTemp" in nextPatch
+                  ? (nextPatch.marketTemp ?? null)
+                  : marketTemp,
+              monthlyRegion: nextPatch?.monthlyRegion ?? monthlyRegion,
+              monthlyPairId: nextPatch?.monthlyPairId ?? monthlyPairId,
+              monthlyCharts: nextPatch?.monthlyCharts ?? monthlyCharts,
+              selectedDealIds: nextPatch?.selectedDealIds ?? selectedDealIds,
+              dealComments: nextPatch?.dealComments ?? dealComments,
+              preferredRegions: nextPatch?.preferredRegions ?? preferredRegions,
+              preferredChannels: nextPatch?.preferredChannels ?? preferredChannels,
+              unitIssues: nextPatch?.unitIssues ?? unitIssues,
+              sections: nextPatch?.sections ?? sections,
+              targetSegment: nextPatch?.targetSegment ?? targetSegment,
+              publishedUrl: isPublished ? publishedUrl : null,
+              serverPublished: false,
+              serverSavedDraft: false,
+            },
             scopeUidRef.current,
           );
-          const payload: LocalNewsletterDraft = {
-            ...(activeScopeUid ? { ownerUserId: activeScopeUid } : {}),
-            brokerId: brokerId || activeScopeUid || undefined,
-            brokerSlug: brokerSlug || undefined,
-            editionId: targetEditionId,
-            slotSlug: targetSlotSlug,
-            headline: nextPatch?.headline ?? headline,
-            summary: nextPatch?.summary ?? summary,
-            briefingTitle: nextPatch?.briefingTitle ?? briefingTitle,
-            briefingBody: nextPatch?.briefingBody ?? briefingBody,
-            issueYear: targetYear,
-            issueMonth: targetMonth,
-            marketTemp:
-              nextPatch && "marketTemp" in nextPatch
-                ? (nextPatch.marketTemp ?? null)
-                : marketTemp,
-            monthlyRegion: nextPatch?.monthlyRegion ?? monthlyRegion,
-            monthlyPairId: nextPatch?.monthlyPairId ?? monthlyPairId,
-            monthlyCharts: nextPatch?.monthlyCharts ?? monthlyCharts,
-            selectedDealIds: nextPatch?.selectedDealIds ?? selectedDealIds,
-            dealComments: nextPatch?.dealComments ?? dealComments,
-            preferredRegions: nextPatch?.preferredRegions ?? preferredRegions,
-            preferredChannels: nextPatch?.preferredChannels ?? preferredChannels,
-            unitIssues: nextPatch?.unitIssues ?? unitIssues,
-            sections: nextPatch?.sections ?? sections,
-            targetSegment: nextPatch?.targetSegment ?? targetSegment,
-            cadence: targetCadence,
-            issueDateStr: targetDateStr,
-            publishedUrl: isPublished ? publishedUrl : null,
-            serverPublished: false,
-            serverSavedDraft: false,
-            isExplicitNewSlot: false,
-            savedAt: new Date().toISOString(),
-          };
-          writeScopedWorkspaceJson(slotKey, activeScopeUid, payload);
-          writeLastActiveSlotKey(activeScopeUid, slotKey);
+          saveDraftRecordToSlots({ slotKey, activeScopeUid, payload });
           hydratedSlotKeyRef.current = slotKey;
           userEditedSinceMountRef.current = true;
         }
@@ -558,44 +498,44 @@ function MagazineEditorWorkspace() {
     if (saveState !== "dirty" && saveState !== "conflict" && localStorageMode !== "local_only") return;
     try {
       if (typeof window === "undefined") return;
-      const activeScopeUid = resolveNewsletterScopeUid(
-        brokerId,
-        brokerSlug,
+      const currentSlotKey = makeSlotStorageKey(editionId, cadence, effectiveSlotSlug);
+      const { payload, activeScopeUid } = buildLocalDraftStorageRecord(
+        {
+          brokerId,
+          brokerSlug,
+          editionId,
+          slotSlug: effectiveSlotSlug,
+          headline,
+          summary,
+          briefingTitle,
+          briefingBody,
+          issueYear,
+          issueMonth,
+          cadence,
+          issueDateStr,
+          marketTemp,
+          monthlyRegion,
+          monthlyPairId,
+          monthlyCharts,
+          selectedDealIds,
+          dealComments,
+          preferredRegions,
+          preferredChannels,
+          unitIssues,
+          sections,
+          targetSegment,
+          publishedUrl: isPublished ? publishedUrl : null,
+          serverPublished: false,
+          serverSavedDraft: false,
+        },
         scopeUidRef.current,
       );
-      const currentSlotKey = makeSlotStorageKey(editionId, cadence, effectiveSlotSlug);
-      const payload: LocalNewsletterDraft = {
-        ...(activeScopeUid ? { ownerUserId: activeScopeUid } : {}),
-        brokerId: brokerId || activeScopeUid || undefined,
-        brokerSlug: brokerSlug || undefined,
-        editionId,
-        slotSlug: effectiveSlotSlug,
-        headline,
-        summary,
-        briefingTitle,
-        briefingBody,
-        issueYear,
-        issueMonth,
-        marketTemp,
-        monthlyRegion,
-        monthlyPairId,
-        monthlyCharts,
-        selectedDealIds,
-        dealComments,
-        preferredRegions,
-        preferredChannels,
-        unitIssues,
-        sections,
-        targetSegment,
-        cadence,
-        issueDateStr,
-        publishedUrl: isPublished ? publishedUrl : null,
-        serverPublished: false,
-        serverSavedDraft: false,
-        isExplicitNewSlot: false,
-        savedAt: new Date().toISOString(),
-      };
-      writeScopedWorkspaceJson(currentSlotKey, activeScopeUid, payload);
+      saveDraftRecordToSlots({
+        slotKey: currentSlotKey,
+        activeScopeUid,
+        payload,
+        updateLastActive: false,
+      });
     } catch {
       // ignore storage errors
     }
@@ -685,61 +625,31 @@ function MagazineEditorWorkspace() {
         }
       }
 
+      const f = resolveAppliedEditionFields(ed, (opts?.effectiveSlugOverride ?? brokerSlug).trim());
       setEditionId(ed.id);
       setDraftSlotSlugOverride(null);
-      const anchor = parseCadenceAnchor(
-        ed.slug,
-        ed.cadence === "special" ? "weekly" : ed.cadence,
-      );
-      setCadence(anchor.cadence);
-      setIssueYear(anchor.year);
-      setIssueMonth(anchor.month);
-      setIssueDateStr(isValidIsoDate(ed.issueDate) ? ed.issueDate : anchor.dateStr);
-      setHeadline(ed.title ?? "");
-      setSummary(typeof ed.summary === "string" ? ed.summary : "");
-      setBriefingTitle(typeof ed.briefingTitle === "string" ? ed.briefingTitle : "");
-      setBriefingBody(typeof ed.briefingBody === "string" ? ed.briefingBody : "");
-      setMarketTemp(ed.marketTemp ?? null);
-      const nextRegion = ed.monthlyRegion ?? "gbd";
-      const nextPair = ed.monthlyPairId ?? "molit_bok";
-      setMonthlyRegion(nextRegion);
-      setMonthlyPairId(nextPair);
-      setMonthlyCharts(
-        ed.monthlyCharts && ed.monthlyCharts.length > 0
-          ? [...ed.monthlyCharts]
-          : buildDefaultMonthlyGraphicPair(nextRegion, nextPair),
-      );
-      setSelectedDealIds(Array.isArray(ed.selectedDealIds) ? ed.selectedDealIds : []);
-      setDealComments(
-        ed.dealComments && typeof ed.dealComments === "object" ? ed.dealComments : {},
-      );
-      setUnitIssues(Array.isArray(ed.unitIssues) ? ed.unitIssues : []);
-      setSections(
-        ed.sections ? [...ed.sections] : buildDefaultEditorSections(anchor.cadence),
-      );
-      const resolvedSeg = ed.targetSegment ?? "all";
-      setTargetSegment(resolvedSeg);
-
-      const activeBrokerSlug = (opts?.effectiveSlugOverride ?? brokerSlug).trim();
-      const resolvedPubUrl =
-        appendTargetSegmentToUrl(ed.publicUrl, resolvedSeg) ||
-        buildSafePublicUrl({
-          brokerSlug: activeBrokerSlug,
-          issueDate:
-            ed.issueDate ||
-            (ed.publishedAt && !Number.isNaN(new Date(ed.publishedAt).getTime())
-              ? toKstDate(new Date(ed.publishedAt))
-              : undefined),
-          fallbackAnchorDate: anchor.dateStr,
-          editionId: ed.id,
-          targetSegment: resolvedSeg,
-        });
-      const publishedFlag = ed.status === "published";
-      setIsPublished(publishedFlag);
-      setPublishedUrl(publishedFlag ? resolvedPubUrl : null);
+      setCadence(f.anchor.cadence);
+      setIssueYear(f.anchor.year);
+      setIssueMonth(f.anchor.month);
+      setIssueDateStr(f.issueDateStr);
+      setHeadline(f.headline);
+      setSummary(f.summary);
+      setBriefingTitle(f.briefingTitle);
+      setBriefingBody(f.briefingBody);
+      setMarketTemp(f.marketTemp);
+      setMonthlyRegion(f.nextRegion);
+      setMonthlyPairId(f.nextPair);
+      setMonthlyCharts(f.monthlyCharts);
+      setSelectedDealIds(f.selectedDealIds);
+      setDealComments(f.dealComments);
+      setUnitIssues(f.unitIssues);
+      setSections(f.sections);
+      setTargetSegment(f.resolvedSeg);
+      setIsPublished(f.publishedFlag);
+      setPublishedUrl(f.publishedFlag ? f.resolvedPubUrl : null);
       setLocalStorageMode("none");
       setSaveState("saved");
-      setLastSavedAt(ed.updatedAt ?? ed.publishedAt);
+      setLastSavedAt(f.lastSavedAt);
       setHasUserEditedDraft(false);
       setStatusBanner(null);
 
@@ -761,7 +671,7 @@ function MagazineEditorWorkspace() {
       }
 
       if (opts?.syncUrl !== false) {
-        syncUrlParams(ed.id, ed.cadence ?? anchor.cadence, {
+        syncUrlParams(ed.id, ed.cadence ?? f.anchor.cadence, {
           openMobileEditor: opts?.openMobileEditor,
         });
       }
@@ -784,36 +694,29 @@ function MagazineEditorWorkspace() {
       const nowIso = bootstrapped.updatedAt ?? new Date().toISOString();
       setEditionId(bootstrapped.editionId);
       setDraftSlotSlugOverride(null);
-      setEditions((prev) => {
-        const nextEntry: SavedEditionSummary = {
-          id: bootstrapped.editionId,
-          slug: bootstrapped.editionLabel,
-          title: headline.trim() || `${autoMeta.yearMonthLabel} 뉴스레터`,
-          status: "draft",
-          updatedAt: nowIso,
-          publishedAt: null,
-          dealCount: selectedDealIds.length,
-          hasBriefing: Boolean(briefingBody.trim() || summary.trim()),
-          summary: summary.trim(),
-          briefingTitle: briefingTitle.trim(),
-          briefingBody: briefingBody.trim(),
+      setEditions((prev) =>
+        upsertBootstrappedDraftSummary(prev, {
+          editionId: bootstrapped.editionId,
+          editionLabel: bootstrapped.editionLabel,
+          nowIso,
+          headline,
+          yearMonthLabel: autoMeta.yearMonthLabel,
+          summary,
+          briefingTitle,
+          briefingBody,
           marketTemp,
           monthlyRegion,
           monthlyPairId,
-          monthlyCharts: [...monthlyCharts],
-          selectedDealIds: [...selectedDealIds],
-          dealComments: { ...dealComments },
-          unitIssues: [...unitIssues],
-          sections: [...sections],
+          monthlyCharts,
+          selectedDealIds,
+          dealComments,
+          unitIssues,
+          sections,
           targetSegment,
-          issueDate: issueDateStr,
+          issueDateStr,
           cadence,
-        };
-        const exists = prev.some((e) => e.id === bootstrapped.editionId);
-        return exists
-          ? prev.map((e) => (e.id === bootstrapped.editionId ? nextEntry : e))
-          : [nextEntry, ...prev];
-      });
+        }),
+      );
       syncUrlParams(bootstrapped.editionId, cadence);
     },
     [
@@ -846,50 +749,32 @@ function MagazineEditorWorkspace() {
       setLastSavedAt(syncedAt);
       if (editionId) {
         setEditions((prev) =>
-          prev.map((e) =>
-            e.id === editionId
-              ? {
-                  ...e,
-                  title: headline.trim() || e.title,
-                  updatedAt: isoStr,
-                  dealCount: selectedDealIds.length,
-                  hasBriefing: Boolean(briefingBody.trim() || summary.trim()),
-                  summary: summary.trim(),
-                  briefingTitle: briefingTitle.trim(),
-                  briefingBody: briefingBody.trim(),
-                  marketTemp,
-                  selectedDealIds: [...selectedDealIds],
-                  dealComments: { ...dealComments },
-                  unitIssues: [...unitIssues],
-                  sections: [...sections],
-                  targetSegment,
-                }
-              : e,
-          ),
+          applyServerDraftSyncedUpdate(prev, {
+            editionId,
+            isoStr,
+            headline,
+            summary,
+            briefingTitle,
+            briefingBody,
+            marketTemp,
+            selectedDealIds,
+            dealComments,
+            unitIssues,
+            sections,
+            targetSegment,
+          }),
         );
       }
       try {
-        if (typeof window !== "undefined") {
-          const activeScopeUid = resolveNewsletterScopeUid(
-            brokerId,
-            brokerSlug,
-            scopeUidRef.current,
-          );
-          const slotKey = makeSlotStorageKey(editionId, cadence, effectiveSlotSlug);
-          const existing = readScopedWorkspaceJson<Record<string, unknown> | null>(
-            slotKey,
-            activeScopeUid,
-            null,
-          );
-          if (existing) {
-            writeScopedWorkspaceJson(slotKey, activeScopeUid, {
-              ...existing,
-              editionId,
-              serverSavedDraft: true,
-              savedAt: isoStr,
-            });
-          }
-        }
+        markSlotSyncedOnServer({
+          brokerId,
+          brokerSlug,
+          scopeUidHint: scopeUidRef.current,
+          editionId,
+          cadence,
+          effectiveSlotSlug,
+          isoStr,
+        });
       } catch {
         // ignore storage errors
       }
@@ -951,101 +836,16 @@ function MagazineEditorWorkspace() {
     const initialUrlCadence = searchParams?.get?.("cadence") || null;
     const initialScopeUid = scopeUidRef.current;
 
-    const findScopedInitialDraft = (
-      targetScopeUid: string | null,
-    ): { draft: Record<string, unknown> | null; key: string | null } => {
-      let draft: Record<string, unknown> | null = null;
-      let key: string | null = null;
-      if (typeof window === "undefined") return { draft, key };
-
-      if (initialUrlEditionId) {
-        const urlSlotKey = `${SLOT_DRAFT_PREFIX}${initialUrlEditionId}`;
-        const candUrl = readScopedWorkspaceJson<Record<string, unknown> | null>(
-          urlSlotKey,
-          targetScopeUid,
-          null,
-        );
-        if (candUrl) {
-          draft = candUrl;
-          key = urlSlotKey;
-        }
-      }
-      const explicitUrlCadence =
-        !initialUrlEditionId &&
-        (initialUrlCadence === "daily" ||
-          initialUrlCadence === "weekly" ||
-          initialUrlCadence === "monthly")
-          ? initialUrlCadence
-          : null;
-      if (!draft) {
-        const lastSessionKey = readLastActiveSlotKey(targetScopeUid);
-        if (lastSessionKey) {
-          const candidateDraft = readScopedWorkspaceJson<Record<string, unknown> | null>(
-            lastSessionKey,
-            targetScopeUid,
-            null,
-          );
-          if (candidateDraft) {
-            const candCadence =
-              typeof candidateDraft.cadence === "string"
-                ? normalizeNewsletterCadence(candidateDraft.cadence)
-                : null;
-            if (!explicitUrlCadence || candCadence === explicitUrlCadence) {
-              draft = candidateDraft;
-              key = lastSessionKey;
-            }
-          }
-        }
-      }
-      if (!draft && !initialUrlEditionId) {
-        const candidateLegacy = readScopedWorkspaceJson<Record<string, unknown> | null>(
-          LEGACY_DRAFT_STORAGE_KEY,
-          targetScopeUid,
-          null,
-        );
-        if (candidateLegacy) {
-          const candCadence =
-            typeof candidateLegacy.cadence === "string"
-              ? normalizeNewsletterCadence(candidateLegacy.cadence)
-              : null;
-          if (!explicitUrlCadence || candCadence === explicitUrlCadence) {
-            draft = candidateLegacy;
-            key = LEGACY_DRAFT_STORAGE_KEY;
-          }
-        }
-      }
-      if (!draft && !initialUrlEditionId) {
-        const defaultCadence =
-          initialUrlCadence === "daily" ||
-          initialUrlCadence === "weekly" ||
-          initialUrlCadence === "monthly"
-            ? initialUrlCadence
-            : "monthly";
-        const defaultSlug = deriveCadenceIssueMeta(defaultCadence, {
-          year: kstParts().year,
-          month: kstParts().month,
-          dateStr: todayKst(),
-        }).slug;
-        const defaultSlotKey = makeSlotStorageKey(null, defaultCadence, defaultSlug);
-        const candidateDefault = readScopedWorkspaceJson<Record<string, unknown> | null>(
-          defaultSlotKey,
-          targetScopeUid,
-          null,
-        );
-        if (candidateDefault) {
-          draft = candidateDefault;
-          key = defaultSlotKey;
-        }
-      }
-      return { draft, key };
-    };
-
     let initialDraft: Record<string, unknown> | null = null;
     let initialDraftKey: string | null = null;
 
     try {
       if (typeof window !== "undefined") {
-        const found = findScopedInitialDraft(initialScopeUid);
+        const found = findScopedInitialDraftRecord({
+          initialUrlEditionId,
+          initialUrlCadence,
+          targetScopeUid: initialScopeUid,
+        });
         initialDraft = found.draft;
         initialDraftKey = found.key;
 
@@ -1186,80 +986,63 @@ function MagazineEditorWorkspace() {
               purgedActiveDraft = true;
             }
             try {
-              if (typeof window !== "undefined") {
-                const keysToDelete: string[] = [];
-                for (let i = 0; i < window.localStorage.length; i++) {
-                  const k = window.localStorage.key(i);
+              const legacyPurged = purgeMismatchedLegacyDraftKeys({
+                initialDraftKey,
+                currentBrokerId,
+                currentBrokerSlug,
+                verifiedScopeUid,
+              });
+              if (legacyPurged) purgedActiveDraft = true;
+              if (purgedActiveDraft) {
+                clearLastActiveSlotKey(initialScopeUid);
+                resetEditorFieldsToBlank();
+                if (verifiedScopeUid) {
+                  const ownScoped = findScopedInitialDraftRecord({
+                    initialUrlEditionId,
+                    initialUrlCadence,
+                    targetScopeUid: verifiedScopeUid,
+                  });
                   if (
-                    k &&
-                    !k.includes(":u:") &&
-                    (k === LEGACY_DRAFT_STORAGE_KEY || k.startsWith(SLOT_DRAFT_PREFIX))
+                    ownScoped.draft &&
+                    !isBrokerMismatch(
+                      ownScoped.draft,
+                      currentBrokerId,
+                      currentBrokerSlug,
+                      verifiedScopeUid,
+                    )
                   ) {
-                    const rawItem = window.localStorage.getItem(k);
-                    if (rawItem) {
-                      const parsedItem = JSON.parse(rawItem) as Record<string, unknown>;
-                      if (
-                        isBrokerMismatch(
-                          parsedItem,
-                          currentBrokerId,
-                          currentBrokerSlug,
-                          verifiedScopeUid,
-                        )
-                      ) {
-                        keysToDelete.push(k);
-                      }
-                    }
+                    initialDraft = ownScoped.draft;
+                    initialDraftKey = ownScoped.key;
+                    hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
                   }
                 }
-                for (const k of keysToDelete) {
-                  window.localStorage.removeItem(k);
-                  if (k === initialDraftKey) {
-                    purgedActiveDraft = true;
+              } else if (!initialScopeUid && verifiedScopeUid) {
+                if (!initialDraft && !userEditedSinceMountRef.current) {
+                  const ownScoped = findScopedInitialDraftRecord({
+                    initialUrlEditionId,
+                    initialUrlCadence,
+                    targetScopeUid: verifiedScopeUid,
+                  });
+                  if (
+                    ownScoped.draft &&
+                    !isBrokerMismatch(
+                      ownScoped.draft,
+                      currentBrokerId,
+                      currentBrokerSlug,
+                      verifiedScopeUid,
+                    )
+                  ) {
+                    initialDraft = ownScoped.draft;
+                    initialDraftKey = ownScoped.key;
+                    hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
                   }
-                }
-                if (purgedActiveDraft) {
-                  clearLastActiveSlotKey(initialScopeUid);
-                  resetEditorFieldsToBlank();
-                  if (verifiedScopeUid) {
-                    const ownScoped = findScopedInitialDraft(verifiedScopeUid);
-                    if (
-                      ownScoped.draft &&
-                      !isBrokerMismatch(
-                        ownScoped.draft,
-                        currentBrokerId,
-                        currentBrokerSlug,
-                        verifiedScopeUid,
-                      )
-                    ) {
-                      initialDraft = ownScoped.draft;
-                      initialDraftKey = ownScoped.key;
-                      hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
-                    }
-                  }
-                } else if (!initialScopeUid && verifiedScopeUid) {
-                  if (!initialDraft && !userEditedSinceMountRef.current) {
-                    const ownScoped = findScopedInitialDraft(verifiedScopeUid);
-                    if (
-                      ownScoped.draft &&
-                      !isBrokerMismatch(
-                        ownScoped.draft,
-                        currentBrokerId,
-                        currentBrokerSlug,
-                        verifiedScopeUid,
-                      )
-                    ) {
-                      initialDraft = ownScoped.draft;
-                      initialDraftKey = ownScoped.key;
-                      hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
-                    }
-                  } else if (initialDraft && initialDraftKey) {
-                    writeScopedWorkspaceJson(initialDraftKey, verifiedScopeUid, {
-                      ...initialDraft,
-                      ownerUserId: verifiedScopeUid,
-                      brokerId: currentBrokerId || initialDraft.brokerId,
-                    });
-                    writeLastActiveSlotKey(verifiedScopeUid, initialDraftKey);
-                  }
+                } else if (initialDraft && initialDraftKey) {
+                  writeScopedWorkspaceJson(initialDraftKey, verifiedScopeUid, {
+                    ...initialDraft,
+                    ownerUserId: verifiedScopeUid,
+                    brokerId: currentBrokerId || initialDraft.brokerId,
+                  });
+                  writeLastActiveSlotKey(verifiedScopeUid, initialDraftKey);
                 }
               }
             } catch {
@@ -1400,14 +1183,22 @@ function MagazineEditorWorkspace() {
           ) {
             clearLastActiveSlotKey(initialScopeUid);
             resetEditorFieldsToBlank();
-            const ownScoped = findScopedInitialDraft(authUid);
+            const ownScoped = findScopedInitialDraftRecord({
+              initialUrlEditionId,
+              initialUrlCadence,
+              targetScopeUid: authUid,
+            });
             if (ownScoped.draft && !isBrokerMismatch(ownScoped.draft, authUid, "", authUid)) {
               initialDraft = ownScoped.draft;
               initialDraftKey = ownScoped.key;
               hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
             }
           } else if (!initialScopeUid && !initialDraft && !userEditedSinceMountRef.current) {
-            const ownScoped = findScopedInitialDraft(authUid);
+            const ownScoped = findScopedInitialDraftRecord({
+              initialUrlEditionId,
+              initialUrlCadence,
+              targetScopeUid: authUid,
+            });
             if (ownScoped.draft && !isBrokerMismatch(ownScoped.draft, authUid, "", authUid)) {
               initialDraft = ownScoped.draft;
               initialDraftKey = ownScoped.key;
@@ -1545,11 +1336,7 @@ function MagazineEditorWorkspace() {
       savedIssueDate: string;
       errorBanner?: StatusBannerState;
     }> => {
-      const fallbackIsoDate = isValidIsoDate(issueDateStr)
-        ? issueDateStr
-        : isValidIsoDate(autoMeta.dateStr)
-          ? autoMeta.dateStr
-          : todayKst();
+      const fallbackIsoDate = resolveFallbackIssueIsoDate(issueDateStr, autoMeta.dateStr);
 
       if (savingLockRef.current) {
         return {
@@ -1574,242 +1361,106 @@ function MagazineEditorWorkspace() {
         );
 
       try {
-        const selectedDealSnapshots = selectedDealIds.map((id) => {
-          const d = deals.find((item) => item.id === id);
-          const comment = dealComments[id]?.trim() || "";
-          const yieldNum = d?.yield
-            ? parseFloat(String(d.yield).replace(/[^0-9.]/g, ""))
-            : NaN;
-          return {
-            id,
-            title: d?.title || "추천 매물",
-            assetType: d?.title || "상업용 빌딩",
-            address: d?.address || "",
-            price: d?.price || "가격 문의",
-            yield: d?.yield || "-",
-            grossYieldNetOfDeposit:
-              Number.isFinite(yieldNum) && yieldNum > 0 ? yieldNum : undefined,
-            investmentPoint: comment || undefined,
-            point: comment || undefined,
-            photoUrl: d?.photoUrl || null,
-            imUrl: `/im-lite/${encodeURIComponent(id)}`,
-          };
+        const selectedDealSnapshots = buildSelectedDealSnapshots(selectedDealIds, deals, dealComments);
+        const populatedMonthlyCharts = resolvePopulatedMonthlyCharts(
+          cadence,
+          sections,
+          monthlyCharts,
+          monthlyRegion,
+          monthlyPairId,
+        );
+        const requestBody = buildIssueRequestBody({
+          editionId,
+          cadence,
+          autoMeta,
+          fallbackIsoDate,
+          issueSlug,
+          shouldSaveAsDraft,
+          createDistinctIfPublished: Boolean(draftSlotSlugOverride) || hasPublishedCollision,
+          headline,
+          summary,
+          briefingTitle,
+          briefingBody,
+          marketTemp,
+          monthlyRegion,
+          monthlyPairId,
+          populatedMonthlyCharts,
+          selectedDealIds,
+          selectedDealSnapshots,
+          dealComments,
+          unitIssues,
+          preferredRegions,
+          preferredChannels,
+          sections,
+          targetSegment,
         });
-
-        const marketDataEnabled =
-          sections.find((s) => s.id === "market_data")?.enabled !== false;
-        const candidateCharts =
-          monthlyCharts.length > 0
-            ? monthlyCharts
-            : buildDefaultMonthlyGraphicPair(monthlyRegion, monthlyPairId);
-        const populatedMonthlyCharts =
-          cadence === "monthly" && marketDataEnabled
-            ? candidateCharts.filter(
-                (c) =>
-                  c.isPlaceholder !== true &&
-                  Array.isArray(c.series) &&
-                  c.series.length > 0,
-              )
-            : [];
 
         const res = await fetch("/api/magazine/issues", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            editionId,
-            editionType: cadence,
-            issueAnchorDate: autoMeta.dateStr,
-            issueDate: fallbackIsoDate,
-            slug: issueSlug,
-            issueNumber: autoMeta.issueNumber,
-            year: autoMeta.year,
-            month: autoMeta.month,
-            saveAsDraft: shouldSaveAsDraft,
-            status: shouldSaveAsDraft ? "draft" : "published",
-            createDistinctIfPublished: Boolean(draftSlotSlugOverride) || hasPublishedCollision,
-            headline: headline.trim(),
-            summary: summary.trim(),
-            briefingTitle: briefingTitle.trim(),
-            briefingBody: briefingBody.trim(),
-            marketTemp,
-            monthlyRegion,
-            monthlyPairId,
-            monthlyCharts: populatedMonthlyCharts,
-            featuredDealIds: selectedDealIds,
-            featuredDeals: selectedDealSnapshots,
-            dealComments,
-            unitIssues,
-            preferredRegions,
-            preferredChannels,
-            sections,
-            targetSegment,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (res.ok) {
-          const json = (await res.json().then(
-            (v) => v,
-            () => null,
-          )) as Record<string, unknown> | null;
-          const returnedSlug =
-            typeof json?.brokerSlug === "string" && !isUuidLike(json.brokerSlug)
-              ? json.brokerSlug.trim()
-              : "";
-          const effectiveBrokerSlug = returnedSlug || brokerSlug;
-          if (returnedSlug) setBrokerSlug(returnedSlug);
-
-          const nextId =
-            typeof json?.id === "string" && json.id
-              ? json.id
-              : typeof json?.editionId === "string" && json.editionId
-                ? json.editionId
-                : editionId;
-          const savedEditionLabel =
-            typeof json?.editionLabel === "string" && json.editionLabel.trim()
-              ? json.editionLabel.trim()
-              : issueSlug;
-          const savedIssueDate = isValidIsoDate(json?.issueDate)
-            ? json.issueDate
-            : fallbackIsoDate;
-
-          const effectiveId = nextId || `ed-${savedEditionLabel}`;
-          if (nextId) {
-            setEditionId(nextId);
+          const json = (await res.json().then((v) => v, () => null)) as Record<string, unknown> | null;
+          const parsed = parseServerSaveSuccess({
+            json,
+            brokerId,
+            brokerSlug,
+            scopeUidHint: scopeUidRef.current,
+            editionId,
+            issueSlug,
+            fallbackIsoDate,
+            shouldSaveAsDraft,
+            cadence,
+            autoMeta,
+            headline,
+            summary,
+            briefingTitle,
+            briefingBody,
+            marketTemp,
+            monthlyRegion,
+            monthlyPairId,
+            populatedMonthlyCharts,
+            selectedDealIds,
+            dealComments,
+            preferredRegions,
+            preferredChannels,
+            unitIssues,
+            sections,
+            targetSegment,
+          });
+          if (parsed.returnedSlug) setBrokerSlug(parsed.returnedSlug);
+          if (parsed.nextId) {
+            setEditionId(parsed.nextId);
             setDraftSlotSlugOverride(null);
           }
-
-          const rawServerUrl =
-            typeof json?.publicUrl === "string" && json.publicUrl.trim()
-              ? json.publicUrl.trim()
-              : typeof json?.url === "string" && json.url.trim()
-                ? json.url.trim()
-                : null;
-          const resolvedUrl = shouldSaveAsDraft
-            ? null
-            : appendTargetSegmentToUrl(rawServerUrl, targetSegment) ||
-              buildSafePublicUrl({
-                brokerSlug: effectiveBrokerSlug,
-                issueDate: savedIssueDate,
-                fallbackAnchorDate: autoMeta.dateStr,
-                editionId: effectiveId,
-                targetSegment,
-              });
-
-          const nowIso = new Date().toISOString();
-          const finalStatus = shouldSaveAsDraft ? "draft" : "published";
-
-          setEditions((prev) => {
-            const nextEntry: SavedEditionSummary = {
-              id: effectiveId,
-              slug: savedEditionLabel,
-              title: headline.trim() || `${autoMeta.yearMonthLabel} 뉴스레터`,
-              status: finalStatus,
-              updatedAt: nowIso,
-              publishedAt: shouldSaveAsDraft ? null : nowIso,
-              dealCount: selectedDealIds.length,
-              hasBriefing: Boolean(briefingBody.trim() || summary.trim()),
-              summary: summary.trim(),
-              briefingTitle: briefingTitle.trim(),
-              briefingBody: briefingBody.trim(),
-              marketTemp,
-              monthlyRegion,
-              monthlyPairId,
-              monthlyCharts: [...populatedMonthlyCharts],
-              selectedDealIds: [...selectedDealIds],
-              dealComments: { ...dealComments },
-              unitIssues: [...unitIssues],
-              sections: [...sections],
-              targetSegment,
-              issueDate: savedIssueDate,
-              publicUrl: resolvedUrl ?? undefined,
-              cadence,
-            };
-            const exists = prev.some(
-              (e) =>
-                e.id === effectiveId ||
-                (e.slug === savedEditionLabel && (e.cadence ?? "monthly") === cadence),
-            );
-            if (exists) {
-              return prev.map((e) =>
-                e.id === effectiveId ||
-                (e.slug === savedEditionLabel && (e.cadence ?? "monthly") === cadence)
-                  ? nextEntry
-                  : e,
-              );
-            }
-            return [nextEntry, ...prev];
-          });
-
-          autosave.syncUpdatedAt(nowIso);
+          setEditions((prev) => upsertSavedEditionSummary(prev, parsed.nextEntry));
+          autosave.syncUpdatedAt(parsed.nowIso);
           autosave.markClean();
-          setPublishedUrl(resolvedUrl);
+          setPublishedUrl(parsed.resolvedUrl);
           setIsPublished(!shouldSaveAsDraft);
           setLocalStorageMode("none");
           setSaveState("saved");
           setLastSavedAt(new Date());
-
           try {
-            if (typeof window !== "undefined") {
-              const activeScopeUid = resolveNewsletterScopeUid(
-                brokerId,
-                effectiveBrokerSlug,
-                scopeUidRef.current,
-              );
-              const prevTempSlotKey = makeSlotStorageKey(null, cadence, issueSlug);
-              const finalSlotKey = makeSlotStorageKey(effectiveId, cadence, savedEditionLabel);
-              const savedDraftPayload: LocalNewsletterDraft = {
-                ...(activeScopeUid ? { ownerUserId: activeScopeUid } : {}),
-                brokerId: brokerId || activeScopeUid || undefined,
-                brokerSlug: effectiveBrokerSlug || undefined,
-                editionId: effectiveId,
-                slotSlug: savedEditionLabel,
-                headline: headline.trim(),
-                summary: summary.trim(),
-                briefingTitle: briefingTitle.trim(),
-                briefingBody: briefingBody.trim(),
-                issueYear: autoMeta.year,
-                issueMonth: autoMeta.month,
-                cadence,
-                issueDateStr: savedIssueDate,
-                marketTemp,
-                monthlyRegion,
-                monthlyPairId,
-                monthlyCharts: populatedMonthlyCharts,
-                selectedDealIds,
-                dealComments,
-                preferredRegions,
-                preferredChannels,
-                unitIssues,
-                sections,
-                targetSegment,
-                publishedUrl: resolvedUrl,
-                serverPublished: !shouldSaveAsDraft,
-                serverSavedDraft: shouldSaveAsDraft,
-                isExplicitNewSlot: false,
-                savedAt: nowIso,
-              };
-              if (prevTempSlotKey !== finalSlotKey) {
-                removeScopedWorkspaceKey(prevTempSlotKey, activeScopeUid);
-              }
-              writeScopedWorkspaceJson(finalSlotKey, activeScopeUid, savedDraftPayload);
-              writeScopedWorkspaceJson(
-                LEGACY_DRAFT_STORAGE_KEY,
-                activeScopeUid,
-                savedDraftPayload,
-              );
-              writeLastActiveSlotKey(activeScopeUid, finalSlotKey);
-              hydratedSlotKeyRef.current = finalSlotKey;
-            }
+            saveDraftRecordToSlots({
+              slotKey: parsed.finalSlotKey,
+              removeSlotKey: parsed.prevTempSlotKey,
+              writeLegacyKey: true,
+              activeScopeUid: parsed.activeScopeUid,
+              payload: parsed.savedDraftPayload,
+            });
+            hydratedSlotKeyRef.current = parsed.finalSlotKey;
           } catch {
             // ignore storage quota errors
           }
-
-          syncUrlParams(effectiveId, cadence);
+          syncUrlParams(parsed.effectiveId, cadence);
           return {
             ok: true,
-            publicUrl: resolvedUrl,
-            savedEditionId: nextId ?? null,
-            savedIssueDate,
+            publicUrl: parsed.resolvedUrl,
+            savedEditionId: parsed.nextId ?? null,
+            savedIssueDate: parsed.savedIssueDate,
           };
         }
 
@@ -1817,59 +1468,39 @@ function MagazineEditorWorkspace() {
         let errorJson = await res.json().then((v) => v, () => null);
 
         if (!shouldSaveAsDraft && res.status === 404 && editionId) {
-          const patchRes = await fetch(
-            `/api/magazine/editions/${encodeURIComponent(editionId)}/publish`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                correction: isPublished,
-                issueDate: fallbackIsoDate,
-                payload: {
-                  title: headline.trim(),
-                  market_temp: marketTemp,
-                  featured_deal_ids: selectedDealIds,
-                  target_segments: [targetSegment],
-                  theme_title: briefingTitle.trim() || null,
-                  theme_body_md: briefingBody.trim() || null,
-                  field_note: { comment: briefingBody.trim() },
-                  content: {
-                    headline: headline.trim(),
-                    summary: summary.trim(),
-                    briefing_title: briefingTitle.trim(),
-                    briefing_body_md: briefingBody.trim(),
-                    deal_comments: dealComments,
-                    unitIssues,
-                    monthlyRegion,
-                    monthlyPairId,
-                    monthlyCharts: populatedMonthlyCharts,
-                    sections,
-                    target_segment: targetSegment,
-                  },
-                },
-              }),
-            },
-          );
-          if (patchRes.ok) {
-            const patchJson = (await patchRes.json().then(
-              (v) => v,
-              () => null,
-            )) as Record<string, unknown> | null;
-            const serverFallbackUrl =
-              typeof patchJson?.publicUrl === "string" && patchJson.publicUrl.trim()
-                ? patchJson.publicUrl.trim()
-                : typeof patchJson?.url === "string" && patchJson.url.trim()
-                  ? patchJson.url.trim()
-                  : null;
-            const fallbackUrl =
-              appendTargetSegmentToUrl(serverFallbackUrl, targetSegment) ||
-              buildSafePublicUrl({
-                brokerSlug,
-                issueDate: fallbackIsoDate,
-                fallbackAnchorDate: autoMeta.dateStr,
-                editionId,
+          const patchRes = await fetch(`/api/magazine/editions/${encodeURIComponent(editionId)}/publish`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              buildPublishPatchBody({
+                isPublished,
+                fallbackIsoDate,
+                headline,
+                summary,
+                briefingTitle,
+                briefingBody,
+                marketTemp,
+                monthlyRegion,
+                monthlyPairId,
+                populatedMonthlyCharts,
+                selectedDealIds,
+                dealComments,
+                unitIssues,
+                sections,
                 targetSegment,
-              });
+              }),
+            ),
+          });
+          if (patchRes.ok) {
+            const patchJson = (await patchRes.json().then((v) => v, () => null)) as Record<string, unknown> | null;
+            const fallbackUrl = resolvePublishPatchSuccessUrl({
+              patchJson,
+              brokerSlug,
+              fallbackIsoDate,
+              fallbackAnchorDate: autoMeta.dateStr,
+              editionId,
+              targetSegment,
+            });
             setPublishedUrl(fallbackUrl);
             setIsPublished(true);
             setLocalStorageMode("none");
@@ -2050,30 +1681,17 @@ function MagazineEditorWorkspace() {
     setHasUserEditedDraft(false);
 
     try {
-      if (typeof window !== "undefined") {
-        const activeScopeUid = resolveNewsletterScopeUid(
-          brokerId,
-          brokerSlug,
-          scopeUidRef.current,
-        );
-        const newSlotKey = makeSlotStorageKey(null, nextCadence, targetSlotSlug);
-        removeScopedWorkspaceKey(LEGACY_DRAFT_STORAGE_KEY, activeScopeUid);
-        writeScopedWorkspaceJson(newSlotKey, activeScopeUid, {
-          ...(activeScopeUid ? { ownerUserId: activeScopeUid } : {}),
-          brokerId: brokerId || activeScopeUid || undefined,
-          brokerSlug: brokerSlug || undefined,
-          editionId: null,
-          slotSlug: targetSlotSlug,
-          cadence: nextCadence,
-          issueYear: nowKst.year,
-          issueMonth: nowKst.month,
-          issueDateStr: today,
-          isExplicitNewSlot: true,
-          savedAt: new Date().toISOString(),
-        });
-        writeLastActiveSlotKey(activeScopeUid, newSlotKey);
-        hydratedSlotKeyRef.current = newSlotKey;
-      }
+      const markerKey = writeExplicitNewSlotMarker({
+        brokerId,
+        brokerSlug,
+        scopeUidHint: scopeUidRef.current,
+        nextCadence,
+        targetSlotSlug,
+        year: nowKst.year,
+        month: nowKst.month,
+        dateStr: today,
+      });
+      if (markerKey) hydratedSlotKeyRef.current = markerKey;
     } catch {
       // ignore storage errors
     }
@@ -2219,76 +1837,54 @@ function MagazineEditorWorkspace() {
   ) => {
     e.stopPropagation();
     persistCurrentSlotIfDirty();
-    const anchor = parseCadenceAnchor(
-      ed.slug,
-      ed.cadence === "special" ? "weekly" : ed.cadence,
-    );
-    const baseCloneSlug =
-      ed.slug || deriveCadenceIssueMeta(anchor.cadence, anchor).slug;
-    const distinctSlug =
-      computeDistinctSlotSlug(anchor.cadence, baseCloneSlug) || `${baseCloneSlug}-copy`;
-    const clonedHeadline = formatSingleLineTitle(
-      `${ed.title || `${ed.slug} 뉴스레터`} 복사본`,
-      80,
-    );
-
-    const clonedRegion = ed.monthlyRegion ?? "gbd";
-    const clonedPair = ed.monthlyPairId ?? "molit_bok";
-    const clonedCharts =
-      ed.monthlyCharts && ed.monthlyCharts.length > 0
-        ? [...ed.monthlyCharts]
-        : buildDefaultMonthlyGraphicPair(clonedRegion, clonedPair);
+    const c = buildClonedEditionState(ed, computeDistinctSlotSlug);
 
     setPreviousIssuesSnapshot(null);
     setEditionId(null);
-    setDraftSlotSlugOverride(distinctSlug);
-    setCadence(anchor.cadence);
-    setIssueYear(anchor.year);
-    setIssueMonth(anchor.month);
-    setIssueDateStr(isValidIsoDate(ed.issueDate) ? ed.issueDate : anchor.dateStr);
-    setHeadline(clonedHeadline);
+    setDraftSlotSlugOverride(c.distinctSlug);
+    setCadence(c.anchor.cadence);
+    setIssueYear(c.anchor.year);
+    setIssueMonth(c.anchor.month);
+    setIssueDateStr(c.clonedIssueDateStr);
+    setHeadline(c.clonedHeadline);
     setSummary(ed.summary ?? "");
     setBriefingTitle(ed.briefingTitle ?? "");
     setBriefingBody(ed.briefingBody ?? "");
     setMarketTemp(ed.marketTemp ?? null);
-    setMonthlyRegion(clonedRegion);
-    setMonthlyPairId(clonedPair);
-    setMonthlyCharts(clonedCharts);
-    setSelectedDealIds(Array.isArray(ed.selectedDealIds) ? [...ed.selectedDealIds] : []);
-    setDealComments(ed.dealComments ? { ...ed.dealComments } : {});
-    setUnitIssues(Array.isArray(ed.unitIssues) ? [...ed.unitIssues] : []);
-    const clonedSections = ed.sections
-      ? [...ed.sections]
-      : buildDefaultEditorSections(anchor.cadence);
-    const clonedSegment = ed.targetSegment ?? "all";
-    setSections(clonedSections);
-    setTargetSegment(clonedSegment);
+    setMonthlyRegion(c.clonedRegion);
+    setMonthlyPairId(c.clonedPair);
+    setMonthlyCharts(c.clonedCharts);
+    setSelectedDealIds(c.clonedSelectedDealIds);
+    setDealComments(c.clonedDealComments);
+    setUnitIssues(c.clonedUnitIssues);
+    setSections(c.clonedSections);
+    setTargetSegment(c.clonedSegment);
     setIsPublished(false);
     setPublishedUrl(null);
     setActiveStep("title");
 
     persistLocalDraft({
       editionId: null,
-      slotSlug: distinctSlug,
-      cadence: anchor.cadence,
-      issueYear: anchor.year,
-      issueMonth: anchor.month,
-      issueDateStr: isValidIsoDate(ed.issueDate) ? ed.issueDate : anchor.dateStr,
-      headline: clonedHeadline,
+      slotSlug: c.distinctSlug,
+      cadence: c.anchor.cadence,
+      issueYear: c.anchor.year,
+      issueMonth: c.anchor.month,
+      issueDateStr: c.clonedIssueDateStr,
+      headline: c.clonedHeadline,
       summary: ed.summary ?? "",
       briefingTitle: ed.briefingTitle ?? "",
       briefingBody: ed.briefingBody ?? "",
       marketTemp: ed.marketTemp ?? null,
-      monthlyRegion: clonedRegion,
-      monthlyPairId: clonedPair,
-      monthlyCharts: clonedCharts,
-      selectedDealIds: Array.isArray(ed.selectedDealIds) ? [...ed.selectedDealIds] : [],
-      dealComments: ed.dealComments ? { ...ed.dealComments } : {},
-      unitIssues: Array.isArray(ed.unitIssues) ? [...ed.unitIssues] : [],
-      sections: clonedSections,
-      targetSegment: clonedSegment,
+      monthlyRegion: c.clonedRegion,
+      monthlyPairId: c.clonedPair,
+      monthlyCharts: c.clonedCharts,
+      selectedDealIds: c.clonedSelectedDealIds,
+      dealComments: c.clonedDealComments,
+      unitIssues: c.clonedUnitIssues,
+      sections: c.clonedSections,
+      targetSegment: c.clonedSegment,
     });
-    syncUrlParams(null, anchor.cadence, { openMobileEditor: true });
+    syncUrlParams(null, c.anchor.cadence, { openMobileEditor: true });
     setStatusBanner({
       tone: "info",
       message: "선택한 뉴스레터를 새 초안으로 복제했어요. 제목과 내용을 다듬어 보세요.",
@@ -2364,53 +1960,7 @@ function MagazineEditorWorkspace() {
       variant: "destructive",
       undoLabel: "되돌리기",
       undoAction: async () => {
-        let restoredId = snapshot.id;
-        try {
-          const restoreCadence =
-            snapshot.cadence === "special"
-              ? "weekly"
-              : (snapshot.cadence ?? "monthly");
-          const restoreRes = await fetch("/api/magazine/issues", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              editionType: snapshot.cadence ?? "monthly",
-              issueAnchorDate: snapshot.issueDate || todayKst(),
-              issueDate: snapshot.issueDate,
-              slug: snapshot.slug,
-              saveAsDraft: snapshot.status !== "published",
-              status: snapshot.status === "published" ? "published" : "draft",
-              headline: snapshot.title || `${snapshot.slug} 뉴스레터`,
-              summary: snapshot.summary ?? "",
-              briefingTitle: snapshot.briefingTitle ?? "",
-              briefingBody: snapshot.briefingBody ?? "",
-              marketTemp: snapshot.marketTemp ?? null,
-              monthlyRegion: snapshot.monthlyRegion,
-              monthlyPairId: snapshot.monthlyPairId,
-              monthlyCharts: snapshot.monthlyCharts,
-              featuredDealIds: snapshot.selectedDealIds ?? [],
-              dealComments: snapshot.dealComments ?? {},
-              unitIssues: snapshot.unitIssues ?? [],
-              sections:
-                snapshot.sections ?? buildDefaultEditorSections(restoreCadence),
-              targetSegment: snapshot.targetSegment ?? "all",
-            }),
-          }).then(
-            (r) => r,
-            () => null,
-          );
-          if (restoreRes && restoreRes.ok) {
-            const rJson = (await restoreRes.json().then(
-              (v) => v,
-              () => null,
-            )) as Record<string, unknown> | null;
-            if (typeof rJson?.id === "string" && rJson.id) {
-              restoredId = rJson.id;
-            }
-          }
-        } catch {
-          // 네트워크 복원 실패 시에도 화면 목록은 즉시 되살린다
-        }
+        const restoredId = await executeRemoteEditionRestore(snapshot);
         const restoredEntry: SavedEditionSummary = { ...snapshot, id: restoredId };
         setEditions((prev) =>
           prev.some((item) => item.id === restoredEntry.id)
@@ -2451,31 +2001,13 @@ function MagazineEditorWorkspace() {
     patch: { highlightValue?: string; buyerImplication?: string },
   ) => {
     setMonthlyCharts((prev) => {
-      const base =
-        prev.length >= 2
-          ? prev
-          : buildDefaultMonthlyGraphicPair(monthlyRegion, monthlyPairId);
-      const next = base.map((item, idx) => {
-        if (idx !== chartIndex) return item;
-        return {
-          ...item,
-          sourceMode: "broker_custom" as const,
-          isPlaceholder: false,
-          highlightMetric:
-            patch.highlightValue !== undefined
-              ? {
-                  label: item.highlightMetric?.label ?? "핵심 지표",
-                  value: patch.highlightValue,
-                  deltaText: item.highlightMetric?.deltaText ?? "",
-                  tone: item.highlightMetric?.tone ?? "neutral",
-                }
-              : item.highlightMetric,
-          buyerImplication:
-            patch.buyerImplication !== undefined
-              ? patch.buyerImplication
-              : item.buyerImplication,
-        };
-      });
+      const next = applyMonthlyChartFieldPatch(
+        prev,
+        chartIndex,
+        patch,
+        monthlyRegion,
+        monthlyPairId,
+      );
       persistLocalDraft({ monthlyCharts: next });
       return next;
     });
@@ -2592,48 +2124,24 @@ function MagazineEditorWorkspace() {
     if (unitIssues.length > 0) setPreviousIssuesSnapshot(unitIssues);
 
     try {
-      const res = await fetch("/api/broker/studio/ai-news-cluster", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cadence,
-          preferredRegions: [...activeRegions],
-          preferredChannels: [...activeChannels],
-          dealTitles: activeDealTitles,
-          articles: newsPool.slice(0, 30),
-        }),
+      const { unitIssues: nextIssues, isAi } = await requestAiNewsClusterIssues({
+        cadence,
+        preferredRegions: activeRegions,
+        preferredChannels: activeChannels,
+        dealTitles: activeDealTitles,
+        newsPool,
       });
-      const json = (await res.json().then(
-        (v) => v,
-        () => null,
-      )) as { ok: true; unitIssues: AxiosUnitIssue[] } | null;
-      if (res.ok && json?.ok && Array.isArray(json.unitIssues) && json.unitIssues.length > 0) {
-        setUnitIssues(json.unitIssues);
-        persistLocalDraft({ unitIssues: json.unitIssues });
-        setStatusBanner({
-          tone: "success",
-          message: "내 주력 권역과 관심 분야에 맞춰 핵심 이슈 포스트잇 5선을 새로 구성했어요.",
-        });
-        return;
-      }
-    } catch {
-      // 결정론적 폴백 진행
+      setUnitIssues(nextIssues);
+      persistLocalDraft({ unitIssues: nextIssues });
+      setStatusBanner({
+        tone: "success",
+        message: isAi
+          ? "내 주력 권역과 관심 분야에 맞춰 핵심 이슈 포스트잇 5선을 새로 구성했어요."
+          : "내 주력 권역과 관심 분야 기반으로 핵심 이슈 5선을 구성했어요.",
+      });
     } finally {
       setIsAiClustering(false);
     }
-
-    const fallback = clusterArticlesIntoFiveIssues(newsPool, {
-      cadence,
-      preferredRegions: activeRegions,
-      preferredChannels: activeChannels,
-      dealKeywords: activeDealTitles,
-    });
-    setUnitIssues(fallback);
-    persistLocalDraft({ unitIssues: fallback });
-    setStatusBanner({
-      tone: "success",
-      message: "내 주력 권역과 관심 분야 기반으로 핵심 이슈 5선을 구성했어요.",
-    });
   };
 
   const handleSavePreferencesAndCluster = async () => {
@@ -2680,24 +2188,7 @@ function MagazineEditorWorkspace() {
         () => null,
       )) as { ok: true; items?: NewsPoolItem[] } | null;
       if (json?.ok && Array.isArray(json.items) && json.items.length > 0) {
-        const incoming = json.items;
-        setNewsPool((prev) => {
-          const incomingKeys = new Set(
-            incoming.map((item) => String(item.id ?? item.title ?? "").trim()),
-          );
-          if (channel === "all") {
-            const retained = prev.filter(
-              (item) => !incomingKeys.has(String(item.id ?? item.title ?? "").trim()),
-            );
-            return [...incoming, ...retained];
-          }
-          const retainedOtherChannels = prev.filter((item) => {
-            const key = String(item.id ?? item.title ?? "").trim();
-            if (incomingKeys.has(key)) return false;
-            return resolveNewsChannel(item) !== channel;
-          });
-          return [...incoming, ...retainedOtherChannels];
-        });
+        setNewsPool((prev) => mergeIncomingNewsPool(prev, json.items ?? [], channel));
       }
     } catch {
       // ignore network error
@@ -2774,122 +2265,24 @@ function MagazineEditorWorkspace() {
       ? "pre_generation"
       : "live_draft";
 
-  const editorSyncUnits = useMemo<Record<string, EditorUnitTarget<NewsletterStepKey>>>(() => {
-    const map: Record<string, EditorUnitTarget<NewsletterStepKey>> = {
-      "nl-unit-ai-draft": {
-        unitId: "nl-unit-ai-draft",
-        label: "AI 초안 도우미",
-        tab: "title",
-        editorSelector: '[data-testid="magazine-quick-draft-card"]',
-        focusSelector: '[data-testid="ai-draft-btn"]',
-      },
-      "nl-unit-issue-meta": {
-        unitId: "nl-unit-issue-meta",
-        label: "발행 호수 및 주기",
-        tab: "title",
-        editorSelector: '[data-testid="issue-metadata-form"]',
-        focusSelector: "#newsletter-issue-schedule-toggle",
-      },
-      "nl-unit-cover": {
-        unitId: "nl-unit-cover",
-        label: "표지 제목",
-        tab: "title",
-        editorSelector: '[data-testid="issue-metadata-form"]',
-        focusSelector: "#newsletter-headline-input",
-      },
-      "nl-unit-stats-0": {
-        unitId: "nl-unit-stats-0",
-        label: "주요 통계 그래픽 1번",
-        tab: "content",
-        onBeforeFocus: () => {
-          if (!isSectionEnabled("market_data")) handleToggleSection("market_data", true);
-          setStatTuneOpen(true);
-        },
-        editorSelector: '[data-testid="monthly-stats-authoring-card"]',
-        focusSelector: "#monthly-stat-val-0",
-      },
-      "nl-unit-stats-1": {
-        unitId: "nl-unit-stats-1",
-        label: "주요 통계 그래픽 2번",
-        tab: "content",
-        onBeforeFocus: () => {
-          if (!isSectionEnabled("market_data")) handleToggleSection("market_data", true);
-          setStatTuneOpen(true);
-        },
-        editorSelector: '[data-testid="monthly-stats-authoring-card"]',
-        focusSelector: "#monthly-stat-val-1",
-      },
-      "nl-unit-briefing": {
-        unitId: "nl-unit-briefing",
-        label: "시장 브리핑 글",
-        tab: "content",
-        onBeforeFocus: () => {
-          if (!isSectionEnabled("field_note")) handleToggleSection("field_note", true);
-        },
-        editorSelector: '[data-testid="market-briefing-editor"]',
-        focusSelector: "#newsletter-briefing-body",
-      },
-      "nl-unit-deals": {
-        unitId: "nl-unit-deals",
-        label: "추천 매물 고르기",
-        tab: "content",
-        onBeforeFocus: () => {
-          if (!isSectionEnabled("featured_deals")) handleToggleSection("featured_deals", true);
-        },
-        editorSelector: '[data-testid="deal-slot-assigner"]',
-        focusSelector: deals[0] ? `#deal-checkbox-${deals[0].id}` : undefined,
-      },
-      "nl-unit-send": {
-        unitId: "nl-unit-send",
-        label: "발송 대상 확인",
-        tab: "send",
-        editorSelector: '[data-testid="send-list-summary-bar"]',
-      },
-      "nl-unit-broker": {
-        unitId: "nl-unit-broker",
-        label: "담당 중개사 정보",
-        editorSelector: '[data-testid="newsletter-status-banner"]',
-        onCustomActivate: () => {
+  const editorSyncUnits = useMemo<Record<string, EditorUnitTarget<NewsletterStepKey>>>(
+    () =>
+      buildNewsletterEditorSyncUnits({
+        deals,
+        selectedDealIds,
+        isSectionEnabled,
+        onEnableSection: (id) => handleToggleSection(id, true),
+        onOpenStatTune: () => setStatTuneOpen(true),
+        onShowBrokerProfileNotice: () =>
           setStatusBanner({
             tone: "info",
             message:
               "담당 중개사 이름·사무소·연락처는 상단 [내 정보] 프로필 설정(/broker/profile)에서 수정할 수 있습니다.",
-          });
-        },
-      },
-    };
-
-    for (let idx = 0; idx < 5; idx++) {
-      map[`nl-unit-issue-${idx}`] = {
-        unitId: `nl-unit-issue-${idx}`,
-        label: `핵심 이슈 ${idx + 1}번 카드`,
-        tab: "content",
-        onBeforeFocus: () => {
-          if (!isSectionEnabled("news_curation")) handleToggleSection("news_curation", true);
-        },
-        editorSelector: `[data-testid="axios-issue-card-editor-${idx}"]`,
-        focusSelector: `#axios-issue-title-${idx}`,
-      };
-    }
-
-    for (const deal of deals) {
-      map[`nl-unit-deal-${deal.id}`] = {
-        unitId: `nl-unit-deal-${deal.id}`,
-        label: `${deal.title} 추천글`,
-        tab: "content",
-        onBeforeFocus: () => {
-          if (!isSectionEnabled("featured_deals")) handleToggleSection("featured_deals", true);
-        },
-        editorSelector: `[data-testid="deal-slot-item-${deal.id}"]`,
-        focusSelector: selectedDealIds.includes(deal.id)
-          ? `#deal-comment-input-${deal.id}`
-          : `#deal-checkbox-${deal.id}`,
-      };
-    }
-
-    return map;
+          }),
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cadence, deals, selectedDealIds, isSectionEnabled]);
+    [cadence, deals, selectedDealIds, isSectionEnabled],
+  );
 
   const selectStepFromSync = useCallback((nextTab: NewsletterStepKey) => {
     setActiveStep(nextTab);
@@ -3001,13 +2394,12 @@ function MagazineEditorWorkspace() {
     const briefingOn = isSectionEnabled("field_note");
     const dealsOn = isSectionEnabled("featured_deals");
     const newsOn = isSectionEnabled("news_curation");
-    const enabledNewsCount = newsOn ? unitIssues.length : 0;
 
     const hint = getNextPublishHint({
       headline,
       briefingBody,
       dealCount: selectedDealIds.length,
-      newsCount: enabledNewsCount,
+      newsCount: newsOn ? unitIssues.length : 0,
       briefingEnabled: briefingOn,
       dealsEnabled: dealsOn,
       newsEnabled: newsOn,
@@ -3036,74 +2428,26 @@ function MagazineEditorWorkspace() {
       }
 
       const briefingSnippet = briefingBody.trim().replace(/\s+/g, " ").slice(0, 80);
-
       setDistributeOutcome(null);
-      let distAttempted = false;
-      let distStatus = 0;
-      let distJson: Record<string, unknown> | null = null;
-      if (saved.savedEditionId && isUuidLike(saved.savedEditionId)) {
-        distAttempted = true;
-        try {
-          const distRes = await fetch("/api/broker/magazine/distribute", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              editionId: saved.savedEditionId,
-              editionType: cadence,
-              title: headline.trim(),
-              headline: briefingSnippet || headline.trim(),
-              market_temp: marketTemp ?? undefined,
-              date: saved.savedIssueDate,
-              target: targetSegment,
-            }),
-          });
-          distStatus = distRes.status;
-          distJson = (await distRes.json().then(
-            (v) => v,
-            () => null,
-          )) as Record<string, unknown> | null;
-        } catch {
-          distStatus = 500;
-          distJson = { error: "발송 서버와의 연결에 실패했습니다. 잠시 후 다시 시도해 주세요." };
-        }
-      }
-
-      const outcome = distAttempted
-        ? formatDistributeOutcomeBanner(distJson, distStatus || 500, publicUrl)
-        : null;
+      const { distAttempted, distStatus, distJson, outcome } =
+        await dispatchEditionDistribution({
+          savedEditionId: saved.savedEditionId,
+          savedIssueDate: saved.savedIssueDate,
+          cadence,
+          headline,
+          briefingSnippet,
+          marketTemp,
+          targetSegment,
+          effectiveSlotSlug,
+          publicUrl,
+          isUuidLike,
+        });
       if (outcome) {
         setDistributeOutcome(outcome);
       }
 
       const sentCount = outcome?.sent ?? 0;
       const queuedCount = outcome?.queued ?? 0;
-      const liveDispatchSucceeded =
-        distAttempted &&
-        distStatus >= 200 &&
-        distStatus < 300 &&
-        distJson?.success !== false &&
-        distJson?.blocked !== "SEND_DISABLED" &&
-        !outcome?.dryRun &&
-        (sentCount > 0 || queuedCount > 0);
-
-      if (liveDispatchSucceeded) {
-        try {
-          await fetch("/api/broker/inbox/actions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "send_magazine",
-              slug: effectiveSlotSlug,
-              publicUrl,
-              targetSegment,
-              headline: headline.trim(),
-            }),
-          });
-        } catch {
-          // 활동 로그 실패 무시
-        }
-      }
-
       const shouldSkipAutoKakaoShare = distAttempted && sentCount === 0 && queuedCount === 0;
       const pubBase = resolvePublicBaseUrl() ?? getSiteOrigin();
       const ogSlug = decodeURIComponent(
@@ -3123,36 +2467,15 @@ function MagazineEditorWorkspace() {
             buttonTitle: "뉴스레터 열기",
           });
 
-      if (distStatus === 422) {
-        setStatusBanner(
-          buildApiErrorStatusBanner(distStatus, distJson, outcome?.message || "발송 요건을 충족하지 못했습니다."),
-        );
-      } else if (outcome) {
-        setStatusBanner({
-          tone: outcome.tone,
-          message: outcome.message,
-          ...(sentCount === 0 && queuedCount === 0 ? { fallbackUrl: publicUrl } : {}),
-        });
-      } else if (shareResult === "kakao") {
-        setStatusBanner({
-          tone: "success",
-          message:
-            "뉴스레터 웹 발행 완료 · 카카오톡 공유 창에서 구독자를 선택해 전달해 주세요.",
-        });
-      } else if (shareResult === "copied") {
-        setStatusBanner({
-          tone: "success",
-          message:
-            "뉴스레터 웹 발행 완료 · 공유 링크가 복사되었습니다. 카톡·문자에 붙여넣어 전달해 주세요.",
-        });
-      } else {
-        setStatusBanner({
-          tone: "warning",
-          message:
-            "뉴스레터 웹 발행은 완료되었으나 자동 복사에 실패했습니다. 아래 공개 링크를 직접 복사해 전달해 주세요.",
-          fallbackUrl: publicUrl,
-        });
-      }
+      setStatusBanner(
+        resolveSendCompletionBanner({
+          distStatus,
+          distJson,
+          outcome,
+          shareResult,
+          publicUrl,
+        }),
+      );
     } finally {
       setSending(false);
     }
@@ -3221,19 +2544,13 @@ function MagazineEditorWorkspace() {
                   onClick={() => handleSelectStep(tab.key)}
                   className={`min-h-[48px] rounded-xl px-2.5 py-2 text-base font-extrabold transition flex flex-wrap items-center justify-center gap-1.5 overflow-hidden ${
                     selected
-                      ? "bg-blue-700 text-white shadow-xs"
-                      : "bg-white text-slate-700 hover:bg-slate-100"
+                      ? "border-2 border-blue-500 bg-blue-50/90 text-blue-950 shadow-2xs"
+                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <span className="break-keep">{tab.label}</span>
                   {isDone && (
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-sm font-bold shrink-0 ${
-                        selected
-                          ? "bg-white/20 text-white"
-                          : "bg-emerald-100 text-emerald-900"
-                      }`}
-                    >
+                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-sm font-bold text-emerald-900 shrink-0">
                       완료
                     </span>
                   )}
@@ -3243,13 +2560,6 @@ function MagazineEditorWorkspace() {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 min-h-[48px]">
-            {listViewMode === "simple" && selectedSavedEdition ? (
-              <SelectedItemActions
-                itemLabel={editionDisplayTitle(selectedSavedEdition)}
-                onDuplicate={(e) => handleDuplicateEdition(selectedSavedEdition, e)}
-                onDelete={(e) => handleRequestDeleteEdition(selectedSavedEdition, e)}
-              />
-            ) : null}
 
             <button
               type="button"
@@ -3288,55 +2598,7 @@ function MagazineEditorWorkspace() {
           </div>
         </div>
 
-        {statusBanner && (
-          <div
-            role={
-              statusBanner.tone === "error" || statusBanner.tone === "warning"
-                ? "alert"
-                : "status"
-            }
-            data-testid="newsletter-status-banner"
-            className={`rounded-xl border px-4 py-3 text-sm font-bold space-y-2 ${
-              statusBanner.tone === "error"
-                ? "border-rose-200 bg-rose-50 text-rose-900"
-                : statusBanner.tone === "warning"
-                  ? "border-amber-300 bg-amber-50 text-amber-950"
-                  : statusBanner.tone === "success"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                    : "border-blue-200 bg-blue-50 text-blue-900"
-            }`}
-          >
-            <div className="flex flex-wrap items-center gap-2.5">
-              {statusBanner.tone === "success" ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" aria-hidden="true" />
-              ) : (
-                <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
-              )}
-              <span className="flex-1 min-w-[200px]">{statusBanner.message}</span>
-              {statusBanner.profileCtaHref && (
-                <Link
-                  href={statusBanner.profileCtaHref}
-                  data-testid="statutory-profile-link"
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-bold text-rose-800 hover:bg-rose-50 shrink-0"
-                >
-                  <span>사무소 프로필 설정</span>
-                  <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
-                </Link>
-              )}
-            </div>
-            {statusBanner.fallbackUrl && (
-              <input
-                type="text"
-                readOnly
-                value={statusBanner.fallbackUrl}
-                onFocus={(e) => e.currentTarget.select()}
-                aria-label="직접 복사용 뉴스레터 공개 링크"
-                data-testid="newsletter-fallback-url-input"
-                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-900"
-              />
-            )}
-          </div>
-        )}
+        <MagazineStatusBanner statusBanner={statusBanner} />
 
         {activeStep === "title" && (
           <NewsletterTitleStepPanel
@@ -3517,7 +2779,13 @@ function MagazineEditorWorkspace() {
       data-testid="magazine-preview-slot"
       className="p-4 sm:p-5 space-y-4 text-slate-900"
     >
-      <div className="sticky top-0 z-20 bg-[#F5F5F7]/95 backdrop-blur-md py-1 -my-1">
+      <div
+        className={
+          previewLifecycle === "published_dirty"
+            ? "sticky -top-4 z-20 -mx-4 -mt-4 bg-[#F5F5F7] px-4 pt-3 pb-2 shadow-[0_6px_12px_-8px_rgba(15,23,42,0.18)]"
+            : ""
+        }
+      >
         <PreviewCausalityBar
           lifecycle={previewLifecycle}
           onResyncPublished={() => void handleServerSave({ saveAsDraft: false })}
@@ -3542,7 +2810,7 @@ function MagazineEditorWorkspace() {
         />
       </div>
 
-      <NewsletterPreviewCard
+      <NewsletterPreviewBody
         previewLifecycle={previewLifecycle}
         activeUnitId={sync.activeUnitId}
         onFocusEditorUnit={sync.focusEditorUnit}
@@ -3560,80 +2828,25 @@ function MagazineEditorWorkspace() {
         selectedDeals={selectedDeals}
         dealComments={dealComments}
         isSectionEnabled={isSectionEnabled}
+        activeStep={activeStep}
+        briefingBody={briefingBody}
+        selectedDealCount={selectedDealIds.length}
+        onJumpToStep={(step) => setActiveStep(step)}
       />
-
-      {activeStep !== "send" && previewLifecycle !== "pre_generation" && (
-        <MagazinePublishChecklist
-          headline={headline}
-          briefingBody={briefingBody}
-          dealCount={selectedDealIds.length}
-          newsCount={isSectionEnabled("news_curation") ? unitIssues.length : 0}
-          briefingEnabled={isSectionEnabled("field_note")}
-          dealsEnabled={isSectionEnabled("featured_deals")}
-          newsEnabled={isSectionEnabled("news_curation")}
-          onJumpToStep={(step) => setActiveStep(step)}
-        />
-      )}
-
-      {previewLifecycle === "pre_generation" && (
-        <PreviewPregenerationCard
-          testId="newsletter-preview-pregeneration-card"
-          title="첫 제목을 입력하면 내 뉴스레터가 완성됩니다"
-          description="왼쪽 편집창에서 표지 제목을 적거나 [AI로 초안 쓰기]를 눌러 보세요. 아래 화면은 이해를 돕기 위한 기본 예시 구성입니다."
-          primaryActionLabel="① 표지 제목 입력하기"
-          onPrimaryAction={() => sync.focusEditorUnit("nl-unit-cover")}
-          secondaryActionLabel="✨ AI로 초안 채우기"
-          onSecondaryAction={() => sync.focusEditorUnit("nl-unit-ai-draft")}
-        />
-      )}
     </div>
   );
 
   const primaryActionSlot = (
-    <button
-      type="button"
-      data-testid="newsletter-primary-send-btn"
-      onClick={
-        isPublished && previewLifecycle === "published_dirty"
-          ? () => void handleDraftSaveClick()
-          : isPublished && previewLifecycle === "published_clean" && activeStep !== "send"
-            ? () => handleSelectStep("send")
-            : () => void handleSendSelected()
-      }
-      disabled={sending || saveState === "saving"}
-      aria-busy={sending || saveState === "saving"}
-      className={`w-full inline-flex min-h-[56px] items-center justify-center gap-2 rounded-2xl px-6 py-3 text-base font-extrabold text-white shadow-sm transition disabled:opacity-60 cursor-pointer ${
-        isPublished && previewLifecycle === "published_dirty"
-          ? "bg-amber-600 hover:bg-amber-700"
-          : isPublished && previewLifecycle === "published_clean"
-            ? "bg-emerald-700 hover:bg-emerald-800"
-            : "bg-blue-700 hover:bg-blue-800"
-      }`}
-    >
-      {sending || (isPublished && previewLifecycle === "published_dirty" && saveState === "saving") ? (
-        <>
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          <span>{sending ? "보내는 중…" : "반영 중…"}</span>
-        </>
-      ) : isPublished && previewLifecycle === "published_dirty" ? (
-        <>
-          <Save className="h-5 w-5" aria-hidden="true" />
-          <span>변경사항 발행본에 반영하기</span>
-        </>
-      ) : isPublished && previewLifecycle === "published_clean" ? (
-        <>
-          <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
-          <span>
-            {activeStep === "send" ? "발행 완료 · 다시 보내기" : "발행 완료 · 공유 / 다시 보내기"}
-          </span>
-        </>
-      ) : (
-        <>
-          <Send className="h-5 w-5" aria-hidden="true" />
-          <span>구독자에게 보내기</span>
-        </>
-      )}
-    </button>
+    <NewsletterPrimaryActionButton
+      isPublished={isPublished}
+      previewLifecycle={previewLifecycle}
+      activeStep={activeStep}
+      sending={sending}
+      saveState={saveState}
+      onDraftSaveClick={() => void handleDraftSaveClick()}
+      onSelectSendStep={() => handleSelectStep("send")}
+      onSendSelected={() => void handleSendSelected()}
+    />
   );
 
   const handleManualSync = useCallback(

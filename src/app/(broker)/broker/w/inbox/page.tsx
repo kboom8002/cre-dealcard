@@ -132,6 +132,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [kakaoHeadline, setKakaoHeadline] = useState("");
   const [kakaoBrief, setKakaoBrief] = useState("");
   const [inlineActionError, setInlineActionError] = useState<string | null>(null);
+  const [aiReplyLoading, setAiReplyLoading] = useState(false);
+  const [aiReplyHistory, setAiReplyHistory] = useState<string[]>([]);
 
   // Column 3 sheets & inline governance states
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -591,6 +593,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       setCallNote("");
       setEditingClientOpen(false);
       setInlineActionError(null);
+      setAiReplyHistory([]);
       setShowAlimtalkUpgradeSheet(false);
       setCopiedBundlePreview(null);
       if (!current) {
@@ -602,13 +605,19 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       setOutboundEmail(current.clientEmail || "");
       setOutboundBasis(current.transactionalBasis || "");
       setOutboundMarketingConsentConfirmed(false);
-      setOutboundAssetKind(!current.buildingId ? "magazine" : "im");
+      setOutboundAssetKind(
+        !current.buildingId
+          ? "magazine"
+          : current.hasIm === false
+          ? "dealcard"
+          : "im"
+      );
       if (current.status === "pending_gate") {
         setActiveEditorTab("todo");
       }
-      setKakaoHeadline(`[${current.buildingTitle}] 상세 검토 자료 안내`);
+      setKakaoHeadline(`[${current.buildingTitle}] 상세 자료 안내`);
       setKakaoBrief(
-        `${current.clientName}님, 관심 가져주신 [${current.buildingTitle}] 상세 투자설명서(IM)와 층별 임대 현황을 보내드립니다. 검토하시면서 궁금하신 점은 편하게 말씀해 주세요.`
+        `${current.clientName}님, 관심 가져주신 [${current.buildingTitle}] 자료와 임대 현황을 보내드립니다. 살펴보시면서 궁금하신 점은 편하게 말씀해 주세요.`
       );
     });
     return () => {
@@ -1591,6 +1600,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       ? false
       : Boolean(jsonClient?.newsletterSubscribed);
 
+    const resolvedInvItem = resolvedBuildingId
+      ? inventory.find((item) => item.buildingId === resolvedBuildingId)
+      : undefined;
+    const resolvedHasIm = resolvedInvItem?.hasIm ?? true;
+    const resolvedHasDealCard = resolvedInvItem?.hasDealCard;
+
     const created: InboxThreadItem = {
       id: canonicalId,
       clientName: newClientForm.name.trim(),
@@ -1617,8 +1632,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       status: "active",
       shareToken: "",
       shareUrl: resolvedBuildingId
-        ? `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
+        ? resolvedHasIm === false
+          ? `/dc/${encodeURIComponent(resolvedBuildingId)}`
+          : `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
         : "",
+      ...(resolvedInvItem?.hasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
+      ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       budget: newClientForm.budget.trim(),
       preferredRegion: newClientForm.region.trim(),
       focusedSections: [],
@@ -1739,6 +1758,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     );
     if (!apiRes.ok) return;
 
+    const resolvedInvItem = resolvedBuildingId
+      ? inventory.find((item) => item.buildingId === resolvedBuildingId)
+      : undefined;
+    const resolvedHasIm = resolvedInvItem?.hasIm ?? targetThread.hasIm ?? true;
+    const resolvedHasDealCard = resolvedInvItem?.hasDealCard ?? targetThread.hasDealCard;
+
     setThreads((prev) => {
       const next = prev.map((t) =>
         t.id === targetThread.id
@@ -1760,10 +1785,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               buildingId: resolvedBuildingId,
               buildingTitle: resolvedBuildingTitle,
               shareUrl: resolvedBuildingId
-                ? t.shareToken
+                ? resolvedHasIm === false
+                  ? `/dc/${encodeURIComponent(resolvedBuildingId)}`
+                  : t.shareToken
                   ? `/im-lite/${encodeURIComponent(resolvedBuildingId)}?token=${encodeURIComponent(t.shareToken)}`
                   : `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
                 : "",
+              ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
+              ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
             }
           : t
       );
@@ -1865,6 +1894,64 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast(msg);
   };
 
+  const handleGenerateAiReply = async (targetThread: InboxThreadItem) => {
+    if (aiReplyLoading) return;
+    const prevHeadline = kakaoHeadline;
+    const prevBrief = kakaoBrief;
+    setAiReplyLoading(true);
+    setInlineActionError(null);
+    try {
+      const lastEventText = targetThread.events?.[0]?.description || "";
+      const res = await fetch("/api/broker/inbox/ai-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientName: targetThread.clientName,
+          clientRole: targetThread.clientRole,
+          buildingTitle: targetThread.buildingTitle,
+          assetKind: outboundAssetKind,
+          openCount: targetThread.openCount ?? 0,
+          lastEventText,
+          callNote: callNote.trim() || undefined,
+          hasIm: targetThread.hasIm,
+          avoidReplies: aiReplyHistory,
+          attemptSeed: aiReplyHistory.length,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok: true; result?: { headline?: string; brief?: string } }
+        | { ok: false; error?: string }
+        | null;
+      if (!res.ok || !json || !json.ok || !json.result?.headline || !json.result?.brief) {
+        const errMsg = (json && !json.ok && json.error) || "AI 맞춤 답장을 작성하지 못했습니다.";
+        setInlineActionError(errMsg);
+        showUndoToast(errMsg);
+        return;
+      }
+      const nextHeadline = json.result.headline;
+      const nextBrief = json.result.brief;
+      setKakaoHeadline(nextHeadline);
+      setKakaoBrief(nextBrief);
+      setAiReplyHistory((prev) =>
+        Array.from(new Set([...prev, `${nextHeadline}\n${nextBrief}`])).slice(-5)
+      );
+      showUndoToast({
+        message: "AI가 고객 맞춤 답장을 작성했습니다.",
+        undoLabel: "되돌리기",
+        undoAction: () => {
+          setKakaoHeadline(prevHeadline);
+          setKakaoBrief(prevBrief);
+        },
+      });
+    } catch {
+      const errMsg = "AI 맞춤 답장 요청 중 오류가 발생했습니다.";
+      setInlineActionError(errMsg);
+      showUndoToast(errMsg);
+    } finally {
+      setAiReplyLoading(false);
+    }
+  };
+
   const primaryActionSlot = activeThread ? (
     activeThread.status === "pending_gate" ? (
       <button
@@ -1881,7 +1968,16 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         type="button"
         data-testid="primary-cta-kakao-send"
         disabled={Boolean(busyAction)}
-        onClick={() => setShowShareSheet((prev) => !prev)}
+        onClick={() => {
+          setShowShareSheet(true);
+          if (typeof document !== "undefined") {
+            const hub = document.querySelector('[data-testid="inbox-outbound-channel-bar"]');
+            if (hub && typeof hub.scrollIntoView === "function") {
+              hub.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+          }
+          void handlePrepareCopyBundle();
+        }}
         className="min-h-[48px] w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
       >
         카톡으로 자료 보내기
@@ -1915,6 +2011,27 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             loadingMoreClients={loadingMoreClients}
             totalClientsCount={totalClientsCount}
             onLoadMoreClients={handleLoadMoreClients}
+            onQuickEditClient={(target) => {
+              selectThread(target.id);
+              setEditClientForm({
+                name: target.clientName,
+                phone: target.clientPhone,
+                email: target.clientEmail || "",
+                basis: target.transactionalBasis || "",
+                grade: target.clientGrade,
+                role: target.clientRole || "buyer",
+                budget: target.budget || "",
+                region: target.preferredRegion || "",
+                freeMemo: target.freeMemo || "",
+                buildingTitle: target.buildingTitle || "",
+              });
+              setEditingClientOpen(true);
+            }}
+            onQuickDeleteClient={(target) => {
+              selectThread(target.id);
+              setPendingDeleteClient(target);
+            }}
+            onQuickArchiveThread={(target) => void handleArchiveThread(target)}
           />
         }
         editorSlot={
@@ -1935,6 +2052,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onRejectRequest={handleRejectRequest}
             onSendMaterial={handleSendMaterial}
             onArchiveThread={handleArchiveThread}
+            onGenerateAiReply={handleGenerateAiReply}
+            aiReplyLoading={aiReplyLoading}
+            aiReplyCount={aiReplyHistory.length}
           />
         }
         previewSlot={
@@ -1943,6 +2063,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             activeInboxUnitId={activeInboxUnitId}
             busyAction={busyAction}
             showShareSheet={showShareSheet}
+            outboundAssetKind={outboundAssetKind}
             subscriptionTier={subscriptionTier}
             outboundEmail={outboundEmail}
             outboundBasis={outboundBasis}
@@ -1958,6 +2079,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onFocusEditorUnit={focusInboxEditorUnit}
             onCopyActiveShareLink={handleCopyActiveShareLink}
             onSendMaterial={handleSendMaterial}
+            onOutboundAssetKindChange={setOutboundAssetKind}
             onOutboundEmailChange={setOutboundEmail}
             onOutboundBasisChange={setOutboundBasis}
             onMarketingConsentConfirmedChange={setOutboundMarketingConsentConfirmed}
@@ -2010,10 +2132,27 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
       <ConfirmDeleteModal
         isOpen={Boolean(pendingDeleteClient)}
-        title={`'${pendingDeleteClient?.clientName || "고객"}' 항목을 삭제할까요?`}
-        description="삭제한 직후 화면 하단의 [되돌리기] 버튼으로 바로 복구할 수 있습니다."
+        title={
+          pendingDeleteClient &&
+          (pendingDeleteClient.isVip === true || pendingDeleteClient.clientGrade === "VIP")
+            ? `VIP 고객 '${pendingDeleteClient.clientName}' 항목을 삭제할까요?`
+            : `'${pendingDeleteClient?.clientName || "고객"}' 항목을 삭제할까요?`
+        }
+        description={
+          pendingDeleteClient &&
+          (pendingDeleteClient.isVip === true || pendingDeleteClient.clientGrade === "VIP")
+            ? "중요 VIP 고객의 연락처·메모·발송 이력이 목록에서 삭제됩니다. (직후 하단 되돌리기 알림으로 복구 가능)"
+            : "삭제한 직후 화면 하단의 [되돌리기] 버튼으로 바로 복구할 수 있습니다."
+        }
         confirmLabel="고객 삭제"
         cancelLabel="취소"
+        requireMatchText={
+          pendingDeleteClient &&
+          (pendingDeleteClient.isVip === true || pendingDeleteClient.clientGrade === "VIP")
+            ? pendingDeleteClient.clientName
+            : undefined
+        }
+        matchInputLabel="VIP 고객을 삭제하려면 아래 고객 성함을 그대로 입력해 주세요."
         onCancel={() => setPendingDeleteClient(null)}
         onConfirm={handleConfirmDeleteCustomClient}
       />
@@ -2033,6 +2172,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         open={showNewClientModal}
         values={newClientForm}
         inventory={inventory}
+        existingThreads={threads}
         busyAction={busyAction}
         onChange={(patch) =>
           setNewClientForm((prev) => ({ ...prev, ...patch }))

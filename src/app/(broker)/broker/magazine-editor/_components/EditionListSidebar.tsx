@@ -195,8 +195,8 @@ export function EditionListSidebar({
                     onClick={() => onChangeCadence(key)}
                     className={`min-h-[44px] rounded-lg px-2 py-1.5 text-sm font-extrabold whitespace-nowrap transition ${
                       selected
-                        ? "bg-blue-700 text-white shadow-xs"
-                        : "bg-transparent text-slate-700 hover:bg-white"
+                        ? "border border-blue-500 bg-blue-50/90 text-blue-950 shadow-2xs"
+                        : "border border-transparent bg-transparent text-slate-700 hover:bg-white"
                     }`}
                   >
                     {meta.label}
@@ -278,15 +278,10 @@ export function EditionListSidebar({
                           data-testid={`edition-filter-${tab.key}`}
                           data-active-pill={activeFilter ? "true" : undefined}
                           onClick={() => onChangeEditionCadenceFilter(tab.key)}
-                          style={
+                          className={`min-h-[44px] rounded-lg border px-2.5 py-1 text-sm font-bold transition ${
                             activeFilter
-                              ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" }
-                              : { backgroundColor: "#F1F5F9", color: "#334155" }
-                          }
-                          className={`min-h-[44px] rounded-lg px-2.5 py-1 text-sm font-bold transition ${
-                            activeFilter
-                              ? "bg-blue-700 text-white"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              ? "border-blue-500 bg-blue-50/90 text-blue-950"
+                              : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
                           }`}
                         >
                           {tab.label}
@@ -325,6 +320,34 @@ export function EditionListSidebar({
                 }
                 selected={editionId === ed.id}
                 onSelect={() => onSelectExistingEdition(ed)}
+                actions={
+                  <>
+                    <button
+                      type="button"
+                      data-testid={`edition-duplicate-btn-${ed.id}`}
+                      aria-label={`${editionDisplayTitle(ed)} 복제`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicateEdition(ed, e);
+                      }}
+                      className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-sm font-bold text-slate-700 transition cursor-pointer"
+                    >
+                      복제
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`edition-delete-btn-${ed.id}`}
+                      aria-label={`${editionDisplayTitle(ed)} 삭제`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestDeleteEdition(ed, e);
+                      }}
+                      className="min-h-[44px] inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 hover:border-rose-300 hover:bg-rose-50 px-2.5 py-1 text-sm font-bold text-slate-700 hover:text-rose-700 transition cursor-pointer"
+                    >
+                      삭제
+                    </button>
+                  </>
+                }
               />
             )}
           />

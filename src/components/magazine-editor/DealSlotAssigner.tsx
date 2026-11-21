@@ -12,6 +12,10 @@ export interface AssignableDealItem {
   yield: string;
   photoUrl: string | null;
   areaSignal?: string;
+  assetType?: string;
+  priceBand?: string;
+  areaLabel?: string;
+  hasIm?: boolean;
 }
 
 export interface DealSlotAssignerProps {
@@ -117,9 +121,9 @@ export function DealSlotAssigner({
 
                   <span
                     aria-hidden="true"
-                    className={`shrink-0 inline-flex min-h-[40px] items-center rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition ${
+                    className={`shrink-0 inline-flex min-h-[44px] items-center rounded-xl border px-3.5 py-1.5 text-sm font-extrabold transition ${
                       isSelected
-                        ? "border-blue-700 bg-blue-700 text-white"
+                        ? "border-blue-500 bg-blue-50/90 text-blue-950"
                         : "border-slate-300 bg-white text-slate-800"
                     }`}
                   >
