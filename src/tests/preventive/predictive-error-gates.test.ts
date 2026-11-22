@@ -101,6 +101,7 @@ describe("Predictive Error Audit — Preventive Regression Gates (Gates 1-8)", (
       "src/app/qa-full-loop/page.tsx",
       "src/app/qa-full-loop/_components/QaFullLoopWorkbenchClient.tsx",
       "src/app/qa-full-loop-v2/page.tsx",
+      "src/app/qa-broker/full-loop/page.tsx",
       "src/app/dealcard-im-test/page.tsx",
       "src/app/newsletter-inbox-test/page.tsx",
       "src/app/(broker)/broker/w/im/page.tsx",
@@ -222,6 +223,7 @@ describe("Predictive Error Audit — Preventive Regression Gates (Gates 1-8)", (
     for (const relLayout of [
       "app/qa-full-loop/layout.tsx",
       "app/qa-full-loop-v2/layout.tsx",
+      "app/qa-broker/full-loop/layout.tsx",
     ]) {
       const layoutSrc = fs.readFileSync(path.join(SRC_ROOT, relLayout), "utf-8");
       expect(layoutSrc).toContain("matchQaKeyRole");

@@ -17,6 +17,15 @@ import {
   HOLDOUT_V2_CASE04_MEMO,
   HOLDOUT_V2_CASE04_STABILIZED_TSV,
 } from "@/lib/testguide/full-loop-v2-holdout-data";
+import {
+  BROKER_CASE02_ASIS_CSV,
+  BROKER_CASE02_ASIS_TSV,
+  BROKER_CASE02_ASSET_CDN_MAP,
+  BROKER_CASE02_MEMO,
+  BROKER_CASE02_STABILIZED_TSV,
+  BROKER_CASE02_WON_TRAP_TSV,
+  BROKER_FULL_LOOP_CASES,
+} from "@/lib/testguide/broker-full-loop-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -191,7 +200,9 @@ async function resolveHoldoutAssetBuffer(opts: {
     // Fallback to Supabase Storage CDN on deployed runtimes
   }
 
-  const cdnUrl = HOLDOUT_V2_ASSET_CDN_MAP[opts.assetKey];
+  const cdnUrl =
+    HOLDOUT_V2_ASSET_CDN_MAP[opts.assetKey] ||
+    BROKER_CASE02_ASSET_CDN_MAP[opts.assetKey];
   if (cdnUrl) {
     try {
       const upstream = await fetch(cdnUrl);
@@ -524,6 +535,101 @@ export async function GET(req: NextRequest) {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${outV2ZipName}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+  }
+
+  if (scenario === "broker-loop1") {
+    const brokerCase = BROKER_FULL_LOOP_CASES[0];
+    const case02Folder = "CASE-02_서초_서초동_1364-28_화면입력_법인사옥형";
+
+    if (format === "csv") {
+      return new NextResponse(`\uFEFF${BROKER_CASE02_ASIS_CSV}\r\n`, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition":
+            'attachment; filename="seocho_1364_28_hq_rentroll.csv"',
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (format === "tsv-stabilized") {
+      return new NextResponse(`\uFEFF${BROKER_CASE02_STABILIZED_TSV}\r\n`, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/tab-separated-values; charset=utf-8",
+          "Content-Disposition":
+            'attachment; filename="seocho_1364_28_stabilized_rentroll.tsv"',
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (format === "tsv-won-trap") {
+      return new NextResponse(`\uFEFF${BROKER_CASE02_WON_TRAP_TSV}\r\n`, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/tab-separated-values; charset=utf-8",
+          "Content-Disposition":
+            'attachment; filename="seocho_1364_28_won_unit_trap.tsv"',
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (brokerCase) {
+      const bZip = new JSZip();
+      bZip.file(
+        "00_README_중개인_골든10장_안내.txt",
+        [
+          `${brokerCase.code} — ${brokerCase.title}`,
+          "================================================================",
+          `대상 실매물: ${brokerCase.propertyName} (${brokerCase.askingPriceReadout})`,
+          `지번 주소: ${brokerCase.jibunAddress} / 도로명: ${brokerCase.roadAddress}`,
+          `정답 면적: 대지 ${brokerCase.groundTruth.expectedLandAreaSqm}㎡ / 연면적 ${brokerCase.groundTruth.expectedGfaSqm}㎡`,
+          `포함 현장 사진: 총 ${brokerCase.images.length}장 (외관 4장 + 내부·설비 6장, 세로형 승강기 포함)`,
+          "",
+          "[핵심 체험 포인트]",
+          ...brokerCase.domainTraps.map((t) => `- [${t.code}] ${t.title}: ${t.detail}`),
+          "",
+        ].join("\r\n"),
+      );
+      bZip.file("01_딜카드_현장메모_원문.txt", BROKER_CASE02_MEMO);
+      bZip.file("02_현행_임대현황_붙여넣기.tsv", BROKER_CASE02_ASIS_TSV);
+      bZip.file("03_전층임대전환_기대수익률_붙여넣기.tsv", BROKER_CASE02_STABILIZED_TSV);
+      bZip.file("04_현행_임대현황_업로드용.csv", `\uFEFF${BROKER_CASE02_ASIS_CSV}\r\n`);
+      bZip.file("99_부록_원단위오입력_자동보정체험.tsv", BROKER_CASE02_WON_TRAP_TSV);
+
+      for (const img of brokerCase.images) {
+        const imgBuf = await resolveHoldoutAssetBuffer({
+          caseFolder: case02Folder,
+          localRelPath: path.join("images", img.filename),
+          assetKey: img.filename,
+          publicFallbackRel: "test-images/dangsan/01_exterior.jpg",
+          isImage: true,
+          accentHex: "#1E3A8A",
+        });
+        if (imgBuf) {
+          bZip.file(`photos/${img.filename}`, imgBuf);
+        }
+      }
+
+      const bZipBytes = await bZip.generateAsync({
+        type: "uint8array",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      });
+
+      return new NextResponse(Buffer.from(bZipBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition":
+            'attachment; filename="credeal_broker_stage1_seocho_230_10photos_kit.zip"',
           "Cache-Control": "no-store",
         },
       });

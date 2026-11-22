@@ -75,6 +75,11 @@ import {
   FULL_LOOP_V2_CASES,
   QA_FULL_LOOP_V2_WORKBENCH_ID,
 } from "@/lib/testguide/full-loop-v2-holdout-data";
+import {
+  BROKER_FULL_LOOP_ALL_STEPS,
+  BROKER_FULL_LOOP_CASES,
+  QA_BROKER_FULL_LOOP_WORKBENCH_ID,
+} from "@/lib/testguide/broker-full-loop-data";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
@@ -536,6 +541,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
         }))
       : workbenchId === QA_FULL_LOOP_V2_WORKBENCH_ID
       ? FULL_LOOP_V2_ALL_STEPS.map((s) => ({
+          key: s.id,
+          severity: s.severityOnFail,
+        }))
+      : workbenchId === QA_BROKER_FULL_LOOP_WORKBENCH_ID
+      ? BROKER_FULL_LOOP_ALL_STEPS.map((s) => ({
           key: s.id,
           severity: s.severityOnFail,
         }))
@@ -1234,9 +1244,38 @@ export async function POST(req: NextRequest) {
         body.expectedLoopId === "loop1" ||
         body.expectedLoopId === "loop2" ||
         body.expectedLoopId === "v2-loop1" ||
-        body.expectedLoopId === "v2-loop2"
-          ? (body.expectedLoopId as "loop1" | "loop2" | "v2-loop1" | "v2-loop2")
+        body.expectedLoopId === "v2-loop2" ||
+        body.expectedLoopId === "broker-loop1" ||
+        body.expectedLoopId === "broker-byod"
+          ? (body.expectedLoopId as
+              | "loop1"
+              | "loop2"
+              | "v2-loop1"
+              | "v2-loop2"
+              | "broker-loop1"
+              | "broker-byod")
           : null;
+      const customForbiddenTokens: string[] = Array.isArray(
+        body.customForbiddenTokens
+      )
+        ? body.customForbiddenTokens
+            .map((t: unknown) => String(t ?? "").trim())
+            .filter((t: string) => t.length >= 2)
+            .slice(0, 25)
+        : [];
+      const matchedLoopDef = expectedLoopId
+        ? FULL_LOOP_CASES.find(
+            (c) => c.id === expectedLoopId || c.probeLoopId === expectedLoopId
+          ) ||
+          FULL_LOOP_V2_CASES.find((c) => c.probeLoopId === expectedLoopId) ||
+          BROKER_FULL_LOOP_CASES.find((c) => c.probeLoopId === expectedLoopId)
+        : undefined;
+      const effectiveForbiddenTokens: string[] = Array.from(
+        new Set([
+          ...(matchedLoopDef?.groundTruth.forbiddenPublicTokens ?? []),
+          ...customForbiddenTokens,
+        ])
+      );
 
       const supabase = tryCreateServiceClient();
       const callerBrokerKeys: string[] = [];
@@ -1449,6 +1488,14 @@ export async function POST(req: NextRequest) {
                   const v = deal[field];
                   if (typeof v === "string" && hasUnmaskedAddressString(v)) {
                     offendingSet.add(v.trim());
+                  }
+                }
+              }
+              if (effectiveForbiddenTokens.length > 0) {
+                const publicMagSerialized = `${rowTitle || ""} ${JSON.stringify(maskedContent)}`;
+                for (const tok of effectiveForbiddenTokens) {
+                  if (tok && publicMagSerialized.includes(tok)) {
+                    offendingSet.add(tok);
                   }
                 }
               }
@@ -1912,9 +1959,17 @@ export async function POST(req: NextRequest) {
                       card?.point_3,
                     ];
                     for (const val of candidates) {
-                      if (typeof val === "string" && hasUnmaskedAddressString(val)) {
-                        addressBlindPass = false;
-                        offendingTexts.push(val.slice(0, 60));
+                      if (typeof val === "string") {
+                        if (hasUnmaskedAddressString(val)) {
+                          addressBlindPass = false;
+                          offendingTexts.push(val.slice(0, 60));
+                        }
+                        for (const tok of effectiveForbiddenTokens) {
+                          if (tok && val.includes(tok)) {
+                            addressBlindPass = false;
+                            offendingTexts.push(tok);
+                          }
+                        }
                       }
                     }
                     const ownerId =
@@ -1959,12 +2014,20 @@ export async function POST(req: NextRequest) {
                           : null;
                       const c4 = (meta.card4 || {}) as Record<string, unknown>;
                       const pts = Array.isArray(c4.points) ? c4.points : [];
-                      for (const val of [c4.headline, c4.region, ...pts]) {
-                        if (typeof val === "string" && hasUnmaskedAddressString(val)) {
-                          addressBlindPass = false;
-                          offendingTexts.push(val.slice(0, 60));
+                        for (const val of [c4.headline, c4.region, ...pts]) {
+                          if (typeof val === "string") {
+                            if (hasUnmaskedAddressString(val)) {
+                              addressBlindPass = false;
+                              offendingTexts.push(val.slice(0, 60));
+                            }
+                            for (const tok of effectiveForbiddenTokens) {
+                              if (tok && val.includes(tok)) {
+                                addressBlindPass = false;
+                                offendingTexts.push(tok);
+                              }
+                            }
+                          }
                         }
-                      }
                       break;
                     }
                   }
@@ -2058,15 +2121,11 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ── 2F. Optional Ground-Truth Area & Blind Oracle Check for Full-Loop 2 Cases ──
+      // ── 2F. Optional Ground-Truth Area & Blind Oracle Check for Full-Loop Cases ──
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let groundTruthOracleCheck: Record<string, any> | null = null;
       if (expectedLoopId) {
-        const loopDef =
-          FULL_LOOP_CASES.find(
-            (c) => c.id === expectedLoopId || c.probeLoopId === expectedLoopId
-          ) ||
-          FULL_LOOP_V2_CASES.find((c) => c.probeLoopId === expectedLoopId);
+        const loopDef = matchedLoopDef;
         const candidateBldId =
           (shareLinkCheck?.validUrl && shareLinkCheck?.buildingId
             ? String(shareLinkCheck.buildingId)
@@ -2074,7 +2133,21 @@ export async function POST(req: NextRequest) {
           (dealCardCheck?.validUrl && dealCardCheck?.dealId
             ? String(dealCardCheck.dealId)
             : "");
-        if (loopDef && candidateBldId) {
+        if (loopDef?.isByodMode && !candidateBldId) {
+          groundTruthOracleCheck = {
+            loopId: expectedLoopId,
+            buildingId: "",
+            isByodMode: true,
+            landMatch: true,
+            gfaMatch: true,
+            singleParcelTrapTriggered: false,
+            customKeywordCount: customForbiddenTokens.length,
+            statusLabel:
+              customForbiddenTokens.length > 0
+                ? `내 매물 BYOD 보안 모드 · 비공개 키워드 ${customForbiddenTokens.length}개 노출 0건 검사 준비 완료`
+                : "내 매물 BYOD 보안 모드 · ① 딜카드 링크 및 비공개 키워드를 입력해 검사하세요",
+          };
+        } else if (loopDef && candidateBldId) {
           let actualLandSqm: number | null = null;
           let actualGfaSqm: number | null = null;
           let hiddenSectionCount = 0;
@@ -2239,38 +2312,58 @@ export async function POST(req: NextRequest) {
           }
 
           const gt = loopDef.groundTruth;
-          const singleParcelTrapTriggered = Boolean(
-            gt.singleParcelTrapSqm &&
+          if (loopDef.isByodMode) {
+            groundTruthOracleCheck = {
+              loopId: expectedLoopId,
+              buildingId: candidateBldId,
+              isByodMode: true,
+              actualLandAreaSqm: actualLandSqm,
+              actualGfaSqm: actualGfaSqm,
+              landMatch: true,
+              gfaMatch: true,
+              singleParcelTrapTriggered: false,
+              hiddenSectionCount,
+              customKeywordCount: customForbiddenTokens.length,
+              areaEvaluated: actualLandSqm !== null || actualGfaSqm !== null,
+              statusLabel:
+                actualLandSqm !== null || actualGfaSqm !== null
+                  ? `내 매물 공부 면적 확인 (대지 ${actualLandSqm ?? "-"}㎡ / 연면적 ${actualGfaSqm ?? "-"}㎡) · 비공개 키워드 ${customForbiddenTokens.length}개 검사 완료`
+                  : `내 매물 BYOD 보안 점검 완료 · 비공개 키워드 ${customForbiddenTokens.length}개 검사 적용`,
+            };
+          } else {
+            const singleParcelTrapTriggered = Boolean(
+              gt.singleParcelTrapSqm &&
+                actualLandSqm !== null &&
+                Math.abs(actualLandSqm - gt.singleParcelTrapSqm) <= 2.0
+            );
+            const landMatch =
               actualLandSqm !== null &&
-              Math.abs(actualLandSqm - gt.singleParcelTrapSqm) <= 2.0
-          );
-          const landMatch =
-            actualLandSqm !== null &&
-            Math.abs(actualLandSqm - gt.expectedLandAreaSqm) <= gt.areaToleranceSqm;
-          const gfaMatch =
-            actualGfaSqm !== null &&
-            Math.abs(actualGfaSqm - gt.expectedGfaSqm) <= gt.areaToleranceSqm;
+              Math.abs(actualLandSqm - gt.expectedLandAreaSqm) <= gt.areaToleranceSqm;
+            const gfaMatch =
+              actualGfaSqm !== null &&
+              Math.abs(actualGfaSqm - gt.expectedGfaSqm) <= gt.areaToleranceSqm;
 
-          groundTruthOracleCheck = {
-            loopId: expectedLoopId,
-            buildingId: candidateBldId,
-            expectedLandAreaSqm: gt.expectedLandAreaSqm,
-            actualLandAreaSqm: actualLandSqm,
-            landMatch,
-            singleParcelTrapTriggered,
-            expectedGfaSqm: gt.expectedGfaSqm,
-            actualGfaSqm: actualGfaSqm,
-            gfaMatch,
-            hiddenSectionCount,
-            areaEvaluated: actualLandSqm !== null || actualGfaSqm !== null,
-            statusLabel: singleParcelTrapTriggered
-              ? `다필지 오판 경고 (단일 대표필지 ${actualLandSqm}㎡로 저장됨 · 기대값 ${gt.expectedLandAreaSqm}㎡)`
-              : actualLandSqm === null && actualGfaSqm === null
-              ? "저장된 면적 레코드 대기 중 (IM 저장 후 재실행)"
-              : landMatch && gfaMatch
-              ? `정답 오라클 일치 (대지 ${actualLandSqm}㎡ / 연면적 ${actualGfaSqm}㎡)`
-              : `면적 편차 점검 필요 (실측 대지 ${actualLandSqm ?? "-"}㎡ / 연면적 ${actualGfaSqm ?? "-"}㎡)`,
-          };
+            groundTruthOracleCheck = {
+              loopId: expectedLoopId,
+              buildingId: candidateBldId,
+              expectedLandAreaSqm: gt.expectedLandAreaSqm,
+              actualLandAreaSqm: actualLandSqm,
+              landMatch,
+              singleParcelTrapTriggered,
+              expectedGfaSqm: gt.expectedGfaSqm,
+              actualGfaSqm: actualGfaSqm,
+              gfaMatch,
+              hiddenSectionCount,
+              areaEvaluated: actualLandSqm !== null || actualGfaSqm !== null,
+              statusLabel: singleParcelTrapTriggered
+                ? `다필지 오판 경고 (단일 대표필지 ${actualLandSqm}㎡로 저장됨 · 기대값 ${gt.expectedLandAreaSqm}㎡)`
+                : actualLandSqm === null && actualGfaSqm === null
+                ? "저장된 면적 레코드 대기 중 (IM 저장 후 재실행)"
+                : landMatch && gfaMatch
+                ? `정답 오라클 일치 (대지 ${actualLandSqm}㎡ / 연면적 ${actualGfaSqm}㎡)`
+                : `면적 편차 점검 필요 (실측 대지 ${actualLandSqm ?? "-"}㎡ / 연면적 ${actualGfaSqm ?? "-"}㎡)`,
+            };
+          }
         }
       }
 

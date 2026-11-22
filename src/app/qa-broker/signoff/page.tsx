@@ -655,6 +655,13 @@ function QaBrokerSignoffInner() {
                 {keyInput ? "🔑 감수 키 연결됨" : "🔒 감수 키 입력"}
               </button>
               <Link
+                href={appendQaParamsToHref("/qa-broker/full-loop", "broker")}
+                data-testid="broker-open-full-loop-link"
+                className="min-h-[44px] max-w-full inline-flex items-center justify-center rounded-xl bg-emerald-700 hover:bg-emerald-800 px-3.5 py-2 text-sm sm:text-base font-extrabold text-white text-center whitespace-normal sm:whitespace-nowrap"
+              >
+                🚀 실전 전 과정 검수 (10장 골든 + 내 매물) ↗
+              </Link>
+              <Link
                 href={appendQaParamsToHref("/qa-broker/showcase", "broker")}
                 data-testid="broker-open-showcase-link"
                 className="min-h-[44px] max-w-full inline-flex items-center justify-center rounded-xl bg-indigo-700 hover:bg-indigo-800 px-3.5 py-2 text-sm sm:text-base font-extrabold text-white text-center whitespace-normal sm:whitespace-nowrap"

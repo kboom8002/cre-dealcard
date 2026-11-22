@@ -595,6 +595,13 @@ export default function TestGuidePage() {
                 🧪 인간 검수 V2 Hold-out 풀루프 ↗
               </a>
               <a
+                href={`/qa-broker/full-loop${qaQuerySuffix}`}
+                data-testid="open-qa-broker-full-loop-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold transition inline-flex items-center"
+              >
+                🏢 중개인 실전 풀루프 (10장 + 내 매물) ↗
+              </a>
+              <a
                 href="/qa-signoff"
                 data-testid="open-qa-signoff-hub"
                 className="min-h-[44px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition inline-flex items-center"

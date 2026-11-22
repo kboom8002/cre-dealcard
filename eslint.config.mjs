@@ -111,6 +111,7 @@ export const SUB14_LOCKED_FILES = [
   "src/components/gate/**/*.{ts,tsx}",
   "src/app/qa-full-loop/**/*.{ts,tsx}",
   "src/app/qa-full-loop-v2/**/*.{ts,tsx}",
+  "src/app/qa-broker/full-loop/**/*.{ts,tsx}",
   "src/app/error.tsx",
   "src/app/global-error.tsx",
   "src/app/(public)/error.tsx",

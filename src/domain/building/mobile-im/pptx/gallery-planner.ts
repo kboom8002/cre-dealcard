@@ -125,7 +125,7 @@ export function planGallerySlides(
           extIdx += 1;
           return { ...p, caption: extIdx === 1 ? '외관 1 (대표)' : `외관 ${extIdx}` };
         }
-        if (kind === 'interior' || (kind === 'mixed' && isIntPhoto(p))) {
+        if (kind === 'interior' || (kind === 'mixed' && (isIntPhoto(p) || !isExtPhoto(p)))) {
           intIdx += 1;
           return { ...p, caption: `내부 ${intIdx}` };
         }
@@ -141,27 +141,56 @@ export function planGallerySlides(
       : batch.length === 2 ? 'DUAL_LANDSCAPE'
       : 'FULL_WIDE';
 
-    const extGroup = photos12.filter(isExtPhoto).slice(0, 6);
-    const intGroup = photos12.filter((p) => !isExtPhoto(p) && isIntPhoto(p)).slice(0, 6);
+    const allExt = photos12.filter(isExtPhoto);
+    const allInt = photos12.filter((p) => !isExtPhoto(p));
 
-    if (extGroup.length >= 2 && intGroup.length >= 2) {
-      const extWithCaps = withSequentialCaptions(extGroup, 'exterior');
-      const intWithCaps = withSequentialCaptions(intGroup, 'interior');
+    if (allExt.length >= 2 && allInt.length >= 2) {
+      const extWithCaps = withSequentialCaptions(allExt, 'exterior');
+      const intWithCaps = withSequentialCaptions(allInt, 'interior');
+      if (extWithCaps.length <= 6 && intWithCaps.length <= 6) {
+        return [
+          {
+            slideIndex: 0,
+            kicker: 'Exterior Gallery',
+            title: '외부·전경 사진',
+            layout: pickBasicLayout(extWithCaps),
+            photos: extWithCaps,
+            dataKey: 'gallery_0',
+          },
+          {
+            slideIndex: 1,
+            kicker: 'Interior Gallery',
+            title: '내부·층별 사진',
+            layout: pickBasicLayout(intWithCaps),
+            photos: intWithCaps,
+            dataKey: 'gallery_1',
+          },
+        ];
+      }
+
+      // 한쪽 카테고리에 7장 이상이 몰려도 총 12장 이내에서 무음 절삭 없이 2면으로 균형 배분
+      const combined = [...extWithCaps, ...intWithCaps];
+      const firstCount =
+        extWithCaps.length > 6
+          ? 6
+          : Math.min(6, Math.max(extWithCaps.length, combined.length - 6));
+      const page1 = combined.slice(0, firstCount);
+      const page2 = combined.slice(firstCount, 12);
       return [
         {
           slideIndex: 0,
-          kicker: 'Exterior Gallery',
-          title: '외부·전경 사진',
-          layout: pickBasicLayout(extWithCaps),
-          photos: extWithCaps,
+          kicker: 'Exterior & Highlights',
+          title: extWithCaps.length > 6 ? '외부·전경 사진 (1/2)' : '외부·전경 및 주요 공간 (1/2)',
+          layout: pickBasicLayout(page1),
+          photos: page1,
           dataKey: 'gallery_0',
         },
         {
           slideIndex: 1,
           kicker: 'Interior Gallery',
-          title: '내부·층별 사진',
-          layout: pickBasicLayout(intWithCaps),
-          photos: intWithCaps,
+          title: intWithCaps.length > 6 ? '내부·층별 사진 (2/2)' : '외부·내부 현장 사진 (2/2)',
+          layout: pickBasicLayout(page2),
+          photos: page2,
           dataKey: 'gallery_1',
         },
       ];

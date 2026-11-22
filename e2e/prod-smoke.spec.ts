@@ -313,4 +313,80 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     expect(overflow).toBeLessThanOrEqual(0);
     expect(pageErrors).toEqual([]);
   });
+
+  test("[Smoke-07] /qa-broker/full-loop Broker 10-Photo Golden + BYOD Workbench fails closed without key, serves 10-photo kit, and renders BYOD cleanup controls", async ({
+    page,
+    request,
+  }) => {
+    const denied = await request.get("/qa-broker/full-loop", { maxRedirects: 0 });
+    expect(denied.status()).toBe(404);
+    expect((denied.headers()["x-robots-tag"] || "").toLowerCase()).toContain(
+      "noindex"
+    );
+
+    if (!QA_ACCESS_KEY) {
+      test.skip(
+        true,
+        "QA_ACCESS_KEY 미설정 — /qa-broker/full-loop 인증 스모크를 건너뜁니다."
+      );
+      return;
+    }
+
+    const encodedKey = encodeURIComponent(QA_ACCESS_KEY);
+
+    // 1) 10-photo real portrait/landscape CDN asset check
+    const photoRes = await request.get(
+      `/api/public/testguide-assets/images/broker-case02/${encodeURIComponent(
+        "05_내부_승강기홀_세로형.jpg"
+      )}?qaKey=${encodedKey}`
+    );
+    expect(photoRes.status()).toBe(200);
+    expect(photoRes.headers()["content-type"] || "").toContain("image/jpeg");
+
+    // 2) BYOD customForbiddenTokens live probe contract
+    const byodProbeRes = await request.post("/api/public/qa-workbench", {
+      headers: { "x-qa-access-key": QA_ACCESS_KEY },
+      data: {
+        mode: "probe",
+        expectedLoopId: "broker-byod",
+        customForbiddenTokens: ["1364-28", "FM빌딩", "010-3344-8899"],
+      },
+    });
+    expect(byodProbeRes.status()).toBe(200);
+    const byodProbeJson = await byodProbeRes.json();
+    expect(byodProbeJson.ok).toBe(true);
+    expect(byodProbeJson.groundTruthOracleCheck?.isByodMode).toBe(true);
+    expect(byodProbeJson.groundTruthOracleCheck?.customKeywordCount).toBe(3);
+
+    // 3) Interactive UI smoke on /qa-broker/full-loop
+    const pageErrors: string[] = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+
+    const res = await page.goto(`/qa-broker/full-loop?qaKey=${encodedKey}`, {
+      waitUntil: "domcontentloaded",
+    });
+    expect(res?.status()).toBe(200);
+
+    await expect(
+      page.getByRole("button", { name: /Stage 1 · 서초 사옥 10장 골든/ })
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.getByRole("button", { name: /사진 10장 · 도메인 함정 보기/ })
+    ).toBeVisible();
+
+    const byodTab = page.getByRole("button", {
+      name: /Stage 2 · 내 매물 실전 \(BYOD\)/,
+    });
+    await byodTab.click();
+
+    await expect(page.getByTestId("byod-safety-notice-banner")).toBeVisible();
+    await expect(page.getByTestId("byod-forbidden-keywords-input")).toBeVisible();
+    await expect(page.getByTestId("byod-cleanup-card")).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    expect(pageErrors).toEqual([]);
+  });
 });

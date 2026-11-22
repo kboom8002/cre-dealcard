@@ -11,6 +11,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from '@/lib/testguide/testguide-data';
 import { HOLDOUT_V2_ASSET_CDN_MAP } from '@/lib/testguide/full-loop-v2-holdout-data';
+import { BROKER_CASE02_ASSET_CDN_MAP } from '@/lib/testguide/broker-full-loop-data';
 import { isRealProductionRuntime } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -114,12 +115,14 @@ export async function GET(
       headers['Content-Disposition'] = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
     }
 
-    // A) Check local pre-generated file (V2 Hold-out docs/finaltest/testdata or V1 docs/im261110/images) first
-    if (folder === 'v2-case04' || folder === 'v2-case03') {
+    // A) Check local pre-generated file (V2 Hold-out / Broker CASE-02 docs/finaltest/testdata or V1 docs/im261110/images) first
+    if (folder === 'v2-case04' || folder === 'v2-case03' || folder === 'broker-case02') {
       const holdoutDir =
         folder === 'v2-case04'
           ? 'CASE-04_영등포_당산동5가_11-47_XLSX입력_다호실복합'
-          : 'CASE-03_서초_잠원동_26-14외1_화면입력_신축개발형';
+          : folder === 'v2-case03'
+          ? 'CASE-03_서초_잠원동_26-14외1_화면입력_신축개발형'
+          : 'CASE-02_서초_서초동_1364-28_화면입력_법인사옥형';
       const localHoldoutPath = path.join(
         /*turbopackIgnore: true*/ process.cwd(),
         'docs',
@@ -149,7 +152,11 @@ export async function GET(
     }
 
     // B) Production Vercel: Fetch real uploaded asset from Supabase Storage public CDN
-    const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[filename] || HOLDOUT_V2_ASSET_CDN_MAP[filename];
+    const cdnUrl =
+      (folder === 'broker-case02' ? BROKER_CASE02_ASSET_CDN_MAP[filename] : undefined) ||
+      TESTGUIDE_IMAGE_CDN_MAP[filename] ||
+      HOLDOUT_V2_ASSET_CDN_MAP[filename] ||
+      BROKER_CASE02_ASSET_CDN_MAP[filename];
     if (cdnUrl) {
       try {
         const upstream = await fetch(cdnUrl, { next: { revalidate: 86400 } });

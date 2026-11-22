@@ -33,6 +33,15 @@ interface LoopScratchUrls {
   secondaryImShareUrl: string;
   newsletterUrl: string;
   subscriberContact: string;
+  byodForbiddenKeywords?: string;
+}
+
+function extractEntityIdFromUrl(raw: string, prefixPattern: RegExp): string {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return "";
+  const m = trimmed.match(prefixPattern);
+  if (m && m[1]) return decodeURIComponent(m[1]);
+  return "";
 }
 
 interface StorageHygieneResult {
@@ -108,6 +117,7 @@ export function QaFullLoopWorkbenchClient({
         secondaryImShareUrl: "",
         newsletterUrl: "",
         subscriberContact: config.defaultSubscribers.loop1,
+        byodForbiddenKeywords: "",
       },
       loop2: {
         dealCardUrl: "",
@@ -115,6 +125,7 @@ export function QaFullLoopWorkbenchClient({
         secondaryImShareUrl: "",
         newsletterUrl: "",
         subscriberContact: config.defaultSubscribers.loop2,
+        byodForbiddenKeywords: "",
       },
     }),
     [config.defaultSubscribers.loop1, config.defaultSubscribers.loop2],
@@ -160,6 +171,10 @@ export function QaFullLoopWorkbenchClient({
   });
   const [hygieneResult, setHygieneResult] =
     useState<StorageHygieneResult | null>(null);
+  const [confirmingByodCleanup, setConfirmingByodCleanup] =
+    useState<boolean>(false);
+  const [cleanupLoading, setCleanupLoading] = useState<boolean>(false);
+  const [cleanupReceipt, setCleanupReceipt] = useState<string[] | null>(null);
 
   const hydratedRef = useRef<boolean>(false);
 
@@ -319,6 +334,8 @@ export function QaFullLoopWorkbenchClient({
           loop2_im2: scratchByLoop.loop2.secondaryImShareUrl,
           loop2_newsletter: scratchByLoop.loop2.newsletterUrl,
           loop2_contact: scratchByLoop.loop2.subscriberContact,
+          loop2_forbidden_keywords:
+            scratchByLoop.loop2.byodForbiddenKeywords || "",
         };
         const res = await fetch("/api/public/qa-workbench", {
           method: "POST",
@@ -451,11 +468,34 @@ export function QaFullLoopWorkbenchClient({
     [],
   );
 
+  const handleToggleQuickTag = useCallback((stepId: string, tag: string) => {
+    const token = `[${tag}]`;
+    setRecords((prev) => {
+      const existing = prev[stepId] || { status: "PENDING", note: "" };
+      const curNote = existing.note || "";
+      const nextNote = curNote.includes(token)
+        ? curNote.replace(token, "").replace(/\s{2,}/g, " ").trim()
+        : `${curNote ? `${curNote} ` : ""}${token}`.trim();
+      return {
+        ...prev,
+        [stepId]: {
+          ...existing,
+          note: nextNote,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+    });
+  }, []);
+
   const runLiveProbe = useCallback(
     async (loopId: FullLoopCaseId) => {
       const urls = scratchByLoop[loopId];
       const targetLoop = config.cases.find((c) => c.id === loopId);
       const expectedLoopId = targetLoop?.probeLoopId || loopId;
+      const customForbiddenTokens = (urls.byodForbiddenKeywords || "")
+        .split(/[,;\n]+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
       setProbeLoading(true);
       try {
         const res = await fetch("/api/public/qa-workbench", {
@@ -469,6 +509,7 @@ export function QaFullLoopWorkbenchClient({
             secondaryImShareUrl: urls.secondaryImShareUrl,
             publicNewsletterUrl: urls.newsletterUrl,
             testClientContact: urls.subscriberContact,
+            customForbiddenTokens,
           }),
         });
         const data = await res.json();
@@ -486,6 +527,97 @@ export function QaFullLoopWorkbenchClient({
     },
     [scratchByLoop, config.cases, buildQaHeaders, showToast],
   );
+
+  const handleRunByodCleanup = useCallback(async () => {
+    const urls = scratchByLoop[currentLoopId];
+    const dcId = extractEntityIdFromUrl(urls.dealCardUrl, /\/(?:dc|d)\/([^/?#]+)/i);
+    const imId1 = extractEntityIdFromUrl(
+      urls.imShareUrl,
+      /\/(?:im-lite|im-pro)\/([^/?#]+)/i,
+    );
+    const imId2 = extractEntityIdFromUrl(
+      urls.secondaryImShareUrl,
+      /\/(?:im-lite|im-pro)\/([^/?#]+)/i,
+    );
+    const uniqueImIds = Array.from(new Set([imId1, imId2].filter(Boolean)));
+    if (!dcId && uniqueImIds.length === 0) {
+      showToast(
+        "삭제할 대상이 없습니다. 오른쪽 ① 딜카드 링크 또는 ② IM 링크를 먼저 붙여넣어 주세요.",
+      );
+      setConfirmingByodCleanup(false);
+      return;
+    }
+
+    setCleanupLoading(true);
+    const logs: string[] = [];
+    try {
+      for (const imTargetId of uniqueImIds) {
+        try {
+          const listRes = await fetch(
+            `/api/broker/im-lite/${encodeURIComponent(imTargetId)}`,
+          );
+          if (listRes.ok) {
+            const listJson = await listRes.json().catch(() => null);
+            const docs = Array.isArray(listJson?.documents)
+              ? listJson.documents
+              : [];
+            for (const doc of docs) {
+              if (doc?.id) {
+                const delDoc = await fetch(
+                  `/api/broker/im-lite/${encodeURIComponent(String(doc.id))}`,
+                  { method: "DELETE" },
+                );
+                if (delDoc.ok) {
+                  logs.push(`✓ IM 문서(${String(doc.id).slice(0, 8)}…) 삭제 완료`);
+                }
+              }
+            }
+          }
+          const delImDirect = await fetch(
+            `/api/broker/im-lite/${encodeURIComponent(imTargetId)}`,
+            { method: "DELETE" },
+          );
+          if (delImDirect.ok) {
+            logs.push(`✓ IM 링크(${imTargetId.slice(0, 8)}…) 비활성화 완료`);
+          }
+        } catch {
+          logs.push(`⚠️ IM(${imTargetId.slice(0, 8)}…) 정리 중 네트워크 확인 필요`);
+        }
+      }
+
+      const buildingIdsToDelete = Array.from(
+        new Set([dcId, ...uniqueImIds].filter(Boolean)),
+      );
+      for (const bId of buildingIdsToDelete) {
+        try {
+          const delDc = await fetch(
+            `/api/broker/deal-card/${encodeURIComponent(bId)}/delete`,
+            { method: "DELETE" },
+          );
+          if (delDc.ok) {
+            logs.push(`✓ 딜카드·연관 매물(${bId.slice(0, 8)}…) 서버 폐기 완료`);
+          } else if (delDc.status === 401 || delDc.status === 403) {
+            logs.push(
+              "⚠️ 창 A에 본인 중개사 계정이 로그인되어 있는지 확인해 주세요.",
+            );
+          }
+        } catch {
+          logs.push(`⚠️ 딜카드(${bId.slice(0, 8)}…) 삭제 요청 실패`);
+        }
+      }
+
+      if (logs.length === 0) {
+        logs.push(
+          "이미 삭제되었거나 창 A 로그인 세션을 확인해 주세요 (작업실 목록에서 직접 삭제도 가능합니다).",
+        );
+      }
+      setCleanupReceipt(logs);
+      setConfirmingByodCleanup(false);
+      showToast("🧹 내 테스트 매물·딜카드·IM 정리 요청을 완료했습니다.");
+    } finally {
+      setCleanupLoading(false);
+    }
+  }, [scratchByLoop, currentLoopId, showToast]);
 
   const runStorageHygieneCheck = useCallback(() => {
     const found: string[] = [];
@@ -994,18 +1126,22 @@ export function QaFullLoopWorkbenchClient({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={appendQaKeyIfPresent(currentLoop.sampleKitZipUrl)}
-                      className="min-h-[44px] inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold shadow-xs"
-                    >
-                      📦 실매물 골든 키트 ZIP 받기
-                    </a>
-                    <a
-                      href={appendQaKeyIfPresent(currentLoop.csvDownloadUrl)}
-                      className="min-h-[44px] inline-flex items-center px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-bold border border-slate-300"
-                    >
-                      {currentLoop.primarySheetLabel || "📊 임대 현황 CSV"}
-                    </a>
+                    {currentLoop.sampleKitZipUrl && (
+                      <a
+                        href={appendQaKeyIfPresent(currentLoop.sampleKitZipUrl)}
+                        className="min-h-[44px] inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold shadow-xs"
+                      >
+                        📦 실매물 골든 키트 ZIP 받기
+                      </a>
+                    )}
+                    {currentLoop.csvDownloadUrl && (
+                      <a
+                        href={appendQaKeyIfPresent(currentLoop.csvDownloadUrl)}
+                        className="min-h-[44px] inline-flex items-center px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-bold border border-slate-300"
+                      >
+                        {currentLoop.primarySheetLabel || "📊 임대 현황 CSV"}
+                      </a>
+                    )}
                     {currentLoop.secondarySheetDownloadUrl && (
                       <a
                         href={appendQaKeyIfPresent(currentLoop.secondarySheetDownloadUrl)}
@@ -1020,11 +1156,22 @@ export function QaFullLoopWorkbenchClient({
                       className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-sm font-bold border border-slate-300 cursor-pointer"
                     >
                       {showAssetsDrawer
-                        ? "🖼️ 사진·함정 접기"
-                        : `🖼️ 사진 ${currentLoop.images.length}장 · 도메인 함정 보기`}
+                        ? "🖼️ 안내 접기"
+                        : currentLoop.images.length > 0
+                        ? `🖼️ 사진 ${currentLoop.images.length}장 · 도메인 함정 보기`
+                        : "🎯 현업 집중 포인트 3가지 보기"}
                     </button>
                   </div>
                 </div>
+
+                {currentLoop.byodSafetyNotice && (
+                  <div
+                    data-testid="byod-safety-notice-banner"
+                    className="rounded-xl bg-emerald-50 border border-emerald-300 p-3.5 text-sm font-bold text-emerald-950 leading-relaxed"
+                  >
+                    🛡️ {currentLoop.byodSafetyNotice}
+                  </div>
+                )}
 
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                   <div>
@@ -1034,10 +1181,11 @@ export function QaFullLoopWorkbenchClient({
                     </span>
                   </div>
                   <div>
-                    <span className="font-bold text-slate-700">정답 면적: </span>
+                    <span className="font-bold text-slate-700">면적 확인: </span>
                     <span className="font-mono font-bold text-slate-900">
-                      대지 {currentLoop.groundTruth.expectedLandAreaSqm}㎡ / 연면적{" "}
-                      {currentLoop.groundTruth.expectedGfaSqm}㎡
+                      {currentLoop.isByodMode
+                        ? "대장 자동 연동 면적 ↔ 현장 실면적 일치 여부 확인"
+                        : `대지 ${currentLoop.groundTruth.expectedLandAreaSqm}㎡ / 연면적 ${currentLoop.groundTruth.expectedGfaSqm}㎡`}
                     </span>
                   </div>
                   <div>
@@ -1267,6 +1415,40 @@ export function QaFullLoopWorkbenchClient({
                         </div>
                       </div>
 
+                      {step.brokerInsightPrompt && (
+                        <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3.5 space-y-2.5">
+                          <div className="text-sm font-extrabold text-indigo-950">
+                            💬 현업 중개사 특화 의견 — {step.brokerInsightPrompt}
+                          </div>
+                          {step.brokerQuickTags &&
+                            step.brokerQuickTags.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {step.brokerQuickTags.map((tag) => {
+                                  const selected = (rec.note || "").includes(
+                                    `[${tag}]`,
+                                  );
+                                  return (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      onClick={() =>
+                                        handleToggleQuickTag(step.id, tag)
+                                      }
+                                      className={`min-h-[38px] px-3 py-1 rounded-lg border text-sm font-bold transition cursor-pointer ${
+                                        selected
+                                          ? "bg-indigo-700 text-white border-indigo-800"
+                                          : "bg-white hover:bg-indigo-50 text-slate-800 border-indigo-200"
+                                      }`}
+                                    >
+                                      {selected ? `✓ ${tag}` : `+ ${tag}`}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                        </div>
+                      )}
+
                       <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <button
@@ -1377,6 +1559,32 @@ export function QaFullLoopWorkbenchClient({
                       className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
                     />
                   </div>
+
+                  {currentLoop.isByodMode && (
+                    <div>
+                      <label
+                        htmlFor="fl-byod-forbidden"
+                        className="block text-sm font-bold text-indigo-950 mb-1"
+                      >
+                        🔒 내 매물 비공개 확인 키워드 (노출 0건 검증용)
+                      </label>
+                      <input
+                        id="fl-byod-forbidden"
+                        data-testid="byod-forbidden-keywords-input"
+                        type="text"
+                        value={activeScratch.byodForbiddenKeywords || ""}
+                        onChange={(e) =>
+                          handleUpdateScratch(
+                            currentLoopId,
+                            "byodForbiddenKeywords",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="예: 1364-28, 한빛빌딩, 010-1234-5678 (쉼표 구분)"
+                        className="w-full min-h-[42px] rounded-xl border border-indigo-300 bg-indigo-50/40 px-3 py-1.5 text-sm"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label
@@ -1621,6 +1829,91 @@ export function QaFullLoopWorkbenchClient({
                   </div>
                 )}
               </div>
+
+              {currentLoop.enableByodCleanup && (
+                <div
+                  data-testid="byod-cleanup-card"
+                  className="rounded-2xl bg-white border-2 border-emerald-300 p-5 shadow-xs space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-950 text-sm font-extrabold">
+                      비밀보호 안심 장치
+                    </span>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      내 테스트 매물 원클릭 완전 삭제
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    검수를 마친 뒤 위 ①·②번에 입력된 내 매물 딜카드·IM·공유 링크를 서버에서 즉시 폐기합니다 (창 A 본인 로그인 계정 소유분만 안전하게 삭제됩니다).
+                  </p>
+
+                  {!confirmingByodCleanup ? (
+                    <button
+                      type="button"
+                      data-testid="byod-cleanup-trigger-btn"
+                      onClick={() => setConfirmingByodCleanup(true)}
+                      className="w-full min-h-[44px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold cursor-pointer"
+                    >
+                      🧹 내 테스트 매물·딜카드·IM 즉시 삭제
+                    </button>
+                  ) : (
+                    <div className="rounded-xl bg-rose-50 border border-rose-300 p-3 space-y-2.5">
+                      <p className="text-sm font-bold text-rose-950">
+                        위 ①·②번 링크에 해당하는 테스트 딜카드와 IM을 지금 바로 폐기할까요?
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          data-testid="byod-cleanup-confirm-btn"
+                          disabled={cleanupLoading}
+                          onClick={() => void handleRunByodCleanup()}
+                          className="flex-1 min-h-[42px] rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-extrabold cursor-pointer"
+                        >
+                          {cleanupLoading ? "삭제 중…" : "네, 지금 삭제"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={cleanupLoading}
+                          onClick={() => setConfirmingByodCleanup(false)}
+                          className="min-h-[42px] px-3.5 rounded-xl bg-white border border-slate-300 text-slate-800 text-sm font-bold cursor-pointer"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {cleanupReceipt && cleanupReceipt.length > 0 && (
+                    <div
+                      data-testid="byod-cleanup-receipt"
+                      className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1 text-sm font-semibold text-slate-800"
+                    >
+                      {cleanupReceipt.map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <a
+                      href="/broker/w/dealcards"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[38px] inline-flex items-center px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold"
+                    >
+                      딜카드 목록 직접 확인 ↗
+                    </a>
+                    <a
+                      href="/broker/w/im"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[38px] inline-flex items-center px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold"
+                    >
+                      IM 목록 직접 확인 ↗
+                    </a>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-xs space-y-3">
                 <h3 className="text-base font-extrabold text-slate-900">

@@ -25,6 +25,7 @@ test.describe('WP 5-B: Public, QA, Share-Token, Dormant & Kakao WebView Gates', 
       '/qa-showcase',
       '/qa-full-loop',
       '/qa-full-loop-v2',
+      '/qa-broker/full-loop',
       '/newsletter-inbox-test',
       '/dealcard-im-test',
     ]) {

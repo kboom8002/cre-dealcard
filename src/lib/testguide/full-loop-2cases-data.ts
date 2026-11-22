@@ -62,6 +62,8 @@ export interface FullLoopStepItem {
   humanFocus: string;
   autoProbeFocus: string;
   oracleReference: string;
+  brokerInsightPrompt?: string;
+  brokerQuickTags?: string[];
 }
 
 export interface FullLoopGroundTruthSpec {
@@ -94,6 +96,9 @@ export interface FullLoopCaseDefinition {
   primarySheetLabel?: string;
   secondarySheetDownloadUrl?: string;
   secondarySheetLabel?: string;
+  isByodMode?: boolean;
+  enableByodCleanup?: boolean;
+  byodSafetyNotice?: string;
   dealCode: string;
   propertyName: string;
   jibunAddress: string;

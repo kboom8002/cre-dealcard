@@ -1930,9 +1930,9 @@ export function ImEditorPanels({
             </div>
           </div>
 
-          {(photoEntries.length > 0 || photoNames.length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-left">
-              {(photoEntries.length > 0
+          {(photoEntries.length > 0 || photoNames.length > 0) && (() => {
+            const resolvedPhotos: ImPhotoEntry[] =
+              photoEntries.length > 0
                 ? photoEntries
                 : photoNames.map(
                     (n, idx): ImPhotoEntry => ({
@@ -1941,8 +1941,33 @@ export function ImEditorPanels({
                       url: resolveKnownTestAssetUrl(n),
                       category: idx === 0 ? "exterior" : "interior",
                     })
-                  )
-              ).map((entry, idx, arr) => {
+                  );
+            const firstTwelve = resolvedPhotos.slice(0, 12);
+            const extCount = firstTwelve.filter(
+              (p, i) => p.category === "exterior" || (!p.category && i === 0)
+            ).length;
+            const intCount = firstTwelve.length - extCount;
+            const pptSlideCount =
+              (extCount >= 2 && intCount >= 2) || firstTwelve.length > 6 ? 2 : 1;
+
+            return (
+              <div className="space-y-3 pt-2 text-left">
+                <div
+                  data-testid="im-photo-slide-allocation-banner"
+                  className="rounded-xl border border-blue-200 bg-blue-50/70 px-3.5 py-2.5 text-sm font-bold text-[#1E3A8A] flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span>
+                    📄 현재 총 {resolvedPhotos.length}장 (외부 {extCount} · 내부 {intCount}) → 발표자료(PPT) 사진 {pptSlideCount}면({firstTwelve.length}장)으로 자동 배치됩니다
+                  </span>
+                  {resolvedPhotos.length > 12 && (
+                    <span className="text-sm font-semibold text-amber-900">
+                      모바일 IM에는 {resolvedPhotos.length}장 전체가 보이며, 발표자료(PPT)에는 앞쪽 12장까지 실립니다
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {resolvedPhotos.map((entry, idx, arr) => {
                 const name = entry.name;
                 const thumbSrc = resolveRenderablePhotoSrc(entry);
                 const isExt = entry.category === "exterior" || (!entry.category && idx === 0);
@@ -2072,6 +2097,21 @@ export function ImEditorPanels({
                             )}
                             {onReorderPhoto && (
                               <>
+                                {idx > 0 && (
+                                  <button
+                                    type="button"
+                                    data-testid={`im-photo-make-hero-${idx}`}
+                                    onClick={() => {
+                                      if (!isExt && onUpdatePhotoMeta) {
+                                        onUpdatePhotoMeta(idx, { category: "exterior" });
+                                      }
+                                      onReorderPhoto(idx, 0);
+                                    }}
+                                    className="min-h-[44px] inline-flex items-center px-2.5 rounded-md text-sm font-extrabold border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 cursor-pointer whitespace-nowrap"
+                                  >
+                                    ★ 1번 대표로
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   disabled={idx === 0}
@@ -2140,8 +2180,10 @@ export function ImEditorPanels({
                   </div>
                 );
               })}
-            </div>
-          )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

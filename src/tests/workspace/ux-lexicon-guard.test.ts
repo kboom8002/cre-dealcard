@@ -49,8 +49,10 @@ const FILES: string[] = [
   'src/app/qa-full-loop/page.tsx',
   'src/app/qa-full-loop/_components/QaFullLoopWorkbenchClient.tsx',
   'src/app/qa-full-loop-v2/page.tsx',
+  'src/app/qa-broker/full-loop/page.tsx',
   'src/lib/testguide/full-loop-2cases-data.ts',
   'src/lib/testguide/full-loop-v2-holdout-data.ts',
+  'src/lib/testguide/broker-full-loop-data.ts',
   'src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx',
   'src/app/(broker)/broker/deal-card/[id]/im-management-panel.tsx',
 ];
