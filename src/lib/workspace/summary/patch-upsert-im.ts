@@ -5,6 +5,7 @@ import { isRealProductionRuntime } from "@/lib/env";
 import { assertPublishable } from "@/lib/legal/publish-gate";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import {
+  isRealUploadedPhotoUrl,
   isUuid,
   resolveKnownTestAssetUrl,
   synthesizeQuickRecordFromImItem,
@@ -116,7 +117,9 @@ export async function handlePatchWorkspaceImUpsert(
         .map((p: any) => {
           const rawU =
             typeof p === "string" ? p : String(p?.url || p?.dataUrl || p?.previewUrl || "");
-          const resolvedU = resolveKnownTestAssetUrl(p?.name || rawU) || rawU;
+          const resolvedU = isRealUploadedPhotoUrl(rawU)
+            ? rawU
+            : resolveKnownTestAssetUrl(p?.name || rawU) || rawU;
           if (
             !resolvedU ||
             resolvedU.trim().length === 0 ||
@@ -267,10 +270,20 @@ export async function handlePatchWorkspaceImUpsert(
   let canonicalId = isUuid(imId) ? imId : buildingId;
   try {
     const draftPayloadData = { ...nextItem, imId, brokerProfile: brokerProfileMeta || null };
+    const verifiedSsotBuildingId =
+      isUuid(buildingId) && ctx.buildingExistsInSsot !== false ? buildingId : null;
     const wsRes = await upsertWorkspaceItem(supabase, {
-      id: isUuid(imId) ? imId : undefined,
-      legacyId: isUuid(imId) ? null : imId !== buildingId ? imId : isUuid(buildingId) ? null : buildingId,
-      buildingId: isUuid(buildingId) ? buildingId : null,
+      id: existingWsItem?.id || (isUuid(imId) ? imId : undefined),
+      legacyId: isUuid(imId)
+        ? null
+        : imId !== buildingId
+        ? imId
+        : isUuid(buildingId)
+        ? verifiedSsotBuildingId
+          ? null
+          : buildingId
+        : buildingId,
+      buildingId: verifiedSsotBuildingId,
       ownerId: userId,
       isAdmin,
       kind: "im",

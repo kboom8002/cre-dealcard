@@ -20,6 +20,7 @@ import {
   cleanBrokerPlaceholder,
   createBlankImItem,
   formatPhoneHyphen,
+  isRealUploadedPhotoUrl,
   resolveKnownTestAssetUrl,
   type ImListItem,
   type ImPhotoEntry,
@@ -82,6 +83,7 @@ export interface UseImServerHydrationOptions {
   setIsBrokerSectionOpen: React.Dispatch<React.SetStateAction<boolean>>;
   applyItemToFormState: (item: ImListItem) => void;
   persistImItems: (next: ImListItem[], explicitUserId?: string | null) => void;
+  onFreshDraftCreated?: (buildingId: string) => void;
 }
 
 export function useImServerHydration({
@@ -107,6 +109,7 @@ export function useImServerHydration({
   setIsBrokerSectionOpen,
   applyItemToFormState,
   persistImItems,
+  onFreshDraftCreated,
 }: UseImServerHydrationOptions) {
   useEffect(() => {
     fetch("/api/broker/profile")
@@ -205,15 +208,26 @@ export function useImServerHydration({
     hydratedUserIdRef.current = initialUid;
     const initialQueryId = buildingIdParam;
     let initialTargetId: string | null = null;
-    const freshStarterItem: ImListItem | null = isFreshParam
-      ? (initialFreshStarterItem ??
-          createBlankImItem({
-            ownerUserId: initialUid,
-            brokerName: profileDefaultsRef.current.brokerName,
-            brokerageName: profileDefaultsRef.current.brokerageName,
-            brokerPhone: profileDefaultsRef.current.brokerPhone,
-          }))
-      : null;
+    const shouldStartFresh = isFreshParam && !initialQueryId;
+    let freshStarterItem: ImListItem | null = null;
+    if (shouldStartFresh) {
+      if (initialFreshStarterItem) {
+        freshStarterItem = initialFreshStarterItem;
+      } else {
+        const suffix =
+          globalThis.crypto?.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        freshStarterItem = createBlankImItem({
+          id: `im-doc-fresh-${suffix}`,
+          buildingId: `bld-fresh-${suffix}`,
+          updatedAt: "",
+          ownerUserId: initialUid,
+          brokerName: profileDefaultsRef.current.brokerName,
+          brokerageName: profileDefaultsRef.current.brokerageName,
+          brokerPhone: profileDefaultsRef.current.brokerPhone,
+        });
+      }
+    }
     try {
       const rawParsed = readScopedWorkspaceJson<ImListItem[]>(
         IM_STORAGE_KEY,
@@ -232,10 +246,12 @@ export function useImServerHydration({
         ];
         itemsRef.current = workingList;
         setItems(workingList);
+        persistImItems(workingList, initialUid);
         initialTargetId = freshStarterItem.id;
         selectedIdRef.current = freshStarterItem.id;
         setSelectedId(freshStarterItem.id);
         applyItemToFormState(freshStarterItem);
+        onFreshDraftCreated?.(freshStarterItem.buildingId);
       } else if (parsed.length > 0) {
         const explicitMatch = initialQueryId
           ? parsed.find(
@@ -427,7 +443,13 @@ export function useImServerHydration({
                           srv.photos?.find(
                             (sp) => sp.name && sp.name === lp.name
                           ) || srv.photos?.[idx];
+                        const directRealUrl = isRealUploadedPhotoUrl(lp.url)
+                          ? lp.url
+                          : isRealUploadedPhotoUrl(srvMatch?.url)
+                          ? srvMatch?.url
+                          : undefined;
                         const bestUrl =
+                          directRealUrl ||
                           resolveKnownTestAssetUrl(lp.url) ||
                           resolveKnownTestAssetUrl(lp.name) ||
                           (lp.url && !lp.url.startsWith("data:")
@@ -599,9 +621,24 @@ export function useImServerHydration({
                       cleanBrokerPlaceholder(it.brokerPhone) ||
                       profileDefaultsRef.current.brokerPhone,
                   }));
-            itemsRef.current = freshStarterItem && !resolvedList.some((r) => r.id === freshStarterItem.id)
-              ? [freshStarterItem, ...resolvedList]
-              : resolvedList;
+            const liveFreshStarter = freshStarterItem
+              ? prev.find((p) => p.id === freshStarterItem.id) || freshStarterItem
+              : null;
+            const withFreshStarter =
+              liveFreshStarter &&
+              !resolvedList.some((r) => r.id === liveFreshStarter.id)
+                ? [
+                    {
+                      ...liveFreshStarter,
+                      ...(resolvedUid ? { ownerUserId: resolvedUid } : {}),
+                    },
+                    ...resolvedList,
+                  ]
+                : resolvedList;
+            if (liveFreshStarter) {
+              persistImItems(withFreshStarter, resolvedUid);
+            }
+            itemsRef.current = withFreshStarter;
 
             const activeResolvedList = itemsRef.current;
             if (!userInteractedRef.current) {
@@ -620,9 +657,9 @@ export function useImServerHydration({
                     )
                   : undefined;
               const targetMatch =
-                freshStarterItem ||
                 synthesizedSrvItem ||
                 explicitSrvMatch ||
+                freshStarterItem ||
                 (!initialQueryId && isInitialTargetSample ? firstServerUserDraft : undefined) ||
                 initialTargetMatch ||
                 (!initialQueryId ? firstServerUserDraft : undefined) ||

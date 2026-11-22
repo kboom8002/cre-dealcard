@@ -254,12 +254,24 @@ export function classifyPoi(c: PoiCandidate): PoiClass {
     return 'public_minor';
   }
 
-  if (/백화점/.test(cn) && /가정,생활\s*>\s*백화점/.test(cn)) return 'shopping_major';
+  const isFakeDeptStore =
+    /(?:가발|안경|속옷|침구|이불|가구|타이어|중고차|열쇠|축산|수산|과일|청과|꽃|철물|공구|조명|전기|자재|문구|완구|장난감|애견|반려|골프|등산|낚시|자전거|오토바이|컴퓨터|핸드폰|휴대폰|카메라|시계|귀금속|보석|떡|반찬|식자재|주류|와인|화장품|건강식품|한복|정장|구두|신발|가방)백화점/.test(
+      name,
+    );
+  const isKnownDeptChain =
+    /(?:신세계|롯데|현대|갤러리아|AK플라자|NC|뉴코아|더현대|세이|동아|그랜드|행복한|마리오|태평|디큐브)[^,]*백화점/i.test(
+      name,
+    );
+
+  if (isFakeDeptStore) return 'other';
+  if (/가정,생활\s*>\s*백화점(?:\s|$|>)/.test(cn) || (isKnownDeptChain && !/카페|음식점|수선/.test(cn))) {
+    return 'shopping_major';
+  }
   if (/대형마트|복합쇼핑몰|쇼핑센터|아울렛/.test(cn)) return 'shopping_major';
   if (/슈퍼마켓|대형슈퍼/.test(cn)) return 'supermarket';
   if (cat === 'shopping' && !cn) {
     // 레거시 keySpots(category_name 없음): 대형마트 그룹(MT1)은 슈퍼마켓 포함 — 이름으로 판정
-    if (/(백화점|코스트코|이마트(?!24|에브리데이)|롯데마트|홈플러스(?!익스프레스)|트레이더스|아울렛|몰$|타임스퀘어)/.test(name)) return 'shopping_major';
+    if (/(코스트코|이마트(?!24|에브리데이)|롯데마트|홈플러스(?!익스프레스)|트레이더스|아울렛|몰$|타임스퀘어)/.test(name) || isKnownDeptChain) return 'shopping_major';
     return 'supermarket';
   }
 
@@ -294,10 +306,16 @@ export function classifyPoi(c: PoiCandidate): PoiClass {
     && (c.registerName || cat === 'landmark' || /빌딩|기업|건축물대장|타워|부동산|시설,건물/.test(cn))) return 'major_building';
 
   if (cat === 'landmark') {
-    // 레거시 키워드 보충 검색 결과 (아파트단지/쇼핑몰/백화점) — 주거 단지·온라인몰은 랜드마크 아님
+    // 레거시 키워드 보충 검색 결과 (아파트단지/쇼핑몰/백화점) — 주거 단지·온라인몰·소형 특수매장은 랜드마크 아님
     if (/부동산\s*>\s*주거시설|아파트/.test(cn) || /아파트|빌라|오피스텔/.test(name)) return 'other';
     if (/통신판매|인터넷쇼핑몰/.test(cn)) return 'other';
-    if (/백화점|쇼핑몰|아울렛/.test(name) && !/(중고차|열쇠|축산)/.test(name)) return 'shopping_major';
+    if (isFakeDeptStore) return 'other';
+    if (
+      (/쇼핑몰|아울렛/.test(name) || isKnownDeptChain || /가정,생활\s*>\s*백화점/.test(cn)) &&
+      !/(중고차|열쇠|축산|가발|안경|속옷|타이어)/.test(name)
+    ) {
+      return 'shopping_major';
+    }
   }
   return 'other';
 }

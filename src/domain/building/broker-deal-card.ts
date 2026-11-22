@@ -20,6 +20,8 @@ export interface PostureProposal {
 }
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('broker-deal-card');
 
 // W-2.1: 지수 백오프 재시도 래퍼 — 백그라운드 작업 실패 시 자동 재시도
 async function retryWithBackoff<T>(
@@ -66,9 +68,6 @@ import {
   repairDealCardPoints,
 } from "@/lib/deal-card/copy-limits";
 import { cleanBlindPoints, stripSubjectiveNumericSpin } from "@/lib/deal-card/blind-guard";
-
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('broker-deal-card');
 
 
 export interface BrokerDealCardFromMemoInput {

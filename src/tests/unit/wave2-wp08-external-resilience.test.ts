@@ -625,7 +625,7 @@ describe('Wave 2 — WP-08: External Resilience, Cache Poisoning Defense, Guards
       );
     });
 
-    it('quick-generate offloads >32KB inline base64 photos to `building-photos` Storage bucket when !isTestEnv', async () => {
+    it('quick-generate offloads >32KB inline base64 photos to `building_photos` Storage bucket when !isTestEnv', async () => {
       vi.doMock('@/lib/auth-guard', () => ({
         requireBroker: vi.fn().mockResolvedValue({
           user: { id: 'broker-owner-1' },
@@ -672,7 +672,7 @@ describe('Wave 2 — WP-08: External Resilience, Cache Poisoning Defense, Guards
       const res = await quickGeneratePOST(req);
       expect([200, 201]).toContain(res.status);
       expect(h.storageUploads.length).toBe(1);
-      expect(h.storageUploads[0].bucket).toBe('building-photos');
+      expect(h.storageUploads[0].bucket).toBe('building_photos');
       expect(h.storageUploads[0].path).toMatch(/^broker-owner-1\/[^/]+\/[0-9a-f-]+\.webp$/i);
       expect(h.storageUploads[0].contentType).toBe('image/webp');
     });

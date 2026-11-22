@@ -17,7 +17,14 @@ export function pyeongToSqm(pyeong: number): number {
 }
 
 export function formatPyeong(sqm: number, fractionDigits: number = 1): string {
-  return (sqm * PYEONG_RATIO).toFixed(fractionDigits);
+  const val = sqm * PYEONG_RATIO;
+  if (!Number.isFinite(val) || Math.abs(val) < 1000 || Math.abs(val) >= 1e15) {
+    return val.toFixed(fractionDigits);
+  }
+  const fixedStr = val.toFixed(fractionDigits);
+  const [intPart, decPart] = fixedStr.split(".");
+  const formattedInt = Number(intPart).toLocaleString("ko-KR");
+  return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
 }
 
 /**

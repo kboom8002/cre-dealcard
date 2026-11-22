@@ -190,7 +190,7 @@ export function SlidePreview({
 
     return (
       <div
-        className="w-full h-full relative flex flex-col justify-between p-8 sm:p-10 overflow-hidden select-none"
+        className="w-full h-full relative flex flex-col justify-between p-5 sm:p-7 xl:p-10 overflow-hidden select-none"
         style={{
           backgroundColor: `#${tokens.darkCard}`,
           color: `#${tokens.darkBody}`,
@@ -254,7 +254,7 @@ export function SlidePreview({
         {/* Center Hero Title & Non-Redundant Key Metadata */}
         <div className={`relative z-10 ${contentMaxWidthClass} my-auto space-y-3.5`}>
           <div className="w-10 h-0.5" style={{ backgroundColor: `#${tokens.accent}` }} />
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+          <h2 className="text-xl sm:text-2xl xl:text-3xl font-black tracking-tight text-white leading-tight break-keep">
             <InlineEditableText
               fieldKey="title"
               value={titleVal}
@@ -302,32 +302,44 @@ export function SlidePreview({
 
         {/* Bottom Clean Branding Bar */}
         <div
-          className={`relative z-10 pt-3 border-t flex items-center justify-between text-sm ${contentMaxWidthClass}`}
+          className={`relative z-10 pt-3 border-t flex items-center justify-between gap-3 text-sm ${contentMaxWidthClass}`}
           style={{ borderColor: `#${tokens.darkBorder}` }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
             {headerFooterConfig.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={headerFooterConfig.logoUrl}
                 alt="로고"
-                className="h-4 w-auto object-contain rounded-sm bg-white/90 px-1"
+                className="h-4 w-auto object-contain rounded-sm bg-white/90 px-1 shrink-0"
               />
             )}
-            <span className="font-bold text-white">
+            <span className="font-bold text-white break-keep">
               <InlineEditableText
                 fieldKey="brokerCompany"
                 value={companyVal}
                 onCommit={handleFieldCommit}
+                className="break-keep"
               />
             </span>
             {ov.brokerName && (
-              <span style={{ color: `#${tokens.darkMute}` }}>
-                · <InlineEditableText fieldKey="brokerName" value={String(ov.brokerName)} onCommit={handleFieldCommit} />
+              <span
+                className="inline-flex items-center gap-1.5 min-w-0"
+                style={{ color: `#${tokens.darkMute}` }}
+              >
+                <span aria-hidden="true" className="shrink-0 opacity-70">
+                  ·
+                </span>
+                <InlineEditableText
+                  fieldKey="brokerName"
+                  value={String(ov.brokerName)}
+                  onCommit={handleFieldCommit}
+                  className="break-keep"
+                />
               </span>
             )}
           </div>
-          <span className="font-mono text-sm" style={{ color: `#${tokens.darkMute}` }}>
+          <span className="font-mono text-sm shrink-0 whitespace-nowrap" style={{ color: `#${tokens.darkMute}` }}>
             <InlineEditableText fieldKey="date" value={dateVal} onCommit={handleFieldCommit} />
           </span>
         </div>

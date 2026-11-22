@@ -296,6 +296,10 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
       );
       // keySpots 중복 제거 및 5개 제한 (역 우선, 거리순)
       // ── 3.5 F5: 키워드 기반 보충 검색 (백화점, 아파트단지, 대형 상업시설) ──
+      const FAKE_DEPT_STORE_RE =
+        /(?:가발|안경|속옷|침구|이불|가구|타이어|중고차|열쇠|축산|수산|과일|청과|꽃|철물|공구|조명|전기|자재|문구|완구|장난감|애견|반려|골프|등산|낚시|자전거|오토바이|컴퓨터|핸드폰|휴대폰|카메라|시계|귀금속|보석|떡|반찬|식자재|주류|와인|화장품|건강식품|한복|정장|구두|신발|가방)백화점/;
+      const REAL_DEPT_CHAIN_RE =
+        /(?:신세계|롯데|현대|갤러리아|AK플라자|NC|뉴코아|더현대|세이|동아|그랜드|행복한|마리오|태평|디큐브)[^,]*백화점/i;
       const keywordSearchTerms = ['백화점', '아파트단지', '쇼핑몰'];
       await Promise.all(
         keywordSearchTerms.map(async (keyword) => {
@@ -309,12 +313,21 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
             const data = await res.json();
             const docs = data?.documents || [];
             for (const doc of docs) {
+              const pName = String(doc.place_name || '');
+              const pCat = String(doc.category_name || '');
+              if (keyword === '백화점') {
+                const isDeptCategory = /가정,생활\s*>\s*백화점(?:\s|$|>)/.test(pCat);
+                const isKnownChain = REAL_DEPT_CHAIN_RE.test(pName);
+                if (FAKE_DEPT_STORE_RE.test(pName) || (!isDeptCategory && !isKnownChain)) {
+                  continue;
+                }
+              }
               const dLat = parseFloat(doc.y);
               const dLng = parseFloat(doc.x);
               const distanceM = parseKakaoDistanceM(doc.distance);
               if (!isNaN(dLat) && !isNaN(dLng) && (distanceM === null || distanceM <= 2500)) {
                 keySpots.push({
-                  name: String(doc.place_name),
+                  name: pName,
                   lat: dLat,
                   lng: dLng,
                   distanceM,
@@ -322,12 +335,12 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
                 });
                 if (distanceM !== null) {
                   candidateSpots.push({
-                    name: String(doc.place_name),
+                    name: pName,
                     lat: dLat,
                     lng: dLng,
                     distanceM,
                     category: 'landmark' as const,
-                    categoryName: doc.category_name ? String(doc.category_name) : undefined,
+                    categoryName: pCat || undefined,
                   });
                 }
               }

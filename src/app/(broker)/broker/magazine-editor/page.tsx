@@ -51,6 +51,7 @@ import type {
   MonthlyRegionalChart,
 } from "@/domain/magazine/types";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { buildNewsletterKakaoGreeting } from "@/lib/magazine/kakao-greeting";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
 import { kstParts, toKstDate, todayKst } from "@/lib/magazine/kst";
 import { buildOgImageUrl, resolvePublicBaseUrl } from "@/lib/magazine/share-urls";
@@ -901,7 +902,9 @@ function MagazineEditorWorkspace() {
         );
         const [authUid, editionsRes] = await Promise.all([
           resolveBrowserBrokerUserId(),
-          fetch("/api/magazine/editions?broker_id=me&type=all&limit=50").then(
+          fetch("/api/magazine/editions?broker_id=me&type=all&limit=50", {
+            cache: "no-store",
+          }).then(
             (r) => r,
             () => null,
           ),
@@ -2333,6 +2336,53 @@ function MagazineEditorWorkspace() {
     }
   };
 
+  const handleCopyKakaoGreeting = async () => {
+    if (!headline.trim()) {
+      setActiveStep("title");
+      setStatusBanner({
+        tone: "error",
+        message: "표지 제목을 입력하면 바로 보낼 수 있어요",
+      });
+      return;
+    }
+
+    let targetUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
+    const needsServerSave =
+      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error" || saveState === "conflict";
+    if (needsServerSave) {
+      const saved = await handleServerSave({ saveAsDraft: false });
+      if (!saved.ok || !saved.publicUrl) {
+        setStatusBanner(
+          saved.errorBanner ?? {
+            tone: "error",
+            message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+          },
+        );
+        return;
+      }
+      targetUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+    }
+
+    const greetingText = buildNewsletterKakaoGreeting({
+      headline: headline.trim(),
+      briefingBody,
+      publicUrl: targetUrl!,
+      brokerName,
+      brokerOffice,
+      brokerPhone,
+    });
+    const copied = await copyText(greetingText);
+    if (copied) {
+      setStatusBanner({ tone: "success", message: "카카오톡 인사말을 복사했어요" });
+    } else {
+      setStatusBanner({
+        tone: "error",
+        message: COPY_FAILED_MESSAGE,
+        fallbackUrl: targetUrl ?? undefined,
+      });
+    }
+  };
+
   const handleKakaoShare = async () => {
     if (!headline.trim()) {
       setActiveStep("title");
@@ -2763,6 +2813,7 @@ function MagazineEditorWorkspace() {
             onBulkSubscribersImported={handleBulkSubscribersImported}
             onKakaoShare={() => void handleKakaoShare()}
             onCopyLink={() => void handleCopyLink()}
+            onCopyKakaoGreeting={() => void handleCopyKakaoGreeting()}
             onBackToContent={() => handleSelectStep("content")}
             onSendSelected={() => void handleSendSelected()}
           />

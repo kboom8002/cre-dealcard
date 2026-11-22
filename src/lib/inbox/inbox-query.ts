@@ -549,14 +549,37 @@ export async function handleGetInbox(req: NextRequest) {
 
   const [grRes, actGateRes, viewRes, subKeyResInit, subUuidResInit] = await Promise.all([
     filter !== 'views' && uuidOwnedIds.length > 0
-      ? (() => {
-          let q = looseDb
-            .from('gate_requests')
-            .select('id, building_id, requester_id, requested_level, requested_fields, reason, status, expires_at, created_at');
-          if (typeof q.in === 'function') q = q.in('building_id', uuidOwnedIds);
-          if (typeof q.order === 'function') q = q.order('created_at', { ascending: false });
-          if (typeof q.limit === 'function') q = q.limit(limit);
-          return safeQ<LooseQueryResult>(q, { data: [] });
+      ? (async () => {
+          const runGrQuery = (idsChunk: string[]) => {
+            let q = looseDb
+              .from('gate_requests')
+              .select('id, building_id, requester_id, requested_level, requested_fields, reason, status, expires_at, created_at');
+            if (typeof q.in === 'function') q = q.in('building_id', idsChunk);
+            if (typeof q.order === 'function') q = q.order('created_at', { ascending: false });
+            if (typeof q.limit === 'function') q = q.limit(limit);
+            return safeQ<LooseQueryResult>(q, { data: [] });
+          };
+          if (uuidOwnedIds.length <= 50) {
+            return runGrQuery(uuidOwnedIds);
+          }
+          const chunks: string[][] = [];
+          for (let i = 0; i < uuidOwnedIds.length; i += 50) {
+            chunks.push(uuidOwnedIds.slice(i, i + 50));
+          }
+          const partResults = await Promise.all(chunks.map((c) => runGrQuery(c)));
+          const seenGrIds = new Set<string>();
+          const mergedGr: Array<Record<string, unknown>> = [];
+          for (const part of partResults) {
+            for (const rowRaw of Array.isArray(part?.data) ? part.data : []) {
+              const row = asRecord(rowRaw);
+              const rid = String(row.id || '');
+              if (!rid || seenGrIds.has(rid)) continue;
+              seenGrIds.add(rid);
+              mergedGr.push(row);
+            }
+          }
+          mergedGr.sort((a, b) => toSafeEpochMs(b.created_at) - toSafeEpochMs(a.created_at));
+          return { data: mergedGr.slice(0, limit) } as LooseQueryResult;
         })()
       : Promise.resolve<LooseQueryResult>({ data: [] }),
     filter !== 'views'

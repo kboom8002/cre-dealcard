@@ -65,6 +65,7 @@ import {
   createBlankImItem,
   inferPhotoCategoryFromFilename,
   isHeicLikeFile,
+  isRealUploadedPhotoUrl,
   isSafeInlineImageDataUrl,
   normalizePostureForSelector,
   parseKrwInputToManwon,
@@ -136,15 +137,9 @@ function ImWorkspaceInner() {
   const isFreshParam = searchParams.get("fresh") === "1";
   const currentUserIdRef = useRef<string | null>(getLastActiveBrokerUserId());
   const hydratedUserIdRef = useRef<string | null>(currentUserIdRef.current);
-  const [initialFreshItem] = useState<ImListItem | null>(() => {
-    if (!isFreshParam) return null;
-    const freshIds = mintUniqueFreshImIds();
-    return createBlankImItem({
-      id: freshIds.id,
-      buildingId: freshIds.buildingId,
-      updatedAt: "",
-    });
-  });
+  // Deterministic SSR/CSR initial state: fresh draft creation runs post-mount in useImServerHydration
+  // to avoid SSR/CSR UUID mismatch (#418) and keep hardcoded draft IDs out of bundle/tests.
+  const initialFreshItem = null as ImListItem | null;
 
   const [items, setItems] = useState<ImListItem[]>(() =>
     initialFreshItem ? [initialFreshItem, ...INITIAL_IM_LIST] : INITIAL_IM_LIST
@@ -230,14 +225,26 @@ function ImWorkspaceInner() {
             return {
               ...it,
               photos: it.photos.map((pe) => {
+                const directRealUrl =
+                  pe.url && isRealUploadedPhotoUrl(pe.url) && !pe.url.startsWith("data:")
+                    ? pe.url
+                    : undefined;
                 const fallbackUrl =
-                  pe.url && !pe.url.startsWith("data:")
+                  directRealUrl ||
+                  (pe.url && !pe.url.startsWith("data:")
                     ? resolveKnownTestAssetUrl(pe.url) || pe.url
-                    : resolveKnownTestAssetUrl(pe.name);
+                    : resolveKnownTestAssetUrl(pe.name));
+                const directRealPreview =
+                  pe.previewUrl &&
+                  isRealUploadedPhotoUrl(pe.previewUrl) &&
+                  !pe.previewUrl.startsWith("data:")
+                    ? pe.previewUrl
+                    : undefined;
                 const fallbackPreview =
-                  pe.previewUrl && !pe.previewUrl.startsWith("data:")
+                  directRealPreview ||
+                  (pe.previewUrl && !pe.previewUrl.startsWith("data:")
                     ? resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
-                    : fallbackUrl;
+                    : fallbackUrl);
                 return {
                   ...(pe.id ? { id: pe.id } : {}),
                   name: pe.name,
@@ -305,6 +312,7 @@ function ImWorkspaceInner() {
           const nextParams = new URLSearchParams(baseSearch);
           nextParams.set("buildingId", urlTargetId);
           nextParams.delete("id");
+          nextParams.delete("fresh");
           if (nextParams.get("tab") === "list") {
             nextParams.set("tab", "editor");
           }
@@ -331,6 +339,10 @@ function ImWorkspaceInner() {
   const [rentRoll, setRentRoll] = useState<RentRollRowItem[]>(
     currentItem?.rentRoll || generateFloorScaffolding(3, 1)
   );
+  const latestRentRollRef = useRef<RentRollRowItem[]>(rentRoll);
+  useEffect(() => {
+    latestRentRollRef.current = rentRoll;
+  }, [rentRoll]);
   const [expectedRentRoll, setExpectedRentRoll] = useState<RentRollRowItem[]>(
     currentItem?.expectedRentRoll || []
   );
@@ -410,7 +422,9 @@ function ImWorkspaceInner() {
         ? (item.askingPriceManwon * 10000).toLocaleString("ko-KR")
         : ""
     );
-    setRentRoll(item.rentRoll || generateFloorScaffolding(3, 1));
+    const nextRentRoll = item.rentRoll || generateFloorScaffolding(3, 1);
+    latestRentRollRef.current = nextRentRoll;
+    setRentRoll(nextRentRoll);
     setExpectedRentRoll(item.expectedRentRoll || []);
     setInvestmentPosture(item.investmentPosture || "core_income");
     setGfaSqm(item.gfaSqm ?? "");
@@ -429,15 +443,22 @@ function ImWorkspaceInner() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hydratedEntries: ImPhotoEntry[] = item.photos.map((p: any, idx: number) => {
         const name = p.name || p.caption || `현장 사진 ${idx + 1}`;
-        const healedKnownUrl =
-          resolveKnownTestAssetUrl(p.url) ||
-          resolveKnownTestAssetUrl(p.previewUrl) ||
-          resolveKnownTestAssetUrl(name);
+        const directRealUrl = isRealUploadedPhotoUrl(p.url)
+          ? p.url
+          : isRealUploadedPhotoUrl(p.previewUrl)
+          ? p.previewUrl
+          : undefined;
+        const healedKnownUrl = directRealUrl
+          ? undefined
+          : resolveKnownTestAssetUrl(p.url) ||
+            resolveKnownTestAssetUrl(p.previewUrl) ||
+            resolveKnownTestAssetUrl(name);
         const persistentUrl =
+          directRealUrl ||
           healedKnownUrl ||
           (p.url && !String(p.url).startsWith("data:") ? p.url : undefined) ||
           p.dataUrl;
-        const resolvedPreview = p.dataUrl || healedKnownUrl || p.previewUrl || p.url;
+        const resolvedPreview = p.dataUrl || directRealUrl || healedKnownUrl || p.previewUrl || p.url;
         return {
           id: p.id || `photo-item-${item.id}-${idx}-${name}`,
           name,
@@ -538,6 +559,26 @@ function ImWorkspaceInner() {
     setIsBrokerSectionOpen,
     applyItemToFormState,
     persistImItems,
+    onFreshDraftCreated: (freshBldId) => {
+      try {
+        const baseSearch =
+          typeof window !== "undefined"
+            ? window.location.search
+            : searchParams.toString();
+        const nextParams = new URLSearchParams(baseSearch);
+        nextParams.set("buildingId", freshBldId);
+        nextParams.delete("id");
+        nextParams.delete("fresh");
+        inFlightSelfUrlIdsRef.current.add(freshBldId);
+        lastAppliedQueryIdRef.current = freshBldId;
+        pendingUrlBuildingIdRef.current = freshBldId;
+        router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
+          scroll: false,
+        });
+      } catch {
+        // Safe no-op
+      }
+    },
   });
 
   const totalRentManwon = useMemo(
@@ -1276,6 +1317,10 @@ function ImWorkspaceInner() {
           patch.title = nextBuildingName;
         }
 
+        const liveRentRoll = isStillSelected
+          ? latestRentRollRef.current
+          : itemsRef.current.find((it) => it.id === targetId)?.rentRoll || originRentRoll;
+
         if (isSampleOrigin && isDifferentFromSample) {
           if (originPrice === 950000) {
             if (isStillSelected) {
@@ -1284,13 +1329,16 @@ function ImWorkspaceInner() {
             }
             patch.askingPriceManwon = 0;
           }
-          if (originRentRoll.some((r) => r.id === "r-b1")) {
+          if (liveRentRoll.some((r) => r.id === "r-b1")) {
             const freshRows = generateFloorScaffolding(
               Number(data.floorsAbove) || 3,
               Number(data.floorsBelow) || 1,
               Array.isArray(data.floors) ? data.floors : undefined
             );
-            if (isStillSelected) setRentRoll(freshRows);
+            if (isStillSelected) {
+              latestRentRollRef.current = freshRows;
+              setRentRoll(freshRows);
+            }
             patch.rentRoll = freshRows;
           }
           if (originHandover === "잔금 시 전층 명도 조건 협의 완료") {
@@ -1311,7 +1359,7 @@ function ImWorkspaceInner() {
             patch.photos = [];
           }
         } else if (
-          originRentRoll.every(
+          liveRentRoll.every(
             (r) => r.id.startsWith("scaffold-") && !r.depositManwon && !r.monthlyRentManwon
           ) &&
           (Number(data.floorsAbove) > 0 || Number(data.floorsBelow) > 0 || (Array.isArray(data.floors) && data.floors.length > 0))
@@ -1321,7 +1369,10 @@ function ImWorkspaceInner() {
             Number(data.floorsBelow) || 1,
             Array.isArray(data.floors) ? data.floors : undefined
           );
-          if (isStillSelected) setRentRoll(freshRows);
+          if (isStillSelected) {
+            latestRentRollRef.current = freshRows;
+            setRentRoll(freshRows);
+          }
           patch.rentRoll = freshRows;
         }
         syncCurrentItemPatch(patch, targetId);
@@ -1436,6 +1487,7 @@ function ImWorkspaceInner() {
     const prevRows = [...rentRoll];
     const prevPrice = askingPriceManwon;
     let didUpdatePrice = false;
+    latestRentRollRef.current = finalRows;
     setRentRoll(finalRows);
     const patch: Partial<ImListItem> = { rentRoll: finalRows };
     const incomingPrice = Number(
@@ -1531,7 +1583,9 @@ function ImWorkspaceInner() {
               if (!matched) return pe;
               const existingHttpUrl =
                 pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
-                  ? resolveKnownTestAssetUrl(pe.url) || pe.url
+                  ? isRealUploadedPhotoUrl(pe.url)
+                    ? pe.url
+                    : resolveKnownTestAssetUrl(pe.url) || pe.url
                   : undefined;
               const knownAsset = resolveKnownTestAssetUrl(pe.name);
               const preferredPersistentUrl =
@@ -1804,8 +1858,18 @@ function ImWorkspaceInner() {
     }
 
     const cleanProvisionTitle = imTitle.trim() === "새 IM" ? "" : imTitle.trim();
+    const legacyBidForProvision =
+      existingBid && !UUID_REGEX.test(existingBid) && !SAMPLE_SEED_IDS.has(existingBid)
+        ? existingBid
+        : !existingBid &&
+            buildingIdParam &&
+            !UUID_REGEX.test(buildingIdParam) &&
+            !SAMPLE_SEED_IDS.has(buildingIdParam)
+          ? buildingIdParam
+          : undefined;
     const reqPayload = {
       buildingId: UUID_REGEX.test(existingBid) ? existingBid : undefined,
+      ...(legacyBidForProvision ? { legacyBuildingId: legacyBidForProvision } : {}),
       ...buildCurrentRequestPayload(originItem, cleanProvisionTitle),
     };
     const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
@@ -2064,13 +2128,22 @@ function ImWorkspaceInner() {
       const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : reqExtrasForm;
       const photosPayload = buildPhotosPayloadForRequest();
 
+      const originBid = originItem?.buildingId || "";
+      const legacyBidCandidate =
+        originBid && !UUID_REGEX.test(originBid) && !SAMPLE_SEED_IDS.has(originBid)
+          ? originBid
+          : !originBid &&
+              buildingIdParam &&
+              !UUID_REGEX.test(buildingIdParam) &&
+              !SAMPLE_SEED_IDS.has(buildingIdParam)
+            ? buildingIdParam
+            : undefined;
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          buildingId: UUID_REGEX.test(originItem?.buildingId || "")
-            ? originItem?.buildingId
-            : undefined,
+          buildingId: UUID_REGEX.test(originBid) ? originBid : undefined,
+          ...(legacyBidCandidate ? { legacyBuildingId: legacyBidCandidate } : {}),
           ...buildCurrentRequestPayload(originItem, cleanReqTitle),
           brokerExtras: brokerExtrasPayload,
           photos: photosPayload,
@@ -2158,6 +2231,27 @@ function ImWorkspaceInner() {
           }
           if (data?.buildingId) {
             setBottomSheetBuildingId(data.buildingId);
+          }
+          const nextUrlBldId =
+            String(data?.buildingId || "").trim() || originItem?.buildingId;
+          if (typeof window !== "undefined" && nextUrlBldId) {
+            try {
+              const nextParams = new URLSearchParams(window.location.search);
+              nextParams.set("buildingId", nextUrlBldId);
+              nextParams.delete("id");
+              nextParams.delete("fresh");
+              if (nextParams.get("tab") === "list") {
+                nextParams.set("tab", "editor");
+              }
+              inFlightSelfUrlIdsRef.current.add(nextUrlBldId);
+              lastAppliedQueryIdRef.current = nextUrlBldId;
+              pendingUrlBuildingIdRef.current = nextUrlBldId;
+              router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
+                scroll: false,
+              });
+            } catch {
+              // Safe no-op
+            }
           }
           autosave.markClean();
           if (typeof window !== "undefined") {
@@ -2724,6 +2818,7 @@ function ImWorkspaceInner() {
             }}
             rentRoll={rentRoll}
             onChangeRentRoll={(nextRows) => {
+              latestRentRollRef.current = nextRows;
               setRentRoll(nextRows);
               syncCurrentItemPatch({ rentRoll: nextRows });
             }}
@@ -2733,7 +2828,10 @@ function ImWorkspaceInner() {
               syncCurrentItemPatch({ expectedRentRoll: nextRows });
             }}
             onCopyActualToExpectedRentRoll={() => {
-              const cloned = rentRoll.map((r) => ({ ...r }));
+              const cloned = rentRoll.map((r) => ({
+                ...r,
+                status: r.status === "vacant" ? ("occupied" as const) : r.status,
+              }));
               setExpectedRentRoll(cloned);
               syncCurrentItemPatch({ expectedRentRoll: cloned });
             }}

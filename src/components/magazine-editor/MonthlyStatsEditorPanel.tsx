@@ -247,7 +247,7 @@ export function MonthlyStatsEditorPanel({
               {/* 선택: 민간 리서치 출처 + 1줄 참고 메모 슬롯 */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-extrabold text-slate-700">
+                  <span className="text-sm font-extrabold text-slate-700">
                     민간 리서치 참고 메모 (선택 · 교보리얼코 / 메이트플러스 등)
                   </span>
                   <div className="flex flex-wrap gap-1">
@@ -263,7 +263,7 @@ export function MonthlyStatsEditorPanel({
                             );
                             onChangeCharts(next);
                           }}
-                          className={`min-h-[30px] px-2 py-0.5 rounded-md text-xs font-bold border transition-colors cursor-pointer ${
+                          className={`min-h-[30px] px-2 py-0.5 rounded-md text-sm font-bold border transition-colors cursor-pointer ${
                             active
                               ? "bg-blue-700 text-white border-blue-700"
                               : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
@@ -286,7 +286,7 @@ export function MonthlyStatsEditorPanel({
                     onChangeCharts(next);
                   }}
                   placeholder="예: 2026 Q1 프라임·중소형 임차 수요 회복 및 주요 권역 공실률 하락 추세"
-                  className="w-full min-h-[38px] rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-600"
+                  className="w-full min-h-[38px] rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-800 focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>

@@ -162,6 +162,7 @@ const GENERIC_BUILDING_TERMS = new Set([
   '단독사옥',
   '오피스',
   '메디컬',
+  '주차',
   '임대',
   '만실',
   '단독',

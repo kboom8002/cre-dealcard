@@ -141,6 +141,26 @@ export async function GET(
       }
     }
 
+    // B-2) Local clean public fallback before synthetic solid fill
+    const publicRelFallback: Record<string, string> = {
+      "01_부천_동아빌딩_전면외관.jpg": "test-images/dangsan/01_exterior.jpg",
+      "02_부천_동아빌딩_1층로비출입구.jpg": "test-images/dangsan/03_entrance.jpg",
+      "03_부천_동아빌딩_기준층내부실내.png": "test-images/dangsan/09_interior_clinic.jpg",
+      "04_부천_동아빌딩_주차장설비.webp": "test-images/dangsan/07_parking.jpg",
+      "01_역삼동_여삼빌딩_전면외관.jpg": "test-images/dangsan/02_aerial.jpg",
+      "02_역삼동_여삼빌딩_메인로비.jpg": "test-images/dangsan/04_lobby.jpg",
+      "03_역삼동_여삼빌딩_오피스내부.png": "test-images/dangsan/08_rooftop.jpg",
+      "04_역삼동_여삼빌딩_지하주차장.webp": "test-images/dangsan/07_parking.jpg",
+    };
+    const fallbackRel = publicRelFallback[filename];
+    if (fallbackRel) {
+      const pubPath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', fallbackRel);
+      if (fs.existsSync(/*turbopackIgnore: true*/ pubPath)) {
+        const buf = fs.readFileSync(/*turbopackIgnore: true*/ pubPath);
+        return new NextResponse(new Uint8Array(buf), { status: 200, headers });
+      }
+    }
+
     // C) Zero-disk in-memory fallback via sharp (never 404s)
     const pipeline = sharp({
       create: {

@@ -886,15 +886,48 @@ export function MobileIMViewer({
   // Active document switches between v2 (latest) and real v1 (when previousVersion exists)
   const rawBasicDoc = selectedVersion === "v1" && v1Doc ? v1Doc : v2Doc;
   const hiddenSectionSet = useMemo(() => {
+    const SECTION_VISIBILITY_ALIASES: Record<string, string[]> = {
+      property_overview: ["03_overview", "overview"],
+      overview: ["03_overview", "property_overview"],
+      "03_overview": ["overview", "property_overview"],
+      location_access: ["04_location", "location"],
+      location: ["04_location", "location_access"],
+      "04_location": ["location", "location_access"],
+      site_analysis: ["05_land", "land"],
+      land: ["05_land", "site_analysis"],
+      "05_land": ["land", "site_analysis"],
+      lease_status: ["06_rentroll", "rentroll"],
+      rentroll: ["06_rentroll", "lease_status"],
+      "06_rentroll": ["rentroll", "lease_status"],
+      income_analysis: ["07_yield", "yield"],
+      yield: ["07_yield", "income_analysis"],
+      "07_yield": ["yield", "income_analysis"],
+      comparable_analysis: ["08_comps", "comps"],
+      comps: ["08_comps", "comparable_analysis"],
+      "08_comps": ["comps", "comparable_analysis"],
+      photos: ["09_photos"],
+      "09_photos": ["photos"],
+      next_steps: ["10_contact", "contact"],
+      disclaimer: ["10_contact", "contact"],
+      contact: ["10_contact", "next_steps", "disclaimer"],
+      "10_contact": ["contact", "next_steps", "disclaimer"],
+    };
     const rawList = [
       ...(Array.isArray(initialDoc?.hiddenSections) ? initialDoc.hiddenSections : []),
       ...(Array.isArray((initialDoc as Record<string, unknown> | null)?.hidden_sections)
         ? ((initialDoc as Record<string, unknown>).hidden_sections as unknown[])
         : []),
     ];
-    return new Set(
-      rawList.filter((v): v is string => typeof v === "string" && v.trim().length > 0).map((v) => v.trim())
-    );
+    const expanded = new Set<string>();
+    for (const v of rawList) {
+      if (typeof v !== "string" || !v.trim()) continue;
+      const key = v.trim();
+      expanded.add(key);
+      for (const alias of SECTION_VISIBILITY_ALIASES[key] ?? []) {
+        expanded.add(alias);
+      }
+    }
+    return expanded;
   }, [initialDoc]);
 
   const basicDoc = useMemo<BasicImDocument>(() => {
@@ -994,9 +1027,10 @@ export function MobileIMViewer({
   const askingManwon =
     coverSec?.data?.askingPriceManwon ?? basicDoc.facts.transaction.askingPriceManwon ?? 0;
   const eok = askingManwon / 10000;
-  const priceLabel = Number.isInteger(eok)
-    ? `${eok}억 원`
-    : `${eok.toFixed(1).replace(/\.0$/, "")}억 원`;
+  const formattedEok = Number(eok.toFixed(1)).toLocaleString("ko-KR", {
+    maximumFractionDigits: 1,
+  });
+  const priceLabel = `${formattedEok}억 원`;
 
   const coverPhotoUrl =
     coverSec?.data?.primaryPhotoUrl || basicDoc.facts.photos?.[0]?.url;
@@ -1840,7 +1874,8 @@ export function MobileIMViewer({
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
               <span className="text-[#64748B]">연면적</span>
               <span className="font-bold text-[#0F172A] tabular-nums">
-                {basicDoc.facts.building.totalGrossAreaSqm}㎡ ({basicDoc.facts.building.totalGrossAreaPyeong}평)
+                {Number(basicDoc.facts.building.totalGrossAreaSqm || 0).toLocaleString("ko-KR")}㎡ (
+                {Number(basicDoc.facts.building.totalGrossAreaPyeong || 0).toLocaleString("ko-KR")}평)
               </span>
             </div>
             <div className="flex justify-between p-2.5 border-b border-[#F1F5F9]">
@@ -2065,7 +2100,7 @@ export function MobileIMViewer({
               className="rounded-md border border-[#CBD5E1] bg-[#FAF9F5] p-3 space-y-2"
               data-testid="mobile-im-cadastral-map"
             >
-              <div className="flex items-center justify-between text-xs font-semibold text-[#475569]">
+              <div className="flex items-center justify-between text-sm font-semibold text-[#475569]">
                 <span>지적도 · 토지이용계획</span>
                 <span>토지이음 · V-World</span>
               </div>
@@ -2248,14 +2283,14 @@ export function MobileIMViewer({
                           <td className={`py-2 px-2 sm:px-3 break-keep ${useChanged ? "italic bg-[#FDF8EC] text-[#8E6A20] font-semibold" : "text-[#334155]"}`}>{useLabel}</td>
                           <td className={`py-2 px-2 sm:px-3 text-right tabular-nums whitespace-nowrap ${depChanged ? "italic bg-[#FDF8EC] text-[#8E6A20] font-semibold" : "font-semibold text-[#0F172A]"}`}>{depMan.toLocaleString()}</td>
                           <td className={`py-2 px-2 sm:px-3 text-right tabular-nums whitespace-nowrap ${rentChanged ? "italic bg-[#FDF8EC] text-[#8E6A20] font-bold" : "font-bold text-[#1D4ED8]"}`}>{rentMan.toLocaleString()}</td>
-                          <td className="py-2 px-2 sm:px-3 text-right text-xs text-[#64748B] whitespace-nowrap">{noteLabel}</td>
+                          <td className="py-2 px-2 sm:px-3 text-right text-sm text-[#64748B] whitespace-nowrap">{noteLabel}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-[#8E6A20] italic">
+              <p className="text-sm text-[#8E6A20] italic">
                 * 현행 대비 기대수익률 전환으로 변경된 항목은 이탤릭·음영으로 표시됩니다.
               </p>
             </div>
@@ -2620,15 +2655,15 @@ export function MobileIMViewer({
                     >
                       <td className="p-3 font-semibold">매매 희망가</td>
                       <td className="p-3">
-                        {((v1Doc.facts.transaction.askingPriceManwon || 0) / 10000)
-                          .toFixed(1)
-                          .replace(/\.0$/, "")}
+                        {Number(
+                          ((v1Doc.facts.transaction.askingPriceManwon || 0) / 10000).toFixed(1)
+                        ).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}
                         억 원
                       </td>
                       <td className="p-3 font-bold text-[#1D4ED8]">
-                        {((v2Doc.facts.transaction.askingPriceManwon || 0) / 10000)
-                          .toFixed(1)
-                          .replace(/\.0$/, "")}
+                        {Number(
+                          ((v2Doc.facts.transaction.askingPriceManwon || 0) / 10000).toFixed(1)
+                        ).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}
                         억 원 ({diffEok}억 변동)
                       </td>
                     </tr>

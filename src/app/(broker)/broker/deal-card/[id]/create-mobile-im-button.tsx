@@ -85,7 +85,7 @@ export function CreateMobileImButton({
       {/* DORMANT: ux60-focus — Pro IM 버튼 숨김 (복원 시 docs/rollback/2026-10-18-dormant-features.md 참조)
       <button
         onClick={() => { setStage('pro'); setShowBottomSheet(true); }}
-        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-3 text-xs sm:text-sm font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-purple-900/30"
+        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-3 text-sm font-bold text-white whitespace-nowrap transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-purple-900/30"
         id="cta-mobile-im-pro"
         data-testid="generate-pro-im"
         aria-label="전문 IM 생성"

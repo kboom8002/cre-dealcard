@@ -1284,7 +1284,27 @@ function DealCardsWorkspaceInner() {
       setIsGeneratingFromMemo(true);
       try {
         const baseForParse = wasAwaiting ? EMPTY_CARD4 : currentCard4Ref.current;
-        const generatedCard4 = await runHybridMemoGenerationApi(rawText, baseForParse);
+        const rawGenerated = await runHybridMemoGenerationApi(rawText, baseForParse);
+        const preserveImSyncedSpecs =
+          !wasAwaiting &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId) &&
+          prevGenSource !== "ai_memo" &&
+          Boolean(prevCard4Snapshot.priceBand?.trim() && prevCard4Snapshot.priceBand !== "가격 협의") &&
+          Boolean(prevCard4Snapshot.area?.trim());
+        const generatedCard4 = preserveImSyncedSpecs
+          ? {
+              ...rawGenerated,
+              region: prevCard4Snapshot.region || rawGenerated.region,
+              use: prevCard4Snapshot.use || rawGenerated.use,
+              area: prevCard4Snapshot.area || rawGenerated.area,
+              priceBand: prevCard4Snapshot.priceBand || rawGenerated.priceBand,
+              posture: prevCard4Snapshot.posture || rawGenerated.posture,
+              ...(prevCard4Snapshot.gfaPyung ? { gfaPyung: prevCard4Snapshot.gfaPyung } : {}),
+              ...(prevCard4Snapshot.landAreaPyung
+                ? { landAreaPyung: prevCard4Snapshot.landAreaPyung }
+                : {}),
+            }
+          : rawGenerated;
 
         handleCardChangeFor(targetId, generatedCard4, {
           memoText: rawText,
@@ -1507,6 +1527,7 @@ function DealCardsWorkspaceInner() {
     const activeId = resolvedActiveIdRef.current;
     if (!activeId) return false;
     setPublishError(null);
+    await autosave.flush().catch(() => false);
     try {
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
@@ -1579,7 +1600,7 @@ function DealCardsWorkspaceInner() {
       });
       return false;
     }
-  }, [markServerSynced, persistItems, showUndoToast]);
+  }, [autosave, markServerSynced, persistItems, showUndoToast]);
 
   const {
     activeUnitId: activeDealCardUnitId,

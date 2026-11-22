@@ -102,6 +102,7 @@ interface DbQueryLike extends PromiseLike<DbResult> {
   insert?: (payload: DbRow | DbRow[]) => DbQueryLike;
   update?: (payload: DbRow) => DbQueryLike;
   eq?: (col: string, val: unknown) => DbQueryLike;
+  neq?: (col: string, val: unknown) => DbQueryLike;
   in?: (col: string, vals: unknown[]) => DbQueryLike;
   is?: (col: string, val: unknown) => DbQueryLike;
   or?: (expr: string) => DbQueryLike;
@@ -603,18 +604,21 @@ export async function upsertWorkspaceItem(
     existing?.legacyId ??
     (input.legacyId || (input.id && !isUuidStr(input.id) ? String(input.id) : null));
   const nowIso = new Date().toISOString();
+  const existingIsPublished =
+    existing?.status === 'published' || existing?.status === 'sent';
   const isExplicitPublishStatus =
     input.status === 'published' || input.status === 'sent';
-  const nextStatus: WorkspaceItemStatus = input.status || existing?.status || 'draft';
+  const nextStatus: WorkspaceItemStatus =
+    existingIsPublished && !isExplicitPublishStatus && input.status !== 'archived'
+      ? existing!.status
+      : input.status || existing?.status || 'draft';
   const rawPublishedSnapshot =
     input.publishedSnapshot !== undefined
       ? input.publishedSnapshot
       : isExplicitPublishStatus
       ? input.draftPayload
-      : existing &&
-        (existing.status === 'published' || existing.status === 'sent') &&
-        input.status === undefined
-      ? existing.publishedSnapshot
+      : existingIsPublished
+      ? existing!.publishedSnapshot
       : nextStatus === 'published' || nextStatus === 'sent'
       ? input.draftPayload
       : existing?.publishedSnapshot ?? null;
@@ -623,6 +627,8 @@ export async function upsertWorkspaceItem(
       ? buildSanitizedDealCardPublicSnapshot(rawPublishedSnapshot)
       : rawPublishedSnapshot;
 
+  const isNonPublishUpdate =
+    Boolean(existing) && !isExplicitPublishStatus && nextStatus !== 'archived';
   const rowPayload: DbRow = {
     id: canonicalId,
     owner_id: existing?.ownerId || input.ownerId,
@@ -634,27 +640,81 @@ export async function upsertWorkspaceItem(
     address: input.address ?? existing?.address ?? '',
     price_band: input.priceBand ?? existing?.priceBand ?? null,
     draft_payload: input.draftPayload,
-    published_snapshot: nextPublishedSnapshot,
+    ...(isNonPublishUpdate && input.publishedSnapshot === undefined
+      ? {}
+      : {
+          published_snapshot: nextPublishedSnapshot,
+          published_at:
+            nextStatus === 'published' || nextStatus === 'sent'
+              ? existing?.publishedAt || nowIso
+              : existing?.publishedAt ?? null,
+        }),
     version: input.version ?? (existing ? existing.version + 1 : 1),
     doc_hash: input.docHash ?? existing?.docHash ?? null,
-    published_at:
-      nextStatus === 'published' || nextStatus === 'sent'
-        ? existing?.publishedAt || nowIso
-        : existing?.publishedAt ?? null,
     revoked_at: nextStatus === 'revoked' ? existing?.revokedAt || nowIso : null,
     deleted_at: null,
     updated_at: nowIso,
   };
 
-  const baseTable = db.from('workspace_items');
-  const writeQ = existing
-    ? typeof baseTable.update === 'function'
-      ? baseTable.update(rowPayload)?.eq?.('id', existing.id)
-      : null
-    : typeof baseTable.insert === 'function'
-    ? baseTable.insert(rowPayload)
-    : null;
-  const res = await executeMutationSingle(writeQ);
+  const buildWriteQuery = (payload: DbRow): DbQueryLike | null => {
+    const tbl = db.from('workspace_items');
+    if (!existing) {
+      return typeof tbl.insert === 'function' ? tbl.insert(payload) : null;
+    }
+    let q = typeof tbl.update === 'function' ? tbl.update(payload)?.eq?.('id', existing.id) : null;
+    if (q && isNonPublishUpdate && !existingIsPublished && typeof q.neq === 'function') {
+      const q1 = q.neq('status', 'sent');
+      if (q1 && typeof q1.neq === 'function') {
+        q = q1.neq('status', 'published');
+      } else if (q1) {
+        q = q1;
+      }
+    }
+    return q ?? null;
+  };
+
+  let res = await executeMutationSingle(buildWriteQuery(rowPayload));
+
+  if (
+    res?.error &&
+    rowPayload.building_id !== null &&
+    ((res.error as { code?: string }).code === '23503' ||
+      /workspace_items_building_id_fkey|foreign key constraint/i.test(String(res.error.message || '')))
+  ) {
+    const retryPayload: DbRow = { ...rowPayload, building_id: null };
+    res = await executeMutationSingle(buildWriteQuery(retryPayload));
+    if (!res?.error) {
+      rowPayload.building_id = null;
+    }
+  }
+
+  const zeroRowsMatched =
+    existing &&
+    isNonPublishUpdate &&
+    !existingIsPublished &&
+    (Boolean(
+      res?.error &&
+        ((res.error as { code?: string }).code === 'PGRST116' ||
+          /0 rows|no rows|coerce the result/i.test(String(res.error.message || '')))
+    ) ||
+      (!res?.error && !toSingleRow(res?.data)));
+
+  if (zeroRowsMatched) {
+    const safeDraftOnlyPayload: DbRow = {
+      title: input.title,
+      address: input.address ?? existing!.address ?? '',
+      price_band: input.priceBand ?? existing!.priceBand ?? null,
+      draft_payload: input.draftPayload,
+      doc_hash: input.docHash ?? existing!.docHash ?? null,
+      updated_at: nowIso,
+    };
+    const fallbackTbl = db.from('workspace_items');
+    const fallbackQ =
+      typeof fallbackTbl.update === 'function'
+        ? fallbackTbl.update(safeDraftOnlyPayload)?.eq?.('id', existing!.id)
+        : null;
+    res = await executeMutationSingle(fallbackQ);
+  }
 
   if (res?.error) {
     if (canFallbackPreCutover(res.error)) {
@@ -665,7 +725,21 @@ export async function upsertWorkspaceItem(
 
   const savedRow = toSingleRow(res?.data);
   return {
-    item: savedRow ? mapRow(savedRow) : mapRow({ ...rowPayload, created_at: existing?.createdAt || nowIso }),
+    item: savedRow
+      ? mapRow(savedRow)
+      : mapRow({
+          ...rowPayload,
+          ...(isNonPublishUpdate && input.publishedSnapshot === undefined
+            ? {
+                published_snapshot: nextPublishedSnapshot,
+                published_at:
+                  nextStatus === 'published' || nextStatus === 'sent'
+                    ? existing?.publishedAt || nowIso
+                    : existing?.publishedAt ?? null,
+              }
+            : {}),
+          created_at: existing?.createdAt || nowIso,
+        }),
     tableAvailable: true,
   };
 }

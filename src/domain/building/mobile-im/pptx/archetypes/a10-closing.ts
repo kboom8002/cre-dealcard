@@ -166,7 +166,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
       broker.email ? `✉ ${broker.email}` : '',
     ].filter(Boolean).join('    ');
     const companyLine = [
-      broker.company ? `🏢 ${broker.company}` : '',
+      broker.company ? `${broker.company}` : '',
       broker.registrationNo ? `등록번호: ${broker.registrationNo}` : '',
     ].filter(Boolean).join('    ');
     const addressLine = broker.officeAddress ? `소재지: ${broker.officeAddress}` : '';

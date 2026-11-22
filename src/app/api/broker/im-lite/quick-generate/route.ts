@@ -30,6 +30,7 @@ import { buildSanitizedDealCardPublicSnapshot } from '@/lib/deal-card/public-sna
 import {
   saveQuickImRecord,
   getQuickImRecord,
+  isRealUploadedPhotoUrl,
   resolveKnownTestAssetUrl,
 } from '@/lib/im-lite/quick-generate-store';
 import { TEST_PARCEL_FIXTURES } from '@/lib/im-lite/test-parcel-fixtures';
@@ -223,6 +224,18 @@ export async function POST(req: NextRequest) {
   const requestedBuildingId =
     typeof body.buildingId === 'string' && uuidRegex.test(body.buildingId)
       ? body.buildingId
+      : null;
+  const rawLegacyCandidate =
+    typeof body.legacyBuildingId === 'string' && body.legacyBuildingId.trim()
+      ? body.legacyBuildingId.trim()
+      : typeof body.buildingId === 'string' && body.buildingId.trim()
+        ? body.buildingId.trim()
+        : '';
+  const legacyBuildingId =
+    rawLegacyCandidate &&
+    !uuidRegex.test(rawLegacyCandidate) &&
+    !['bld-01', 'bld-02', 'bld-03', 'im-doc-01', 'im-doc-02', 'im-doc-03'].includes(rawLegacyCandidate)
+      ? rawLegacyCandidate
       : null;
   const buildingId = requestedBuildingId || crypto.randomUUID();
   const documentId = crypto.randomUUID();
@@ -952,10 +965,13 @@ export async function POST(req: NextRequest) {
         .filter((p: any) => p && (typeof p === 'string' || typeof p.url === 'string' || typeof p.name === 'string'))
         .slice(0, 12)
         .map((p: any, idx: number) => {
-          const rawUrl = typeof p === 'string' ? p : String(p.url || '');
+          const rawUrl = (typeof p === 'string' ? p : String(p.url || '')).trim();
           const rawName = typeof p === 'object' ? String(p.name || p.caption || '') : '';
-          const knownTestUrl = resolveKnownTestAssetUrl(rawName || rawUrl);
-          const resolvedPhotoUrl = (knownTestUrl || rawUrl).trim();
+          const isRealUploadedUrl = isRealUploadedPhotoUrl(rawUrl);
+          const knownTestUrl = isRealUploadedUrl
+            ? undefined
+            : resolveKnownTestAssetUrl(rawName || rawUrl);
+          const resolvedPhotoUrl = (isRealUploadedUrl ? rawUrl : knownTestUrl || rawUrl).trim();
           const isValidPhotoScheme =
             resolvedPhotoUrl.startsWith('http://') ||
             resolvedPhotoUrl.startsWith('https://') ||
@@ -1105,9 +1121,12 @@ export async function POST(req: NextRequest) {
               }
 
               const storagePath = `${safeUserSeg}/${safeBldSeg}/${crypto.randomUUID()}.${outExt}`;
-              const publicUrl =
-                (await uploadCompressedToBucket('building-photos', storagePath, outBuf, outContentType)) ||
-                (await uploadCompressedToBucket('building_photos', storagePath, outBuf, outContentType));
+              const publicUrl = await uploadCompressedToBucket(
+                'building_photos',
+                storagePath,
+                outBuf,
+                outContentType
+              );
 
               if (publicUrl) {
                 return { ...photo, url: publicUrl };
@@ -1694,7 +1713,7 @@ export async function POST(req: NextRequest) {
     land_area_m2: effectiveLandSqm,
     total_gross_area_sqm: effectiveGfaSqm,
     total_gross_area_m2: effectiveGfaSqm,
-    size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
+    size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR')}평)`,
     zoning: effectiveZoning,
     land_category: resolvedLandCategory,
     jimok: resolvedLandCategory,
@@ -1740,8 +1759,8 @@ export async function POST(req: NextRequest) {
         `| 항목 | 내용 |`,
         `|---|---|`,
         `| 소재지 | ${cleanAddress} |`,
-        `| 대지면적 | ${effectiveLandSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
-        `| 연면적 | ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평) |`,
+        `| 대지면적 | ${effectiveLandSqm.toLocaleString()}㎡ (${Number(facts.land.landAreaPyeong).toLocaleString('ko-KR')}평) |`,
+        `| 연면적 | ${effectiveGfaSqm.toLocaleString()}㎡ (${Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR')}평) |`,
         `| 용도지역 | ${effectiveZoning} |`,
         `| 건축규모 | 지하 ${effectiveFloorsBelow}층 / 지상 ${effectiveFloorsAbove}층 |`,
         ...(bcrPct > 0 || farPct > 0
@@ -1813,7 +1832,7 @@ export async function POST(req: NextRequest) {
         `| 항목 | 내용 |`,
         `|---|---|`,
         `| 지번주소 | ${resolvedJibunAddress} |`,
-        `| 지목 / 대지면적 | ${resolvedLandCategory} / ${effectiveLandSqm.toLocaleString()}㎡ (${facts.land.landAreaPyeong}평) |`,
+        `| 지목 / 대지면적 | ${resolvedLandCategory} / ${effectiveLandSqm.toLocaleString()}㎡ (${Number(facts.land.landAreaPyeong).toLocaleString('ko-KR')}평) |`,
         `| 용도지역 | ${effectiveZoning} |`,
         `| 개별공시지가 | ${effectiveOfficialLandPriceWonSqm > 0 ? `㎡당 ${effectiveOfficialLandPriceWonSqm.toLocaleString()}원` : '국토교통부 개별공시지가 고시 기준'} |`,
       ].join('\n'),
@@ -1840,7 +1859,7 @@ export async function POST(req: NextRequest) {
         `| 실투자금 (보증금 차감) | ${Math.max(0, priceNum - effectiveDepositManwon).toLocaleString()}만원 | 레버리지 전 기준 |`,
         `| 월 임대수익 / 연 임대수익 | 월 ${effectiveMonthlyRentManwon.toLocaleString()}만원 / 연 ${(effectiveMonthlyRentManwon * 12).toLocaleString()}만원 | 관리비 별도 |`,
         `| 임대수익률 / 자본환원율(Cap Rate) | 연 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% / Cap Rate ${basicImDoc.facts.valuation.capRatePct.toFixed(2)}% | 보증금 차감 총수익률 · NOI 기준 |`,
-        `| 토지 평당가 / 연면적 평당가 | 평당 ${Math.round(facts.transaction.pricePerPyeongLandWon / 10000).toLocaleString()}만원 / 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 대지 ${facts.land.landAreaPyeong}평 기준 |`,
+        `| 토지 평당가 / 연면적 평당가 | 평당 ${Math.round(facts.transaction.pricePerPyeongLandWon / 10000).toLocaleString()}만원 / 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 대지 ${Number(facts.land.landAreaPyeong).toLocaleString('ko-KR')}평 기준 |`,
       ].join('\n'),
     },
     {
@@ -1876,8 +1895,8 @@ export async function POST(req: NextRequest) {
           : [
               `| 구분 | 산출 지표 | 단가 / 배율 | 기준 내역 |`,
               `|---|---|---|---|`,
-              `| 본건 토지 단가 | 대지 ${facts.land.landAreaPyeong}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongLandWon / 10000).toLocaleString()}만원 | ${effectiveZoning || '공적장부 기준'} |`,
-              `| 본건 건물 단가 | 연면적 ${facts.building.totalGrossAreaPyeong}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 지상 ${effectiveFloorsAbove}층 / 지하 ${effectiveFloorsBelow}층 |`,
+              `| 본건 토지 단가 | 대지 ${Number(facts.land.landAreaPyeong).toLocaleString('ko-KR')}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongLandWon / 10000).toLocaleString()}만원 | ${effectiveZoning || '공적장부 기준'} |`,
+              `| 본건 건물 단가 | 연면적 ${Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR')}평 기준 | 평당 ${Math.round(facts.transaction.pricePerPyeongGfaWon / 10000).toLocaleString()}만원 | 지상 ${effectiveFloorsAbove}층 / 지하 ${effectiveFloorsBelow}층 |`,
               ...(effectiveOfficialLandPriceWonSqm > 0
                 ? [
                     `| 공시지가 대비 배율 | 개별공시지가 ${Math.round(pyeongToM2(effectiveOfficialLandPriceWonSqm) / 10000).toLocaleString()}만원/평 | ${(
@@ -1992,7 +2011,44 @@ export async function POST(req: NextRequest) {
         : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
           ? rawExpectedRentRollSnake
           : [];
-      return expSrc.length > 0 ? { expected_rent_roll: expSrc } : {};
+      if (expSrc.length === 0) return {};
+      const normalizedExp = expSrc.map((er: any, idx: number) => {
+        if (!er || typeof er !== 'object') return er;
+        const fl = String(er.floor ?? '').trim();
+        const un = String(er.unit ?? er.unit_label ?? '').trim();
+        const baseMatch =
+          safeRentRollWithAreas.find(
+            (br: any) =>
+              String(br.floor ?? '').trim() === fl &&
+              (!un || String(br.unit ?? br.unit_label ?? '').trim() === un),
+          ) ||
+          safeRentRollWithAreas.find((br: any) => String(br.floor ?? '').trim() === fl) ||
+          (expSrc.length === safeRentRollWithAreas.length ? safeRentRollWithAreas[idx] : undefined);
+        const areaSqm =
+          Number(er.areaSqm ?? er.area_sqm ?? er.area_m2 ?? 0) > 0
+            ? Number(er.areaSqm ?? er.area_sqm ?? er.area_m2)
+            : Number(baseMatch?.areaSqm ?? baseMatch?.area_sqm ?? 0) || undefined;
+        const exclSqm =
+          Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm ?? 0) > 0
+            ? Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm)
+            : Number(baseMatch?.exclusiveAreaSqm ?? baseMatch?.exclusive_area_sqm ?? 0) || undefined;
+        const areaPy =
+          Number(er.areaPyeong ?? er.area_pyeong ?? 0) > 0
+            ? Number(er.areaPyeong ?? er.area_pyeong)
+            : Number(baseMatch?.areaPyeong ?? baseMatch?.area_pyeong ?? 0) || undefined;
+        const depM = Number(er.depositManwon ?? er.deposit_manwon ?? 0) || 0;
+        const rentM = Number(er.monthlyRentManwon ?? er.rent_manwon ?? er.monthlyRent ?? 0) || 0;
+        const normalizedStatus =
+          er.status === 'vacant' && (depM > 0 || rentM > 0) ? 'occupied' : er.status;
+        return {
+          ...er,
+          ...(normalizedStatus ? { status: normalizedStatus } : {}),
+          ...(areaSqm ? { area_m2: areaSqm, area_sqm: areaSqm, areaSqm } : {}),
+          ...(exclSqm ? { exclusive_area_sqm: exclSqm, exclusiveAreaSqm: exclSqm } : {}),
+          ...(areaPy ? { area_pyeong: areaPy, areaPyeong: areaPy } : {}),
+        };
+      });
+      return { expected_rent_roll: normalizedExp };
     })(),
     ssot_summary: ssotSummary,
     ...(mergedEnrichment ? { enrichment: mergedEnrichment } : {}),
@@ -2346,7 +2402,7 @@ export async function POST(req: NextRequest) {
           area_signal: card4.region,
           asset_type: card4.use,
           price_band: card4.priceBand,
-          size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${facts.building.totalGrossAreaPyeong}평)`,
+          size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR')}평)`,
           vacancy_signal: ssotSummary.vacancy_signal,
           status: (effectiveStatus === 'published' ? 'public_signal_ready' : 'draft') as 'public_signal_ready' | 'draft',
           layers: {
@@ -2489,24 +2545,52 @@ export async function POST(req: NextRequest) {
             : {}),
           docHash: basicImDoc.docHash,
         });
-        await upsertWorkspaceItem(supabase, {
-          buildingId,
-          ownerId: persistedOwnerId,
-          isAdmin,
-          kind: 'dealcard',
-          status: canPublishCompanionDealCard ? 'sent' : 'draft',
-          title: `${card4ForPublic.region} ${card4ForPublic.use}`.trim(),
-          address: card4ForPublic.region,
-          priceBand: card4ForPublic.priceBand,
-          draftPayload: { card4: card4ForPublic, brokerProfile: statutoryBrokerProfile },
-          publishedSnapshot: canPublishCompanionDealCard
-            ? buildSanitizedDealCardPublicSnapshot({
-                card4: card4ForPublic,
-                brokerProfile: statutoryBrokerProfile,
+        let linkedExistingLegacyDealCard = false;
+        if (legacyBuildingId && persistedOwnerId) {
+          try {
+            const linkQuery = supabase
+              .from('workspace_items')
+              .update({
+                building_id: buildingId,
+                updated_at: new Date().toISOString(),
               })
-            : null,
-          docHash: card4ForPublic.card4_hash,
-        });
+              .eq('owner_id', persistedOwnerId)
+              .eq('kind', 'dealcard')
+              .eq('legacy_id', legacyBuildingId)
+              .is('deleted_at', null);
+            const linkRes =
+              typeof (linkQuery as { select?: (cols: string) => PromiseLike<{ data?: unknown; error?: unknown }> })?.select === 'function'
+                ? await (linkQuery as { select: (cols: string) => PromiseLike<{ data?: unknown; error?: unknown }> }).select('id')
+                : await linkQuery;
+            const linkedRows = (linkRes as { data?: unknown } | null)?.data;
+            if (Array.isArray(linkedRows) && linkedRows.length > 0) {
+              linkedExistingLegacyDealCard = true;
+            }
+          } catch {
+            // Non-blocking legacy DealCard back-link sync
+          }
+        }
+        if (!linkedExistingLegacyDealCard) {
+          await upsertWorkspaceItem(supabase, {
+            buildingId,
+            ...(legacyBuildingId ? { legacyId: legacyBuildingId } : {}),
+            ownerId: persistedOwnerId,
+            isAdmin,
+            kind: 'dealcard',
+            status: canPublishCompanionDealCard ? 'sent' : 'draft',
+            title: `${card4ForPublic.region} ${card4ForPublic.use}`.trim(),
+            address: card4ForPublic.region,
+            priceBand: card4ForPublic.priceBand,
+            draftPayload: { card4: card4ForPublic, brokerProfile: statutoryBrokerProfile },
+            publishedSnapshot: canPublishCompanionDealCard
+              ? buildSanitizedDealCardPublicSnapshot({
+                  card4: card4ForPublic,
+                  brokerProfile: statutoryBrokerProfile,
+                })
+              : null,
+            docHash: card4ForPublic.card4_hash,
+          });
+        }
 
         const { pruneSupersededDocumentObjects } = await import(
           '@/lib/supabase/prune-document-objects'

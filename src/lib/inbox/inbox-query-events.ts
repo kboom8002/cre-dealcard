@@ -89,15 +89,23 @@ export function mapGateAndViewAndInquiryItems(params: {
       };
     });
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const existingGateIds = new Set(gateItems.map((g: any) => String(g.id)));
   for (const ev of actGateData) {
     const meta = (ev.metadata as Record<string, any>) || {};
     if (meta.broker_id && String(meta.broker_id) !== userId) continue;
     const bId = String(meta.building_id || ev.entity_id || '').trim();
     if (!bId || forbiddenBuildingSet.has(bId) || deletedBuildingSet.has(bId)) continue;
+    if (allOwnedBuildingIds.length > 0 && UUID_RE.test(bId) && !allOwnedBuildingIds.includes(bId)) continue;
     if (!((meta.broker_id && String(meta.broker_id) === userId) || allOwnedBuildingIds.includes(bId))) continue;
     const gateId = String(meta.gate_request_id || ev.entity_id || `gr-act-${ev.id}`);
     if (existingGateIds.has(gateId)) continue;
+    // Real UUID-building gate requests are authoritative in `gate_requests` (`grData`).
+    // Never resurrect deleted/historical UUID audit events (or `intent.pro_im_request` telemetry
+    // keyed on the building UUID itself) as fake pending rows that 404 on approval.
+    if (UUID_RE.test(bId) && (!meta.gate_request_id || UUID_RE.test(gateId))) {
+      continue;
+    }
     existingGateIds.add(gateId);
     const rawReasonInput =
       typeof meta.reason === 'string'

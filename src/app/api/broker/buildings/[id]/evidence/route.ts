@@ -16,7 +16,6 @@ import { z } from 'zod';
 const MAX_EVIDENCE_FILE_BYTES = 10 * 1024 * 1024;
 
 const ALLOWED_EVIDENCE_STORAGE_BUCKETS = new Set([
-  'building-photos',
   'building_photos',
   'evidence-files',
   'evidence',

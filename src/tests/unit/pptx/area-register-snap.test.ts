@@ -26,7 +26,7 @@ describe('normalizeAreaRowsPrecision — 대장값 스냅 (표시 전용)', () =
   it('NEGATIVE: 대장값이 없으면 기존 정규화만 (3자리 이상 소수 → 1자리)', () => {
     const dm: Record<string, any> = { building: { left: { rows: [['연면적', '3,842.644㎡ (1162평)']] } } };
     normalizeAreaRowsPrecision(dm, {});
-    expect(dm.building.left.rows[0][1]).toBe('3,842.6㎡ (1162.4평)');
+    expect(dm.building.left.rows[0][1]).toBe('3,842.6㎡ (1,162.4평)');
   });
 
   it('NEGATIVE: 면적 외 라벨/패턴이 다른 값은 건드리지 않는다', () => {

@@ -516,8 +516,17 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
     }
   }
 
-  // Merge activity custom DealCards
+  // Merge activity custom DealCards (skip orphaned historical UUIDs whose building & workspace row are both gone)
+  const liveUuidSet = new Set<string>(buildingIds.filter((id) => isUuid(id)));
+  for (const wsItem of wsRes.items) {
+    if (wsItem.status === "archived" || wsItem.deletedAt) continue;
+    if (wsItem.id && isUuid(wsItem.id)) liveUuidSet.add(wsItem.id);
+    if (wsItem.buildingId && isUuid(wsItem.buildingId)) liveUuidSet.add(wsItem.buildingId);
+  }
   for (const [bId, customEntry] of customUpsertedByBuilding.entries()) {
+    if (wsRes.tableAvailable && isUuid(bId) && !liveUuidSet.has(bId)) {
+      continue;
+    }
     const idx = dealcards.findIndex((dc) => dc.id === bId || dc.canonicalId === bId);
     const prevDc = idx >= 0 ? dealcards[idx] : undefined;
     const isSent = sentBuildingIds.has(bId) || (allowMemStore && isDealCardSent(bId)) || customEntry.status === "sent";

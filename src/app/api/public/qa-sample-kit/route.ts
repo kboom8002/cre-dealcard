@@ -5,6 +5,8 @@ import path from "node:path";
 import JSZip from "jszip";
 import sharp from "sharp";
 import { requireBroker } from "@/lib/auth-guard";
+import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from "@/lib/testguide/testguide-data";
+import { FULL_LOOP_CASES, type FullLoopCaseId } from "@/lib/testguide/full-loop-2cases-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -171,6 +173,149 @@ export async function GET(req: NextRequest) {
   }
 
   const format = (req.nextUrl.searchParams.get("format") || "zip").trim().toLowerCase();
+  const scenario = (req.nextUrl.searchParams.get("scenario") || "").trim().toLowerCase();
+
+  if (scenario === "loop1" || scenario === "loop2") {
+    const loopCase = FULL_LOOP_CASES.find((c) => c.id === (scenario as FullLoopCaseId));
+    const targetDealId = scenario === "loop1" ? "deal2" : "deal3";
+    const deal = TESTGUIDE_DEALS.find((d) => d.id === targetDealId);
+    if (loopCase && deal) {
+      const loopZip = new JSZip();
+      const nlStep = loopCase.steps.find((s) => s.subsystem === "뉴스레터" || s.stepNumber === 4);
+      const nlCleanBrief =
+        nlStep?.copySnippets?.find((sn) => sn.id.includes("brief"))?.value ||
+        nlStep?.copySnippets?.[1]?.value ||
+        loopCase.subtitle;
+
+      loopZip.file(
+        "00_README_풀루프_실행안내.txt",
+        [
+          `${loopCase.code} — ${loopCase.title}`,
+          "================================================================",
+          `대상 실매물: ${loopCase.propertyName} (${loopCase.askingPriceReadout})`,
+          `권장 소요시간: 약 ${loopCase.targetMinutes}분 (${loopCase.deviceSetup})`,
+          "",
+          "[포함 파일 안내]",
+          "1. 01_현장메모_원문.txt        : 딜카드/IM 메모 붙여넣기용 실매물 원문",
+          "2. 02_임대현황_업로드용.csv    : 엑셀/CSV 업로드용 임대 현황 (UTF-8 BOM)",
+          "3. 03_임대현황_붙여넣기용.tsv  : IM 임대 현황 그리드 1클릭 붙여넣기용 TSV",
+          "4. 04_뉴스레터_브리핑_초안.txt : 뉴스레터 브리핑 본문 초안 (지번 비노출)",
+          "5. 05_고객연락처_샘플10명.csv  : 고객 소통·구독자 등록 테스트용 연락처",
+          "6. photos/                     : 멀티포맷(JPG·PNG·WebP) 실매물 검증 이미지 4종",
+          "",
+          ...(nlStep?.copySnippets?.length
+            ? [
+                "[뉴스레터 보조 스니펫]",
+                ...nlStep.copySnippets.map((sn) => `- ${sn.label}: ${sn.value}`),
+              ]
+            : []),
+        ].join("\r\n")
+      );
+
+      loopZip.file("01_현장메모_원문.txt", deal.brokerMemoText);
+      loopZip.file(`02_${deal.csvFilename}`, `\uFEFF${deal.csvContent}`);
+      loopZip.file("03_임대현황_붙여넣기용.tsv", deal.tsvContent);
+      loopZip.file("04_뉴스레터_브리핑_초안.txt", nlCleanBrief);
+      loopZip.file("05_고객연락처_샘플10명.csv", toUtf8BomCsv(SAMPLE_CONTACTS_CSV_ROWS));
+
+      const xlsxTemplate = await tryReadPublicFile("CREDEAL_rentroll_template_v1.5.xlsx");
+      if (xlsxTemplate) {
+        loopZip.file("CREDEAL_rentroll_template_v1.5.xlsx", xlsxTemplate);
+      }
+
+      for (const img of deal.images) {
+        let imgBuf: Buffer | null = null;
+        try {
+          const localDocImgPath = path.join(
+            /*turbopackIgnore: true*/ process.cwd(),
+            "docs",
+            "im261110",
+            "images",
+            deal.imageFolder,
+            img.filename
+          );
+          imgBuf = await fs.readFile(/*turbopackIgnore: true*/ localDocImgPath);
+        } catch {
+          imgBuf = null;
+        }
+
+        if (!imgBuf) {
+          const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[img.filename];
+          if (cdnUrl) {
+            try {
+              const upstream = await fetch(cdnUrl);
+              if (upstream.ok) {
+                imgBuf = Buffer.from(await upstream.arrayBuffer());
+              }
+            } catch {
+              imgBuf = null;
+            }
+          }
+        }
+
+        if (!imgBuf) {
+          const publicRelFallback: Record<string, string> = {
+            "01_부천_동아빌딩_전면외관.jpg": "test-images/dangsan/01_exterior.jpg",
+            "02_부천_동아빌딩_1층로비출입구.jpg": "test-images/dangsan/03_entrance.jpg",
+            "03_부천_동아빌딩_기준층내부실내.png": "test-images/dangsan/09_interior_clinic.jpg",
+            "04_부천_동아빌딩_주차장설비.webp": "test-images/dangsan/07_parking.jpg",
+            "01_역삼동_여삼빌딩_전면외관.jpg": "test-images/dangsan/02_aerial.jpg",
+            "02_역삼동_여삼빌딩_메인로비.jpg": "test-images/dangsan/04_lobby.jpg",
+            "03_역삼동_여삼빌딩_오피스내부.png": "test-images/dangsan/08_rooftop.jpg",
+            "04_역삼동_여삼빌딩_지하주차장.webp": "test-images/dangsan/07_parking.jpg",
+          };
+          const mappedRel = publicRelFallback[img.filename];
+          if (mappedRel) {
+            const pubRaw = await tryReadPublicFile(mappedRel);
+            if (pubRaw && pubRaw.byteLength > 0) {
+              const ext = path.extname(img.filename).toLowerCase();
+              imgBuf =
+                ext === ".png"
+                  ? await sharp(pubRaw).png().toBuffer()
+                  : ext === ".webp"
+                  ? await sharp(pubRaw).webp({ quality: 84 }).toBuffer()
+                  : await sharp(pubRaw).jpeg({ quality: 86 }).toBuffer();
+            }
+          }
+        }
+
+        if (!imgBuf) {
+          const baseJpeg = await buildSyntheticBuildingPhotoJpeg(
+            "CREDEAL PHOTO SAMPLE",
+            scenario === "loop1" ? "#0F766E" : "#1E3A8A"
+          );
+          const ext = path.extname(img.filename).toLowerCase();
+          imgBuf =
+            ext === ".png"
+              ? await sharp(baseJpeg).png().toBuffer()
+              : ext === ".webp"
+              ? await sharp(baseJpeg).webp({ quality: 84 }).toBuffer()
+              : baseJpeg;
+        }
+
+        loopZip.file(`photos/${img.filename}`, imgBuf);
+      }
+
+      const loopZipBytes = await loopZip.generateAsync({
+        type: "uint8array",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      });
+      const outZipName =
+        scenario === "loop1"
+          ? "credeal_full_loop1_bucheon_donga_kit.zip"
+          : "credeal_full_loop2_yeoksam_yeosam_kit.zip";
+
+      return new NextResponse(Buffer.from(loopZipBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${outZipName}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+  }
 
   if (format === "csv") {
     const csv = toUtf8BomCsv(SAMPLE_RENTROLL_CSV_ROWS);

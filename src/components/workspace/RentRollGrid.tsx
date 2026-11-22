@@ -431,8 +431,9 @@ export function RentRollGrid({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && Array.isArray(data?.floorLeases) && data.floorLeases.length > 0) {
-        const mapped: RentRollRowItem[] = data.floorLeases.map((fl: any, idx: number) => {
-          const floorLabel = normalizeFloorName(fl.floor || `${idx + 1}F`);
+        const mapped: RentRollRowItem[] = data.floorLeases.map(
+          (fl: Record<string, unknown>, idx: number) => {
+            const floorLabel = normalizeFloorName(String(fl.floor || `${idx + 1}F`));
           const isVac =
             Boolean(fl.is_vacant) || fl.lease_state === "공실" || fl.tenant_type === "공실";
           const isOwner = !isVac && (fl.lease_state === "자가사용" || fl.lease_state === "자가");
@@ -637,7 +638,7 @@ export function RentRollGrid({
           <button
             type="button"
             onClick={() => setPasteNotice(null)}
-            className="min-h-[36px] px-3 text-[#92400E] font-bold text-sm hover:underline cursor-pointer ml-2 shrink-0"
+            className="min-h-[44px] px-3 text-[#92400E] font-bold text-sm hover:underline cursor-pointer ml-2 shrink-0"
           >
             닫기
           </button>
@@ -654,7 +655,7 @@ export function RentRollGrid({
             type="button"
             data-testid="rent-roll-paste-btn"
             onClick={handleClickPasteFromClipboard}
-            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-sm font-extrabold cursor-pointer shadow-2xs transition"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-sm font-extrabold cursor-pointer shadow-2xs transition"
           >
             📋 표 붙여넣기
           </button>
@@ -663,7 +664,7 @@ export function RentRollGrid({
             data-testid="rent-roll-ai-parse-btn"
             aria-expanded={isAiDrawerOpen}
             onClick={() => setIsAiDrawerOpen((p) => !p)}
-            className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-sm font-extrabold cursor-pointer transition ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-xl border text-sm font-extrabold cursor-pointer transition ${
               isAiDrawerOpen
                 ? "bg-purple-700 text-white border-purple-700"
                 : "bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-200"
@@ -676,7 +677,7 @@ export function RentRollGrid({
             type="button"
             data-testid="rent-roll-add-floor-btn"
             onClick={handleAddRow}
-            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-[#CBD5E1] text-[#1D4ED8] text-sm font-extrabold cursor-pointer shrink-0 transition"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-[#CBD5E1] text-[#1D4ED8] text-sm font-extrabold cursor-pointer shrink-0 transition"
           >
             + 층 추가
           </button>
@@ -709,7 +710,7 @@ export function RentRollGrid({
             <button
               type="button"
               onClick={() => setIsAiDrawerOpen(false)}
-              className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-bold cursor-pointer"
+              className="min-h-[44px] px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-bold cursor-pointer"
             >
               닫기
             </button>
@@ -718,7 +719,7 @@ export function RentRollGrid({
               data-testid="rent-roll-ai-submit-btn"
               disabled={isAiParsing}
               onClick={handleParseAiText}
-              className="min-h-[38px] px-4 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white text-sm font-extrabold cursor-pointer"
+              className="min-h-[44px] px-4 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white text-sm font-extrabold cursor-pointer"
             >
               {isAiParsing ? "분석 중…" : "AI로 표 채우기"}
             </button>
@@ -1054,7 +1055,7 @@ export function RentRollGrid({
                               key={st}
                               type="button"
                               onClick={() => handleStatusChange(idx, st)}
-                              className={`min-h-[30px] px-1.5 py-0.5 text-sm font-extrabold rounded-md transition-colors cursor-pointer ${
+                              className={`min-h-[44px] px-2 py-1 text-sm font-extrabold rounded-md transition-colors cursor-pointer ${
                                 isCur
                                   ? st === "vacant"
                                     ? "bg-amber-600 text-white"
@@ -1079,7 +1080,7 @@ export function RentRollGrid({
                           data-testid={`rentroll-split-unit-${idx}`}
                           onClick={() => handleSplitUnitAt(idx)}
                           title={`${row.floor}에 호실 추가`}
-                          className="min-h-[32px] px-1.5 py-1 rounded-md text-sm font-extrabold text-[#1D4ED8] hover:bg-blue-100 cursor-pointer"
+                          className="min-h-[44px] px-2.5 py-1 rounded-md text-sm font-extrabold text-[#1D4ED8] hover:bg-blue-100 cursor-pointer"
                         >
                           +호실
                         </button>
@@ -1087,7 +1088,7 @@ export function RentRollGrid({
                           type="button"
                           disabled={rows.length <= 1}
                           onClick={() => handleDeleteRow(idx)}
-                          className={`min-h-[32px] min-w-[28px] inline-flex items-center justify-center text-sm font-bold p-1 cursor-pointer rounded-md ${
+                          className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-sm font-bold p-1 cursor-pointer rounded-md ${
                             rows.length <= 1
                               ? "text-[#CBD5E1] cursor-not-allowed"
                               : "text-[#991B1B] hover:bg-[#FEE2E2]"

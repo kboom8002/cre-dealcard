@@ -276,9 +276,11 @@ interface CaseExecutionRecord {
     pptxTextSample: string;
   };
   defects: string[];
+  server500s: string[];
 }
 
 const runState: {
+  server500s: string[];
   createdBuildingIds: string[];
   createdEditionIds: string[];
   createdClientIds: string[];
@@ -312,6 +314,7 @@ const runState: {
     defects: string[];
   };
 } = {
+  server500s: [],
   createdBuildingIds: [],
   createdEditionIds: [],
   createdClientIds: [],
@@ -733,7 +736,9 @@ async function runGoldenCaseFunnel(
   const onPageError = (err: Error) => pageErrors.push(err.message);
   const onResponse = (res: any) => {
     if (res.status() >= 500) {
-      server500s.push(`${res.request().method()} ${res.url()} -> ${res.status()}`);
+      const entry = `${res.request().method()} ${res.url()} -> ${res.status()}`;
+      server500s.push(entry);
+      runState.server500s.push(`[${spec.caseId}] ${entry}`);
       console.log(`  🚨 HTTP ${res.status()}: ${res.request().method()} ${res.url()}`);
     }
   };
@@ -1612,6 +1617,7 @@ async function runGoldenCaseFunnel(
         pptxTextSample: zipInfo.fullPptxText.slice(0, 3500),
       },
       defects,
+      server500s,
     };
   } finally {
     page.off('console', onConsole);
@@ -1665,6 +1671,11 @@ test.describe('Golden 4-Case Full-Funnel PPGT-Loop (CASE-02 ~ CASE-05 × 4 Works
       if (m.type() === 'error') consoleErrors.push(m.text());
     });
     page.on('pageerror', (e) => pageErrors.push(e.message));
+    page.on('response', (res) => {
+      if (res.status() >= 500) {
+        runState.server500s.push(`[NL/INBOX] ${res.request().method()} ${res.url()} -> ${res.status()}`);
+      }
+    });
 
     // -------------------------------------------------------------------------
     // A. Create 1 DealCard-only property (NO IM generated!) to verify 409 guard
@@ -2362,6 +2373,7 @@ test.describe('Golden 4-Case Full-Funnel PPGT-Loop (CASE-02 ~ CASE-05 × 4 Works
 
     console.log('\n' + md + '\n');
     expect(Object.keys(runState.caseRecords)).toHaveLength(4);
+    expect(runState.server500s).toEqual([]);
   });
 
   test.afterAll(async ({ request }) => {

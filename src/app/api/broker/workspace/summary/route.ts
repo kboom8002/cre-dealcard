@@ -129,6 +129,7 @@ export async function PATCH(request: NextRequest) {
     : null;
 
   let uuidOwnerVerified = false;
+  let buildingExistsInSsot = false;
   if (isUuid(buildingId)) {
     const ownerCheck = await assertBuildingOwner(supabase, buildingId, auth.user.id, {
       allowAdmin: true,
@@ -179,6 +180,7 @@ export async function PATCH(request: NextRequest) {
       }
     } else {
       uuidOwnerVerified = true;
+      buildingExistsInSsot = true;
     }
   } else if (
     existingQuick?.ownerId &&
@@ -221,6 +223,7 @@ export async function PATCH(request: NextRequest) {
     brokerProfileMeta,
     buildingId,
     uuidOwnerVerified,
+    buildingExistsInSsot,
   };
 
   const lifecycleRes = await handlePatchWorkspaceLifecycle(baseCtx);

@@ -14,23 +14,6 @@ const DEFAULT_POSTURE_CONTEXT: Record<string, string> = {
   trading: '매매차익 실현 가능성 및 시세 갭 관점에서 서술하세요.',
 };
 
-/** posture별 섹션 프롬프트 오버레이 반환. 해당 없으면 null */
-export function getPosturePromptOverlay(
-  posture: InvestmentPosture,
-  section: string,
-  archetype?: ArchetypeCode,
-): string | null {
-  const overlay = POSTURE_OVERLAYS[posture]?.[section];
-  if (!overlay) {
-    const defaultContext = DEFAULT_POSTURE_CONTEXT[posture];
-    if (defaultContext) return defaultContext;
-    return null;
-  }
-
-  const archetypeNote = archetype ? `\n[아키타입: ${archetype}]` : '';
-  return overlay + archetypeNote;
-}
-
 const POSTURE_OVERLAYS: Record<string, Record<string, string>> = {
   income: {
     income_analysis: `
@@ -158,3 +141,20 @@ const POSTURE_OVERLAYS: Record<string, Record<string, string>> = {
   • 명확한 회수 시나리오: 2~3년 단기 보유 후 목표 매매차익 및 자기자본수익률(HPR)`,
   },
 };
+
+/** posture별 섹션 프롬프트 오버레이 반환. 해당 없으면 null */
+export function getPosturePromptOverlay(
+  posture: InvestmentPosture,
+  section: string,
+  archetype?: ArchetypeCode,
+): string | null {
+  const overlay = POSTURE_OVERLAYS[posture]?.[section];
+  if (!overlay) {
+    const defaultContext = DEFAULT_POSTURE_CONTEXT[posture];
+    if (defaultContext) return defaultContext;
+    return null;
+  }
+
+  const archetypeNote = archetype ? `\n[아키타입: ${archetype}]` : '';
+  return overlay + archetypeNote;
+}

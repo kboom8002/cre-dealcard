@@ -193,8 +193,7 @@ export async function POST(request: Request) {
 
     const supabase = createServiceClient();
 
-    // Save event to teaser_events table (non-blocking: teaser_config_id may be a buildingId or non-UUID,
-    // and event_type may be 'intent.pro_im_request' which is not in teaser_events check constraint)
+    // Save event to teaser_events table (gracefully ignoring Postgres 22P02 when IDs are non-UUID in local/legacy fixtures)
     try {
       const { error: insertError } = await supabase.from('teaser_events').insert({
         teaser_config_id: effectiveConfigId,
@@ -204,7 +203,13 @@ export async function POST(request: Request) {
       });
 
       if (insertError) {
-        log.warn('[teaser-event] teaser_events insert skipped:', insertError.message);
+        const errCode = String((insertError as { code?: unknown }).code || '');
+        const errMsg = String(insertError.message || '');
+        if (errCode === '22P02' || /invalid input syntax for type uuid/i.test(errMsg)) {
+          log.debug('[teaser-event] skipped non-UUID teaser_events insert:', errMsg);
+        } else {
+          log.warn('[teaser-event] teaser_events insert skipped:', errMsg);
+        }
       }
     } catch (e) {
       log.warn('[teaser-event] teaser_events insert error:', e);
@@ -268,7 +273,7 @@ export async function POST(request: Request) {
           building_ssot_lite_id: targetIdStr,
           event_type: mappedEventType,
           entity_type: 'building',
-          entity_id: isUuid(targetIdStr) ? targetIdStr : null,
+          entity_id: targetIdStr,
           metadata: metaPayload,
         };
         const insRes = await supabase.from('activity_events').insert(fullEventRow);
@@ -283,10 +288,13 @@ export async function POST(request: Request) {
           ) {
             const rest: Record<string, unknown> = { ...fullEventRow };
             delete rest.building_ssot_lite_id;
-            delete rest.building_id;
+            delete rest.entity_id;
+            if (!isUuid(targetIdStr)) {
+              delete rest.building_id;
+            }
             await supabase.from('activity_events').insert(
               code === '22P02' && !isUuid(targetIdStr)
-                ? { ...rest, building_id: targetIdStr, building_ssot_lite_id: null }
+                ? { ...rest, building_ssot_lite_id: null, entity_id: null }
                 : rest
             );
           }
@@ -300,14 +308,20 @@ export async function POST(request: Request) {
     if (eventType === 'gate_request') {
       let allEvents: Array<Record<string, unknown>> = [];
       try {
-        const { data } = await supabase
+        const { data, error: fetchErr } = await supabase
           .from('teaser_events')
           .select('*')
           .eq('visitor_fp', effectiveVisitorFp)
           .eq('teaser_config_id', effectiveConfigId)
           .order('created_at', { ascending: true });
-        if (Array.isArray(data)) {
+        if (!fetchErr && Array.isArray(data)) {
           allEvents = data as Array<Record<string, unknown>>;
+        } else if (fetchErr) {
+          const code = String((fetchErr as { code?: unknown }).code || '');
+          const msg = String(fetchErr.message || '');
+          if (code !== '22P02' && !/invalid input syntax for type uuid/i.test(msg)) {
+            log.warn('[teaser-event] gate_request history lookup error:', msg);
+          }
         }
       } catch {
         allEvents = [];

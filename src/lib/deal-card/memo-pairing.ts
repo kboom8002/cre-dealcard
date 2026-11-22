@@ -147,7 +147,7 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
   const cleanedSummary = cleanBlindPoints([withoutPhones])[0]
     ?.replace(/\s+/g, " ")
     .trim()
-    .slice(0, 500);
+    .slice(0, 1200);
   if (cleanedSummary) {
     facts.memoSummary = cleanedSummary;
   }
@@ -195,7 +195,7 @@ export function extractMemoExactAddressAndPrice(memoText: string): ExtractedMemo
   }
 
   const askMatch = text.match(
-    /(?:매매가|매각가|매매\s*희망가|희망가|매가|호가|매매(?!\s*사례)|매각(?!\s*사례))\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:[.,]\d+)?\s*억(?:\s*[\d,]+\s*만(?:\s*원)?|\s*\d+\s*천)?)/
+    /(?:매매\s*금액|매각\s*금액|매매가|매각가|매매\s*희망가|매각\s*희망가|희망가|매가|호가|매매(?!\s*사례)|매각(?!\s*사례))\]?\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:,\d{3})*(?:\.\d+)?\s*억(?:\s*[\d,]+\s*만(?:\s*원)?|\s*\d+\s*천)?)/
   );
   if (askMatch) {
     const krw = parseKoreanPriceKrw(askMatch[1]);
@@ -228,11 +228,11 @@ export function extractMemoExactAddressAndPrice(memoText: string): ExtractedMemo
     return /㎡|m2/i.test(unit) ? Math.round(n * 100) / 100 : Math.round(n * PYEONG_TO_SQM * 100) / 100;
   };
   const landM = text.match(
-    /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?(?:합산|합계|총합?|통합)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    /(?:대지면적|토지면적|대지|토지)\]?\s*(?:\d+\s*필지\s*)?(?:합산|합계|총합?|통합)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
   if (landM) details.landAreaSqm = toSqm(landM[1], landM[2]);
   const gfaM = text.match(
-    /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?(?:합산|합계|총합?|통합)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    /(?:연면적|건평)\]?\s*(?:\d+\s*개?동\s*)?(?:합산|합계|총합?|통합)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
   if (gfaM) details.gfaSqm = toSqm(gfaM[1], gfaM[2]);
 
@@ -272,21 +272,32 @@ export function parseMemoIntoCard4(
   const text = String(memoText || "").trim();
   if (!text) return baseCard4;
 
-  // 1. 매물 유형(posture) 추정 — "2019년 신축급 / 준신축 / 신축 첫 입주" 같은 기축 상태 수식어는 개발 시그널에서 중립화
-  const textForPosture = text.replace(
-    /(?:(?:19|20)\d{2}\s*년\s*)?(?:신축급|준신축|신축\s*(?:첫\s*입주|완료|건물|빌딩)|올\s*신축)/g,
-    "기존건물"
+  // 1. 매물 유형(posture) 추정 — "2019년 신축급 / 준신축" 및 "향후 신축/개발 잠재력" 수식어는 중립화
+  const textForPosture = text
+    .replace(
+      /(?:(?:19|20)\d{2}\s*년\s*)?(?:신축급|준신축|신축\s*(?:첫\s*입주|완료|건물|빌딩)|올\s*신축)/g,
+      "기존건물"
+    )
+    .replace(
+      /향후[^.\n)]*(?:신축|개발|리모델링)[^.\n)]*|개발\s*(?:잠재력|여지|호재)[^.\n)]*/g,
+      ""
+    );
+  const hasActiveLeaseSignals = /(?:보증금|월\s*임대료|월세|임대수익|수익률|만실)/.test(
+    textForPosture
   );
   let posture: DealCardPosture = baseCard4.posture || "income";
   if (
-    /(?:신축[·\s/]*(?:개발|리모델링)\s*부지|신축[·\s/]*개발|신축\s*(?:용\s*)?부지|개발\s*(?:용\s*)?부지|리모델링\s*부지|합필\s*신축|나대지|철거\s*후|재건축\s*부지|부지\s*매각)/.test(
+    /(?:신축[·\s/]*(?:개발|리모델링)\s*부지|신축[·\s/]*개발|신축\s*(?:용\s*)?부지|개발\s*(?:용\s*)?부지|리모델링\s*부지|합필\s*신축|나대지|철거\s*후|재건축\s*부지|부지\s*매각|명도\s*조건)/.test(
       textForPosture
     )
   ) {
     posture = "value_add";
   } else if (
-    /(?:신축|개발|철거|부지|재건축|용적률|대수선|밸류애드)/.test(textForPosture) &&
-    !/사옥/.test(textForPosture)
+    /(?:신축|개발|철거|부지|재건축|용적률\s*(?:여유|잔존|미달|상향|완화)|대수선|밸류애드)/.test(
+      textForPosture
+    ) &&
+    !/사옥/.test(textForPosture) &&
+    !hasActiveLeaseSignals
   ) {
     posture = "value_add";
   } else if (/사옥|자가\s*사용|본사|직접\s*입주|통임대\s*사옥/.test(textForPosture)) {
@@ -337,13 +348,20 @@ export function parseMemoIntoCard4(
     region = cleanBlindPoints([region])[0]?.trim() || region;
   }
 
-  // 3. 용도(use) 추출
+  // 3. 용도(use) 추출 — 업무시설/오피스 우선순위(예: "업무시설, 근린생활시설" → "업무시설") 반영
   let use = baseCard4.use || "";
-  if (/근린생활시설|근생빌딩|근생상가|올근생|근생|꼬마빌딩/.test(text)) {
-    use = "근린생활시설";
-  } else if (/지식산업센터/.test(text)) {
+  const geunMatch = text.match(/근린생활시설|근생빌딩|근생상가|올근생|근생|꼬마빌딩/);
+  const officeMatch = text.match(/업무시설|오피스빌딩|오피스|사옥빌딩|사옥/);
+  if (/지식산업센터/.test(text)) {
     use = "지식산업센터";
-  } else if (/업무시설|오피스빌딩|오피스|사옥빌딩|사옥/.test(text)) {
+  } else if (
+    officeMatch &&
+    (!geunMatch || (officeMatch.index ?? 0) <= (geunMatch.index ?? 0) || /프라임\s*오피스|코어\s*오피스/.test(text))
+  ) {
+    use = "업무시설";
+  } else if (geunMatch) {
+    use = "근린생활시설";
+  } else if (officeMatch) {
     use = "업무시설";
   } else if (/숙박시설|호텔|모텔/.test(text)) {
     use = "숙박시설";
@@ -357,7 +375,7 @@ export function parseMemoIntoCard4(
     use = "신축부지";
   }
 
-  // 4. 면적(gfaPyung / landAreaPyung / area) 추출 — 다필지 합계/가산식 최우선 인식
+  // 4. 면적(gfaPyung / landAreaPyung / area) 추출 — 다필지 합계/가산식 및 [대지면적]/[연면적] 대괄호 라벨 지원
   const toPyung = (rawNum: string, unit: string): number | undefined => {
     const n = parseFloat(rawNum.replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return undefined;
@@ -373,25 +391,25 @@ export function parseMemoIntoCard4(
 
   const gfaTotalMatch =
     text.match(
-      /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?(?:합산|합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+      /(?:연면적|건평)\]?\s*(?:\d+\s*개?동\s*)?(?:합산|합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
     ) ||
-    text.match(/(?:\d+\s*(?:개동|필지)\s*)?(?:합산|총|합계|통합)\s*(?:연면적|건평)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
+    text.match(/(?:\d+\s*(?:개동|필지)\s*)?(?:합산|총|합계|통합)\s*(?:연면적|건평)\]?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i);
   const gfaSingleMatch = text.match(
-    /(?:연면적|건평)\s*(?:\d+\s*개?동\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    /(?:연면적|건평)\]?\s*(?:\d+\s*개?동\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
 
   const landTotalMatch =
     text.match(
-      /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?(?:합산|합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+      /(?:대지면적|토지면적|대지|토지)\]?\s*(?:\d+\s*필지\s*)?(?:합산|합계|총합?|통합|계)\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
     ) ||
     text.match(
-      /(?:\d+\s*필지\s*)?(?:합산|합계|총|전체|통합)\s*(?:대지면적|토지면적|대지|토지)(?:\s*\d+\s*필지)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+      /(?:\d+\s*필지\s*)?(?:합산|합계|총|전체|통합)\s*(?:대지면적|토지면적|대지|토지)\]?(?:\s*\d+\s*필지)?\s*[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
     );
   const landPlusExprMatch = text.match(
-    /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?[:：]?\s*((?:(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2)\s*\+\s*)+(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2))/i
+    /(?:대지면적|토지면적|대지|토지)\]?\s*(?:\d+\s*필지\s*)?[:：]?\s*((?:(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2)\s*\+\s*)+(?:약\s*)?[\d,.]+\s*(?:평|㎡|m2))/i
   );
   const landSingleMatch = text.match(
-    /(?:대지면적|토지면적|대지|토지)\s*(?:\d+\s*필지\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
+    /(?:대지면적|토지면적|대지|토지)\]?\s*(?:\d+\s*필지\s*)?[:：]?\s*(?:약\s*)?([\d,.]+)\s*(평|㎡|m2)/i
   );
 
   let summedLandPyung: number | undefined;
@@ -431,15 +449,46 @@ export function parseMemoIntoCard4(
     area = `토지 ${landAreaPyung.toLocaleString("ko-KR")}평`;
   }
 
-  // 5. 가격 구간(priceBand) 추출 (price-band SSOT 위임, >= 5% 폭 & 조~조/억~억 단위 지원)
+  // 5. 가격 구간(priceBand) 추출 — 명시 매매가 라벨을 비교/감정가 범위(예: "인근 90~106억 대비 58억")보다 우선 판별
   let priceBand = baseCard4.priceBand || "";
-  const explicitJoRangeMatch = text.match(
+  const explicitAskRangeMatch = text.match(
+    /(?:매매\s*금액|매각\s*금액|매매가|매각가|매매\s*희망가|매각\s*희망가|희망가|매가|호가)\]?\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*~\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*억/
+  );
+  const explicitAskSingleMatch = text.match(
+    /(?:매매\s*금액|매각\s*금액|매매가|매각가|매매\s*희망가|매각\s*희망가|희망가|매가|호가|매매(?!\s*사례)|매각(?!\s*사례))\]?\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:,\d{3})*(?:\.\d+)?\s*억(?:\s*[\d,]+\s*만(?:\s*원)?|\s*\d+\s*천)?)/
+  );
+  const textWithoutComps = text
+    .replace(
+      /\([^)]*(?:감정가|밸류맵|공시지가|실거래|매각사례|매매사례|인근|대비)[^)]*\)/g,
+      ""
+    )
+    .replace(
+      /(?:감정가|밸류맵|공시지가|실거래가?|매각\s*사례|매매\s*사례)[^.\n]*?(?:\d+(?:,\d{3})*(?:\.\d+)?\s*(?:~\s*\d+(?:,\d{3})*(?:\.\d+)?\s*)?(?:조|억|만원))/g,
+      ""
+    );
+  const explicitJoRangeMatch = textWithoutComps.match(
     /(\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|억))?)\s*~\s*(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?)/
   );
   const explicitBandMatch = explicitJoRangeMatch
     ? null
-    : text.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*~\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*억/);
-  if (explicitJoRangeMatch) {
+    : textWithoutComps.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*~\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*억/);
+
+  if (explicitAskRangeMatch) {
+    const lo = parseFloat(explicitAskRangeMatch[1].replace(/,/g, ""));
+    const hi = parseFloat(explicitAskRangeMatch[2].replace(/,/g, ""));
+    const candidate = `${explicitAskRangeMatch[1]}~${explicitAskRangeMatch[2]}억`;
+    const check = validateBlindPriceBand(candidate);
+    if (check.valid) {
+      priceBand = candidate;
+    } else if (Number.isFinite(lo) && Number.isFinite(hi) && hi > 0) {
+      priceBand = formatPriceRange(((lo + hi) / 2) * 100_000_000);
+    }
+  } else if (explicitAskSingleMatch) {
+    const askKrw = parseKoreanPriceKrw(explicitAskSingleMatch[1]);
+    if (askKrw !== null && askKrw > 0) {
+      priceBand = formatPriceRange(askKrw);
+    }
+  } else if (explicitJoRangeMatch) {
     const rawLeft = explicitJoRangeMatch[1].trim();
     const rawRight = explicitJoRangeMatch[2].trim();
     const normalizedLeft = /(조|억|만)/.test(rawLeft) ? rawLeft : `${rawLeft}조`;
@@ -465,30 +514,24 @@ export function parseMemoIntoCard4(
       priceBand = formatPriceRange(((lo + hi) / 2) * 100_000_000);
     }
   } else {
-    const explicitAskMatch = text.match(
-      /(?:매매가|매각가|매매\s*희망가|매각\s*희망가|희망가|매가|호가|매매(?!\s*사례)|매각(?!\s*사례))\s*[:：]?\s*(?:약\s*)?(\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?|\d+(?:[.,]\d+)?\s*억(?:\s*[\d,]+\s*만(?:\s*원)?|\s*\d+\s*천)?)/
+    const strippedSubAmounts = textWithoutComps.replace(
+      /(?:보증금|전세금|대출|융자|근저당|임대보증금)\s*(?:\]?[:：])?\s*(?:약\s*)?\d+(?:[.,]\d+)?\s*억/g,
+      ""
+    );
+    const joHit = strippedSubAmounts.match(
+      /\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?/
     );
     let askKrw: number | null = null;
-    if (explicitAskMatch) {
-      askKrw = parseKoreanPriceKrw(explicitAskMatch[1]);
+    if (joHit) {
+      askKrw = parseKoreanPriceKrw(joHit[0]);
     } else {
-      const strippedSubAmounts = text.replace(
-        /(?:보증금|전세금|대출|융자|근저당|임대보증금)\s*[:：]?\s*(?:약\s*)?\d+(?:[.,]\d+)?\s*억/g,
-        ""
-      );
-      const joHit = strippedSubAmounts.match(/\d+(?:,\d{3})*(?:\.\d+)?\s*조(?:\s*\d+(?:,\d{3})*(?:\.\d+)?\s*억)?/);
-      if (joHit) {
-        askKrw = parseKoreanPriceKrw(joHit[0]);
-      } else {
-        const allEok = Array.from(strippedSubAmounts.matchAll(/(\d+(?:[.,]\d+)?)\s*억/g))
-          .map((m) => parseFloat(m[1].replace(/,/g, "")))
-          .filter((n) => Number.isFinite(n) && n > 0);
-        if (allEok.length > 0) {
-          askKrw = Math.max(...allEok) * 100_000_000;
-        }
+      const allEok = Array.from(strippedSubAmounts.matchAll(/(\d+(?:[.,]\d+)?)\s*억/g))
+        .map((m) => parseFloat(m[1].replace(/,/g, "")))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (allEok.length > 0) {
+        askKrw = Math.max(...allEok) * 100_000_000;
       }
     }
-
     if (askKrw !== null && askKrw > 0) {
       priceBand = formatPriceRange(askKrw);
     }
@@ -594,7 +637,11 @@ export function parseMemoIntoCard4(
   const candidatePoints: string[] = [];
   for (const rawClause of rawClauses) {
     const clause = compactRentClause(rawClause);
-    if (/^(?:주소|소재지|위치|매매가|매각가|희망가|매가|연락처|전화|소유주|건물주)\s*[:：]/.test(clause)) {
+    if (
+      /^\[?(?:매물명|주소|소재지|위치|입지여건|용도지역|대지면적|연면적|건축면적|건폐율|용적률|규모\/구조(?:\/주용도)?|준공연도|주차\/승강기|공시지가|위반건축물|매매금액|매매가|매각가|희망가|매가|임대현황\s*요약|핵심\s*투자포인트|연락처|전화|소유주|건물주)\]?\s*(?:[:：]|$)/.test(
+        clause
+      )
+    ) {
       continue;
     }
     // 다필지 부속 지번 조각(예: "315-3", "315-7 외 1필지", "1필지 82평")이나 가격/면적 스펙 절은 장점 후보에서 제외

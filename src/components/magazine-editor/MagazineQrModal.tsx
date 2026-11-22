@@ -59,6 +59,7 @@ export function MagazineQrModal({
   useEffect(() => {
     if (!isOpen || !subscribeUrl) return;
     let cancelled = false;
+    let raf = 0;
     const draw = () => {
       const canvas = canvasRef.current;
       if (!canvas) {
@@ -76,7 +77,7 @@ export function MagazineQrModal({
         toast.error('QR 코드를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
       });
     };
-    let raf = window.requestAnimationFrame(draw);
+    raf = window.requestAnimationFrame(draw);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(raf);

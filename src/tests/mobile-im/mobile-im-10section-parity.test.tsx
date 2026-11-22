@@ -299,8 +299,12 @@ describe('M5 Mobile IM: 10-Section Continuous Scroll & 5-Posture Parity (WP-P4b-
         // 2. Overview Section Assertions
         const overviewEl = container.querySelector('[data-section-id="03_overview"]')!;
         expect(overviewEl).not.toBeNull();
-        expect(overviewEl.textContent).toContain(String(facts.building.totalGrossAreaSqm));
-        expect(overviewEl.textContent).toContain(String(facts.building.totalGrossAreaPyeong));
+        expect(overviewEl.textContent).toContain(
+          Number(facts.building.totalGrossAreaSqm).toLocaleString('ko-KR'),
+        );
+        expect(overviewEl.textContent).toContain(
+          Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR'),
+        );
         expect(overviewEl.textContent).toContain('지상 7층 / 지하 1층');
         expect(overviewEl.textContent).toContain('59.2% / 343.8%');
         expect(overviewEl.textContent).toContain('14대 / 1대');

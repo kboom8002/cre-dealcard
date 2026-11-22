@@ -483,7 +483,9 @@ export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
     input.priceBand,
     input.currentHeadline,
     ...points,
-    ...factEntries.map(([, v]) => String(v)),
+    ...factEntries.map(([k, v]) =>
+      k === "yieldPct" ? `수익률 ${v}%` : `${factLabels[k] ?? k} ${String(v)}`
+    ),
   ]
     .filter(Boolean)
     .join(" ");

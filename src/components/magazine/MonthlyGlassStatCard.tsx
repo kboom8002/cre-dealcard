@@ -375,7 +375,7 @@ export function MonthlyGlassStatCard({
         {chart.privateResearchNote && chart.privateResearchNote.trim() !== "" && (
           <div
             data-testid="monthly-stat-private-research"
-            className="rounded-xl border px-3 py-2 text-xs font-semibold leading-relaxed break-keep"
+            className="rounded-xl border px-3 py-2 text-sm font-semibold leading-relaxed break-keep"
             style={{
               backgroundColor: "rgba(248, 250, 252, 0.92)",
               borderColor: "rgba(15, 23, 42, 0.14)",

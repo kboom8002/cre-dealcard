@@ -13,6 +13,8 @@ import { resolveLeaseOccupancy } from './lease-vacancy';
 import { EVIDENCE_LEVELS, PAYMENT_STATUSES, areaUnitLabel, resolveAreaInputUnit, type AreaInputUnit, type RentRollMeta } from './rentroll-meta';
 import { formatLeaseAreaCell } from './lease-area-cell';
 import { groupContracts, resolveEvaluationDate } from './lease-math';
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('lease-adapter');
 
 export interface NormalizedLease {
   floor: string;
@@ -549,9 +551,6 @@ export async function persistLeaseUnits(
 
 import { dispatchTenancy, type TenancyResult } from '@/domain/ontology';
 import type { AssetIdentity } from './types';
-
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('lease-adapter');
 
 
 /** 호실별 법령 분기 결과 */

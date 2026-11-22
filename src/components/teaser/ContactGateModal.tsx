@@ -146,10 +146,18 @@ export function ContactGateModal({
         return;
       }
 
-      // Best-effort telemetry only after /api/gate-requests succeeds
-      await fetch("/api/public/teaser/event", {
+      try {
+        localStorage.setItem(`contact_verified_${buildingId}`, "true");
+      } catch {
+        // ignore storage error
+      }
+      setIsSubmitted(true);
+
+      // Best-effort non-blocking telemetry after /api/gate-requests succeeds
+      void fetch("/api/public/teaser/event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify({
           buildingId,
           eventType: "intent.pro_im_request",
@@ -170,13 +178,6 @@ export function ContactGateModal({
           },
         }),
       }).catch(() => null);
-
-      try {
-        localStorage.setItem(`contact_verified_${buildingId}`, "true");
-      } catch {
-        // ignore storage error
-      }
-      setIsSubmitted(true);
     } catch {
       setErrorMessage("네트워크 연결을 확인한 뒤 다시 눌러 주세요.");
     } finally {

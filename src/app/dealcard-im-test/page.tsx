@@ -108,7 +108,7 @@ export default function DealCardImMeceTestPage() {
   const hydratedRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
-  const [sessionId, setSessionId] = useState<string>(() => createDcImSessionId());
+  const [sessionId, setSessionId] = useState<string>("");
   const [overallComment, setOverallComment] = useState<string>("");
   const [serverSyncStatus, setServerSyncStatus] = useState<
     "idle" | "syncing" | "synced" | "submitted" | "error"
@@ -169,6 +169,9 @@ export default function DealCardImMeceTestPage() {
       } catch {
         // ignore storage errors
       } finally {
+        if (!localSessionId) {
+          setSessionId((prev) => prev || createDcImSessionId());
+        }
         hydratedRef.current = true;
       }
 

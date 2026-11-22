@@ -3,6 +3,7 @@ import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   isDealCardDeleted,
+  isRealUploadedPhotoUrl,
   isUuid,
   listAllQuickImRecords,
   resolveKnownTestAssetUrl,
@@ -46,8 +47,20 @@ function formatWonToPriceBand(won: number | null | undefined, fallback?: string 
   }
   if (typeof won === "number" && Number.isFinite(won) && won > 0) {
     const eok = Math.round((won / 100_000_000) * 10) / 10;
+    if (eok >= 10_000) {
+      const jo = Math.floor(eok / 10_000);
+      const remEok = Math.round((eok % 10_000) * 10) / 10;
+      if (remEok <= 0) return `${jo.toLocaleString("ko-KR")}조`;
+      const remFmt = Number.isInteger(remEok)
+        ? remEok.toLocaleString("ko-KR")
+        : Number(remEok.toFixed(1)).toLocaleString("ko-KR");
+      return `${jo.toLocaleString("ko-KR")}조 ${remFmt}억`;
+    }
     if (eok > 0) {
-      return `${Number.isInteger(eok) ? eok : eok.toFixed(1)}억`;
+      const fmt = Number.isInteger(eok)
+        ? eok.toLocaleString("ko-KR")
+        : Number(eok.toFixed(1)).toLocaleString("ko-KR");
+      return `${fmt}억`;
     }
   }
   if (fallback && fallback.trim() && fallback.trim() !== "가격 협의") {
@@ -61,13 +74,14 @@ function extractPhotoFromImItem(imItem?: Record<string, unknown> | null): string
   const rawPhotos = Array.isArray(imItem.photos) ? imItem.photos : [];
   for (const p of rawPhotos) {
     if (typeof p === "string") {
-      const resolved = resolveKnownTestAssetUrl(p) || p;
+      const resolved = isRealUploadedPhotoUrl(p) ? p : resolveKnownTestAssetUrl(p) || p;
       if (isRealPhotoUrl(resolved)) return resolved;
     } else if (p && typeof p === "object") {
       const po = p as Record<string, unknown>;
-      const resolved =
-        resolveKnownTestAssetUrl(String(po.name || po.url || "")) ||
-        String(po.url || po.dataUrl || po.previewUrl || "");
+      const rawUrl = String(po.url || po.dataUrl || po.previewUrl || "");
+      const resolved = isRealUploadedPhotoUrl(rawUrl)
+        ? rawUrl
+        : resolveKnownTestAssetUrl(String(po.name || rawUrl)) || rawUrl;
       if (isRealPhotoUrl(resolved)) return resolved;
     }
   }
@@ -91,8 +105,8 @@ export async function GET(request: NextRequest) {
     .from("building_ssot_lite")
     .select("id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers")
     .neq("status", "archived")
-    .order("updated_at", { ascending: false })
-    .limit(30);
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(50);
 
   if (!isAdmin) {
     bldQuery = bldQuery.eq("owner_id", userId);
@@ -274,6 +288,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const allQuickRecords = listAllQuickImRecords();
   const seenIds = new Set<string>();
 
   const buildings = rows.map((b) => {
@@ -619,7 +634,6 @@ export async function GET(request: NextRequest) {
   }
 
   // 5. QuickImStore 레코드 병합 (소유자 일치 항목 우선, 보유 매물 0건일 때만 공용 기본 샘플 허용)
-  const allQuickRecords = listAllQuickImRecords();
   const ownedQuickRecords = allQuickRecords.filter((rec) => rec.ownerId === userId);
   const appendQuickRecords = (records: typeof allQuickRecords) => {
     for (const rec of records) {

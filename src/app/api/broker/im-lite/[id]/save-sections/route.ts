@@ -76,6 +76,7 @@ export async function PUT(
   let heroSubtitle: string | undefined;
   let keyInvestmentPoint: string | undefined;
   let keyPoints: string[] | undefined;
+  let visibilityOnly = false;
 
   try {
     const body = await req.json();
@@ -89,6 +90,7 @@ export async function PUT(
     heroSubtitle = body.heroSubtitle;
     keyInvestmentPoint = body.keyInvestmentPoint;
     keyPoints = Array.isArray(body.keyPoints) ? body.keyPoints.filter(Boolean) : undefined;
+    visibilityOnly = body.visibility_only === true;
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
@@ -144,8 +146,53 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
-  // WP-P4a1-03: Sealed version immutability check
+  // WP-P4a1-03: Sealed version immutability check (allow visibility-only hidden_sections updates on unsealed published IMs)
   if (doc.sealed_at || doc.status === 'published' || doc.status === 'superseded') {
+    if (
+      !doc.sealed_at &&
+      doc.status === 'published' &&
+      visibilityOnly &&
+      Array.isArray(hiddenSections)
+    ) {
+      const existingBody = (doc.body as Record<string, unknown>) || {};
+      const nextHidden = Array.from(
+        new Set(
+          hiddenSections.filter(
+            (s): s is string => typeof s === 'string' && s.trim().length > 0
+          )
+        )
+      );
+      const { error: visErr } = await supabase
+        .from('document_objects')
+        .update({
+          body: {
+            ...existingBody,
+            hidden_sections: nextHidden,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (visErr) {
+        log.error('[save-sections] visibility-only update failed:', {
+          code: visErr.code,
+          message: visErr.message,
+          id,
+        });
+        return NextResponse.json(
+          { ok: false, code: 'SECTION_SAVE_FAILED', error: '섹션 숨김 설정 저장에 실패했습니다.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        visibilityOnly: true,
+        hidden_sections: nextHidden,
+        message: '섹션 표시 설정이 저장되었습니다.',
+      });
+    }
+
     return NextResponse.json({
       error: 'SEALED_VERSION_IMMUTABLE',
       message: '이 버전은 승인/봉인되어 직접 수정할 수 없습니다. 새 버전으로 복사하여 수정해 주세요.',

@@ -571,7 +571,7 @@ export async function POST(req: NextRequest) {
     try {
       const supabase = createServiceClient();
 
-      if (!token && resolvedBuildingId && isUuid(resolvedBuildingId)) {
+      if ((rawScope === 'building' || !token) && resolvedBuildingId && isUuid(resolvedBuildingId)) {
         const { data: latestDoc } = await supabase
           .from('document_objects')
           .select('id, body')

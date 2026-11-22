@@ -215,6 +215,13 @@ function stripDuplicateFileSuffix(filename: string): string {
   return filename.replace(/\s*\(\d+\)(?=\.[^.]+$)/, '').trim();
 }
 
+export function isRealUploadedPhotoUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed || /testguide\/deal[123]\//.test(trimmed)) return false;
+  return /^(https?:\/\/|data:image\/)/i.test(trimmed);
+}
+
 export function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | undefined {
   if (!nameOrUrl || typeof nameOrUrl !== 'string') return undefined;
   const trimmed = nameOrUrl.trim();
@@ -1322,10 +1329,12 @@ export function synthesizeQuickRecordFromImItem(
     rawPhotos.length > 0
       ? rawPhotos
           .map((p: any, idx: number) => {
-            const rawUrl = typeof p === 'string' ? p : p?.dataUrl || p?.url || p?.previewUrl;
-            const url =
-              resolveKnownTestAssetUrl(p?.name || rawUrl) ||
-              rawUrl;
+            const rawUrl = typeof p === 'string' ? p : p?.url || p?.dataUrl || p?.previewUrl;
+            const rawUrlStr = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+            const isRealUploadedUrl = isRealUploadedPhotoUrl(rawUrlStr);
+            const url = isRealUploadedUrl
+              ? rawUrlStr
+              : resolveKnownTestAssetUrl(p?.name || rawUrlStr) || rawUrlStr;
             if (
               !url ||
               typeof url !== 'string' ||

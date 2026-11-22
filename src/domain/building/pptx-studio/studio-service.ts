@@ -94,7 +94,7 @@ export function buildBasicImSlideDefaults(
 
   const askManwon = Number(ssot.asking_price_manwon ?? docBody.asking_price_manwon ?? 0);
   const askEokStr = askManwon > 0
-    ? `${Number((askManwon / 10000).toFixed(2))}억 원`
+    ? `${Number((askManwon / 10000).toFixed(2)).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}억 원`
     : (hero.askingPriceBil || ssot.price_band || '');
 
   const landSqm = Math.round(Number(br.platArea || ssot.land_area_sqm || hero.landAreaM2 || 0) * 100) / 100;

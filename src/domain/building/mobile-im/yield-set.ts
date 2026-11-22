@@ -342,12 +342,17 @@ export function buildYieldSet(p: BuildYieldSetParams): YieldSet {
     const expFloors: string[] = [];
     for (const r of expectedRows) {
       if (isNonLeasableLeaseRow(r)) continue;
-      const st = String(r.status ?? r.lease_state ?? '').trim();
-      if (st === 'vacant' || st === '공실' || st === 'owner' || st === '자가사용' || st === '자가' || r.is_vacant === true) {
-        continue;
-      }
       const depM = Number(r.depositManwon ?? r.deposit_manwon ?? 0);
       const rentM = Number(r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? 0);
+      const st = String(r.status ?? r.lease_state ?? '').trim();
+      const isExplicitOwner = st === 'owner' || st === '자가사용' || st === '자가';
+      const isEmptyVacant =
+        (st === 'vacant' || st === '공실' || r.is_vacant === true) &&
+        rentM <= 0 &&
+        depM <= 0;
+      if (isExplicitOwner || isEmptyVacant) {
+        continue;
+      }
       if (Number.isFinite(depM) && depM > 0) expDepMan += depM;
       if (Number.isFinite(rentM) && rentM > 0) expRentMan += rentM;
       const fl = String(r.floor ?? '').trim();

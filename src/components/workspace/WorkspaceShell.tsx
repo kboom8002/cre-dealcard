@@ -383,37 +383,32 @@ export function WorkspaceShell({
     };
   }, [isPreviewDrawerOpen]);
 
-  // Draggable 3-column widths state (Req 7) — lazily initialized without setState in useEffect
-  const [listColWidth, setListColWidth] = useState<number>(() => {
-    if (typeof window === "undefined") return DEFAULT_LIST_WIDTH;
-    try {
-      const raw = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
-      if (raw) {
+  // Draggable 3-column widths state (Req 7) — SSR-safe default + async post-mount restore
+  const [listColWidth, setListColWidth] = useState<number>(DEFAULT_LIST_WIDTH);
+  const [previewColWidth, setPreviewColWidth] = useState<number>(DEFAULT_PREVIEW_WIDTH);
+
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      try {
+        const raw = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
+        if (!raw) return;
         const parsed = JSON.parse(raw);
         if (typeof parsed?.listColWidth === "number") {
-          return Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, parsed.listColWidth));
+          setListColWidth(
+            Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, parsed.listColWidth))
+          );
         }
-      }
-    } catch {
-      // ignore storage errors
-    }
-    return DEFAULT_LIST_WIDTH;
-  });
-  const [previewColWidth, setPreviewColWidth] = useState<number>(() => {
-    if (typeof window === "undefined") return DEFAULT_PREVIEW_WIDTH;
-    try {
-      const raw = window.localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
         if (typeof parsed?.previewColWidth === "number") {
-          return Math.min(MAX_PREVIEW_WIDTH, Math.max(MIN_PREVIEW_WIDTH, parsed.previewColWidth));
+          setPreviewColWidth(
+            Math.min(MAX_PREVIEW_WIDTH, Math.max(MIN_PREVIEW_WIDTH, parsed.previewColWidth))
+          );
         }
+      } catch {
+        // ignore storage errors
       }
-    } catch {
-      // ignore storage errors
-    }
-    return DEFAULT_PREVIEW_WIDTH;
-  });
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, []);
   const [activeResizer, setActiveResizer] = useState<"left" | "right" | null>(null);
   const dragStateRef = useRef<{
     side: "left" | "right";

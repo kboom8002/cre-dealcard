@@ -444,9 +444,18 @@ export function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | un
   return undefined;
 }
 
+export function isRealUploadedPhotoUrl(url?: string | null): boolean {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed || /testguide\/deal[123]\//.test(trimmed)) return false;
+  return /^(https?:\/\/|data:image\/)/i.test(trimmed);
+}
+
 export function resolveRenderablePhotoSrc(pe?: Partial<ImPhotoEntry> | null): string | undefined {
   if (!pe) return undefined;
   if (pe.dataUrl && pe.dataUrl.startsWith("data:")) return pe.dataUrl;
+  if (isRealUploadedPhotoUrl(pe.url)) return pe.url;
+  if (isRealUploadedPhotoUrl(pe.previewUrl)) return pe.previewUrl;
   const healedKnown =
     resolveKnownTestAssetUrl(pe.url) ||
     resolveKnownTestAssetUrl(pe.previewUrl) ||
@@ -577,13 +586,14 @@ function readAndCompressPhotoFile(
         return;
       }
       let settled = false;
+      let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
       const done = (val: string) => {
         if (settled) return;
         settled = true;
-        clearTimeout(fallbackTimer);
+        if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
         resolve(isSafeInlineImageDataUrl(val) ? val : "");
       };
-      const fallbackTimer = setTimeout(() => done(rawDataUrl), 10000);
+      fallbackTimer = setTimeout(() => done(rawDataUrl), 10000);
       const img = new window.Image();
       img.onerror = () => done("");
       img.onload = () => {
@@ -813,10 +823,18 @@ export function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
   let inlineBudgetUsed = 0;
   return entries
     .map((pe) => {
+      const directRealRemoteUrl =
+        pe.url && isRealUploadedPhotoUrl(pe.url) && !pe.url.startsWith("data:")
+          ? pe.url
+          : pe.previewUrl && isRealUploadedPhotoUrl(pe.previewUrl) && !pe.previewUrl.startsWith("data:")
+          ? pe.previewUrl
+          : undefined;
       const nonDataPersistentUrl =
+        directRealRemoteUrl ||
         (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
           ? resolveKnownTestAssetUrl(pe.url) || pe.url
-          : undefined) || resolveKnownTestAssetUrl(pe.name);
+          : undefined) ||
+        resolveKnownTestAssetUrl(pe.name);
       const safeInlineDataUrl =
         !nonDataPersistentUrl &&
         isSafeInlineImageDataUrl(pe.dataUrl) &&
@@ -835,7 +853,9 @@ export function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
         nonDataPersistentUrl ||
         safeInlineDataUrl ||
         (isPersistablePhotoUrl(pe.previewUrl)
-          ? resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
+          ? isRealUploadedPhotoUrl(pe.previewUrl)
+            ? pe.previewUrl
+            : resolveKnownTestAssetUrl(pe.previewUrl) || pe.previewUrl
           : undefined);
       const safeUrl = isPersistablePhotoUrl(rawUrl)
         ? rawUrl
@@ -862,10 +882,17 @@ export function buildPhotosPayloadFromEntries(sourceEntries: ImPhotoEntry[]) {
   let inlineBudgetUsed = 0;
   const valid = sourceEntries
     .map((pe, idx) => {
-      const nonDataUrl =
-        pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
-          ? resolveKnownTestAssetUrl(pe.url) || pe.url
+      const directRealRemoteUrl =
+        pe.url && isRealUploadedPhotoUrl(pe.url) && !pe.url.startsWith("data:")
+          ? pe.url
+          : pe.previewUrl && isRealUploadedPhotoUrl(pe.previewUrl) && !pe.previewUrl.startsWith("data:")
+          ? pe.previewUrl
           : undefined;
+      const nonDataUrl =
+        directRealRemoteUrl ||
+        (pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+          ? resolveKnownTestAssetUrl(pe.url) || pe.url
+          : undefined);
       const rawCandidate =
         nonDataUrl ||
         pe.dataUrl ||
@@ -1219,11 +1246,11 @@ export function buildAddedPhotoEntries(
       typeof URL !== "undefined" &&
       typeof URL.createObjectURL === "function"
         ? URL.createObjectURL(f)
-        : knownUrl;
+        : undefined;
     return {
       id: `photo-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
       name: f.name,
-      url: knownUrl,
+      ...(blobUrl ? {} : knownUrl ? { url: knownUrl } : {}),
       category: resolvedCategory,
       caption: resolvedCaption,
       previewUrl: blobUrl || knownUrl,

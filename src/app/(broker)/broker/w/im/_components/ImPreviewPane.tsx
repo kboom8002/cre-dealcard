@@ -534,7 +534,7 @@ export function ImPreviewPane({
                   <span className="text-sm font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200">
                     {secNo("06-2")} 기대수익률 임대차 현황
                   </span>
-                  <span className="text-xs font-extrabold text-amber-800">
+                  <span className="text-sm font-extrabold text-amber-800">
                     {expectedRentRoll.length}개 호실 가정
                   </span>
                 </div>
@@ -600,7 +600,7 @@ export function ImPreviewPane({
                 </div>
                 {hasExpectedRentRoll && expectedYieldPct > 0 && (
                   <>
-                    <div className="flex justify-between text-xs text-slate-600 pt-1 border-t border-emerald-200/60">
+                    <div className="flex justify-between text-sm text-slate-600 pt-1 border-t border-emerald-200/60">
                       <span>정상화 후 보증금 / 월 임대료</span>
                       <strong>
                         {expectedDepositManwon.toLocaleString()}만 /{" "}
@@ -634,7 +634,7 @@ export function ImPreviewPane({
                 <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
                   {secNo("08")} 인근 실거래 비교 ({compRows.length}건)
                 </span>
-                <div className="space-y-1.5 text-xs">
+                <div className="space-y-1.5 text-sm">
                   {compRows.slice(0, 4).map((c, idx) => (
                     <div
                       key={idx}

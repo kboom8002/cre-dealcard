@@ -109,6 +109,7 @@ export const SUB14_LOCKED_FILES = [
   "src/components/broker/im-studio/**/*.{ts,tsx}",
   "src/components/im/**/*.{ts,tsx}",
   "src/components/gate/**/*.{ts,tsx}",
+  "src/app/qa-full-loop/**/*.{ts,tsx}",
   "src/app/error.tsx",
   "src/app/global-error.tsx",
   "src/app/(public)/error.tsx",
@@ -162,6 +163,16 @@ const eslintConfig = defineConfig([
     files: SUB14_LOCKED_FILES,
     rules: {
       "no-restricted-syntax": ["error", ...SUB14_SELECTORS],
+    },
+  },
+  // Predictive Error Audit: Block module/sync TDZ forward-references in server API & domain layers
+  {
+    files: ["src/app/api/**/*.{ts,tsx}", "src/domain/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-use-before-define": [
+        "error",
+        { functions: false, classes: true, variables: true },
+      ],
     },
   },
 ]);

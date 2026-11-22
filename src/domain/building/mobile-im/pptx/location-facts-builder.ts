@@ -365,7 +365,13 @@ function selectMajorFacilityLabels(spots: any[]): string[] {
     if (!name || !Number.isFinite(dist) || dist <= 15 || dist > 1500) return false;
     if (cat === 'subway' || /지하철,전철/.test(cn)) return false;
     if (cat === 'road' || /도로시설/.test(cn) || /(IC|JC|나들목|톨게이트)$/.test(name)) return false;
-    if (FACILITY_NOISE_RE.test(name) || /(음식점|카페|통신판매|인터넷쇼핑몰|중개|주거시설|자동차)/.test(cn)) {
+    if (
+      FACILITY_NOISE_RE.test(name) ||
+      /(음식점|카페|통신판매|인터넷쇼핑몰|중개|주거시설|자동차)/.test(cn) ||
+      /(?:가발|안경|속옷|침구|이불|가구|타이어|중고차|열쇠|축산|수산|과일|청과|꽃|철물|공구|조명|전기|자재|문구|완구|장난감|애견|반려|골프|등산|낚시|자전거|오토바이|컴퓨터|핸드폰|휴대폰|카메라|시계|귀금속|보석|떡|반찬|식자재|주류|와인|화장품|건강식품|한복|정장|구두|신발|가방)백화점/.test(
+        name,
+      )
+    ) {
       return false;
     }
     return true;
@@ -375,11 +381,17 @@ function selectMajorFacilityLabels(spots: any[]): string[] {
     const name = String(s.name || '').trim();
     const cn = String(s.categoryName || '');
     const cat = String(s.category || '').toLowerCase();
+    const isRealDept =
+      /가정,생활\s*>\s*백화점(?:\s|$|>)/.test(cn) ||
+      /(?:신세계|롯데|현대|갤러리아|AK플라자|NC|뉴코아|더현대|세이|동아|그랜드|행복한|마리오|태평|디큐브)[^,]*백화점/i.test(
+        name,
+      );
     if (
-      /(백화점|롯데마트|이마트(?!24|에브리데이)|홈플러스(?!익스프레스)|코스트코|타임스퀘어|스타필드|롯데아울렛|현대아울렛|신세계아울렛|프리미엄아울렛|패션아울렛|뉴코아아울렛|마리오아울렛|모다아울렛|W몰|대형마트)/.test(
+      isRealDept ||
+      /(롯데마트|이마트(?!24|에브리데이)|홈플러스(?!익스프레스)|코스트코|타임스퀘어|스타필드|롯데아울렛|현대아울렛|신세계아울렛|프리미엄아울렛|패션아울렛|뉴코아아울렛|마리오아울렛|모다아울렛|W몰|대형마트)/.test(
         name,
       ) ||
-      /(백화점|대형마트|복합쇼핑몰)/.test(cn)
+      /(대형마트|복합쇼핑몰)/.test(cn)
     ) {
       return 100;
     }
@@ -641,7 +653,7 @@ export function buildBasicLocationRightData(
           : '';
     const bizPart =
       foodCount > 0 || cafeCount > 0
-        ? `음식점·카페 ${foodCount + cafeCount}개소 상권 형성`
+        ? `음식점·카페 ${(foodCount + cafeCount).toLocaleString('ko-KR')}개소 상권 형성`
         : '';
     const combined = [aptPart, bizPart].filter(Boolean).join(' 및 ');
     if (combined) {

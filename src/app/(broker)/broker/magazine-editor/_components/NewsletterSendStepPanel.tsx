@@ -42,6 +42,7 @@ export interface NewsletterSendStepPanelProps {
   onBulkSubscribersImported: (result: BulkImportApiResult) => void;
   onKakaoShare: () => void;
   onCopyLink: () => void;
+  onCopyKakaoGreeting?: () => void;
   onBackToContent: () => void;
   onSendSelected: () => void;
 }
@@ -66,6 +67,7 @@ export function NewsletterSendStepPanel({
   onBulkSubscribersImported,
   onKakaoShare,
   onCopyLink,
+  onCopyKakaoGreeting,
   onBackToContent,
   onSendSelected,
 }: NewsletterSendStepPanelProps) {
@@ -211,7 +213,7 @@ export function NewsletterSendStepPanel({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className={onCopyKakaoGreeting ? "grid grid-cols-1 sm:grid-cols-3 gap-3" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
           <button
             type="button"
             data-testid="kakao-share-btn"
@@ -221,6 +223,18 @@ export function NewsletterSendStepPanel({
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
             <span>카카오톡으로 공유</span>
           </button>
+
+          {onCopyKakaoGreeting && (
+            <button
+              type="button"
+              data-testid="copy-kakao-greeting-btn"
+              onClick={onCopyKakaoGreeting}
+              className="min-h-[48px] rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base font-extrabold text-emerald-950 hover:bg-emerald-100 flex items-center justify-center gap-2"
+            >
+              <Copy className="h-5 w-5" aria-hidden="true" />
+              <span>카톡 인사말 복사</span>
+            </button>
+          )}
 
           <button
             type="button"

@@ -49,6 +49,7 @@ export interface PatchContext {
   body: Record<string, unknown>;
   action: string;
   brokerProfileMeta: BrokerProfileMeta | undefined;
+  buildingExistsInSsot?: boolean;
 }
 
 const strictDbMode = () =>
@@ -597,9 +598,11 @@ export async function handlePatchWorkspaceLifecycle(
       if (stateRes.item) {
         wsCanonicalId = stateRes.item.id;
       } else if (persistedSentCard4) {
+        const verifiedSsotBuildingId =
+          isUuid(buildingId) && ctx.buildingExistsInSsot !== false ? buildingId : null;
         const upRes = await upsertWorkspaceItem(supabase, {
-          legacyId: isUuid(buildingId) ? null : buildingId,
-          buildingId: isUuid(buildingId) ? buildingId : null,
+          legacyId: verifiedSsotBuildingId ? null : buildingId,
+          buildingId: verifiedSsotBuildingId,
           ownerId: userId,
           isAdmin,
           kind: "dealcard",

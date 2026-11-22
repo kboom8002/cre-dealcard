@@ -158,13 +158,21 @@ export function formatKoreanCurrencyReadout(manwon: number): string {
   const eok = Math.floor(manwon / 10000);
   const remMan = manwon % 10000;
 
+  if (eok >= 10000) {
+    const jo = Math.floor(eok / 10000);
+    const remEok = eok % 10000;
+    const parts = [`${jo.toLocaleString("ko-KR")}조`];
+    if (remEok > 0) parts.push(`${remEok.toLocaleString("ko-KR")}억`);
+    if (remMan > 0) parts.push(`${remMan.toLocaleString("ko-KR")}만`);
+    return `= ${parts.join(" ")} 원`;
+  }
   if (eok > 0 && remMan > 0) {
-    return `= ${eok}억 ${remMan.toLocaleString()}만 원`;
+    return `= ${eok.toLocaleString("ko-KR")}억 ${remMan.toLocaleString("ko-KR")}만 원`;
   }
   if (eok > 0) {
-    return `= ${eok}억 원`;
+    return `= ${eok.toLocaleString("ko-KR")}억 원`;
   }
-  return `= ${remMan.toLocaleString()}만 원`;
+  return `= ${remMan.toLocaleString("ko-KR")}만 원`;
 }
 
 function splitClipboardRow(line: string): string[] {

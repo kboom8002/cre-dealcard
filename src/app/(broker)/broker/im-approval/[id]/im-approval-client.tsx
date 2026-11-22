@@ -96,7 +96,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   // OG Meta States
   const [ogTitle, setOgTitle] = useState((content as any)?.ogTitle || '');
   const [ogDescription, setOgDescription] = useState((content as any)?.ogDescription || '');
-  const [ogTimestamp, setOgTimestamp] = useState(Date.now());
+  const [ogTimestamp, setOgTimestamp] = useState(0);
   const [isOgSaving, setIsOgSaving] = useState(false);
   const [isOgMetaDirty, setIsOgMetaDirty] = useState(false);
 
@@ -348,6 +348,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const toggleHideSection = useCallback(async (idx: number) => {
     const sectionId = sections[idx]?.section_type;
     if (!sectionId) return;
+    const prevHidden = new Set(hiddenSections);
     const newHidden = new Set(hiddenSections);
     if (newHidden.has(sectionId)) {
       newHidden.delete(sectionId);
@@ -363,13 +364,21 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           sections,
           hidden_sections: Array.from(newHidden),
           photos,
+          visibility_only: true,
         }),
       });
       if (res.ok) {
         const resData = await res.json();
         if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
+      } else {
+        setHiddenSections(prevHidden);
+        toast.error('섹션 숨김 설정을 저장하지 못했습니다.');
       }
-    } catch (err) { console.warn('[im-approval]', err); }
+    } catch (err) {
+      setHiddenSections(prevHidden);
+      console.warn('[im-approval]', err);
+      toast.error('섹션 숨김 저장 중 오류가 발생했습니다.');
+    }
   }, [sections, hiddenSections, docId, photos]);
 
   const updatePhotoCaption = (idx: number, caption: string) => {
@@ -717,14 +726,14 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           />
         </StaggerItem>
 
-        <StaggerItem className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 shadow-xs">
-          <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">투자설명서(Basic IM) 완성 · 슬라이드 편집</h1>
+        <StaggerItem className="mb-8 flex flex-col gap-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 shadow-xs">
+          <div className="space-y-2 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight break-keep">투자설명서(Basic IM) 완성 · 슬라이드 편집</h1>
             <p className="text-base text-slate-700 leading-relaxed">
               10면 PPTX 슬라이드와 10종 색상 테마를 실시간 미리보기로 확인·편집한 뒤 내려받거나, 지금 바로 다운로드할 수 있습니다.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Link
               href={`/broker/basic-im-studio/${buildingId}`}
               id="approval-top-studio-btn"
@@ -1303,7 +1312,11 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               </label>
               <div className="relative rounded-lg overflow-hidden border border-slate-200 aspect-[1.91/1] bg-slate-100 flex items-center justify-center">
                 <img
-                  src={`/api/og/deal/${buildingId}?type=im&t=${ogTimestamp}`}
+                  src={
+                    ogTimestamp > 0
+                      ? `/api/og/deal/${buildingId}?type=im&t=${ogTimestamp}`
+                      : `/api/og/deal/${buildingId}?type=im`
+                  }
                   alt="OG Preview"
                   className="w-full h-full object-cover"
                   key={ogTimestamp}

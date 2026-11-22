@@ -27,7 +27,7 @@ describe('formatSqm — 소수 1자리 통일', () => {
 
 describe('normalizeAreaValuePrecision / Rows', () => {
   it('㎡ (평) 쌍은 평도 소수 1자리로 재계산', () => {
-    expect(normalizeAreaValuePrecision('3,842.644㎡ (1162평)')).toBe('3,842.6㎡ (1162.4평)');
+    expect(normalizeAreaValuePrecision('3,842.644㎡ (1162평)')).toBe('3,842.6㎡ (1,162.4평)');
     expect(normalizeAreaValuePrecision('486.281㎡ (147.1평)')).toBe('486.3㎡ (147.1평)');
   });
   it('이미 1자리면 그대로, ㎡ 없는 값은 건드리지 않는다', () => {
@@ -40,7 +40,7 @@ describe('normalizeAreaValuePrecision / Rows', () => {
       land: { right: { rows: [['대지면적', '486.281㎡ (147.1평)'], ['공시지가', '29,970,000원/㎡']] } },
     };
     normalizeAreaRowsPrecision(dm);
-    expect(dm.building.left.rows[0][1]).toBe('3,842.6㎡ (1162.4평)');
+    expect(dm.building.left.rows[0][1]).toBe('3,842.6㎡ (1,162.4평)');
     expect(dm.building.left.rows[1][1]).toBe('18대 / 2대');
     expect(dm.land.right.rows[0][1]).toBe('486.3㎡ (147.1평)');
     expect(dm.land.right.rows[1][1]).toBe('29,970,000원/㎡');

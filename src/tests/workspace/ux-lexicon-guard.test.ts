@@ -46,6 +46,8 @@ const FILES: string[] = [
   'src/components/workspace/ZeroBlankStarterCard.tsx',
   'src/app/qa-broker/showcase/page.tsx',
   'src/app/qa-broker/signoff/page.tsx',
+  'src/app/qa-full-loop/page.tsx',
+  'src/lib/testguide/full-loop-2cases-data.ts',
   'src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx',
   'src/app/(broker)/broker/deal-card/[id]/im-management-panel.tsx',
 ];

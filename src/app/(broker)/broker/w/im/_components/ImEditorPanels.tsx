@@ -233,6 +233,7 @@ export function ImEditorPanels({
   >([]);
   const [dragZoneOver, setDragZoneOver] = useState<"exterior" | "interior" | null>(null);
   const [dragPhotoIdx, setDragPhotoIdx] = useState<number | null>(null);
+  const [expandedPhotoKey, setExpandedPhotoKey] = useState<string | null>(null);
 
   const showSampleBanner = isSampleSeedImItem(
     currentItem ? { ...currentItem, address } : null
@@ -505,7 +506,7 @@ export function ImEditorPanels({
                     <div className="flex items-center justify-between gap-1 text-base font-extrabold">
                       <span>{opt.title}</span>
                       {active && (
-                        <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-blue-600 text-white">
+                        <span className="text-sm font-extrabold px-1.5 py-0.5 rounded bg-blue-600 text-white">
                           ✓ 선택
                         </span>
                       )}
@@ -639,7 +640,7 @@ export function ImEditorPanels({
                   onClick={() =>
                     onSetDirectAskingPriceManwon(Math.round(askingPriceManwon * 10_000))
                   }
-                  className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-extrabold cursor-pointer shrink-0"
+                  className="min-h-[44px] px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-extrabold cursor-pointer shrink-0"
                 >
                   {formatKoreanCurrencyReadout(
                     Math.round(askingPriceManwon * 10_000)
@@ -654,7 +655,7 @@ export function ImEditorPanels({
             <div className="relative flex-1 flex items-center gap-2">
               <label
                 htmlFor="im-price-won-input"
-                className="text-xs font-bold text-slate-600 shrink-0"
+                className="text-sm font-bold text-slate-600 shrink-0"
               >
                 &lsquo;원&rsquo; 직접 입력
               </label>
@@ -668,7 +669,7 @@ export function ImEditorPanels({
                 onBlur={onWonBlur}
                 onChange={(e) => onWonPriceChange(e.target.value)}
                 placeholder="예: 7,700,000,000 (원 단위 붙여넣기 가능)"
-                className="w-full min-h-[42px] px-3 text-sm font-bold tabular-nums rounded-xl border border-slate-300 bg-white focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+                className="w-full min-h-[44px] px-3 text-sm font-bold tabular-nums rounded-xl border border-slate-300 bg-white focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
               />
               <span className="text-sm font-bold text-slate-700 shrink-0">원</span>
             </div>
@@ -677,7 +678,7 @@ export function ImEditorPanels({
               data-testid="im-price-calculator-toggle"
               aria-expanded={isPriceCalcOpen}
               onClick={onTogglePriceCalc}
-              className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-sm font-bold cursor-pointer shrink-0 whitespace-nowrap transition-colors"
+              className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-sm font-bold cursor-pointer shrink-0 whitespace-nowrap transition-colors"
             >
               {isPriceCalcOpen ? "간편 금액 버튼 접기 ▴" : "간편 금액 버튼 ▾"}
             </button>
@@ -705,7 +706,7 @@ export function ImEditorPanels({
                       (askingPriceManwon || 0) + btn.addManwon
                     )
                   }
-                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold cursor-pointer"
+                  className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold cursor-pointer"
                 >
                   {btn.label}
                 </button>
@@ -713,7 +714,7 @@ export function ImEditorPanels({
               <button
                 type="button"
                 onClick={() => onSetDirectAskingPriceManwon(0)}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 text-sm font-bold cursor-pointer"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 text-sm font-bold cursor-pointer"
               >
                 0원 초기화
               </button>
@@ -754,7 +755,7 @@ export function ImEditorPanels({
                 data-testid="im-address-lookup-btn"
                 disabled={isLookingUpAddress}
                 onClick={onLookupAddress}
-                className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold transition cursor-pointer"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold transition cursor-pointer"
               >
                 {isLookingUpAddress ? "불러오는 중…" : "주소로 건물 정보 자동 채우기"}
               </button>
@@ -1079,7 +1080,7 @@ export function ImEditorPanels({
                     data-testid="im-rentroll-import-toggle"
                     aria-expanded={isRentRollImportOpen}
                     onClick={onToggleRentRollImport}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+                    className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
                   >
                     <span>
                       {isRentRollImportOpen
@@ -1101,7 +1102,7 @@ export function ImEditorPanels({
                 <button
                   type="button"
                   onClick={() => onChangeExpectedRentRoll([])}
-                  className="min-h-[38px] px-3 py-1 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 cursor-pointer shrink-0"
+                  className="min-h-[44px] px-3 py-1 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 cursor-pointer shrink-0"
                 >
                   초기화
                 </button>
@@ -1135,7 +1136,7 @@ export function ImEditorPanels({
               <span className="text-sm sm:text-base font-extrabold text-[#0F172A]">
                 인근 실거래 비교 (선택)
               </span>
-              <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700">
+              <span className="text-sm font-extrabold px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700">
                 {compRows.length > 0
                   ? `${compRows.length}건 선택됨 · IM 반영`
                   : "0건 · 미선택 시 IM에서 자동 숨김"}
@@ -1149,7 +1150,7 @@ export function ImEditorPanels({
           {isCompsSectionOpen && (
             <div className="p-4 border-t border-slate-200 bg-white space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs sm:text-sm text-slate-600 font-medium break-keep">
+                <p className="text-sm text-slate-600 font-medium break-keep">
                   인근 유사 매각 사례를 선택하거나 직접 입력하면 IM 미리보기와 발표자료에 비교 면이 자동 추가됩니다.
                 </p>
                 <div className="flex items-center gap-2">
@@ -1185,7 +1186,7 @@ export function ImEditorPanels({
                         setIsLoadingNearbyComps(false);
                       }
                     }}
-                    className="min-h-[38px] px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-300 text-blue-900 text-xs sm:text-sm font-extrabold cursor-pointer"
+                    className="min-h-[44px] px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-300 text-blue-900 text-sm font-extrabold cursor-pointer"
                   >
                     {isLoadingNearbyComps ? "조회 중…" : "🔍 공공 실거래 사례 불러오기"}
                   </button>
@@ -1206,7 +1207,7 @@ export function ImEditorPanels({
                         },
                       ]);
                     }}
-                    className="min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 text-xs sm:text-sm font-extrabold cursor-pointer"
+                    className="min-h-[44px] px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-900 text-sm font-extrabold cursor-pointer"
                   >
                     + 직접 추가
                   </button>
@@ -1214,14 +1215,14 @@ export function ImEditorPanels({
               </div>
 
               {nearbyCompNotice && (
-                <div className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <div className="text-sm font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   {nearbyCompNotice}
                 </div>
               )}
 
               {nearbyCompCandidates.length > 0 && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-2.5 space-y-1.5 max-h-56 overflow-y-auto">
-                  <div className="text-xs font-extrabold text-blue-950 px-1">
+                  <div className="text-sm font-extrabold text-blue-950 px-1">
                     국토교통부 상업·업무용 실거래 (체크하여 비교 목록에 반영)
                   </div>
                   {nearbyCompCandidates.map((cand, cIdx) => {
@@ -1235,7 +1236,7 @@ export function ImEditorPanels({
                       <label
                         key={cand.id}
                         data-testid={`im-nearby-comp-checkbox-${cIdx}`}
-                        className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-white border border-slate-200 hover:border-blue-400 cursor-pointer text-xs sm:text-sm"
+                        className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-white border border-slate-200 hover:border-blue-400 cursor-pointer text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <input
@@ -1298,7 +1299,7 @@ export function ImEditorPanels({
                   {compRows.map((row, idx) => (
                     <div
                       key={idx}
-                      className="grid grid-cols-12 gap-1.5 items-center rounded-xl border border-slate-200 bg-slate-50/70 p-2 text-xs"
+                      className="grid grid-cols-12 gap-1.5 items-center rounded-xl border border-slate-200 bg-slate-50/70 p-2 text-sm"
                     >
                       <input
                         type="text"
@@ -1310,7 +1311,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-4 h-8 px-2 rounded-lg border border-slate-300 bg-white font-semibold"
+                        className="col-span-4 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white font-semibold"
                       />
                       <input
                         type="text"
@@ -1322,7 +1323,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-2 h-8 px-2 rounded-lg border border-slate-300 bg-white text-right font-bold"
+                        className="col-span-2 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white text-right font-bold"
                       />
                       <input
                         type="text"
@@ -1336,7 +1337,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-2 h-8 px-2 rounded-lg border border-slate-300 bg-white text-right font-semibold"
+                        className="col-span-2 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white text-right font-semibold"
                       />
                       <input
                         type="text"
@@ -1348,7 +1349,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-3 h-8 px-2 rounded-lg border border-slate-300 bg-white"
+                        className="col-span-3 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white"
                       />
                       <button
                         type="button"
@@ -1356,7 +1357,7 @@ export function ImEditorPanels({
                           onChangeCompRows?.(compRows.filter((_, i) => i !== idx))
                         }
                         aria-label="비교 사례 삭제"
-                        className="col-span-1 h-8 rounded-lg text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
+                        className="col-span-1 min-h-[44px] rounded-lg text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
                       >
                         ✕
                       </button>
@@ -1397,7 +1398,7 @@ export function ImEditorPanels({
             <h2 className="text-xl font-extrabold text-[#0F172A]">
               핵심 장점 3가지 · 담당 중개사 안내
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-sm text-slate-500 mt-0.5">
               명사형 종결 개조식으로 자동 작성되며, 요약 슬라이드에는 <strong>소제목 + 상세 설명</strong>이 함께 표시됩니다.
             </p>
           </div>
@@ -1443,19 +1444,19 @@ export function ImEditorPanels({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-200/80 text-slate-700">
+                    <span className="text-sm font-bold px-2 py-0.5 rounded bg-slate-200/80 text-slate-700">
                       포인트 0{idx + 1} 가이드 · 슬라이드 미표시
                     </span>
                     <span
                       style={{ backgroundColor: style.badgeBg, color: style.badgeText }}
-                      className="text-xs font-extrabold px-2 py-0.5 rounded"
+                      className="text-sm font-extrabold px-2 py-0.5 rounded"
                     >
                       {style.label}
                     </span>
                   </div>
                   <span
                     data-testid={`im-axios-point-char-count-${idx}`}
-                    className="text-xs font-semibold text-slate-600 tabular-nums"
+                    className="text-sm font-semibold text-slate-600 tabular-nums"
                   >
                     {(item.brief || "").length}/300자
                   </span>
@@ -1465,7 +1466,7 @@ export function ImEditorPanels({
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor={`im-axios-point-title-${idx}`}
-                      className="text-xs font-extrabold text-slate-700"
+                      className="text-sm font-extrabold text-slate-700"
                     >
                       요약 소제목 (슬라이드 굵게 표시됨)
                     </label>
@@ -1473,7 +1474,7 @@ export function ImEditorPanels({
                       <button
                         type="button"
                         onClick={handleSyncHeadlineFromBrief}
-                        className="text-xs font-bold text-[#1D4ED8] hover:underline cursor-pointer"
+                        className="min-h-[44px] inline-flex items-center px-2 text-sm font-bold text-[#1D4ED8] hover:underline cursor-pointer"
                       >
                         ↻ 본문 요약으로 소제목 맞춤
                       </button>
@@ -1499,7 +1500,7 @@ export function ImEditorPanels({
                 <div className="space-y-1">
                   <label
                     htmlFor={`im-axios-point-brief-${idx}`}
-                    className="text-xs font-extrabold text-slate-700 block"
+                    className="text-sm font-extrabold text-slate-700 block"
                   >
                     상세 설명 (개조식 표시됨 · 예: ~확보, ~기대)
                   </label>
@@ -1821,13 +1822,13 @@ export function ImEditorPanels({
                 <span className="text-sm font-extrabold text-[#0F172A]">
                   외부·전경 사진 (1번 = 대표 외관)
                 </span>
-                <span className="text-xs font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded">
+                <span className="text-sm font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded">
                   드래그 · Ctrl+V
                 </span>
               </div>
               <div
                 onClick={() => exteriorFileInputRef.current?.click()}
-                className="rounded-lg bg-[#F8FAFC] border border-dashed border-blue-200 px-3 py-3 text-center text-xs text-slate-600 cursor-pointer hover:bg-blue-50/50"
+                className="rounded-lg bg-[#F8FAFC] border border-dashed border-blue-200 px-3 py-3 text-center text-sm text-slate-600 cursor-pointer hover:bg-blue-50/50"
               >
                 {dragZoneOver === "exterior"
                   ? "여기에 놓으면 외부 사진으로 즉시 추가됩니다"
@@ -1851,7 +1852,7 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-exterior-btn"
                 onClick={() => exteriorFileInputRef.current?.click()}
-                className="w-full min-h-[42px] px-3 py-1.5 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
+                className="w-full min-h-[44px] px-3 py-1.5 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
               >
                 + 외부·전경 사진 파일 선택
               </button>
@@ -1892,13 +1893,13 @@ export function ImEditorPanels({
                 <span className="text-sm font-extrabold text-[#0F172A]">
                   내부·층별 사진
                 </span>
-                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                <span className="text-sm font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
                   각 2장+ 슬라이드 분리
                 </span>
               </div>
               <div
                 onClick={() => interiorFileInputRef.current?.click()}
-                className="rounded-lg bg-[#F8FAFC] border border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-600 cursor-pointer hover:bg-slate-100/70"
+                className="rounded-lg bg-[#F8FAFC] border border-dashed border-slate-200 px-3 py-3 text-center text-sm text-slate-600 cursor-pointer hover:bg-slate-100/70"
               >
                 {dragZoneOver === "interior"
                   ? "여기에 놓으면 내부 사진으로 즉시 추가됩니다"
@@ -1922,7 +1923,7 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-interior-btn"
                 onClick={() => interiorFileInputRef.current?.click()}
-                className="w-full min-h-[42px] px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
+                className="w-full min-h-[44px] px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
               >
                 + 내부·층별 사진 파일 선택
               </button>
@@ -1967,9 +1968,11 @@ export function ImEditorPanels({
                       "지층 매장 내부",
                       "공용부·화장실",
                     ];
+                const cardKey = entry.id || `${name}-${idx}`;
+                const isCardExpanded = expandedPhotoKey === cardKey;
                 return (
                   <div
-                    key={entry.id || `${name}-${idx}`}
+                    key={cardKey}
                     data-testid={`im-photo-card-${idx}`}
                     draggable={Boolean(onReorderPhoto)}
                     onDragStart={() => setDragPhotoIdx(idx)}
@@ -1985,14 +1988,14 @@ export function ImEditorPanels({
                       setDragPhotoIdx(null);
                     }}
                     onDragEnd={() => setDragPhotoIdx(null)}
-                    className={`p-3 rounded-xl bg-white border space-y-2 transition ${
+                    className={`p-3 rounded-xl bg-white border space-y-2.5 transition ${
                       dragPhotoIdx === idx
                         ? "border-blue-500 ring-2 ring-blue-200 opacity-75"
                         : "border-[#CBD5E1]"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         {thumbSrc ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -2017,10 +2020,10 @@ export function ImEditorPanels({
                             사진
                           </div>
                         )}
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-1.5">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <span
-                              className={`text-xs font-extrabold px-1.5 py-0.5 rounded ${
+                              className={`text-sm font-extrabold px-2 py-0.5 rounded whitespace-nowrap shrink-0 ${
                                 isExt
                                   ? "bg-blue-50 text-[#1D4ED8]"
                                   : "bg-slate-100 text-slate-700"
@@ -2028,11 +2031,32 @@ export function ImEditorPanels({
                             >
                               {isExt ? "외부·전경" : "내부·층별"}
                             </span>
-                            <span className="text-xs font-medium text-slate-500 truncate">
-                              {name}
+                            <span className="text-sm font-bold text-[#0F172A] truncate">
+                              {entry.caption?.trim() || defaultCap}
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1">
+                          <div className="text-sm font-medium text-slate-500 truncate">
+                            {name}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        data-testid={`im-photo-edit-toggle-${idx}`}
+                        aria-expanded={isCardExpanded}
+                        onClick={() =>
+                          setExpandedPhotoKey((prev) => (prev === cardKey ? null : cardKey))
+                        }
+                        className="min-h-[44px] px-3 rounded-lg border border-slate-300 bg-white text-sm font-bold text-[#0F172A] hover:bg-slate-100 cursor-pointer shrink-0 whitespace-nowrap"
+                      >
+                        {isCardExpanded ? "접기" : "편집"}
+                      </button>
+                    </div>
+
+                    {isCardExpanded && (
+                      <div className="pt-2 border-t border-slate-200 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {onUpdatePhotoMeta && (
                               <button
                                 type="button"
@@ -2041,7 +2065,7 @@ export function ImEditorPanels({
                                     category: isExt ? "interior" : "exterior",
                                   })
                                 }
-                                className="min-h-[32px] inline-flex items-center px-2 rounded-md text-xs font-bold text-[#1D4ED8] hover:bg-blue-50 cursor-pointer"
+                                className="min-h-[44px] inline-flex items-center px-2.5 rounded-md text-sm font-bold text-[#1D4ED8] hover:bg-blue-50 cursor-pointer"
                               >
                                 {isExt ? "내부로 변경" : "외부로 변경"}
                               </button>
@@ -2053,7 +2077,7 @@ export function ImEditorPanels({
                                   disabled={idx === 0}
                                   onClick={() => onReorderPhoto(idx, idx - 1)}
                                   title="앞으로 이동"
-                                  className="min-h-[32px] px-1.5 rounded-md text-xs font-bold border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 cursor-pointer"
+                                  className="min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-bold border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 cursor-pointer"
                                 >
                                   ←
                                 </button>
@@ -2062,54 +2086,55 @@ export function ImEditorPanels({
                                   disabled={idx >= arr.length - 1}
                                   onClick={() => onReorderPhoto(idx, idx + 1)}
                                   title="뒤로 이동"
-                                  className="min-h-[32px] px-1.5 rounded-md text-xs font-bold border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 cursor-pointer"
+                                  className="min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-bold border border-slate-200 text-slate-700 disabled:opacity-30 hover:bg-slate-100 cursor-pointer"
                                 >
                                   →
                                 </button>
                               </>
                             )}
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => onRemovePhotoAtIndex(entry, idx)}
+                            className="min-h-[44px] px-3 text-sm text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
+                            aria-label={`${name} 삭제`}
+                          >
+                            삭제
+                          </button>
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onRemovePhotoAtIndex(entry, idx)}
-                        className="min-h-[38px] px-2.5 text-xs text-[#991B1B] font-extrabold hover:bg-red-50 rounded-lg cursor-pointer shrink-0"
-                        aria-label={`${name} 삭제`}
-                      >
-                        삭제
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      aria-label={`${name} 캡션`}
-                      data-testid={`im-photo-caption-input-${idx}`}
-                      value={entry.caption ?? ""}
-                      placeholder={defaultCap}
-                      onChange={(e) =>
-                        onUpdatePhotoMeta?.(idx, { caption: e.target.value })
-                      }
-                      className="w-full min-h-[36px] px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50/70 text-sm font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
-                    />
-                    {onUpdatePhotoMeta && (
-                      <div className="flex flex-wrap gap-1 pt-0.5">
-                        {captionChips.map((chipText) => {
-                          const isSelected = entry.caption === chipText;
-                          return (
-                            <button
-                              key={chipText}
-                              type="button"
-                              onClick={() => onUpdatePhotoMeta(idx, { caption: chipText })}
-                              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition cursor-pointer ${
-                                isSelected
-                                  ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
-                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"
-                              }`}
+                        <input
+                          type="text"
+                          aria-label={`${name} 캡션`}
+                          data-testid={`im-photo-caption-input-${idx}`}
+                          value={entry.caption ?? ""}
+                          placeholder={defaultCap}
+                          onChange={(e) =>
+                            onUpdatePhotoMeta?.(idx, { caption: e.target.value })
+                          }
+                          className="w-full min-h-[44px] px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50/70 text-sm font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
+                        />
+                        {onUpdatePhotoMeta && (
+                          <div className="pt-0.5">
+                            <select
+                              aria-label={`${name} 빠른 캡션 선택`}
+                              data-testid={`im-photo-caption-select-${idx}`}
+                              value={captionChips.includes(entry.caption || "") ? entry.caption : ""}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  onUpdatePhotoMeta(idx, { caption: e.target.value });
+                                }
+                              }}
+                              className="w-full min-h-[44px] px-3 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
                             >
-                              {chipText}
-                            </button>
-                          );
-                        })}
+                              <option value="">빠른 캡션 선택...</option>
+                              {captionChips.map((chipText) => (
+                                <option key={chipText} value={chipText}>
+                                  {chipText}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

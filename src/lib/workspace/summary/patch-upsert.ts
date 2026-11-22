@@ -296,7 +296,7 @@ export async function handlePatchWorkspaceUpsert(
   // WP-7.6 P1-3: skip mutating legacy document_objects/building_signal_cards/building_ssot_lite
   // on background draft autosaves of an already-published DealCard so live /dc/[id] and OG
   // routes keep serving the published version until explicit publish/resync.
-  if (isUuid(buildingId) && !preservePublishedState) {
+  if (isUuid(buildingId) && !preservePublishedState && ctx.buildingExistsInSsot !== false) {
     const result = await updateDealCard4(supabase, buildingId, {
       card4: {
         headline: card4.headline,
@@ -390,10 +390,12 @@ export async function handlePatchWorkspaceUpsert(
       brokerProfile: brokerProfileMeta || existingDraftPayload.brokerProfile || null,
       ...(preservePublishedState ? { hasUnpublishedEdits: true } : {}),
     };
+    const verifiedSsotBuildingId =
+      isUuid(buildingId) && ctx.buildingExistsInSsot !== false ? buildingId : null;
     const wsRes = await upsertWorkspaceItem(supabase, {
-      id: isUuid(buildingId) ? buildingId : undefined,
-      legacyId: isUuid(buildingId) ? null : buildingId,
-      buildingId: isUuid(buildingId) ? buildingId : null,
+      id: existingWs?.id || (verifiedSsotBuildingId ? buildingId : undefined),
+      legacyId: verifiedSsotBuildingId ? null : existingWs?.legacyId || buildingId,
+      buildingId: verifiedSsotBuildingId,
       ownerId: userId,
       isAdmin,
       kind: "dealcard",

@@ -65,6 +65,11 @@ import {
   ROUND2_CORE_MISSIONS_6,
   V6_PHYSICAL_DEVICE_MISSIONS_5,
 } from "@/lib/qa/round2-verification-data";
+import {
+  FULL_LOOP_ALL_STEPS,
+  FULL_LOOP_CASES,
+  QA_FULL_LOOP_WORKBENCH_ID,
+} from "@/lib/testguide/full-loop-2cases-data";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
@@ -519,6 +524,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
             severity: "S0",
           })),
         ]
+      : workbenchId === QA_FULL_LOOP_WORKBENCH_ID
+      ? FULL_LOOP_ALL_STEPS.map((s) => ({
+          key: s.id,
+          severity: s.severityOnFail,
+        }))
       : workbenchId.startsWith("dealcard-im")
       ? CLICK_THROUGH_STEPS.map((s) => ({
           key: s.id,
@@ -1203,10 +1213,17 @@ export async function POST(req: NextRequest) {
       const rawImShareUrl = String(
         body.imShareUrl ?? body.imTokenUrl ?? ""
       ).trim();
+      const rawSecondaryImShareUrl = String(
+        body.secondaryImShareUrl ?? body.imTokenUrl2 ?? ""
+      ).trim();
       const rawDealCardUrl = String(
         body.dealCardUrl ?? body.dcUrl ?? ""
       ).trim();
       const rawClientContact = String(body.testClientContact ?? "").trim();
+      const expectedLoopId =
+        body.expectedLoopId === "loop1" || body.expectedLoopId === "loop2"
+          ? (body.expectedLoopId as "loop1" | "loop2")
+          : null;
 
       const supabase = tryCreateServiceClient();
       const callerBrokerKeys: string[] = [];
@@ -1972,13 +1989,283 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // ── 2E. Optional Secondary Share Link Check (Buyer #2 Orthogonal Revoke Comparison) ──
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let secondaryShareLinkCheck: Record<string, any> | null = null;
+      if (rawSecondaryImShareUrl) {
+        const parsedSec = parseSafeSameOriginUrl(rawSecondaryImShareUrl);
+        if (!parsedSec.ok) {
+          secondaryShareLinkCheck = {
+            validUrl: false,
+            buildingId: "",
+            hasToken: false,
+            isLocked: true,
+            statusLabel: "URL 형식 오류",
+            error: parsedSec.error,
+          };
+        } else {
+          const secMatch = parsedSec.url.pathname.match(/^\/im-lite\/([^/?#]+)/);
+          if (!secMatch) {
+            secondaryShareLinkCheck = {
+              validUrl: false,
+              buildingId: "",
+              hasToken: false,
+              isLocked: true,
+              statusLabel: "URL 경로 오류 (/im-lite/<buildingId> 필요)",
+            };
+          } else {
+            const secBldId = decodeURIComponent(secMatch[1]);
+            const secToken = parsedSec.url.searchParams.get("token")?.trim() || null;
+            let secTokenBlocked = false;
+            let secTokenReason: string | null = null;
+            if (secToken) {
+              const tCheck = await verifyShareLinkToken({
+                token: secToken,
+                buildingId: secBldId,
+              });
+              if (!tCheck.valid) {
+                secTokenBlocked = true;
+                secTokenReason = tCheck.reason || "invalid";
+              }
+            }
+            const secBldRevoked = await isBuildingShareLinkRevoked(secBldId);
+            const secLocked = secTokenBlocked || secBldRevoked;
+            secondaryShareLinkCheck = {
+              validUrl: true,
+              buildingId: secBldId,
+              hasToken: Boolean(secToken),
+              tokenReason: secTokenReason,
+              buildingRevoked: secBldRevoked,
+              isLocked: secLocked,
+              statusLabel: secLocked
+                ? "매수자 2 링크 잠김 (403 차단 활성)"
+                : "매수자 2 링크 열람 허용 (활성 유지)",
+            };
+          }
+        }
+      }
+
+      // ── 2F. Optional Ground-Truth Area & Blind Oracle Check for Full-Loop 2 Cases ──
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let groundTruthOracleCheck: Record<string, any> | null = null;
+      if (expectedLoopId) {
+        const loopDef = FULL_LOOP_CASES.find((c) => c.id === expectedLoopId);
+        const candidateBldId =
+          (shareLinkCheck?.validUrl && shareLinkCheck?.buildingId
+            ? String(shareLinkCheck.buildingId)
+            : "") ||
+          (dealCardCheck?.validUrl && dealCardCheck?.dealId
+            ? String(dealCardCheck.dealId)
+            : "");
+        if (loopDef && candidateBldId) {
+          let actualLandSqm: number | null = null;
+          let actualGfaSqm: number | null = null;
+          let hiddenSectionCount = 0;
+
+          if (supabase && isUuid(candidateBldId)) {
+            try {
+              const [ssotRes, docRes] = await Promise.all([
+                supabase
+                  .from("building_ssot_lite")
+                  .select("id, layers")
+                  .eq("id", candidateBldId)
+                  .maybeSingle(),
+                supabase
+                  .from("document_objects")
+                  .select("body")
+                  .eq("building_id", candidateBldId)
+                  .order("created_at", { ascending: false })
+                  .limit(1),
+              ]);
+              const ssotRow = ssotRes?.data as Record<string, unknown> | null;
+              const ssotLayers =
+                ssotRow?.layers && typeof ssotRow.layers === "object"
+                  ? (ssotRow.layers as Record<string, unknown>)
+                  : null;
+              const ssotPublicLayer =
+                ssotLayers?.public_data && typeof ssotLayers.public_data === "object"
+                  ? (ssotLayers.public_data as Record<string, unknown>)
+                  : null;
+              const ssotRegLayer =
+                ssotLayers?.building_register && typeof ssotLayers.building_register === "object"
+                  ? (ssotLayers.building_register as Record<string, unknown>)
+                  : null;
+              const ssotSpecsLayer =
+                ssotLayers?.specs && typeof ssotLayers.specs === "object"
+                  ? (ssotLayers.specs as Record<string, unknown>)
+                  : null;
+
+              const docBody = (
+                Array.isArray(docRes?.data) && docRes.data[0]?.body
+                  ? docRes.data[0].body
+                  : {}
+              ) as Record<string, unknown>;
+              const docSsot =
+                docBody.ssot && typeof docBody.ssot === "object"
+                  ? (docBody.ssot as Record<string, unknown>)
+                  : null;
+              const docSsotSummary =
+                docBody.ssot_summary && typeof docBody.ssot_summary === "object"
+                  ? (docBody.ssot_summary as Record<string, unknown>)
+                  : null;
+              const basicDoc =
+                docBody.basicImDocument && typeof docBody.basicImDocument === "object"
+                  ? (docBody.basicImDocument as Record<string, unknown>)
+                  : null;
+              const basicFacts =
+                basicDoc?.facts && typeof basicDoc.facts === "object"
+                  ? (basicDoc.facts as Record<string, unknown>)
+                  : null;
+              const basicLand =
+                basicFacts?.land && typeof basicFacts.land === "object"
+                  ? (basicFacts.land as Record<string, unknown>)
+                  : null;
+              const basicBuilding =
+                basicFacts?.building && typeof basicFacts.building === "object"
+                  ? (basicFacts.building as Record<string, unknown>)
+                  : null;
+
+              const hiddenSet = new Set<string>();
+              for (const list of [
+                docBody.hidden_sections,
+                docBody.hiddenSections,
+                basicDoc?.hiddenSections,
+                basicDoc?.hidden_sections,
+              ]) {
+                if (Array.isArray(list)) {
+                  for (const item of list) {
+                    if (typeof item === "string" && item.trim()) {
+                      hiddenSet.add(item.trim());
+                    }
+                  }
+                }
+              }
+              hiddenSectionCount = hiddenSet.size;
+
+              const pickPositiveSqm = (...cands: unknown[]): number | null => {
+                for (const c of cands) {
+                  const n = Number(String(c ?? "").replace(/,/g, ""));
+                  if (Number.isFinite(n) && n > 0) return n;
+                }
+                return null;
+              };
+
+              const ssotPhysical = (ssotLayers?.physical as Record<string, unknown> | undefined) || undefined;
+              const docHeroCard = (docBody?.heroCard as Record<string, unknown> | undefined) || undefined;
+
+              actualLandSqm = pickPositiveSqm(
+                basicLand?.landAreaSqm,
+                basicFacts?.landAreaSqm,
+                docSsot?.land_area_sqm,
+                docSsot?.land_area_m2,
+                docSsotSummary?.landAreaSqm,
+                docSsotSummary?.land_area_sqm,
+                docBody.landAreaSqm,
+                docBody.land_area_sqm,
+                ssotPhysical?.land_area_sqm,
+                ssotPublicLayer?.landAreaSqm,
+                ssotPublicLayer?.land_area_sqm,
+                ssotRegLayer?.platArea,
+                ssotRegLayer?.landAreaSqm,
+                ssotSpecsLayer?.landAreaSqm,
+                ssotLayers?.land_area_sqm
+              );
+              actualGfaSqm = pickPositiveSqm(
+                basicBuilding?.totalGrossAreaSqm,
+                basicBuilding?.grossFloorAreaSqm,
+                basicFacts?.grossFloorAreaSqm,
+                docSsot?.total_gross_area_sqm,
+                docSsot?.gross_floor_area_sqm,
+                docSsotSummary?.total_gross_area_sqm,
+                docSsotSummary?.total_gross_area_m2,
+                docSsotSummary?.grossFloorAreaSqm,
+                docHeroCard?.totalGrossAreaSqm,
+                docHeroCard?.totalArea,
+                ssotPhysical?.total_floor_area_sqm,
+                docBody.gfaSqm,
+                docBody.gross_floor_area_sqm,
+                docBody.total_gross_area_sqm,
+                ssotPublicLayer?.grossFloorAreaSqm,
+                ssotPublicLayer?.totalAreaSqm,
+                ssotRegLayer?.totArea,
+                ssotRegLayer?.grossFloorAreaSqm,
+                ssotSpecsLayer?.gfaSqm,
+                ssotLayers?.total_gross_area_sqm
+              );
+            } catch {
+              // non-blocking
+            }
+          }
+
+          if (actualLandSqm === null || actualGfaSqm === null) {
+            const qRec = getQuickImRecord(candidateBldId) as unknown as Record<string, unknown> | null;
+            if (qRec) {
+              const qSpecs = (qRec.specs as Record<string, unknown> | undefined) || undefined;
+              const qBasic = (qRec.basicImDoc as Record<string, unknown> | undefined) || undefined;
+              const qFacts = (qBasic?.facts as Record<string, unknown> | undefined) || undefined;
+              const qBld = (qFacts?.building as Record<string, unknown> | undefined) || undefined;
+              if (actualLandSqm === null) {
+                const lVal = Number(qRec.landAreaSqm ?? qRec.land_area_sqm ?? qSpecs?.landAreaSqm ?? 0);
+                if (Number.isFinite(lVal) && lVal > 0) actualLandSqm = lVal;
+              }
+              if (actualGfaSqm === null) {
+                const gVal = Number(
+                  qRec.gfaSqm ??
+                    qRec.gross_floor_area_sqm ??
+                    qSpecs?.gfaSqm ??
+                    qBld?.totalGrossAreaSqm ??
+                    0
+                );
+                if (Number.isFinite(gVal) && gVal > 0) actualGfaSqm = gVal;
+              }
+            }
+          }
+
+          const gt = loopDef.groundTruth;
+          const singleParcelTrapTriggered = Boolean(
+            gt.singleParcelTrapSqm &&
+              actualLandSqm !== null &&
+              Math.abs(actualLandSqm - gt.singleParcelTrapSqm) <= 2.0
+          );
+          const landMatch =
+            actualLandSqm !== null &&
+            Math.abs(actualLandSqm - gt.expectedLandAreaSqm) <= gt.areaToleranceSqm;
+          const gfaMatch =
+            actualGfaSqm !== null &&
+            Math.abs(actualGfaSqm - gt.expectedGfaSqm) <= gt.areaToleranceSqm;
+
+          groundTruthOracleCheck = {
+            loopId: expectedLoopId,
+            buildingId: candidateBldId,
+            expectedLandAreaSqm: gt.expectedLandAreaSqm,
+            actualLandAreaSqm: actualLandSqm,
+            landMatch,
+            singleParcelTrapTriggered,
+            expectedGfaSqm: gt.expectedGfaSqm,
+            actualGfaSqm: actualGfaSqm,
+            gfaMatch,
+            hiddenSectionCount,
+            areaEvaluated: actualLandSqm !== null || actualGfaSqm !== null,
+            statusLabel: singleParcelTrapTriggered
+              ? `다필지 오판 경고 (단일 대표필지 ${actualLandSqm}㎡로 저장됨 · 기대값 ${gt.expectedLandAreaSqm}㎡)`
+              : actualLandSqm === null && actualGfaSqm === null
+              ? "저장된 면적 레코드 대기 중 (IM 저장 후 재실행)"
+              : landMatch && gfaMatch
+              ? `정답 오라클 일치 (대지 ${actualLandSqm}㎡ / 연면적 ${actualGfaSqm}㎡)`
+              : `면적 편차 점검 필요 (실측 대지 ${actualLandSqm ?? "-"}㎡ / 연면적 ${actualGfaSqm ?? "-"}㎡)`,
+          };
+        }
+      }
+
       return NextResponse.json({
         ok: true,
         checkedAt: new Date().toISOString(),
         newsletterCheck,
         shareLinkCheck,
+        secondaryShareLinkCheck,
         subscriberCheck,
         dealCardCheck,
+        groundTruthOracleCheck,
       });
     }
 

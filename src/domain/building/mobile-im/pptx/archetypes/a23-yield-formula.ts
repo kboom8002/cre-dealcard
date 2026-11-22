@@ -174,7 +174,12 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ── 금액 포맷터 ──
   const fmtManwon = (v: number) => {
     if (!isFinite(v) || isNaN(v)) return '0원';
-    if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억원`;
+    if (v >= 100_000_000) {
+      return `${Number((v / 100_000_000).toFixed(1)).toLocaleString('ko-KR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })}억원`;
+    }
     return `${Math.round(v / 10000).toLocaleString()}만원`;
   };
 
@@ -324,7 +329,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     if (planSummary) {
       const addedRentMan = Math.round(planSummary.addedMonthlyRentKrw / 10_000);
       const newAnnualMan = Math.round(planSummary.newAnnualRentKrw / 10_000);
-      const newDepBil = (planSummary.newDepositKrw / 1e8).toFixed(1);
+      const newDepBil = Number((planSummary.newDepositKrw / 1e8).toFixed(1)).toLocaleString(
+        'ko-KR',
+        { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+      );
       const formulaLine = planSummary.units.length > 0
         ? `산식: (현행 연임대료 + 전환 월세 ${addedRentMan.toLocaleString()}만×12) ÷ (매매가 − 전환후 보증금 ${newDepBil}억)`
         : `산식: 기대 연임대료 ${newAnnualMan.toLocaleString()}만 ÷ (매매가 − 기대 보증금 ${newDepBil}억)`;
@@ -475,9 +483,11 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       rectRadius: 0.08,
     });
 
+    const landHistoryPoints = hasLandHistory ? landPriceHistory.history.slice(-5) : [];
+    const landHistoryYearCount = landHistoryPoints.length || 5;
     const headerTitle = hasRoneSeries
       ? `${roneSeries!.regionName} 지가동향 및 토지 평당 매매가`
-      : '최근 5개년 지가 추이 및 토지 평당 매매가';
+      : `최근 ${landHistoryYearCount}개년 지가 추이 및 토지 평당 매매가`;
     slide.addText(headerTitle, {
       x: innerX, y: chartY + 0.09, w: innerW - 1.55, h: 0.26,
       color: C.ink, fontFace: KR, fontSize: 11.5, bold: true, valign: 'middle', shrinkText: true, margin: 0,
@@ -561,7 +571,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         sourceText: `※ 출처: 한국부동산원 전국지가변동률조사(${roneSeries.statblId}) 기준`,
       });
     } else if (hasLandHistory) {
-      const vPoints = landPriceHistory.history.slice(-5).map((item: { year: string; pricePerSqm: number }) => ({
+      const vPoints = landHistoryPoints.map((item: { year: string; pricePerSqm: number }) => ({
         year: item.year,
         value: item.pricePerSqm,
         formattedLabel: `${Math.round(item.pricePerSqm / 10_000).toLocaleString()}만`,
@@ -612,19 +622,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       margin: 0,
     });
 
-    if (hasStabilized) {
-      slide.addText(stabLabel || YIELD_LABELS.stabilizedBrokerPlan, {
-        x: rightBoxX, y: bandY + 0.08, w: rightBoxW, h: 0.26,
-        fontFace: KR, fontSize: 10.5, bold: true, color: C.brass, valign: 'middle', shrinkText: true, margin: 0,
-      });
-      slide.addText(
-        `${fmtFixed(stabVal, 2, '%')}${stabCaption ? `  ·  ${stabCaption}` : ''}`,
-        {
-          x: rightBoxX, y: bandY + 0.36, w: rightBoxW, h: 0.48,
-          fontFace: KR, fontSize: 13.5, bold: true, color: C.brass, valign: 'middle', shrinkText: true, margin: 0,
-        },
-      );
-    } else if (roneSeries) {
+    if (roneSeries) {
       const bandLast5 = roneSeries.points.slice(-5);
       const bandLast5Stats = computeLandPriceRateStats(bandLast5);
       slide.addText(`${roneSeries.regionName} 최근 ${bandLast5.length}년 연평균 지가변동률 (한국부동산원 R-ONE)`, {
@@ -635,6 +633,18 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
         x: rightBoxX, y: bandY + 0.36, w: rightBoxW, h: 0.48,
         fontFace: KR, fontSize: 14.5, bold: true, color: C.ink, valign: 'middle', margin: 0,
       });
+    } else if (hasStabilized) {
+      slide.addText(stabLabel || YIELD_LABELS.stabilizedBrokerPlan, {
+        x: rightBoxX, y: bandY + 0.08, w: rightBoxW, h: 0.26,
+        fontFace: KR, fontSize: 10.5, bold: true, color: C.brass, valign: 'middle', shrinkText: true, margin: 0,
+      });
+      slide.addText(
+        stabCaption || '공실·자가사용 정상화 시 임대수익률 추정 (실제 임대 조건에 따라 변동)',
+        {
+          x: rightBoxX, y: bandY + 0.36, w: rightBoxW, h: 0.48,
+          fontFace: KR, fontSize: 11, bold: false, color: C.ink2, valign: 'middle', shrinkText: true, margin: 0,
+        },
+      );
     }
   }
 

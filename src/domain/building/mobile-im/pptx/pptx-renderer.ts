@@ -85,7 +85,7 @@ function formatBasicCoverPrice(krw?: number | null, manwon?: number | null): str
   if (won >= 1_0000_0000) {
     const eok = won / 1_0000_0000;
     const rounded = Number(eok.toFixed(1));
-    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded}억`;
+    return `${rounded.toLocaleString('ko-KR', { maximumFractionDigits: Number.isInteger(rounded) ? 0 : 1 })}억`;
   }
   return `${Math.round(won / 10000).toLocaleString('en-US')}만`;
 }
@@ -498,7 +498,7 @@ export class MobileImPptxRenderer {
         const ssotCover = input.doc.body?.ssot_summary ?? {};
         dataMap['cover'].address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
         const manuallyOverriddenCover = Boolean(input.doc.body?.manual_cover_title || input.doc.body?.cover_title_override);
-        if (!manuallyOverriddenCover && (!rawCoverTitle || /기타|매각|Basic IM|^$/i.test(rawCoverTitle))) {
+        if (!manuallyOverriddenCover && (!rawCoverTitle || /기타|매각|Basic IM|^$/i.test(rawCoverTitle) || !/\d+\s*(?:억|만)/.test(rawCoverTitle))) {
           const formattedTitle = formatBasicCoverTitle({
             address: dataMap['cover'].address || input.building?.address || input.doc.body?.heroCard?.address,
             buildingName: ssotCover.building_name ?? input.doc.body?.building_name ?? input.building?.building_name ?? enrichment?.buildingRegister?.bldNm,
@@ -511,7 +511,7 @@ export class MobileImPptxRenderer {
         }
         const rawCoverAsk = Number(ssotCover.asking_price_manwon);
         const safeCoverAsk = (Number.isFinite(rawCoverAsk) && rawCoverAsk > 0)
-          ? `${Number((rawCoverAsk / 10000).toFixed(2))}억 원`
+          ? `${Number((rawCoverAsk / 10000).toFixed(2)).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}억 원`
           : (ssotCover.price_band && !String(ssotCover.price_band).includes('Infinity') ? ssotCover.price_band : '');
         dataMap['cover'].askingPrice = safeCoverAsk;
         const rawDocDate = input.doc.body?.approved_at ?? input.doc.body?.generated_at ?? (input.doc as any)?.created_at;
@@ -1132,11 +1132,33 @@ export class MobileImPptxRenderer {
             }
             return v === 0 || String(v).trim() === '0' ? '0' : '-';
           };
+          const baselineRows = Array.isArray((dataMap['rentRoll'] as any)?.fullTableRowsForStacking)
+            ? ((dataMap['rentRoll'] as any).fullTableRowsForStacking as any[][])
+            : Array.isArray((dataMap['rentRoll'] as any)?.tableRows)
+              ? ((dataMap['rentRoll'] as any).tableRows as any[][])
+              : [];
+          const hasPositiveArea = (v: unknown) => {
+            const n = Number(String(v ?? '').replace(/,/g, ''));
+            return Number.isFinite(n) && n > 0;
+          };
           const expRows = sortRentRollTopDown(
-            expRaw.map((r: any) => {
+            expRaw.map((r: any, idx: number) => {
               if (Array.isArray(r)) return r;
-              const leaseSqm = r.leasableAreaSqm ?? r.areaSqm ?? r.area_sqm ?? '';
-              const exclSqm = r.exclusiveAreaSqm ?? r.exclusive_area_sqm ?? '';
+              const rowFloor = String(r.floor ?? '-').trim();
+              const rowTenant = String(r.tenantName ?? r.tenant_name ?? r.tenant ?? '').trim();
+              const matchedBase =
+                baselineRows.find(
+                  (br) =>
+                    Array.isArray(br) &&
+                    String(br[0] ?? '').trim() === rowFloor &&
+                    (!rowTenant || String(br[1] ?? '').trim() === rowTenant),
+                ) ||
+                baselineRows.find((br) => Array.isArray(br) && String(br[0] ?? '').trim() === rowFloor) ||
+                (expRaw.length === baselineRows.length ? baselineRows[idx] : undefined);
+              const rawLeaseSqm = r.leasableAreaSqm ?? r.areaSqm ?? r.area_sqm ?? r.area_m2 ?? '';
+              const rawExclSqm = r.exclusiveAreaSqm ?? r.exclusive_area_sqm ?? '';
+              const leaseSqm = hasPositiveArea(rawLeaseSqm) ? rawLeaseSqm : (matchedBase?.[3] ?? '');
+              const exclSqm = hasPositiveArea(rawExclSqm) ? rawExclSqm : (matchedBase?.[4] ?? '');
               const dep = Number(r.depositManwon ?? r.deposit_manwon ?? 0) || 0;
               const rent = Number(r.monthlyRentManwon ?? r.rent_manwon ?? r.monthlyRent ?? 0) || 0;
               const mgmt = Number(r.managementFeeManwon ?? r.mgmt_fee_manwon ?? 0) || 0;
@@ -1147,7 +1169,7 @@ export class MobileImPptxRenderer {
                 sectorStr = sectorStr.slice(tenantStr.length + 3).trim() || '-';
               }
               return [
-                String(r.floor ?? '-'),
+                rowFloor,
                 tenantStr,
                 sectorStr,
                 toNumStr(leaseSqm),
@@ -1161,11 +1183,6 @@ export class MobileImPptxRenderer {
             }),
           );
           const defaultHead = ['층', '임차인', '용도', '임대면적(㎡)', '전용면적(㎡)', '보증금(만원)', '월임대료(만원)', '관리비(만원)', '월합계(만원)', '만기일'];
-          const baselineRows = Array.isArray((dataMap['rentRoll'] as any)?.fullTableRowsForStacking)
-            ? (dataMap['rentRoll'] as any).fullTableRowsForStacking
-            : Array.isArray((dataMap['rentRoll'] as any)?.tableRows)
-              ? (dataMap['rentRoll'] as any).tableRows
-              : [];
           dataMap['expectedRentRoll'] = {
             kicker: 'Expected Rent Roll',
             title: '기대수익률 임대차 현황',
@@ -1429,7 +1446,10 @@ export class MobileImPptxRenderer {
         if (ssot.price_band) autoStats.push({ label: '매매 희망가', value: ssot.price_band });
         else if (ssot.asking_price_manwon) {
           const val = Number(ssot.asking_price_manwon);
-          const formatted = val >= 10000 ? `${(val / 10000).toFixed(val % 10000 === 0 ? 0 : 1)}억원` : `${val.toLocaleString()}만원`;
+          const formatted =
+            val >= 10000
+              ? `${Number((val / 10000).toFixed(val % 10000 === 0 ? 0 : 1)).toLocaleString('ko-KR', { maximumFractionDigits: val % 10000 === 0 ? 0 : 1 })}억원`
+              : `${val.toLocaleString()}만원`;
           autoStats.push({ label: '매매 희망가', value: formatted });
         }
         const autoYs = buildYieldSetFromBody(input.doc.body as Record<string, any>);
@@ -1461,7 +1481,10 @@ export class MobileImPptxRenderer {
           const eqMan = askMan - depMan;
           autoStats.push({
             label: '실투자금',
-            value: eqMan >= 10000 ? `${(eqMan / 10000).toFixed(1).replace(/\.0$/, '')}억원` : `${eqMan.toLocaleString()}만원`,
+            value:
+              eqMan >= 10000
+                ? `${Number((eqMan / 10000).toFixed(1)).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}억원`
+                : `${eqMan.toLocaleString()}만원`,
           });
         }
         // G-02: 사옥형 공실률 카드 압축 — 긴 vacancy_signal 대신 간결 텍스트

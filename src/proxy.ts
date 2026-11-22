@@ -45,6 +45,7 @@ export const QA_GATED_PREFIXES = [
   '/qa-tester',
   '/qa-broker',
   '/qa-showcase',
+  '/qa-full-loop',
   '/testguide',
   '/newsletter-inbox-test',
   '/dealcard-im-test',
@@ -132,9 +133,11 @@ export async function proxy(request: NextRequest) {
   // Strip any untrusted internal verification headers at the very start before any early return
   request.headers.delete('x-cre-proxy-secret');
   request.headers.delete('x-cre-verified-user');
+  request.headers.delete('x-qa-gate-verified');
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete('x-cre-proxy-secret');
   requestHeaders.delete('x-cre-verified-user');
+  requestHeaders.delete('x-qa-gate-verified');
 
   const { pathname } = request.nextUrl;
 
@@ -161,6 +164,7 @@ export async function proxy(request: NextRequest) {
           headers: { 'X-Robots-Tag': 'noindex, nofollow' },
         });
       }
+      requestHeaders.set('x-qa-gate-verified', '1');
       const res = NextResponse.next({ request: { headers: requestHeaders } });
       res.headers.set('X-Robots-Tag', 'noindex, nofollow');
       if (queryKey) {

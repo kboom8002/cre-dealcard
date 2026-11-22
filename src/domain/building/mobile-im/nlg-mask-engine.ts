@@ -89,87 +89,6 @@ function formatBadge(badge?: ProvenanceBadge): string {
   return ` [${badge}]`;
 }
 
-// ─── 마스크 렌더링 ───
-
-/**
- * 템플릿 문자열에 변수를 바인딩하여 최종 문장을 생성합니다.
- * 
- * @example
- * renderMask('income_noi_basic', [
- *   { variableName: 'noiKrw', value: 850000000, format: 'eok', provenanceBadge: 'AI 추정' },
- *   { variableName: 'capRatePct', value: 4.8, format: 'percent', provenanceBadge: '공부 확인' },
- * ]);
- * // => "연간 NOI는 8.5억 원 [AI 추정]이며, Cap Rate는 4.8% [공부 확인]입니다."
- */
-export function renderMask(templateId: string, bindings: NLGMaskBinding[], options?: {
-  grade?: DataGrade;
-  lexiconProfile?: 'b2b' | 'b2c';
-}): string | null {
-  const template = MASK_TEMPLATES.find(t => t.id === templateId);
-  if (!template) {
-    log.warn(`[nlg-mask] Template not found: ${templateId}`);
-    return null;
-  }
-
-  // 등급 게이팅
-  if (options?.grade && !isGradeEligible(template.minGrade, options.grade)) {
-    return null; // 등급 부적합 → 렌더링 차단
-  }
-
-  // 렉시콘 프로필 필터
-  if (options?.lexiconProfile && template.lexiconProfile && template.lexiconProfile !== 'both' && template.lexiconProfile !== options.lexiconProfile) {
-    return null;
-  }
-
-  // 변수 바인딩
-  const bindingMap = new Map(bindings.map(b => [b.variableName, b]));
-  
-  let result = template.template;
-  for (const reqVar of template.requiredBindings) {
-    const binding = bindingMap.get(reqVar);
-    if (!binding || binding.value === null) {
-      // 필수 변수 누락 → 렌더링 실패
-      return null;
-    }
-  }
-
-  // 모든 {variableName} 패턴 치환
-  result = result.replace(/\{(\w+)\}/g, (match, varName) => {
-    // Badge 변수 처리: {noi_Badge} → [AI 추정]
-    if (varName.endsWith('_Badge')) {
-      const baseVar = varName.replace('_Badge', '');
-      const binding = bindingMap.get(baseVar);
-      return formatBadge(binding?.provenanceBadge);
-    }
-    const binding = bindingMap.get(varName);
-    if (!binding) return match; // 바인딩 없으면 원문 유지
-    return formatValue(binding.value, binding.format);
-  });
-
-  return result;
-}
-
-/**
- * 특정 카테고리의 모든 적격 템플릿을 렌더링합니다.
- */
-export function renderCategoryMasks(
-  category: NLGMaskTemplate['category'],
-  bindings: NLGMaskBinding[],
-  options?: { grade?: DataGrade; lexiconProfile?: 'b2b' | 'b2c' }
-): string[] {
-  return MASK_TEMPLATES
-    .filter(t => t.category === category)
-    .map(t => renderMask(t.id, bindings, options))
-    .filter((r): r is string => r !== null);
-}
-
-/**
- * 사용 가능한 템플릿 ID 목록을 등급별로 반환합니다.
- */
-export function getAvailableTemplates(grade: DataGrade): NLGMaskTemplate[] {
-  return MASK_TEMPLATES.filter(t => isGradeEligible(t.minGrade, grade));
-}
-
 // ─── 템플릿 레지스트리 ───
 
 export const MASK_TEMPLATES: NLGMaskTemplate[] = [
@@ -429,3 +348,77 @@ export const MASK_TEMPLATES: NLGMaskTemplate[] = [
     lexiconProfile: 'both',
   },
 ];
+
+// ─── 마스크 렌더링 ───
+
+/**
+ * 템플릿 문자열에 변수를 바인딩하여 최종 문장을 생성합니다.
+ */
+export function renderMask(templateId: string, bindings: NLGMaskBinding[], options?: {
+  grade?: DataGrade;
+  lexiconProfile?: 'b2b' | 'b2c';
+}): string | null {
+  const template = MASK_TEMPLATES.find(t => t.id === templateId);
+  if (!template) {
+    log.warn(`[nlg-mask] Template not found: ${templateId}`);
+    return null;
+  }
+
+  // 등급 게이팅
+  if (options?.grade && !isGradeEligible(template.minGrade, options.grade)) {
+    return null; // 등급 부적합 → 렌더링 차단
+  }
+
+  // 렉시콘 프로필 필터
+  if (options?.lexiconProfile && template.lexiconProfile && template.lexiconProfile !== 'both' && template.lexiconProfile !== options.lexiconProfile) {
+    return null;
+  }
+
+  // 변수 바인딩
+  const bindingMap = new Map(bindings.map(b => [b.variableName, b]));
+
+  let result = template.template;
+  for (const reqVar of template.requiredBindings) {
+    const binding = bindingMap.get(reqVar);
+    if (!binding || binding.value === null) {
+      // 필수 변수 누락 → 렌더링 실패
+      return null;
+    }
+  }
+
+  // 모든 {variableName} 패턴 치환
+  result = result.replace(/\{(\w+)\}/g, (match, varName) => {
+    // Badge 변수 처리: {noi_Badge} → [AI 추정]
+    if (varName.endsWith('_Badge')) {
+      const baseVar = varName.replace('_Badge', '');
+      const binding = bindingMap.get(baseVar);
+      return formatBadge(binding?.provenanceBadge);
+    }
+    const binding = bindingMap.get(varName);
+    if (!binding) return match; // 바인딩 없으면 원문 유지
+    return formatValue(binding.value, binding.format);
+  });
+
+  return result;
+}
+
+/**
+ * 특정 카테고리의 모든 적격 템플릿을 렌더링합니다.
+ */
+export function renderCategoryMasks(
+  category: NLGMaskTemplate['category'],
+  bindings: NLGMaskBinding[],
+  options?: { grade?: DataGrade; lexiconProfile?: 'b2b' | 'b2c' }
+): string[] {
+  return MASK_TEMPLATES
+    .filter(t => t.category === category)
+    .map(t => renderMask(t.id, bindings, options))
+    .filter((r): r is string => r !== null);
+}
+
+/**
+ * 사용 가능한 템플릿 ID 목록을 등급별로 반환합니다.
+ */
+export function getAvailableTemplates(grade: DataGrade): NLGMaskTemplate[] {
+  return MASK_TEMPLATES.filter(t => isGradeEligible(t.minGrade, grade));
+}

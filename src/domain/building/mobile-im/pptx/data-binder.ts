@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('data-binder');
+
 import { SECTION_LABELS } from '@/domain/ontology/d56-labels';
 import {
   normalizeStationName,
@@ -548,6 +551,3 @@ export function bindSectionData(
 
 import { enforceTextBudget } from './text-budget';
 import type { IMCore, Comp } from '@/types/im-core';
-
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('data-binder');

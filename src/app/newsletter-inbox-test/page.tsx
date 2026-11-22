@@ -137,7 +137,7 @@ export default function NewsletterInboxTestPage() {
   const [showSetupGuide, setShowSetupGuide] = useState<boolean>(true);
   const [showLinkVault, setShowLinkVault] = useState<boolean>(false);
 
-  const [sessionId, setSessionId] = useState<string>(() => createQaSessionId());
+  const [sessionId, setSessionId] = useState<string>("");
   const [records, setRecords] = useState<Record<string, StepRecord>>({});
   const [testerName, setTesterName] = useState<string>("상용화 총괄 검수자");
   const [testerOrg, setTesterOrg] = useState<string>("");
@@ -195,6 +195,8 @@ export default function NewsletterInboxTestPage() {
           setSessionId(querySessionId);
         } else if (typeof parsed.sessionId === "string" && parsed.sessionId.length >= 6) {
           setSessionId(parsed.sessionId);
+        } else {
+          setSessionId(createQaSessionId());
         }
         if (parsed.records && typeof parsed.records === "object") {
           setRecords(parsed.records);
@@ -222,9 +224,11 @@ export default function NewsletterInboxTestPage() {
         }
       } else if (querySessionId && querySessionId.length >= 6) {
         setSessionId(querySessionId);
+      } else {
+        setSessionId(createQaSessionId());
       }
     } catch {
-      // Ignore storage read errors
+      setSessionId((prev) => prev || createQaSessionId());
     } finally {
       setHydrated(true);
     }
@@ -2268,7 +2272,7 @@ export default function NewsletterInboxTestPage() {
                       }
                       className="px-2.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-bold cursor-pointer"
                     >
-                      세션: {sessionId} 📋
+                      세션: {sessionId || "생성 중..."} 📋
                     </button>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900">

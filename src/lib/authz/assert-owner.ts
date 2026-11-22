@@ -100,7 +100,14 @@ async function lookupRow(
 ): Promise<{ row: Record<string, unknown> | null; error: string | null }> {
   try {
     const { data, error } = await svc.from(table).select(select).eq('id', id).maybeSingle();
-    if (error) return { row: null, error: String(error.message ?? error) };
+    if (error) {
+      const code = (error as { code?: string }).code;
+      const msg = String(error.message ?? error);
+      if (code === '22P02' || /invalid input syntax for type uuid/i.test(msg)) {
+        return { row: null, error: null };
+      }
+      return { row: null, error: msg };
+    }
     return { row: (data as Record<string, unknown> | null) ?? null, error: null };
   } catch (e) {
     return { row: null, error: e instanceof Error ? e.message : String(e) };

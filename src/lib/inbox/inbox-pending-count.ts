@@ -24,8 +24,8 @@ export const safeQ = <T>(q: any, fallback: T): Promise<T> =>
 
 export function buildOwnedEventOrClause(ownedIds: string[], userId: string): string {
   const clauses: string[] = [];
-  const uuidIds = ownedIds.filter((id) => isUuid(id));
-  const safeMetaIds = ownedIds.filter((id) => /^[a-zA-Z0-9_-]{1,80}$/.test(id));
+  const uuidIds = ownedIds.filter((id) => isUuid(id)).slice(0, 40);
+  const safeMetaIds = ownedIds.filter((id) => /^[a-zA-Z0-9_-]{1,80}$/.test(id)).slice(0, 40);
   if (uuidIds.length > 0) clauses.push(`entity_id.in.(${uuidIds.join(',')})`);
   if (safeMetaIds.length > 0) clauses.push(`metadata->>building_id.in.(${safeMetaIds.join(',')})`);
   if (/^[a-zA-Z0-9_-]{1,80}$/.test(userId)) clauses.push(`metadata->>broker_id.eq.${userId}`);
@@ -213,17 +213,32 @@ export async function handleGetPendingCount(req: NextRequest) {
 
     const [grRes, inqResInit, evRes] = await Promise.all([
       uuidBuildingIds.length > 0
-        ? (() => {
-            let q: any = supabase.from('gate_requests').select('id, building_id, status');
-            if (typeof q?.in === 'function') q = q.in('status', ['submitted', 'broker_review']).in('building_id', uuidBuildingIds);
-            return safeQ<any>(q, { data: [] });
+        ? (async () => {
+            if (uuidBuildingIds.length <= 50) {
+              let q: any = supabase.from('gate_requests').select('id, building_id, status');
+              if (typeof q?.in === 'function') q = q.in('status', ['submitted', 'broker_review']).in('building_id', uuidBuildingIds);
+              return safeQ<any>(q, { data: [] });
+            }
+            const chunks: string[][] = [];
+            for (let i = 0; i < uuidBuildingIds.length; i += 50) {
+              chunks.push(uuidBuildingIds.slice(i, i + 50));
+            }
+            const parts = await Promise.all(
+              chunks.map((chunk) => {
+                let q: any = supabase.from('gate_requests').select('id, building_id, status');
+                if (typeof q?.in === 'function') q = q.in('status', ['submitted', 'broker_review']).in('building_id', chunk);
+                return safeQ<any>(q, { data: [] });
+              })
+            );
+            const merged = parts.flatMap((p) => (Array.isArray(p?.data) ? p.data : []));
+            return { data: merged };
           })()
         : Promise.resolve({ data: [] }),
       safeQ<any>(supabase.from('im_inquiry_requests').select('id, building_id, status').eq('broker_user_id', userId), { data: [] }),
       (() => {
         let q: any = supabase
           .from('activity_events')
-          .select('id, entity_id, metadata, created_at')
+          .select('id, event_type, entity_id, metadata, created_at')
           .in('event_type', ['gate_request_created', 'intent.pro_im_request']);
         if (scopedOrExpr && typeof q?.or === 'function') q = q.or(scopedOrExpr);
         if (typeof q?.limit === 'function') q = q.limit(100);
@@ -260,6 +275,9 @@ export async function handleGetPendingCount(req: NextRequest) {
       if (!bId || forbiddenBuildings.has(bId) || deletedBuildings.has(bId)) continue;
       if (!((meta.broker_id && String(meta.broker_id) === userId) || ownedIds.has(bId))) continue;
       const gateId = String(meta.gate_request_id || ev.entity_id || `gr-act-${ev.id}`);
+      const evType = String((ev as Record<string, unknown>).event_type || 'gate_request_created');
+      if (isUuid(bId) && (!meta.gate_request_id || isUuid(gateId))) continue;
+      if (evType === 'gate_request_created' && isUuid(bId) && isUuid(gateId)) continue;
       if (isUndecided(gateId)) pendingIdSet.add(gateId);
     }
 

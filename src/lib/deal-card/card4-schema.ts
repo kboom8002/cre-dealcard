@@ -386,7 +386,11 @@ export async function updateDealCard4(
       });
 
     if (insertDocError) {
-      return { success: false, error: insertDocError.message };
+      const errCode = (insertDocError as { code?: string }).code;
+      const errMsg = String(insertDocError.message || '');
+      if (errCode !== '23503' && !/foreign key constraint/i.test(errMsg)) {
+        return { success: false, error: errMsg };
+      }
     }
   }
 

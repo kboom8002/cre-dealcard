@@ -292,10 +292,19 @@ export function assessDealCardLine(
   };
 }
 
-/** 고객 화면용 엄격 검증: 비어있지 않음 · ≤max · 말줄임 없음 · 조사로 끝나지 않음. */
+const BARE_GENERIC_NOUN_RE =
+  /^(?:임대\s*)?(?:수익률|대지|연면적|면적|규모|평수|입지|위치|가격)$/;
+
+/** 고객 화면용 엄격 검증: 비어있지 않음 · ≤max · 말줄임 없음 · 조사로 끝나지 않음 · 단일 일반명사 금지. */
 export function isCompleteDealCardLine(text: string | null | undefined, max = DEAL_CARD_LINE_MAX): boolean {
   const v = String(text ?? '').trim();
-  return v.length > 0 && countDealCardChars(v) <= max && !/…|⋯|\.{2,}/.test(v) && !endsWithDanglingParticle(v);
+  return (
+    v.length > 0 &&
+    !BARE_GENERIC_NOUN_RE.test(v) &&
+    countDealCardChars(v) <= max &&
+    !/…|⋯|\.{2,}/.test(v) &&
+    !endsWithDanglingParticle(v)
+  );
 }
 
 export const GENERIC_POINT_FALLBACKS: readonly [string, string, string] = [

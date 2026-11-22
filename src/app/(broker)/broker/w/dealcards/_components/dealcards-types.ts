@@ -338,7 +338,9 @@ export async function runHybridMemoGenerationApi(
           slotMapped.use,
           slotMapped.area,
           slotMapped.priceBand,
+          structuredFacts.yieldPct ? `수익률 ${structuredFacts.yieldPct}%` : "",
           structuredFacts.memoSummary,
+          cleanBlindPoints([rawMemoText])[0],
           ...slotMapped.points,
         ]
           .filter(Boolean)

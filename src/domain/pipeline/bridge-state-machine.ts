@@ -85,6 +85,20 @@ export const BRIDGE_CONTRACTS: BridgeTransition[] = [
   },
 ];
 
+// ─── Allowed transitions ───────────────────────────────────────────────
+
+export const VALID_TRANSITIONS: Record<DealStage, DealStage[]> = {
+  memo_input:        ['deal_card_created'],
+  deal_card_created: ['gate_requested', 'im_created', 'failed'],
+  gate_requested:    ['im_created', 'failed'],
+  im_created:        ['buyer_meeting', 'failed'],
+  buyer_meeting:     ['loi', 'failed'],
+  loi:               ['contract', 'failed'],
+  contract:          ['closed', 'failed'],
+  closed:            [],
+  failed:            [],
+};
+
 // ─── Validate Transition ───────────────────────────────────────────────
 
 export function validateBridgeTransition(
@@ -156,20 +170,6 @@ export const STAGE_ACTION_LABELS: Record<DealStage, string> = {
   contract:          '📑 계약 진행',
   closed:            '🎉 거래 완료 (클로징)',
   failed:            '❌ 딜 무산 처리',
-};
-
-// ─── Allowed transitions ───────────────────────────────────────────────
-
-export const VALID_TRANSITIONS: Record<DealStage, DealStage[]> = {
-  memo_input:        ['deal_card_created'],
-  deal_card_created: ['gate_requested', 'im_created', 'failed'],
-  gate_requested:    ['im_created', 'failed'],
-  im_created:        ['buyer_meeting', 'failed'],
-  buyer_meeting:     ['loi', 'failed'],
-  loi:               ['contract', 'failed'],
-  contract:          ['closed', 'failed'],
-  closed:            [],
-  failed:            [],
 };
 
 // ── PIPE-04.1: v0.4 6단계 상태 머신 ──────────────────────────────────────

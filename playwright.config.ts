@@ -7,6 +7,11 @@ const E2E_PORT = Number(process.env.E2E_PORT || 3000);
 const ISOLATED = E2E_PORT !== 3000;
 const IS_PROD_SMOKE = process.env.PROD_SMOKE === '1';
 const PROD_SMOKE_BASE_URL = process.env.PROD_SMOKE_BASE_URL || 'https://credeal.net';
+const EXPLICIT_BASE_URL = (process.env.PLAYWRIGHT_BASE_URL || '').trim();
+const SKIP_WEBSERVER = IS_PROD_SMOKE || Boolean(EXPLICIT_BASE_URL);
+const RESOLVED_BASE_URL = IS_PROD_SMOKE
+  ? undefined
+  : EXPLICIT_BASE_URL || `http://localhost:${E2E_PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -43,19 +48,31 @@ export default defineConfig({
     },
   ],
 
-  ...(IS_PROD_SMOKE
+  ...(SKIP_WEBSERVER
     ? {}
     : {
         webServer: {
           command: ISOLATED ? `npx next dev -p ${E2E_PORT}` : 'npm run dev',
           port: E2E_PORT,
-          reuseExistingServer: true,
+          reuseExistingServer: process.env.CRE_ENFORCE_QA_GATE === '1' ? false : true,
           timeout: 120000,
-          ...(ISOLATED ? { env: { NEXT_DIST_DIR: `.next/e2e-${E2E_PORT}` } } : {}),
+          ...(ISOLATED || process.env.CRE_ENFORCE_QA_GATE || process.env.QA_ACCESS_KEY
+            ? {
+                env: {
+                  ...(ISOLATED ? { NEXT_DIST_DIR: `.next/e2e-${E2E_PORT}` } : {}),
+                  ...(process.env.CRE_ENFORCE_QA_GATE
+                    ? { CRE_ENFORCE_QA_GATE: process.env.CRE_ENFORCE_QA_GATE }
+                    : {}),
+                  ...(process.env.QA_ACCESS_KEY
+                    ? { QA_ACCESS_KEY: process.env.QA_ACCESS_KEY }
+                    : {}),
+                },
+              }
+            : {}),
         },
       }),
   use: {
-    baseURL: `http://localhost:${E2E_PORT}`,
+    baseURL: RESOLVED_BASE_URL || `http://localhost:${E2E_PORT}`,
     locale: 'ko-KR',
     userAgent: 'playwright-e2e-tester',
     extraHTTPHeaders: {

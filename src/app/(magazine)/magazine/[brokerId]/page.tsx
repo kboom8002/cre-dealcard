@@ -9,8 +9,11 @@ import {
   canonicalBrokerSlug,
   listPublishedEntries,
   resolvePublicBroker,
+  resolvePublicBrokerStatutoryProfile,
   resolvePublicDisplayName,
 } from "@/lib/magazine/public-page-data";
+import { BrokerStatutoryFooter } from "@/components/magazine/viewer-sections";
+import { PoweredByBadge } from "@/components/ui/PoweredByBadge";
 import { MARKET_TEMP_VIEW } from "@/lib/magazine/view-helpers";
 
 interface PageProps {
@@ -18,7 +21,11 @@ interface PageProps {
 }
 
 const loadBroker = cache(async (param: string) =>
-  resolvePublicBroker(createServiceClient(), param, "user_id, slug, name, bio, logo_company_url"),
+  resolvePublicBroker(
+    createServiceClient(),
+    param,
+    "user_id, slug, name, bio, logo_company_url, office_address, office_reg_number, representative_name",
+  ),
 );
 
 /** 발행본 목록 — published editions + 에디션 없는 레거시 published issues. metadata 와 page 가 한 요청 안에서 1회만 조회 (DB 오류는 throw). */
@@ -81,6 +88,10 @@ export default async function MagazineArchivePage({ params }: PageProps) {
 
   const slug = (profile.slug as string | null) ?? brokerId;
   const displayName = (await loadDisplayName(brokerId)) || slug;
+  const statutoryProfile = await resolvePublicBrokerStatutoryProfile(
+    createServiceClient(),
+    profile,
+  );
 
   // 발행된 에디션 목록 — 조회수는 독자에게 노출하지 않으므로 조회하지도 않는다 (U2-30)
   const entries = (await loadEntries(brokerId)) ?? [];
@@ -183,8 +194,8 @@ export default async function MagazineArchivePage({ params }: PageProps) {
           </ul>
         )}
 
-        {/* 하단: 구독 CTA (존재하지 않는 프로필 링크 제거) */}
-        <footer className="mt-8 space-y-2 border-t border-slate-200 pt-6 text-center">
+        {/* 하단: 구독 CTA + 법정 표시의무 + CREDEAL 안심 배지 */}
+        <footer className="mt-8 space-y-4 border-t border-slate-200 pt-6 text-center">
           {entries.length > 0 && (
             <Link
               href={`/magazine/${encodeURIComponent(slug)}/subscribe`}
@@ -193,7 +204,22 @@ export default async function MagazineArchivePage({ params }: PageProps) {
               다음 호 구독하기 →
             </Link>
           )}
-          <p className="text-sm text-slate-700">© CRE DealCard · 상업용 부동산 인텔리전스</p>
+          <div className="text-left">
+            <BrokerStatutoryFooter
+              company={statutoryProfile.company}
+              officeAddress={statutoryProfile.officeAddress}
+              officeRegNumber={statutoryProfile.officeRegNumber}
+              representativeName={statutoryProfile.representativeName}
+              displayName={displayName}
+              phone={statutoryProfile.phone}
+            />
+          </div>
+          <PoweredByBadge
+            variant="subtle"
+            context="magazine"
+            brokerId={profile.user_id ?? slug}
+            hasVerifiedLedger={false}
+          />
         </footer>
       </main>
     </div>

@@ -385,7 +385,7 @@ export function SlideEditor({
   return (
     <aside
       data-testid="studio-slide-editor"
-      className="w-full sm:w-96 max-w-full border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden"
+      className="w-full sm:w-80 xl:w-96 max-w-full border-l border-[#CBD5E1] bg-white flex flex-col shrink-0 h-full overflow-hidden"
     >
       {/* Top 3-Tab Switcher */}
       <div

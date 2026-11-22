@@ -15,6 +15,8 @@ import { parsePriceBandKrw } from './im-context-builder';
 import { formatPyeong, formatSqm, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
 import { normalizeGeneratedMarkdown, protectBlock } from './terminology-normalizer';
 import { verifiedLegalLimits } from './legal-limits';
+import { SectionAssembler } from './section-assembler';
+import { sanitizeFitSummary } from './fit-summary-sanitize';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('premium-template-engine');
@@ -922,8 +924,6 @@ export function formatBasicIncomeMarkdown(
 ): string {
   return `### 기본 수입 분석\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 임대 수입(총액)** | **${(annualGross / 1e8).toFixed(1)}억 원** | 월세 × 12 |\n| **공실 반영 수입** | **${(effectiveGross / 1e8).toFixed(1)}억 원** | 공실률 ${vacPct}% 반영 |\n| **추정 NOI** | **${(estimatedNoi / 1e8).toFixed(1)}억 원** | 운영비 15% 추정 차감 |\n\n> 💡 매도 희망가를 추가 입력하면 자본환원율(Cap Rate), IRR, DCF 감응도 분석이 포함됩니다.`;
 }
-import { SectionAssembler } from './section-assembler';
-import { sanitizeFitSummary } from './fit-summary-sanitize';
 
 export function getTemplateNarrative(
   sectionType: MobileIMSectionType,

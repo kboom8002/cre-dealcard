@@ -117,6 +117,7 @@ export default function TestGuidePage() {
 
   // Persisted test results
   const [testerName, setTesterName] = useState<string>("현업 중개사 & 총괄 검수자");
+  const [qaQuerySuffix, setQaQuerySuffix] = useState<string>("");
   const [metrics, setMetrics] = useState<Record<TimerTargetId, DealMetrics>>(
     INITIAL_METRICS
   );
@@ -127,8 +128,24 @@ export default function TestGuidePage() {
     { id: 3, dealCode: "Mission H-3", location: "", description: "", severity: "S2" },
   ]);
 
-  // Load state from localStorage
+  // Load state from localStorage + preserve qaKey query param for sub-links
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const qk = (
+          sp.get("qaKey") ||
+          sp.get("key") ||
+          sp.get("passcode") ||
+          ""
+        ).trim();
+        if (qk) {
+          setQaQuerySuffix(`?qaKey=${encodeURIComponent(qk)}`);
+        }
+      } catch {
+        // ignore URL parse error
+      }
+    }, 0);
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -143,6 +160,7 @@ export default function TestGuidePage() {
     } catch {
       // ignore
     }
+    return () => window.clearTimeout(timer);
   }, []);
 
   // Save state to localStorage
@@ -561,6 +579,13 @@ export default function TestGuidePage() {
                 className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-extrabold transition"
               >
                 💬 ④ 소통 관리함
+              </a>
+              <a
+                href={`/qa-full-loop${qaQuerySuffix}`}
+                data-testid="open-qa-full-loop-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 text-sm font-extrabold transition inline-flex items-center"
+              >
+                🔥 2선 풀루프 관통 검수 ↗
               </a>
               <a
                 href="/qa-signoff"
