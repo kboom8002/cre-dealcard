@@ -230,4 +230,87 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
       .toBeGreaterThan(400);
     expect(pageErrors).toEqual([]);
   });
+
+  test("[Smoke-06] /qa-full-loop-v2 Hold-out Workbench fails closed without key, renders Dangsan XLSX & Jamwon Dev tabs, and serves CDN assets", async ({
+    page,
+    request,
+  }) => {
+    const denied = await request.get("/qa-full-loop-v2", { maxRedirects: 0 });
+    expect(denied.status()).toBe(404);
+    expect((denied.headers()["x-robots-tag"] || "").toLowerCase()).toContain(
+      "noindex"
+    );
+
+    if (!QA_ACCESS_KEY) {
+      test.skip(
+        true,
+        "QA_ACCESS_KEY 미설정 — /qa-full-loop-v2 인증 화면 및 Hold-out 자산 스모크를 건너뜁니다."
+      );
+      return;
+    }
+
+    const encodedKey = encodeURIComponent(QA_ACCESS_KEY);
+
+    // 1) Hold-out XLSX v1.5 download via CDN-backed sample kit route
+    const xlsxRes = await request.get(
+      `/api/public/qa-sample-kit?scenario=v2-loop1&format=xlsx&qaKey=${encodedKey}`
+    );
+    expect(xlsxRes.status()).toBe(200);
+    const xlsxBuf = await xlsxRes.body();
+    expect(xlsxBuf.length).toBeGreaterThan(50_000);
+    expect(xlsxBuf.subarray(0, 2).toString("utf8")).toBe("PK");
+
+    // 2) Hold-out real photo asset via CDN-backed testguide-assets route
+    const photoRes = await request.get(
+      `/api/public/testguide-assets/images/v2-case04/${encodeURIComponent(
+        "01_외관_전면및필로티주차장.jpeg"
+      )}?qaKey=${encodedKey}`
+    );
+    expect(photoRes.status()).toBe(200);
+    expect(photoRes.headers()["content-type"] || "").toContain("image/jpeg");
+
+    // 3) Hold-out Live Probe contract
+    const probeRes = await request.post("/api/public/qa-workbench", {
+      headers: { "x-qa-access-key": QA_ACCESS_KEY },
+      data: {
+        mode: "probe",
+        expectedLoopId: "v2-loop1",
+      },
+    });
+    expect(probeRes.status()).toBe(200);
+    const probeJson = await probeRes.json();
+    expect(probeJson.ok).toBe(true);
+
+    // 4) Interactive UI smoke on /qa-full-loop-v2
+    const pageErrors: string[] = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+
+    const res = await page.goto(`/qa-full-loop-v2?qaKey=${encodedKey}`, {
+      waitUntil: "domcontentloaded",
+    });
+    expect(res?.status()).toBe(200);
+
+    await expect(
+      page.getByRole("button", { name: /Hold-out 1 · 당산 115억 XLSX/ })
+    ).toBeVisible({ timeout: 20_000 });
+    const tab2 = page.getByRole("button", {
+      name: /Hold-out 2 · 잠원 242억 신축개발/,
+    });
+    await expect(tab2).toBeVisible();
+    await tab2.click();
+    await expect(
+      page.getByText(/잠원동 26-14외1 두원빌딩/).first()
+    ).toBeVisible();
+
+    const signoffTab = page.getByRole("button", { name: /Sign-off \(0\/14\)/ });
+    await signoffTab.click();
+    await expect(page.getByText("H1-S1").first()).toBeVisible();
+    await expect(page.getByText("H2-S7").first()).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    expect(pageErrors).toEqual([]);
+  });
 });

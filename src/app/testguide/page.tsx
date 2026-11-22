@@ -588,6 +588,13 @@ export default function TestGuidePage() {
                 🔥 2선 풀루프 관통 검수 ↗
               </a>
               <a
+                href={`/qa-full-loop-v2${qaQuerySuffix}`}
+                data-testid="open-qa-full-loop-v2-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-extrabold transition inline-flex items-center"
+              >
+                🧪 인간 검수 V2 Hold-out 풀루프 ↗
+              </a>
+              <a
                 href="/qa-signoff"
                 data-testid="open-qa-signoff-hub"
                 className="min-h-[44px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition inline-flex items-center"

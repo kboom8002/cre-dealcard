@@ -80,6 +80,7 @@ export interface FullLoopGroundTruthSpec {
 
 export interface FullLoopCaseDefinition {
   id: FullLoopCaseId;
+  probeLoopId?: string;
   code: 'LOOP-01' | 'LOOP-02';
   tabLabel: string;
   shortLabel: string;
@@ -90,6 +91,9 @@ export interface FullLoopCaseDefinition {
   deviceSetup: string;
   sampleKitZipUrl: string;
   csvDownloadUrl: string;
+  primarySheetLabel?: string;
+  secondarySheetDownloadUrl?: string;
+  secondarySheetLabel?: string;
   dealCode: string;
   propertyName: string;
   jibunAddress: string;

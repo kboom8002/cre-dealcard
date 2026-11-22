@@ -23,6 +23,8 @@ test.describe('WP 5-B: Public, QA, Share-Token, Dormant & Kakao WebView Gates', 
       '/qa-signoff',
       '/testguide',
       '/qa-showcase',
+      '/qa-full-loop',
+      '/qa-full-loop-v2',
       '/newsletter-inbox-test',
       '/dealcard-im-test',
     ]) {
@@ -36,6 +38,13 @@ test.describe('WP 5-B: Public, QA, Share-Token, Dormant & Kakao WebView Gates', 
     });
     expect(allowed.status()).toBe(200);
     expect((allowed.headers()['x-robots-tag'] || '').toLowerCase()).toContain('noindex');
+
+    const allowedHoldoutV2 = await request.get(
+      `/qa-full-loop-v2?qaKey=${encodeURIComponent(QA_TESTER_KEY)}`,
+      { maxRedirects: 0 }
+    );
+    expect(allowedHoldoutV2.status()).toBe(200);
+    expect((allowedHoldoutV2.headers()['x-robots-tag'] || '').toLowerCase()).toContain('noindex');
   });
 
   test('Public IM routes fail closed without token or with forged token', async ({

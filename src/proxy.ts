@@ -46,6 +46,7 @@ export const QA_GATED_PREFIXES = [
   '/qa-broker',
   '/qa-showcase',
   '/qa-full-loop',
+  '/qa-full-loop-v2',
   '/testguide',
   '/newsletter-inbox-test',
   '/dealcard-im-test',

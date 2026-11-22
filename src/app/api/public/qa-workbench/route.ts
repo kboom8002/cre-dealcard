@@ -70,6 +70,11 @@ import {
   FULL_LOOP_CASES,
   QA_FULL_LOOP_WORKBENCH_ID,
 } from "@/lib/testguide/full-loop-2cases-data";
+import {
+  FULL_LOOP_V2_ALL_STEPS,
+  FULL_LOOP_V2_CASES,
+  QA_FULL_LOOP_V2_WORKBENCH_ID,
+} from "@/lib/testguide/full-loop-v2-holdout-data";
 import { createModuleLogger } from "@/lib/logger";
 import { validateBlindPoints, cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { parseTsvRentRoll } from "@/lib/rent-roll/tsv-parser";
@@ -526,6 +531,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
         ]
       : workbenchId === QA_FULL_LOOP_WORKBENCH_ID
       ? FULL_LOOP_ALL_STEPS.map((s) => ({
+          key: s.id,
+          severity: s.severityOnFail,
+        }))
+      : workbenchId === QA_FULL_LOOP_V2_WORKBENCH_ID
+      ? FULL_LOOP_V2_ALL_STEPS.map((s) => ({
           key: s.id,
           severity: s.severityOnFail,
         }))
@@ -1221,8 +1231,11 @@ export async function POST(req: NextRequest) {
       ).trim();
       const rawClientContact = String(body.testClientContact ?? "").trim();
       const expectedLoopId =
-        body.expectedLoopId === "loop1" || body.expectedLoopId === "loop2"
-          ? (body.expectedLoopId as "loop1" | "loop2")
+        body.expectedLoopId === "loop1" ||
+        body.expectedLoopId === "loop2" ||
+        body.expectedLoopId === "v2-loop1" ||
+        body.expectedLoopId === "v2-loop2"
+          ? (body.expectedLoopId as "loop1" | "loop2" | "v2-loop1" | "v2-loop2")
           : null;
 
       const supabase = tryCreateServiceClient();
@@ -2049,7 +2062,11 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let groundTruthOracleCheck: Record<string, any> | null = null;
       if (expectedLoopId) {
-        const loopDef = FULL_LOOP_CASES.find((c) => c.id === expectedLoopId);
+        const loopDef =
+          FULL_LOOP_CASES.find(
+            (c) => c.id === expectedLoopId || c.probeLoopId === expectedLoopId
+          ) ||
+          FULL_LOOP_V2_CASES.find((c) => c.probeLoopId === expectedLoopId);
         const candidateBldId =
           (shareLinkCheck?.validUrl && shareLinkCheck?.buildingId
             ? String(shareLinkCheck.buildingId)

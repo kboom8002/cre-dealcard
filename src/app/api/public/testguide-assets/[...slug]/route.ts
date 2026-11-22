@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from '@/lib/testguide/testguide-data';
+import { HOLDOUT_V2_ASSET_CDN_MAP } from '@/lib/testguide/full-loop-v2-holdout-data';
 import { isRealProductionRuntime } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -113,7 +114,27 @@ export async function GET(
       headers['Content-Disposition'] = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
     }
 
-    // A) Check local pre-generated file in docs/im261110/images/[folder]/[filename] first
+    // A) Check local pre-generated file (V2 Hold-out docs/finaltest/testdata or V1 docs/im261110/images) first
+    if (folder === 'v2-case04' || folder === 'v2-case03') {
+      const holdoutDir =
+        folder === 'v2-case04'
+          ? 'CASE-04_영등포_당산동5가_11-47_XLSX입력_다호실복합'
+          : 'CASE-03_서초_잠원동_26-14외1_화면입력_신축개발형';
+      const localHoldoutPath = path.join(
+        /*turbopackIgnore: true*/ process.cwd(),
+        'docs',
+        'finaltest',
+        'testdata',
+        holdoutDir,
+        'images',
+        filename
+      );
+      if (fs.existsSync(/*turbopackIgnore: true*/ localHoldoutPath)) {
+        const buf = fs.readFileSync(/*turbopackIgnore: true*/ localHoldoutPath);
+        return new NextResponse(new Uint8Array(buf), { status: 200, headers });
+      }
+    }
+
     const localDocImgPath = path.join(
       /*turbopackIgnore: true*/ process.cwd(),
       'docs',
@@ -128,7 +149,7 @@ export async function GET(
     }
 
     // B) Production Vercel: Fetch real uploaded asset from Supabase Storage public CDN
-    const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[filename];
+    const cdnUrl = TESTGUIDE_IMAGE_CDN_MAP[filename] || HOLDOUT_V2_ASSET_CDN_MAP[filename];
     if (cdnUrl) {
       try {
         const upstream = await fetch(cdnUrl, { next: { revalidate: 86400 } });

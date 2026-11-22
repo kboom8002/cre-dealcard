@@ -7,6 +7,16 @@ import sharp from "sharp";
 import { requireBroker } from "@/lib/auth-guard";
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from "@/lib/testguide/testguide-data";
 import { FULL_LOOP_CASES, type FullLoopCaseId } from "@/lib/testguide/full-loop-2cases-data";
+import {
+  FULL_LOOP_V2_CASES,
+  HOLDOUT_V2_ASSET_CDN_MAP,
+  HOLDOUT_V2_CASE03_ASIS_CSV,
+  HOLDOUT_V2_CASE03_ASIS_TSV,
+  HOLDOUT_V2_CASE03_MEMO,
+  HOLDOUT_V2_CASE03_STABILIZED_TSV,
+  HOLDOUT_V2_CASE04_MEMO,
+  HOLDOUT_V2_CASE04_STABILIZED_TSV,
+} from "@/lib/testguide/full-loop-v2-holdout-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -157,6 +167,60 @@ async function resolveSamplePhotoBuffer(
   }
   return buildSyntheticBuildingPhotoJpeg(fallbackLabel, accentHex);
 }
+
+async function resolveHoldoutAssetBuffer(opts: {
+  caseFolder: string;
+  localRelPath: string;
+  assetKey: string;
+  publicFallbackRel?: string;
+  isImage: boolean;
+  accentHex: string;
+}): Promise<Buffer | null> {
+  try {
+    const localPath = path.join(
+      /*turbopackIgnore: true*/ process.cwd(),
+      "docs",
+      "finaltest",
+      "testdata",
+      opts.caseFolder,
+      opts.localRelPath,
+    );
+    const localBuf = await fs.readFile(/*turbopackIgnore: true*/ localPath);
+    if (localBuf.byteLength > 0) return localBuf;
+  } catch {
+    // Fallback to Supabase Storage CDN on deployed runtimes
+  }
+
+  const cdnUrl = HOLDOUT_V2_ASSET_CDN_MAP[opts.assetKey];
+  if (cdnUrl) {
+    try {
+      const upstream = await fetch(cdnUrl);
+      if (upstream.ok) {
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        if (buf.byteLength > 0) return buf;
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  if (opts.publicFallbackRel) {
+    const pubBuf = await tryReadPublicFile(opts.publicFallbackRel);
+    if (pubBuf && pubBuf.byteLength > 0) return pubBuf;
+  }
+
+  if (opts.isImage) {
+    const baseJpeg = await buildSyntheticBuildingPhotoJpeg(opts.assetKey, opts.accentHex);
+    return path.extname(opts.assetKey).toLowerCase() === ".png"
+      ? sharp(baseJpeg).png().toBuffer()
+      : baseJpeg;
+  }
+
+  return null;
+}
+
+const XLSX_CONTENT_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 export async function GET(req: NextRequest) {
   const enforceGate =
@@ -311,6 +375,155 @@ export async function GET(req: NextRequest) {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${outZipName}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+  }
+
+  if (scenario === "v2-loop1" || scenario === "v2-loop2") {
+    const targetId: FullLoopCaseId = scenario === "v2-loop1" ? "loop1" : "loop2";
+    const v2Case = FULL_LOOP_V2_CASES.find((c) => c.id === targetId);
+    if (v2Case) {
+      const case04Folder = "CASE-04_영등포_당산동5가_11-47_XLSX입력_다호실복합";
+      const case03Folder = "CASE-03_서초_잠원동_26-14외1_화면입력_신축개발형";
+
+      if (scenario === "v2-loop1" && (format === "xlsx" || format === "xlsx-stabilized")) {
+        const isStab = format === "xlsx-stabilized";
+        const fileKey = isStab
+          ? "03_안정화_렌트롤_v1.5_sqm.xlsx"
+          : "02_현황_렌트롤_v1.5_sqm.xlsx";
+        const asciiName = isStab
+          ? "v2_holdout_case04_dangsan_stabilized_v1.5.xlsx"
+          : "v2_holdout_case04_dangsan_asis_v1.5.xlsx";
+        const xlsxData = await resolveHoldoutAssetBuffer({
+          caseFolder: case04Folder,
+          localRelPath: fileKey,
+          assetKey: fileKey,
+          publicFallbackRel: "CREDEAL_rentroll_template_v1.5.xlsx",
+          isImage: false,
+          accentHex: "#0F766E",
+        });
+        if (xlsxData) {
+          return new NextResponse(new Uint8Array(xlsxData), {
+            status: 200,
+            headers: {
+              "Content-Type": XLSX_CONTENT_TYPE,
+              "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileKey)}`,
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      }
+
+      if (scenario === "v2-loop2" && format === "csv") {
+        const bomCsv = `\uFEFF${HOLDOUT_V2_CASE03_ASIS_CSV}\r\n`;
+        return new NextResponse(bomCsv, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="rentroll_v2_jamwon_duwon.csv"',
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
+      const v2Zip = new JSZip();
+      const nlStep = v2Case.steps.find((s) => s.subsystem === "뉴스레터" || s.stepNumber === 4);
+      const nlBrief =
+        nlStep?.copySnippets?.find((sn) => sn.id.includes("brief"))?.value || v2Case.subtitle;
+
+      v2Zip.file(
+        "00_README_홀드아웃_V2_실행안내.txt",
+        [
+          `${v2Case.code} (${v2Case.dealCode}) — ${v2Case.title}`,
+          "================================================================",
+          `대상 실매물: ${v2Case.propertyName} (${v2Case.askingPriceReadout})`,
+          `권장 소요시간: 약 ${v2Case.targetMinutes}분 (${v2Case.deviceSetup})`,
+          "",
+          ...(scenario === "v2-loop1"
+            ? [
+                "1. 01_현장메모_원문.txt                 : 딜카드/IM 메모 원문",
+                "2. 02_현황_렌트롤_v1.5_sqm.xlsx          : 15행 현황 표준양식 XLSX 업로드용",
+                "3. 03_안정화_렌트롤_v1.5_sqm.xlsx        : 14행 안정화 표준양식 XLSX 검증용",
+                "4. 04_안정화_서브탭_화면붙여넣기.tsv     : +기대수익률 서브탭 Ctrl+V용 TSV",
+                "5. 05_뉴스레터_브리핑_초안.txt           : 영등포 메디컬 브리핑 본문 (지번 비노출)",
+                "6. 06_고객연락처_샘플10명.csv            : 고객 소통·구독자 등록 샘플",
+                "7. photos/                              : 고해상도 실사진 6장 (외관 3 · 내부 3)",
+              ]
+            : [
+                "1. 01_현장메모_원문.txt                 : 잠원동 2필지 신축·개발 메모 원문",
+                "2. 02_현황_렌트롤_화면붙여넣기.tsv       : 현황 6행 (만기경과 2개층 포함)",
+                "3. 03_안정화_렌트롤_화면붙여넣기.tsv     : 대수선 안정화 6행 (+기대수익률 4.14%)",
+                "4. 04_임대현황_업로드용.csv              : CSV 업로드용 현황 시트 (UTF-8 BOM)",
+                "5. 05_뉴스레터_브리핑_초안.txt           : 서초 개발 브리핑 본문 (지번 비노출)",
+                "6. 06_고객연락처_샘플10명.csv            : 고객 소통·구독자 등록 샘플",
+                "7. photos/                              : 고해상도 실사진 5장 (외관 PNG 3 · 내부 JPEG 2)",
+              ]),
+        ].join("\r\n"),
+      );
+
+      if (scenario === "v2-loop1") {
+        v2Zip.file("01_현장메모_원문.txt", HOLDOUT_V2_CASE04_MEMO);
+        const asIsXlsx = await resolveHoldoutAssetBuffer({
+          caseFolder: case04Folder,
+          localRelPath: "02_현황_렌트롤_v1.5_sqm.xlsx",
+          assetKey: "02_현황_렌트롤_v1.5_sqm.xlsx",
+          publicFallbackRel: "CREDEAL_rentroll_template_v1.5.xlsx",
+          isImage: false,
+          accentHex: "#0F766E",
+        });
+        const stabXlsx = await resolveHoldoutAssetBuffer({
+          caseFolder: case04Folder,
+          localRelPath: "03_안정화_렌트롤_v1.5_sqm.xlsx",
+          assetKey: "03_안정화_렌트롤_v1.5_sqm.xlsx",
+          publicFallbackRel: "CREDEAL_rentroll_template_v1.5.xlsx",
+          isImage: false,
+          accentHex: "#0F766E",
+        });
+        if (asIsXlsx) v2Zip.file("02_현황_렌트롤_v1.5_sqm.xlsx", asIsXlsx);
+        if (stabXlsx) v2Zip.file("03_안정화_렌트롤_v1.5_sqm.xlsx", stabXlsx);
+        v2Zip.file("04_안정화_서브탭_화면붙여넣기.tsv", HOLDOUT_V2_CASE04_STABILIZED_TSV);
+      } else {
+        v2Zip.file("01_현장메모_원문.txt", HOLDOUT_V2_CASE03_MEMO);
+        v2Zip.file("02_현황_렌트롤_화면붙여넣기.tsv", HOLDOUT_V2_CASE03_ASIS_TSV);
+        v2Zip.file("03_안정화_렌트롤_화면붙여넣기.tsv", HOLDOUT_V2_CASE03_STABILIZED_TSV);
+        v2Zip.file("04_임대현황_업로드용.csv", `\uFEFF${HOLDOUT_V2_CASE03_ASIS_CSV}\r\n`);
+      }
+
+      v2Zip.file("05_뉴스레터_브리핑_초안.txt", nlBrief);
+      v2Zip.file("06_고객연락처_샘플10명.csv", toUtf8BomCsv(SAMPLE_CONTACTS_CSV_ROWS));
+
+      const targetFolder = scenario === "v2-loop1" ? case04Folder : case03Folder;
+      for (const img of v2Case.images) {
+        const imgBuf = await resolveHoldoutAssetBuffer({
+          caseFolder: targetFolder,
+          localRelPath: path.join("images", img.filename),
+          assetKey: img.filename,
+          publicFallbackRel: "test-images/dangsan/01_exterior.jpg",
+          isImage: true,
+          accentHex: scenario === "v2-loop1" ? "#0F766E" : "#1E3A8A",
+        });
+        if (imgBuf) {
+          v2Zip.file(`photos/${img.filename}`, imgBuf);
+        }
+      }
+
+      const v2ZipBytes = await v2Zip.generateAsync({
+        type: "uint8array",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      });
+      const outV2ZipName =
+        scenario === "v2-loop1"
+          ? "credeal_full_loop_v2_dangsan_115_xlsx_kit.zip"
+          : "credeal_full_loop_v2_jamwon_242_dev_kit.zip";
+
+      return new NextResponse(Buffer.from(v2ZipBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${outV2ZipName}"`,
           "Cache-Control": "no-store",
         },
       });

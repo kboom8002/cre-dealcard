@@ -99,6 +99,8 @@ describe("Predictive Error Audit — Preventive Regression Gates (Gates 1-8)", (
   it("Gate 3 (SSR Hydration Hazard Guard): audited interactive pages do not seed useState with Date.now/Math.random/randomUUID/localStorage", () => {
     const targetFiles = [
       "src/app/qa-full-loop/page.tsx",
+      "src/app/qa-full-loop/_components/QaFullLoopWorkbenchClient.tsx",
+      "src/app/qa-full-loop-v2/page.tsx",
       "src/app/dealcard-im-test/page.tsx",
       "src/app/newsletter-inbox-test/page.tsx",
       "src/app/(broker)/broker/w/im/page.tsx",
@@ -217,12 +219,14 @@ describe("Predictive Error Audit — Preventive Regression Gates (Gates 1-8)", (
   });
 
   it("Gate 7 (Fail-Closed QA Route & Building-Wide Revoke Sync)", () => {
-    const layoutSrc = fs.readFileSync(
-      path.join(SRC_ROOT, "app/qa-full-loop/layout.tsx"),
-      "utf-8",
-    );
-    expect(layoutSrc).toContain("matchQaKeyRole");
-    expect(layoutSrc).toContain("notFound()");
+    for (const relLayout of [
+      "app/qa-full-loop/layout.tsx",
+      "app/qa-full-loop-v2/layout.tsx",
+    ]) {
+      const layoutSrc = fs.readFileSync(path.join(SRC_ROOT, relLayout), "utf-8");
+      expect(layoutSrc).toContain("matchQaKeyRole");
+      expect(layoutSrc).toContain("notFound()");
+    }
 
     const revokeSrc = fs.readFileSync(
       path.join(SRC_ROOT, "app/api/broker/share-links/revoke/route.ts"),
