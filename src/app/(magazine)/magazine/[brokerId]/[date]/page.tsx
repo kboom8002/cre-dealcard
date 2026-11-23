@@ -135,7 +135,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const data = state.data;
   const broker = (data.broker ?? {}) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   const slug = state.brokerSlug ?? brokerId;
-  // 표지 h1 과 동일한 제목 (T1-16). 루트 레이아웃 title.template 가 "| DealCard" 를 붙인다.
+  // 표지 h1 과 동일한 제목 (T1-16). 매거진 레이아웃 title.template 가 "| 크리딜 (CREDEAL)" 을 붙인다.
   const title = buildMagazineTitle(data.headline, broker.name);
   const rawKind = (data.kind ?? (data as Record<string, unknown>).edition_type) as string | undefined;
   const { displayDateLabel, cadence } = resolveEditionPublicDateAndHeader({
@@ -167,7 +167,8 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
       "부동산 시장 브리핑",
       ...(broker.name ? [broker.name as string] : []),
       ...((broker.specialtyRegions as string[] | undefined) ?? []),
-      "DealCard",
+      "크리딜",
+      "CREDEAL",
     ],
     openGraph: {
       title,

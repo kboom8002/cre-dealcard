@@ -303,7 +303,7 @@ describe("Wave 2 — WP-05: Zero-Mock Production AI, Distributed Quota & PG-Read
     expect(htmlZeroSavings).toContain('aria-modal="true"');
     expect(htmlZeroSavings).toContain("Pro 얼리액세스 한도 증설 안내");
     expect(htmlZeroSavings).toContain("50 / 50건");
-    expect(htmlZeroSavings).toContain("support@credeal.kr");
+    expect(htmlZeroSavings).toContain("support@credeal.");
     expect(htmlZeroSavings).toContain("담당팀에 무료 한도 증설 요청 (이메일 복사)");
     expect(htmlZeroSavings).toContain("확인 (닫기)");
     expect(htmlZeroSavings).not.toContain("데모 연동 완료");

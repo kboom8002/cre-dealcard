@@ -163,8 +163,8 @@ describe("L1 Runtime, Env Sanitization & HTTP Boundary Preventive Suite (PT-101 
     const originRe = new RegExp(`^${originPattern}$`);
     expect(originRe.test("https://credeal.net")).toBe(true);
     expect(originRe.test("https://www.credeal.net")).toBe(true);
-    expect(originRe.test("https://dealcard.kr")).toBe(true);
-    expect(originRe.test("https://www.dealcard.kr")).toBe(true);
+    expect(originRe.test("https://dealcard.kr")).toBe(false);
+    expect(originRe.test("https://www.dealcard.kr")).toBe(false);
     expect(originRe.test("http://localhost:3000")).toBe(true);
     expect(originRe.test("https://evil.example.com")).toBe(false);
   });

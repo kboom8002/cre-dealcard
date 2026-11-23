@@ -235,9 +235,41 @@ describe("Broker Full-Loop Workbench (/qa-broker/full-loop: 10-Photo Golden + BY
       expect(doc).toContain("[카톡으로 보내기]");
       expect(doc).toContain("[📋 표 붙여넣기]");
       expect(doc).toContain("[🔗 IM 링크 복사]");
+      expect(doc).toContain("이번 달 뉴스레터 새로 쓰기");
+      expect(doc).toContain("＋ 새 딜카드 만들기");
+      expect(doc).toContain("새 빈 딜카드");
+      expect(doc).toContain("자료 보내기(승인)");
+      expect(doc).toContain("확인·승인하기 ›");
+      expect(doc).toContain("소속 · 기관명");
+      expect(doc).toContain("미래사옥TF");
+      expect(doc).toContain("hw.jung@example.kr");
       expect(doc).not.toContain("강점·입지 코멘트");
       expect(doc).not.toContain("모바일 IM 만들기");
+      expect(doc).not.toContain("새 호수 만들기");
+      expect(doc).not.toContain("새 매물 입력");
+      expect(doc).not.toContain("/m/... 또는 /newsletter/...");
     }
+
+    const b1s4 = stage1.steps.find((s) => s.id === "B1-S4")!;
+    const b1s5 = stage1.steps.find((s) => s.id === "B1-S5")!;
+    const b1s6 = stage1.steps.find((s) => s.id === "B1-S6")!;
+    const b2s5 = stage2.steps.find((s) => s.id === "B2-S5")!;
+    expect(b1s4.inlineScratchFields?.[0]?.label).toContain("/magazine/...");
+    expect(b2s5.inlineScratchFields?.[0]?.label).toContain("/magazine/...");
+    expect(b1s5.copySnippets).toHaveLength(5);
+    expect(b1s5.copySnippets.map((c) => c.id)).toEqual([
+      "b1-buyer-name",
+      "b1-buyer-phone",
+      "b1-buyer-email",
+      "b1-buyer-company",
+      "b1-buyer-msg",
+    ]);
+    for (const sn of b1s5.copySnippets) {
+      expect(sn.label).not.toContain("성함");
+      expect(sn.targetHint).not.toContain("성함");
+    }
+    expect(b1s6.actionChecklist.join(" ")).toContain("[자료 보내기(승인)]");
+    expect(b1s6.actionChecklist.join(" ")).toContain("[확인·승인하기 ›]");
   });
 
   it("accepts /broker/w/im?buildingId=<uuid> address-bar URLs in live probe without path error", async () => {

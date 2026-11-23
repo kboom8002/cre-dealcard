@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { NextRequest } from "next/server";
 import JSZip from "jszip";
 
@@ -365,6 +367,75 @@ describe("Hold-out V2 Complementary Golden Human Click-Through Suite (/qa-full-l
     } finally {
       probeMockState.enabled = false;
       fetchSpy.mockRestore();
+    }
+  });
+
+  it("keeps V2 Hold-out TS data, MD, and HTML guides synced with real DOM labels (A6-12..A6-16)", () => {
+    const h1s4 = FULL_LOOP_V2_ALL_STEPS.find((s) => s.id === "H1-S4")!;
+    const h1s5 = FULL_LOOP_V2_ALL_STEPS.find((s) => s.id === "H1-S5")!;
+    const h1s6 = FULL_LOOP_V2_ALL_STEPS.find((s) => s.id === "H1-S6")!;
+    const h2s2 = FULL_LOOP_V2_ALL_STEPS.find((s) => s.id === "H2-S2")!;
+    const h2s4 = FULL_LOOP_V2_ALL_STEPS.find((s) => s.id === "H2-S4")!;
+    const h2s5 = FULL_LOOP_V2_ALL_STEPS.find((s) => s.id === "H2-S5")!;
+
+    // A6-12 Newsletter labels & tabs
+    for (const st of [h1s4, h2s4]) {
+      const joined = st.actionChecklist.join(" ");
+      expect(joined).toContain("[이번 달 뉴스레터 새로 쓰기]");
+      expect(joined).toContain("[제목]");
+      expect(joined).toContain("[내용]");
+      expect(joined).toContain("[보내기]");
+      expect(joined).toContain("[구독자에게 보내기]");
+      expect(joined).toContain("[링크 복사]");
+      expect(joined).not.toContain("[+ 새 호수 만들기]");
+    }
+
+    // A6-13 DealCard CTA, 이름, 소속 · 기관명 chips
+    expect(h1s5.copySnippets).toHaveLength(5);
+    expect(h1s5.copySnippets.map((c) => c.id)).toContain("h1-buyer-company");
+    expect(h1s5.actionChecklist.join(" ")).toContain("[상세 제안서(IM) 요청]");
+    expect(h1s5.actionChecklist.join(" ")).not.toContain("[상세 IM 자료 요청하기]");
+    expect(h2s5.copySnippets).toHaveLength(8);
+    expect(h2s5.copySnippets.map((c) => c.id)).toContain("h2-b1-company");
+    expect(h2s5.copySnippets.map((c) => c.id)).toContain("h2-b2-company");
+    for (const sn of [...h1s5.copySnippets, ...h2s5.copySnippets]) {
+      expect(sn.label).not.toContain("성함");
+      expect(sn.targetHint).not.toContain("성함");
+    }
+
+    // A6-15 Inbox approve canonical flow
+    for (const st of [h1s6, h2s5]) {
+      const joined = st.actionChecklist.join(" ");
+      expect(joined).toContain("[확인·승인하기 ›]");
+      expect(joined).toContain("[자료 보내기(승인)]");
+    }
+
+    // A6-16 H2-S2: [IM 만들기] before [📥 PPTX 받기]
+    const h2s2Checklist = h2s2.actionChecklist.join(" ");
+    expect(h2s2Checklist.indexOf("[IM 만들기]")).toBeGreaterThan(-1);
+    expect(h2s2Checklist.indexOf("[📥 PPTX 받기]")).toBeGreaterThan(
+      h2s2Checklist.indexOf("[IM 만들기]"),
+    );
+
+    const mdGuide = fs.readFileSync(
+      path.join(process.cwd(), "docs/finaltest/FULL_LOOP_V2_HOLDOUT_HUMAN_TEST_GUIDE.md"),
+      "utf8",
+    );
+    const htmlGuide = fs.readFileSync(
+      path.join(process.cwd(), "docs/finaltest/FULL_LOOP_V2_HOLDOUT_HUMAN_TEST_GUIDE.html"),
+      "utf8",
+    );
+    for (const doc of [mdGuide, htmlGuide]) {
+      expect(doc).toContain("이번 달 뉴스레터 새로 쓰기");
+      expect(doc).toContain("상세 제안서(IM) 요청");
+      expect(doc).toContain("소속 · 기관명");
+      expect(doc).toContain("한국자산운용");
+      expect(doc).toContain("자료 보내기(승인)");
+      expect(doc).toContain("확인·승인하기 ›");
+      expect(doc).not.toContain("새 호수 만들기");
+      expect(doc).not.toContain("상세 IM 자료 요청하기");
+      expect(doc).not.toContain("/m/... 또는 /newsletter/...");
+      expect(doc.indexOf("IM 만들기")).toBeLessThan(doc.lastIndexOf("📥 PPTX 받기"));
     }
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Schema.org JSON-LD helpers for CRE DealCard
+ * Schema.org JSON-LD helpers for 크리딜 (CREDEAL)
  *
  * Each function returns a plain object that should be serialized
  * inside a <script type="application/ld+json"> tag.
@@ -94,7 +94,7 @@ export function realEstateListing(building: BuildingForSchema) {
     name: `${region} ${building.asset_type ?? "상업용 부동산"} 매물`,
     description:
       sanitizedFitSummary ??
-      `${region} 권역 ${building.asset_type ?? "상업용 부동산"} 딜카드. ${building.price_band ? `가격대: ${building.price_band}.` : ""} DealCard에서 확인하세요.`,
+      `${region} 권역 ${building.asset_type ?? "상업용 부동산"} 딜카드. ${building.price_band ? `가격대: ${building.price_band}.` : ""} 크리딜(CREDEAL)에서 확인하세요.`,
     url: `${BASE_URL}/deal/${regionSlug}/${building.id}`,
     image: `${BASE_URL}/api/og/deal/${building.id}`,
     datePosted: building.created_at ?? undefined,
@@ -134,7 +134,7 @@ export function realEstateAgent(broker: BrokerForSchema) {
   return {
     "@context": "https://schema.org",
     "@type": "RealEstateAgent",
-    name: broker.display_name ?? "DealCard 중개사",
+    name: broker.display_name ?? "크리딜 중개사",
     description:
       broker.bio ??
       `${broker.display_name ?? "전문 중개사"}${broker.specialty_regions?.length ? ` — ${broker.specialty_regions.map(regionLabel).join(", ")} 전문` : ""}`,
@@ -179,8 +179,8 @@ export function organization() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "DealCard",
-    alternateName: "딜카드",
+    name: "크리딜 (CREDEAL)",
+    alternateName: "크리딜",
     url: BASE_URL,
     logo: `${BASE_URL}/favicon.ico`,
     description:
@@ -233,7 +233,7 @@ export function qaPage(thread: QAThread) {
           text: thread.ai_answer.slice(0, 500),
           author: {
             "@type": "Organization",
-            name: "DealCard AI",
+            name: "크리딜 AI",
             url: BASE_URL,
           },
           dateCreated: thread.created_at ?? undefined,
@@ -241,7 +241,7 @@ export function qaPage(thread: QAThread) {
       }),
       suggestedAnswer: {
         "@type": "Answer",
-        text: "DealCard Hub에서 관련 블라인드 딜카드를 탐색하고 전문 중개인에게 문의하세요.",
+        text: "크리딜 허브에서 관련 블라인드 딜카드를 탐색하고 전문 중개인에게 문의하세요.",
         url: `${BASE_URL}/hub`,
       },
     },
@@ -306,7 +306,7 @@ export function pulsePage(opts: {
     description: opts.summary.slice(0, 300),
     url: `${BASE_URL}/pulse/${opts.region}/${opts.period}`,
     datePublished: opts.createdAt,
-    publisher: { "@type": "Organization", name: "DealCard" },
+    publisher: { "@type": "Organization", name: "크리딜 (CREDEAL)" },
     about: {
       "@type": "Place",
       name: opts.region,
@@ -336,7 +336,7 @@ export function oiticlePage(opts: {
       "@type": opts.authorType === "ai" ? "Organization" : "Person",
       name: opts.authorName,
     },
-    publisher: { "@type": "Organization", name: "DealCard" },
+    publisher: { "@type": "Organization", name: "크리딜 (CREDEAL)" },
     ...(opts.tags?.length && { keywords: opts.tags.join(", ") }),
   };
 }
@@ -347,7 +347,7 @@ export function website() {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "DealCard",
+    name: "크리딜 (CREDEAL)",
     url: BASE_URL,
     potentialAction: {
       "@type": "SearchAction",
@@ -388,7 +388,7 @@ export function searchResultsPage(query: string, totalResults: number) {
   return {
     "@context": "https://schema.org",
     "@type": "SearchResultsPage",
-    name: `"${query}" 검색 결과 | DealCard`,
+    name: `"${query}" 검색 결과 | 크리딜 (CREDEAL)`,
     description: `"${query}"에 대한 상업용 부동산 매물, 임대 공간, 시장 시세 및 전문 중개인 검색 결과 총 ${totalResults}건입니다.`,
     url: `${BASE_URL}/search?q=${encodeURIComponent(query)}`,
   };

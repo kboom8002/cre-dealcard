@@ -12,7 +12,7 @@ import {
 } from '../privacy/legal-shared';
 
 export const metadata: Metadata = {
-  title: '통합 서비스 이용약관 | 크리딜 (CREDEAL)',
+  title: '통합 서비스 이용약관',
   description:
     '크리딜 (CREDEAL) 중개사 B2B SaaS 워크스페이스, 공개 딜카드/IM 열람, 매거진 구독 신청·확인 및 이용 조건을 안내합니다.',
 };

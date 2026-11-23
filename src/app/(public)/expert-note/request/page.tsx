@@ -128,28 +128,25 @@ function ExpertNoteRequestContent() {
             </p>
           )}
           <div className="space-y-2.5">
-            <Link
-              href="/hub"
-              className="inline-flex min-h-[48px] items-center justify-center w-full rounded-xl bg-blue-700 hover:bg-blue-800 px-6 py-3 text-sm font-semibold text-white transition-colors"
-              id="cta-back-hub"
-            >
-              DealCard Hub로 돌아가기
-            </Link>
             {brokerParam && (
               <Link
                 href={`/broker-profile/${encodeURIComponent(brokerParam)}`}
-                className="inline-flex min-h-[48px] items-center justify-center w-full rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-6 py-3 text-sm font-medium text-slate-800 transition-colors"
+                className="inline-flex min-h-[48px] items-center justify-center w-full rounded-xl bg-blue-700 hover:bg-blue-800 px-6 py-3 text-sm font-semibold text-white transition-colors"
                 id="cta-back-broker-profile"
               >
                 중개사 프로필로 돌아가기
               </Link>
             )}
             <Link
-              href="/broker"
-              className="inline-flex min-h-[48px] items-center justify-center w-full rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 px-6 py-3 text-sm font-medium text-slate-700 transition-colors"
-              id="cta-back-broker"
+              href="/hub"
+              className={`inline-flex min-h-[48px] items-center justify-center w-full rounded-xl px-6 py-3 text-sm font-semibold transition-colors ${
+                brokerParam
+                  ? "bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-medium"
+                  : "bg-blue-700 hover:bg-blue-800 text-white"
+              }`}
+              id="cta-back-hub"
             >
-              중개사 홈으로
+              매물 허브로 돌아가기
             </Link>
           </div>
         </div>

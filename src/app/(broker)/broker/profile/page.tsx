@@ -665,7 +665,7 @@ export default function BrokerProfilePage() {
             guidance={
               <ul className="space-y-1 text-sm text-slate-800 leading-relaxed">
                 <li>• <strong>PPTX Slide 01 표지 &amp; Slide 10 문의/유의사항</strong>: 대표자 성함, 소재지, 직통 연락처, 상호, 개설등록번호 자동 인쇄</li>
-                <li>• <strong>카카오톡 딜카드 하단 명함 &amp; 주간 고객 소식지 하단</strong>: 법정 5대 중개사무소 표시정보와 직통 전화 연결 배지로 표시</li>
+                <li>• <strong>카카오톡 딜카드 하단 명함 &amp; 고객 소식지 하단</strong>: 법정 5대 중개사무소 표시정보와 직통 전화 연결 배지로 표시</li>
                 <li>• 한 번만 정확히 등록해 두시면 모든 제안서와 고객용 화면에 법정 표시 규격으로 자동 반영됩니다.</li>
               </ul>
             }

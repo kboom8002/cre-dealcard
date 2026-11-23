@@ -249,7 +249,7 @@ describe("Wave 5 — WP-16: AccessibleTabs, Consolidated Modals, >=16px Form Con
           'input:not([type="checkbox"]), textarea, select'
         )
       );
-      expect(textControls.length).toBe(4);
+      expect(textControls.length).toBe(5);
       for (const ctrl of textControls) {
         expect(ctrl.id).toBeTruthy();
         expect(findLabelFor(sheet, ctrl.id)).not.toBeNull();

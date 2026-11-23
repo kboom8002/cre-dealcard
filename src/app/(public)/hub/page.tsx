@@ -24,15 +24,35 @@ import {
   PUBLIC_WORKSPACE_ITEM_STATUSES,
 } from "@/domain/public-projection/visibility";
 import { kstWeekStartIso } from "./hub-week";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
+
+const SITE_URL = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
-  title: "DealCard Hub | 상업용 부동산의 새로운 기준",
+  title: {
+    absolute: "크리딜 허브 (CREDEAL) | 상업용 부동산의 새로운 기준",
+  },
   description:
     "AI 기반 블라인드 딜카드로 상업용 부동산 매매·임대를 안전하고 빠르게. 검증된 공인중개사, 실시간 시세 리포트, 권역별 매물 탐색.",
   alternates: { canonical: "/hub" },
   openGraph: {
-    title: "DealCard Hub — 상업용 부동산의 새로운 기준",
+    title: "크리딜 허브 (CREDEAL) — 상업용 부동산의 새로운 기준",
     description: "블라인드 딜카드 · AI 매칭 · 시세 리포트",
+    siteName: "크리딜 (CREDEAL)",
+    images: [
+      {
+        url: `${SITE_URL}/og-default.png?v=2`,
+        width: 1200,
+        height: 630,
+        alt: "크리딜 허브 (CREDEAL)",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "크리딜 허브 (CREDEAL) — 상업용 부동산의 새로운 기준",
+    description: "블라인드 딜카드 · AI 매칭 · 시세 리포트",
+    images: [`${SITE_URL}/og-default.png?v=2`],
   },
 };
 
@@ -531,7 +551,7 @@ export default async function HubPage() {
                 </span>
               </div>
               <h2 className="text-lg font-bold text-slate-900 leading-snug mb-1">
-                DealCard로<br />전문성을 증명하세요
+                크리딜로<br />전문성을 증명하세요
               </h2>
               <p className="text-sm text-slate-600">
                 AI 매칭 · 딜카드 생성 · 파이프라인 관리

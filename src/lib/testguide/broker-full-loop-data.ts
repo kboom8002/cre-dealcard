@@ -170,7 +170,7 @@ export const BROKER_FULL_LOOP_WINDOW_ROLES: ReadonlyArray<FullLoopWindowRoleCard
     badge: '창 A · 필수',
     title: '중개사 작업 화면 (대표님 PC)',
     device: 'PC 일반 브라우저 (본인 중개사 계정 로그인 · 화면 오른쪽 배치 권장)',
-    purpose: '딜카드 · IM · 부동산뉴스 작성, 자료 보내기, 테스트 후 내 매물 원클릭 삭제',
+    purpose: '딜카드 · IM · 부동산뉴스 작성, 자료 보내기(승인), 테스트 후 내 매물 원클릭 삭제',
   },
   {
     id: 'windowB',
@@ -283,7 +283,7 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         workspaceHref: '/broker/w/dealcards?new=1',
         workspaceLabel: '새 딜카드 작성 화면 열기',
         actionChecklist: [
-          '오른쪽 위 [🚀 새 딜카드 작성 화면 열기]를 눌러 빈 카드가 열리면(만약 기존 서교동 샘플이 보이면 좌측 상단 [새 매물 입력] 클릭), 아래 [사옥 현장 메모 복사]를 눌러 상단 메모칸에 붙여넣고 하단 파란 [✨ 메모로 딜카드 생성하기] 버튼을 누릅니다.',
+          '오른쪽 위 [🚀 새 딜카드 작성 화면 열기]를 눌러 빈 카드가 열리면(만약 기존 서교동 샘플이 보이면 왼쪽 [＋ 새 딜카드 만들기] 또는 상단 예시 배너의 [새 빈 딜카드] 클릭), 아래 [사옥 현장 메모 복사]를 눌러 상단 메모칸에 붙여넣고 하단 파란 [✨ 메모로 딜카드 생성하기] 버튼을 누릅니다.',
           '매물 유형을 [사옥용]으로 고르고, 한 줄 제목(18자 이내) 칸에는 아래 [한 줄 제목 복사 (16자)]를 붙여넣습니다. (우측 상단 [아주 크게] 글자 크기 버튼도 한 번 눌러 보세요.)',
           '오른쪽 카톡 미리보기에 "서초구 서초동"만 나오고 "1364-28", "FM빌딩", "010-3344-8899", "최상무"가 숨겨졌는지 확인한 뒤, 화면 하단 [카톡으로 보내기] → 팝업창 [링크 복사]를 눌러 바로 아래 초록색 입력칸에 붙여넣습니다.',
         ],
@@ -408,21 +408,21 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         workspaceHref: '/broker/w/newsletter',
         workspaceLabel: '부동산뉴스 작성 화면 열기',
         actionChecklist: [
-          '왼쪽 위 [+ 새 호수 만들기] 클릭 → 표지 제목과 시장 브리핑 칸에 아래 복사칩 문구를 넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결합니다.',
-          '오른쪽 아래 [구독자에게 보내기] 완료 후 [링크 복사] 버튼을 눌러 바로 아래 초록색 입력칸 ④에 붙여넣고 [🔍 이 링크 바로 점검]을 누릅니다.',
+          '왼쪽 위 [이번 달 뉴스레터 새로 쓰기] 클릭 → [제목]·[내용] 탭에 아래 표지 제목과 시장 브리핑 복사칩 문구를 넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결합니다.',
+          '오른쪽 [보내기] 탭으로 이동해 [구독자에게 보내기] 완료 후 같은 [보내기] 탭 안의 [링크 복사] 버튼을 눌러 바로 아래 초록색 입력칸 ④에 붙여넣고 [🔍 이 링크 바로 점검]을 누릅니다.',
         ],
         copySnippets: [
           {
             id: 'b1-nl-title',
             label: '부동산뉴스 제목 복사',
-            targetHint: '/broker/magazine-editor → 제목 입력칸',
+            targetHint: '/broker/magazine-editor → [제목] 탭 표지 제목 입력칸',
             value: '양재·서초권 중소형 사옥 매수세 유입과 자주식 주차 빌딩 희소성 점검',
             isPublicFacing: true,
           },
           {
             id: 'b1-nl-summary',
             label: '시장 브리핑 본문 복사',
-            targetHint: '/broker/magazine-editor → 시장 요약 입력칸',
+            targetHint: '/broker/magazine-editor → [내용] 탭 시장 요약 입력칸',
             value: '임차료 상승과 주차난으로 인해 강남·서초권에서 상층부는 직접 사옥으로 쓰고 저층부 임대료로 금융비용을 충당하는 실사용 매수 문의가 꾸준히 이어지고 있습니다.',
             isPublicFacing: true,
           },
@@ -430,7 +430,7 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         inlineScratchFields: [
           {
             field: 'newsletterUrl',
-            label: '④ 발행된 공개 부동산뉴스 주소 붙여넣기 (/m/... 또는 /newsletter/...)',
+            label: '④ 발행된 공개 부동산뉴스 주소 붙여넣기 (/magazine/...)',
             placeholder: '발행 완료 후 복사한 뉴스레터 공개 주소를 여기에 Ctrl+V',
           },
         ],
@@ -449,25 +449,37 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         title: '스마트폰 카톡 [나와의 채팅](또는 시크릿창)에서 매수 고객 시점으로 상세 IM 요청',
         actionChecklist: [
           '창 B(스마트폰 카카오톡 [나와의 채팅] 또는 PC 시크릿 창)에서 Step 2에서 복사한 딜카드 공개 링크를 열어 첫 화면 인상을 확인합니다.',
-          '화면 하단의 [상세 제안서(IM) 요청] 버튼을 눌러 아래 예시 고객 정보로 문의를 남깁니다.',
+          '화면 하단의 [상세 제안서(IM) 요청] 버튼을 눌러 아래 예시 고객 정보(이름·연락처·이메일·소속 · 기관명·문의 내용)로 문의를 남깁니다.',
         ],
         copySnippets: [
           {
             id: 'b1-buyer-name',
-            label: '[창 B] 매수 문의자 성함 복사',
-            targetHint: '창 B 자료 요청 창 → 성함',
-            value: '정현우 대표 (넥스트클라우드)',
+            label: '[창 B] 매수 문의자 이름 복사 (정현우 대표)',
+            targetHint: '창 B 자료 요청 창 → 이름 (필수)',
+            value: '정현우 대표',
           },
           {
             id: 'b1-buyer-phone',
-            label: '[창 B] 매수 문의자 연락처 복사',
-            targetHint: '창 B 자료 요청 창 → 연락처',
+            label: '[창 B] 매수 문의자 연락처 복사 (010-5581-2390)',
+            targetHint: '창 B 자료 요청 창 → 연락처 (필수)',
             value: '010-5581-2390',
+          },
+          {
+            id: 'b1-buyer-email',
+            label: '[창 B] 매수 문의자 이메일 복사 (hw.jung@example.kr)',
+            targetHint: '창 B 자료 요청 창 → 이메일 (선택)',
+            value: 'hw.jung@example.kr',
+          },
+          {
+            id: 'b1-buyer-company',
+            label: '[창 B] 소속 · 기관명 복사 (미래사옥TF)',
+            targetHint: '창 B 자료 요청 창 → 소속 · 기관명 (선택)',
+            value: '미래사옥TF',
           },
           {
             id: 'b1-buyer-msg',
             label: '[창 B] 문의 내용 복사',
-            targetHint: '창 B 자료 요청 창 → 문의 내용',
+            targetHint: '창 B 자료 요청 창 → 문의 내용 (선택)',
             value: '임직원 45명 규모 IT 법인 사옥 이전 검토 중입니다. 4~6층 즉시 입주 가능 면적과 주차 대수 상세 IM 요청드립니다.',
           },
         ],
@@ -483,11 +495,11 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A ↔ 창 B·C',
         targetMinutes: 2,
         severityOnFail: 'S0',
-        title: '고객 소통함에서 [자료 보내기] 승인 → 열람 확인 → [보낸 링크 잠그기] 체험',
+        title: '고객 소통함에서 [자료 보내기(승인)] → 열람 확인 → [보낸 링크 잠그기] 체험',
         workspaceHref: '/broker/w/inbox',
         workspaceLabel: '고객 소통함 열기',
         actionChecklist: [
-          '창 A 고객 소통함에서 방금 도착한 "정현우 대표" 문의를 선택해 [자료 보내기]로 승인하고, 발급된 IM 링크를 창 B에서 열어 사진 10장 갤러리를 확인합니다.',
+          '창 A 고객 소통함 상단 [지금 할 일] 배너의 [확인·승인하기 ›](또는 왼쪽 [할 일] 목록)에서 방금 도착한 "정현우 대표" 문의를 선택한 뒤, 가운데 [할 일] 탭의 초록색 [자료 보내기(승인)] 버튼으로 승인하고, 발급된 IM 링크를 창 B에서 열어 사진 10장 갤러리를 확인합니다.',
           '다시 창 A 소통함에서 [보낸 링크 잠그기]를 누른 뒤, 창 B에서 새로고침했을 때 즉시 열람이 잠기는지 확인합니다.',
         ],
         copySnippets: [],
@@ -728,14 +740,14 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         workspaceHref: '/broker/w/newsletter',
         workspaceLabel: '부동산뉴스 작성 화면 열기',
         actionChecklist: [
-          '왼쪽 위 [+ 새 호수 만들기] 클릭 → 내 매물이 속한 권역 동향을 2~3줄 적고 방금 만든 내 매물 딜카드를 추천 매물로 연결합니다.',
-          '오른쪽 아래 [구독자에게 보내기] 완료 후 [링크 복사]를 눌러 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 눌러 내 매물 번지·건물명이 새어 나오지 않았는지 확인합니다.',
+          '왼쪽 위 [이번 달 뉴스레터 새로 쓰기] 클릭 → [제목]·[내용] 탭에 내 매물이 속한 권역 동향을 2~3줄 적고 방금 만든 내 매물 딜카드를 추천 매물로 연결합니다.',
+          '오른쪽 [보내기] 탭에서 [구독자에게 보내기] 완료 후 같은 [보내기] 탭 안의 [링크 복사]를 눌러 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 눌러 내 매물 번지·건물명이 새어 나오지 않았는지 확인합니다.',
         ],
         copySnippets: [],
         inlineScratchFields: [
           {
             field: 'newsletterUrl',
-            label: '④ 내 매물이 연결된 공개 부동산뉴스 주소 붙여넣기 (/m/... 또는 /newsletter/...)',
+            label: '④ 내 매물이 연결된 공개 부동산뉴스 주소 붙여넣기 (/magazine/...)',
             placeholder: '발행 완료 후 복사한 뉴스레터 공개 주소를 여기에 Ctrl+V',
           },
         ],
@@ -759,11 +771,11 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A ↔ 창 B',
         targetMinutes: 1,
         severityOnFail: 'S1',
-        title: '본인 테스트 문의 등록 → 고객 소통함에서 [자료 보내기] 및 [보낸 링크 잠그기] 점검',
+        title: '본인 테스트 문의 등록 → 고객 소통함에서 [자료 보내기(승인)] 및 [보낸 링크 잠그기] 점검',
         workspaceHref: '/broker/w/inbox',
         workspaceLabel: '고객 소통함 열기',
         actionChecklist: [
-          '창 B에서 본인 이름(예: 테스트매수자)으로 [상세 제안서(IM) 요청]을 남긴 뒤, 창 A 고객 소통함에서 [자료 보내기]와 [보낸 링크 잠그기]를 차례대로 눌러 실제로 열람이 차단되는지 확인합니다.',
+          '창 B에서 본인 이름(예: 테스트매수자)으로 [상세 제안서(IM) 요청]을 남긴 뒤, 창 A 고객 소통함 상단 [지금 할 일]의 [확인·승인하기 ›](또는 왼쪽 [할 일] 목록)에서 해당 문의를 선택해 가운데 [할 일] 탭의 [자료 보내기(승인)]과 [보낸 링크 잠그기]를 차례대로 눌러 실제로 열람이 차단되는지 확인합니다.',
         ],
         copySnippets: [],
         inlineScratchFields: [

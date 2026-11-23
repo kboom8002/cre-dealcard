@@ -35,6 +35,7 @@ vi.mock('@/lib/auth-guard', () => ({
 }));
 
 import { POST } from '@/app/api/broker/im-lite/quick-generate/route';
+import { getQuickImRecord } from '@/lib/im-lite/quick-generate-store';
 
 describe('M5 IM Simple: Quick-Generate API & Idempotency (WP-P3-04)', () => {
   beforeEach(() => {
@@ -257,6 +258,84 @@ describe('M5 IM Simple: Quick-Generate API & Idempotency (WP-P3-04)', () => {
 
       const res = await POST(req);
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('Wave 3 RentRoll Meta, Area Sync & Unified Slash-Split', () => {
+    it('recomputes stale areaPyeong when areaSqm is supplied, splits 업종 / 상호, and stores rent_roll_meta & row metadata', async () => {
+      const req = new NextRequest('http://localhost:3000/api/broker/im-lite/quick-generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          address: '서울특별시 마포구 서교동 395-166',
+          askingPriceManwon: 650000,
+          rentRollMeta: {
+            rentroll_version: '1.5',
+            area_input_unit: 'pyeong',
+            rentroll_as_of: '2026-11-15',
+            gfa_sqm: 890.5,
+            area_unit_override: { reason: '단위 검증 완료' },
+          },
+          rentRoll: [
+            {
+              floor: '1F',
+              unit: '101호',
+              use: '약국 / 고은약국',
+              areaSqm: 99.17,
+              areaPyeong: 999,
+              exclusiveAreaSqm: 78.39,
+              areaSqmIsProxy: true,
+              contractGroup: 'GRP-A',
+              legalBasis: '상가',
+              firstContractDate: '2021-05-01',
+              depositManwon: 8000,
+              monthlyRentManwon: 650,
+              maintenanceManwon: 50,
+              status: 'occupied',
+            },
+          ],
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+
+      const saved = getQuickImRecord(json.buildingId);
+      expect(saved).not.toBeNull();
+      expect(saved?.rentRollMeta?.rentroll_as_of).toBe('2026-11-15');
+      expect(saved?.rentRollMeta?.area_unit_override?.by).toBe('broker-test-user-id');
+      expect(saved?.fullDocBody?.rent_roll_meta?.area_input_unit).toBe('pyeong');
+
+      const fl0 = saved?.fullDocBody?.floor_leases?.[0];
+      expect(fl0?.tenant_type).toBe('약국');
+      expect(fl0?.tenant_name).toBe('고은약국');
+      expect(fl0?.area_pyeong).toBe(30); // 99.17 * 0.3025 = 29.998 -> 30.0
+      expect(fl0?.area_sqm_is_proxy).toBe(true);
+      expect(fl0?.contract_group).toBe('GRP-A');
+      expect(fl0?.legal_basis).toBe('상가');
+      expect(fl0?.first_contract_date).toBe('2021-05-01');
+    });
+
+    it('rejects malformed rent_roll_meta with 400 Korean error', async () => {
+      const req = new NextRequest('http://localhost:3000/api/broker/im-lite/quick-generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          address: '서울특별시 마포구 서교동 395-166',
+          askingPriceManwon: 650000,
+          rent_roll_meta: {
+            area_input_unit: 'pyeong',
+            area_unit_override: { reason: '   ' },
+          },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('렌트롤 정보');
     });
   });
 });

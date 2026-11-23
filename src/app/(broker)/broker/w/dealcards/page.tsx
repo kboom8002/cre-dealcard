@@ -42,6 +42,8 @@ import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import { repairDealCardLine } from "@/lib/deal-card/copy-limits";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
+import { copyText } from "@/lib/ux/clipboard";
+import { getSiteOrigin } from "@/lib/kakao/share";
 import { TERMS } from "@/lib/ux/lexicon";
 import {
   extractWorkspaceResponseUserId,
@@ -1089,7 +1091,7 @@ function DealCardsWorkspaceInner() {
     onSave: performServerSave,
     onConflict: () => {
       showUndoToast({
-        message: "다른 곳에서 먼저 저장된 최신 내용이 있어요. 오른쪽 위 새로고침을 눌러 주세요.",
+        message: "다른 곳에서 먼저 저장된 최신 내용이 있어요. 상단 동기화 또는 새로고침을 눌러 주세요.",
         variant: "destructive",
       });
     },
@@ -2711,6 +2713,18 @@ function DealCardsWorkspaceInner() {
     />
   );
 
+  const handleCopyInlineLiveUrl = async (urlPath: string) => {
+    const origin = getSiteOrigin();
+    const fullUrl = urlPath.startsWith("/") ? `${origin}${urlPath}` : urlPath;
+    const ok = await copyText(fullUrl);
+    showUndoToast({
+      message: ok
+        ? "링크를 복사했어요. 카카오톡에 붙여넣어 보내세요."
+        : "링크 복사에 실패했습니다. 다시 시도해 주세요.",
+      variant: ok ? "success" : "destructive",
+    });
+  };
+
   const editorSlot = (
     <DealCardEditorColumn
       selectedMemoOnly={selectedMemoOnly}
@@ -2725,6 +2739,15 @@ function DealCardsWorkspaceInner() {
       memoTextareaRef={memoTextareaRef}
       editorTargetId={editorTargetId}
       effectiveCard4={effectiveCard4}
+      previewLifecycle={dealCardPreviewLifecycle}
+      liveUrl={dealCardLiveUrl}
+      publishError={publishError}
+      onResyncPublished={() => {
+        void handleResyncSentDealCard();
+      }}
+      onCopyLiveUrl={(url) => {
+        void handleCopyInlineLiveUrl(url);
+      }}
       onCreateNew={handleCreateNew}
       onFillSample={handleFillSample}
       onMemoTextChange={handleMemoTextChange}
@@ -2756,7 +2779,21 @@ function DealCardsWorkspaceInner() {
       activeUnitId={activeDealCardUnitId}
       selectedMemoOnly={selectedMemoOnly}
       publishError={publishError}
-      onStartInput={() => memoTextareaRef.current?.focus()}
+      onStartInput={() => {
+        if (typeof window !== "undefined" && window.innerWidth < 1280) {
+          window.dispatchEvent(new CustomEvent("workspace:focus-editor"));
+        }
+        memoTextareaRef.current?.focus();
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            memoTextareaRef.current?.focus();
+            memoTextareaRef.current?.scrollIntoView?.({
+              behavior: "smooth",
+              block: "center",
+            });
+          }, 60);
+        }
+      }}
       onResyncPublished={() => {
         void handleResyncSentDealCard();
       }}
@@ -2780,7 +2817,7 @@ function DealCardsWorkspaceInner() {
         }
         if (!resolvedActiveIdRef.current) {
           showUndoToast({
-            message: "먼저 왼쪽 메모창에 매물을 입력해 딜카드를 만들어 주세요.",
+            message: "먼저 매물 메모창에 매물을 입력해 딜카드를 만들어 주세요.",
           });
           memoTextareaRef.current?.focus();
           return;

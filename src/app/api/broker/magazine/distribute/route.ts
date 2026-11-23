@@ -81,10 +81,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const rawEditionType =
+      typeof body.editionType === "string" ? body.editionType : undefined;
+    const cadenceTitleLabel =
+      rawEditionType === "daily"
+        ? "일간 리포트"
+        : rawEditionType === "weekly"
+          ? "주간 리포트"
+          : rawEditionType === "monthly"
+            ? "월간 리포트"
+            : "부동산 소식지";
+
     const edition: DistributeMagazineEditionInput = {
       id: editionId,
-      editionType: typeof body.editionType === "string" ? body.editionType : undefined,
-      title: title || `${issueDate} 주간 리포트`,
+      editionType: rawEditionType,
+      title: title || `${issueDate} ${cadenceTitleLabel}`,
       headline,
       market_temp: marketTemp,
       date: issueDate,

@@ -24,6 +24,7 @@ import { UnifiedSearchBar } from "@/components/search/UnifiedSearchBar";
 import { BrokerResultCard, type BrokerCardData } from "@/components/search/BrokerResultCard";
 import { serializeJsonLd, searchResultsPage, brokerItemList } from "@/lib/schema-org";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 interface SearchPageProps {
   searchParams: Promise<{
@@ -299,22 +300,33 @@ export async function generateMetadata({ searchParams }: SearchPageProps): Promi
       broker: "전문 중개인",
     }[type] ?? "검색";
 
+  const siteUrl = getCanonicalSiteUrl();
+  const ogImageUrl = `${siteUrl}/og-default.png?v=2`;
+
   const title = trimmedQ
-    ? `"${trimmedQ}"에 대한 ${typeLabel} 검색 결과 | DealCard`
-    : `상업용 부동산 통합 검색 | DealCard`;
+    ? `"${trimmedQ}"에 대한 ${typeLabel} 검색 결과`
+    : `상업용 부동산 통합 검색`;
 
   const description = trimmedQ
-    ? `DealCard에서 "${trimmedQ}" 키워드에 상응하는 최적의 상업용 부동산 ${typeLabel} 검색 결과입니다. 빌딩 매매, 임대 오피스, 시세 정보 및 검증된 중개인 프로필을 확인해 보세요.`
+    ? `크리딜(CREDEAL)에서 "${trimmedQ}" 키워드에 상응하는 최적의 상업용 부동산 ${typeLabel} 검색 결과입니다. 빌딩 매매, 임대 오피스, 시세 정보 및 검증된 중개인 프로필을 확인해 보세요.`
     : `GBD, YBD, CBD 등 서울 주요 권역의 상업용 부동산 매매 딜카드, 임대 공간, 시장 시세 및 전문 공인중개사 프로필을 통합 검색하세요.`;
 
   return {
     title,
     description,
     openGraph: {
-      title,
+      title: `${title} | 크리딜 (CREDEAL)`,
       description,
       type: "website",
       locale: "ko_KR",
+      siteName: "크리딜 (CREDEAL)",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | 크리딜 (CREDEAL)`,
+      description,
+      images: [ogImageUrl],
     },
   };
 }

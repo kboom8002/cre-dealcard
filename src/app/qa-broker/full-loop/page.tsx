@@ -17,7 +17,7 @@ const BROKER_FULL_LOOP_CONFIG = {
   pageSubtitle:
     "Stage 1에서 서초동 사옥 매물(실사진 10장)로 손에 익힌 뒤, Stage 2에서 대표님의 실제 매물 1건으로 현업 용어·사진 선별·발송 품격을 직접 평가해 주세요.",
   reportTitle:
-    "CRE DealCard 현업 중개인 전 과정 클릭스루 검수 결과서 (10장 표준 매물 + 내 매물 실전)",
+    "크리딜 (CREDEAL) 현업 중개인 전 과정 클릭스루 검수 결과서 (10장 표준 매물 + 내 매물 실전)",
   reportFilePrefix: "CRE_중개인_실전풀루프_검수",
   crossEditionLink: {
     href: "/qa-broker/signoff",
@@ -27,7 +27,7 @@ const BROKER_FULL_LOOP_CONFIG = {
   windowRoles: BROKER_FULL_LOOP_WINDOW_ROLES,
   defaultSubscribers: {
     loop1: "010-5581-2390",
-    loop2: "본인 테스트 연락처 입력",
+    loop2: "",
   },
   secondaryBuyerPlaceholder: "비교용 두 번째 열람 링크 (/im-lite/... 선택)",
 } as const;

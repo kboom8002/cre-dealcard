@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   let icsLines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//CRE DealCard//Broker Schedule//KO",
+    "PRODID:-//CREDEAL//Broker Schedule//KO",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH"
   ];

@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useRef, useState } from "react";
-import { RentRollGrid, type BuildingRegisterFloorItem } from "@/components/workspace/RentRollGrid";
+import React, { useMemo, useRef, useState } from "react";
+import {
+  RentRollGrid,
+  hasExistingRentRollData,
+  type BuildingRegisterFloorItem,
+} from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
 import {
@@ -14,6 +18,7 @@ import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import type { BrokerCompRowForm } from "@/domain/building/mobile-im/broker-extras";
 import type { ImPostitStyle } from "./ImPreviewPane";
 import {
+  UUID_REGEX,
   formatPhoneHyphen,
   isSampleSeedImItem,
   resolveKnownTestAssetUrl,
@@ -83,6 +88,9 @@ export interface ImEditorPanelsProps {
   totalDepositManwon: number;
   totalRentManwon: number;
   calculatedYield: number;
+  expectedDepositManwon?: number;
+  expectedRentManwon?: number;
+  expectedYieldPct?: number;
   isRentRollImportOpen: boolean;
   onToggleRentRollImport: () => void;
   onExcelRentRollImport: (payload: RentRollImportPayload) => void;
@@ -179,6 +187,9 @@ export function ImEditorPanels({
   totalDepositManwon,
   totalRentManwon,
   calculatedYield,
+  expectedDepositManwon,
+  expectedRentManwon,
+  expectedYieldPct,
   isRentRollImportOpen,
   onToggleRentRollImport,
   onExcelRentRollImport,
@@ -248,6 +259,47 @@ export function ImEditorPanels({
     currentItem ? { ...currentItem, address } : null
   );
 
+  const computedExpectedDeposit = useMemo(() => {
+    if (typeof expectedDepositManwon === "number") return expectedDepositManwon;
+    return (
+      Math.round(
+        expectedRentRoll.reduce(
+          (s, r) =>
+            s + (r.status !== "vacant" && r.status !== "owner" ? Number(r.depositManwon ?? 0) : 0),
+          0
+        ) * 10
+      ) / 10
+    );
+  }, [expectedDepositManwon, expectedRentRoll]);
+
+  const computedExpectedRent = useMemo(() => {
+    if (typeof expectedRentManwon === "number") return expectedRentManwon;
+    return (
+      Math.round(
+        expectedRentRoll.reduce(
+          (s, r) =>
+            s +
+            (r.status !== "vacant" && r.status !== "owner" ? Number(r.monthlyRentManwon ?? 0) : 0),
+          0
+        ) * 10
+      ) / 10
+    );
+  }, [expectedRentManwon, expectedRentRoll]);
+
+  const computedExpectedYield = useMemo(() => {
+    if (typeof expectedYieldPct === "number") return expectedYieldPct;
+    if (!askingPriceManwon || askingPriceManwon <= 0 || expectedRentRoll.length === 0) return 0;
+    const netInv = askingPriceManwon - computedExpectedDeposit;
+    if (netInv <= 0 || computedExpectedRent <= 0) return 0;
+    return ((computedExpectedRent * 12) / netInv) * 100;
+  }, [
+    expectedYieldPct,
+    askingPriceManwon,
+    expectedRentRoll.length,
+    computedExpectedDeposit,
+    computedExpectedRent,
+  ]);
+
   return (
     <div className="space-y-4 w-full" data-testid="im-editor-slot">
       <button
@@ -288,6 +340,35 @@ export function ImEditorPanels({
                 프로필에서 법정 표시사항 입력하기 →
               </a>
             </div>
+          )}
+        </div>
+      )}
+
+      {currentItem?.status === "published" && UUID_REGEX.test(currentItem.buildingId) && (
+        <div
+          data-testid="im-col2-published-url-bar"
+          className="xl:hidden rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2"
+        >
+          <div className="flex flex-wrap items-center gap-2 min-w-0 text-sm">
+            <span className="font-extrabold text-emerald-900">✓ 공개 IM 발행됨</span>
+            <a
+              href={`/im-lite/${encodeURIComponent(currentItem.buildingId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-[#1D4ED8] underline truncate"
+            >
+              /im-lite/{currentItem.buildingId}
+            </a>
+          </div>
+          {onCopyShareLink && (
+            <button
+              type="button"
+              onClick={onCopyShareLink}
+              data-testid="im-col2-copy-share-btn"
+              className="min-h-[44px] px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-extrabold cursor-pointer shrink-0"
+            >
+              {isShareLinkCopied ? "✓ 링크 복사됨" : "링크 복사"}
+            </button>
           )}
         </div>
       )}
@@ -779,7 +860,7 @@ export function ImEditorPanels({
               data-testid="im-starter-address-guide"
               className="rounded-xl bg-[#1D4ED8] text-white px-3.5 py-2 text-sm font-extrabold"
             >
-              👇 아래 칸에 주소를 붙여넣고 오른쪽 [주소로 건물 정보 자동 채우기] 버튼을 누르세요
+              👇 아래 칸에 주소를 붙여넣고 [주소로 건물 정보 자동 채우기] 버튼을 누르세요
             </div>
           )}
           <div
@@ -1017,22 +1098,50 @@ export function ImEditorPanels({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-extrabold text-[#0F172A]">층별 임대차 현황</h2>
-            <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">
-                보증금{" "}
-                {formatKoreanCurrencyReadout(totalDepositManwon).replace(
-                  /^=\s*/,
-                  ""
-                ) || "0원"}
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900">
-                월세{" "}
-                {formatKoreanCurrencyReadout(totalRentManwon).replace(/^=\s*/, "") ||
-                  "0원"}
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900">
-                연 {calculatedYield.toFixed(2)}%
-              </span>
+            <div
+              data-testid="im-rentroll-summary-badges"
+              className="flex flex-wrap items-center gap-1.5 text-sm font-bold"
+            >
+              {rentRollSubTab === "expected" ? (
+                <>
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-950">
+                    기대 전환 보증금{" "}
+                    {formatKoreanCurrencyReadout(computedExpectedDeposit).replace(
+                      /^=\s*/,
+                      ""
+                    ) || "0원"}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900">
+                    기대 월세{" "}
+                    {formatKoreanCurrencyReadout(computedExpectedRent).replace(/^=\s*/, "") ||
+                      "0원"}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900">
+                    기대 연 {computedExpectedYield.toFixed(2)}%
+                  </span>
+                  <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600">
+                    현행 연 {calculatedYield.toFixed(2)}%
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800">
+                    보증금{" "}
+                    {formatKoreanCurrencyReadout(totalDepositManwon).replace(
+                      /^=\s*/,
+                      ""
+                    ) || "0원"}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900">
+                    월세{" "}
+                    {formatKoreanCurrencyReadout(totalRentManwon).replace(/^=\s*/, "") ||
+                      "0원"}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900">
+                    연 {calculatedYield.toFixed(2)}%
+                  </span>
+                </>
+              )}
             </div>
           </div>
           {activeEditorTab === "rentroll" && selectedItemActionsNode}
@@ -1105,7 +1214,8 @@ export function ImEditorPanels({
             >
               <RentRollImporter
                 key={currentItem?.id || selectedId}
-                hasExistingData={false}
+                hideTextMode
+                hasExistingData={hasExistingRentRollData(rentRoll)}
                 onImport={onExcelRentRollImport}
               />
             </div>
@@ -1178,7 +1288,8 @@ export function ImEditorPanels({
               >
                 <RentRollImporter
                   key={`expected-${currentItem?.id || selectedId}`}
-                  hasExistingData={false}
+                  hideTextMode
+                  hasExistingData={hasExistingRentRollData(expectedRentRoll)}
                   onImport={(payload) => {
                     onExpectedExcelRentRollImport(payload);
                     setIsExpectedImportOpen(false);

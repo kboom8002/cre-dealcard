@@ -20,6 +20,8 @@ interface SubscribeCardProps {
   brokerPhone?: string | null;
   /** 'minimal': 모바일 뉴스레터 하단 간단 옵트인 (기본), 'full': 전체 3채널 폼 */
   variant?: 'full' | 'minimal';
+  /** 발행 주기 (없으면 중립 '부동산 소식지' / '이번 호' 문구 사용) */
+  cadence?: 'daily' | 'weekly' | 'monthly';
 }
 
 /** 채널 토글 라벨: '둘 다' 로 통일 (T2-20). 이모지 없는 짧은 CTA. */
@@ -58,6 +60,7 @@ export function SubscribeCard({
   accentColor = '#1D4ED8',
   brokerPhone,
   variant,
+  cadence,
 }: SubscribeCardProps) {
   const safeButtonBg = resolveAccessibleButtonBg(accentColor);
   const effectiveVariant = variant ?? (source === 'magazine' ? 'minimal' : 'full');
@@ -218,12 +221,38 @@ export function SubscribeCard({
   const inputClass =
     'w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-colors';
 
+  const cadenceLabel =
+    cadence === 'daily'
+      ? '일간'
+      : cadence === 'weekly'
+        ? '주간'
+        : cadence === 'monthly'
+          ? '월간'
+          : null;
+  const cadenceAdv =
+    cadence === 'daily'
+      ? '매일 '
+      : cadence === 'weekly'
+        ? '매주 '
+        : cadence === 'monthly'
+          ? '매월 '
+          : '';
+  const publicationTitle = cadenceLabel ? `${cadenceLabel} 매거진` : '부동산 소식지';
+  const sendScheduleLabel =
+    cadence === 'daily'
+      ? '매일 아침'
+      : cadence === 'weekly'
+        ? MAGAZINE_SEND_DAY_LABEL
+        : cadence === 'monthly'
+          ? '매월 정기적으로'
+          : '새 호 발행 시마다';
+
   const channelHelperText =
     channel === 'email'
-      ? '이메일로 신청하시면 확인 링크 클릭 즉시 매주 자동 발송됩니다.'
+      ? `이메일로 신청하시면 확인 링크 클릭 즉시 ${cadenceAdv}자동 발송됩니다.`
       : channel === 'kakao'
         ? '휴대폰 번호 신청 시 담당 중개사가 확인 후 안내해 드리며, 이메일을 함께 등록하시면 즉시 자동 구독됩니다.'
-        : '이메일로 신청하시면 확인 링크 클릭 즉시 매주 자동 발송되며, 휴대폰 안내도 함께 등록됩니다.';
+        : `이메일로 신청하시면 확인 링크 클릭 즉시 ${cadenceAdv}자동 발송되며, 휴대폰 안내도 함께 등록됩니다.`;
 
   if (effectiveVariant === 'minimal') {
     if (alreadySubscribedLocally && status === 'idle') {
@@ -358,6 +387,23 @@ export function SubscribeCard({
           </div>
         ) : (
           <form onSubmit={handleSubscribe} className="space-y-3" noValidate>
+            <div>
+              <label htmlFor={`${uid}-min-name`} className="sr-only">
+                이름 (선택)
+              </label>
+              <input
+                id={`${uid}-min-name`}
+                data-testid="minimal-optional-name-input"
+                type="text"
+                maxLength={50}
+                autoComplete="name"
+                aria-label="이름 (선택)"
+                placeholder="성함 또는 닉네임 (선택)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
+              />
+            </div>
             {channel === 'email' && (
               <div>
                 <label htmlFor={`${uid}-min-email`} className="sr-only">
@@ -572,10 +618,10 @@ export function SubscribeCard({
     <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 text-left text-slate-900 shadow-sm">
       <div className="space-y-1.5">
         <h2 className="text-[19px] font-bold text-slate-900 flex items-center gap-1.5">
-          <span aria-hidden>📰</span> 주간 매거진 구독하기
+          <span aria-hidden>📰</span> {publicationTitle} 구독하기
         </h2>
         <p className="text-[15px] leading-relaxed text-slate-700 break-keep">
-          중개인이 엄선한 최신 상업용 빌딩·수익형 부동산 정보 및 리포트를 {MAGAZINE_SEND_DAY_LABEL} 받아보세요.
+          중개인이 엄선한 최신 상업용 빌딩·수익형 부동산 정보 및 리포트를 {sendScheduleLabel} 받아보세요.
         </p>
       </div>
 
@@ -587,10 +633,10 @@ export function SubscribeCard({
         >
           <div className="space-y-1.5">
             <h3 className="text-[18px] sm:text-[19px] font-extrabold text-slate-900 leading-snug break-keep">
-              🎉 구독 신청이 접수되었습니다! (이메일을 함께 남겨주시면 매주 발행 즉시 자동 발송됩니다)
+              🎉 구독 신청이 접수되었습니다! (이메일을 함께 남겨주시면 {cadenceAdv}발행 즉시 자동 발송됩니다)
             </h3>
             <p className="text-[15px] leading-relaxed text-emerald-900 break-keep">
-              전화번호로 신청이 안전하게 완료되었습니다. 이메일 주소를 함께 남겨주시면 매주 발행 즉시 기다림 없이 자동으로 전달됩니다.
+              전화번호로 신청이 안전하게 완료되었습니다. 이메일 주소를 함께 남겨주시면 {cadenceAdv}발행 즉시 기다림 없이 자동으로 전달됩니다.
             </p>
           </div>
           {done.notice && (

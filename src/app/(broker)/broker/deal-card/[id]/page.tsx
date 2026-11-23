@@ -49,11 +49,11 @@ export async function generateMetadata({ params }: DealCardResultPageProps): Pro
     : "딜카드 결과";
 
   if (!isVisible) {
-    return { title: `${title} | DealCard`, robots: { index: false, follow: false } };
+    return { title, robots: { index: false, follow: false } };
   }
 
   return {
-    title: `${title} | DealCard`,
+    title,
     description: "AI 기반 블라인드 딜카드 — 상업용 부동산 투자 기회",
     openGraph: {
       title,

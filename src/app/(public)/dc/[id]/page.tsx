@@ -1114,7 +1114,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao-v2${card4Hash ? `?v=${encodeURIComponent(card4Hash)}` : ''}`;
 
   return {
-    title: { absolute: `${ogTitle} | 크리딜 DealCard` },
+    title: { absolute: `${ogTitle} | 크리딜 (CREDEAL)` },
     description: ogDescription,
     openGraph: {
       title: ogTitle,

@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const name = space?.display_name ?? space?.blind_name ?? "공간";
   return {
-    title: `${name} 리싱 관리 | DealCard Hub`,
+    title: `${name} 리싱 관리`,
     robots: "noindex",
   };
 }

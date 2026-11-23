@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { toast } from "sonner";
+import { COMPANY_LEGAL_CONFIG } from "@/config/company-legal";
 
 export interface UpgradeModalProps {
   isOpen: boolean;
@@ -11,8 +12,6 @@ export interface UpgradeModalProps {
   maxLimit: number;
   featureNameKo?: string;
 }
-
-const SUPPORT_EMAIL = "support@credeal.kr";
 
 export function UpgradeModal({
   isOpen,
@@ -36,6 +35,7 @@ export function UpgradeModal({
 
   if (!isOpen) return null;
 
+  const supportEmail = COMPANY_LEGAL_CONFIG.supportEmail;
   const hasVerifiedSavings = Number.isFinite(estimatedSavingsMoney) && estimatedSavingsMoney > 0;
   const formattedSavings = hasVerifiedSavings
     ? new Intl.NumberFormat("ko-KR", {
@@ -47,14 +47,14 @@ export function UpgradeModal({
   const handleCopySupportEmail = async () => {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(SUPPORT_EMAIL);
+        await navigator.clipboard.writeText(supportEmail);
       }
       toast.success(
-        `담당팀 이메일(${SUPPORT_EMAIL})이 복사되었습니다. 중개사무소명과 함께 보내주시면 무료로 한도를 증설해 드립니다.`
+        `담당팀 이메일(${supportEmail})이 복사되었습니다. 중개사무소명과 함께 보내주시면 무료로 한도를 증설해 드립니다.`
       );
     } catch {
       toast.success(
-        `담당팀 이메일은 ${SUPPORT_EMAIL} 입니다. 메일로 요청해 주시면 무료로 한도를 증설해 드립니다.`
+        `담당팀 이메일은 ${supportEmail} 입니다. 메일로 요청해 주시면 무료로 한도를 증설해 드립니다.`
       );
     }
   };
@@ -132,7 +132,7 @@ export function UpgradeModal({
             얼리액세스 기간에는 담당팀에 요청해 주시면 추가 비용 없이 무료로 이용 한도를 증설해 드립니다.
           </p>
           <p className="font-semibold text-slate-900 dark:text-white">
-            문의 이메일: {SUPPORT_EMAIL}
+            문의 이메일: {supportEmail}
           </p>
         </div>
 

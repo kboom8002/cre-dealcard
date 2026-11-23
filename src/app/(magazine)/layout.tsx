@@ -19,8 +19,8 @@ const BASE_URL = getCanonicalSiteUrl();
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: "CRE 매거진 | DealCard",
-    template: "%s | DealCard",
+    default: "CRE 매거진 | 크리딜 (CREDEAL)",
+    template: "%s | 크리딜 (CREDEAL)",
   },
   robots: {
     index: true,
@@ -36,10 +36,19 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    siteName: "DealCard",
+    siteName: "크리딜 (CREDEAL)",
+    images: [
+      {
+        url: `${BASE_URL}/og-default.png?v=2`,
+        width: 1200,
+        height: 630,
+        alt: "CRE 매거진 | 크리딜 (CREDEAL)",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
+    images: [`${BASE_URL}/og-default.png?v=2`],
   },
 };
 

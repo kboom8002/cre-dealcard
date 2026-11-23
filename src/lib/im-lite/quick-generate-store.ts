@@ -13,6 +13,7 @@ import {
 } from '@/lib/deal-card/card4-schema';
 import { formatPriceRange } from '@/lib/deal-card/price-band';
 import { summarizeParcels } from '@/domain/building/mobile-im/parcel-input';
+import type { RentRollMeta } from '@/domain/building/mobile-im/rentroll-meta';
 
 export interface QuickImRentRollRow {
   floor: string;
@@ -21,6 +22,10 @@ export interface QuickImRentRollRow {
   tenantName?: string;
   areaSqm?: number;
   exclusiveAreaSqm?: number;
+  areaSqmIsProxy?: boolean;
+  contractGroup?: string;
+  legalBasis?: string;
+  firstContractDate?: string;
   depositManwon: number;
   monthlyRentManwon: number;
   maintenanceManwon?: number;
@@ -87,6 +92,8 @@ export interface StoredQuickImRecord {
   card4: Card4Data;
   basicImDoc: BasicImDocument;
   rentRoll: QuickImRentRollRow[];
+  rentRollMeta?: RentRollMeta;
+  expectedRentRollMeta?: RentRollMeta;
   specs?: {
     gfaSqm?: number;
     landAreaSqm?: number;
@@ -520,13 +527,14 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       .split(/\s*\/\s*/)
       .map((s) => s.trim())
       .filter(Boolean);
-    const splitTenantName = slashParts.length >= 2 ? slashParts[0] : undefined;
     const splitTenantType =
+      slashParts.length >= 2 ? slashParts[0] : rawUse || '근린생활시설';
+    const splitTenantName =
       slashParts.length >= 2
         ? slashParts[0] === slashParts[1]
           ? slashParts[0]
           : slashParts.slice(1).join(' / ')
-        : rawUse || '근린생활시설';
+        : undefined;
     const explicitTenantName = String(r.tenantName || (r as any).tenant_name || '').trim();
     const resolvedTenantName = isVac
       ? '공실'
@@ -534,6 +542,12 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       ? explicitTenantName || splitTenantName || '자가사용'
       : explicitTenantName || splitTenantName || splitTenantType;
     const resolvedTenantType = isVac ? '공실' : splitTenantType;
+    const contractGroupVal =
+      String(r.contractGroup || (r as any).contract_group || '').trim() || undefined;
+    const isProxyVal = Boolean(r.areaSqmIsProxy ?? (r as any).area_sqm_is_proxy);
+    const legalBasisVal = r.legalBasis || (r as any).legal_basis;
+    const firstContractVal =
+      String(r.firstContractDate || (r as any).first_contract_date || '').trim() || undefined;
     return {
       floor: r.floor || `${idx + 1}F`,
       unit_label: r.unit || `${idx + 1}01호`,
@@ -544,6 +558,10 @@ function buildSeedRecord(params: SeedSpec): StoredQuickImRecord {
       area_m2: areaSqm,
       area_pyeong: areaPy,
       ...(exclusiveAreaSqm ? { exclusive_area_sqm: exclusiveAreaSqm } : {}),
+      ...(isProxyVal ? { area_sqm_is_proxy: true } : {}),
+      ...(contractGroupVal ? { contract_group: contractGroupVal } : {}),
+      ...(legalBasisVal ? { legal_basis: legalBasisVal } : {}),
+      ...(firstContractVal ? { first_contract_date: firstContractVal } : {}),
       deposit_manwon: isVac ? 0 : Number(r.depositManwon || 0),
       deposit_krw: isVac ? 0 : Number(r.depositManwon || 0) * 10000,
       rent_manwon: isVac ? 0 : Number(r.monthlyRentManwon || 0),
@@ -948,7 +966,7 @@ export function getDefaultSeeds(): StoredQuickImRecord[] {
       posture: 'core_income',
       pnu: '1144012000103950166',
       coordinates: { lat: 37.55131, lng: 126.91709 },
-      points: ['홍대 상권 유동인구 풍부', '전층 만실 공실 위험 낮음', '연 4.5% 배당형 수익'],
+      points: ['홍대 상권 유동인구 풍부', '전층 만실 공실 위험 낮음', '연 4.5% 임대수익형'],
       gfaSqm: 890.5,
       landAreaSqm: 265.0,
       zoning: '제2종일반주거지역',
@@ -1165,13 +1183,13 @@ export function synthesizeQuickRecordFromImItem(
             .split(/\s*\/\s*/)
             .map((s) => s.trim())
             .filter(Boolean);
-          const splitTenantName = slashParts.length >= 2 ? slashParts[0] : undefined;
-          const splitUse =
+          const splitUse = slashParts.length >= 2 ? slashParts[0] : rawUseStr;
+          const splitTenantName =
             slashParts.length >= 2
               ? slashParts[0] === slashParts[1]
                 ? slashParts[0]
                 : slashParts.slice(1).join(' / ')
-              : rawUseStr;
+              : undefined;
           const explicitTenantName =
             String(r.tenantName || r.tenant_name || r.tenant || splitTenantName || '').trim() ||
             undefined;
@@ -1185,6 +1203,11 @@ export function synthesizeQuickRecordFromImItem(
               : undefined;
           const rawExclSqm = Number(r.exclusiveAreaSqm ?? r.exclusive_area_sqm ?? 0);
           const exclusiveAreaSqm = rawExclSqm > 0 ? rawExclSqm : undefined;
+          const isProxyVal = Boolean(r.areaSqmIsProxy ?? r.area_sqm_is_proxy);
+          const contractGroupVal = String(r.contractGroup ?? r.contract_group ?? '').trim() || undefined;
+          const legalBasisVal = r.legalBasis ?? r.legal_basis;
+          const firstContractVal =
+            String(r.firstContractDate ?? r.first_contract_date ?? '').trim() || undefined;
           const note = r.note !== undefined && String(r.note).trim().length > 0 ? String(r.note).trim() : undefined;
           const depositManwon =
             Number(
@@ -1215,6 +1238,10 @@ export function synthesizeQuickRecordFromImItem(
             ...(explicitTenantName ? { tenantName: explicitTenantName } : {}),
             ...(areaSqm ? { areaSqm } : {}),
             ...(exclusiveAreaSqm ? { exclusiveAreaSqm } : {}),
+            ...(isProxyVal ? { areaSqmIsProxy: true } : {}),
+            ...(contractGroupVal ? { contractGroup: contractGroupVal } : {}),
+            ...(legalBasisVal ? { legalBasis: legalBasisVal } : {}),
+            ...(firstContractVal ? { firstContractDate: firstContractVal } : {}),
             depositManwon,
             monthlyRentManwon,
             maintenanceManwon,
@@ -1556,7 +1583,20 @@ export function synthesizeQuickRecordFromImItem(
       phone: resolvedBrokerPhone,
     };
   }
+  if (imItem.rentRollMeta ?? imItem.rent_roll_meta) {
+    rec.rentRollMeta = imItem.rentRollMeta ?? imItem.rent_roll_meta;
+  }
+  if (imItem.expectedRentRollMeta ?? imItem.expected_rent_roll_meta) {
+    rec.expectedRentRollMeta =
+      imItem.expectedRentRollMeta ?? imItem.expected_rent_roll_meta;
+  }
   if (rec.fullDocBody) {
+    if (rec.rentRollMeta) {
+      rec.fullDocBody.rent_roll_meta = rec.rentRollMeta;
+    }
+    if (rec.expectedRentRollMeta) {
+      rec.fullDocBody.expected_rent_roll_meta = rec.expectedRentRollMeta;
+    }
     if (rawHighlights.length > 0) {
       rec.fullDocBody.axios_highlights = rawHighlights;
     }

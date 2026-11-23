@@ -367,7 +367,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       expect(emailInput.className).toContain("text-[16px]");
       expect(emailInput.className).toContain("min-h-[48px]");
       expect(container.textContent).toContain(
-        "이메일로 신청하시면 확인 링크 클릭 즉시 매주 자동 발송됩니다."
+        "이메일로 신청하시면 확인 링크 클릭 즉시 자동 발송됩니다."
       );
 
       // Separated required checkboxes + master checkbox
@@ -438,7 +438,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
         <SubscribeCard brokerId="seoul-broker" source="im" />
       );
       expect(fullCardHtml).toContain(
-        "이메일로 신청하시면 확인 링크 클릭 즉시 매주 자동 발송됩니다."
+        "이메일로 신청하시면 확인 링크 클릭 즉시 자동 발송됩니다."
       );
       expect(fullCardHtml).toContain('href="/privacy"');
       expect(fullCardHtml).toContain("새 창");

@@ -112,7 +112,7 @@ export function NewsletterPreviewBody({
         <PreviewPregenerationCard
           testId="newsletter-preview-pregeneration-card"
           title="첫 제목을 입력하면 내 뉴스레터가 완성됩니다"
-          description="왼쪽 편집창에서 표지 제목을 적거나 [AI로 초안 쓰기]를 눌러 보세요. 아래 화면은 이해를 돕기 위한 기본 예시 구성입니다."
+          description="편집 화면에서 표지 제목을 적거나 [AI로 초안 쓰기]를 눌러 보세요. 아래 화면은 이해를 돕기 위한 기본 예시 구성입니다."
           primaryActionLabel="표지 제목 입력하기"
           onPrimaryAction={() => onFocusEditorUnit("nl-unit-cover")}
           secondaryActionLabel="✨ AI로 초안 채우기"

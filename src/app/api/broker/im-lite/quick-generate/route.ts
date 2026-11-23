@@ -55,6 +55,8 @@ import {
   parseBrokerExtras,
   type BrokerExtras,
 } from '@/domain/building/mobile-im/broker-extras';
+import type { RentRollMeta } from '@/domain/building/mobile-im/rentroll-meta';
+import { parseRentRollMeta } from '@/domain/building/mobile-im/rentroll-meta-parse';
 import {
   parseBrokerParcels,
   summarizeParcels,
@@ -196,6 +198,40 @@ export async function POST(req: NextRequest) {
   const rawPosture = String(body.posture || body.investmentPosture || 'core_income');
   const posture = mapPostureToCanonical(rawPosture);
   const legacyPosture = mapPostureToLegacy(rawPosture);
+
+  const rawRentRollMeta = body.rent_roll_meta ?? body.rentRollMeta;
+  const parsedRentRollMetaRes = parseRentRollMeta(rawRentRollMeta);
+  if (!parsedRentRollMetaRes.ok) {
+    return NextResponse.json({ error: parsedRentRollMetaRes.error }, { status: 400 });
+  }
+  let resolvedRentRollMeta: RentRollMeta | undefined = parsedRentRollMetaRes.value;
+  if (resolvedRentRollMeta?.area_unit_override) {
+    resolvedRentRollMeta = {
+      ...resolvedRentRollMeta,
+      area_unit_override: {
+        reason: resolvedRentRollMeta.area_unit_override.reason,
+        by: userId,
+        at: new Date().toISOString(),
+      },
+    };
+  }
+  const rawExpectedRentRollMeta = body.expected_rent_roll_meta ?? body.expectedRentRollMeta;
+  const parsedExpectedRentRollMetaRes = parseRentRollMeta(rawExpectedRentRollMeta);
+  if (!parsedExpectedRentRollMetaRes.ok) {
+    return NextResponse.json({ error: parsedExpectedRentRollMetaRes.error }, { status: 400 });
+  }
+  let resolvedExpectedRentRollMeta: RentRollMeta | undefined =
+    parsedExpectedRentRollMetaRes.value;
+  if (resolvedExpectedRentRollMeta?.area_unit_override) {
+    resolvedExpectedRentRollMeta = {
+      ...resolvedExpectedRentRollMeta,
+      area_unit_override: {
+        reason: resolvedExpectedRentRollMeta.area_unit_override.reason,
+        by: userId,
+        at: new Date().toISOString(),
+      },
+    };
+  }
 
   if (!address || typeof address !== 'string' || address.trim().length === 0) {
     return NextResponse.json(
@@ -1014,7 +1050,7 @@ export async function POST(req: NextRequest) {
 
   const DEFAULT_SAMPLE_HEADLINES = new Set([
     '역세권 도보 3분 코너 · 전 층 우량 임차인 만실 운영',
-    '순투자금 대비 연 4.2% 안정 배당 · 공실 위험 낮음',
+    '순투자금 대비 연 4.2% 안정 수익 · 공실 위험 낮음',
     '제3종일반주거지역 토지 가치 · 중장기 리모델링 여력',
   ]);
   const axiosHeadlinePoints = Array.isArray(body.axiosHighlights)
@@ -1039,7 +1075,7 @@ export async function POST(req: NextRequest) {
     customPoints[2] ||
       parsedExtras?.investment_points?.[2] ||
       (effectiveMonthlyRentManwon > 0 && priceNum > 0
-        ? `연 수익률 ${estimatedYieldPct}% 기대 배당 자산`
+        ? `연 임대수익률 ${estimatedYieldPct}% 수익형 자산`
         : subjectLandPricePerPyeongManwon > 0
         ? `토지 평당 ${subjectLandPricePerPyeongManwon.toLocaleString()}만원 자산가치 우수`
         : '핵심 입지 및 실수요·투자 가치 우수'),
@@ -1687,11 +1723,20 @@ export async function POST(req: NextRequest) {
         ? 0
         : Math.round((floorBudgetSqm / unitsOnFloor) * 100) / 100;
     const computedPy =
-      explicitPy > 0
+      explicitM2 > 0
+        ? Math.round(m2ToPyeong(computedM2) * 10) / 10
+        : explicitPy > 0
         ? explicitPy
         : computedM2 > 0
         ? Math.round(m2ToPyeong(computedM2) * 10) / 10
         : 0;
+    const contractGroupVal =
+      String(r.contract_group ?? r.contractGroup ?? prevFl.contract_group ?? '').trim() || undefined;
+    const isProxyVal = Boolean(r.area_sqm_is_proxy ?? r.areaSqmIsProxy ?? prevFl.area_sqm_is_proxy);
+    const legalBasisVal = r.legal_basis ?? r.legalBasis ?? prevFl.legal_basis;
+    const firstContractVal =
+      String(r.first_contract_date ?? r.firstContractDate ?? prevFl.first_contract_date ?? '').trim() ||
+      undefined;
     return {
       ...r,
       area_m2: computedM2,
@@ -1699,6 +1744,12 @@ export async function POST(req: NextRequest) {
       areaSqm: computedM2,
       area_pyeong: computedPy,
       areaPyeong: computedPy,
+      ...(isProxyVal ? { area_sqm_is_proxy: true, areaSqmIsProxy: true } : {}),
+      ...(contractGroupVal ? { contract_group: contractGroupVal, contractGroup: contractGroupVal } : {}),
+      ...(legalBasisVal ? { legal_basis: legalBasisVal, legalBasis: legalBasisVal } : {}),
+      ...(firstContractVal
+        ? { first_contract_date: firstContractVal, firstContractDate: firstContractVal }
+        : {}),
     };
   });
 
@@ -1743,7 +1794,7 @@ export async function POST(req: NextRequest) {
     repairDealCardLine(defaultPoints[1]) || defaultPoints[1].slice(0, 18),
     repairDealCardLine(
       basicImDoc.facts.valuation.grossYieldPct > 0
-        ? `연 수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}% 배당`
+        ? `연 임대수익률 ${basicImDoc.facts.valuation.grossYieldPct.toFixed(2)}%`
         : defaultPoints[2]
     ) || defaultPoints[2].slice(0, 18),
   ];
@@ -1886,13 +1937,13 @@ export async function POST(req: NextRequest) {
             .split(/\s*\/\s*/)
             .map((s) => s.trim())
             .filter(Boolean);
-          const splitTenantName = slashParts.length >= 2 ? slashParts[0] : undefined;
-          const splitUse =
+          const splitUse = slashParts.length >= 2 ? slashParts[0] : rawUse;
+          const splitTenantName =
             slashParts.length >= 2
               ? slashParts[0] === slashParts[1]
                 ? slashParts[0]
                 : slashParts.slice(1).join(' / ')
-              : rawUse;
+              : undefined;
           const rawFloorStr = String(r.floor || `${idx + 1}F`).trim();
           const rawUnitStr = String(r.unit || r.unit_label || '').trim();
           const unitFloorMatch = rawFloorStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호?$/i);
@@ -1914,6 +1965,14 @@ export async function POST(req: NextRequest) {
             r.note !== undefined && String(r.note).trim().length > 0
               ? String(r.note).trim()
               : prevFl.note;
+          const contractGroupVal =
+            String(r.contract_group ?? r.contractGroup ?? prevFl.contract_group ?? '').trim() ||
+            undefined;
+          const isProxyVal = Boolean(r.area_sqm_is_proxy ?? r.areaSqmIsProxy ?? prevFl.area_sqm_is_proxy);
+          const legalBasisVal = r.legal_basis ?? r.legalBasis ?? prevFl.legal_basis;
+          const firstContractVal =
+            String(r.first_contract_date ?? r.firstContractDate ?? prevFl.first_contract_date ?? '').trim() ||
+            undefined;
           return {
             floor: normFloor,
             unit_label: normUnit,
@@ -1924,6 +1983,10 @@ export async function POST(req: NextRequest) {
             area_m2: areaM2,
             area_pyeong: areaPy,
             ...(exclusiveSqm ? { exclusive_area_sqm: exclusiveSqm } : {}),
+            ...(isProxyVal ? { area_sqm_is_proxy: true } : {}),
+            ...(contractGroupVal ? { contract_group: contractGroupVal } : {}),
+            ...(legalBasisVal ? { legal_basis: legalBasisVal } : {}),
+            ...(firstContractVal ? { first_contract_date: firstContractVal } : {}),
             deposit_manwon: isVacant ? 0 : depMan,
             deposit_krw: isVacant ? 0 : depMan * 10000,
             rent_manwon: isVacant ? 0 : rentMan,
@@ -2278,6 +2341,10 @@ export async function POST(req: NextRequest) {
     card4,
     rent_roll: safeRentRollWithAreas,
     floor_leases: mappedFloorLeases,
+    ...(resolvedRentRollMeta ? { rent_roll_meta: resolvedRentRollMeta } : {}),
+    ...(resolvedExpectedRentRollMeta
+      ? { expected_rent_roll_meta: resolvedExpectedRentRollMeta }
+      : {}),
     ...(() => {
       const expSrc = Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
         ? rawExpectedRentRoll
@@ -2297,28 +2364,37 @@ export async function POST(req: NextRequest) {
           ) ||
           safeRentRollWithAreas.find((br: any) => String(br.floor ?? '').trim() === fl) ||
           (expSrc.length === safeRentRollWithAreas.length ? safeRentRollWithAreas[idx] : undefined);
+        const explicitErSqm = Number(er.areaSqm ?? er.area_sqm ?? er.area_m2 ?? 0);
         const areaSqm =
-          Number(er.areaSqm ?? er.area_sqm ?? er.area_m2 ?? 0) > 0
-            ? Number(er.areaSqm ?? er.area_sqm ?? er.area_m2)
+          explicitErSqm > 0
+            ? explicitErSqm
             : Number(baseMatch?.areaSqm ?? baseMatch?.area_sqm ?? 0) || undefined;
         const exclSqm =
           Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm ?? 0) > 0
             ? Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm)
             : Number(baseMatch?.exclusiveAreaSqm ?? baseMatch?.exclusive_area_sqm ?? 0) || undefined;
         const areaPy =
-          Number(er.areaPyeong ?? er.area_pyeong ?? 0) > 0
+          explicitErSqm > 0
+            ? Math.round(m2ToPyeong(explicitErSqm) * 10) / 10
+            : Number(er.areaPyeong ?? er.area_pyeong ?? 0) > 0
             ? Number(er.areaPyeong ?? er.area_pyeong)
+            : areaSqm && areaSqm > 0
+            ? Math.round(m2ToPyeong(areaSqm) * 10) / 10
             : Number(baseMatch?.areaPyeong ?? baseMatch?.area_pyeong ?? 0) || undefined;
         const depM = Number(er.depositManwon ?? er.deposit_manwon ?? 0) || 0;
         const rentM = Number(er.monthlyRentManwon ?? er.rent_manwon ?? er.monthlyRent ?? 0) || 0;
         const normalizedStatus =
           er.status === 'vacant' && (depM > 0 || rentM > 0) ? 'occupied' : er.status;
+        const erContractGroup = String(er.contract_group ?? er.contractGroup ?? '').trim() || undefined;
+        const erIsProxy = Boolean(er.area_sqm_is_proxy ?? er.areaSqmIsProxy);
         return {
           ...er,
           ...(normalizedStatus ? { status: normalizedStatus } : {}),
           ...(areaSqm ? { area_m2: areaSqm, area_sqm: areaSqm, areaSqm } : {}),
           ...(exclSqm ? { exclusive_area_sqm: exclSqm, exclusiveAreaSqm: exclSqm } : {}),
           ...(areaPy ? { area_pyeong: areaPy, areaPyeong: areaPy } : {}),
+          ...(erIsProxy ? { area_sqm_is_proxy: true, areaSqmIsProxy: true } : {}),
+          ...(erContractGroup ? { contract_group: erContractGroup, contractGroup: erContractGroup } : {}),
         };
       });
       return { expected_rent_roll: normalizedExp };
@@ -2687,6 +2763,10 @@ export async function POST(req: NextRequest) {
     card4: card4ForPublic,
     basicImDoc,
     rentRoll: safeRentRollWithAreas,
+    ...(resolvedRentRollMeta ? { rentRollMeta: resolvedRentRollMeta } : {}),
+    ...(resolvedExpectedRentRollMeta
+      ? { expectedRentRollMeta: resolvedExpectedRentRollMeta }
+      : {}),
     specs: {
       gfaSqm: effectiveGfaSqm,
       landAreaSqm: effectiveLandSqm,
@@ -2868,6 +2948,10 @@ export async function POST(req: NextRequest) {
           capRatePct: basicImDoc.facts.valuation.capRatePct,
           rentRoll: safeRentRollWithAreas,
           floor_leases: mappedFloorLeases,
+          ...(resolvedRentRollMeta ? { rent_roll_meta: resolvedRentRollMeta } : {}),
+          ...(resolvedExpectedRentRollMeta
+            ? { expected_rent_roll_meta: resolvedExpectedRentRollMeta }
+            : {}),
           ...(Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
             ? { expectedRentRoll: rawExpectedRentRoll }
             : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0

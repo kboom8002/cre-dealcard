@@ -4,15 +4,15 @@
  * 크리딜 (CREDEAL) 운영 주체·개인정보보호책임자·처리위탁 및 국외이전(PIPA 제26조·제28조의8) 법정 고지 메타데이터 SSOT.
  *
  * [USER ACTION REQUIRED / 정식 상용 오픈 전 사용자 조치 안내]
- * 아래 환경변수를 `.env.local` 및 Vercel Production 환경변수에 실제 등기/사업자 정보로 설정하면
- * 이용약관(/terms), 개인정보처리방침(/privacy), 공통 푸터에 코드 수정 없이 자동 반영됩니다:
- *  - NEXT_PUBLIC_COMPANY_NAME        : 상호/법인명 (예: 주식회사 크리딜)
- *  - NEXT_PUBLIC_COMPANY_CEO         : 대표자 성명
- *  - NEXT_PUBLIC_COMPANY_BIZ_NO      : 사업자등록번호 (예: 123-45-67890)
+ * 아래 환경변수를 `.env.local` 및 Vercel Production 환경변수에 설정하면 기본 등록 정보 대신
+ * 해당 값이 이용약관(/terms), 개인정보처리방침(/privacy), 공통 푸터에 코드 수정 없이 자동 반영됩니다:
+ *  - NEXT_PUBLIC_COMPANY_NAME        : 상호/법인명 (기본값: 제이에스부동산중개(주))
+ *  - NEXT_PUBLIC_COMPANY_CEO         : 대표자 성명 (기본값: 차상혁)
+ *  - NEXT_PUBLIC_COMPANY_BIZ_NO      : 사업자등록번호 (기본값: 114-87-22003)
  *  - NEXT_PUBLIC_COMPANY_ADDRESS     : 사업장 소재지 주소
  *  - NEXT_PUBLIC_PRIVACY_OFFICER_NAME: 개인정보보호책임자(CPO) 성명/직책
- *  - NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL: 개인정보 보호 문의 이메일
- *  - NEXT_PUBLIC_SUPPORT_EMAIL       : 고객지원 이메일
+ *  - NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL: 개인정보 보호 문의 이메일 (기본값: privacy@credeal.net)
+ *  - NEXT_PUBLIC_SUPPORT_EMAIL       : 고객지원 이메일 (기본값: support@credeal.net)
  */
 
 export interface LegalSubProcessor {
@@ -71,13 +71,13 @@ export const SUB_PROCESSORS: readonly LegalSubProcessor[] = [
   {
     id: 'solapi',
     name: '(주)솔라피 (Solapi)',
-    purpose: '카카오 알림톡 및 문자메시지 발송 연동 (현재 D4 채널 정책에 따라 실발송 보류 · 연동 예정)',
+    purpose: '카카오 알림톡 및 문자메시지 발송 연동 (알림톡 기능 활성화 시 적용)',
     region: '대한민국',
     isCrossBorder: false,
     transferMethod: '암호화 API 전송 (현재 실발송 미사용 · 연동 활성화 시 적용)',
     retentionPeriod: '발송 이력 보관 기간 또는 위탁 계약 종료 시까지',
     active: false,
-    statusNote: '예정(비활성 · D4 정책에 따라 이메일 발송만 운영 중)',
+    statusNote: '예정(비활성 · 현재 이메일 발송만 운영 중)',
   },
 ] as const;
 
@@ -110,30 +110,56 @@ export const COMPANY_LEGAL_CONFIG = {
   serviceName: '크리딜 (CREDEAL)',
   domain: 'credeal.net',
   get companyName(): string {
-    return readEnvOrDefault(process.env.NEXT_PUBLIC_COMPANY_NAME, '크리딜(CREDEAL) 운영팀');
+    return readEnvOrDefault(process.env.NEXT_PUBLIC_COMPANY_NAME, '제이에스부동산중개(주)');
   },
   get representativeName(): string {
-    return readEnvOrDefault(process.env.NEXT_PUBLIC_COMPANY_CEO, '대표자 별도 고지');
+    return readEnvOrDefault(process.env.NEXT_PUBLIC_COMPANY_CEO, '차상혁');
   },
   get businessRegNumber(): string {
-    return stripOuterQuotes(process.env.NEXT_PUBLIC_COMPANY_BIZ_NO);
+    return readEnvOrDefault(process.env.NEXT_PUBLIC_COMPANY_BIZ_NO, '114-87-22003');
   },
   get address(): string {
     return readEnvOrDefault(
       process.env.NEXT_PUBLIC_COMPANY_ADDRESS,
-      '서울특별시 (상세 주소 고객센터 문의)',
+      '서울특별시 서초구 강남대로85길 5, 대유빌딩 3층 (반포동)',
     );
   },
   get privacyOfficerName(): string {
-    return readEnvOrDefault(process.env.NEXT_PUBLIC_PRIVACY_OFFICER_NAME, '개인정보보호책임자');
+    return readEnvOrDefault(process.env.NEXT_PUBLIC_PRIVACY_OFFICER_NAME, '차상혁 (대표이사)');
   },
   get privacyContactEmail(): string {
-    return readEnvOrDefault(process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL, 'privacy@credeal.kr');
+    return readEnvOrDefault(process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL, 'privacy@credeal.net');
   },
   get supportEmail(): string {
-    return readEnvOrDefault(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, 'support@credeal.kr');
+    return readEnvOrDefault(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, 'support@credeal.net');
   },
-  effectiveDate: '2026년 11월 15일',
+  effectiveDate: '2026년 11월 23일',
   consentVersion: 'v2.0',
   processors: SUB_PROCESSORS,
 } as const;
+
+export function hasPlaceholderLegalConfig(
+  config: Pick<
+    typeof COMPANY_LEGAL_CONFIG,
+    | 'companyName'
+    | 'representativeName'
+    | 'businessRegNumber'
+    | 'address'
+    | 'privacyOfficerName'
+    | 'privacyContactEmail'
+    | 'supportEmail'
+  > = COMPANY_LEGAL_CONFIG,
+): boolean {
+  const bizNo = stripOuterQuotes(config.businessRegNumber);
+  if (bizNo.length === 0) return true;
+  const fields = [
+    config.companyName,
+    config.representativeName,
+    bizNo,
+    config.address,
+    config.privacyOfficerName,
+    config.privacyContactEmail,
+    config.supportEmail,
+  ];
+  return fields.some((value) => /별도\s*고지|고객센터\s*문의/.test(value));
+}

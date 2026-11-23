@@ -40,7 +40,7 @@ function buildCspPolicy(frameAncestors: "'none'" | "'self'"): string {
     "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "media-src 'self' data: blob: https:",
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.kakao.com https://*.kakaocdn.net https://*.daumcdn.net https://*.vercel.app https://credeal.net https://www.credeal.net https://dealcard.kr${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.kakao.com https://*.kakaocdn.net https://*.daumcdn.net https://*.vercel.app https://credeal.net https://www.credeal.net${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
     "frame-src 'self' https://*.kakao.com",
     `frame-ancestors ${frameAncestors}`,
     "worker-src 'self' blob:",
@@ -140,8 +140,8 @@ const nextConfig: NextConfig = {
   async headers() {
     const isDevRuntime = process.env.NODE_ENV !== "production";
     const allowedOriginPattern = isDevRuntime
-      ? '(?<origin>https://(?:www\\.)?credeal\\.net|https://(?:www\\.)?dealcard\\.kr|http://localhost:\\d+)'
-      : '(?<origin>https://(?:www\\.)?credeal\\.net|https://(?:www\\.)?dealcard\\.kr)';
+      ? '(?<origin>https://(?:www\\.)?credeal\\.net|http://localhost:\\d+)'
+      : '(?<origin>https://(?:www\\.)?credeal\\.net)';
     return [
       // Default CORS baseline for /api/* (must precede conditional `has: Origin` rule because later matching Next.js header rules override earlier keys)
       {

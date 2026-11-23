@@ -454,7 +454,7 @@ const STEPS = {
         { label: "한 줄 제목 복사 (16자)", hint: "한 줄 제목(18자 이내) 입력칸에 붙여넣기", val: "양재역 코너 사옥·주차 20대" }
       ],
       items: [
-        "빈 딜카드 화면이 열리면(기존 서교동 샘플이 보이면 좌측 상단 <span class='ui-btn'>[새 매물 입력]</span> 클릭), 위 메모를 붙여넣고 하단 <span class='ui-btn'>[✨ 메모로 딜카드 생성하기]</span>를 클릭합니다.",
+        "빈 딜카드 화면이 열리면(기존 서교동 샘플이 보이면 왼쪽 <span class='ui-btn'>[＋ 새 딜카드 만들기]</span> 또는 상단 예시 배너의 <span class='ui-btn dark'>[새 빈 딜카드]</span> 클릭), 위 메모를 붙여넣고 하단 <span class='ui-btn'>[✨ 메모로 딜카드 생성하기]</span>를 클릭합니다.",
         "매물 유형을 <span class='ui-btn'>[사옥용]</span>으로 고르고, <strong>한 줄 제목(18자 이내)</strong> 칸에 위 16자 제목을 붙여넣습니다. (오른쪽 위 <span class='ui-btn'>[아주 크게]</span> 글자 버튼도 체험해 보세요.)",
         "오른쪽 카톡 미리보기에 <code>서초구 서초동</code>만 나오고 <code>1364-28</code>·<code>FM빌딩</code>·<code>010-3344-8899</code>가 숨겨졌는지 본 뒤, 하단 <span class='ui-btn dark'>[카톡으로 보내기]</span> → 팝업창 <span class='ui-btn'>[링크 복사]</span>를 눌러 아래 초록색 칸에 붙여넣습니다."
       ]
@@ -490,29 +490,31 @@ const STEPS = {
         { label: "시장 브리핑 본문 복사", hint: "② 시장 브리핑 입력칸", val: "임차료 상승과 주차난으로 인해 강남·서초권에서 상층부는 직접 사옥으로 쓰고 저층부 임대료로 금융비용을 충당하는 실사용 매수 문의가 꾸준히 이어지고 있습니다." }
       ],
       items: [
-        "왼쪽 위 <span class='ui-btn'>[+ 새 호수 만들기]</span> 클릭 → 위 제목·브리핑을 붙여넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결합니다.",
-        "오른쪽 아래 <span class='ui-btn dark'>[구독자에게 보내기]</span> 완료 후 <span class='ui-btn'>[링크 복사]</span>를 눌러 아래 초록색 칸에 붙여넣고 상세 번지(<code>1364-28</code>)·건물명(<code>FM빌딩</code>)이 노출되지 않는지 확인합니다."
+        "왼쪽 위 <span class='ui-btn'>[이번 달 뉴스레터 새로 쓰기]</span> 클릭 → <span class='ui-btn'>[제목]</span> · <span class='ui-btn'>[내용]</span> 탭에 위 표지 제목·브리핑을 붙여넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결합니다.",
+        "오른쪽 <span class='ui-btn'>[보내기]</span> 탭으로 이동해 <span class='ui-btn dark'>[구독자에게 보내기]</span> 완료 후 같은 <span class='ui-btn'>[보내기]</span> 탭 안의 <span class='ui-btn'>[링크 복사]</span>를 눌러 아래 초록색 칸에 붙여넣고 상세 번지(<code>1364-28</code>)·건물명(<code>FM빌딩</code>)이 노출되지 않는지 확인합니다."
       ]
     },
     {
       id: "B1-S5", win: "창 B · 스마트폰 [나와의 채팅]", mobile: true,
       title: "Step 5. 스마트폰 카톡 [나와의 채팅]에서 손님 시점 열람 후 상세 IM 요청",
       copies: [
-        { label: "매수 문의자 성함 복사", hint: "창 B 성함", val: "정현우 대표 (넥스트클라우드)" },
-        { label: "매수 문의자 연락처 복사", hint: "창 B 연락처", val: "010-5581-2390" },
-        { label: "문의 내용 복사", hint: "창 B 문의 내용", val: "임직원 45명 규모 IT 법인 사옥 이전 검토 중입니다. 4~6층 즉시 입주 가능 면적과 주차 대수 상세 IM 요청드립니다." }
+        { label: "매수 문의자 이름 복사 (정현우 대표)", hint: "창 B 자료 요청 창 → 이름 (필수)", val: "정현우 대표" },
+        { label: "매수 문의자 연락처 복사 (010-5581-2390)", hint: "창 B 자료 요청 창 → 연락처 (필수)", val: "010-5581-2390" },
+        { label: "매수 문의자 이메일 복사 (hw.jung@example.kr)", hint: "창 B 자료 요청 창 → 이메일 (선택)", val: "hw.jung@example.kr" },
+        { label: "소속 · 기관명 복사 (미래사옥TF)", hint: "창 B 자료 요청 창 → 소속 · 기관명 (선택)", val: "미래사옥TF" },
+        { label: "문의 내용 복사", hint: "창 B 자료 요청 창 → 문의 내용 (선택)", val: "임직원 45명 규모 IT 법인 사옥 이전 검토 중입니다. 4~6층 즉시 입주 가능 면적과 주차 대수 상세 IM 요청드립니다." }
       ],
       items: [
         "스마트폰 카카오톡 <strong>[나와의 채팅]</strong>(또는 시크릿 창)에서 Step 2의 딜카드 링크를 열어 카톡 썸네일과 첫 화면 인상을 봅니다.",
-        "하단 <span class='ui-btn dark'>[상세 제안서(IM) 요청]</span> 버튼을 눌러 위 예시 고객 정보로 문의를 남깁니다."
+        "하단 <span class='ui-btn dark'>[상세 제안서(IM) 요청]</span> 버튼을 눌러 위 예시 고객 정보(이름·연락처·이메일·소속 · 기관명·문의 내용)로 문의를 남깁니다."
       ]
     },
     {
       id: "B1-S6", win: "창 A ↔ 창 B", mobile: false,
-      title: "Step 6. 고객 소통함에서 [자료 보내기] 승인 → 열람 확인 → [보낸 링크 잠그기] 체험",
+      title: "Step 6. 고객 소통함에서 [자료 보내기(승인)] → 열람 확인 → [보낸 링크 잠그기] 체험",
       openUrl: "https://www.credeal.net/broker/w/inbox", openLabel: "🚀 고객 소통함 열기",
       items: [
-        "창 A 고객 소통함에서 방금 들어온 <code>정현우 대표</code> 문의를 선택해 <span class='ui-btn dark'>[자료 보내기]</span>로 승인하고, 발급된 링크를 창 B에서 열어 사진 10장 갤러리를 확인합니다.",
+        "창 A 고객 소통함 상단 [지금 할 일] 배너의 <span class='ui-btn'>[확인·승인하기 ›]</span>(또는 왼쪽 [할 일] 목록)에서 <code>정현우 대표</code> 문의를 선택한 뒤, 가운데 [할 일] 탭의 초록색 <span class='ui-btn green'>[자료 보내기(승인)]</span> 버튼으로 승인하고 발급된 링크를 창 B에서 열어 사진 10장 갤러리를 확인합니다.",
         "다시 소통함에서 <span class='ui-btn'>[보낸 링크 잠그기]</span>를 누른 뒤, 창 B 새로고침 시 열람이 즉시 차단되는지 확인합니다."
       ]
     },
@@ -582,19 +584,19 @@ const STEPS = {
       urlKey: "b2_nl", urlLabel: "④ 내 매물 연결 공개 부동산뉴스 링크 (/magazine/...)",
       copies: [],
       items: [
-        "왼쪽 위 <span class='ui-btn'>[+ 새 호수 만들기]</span> 클릭 → 내 매물이 속한 권역 소식을 2~3줄 적고 방금 만든 내 매물 딜카드를 연결합니다.",
-        "오른쪽 아래 <span class='ui-btn dark'>[구독자에게 보내기]</span> 완료 후 <span class='ui-btn'>[링크 복사]</span> 주소를 아래 칸에 붙여넣고 내 매물의 상세 번지나 건물명이 새어 나오지 않았는지 확인합니다."
+        "왼쪽 위 <span class='ui-btn'>[이번 달 뉴스레터 새로 쓰기]</span> 클릭 → <span class='ui-btn'>[제목]</span> · <span class='ui-btn'>[내용]</span> 탭에 내 매물이 속한 권역 소식을 2~3줄 적고 방금 만든 내 매물 딜카드를 연결합니다.",
+        "오른쪽 <span class='ui-btn'>[보내기]</span> 탭으로 이동해 <span class='ui-btn dark'>[구독자에게 보내기]</span> 완료 후 같은 <span class='ui-btn'>[보내기]</span> 탭 안의 <span class='ui-btn'>[링크 복사]</span> 주소를 아래 칸에 붙여넣고 내 매물의 상세 번지나 건물명이 새어 나오지 않았는지 확인합니다."
       ],
       prompt: "Q5. 단골 자산가·법인 고객에게 정기 발송하는 부동산뉴스로 활용하실 때 보완하고 싶은 점이 있나요?",
       tags: ["안부 겸 매물 소개용으로 매우 유용함", "인사말 말투를 내 스타일대로 고정 저장 희망", "실거래 사례·금리 요약이 설득력 있음", "카톡 단체방·개별톡 발송 안내가 직관적임"]
     },
     {
       id: "B2-S6", win: "창 A ↔ 창 B", mobile: false,
-      title: "Step 6. 본인 테스트 문의 등록 → 고객 소통함에서 [자료 보내기] & [보낸 링크 잠그기]",
+      title: "Step 6. 본인 테스트 문의 등록 → 고객 소통함에서 [자료 보내기(승인)] & [보낸 링크 잠그기]",
       openUrl: "https://www.credeal.net/broker/w/inbox", openLabel: "🚀 고객 소통함 열기",
       copies: [],
       items: [
-        "창 B에서 본인 이름(예: 테스트매수자)으로 <span class='ui-btn dark'>[상세 제안서(IM) 요청]</span>을 남긴 뒤, 창 A 소통함에서 <span class='ui-btn dark'>[자료 보내기]</span>와 <span class='ui-btn'>[보낸 링크 잠그기]</span>를 한 번씩 실행해 봅니다."
+        "창 B에서 본인 이름(예: 테스트매수자)으로 <span class='ui-btn dark'>[상세 제안서(IM) 요청]</span>을 남긴 뒤, 창 A 소통함 상단 [지금 할 일]의 <span class='ui-btn'>[확인·승인하기 ›]</span>(또는 목록)에서 해당 문의를 선택해 가운데 [할 일] 탭의 <span class='ui-btn green'>[자료 보내기(승인)]</span>과 <span class='ui-btn'>[보낸 링크 잠그기]</span>를 한 번씩 실행해 봅니다."
       ],
       prompt: "Q6. 매물 유출 방지(승인 후 열람 · 원할 때 링크 잠그기)와 고객 열람 횟수 확인 기능에 대한 의견을 남겨 주세요.",
       tags: ["전속·알짜 매물 보호에 꼭 필요한 기능임", "누가 몇 번 열어봤는지 보여 영업 타이밍 잡기 좋음", "공동중개 중개사용 별도 열람 권한도 있으면 좋겠음"]

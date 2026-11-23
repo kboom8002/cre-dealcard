@@ -236,7 +236,7 @@ describe('Wave 3 SOTA Mobile Reader & Calculator Enhancements', () => {
           variant: 'full',
         }),
       );
-      expect(fullHtml).toContain('주간 매거진 구독하기');
+      expect(fullHtml).toContain('부동산 소식지 구독하기');
       expect(fullHtml).toContain('이메일로 받기');
       expect(fullHtml).toContain('카카오톡');
     });

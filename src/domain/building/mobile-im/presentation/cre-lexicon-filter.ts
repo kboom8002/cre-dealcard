@@ -25,6 +25,16 @@ export const CRE_LEXICON_RULES: LexiconRule[] = [
     banned: /프라임|압도적|최고|무조건/g,
     rejectionReason: '공허한 과장 수식어 금지 (한국 CRE 실무 표준)',
   },
+  {
+    banned: /배당\s*수익률/g,
+    replacement: '임대수익률',
+    rejectionReason: '주식 용어(배당수익률) 금지 — 상업용 부동산은 임대수익률 사용',
+  },
+  {
+    banned: /배당(?:\s*(?:소득|수익|금))?/g,
+    replacement: '임대수익',
+    rejectionReason: '주식 용어(배당) 금지 — 상업용 부동산은 임대수익/현금흐름 사용',
+  },
 ];
 
 export interface LexiconFilterResult {
@@ -39,11 +49,13 @@ export function applyLexiconFilter(text: string): LexiconFilterResult {
   const violations: string[] = [];
 
   for (const rule of CRE_LEXICON_RULES) {
+    rule.banned.lastIndex = 0;
     if (rule.rejectionReason && rule.banned.test(filteredText)) {
       violations.push(`${rule.rejectionReason} (패턴: ${rule.banned.source})`);
     }
 
     if (rule.replacement) {
+      rule.banned.lastIndex = 0;
       filteredText = filteredText.replace(rule.banned, (match) => {
         appliedReplacements.push({ original: match, replacedWith: rule.replacement! });
         return rule.replacement!;

@@ -48,14 +48,24 @@ export function FieldNoteSection({
   fieldNote,
   brokerName = "중개사",
   company,
+  cadence,
 }: {
   fieldNote: AnyRec | null | undefined;
   brokerName?: string | null;
   company?: string | null;
+  cadence?: "daily" | "weekly" | "monthly" | null;
 }) {
   if (!fieldNote || typeof fieldNote !== "object") return null;
   const safeBrokerName = typeof brokerName === "string" && brokerName.trim() ? brokerName.trim() : "중개사";
   const safeCompany = typeof company === "string" && company.trim() ? company.trim() : null;
+  const cadencePeriodLabel =
+    cadence === "daily"
+      ? "오늘"
+      : cadence === "weekly"
+        ? "이번 주"
+        : cadence === "monthly"
+          ? "이번 달"
+          : "이번 호";
 
   if (isSingleCommentFieldNote(fieldNote)) {
     const comment = String(fieldNote.comment ?? "").trim();
@@ -73,7 +83,7 @@ export function FieldNoteSection({
           <div className="rounded-xl border-2 border-violet-200 bg-violet-50/70 p-4">
             <div className="mb-2 flex items-center gap-1.5 text-violet-800">
               <Quote className="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span className="text-sm font-bold text-violet-900">이번 주 현장 코멘트</span>
+              <span className="text-sm font-bold text-violet-900">{cadencePeriodLabel} 현장 코멘트</span>
             </div>
             <blockquote className="whitespace-pre-line text-reader font-bold leading-[1.8] text-slate-900">
               {comment}
@@ -117,7 +127,7 @@ export function FieldNoteSection({
         {/* 현장 노트는 중개인이 직접 쓴 글 — 'AI 분석' 배지를 붙이지 않는다(허위 출처 표기 방지) */}
       </div>
       <div className="space-y-3.5 p-4">
-        {fieldRow("💬", "이번 주 시장", fieldNote.question)}
+        {fieldRow("💬", `${cadencePeriodLabel} 시장`, fieldNote.question)}
         {fieldRow("📈", "매수 반응", fieldNote.buyerReaction)}
         {fieldRow("📉", "매도 반응", fieldNote.sellerReaction)}
         {fieldRow("🌡️", "시장 판단", fieldNote.marketJudgment)}

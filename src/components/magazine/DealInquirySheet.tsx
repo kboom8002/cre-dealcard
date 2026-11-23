@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
 import { formatPhoneDisplay, sanitizeTelHref } from '@/lib/magazine/view-helpers';
+import { copyText } from '@/lib/ux/clipboard';
 
 export interface DealInquiryItem {
   id: string;
@@ -35,9 +36,11 @@ export function DealInquirySheet({
   brokerSlug,
 }: DealInquirySheetProps) {
   const [activeDeal, setActiveDeal] = useState<DealInquiryItem | null>(null);
+  const [phoneCopied, setPhoneCopied] = useState(false);
 
   const closeSheet = useCallback(() => {
     setActiveDeal(null);
+    setPhoneCopied(false);
   }, []);
 
   useEffect(() => {
@@ -187,13 +190,28 @@ export function DealInquirySheet({
   const telDigits = sanitizeTelHref(brokerPhone);
   const formattedPhone = formatPhoneDisplay(brokerPhone);
   const profileHref = `/broker-profile/${encodeURIComponent(brokerSlug)}?ref=magazine-cta`;
+  const expertRequestHref = `/expert-note/request?broker=${encodeURIComponent(brokerSlug)}${
+    activeDeal?.id ? `&deal=${encodeURIComponent(activeDeal.id)}` : ''
+  }&ref=magazine-im-request`;
   const smsBody = activeDeal
     ? encodeURIComponent(
         `[${brokerName} 매거진 문의] ${activeDeal.address} (${activeDeal.assetType}, ${activeDeal.price}) 투자설명서(IM) 및 상세자료를 요청합니다.`,
       )
     : '';
-  const smsHref = telDigits ? `sms:${telDigits}?body=${smsBody}` : profileHref;
+  const smsHref = telDigits ? `sms:${telDigits}?body=${smsBody}` : null;
   const isUuidDeal = activeDeal ? UUID_PREFIX_RE.test(activeDeal.id) : false;
+  const hasVerifiedTokenImUrl = Boolean(
+    activeDeal?.imUrl && /(?:[?&](?:token|t)=[^&]+)/i.test(activeDeal.imUrl),
+  );
+
+  const handleCopyPhone = async () => {
+    if (!formattedPhone) return;
+    const ok = await copyText(formattedPhone);
+    if (ok) {
+      setPhoneCopied(true);
+      window.setTimeout(() => setPhoneCopied(false), 2000);
+    }
+  };
 
   return (
     <Modal
@@ -234,10 +252,10 @@ export function DealInquirySheet({
           </p>
 
           <div className="mt-4 space-y-2.5">
-            {/* #1 Primary Action: IM 존재 시에만 IM 연결, 미생성 시 딜카드(/dc)로 안전 분기 */}
-            {isUuidDeal && (activeDeal.hasIm === true || Boolean(activeDeal.imUrl)) ? (
+            {/* #1 Primary Action: 토큰 검증된 IM 링크만 직접 열람, 그 외 UUID 매물은 딜카드(/dc)로 안전 유도 */}
+            {isUuidDeal && hasVerifiedTokenImUrl && activeDeal.imUrl ? (
               <a
-                href={activeDeal.imUrl || `/im-lite/${encodeURIComponent(activeDeal.id)}`}
+                href={activeDeal.imUrl}
                 data-track="im_request"
                 data-testid="deal-inquiry-primary-im-link"
                 className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
@@ -253,13 +271,13 @@ export function DealInquirySheet({
                 className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
               >
                 <span aria-hidden="true">📄</span>
-                <span>딜카드 먼저 보기</span>
+                <span>{activeDeal.hasIm ? '딜카드에서 IM 열람 신청' : '딜카드 먼저 보기'}</span>
               </a>
             ) : (
               <a
-                href={smsHref}
+                href={expertRequestHref}
                 data-track="im_request"
-                data-testid="deal-inquiry-primary-sms-link"
+                data-testid="deal-inquiry-primary-inquiry-link"
                 className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors"
               >
                 <span aria-hidden="true">📄</span>
@@ -267,27 +285,51 @@ export function DealInquirySheet({
               </a>
             )}
 
-            {/* #2 중개사 전화 문의 */}
+            {/* #2 중개사 전화 문의 + 번호 복사 */}
             {telDigits ? (
-              <a
-                href={`tel:${telDigits}`}
-                data-track="cta_click"
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors hover:bg-emerald-800"
-              >
-                <span aria-hidden="true">📞</span>
-                <span>중개사에게 이 매물 전화 문의 ({formattedPhone})</span>
-              </a>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                <a
+                  href={`tel:${telDigits}`}
+                  data-track="cta_click"
+                  className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors hover:bg-emerald-800"
+                >
+                  <span aria-hidden="true">📞</span>
+                  <span>전화 문의 ({formattedPhone})</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCopyPhone}
+                  data-testid="deal-inquiry-copy-phone-btn"
+                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] font-bold text-slate-900 transition-colors hover:bg-slate-50 cursor-pointer"
+                >
+                  <span aria-hidden="true">{phoneCopied ? '✓' : '📋'}</span>
+                  <span>{phoneCopied ? '연락처 복사됨' : '번호 복사'}</span>
+                </button>
+              </div>
             ) : null}
 
-            {/* #3 문자 상세 제안서(IM) 요청 */}
-            <a
-              href={smsHref}
-              data-track="im_request"
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 text-[16px] font-bold text-indigo-900 transition-colors"
-            >
-              <span aria-hidden="true">💬</span>
-              <span>문자로 상세 제안서(IM) 요청</span>
-            </a>
+            {/* #3 문자 요청(전화번호 보유 시) 또는 온라인 상담 요청 */}
+            {smsHref ? (
+              <a
+                href={smsHref}
+                data-track="im_request"
+                data-testid="deal-inquiry-sms-link"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 text-[16px] font-bold text-indigo-900 transition-colors"
+              >
+                <span aria-hidden="true">💬</span>
+                <span>문자로 상세 제안서(IM) 요청 ({formattedPhone})</span>
+              </a>
+            ) : (
+              <a
+                href={expertRequestHref}
+                data-track="im_request"
+                data-testid="deal-inquiry-consult-link"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 text-[16px] font-bold text-indigo-900 transition-colors"
+              >
+                <span aria-hidden="true">💬</span>
+                <span>담당 중개사에게 자료 요청하기</span>
+              </a>
+            )}
 
             {/* #4 중개사 프로필 보기 */}
             <a

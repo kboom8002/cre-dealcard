@@ -373,7 +373,7 @@ function OutcomePanel({
 
   const fallbackDate = todayKst();
   const viewerUrl = publishedEdition?.editionUrl || (publishedEdition?.id && typeof window !== 'undefined' ? `${window.location.origin}/magazine/m/${fallbackDate}?edition=${publishedEdition.id}` : '');
-  const groupChatPackage = `[CRE DealCard 긴급 매물 속보]
+  const groupChatPackage = `[크리딜 (CREDEAL) 긴급 매물 속보]
 ${headline || outcome.title || "긴급 추천 매물 속보"}
 
 ${urgentNote ? `${urgentNote}\n\n` : ""}📌 속보 매물 전문 보기:

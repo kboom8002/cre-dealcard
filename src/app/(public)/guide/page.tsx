@@ -1,11 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { serializeJsonLd, faqPage } from "@/lib/schema-org";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
+
+const SITE_URL = getCanonicalSiteUrl();
+const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png?v=2`;
 
 export const metadata: Metadata = {
-  title: "상업용 부동산 가이드 & FAQ | DealCard Hub",
+  title: "상업용 부동산 가이드 & FAQ",
   description:
     "상업용 부동산 매각·매입·임대의 모든 것. AI 블라인드 딜카드, Gate 시스템, 매칭 엔진까지 전문가 가이드.",
+  openGraph: {
+    title: "상업용 부동산 가이드 & FAQ | 크리딜 (CREDEAL)",
+    description:
+      "상업용 부동산 매각·매입·임대의 모든 것. AI 블라인드 딜카드, Gate 시스템, 매칭 엔진까지 전문가 가이드.",
+    siteName: "크리딜 (CREDEAL)",
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: "크리딜 상업용 부동산 가이드" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "상업용 부동산 가이드 & FAQ | 크리딜 (CREDEAL)",
+    description:
+      "상업용 부동산 매각·매입·임대의 모든 것. AI 블라인드 딜카드, Gate 시스템, 매칭 엔진까지 전문가 가이드.",
+    images: [DEFAULT_OG_IMAGE],
+  },
 };
 
 const GUIDES = [
@@ -45,16 +63,16 @@ const GUIDES = [
 ];
 
 const FAQS = [
-  { question: "블라인드 딜카드란 무엇인가요?", answer: "블라인드 딜카드는 건물의 정확한 주소, 소유자 정보 없이 권역, 자산유형, 가격대, 투자 포인트만 공개하는 매물 소개 카드입니다. 매도자의 정보를 보호하면서 매수자의 관심을 확인할 수 있는 DealCard의 핵심 기능입니다." },
+  { question: "블라인드 딜카드란 무엇인가요?", answer: "블라인드 딜카드는 건물의 정확한 주소, 소유자 정보 없이 권역, 자산유형, 가격대, 투자 포인트만 공개하는 매물 소개 카드입니다. 매도자의 정보를 보호하면서 매수자의 관심을 확인할 수 있는 크리딜(CREDEAL)의 핵심 기능입니다." },
   { question: "Gate 시스템은 어떻게 작동하나요?", answer: "Gate 시스템은 3단계(G1→G2→G3)로 구성됩니다. G1은 기본 관심 표시, G2는 NDA 체결 후 상세 정보 열람, G3는 실사(Due Diligence) 단계입니다. 각 단계마다 매도자의 승인이 필요하며, 이를 통해 무분별한 정보 유출을 방지합니다." },
-  { question: "AI 매칭 엔진은 어떤 기준으로 매칭하나요?", answer: "DealCard의 AI 매칭 엔진은 지역 적합도, 자산유형 적합도, 예산 범위, 투자 목적, 시장 타이밍 등 다양한 요소를 종합적으로 분석하여 S(최적합)/A(우수)/B(양호)/C(참고) 등급으로 매칭 결과를 제공합니다." },
+  { question: "AI 매칭 엔진은 어떤 기준으로 매칭하나요?", answer: "크리딜의 AI 매칭 엔진은 지역 적합도, 자산유형 적합도, 예산 범위, 투자 목적, 시장 타이밍 등 다양한 요소를 종합적으로 분석하여 S(최적합)/A(우수)/B(양호)/C(참고) 등급으로 매칭 결과를 제공합니다." },
   { question: "매각 준비도 점검은 무료인가요?", answer: "네, AI 기반 매각 준비도 점검은 무료로 제공됩니다. 건물의 기본 정보를 입력하면 18개 항목에 대한 준비 상태를 자동 진단하고, Full IM(Information Memorandum) 작성 가능 여부를 알려드립니다." },
   { question: "상업용 부동산 중개 수수료는 어떻게 되나요?", answer: "상업용 부동산(주택 외 중개대상물)의 법정 중개보수는 공인중개사법 시행규칙 제20조 제4항에 따라 거래금액의 0.9%(1천분의 9) 이내에서 중개의뢰인과 개업공인중개사가 협의하여 결정합니다." },
-  { question: "DealCard에 매물을 등록하려면 어떻게 하나요?", answer: "DealCard는 검증된 상업용 부동산 공인중개사만 매물을 등록할 수 있습니다. 공인중개사 계정으로 로그인 후 '딜카드 만들기' 기능으로 건물 정보를 입력하면 AI가 블라인드 딜카드를 자동 생성합니다." },
-  { question: "정보 유출 걱정은 없나요?", answer: "DealCard는 Disclosure Guard 기술로 민감 정보를 자동 감지하고 블라인드 처리합니다. 정확한 주소, 소유자 정보, 임차인 상호 등은 NDA 체결 전까지 절대 노출되지 않습니다." },
-  { question: "AI 시세 리포트는 정확한가요?", answer: "AI 시세 리포트는 DealCard에 등록된 블라인드 매물 데이터와 매수 의향 데이터를 기반으로 자동 생성됩니다. 참고용 시장 분석 자료이며, 실제 거래 가격이나 감정평가를 대체하지 않습니다." },
+  { question: "크리딜에 매물을 등록하려면 어떻게 하나요?", answer: "크리딜은 검증된 상업용 부동산 공인중개사만 매물을 등록할 수 있습니다. 공인중개사 계정으로 로그인 후 '딜카드 만들기' 기능으로 건물 정보를 입력하면 AI가 블라인드 딜카드를 자동 생성합니다." },
+  { question: "정보 유출 걱정은 없나요?", answer: "크리딜은 Disclosure Guard 기술로 민감 정보를 자동 감지하고 블라인드 처리합니다. 정확한 주소, 소유자 정보, 임차인 상호 등은 NDA 체결 전까지 절대 노출되지 않습니다." },
+  { question: "AI 시세 리포트는 정확한가요?", answer: "AI 시세 리포트는 크리딜에 등록된 블라인드 매물 데이터와 매수 의향 데이터를 기반으로 자동 생성됩니다. 참고용 시장 분석 자료이며, 실제 거래 가격이나 감정평가를 대체하지 않습니다." },
   { question: "CasePack이란 무엇인가요?", answer: "CasePack은 딜카드의 투자 분석 데이터를 8개 블록으로 구조화한 패키지입니다. 시장 분석, 재무 분석, 리스크 분석 등을 포함하며, 매수자에게 체계적인 투자 검토 자료를 제공합니다." },
-  { question: "해외 투자자도 이용할 수 있나요?", answer: "현재 DealCard는 한국 상업용 부동산 시장에 특화되어 있습니다. 해외 투자자의 경우 한국 내 공인중개사를 통해 서비스를 이용할 수 있으며, 향후 다국어 지원을 계획하고 있습니다." },
+  { question: "해외 투자자도 이용할 수 있나요?", answer: "현재 크리딜은 한국 상업용 부동산 시장에 특화되어 있습니다. 해외 투자자의 경우 한국 내 공인중개사를 통해 서비스를 이용할 수 있으며, 향후 다국어 지원을 계획하고 있습니다." },
 ];
 
 export default function GuidePage() {

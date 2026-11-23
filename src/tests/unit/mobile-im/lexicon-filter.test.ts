@@ -18,4 +18,17 @@ describe('CRE Lexicon Filter (PR-B2-02 / Negative-Pair Obligation)', () => {
     expect(result.violations.length).toBeGreaterThan(0);
     expect(result.violations[0]).toContain('공허한 과장 수식어 금지');
   });
+
+  it('Negative Pair (A6-01): Stock dividend jargon ("배당", "배당수익률") triggers violation and normalizes to CRE income copy', () => {
+    const first = applyLexiconFilter('월 5,950만원 안정적 배당 소득 및 연 4.5% 배당수익률 기대');
+    expect(first.violations.length).toBeGreaterThan(0);
+    expect(first.filteredText).not.toContain('배당');
+    expect(first.filteredText).toContain('임대수익률');
+    expect(first.filteredText).toContain('임대수익');
+
+    // Repeated call stays stateless (no /g lastIndex drift)
+    const second = applyLexiconFilter('안정 배당 매물');
+    expect(second.violations.length).toBeGreaterThan(0);
+    expect(second.filteredText).toBe('안정 임대수익 매물');
+  });
 });

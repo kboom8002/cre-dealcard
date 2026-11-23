@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { trackTeaserCta } from "./TeaserEventTracker";
 import { ContactGateModal } from "./ContactGateModal";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useBottomSlot } from "@/components/ui/use-bottom-slot";
 import { TERMS } from "@/lib/ux/lexicon";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
@@ -33,10 +32,8 @@ export function CTALadder({
   buildingId,
   teaserConfigId,
   brokerPhone,
-  requireNda = false,
   hasImDoc = true,
 }: CTALadderProps) {
-  const router = useRouter();
   const [showContactModal, setShowContactModal] = useState(false);
   const [requestConfirmed, setRequestConfirmed] = useState(false);
   const [serverCookieVerified, setServerCookieVerified] = useState(false);
@@ -86,10 +83,6 @@ export function CTALadder({
     trackTeaserCta(teaserConfigId, fp, "cta_click", {
       action: hasImDoc ? "pro_im_request" : "detail_doc_request",
     });
-    if (requireNda) {
-      router.push(`/nda/${buildingId}`);
-      return;
-    }
     setShowContactModal(true);
   };
 

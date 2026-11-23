@@ -24,6 +24,7 @@ const ImDataBottomSheet = dynamic(
   { ssr: false, loading: () => null }
 );
 import type { RentRollImportPayload } from "@/components/broker/rent-roll-importer";
+import type { RentRollMeta } from "@/domain/building/mobile-im/rentroll-meta";
 import {
   EMPTY_BROKER_EXTRAS_FORM,
   brokerExtrasFormToInput,
@@ -353,6 +354,12 @@ function ImWorkspaceInner() {
   const [expectedRentRoll, setExpectedRentRoll] = useState<RentRollRowItem[]>(
     currentItem?.expectedRentRoll || []
   );
+  const [rentRollMeta, setRentRollMeta] = useState<RentRollMeta | undefined>(
+    currentItem?.rentRollMeta
+  );
+  const [expectedRentRollMeta, setExpectedRentRollMeta] = useState<RentRollMeta | undefined>(
+    currentItem?.expectedRentRollMeta
+  );
   const [investmentPosture, setInvestmentPosture] = useState<string>(
     currentItem?.investmentPosture || "core_income"
   );
@@ -433,6 +440,8 @@ function ImWorkspaceInner() {
     latestRentRollRef.current = nextRentRoll;
     setRentRoll(nextRentRoll);
     setExpectedRentRoll(item.expectedRentRoll || []);
+    setRentRollMeta(item.rentRollMeta);
+    setExpectedRentRollMeta(item.expectedRentRollMeta);
     setInvestmentPosture(item.investmentPosture || "core_income");
     setGfaSqm(item.gfaSqm ?? "");
     setCompletionDate(item.completionDate ?? "");
@@ -1430,11 +1439,16 @@ function ImWorkspaceInner() {
     if (finalRows.length === 0) return;
     const targetId = currentItem?.id || selectedIdRef.current;
     const prevRows = [...rentRoll];
+    const prevMeta = rentRollMeta;
     const prevPrice = askingPriceManwon;
     let didUpdatePrice = false;
     latestRentRollRef.current = finalRows;
     setRentRoll(finalRows);
-    const patch: Partial<ImListItem> = { rentRoll: finalRows };
+    setRentRollMeta(payload.meta);
+    const patch: Partial<ImListItem> = {
+      rentRoll: finalRows,
+      rentRollMeta: payload.meta,
+    };
     const incomingPrice = Number(
       payload.askingPriceManwon ??
         (payload as unknown as { askingPrice?: number }).askingPrice
@@ -1457,10 +1471,12 @@ function ImWorkspaceInner() {
       undoAction: () => {
         const undoPatch: Partial<ImListItem> = {
           rentRoll: prevRows,
+          rentRollMeta: prevMeta,
           ...(didUpdatePrice ? { askingPriceManwon: prevPrice } : {}),
         };
         if (selectedIdRef.current === targetId) {
           setRentRoll(prevRows);
+          setRentRollMeta(prevMeta);
           if (didUpdatePrice) {
             setAskingPriceManwon(prevPrice);
             setWonDraft(
@@ -1478,15 +1494,24 @@ function ImWorkspaceInner() {
     if (finalRows.length === 0) return;
     const targetId = currentItem?.id || selectedIdRef.current;
     const prevExpected = [...expectedRentRoll];
+    const prevExpectedMeta = expectedRentRollMeta;
     setExpectedRentRoll(finalRows);
-    syncCurrentItemPatch({ expectedRentRoll: finalRows }, targetId);
+    setExpectedRentRollMeta(payload.meta);
+    syncCurrentItemPatch(
+      { expectedRentRoll: finalRows, expectedRentRollMeta: payload.meta },
+      targetId
+    );
     showUndoToast({
       message: `기대수익률 임대 현황 ${finalRows.length}개 호실을 엑셀에서 반영했어요`,
       undoAction: () => {
         if (selectedIdRef.current === targetId) {
           setExpectedRentRoll(prevExpected);
+          setExpectedRentRollMeta(prevExpectedMeta);
         }
-        syncCurrentItemPatch({ expectedRentRoll: prevExpected }, targetId);
+        syncCurrentItemPatch(
+          { expectedRentRoll: prevExpected, expectedRentRollMeta: prevExpectedMeta },
+          targetId
+        );
       },
     });
   };
@@ -1652,14 +1677,32 @@ function ImWorkspaceInner() {
     return { buildingId, legacyBuildingId };
   };
 
+  const serializeRentRollRowsForRequest = (rows: RentRollRowItem[]) =>
+    rows.map((r) => ({
+      ...r,
+      ...(r.contractGroup ? { contract_group: r.contractGroup } : {}),
+      ...(r.areaSqmIsProxy ? { area_sqm_is_proxy: r.areaSqmIsProxy } : {}),
+      ...(r.legalBasis ? { legal_basis: r.legalBasis } : {}),
+      ...(r.firstContractDate ? { first_contract_date: r.firstContractDate } : {}),
+    }));
+
   const buildCurrentRequestPayload = (originItem?: ImListItem, cleanTitle?: string) => ({
     address: address.trim(),
     askingPriceManwon,
     title: cleanTitle || undefined,
     investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
     axiosHighlights,
-    rentRoll,
-    ...(expectedRentRoll.length > 0 ? { expectedRentRoll } : {}),
+    rentRoll: serializeRentRollRowsForRequest(rentRoll),
+    ...(rentRollMeta ? { rent_roll_meta: rentRollMeta, rentRollMeta } : {}),
+    ...(expectedRentRoll.length > 0
+      ? { expectedRentRoll: serializeRentRollRowsForRequest(expectedRentRoll) }
+      : {}),
+    ...(expectedRentRoll.length > 0 && expectedRentRollMeta
+      ? {
+          expected_rent_roll_meta: expectedRentRollMeta,
+          expectedRentRollMeta,
+        }
+      : {}),
     posture: investmentPosture,
     gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
     completionDate: completionDate || undefined,
@@ -1987,7 +2030,7 @@ function ImWorkspaceInner() {
         window.setTimeout(() => setIsShareLinkCopied(false), 2400);
       }
       showUndoToast({
-        message: "🔗 모바일 IM 링크를 복사했어요! 카톡이나 점검창에 바로 붙여넣으세요.",
+        message: "🔗 모바일 IM 링크를 복사했어요! 카톡이나 대화창에 바로 붙여넣으세요.",
         variant: "success",
       });
     } else {
@@ -2111,6 +2154,8 @@ function ImWorkspaceInner() {
                   updatedAt: new Date().toISOString(),
                   rentRoll: reqRentRoll,
                   expectedRentRoll: [...expectedRentRoll],
+                  ...(rentRollMeta ? { rentRollMeta } : {}),
+                  ...(expectedRentRollMeta ? { expectedRentRollMeta } : {}),
                   investmentPosture: reqPosture,
                   gfaSqm: reqGfa,
                   completionDate: reqCompletion,
@@ -2190,7 +2235,7 @@ function ImWorkspaceInner() {
           }
         }
         showUndoToast({
-          message: "IM과 딜카드를 만들었어요! 오른쪽에서 미리보거나 내려받을 수 있습니다.",
+          message: "IM과 딜카드를 만들었어요! 미리보기 화면에서 확인하거나 내려받을 수 있습니다.",
           variant: "success",
         });
       } else if (selectedIdRef.current === targetId) {
@@ -2769,6 +2814,9 @@ function ImWorkspaceInner() {
             totalDepositManwon={totalDepositManwon}
             totalRentManwon={totalRentManwon}
             calculatedYield={calculatedYield}
+            expectedDepositManwon={expectedDepositManwon}
+            expectedRentManwon={expectedRentManwon}
+            expectedYieldPct={expectedYieldPct}
             isRentRollImportOpen={isRentRollImportOpen}
             onToggleRentRollImport={() => setIsRentRollImportOpen((prev) => !prev)}
             onExcelRentRollImport={handleExcelRentRollImport}

@@ -115,8 +115,25 @@ export function InboxEditorColumn({
             선택된 고객이 없습니다
           </h2>
           <p className="mt-2 text-base text-slate-600">
-            왼쪽 목록에서 고객을 선택하거나 상단의 [+ 고객 직접 등록] 버튼을 눌러 새 고객을 추가해 보세요.
+            고객 목록에서 대상을 선택하거나 [+ 고객 직접 등록] 버튼을 눌러 새 고객을 추가해 보세요.
           </p>
+          <button
+            type="button"
+            data-testid="inbox-empty-open-list-btn"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("workspace:open-list"));
+              }
+              if (typeof document !== "undefined") {
+                document
+                  .querySelector<HTMLButtonElement>('[data-testid="workspace-mobile-back-to-list-btn"]')
+                  ?.click();
+              }
+            }}
+            className="mt-4 inline-flex lg:hidden min-h-[44px] items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 cursor-pointer"
+          >
+            고객 목록 보기
+          </button>
         </div>
       ) : (
         <>
@@ -469,9 +486,19 @@ export function InboxEditorColumn({
                           </div>
                         </div>
                       ) : (
-                        <p className="rounded-xl border border-emerald-200 bg-white p-3 text-sm text-slate-700">
-                          전용 링크가 발급되었습니다. 우측 [자료 전달 방법]에서도 채널별로 재발송할 수 있습니다.
-                        </p>
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-white p-3 text-sm text-slate-700">
+                          <span>전용 링크가 발급되었습니다. 자료 전달 영역에서도 채널별로 재발송할 수 있습니다.</span>
+                          <button
+                            type="button"
+                            data-testid="inbox-open-preview-from-approved-btn"
+                            onClick={() =>
+                              window.dispatchEvent(new CustomEvent("workspace:open-preview"))
+                            }
+                            className="xl:hidden min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                          >
+                            자료 전달·관리 열기
+                          </button>
+                        </div>
                       )}
 
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -568,9 +595,21 @@ export function InboxEditorColumn({
                         : activeThread.gateStatus === "approved"
                         ? "승인 및 전용 링크 발급이 완료되어 고객 열람을 기다리고 있습니다."
                         : effectiveSharePath
-                        ? "전용 링크가 준비되어 있습니다. 위 버튼이나 우측 [자료 전달 방법]에서 바로 보낼 수 있습니다."
-                        : "아직 자료를 열람하지 않았습니다. 우측 [자료 전달 방법]에서 IM·딜카드·뉴스레터를 선택해 바로 보낼 수 있습니다."}
+                        ? "전용 링크가 준비되어 있습니다. 위 버튼이나 [자료 전달·관리]에서 바로 보낼 수 있습니다."
+                        : "아직 자료를 열람하지 않았습니다. [자료 전달·관리]에서 IM·딜카드·뉴스레터를 선택해 바로 보낼 수 있습니다."}
                     </p>
+                    {activeThread.openCount === 0 && activeThread.gateStatus !== "approved" && (
+                      <button
+                        type="button"
+                        data-testid="inbox-open-preview-from-dwell-btn"
+                        onClick={() =>
+                          window.dispatchEvent(new CustomEvent("workspace:open-preview"))
+                        }
+                        className="mt-2 inline-flex xl:hidden min-h-[44px] items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                      >
+                        자료 전달·관리 열기
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -694,9 +733,22 @@ export function InboxEditorColumn({
                   className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
               </div>
-              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600">
-                자료 종류 선택 및 카톡 복사·이메일 발송은 우측 <strong>[자료 전달 방법]</strong>에서 한 번에 진행할 수 있습니다.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600">
+                <span>
+                  자료 종류 선택 및 카톡 복사·이메일 발송은{" "}
+                  <strong className="font-bold text-slate-800">[자료 전달·관리]</strong>에서 한 번에 진행할 수 있습니다.
+                </span>
+                <button
+                  type="button"
+                  data-testid="inbox-open-preview-from-tip-btn"
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("workspace:open-preview"))
+                  }
+                  className="xl:hidden min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                >
+                  자료 전달·관리 열기
+                </button>
+              </div>
             </div>
           )}
 

@@ -12,6 +12,7 @@ import {
   PUBLIC_WORKSPACE_ITEM_STATUSES,
 } from "@/domain/public-projection/visibility";
 import { loadPublicBrokerProfile } from "./load-broker-profile";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -134,15 +135,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
   const name = broker.displayName || "공인중개사";
-  const verifiedSuffix = broker.isVerified ? " DealCard 검증 프로필." : "";
+  const verifiedSuffix = broker.isVerified ? " 크리딜 검증 프로필." : "";
+  const pageTitle = `${name} | 상업용 부동산 전문 공인중개사`;
+  const pageDesc = `${name} 공인중개사의 전문 권역, 실적, 블라인드 매물을 확인하세요.${verifiedSuffix}`;
+  const ogImageUrl = `${getCanonicalSiteUrl()}/api/og/broker/${encodeURIComponent(slug)}`;
   return {
-    title: `${name} | 상업용 부동산 전문 공인중개사 — DealCard`,
-    description: `${name} 공인중개사의 전문 권역, 실적, 블라인드 매물을 확인하세요.${verifiedSuffix}`,
+    title: pageTitle,
+    description: pageDesc,
     alternates: { canonical: broker.canonicalPath },
     openGraph: {
       title: `${name} — 상업용 부동산 전문 공인중개사`,
+      description: pageDesc,
       url: broker.canonicalPath,
-      images: [`/api/og/broker/${slug}`],
+      siteName: "크리딜 (CREDEAL)",
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${name} 공인중개사 프로필`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} — 상업용 부동산 전문 공인중개사`,
+      description: pageDesc,
+      images: [ogImageUrl],
     },
   };
 }

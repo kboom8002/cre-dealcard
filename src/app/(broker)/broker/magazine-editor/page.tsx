@@ -1602,9 +1602,6 @@ function MagazineEditorWorkspace() {
   const handleSelectStep = useCallback((nextStep: NewsletterStepKey) => {
     setActiveStep(nextStep);
     setStatusBanner(null);
-    if (nextStep === "send" && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("workspace:open-preview"));
-    }
   }, []);
 
   // ── 8. 주기 전환 / 새로 쓰기 / 복제 / 2단계 확인 삭제 ──
@@ -2526,6 +2523,7 @@ function MagazineEditorWorkspace() {
           publicUrl,
         }),
       );
+      setActiveStep("send");
     } finally {
       setSending(false);
     }
@@ -2557,6 +2555,8 @@ function MagazineEditorWorkspace() {
       onRequestDeleteEdition={handleRequestDeleteEdition}
     />
   );
+
+  const activeReaderPreviewUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
 
   // 2열: 3단계 통합 편집 슬롯
   const editorSlot = (
@@ -2649,6 +2649,54 @@ function MagazineEditorWorkspace() {
         </div>
 
         <MagazineStatusBanner statusBanner={statusBanner} />
+
+        {isPublished && activeReaderPreviewUrl && (
+          <div
+            data-testid="newsletter-inline-live-bar"
+            className="xl:hidden flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-2xs"
+          >
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-sm font-bold text-slate-900">
+                {previewLifecycle === "published_dirty"
+                  ? "발행본에 아직 반영되지 않은 수정이 있습니다"
+                  : "공개 독자 화면 링크"}
+              </p>
+              <p className="truncate font-mono text-sm text-slate-600">
+                {activeReaderPreviewUrl}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {previewLifecycle === "published_dirty" && (
+                <button
+                  type="button"
+                  data-testid="newsletter-inline-resync-btn"
+                  disabled={sending || saveState === "saving"}
+                  onClick={() => void handleServerSave({ saveAsDraft: false })}
+                  className="min-h-[44px] rounded-xl bg-slate-900 px-3 py-2 text-sm font-extrabold text-white hover:bg-slate-800 disabled:opacity-60 cursor-pointer"
+                >
+                  발행본에 수정 반영
+                </button>
+              )}
+              <a
+                href={activeReaderPreviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="newsletter-inline-live-link"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100"
+              >
+                공개 화면 열기 ↗
+              </a>
+              <button
+                type="button"
+                data-testid="newsletter-inline-copy-btn"
+                onClick={() => void handleCopyLink()}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                복사
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeStep === "title" && (
           <NewsletterTitleStepPanel
@@ -2810,6 +2858,8 @@ function MagazineEditorWorkspace() {
             subscriberCount={subscriberCount}
             highInterestCount={highInterestCount}
             sending={sending}
+            isPublished={isPublished}
+            publicUrl={activeReaderPreviewUrl}
             distributeOutcome={distributeOutcome}
             onJumpToStep={(step) => setActiveStep(step)}
             onNotifyEditorFocus={sync.notifyEditorFocus}
@@ -2826,8 +2876,6 @@ function MagazineEditorWorkspace() {
   );
 
   // 3열: 실시간 뉴스레터 미리보기 슬롯
-  const activeReaderPreviewUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
-
   const previewSlot = (
     <div
       data-testid="magazine-preview-slot"

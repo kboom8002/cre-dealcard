@@ -119,7 +119,7 @@ describe('U-07 (magazine) 라우트 그룹', () => {
     expect(layout).not.toMatch(/<style[\s>]/);
     expect(layout).toMatch(/colorScheme:\s*["']light["']/);
     expect(layout).toMatch(/href="#magazine-main"/);
-    expect(layout).toMatch(/template:\s*["']%s \| DealCard["']/);
+    expect(layout).toMatch(/template:\s*["']%s \| 크리딜 \(CREDEAL\)["']/);
     // (public) 의 홈 canonical 상속이 사라졌으므로 그룹 기본 canonical 은 두지 않는다 (페이지별 지정)
     expect(layout).not.toMatch(/canonical\s*:/);
     expect(exists('app/(magazine)/template.tsx')).toBe(false);

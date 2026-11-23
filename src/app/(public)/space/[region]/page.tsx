@@ -11,6 +11,7 @@ import {
   PUBLIC_WORKSPACE_ITEM_STATUSES,
 } from "@/domain/public-projection/visibility";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 const REGION_MAP: Record<string, string> = {
   gbd: "GBD (강남권역)",
@@ -276,9 +277,25 @@ async function filterPublicRegionDeals(
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { region } = await params;
   const label = REGION_MAP[region] || region;
+  const siteUrl = getCanonicalSiteUrl();
+  const title = `${label} 상업용 임대 공간`;
+  const description = `${label} 권역의 오피스·리테일·F&B 임대 공간을 블라인드로 탐색하세요.`;
+  const ogImageUrl = `${siteUrl}/og-default.png?v=2`;
   return {
-    title: `${label} 상업용 임대 공간 | DealCard Hub`,
-    description: `${label} 권역의 오피스·리테일·F&B 임대 공간을 블라인드로 탐색하세요.`,
+    title,
+    description,
+    openGraph: {
+      title: `${title} — 크리딜 허브`,
+      description,
+      siteName: "크리딜 (CREDEAL)",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} — 크리딜 허브`,
+      description,
+      images: [ogImageUrl],
+    },
   };
 }
 

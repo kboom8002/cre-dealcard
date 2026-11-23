@@ -369,8 +369,8 @@ const LOOPS = {
           { id: "c10", label: "3. 추천 매물 한 줄 소개 복사", hint: "추천 매물 코멘트 칸", val: "더블역세권 도보 4분 사거리 코너 · 우량 메디컬 임차 기반에 전세·공실 전환 시 월세 +1,000만원 증액 여력 보유" }
         ],
         items: [
-          `왼쪽 위 <span class="ui-btn">+ 새 호수 만들기</span> 클릭 → 위 복사 버튼 3개로 내용을 채우고 방금 만든 당산동 매물을 추천 매물로 선택합니다.`,
-          `키보드 <strong>F5(새로고침)</strong>를 눌러 내용이 그대로 유지되는지 확인한 뒤, 오른쪽 아래 <span class="ui-btn">구독자에게 보내기</span> → <span class="ui-btn white">링크 복사</span> 주소를 아래 ④번 칸에 붙여넣고 스마트폰 카톡(창 B)에도 보냅니다.`
+          `왼쪽 위 <span class="ui-btn">이번 달 뉴스레터 새로 쓰기</span> 클릭 → <span class="ui-btn white">제목</span> → <span class="ui-btn white">내용</span> 탭 순서로 위 복사 버튼 3개를 채우고 방금 만든 당산동 매물을 추천 매물로 선택합니다.`,
+          `키보드 <strong>F5(새로고침)</strong>를 눌러 내용이 그대로 유지되는지 확인한 뒤, 오른쪽 <span class="ui-btn white">보내기</span> 탭으로 이동해 <span class="ui-btn">구독자에게 보내기</span> 완료 후 같은 <span class="ui-btn white">보내기</span> 탭 안의 <span class="ui-btn white">링크 복사</span> 주소를 아래 ④번 칸에 붙여넣고 스마트폰 카톡(창 B)에도 보냅니다.`
         ],
         urlKey: "l1_nl", urlLabel: "④ 발행된 부동산뉴스 주소 붙여넣기 (/magazine/...)"
       },
@@ -378,24 +378,25 @@ const LOOPS = {
         id: "H1-S5", win: "창 B (스마트폰 카톡 매수자 1)", mobile: true,
         title: "Step 5. 스마트폰 카톡 열람 · 강민석 팀장 자료 요청 & 구독 신청",
         copies: [
-          { id: "c11", label: "성함 복사 (강민석 팀장)", hint: "자료 요청 창 → 성함", val: "강민석 팀장" },
+          { id: "c11", label: "이름 복사 (강민석 팀장)", hint: "자료 요청 창 → 이름 (필수)", val: "강민석 팀장" },
           { id: "c12", label: "연락처 복사 (010-6193-4470)", hint: "자료 요청 창 · 구독 칸", val: "010-6193-4470" },
           { id: "c13", label: "이메일 복사 (ms.kang@example.kr)", hint: "자료 요청 창 · 구독 칸", val: "ms.kang@example.kr" },
-          { id: "c14", label: "문의 내용 복사", hint: "자료 요청 창 → 문의 내용", val: "당산역권 100억대 메디컬 빌딩 매입 검토 중입니다. 2층 공실 조건과 안정화 수지 상세 내역 요청드립니다." }
+          { id: "c13b", label: "소속 · 기관명 복사 (한국자산운용)", hint: "자료 요청 창 → 소속 · 기관명 (선택)", val: "한국자산운용" },
+          { id: "c14", label: "문의 내용 복사", hint: "자료 요청 창 → 문의 내용 (선택)", val: "당산역권 100억대 메디컬 빌딩 매입 검토 중입니다. 2층 공실 조건과 안정화 수지 상세 내역 요청드립니다." }
         ],
         items: [
           `창 B(스마트폰 카톡)에서 링크 미리보기에 "11-47"·"로뎀나무내과"가 보이지 않는지 확인하고 링크를 엽니다.`,
-          `부동산뉴스 → 추천 딜카드 → <span class="ui-btn">상세 IM 자료 요청하기</span>에 위 4개 항목을 입력해 제출합니다.`,
+          `부동산뉴스 → 추천 딜카드 → <span class="ui-btn">상세 제안서(IM) 요청</span>에 위 5개 항목(이름·연락처·이메일·소속 · 기관명·문의 내용)을 입력해 제출합니다.`,
           `부동산뉴스 하단 <strong>뉴스레터 신청</strong> 칸에서 <span class="ui-btn">둘 다 받기</span>(또는 <span class="ui-btn white">휴대폰으로 받기</span> 아래 선택 이메일 칸)를 선택해 연락처(<code>010-6193-4470</code>)와 이메일(<code>ms.kang@example.kr</code>)을 함께 입력하고 <span class="ui-btn">뉴스레터 신청하기</span>를 누릅니다.`
         ]
       },
       {
         id: "H1-S6", win: "창 A ↔ 창 B", mobile: false,
-        title: "Step 6. 소통함에서 초록색 [자료 보내기] 1클릭 승인 → 고객 화면 전체 열람 확인",
+        title: "Step 6. 소통함에서 [자료 보내기(승인)] 1클릭 승인 → 고객 화면 전체 열람 확인",
         openUrl: "https://www.credeal.net/broker/w/inbox", openLabel: "🚀 고객 소통함 열기",
         copies: [],
         items: [
-          `창 A 소통함 왼쪽 [할 일] 목록의 "강민석 팀장" 옆 초록색 <span class="ui-btn green">자료 보내기</span> 버튼을 클릭합니다.`,
+          `창 A 소통함 상단 [지금 할 일] 배너의 <span class="ui-btn white">확인·승인하기 ›</span>(또는 왼쪽 [할 일] 목록)에서 "강민석 팀장"을 선택한 뒤, 가운데 [할 일] 탭의 초록색 <span class="ui-btn green">자료 보내기(승인)</span> 버튼을 클릭합니다.`,
           `자동 복사된 승인 링크를 창 B에서 열어 15개 호실 표·기대수익률(3.83%)·사진 6장이 모두 잠금 없이 열리는지 확인합니다.`
         ]
       },
@@ -449,7 +450,7 @@ const LOOPS = {
         items: [
           `① 표지·기본정보 맨 위에서 오른쪽 <span class="ui-btn white">신축·개발용</span> 카드를 선택하고 2필지 주소를 자동 조회해 <strong>연면적 2032.59 · 대지면적 616.1</strong>을 확인합니다.`,
           `일부러 연면적에 616.1, 대지면적에 2032.59를 반대로 적어 노란 경고창의 <span class="ui-btn">⇄ 연면적·대지면적 값 서로 바꾸기</span> 버튼 복구를 확인한 뒤, 매매가 <strong>242억 + 2680만원</strong>을 입력합니다.`,
-          `<span class="ui-btn white">② 층별 임대현황</span>에서 [4. 현행 6행 표 복사] → 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭(연 1.37%), 옆 <span class="ui-btn">+ 기대수익률 임대차 현황</span>에서 [5. 기대수익률 6행 표 복사] → 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭(연 4.14%) 후 사진 5장을 올리고 <span class="ui-btn white">📥 PPTX 받기</span> 및 <span class="ui-btn">IM 만들기</span>를 누릅니다.`
+          `<span class="ui-btn white">② 층별 임대현황</span>에서 [4. 현행 6행 표 복사] → 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭(연 1.37%), 옆 <span class="ui-btn">+ 기대수익률 임대차 현황</span>에서 [5. 기대수익률 6행 표 복사] → 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭(연 4.14%) 후 사진 5장을 올리고 <strong>먼저</strong> <span class="ui-btn">IM 만들기</span>를 눌러 IM을 생성한 뒤(생성 전에는 PPTX 버튼이 흐리게 대기 상태임), 완료 후 <span class="ui-btn white">📥 PPTX 받기</span>를 누릅니다.`
         ]
       },
       {
@@ -474,7 +475,7 @@ const LOOPS = {
         ],
         items: [
           `새 딜카드에 잠원동 메모를 붙여넣고 <span class="ui-btn">✨ 메모로 딜카드 생성하기</span> 클릭 → <span class="ui-btn white">신축·개발용</span> 선택 시 3번 면적 칸이 <strong>"토지면적 약 186평"</strong>으로 표시되는지 확인 후 <span class="ui-btn">카톡으로 보내기</span> → 팝업 <span class="ui-btn white">링크 복사</span> 주소를 아래 ①번 칸에 붙여넣습니다.`,
-          `부동산뉴스에서도 새 호수를 발행해 복사한 링크를 기록합니다.`
+          `부동산뉴스에서 <span class="ui-btn">이번 달 뉴스레터 새로 쓰기</span> 클릭 → <span class="ui-btn white">제목</span>·<span class="ui-btn white">내용</span> 탭 작성 후 <span class="ui-btn white">보내기</span> 탭에서 <span class="ui-btn">구독자에게 보내기</span> 완료 뒤 같은 탭 안의 <span class="ui-btn white">링크 복사</span> 주소를 기록합니다.`
         ],
         urlKey: "l2_dc", urlLabel: "① 잠원동 딜카드 [링크 복사] 주소 붙여넣기 (/dc/...)"
       },
@@ -483,13 +484,17 @@ const LOOPS = {
         title: "Step 5. 경쟁 매수자 2명(창 B 박서연 · 창 C 한유진) 자료 요청 & 개별 승인",
         openUrl: "https://www.credeal.net/broker/w/inbox", openLabel: "🚀 고객 소통함 열기",
         copies: [
-          { id: "c32", label: "[창 B] 박서연 대표 복사", hint: "창 B 성함", val: "박서연 대표 (디벨롭파트너스)" },
-          { id: "c33", label: "[창 B] 010-7782-1940 복사", hint: "창 B 연락처", val: "010-7782-1940" },
-          { id: "c34", label: "[창 C] 한유진 소장 복사", hint: "창 C 시크릿 창 성함", val: "한유진 소장 (블룸건축)" },
-          { id: "c35", label: "[창 C] 010-3917-6620 복사", hint: "창 C 시크릿 창 연락처", val: "010-3917-6620" }
+          { id: "c32", label: "[창 B] 박서연 대표 이름 복사", hint: "창 B 자료 요청 창 → 이름 (필수)", val: "박서연 대표" },
+          { id: "c32b", label: "[창 B] 소속 · 기관명 복사 (디벨롭파트너스)", hint: "창 B 자료 요청 창 → 소속 · 기관명 (선택)", val: "디벨롭파트너스" },
+          { id: "c33", label: "[창 B] 010-7782-1940 복사", hint: "창 B 자료 요청 창 → 연락처 (필수)", val: "010-7782-1940" },
+          { id: "c33b", label: "[창 B] 문의 내용 복사", hint: "창 B 자료 요청 창 → 문의 내용 (선택)", val: "신사역권 대수선 메디컬 빌딩 사업성 검토 중입니다. 2필지 경계 현황과 명도 일정 자료 부탁드립니다." },
+          { id: "c34", label: "[창 C] 한유진 소장 이름 복사", hint: "창 C 시크릿 창 자료 요청 창 → 이름 (필수)", val: "한유진 소장" },
+          { id: "c34b", label: "[창 C] 소속 · 기관명 복사 (블룸건축)", hint: "창 C 시크릿 창 자료 요청 창 → 소속 · 기관명 (선택)", val: "블룸건축" },
+          { id: "c35", label: "[창 C] 010-3917-6620 복사", hint: "창 C 시크릿 창 자료 요청 창 → 연락처 (필수)", val: "010-3917-6620" },
+          { id: "c35b", label: "[창 C] 문의 내용 복사", hint: "창 C 시크릿 창 자료 요청 창 → 문의 내용 (선택)", val: "기득권 용적률 활용 대수선 설계안 비교를 위해 상세 건축물 개요 및 현황 자료 요청합니다." }
         ],
         items: [
-          `창 B(스마트폰)와 창 C(PC 시크릿 창 Ctrl+Shift+N)에서 각각 딜카드 자료 요청을 제출한 뒤, 창 A 소통함에서 두 고객의 초록색 <span class="ui-btn green">자료 보내기</span>를 각각 눌러 승인합니다.`
+          `창 B(스마트폰)와 창 C(PC 시크릿 창 Ctrl+Shift+N)에서 각각 딜카드 <span class="ui-btn">상세 제안서(IM) 요청</span>을 제출한 뒤, 창 A 소통함 상단 [지금 할 일]의 <span class="ui-btn white">확인·승인하기 ›</span>(또는 왼쪽 [할 일] 목록)에서 두 고객을 각각 선택해 가운데 [할 일] 탭의 초록색 <span class="ui-btn green">자료 보내기(승인)</span> 버튼을 눌러 승인합니다.`
         ]
       },
       {

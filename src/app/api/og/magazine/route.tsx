@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   NO_STORE_CACHE_CONTROL,
   parseImageFormat,
   validateImageParams,
 } from "@/lib/magazine/og-image-data";
 import { renderMagazineImage, renderNeutralImage } from "@/lib/magazine/og-image-response";
+import { findLatestIssueDate, resolvePublicBroker } from "@/lib/magazine/public-page-data";
 
 export const runtime = "nodejs";
 
@@ -25,10 +27,25 @@ export async function GET(request: NextRequest) {
     return renderNeutralImage("og", { status: 400, cacheControl: NO_STORE_CACHE_CONTROL });
   }
 
-  const params = validateImageParams(
-    searchParams.get("brokerId") ?? searchParams.get("id"),
-    searchParams.get("date"),
-  );
+  const rawBrokerId = searchParams.get("brokerId") ?? searchParams.get("id");
+  let rawDate = searchParams.get("date");
+
+  if ((!rawDate || !rawDate.trim()) && rawBrokerId && rawBrokerId.trim()) {
+    try {
+      const supabase = createServiceClient();
+      const broker = await resolvePublicBroker(supabase, rawBrokerId.trim(), "user_id, slug");
+      if (broker) {
+        const latest = await findLatestIssueDate(supabase, broker);
+        if (latest) {
+          rawDate = latest;
+        }
+      }
+    } catch {
+      // non-blocking fallback to default validateImageParams behavior
+    }
+  }
+
+  const params = validateImageParams(rawBrokerId, rawDate);
   if (!params.ok) {
     return renderNeutralImage(format, { status: 400, cacheControl: NO_STORE_CACHE_CONTROL });
   }

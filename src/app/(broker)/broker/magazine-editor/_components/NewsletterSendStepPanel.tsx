@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   ArrowLeft,
   Copy,
+  ExternalLink,
   Loader2,
   MessageCircle,
   Send,
@@ -35,6 +36,8 @@ export interface NewsletterSendStepPanelProps {
   subscriberCount: number;
   highInterestCount: number;
   sending: boolean;
+  isPublished?: boolean;
+  publicUrl?: string | null;
   distributeOutcome?: DistributeOutcomeCardData | null;
   quietHoursNow?: boolean;
   onJumpToStep: (step: NewsletterStepKey) => void;
@@ -60,6 +63,8 @@ export function NewsletterSendStepPanel({
   subscriberCount,
   highInterestCount,
   sending,
+  isPublished = false,
+  publicUrl = null,
   distributeOutcome = null,
   quietHoursNow,
   onJumpToStep,
@@ -111,6 +116,47 @@ export function NewsletterSendStepPanel({
         </section>
       )}
 
+      {isPublished && publicUrl && (
+        <section
+          data-testid="step3-published-url-banner"
+          aria-label="발행된 공개 독자 링크"
+          className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-950 space-y-2.5"
+        >
+          <p className="text-sm font-extrabold">
+            공개 독자 화면이 발행되어 있습니다.
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2">
+            <span
+              data-testid="step3-published-url-text"
+              className="min-w-0 flex-1 break-all font-mono text-sm font-semibold text-slate-800 select-all"
+            >
+              {publicUrl}
+            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="step3-published-open-btn"
+                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 hover:bg-slate-100 whitespace-nowrap"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                <span>공개 화면 열기 ↗</span>
+              </a>
+              <button
+                type="button"
+                data-testid="step3-published-copy-btn"
+                onClick={onCopyLink}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 hover:bg-slate-100 whitespace-nowrap cursor-pointer"
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+                <span>복사</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {distributeOutcome && (
         <section
           data-testid="distribute-outcome-card"
@@ -142,6 +188,37 @@ export function NewsletterSendStepPanel({
                 </li>
               ))}
             </ul>
+          )}
+          {publicUrl && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-slate-900">
+              <span
+                data-testid="distribute-outcome-url-text"
+                className="min-w-0 flex-1 break-all font-mono text-sm font-semibold text-slate-800 select-all"
+              >
+                {publicUrl}
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <a
+                  href={publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="distribute-outcome-open-btn"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 hover:bg-slate-100 whitespace-nowrap"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  <span>공개 화면 열기 ↗</span>
+                </a>
+                <button
+                  type="button"
+                  data-testid="distribute-outcome-copy-btn"
+                  onClick={onCopyLink}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 hover:bg-slate-100 whitespace-nowrap cursor-pointer"
+                >
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  <span>복사</span>
+                </button>
+              </div>
+            </div>
           )}
         </section>
       )}

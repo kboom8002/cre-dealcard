@@ -64,7 +64,7 @@ export default function AgoraAiAnswer({
           </div>
           <div>
             <div className="text-sm font-bold text-white flex items-center gap-1.5">
-              DealCard AI
+              크리딜 AI
               <span className="text-blue-400 text-xs">✓</span>
             </div>
             <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">

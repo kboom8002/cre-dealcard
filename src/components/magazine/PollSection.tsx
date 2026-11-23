@@ -9,10 +9,12 @@
  *  - 'seller' 판정은 option.intent 메타만 사용 (인덱스 하드코딩 금지)
  */
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { BarChart3, MessageSquare } from "lucide-react";
+import { BarChart3, Check, Copy, MessageSquare, Phone } from "lucide-react";
 import { SectionCard } from "@/components/magazine/SectionCard";
 import { useViewerTrack } from "@/components/magazine/viewer-track";
 import { messageFromResponse, toUserMessage } from "@/lib/magazine/user-message";
+import { formatPhoneDisplay, sanitizeTelHref } from "@/lib/magazine/view-helpers";
+import { copyText } from "@/lib/ux/clipboard";
 import {
   MIN_POLL_RESULTS,
   normalizePoll,
@@ -51,6 +53,13 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
   const [pending, setPending] = useState<number | null>(null); // 실패한 마지막 선택 (재시도용)
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<PollResults | null>(null);
+  const [phoneCopied, setPhoneCopied] = useState(false);
+
+  const rawTelDigits = telHref ? sanitizeTelHref(telHref.replace(/^tel:/i, "")) : null;
+  const formattedPhone = telHref ? formatPhoneDisplay(telHref.replace(/^tel:/i, "")) : "";
+  const consultProfileHref = brokerId
+    ? `/broker-profile/${encodeURIComponent(brokerId)}?ref=poll-consult`
+    : null;
 
   // 이전에 서버가 접수한 투표만 localStorage 에 기록되므로 복원해도 안전.
   // 서버 스냅샷은 null → hydration 불일치 없이 클라이언트에서 복원값으로 재렌더된다.
@@ -199,16 +208,57 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
                 ? ` 총 ${results.total}명이 참여했습니다.`
                 : ` 결과는 응답이 ${MIN_POLL_RESULTS}건 이상 모이면 공개됩니다.`}
             </p>
-            {telHref && (
-              <a
-                href={telHref}
-                onClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-900 hover:bg-slate-50"
-              >
-                <MessageSquare className="h-4 w-4" aria-hidden="true" />
-                {selectedIntent === "seller" ? "매도 상담 문의하기" : "이 주제로 상담하기"}
-              </a>
-            )}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {consultProfileHref && (
+                <a
+                  href={consultProfileHref}
+                  data-testid="poll-consult-profile-link"
+                  onClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-900 hover:bg-slate-50"
+                >
+                  <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                  {selectedIntent === "seller" ? "매도 상담 문의하기" : "이 주제로 상담하기"}
+                </a>
+              )}
+              {rawTelDigits && formattedPhone && (
+                <>
+                  <a
+                    href={`tel:${rawTelDigits}`}
+                    data-testid="poll-consult-tel-link"
+                    onClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
+                    className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 text-sm font-bold text-emerald-900 hover:bg-emerald-100"
+                  >
+                    <Phone className="h-4 w-4" aria-hidden="true" />
+                    <span>{formattedPhone}</span>
+                  </a>
+                  <button
+                    type="button"
+                    data-testid="poll-consult-copy-phone"
+                    onClick={async () => {
+                      onTrack?.("poll_consult", { intent: selectedIntent ?? undefined });
+                      const ok = await copyText(formattedPhone);
+                      if (ok) {
+                        setPhoneCopied(true);
+                        window.setTimeout(() => setPhoneCopied(false), 2000);
+                      }
+                    }}
+                    className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                  >
+                    {phoneCopied ? (
+                      <>
+                        <Check className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                        <span>복사됨</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" aria-hidden="true" />
+                        <span>번호 복사</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

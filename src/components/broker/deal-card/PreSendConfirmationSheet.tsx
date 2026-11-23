@@ -71,6 +71,7 @@ export function PreSendConfirmationSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<'info' | 'error'>('info');
+  const [publishedShareUrl, setPublishedShareUrl] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const primaryBtnRef = useRef<HTMLButtonElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -80,11 +81,18 @@ export function PreSendConfirmationSheet({
 
   const handleClose = useCallback(() => {
     setActionFeedback(null);
+    setPublishedShareUrl(null);
     setIsSubmitting(false);
     setManualFlushing(false);
     setFlushResult(null);
     onClose();
   }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPublishedShareUrl(null);
+    }
+  }, [isOpen, dealId]);
 
   // Validate points + header fields
   const blindResult = validateBlindPoints(
@@ -258,6 +266,7 @@ export function PreSendConfirmationSheet({
         return;
       }
       const { publicUrl: targetPublicUrl } = await resolveShareUrls();
+      setPublishedShareUrl(targetPublicUrl);
       const ok = await copyText(targetPublicUrl);
       if (ok) {
         setFeedbackTone('info');
@@ -296,13 +305,16 @@ export function PreSendConfirmationSheet({
       });
 
       if (outcome === 'kakao') {
+        setPublishedShareUrl(targetPublicUrl);
         setFeedbackTone('info');
         setActionFeedback('✓ 카카오톡 공유 창을 열었어요.');
       } else if (outcome === 'copied') {
+        setPublishedShareUrl(targetPublicUrl);
         setFeedbackTone('info');
         setActionFeedback('✓ 링크를 복사했어요. 카카오톡 대화창에 붙여넣어 보내세요.');
         onAfterCopy?.();
       } else {
+        setPublishedShareUrl(targetPublicUrl);
         setFeedbackTone('error');
         setActionFeedback(COPY_FAILED_MESSAGE);
       }
@@ -508,6 +520,48 @@ export function PreSendConfirmationSheet({
             role="status"
           >
             {actionFeedback}
+          </div>
+        )}
+
+        {publishedShareUrl && (
+          <div
+            data-testid="presend-published-url-box"
+            className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2.5"
+          >
+            <div className="text-sm font-bold text-slate-800">공개 링크</div>
+            <div
+              data-testid="presend-published-url-text"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 select-all break-all"
+            >
+              {publishedShareUrl}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={publishedShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="presend-open-public-btn"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 transition"
+              >
+                새 창 열기 ↗
+              </a>
+              <button
+                type="button"
+                data-testid="presend-re-copy-btn"
+                onClick={async () => {
+                  const ok = await copyText(publishedShareUrl);
+                  setFeedbackTone(ok ? 'info' : 'error');
+                  setActionFeedback(
+                    ok
+                      ? '✓ 링크를 복사했어요. 카카오톡 대화창에 붙여넣어 보내세요.'
+                      : COPY_FAILED_MESSAGE
+                  );
+                }}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+              >
+                복사
+              </button>
+            </div>
           </div>
         )}
 

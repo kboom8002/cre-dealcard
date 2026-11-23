@@ -9,6 +9,7 @@ import {
   normalizeFloorName,
 } from "@/lib/rent-roll/tsv-parser";
 import { parseLeaseExpiryDate } from "@/lib/rent-roll/date-parser";
+import { PYEONG_TO_SQM_V15 } from "@/domain/building/mobile-im/rentroll-meta";
 import { MobileRentRollCards } from "./MobileRentRollCards";
 
 export interface BuildingRegisterFloorItem {
@@ -52,14 +53,30 @@ function parseManwonCellValue(raw: string | number): number {
   return Number.isFinite(num) && num > 0 ? Math.round(num * 10) / 10 : 0;
 }
 
-function parseAreaCellValue(raw: string | number): number | undefined {
+export function parseAreaCellValue(raw: string | number): number | undefined {
   if (typeof raw === "number") {
     return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 100) / 100 : undefined;
   }
-  const cleaned = String(raw ?? "").replace(/,/g, "").replace(/[㎡평\s]/g, "").trim();
+  const rawStr = String(raw ?? "").trim();
+  if (!rawStr) return undefined;
+  const isPyeong = /평|\bpy\b/i.test(rawStr);
+  const cleaned = rawStr.replace(/,/g, "").replace(/㎡|m²|m2|평|py|\s/gi, "").trim();
   if (!cleaned) return undefined;
   const num = parseFloat(cleaned);
-  return Number.isFinite(num) && num > 0 ? Math.round(num * 100) / 100 : undefined;
+  if (!Number.isFinite(num) || num <= 0) return undefined;
+  const sqm = isPyeong ? num * PYEONG_TO_SQM_V15 : num;
+  return Math.round(sqm * 100) / 100;
+}
+
+export function hasExistingRentRollData(rows?: RentRollRowItem[]): boolean {
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+  return rows.some(
+    (r) =>
+      (r.depositManwon || 0) > 0 ||
+      (r.monthlyRentManwon || 0) > 0 ||
+      (r.maintenanceManwon || 0) > 0 ||
+      Boolean(r.tenantName?.trim())
+  );
 }
 
 /**
@@ -191,6 +208,11 @@ export function RentRollGrid({
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState<boolean>(false);
   const [aiRawText, setAiRawText] = useState<string>("");
   const [isAiParsing, setIsAiParsing] = useState<boolean>(false);
+  const [pendingAiRows, setPendingAiRows] = useState<{
+    rows: RentRollRowItem[];
+    source: "table" | "ai";
+  } | null>(null);
+  const [showExclusiveArea, setShowExclusiveArea] = useState<boolean>(false);
   const prevNonVacantRef = useRef<Record<string, { use: string; tenantName?: string }>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -415,12 +437,52 @@ export function RentRollGrid({
     setTimeout(() => setPasteNotice(null), 6000);
   };
 
+  const isStructuredTableInput = useMemo(() => {
+    const trimmed = aiRawText.trim();
+    if (trimmed.length < 4) return false;
+    if (trimmed.includes("\t")) return true;
+    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    return lines.some((l) => (l.match(/\|/g) || []).length >= 2);
+  }, [aiRawText]);
+
+  const detectedTablePreview = useMemo(() => {
+    if (!isStructuredTableInput) return null;
+    const parsed = parseTsvRentRoll(aiRawText, 1);
+    return parsed.rows.length > 0 ? parsed : null;
+  }, [aiRawText, isStructuredTableInput]);
+
+  const applyParsedAiRows = (mappedRows: RentRollRowItem[], source: "table" | "ai") => {
+    const sorted = [...mappedRows].sort(
+      (a, b) => rankFloorTopDown(b.floor) - rankFloorTopDown(a.floor)
+    );
+    onChange(sorted);
+    setPendingAiRows(null);
+    setIsAiDrawerOpen(false);
+    setAiRawText("");
+    setPasteNotice(
+      source === "table"
+        ? `✓ 붙여넣은 표에서 ${sorted.length}개 호실을 자동 반영했습니다.`
+        : `✓ AI가 텍스트에서 ${sorted.length}개 호실 임대 현황을 자동 구성했습니다.`
+    );
+    setTimeout(() => setPasteNotice(null), 8000);
+  };
+
   const handleParseAiText = async () => {
     const trimmed = aiRawText.trim();
     if (trimmed.length < 5) {
       setPasteNotice("임대차 내역 텍스트를 5자 이상 입력해 주세요.");
       return;
     }
+
+    if (detectedTablePreview && detectedTablePreview.rows.length > 0) {
+      if (hasExistingRentRollData(rows)) {
+        setPendingAiRows({ rows: detectedTablePreview.rows, source: "table" });
+      } else {
+        applyParsedAiRows(detectedTablePreview.rows, "table");
+      }
+      return;
+    }
+
     setIsAiParsing(true);
     setPasteNotice(null);
     try {
@@ -434,40 +496,48 @@ export function RentRollGrid({
         const mapped: RentRollRowItem[] = data.floorLeases.map(
           (fl: Record<string, unknown>, idx: number) => {
             const floorLabel = normalizeFloorName(String(fl.floor || `${idx + 1}F`));
-          const isVac =
-            Boolean(fl.is_vacant) || fl.lease_state === "공실" || fl.tenant_type === "공실";
-          const isOwner = !isVac && (fl.lease_state === "자가사용" || fl.lease_state === "자가");
-          const status: RentRollStatus = isVac ? "vacant" : isOwner ? "owner" : "occupied";
-          const rawExpiry = String(fl.lease_end || fl.lease_expiry || "").trim();
-          const parsedExp = parseLeaseExpiryDate(rawExpiry);
-          const exclSqm = Number(fl.exclusive_area_sqm ?? fl.exclusiveAreaSqm);
-          const noteStr = fl.note != null ? String(fl.note).trim() : "";
-          return {
-            id: `rr-ai-${Date.now()}-${idx}`,
-            floor: floorLabel,
-            unit: String(fl.unit_label || fl.unit || "").trim(),
-            tenantName: isVac ? undefined : fl.tenant_name ? String(fl.tenant_name) : undefined,
-            use: isVac ? "공실" : String(fl.tenant_type || fl.use || "근린생활시설"),
-            ...(Number(fl.area_sqm) > 0 ? { areaSqm: Number(fl.area_sqm) } : {}),
-            ...(Number.isFinite(exclSqm) && exclSqm > 0 ? { exclusiveAreaSqm: exclSqm } : {}),
-            depositManwon: Number(fl.deposit_manwon) || 0,
-            monthlyRentManwon: isVac ? 0 : Number(fl.rent_manwon) || 0,
-            maintenanceManwon: isVac ? 0 : Number(fl.mgmt_fee_manwon) || 0,
-            leaseExpiry: rawExpiry,
-            normalizedExpiry: parsedExp.normalized,
-            isExpired: parsedExp.isExpired,
-            status,
-            ...(noteStr ? { note: noteStr } : {}),
-          };
-        });
-        const sorted = mapped.sort(
-          (a, b) => rankFloorTopDown(b.floor) - rankFloorTopDown(a.floor)
+            const isVac =
+              Boolean(fl.is_vacant) || fl.lease_state === "공실" || fl.tenant_type === "공실";
+            const isOwner = !isVac && (fl.lease_state === "자가사용" || fl.lease_state === "자가");
+            const status: RentRollStatus = isVac ? "vacant" : isOwner ? "owner" : "occupied";
+            const rawExpiry = String(fl.lease_end || fl.lease_expiry || "").trim();
+            const parsedExp = parseLeaseExpiryDate(rawExpiry);
+            const exclSqm = Number(fl.exclusive_area_sqm ?? fl.exclusiveAreaSqm);
+            const noteStr = fl.note != null ? String(fl.note).trim() : "";
+            const contractGroupStr =
+              fl.contract_group != null ? String(fl.contract_group).trim() : "";
+            const legalBasisStr = fl.legal_basis != null ? String(fl.legal_basis).trim() : "";
+            const firstContractStr =
+              fl.first_contract_date != null ? String(fl.first_contract_date).trim() : "";
+            const isProxyArea = Boolean(fl.area_sqm_is_proxy ?? fl.areaSqmIsProxy);
+            return {
+              id: `rr-ai-${Date.now()}-${idx}`,
+              floor: floorLabel,
+              unit: String(fl.unit_label || fl.unit || "").trim(),
+              tenantName: isVac ? undefined : fl.tenant_name ? String(fl.tenant_name) : undefined,
+              use: isVac ? "공실" : String(fl.tenant_type || fl.use || "근린생활시설"),
+              ...(Number(fl.area_sqm) > 0 ? { areaSqm: Number(fl.area_sqm) } : {}),
+              ...(Number.isFinite(exclSqm) && exclSqm > 0 ? { exclusiveAreaSqm: exclSqm } : {}),
+              ...(isProxyArea ? { areaSqmIsProxy: true } : {}),
+              ...(contractGroupStr ? { contractGroup: contractGroupStr } : {}),
+              ...(legalBasisStr ? { legalBasis: legalBasisStr } : {}),
+              ...(firstContractStr ? { firstContractDate: firstContractStr } : {}),
+              depositManwon: Number(fl.deposit_manwon) || 0,
+              monthlyRentManwon: isVac ? 0 : Number(fl.rent_manwon) || 0,
+              maintenanceManwon: isVac ? 0 : Number(fl.mgmt_fee_manwon) || 0,
+              leaseExpiry: rawExpiry,
+              normalizedExpiry: parsedExp.normalized,
+              isExpired: parsedExp.isExpired,
+              status,
+              ...(noteStr ? { note: noteStr } : {}),
+            };
+          }
         );
-        onChange(sorted);
-        setIsAiDrawerOpen(false);
-        setAiRawText("");
-        setPasteNotice(`✓ AI가 텍스트에서 ${sorted.length}개 호실 임대 현황을 자동 구성했습니다.`);
-        setTimeout(() => setPasteNotice(null), 8000);
+        if (hasExistingRentRollData(rows)) {
+          setPendingAiRows({ rows: mapped, source: "ai" });
+        } else {
+          applyParsedAiRows(mapped, "ai");
+        }
       } else {
         setPasteNotice(
           data?.error || "텍스트에서 임대차 내역을 인식하지 못했습니다. 층/금액을 확인해 주세요."
@@ -604,6 +674,8 @@ export function RentRollGrid({
 
   const activeRow =
     activeCell && rows[activeCell.rowIdx] ? rows[activeCell.rowIdx] : null;
+  const showExclusiveCol =
+    showExclusiveArea || rows.some((r) => (r.exclusiveAreaSqm ?? 0) > 0);
 
   if (isMobile) {
     return (
@@ -678,6 +750,19 @@ export function RentRollGrid({
           {extraToolbarAction}
           <button
             type="button"
+            data-testid="rent-roll-exclusive-toggle"
+            aria-pressed={showExclusiveCol}
+            onClick={() => setShowExclusiveArea((prev) => !prev)}
+            className={`min-h-[44px] px-3 py-1.5 rounded-xl border text-sm font-bold cursor-pointer shrink-0 transition ${
+              showExclusiveCol
+                ? "bg-slate-800 text-white border-slate-800"
+                : "bg-white hover:bg-slate-50 border-[#CBD5E1] text-[#334155]"
+            }`}
+          >
+            전용면적(㎡)
+          </button>
+          <button
+            type="button"
             data-testid="rent-roll-add-floor-btn"
             onClick={handleAddRow}
             className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-[#CBD5E1] text-[#1D4ED8] text-sm font-extrabold cursor-pointer shrink-0 transition"
@@ -695,7 +780,7 @@ export function RentRollGrid({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-extrabold text-purple-950">
-              매도인 문자·카톡·메모를 그대로 붙여넣으면 층별 임대차 현황표로 자동 정리합니다
+              매도인 문자·카톡·메모 또는 표 데이터를 그대로 붙여넣으면 층별 임대차 현황표로 자동 정리합니다
             </span>
             <span className="text-sm font-semibold text-purple-700">
               예: &quot;1층 카페 5000/400, 2층 사무실 3000/200, 3층 공실&quot;
@@ -705,14 +790,58 @@ export function RentRollGrid({
             rows={3}
             data-testid="rent-roll-ai-textarea"
             value={aiRawText}
-            onChange={(e) => setAiRawText(e.target.value)}
+            onChange={(e) => {
+              setAiRawText(e.target.value);
+              setPendingAiRows(null);
+            }}
             placeholder="예: B1 주점 5,000/450 관리비 30, 1F 스타벅스 보증금 1억 월세 800, 2F 의원 5000/350, 3F 공실"
             className="w-full rounded-xl border border-purple-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-purple-500"
           />
+          {detectedTablePreview && (
+            <div
+              data-testid="rent-roll-ai-table-detected"
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900"
+            >
+              ✓ 표 형식 자동 인식: {detectedTablePreview.rows.length}개 호실 즉시 반영 가능 (AI 호출 없이 바로 적용 · {detectedTablePreview.summaryMessage})
+            </div>
+          )}
+          {pendingAiRows && (
+            <div
+              data-testid="rent-roll-ai-overwrite-confirm"
+              className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2 text-sm text-amber-950"
+            >
+              <p className="font-bold">
+                ⚠️ 기존에 입력된 임대차 내역({rows.length}행)을 새로 인식한{" "}
+                {pendingAiRows.rows.length}개 호실로 덮어쓸까요?
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingAiRows(null)}
+                  className="min-h-[44px] px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-bold cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  data-testid="rent-roll-ai-confirm-overwrite-btn"
+                  onClick={() =>
+                    applyParsedAiRows(pendingAiRows.rows, pendingAiRows.source)
+                  }
+                  className="min-h-[44px] px-3.5 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-sm font-extrabold cursor-pointer"
+                >
+                  기존 표 덮어쓰기 ({pendingAiRows.rows.length}행)
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setIsAiDrawerOpen(false)}
+              onClick={() => {
+                setPendingAiRows(null);
+                setIsAiDrawerOpen(false);
+              }}
               className="min-h-[44px] px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-bold cursor-pointer"
             >
               닫기
@@ -724,7 +853,11 @@ export function RentRollGrid({
               onClick={handleParseAiText}
               className="min-h-[44px] px-4 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white text-sm font-extrabold cursor-pointer"
             >
-              {isAiParsing ? "분석 중…" : "AI로 표 채우기"}
+              {detectedTablePreview
+                ? `표 ${detectedTablePreview.rows.length}행 바로 채우기`
+                : isAiParsing
+                ? "분석 중…"
+                : "AI로 표 채우기"}
             </button>
           </div>
         </div>
@@ -738,20 +871,23 @@ export function RentRollGrid({
         className="overflow-hidden rounded-2xl border-2 border-[#CBD5E1] bg-white shadow-sm"
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
+          <table className="w-full min-w-[1080px] border-collapse text-sm">
             <thead>
               <tr className="bg-[#0F172A] text-white text-sm font-extrabold">
-                <th className="py-2.5 px-1.5 text-center w-[54px] border-r border-slate-700">층</th>
-                <th className="py-2.5 px-1.5 text-center w-[66px] border-r border-slate-700">호실</th>
-                <th className="py-2.5 px-2 text-left w-[108px] border-r border-slate-700">임차인</th>
-                <th className="py-2.5 px-2 text-left min-w-[110px] border-r border-slate-700">업종/용도</th>
-                <th className="py-2.5 px-1.5 text-right w-[68px] border-r border-slate-700">면적(㎡)</th>
-                <th className="py-2.5 px-1.5 text-right w-[78px] border-r border-slate-700">보증금(만)</th>
-                <th className="py-2.5 px-1.5 text-right w-[74px] border-r border-slate-700">월세(만)</th>
-                <th className="py-2.5 px-1.5 text-right w-[68px] border-r border-slate-700">관리비(만)</th>
-                <th className="py-2.5 px-1.5 text-center w-[80px] border-r border-slate-700">만기일</th>
-                <th className="py-2.5 px-1.5 text-center w-[104px] border-r border-slate-700">상태</th>
-                <th className="py-2.5 px-1.5 text-center w-[76px]">작업</th>
+                <th className="py-2.5 px-1.5 text-center min-w-[64px] border-r border-slate-700">층</th>
+                <th className="py-2.5 px-1.5 text-center min-w-[88px] border-r border-slate-700">호실</th>
+                <th className="py-2.5 px-2 text-left min-w-[130px] border-r border-slate-700">임차인</th>
+                <th className="py-2.5 px-2 text-left min-w-[120px] border-r border-slate-700">업종/용도</th>
+                <th className="py-2.5 px-1.5 text-right min-w-[84px] border-r border-slate-700">면적(㎡)</th>
+                {showExclusiveCol && (
+                  <th className="py-2.5 px-1.5 text-right min-w-[84px] border-r border-slate-700">전용(㎡)</th>
+                )}
+                <th className="py-2.5 px-1.5 text-right min-w-[104px] border-r border-slate-700">보증금(만)</th>
+                <th className="py-2.5 px-1.5 text-right min-w-[88px] border-r border-slate-700">월세(만)</th>
+                <th className="py-2.5 px-1.5 text-right min-w-[82px] border-r border-slate-700">관리비(만)</th>
+                <th className="py-2.5 px-1.5 text-center min-w-[108px] border-r border-slate-700">만기일</th>
+                <th className="py-2.5 px-1.5 text-center min-w-[144px] border-r border-slate-700">상태</th>
+                <th className="py-2.5 px-1.5 text-center min-w-[108px]">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0]">
@@ -783,7 +919,7 @@ export function RentRollGrid({
                     }`}
                   >
                     {/* Floor */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[64px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         aria-label={`${idx + 1}행 층`}
@@ -801,7 +937,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Unit */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[88px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         aria-label={`${idx + 1}행 호실`}
@@ -817,7 +953,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Tenant Name */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[130px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         aria-label={`${idx + 1}행 임차인`}
@@ -838,7 +974,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Use / Sector */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[120px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         aria-label={`${idx + 1}행 용도 및 업종`}
@@ -859,7 +995,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Area (㎡) */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[84px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         inputMode="decimal"
@@ -867,6 +1003,7 @@ export function RentRollGrid({
                         data-rr-cell={`${idx}:areaSqm`}
                         data-rr-row={idx}
                         data-rr-col="areaSqm"
+                        title="숫자(㎡) 또는 '33평' 입력 시 자동 환산"
                         value={
                           cellDraft?.key === `${rowKey}:areaSqm`
                             ? cellDraft.value
@@ -874,7 +1011,7 @@ export function RentRollGrid({
                             ? String(row.areaSqm)
                             : ""
                         }
-                        placeholder="-"
+                        placeholder="㎡ / 평"
                         onFocus={() =>
                           setCellDraft({
                             key: `${rowKey}:areaSqm`,
@@ -884,19 +1021,73 @@ export function RentRollGrid({
                         onChange={(e) => {
                           const raw = e.target.value;
                           setCellDraft({ key: `${rowKey}:areaSqm`, value: raw });
-                          handleUpdateRow(idx, { areaSqm: parseAreaCellValue(raw) });
+                          handleUpdateRow(idx, {
+                            areaSqm: parseAreaCellValue(raw),
+                            areaPyeong: undefined,
+                            areaSqmIsProxy: undefined,
+                          });
                         }}
                         onBlur={(e) => {
                           setCellDraft(null);
-                          handleUpdateRow(idx, { areaSqm: parseAreaCellValue(e.target.value) });
+                          handleUpdateRow(idx, {
+                            areaSqm: parseAreaCellValue(e.target.value),
+                            areaPyeong: undefined,
+                            areaSqmIsProxy: undefined,
+                          });
                         }}
                         onKeyDown={(e) => handleKeyDown(e, idx, "areaSqm")}
                         className="w-full h-9 rounded-md border border-transparent hover:border-slate-300 focus:border-[#1D4ED8] focus:bg-white bg-transparent px-1 text-right text-sm font-semibold tabular-nums text-[#334155] outline-none"
                       />
                     </td>
 
+                    {/* Exclusive Area (㎡, optional) */}
+                    {showExclusiveCol && (
+                      <td className="p-1 min-w-[84px] border-r border-[#E2E8F0]">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          aria-label={`${idx + 1}행 전용면적`}
+                          data-rr-cell={`${idx}:exclusiveAreaSqm`}
+                          data-rr-row={idx}
+                          data-rr-col="exclusiveAreaSqm"
+                          title="전용면적(㎡) 또는 '25평' 입력 시 자동 환산"
+                          value={
+                            cellDraft?.key === `${rowKey}:exclusiveAreaSqm`
+                              ? cellDraft.value
+                              : row.exclusiveAreaSqm
+                              ? String(row.exclusiveAreaSqm)
+                              : ""
+                          }
+                          placeholder="-"
+                          onFocus={() =>
+                            setCellDraft({
+                              key: `${rowKey}:exclusiveAreaSqm`,
+                              value: row.exclusiveAreaSqm ? String(row.exclusiveAreaSqm) : "",
+                            })
+                          }
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setCellDraft({ key: `${rowKey}:exclusiveAreaSqm`, value: raw });
+                            handleUpdateRow(idx, {
+                              exclusiveAreaSqm: parseAreaCellValue(raw),
+                              areaPyeong: undefined,
+                            });
+                          }}
+                          onBlur={(e) => {
+                            setCellDraft(null);
+                            handleUpdateRow(idx, {
+                              exclusiveAreaSqm: parseAreaCellValue(e.target.value),
+                              areaPyeong: undefined,
+                            });
+                          }}
+                          onKeyDown={(e) => handleKeyDown(e, idx, "exclusiveAreaSqm")}
+                          className="w-full h-9 rounded-md border border-transparent hover:border-slate-300 focus:border-[#1D4ED8] focus:bg-white bg-transparent px-1 text-right text-sm font-semibold tabular-nums text-[#334155] outline-none"
+                        />
+                      </td>
+                    )}
+
                     {/* Deposit (만) */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[104px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         inputMode="decimal"
@@ -934,7 +1125,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Monthly Rent (만) */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[88px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         inputMode="decimal"
@@ -981,7 +1172,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Maintenance Fee (만) */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[82px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         inputMode="decimal"
@@ -1028,7 +1219,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Expiry */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[108px] border-r border-[#E2E8F0]">
                       <input
                         type="text"
                         aria-label={`${idx + 1}행 계약만기`}
@@ -1047,7 +1238,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Status Pills */}
-                    <td className="p-1 border-r border-[#E2E8F0]">
+                    <td className="p-1 min-w-[144px] border-r border-[#E2E8F0]">
                       <div className="inline-flex rounded-lg border border-[#CBD5E1] p-0.5 bg-[#FAF9F5]">
                         {(["occupied", "vacant", "owner"] as const).map((st) => {
                           const isCur = row.status === st;
@@ -1076,7 +1267,7 @@ export function RentRollGrid({
                     </td>
 
                     {/* Split Unit + Delete */}
-                    <td className="p-1 text-center whitespace-nowrap">
+                    <td className="p-1 min-w-[108px] text-center whitespace-nowrap">
                       <div className="inline-flex items-center gap-0.5">
                         <button
                           type="button"
@@ -1110,29 +1301,49 @@ export function RentRollGrid({
           </table>
         </div>
 
-        {/* Active Row Currency Conversion Readout + Summary Footer */}
+        {/* Active Row Currency & Area Conversion Readout + Summary Footer */}
         <div className="bg-[#F8FAFC] border-t-2 border-[#CBD5E1] p-3.5 space-y-2">
-          {activeRow && (activeRow.depositManwon > 0 || activeRow.monthlyRentManwon > 0) && (
-            <div className="text-sm font-bold text-[#1D4ED8] bg-blue-50/80 border border-blue-200/80 rounded-lg px-2.5 py-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-              <span>선택 행 ({activeRow.floor} {activeRow.unit}):</span>
-              <span>
-                보증금{" "}
-                {formatKoreanCurrencyReadout(activeRow.depositManwon).replace(/^=\s*/, "") ||
-                  "0원"}
-              </span>
-              <span>
-                월세{" "}
-                {formatKoreanCurrencyReadout(activeRow.monthlyRentManwon).replace(/^=\s*/, "") ||
-                  "0원"}
-              </span>
-              {activeRow.maintenanceManwon > 0 && (
+          {activeRow &&
+            (activeRow.depositManwon > 0 ||
+              activeRow.monthlyRentManwon > 0 ||
+              (activeRow.areaSqm ?? 0) > 0 ||
+              (activeRow.exclusiveAreaSqm ?? 0) > 0) && (
+              <div
+                data-testid="rent-roll-active-row-readout"
+                className="text-sm font-bold text-[#1D4ED8] bg-blue-50/80 border border-blue-200/80 rounded-lg px-2.5 py-1 flex flex-wrap items-center gap-x-3 gap-y-0.5"
+              >
+                <span>선택 행 ({activeRow.floor} {activeRow.unit}):</span>
+                {activeRow.areaSqm && activeRow.areaSqm > 0 && (
+                  <span>
+                    임대 {activeRow.areaSqm.toFixed(1)}㎡ (
+                    {(activeRow.areaSqm / PYEONG_TO_SQM_V15).toFixed(1)}평)
+                    {activeRow.areaSqmIsProxy ? " · 전용기준" : ""}
+                  </span>
+                )}
+                {activeRow.exclusiveAreaSqm && activeRow.exclusiveAreaSqm > 0 && (
+                  <span>
+                    전용 {activeRow.exclusiveAreaSqm.toFixed(1)}㎡ (
+                    {(activeRow.exclusiveAreaSqm / PYEONG_TO_SQM_V15).toFixed(1)}평)
+                  </span>
+                )}
                 <span>
-                  관리비{" "}
-                  {formatKoreanCurrencyReadout(activeRow.maintenanceManwon).replace(/^=\s*/, "")}
+                  보증금{" "}
+                  {formatKoreanCurrencyReadout(activeRow.depositManwon).replace(/^=\s*/, "") ||
+                    "0원"}
                 </span>
-              )}
-            </div>
-          )}
+                <span>
+                  월세{" "}
+                  {formatKoreanCurrencyReadout(activeRow.monthlyRentManwon).replace(/^=\s*/, "") ||
+                    "0원"}
+                </span>
+                {activeRow.maintenanceManwon > 0 && (
+                  <span>
+                    관리비{" "}
+                    {formatKoreanCurrencyReadout(activeRow.maintenanceManwon).replace(/^=\s*/, "")}
+                  </span>
+                )}
+              </div>
+            )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">

@@ -32,6 +32,8 @@ interface MagazineShareModalProps {
   baseUrl?: string;
   /** 편집 중인 에디션 날짜(YYYY-MM-DD). 없으면 오늘(KST) — T3-36 */
   editionDate?: string;
+  /** 발행 주기 (일간/주간/월간/긴급) */
+  cadence?: "daily" | "weekly" | "monthly" | "special";
   /** 카카오 카드 제목/설명 */
   shareTitle?: string;
   shareDescription?: string;
@@ -54,6 +56,7 @@ export function MagazineShareModal({
   brokerSlug,
   baseUrl,
   editionDate,
+  cadence,
   shareTitle,
   shareDescription,
   sendDisabled = false,
@@ -71,15 +74,33 @@ export function MagazineShareModal({
   const shareUnavailable = selfManaged && !viewerUrl;
 
   const subscribeUrl = selfManaged && resolvedBase ? `${resolvedBase}/magazine/${brokerSlug}` : "";
+  const cadenceLabel =
+    cadence === "daily"
+      ? "일간 "
+      : cadence === "weekly"
+        ? "주간 "
+        : cadence === "monthly"
+          ? "월간 "
+          : cadence === "special"
+            ? "긴급 "
+            : "";
+  const subscribeScheduleLabel =
+    cadence === "daily"
+      ? "매일 발행 알림"
+      : cadence === "weekly"
+        ? "매주 발행 알림"
+        : cadence === "monthly"
+          ? "매월 발행 알림"
+          : "발행 시 바로 알림";
 
   // 1-Click Kakao group-chat copy package (인사말 + 소식지 링크 + 무료 구독 링크)
-  const groupChatCopyPackage = `[CRE DealCard 주간 부동산 소식지]
-${shareTitle || "이번 주 핵심 상업용 부동산 브리핑"}
+  const groupChatCopyPackage = `[크리딜 (CREDEAL) ${cadenceLabel}부동산 소식지]
+${shareTitle || "핵심 상업용 부동산 브리핑"}
 
 ${shareDescription ? `${shareDescription}\n\n` : ""}📌 소식지 전문 보기:
 ${viewerUrl || ""}
 
-✨ VIP 무료 구독 신청 (매주 발행 알림):
+✨ VIP 무료 구독 신청 (${subscribeScheduleLabel}):
 ${subscribeUrl}`.trim();
 
   const smsHref = `sms:?body=${encodeURIComponent(groupChatCopyPackage)}`;

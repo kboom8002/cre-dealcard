@@ -662,7 +662,7 @@ function scrubResidualForbiddenPhrases(text: string): string {
     .replace(/\b(undefined|null|NaN|Infinity)\b/g, '')
     .replace(/추후\s*제공|별도\s*문의\s*요망|미확인\s*항목|데이터\s*부족/g, '')
     .replace(/(?:\d{2}대|은퇴)\s*자산가(?:를\s*위한|용|맞춤)?/g, '전문 투자자')
-    .replace(/은퇴\s*(?:부부|세대)(?:를\s*위한|용|맞춤)?/g, '안정 배당 선호 매수자')
+    .replace(/은퇴\s*(?:부부|세대)(?:\s*를\s*위한|\s*용|\s*맞춤)?/g, '안정 임대수익 선호 매수자')
     .replace(/법인\s*대표\s*맞춤/g, '법인 실수요자 검토')
     .replace(/병원장\s*맞춤/g, '메디컬 개원 수요 검토')
     .replace(/원금\s*보장/g, '하방 안정성')
@@ -680,7 +680,7 @@ function protectCompactPyeongForHeadline(text: string): string {
 
 function harmonizeReplacedPostpositions(text: string): string {
   const TARGET_STEMS_RE =
-    /(임차인|전문 투자자|법인 실수요자|안정 배당 선호 매수자|임차 업체|예상 현금흐름|하방 안정성|수익성 제고|가치 상승 여력|전면 리모델링)(\([^)]{1,24}\))?(으로|로|이|가|을|를|은|는|과|와)(?=[\s,.;:!?)]|$)/g;
+    /(임차인|전문 투자자|법인 실수요자|안정 임대수익 선호 매수자|임차 업체|예상 현금흐름|하방 안정성|수익성 제고|가치 상승 여력|전면 리모델링)(\([^)]{1,24}\))?(으로|로|이|가|을|를|은|는|과|와)(?=[\s,.;:!?)]|$)/g;
 
   return text.replace(
     TARGET_STEMS_RE,

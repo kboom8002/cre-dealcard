@@ -258,7 +258,7 @@ export function StageReveal({
 
             {/* Powered by note */}
             <p className="text-center text-[10px] text-white/20 pt-1">
-              Powered by <span className="text-white/35 font-semibold">DealCard</span> · Vibe AI
+              Powered by <span className="text-white/35 font-semibold">크리딜 (CREDEAL)</span> · Vibe AI
             </p>
           </motion.div>
         )}

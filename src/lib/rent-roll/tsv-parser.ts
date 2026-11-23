@@ -6,6 +6,7 @@
 
 import { parseLeaseExpiryDate } from './date-parser';
 import { EXAMPLE_ROW_NOTE_RE, isExampleRentRollRow } from '@/lib/rentroll/example-row';
+import { PYEONG_TO_SQM_V15 } from '@/domain/building/mobile-im/rentroll-meta';
 
 export type RentRollStatus = 'occupied' | 'vacant' | 'owner';
 
@@ -18,6 +19,10 @@ export interface RentRollRowItem {
   areaSqm?: number;
   exclusiveAreaSqm?: number;
   areaPyeong?: number;
+  areaSqmIsProxy?: boolean;
+  contractGroup?: string;
+  legalBasis?: string;
+  firstContractDate?: string;
   depositManwon: number;
   monthlyRentManwon: number;
   maintenanceManwon: number;
@@ -374,9 +379,9 @@ export function parseTsvRentRoll(
         tenantName = tenantPart;
       }
       if (tenantPart && usePart) {
-        use = tenantPart !== usePart ? `${tenantPart} / ${usePart}` : usePart;
+        use = usePart;
       } else {
-        use = tenantPart || usePart;
+        use = usePart || tenantPart;
       }
       rawAreaSqm = headerMap.areaSqmIdx !== undefined ? cells[headerMap.areaSqmIdx] || '' : '';
       rawExclusiveAreaSqm = headerMap.exclusiveAreaSqmIdx !== undefined ? cells[headerMap.exclusiveAreaSqmIdx] || '' : '';
@@ -467,8 +472,14 @@ export function parseTsvRentRoll(
     const parsedDep = parseManwonAmount(rawDeposit);
     const parsedRent = parseManwonAmount(rawRent);
     const parsedMaint = parseManwonAmount(rawMaintenance);
-    let areaSqmVal = parseFloat(String(rawAreaSqm).replace(/,/g, ''));
-    let exclusiveAreaSqmVal = parseFloat(String(rawExclusiveAreaSqm).replace(/,/g, ''));
+    const parseAreaToken = (raw: string): number => {
+      const s = String(raw || '').replace(/,/g, '').trim();
+      const n = parseFloat(s);
+      if (!Number.isFinite(n) || n <= 0) return NaN;
+      return /평/.test(s) ? Math.round(n * PYEONG_TO_SQM_V15 * 100) / 100 : n;
+    };
+    let areaSqmVal = parseAreaToken(rawAreaSqm);
+    let exclusiveAreaSqmVal = parseAreaToken(rawExclusiveAreaSqm);
     const exclusiveAreaPyVal = parseFloat(String(rawExclusiveAreaPy).replace(/,/g, ''));
     let areaPyVal = parseFloat(String(rawAreaPy).replace(/,/g, ''));
 
@@ -477,21 +488,23 @@ export function parseTsvRentRoll(
       Number.isFinite(exclusiveAreaPyVal) &&
       exclusiveAreaPyVal > 0
     ) {
-      exclusiveAreaSqmVal = Math.round(exclusiveAreaPyVal * 3.3058 * 100) / 100;
+      exclusiveAreaSqmVal = Math.round(exclusiveAreaPyVal * PYEONG_TO_SQM_V15 * 100) / 100;
     }
 
+    let areaSqmIsProxy = false;
     if (
       (!Number.isFinite(areaSqmVal) || areaSqmVal <= 0) &&
       Number.isFinite(areaPyVal) &&
       areaPyVal > 0
     ) {
-      areaSqmVal = Math.round(areaPyVal * 3.3058 * 100) / 100;
+      areaSqmVal = Math.round(areaPyVal * PYEONG_TO_SQM_V15 * 100) / 100;
     } else if (
       (!Number.isFinite(areaSqmVal) || areaSqmVal <= 0) &&
       Number.isFinite(exclusiveAreaSqmVal) &&
       exclusiveAreaSqmVal > 0
     ) {
       areaSqmVal = exclusiveAreaSqmVal;
+      areaSqmIsProxy = true;
     }
 
     let unitMistakeWarning: string | undefined;
@@ -502,12 +515,23 @@ export function parseTsvRentRoll(
 
     const expiryResult = parseLeaseExpiryDate(rawExpiry);
     const trimmedNote = rawNote.trim();
-    const cleanNote =
+    const baseNote =
       trimmedNote &&
       trimmedNote !== '-' &&
       !(headerMap?.statusIdx === undefined && /^(임대중|공실|자가|자가사용)$/.test(trimmedNote))
         ? trimmedNote
-        : undefined;
+        : '';
+    const statusParenMatch = rawStatus.trim().match(/\(([^)]+)\)/);
+    const statusParenText = statusParenMatch?.[1]?.trim() || '';
+    const cleanStatusNote =
+      statusParenText &&
+      !/^(?:-|없음|해당없음|임대중|임차중|공실|자가|자가사용)$/i.test(statusParenText)
+        ? statusParenText
+        : '';
+    const cleanNote =
+      [baseNote, cleanStatusNote && !baseNote.includes(cleanStatusNote) ? cleanStatusNote : '']
+        .filter(Boolean)
+        .join(' · ') || undefined;
 
     rows.push({
       id: `rr-${startIdIndex + rows.length}`,
@@ -516,6 +540,7 @@ export function parseTsvRentRoll(
       use: status === 'vacant' && (!use || use === '공실') ? '공실' : (use || '근린생활시설'),
       ...(tenantName ? { tenantName } : {}),
       ...(Number.isFinite(areaSqmVal) && areaSqmVal > 0 ? { areaSqm: areaSqmVal } : {}),
+      ...(areaSqmIsProxy ? { areaSqmIsProxy: true } : {}),
       ...(Number.isFinite(exclusiveAreaSqmVal) && exclusiveAreaSqmVal > 0
         ? { exclusiveAreaSqm: exclusiveAreaSqmVal }
         : {}),

@@ -14,6 +14,7 @@ import {
 import { resolveSubscribeSource } from '@/lib/magazine/subscribe-source';
 import { formatKoreanDate } from '@/lib/magazine/kst';
 import { InitialAvatar } from '@/components/magazine/InitialAvatar';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { SubscribeFormClient } from './SubscribeFormClient';
 
 interface PageProps {
@@ -34,33 +35,46 @@ const loadBroker = cache(async (param: string) => {
     .eq('id', bp.user_id)
     .maybeSingle();
   if (error) throw new Error(`profile lookup failed: ${error.message}`);
-  return { bp, profile };
+  const latestDate = await findLatestIssueDate(supabase, bp).catch(() => null);
+  return { bp, profile, latestDate };
 });
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { brokerId } = await params;
   const found = await loadBroker(brokerId);
-  if (!found) return { title: '매거진 구독 | CRE DealCard', robots: { index: false, follow: false } };
+  if (!found) return { title: '매거진 구독', robots: { index: false, follow: false } };
 
   const name = publicBrokerDisplayName(found.bp.name, found.profile?.display_name) || '중개사';
-  const company = found.profile?.company || 'CRE DealCard';
+  const company = found.profile?.company || '크리딜 (CREDEAL)';
   const brokerSlug = (found.bp.slug as string | null) ?? brokerId;
+  const ogTitle = `[무료 구독] ${name}의 CRE 부동산 브리핑`;
+  const ogDesc = '이메일 인증 완료 후 실거래 분석과 상업용 빌딩 매물 브리핑을 정기 발송해 드립니다.';
+  const ogImageUrl = found.latestDate
+    ? `${getCanonicalSiteUrl()}/api/og/magazine?brokerId=${encodeURIComponent(brokerSlug)}&date=${encodeURIComponent(found.latestDate)}`
+    : `${getCanonicalSiteUrl()}/api/og/magazine?brokerId=${encodeURIComponent(brokerSlug)}`;
 
   return {
     title: `${name}의 부동산 매거진 구독 신청 | ${company}`,
     description: `${name} 중개사의 실거래가, 시장 동향, 추천 매물 브리핑을 이메일 인증 완료 후 정기 구독으로 받아보세요.`,
     openGraph: {
-      title: `[무료 구독] ${name}의 CRE 부동산 브리핑`,
-      description: '이메일 인증 완료 후 실거래 분석과 상업용 빌딩 매물 브리핑을 정기 발송해 드립니다.',
+      title: ogTitle,
+      description: ogDesc,
       type: 'website',
       siteName: 'CRE 매거진',
       images: [
         {
-          url: `/api/og/magazine?brokerId=${encodeURIComponent(brokerSlug)}`,
+          url: ogImageUrl,
           width: 1200,
           height: 630,
+          alt: ogTitle,
         },
       ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: ogTitle,
+      description: ogDesc,
+      images: [ogImageUrl],
     },
   };
 }
@@ -96,7 +110,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
 
   // 실제 최신 발행본 날짜. 없으면 null → 링크 숨김 (오늘 날짜 폴백 금지, T2-CL-2)
   const supabase = createServiceClient();
-  const latestDate = await findLatestIssueDate(supabase, bp);
+  const latestDate = found.latestDate ?? await findLatestIssueDate(supabase, bp);
 
   // 최근 호 미리보기 카드 (구독 전 '무엇을 받는지' 확인). 조회가 실패하면 카드만 생략하고 오류는 기록한다.
   let preview: { headline: string | null; label: string } | null = null;
@@ -194,7 +208,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
       </main>
 
       <footer className="text-center text-sm text-slate-700 pb-4">
-        © CRE DealCard · 상업용 부동산 인텔리전스 네트워크
+        © 크리딜 (CREDEAL) · 상업용 부동산 인텔리전스 네트워크
       </footer>
     </div>
   );

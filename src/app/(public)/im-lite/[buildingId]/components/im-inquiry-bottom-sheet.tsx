@@ -25,12 +25,14 @@ export function IMInquiryBottomSheet({
   const nameId = `${uid}-inquiry-name`;
   const phoneId = `${uid}-inquiry-phone`;
   const emailId = `${uid}-inquiry-email`;
+  const companyId = `${uid}-inquiry-company`;
   const messageId = `${uid}-inquiry-message`;
   const privacyId = `${uid}-inquiry-privacy`;
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
   const [message, setMessage] = useState(
     `${blindName} 건물에 관심이 있습니다. 프라이빗 IM을 요청합니다.`
   );
@@ -62,6 +64,8 @@ export function IMInquiryBottomSheet({
           requester_name: name.trim(),
           requester_phone: phone.trim(),
           requester_email: email.trim() || undefined,
+          requester_company: company.trim() || undefined,
+          company: company.trim() || undefined,
           message: message.trim() || undefined,
           privacy_agreed: true,
         }),
@@ -164,6 +168,24 @@ export function IMInquiryBottomSheet({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@company.com"
+                className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#1D4ED8]"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={companyId}
+                className="block text-sm font-semibold text-slate-800 mb-1"
+              >
+                소속 · 기관명 (선택)
+              </label>
+              <input
+                id={companyId}
+                type="text"
+                maxLength={100}
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="예: ○○자산운용, (주)○○법인"
                 className="w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#1D4ED8]"
               />
             </div>

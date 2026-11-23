@@ -1,3 +1,9 @@
+import {
+  areaUnitLabel,
+  resolveAreaInputUnit,
+  sqmToInputUnit,
+} from '@/domain/building/mobile-im/rentroll-meta';
+
 function escapeHtml(s: string): string {
   if (!s) return '';
   return s
@@ -33,6 +39,8 @@ export function buildSlidesHtmlExport(params: {
   const zoning = ssot.zoning || building?.zoning || '-';
   const leases = Array.isArray(content?.floor_leases) ? content.floor_leases : [];
   const expectedLeases = Array.isArray(content?.expected_rent_roll) ? content.expected_rent_roll : [];
+  const rentRollMeta = content?.rent_roll_meta ?? content?.rentRollMeta;
+  const expectedRentRollMeta = content?.expected_rent_roll_meta ?? content?.expectedRentRollMeta;
   const points: any[] = Array.isArray(content?.axios_highlights) && content.axios_highlights.length > 0
     ? content.axios_highlights
     : (Array.isArray(hero?.keyPoints) ? hero.keyPoints.map((kp: any) => ({ headline: String(kp), brief: '' })) : []);
@@ -54,7 +62,17 @@ export function buildSlidesHtmlExport(params: {
     return -500;
   };
 
-  const renderLeaseTable = (rows: any[], heading: string, note: string) => {
+  const renderLeaseTable = (
+    rows: any[],
+    heading: string,
+    note: string,
+    metaInput: { area_input_unit?: unknown } | null | undefined = rentRollMeta
+  ) => {
+    const unitPref = resolveAreaInputUnit(metaInput);
+    const unitSym = areaUnitLabel(unitPref);
+    const hasExclusive = rows.some(
+      (r: any) => Number(r?.exclusive_area_sqm ?? r?.exclusiveAreaSqm ?? 0) > 0
+    );
     const sorted = [...rows].sort((a, b) => parseFloorRank(b?.floor) - parseFloorRank(a?.floor));
     const pageSize = 12;
     const chunks: any[][] = [];
@@ -76,25 +94,36 @@ export function buildSlidesHtmlExport(params: {
             const dep = Number(r.deposit_manwon ?? r.depositManwon ?? 0);
             const rent = Number(r.rent_manwon ?? r.monthlyRentManwon ?? 0);
             const mgmt = Number(r.mgmt_fee_manwon ?? r.managementFeeManwon ?? 0);
-            const area = Number(r.leasable_area_sqm ?? r.area_sqm ?? r.leasableAreaSqm ?? 0);
+            const isProxy = Boolean(r.area_sqm_is_proxy ?? r.areaSqmIsProxy);
+            const area = Number(
+              r.leasable_area_sqm ?? r.area_sqm ?? r.areaSqm ?? r.leasableAreaSqm ?? 0
+            );
+            const exclArea = Number(r.exclusive_area_sqm ?? r.exclusiveAreaSqm ?? 0);
+            const areaUnitVal = !isProxy && area > 0 ? sqmToInputUnit(area, unitPref) : null;
+            const exclUnitVal = exclArea > 0 ? sqmToInputUnit(exclArea, unitPref) : null;
+            const areaCell =
+              areaUnitVal !== null ? `${areaUnitVal.toFixed(1)}${unitSym}` : '-';
+            const exclCell =
+              exclUnitVal !== null ? `${exclUnitVal.toFixed(1)}${unitSym}` : '-';
             return `<tr>
         <td>${floor}</td>
         <td style="text-align:left;font-weight:700;">${tenant}</td>
-        <td>${area > 0 ? `${area.toFixed(1)}㎡` : '-'}</td>
+        <td>${areaCell}</td>${hasExclusive ? `\n        <td>${exclCell}</td>` : ''}
         <td>${dep > 0 ? `${dep.toLocaleString()}만` : '-'}</td>
         <td>${rent > 0 ? `${rent.toLocaleString()}만` : '-'}</td>
         <td>${mgmt > 0 ? `${mgmt.toLocaleString()}만` : '-'}</td>
       </tr>`;
           })
           .join('');
+        const colSpan = hasExclusive ? 7 : 6;
         return `
       <section class="im-slide-page">
         <div class="slide-head"><span class="kicker">RENT ROLL</span><h2>${escapeHtml(heading + pageSuffix)}</h2></div>
         <div class="slide-body">
           <p class="sub-note">${escapeHtml(note)}</p>
           <table class="slide-table">
-            <thead><tr><th>층</th><th>임차인</th><th>임대면적</th><th>보증금</th><th>월임대료</th><th>관리비</th></tr></thead>
-            <tbody>${bodyRows || '<tr><td colspan="6">임대차 세부 내역은 실사 단계에서 확인됩니다.</td></tr>'}</tbody>
+            <thead><tr><th>층</th><th>임차인</th><th>임대면적(${unitSym})</th>${hasExclusive ? `<th>전용면적(${unitSym})</th>` : ''}<th>보증금</th><th>월임대료</th><th>관리비</th></tr></thead>
+            <tbody>${bodyRows || `<tr><td colspan="${colSpan}">임대차 세부 내역은 실사 단계에서 확인됩니다.</td></tr>`}</tbody>
           </table>
         </div>
         <div class="slide-foot"><span>${escapeHtml(brokerInfo.company || 'CREDEAL')}</span><span>${escapeHtml(addr)}</span></div>
@@ -188,8 +217,8 @@ export function buildSlidesHtmlExport(params: {
     <div class="slide-foot"><span>용도지역: ${escapeHtml(String(zoning))}</span><span>${escapeHtml(addr)}</span></div>
   </section>
 
-  ${renderLeaseTable(leases, '층별 임대차 현황', '※ 현행 임대차 계약 현황 기준')}
-  ${expectedLeases.length > 0 ? renderLeaseTable(expectedLeases, '기대수익률 임대차 현황', '※ 공실 해소·임대조건 정상화 가정 기준') : ''}
+  ${renderLeaseTable(leases, '층별 임대차 현황', '※ 현행 임대차 계약 현황 기준', rentRollMeta)}
+  ${expectedLeases.length > 0 ? renderLeaseTable(expectedLeases, '기대수익률 임대차 현황', '※ 공실 해소·임대조건 정상화 가정 기준', expectedRentRollMeta || rentRollMeta) : ''}
 
   ${photos.length > 0 ? `
   <section class="im-slide-page">

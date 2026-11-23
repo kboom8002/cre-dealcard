@@ -458,9 +458,14 @@ async function updateLegacyImDocumentAndBuilding(params: {
           const exclM2 = Number(r?.exclusiveAreaSqm ?? r?.exclusive_area_sqm ?? prevFl.exclusive_area_sqm ?? 0);
           const rawUseStr = String(r?.use || prevFl.use || prevFl.tenant_type || prevFl.tenant_name || "").trim();
           const slashParts = rawUseStr.split(/\s*\/\s*/).map((s) => s.trim()).filter(Boolean);
-          const splitTenantName = slashParts.length >= 2 ? slashParts[0] : undefined;
           const splitTenantType =
-            slashParts.length >= 2 ? (slashParts[0] === slashParts[1] ? slashParts[0] : slashParts.slice(1).join(" / ")) : rawUseStr || (isVac ? "공실" : isOwn ? "자가사용" : "임차인 미상");
+            slashParts.length >= 2 ? slashParts[0] : rawUseStr || (isVac ? "공실" : isOwn ? "자가사용" : "임차인 미상");
+          const splitTenantName =
+            slashParts.length >= 2
+              ? slashParts[0] === slashParts[1]
+                ? slashParts[0]
+                : slashParts.slice(1).join(" / ")
+              : undefined;
           const explicitTenantName = String(r?.tenantName || r?.tenant_name || "").trim();
           const resolvedTenantName = isVac ? "공실" : isOwn ? explicitTenantName || splitTenantName || "자가사용" : explicitTenantName || splitTenantName || prevFl.tenant_name || splitTenantType;
           const resolvedTenantType = isVac ? "공실" : splitTenantType;
@@ -469,6 +474,10 @@ async function updateLegacyImDocumentAndBuilding(params: {
           const normFloor = roomNumMatch ? (roomNumMatch[1] ? `B${parseInt(roomNumMatch[2], 10)}` : `${parseInt(roomNumMatch[2], 10)}F`) : rawFlStr;
           const normUnit = roomNumMatch ? `${roomNumMatch[1] ? "B" : ""}${roomNumMatch[2]}${roomNumMatch[3]}호` : String(r?.unit || r?.unit_label || prevFl.unit_label || "");
           const rowNote = r?.note !== undefined && String(r.note).trim().length > 0 ? String(r.note).trim() : prevFl.note;
+          const contractGroupVal = String(r?.contract_group ?? r?.contractGroup ?? prevFl.contract_group ?? "").trim() || undefined;
+          const isProxyVal = Boolean(r?.area_sqm_is_proxy ?? r?.areaSqmIsProxy ?? prevFl.area_sqm_is_proxy);
+          const legalBasisVal = r?.legal_basis ?? r?.legalBasis ?? prevFl.legal_basis;
+          const firstContractVal = String(r?.first_contract_date ?? r?.firstContractDate ?? prevFl.first_contract_date ?? "").trim() || undefined;
           return {
             ...prevFl,
             floor: normFloor,
@@ -478,6 +487,10 @@ async function updateLegacyImDocumentAndBuilding(params: {
             use: resolvedTenantType,
             ...(areaM2 > 0 ? { area_sqm: areaM2, area_m2: areaM2, area_pyeong: Math.round(m2ToPyeong(areaM2) * 10) / 10 } : {}),
             ...(exclM2 > 0 ? { exclusive_area_sqm: exclM2 } : {}),
+            ...(isProxyVal ? { area_sqm_is_proxy: true } : {}),
+            ...(contractGroupVal ? { contract_group: contractGroupVal } : {}),
+            ...(legalBasisVal ? { legal_basis: legalBasisVal } : {}),
+            ...(firstContractVal ? { first_contract_date: firstContractVal } : {}),
             deposit_manwon: isVac ? 0 : depMan,
             deposit_krw: isVac ? 0 : depMan * 10000,
             rent_manwon: isVac ? 0 : rentMan,
@@ -552,6 +565,17 @@ async function updateLegacyImDocumentAndBuilding(params: {
       handover_note: imItem.handoverNote ?? prevBody.handover_note,
       axios_highlights: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevBody.axios_highlights,
       rent_roll: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.rent_roll,
+      ...(imItem.rentRollMeta ?? imItem.rent_roll_meta ?? prevBody.rent_roll_meta
+        ? { rent_roll_meta: imItem.rentRollMeta ?? imItem.rent_roll_meta ?? prevBody.rent_roll_meta }
+        : {}),
+      ...(imItem.expectedRentRollMeta ?? imItem.expected_rent_roll_meta ?? prevBody.expected_rent_roll_meta
+        ? {
+            expected_rent_roll_meta:
+              imItem.expectedRentRollMeta ??
+              imItem.expected_rent_roll_meta ??
+              prevBody.expected_rent_roll_meta,
+          }
+        : {}),
       floor_leases: normalizedFloorLeases,
       photos: preservedPhotos,
       photos_v2: preservedPhotos,

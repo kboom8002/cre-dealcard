@@ -10,7 +10,10 @@ import {
 } from "@/lib/rent-roll/tsv-parser";
 import { pyeongToM2 } from "@/domain/building/im-core/facts/area";
 import type { BrokerExtrasFormState } from "@/domain/building/mobile-im/broker-extras";
+import type { RentRollMeta } from "@/domain/building/mobile-im/rentroll-meta";
 import type { EditorUnitTarget } from "@/components/workspace/preview-sync";
+
+export type { RentRollRowItem, RentRollMeta };
 
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,6 +56,8 @@ export interface ImListItem {
   updatedAt: string;
   rentRoll?: RentRollRowItem[];
   expectedRentRoll?: RentRollRowItem[];
+  rentRollMeta?: RentRollMeta;
+  expectedRentRollMeta?: RentRollMeta;
   investmentPosture?: string;
   gfaSqm?: string;
   completionDate?: string;
@@ -114,7 +119,7 @@ export const DEFAULT_IM_AXIOS_HIGHLIGHTS: ImAxiosHighlight[] = [
   {
     headline: "순투자금 대비 연 4.2% 안정 수익 · 공실 위험 낮음",
     brief:
-      "보증금·월 임대료 구조 탄탄해 인수 즉시 안정적 배당 수익 확보 · 인근 유사 규모 근생빌딩 대비 합리적 임대료 수준으로 임차인 유지율 우수",
+      "보증금·월 임대료 구조 탄탄해 인수 즉시 안정적 임대 수익 확보 · 인근 유사 규모 근생빌딩 대비 합리적 임대료 수준으로 임차인 유지율 우수",
     tone: "sky",
   },
   {
@@ -931,9 +936,21 @@ export function mapRentRollImportPayloadToRows(
           tenantTypeTrimmed = slashParts[0];
           tenantNameTrimmed = slashParts.slice(1).join(" / ");
         }
+      } else if (!tenantTypeTrimmed && tenantNameTrimmed && tenantNameTrimmed.includes("/")) {
+        const slashParts = tenantNameTrimmed
+          .split(/\s*\/\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (slashParts.length >= 2) {
+          tenantTypeTrimmed = slashParts[0];
+          tenantNameTrimmed = slashParts.slice(1).join(" / ");
+        }
       }
       const useLabel =
         tenantTypeTrimmed || (r.is_vacant ? "공실" : "근린생활시설");
+      const isProxyArea =
+        Boolean(r.area_sqm_is_proxy) ||
+        (r.area_sqm == null && typeof r.exclusive_area_sqm === "number" && r.exclusive_area_sqm > 0);
       return {
         id: `r-xlsx-${stamp}-${idx}`,
         floor: normalizeFloorName(r.floor || `${idx + 1}F`),
@@ -942,6 +959,12 @@ export function mapRentRollImportPayloadToRows(
         tenantName: tenantNameTrimmed,
         areaSqm: r.area_sqm ?? r.exclusive_area_sqm,
         exclusiveAreaSqm: r.exclusive_area_sqm,
+        ...(isProxyArea ? { areaSqmIsProxy: true } : {}),
+        ...(r.contract_group?.trim() ? { contractGroup: r.contract_group.trim() } : {}),
+        ...(r.legal_basis ? { legalBasis: r.legal_basis } : {}),
+        ...(r.first_contract_date?.trim()
+          ? { firstContractDate: r.first_contract_date.trim() }
+          : {}),
         note: r.note,
         depositManwon: dep,
         monthlyRentManwon: rent,
@@ -1311,7 +1334,7 @@ export function buildFallbackImHighlights(params: {
       brief:
         saneYield > 0
           ? `보증금 합계 ${params.totalDepositManwon.toLocaleString()}만 원 차감 실투자금 기준 연 ${yieldStr}% 수익률 형성`
-          : `안정적인 임대차 구조 기반 꾸준한 배당 수익 기대`,
+          : `안정적인 임대차 구조 기반 꾸준한 임대 수익 기대`,
       tone: "sky",
     },
     {

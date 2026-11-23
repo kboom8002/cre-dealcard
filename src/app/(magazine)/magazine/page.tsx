@@ -127,7 +127,7 @@ export default async function MagazineRootPage({
       <div className="max-w-lg w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm space-y-4 text-center">
         <p className="text-sm font-extrabold text-blue-700">CREDEAL MAGAZINE</p>
         <h1 className="text-2xl font-extrabold text-slate-900">
-          상업용 부동산 월간 시장 브리핑 &amp; 추천 매물
+          상업용 부동산 시장 브리핑 &amp; 추천 매물
         </h1>
         <p className="text-base text-slate-600">
           담당 공인중개사가 발행한 최신 뉴스레터와 엄선된 추천 빌딩 정보를 확인하실 수 있습니다.

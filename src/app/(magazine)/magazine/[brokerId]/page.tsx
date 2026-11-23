@@ -47,13 +47,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const profile = await loadBroker(brokerId);
 
   if (!profile) {
-    return { title: "CRE 주간 매거진 아카이브", robots: { index: false, follow: false } };
+    return { title: "CRE 매거진 아카이브", robots: { index: false, follow: false } };
   }
 
   const slug = (profile.slug as string | null) || brokerId;
   const label = (await loadDisplayName(brokerId)) || slug;
-  const title = `${label}의 주간 매거진 아카이브`;
-  const description = `${label} 중개사의 CRE 주간 매거진 전체 발행 목록입니다.`;
+  const title = `${label}의 부동산 소식지 아카이브`;
+  const description = `${label} 중개사의 CRE 부동산 소식지 전체 발행 목록입니다.`;
   const entries = await loadEntries(brokerId);
   const latestDate = entries?.[0]?.date;
   const ogImageUrl = latestDate
@@ -69,6 +69,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: "CRE 매거진",
       type: "website",
       images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
     },
     // 발행본이 하나도 없는 빈 아카이브는 색인하지 않는다.
     ...(entries && entries.length === 0 ? { robots: { index: false, follow: true } } : {}),
@@ -110,7 +116,7 @@ export default async function MagazineArchivePage({ params }: PageProps) {
               📰
             </div>
             <div>
-              <h1 className="text-title font-extrabold text-slate-900">주간 매거진 아카이브</h1>
+              <h1 className="text-title font-extrabold text-slate-900">부동산 소식지 아카이브</h1>
               <p className="text-sm text-slate-700">{displayName} · 전체 발행 목록</p>
             </div>
           </div>

@@ -280,7 +280,7 @@ export function DealCardListColumn({
                     : item.status === "sent"
                     ? "고객에게 카톡·링크로 발송된 딜카드입니다"
                     : isCardReady
-                    ? "필수 항목 입력 완료 — 오른쪽에서 카톡으로 보내면 '보냄'으로 전환됩니다"
+                    ? "필수 항목 입력 완료 — [카톡으로 보내기]를 누르면 '보냄'으로 전환됩니다"
                     : "권역·용도·면적·가격대와 장점 1개 이상을 입력하면 '준비 완료'가 됩니다"
                 }
                 className={`text-sm px-2.5 py-0.5 rounded-full font-semibold shrink-0 border ${

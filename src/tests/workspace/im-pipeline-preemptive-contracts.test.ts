@@ -200,7 +200,7 @@ describe("IM Pipeline Preemptive Producer-Consumer Contracts (PC-A1 ~ PC-F3)", (
           {
             floor: "1F",
             unit: "101호",
-            use: "메가MGC커피 역삼GFC점 / 휴게음식점(커피전문점)",
+            use: "휴게음식점(커피전문점) / 메가MGC커피 역삼GFC점",
             areaSqm: 120.5,
             exclusiveAreaSqm: 88.4,
             depositManwon: 10000,

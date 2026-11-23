@@ -785,6 +785,7 @@ type ExistingClientSnap = {
   id: string;
   dbUuid: string | null;
   clientName: string;
+  clientCompany: string;
   clientGrade: 'VIP' | '일반' | '잠재';
   isVip: boolean;
   clientRole: InboxCrmClientRole;
@@ -835,6 +836,7 @@ export async function handleUpsertClientAction(params: {
         id: String(m.id || lookupKey),
         dbUuid: isUuid(rawLookupId) ? rawLookupId : null,
         clientName: String(m.clientName || ''),
+        clientCompany: String(m.clientCompany || m.company || ''),
         clientGrade: memGrade,
         isVip: typeof m.isVip === 'boolean' ? m.isVip : memGrade === 'VIP',
         clientRole: normalizeClientRole(m.clientRole) || 'buyer',
@@ -887,6 +889,7 @@ export async function handleUpsertClientAction(params: {
               id: existingSnap?.id || lookupKey,
               dbUuid: String(dbRow.id),
               clientName: String(dbRow.display_name || dbRow.name || existingSnap?.clientName || ''),
+              clientCompany: String(dbRow.company || existingSnap?.clientCompany || ''),
               clientGrade: dbGrade,
               isVip: dbIsVip,
               clientRole: normalizeClientRole(dbRow.client_role ?? dbRow.client_type) || 'buyer',
@@ -951,6 +954,7 @@ export async function handleUpsertClientAction(params: {
             id: evClientId || existingSnap?.id || lookupKey,
             dbUuid: existingSnap?.dbUuid || (isUuid(evRawId) ? evRawId : null),
             clientName: String(meta.client_name || existingSnap?.clientName || ''),
+            clientCompany: String(meta.client_company ?? meta.company ?? existingSnap?.clientCompany ?? ''),
             clientGrade: evGrade,
             isVip: typeof meta.is_vip === 'boolean' ? meta.is_vip : evGrade === 'VIP',
             clientRole: normalizeClientRole(meta.client_role) || existingSnap?.clientRole || 'buyer',
@@ -1052,6 +1056,11 @@ export async function handleUpsertClientAction(params: {
       ? body.budget.trim()
       : formatBudgetManwonDisplay(resolvedBudgetManwon) || (!hasBudgetProp ? existingSnap?.budget ?? '' : '');
 
+  const hasCompanyProp = hasOwn('clientCompany') || hasOwn('company');
+  const resolvedCompany = hasCompanyProp
+    ? String(body?.clientCompany ?? body?.company ?? '').trim()
+    : existingSnap?.clientCompany ?? '';
+
   const hasFreeMemoProp = hasOwn('freeMemo') || hasOwn('free_memo') || hasOwn('memo') || hasOwn('notes');
   const resolvedFreeMemo = hasFreeMemoProp
     ? String(body?.freeMemo ?? body?.free_memo ?? body?.memo ?? body?.notes ?? '').trim()
@@ -1151,6 +1160,7 @@ export async function handleUpsertClientAction(params: {
       const structuredExtra = {
         is_vip: resolvedIsVip,
         client_role: resolvedClientRole,
+        company: resolvedCompany || null,
         preferred_regions: resolvedPreferredRegions,
         budget_manwon: resolvedBudgetManwon,
         free_memo: resolvedFreeMemo,
@@ -1256,7 +1266,7 @@ export async function handleUpsertClientAction(params: {
                 ? {
                     ...(clientEmail ? { email: clientEmail } : {}),
                     ...structuredExtra,
-                    consent_status: 'pending',
+                    consent_status: effectiveConsentStatus || 'pending',
                     consent_source: 'broker_manual',
                   }
                 : {}),
@@ -1348,6 +1358,7 @@ export async function handleUpsertClientAction(params: {
               ? rawUuidCandidate
               : resolvedClientId.replace(/^(?:custom[-_]|cli-)/, ''),
             client_name: clientName,
+            client_company: resolvedCompany,
             client_grade: clientGrade,
             is_vip: resolvedIsVip,
             client_role: resolvedClientRole,
@@ -1410,6 +1421,7 @@ export async function handleUpsertClientAction(params: {
   const extraMem = {
     isVip: resolvedIsVip,
     clientRole: resolvedClientRole,
+    clientCompany: resolvedCompany,
     preferredRegions: resolvedPreferredRegions,
     budgetManwon: resolvedBudgetManwon,
     freeMemo: resolvedFreeMemo,

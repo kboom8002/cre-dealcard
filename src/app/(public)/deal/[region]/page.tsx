@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
 import { resolvePublicDealWorkspaceGuard } from "@/lib/og/deal-public-guard";
 import { evaluateDealCardPublicVisibility } from "@/domain/public-projection/visibility";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 const REGION_MAP: Record<string, string> = {
   gbd: "GBD (강남권역)",
@@ -115,10 +116,25 @@ async function filterPublicRegionDeals(
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { region } = await params;
   const label = REGION_MAP[region] || region;
+  const siteUrl = getCanonicalSiteUrl();
+  const title = `${label} 상업용 부동산 매각 매물`;
+  const description = `${label} 권역의 블라인드 상업용 부동산 매각 매물을 안전하게 검토하세요. AI 딜카드 기반 매물 정보 보호.`;
+  const ogImageUrl = `${siteUrl}/og-default.png?v=2`;
   return {
-    title: `${label} 상업용 부동산 매각 매물 | DealCard Hub`,
-    description: `${label} 권역의 블라인드 상업용 부동산 매각 매물을 안전하게 검토하세요. AI 딜카드 기반 매물 정보 보호.`,
-    openGraph: { title: `${label} 매각 매물 — DealCard Hub` },
+    title,
+    description,
+    openGraph: {
+      title: `${label} 매각 매물 — 크리딜 허브`,
+      description,
+      siteName: "크리딜 (CREDEAL)",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${label} 매각 매물 — 크리딜 허브`,
+      description,
+      images: [ogImageUrl],
+    },
   };
 }
 

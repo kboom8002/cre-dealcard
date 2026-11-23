@@ -178,6 +178,7 @@ describe("Cross-workspace parity upgrade (I-01, N-02/I-05, N-04, N-07, N-08, I-0
   it("N-02 / I-05: IM 미생성 매물은 /dc/[id]로 안전 유도하고 IM 발송 시도 시 409 IM_NOT_GENERATED를 반환한다", async () => {
     const uuidDealNoIm = "11111111-1111-4111-8111-111111111111";
     const uuidDealWithIm = "22222222-2222-4222-8222-222222222222";
+    const uuidDealWithVerifiedTokenIm = "33333333-3333-4333-8333-333333333333";
 
     render(
       <div>
@@ -207,6 +208,20 @@ describe("Cross-workspace parity upgrade (I-01, N-02/I-05, N-04, N-07, N-08, I-0
         >
           IM 매물 보기
         </button>
+        <button
+          type="button"
+          data-testid="trigger-with-token-im"
+          data-deal-inquiry="1"
+          data-deal-id={uuidDealWithVerifiedTokenIm}
+          data-deal-asset="사옥 빌딩"
+          data-deal-address="서울 서초구 서초동"
+          data-deal-signal="서초권역"
+          data-deal-price="120억대 빌딩"
+          data-deal-has-im="true"
+          data-deal-im-url={`/im-lite/${uuidDealWithVerifiedTokenIm}?token=verified-tok-1`}
+        >
+          토큰 검증 IM 보기
+        </button>
         <DealInquirySheet
           brokerName="김공인"
           brokerPhone="010-1234-5678"
@@ -223,10 +238,21 @@ describe("Cross-workspace parity upgrade (I-01, N-02/I-05, N-04, N-07, N-08, I-0
     expect(dcLink).not.toBeNull();
     expect(document.body.querySelector(`a[href="/im-lite/${uuidDealNoIm}"]`)).toBeNull();
 
+    // Untokenized hasIm=true also safely routes to /dc/[id] instead of unverified /im-lite/[id]
     fireEvent.click(screen.getByTestId("trigger-with-im"));
+    await waitFor(() => expect(screen.getByText("딜카드에서 IM 열람 신청")).toBeTruthy());
+    expect(
+      document.body.querySelector(`a[href="/dc/${uuidDealWithIm}"]`),
+    ).not.toBeNull();
+    expect(
+      document.body.querySelector(`a[href="/im-lite/${uuidDealWithIm}"]`),
+    ).toBeNull();
+
+    // Verified ?token= imUrl opens direct IM link
+    fireEvent.click(screen.getByTestId("trigger-with-token-im"));
     await waitFor(() => expect(screen.getByText("상세 제안서(IM) 보기")).toBeTruthy());
     const imLink = document.body.querySelector(
-      `a[href="/im-lite/${uuidDealWithIm}"]`,
+      `a[href="/im-lite/${uuidDealWithVerifiedTokenIm}?token=verified-tok-1"]`,
     ) as HTMLAnchorElement | null;
     expect(imLink).not.toBeNull();
 

@@ -192,7 +192,7 @@ export function SurveyProvider({ children }: { children: ReactNode }) {
                   소중한 의견 감사합니다!
                 </h3>
                 <p className="text-sm text-slate-600">
-                  CRE DealCard는 중개사님의 의견으로 발전합니다.
+                  크리딜 (CREDEAL)은 중개사님의 의견으로 발전합니다.
                 </p>
               </div>
             )}

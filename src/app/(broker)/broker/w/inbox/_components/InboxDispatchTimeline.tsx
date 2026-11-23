@@ -182,9 +182,21 @@ export function InboxDispatchTimeline({
                 아직 열람 및 상담 기록이 없습니다.
               </p>
               {dispatchHistory.length === 0 && (
-                <p className="text-sm text-slate-500">
-                  우측 자료 전달에서 딜카드·IM·뉴스레터를 보내면 기록이 자동으로 쌓입니다.
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-slate-500">
+                    자료 전달 화면에서 딜카드·IM·뉴스레터를 보내면 기록이 자동으로 쌓입니다.
+                  </p>
+                  <button
+                    type="button"
+                    data-testid="inbox-timeline-open-preview-btn"
+                    onClick={() =>
+                      window.dispatchEvent(new CustomEvent("workspace:open-preview"))
+                    }
+                    className="xl:hidden min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                  >
+                    자료 전달·관리 열기
+                  </button>
+                </div>
               )}
             </li>
           ) : (

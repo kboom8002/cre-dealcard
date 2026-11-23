@@ -63,7 +63,7 @@ export function StageComplete({ onGoToDashboard }: StageCompleteProps) {
       if (navigator.share) {
         // URL만 전송 → 카카오톡에서 OG 프리뷰 1개만 표시 (이중 메시지 방지)
         await navigator.share({
-          title: `${data.userName ?? '공인중개사'} | DealCard Vibe 명함`,
+          title: `${data.userName ?? '공인중개사'} | 크리딜 (CREDEAL) Vibe 명함`,
           url: shareUrl,
         });
       } else {

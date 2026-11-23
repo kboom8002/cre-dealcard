@@ -44,6 +44,7 @@ export interface RentRollImportPayload {
 
 interface RentRollImporterProps {
   hasExistingData?: boolean;
+  hideTextMode?: boolean;
   onImport: (data: RentRollImportPayload) => void;
 }
 
@@ -71,8 +72,9 @@ const HELP_CONTENT = [
   { icon: "📁", text: "지원 파일: 엑셀(.xlsx, .xls) 및 CSV 파일 모두 업로드 가능합니다" },
 ];
 
-export function RentRollImporter({ hasExistingData, onImport }: RentRollImporterProps) {
+export function RentRollImporter({ hasExistingData, hideTextMode = false, onImport }: RentRollImporterProps) {
   const [mode, setMode] = useState<"excel" | "text">("excel");
+  const activeMode = hideTextMode ? "excel" : mode;
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<string>("");
   const [isError, setIsError] = useState(false);
@@ -328,34 +330,36 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
   return (
     <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-3">
       {/* Tab Toggle */}
-      <div className="flex gap-1.5 p-1 bg-slate-200/70 rounded-xl">
-        <button
-          type="button"
-          onClick={() => { setMode("excel"); setResult(""); setIsError(false); setParsedPreview(null); }}
-          className={`flex-1 min-h-[44px] text-sm font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ${
-            mode === "excel"
-              ? "bg-white text-primary shadow-xs"
-              : "text-slate-700 hover:text-slate-950"
-          }`}
-        >
-          📁 엑셀/CSV 파일
-        </button>
-        <button
-          type="button"
-          onClick={() => { setMode("text"); setResult(""); setIsError(false); setParsedPreview(null); }}
-          data-testid="rentroll-mode-text"
-          className={`flex-1 min-h-[44px] text-sm font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ${
-            mode === "text"
-              ? "bg-white text-primary shadow-xs"
-              : "text-slate-700 hover:text-slate-950"
-          }`}
-        >
-          📝 텍스트로 붙여넣기
-        </button>
-      </div>
+      {!hideTextMode && (
+        <div className="flex gap-1.5 p-1 bg-slate-200/70 rounded-xl">
+          <button
+            type="button"
+            onClick={() => { setMode("excel"); setResult(""); setIsError(false); setParsedPreview(null); }}
+            className={`flex-1 min-h-[44px] text-sm font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ${
+              activeMode === "excel"
+                ? "bg-white text-primary shadow-xs"
+                : "text-slate-700 hover:text-slate-950"
+            }`}
+          >
+            📁 엑셀/CSV 파일
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("text"); setResult(""); setIsError(false); setParsedPreview(null); }}
+            data-testid="rentroll-mode-text"
+            className={`flex-1 min-h-[44px] text-sm font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ${
+              activeMode === "text"
+                ? "bg-white text-primary shadow-xs"
+                : "text-slate-700 hover:text-slate-950"
+            }`}
+          >
+            📝 텍스트로 붙여넣기
+          </button>
+        </div>
+      )}
 
       {/* Excel Mode */}
-      {mode === "excel" && (
+      {activeMode === "excel" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-bold text-slate-900">엑셀 임대 현황표 자동 불러오기</p>
@@ -423,7 +427,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       )}
 
       {/* Text Mode */}
-      {mode === "text" && (
+      {activeMode === "text" && (
         <div className="space-y-2.5">
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-900">글자로 적어서 불러오기</p>
@@ -502,7 +506,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           newRows[idx] = { ...newRows[idx], floor: normFloor };
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-12 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                        className="w-full min-w-[68px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -515,7 +519,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           newRows[idx] = { ...newRows[idx], unit_label: e.target.value || undefined };
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-14 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
+                        className="w-full min-w-[84px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -527,7 +531,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           newRows[idx] = { ...newRows[idx], tenant_type: e.target.value };
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                        className="w-full min-w-[96px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -546,7 +550,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           newRows[idx].efficiency_ratio_pct = calculateEfficiencyRatio(newRows[idx].exclusive_area_sqm ?? null, v ?? null) ?? undefined;
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
+                        className="w-full min-w-[84px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -569,7 +573,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           }
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs"
+                        className="w-full min-w-[84px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                     <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
@@ -598,7 +602,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           newRows[idx].deposit_manwon = e.target.value === "" ? undefined : Number(e.target.value);
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                        className="w-full min-w-[96px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -611,7 +615,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                           newRows[idx].rent_manwon = e.target.value === "" ? undefined : Number(e.target.value);
                           updatePreviewTotals(newRows);
                         }}
-                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                        className="w-full min-w-[88px] bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                       />
                     </td>
                     {/* D37 H-6: 환산보증금 + 상임법 뱃지 */}
@@ -749,6 +753,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 setParsedPreview(null);
                 setOverrideDraft("");
                 setOverrideReason(null);
+                setOverwriteApproved(false);
                 setIsError(false);
                 setResult("✅ 데이터가 성공적으로 반영되었습니다.");
               }} 
@@ -763,6 +768,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 setParsedPreview(null);
                 setOverrideDraft("");
                 setOverrideReason(null);
+                setOverwriteApproved(false);
                 setIsError(false);
                 setResult("");
                 if (fileInputRef.current) fileInputRef.current.value = "";

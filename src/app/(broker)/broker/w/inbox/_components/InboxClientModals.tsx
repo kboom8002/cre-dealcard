@@ -13,6 +13,7 @@ export interface InboxClientFormValues {
   name: string;
   phone: string;
   email: string;
+  company?: string;
   basis: "" | InboxTransactionalBasis;
   grade: "VIP" | "일반" | "잠재";
   role: InboxClientRole;
@@ -141,6 +142,24 @@ export function InboxNewClientModal({
                 className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="new-client-company"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              소속·회사 <span className="text-sm font-normal text-slate-500">(선택)</span>
+            </label>
+            <input
+              id="new-client-company"
+              data-testid="new-client-company-input"
+              type="text"
+              value={values.company ?? ""}
+              onChange={(e) => onChange({ company: e.target.value })}
+              placeholder="예: OO자산운용 / 개인 투자자"
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
           </div>
 
           {duplicateClientMatch && (
@@ -473,6 +492,24 @@ export function InboxEditClientModal({
                 className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="edit-client-company"
+              className="mb-1 block text-sm font-bold text-slate-800"
+            >
+              소속·회사 <span className="text-sm font-normal text-slate-500">(선택)</span>
+            </label>
+            <input
+              id="edit-client-company"
+              data-testid="edit-client-company-input"
+              type="text"
+              value={values.company ?? ""}
+              onChange={(e) => onChange({ company: e.target.value })}
+              placeholder="예: OO자산운용 / 개인 투자자"
+              className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

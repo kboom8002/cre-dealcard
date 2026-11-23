@@ -22,6 +22,7 @@ export default function GateRequestForm({
   const uid = useId();
   const nameId = `${uid}-gate-req-name`;
   const contactId = `${uid}-gate-req-contact`;
+  const emailId = `${uid}-gate-req-email`;
   const companyId = `${uid}-gate-req-company`;
   const reasonId = `${uid}-gate-req-reason`;
   const consentId = `${uid}-gate-req-privacy`;
@@ -30,6 +31,7 @@ export default function GateRequestForm({
   const [reason, setReason] = useState('');
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
+  const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,8 +72,13 @@ export default function GateRequestForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    const trimmedEmail = email.trim();
     if (!userId && (!name.trim() || !contact.trim())) {
       setErrorMsg('성함과 연락처를 입력해 주세요.');
+      return;
+    }
+    if (!userId && trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmedEmail)) {
+      setErrorMsg('올바른 이메일 주소를 입력해 주세요.');
       return;
     }
     if (!userId && !privacyConsent) {
@@ -87,6 +94,7 @@ export default function GateRequestForm({
             type: 'anonymous_lead',
             name: name.trim(),
             phone: contact.trim(),
+            email: trimmedEmail || undefined,
             company: company.trim() || undefined,
             message: reason.trim() || '상세 IM 열람을 요청합니다.',
           });
@@ -108,6 +116,7 @@ export default function GateRequestForm({
               ? {
                   name: name.trim(),
                   phone: contact.trim(),
+                  email: trimmedEmail || undefined,
                   company: company.trim() || undefined,
                   privacyConsent: true,
                 }
@@ -194,7 +203,24 @@ export default function GateRequestForm({
               className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
+            <label
+              htmlFor={emailId}
+              className="mb-1 block text-sm font-semibold text-slate-700"
+            >
+              이메일 (선택)
+            </label>
+            <input
+              id={emailId}
+              type="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="이메일로 IM 링크·브리핑 수신 시 입력"
+              className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[16px] text-slate-900 focus:border-slate-900 focus:outline-none"
+            />
+          </div>
+          <div>
             <label
               htmlFor={companyId}
               className="mb-1 block text-sm font-semibold text-slate-700"

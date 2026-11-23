@@ -393,6 +393,7 @@ export function formatDispatchStatusBadge(
 export function parseRawGateReason(raw: unknown): {
   requesterName?: string;
   requesterPhone?: string;
+  requesterEmail?: string;
   requesterCompany?: string;
   cleanMessage?: string;
 } {
@@ -401,6 +402,17 @@ export function parseRawGateReason(raw: unknown): {
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     try {
       const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      const rawParsedEmail =
+        typeof parsed.email === "string"
+          ? parsed.email
+          : typeof parsed.requester_email === "string"
+          ? parsed.requester_email
+          : typeof parsed.requesterEmail === "string"
+          ? parsed.requesterEmail
+          : "";
+      const requesterEmail = rawParsedEmail.trim().includes("@")
+        ? rawParsedEmail.trim()
+        : undefined;
       return {
         requesterName:
           typeof parsed.name === "string"
@@ -411,6 +423,7 @@ export function parseRawGateReason(raw: unknown): {
         requesterPhone: sanitizeClientPhone(
           parsed.phone || parsed.contact || parsed.requesterPhone
         ),
+        requesterEmail,
         requesterCompany:
           typeof parsed.company === "string"
             ? parsed.company.trim()
@@ -555,7 +568,9 @@ export function matchesInboxThreadFilter(
 
 export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
   const raw = (rawInput && typeof rawInput === "object" ? rawInput : {}) as Record<string, unknown>;
-  const parsedReason = parseRawGateReason(raw?.detail || raw?.reason || raw?.cleanMessage);
+  const parsedReason = parseRawGateReason(
+    raw?.detail || raw?.reason || raw?.gateReason || raw?.cleanMessage
+  );
   const rawStatus = String(raw?.status || "active");
   const mappedStatus: InboxThreadItem["status"] =
     rawStatus === "pending_gate"
@@ -734,7 +749,11 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
         ? raw.clientEmail.trim()
         : typeof raw?.requester_email === "string" && raw.requester_email.trim()
         ? raw.requester_email.trim()
-        : rescuedEmailFromPhone,
+        : typeof raw?.requesterEmail === "string" && raw.requesterEmail.trim()
+        ? raw.requesterEmail.trim()
+        : typeof raw?.email === "string" && raw.email.trim()
+        ? raw.email.trim()
+        : parsedReason.requesterEmail || rescuedEmailFromPhone,
     transactionalBasis:
       raw?.transactionalBasis === "im_request" ||
       raw?.transactionalBasis === "property_inquiry" ||

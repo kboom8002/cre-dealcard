@@ -143,6 +143,7 @@ export async function handleGetInbox(req: NextRequest) {
             clientRole: normalizeClientRole(cm.clientRole) || 'buyer',
             clientPhone: c.clientPhone || '',
             clientEmail: normalizeClientEmail(c.clientEmail) || '',
+            clientCompany: typeof cm.clientCompany === 'string' ? cm.clientCompany : '',
             budget: c.budget || formatBudgetManwonDisplay(budgetManwon),
             budgetManwon,
             preferredRegion: c.preferredRegion || preferredRegions.join(', '),
@@ -191,7 +192,7 @@ export async function handleGetInbox(req: NextRequest) {
   };
 
   const cliCols = caps.brokerClientsExtended
-    ? 'id, broker_id, display_name, phone, email, client_type, client_role, tier, is_vip, preferred_regions, budget_manwon, free_memo, consent_status, unsubscribed_at, email_delivery_status, email_bounced_at, email_bounce_reason, tags, notes, linked_building_ids, created_at'
+    ? 'id, broker_id, display_name, phone, email, company, client_type, client_role, tier, is_vip, preferred_regions, budget_manwon, free_memo, consent_status, unsubscribed_at, email_delivery_status, email_bounced_at, email_bounce_reason, tags, notes, linked_building_ids, created_at'
     : 'id, broker_id, display_name, phone, tier, tags, notes, linked_building_ids, created_at';
   const buildClientsQ = (cols: string) => {
     let q = looseDb.from('broker_clients').select(cols, { count: 'exact' });

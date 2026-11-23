@@ -18,7 +18,7 @@ import {
 } from '../terms/legal-shared';
 
 export const metadata: Metadata = {
-  title: '개인정보처리방침 및 수집·이용 안내 | 크리딜 (CREDEAL)',
+  title: '개인정보처리방침 및 수집·이용 안내',
   description:
     '크리딜 (CREDEAL) 중개사 회원, 딜카드/IM 열람·문의 고객, 매거진 구독자의 개인정보 수집 항목, 이용 목적, 보유 기간, 처리위탁·국외이전 및 정보주체 권리를 안내합니다.',
 };

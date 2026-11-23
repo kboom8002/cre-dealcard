@@ -336,8 +336,9 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
   // Journey 1: Teaser / Dealcard CTA Ladder Action
   // ══════════════════════════════════════════════════════════════════════════
   describe('Journey 1: Teaser CTA Ladder Navigation (Feature 14)', () => {
-    it('Positive Pair: when requireNda is true, triggers direct navigation to /nda/${buildingId}', async () => {
-      setupReactDispatcher(false, vi.fn());
+    it('A4-12: even when requireNda is true, opens ContactGateModal first instead of pushing 404 /nda/${buildingId}', async () => {
+      const setModalOpen = vi.fn();
+      setupReactDispatcher(false, setModalOpen);
 
       const buildingId = 'bldg-gangnam-prime-101';
       const element = CTALadder({
@@ -364,8 +365,9 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       // Click the button
       proButton!.props.onClick();
 
-      // Output assertion: Router must navigate directly to /nda/${buildingId} without DOM lookup errors
-      expect(mockRouter.push).toHaveBeenCalledWith(`/nda/${buildingId}`);
+      // Output assertion: Must open ContactGateModal first so a valid gate_request id exists before NDA flow
+      expect(mockRouter.push).not.toHaveBeenCalledWith(`/nda/${buildingId}`);
+      expect(setModalOpen).toHaveBeenCalledWith(true);
     });
 
     it('Negative Pair: when requireNda is false, does NOT navigate to /nda route', async () => {

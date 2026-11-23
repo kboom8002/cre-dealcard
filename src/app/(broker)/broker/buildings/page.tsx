@@ -5,7 +5,7 @@ import { listWorkspaceItemsForOwner } from "@/lib/workspace/workspace-repository
 import { BuildingsListClient } from "./BuildingsListClient";
 
 export const metadata: Metadata = {
-  title: "딜카드 & IM 보관함 | CRE DealCard",
+  title: "딜카드 & IM 보관함",
   description: "등록된 전체 매물의 딜카드와 모바일 IM을 확인하세요.",
 };
 

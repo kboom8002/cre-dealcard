@@ -42,6 +42,7 @@ function extractImShareToken(url: URL): string | null {
 }
 import {
   brokerKeys,
+  findLatestIssueDate,
   isUnpublishedContent,
   maskPublicAddresses,
   mergeEditionContent,
@@ -311,7 +312,15 @@ async function resolveOptionalBrokerUser(
   try {
     const guard = await requireBroker(req);
     if (!guard.error && guard.user?.id) {
-      return guard.user as { id: string; email?: string; role?: string };
+      const userObj = guard.user as { id: string; email?: string; role?: string };
+      const resolvedRole =
+        guard.role ||
+        (typeof guard.profile?.role === "string" ? guard.profile.role : undefined) ||
+        userObj.role;
+      return {
+        ...userObj,
+        ...(resolvedRole ? { role: resolvedRole } : {}),
+      };
     }
     return null;
   } catch {
@@ -1330,8 +1339,12 @@ export async function POST(req: NextRequest) {
           };
         } else {
           const u = parsedRes.url;
-          const magMatch = u.pathname.match(/^\/(?:magazine|m)\/([^/?#]+)\/([^/?#]+)/);
-          if (!magMatch) {
+          const magMatch = u.pathname.match(/^\/(?:magazine|m)\/([^/?#]+)(?:\/([^/?#]+))?\/?$/i);
+          const nlMatch = u.pathname.match(/^\/newsletter(?:\/([^/?#]+))?(?:\/([^/?#]+))?\/?$/i);
+          const magSubSeg = magMatch?.[2] ? decodeURIComponent(magMatch[2]) : "";
+          const isSubscribeRoute = Boolean(magMatch && magSubSeg.toLowerCase() === "subscribe");
+
+          if ((!magMatch && !nlMatch) || isSubscribeRoute) {
             newsletterCheck = {
               validUrl: false,
               existsAndPublished: false,
@@ -1340,15 +1353,34 @@ export async function POST(req: NextRequest) {
               brokerPhonePass: false,
               noRawUuidPass: false,
               error:
-                "/magazine/<중개사슬러그>/<발행일> (또는 /m/<슬러그>/<발행일>) 형식의 공개 뉴스레터 URL을 입력해 주세요.",
+                "/magazine/<슬러그>/<발행일>, /magazine/<슬러그>, /m/<슬러그> 또는 /newsletter/... 형식의 공개 뉴스레터 URL을 입력해 주세요.",
             };
           } else {
-            const brokerSlug = decodeURIComponent(magMatch[1]);
-            const issueDate = decodeURIComponent(magMatch[2]);
-            const editionId = u.searchParams.get("edition")?.trim() || null;
+            let brokerSlug = "";
+            let issueDate = u.searchParams.get("date")?.trim() || "";
+            let editionId = (u.searchParams.get("edition") ?? u.searchParams.get("id"))?.trim() || null;
 
-            let keys = [brokerSlug];
-            if (supabase) {
+            if (magMatch) {
+              brokerSlug = decodeURIComponent(magMatch[1]);
+              if (magSubSeg) issueDate = magSubSeg;
+            } else if (nlMatch) {
+              const seg1 = nlMatch[1] ? decodeURIComponent(nlMatch[1]) : "";
+              const seg2 = nlMatch[2] ? decodeURIComponent(nlMatch[2]) : "";
+              const qBroker = (u.searchParams.get("broker") ?? u.searchParams.get("slug"))?.trim() || "";
+              if (qBroker) {
+                brokerSlug = qBroker;
+                if (seg1 && !editionId) editionId = seg1;
+              } else if (seg1) {
+                brokerSlug = seg1;
+              }
+              if (seg2 && !issueDate) {
+                issueDate = seg2;
+              }
+            }
+
+            let keys = brokerSlug ? [brokerSlug] : [];
+            let resolvedBrokerObj: Record<string, unknown> | null = null;
+            if (supabase && brokerSlug) {
               try {
                 const resolvedBroker = await resolvePublicBroker(
                   supabase,
@@ -1356,13 +1388,29 @@ export async function POST(req: NextRequest) {
                   "user_id, slug, name"
                 );
                 if (resolvedBroker) {
+                  resolvedBrokerObj = resolvedBroker;
                   keys = brokerKeys(resolvedBroker);
+                } else if (nlMatch && !editionId) {
+                  // /newsletter/<editionId> 형태 지원
+                  editionId = brokerSlug;
                 }
               } catch {
                 keys = [brokerSlug];
               }
             }
             resolvedNewsletterBrokerKeys = keys;
+
+            if (supabase && !issueDate && resolvedBrokerObj) {
+              try {
+                const latest = await findLatestIssueDate(
+                  supabase,
+                  resolvedBrokerObj as { user_id: string; slug: string | null }
+                );
+                if (latest) issueDate = latest;
+              } catch {
+                // non-blocking
+              }
+            }
 
             let existsAndPublished = false;
             let rawContent: MagazineContent | null = null;
@@ -1377,12 +1425,13 @@ export async function POST(req: NextRequest) {
               if (editionId) {
                 try {
                   const lookupCol = isUuid(editionId) ? "id" : "edition_label";
-                  const { data: edRows } = await supabase
+                  let edQ: any = supabase
                     .from("magazine_editions")
-                    .select(editionSelect)
-                    .in("broker_id", keys)
-                    .eq(lookupCol, editionId)
-                    .limit(1);
+                    .select(editionSelect);
+                  if (keys.length > 0 && !(nlMatch && editionId === brokerSlug)) {
+                    edQ = edQ.in("broker_id", keys);
+                  }
+                  const { data: edRows } = await edQ.eq(lookupCol, editionId).limit(1);
                   const edRow = Array.isArray(edRows) ? edRows[0] : edRows;
                   if (edRow) {
                     const merged = mergeEditionContent(edRow);
@@ -1390,6 +1439,11 @@ export async function POST(req: NextRequest) {
                     rowTitle = typeof edRow.title === "string" ? edRow.title : null;
                     editionOwnerBrokerId =
                       typeof edRow.broker_id === "string" ? edRow.broker_id : null;
+                    if (editionOwnerBrokerId && !resolvedNewsletterBrokerKeys.includes(editionOwnerBrokerId)) {
+                      resolvedNewsletterBrokerKeys = Array.from(
+                        new Set([...resolvedNewsletterBrokerKeys, editionOwnerBrokerId])
+                      );
+                    }
                     existsAndPublished =
                       edRow.status === "published" && !isUnpublishedContent(merged);
                   }
@@ -1398,8 +1452,33 @@ export async function POST(req: NextRequest) {
                 }
               }
 
+              // 1b) If date is still absent (/magazine/<slug> or /newsletter/<slug>), pick latest published edition
+              if (!rawContent && !issueDate && keys.length > 0) {
+                try {
+                  const { data: latestEdRows } = await supabase
+                    .from("magazine_editions")
+                    .select(editionSelect)
+                    .in("broker_id", keys)
+                    .eq("status", "published")
+                    .order("published_at", { ascending: false })
+                    .limit(1);
+                  const latestRow = Array.isArray(latestEdRows) ? latestEdRows[0] : null;
+                  if (latestRow) {
+                    const merged = mergeEditionContent(latestRow);
+                    rawContent = merged;
+                    rowTitle = typeof latestRow.title === "string" ? latestRow.title : null;
+                    editionOwnerBrokerId =
+                      typeof latestRow.broker_id === "string" ? latestRow.broker_id : null;
+                    existsAndPublished =
+                      latestRow.status === "published" && !isUnpublishedContent(merged);
+                  }
+                } catch {
+                  // continue fallback lookup
+                }
+              }
+
               // 2) Check magazine_issues(issue_date) and magazine_editions(edition_label / published_at)
-              if (!rawContent) {
+              if (!rawContent && issueDate && keys.length > 0) {
                 try {
                   const { data: issRows } = await supabase
                     .from("magazine_issues")
@@ -1423,7 +1502,7 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              if (!rawContent) {
+              if (!rawContent && issueDate && keys.length > 0) {
                 try {
                   const { data: byLabelRows } = await supabase
                     .from("magazine_editions")
@@ -1447,7 +1526,7 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              if (!rawContent && /^\d{4}-\d{2}-\d{2}$/.test(issueDate)) {
+              if (!rawContent && issueDate && /^\d{4}-\d{2}-\d{2}$/.test(issueDate) && keys.length > 0) {
                 try {
                   const startIso = new Date(`${issueDate}T00:00:00+09:00`).toISOString();
                   const endIso = new Date(
@@ -1877,25 +1956,39 @@ export async function POST(req: NextRequest) {
               : null;
           if (krDigits && krDigits.length < 8) krDigits = null;
 
-          let foundInMagazineSubscribers = false;
-          let confirmStatus: string | null = null;
-          let subscriberStatus: string | null = null;
-          let foundInBrokerClients = false;
-          let foundInInbox = false;
-          let inboxGateStatus: string | null = null;
-          let inboxHasEmail = Boolean(emailNorm);
+          if (!emailNorm && !krDigits) {
+            subscriberCheck = {
+              checked: false,
+              reason: "INVALID_CONTACT",
+              error: "올바른 이메일 주소 또는 휴대폰 번호(8자리 이상)를 입력해 주세요.",
+            };
+            inboxCheck = {
+              checked: false,
+              foundInInbox: false,
+              gateStatus: null,
+              hasEmail: false,
+              reason: "INVALID_CONTACT",
+            };
+          } else {
+            let foundInMagazineSubscribers = false;
+            let confirmStatus: string | null = null;
+            let subscriberStatus: string | null = null;
+            let foundInBrokerClients = false;
+            let foundInInbox = false;
+            let inboxGateStatus: string | null = null;
+            let inboxHasEmail = Boolean(emailNorm);
 
-          if (supabase && (emailNorm || krDigits)) {
-            const scopedBrokerKeys = Array.from(
-              new Set([
-                ...(callerBrokerKeys.length > 0 ? callerBrokerKeys : [brokerUser.id]),
-                brokerUser.id,
-                ...(resolvedNewsletterBrokerKeys.some((k) => callerBrokerKeys.includes(k)) ||
-                brokerUser.role === "admin"
-                  ? resolvedNewsletterBrokerKeys
-                  : []),
-              ])
-            );
+            if (supabase) {
+              const scopedBrokerKeys = Array.from(
+                new Set([
+                  ...(callerBrokerKeys.length > 0 ? callerBrokerKeys : [brokerUser.id]),
+                  brokerUser.id,
+                  ...(resolvedNewsletterBrokerKeys.some((k) => callerBrokerKeys.includes(k)) ||
+                  brokerUser.role === "admin"
+                    ? resolvedNewsletterBrokerKeys
+                    : []),
+                ])
+              );
 
             // Check broker_clients first (strictly scoped to brokerUser.id) + cross-resolve email/phone
             if (isUuid(brokerUser.id)) {
@@ -2230,22 +2323,37 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          inboxCheck = {
-            checked: true,
-            foundInInbox,
-            gateStatus: inboxGateStatus,
-            hasEmail: inboxHasEmail,
-          };
+            const skipSubscriberScope = expectedLoopId === "broker-byod";
 
-          subscriberCheck = {
-            checked: true,
-            foundInMagazineSubscribers,
-            status: subscriberStatus,
-            confirmStatus,
-            foundInBrokerClients,
-            inboxCheck,
-            brokerAuthenticated: true,
-          };
+            inboxCheck = {
+              checked: true,
+              foundInInbox,
+              gateStatus: inboxGateStatus,
+              hasEmail: inboxHasEmail,
+              ...(expectedLoopId ? { loopId: expectedLoopId } : {}),
+            };
+
+            subscriberCheck = skipSubscriberScope
+              ? {
+                  checked: false,
+                  reason: "LOOP_INBOX_ONLY",
+                  foundInMagazineSubscribers: false,
+                  status: null,
+                  confirmStatus: null,
+                  foundInBrokerClients,
+                  brokerAuthenticated: true,
+                  loopId: expectedLoopId,
+                }
+              : {
+                  checked: true,
+                  foundInMagazineSubscribers,
+                  status: subscriberStatus,
+                  confirmStatus,
+                  foundInBrokerClients,
+                  brokerAuthenticated: true,
+                  ...(expectedLoopId ? { loopId: expectedLoopId } : {}),
+                };
+          }
         }
       }
 
@@ -3532,6 +3640,23 @@ export async function POST(req: NextRequest) {
       let liveNewsletter: string | null = null;
       if (supabase && brokerUser?.id && isUuid(brokerUser.id)) {
         try {
+          const callerBrokerKeys: string[] = [brokerUser.id];
+          try {
+            const { data: bpSlugRow } = await supabase
+              .from("broker_profiles")
+              .select("slug")
+              .eq("user_id", brokerUser.id)
+              .maybeSingle();
+            if (bpSlugRow?.slug && typeof bpSlugRow.slug === "string") {
+              const cleanSlug = bpSlugRow.slug.trim();
+              if (cleanSlug && !callerBrokerKeys.includes(cleanSlug)) {
+                callerBrokerKeys.push(cleanSlug);
+              }
+            }
+          } catch {
+            // non-blocking
+          }
+
           const [bldRes, edRes] = await Promise.all([
             supabase
               .from("building_ssot_lite")
@@ -3543,7 +3668,7 @@ export async function POST(req: NextRequest) {
             supabase
               .from("magazine_editions")
               .select("id, edition_label")
-              .eq("broker_id", brokerUser.id)
+              .in("broker_id", callerBrokerKeys)
               .eq("status", "published")
               .order("published_at", { ascending: false })
               .limit(1),

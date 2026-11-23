@@ -200,7 +200,7 @@ export function appendCrmAndSubscriberThreads(
     const rawEmailForIdentity = row.email || row.clientEmail || dbSup?.email;
     const emailNorm =
       normalizeClientEmail(typeof rawEmailForIdentity === 'string' ? rawEmailForIdentity : null) || '';
-    const clientCompany = String(row.company || row.clientCompany || dbSup?.company || '').trim();
+    const clientCompany = String(row.company || row.clientCompany || row.client_company || dbSup?.company || '').trim();
     const rowId = strippedId || rawId || tid;
 
     // 1) Merge CRM row into any existing non-anonymous thread matching ID or canonical contact identity
@@ -261,24 +261,23 @@ export function appendCrmAndSubscriberThreads(
         } else if (budget && !existingThread.budget) {
           existingThread.budget = budget;
         }
-        if (resolvedFreeMemo && !existingThread.freeMemo) {
+        if (resolvedFreeMemo && (!existingThread.freeMemo || existingThread.id === strippedId)) {
           existingThread.freeMemo = resolvedFreeMemo;
         }
-        if (clientCompany && !existingThread.clientCompany) {
+        if (clientCompany) {
           existingThread.clientCompany = clientCompany;
-          if (!existingThread.requesterCompany) {
-            existingThread.requesterCompany = clientCompany;
-          }
+          existingThread.requesterCompany = clientCompany;
         }
-        if (emailNorm && !normalizeClientEmail(existingThread.clientEmail)) {
+        if (emailNorm && (!normalizeClientEmail(existingThread.clientEmail) || existingThread.id === strippedId)) {
           existingThread.clientEmail = emailNorm;
         }
-        if (phone && !canonicalKrPhoneDigits(existingThread.clientPhone)) {
+        if (phone && (!canonicalKrPhoneDigits(existingThread.clientPhone) || existingThread.id === strippedId)) {
           existingThread.clientPhone = phone;
         }
         if (
           name &&
-          (!existingThread.clientName ||
+          (existingThread.id === strippedId ||
+            !existingThread.clientName ||
             existingThread.clientName === '이름 미입력 고객' ||
             existingThread.clientName === '잠재 고객')
         ) {
@@ -709,6 +708,7 @@ export function appendCrmAndSubscriberThreads(
       clientEmail: emailNorm || '',
       transactionalBasis: null,
       hasTransactionalBasis: false,
+      clientCompany: '',
       requesterCompany: '',
       cleanMessage: subSummaryMessage,
       clientGrade: '일반' as const,

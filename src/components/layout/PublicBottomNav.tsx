@@ -16,7 +16,7 @@ const NAV_ITEMS = [
     href: "/hub",
     label: "홈",
     icon: Home,
-    ariaLabel: "DealCard Hub 홈",
+    ariaLabel: "크리딜 허브 홈",
   },
   /* DORMANT: public-pages — 탐색/펄스/아고라 탭 (복구 시 주석 해제)
   {

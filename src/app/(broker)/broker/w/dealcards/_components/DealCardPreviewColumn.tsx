@@ -86,7 +86,7 @@ export function DealCardPreviewColumn({
         <PreviewCausalityBar
           lifecycle={lifecycle}
           onStartInput={onStartInput}
-          startButtonLabel="왼쪽 메모칸 입력하기"
+          startButtonLabel="매물 메모 입력하기"
           onResyncPublished={onResyncPublished}
           resyncButtonLabel="수정한 내용 고객 화면에 반영하기"
           liveUrl={liveUrl}
@@ -120,7 +120,7 @@ export function DealCardPreviewColumn({
         <PreviewPregenerationCard
           testId="dealcard-pregeneration-card"
           title="메모나 매물 정보를 입력하면 미리보기가 만들어집니다"
-          description="왼쪽 메모창에 매물을 붙여넣고 생성하거나 직접 항목을 입력하면 고객에게 보일 카톡 말풍선과 받는 화면이 즉시 만들어집니다."
+          description="편집 화면의 메모창에 매물을 붙여넣고 생성하거나 직접 항목을 입력하면 고객에게 보일 카톡 말풍선과 받는 화면이 즉시 만들어집니다."
           checklist={[
             {
               label: "권역·동명 및 매물 용도",

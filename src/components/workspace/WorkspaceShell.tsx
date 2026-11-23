@@ -91,7 +91,7 @@ function MobileFontScaleButton() {
       data-font-scale={fontScale}
       aria-label={`글자 크기 조절 (현재: ${currentLabel})`}
       title={`글자 크기 조절 (현재: ${currentLabel})`}
-      className="md:hidden inline-flex items-center justify-center gap-0.5 px-2.5 py-1.5 min-h-[44px] min-w-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-[15px] font-bold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+      className="xl:hidden inline-flex items-center justify-center gap-0.5 px-2.5 py-1.5 min-h-[44px] min-w-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-[15px] font-bold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
     >
       <span>가+</span>
     </button>
@@ -357,13 +357,7 @@ export function WorkspaceShell({
     : "";
   const ariaAnnouncement = eventAnnouncement || derivedSelectionAnnouncement;
 
-  useEffect(() => {
-    const handleOpenPreview = () => {
-      setIsPreviewDrawerOpen(true);
-    };
-    window.addEventListener("workspace:open-preview", handleOpenPreview);
-    return () => window.removeEventListener("workspace:open-preview", handleOpenPreview);
-  }, []);
+  // Preview drawer state is managed via workspace:open-preview event and editor header toggle.
 
   // Close <1280px preview drawer on Escape or when viewport widens to >=1280px (xl)
   useEffect(() => {
@@ -596,9 +590,36 @@ export function WorkspaceShell({
       router.replace(`${pathname}?${params.toString()}`);
       setHasSelectedFromList(true);
       setMobileOverride({ key: routeSyncKey, view: tab });
+      if (tab === "editor") {
+        setIsPreviewDrawerOpen(false);
+      }
     },
     [searchParams, pathname, router, routeSyncKey]
   );
+
+  // Sync mobile preview tab & lg overlay drawer when children dispatch workspace:open-preview / workspace:focus-editor
+  useEffect(() => {
+    const handleOpenPreview = (event: Event) => {
+      const customEvent = event as CustomEvent<{ includeMobile?: boolean } | undefined>;
+      const includeMobile = customEvent.detail?.includeMobile !== false;
+      if (typeof window !== "undefined" && window.innerWidth < 1024 && includeMobile) {
+        handleSelectTab("preview");
+      }
+      setIsPreviewDrawerOpen(true);
+    };
+    const handleFocusEditor = () => {
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        handleSelectTab("editor");
+      }
+      setIsPreviewDrawerOpen(false);
+    };
+    window.addEventListener("workspace:open-preview", handleOpenPreview);
+    window.addEventListener("workspace:focus-editor", handleFocusEditor);
+    return () => {
+      window.removeEventListener("workspace:open-preview", handleOpenPreview);
+      window.removeEventListener("workspace:focus-editor", handleFocusEditor);
+    };
+  }, [handleSelectTab]);
 
   // Delegated list item click tracking on Column 1 container (avoids non-interactive JSX click handlers)
   useEffect(() => {
@@ -824,24 +845,11 @@ export function WorkspaceShell({
 
           {/* Right tools / indicators (Translucent Glass Pills — accessible on both <768px mobile & desktop) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto sm:ml-0">
-            {/* Mobile <768px compact font-scale cycling button (min-h-[44px]) */}
+            {/* Compact <1280px font-scale cycling button (prevents 768-1279px nav clipping, min-h-[44px]) */}
             <MobileFontScaleButton />
 
-            {/* Desktop >=768px Font Density Toggle (표준 15px / 큰글씨 17px / 더 크게 19px / 아주 크게 21px) */}
-            <FontScaleToggle className="hidden md:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0" />
-
-            {/* Desktop Preview Drawer Toggle (when 1024px-1279px) */}
-            <button
-              type="button"
-              onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
-              data-testid="workspace-preview-toggle-btn"
-              aria-expanded={isPreviewDrawerOpen}
-              className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <span>
-                {isPreviewDrawerOpen ? `${previewDrawerLabel} 닫기` : `${previewDrawerLabel} 열기`}
-              </span>
-            </button>
+            {/* Desktop >=1280px Font Density Toggle (표준 15px / 큰글씨 17px / 더 크게 19px / 아주 크게 21px) */}
+            <FontScaleToggle className="hidden xl:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0" />
 
             <WorkspaceHelpButton workspace={workspace as HelpWorkspaceKey} />
 
@@ -1081,14 +1089,14 @@ export function WorkspaceShell({
         <aside
           data-testid="workspace-col-preview"
           data-col-width={previewColWidth}
-          className={`shrink-0 border-l border-slate-900/[0.075] bg-white/76 backdrop-blur-2xl backdrop-saturate-[185%] flex flex-col z-20 ${
+          className={`shrink-0 border-l border-slate-900/[0.075] bg-white/76 backdrop-blur-2xl backdrop-saturate-[185%] flex-col z-20 ${
             mobileView === "preview"
-              ? "flex w-full lg:w-[var(--ws-preview-w)] fixed inset-x-0 top-14 bottom-0 lg:static"
-              : "hidden xl:flex lg:w-[var(--ws-preview-w)]"
-          } ${
-            isPreviewDrawerOpen
-              ? "lg:flex lg:fixed lg:right-0 lg:top-14 lg:bottom-0 lg:z-40 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)] xl:static xl:inset-auto xl:z-auto xl:w-[var(--ws-preview-w)] xl:shadow-none"
-              : ""
+              ? isPreviewDrawerOpen
+                ? "flex w-full fixed inset-x-0 top-14 bottom-0 lg:left-auto lg:right-0 lg:z-40 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)] xl:static xl:inset-auto xl:z-auto xl:w-[var(--ws-preview-w)] xl:shadow-none"
+                : "flex w-full fixed inset-x-0 top-14 bottom-0 lg:hidden xl:flex xl:static xl:inset-auto xl:w-[var(--ws-preview-w)]"
+              : isPreviewDrawerOpen
+              ? "hidden lg:flex lg:fixed lg:left-auto lg:right-0 lg:top-14 lg:bottom-0 lg:z-40 lg:w-[var(--ws-preview-w)] lg:shadow-[0_24px_48px_rgba(15,23,42,0.16)] xl:static xl:inset-auto xl:z-auto xl:w-[var(--ws-preview-w)] xl:shadow-none"
+              : "hidden xl:flex xl:w-[var(--ws-preview-w)]"
           }`}
         >
           {/* Preview Header */}

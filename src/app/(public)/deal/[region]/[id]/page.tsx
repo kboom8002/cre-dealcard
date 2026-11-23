@@ -4,6 +4,7 @@ import { cache } from "react";
 import { createServiceClient } from "@/lib/supabase/service";
 import { readBuilding } from "@/domain/building/im-core/read-building";
 import { evaluateDealCardPublicVisibility } from "@/domain/public-projection/visibility";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
 import { isBuildingShareLinkRevoked } from "@/lib/security/share-link-tokens";
 import {
@@ -106,23 +107,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const deal = await loadGuardedLegacyDeal(id);
 
   if (!deal) {
-    return { title: "크리딜 DealCard", robots: { index: false, follow: false } };
+    return { title: "매물 안내", robots: { index: false, follow: false } };
   }
 
   const canonicalPath = `/dc/${encodeURIComponent(id)}`;
+  const siteUrl = getCanonicalSiteUrl();
   const label = deal.areaSignal || REGION_MAP[region] || region;
   const asset = deal.assetType || "상업용 부동산";
   const price = deal.priceBand || "";
+  const ogTitle = `${label} ${asset} 매각${price ? ` — ${price}` : ""}`;
+  const ogDesc = `블라인드 딜카드로 안전한 매물 검토. ${price || "가격 비공개"}`;
+  const ogImageUrl = `${siteUrl}/api/og/deal/${encodeURIComponent(id)}/kakao-v2`;
 
   return {
-    title: `${label} ${asset} 매각 ${price ? `| ${price}` : ""} | DealCard`,
-    description: `${label} 권역 ${asset} 블라인드 매각 매물. DealCard의 Gate 시스템으로 안전하게 검토하세요.`,
+    title: `${label} ${asset} 매각${price ? ` | ${price}` : ""}`,
+    description: `${label} 권역 ${asset} 블라인드 매각 매물. 크리딜의 Gate 시스템으로 안전하게 검토하세요.`,
     alternates: { canonical: canonicalPath },
     openGraph: {
-      title: `${label} ${asset} 매각 — DealCard`,
-      description: `블라인드 딜카드로 안전한 매물 검토. ${price || "가격 비공개"}`,
+      title: ogTitle,
+      description: ogDesc,
       url: canonicalPath,
-      images: [`/api/og/deal/${encodeURIComponent(id)}`],
+      siteName: "크리딜 (CREDEAL)",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description: ogDesc,
+      images: [ogImageUrl],
     },
   };
 }

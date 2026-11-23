@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
       String(body?.message ?? body?.inquiryMessage).trim()
         ? String(body?.message ?? body?.inquiryMessage).trim()
         : null;
+    const rawCompany =
+      body?.company ?? body?.requesterCompany ?? body?.requester_company;
     const cleanCompany =
-      typeof (body?.company ?? body?.requester_company) === "string" &&
-      String(body?.company ?? body?.requester_company).trim()
-        ? String(body?.company ?? body?.requester_company).trim()
+      typeof rawCompany === "string" && rawCompany.trim()
+        ? rawCompany.trim().slice(0, 100)
         : null;
 
     const consentAccepted =
@@ -227,20 +228,44 @@ export async function POST(req: NextRequest) {
     let inquiryId: string | undefined;
     let inquirySaved = false;
 
-    const { data: inquiry, error: insertErr } = await supabase
+    const baseInsertPayload = {
+      building_id: rawBuildingId,
+      doc_id: docId && isUuid(docId) ? docId : null,
+      broker_user_id: effectiveBrokerId,
+      requester_name: cleanName,
+      requester_phone: cleanPhone,
+      requester_email: cleanEmail,
+      message: cleanMessage,
+      source: "im_cta",
+    };
+
+    const fullInsertPayload = cleanCompany
+      ? { ...baseInsertPayload, requester_company: cleanCompany }
+      : baseInsertPayload;
+
+    let { data: inquiry, error: insertErr } = await supabase
       .from("im_inquiry_requests")
-      .insert({
-        building_id: rawBuildingId,
-        doc_id: docId && isUuid(docId) ? docId : null,
-        broker_user_id: effectiveBrokerId,
-        requester_name: cleanName,
-        requester_phone: cleanPhone,
-        requester_email: cleanEmail,
-        message: cleanMessage,
-        source: "im_cta",
-      })
+      .insert(fullInsertPayload)
       .select("id")
       .single();
+
+    if (
+      insertErr &&
+      cleanCompany &&
+      (String(insertErr.code || "") === "42703" ||
+        String(insertErr.code || "") === "PGRST204" ||
+        /does not exist|schema cache|requester_company/i.test(
+          String(insertErr.message || "")
+        ))
+    ) {
+      const retryRes = await supabase
+        .from("im_inquiry_requests")
+        .insert(baseInsertPayload)
+        .select("id")
+        .single();
+      inquiry = retryRes.data;
+      insertErr = retryRes.error;
+    }
 
     if (!insertErr && inquiry?.id) {
       inquiryId = String(inquiry.id);
@@ -274,6 +299,8 @@ export async function POST(req: NextRequest) {
           requester_name: cleanName,
           requester_phone: cleanPhone,
           requester_email: cleanEmail,
+          requester_company: cleanCompany,
+          company: cleanCompany,
           message: cleanMessage || "상세 IM 열람을 신청했습니다.",
           requested_level: "G2",
           privacy_agreed: true,
@@ -323,7 +350,7 @@ export async function POST(req: NextRequest) {
         user_id: effectiveBrokerId,
         type: "im_inquiry",
         title: "📄 상세 IM 열람 신청 도착",
-        body: `${cleanName}님이 [${buildingLabel}] 상세 IM 열람을 신청했습니다.${
+        body: `${cleanName}${cleanCompany ? ` (${cleanCompany})` : ""}님이 [${buildingLabel}] 상세 IM 열람을 신청했습니다.${
           cleanMessage ? `\n메시지: ${cleanMessage.substring(0, 100)}` : ""
         }\n연락처: ${cleanPhone}${cleanEmail ? ` / ${cleanEmail}` : ""}`,
         link: `/broker/w/inbox`,
@@ -333,6 +360,7 @@ export async function POST(req: NextRequest) {
           requester_name: cleanName,
           requester_phone: cleanPhone,
           requester_email: cleanEmail,
+          requester_company: cleanCompany,
         },
       });
     } catch {
