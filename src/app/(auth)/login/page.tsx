@@ -95,7 +95,7 @@ function LoginFormContent() {
             autoComplete="email"
             required
             defaultValue={savedEmail}
-            placeholder="you@example.com"
+            placeholder="name@company.co.kr"
             className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
           />
           {state?.errors?.email && (

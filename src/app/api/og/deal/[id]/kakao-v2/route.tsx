@@ -24,6 +24,21 @@ const PUBLIC_OG_DOC_STATUSES = new Set<string>(['published', ...PUBLIC_IM_DOC_ST
 
 export const runtime = 'nodejs';
 
+const QUADRANT_TEXT_BASE_STYLE = {
+  fontSize: '64px',
+  fontWeight: 800,
+  lineHeight: 1.15,
+  wordBreak: 'keep-all' as const,
+  letterSpacing: '-0.02em',
+};
+
+function getQuadrantFontSize(text: string, defaultSize: 64 | 68 = 64): string {
+  const len = text.trim().length;
+  if (len > 10) return '52px';
+  if (len > 7) return '58px';
+  return `${defaultSize}px`;
+}
+
 function extractRegion(address?: string | null): string {
   if (!address || typeof address !== 'string') return '서울시';
   const match = address.match(/([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동|읍|면|가))/);
@@ -260,9 +275,6 @@ export async function GET(
       if (ssotRow && !isBuildingStatusPublic(ssotRow.status as string | null | undefined)) {
         return new Response('Building Not Found', { status: 404 });
       }
-    }
-    if (typeof ssotQuery.neq === 'function') {
-      ssotQuery = ssotQuery.neq('status', 'archived');
     }
 
     // Pre-cutover signal card visibility/archive guard
@@ -542,16 +554,14 @@ export async function GET(
               padding: '24px 36px',
               borderRight: '3px solid rgba(148, 163, 184, 0.28)',
               textAlign: 'center',
+              overflow: 'hidden',
             }}
           >
             <span
               style={{
-                fontSize: '64px',
-                fontWeight: 800,
+                ...QUADRANT_TEXT_BASE_STYLE,
+                fontSize: getQuadrantFontSize(displayRegion, 64),
                 color: '#F8FAFC',
-                lineHeight: 1.15,
-                wordBreak: 'keep-all',
-                letterSpacing: '-0.02em',
               }}
             >
               {displayRegion}
@@ -567,16 +577,14 @@ export async function GET(
               justifyContent: 'center',
               padding: '24px 36px',
               textAlign: 'center',
+              overflow: 'hidden',
             }}
           >
             <span
               style={{
-                fontSize: '64px',
-                fontWeight: 800,
+                ...QUADRANT_TEXT_BASE_STYLE,
+                fontSize: getQuadrantFontSize(displayUse, 64),
                 color: '#38BDF8',
-                lineHeight: 1.15,
-                wordBreak: 'keep-all',
-                letterSpacing: '-0.02em',
               }}
             >
               {displayUse}
@@ -602,16 +610,14 @@ export async function GET(
               padding: '24px 36px',
               borderRight: '3px solid rgba(148, 163, 184, 0.28)',
               textAlign: 'center',
+              overflow: 'hidden',
             }}
           >
             <span
               style={{
-                fontSize: '64px',
-                fontWeight: 800,
+                ...QUADRANT_TEXT_BASE_STYLE,
+                fontSize: getQuadrantFontSize(displayArea, 64),
                 color: '#E2E8F0',
-                lineHeight: 1.15,
-                wordBreak: 'keep-all',
-                letterSpacing: '-0.02em',
               }}
             >
               {displayArea}
@@ -627,16 +633,14 @@ export async function GET(
               justifyContent: 'center',
               padding: '24px 36px',
               textAlign: 'center',
+              overflow: 'hidden',
             }}
           >
             <span
               style={{
-                fontSize: '68px',
-                fontWeight: 800,
+                ...QUADRANT_TEXT_BASE_STYLE,
+                fontSize: getQuadrantFontSize(displayPriceBand, 68),
                 color: '#FBBF24',
-                lineHeight: 1.15,
-                wordBreak: 'keep-all',
-                letterSpacing: '-0.02em',
               }}
             >
               {displayPriceBand}

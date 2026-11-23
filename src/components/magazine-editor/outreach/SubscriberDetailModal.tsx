@@ -356,7 +356,7 @@ function DetailBody({ subscriber, onUpdated, onDeleted }: { subscriber: DetailSu
               setChannel('both');
             }
           }}
-          placeholder="예: client@example.com"
+          placeholder="예: client@company.co.kr"
           className="min-h-[48px] w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 disabled:bg-slate-100"
         />
         <p className="text-sm text-slate-600">

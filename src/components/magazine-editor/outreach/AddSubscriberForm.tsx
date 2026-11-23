@@ -442,7 +442,7 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
                 rows={6}
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder={"예시 (엑셀/메모장에서 복사해 바로 붙여넣기):\n홍길동 010-1234-5678 hong@example.com\n김철수 010-9876-5432\n이영희, 010-1111-2222, young@cre.kr"}
+                placeholder={"예시 (엑셀/메모장에서 복사해 바로 붙여넣기):\n홍길동 010-1234-5678 hong@company.co.kr\n김철수 010-9876-5432\n이영희, 010-1111-2222, young@cre.kr"}
                 className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 font-mono leading-relaxed resize-none"
               />
               <div className="flex items-center justify-between text-sm text-slate-600">

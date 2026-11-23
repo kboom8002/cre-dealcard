@@ -1525,7 +1525,7 @@ export function QaFullLoopWorkbenchClient({
                                 onClick={() => setConfirmingByodCleanup(true)}
                                 className="w-full min-h-[42px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold cursor-pointer"
                               >
-                                🧹 내 테스트 매물·딜카드·IM 서버에서 즉시 삭제
+                                🧹 내 테스트 매물·딜카드·IM 즉시 삭제
                               </button>
                             ) : (
                               <div className="rounded-xl bg-rose-50 border border-rose-300 p-3 space-y-2">

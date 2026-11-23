@@ -35,6 +35,7 @@ import {
   FloatingActionBar,
   ShareButton,
 } from "./components";
+import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 
 const IMInquiryBottomSheet = dynamic(
   () =>
@@ -1563,14 +1564,12 @@ export function MobileIMViewer({
               <p className="text-[#475569]">연락처: {brokerPhone}</p>
             )}
           </div>
-          {brokerPhone && brokerPhone !== "-" && (
-            <a
-              href={`tel:${brokerPhone}`}
-              className="w-full min-h-[48px] bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#1E293B] cursor-pointer text-base"
-            >
-              📞 담당 중개사에게 최신본 요청하기
-            </a>
-          )}
+          <PhoneActionButton
+            phone={brokerPhone}
+            variant="inline"
+            callLabel="📞 담당 중개사에게 최신본 요청하기"
+            callClassName="w-full sm:flex-1 min-h-[48px] px-4 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#1E293B] cursor-pointer text-base"
+          />
         </div>
       </div>
     );
@@ -2792,13 +2791,27 @@ export function MobileIMViewer({
 
         <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-2 min-h-14 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
           <div className="flex items-stretch gap-2 w-full sm:flex-1 min-w-0">
-            <a
-              href={brokerPhone && brokerPhone !== "-" ? `tel:${brokerPhone}` : "#10_contact"}
-              className="shrink-0 min-h-[48px] px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
-            >
-              <span>📞</span>
-              <span>전화 문의</span>
-            </a>
+            <PhoneActionButton
+              phone={brokerPhone}
+              variant="compact"
+              className="inline-flex items-stretch gap-1.5 shrink-0"
+              callClassName="shrink-0 min-h-[48px] px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
+              copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] font-bold rounded-xl transition-colors cursor-pointer text-sm whitespace-nowrap"
+              renderCallContent={
+                <>
+                  <span>📞</span>
+                  <span>전화 문의</span>
+                </>
+              }
+              fallbackLabel={
+                <>
+                  <span>📞</span>
+                  <span>전화 문의</span>
+                </>
+              }
+              fallbackHref="#10_contact"
+              fallbackClassName="shrink-0 min-h-[48px] px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
+            />
             {realKakaoChannelUrl ? (
               <a
                 href={realKakaoChannelUrl}

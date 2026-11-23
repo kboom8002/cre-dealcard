@@ -910,17 +910,11 @@ export function mapRentRollImportPayloadToRows(
   const stamp = Date.now();
   return payload.floorLeases
     .map((r, idx): RentRollRowItem => {
-      let dep = Number(r.deposit_manwon ?? 0);
-      let rent = Number(r.rent_manwon ?? 0);
-      let mgmt = Number(r.mgmt_fee_manwon ?? 0);
-      if ((r.is_vacant || r.lease_state === "공실") && dep === 0 && rent === 0 && r.note) {
-        const depM = r.note.match(/보증금\s*([\d,.]+)/);
-        const rentM = r.note.match(/월세\s*([\d,.]+)/);
-        const mgmtM = r.note.match(/관리비\s*([\d,.]+)/);
-        if (depM) dep = parseFloat(depM[1].replace(/,/g, "")) || 0;
-        if (rentM) rent = parseFloat(rentM[1].replace(/,/g, "")) || 0;
-        if (mgmtM) mgmt = parseFloat(mgmtM[1].replace(/,/g, "")) || 0;
-      }
+      const isVacantOrOwner =
+        r.lease_state === "자가사용" || r.lease_state === "공실" || Boolean(r.is_vacant);
+      const dep = isVacantOrOwner ? 0 : Number(r.deposit_manwon ?? 0);
+      const rent = isVacantOrOwner ? 0 : Number(r.rent_manwon ?? 0);
+      const mgmt = isVacantOrOwner ? 0 : Number(r.mgmt_fee_manwon ?? 0);
       let tenantNameTrimmed = r.tenant_name?.trim() || undefined;
       let tenantTypeTrimmed = r.tenant_type?.trim() || undefined;
       if (

@@ -330,7 +330,7 @@ describe("Wave 3 Adversarial Challenge Suite", () => {
 
       // 4) 긍정적 안내 상태 확인
       expect(container.textContent).toContain("🎉 구독 신청이 접수되었습니다!");
-      expect(container.textContent).toContain("(이메일을 함께 남겨주시면 매주 발행 즉시 자동 발송됩니다)");
+      expect(container.textContent).toContain("발행 즉시 자동 발송됩니다)");
 
       // 5) NO_EMAIL_CONFIRM_CHANNEL 주황색(amber) 경고 박스 트랩이 없는지 확인
       expect(container.querySelector(".bg-amber-500")).toBeNull();
@@ -340,7 +340,7 @@ describe("Wave 3 Adversarial Challenge Suite", () => {
 
       // 6) 1-step 이메일 추가 입력 폼이 제공되는지 확인
       const followUpEmailInput = container.querySelector<HTMLInputElement>(
-        'input[type="email"][placeholder*="hong@example.com"]'
+        'input[type="email"][placeholder*="hong@company.co.kr"]'
       );
       expect(followUpEmailInput).not.toBeNull();
 

@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import type { RentRollRowItem, RentRollStatus } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout, parseManwonAmount } from "@/lib/rent-roll/tsv-parser";
 import { parseLeaseExpiryDate } from "@/lib/rent-roll/date-parser";
+import { PYEONG_TO_SQM_V15 } from "@/domain/building/mobile-im/rentroll-meta";
 
-function parseManwonCellValue(raw: string | number): number {
+export function parseManwonCellValue(raw: string | number): number {
   if (typeof raw === "number") {
     return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 10) / 10 : 0;
   }
@@ -24,6 +25,21 @@ function parseManwonCellValue(raw: string | number): number {
   const cleaned = trimmed.replace(/,/g, "").replace(/만\s*원?$/g, "").trim();
   const num = parseFloat(cleaned);
   return Number.isFinite(num) && num > 0 ? Math.round(num * 10) / 10 : 0;
+}
+
+export function parseAreaCellValue(raw: string | number): number | undefined {
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 100) / 100 : undefined;
+  }
+  const rawStr = String(raw ?? "").trim();
+  if (!rawStr) return undefined;
+  const isPyeong = /평|\bpy\b/i.test(rawStr);
+  const cleaned = rawStr.replace(/,/g, "").replace(/㎡|m²|m2|평|py|\s/gi, "").trim();
+  if (!cleaned) return undefined;
+  const num = parseFloat(cleaned);
+  if (!Number.isFinite(num) || num <= 0) return undefined;
+  const sqm = isPyeong ? num * PYEONG_TO_SQM_V15 : num;
+  return Math.round(sqm * 100) / 100;
 }
 
 export interface MobileRentRollCardsProps {
@@ -108,6 +124,9 @@ export function MobileRentRollCards({
 
   const currentFloor = rows[safeFloorIndex];
   const currentRowKey = currentFloor ? (currentFloor.id || String(safeFloorIndex)) : String(safeFloorIndex);
+  const isCurrentVacant = currentFloor?.status === "vacant";
+  const isCurrentOwner = currentFloor?.status === "owner";
+  const isDepositDisabled = isCurrentVacant || isCurrentOwner;
 
   return (
     <div className={`space-y-4 ${className}`} data-testid="mobile-rent-roll-cards">
@@ -120,7 +139,10 @@ export function MobileRentRollCards({
             <button
               key={row.id || idx}
               type="button"
-              onClick={() => setActiveFloorIndex(idx)}
+              onClick={() => {
+                setCellDraft(null);
+                setActiveFloorIndex(idx);
+              }}
               className={`min-h-[48px] px-4 py-2 rounded-xl text-base font-bold border transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 isActive
                   ? "bg-[#0F172A] text-white border-[#0F172A] shadow-sm"
@@ -229,22 +251,114 @@ export function MobileRentRollCards({
             </div>
           </div>
 
-          {/* Use / Tenant */}
+          {/* Tenant Name & Use */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor={`mobile-rr-tenant-${currentRowKey}`}
+                className="block text-sm font-semibold text-[#334155] mb-1"
+              >
+                임차인
+              </label>
+              <input
+                id={`mobile-rr-tenant-${currentRowKey}`}
+                type="text"
+                data-testid="mobile-rr-tenant-input"
+                disabled={isCurrentVacant}
+                value={isCurrentVacant ? "" : currentFloor.tenantName ?? ""}
+                placeholder={
+                  isCurrentVacant
+                    ? "공실 (입력 불필요)"
+                    : isCurrentOwner
+                    ? "자가사옥"
+                    : "예: 스타벅스, 고은약국"
+                }
+                onChange={(e) => handleUpdateRow(safeFloorIndex, { tenantName: e.target.value })}
+                className={`w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border outline-none ${
+                  isCurrentVacant
+                    ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
+                    : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
+                }`}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`mobile-rr-use-${currentRowKey}`}
+                className="block text-sm font-semibold text-[#334155] mb-1"
+              >
+                업종/용도
+              </label>
+              <input
+                id={`mobile-rr-use-${currentRowKey}`}
+                type="text"
+                data-testid="mobile-rr-use-input"
+                disabled={isCurrentVacant}
+                value={currentFloor.use}
+                placeholder={isCurrentVacant ? "공실 (입력 불필요)" : "예: 카페, 의원, 사무실"}
+                onChange={(e) => handleUpdateRow(safeFloorIndex, { use: e.target.value })}
+                className={`w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border outline-none ${
+                  isCurrentVacant
+                    ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
+                    : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Area (㎡) */}
           <div>
-            <label className="block text-sm font-semibold text-[#334155] mb-1">
-              업종 또는 임차인명
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label
+                htmlFor={`mobile-rr-area-${currentRowKey}`}
+                className="text-sm font-semibold text-[#334155]"
+              >
+                임대면적(㎡)
+              </label>
+              {(currentFloor.areaSqm ?? 0) > 0 && (
+                <span className="text-sm font-bold text-[#1D4ED8]">
+                  약 {((currentFloor.areaSqm ?? 0) / PYEONG_TO_SQM_V15).toFixed(1)}평
+                  {currentFloor.areaSqmIsProxy ? " · 전용기준" : ""}
+                </span>
+              )}
+            </div>
             <input
+              id={`mobile-rr-area-${currentRowKey}`}
               type="text"
-              disabled={currentFloor.status === "vacant"}
-              value={currentFloor.use}
-              placeholder={currentFloor.status === "vacant" ? "공실 (입력 불필요)" : "예: 카페, 의원, 사무실"}
-              onChange={(e) => handleUpdateRow(safeFloorIndex, { use: e.target.value })}
-              className={`w-full min-h-[48px] px-3 text-[max(16px,1rem)] rounded-xl border outline-none ${
-                currentFloor.status === "vacant"
-                  ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1]"
-                  : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
-              }`}
+              inputMode="decimal"
+              data-testid="mobile-rr-area-input"
+              value={
+                cellDraft?.key === `${currentRowKey}:areaSqm`
+                  ? cellDraft.value
+                  : currentFloor.areaSqm
+                  ? String(currentFloor.areaSqm)
+                  : ""
+              }
+              placeholder="숫자(㎡) 또는 '33평' 입력 시 자동 환산"
+              onFocus={() =>
+                setCellDraft({
+                  key: `${currentRowKey}:areaSqm`,
+                  value: currentFloor.areaSqm ? String(currentFloor.areaSqm) : "",
+                })
+              }
+              onChange={(e) => {
+                const raw = e.target.value;
+                setCellDraft({ key: `${currentRowKey}:areaSqm`, value: raw });
+                handleUpdateRow(safeFloorIndex, {
+                  areaSqm: parseAreaCellValue(raw),
+                  areaPyeong: undefined,
+                  areaSqmIsProxy: undefined,
+                });
+              }}
+              onBlur={(e) => {
+                setCellDraft(null);
+                handleUpdateRow(safeFloorIndex, {
+                  areaSqm: parseAreaCellValue(e.target.value),
+                  areaPyeong: undefined,
+                  areaSqmIsProxy: undefined,
+                });
+              }}
+              className="w-full min-h-[48px] px-3 text-[max(16px,1rem)] font-semibold text-right tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
             />
           </div>
 
@@ -252,22 +366,30 @@ export function MobileRentRollCards({
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-semibold text-[#334155]">
+                <label
+                  htmlFor={`mobile-rr-deposit-${currentRowKey}`}
+                  className="text-sm font-semibold text-[#334155]"
+                >
                   보증금 (만 원)
                 </label>
                 <span className="text-sm font-bold text-[#1D4ED8]">
-                  {formatKoreanCurrencyReadout(currentFloor.depositManwon)}
+                  {formatKoreanCurrencyReadout(isDepositDisabled ? 0 : currentFloor.depositManwon)}
                 </span>
               </div>
               <input
+                id={`mobile-rr-deposit-${currentRowKey}`}
                 type="text"
                 inputMode="decimal"
+                data-testid="mobile-rr-deposit-input"
+                disabled={isDepositDisabled}
                 value={
-                  cellDraft?.key === `${currentRowKey}:deposit`
+                  isDepositDisabled
+                    ? ""
+                    : cellDraft?.key === `${currentRowKey}:deposit`
                     ? cellDraft.value
                     : (currentFloor.depositManwon || "")
                 }
-                placeholder="0"
+                placeholder={isDepositDisabled ? "-" : "0"}
                 onFocus={() =>
                   setCellDraft({
                     key: `${currentRowKey}:deposit`,
@@ -287,7 +409,11 @@ export function MobileRentRollCards({
                     depositManwon: parseManwonCellValue(e.target.value),
                   });
                 }}
-                className="w-full min-h-[48px] px-3 text-[max(16px,1.125rem)] font-semibold text-right tabular-nums rounded-xl border border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none"
+                className={`w-full min-h-[48px] px-3 text-[max(16px,1.125rem)] font-semibold text-right tabular-nums rounded-xl border outline-none ${
+                  isDepositDisabled
+                    ? "bg-[#F1F5F9] text-[#94A3B8] border-[#CBD5E1] cursor-not-allowed"
+                    : "border-[#64748B] focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20"
+                }`}
               />
             </div>
 
@@ -426,7 +552,10 @@ export function MobileRentRollCards({
             <button
               type="button"
               disabled={safeFloorIndex === 0}
-              onClick={() => setActiveFloorIndex(Math.max(0, safeFloorIndex - 1))}
+              onClick={() => {
+                setCellDraft(null);
+                setActiveFloorIndex(Math.max(0, safeFloorIndex - 1));
+              }}
               className={`min-h-[48px] px-4 py-2 rounded-xl text-base font-semibold cursor-pointer ${
                 safeFloorIndex === 0
                   ? "text-[#94A3B8] cursor-not-allowed"
@@ -439,7 +568,10 @@ export function MobileRentRollCards({
             {safeFloorIndex < rows.length - 1 ? (
               <button
                 type="button"
-                onClick={() => setActiveFloorIndex(Math.min(rows.length - 1, safeFloorIndex + 1))}
+                onClick={() => {
+                  setCellDraft(null);
+                  setActiveFloorIndex(Math.min(rows.length - 1, safeFloorIndex + 1));
+                }}
                 className="min-h-[48px] px-5 py-2.5 rounded-xl text-base font-bold bg-[#1D4ED8] text-white hover:bg-[#1E40AF] cursor-pointer shadow-sm"
               >
                 다음 층 ›

@@ -328,6 +328,7 @@ export function NewsletterSendStepPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
+          data-testid="newsletter-step3-back-btn"
           onClick={onBackToContent}
           className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-800 hover:bg-slate-50"
         >
@@ -341,7 +342,7 @@ export function NewsletterSendStepPanel({
           onClick={onSendSelected}
           disabled={sending}
           aria-busy={sending}
-          className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-base font-extrabold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-60"
+          className="hidden xl:inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-base font-extrabold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-60"
         >
           {sending ? (
             <>

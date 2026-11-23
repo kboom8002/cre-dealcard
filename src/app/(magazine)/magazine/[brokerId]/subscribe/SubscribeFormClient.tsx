@@ -6,6 +6,7 @@ import {
   CheckCircle2, Bell, ArrowRight, Phone, User, Mail, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PhoneActionButton } from '@/components/common/PhoneActionButton';
 import {
   ConsentCheckboxes, EMPTY_CONSENT, PRIVACY_POLICY_HREF, allConsented, toConsentPayload, type ConsentState,
 } from '@/components/magazine/ConsentCheckboxes';
@@ -170,11 +171,6 @@ export function SubscribeFormClient({
     toast.success('확인용 이메일이 등록되었습니다. 이메일함을 확인해 주세요.');
   }
 
-  const cleanBrokerDigits = brokerPhone ? digitsOnly(brokerPhone) : '';
-  const phoneCallHref = cleanBrokerDigits
-    ? `tel:${cleanBrokerDigits}`
-    : `/magazine/${encodeURIComponent(brokerId)}`;
-
   if (result) {
     const pending = result.status === 'pending';
     const isNoEmailConfirm = result.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL';
@@ -236,7 +232,7 @@ export function SubscribeFormClient({
                   type="email"
                   inputMode="email"
                   autoComplete="email"
-                  placeholder="이메일 주소 (예: hong@example.com)"
+                  placeholder="이메일 주소 (예: hong@company.co.kr)"
                   value={followUpEmail}
                   onChange={e => setFollowUpEmail(e.target.value)}
                   required
@@ -257,12 +253,13 @@ export function SubscribeFormClient({
                 {loading ? '등록 중...' : '📧 이메일 입력하고 구독 완료하기'}
               </button>
             </form>
-            <a
-              href={phoneCallHref}
-              className="flex min-h-12 w-full items-center justify-center rounded-xl border border-amber-700 bg-white px-4 py-2.5 text-center text-label font-bold text-amber-950 transition hover:bg-amber-100"
-            >
-              📞 이메일이 없으신가요? 중개사에게 전화로 구독 신청하기
-            </a>
+            <PhoneActionButton
+              phone={brokerPhone}
+              variant="inline"
+              callLabel="📞 이메일이 없으신가요? 중개사에게 전화로 구독 신청하기"
+              callClassName="flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border border-amber-700 bg-white px-4 py-2.5 text-center text-label font-bold text-amber-950 transition hover:bg-amber-100"
+              copyClassName="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-amber-700 bg-amber-50 px-3.5 py-2 text-sm font-bold text-amber-950 transition hover:bg-amber-100 cursor-pointer whitespace-nowrap"
+            />
           </div>
         )}
 
@@ -332,7 +329,7 @@ export function SubscribeFormClient({
             autoComplete="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder="name@example.com"
+            placeholder="name@company.co.kr"
             className={INPUT_CLS}
           />
           <p className="text-sm font-medium text-amber-800 leading-snug break-keep">

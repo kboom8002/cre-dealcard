@@ -161,7 +161,7 @@ export function HeaderFooterEditor() {
             setLogoUploadError(null);
             setHeaderFooterConfig({ logoUrl: nextVal || undefined });
           }}
-          placeholder="https://example.com/logo.png"
+          placeholder="https://www.credeal.net/sample-logo.png"
           className="w-full min-h-[44px] px-3 py-2 text-sm font-medium bg-white border border-[#CBD5E1] rounded-lg text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]"
         />
         {headerFooterConfig.logoUrl && (

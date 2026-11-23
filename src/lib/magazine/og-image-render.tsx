@@ -92,13 +92,23 @@ function Keywords({ m, t, size }: { m: ImageModel; t: Translate; size: number })
   );
 }
 
-function BrokerFooter({ m, t, scale }: { m: ImageModel; t: Translate; scale: number }) {
+function BrokerFooter({
+  m,
+  t,
+  scale,
+  subSizeOverride,
+}: {
+  m: ImageModel;
+  t: Translate;
+  scale: number;
+  subSizeOverride?: number;
+}) {
   const name = m.brokerName ? t(m.brokerName) : '';
   const company = m.company ? t(m.company) : '';
   const initial = (name || company).charAt(0) || 'C';
   const phone = m.phone ?? '';
   const nameSize = Math.max(32, Math.round(34 * scale));
-  const subSize = Math.max(22, Math.round(24 * scale));
+  const subSize = subSizeOverride ?? Math.max(22, Math.round(24 * scale));
   return (
     <div
       style={{
@@ -291,6 +301,7 @@ export function NeutralImage({ width, height }: { width: number; height: number 
 
 export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; width: number; height: number }) {
   const headline = clip(t(m.headline, 'CRE Market Briefing'), 58);
+  const headlineFontSize = headline.length > 32 ? '50px' : '60px';
   return (
     <PageBg width={width} height={height}>
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, padding: '48px 60px' }}>
@@ -298,7 +309,7 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
         <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <BrandMark size={20} />
-            <span style={{ color: '#E2E8F0', fontSize: '24px', fontWeight: 800, letterSpacing: '1.5px' }}>
+            <span style={{ color: '#E2E8F0', fontSize: '30px', fontWeight: 800, letterSpacing: '1.5px' }}>
               {t('CRE 매거진', 'CRE MAGAZINE')}
             </span>
           </div>
@@ -314,17 +325,19 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
             alignItems: 'flex-start',
             paddingTop: '12px',
             paddingBottom: '12px',
+            overflow: 'hidden',
           }}
         >
           <div
             style={{
               display: 'flex',
               color: '#FFFFFF',
-              fontSize: '60px',
+              fontSize: headlineFontSize,
               fontWeight: 900,
               lineHeight: 1.28,
               letterSpacing: '-1px',
               wordBreak: 'keep-all',
+              overflow: 'hidden',
             }}
           >
             {headline}
@@ -332,7 +345,7 @@ export function OgImage({ m, t, width, height }: { m: ImageModel; t: Translate; 
         </div>
 
         {/* 3. 보낸사람 (중개사 · 사무소 · 연락처) */}
-        <BrokerFooter m={m} t={t} scale={1.08} />
+        <BrokerFooter m={m} t={t} scale={1.08} subSizeOverride={32} />
       </div>
     </PageBg>
   );

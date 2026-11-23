@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 import { formatKrPhoneInput } from "@/lib/format/phone";
-import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 
 interface Props {
   isOpen: boolean;
@@ -35,16 +34,10 @@ export function ContactGateModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [phoneCopied, setPhoneCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const cleanBrokerPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, "") : "";
-  const hasValidBrokerPhone = cleanBrokerPhone.length >= 8;
-  const formattedBrokerPhone = hasValidBrokerPhone
-    ? formatKrPhoneInput(cleanBrokerPhone) || (brokerPhone ?? "").trim()
-    : "";
   const showConfirmationState = isSubmitted || Boolean(initialConfirmed);
   void onSuccess;
 
@@ -240,45 +233,16 @@ export function ContactGateModal({
               ) : null}
             </div>
 
-            {hasValidBrokerPhone && (
-              <div
-                data-testid="contact-gate-broker-phone-card"
-                className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-slate-700">담당 중개사 직통 번호</span>
-                  <span className="text-base font-extrabold text-slate-950 tabular-nums">
-                    {formattedBrokerPhone}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    data-testid="contact-gate-copy-phone-btn"
-                    onClick={async () => {
-                      const ok = await copyText(formattedBrokerPhone);
-                      if (ok) {
-                        setPhoneCopied(true);
-                        toast.success(`전화번호(${formattedBrokerPhone})를 복사했습니다.`);
-                        setTimeout(() => setPhoneCopied(false), 2000);
-                      } else {
-                        toast.error(COPY_FAILED_MESSAGE);
-                      }
-                    }}
-                    className="min-h-[48px] py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    {phoneCopied ? "✓ 복사됨" : "📞 전화번호 복사"}
-                  </button>
-                  <a
-                    href={`tel:${cleanBrokerPhone}`}
-                    data-testid="contact-gate-call-btn"
-                    className="min-h-[48px] py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    📞 전화 연결
-                  </a>
-                </div>
-              </div>
-            )}
+            <PhoneActionButton
+              phone={brokerPhone}
+              variant="card"
+              titleLabel="담당 중개사 직통 번호"
+              copyLabel="📞 전화번호 복사"
+              callLabel="📞 전화 연결"
+              cardTestId="contact-gate-broker-phone-card"
+              copyTestId="contact-gate-copy-phone-btn"
+              callTestId="contact-gate-call-btn"
+            />
 
             <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
               <button

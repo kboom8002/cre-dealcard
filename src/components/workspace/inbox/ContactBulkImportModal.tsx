@@ -455,7 +455,7 @@ export function ContactBulkImportModal({
                       setErrorMessage('');
                     }}
                     placeholder={
-                      '예시:\n홍길동 010-1234-5678 hong@example.com 매수 VIP\n김대표\t010-2222-3333\tkim@example.com\t매도\t수신동의'
+                      '예시:\n홍길동 010-1234-5678 hong@company.co.kr 매수 VIP\n김대표\t010-2222-3333\tkim@company.co.kr\t매도\t수신동의'
                     }
                     className="min-h-[160px] w-full rounded-xl border border-slate-300 bg-white p-4 text-[16px] leading-relaxed text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600"
                   />

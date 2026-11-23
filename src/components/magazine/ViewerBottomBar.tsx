@@ -27,6 +27,7 @@ import {
 } from "@/lib/magazine/view-helpers";
 import { clipDescription, type KakaoLike } from "@/lib/magazine/kakao-share";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 
 function isExplicitKakaoChannelUrl(raw: unknown): boolean {
   if (typeof raw !== "string") return false;
@@ -211,16 +212,34 @@ export function ViewerBottomBar({
         className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl print:hidden"
       >
         <div className="mx-auto flex max-w-lg items-center gap-1.5">
-          {primary && (
-            <a
-              href={primary.href}
-              onClick={() => onTrack?.(primary.target)}
-              className="inline-flex h-12 min-h-12 flex-[1.25] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-700 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-800 active:scale-[0.99]"
-            >
-              <ActionIcon kind={primary.kind} />
-              <span>{resolveActionDisplayLabel(primary, kakaoUrl)}</span>
-            </a>
-          )}
+          {primary &&
+            (primary.kind === "call" ? (
+              <PhoneActionButton
+                phone={phone}
+                variant="compact"
+                copyLabel="복사"
+                showFormattedNumber={true}
+                onCallClick={() => onTrack?.(primary.target)}
+                className="flex flex-[1.25] items-center gap-1.5 min-w-0"
+                callClassName="inline-flex h-12 min-h-12 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-700 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-800 active:scale-[0.99]"
+                copyClassName="hidden sm:inline-flex h-12 min-h-[44px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50 cursor-pointer"
+                renderCallContent={
+                  <>
+                    <ActionIcon kind={primary.kind} />
+                    <span>{resolveActionDisplayLabel(primary, kakaoUrl)}</span>
+                  </>
+                }
+              />
+            ) : (
+              <a
+                href={primary.href}
+                onClick={() => onTrack?.(primary.target)}
+                className="inline-flex h-12 min-h-12 flex-[1.25] items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-700 px-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-800 active:scale-[0.99]"
+              >
+                <ActionIcon kind={primary.kind} />
+                <span>{resolveActionDisplayLabel(primary, kakaoUrl)}</span>
+              </a>
+            ))}
           {rest.map((a) =>
             a.kind === "share" ? (
               <button

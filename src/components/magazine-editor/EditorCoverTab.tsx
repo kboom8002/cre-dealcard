@@ -282,7 +282,7 @@ export function EditorCoverTab({
               type="url"
               value={urlDraft}
               onChange={(e) => setUrlDraft(e.target.value)}
-              placeholder="https://example.com/cover.jpg"
+              placeholder="https://www.credeal.net/sample-cover.jpg"
               className="flex-1 min-w-[200px] min-h-[44px] bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-[16px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/40"
             />
             <button

@@ -204,10 +204,10 @@ describe('U-F1-07 (R-04, R-05, C-09): OG 이미지 실명 일치 및 60대 가�
     expect(html).toContain('성수빌딩중개법인');
     expect(html).toContain('02-555-7777');
     expect(html).toContain('CRE 매거진');
-    // 헤드라인 60px (>= 52px), 중개사 이름 37px (>= 32px), 배지 24px (>= 24px)
+    // 헤드라인 60px (>= 52px), 중개사 이름 37px (>= 32px), 배지 30px (>= 24px)
     expect(html).toContain('font-size:60px');
     expect(html).toContain('font-size:37px');
-    expect(html).toContain('font-size:24px');
+    expect(html).toContain('font-size:30px');
   });
 });
 

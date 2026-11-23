@@ -2402,7 +2402,10 @@ export function ImEditorPanels({
           })()}
         </div>
 
-        <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div
+          data-testid="im-step4-footer-cta-bar"
+          className="hidden xl:flex p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
           <div className="space-y-0.5">
             <p className="text-base font-extrabold text-[#0F172A] break-keep">
               입력을 마쳤다면 바로 IM을 만들어 보세요

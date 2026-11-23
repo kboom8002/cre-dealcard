@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useState } from 'react';
+import { PhoneActionButton } from '@/components/common/PhoneActionButton';
 import {
   ConsentCheckboxes, EMPTY_CONSENT, PRIVACY_POLICY_HREF, allConsented, toConsentPayload, type ConsentState,
 } from '@/components/magazine/ConsentCheckboxes';
@@ -213,11 +214,6 @@ export function SubscribeCard({
     }
   };
 
-  const cleanBrokerDigits = brokerPhone ? digitsOnly(brokerPhone) : '';
-  const phoneCallHref = cleanBrokerDigits
-    ? `tel:${cleanBrokerDigits}`
-    : `/magazine/${encodeURIComponent(brokerId)}/subscribe`;
-
   const inputClass =
     'w-full min-h-[48px] bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-[16px] text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-colors';
 
@@ -357,7 +353,7 @@ export function SubscribeCard({
                   type="email"
                   inputMode="email"
                   autoComplete="email"
-                  placeholder="이메일 주소 (예: hong@example.com)"
+                  placeholder="이메일 주소 (예: hong@company.co.kr)"
                   value={followUpEmail}
                   onChange={(e) => setFollowUpEmail(e.target.value)}
                   required
@@ -652,7 +648,7 @@ export function SubscribeCard({
                 type="email"
                 inputMode="email"
                 autoComplete="email"
-                placeholder="이메일 주소 (예: hong@example.com)"
+                placeholder="이메일 주소 (예: hong@company.co.kr)"
                 value={followUpEmail}
                 onChange={(e) => setFollowUpEmail(e.target.value)}
                 required
@@ -671,12 +667,12 @@ export function SubscribeCard({
               📧 이메일 함께 등록하고 자동 발송 받기
             </button>
           </form>
-          <a
-            href={phoneCallHref}
-            className="flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-[15px] font-semibold text-slate-900 transition hover:bg-slate-50"
-          >
-            📞 중개사에게 전화로 직접 문의하기
-          </a>
+          <PhoneActionButton
+            phone={brokerPhone}
+            variant="inline"
+            callLabel="📞 중개사에게 전화로 직접 문의하기"
+            callClassName="flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-[15px] font-semibold text-slate-900 transition hover:bg-slate-50"
+          />
         </div>
       ) : status === 'success' ? (
         <div role="status" className="bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-xl p-4 text-center text-[16px] font-semibold leading-relaxed space-y-2">

@@ -162,7 +162,7 @@ describe('Broker Showcase Wave P0 — Newsletter & OG Remediation', () => {
     expect(html).toContain('CRE 매거진');
     expect(html).toContain('font-size:60px');
     expect(html).toContain('font-size:37px');
-    expect(html).toContain('font-size:24px');
+    expect(html).toContain('font-size:30px');
   });
 
   it('displays reader-facing OG title and description in ShowcaseDeliverableViewer instead of internal QA labels', async () => {

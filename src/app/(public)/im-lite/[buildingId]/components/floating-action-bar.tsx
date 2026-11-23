@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 
 /**
  * 카카오톡·라인·인스타그램·페이스북 등 인앱 WebView 감지 (순수 함수)
@@ -849,14 +850,14 @@ export function FloatingActionBar({
         ) : (
           /* ───────── 일반 매수자 뷰 (Buyer View) ───────── */
           <>
-            {brokerPhone && (
-              <a
-                href={`tel:${brokerPhone}`}
-                className="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 bg-[#065F46] hover:bg-[#047857] text-white text-sm font-bold rounded-xl transition-colors shadow-xs"
-              >
-                📞 직통 전화
-              </a>
-            )}
+            <PhoneActionButton
+              phone={brokerPhone}
+              variant="compact"
+              callLabel="📞 직통 전화"
+              className="flex-1 flex items-center gap-1.5 min-w-0"
+              callClassName="flex-1 flex items-center justify-center gap-1.5 min-h-[48px] py-3 px-3 bg-[#065F46] hover:bg-[#047857] text-white text-sm font-bold rounded-xl transition-colors shadow-xs whitespace-nowrap"
+              copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1.5 px-3 py-3 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] text-sm font-bold rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+            />
             {validKakaoChannelUrl ? (
               <a
                 href={validKakaoChannelUrl}

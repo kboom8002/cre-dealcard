@@ -5,12 +5,17 @@ import type { RentRollRowItem, RentRollStatus } from "@/lib/rent-roll/tsv-parser
 import {
   parseTsvRentRoll,
   formatKoreanCurrencyReadout,
-  parseManwonAmount,
   normalizeFloorName,
 } from "@/lib/rent-roll/tsv-parser";
 import { parseLeaseExpiryDate } from "@/lib/rent-roll/date-parser";
 import { PYEONG_TO_SQM_V15 } from "@/domain/building/mobile-im/rentroll-meta";
-import { MobileRentRollCards } from "./MobileRentRollCards";
+import {
+  MobileRentRollCards,
+  parseAreaCellValue,
+  parseManwonCellValue,
+} from "./MobileRentRollCards";
+
+export { parseAreaCellValue };
 
 export interface BuildingRegisterFloorItem {
   flrGb?: string;
@@ -30,42 +35,6 @@ export interface RentRollGridProps {
   askingPriceManwon?: number;
   extraToolbarAction?: React.ReactNode;
   className?: string;
-}
-
-function parseManwonCellValue(raw: string | number): number {
-  if (typeof raw === "number") {
-    return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 10) / 10 : 0;
-  }
-  const trimmed = String(raw ?? "").trim();
-  if (!trimmed) return 0;
-
-  if (trimmed.includes("억")) {
-    return parseManwonAmount(trimmed).manwon;
-  }
-  if (trimmed.includes("원") && !trimmed.includes("만")) {
-    const digits = trimmed.replace(/[^0-9.]/g, "");
-    const krw = parseFloat(digits);
-    return Number.isFinite(krw) && krw > 0 ? Math.round((krw / 10000) * 10) / 10 : 0;
-  }
-
-  const cleaned = trimmed.replace(/,/g, "").replace(/만\s*원?$/g, "").trim();
-  const num = parseFloat(cleaned);
-  return Number.isFinite(num) && num > 0 ? Math.round(num * 10) / 10 : 0;
-}
-
-export function parseAreaCellValue(raw: string | number): number | undefined {
-  if (typeof raw === "number") {
-    return Number.isFinite(raw) && raw > 0 ? Math.round(raw * 100) / 100 : undefined;
-  }
-  const rawStr = String(raw ?? "").trim();
-  if (!rawStr) return undefined;
-  const isPyeong = /평|\bpy\b/i.test(rawStr);
-  const cleaned = rawStr.replace(/,/g, "").replace(/㎡|m²|m2|평|py|\s/gi, "").trim();
-  if (!cleaned) return undefined;
-  const num = parseFloat(cleaned);
-  if (!Number.isFinite(num) || num <= 0) return undefined;
-  const sqm = isPyeong ? num * PYEONG_TO_SQM_V15 : num;
-  return Math.round(sqm * 100) / 100;
 }
 
 export function hasExistingRentRollData(rows?: RentRollRowItem[]): boolean {
@@ -1095,12 +1064,15 @@ export function RentRollGrid({
                         data-rr-cell={`${idx}:depositManwon`}
                         data-rr-row={idx}
                         data-rr-col="depositManwon"
+                        disabled={isVacant || isOwner}
                         value={
-                          cellDraft?.key === `${rowKey}:depositManwon`
+                          isVacant || isOwner
+                            ? ""
+                            : cellDraft?.key === `${rowKey}:depositManwon`
                             ? cellDraft.value
                             : row.depositManwon || ""
                         }
-                        placeholder="0"
+                        placeholder={isVacant || isOwner ? "-" : "0"}
                         onFocus={() => {
                           setActiveCell({ rowIdx: idx, colKey: "depositManwon" });
                           setCellDraft({
@@ -1120,7 +1092,11 @@ export function RentRollGrid({
                           });
                         }}
                         onKeyDown={(e) => handleKeyDown(e, idx, "depositManwon")}
-                        className="w-full h-9 rounded-md border border-transparent hover:border-slate-300 focus:border-[#1D4ED8] focus:bg-white bg-transparent px-1.5 text-right font-extrabold text-sm text-[#0F172A] tabular-nums outline-none"
+                        className={`w-full h-9 rounded-md border border-transparent px-1.5 text-right font-extrabold text-sm tabular-nums outline-none ${
+                          isVacant || isOwner
+                            ? "bg-transparent text-[#94A3B8] cursor-not-allowed"
+                            : "hover:border-slate-300 focus:border-[#1D4ED8] focus:bg-white bg-transparent text-[#0F172A]"
+                        }`}
                       />
                     </td>
 
