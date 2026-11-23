@@ -10,6 +10,7 @@ import {
   toSafeEpochMs,
   type InboxCrmClientRole,
 } from './inbox-helpers';
+import { canonicalKrPhoneDigits } from './upsert-broker-client';
 
 export interface ThreadBuildContext {
   threads: any[];
@@ -207,10 +208,12 @@ export function appendGateAndInquiryThreads(
     const lastActivityAt =
       threadCallNotes[0]?.createdAt || decisionOverride?.createdAt || gr.created_at || '';
 
-    const phoneDigits = normalizeKrPhoneDigits(gr.requesterPhone || gr.requester_phone || '');
+    const phoneDigits = canonicalKrPhoneDigits(gr.requesterPhone || gr.requester_phone || '');
+    const emailNorm = normalizeClientEmail(gr.requester_email || gr.requesterEmail) || '';
     const nlDecision =
       newsletterStateByKey.get(tid) ||
-      (phoneDigits ? newsletterStateByKey.get(`tel:${phoneDigits}`) : undefined);
+      (phoneDigits ? newsletterStateByKey.get(`tel:${phoneDigits}`) : undefined) ||
+      (emailNorm ? newsletterStateByKey.get(`email:${emailNorm}`) : undefined);
     const corrMsg =
       (bIdStr && inboxState.correctionNotices?.[bIdStr]?.message) ||
       inboxState.correctionNotices?.[tid]?.message ||
@@ -224,14 +227,88 @@ export function appendGateAndInquiryThreads(
           : `${rawBuildingTitle} (삭제된 매물)`
       : rawBuildingTitle || '매물';
 
+    const resolvedName = gr.requesterName || gr.requester_name || '이름 미입력 고객';
+    const resolvedPhone = gr.requesterPhone || gr.requester_phone || '';
+    const resolvedCompany = gr.requesterCompany || gr.requester_company || '';
+
+    const duplicateLead = threads.find((t) => {
+      if (String(t.id || '').startsWith('view_')) return false;
+      const tBld = String(t.buildingId || '');
+      const sameScopeBuilding = !bIdStr || !tBld || tBld === bIdStr;
+      if (!sameScopeBuilding) return false;
+      const tPhone = canonicalKrPhoneDigits(t.clientPhone || '');
+      if (phoneDigits.length >= 9 && tPhone === phoneDigits) return true;
+      const tEmail = normalizeClientEmail(t.clientEmail || '');
+      return Boolean(emailNorm && tEmail === emailNorm);
+    });
+
+    if (duplicateLead) {
+      if (
+        resolvedName &&
+        resolvedName !== '이름 미입력 고객' &&
+        (!duplicateLead.clientName || duplicateLead.clientName === '이름 미입력 고객')
+      ) {
+        duplicateLead.clientName = resolvedName;
+      }
+      if (resolvedPhone && !canonicalKrPhoneDigits(duplicateLead.clientPhone)) {
+        duplicateLead.clientPhone = resolvedPhone;
+      }
+      if (emailNorm && !normalizeClientEmail(duplicateLead.clientEmail)) {
+        duplicateLead.clientEmail = emailNorm;
+      }
+      if (resolvedCompany && !duplicateLead.clientCompany) {
+        duplicateLead.clientCompany = resolvedCompany;
+        if (!duplicateLead.requesterCompany) duplicateLead.requesterCompany = resolvedCompany;
+      }
+      if (!duplicateLead.buildingId && bIdStr) {
+        duplicateLead.buildingId = bIdStr;
+        if (resolvedBuildingTitle && resolvedBuildingTitle !== '매물') {
+          duplicateLead.buildingTitle = resolvedBuildingTitle;
+        }
+      }
+      if (isApproved && !duplicateLead.shareToken && resolvedShareToken) {
+        duplicateLead.shareToken = resolvedShareToken;
+        duplicateLead.shareUrl = resolvedShareUrl;
+        duplicateLead.gateStatus = 'approved';
+        if (!isRevoked) duplicateLead.status = 'active';
+      } else if (isPending && duplicateLead.gateStatus === 'none') {
+        duplicateLead.gateStatus = 'pending';
+        if (duplicateLead.status !== 'revoked') duplicateLead.status = 'pending_gate';
+        duplicateLead.isRead = false;
+      }
+      if (nlDecision && !duplicateLead.newsletterSubscribed) {
+        duplicateLead.newsletterSubscribed = Boolean(nlDecision.subscribed);
+        duplicateLead.newsletterStatus = nlDecision.subscribed ? 'active' : 'unsubscribed';
+      }
+      const existingEvents = Array.isArray(duplicateLead.events) ? duplicateLead.events : [];
+      for (const ev of threadEvents) {
+        if (!existingEvents.some((e: any) => e?.id === ev.id)) {
+          existingEvents.push(ev);
+        }
+      }
+      duplicateLead.events = existingEvents;
+      duplicateLead.openCount = Math.max(Number(duplicateLead.openCount ?? 0), viewStats.openCount);
+      duplicateLead.dwellSeconds = Math.max(Number(duplicateLead.dwellSeconds ?? 0), viewStats.dwellSeconds);
+      if (
+        lastActivityAt &&
+        toSafeEpochMs(lastActivityAt) > toSafeEpochMs(duplicateLead.lastActivityAt)
+      ) {
+        duplicateLead.lastActivityAt = lastActivityAt;
+        duplicateLead.updatedAt = formatRelativeKo(lastActivityAt) || duplicateLead.updatedAt;
+        duplicateLead.latestEvent = latestEventText;
+      }
+      continue;
+    }
+
     threads.push({
       id: tid,
-      clientName: gr.requesterName || gr.requester_name || '이름 미입력 고객',
-      clientPhone: gr.requesterPhone || gr.requester_phone || '',
-      clientEmail: normalizeClientEmail(gr.requester_email || gr.requesterEmail) || '',
+      clientName: resolvedName,
+      clientPhone: resolvedPhone,
+      clientEmail: emailNorm,
       transactionalBasis: (gr.type === 'gate_request' ? 'im_request' : 'property_inquiry') as InboxTransactionalBasis,
       hasTransactionalBasis: true,
-      requesterCompany: gr.requesterCompany || gr.requester_company || '',
+      clientCompany: resolvedCompany,
+      requesterCompany: resolvedCompany,
       cleanMessage: baseRequestMsg,
       clientGrade: '일반' as const,
       isVip: false,
@@ -270,6 +347,11 @@ export function appendGateAndInquiryThreads(
       freeMemo: '',
       focusedSections: viewStats.focusedSections,
       newsletterSubscribed: Boolean(nlDecision?.subscribed),
+      newsletterStatus: nlDecision
+        ? nlDecision.subscribed
+          ? ('active' as const)
+          : ('unsubscribed' as const)
+        : ('none' as const),
       ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
       ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       events: threadEvents,

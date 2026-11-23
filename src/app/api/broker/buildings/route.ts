@@ -13,6 +13,10 @@ import {
   listWorkspaceItemsForOwner,
   type WorkspaceItemRecord,
 } from "@/lib/workspace/workspace-repository";
+import {
+  resolveCanonicalAssetUse,
+  resolveCanonicalDealSummary,
+} from "@/lib/deal-card/canonical-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +95,50 @@ function extractPhotoFromImItem(imItem?: Record<string, unknown> | null): string
     if (isRealPhotoUrl(resolved)) return resolved;
   }
   return null;
+}
+
+function computeBuildingCardMetrics(input: {
+  posture?: unknown;
+  region?: unknown;
+  mainPurpose?: unknown;
+  assetType?: unknown;
+  existingUse?: unknown;
+  explicitAreaLabel?: unknown;
+  gfaSqm?: unknown;
+  landSqm?: unknown;
+  gfaPyeong?: unknown;
+  landPyeong?: unknown;
+  fallbackUse?: string;
+}) {
+  const postureStr =
+    typeof input.posture === "string" && input.posture.trim()
+      ? input.posture.trim()
+      : "core_income";
+  const summary = resolveCanonicalDealSummary({
+    posture: postureStr,
+    region: input.region,
+    mainPurpose: input.mainPurpose,
+    assetType: input.assetType,
+    existingUse: input.existingUse,
+    explicitAreaLabel: input.explicitAreaLabel,
+    gfaSqm: input.gfaSqm,
+    landSqm: input.landSqm,
+    gfaPyeong: input.gfaPyeong,
+    landPyeong: input.landPyeong,
+  });
+  const resolvedUse = resolveCanonicalAssetUse({
+    mainPurpose: input.mainPurpose,
+    assetType: input.assetType,
+    existingUse: input.existingUse,
+    fallbackUse: input.fallbackUse || "근린생활시설",
+  });
+  return {
+    posture: postureStr,
+    gross_floor_area_pyeong: summary.gfaPyeong,
+    land_area_pyeong: summary.landPyeong,
+    area_label: summary.areaLabel || null,
+    resolved_use: resolvedUse,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -291,7 +339,7 @@ export async function GET(request: NextRequest) {
   const allQuickRecords = listAllQuickImRecords();
   const seenIds = new Set<string>();
 
-  const buildings = rows.map((b) => {
+  const buildings: Array<Record<string, unknown>> = rows.map((b) => {
     const id = String(b.id);
     seenIds.add(id);
 
@@ -302,6 +350,7 @@ export async function GET(request: NextRequest) {
     const assetIdentity = (layers.asset_identity as Record<string, unknown>) || {};
     const locationLayer = (layers.location as Record<string, unknown>) || {};
     const bldReg = (layers.building_register as Record<string, unknown>) || {};
+    const physicalLayer = (layers.physical as Record<string, unknown>) || {};
     const metrics = (layers.metrics as Record<string, unknown>) || {};
 
     const customIm = customImByBuildingId.get(id)?.item;
@@ -322,7 +371,33 @@ export async function GET(request: NextRequest) {
         "서울 주요 권역"
     ).trim();
     const region = String(b.area_signal || customCard4?.region || rawAddr || "서울 주요 권역").trim();
-    const use = String(customCard4?.use || b.asset_type || "근린생활시설").trim();
+    const cardMetrics = computeBuildingCardMetrics({
+      posture:
+        customIm?.investmentPosture ||
+        customCard4?.posture ||
+        ssotSummary.investment_posture ||
+        dealTerms.investment_posture ||
+        "core_income",
+      region,
+      mainPurpose: ssotSummary.main_usage || customIm?.mainPurpose,
+      assetType: b.asset_type || ssotSummary.asset_type,
+      existingUse: customCard4?.use,
+      explicitAreaLabel: customCard4?.area ?? ssotSummary.size_signal,
+      gfaSqm:
+        customIm?.gfaSqm ??
+        ssotSummary.total_gross_area_sqm ??
+        physicalLayer.total_floor_area_sqm ??
+        bldReg.gross_floor_area_sqm ??
+        bldReg.total_floor_area_sqm,
+      landSqm:
+        customIm?.landAreaSqm ??
+        ssotSummary.land_area_sqm ??
+        physicalLayer.land_area_sqm ??
+        bldReg.land_area_sqm,
+      gfaPyeong: customCard4?.gfaPyung,
+      landPyeong: customCard4?.landAreaPyung,
+    });
+    const use = cardMetrics.resolved_use;
 
     const explicitTitle = String(
       customIm?.title ||
@@ -384,6 +459,10 @@ export async function GET(request: NextRequest) {
       dong: region,
       area_signal: region,
       asset_type: use,
+      gross_floor_area_pyeong: cardMetrics.gross_floor_area_pyeong,
+      land_area_pyeong: cardMetrics.land_area_pyeong,
+      area_label: cardMetrics.area_label,
+      posture: cardMetrics.posture,
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(
         salePriceWon,
@@ -427,28 +506,58 @@ export async function GET(request: NextRequest) {
   }
 
   for (const b of buildings) {
-    if (!b.has_im && wsImIds.has(b.id)) b.has_im = true;
-    if (!b.has_dealcard && wsDealCardIds.has(b.id)) b.has_dealcard = true;
+    const bId = String(b.id || "");
+    if (!b.has_im && wsImIds.has(bId)) b.has_im = true;
+    if (!b.has_dealcard && wsDealCardIds.has(bId)) b.has_dealcard = true;
+  }
+
+  const wsAliasToCanonical = new Map<string, string>();
+  for (const ws of wsItems) {
+    if (ws.deletedAt || ws.status === "archived") continue;
+    const primary = String(ws.buildingId || ws.legacyId || ws.id).trim();
+    if (primary && ws.legacyId) {
+      wsAliasToCanonical.set(ws.legacyId, primary);
+    }
   }
 
   for (const ws of wsItems) {
     if (ws.deletedAt || ws.status === "archived") continue;
-    const wsKey = String(ws.buildingId || ws.legacyId || ws.id).trim();
-    if (!wsKey || deletedIds.has(wsKey) || deletedIds.has(ws.id)) continue;
+    const rawWsKey = String(ws.buildingId || ws.legacyId || ws.id).trim();
+    const wsKey = wsAliasToCanonical.get(rawWsKey) || rawWsKey;
+    if (!wsKey || deletedIds.has(wsKey) || deletedIds.has(rawWsKey) || deletedIds.has(ws.id)) continue;
 
     const draftObj = (ws.draftPayload ?? {}) as Record<string, unknown>;
     const snapObj = (ws.publishedSnapshot ?? {}) as Record<string, unknown>;
     const wsPublished = ws.status === "published" || ws.status === "sent";
     const wsStatus = wsPublished ? "published" : ws.status === "revoked" ? "revoked" : "draft";
 
-    const existingIdx = buildings.findIndex((b) => b.id === wsKey || b.id === ws.id);
+    const existingIdx = buildings.findIndex(
+      (b) =>
+        b.id === wsKey ||
+        b.id === rawWsKey ||
+        b.id === ws.id ||
+        (ws.buildingId && b.id === ws.buildingId) ||
+        (ws.legacyId && (b.id === ws.legacyId || (b as Record<string, unknown>).legacy_id === ws.legacyId))
+    );
     if (existingIdx >= 0) {
       const existing = buildings[existingIdx];
-      if (ws.title && ws.title.trim()) {
+      const isStaleLegacyTwin = Boolean(
+        ws.buildingId && !isUuid(ws.buildingId) && isUuid(existing.id)
+      );
+      const wsIsNewer =
+        !existing.updated_at ||
+        (Boolean(ws.updatedAt) && String(ws.updatedAt) >= String(existing.updated_at));
+      if (ws.legacyId) {
+        (existing as Record<string, unknown>).legacy_id = ws.legacyId;
+      }
+      if (ws.buildingId && isUuid(ws.buildingId) && existing.id !== ws.buildingId) {
+        existing.id = ws.buildingId;
+      }
+      if (!isStaleLegacyTwin && wsIsNewer && ws.title && ws.title.trim()) {
         existing.title = ws.title.trim();
         existing.building_name = ws.title.trim();
       }
-      if (ws.priceBand && !existing.price_band) {
+      if (ws.priceBand && (!existing.price_band || (!isStaleLegacyTwin && wsIsNewer))) {
         existing.price_band = ws.priceBand;
       }
       if (ws.kind === "im") existing.has_im = true;
@@ -456,21 +565,102 @@ export async function GET(request: NextRequest) {
       if (wsPublished) {
         existing.status = "published";
       }
-      if (ws.updatedAt) {
+      if (!isStaleLegacyTwin && wsIsNewer && ws.updatedAt) {
         existing.updated_at = ws.updatedAt;
+      }
+      if (ws.kind === "dealcard") {
+        const c4 = ((draftObj.card4 || snapObj.card4) ?? {}) as Record<string, unknown>;
+        const dcMetrics = computeBuildingCardMetrics({
+          posture: existing.posture || c4.posture,
+          region: c4.region || existing.area_signal,
+          existingUse: c4.use || existing.asset_type,
+          explicitAreaLabel: c4.area || existing.area_label,
+          gfaPyeong: c4.gfaPyung ?? existing.gross_floor_area_pyeong,
+          landPyeong: c4.landAreaPyung ?? existing.land_area_pyeong,
+        });
+        if (!existing.area_label && dcMetrics.area_label) existing.area_label = dcMetrics.area_label;
+        if (!existing.gross_floor_area_pyeong && dcMetrics.gross_floor_area_pyeong) {
+          existing.gross_floor_area_pyeong = dcMetrics.gross_floor_area_pyeong;
+        }
+        if (!existing.land_area_pyeong && dcMetrics.land_area_pyeong) {
+          existing.land_area_pyeong = dcMetrics.land_area_pyeong;
+        }
+        if (c4.posture && (!existing.posture || (!isStaleLegacyTwin && wsIsNewer))) {
+          existing.posture = String(c4.posture);
+        }
+      } else {
+        const imPayload = ((draftObj.imItem && typeof draftObj.imItem === "object"
+          ? draftObj.imItem
+          : draftObj) || snapObj) as Record<string, unknown>;
+        const imSsot = (imPayload.ssot_summary && typeof imPayload.ssot_summary === "object"
+          ? (imPayload.ssot_summary as Record<string, unknown>)
+          : {}) || {};
+        const imCard4 = (imPayload.card4 && typeof imPayload.card4 === "object"
+          ? (imPayload.card4 as Record<string, unknown>)
+          : {}) || {};
+        const imMetrics = computeBuildingCardMetrics({
+          posture:
+            imPayload.investmentPosture ||
+            imPayload.posture ||
+            imSsot.investment_posture ||
+            imCard4.posture ||
+            existing.posture,
+          region: existing.area_signal,
+          mainPurpose: imPayload.mainPurpose || imSsot.main_usage,
+          assetType: imPayload.assetType || imSsot.asset_type || existing.asset_type,
+          existingUse: imCard4.use,
+          explicitAreaLabel: imCard4.area || imSsot.size_signal || existing.area_label,
+          gfaSqm: imPayload.gfaSqm ?? imSsot.total_gross_area_sqm,
+          landSqm: imPayload.landAreaSqm ?? imSsot.land_area_sqm,
+          gfaPyeong: imCard4.gfaPyung ?? existing.gross_floor_area_pyeong,
+          landPyeong: imCard4.landAreaPyung ?? existing.land_area_pyeong,
+        });
+        if (imMetrics.gross_floor_area_pyeong) {
+          existing.gross_floor_area_pyeong = imMetrics.gross_floor_area_pyeong;
+        }
+        if (imMetrics.land_area_pyeong) {
+          existing.land_area_pyeong = imMetrics.land_area_pyeong;
+        }
+        if (imMetrics.area_label) {
+          existing.area_label = imMetrics.area_label;
+        }
+        existing.posture = imMetrics.posture;
+        existing.asset_type = imMetrics.resolved_use;
       }
       seenIds.add(wsKey);
       seenIds.add(ws.id);
+      if (ws.buildingId) seenIds.add(ws.buildingId);
+      if (ws.legacyId) seenIds.add(ws.legacyId);
+      continue;
+    }
+
+    if (
+      seenIds.has(wsKey) ||
+      seenIds.has(rawWsKey) ||
+      (ws.buildingId && seenIds.has(ws.buildingId)) ||
+      (ws.legacyId && seenIds.has(ws.legacyId))
+    ) {
       continue;
     }
 
     seenIds.add(wsKey);
+    seenIds.add(rawWsKey);
     seenIds.add(ws.id);
+    if (ws.buildingId) seenIds.add(ws.buildingId);
+    if (ws.legacyId) seenIds.add(ws.legacyId);
 
     if (ws.kind === "dealcard") {
       const c4 = ((draftObj.card4 || snapObj.card4) ?? {}) as Record<string, unknown>;
       const region = String(c4.region || ws.address || "서울 핵심 권역").trim();
-      const use = String(c4.use || "근린생활시설").trim();
+      const dcMetrics = computeBuildingCardMetrics({
+        posture: c4.posture || "income",
+        region,
+        existingUse: c4.use,
+        explicitAreaLabel: c4.area,
+        gfaPyeong: c4.gfaPyung,
+        landPyeong: c4.landAreaPyung,
+      });
+      const use = dcMetrics.resolved_use;
       const headline = String(ws.title || c4.headline || "").trim();
       const title = headline || `${region} ${use}`.trim();
       const priceBandStr =
@@ -485,6 +675,10 @@ export async function GET(request: NextRequest) {
         dong: region,
         area_signal: region,
         asset_type: use,
+        gross_floor_area_pyeong: dcMetrics.gross_floor_area_pyeong,
+        land_area_pyeong: dcMetrics.land_area_pyeong,
+        area_label: dcMetrics.area_label,
+        posture: dcMetrics.posture,
         sale_price: salePriceWon,
         price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
         cap_rate: null,
@@ -498,6 +692,12 @@ export async function GET(request: NextRequest) {
       const imPayload = ((draftObj.imItem && typeof draftObj.imItem === "object"
         ? draftObj.imItem
         : draftObj) || snapObj) as Record<string, unknown>;
+      const imSsot = (imPayload.ssot_summary && typeof imPayload.ssot_summary === "object"
+        ? (imPayload.ssot_summary as Record<string, unknown>)
+        : {}) || {};
+      const imCard4 = (imPayload.card4 && typeof imPayload.card4 === "object"
+        ? (imPayload.card4 as Record<string, unknown>)
+        : {}) || {};
       const addr = String(ws.address || imPayload.address || "서울 핵심 권역").trim();
       const title = String(
         ws.title || imPayload.title || imPayload.buildingName || addr
@@ -510,6 +710,24 @@ export async function GET(request: NextRequest) {
       const capRateRaw = Number(imPayload.grossYieldPct || 0);
       const photoUrl =
         extractPhotoFromImItem(imPayload) || realPhotoByBuildingId.get(wsKey) || null;
+      const imMetrics = computeBuildingCardMetrics({
+        posture:
+          imPayload.investmentPosture ||
+          imPayload.posture ||
+          imSsot.investment_posture ||
+          imCard4.posture ||
+          "core_income",
+        region: addr,
+        mainPurpose: imPayload.mainPurpose || imSsot.main_usage,
+        assetType: imPayload.assetType || imSsot.asset_type,
+        existingUse: imCard4.use,
+        explicitAreaLabel: imCard4.area || imSsot.size_signal,
+        gfaSqm: imPayload.gfaSqm ?? imSsot.total_gross_area_sqm,
+        landSqm: imPayload.landAreaSqm ?? imSsot.land_area_sqm,
+        gfaPyeong: imCard4.gfaPyung,
+        landPyeong: imCard4.landAreaPyung,
+        fallbackUse: "상업용 빌딩",
+      });
 
       buildings.push({
         id: wsKey,
@@ -518,7 +736,11 @@ export async function GET(request: NextRequest) {
         address: addr,
         dong: addr,
         area_signal: addr,
-        asset_type: String(imPayload.assetType || "상업용 빌딩"),
+        asset_type: imMetrics.resolved_use,
+        gross_floor_area_pyeong: imMetrics.gross_floor_area_pyeong,
+        land_area_pyeong: imMetrics.land_area_pyeong,
+        area_label: imMetrics.area_label,
+        posture: imMetrics.posture,
         sale_price: salePriceWon,
         price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
         cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
@@ -542,6 +764,15 @@ export async function GET(request: NextRequest) {
     const salePriceWon = askingManwon > 0 ? Math.round(askingManwon * 10_000) : null;
     const capRateRaw = Number(it.grossYieldPct || 0);
     const photoUrl = extractPhotoFromImItem(it) || realPhotoByBuildingId.get(bId) || null;
+    const itMetrics = computeBuildingCardMetrics({
+      posture: it.investmentPosture || it.posture || "core_income",
+      region: addr,
+      mainPurpose: it.mainPurpose,
+      assetType: it.assetType,
+      gfaSqm: it.gfaSqm,
+      landSqm: it.landAreaSqm,
+      fallbackUse: "상업용 빌딩",
+    });
 
     buildings.push({
       id: bId,
@@ -550,7 +781,11 @@ export async function GET(request: NextRequest) {
       address: addr,
       dong: addr,
       area_signal: addr,
-      asset_type: String(it.assetType || "상업용 빌딩"),
+      asset_type: itMetrics.resolved_use,
+      gross_floor_area_pyeong: itMetrics.gross_floor_area_pyeong,
+      land_area_pyeong: itMetrics.land_area_pyeong,
+      area_label: itMetrics.area_label,
+      posture: itMetrics.posture,
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(salePriceWon, null),
       cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,
@@ -568,7 +803,15 @@ export async function GET(request: NextRequest) {
     seenIds.add(bId);
     const c4 = entry.card4;
     const region = String(c4.region || "서울 핵심 권역").trim();
-    const use = String(c4.use || "근린생활시설").trim();
+    const dcMetrics = computeBuildingCardMetrics({
+      posture: c4.posture || "income",
+      region,
+      existingUse: c4.use,
+      explicitAreaLabel: c4.area,
+      gfaPyeong: c4.gfaPyung,
+      landPyeong: c4.landAreaPyung,
+    });
+    const use = dcMetrics.resolved_use;
     const headline = String(c4.headline || "").trim();
     const title = headline || `${region} ${use}`.trim();
     const priceBandStr = typeof c4.priceBand === "string" ? c4.priceBand.trim() : null;
@@ -582,6 +825,10 @@ export async function GET(request: NextRequest) {
       dong: region,
       area_signal: region,
       asset_type: use,
+      gross_floor_area_pyeong: dcMetrics.gross_floor_area_pyeong,
+      land_area_pyeong: dcMetrics.land_area_pyeong,
+      area_label: dcMetrics.area_label,
+      posture: dcMetrics.posture,
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(salePriceWon, priceBandStr),
       cap_rate: null,
@@ -610,6 +857,18 @@ export async function GET(request: NextRequest) {
     const capRateRaw = Number(pd.cap_rate ?? pd.yield ?? pd.grossYieldPct ?? 0);
     const candPhoto = String(pd.photo_url || pd.photoUrl || (Array.isArray(pd.photos) ? pd.photos[0] : "") || "").trim();
     const photoUrl = isRealPhotoUrl(candPhoto) ? candPhoto : realPhotoByBuildingId.get(pId) || null;
+    const pdMetrics = computeBuildingCardMetrics({
+      posture: pd.posture || pd.investment_posture || "core_income",
+      region: addr,
+      mainPurpose: pd.mainPurpose || pd.main_usage,
+      assetType: pd.assetType || pd.asset_type,
+      explicitAreaLabel: pd.area_label || pd.area,
+      gfaSqm: pd.grossFloorAreaM2 ?? pd.gfaSqm,
+      landSqm: pd.landAreaM2 ?? pd.landAreaSqm,
+      gfaPyeong: pd.gross_floor_area_pyeong ?? pd.gfaPyung,
+      landPyeong: pd.land_area_pyeong ?? pd.landAreaPyung,
+      fallbackUse: "상업용 빌딩",
+    });
 
     buildings.push({
       id: pId,
@@ -618,7 +877,11 @@ export async function GET(request: NextRequest) {
       address: addr,
       dong: addr,
       area_signal: addr,
-      asset_type: String(pd.assetType || pd.asset_type || "상업용 빌딩"),
+      asset_type: pdMetrics.resolved_use,
+      gross_floor_area_pyeong: pdMetrics.gross_floor_area_pyeong,
+      land_area_pyeong: pdMetrics.land_area_pyeong,
+      area_label: pdMetrics.area_label,
+      posture: pdMetrics.posture,
       sale_price: salePriceWon,
       price_band: formatWonToPriceBand(
         salePriceWon,
@@ -646,7 +909,18 @@ export async function GET(request: NextRequest) {
       }
       seenIds.add(rec.buildingId);
       const region = rec.card4?.region || rec.address || "서울 핵심 권역";
-      const use = rec.card4?.use || "근린생활시설";
+      const recMetrics = computeBuildingCardMetrics({
+        posture: rec.posture || rec.card4?.posture || "core_income",
+        region,
+        mainPurpose: rec.specs?.mainPurpose,
+        existingUse: rec.card4?.use,
+        explicitAreaLabel: rec.card4?.area,
+        gfaSqm: rec.specs?.gfaSqm,
+        landSqm: rec.specs?.landAreaSqm,
+        gfaPyeong: rec.card4?.gfaPyung,
+        landPyeong: rec.card4?.landAreaPyung,
+      });
+      const use = recMetrics.resolved_use;
       const title = rec.buildingName || `${region} ${use}`.trim();
       const salePriceWon =
         rec.askingPriceManwon && rec.askingPriceManwon > 0
@@ -665,6 +939,10 @@ export async function GET(request: NextRequest) {
         dong: region,
         area_signal: region,
         asset_type: use,
+        gross_floor_area_pyeong: recMetrics.gross_floor_area_pyeong,
+        land_area_pyeong: recMetrics.land_area_pyeong,
+        area_label: recMetrics.area_label,
+        posture: recMetrics.posture,
         sale_price: salePriceWon,
         price_band: formatWonToPriceBand(salePriceWon, rec.card4?.priceBand || null),
         cap_rate: Number.isFinite(capRateRaw) && capRateRaw > 0 ? capRateRaw : null,

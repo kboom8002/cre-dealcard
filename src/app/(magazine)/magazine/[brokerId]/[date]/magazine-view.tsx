@@ -30,7 +30,11 @@ import {
   BrokerStatutoryFooter,
 } from "@/components/magazine/viewer-sections";
 import type { AxiosUnitIssue, MonthlyRegionalChart } from "@/domain/magazine/types";
-import { formatKoreanDate } from "@/lib/magazine/kst";
+import { resolveEditionPublicDateAndHeader } from "@/lib/magazine/edition-public-date";
+import {
+  resolveCanonicalAreaLabel,
+  resolveCanonicalAssetUse,
+} from "@/lib/deal-card/canonical-summary";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { sanitizeStatutoryField } from "@/lib/legal/broker-statutory-disclosure";
 import {
@@ -70,7 +74,6 @@ interface MagazineViewProps {
 export type MagazineData = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
-const PYEONG_RATIO = 0.3025;
 
 function strArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "") : [];
@@ -106,7 +109,17 @@ export function MagazineView({
   const brokerPhone =
     sanitizeStatutoryField(broker.phone, "phone") ||
     sanitizeStatutoryField(brokerVibe?.phone, "phone");
-  const dateLabel = dateLabelProp ?? formatKoreanDate(date);
+  const dateLabel =
+    dateLabelProp ??
+    resolveEditionPublicDateAndHeader({
+      cadence: data.cadence,
+      editionType: data.kind ?? data.edition_type,
+      editionLabel: data.edition_label ?? data.weekLabel,
+      issueDate: data.issueDate,
+      publishedAt: data.published_at ?? data.publishedAt,
+      createdAt: data.created_at,
+      urlDate: date,
+    }).displayDateLabel;
   const target = targetProp !== undefined ? parseViewerTarget(targetProp) : parseViewerTarget(data.target_segment);
   const scoreEvidence = hasScoreEvidence(data);
   const title = buildMagazineTitle(cleanScoreText(data.headline as string | null | undefined, scoreEvidence), broker.name);
@@ -250,29 +263,29 @@ export function MagazineView({
               (rawPriceWon ? formatPriceRange(rawPriceWon) : formatPriceKo(deal.price));
             const priceDisplay = priceLabel && priceLabel !== "-" ? priceLabel : "가격 협의";
 
-            const gfaPyeong =
-              typeof deal.grossFloorAreaPyeong === "number"
-                ? Math.round(deal.grossFloorAreaPyeong)
-                : typeof deal.grossFloorAreaM2 === "number" && deal.grossFloorAreaM2 > 0
-                ? Math.round(deal.grossFloorAreaM2 * PYEONG_RATIO)
-                : null;
-            const landPyeong =
-              typeof deal.landAreaPyeong === "number"
-                ? Math.round(deal.landAreaPyeong)
-                : typeof deal.landAreaM2 === "number" && deal.landAreaM2 > 0
-                ? Math.round(deal.landAreaM2 * PYEONG_RATIO)
-                : null;
             const quadArea =
-              (typeof deal.areaLabel === "string" && deal.areaLabel.trim()) ||
-              (gfaPyeong ? `연면적 ${gfaPyeong}평` : landPyeong ? `대지 ${landPyeong}평` : "규모 상세확인");
+              resolveCanonicalAreaLabel({
+                posture: deal.posture,
+                explicitAreaLabel: deal.areaLabel,
+                gfaSqm:
+                  deal.grossFloorAreaM2 ??
+                  deal.gross_floor_area_m2 ??
+                  deal.total_gross_area_sqm ??
+                  deal.total_gross_area_m2,
+                landSqm: deal.landAreaM2 ?? deal.land_area_m2 ?? deal.land_area_sqm,
+                gfaPyeong: deal.grossFloorAreaPyeong ?? deal.gross_floor_area_pyeong,
+                landPyeong: deal.landAreaPyeong ?? deal.land_area_pyeong,
+              }) || "규모 상세확인";
 
             const quadRegion =
               (typeof deal.areaSignal === "string" && deal.areaSignal.trim()) ||
               safeAddress ||
               "서울 주요권역";
-            const quadUse =
-              (typeof deal.assetType === "string" && deal.assetType.trim()) ||
-              "근린생활시설";
+            const quadUse = resolveCanonicalAssetUse({
+              mainPurpose: deal.mainPurpose ?? deal.main_purpose,
+              assetType: deal.assetType ?? deal.asset_type,
+              fallbackUse: "근린생활시설",
+            });
 
             const investmentPoint =
               deal.headline ||

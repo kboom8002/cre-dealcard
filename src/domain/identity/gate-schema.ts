@@ -110,6 +110,9 @@ export interface G2FormData {
   entityType: string;
   name: string;
   phone: string;
+  email?: string;
+  company?: string;
+  memo?: string;
   consent?: boolean;
 }
 
@@ -154,6 +157,17 @@ export function validateG2Form(data: G2FormData): { valid: boolean; errors: stri
   const normalizedPhone = normalizeKoreanMobilePhone(data.phone || '');
   if (!normalizedPhone || !/^01[016789]\d{7,8}$/.test(normalizedPhone)) {
     errors.push('올바른 연락처를 입력해주세요.');
+  }
+  if (typeof data.email === 'string' && data.email.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+      errors.push('올바른 이메일 주소를 입력해주세요.');
+    }
+  }
+  if (typeof data.company === 'string' && data.company.trim().length > 60) {
+    errors.push('소속/법인명은 60자 이내로 입력해주세요.');
+  }
+  if (typeof data.memo === 'string' && data.memo.trim().length > 500) {
+    errors.push('요청 메모는 500자 이내로 입력해주세요.');
   }
 
   return { valid: errors.length === 0, errors };

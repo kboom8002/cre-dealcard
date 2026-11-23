@@ -696,26 +696,34 @@ export function InboxPreviewColumn({
                     className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-bold transition disabled:opacity-50 cursor-pointer ${
                       activeThread.newsletterSubscribed
                         ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                        : activeThread.id.startsWith("sub_") &&
-                          (activeThread.cleanMessage || "").includes("수신 확인 대기")
+                        : activeThread.newsletterStatus === "pending" ||
+                          (activeThread.id.startsWith("sub_") &&
+                            (activeThread.cleanMessage || "").includes("수신 확인 대기"))
                         ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                         : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     {activeThread.newsletterSubscribed
                       ? "수신 동의"
-                      : activeThread.id.startsWith("sub_") &&
-                        (activeThread.cleanMessage || "").includes("수신 확인 대기")
-                      ? "수신 확인 대기"
+                      : activeThread.newsletterStatus === "pending" ||
+                        (activeThread.id.startsWith("sub_") &&
+                          (activeThread.cleanMessage || "").includes("수신 확인 대기"))
+                      ? "인증 대기"
                       : "미구독"}
                   </button>
                 </dd>
               </div>
             </dl>
 
-            {/* 직접 등록 고객 수정 / 삭제 버튼 (ConfirmDeleteModal 연동) */}
-            {activeThread.id.startsWith("custom_") && (
-              <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
+            {/* 고객 정보 수정 / 직접 등록 고객 삭제 버튼 (ConfirmDeleteModal 연동) */}
+            {!activeThread.id.startsWith("view_") && (
+              <div
+                className={`grid gap-2 border-t border-slate-200 pt-3 ${
+                  activeThread.id.startsWith("custom_") || activeThread.id.startsWith("cli-")
+                    ? "grid-cols-2"
+                    : "grid-cols-1"
+                }`}
+              >
                 <button
                   type="button"
                   data-testid="edit-custom-client-btn"
@@ -725,15 +733,17 @@ export function InboxPreviewColumn({
                 >
                   정보 수정
                 </button>
-                <button
-                  type="button"
-                  data-testid="delete-custom-client-btn"
-                  disabled={Boolean(busyAction)}
-                  onClick={onRequestDeleteCustomClient}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
-                >
-                  고객 삭제
-                </button>
+                {(activeThread.id.startsWith("custom_") || activeThread.id.startsWith("cli-")) && (
+                  <button
+                    type="button"
+                    data-testid="delete-custom-client-btn"
+                    disabled={Boolean(busyAction)}
+                    onClick={onRequestDeleteCustomClient}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                  >
+                    고객 삭제
+                  </button>
+                )}
               </div>
             )}
 

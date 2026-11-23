@@ -1637,6 +1637,21 @@ function ImWorkspaceInner() {
         : photoEntries
     );
 
+  const resolveProvisionBuildingIds = (originItem?: ImListItem) => {
+    const originBid = originItem?.buildingId || "";
+    const buildingId = UUID_REGEX.test(originBid) ? originBid : undefined;
+    const legacyBuildingId =
+      originBid && !UUID_REGEX.test(originBid) && !SAMPLE_SEED_IDS.has(originBid)
+        ? originBid
+        : !originBid &&
+            buildingIdParam &&
+            !UUID_REGEX.test(buildingIdParam) &&
+            !SAMPLE_SEED_IDS.has(buildingIdParam)
+          ? buildingIdParam
+          : undefined;
+    return { buildingId, legacyBuildingId };
+  };
+
   const buildCurrentRequestPayload = (originItem?: ImListItem, cleanTitle?: string) => ({
     address: address.trim(),
     askingPriceManwon,
@@ -1687,7 +1702,13 @@ function ImWorkspaceInner() {
       return;
     }
     const cleanSheetTitle = imTitle.trim() === "새 IM" ? "" : imTitle.trim();
-    const reqPayload = buildCurrentRequestPayload(originItem, cleanSheetTitle);
+    const { buildingId: resolvedBid, legacyBuildingId } =
+      resolveProvisionBuildingIds(originItem);
+    const reqPayload = {
+      ...(resolvedBid ? { buildingId: resolvedBid } : {}),
+      ...(legacyBuildingId ? { legacyBuildingId } : {}),
+      ...buildCurrentRequestPayload(originItem, cleanSheetTitle),
+    };
     const parsedExtras = parseBrokerExtras(brokerExtrasFormToInput(brokerExtrasForm));
     const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : brokerExtrasForm;
     const photosPayload = buildPhotosPayloadForRequest();
@@ -1757,17 +1778,10 @@ function ImWorkspaceInner() {
     }
 
     const cleanProvisionTitle = imTitle.trim() === "새 IM" ? "" : imTitle.trim();
-    const legacyBidForProvision =
-      existingBid && !UUID_REGEX.test(existingBid) && !SAMPLE_SEED_IDS.has(existingBid)
-        ? existingBid
-        : !existingBid &&
-            buildingIdParam &&
-            !UUID_REGEX.test(buildingIdParam) &&
-            !SAMPLE_SEED_IDS.has(buildingIdParam)
-          ? buildingIdParam
-          : undefined;
+    const { buildingId: resolvedBid, legacyBuildingId: legacyBidForProvision } =
+      resolveProvisionBuildingIds(originItem);
     const reqPayload = {
-      buildingId: UUID_REGEX.test(existingBid) ? existingBid : undefined,
+      buildingId: resolvedBid,
       ...(legacyBidForProvision ? { legacyBuildingId: legacyBidForProvision } : {}),
       ...buildCurrentRequestPayload(originItem, cleanProvisionTitle),
     };
@@ -2053,21 +2067,13 @@ function ImWorkspaceInner() {
       const brokerExtrasPayload = parsedExtras.ok ? parsedExtras.value : reqExtrasForm;
       const photosPayload = buildPhotosPayloadForRequest();
 
-      const originBid = originItem?.buildingId || "";
-      const legacyBidCandidate =
-        originBid && !UUID_REGEX.test(originBid) && !SAMPLE_SEED_IDS.has(originBid)
-          ? originBid
-          : !originBid &&
-              buildingIdParam &&
-              !UUID_REGEX.test(buildingIdParam) &&
-              !SAMPLE_SEED_IDS.has(buildingIdParam)
-            ? buildingIdParam
-            : undefined;
+      const { buildingId: resolvedBid, legacyBuildingId: legacyBidCandidate } =
+        resolveProvisionBuildingIds(originItem);
       const res = await fetch("/api/broker/im-lite/quick-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          buildingId: UUID_REGEX.test(originBid) ? originBid : undefined,
+          buildingId: resolvedBid,
           ...(legacyBidCandidate ? { legacyBuildingId: legacyBidCandidate } : {}),
           ...buildCurrentRequestPayload(originItem, cleanReqTitle),
           brokerExtras: brokerExtrasPayload,

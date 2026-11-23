@@ -15,7 +15,42 @@ import {
 import { getPublicWorkspaceProjection } from "@/lib/workspace/workspace-repository";
 import { isLegacyBuildingRowPublic } from "@/lib/deal-card/publish-sync";
 import { ForbiddenError, NotFoundError } from "@/lib/api-error";
+import { createModuleLogger } from "@/lib/logger";
+import { parseGateRequestReason } from "@/lib/inbox/inbox-helpers";
+import { upsertBrokerClientFromInbound } from "@/lib/inbox/upsert-broker-client";
 import type { GateLevel, GateRequestStatus } from "@/types/database";
+
+const log = createModuleLogger("gate-request");
+
+async function syncGateRequesterToCrm(params: {
+  supabase: ReturnType<typeof createServiceClient>;
+  brokerUserId?: string | null;
+  buildingId?: string | null;
+  buildingTitle?: string | null;
+  reason?: string | null;
+}) {
+  if (!params.brokerUserId || !params.reason) return;
+  try {
+    const parsed = parseGateRequestReason(params.reason);
+    if (!parsed.requesterPhone && !parsed.requesterEmail) return;
+    await upsertBrokerClientFromInbound({
+      supabase: params.supabase,
+      brokerUserId: params.brokerUserId,
+      name: parsed.requesterName,
+      phone: parsed.requesterPhone,
+      email: parsed.requesterEmail,
+      company: parsed.requesterCompany,
+      buildingId: params.buildingId,
+      buildingTitle: parsed.buildingTitle || params.buildingTitle || undefined,
+      clientRole: "buyer",
+      source: "gate_request",
+    });
+  } catch (err) {
+    log.warn("gate_request_crm_upsert_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Create Gate Request
@@ -141,6 +176,13 @@ export async function createGateRequest(
     } catch {
       // Non-blocking
     }
+    await syncGateRequesterToCrm({
+      supabase,
+      brokerUserId: ownerId,
+      buildingId: input.buildingId,
+      buildingTitle: wsProjection?.title || quickRec?.buildingName || null,
+      reason: input.reason ?? null,
+    });
     return { gateRequestId: syntheticGateId, status: "submitted" };
   }
 
@@ -219,6 +261,13 @@ export async function createGateRequest(
       } catch {
         // Non-blocking
       }
+      await syncGateRequesterToCrm({
+        supabase,
+        brokerUserId: quickRec.ownerId || resolvedBrokerOwnerId,
+        buildingId: input.buildingId,
+        buildingTitle: quickRec.buildingName || null,
+        reason: input.reason ?? null,
+      });
       return { gateRequestId: syntheticGateId, status: "submitted" };
     }
     throw new Error(`Gate request 생성에 실패했습니다: ${error?.message}`);
@@ -237,6 +286,14 @@ export async function createGateRequest(
       reason: input.reason ?? null,
       broker_id: resolvedBrokerOwnerId,
     },
+  });
+
+  await syncGateRequesterToCrm({
+    supabase,
+    brokerUserId: resolvedBrokerOwnerId,
+    buildingId: targetBuildingId,
+    buildingTitle: wsProjection?.title || quickRec?.buildingName || null,
+    reason: input.reason ?? null,
   });
 
   return { gateRequestId: gateRequest.id, status: "submitted" };

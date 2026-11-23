@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { parseIssueDate, toKstDate } from "@/lib/magazine/kst";
+import { parseIssueDate } from "@/lib/magazine/kst";
+import { resolveEditionPublicDateAndHeader } from "@/lib/magazine/edition-public-date";
 import { isUnpublishedContent } from "@/lib/magazine/public-page-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getServerViewer } from "@/lib/server-viewer";
@@ -47,7 +48,7 @@ export default async function MagazineRootPage({
 
       const { data: myLatestEdition } = await supabase
         .from("magazine_editions")
-        .select("id, broker_id, edition_label, published_at, created_at, content")
+        .select("id, broker_id, edition_type, edition_label, published_at, created_at, content")
         .in("broker_id", ownKeys)
         .eq("status", "published")
         .order("published_at", { ascending: false })
@@ -59,18 +60,27 @@ export default async function MagazineRootPage({
           myLatestEdition.content && typeof myLatestEdition.content === "object"
             ? (myLatestEdition.content as Record<string, unknown>)
             : null;
-        const rawEdDate =
-          typeof edContent?.issueDate === "string" && parseIssueDate(edContent.issueDate)
-            ? edContent.issueDate
-            : typeof myLatestEdition.edition_label === "string" && parseIssueDate(myLatestEdition.edition_label)
-              ? myLatestEdition.edition_label
-              : myLatestEdition.published_at || myLatestEdition.created_at
-                ? toKstDate(new Date(String(myLatestEdition.published_at || myLatestEdition.created_at)))
-                : null;
-        if (rawEdDate && parseIssueDate(rawEdDate)) {
-          redirect(
-            `/magazine/${encodeURIComponent(String(ownSlug))}/${encodeURIComponent(rawEdDate)}${querySuffix}`,
-          );
+        const hasDateSignal = Boolean(
+          myLatestEdition.published_at ||
+            myLatestEdition.created_at ||
+            (typeof edContent?.issueDate === "string" && parseIssueDate(edContent.issueDate)) ||
+            (typeof myLatestEdition.edition_label === "string" &&
+              parseIssueDate(myLatestEdition.edition_label)),
+        );
+        if (hasDateSignal) {
+          const { canonicalUrlDate } = resolveEditionPublicDateAndHeader({
+            cadence: edContent?.cadence,
+            editionType: myLatestEdition.edition_type ?? edContent?.kind,
+            editionLabel: myLatestEdition.edition_label ?? edContent?.weekLabel,
+            issueDate: edContent?.issueDate,
+            publishedAt: myLatestEdition.published_at,
+            createdAt: myLatestEdition.created_at,
+          });
+          if (parseIssueDate(canonicalUrlDate)) {
+            redirect(
+              `/magazine/${encodeURIComponent(String(ownSlug))}/${encodeURIComponent(canonicalUrlDate)}${querySuffix}`,
+            );
+          }
         }
       }
 

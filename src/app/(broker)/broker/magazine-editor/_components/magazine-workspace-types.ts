@@ -25,6 +25,13 @@ import {
 import { formatPriceKo, sanitizeDealAddress } from "@/lib/magazine/view-helpers";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import {
+  resolveCanonicalAreaLabel,
+  resolveCanonicalAssetUse,
+  resolveCanonicalDealHeadline,
+  sqmToRoundedPyeong,
+  toPositiveNumber,
+} from "@/lib/deal-card/canonical-summary";
+import {
   getLastActiveBrokerUserId,
   normalizeWorkspaceUserId,
   scopedWorkspaceStorageKey,
@@ -528,13 +535,22 @@ export function mapServerEditionRowToSummary(
   for (const [k, v] of Object.entries(rawComments)) {
     if (typeof v === "string") dealCommentsMap[k] = v;
   }
-  const rawIssueDate = isValidIsoDate(content.issueDate)
-    ? content.issueDate.trim()
-    : isValidIsoDate(content.issue_date)
-      ? content.issue_date.trim()
-      : isoTimestampToKstDate(row.published_at) ??
-        isoTimestampToKstDate(row.created_at) ??
-        "";
+  const isRowPublished = row.status === "published";
+  const publishedKstDate = isoTimestampToKstDate(row.published_at);
+  const rawIssueDate = isRowPublished
+    ? publishedKstDate ??
+      (isValidIsoDate(content.issueDate)
+        ? content.issueDate.trim()
+        : isValidIsoDate(content.issue_date)
+          ? content.issue_date.trim()
+          : isoTimestampToKstDate(row.created_at) ?? "")
+    : isValidIsoDate(content.issueDate)
+      ? content.issueDate.trim()
+      : isValidIsoDate(content.issue_date)
+        ? content.issue_date.trim()
+        : publishedKstDate ??
+          isoTimestampToKstDate(row.created_at) ??
+          "";
   const rowId = String(row.id ?? "");
   const rowSlug = String(row.edition_label ?? "");
   const parsedCadence =
@@ -623,9 +639,17 @@ export function mapServerEditionRowToSummary(
   };
 }
 
+export interface AssignableDealWithMetrics extends AssignableDealItem {
+  posture?: string;
+  grossFloorAreaPyeong?: number;
+  landAreaPyeong?: number;
+  grossFloorAreaM2?: number;
+  landAreaM2?: number;
+}
+
 export function mapBuildingRowsToAssignableDeals(
   rawList: unknown[],
-): AssignableDealItem[] {
+): AssignableDealWithMetrics[] {
   return rawList
     .filter((b): b is Record<string, unknown> => !!b && typeof b === "object")
     .map((b, idx) => {
@@ -633,35 +657,80 @@ export function mapBuildingRowsToAssignableDeals(
       const areaSignal = sanitizeDealAddress(
         String(b.area_signal ?? b.areaSignal ?? b.dong ?? address ?? ""),
       );
-      const assetType = String(b.asset_type ?? b.assetType ?? "근린생활시설").trim();
+      const assetType = resolveCanonicalAssetUse({
+        mainPurpose: b.main_purpose ?? b.mainPurpose,
+        assetType: b.asset_type ?? b.assetType,
+        fallbackUse: "근린생활시설",
+      });
       const rawName = String(
         b.building_name ?? b.buildingName ?? b.name ?? b.title ?? "",
       ).trim();
       const title =
-        rawName ||
-        (areaSignal ? `${areaSignal} ${assetType}` : address) ||
-        `등록 매물 ${idx + 1}`;
+        resolveCanonicalDealHeadline({
+          brokerHeadline: rawName,
+          region: areaSignal,
+          assetType,
+        }) || `등록 매물 ${idx + 1}`;
       const priceBand = formatDealPriceLabel(
         b.sale_price ?? b.askingPriceWon ?? b.price,
         b.price_band ?? b.priceBand,
       );
-      const gfaPyeong =
-        typeof b.gross_floor_area_pyeong === "number" && b.gross_floor_area_pyeong > 0
-          ? Math.round(b.gross_floor_area_pyeong)
-          : typeof b.grossFloorAreaPyeong === "number" && b.grossFloorAreaPyeong > 0
-            ? Math.round(b.grossFloorAreaPyeong)
-            : null;
-      const landPyeong =
-        typeof b.land_area_pyeong === "number" && b.land_area_pyeong > 0
-          ? Math.round(b.land_area_pyeong)
-          : typeof b.landAreaPyeong === "number" && b.landAreaPyeong > 0
-            ? Math.round(b.landAreaPyeong)
-            : null;
-      const areaLabel = gfaPyeong
-        ? `연면적 ${gfaPyeong}평`
-        : landPyeong
-          ? `대지 ${landPyeong}평`
+      const layersObj =
+        b.layers && typeof b.layers === "object"
+          ? (b.layers as Record<string, unknown>)
+          : {};
+      const physicalLayer =
+        layersObj.physical && typeof layersObj.physical === "object"
+          ? (layersObj.physical as Record<string, unknown>)
+          : {};
+      const buildingLayer =
+        layersObj.building && typeof layersObj.building === "object"
+          ? (layersObj.building as Record<string, unknown>)
+          : {};
+      const postureRaw =
+        b.investment_posture ??
+        b.posture ??
+        buildingLayer.investment_posture ??
+        layersObj.posture;
+      const posture =
+        typeof postureRaw === "string" && postureRaw.trim()
+          ? postureRaw.trim()
           : undefined;
+      const gfaSqm =
+        toPositiveNumber(b.gross_floor_area_m2) ??
+        toPositiveNumber(b.grossFloorAreaM2) ??
+        toPositiveNumber(b.total_gross_area_m2) ??
+        toPositiveNumber(b.total_gross_area_sqm) ??
+        toPositiveNumber(b.total_floor_area_sqm) ??
+        toPositiveNumber(b.gfaSqm) ??
+        toPositiveNumber(physicalLayer.gross_floor_area_m2) ??
+        toPositiveNumber(physicalLayer.total_floor_area_sqm) ??
+        undefined;
+      const landSqm =
+        toPositiveNumber(b.land_area_m2) ??
+        toPositiveNumber(b.landAreaM2) ??
+        toPositiveNumber(b.land_area_sqm) ??
+        toPositiveNumber(b.landAreaSqm) ??
+        toPositiveNumber(physicalLayer.land_area_m2) ??
+        toPositiveNumber(physicalLayer.land_area_sqm) ??
+        undefined;
+      const gfaPyeong =
+        toPositiveNumber(b.gross_floor_area_pyeong ?? b.grossFloorAreaPyeong) ??
+        sqmToRoundedPyeong(gfaSqm) ??
+        undefined;
+      const landPyeong =
+        toPositiveNumber(b.land_area_pyeong ?? b.landAreaPyeong) ??
+        sqmToRoundedPyeong(landSqm) ??
+        undefined;
+      const areaLabel =
+        resolveCanonicalAreaLabel({
+          posture,
+          explicitAreaLabel: b.area_label ?? b.areaLabel,
+          gfaSqm,
+          landSqm,
+          gfaPyeong,
+          landPyeong,
+        }) || undefined;
       const hasIm =
         typeof b.has_im === "boolean"
           ? b.has_im
@@ -684,6 +753,11 @@ export function mapBuildingRowsToAssignableDeals(
         priceBand,
         areaSignal: areaSignal || address || undefined,
         assetType,
+        ...(posture ? { posture } : {}),
+        ...(gfaPyeong !== undefined ? { grossFloorAreaPyeong: gfaPyeong } : {}),
+        ...(landPyeong !== undefined ? { landAreaPyeong: landPyeong } : {}),
+        ...(gfaSqm !== undefined ? { grossFloorAreaM2: gfaSqm } : {}),
+        ...(landSqm !== undefined ? { landAreaM2: landSqm } : {}),
         ...(areaLabel ? { areaLabel } : {}),
         ...(hasIm !== undefined ? { hasIm } : {}),
         yield: yieldNum && yieldNum > 0 ? `${yieldNum.toFixed(1)}%` : "-",

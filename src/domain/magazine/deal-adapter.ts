@@ -6,6 +6,7 @@
  * and mathematical parity with Basic IM YieldSet (grossYieldNetOfDeposit, noiCapRate).
  */
 import { PYEONG_RATIO } from '@/lib/utils/area-conversion';
+import { resolveCanonicalAssetUse, toPositiveNumber } from '@/lib/deal-card/canonical-summary';
 import { buildYieldSetFromBody } from '@/domain/building/mobile-im/yield-set';
 import { maskAddressForPublic } from '@/lib/magazine/public-page-data';
 import { createModuleLogger } from '@/lib/logger';
@@ -296,7 +297,11 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
   const areaSignal = rawAreaSignal ? maskAddressForPublic(rawAreaSignal) || rawAreaSignal : '';
   const rawAddressCandidate = String(building.raw_address ?? ssotSummary.address ?? '');
   const address = maskAddressForPublic(rawAddressCandidate) || areaSignal;
-  const assetType = String(building.asset_type ?? ssotSummary.asset_type ?? heroCard.assetType ?? '상업용 부동산');
+  const assetType = resolveCanonicalAssetUse({
+    mainPurpose: ssotSummary.main_usage,
+    assetType: building.asset_type ?? ssotSummary.asset_type ?? heroCard.assetType,
+    fallbackUse: '상업용 부동산',
+  });
 
   // 2. Photos
   // Extract photos from body or layers
@@ -359,18 +364,28 @@ export function adaptBuildingToMagazineDeal(params: AdaptBuildingParams): Magazi
   }
 
   // 4. Physical Specs & Area Conversion (PYEONG_RATIO = 0.3025)
-  const rawLandM2 = Number(layers.landAreaM2 ?? ssotSummary.land_area_sqm);
-  const landAreaM2 = Number.isFinite(rawLandM2) && rawLandM2 > 0 ? Number(rawLandM2.toFixed(2)) : null;
+  const layersPhysical = (layers.physical && typeof layers.physical === 'object' ? layers.physical : {}) as Record<string, unknown>;
+  const layersBldReg = (layers.building_register && typeof layers.building_register === 'object' ? layers.building_register : {}) as Record<string, unknown>;
+  const rawLandM2 =
+    toPositiveNumber(layersPhysical.land_area_sqm) ??
+    toPositiveNumber(layers.landAreaM2) ??
+    toPositiveNumber(ssotSummary.land_area_sqm) ??
+    toPositiveNumber(layersBldReg.land_area_sqm);
+  const landAreaM2 = rawLandM2 != null ? Number(rawLandM2.toFixed(2)) : null;
   const landAreaPyeong = landAreaM2 != null ? Number((landAreaM2 * PYEONG_RATIO).toFixed(1)) : (Number(heroCard.landAreaPyeong) || null);
 
-  const rawGrossM2 = Number(layers.grossFloorAreaM2 ?? ssotSummary.total_gross_area_sqm);
-  const grossFloorAreaM2 = Number.isFinite(rawGrossM2) && rawGrossM2 > 0 ? Number(rawGrossM2.toFixed(2)) : null;
+  const rawGrossM2 =
+    toPositiveNumber(layersPhysical.total_floor_area_sqm) ??
+    toPositiveNumber(layers.grossFloorAreaM2) ??
+    toPositiveNumber(ssotSummary.total_gross_area_sqm) ??
+    toPositiveNumber(layersBldReg.gross_floor_area_sqm);
+  const grossFloorAreaM2 = rawGrossM2 != null ? Number(rawGrossM2.toFixed(2)) : null;
   const grossFloorAreaPyeong = grossFloorAreaM2 != null ? Number((grossFloorAreaM2 * PYEONG_RATIO).toFixed(1)) : (Number(heroCard.grossFloorAreaPyeong) || null);
 
   // Floors & Zoning
   const rawFloors = studioOverview.floors ?? heroCard.floors ?? ssotSummary.floors ?? layers.floors;
   const floors = typeof rawFloors === 'string' && rawFloors ? rawFloors : null;
-  const rawZoning = studioOverview.zoning ?? ssotSummary.zoning ?? layers.zoning;
+  const rawZoning = studioOverview.zoning ?? ssotSummary.zoning ?? layersPhysical.zoning ?? layers.zoning;
   const zoning = typeof rawZoning === 'string' && rawZoning ? rawZoning : null;
 
   // 5. Investment Thesis & Key Points

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache, Suspense } from "react";
 import { LazyQaFeedbackPinWidget } from '@/components/workspace/LazyQaFeedbackPinWidget';
 import { createServiceClient } from "@/lib/supabase/service";
@@ -534,6 +534,25 @@ function legacyEventExtra(
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function buildRedirectQueryString(
+  sParams: { [key: string]: string | string[] | undefined }
+): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(sParams)) {
+    if (typeof v === "string") {
+      qs.append(k, v);
+    } else if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === "string") qs.append(k, item);
+      }
+    }
+  }
+  const str = qs.toString();
+  return str ? `?${str}` : "";
+}
+
 // P0-SEC: React cache() — generateMetadata 와 page 가 같은 요청에서 한 번만 조회한다
 // (readWithMigration 의 lazy-write 부수효과 중복 방지).
 const getDealCardData = cache(async (id: string) => {
@@ -550,6 +569,7 @@ const getDealCardData = cache(async (id: string) => {
     workspaceItemStatus: null as string | null,
     blockedReason: undefined as string | undefined,
     correctionNotice: null as { message: string; updatedAt?: string } | null,
+    canonicalBuildingId: null as string | null,
   };
 
   const memoryFallbackAllowed = allowDealPublicMemoryFallback();
@@ -564,6 +584,26 @@ const getDealCardData = cache(async (id: string) => {
 
   const supabase = createServiceClient();
   const guard = await resolvePublicDealWorkspaceGuard({ id, supabase });
+  let canonicalBuildingId: string | null =
+    guard.item?.buildingId && UUID_RE.test(guard.item.buildingId)
+      ? guard.item.buildingId
+      : null;
+  if (!canonicalBuildingId && id.startsWith("bld-") && !guard.blocked && !guard.item) {
+    try {
+      const wsAny = await getWorkspaceItemByAnyId(supabase, id);
+      if (
+        wsAny &&
+        !wsAny.deletedAt &&
+        wsAny.status !== "archived" &&
+        wsAny.buildingId &&
+        UUID_RE.test(wsAny.buildingId)
+      ) {
+        canonicalBuildingId = wsAny.buildingId;
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+  }
   if (
     guard.blocked &&
     (guard.reason === "demo_disabled_prod" || guard.reason === "deleted" || guard.reason === "lookup_failed")
@@ -583,6 +623,7 @@ const getDealCardData = cache(async (id: string) => {
       buildingStatus: "archived",
       workspaceItemStatus: "revoked",
       blockedReason: "revoked",
+      canonicalBuildingId,
     };
   }
 
@@ -702,6 +743,7 @@ const getDealCardData = cache(async (id: string) => {
       workspaceItemStatus: guard.workspaceItemStatus,
       blockedReason: guard.reason,
       correctionNotice: extractCorrectionNotice(guard.item.correctionNotice),
+      canonicalBuildingId,
     };
   }
 
@@ -1009,6 +1051,7 @@ const getDealCardData = cache(async (id: string) => {
     workspaceItemStatus: guard.workspaceItemStatus,
     blockedReason: guard.reason,
     correctionNotice: extractCorrectionNotice(guard.item?.correctionNotice),
+    canonicalBuildingId,
   };
 });
 
@@ -1111,6 +1154,19 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
     data.workspaceItemStatus === "archived"
   ) {
     notFound();
+  }
+
+  const canonicalBuildingId =
+    "canonicalBuildingId" in data && typeof data.canonicalBuildingId === "string"
+      ? data.canonicalBuildingId
+      : null;
+  if (
+    id.startsWith("bld-") &&
+    canonicalBuildingId &&
+    UUID_RE.test(canonicalBuildingId) &&
+    canonicalBuildingId !== id
+  ) {
+    redirect(`/dc/${canonicalBuildingId}${buildRedirectQueryString(sParams)}`);
   }
 
   // Verify optional ?token= when provided.

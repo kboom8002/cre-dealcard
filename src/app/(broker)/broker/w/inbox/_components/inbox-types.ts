@@ -91,6 +91,8 @@ export interface InboxThreadItem {
   hasCorrectionNotice?: boolean;
   correctionMessage?: string;
   newsletterSubscribed?: boolean;
+  newsletterStatus?: "active" | "pending" | "unsubscribed" | "none";
+  crmClientId?: string;
   hasIm?: boolean;
   hasDealCard?: boolean;
 }
@@ -788,6 +790,15 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
     correctionMessage:
       typeof raw?.correctionMessage === "string" ? raw.correctionMessage : undefined,
     newsletterSubscribed: Boolean(raw?.newsletterSubscribed),
+    ...(raw?.newsletterStatus === "active" ||
+    raw?.newsletterStatus === "pending" ||
+    raw?.newsletterStatus === "unsubscribed" ||
+    raw?.newsletterStatus === "none"
+      ? { newsletterStatus: raw.newsletterStatus }
+      : {}),
+    ...(typeof raw?.crmClientId === "string" && raw.crmClientId
+      ? { crmClientId: raw.crmClientId }
+      : {}),
     ...(hasIm !== undefined ? { hasIm } : {}),
     ...(hasDealCard !== undefined ? { hasDealCard } : {}),
   };
@@ -800,9 +811,10 @@ export function getInboxStatusBadge(item: InboxThreadItem): {
   tone: ListStatusTone;
 } {
   const isSubPendingConfirm =
-    item.id.startsWith("sub_") &&
-    !item.newsletterSubscribed &&
-    (item.cleanMessage || "").includes("수신 확인 대기");
+    item.newsletterStatus === "pending" ||
+    (item.id.startsWith("sub_") &&
+      !item.newsletterSubscribed &&
+      (item.cleanMessage || "").includes("수신 확인 대기"));
   if (item.status === "pending_gate") {
     return {
       text: "IM 요청 대기",
@@ -831,10 +843,10 @@ export function getInboxStatusBadge(item: InboxThreadItem): {
       tone: "ready",
     };
   }
-  if (item.id.startsWith("sub_")) {
-    if (isSubPendingConfirm) {
+  if (item.id.startsWith("sub_") || isSubPendingConfirm) {
+    if (isSubPendingConfirm && !item.newsletterSubscribed) {
       return {
-        text: "수신 확인 대기",
+        text: "인증 대기",
         cls: "bg-amber-100 text-amber-900 border border-amber-300",
         tone: "action",
       };

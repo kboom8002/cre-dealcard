@@ -19,6 +19,14 @@ import { extractPureBuildingFacts } from '@/domain/building/im-core/facts';
 import { m2ToPyeong, pyeongToM2 } from '@/domain/building/im-core/facts/area';
 import { buildBasicImDocument } from '@/domain/building/im-core/basic-im-document';
 import { Card4Schema, computeCard4Hash, type Card4Data } from '@/lib/deal-card/card4-schema';
+import {
+  isGenericAssetUse,
+  isLandPriorityPosture,
+  resolveCanonicalAssetUse,
+  resolveCanonicalDealHeadline,
+  resolveCanonicalDealSummary,
+  sqmToRoundedPyeong,
+} from '@/lib/deal-card/canonical-summary';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { cleanBlindPoints, suggestFallbackRegion } from '@/lib/deal-card/blind-guard';
 import { formatPriceRange, validateBlindPriceBand } from '@/lib/deal-card/price-band';
@@ -35,8 +43,11 @@ import {
 } from '@/lib/im-lite/quick-generate-store';
 import { TEST_PARCEL_FIXTURES } from '@/lib/im-lite/test-parcel-fixtures';
 import {
+  getWorkspaceItemByAnyId,
+  listWorkspaceItemsForOwner,
   upsertWorkspaceItem,
   WorkspaceRepositoryError,
+  type WorkspaceItemRecord,
 } from '@/lib/workspace/workspace-repository';
 import { buildSanitizedImPublicSnapshot } from '@/lib/workspace/summary/patch-upsert-im';
 import {
@@ -219,7 +230,12 @@ export async function POST(req: NextRequest) {
     ? TEST_PARCEL_FIXTURES.find((entry) => entry.match.test(cleanAddress))?.info
     : undefined;
 
-  // Generate deterministic/unique IDs (reuse valid UUID buildingId if supplied)
+  const shouldPersistDb =
+    (process.env.NODE_ENV !== 'test' && !process.env.VITEST) ||
+    process.env.DISABLE_MEMORY_STORE === '1' ||
+    process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1';
+
+  // Generate deterministic/unique IDs (reuse valid UUID buildingId or broker-owned match before minting)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const requestedBuildingId =
     typeof body.buildingId === 'string' && uuidRegex.test(body.buildingId)
@@ -237,8 +253,12 @@ export async function POST(req: NextRequest) {
     !['bld-01', 'bld-02', 'bld-03', 'im-doc-01', 'im-doc-02', 'im-doc-03'].includes(rawLegacyCandidate)
       ? rawLegacyCandidate
       : null;
-  const buildingId = requestedBuildingId || crypto.randomUUID();
-  const documentId = crypto.randomUUID();
+  const isExplicitDuplicate =
+    Boolean(body.isClone || body.isDuplicate || body.duplicate || body.forceNewBuilding) ||
+    (typeof rawLegacyCandidate === 'string' && /^bld-dup-/i.test(rawLegacyCandidate));
+  let resolvedExistingBuildingId: string | null = requestedBuildingId;
+  let preLookupSupabase: any = null;
+  let preResolvedDealCardWs: WorkspaceItemRecord | null = null;
 
   // Preserve existing DB metadata (PNU, coordinates, enrichment, photos, floor_leases) when regenerating an existing IM
   let existingPnu: string | undefined;
@@ -387,6 +407,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (ownershipSupabase) {
+      preLookupSupabase = ownershipSupabase;
+    }
+
     if (existingBldRow) {
       const rowOwnerId = (existingBldRow.owner_id as string | null | undefined) ?? null;
       if (!isAdmin && (!rowOwnerId || rowOwnerId !== userId)) {
@@ -420,8 +444,46 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // (b) Resolve existing canonical buildingId via legacy_id scoped to broker before minting a new UUID
+  if (!resolvedExistingBuildingId && !isExplicitDuplicate && legacyBuildingId && shouldPersistDb) {
+    try {
+      if (!preLookupSupabase) {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        preLookupSupabase = createServiceClient();
+      }
+      if (preLookupSupabase && typeof preLookupSupabase.from === 'function') {
+        const ownerScope = isAdmin ? undefined : userId;
+        const matchedDealWs = await getWorkspaceItemByAnyId(
+          preLookupSupabase,
+          legacyBuildingId,
+          'dealcard',
+          ownerScope
+        ).catch(() => null);
+        const matchedAnyWs =
+          matchedDealWs ||
+          (await getWorkspaceItemByAnyId(
+            preLookupSupabase,
+            legacyBuildingId,
+            undefined,
+            ownerScope
+          ).catch(() => null));
+        if (matchedAnyWs && (isAdmin || matchedAnyWs.ownerId === userId)) {
+          if (matchedAnyWs.buildingId && uuidRegex.test(matchedAnyWs.buildingId)) {
+            resolvedExistingBuildingId = matchedAnyWs.buildingId;
+            existingOwnerId = existingOwnerId || matchedAnyWs.ownerId;
+          }
+          if (matchedAnyWs.kind === 'dealcard') {
+            preResolvedDealCardWs = matchedAnyWs;
+          }
+        }
+      }
+    } catch {
+      // Non-blocking legacy_id dedup lookup
+    }
+  }
+
   if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
-    if (requestedBuildingId) {
+    if (resolvedExistingBuildingId) {
       try {
         const { createServiceClient } = await import('@/lib/supabase/service');
         const supabase = createServiceClient();
@@ -429,7 +491,7 @@ export async function POST(req: NextRequest) {
           const { data: docRows } = await supabase
             .from('document_objects')
             .select('body')
-            .eq('building_id', requestedBuildingId)
+            .eq('building_id', resolvedExistingBuildingId)
             .eq('document_type', 'mobile_im')
             .order('created_at', { ascending: false })
             .limit(3);
@@ -533,6 +595,164 @@ export async function POST(req: NextRequest) {
       } catch {
         // Non-blocking address resolver fallback
       }
+    }
+  }
+
+  const normalizeAddrDedupKey = (raw?: unknown): string => {
+    if (typeof raw !== 'string') return '';
+    return raw
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(
+        /^(서울특별시|서울시|서울|부산광역시|부산시|부산|대구광역시|대구시|대구|인천광역시|인천시|인천|광주광역시|광주시|광주|대전광역시|대전시|대전|울산광역시|울산시|울산|세종특별자치시|세종시|세종|경기도|경기|강원특별자치도|강원도|강원|충청북도|충북|충청남도|충남|전북특별자치도|전라북도|전북|전라남도|전남|경상북도|경북|경상남도|경남|제주특별자치도|제주도|제주)\s+/,
+        ''
+      )
+      .replace(/번지/g, '')
+      .replace(/\s+/g, '')
+      .trim()
+      .toLowerCase();
+  };
+
+  // (c) Resolve existing broker-owned building by (owner_id, resolvedPnu) or normalized (owner_id, cleanAddress)
+  // before minting a new canonical UUID (skip when explicitly cloning/duplicating).
+  if (!resolvedExistingBuildingId && !isExplicitDuplicate && shouldPersistDb) {
+    const preLookupPnu = sanitizedRawPnu || knownMatch?.pnu || existingPnu || '';
+    const targetAddrKey = normalizeAddrDedupKey(cleanAddress);
+    try {
+      if (!preLookupSupabase) {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        preLookupSupabase = createServiceClient();
+      }
+      if (preLookupSupabase && typeof preLookupSupabase.from === 'function') {
+        const ownerScopeId = existingOwnerId || userId;
+        let ownerBldQuery: any = preLookupSupabase
+          .from('building_ssot_lite')
+          .select('id, owner_id, pnu, raw_address, raw_input, layers')
+          .eq('owner_id', ownerScopeId);
+        if (typeof ownerBldQuery?.order === 'function') {
+          ownerBldQuery = ownerBldQuery.order('updated_at', { ascending: false });
+        }
+        if (typeof ownerBldQuery?.limit === 'function') {
+          ownerBldQuery = ownerBldQuery.limit(50);
+        }
+        let bldRes: any =
+          ownerBldQuery && typeof ownerBldQuery.then === 'function'
+            ? await ownerBldQuery
+            : typeof ownerBldQuery?.maybeSingle === 'function'
+            ? await ownerBldQuery.maybeSingle()
+            : ownerBldQuery;
+        const isMissingBldCol = (e: any) =>
+          Boolean(e) &&
+          (String(e.code || '') === '42703' ||
+            String(e.code || '') === 'PGRST204' ||
+            /column .* does not exist/i.test(String(e.message || '')));
+        if (bldRes?.error && isMissingBldCol(bldRes.error)) {
+          let fallbackQ: any = preLookupSupabase
+            .from('building_ssot_lite')
+            .select('id, owner_id, layers')
+            .eq('owner_id', ownerScopeId);
+          if (typeof fallbackQ?.limit === 'function') {
+            fallbackQ = fallbackQ.limit(50);
+          }
+          bldRes =
+            fallbackQ && typeof fallbackQ.then === 'function'
+              ? await fallbackQ
+              : typeof fallbackQ?.maybeSingle === 'function'
+              ? await fallbackQ.maybeSingle()
+              : fallbackQ;
+        }
+        const bldRows = Array.isArray(bldRes?.data)
+          ? bldRes.data
+          : bldRes?.data
+          ? [bldRes.data]
+          : [];
+        for (const row of bldRows) {
+          if (!row || typeof row.id !== 'string' || !uuidRegex.test(row.id)) continue;
+          const rLayers = (row.layers as Record<string, any>) || {};
+          const rowPnu =
+            row.pnu || rLayers?.location?.pnu || rLayers?.location?.canonical_pnu || '';
+          const pnuMatched = Boolean(preLookupPnu && rowPnu && rowPnu === preLookupPnu);
+          const candidateAddrs = [
+            row.raw_address,
+            row.raw_input,
+            rLayers?.location?.address,
+            rLayers?.location?.raw_address,
+          ];
+          const addrMatched = Boolean(
+            targetAddrKey &&
+              candidateAddrs.some((a) => normalizeAddrDedupKey(a) === targetAddrKey)
+          );
+          if (pnuMatched || addrMatched) {
+            resolvedExistingBuildingId = row.id;
+            existingOwnerId = existingOwnerId || row.owner_id || ownerScopeId;
+            if (!existingPnu && isValidPnuForAddress(rowPnu)) existingPnu = rowPnu;
+            if (!existingCoords && isValidCoordsForAddress(rLayers.coordinates)) {
+              existingCoords = {
+                lat: Number(rLayers.coordinates.lat),
+                lng: Number(rLayers.coordinates.lng),
+              };
+            }
+            break;
+          }
+        }
+
+        if (!resolvedExistingBuildingId && (preLookupPnu || targetAddrKey)) {
+          const { items: wsItems } = await listWorkspaceItemsForOwner(preLookupSupabase, {
+            ownerId: ownerScopeId,
+          }).catch(() => ({ items: [] as WorkspaceItemRecord[], tableAvailable: false }));
+          for (const ws of wsItems) {
+            if (!ws?.buildingId || !uuidRegex.test(ws.buildingId)) continue;
+            const wsPayload = (ws.draftPayload as Record<string, any>) || {};
+            const wsSsot = (wsPayload.ssot_summary as Record<string, any>) || {};
+            const wsAddrs = [ws.address, wsPayload.address, wsSsot.address, wsSsot.raw_address];
+            const wsPnu = String(wsPayload.pnu || wsSsot.pnu || '');
+            const matched =
+              (preLookupPnu && wsPnu && wsPnu === preLookupPnu) ||
+              (targetAddrKey && wsAddrs.some((a) => normalizeAddrDedupKey(a) === targetAddrKey));
+            if (matched) {
+              resolvedExistingBuildingId = ws.buildingId;
+              existingOwnerId = existingOwnerId || ws.ownerId;
+              if (ws.kind === 'dealcard' && !preResolvedDealCardWs) {
+                preResolvedDealCardWs = ws;
+              }
+              break;
+            }
+          }
+        }
+      }
+    } catch {
+      // Non-blocking PNU/address dedup pre-lookup
+    }
+  }
+
+  const buildingId = resolvedExistingBuildingId || crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+
+  if (resolvedExistingBuildingId && shouldPersistDb && !preResolvedDealCardWs) {
+    try {
+      if (!preLookupSupabase) {
+        const { createServiceClient } = await import('@/lib/supabase/service');
+        preLookupSupabase = createServiceClient();
+      }
+      if (preLookupSupabase) {
+        const ownerScope = isAdmin ? undefined : existingOwnerId || userId;
+        preResolvedDealCardWs =
+          (await getWorkspaceItemByAnyId(
+            preLookupSupabase,
+            resolvedExistingBuildingId,
+            'dealcard',
+            ownerScope
+          ).catch(() => null)) ||
+          (legacyBuildingId
+            ? await getWorkspaceItemByAnyId(
+                preLookupSupabase,
+                legacyBuildingId,
+                'dealcard',
+                ownerScope
+              ).catch(() => null)
+            : null);
+      }
+    } catch {
+      // Non-blocking DealCard pre-read
     }
   }
 
@@ -1534,26 +1754,79 @@ export async function POST(req: NextRequest) {
       : posture === 'owner_occupier'
       ? ('owner_occupied' as const)
       : ('income' as const);
+
+  const rawMainPurposeInput =
+    (typeof body.mainPurpose === 'string' && body.mainPurpose.trim()) ||
+    (typeof knownMatch?.mainPurpose === 'string' && knownMatch.mainPurpose.trim()) ||
+    (typeof existingSsot?.main_usage === 'string' && existingSsot.main_usage.trim()) ||
+    '';
+  const existingCompanionCard4 = (
+    preResolvedDealCardWs?.draftPayload as { card4?: Partial<Card4Data> } | undefined
+  )?.card4;
+  const newSpecificMainPurpose =
+    rawMainPurposeInput && !isGenericAssetUse(rawMainPurposeInput) ? rawMainPurposeInput : '';
+
+  const canonicalSummary = resolveCanonicalDealSummary({
+    posture,
+    region: derivedRegion.slice(0, 14),
+    mainPurpose: rawMainPurposeInput || undefined,
+    assetType:
+      typeof existingSsot?.asset_type === 'string' ? existingSsot.asset_type : undefined,
+    gfaSqm: effectiveGfaSqm,
+    landSqm: effectiveLandSqm,
+    gfaPyeong: facts.building.totalGrossAreaPyeong,
+    landPyeong: facts.land.landAreaPyeong,
+    brokerHeadline:
+      typeof body.headline === 'string' && body.headline.trim()
+        ? body.headline.trim()
+        : undefined,
+    existingHeadline:
+      typeof existingCompanionCard4?.headline === 'string' && existingCompanionCard4.headline.trim()
+        ? existingCompanionCard4.headline.trim()
+        : undefined,
+  });
+
+  const roundedGfaPyeong =
+    canonicalSummary.gfaPyeong ??
+    sqmToRoundedPyeong(effectiveGfaSqm) ??
+    Math.round(Number(facts.building.totalGrossAreaPyeong || 0));
+  const roundedLandPyeong =
+    canonicalSummary.landPyeong ??
+    sqmToRoundedPyeong(effectiveLandSqm) ??
+    Math.round(Number(facts.land.landAreaPyeong || 0));
+  const useLandPrioritySizeSignal =
+    (isLandPriorityPosture(posture) && effectiveLandSqm > 0) ||
+    (effectiveGfaSqm <= 0 && effectiveLandSqm > 0);
+  const resolvedSizeSignal = useLandPrioritySizeSignal
+    ? `토지 ${effectiveLandSqm.toLocaleString()}㎡ (${roundedLandPyeong.toLocaleString('ko-KR')}평)`
+    : `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${roundedGfaPyeong.toLocaleString('ko-KR')}평)`;
+
+  const canonicalUse = canonicalSummary.use || '근린생활시설';
   const card4Area =
-    card4Posture === 'value_add' && facts.land.landAreaPyeong > 0
-      ? `토지 ${facts.land.landAreaPyeong}평`
-      : facts.building.totalGrossAreaPyeong > 0
-      ? `연면적 ${facts.building.totalGrossAreaPyeong}평`
-      : facts.land.landAreaPyeong > 0
-      ? `토지 ${facts.land.landAreaPyeong}평`
-      : undefined;
+    canonicalSummary.areaLabel ||
+    (useLandPrioritySizeSignal && roundedLandPyeong > 0
+      ? `토지 ${roundedLandPyeong}평`
+      : roundedGfaPyeong > 0
+      ? `연면적 ${roundedGfaPyeong}평`
+      : roundedLandPyeong > 0
+      ? `토지 ${roundedLandPyeong}평`
+      : undefined);
+  const card4HeadlineCandidate =
+    (typeof body.headline === 'string' && body.headline.trim()) ||
+    canonicalSummary.headline ||
+    resolveCanonicalDealHeadline({
+      region: derivedRegion.slice(0, 14),
+      assetType: canonicalUse,
+    });
 
   const card4Draft = {
     posture: card4Posture,
     region: derivedRegion.slice(0, 14),
-    use: '근린생활시설',
+    use: canonicalUse,
+    ...(card4HeadlineCandidate ? { headline: card4HeadlineCandidate } : {}),
     ...(card4Area ? { area: card4Area } : {}),
-    ...(facts.building.totalGrossAreaPyeong > 0
-      ? { gfaPyung: facts.building.totalGrossAreaPyeong }
-      : {}),
-    ...(facts.land.landAreaPyeong > 0
-      ? { landAreaPyung: facts.land.landAreaPyeong }
-      : {}),
+    ...(roundedGfaPyeong > 0 ? { gfaPyung: roundedGfaPyeong } : {}),
+    ...(roundedLandPyeong > 0 ? { landAreaPyung: roundedLandPyeong } : {}),
     priceBand,
     points,
     provenance: {
@@ -1701,7 +1974,7 @@ export async function POST(req: NextRequest) {
       : {}),
     coordinates: resolvedCoords,
     building_name: resolvedTitle,
-    asset_type: '근린생활시설',
+    asset_type: canonicalUse,
     area_signal: derivedRegion,
     asking_price_manwon: priceNum,
     monthly_rent_total_manwon: effectiveMonthlyRentManwon,
@@ -1713,7 +1986,7 @@ export async function POST(req: NextRequest) {
     land_area_m2: effectiveLandSqm,
     total_gross_area_sqm: effectiveGfaSqm,
     total_gross_area_m2: effectiveGfaSqm,
-    size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR')}평)`,
+    size_signal: resolvedSizeSignal,
     zoning: effectiveZoning,
     land_category: resolvedLandCategory,
     jimok: resolvedLandCategory,
@@ -1725,7 +1998,7 @@ export async function POST(req: NextRequest) {
     parking_total: parkingSpaces,
     parking_count: parkingSpaces,
     elevator_count: elevators,
-    main_usage: body.mainPurpose || knownMatch?.mainPurpose || '제1·2종 근린생활시설',
+    main_usage: rawMainPurposeInput || '제1·2종 근린생활시설',
     structure: '철근콘크리트구조',
     official_land_price_per_sqm: effectiveOfficialLandPriceWonSqm,
     ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
@@ -2055,7 +2328,7 @@ export async function POST(req: NextRequest) {
     ...(normalizedAxiosHighlights ? { axios_highlights: normalizedAxiosHighlights } : {}),
     ...(handoverNote ? { handover_note: String(handoverNote) } : {}),
     heroCard: {
-      assetType: '근린생활시설',
+      assetType: canonicalUse,
       areaSignal: derivedRegion,
       address: cleanAddress,
       askingPriceDisplay: exactEokDisplay,
@@ -2097,10 +2370,6 @@ export async function POST(req: NextRequest) {
   };
 
   const persistedOwnerId = existingOwnerId || userId;
-  const shouldPersistDb =
-    (process.env.NODE_ENV !== 'test' && !process.env.VITEST) ||
-    process.env.DISABLE_MEMORY_STORE === '1' ||
-    process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1';
 
   const explicitPublishRequested =
     body.publishStatus === 'published' || body.status === 'published';
@@ -2300,10 +2569,90 @@ export async function POST(req: NextRequest) {
     points: cleanedPointsTuple,
     ...(cleanedPointBriefs ? { pointBriefs: cleanedPointBriefs } : {}),
   };
-  const card4ForPublic: Card4Data = Card4Schema.parse({
+  const baseCard4ForPublic: Card4Data = Card4Schema.parse({
     ...card4ForPublicDraft,
     card4_hash: computeCard4Hash(card4ForPublicDraft),
   });
+  const mergeExistingCompanionCard4 = (
+    existingWs: WorkspaceItemRecord | null | undefined,
+    generatedCard4: Card4Data
+  ): Card4Data => {
+    const existingPayload = (
+      existingWs?.draftPayload as { card4?: Partial<Card4Data> } | undefined
+    )?.card4;
+    if (!existingPayload) return generatedCard4;
+
+    const existingHeadlineRaw =
+      typeof existingPayload.headline === 'string' ? existingPayload.headline.trim() : '';
+    const preservedHeadline = existingHeadlineRaw
+      ? stripBlindIdentifiers(existingHeadlineRaw) || existingHeadlineRaw
+      : generatedCard4.headline;
+
+    const existingUseRaw =
+      typeof existingPayload.use === 'string' ? existingPayload.use.trim() : '';
+    const preservedUse =
+      existingUseRaw && !(isGenericAssetUse(existingUseRaw) && newSpecificMainPurpose)
+        ? existingUseRaw
+        : generatedCard4.use;
+
+    const existingPts = Array.isArray(existingPayload.points) ? existingPayload.points : [];
+    const hasMeaningfulExistingPts = existingPts.some(
+      (p) => typeof p === 'string' && p.trim().length > 0 && p.trim() !== '-'
+    );
+    const preservedPoints: [string, string, string] = hasMeaningfulExistingPts
+      ? ([
+          (typeof existingPts[0] === 'string' && existingPts[0].trim()) ||
+            generatedCard4.points[0],
+          (typeof existingPts[1] === 'string' && existingPts[1].trim()) ||
+            generatedCard4.points[1],
+          (typeof existingPts[2] === 'string' && existingPts[2].trim()) ||
+            generatedCard4.points[2],
+        ] as [string, string, string])
+      : generatedCard4.points;
+
+    const existingRegionRaw =
+      typeof existingPayload.region === 'string' ? existingPayload.region.trim() : '';
+    const preservedRegion =
+      existingRegionRaw && existingRegionRaw !== DEALCARD_PLACEHOLDER_REGION
+        ? stripBlindIdentifiers(existingRegionRaw, '', '') || generatedCard4.region
+        : generatedCard4.region;
+
+    const mergedDraft = {
+      ...existingPayload,
+      ...generatedCard4,
+      region: preservedRegion,
+      use: preservedUse,
+      ...(preservedHeadline ? { headline: preservedHeadline } : {}),
+      points: preservedPoints,
+      ...(existingPayload.pointTones ? { pointTones: existingPayload.pointTones } : {}),
+      ...(existingPayload.pointBriefs
+        ? { pointBriefs: existingPayload.pointBriefs }
+        : generatedCard4.pointBriefs
+        ? { pointBriefs: generatedCard4.pointBriefs }
+        : {}),
+      ...(generatedCard4.area || existingPayload.area
+        ? { area: generatedCard4.area || existingPayload.area }
+        : {}),
+      ...(generatedCard4.gfaPyung || existingPayload.gfaPyung
+        ? { gfaPyung: generatedCard4.gfaPyung ?? existingPayload.gfaPyung }
+        : {}),
+      ...(generatedCard4.landAreaPyung || existingPayload.landAreaPyung
+        ? { landAreaPyung: generatedCard4.landAreaPyung ?? existingPayload.landAreaPyung }
+        : {}),
+      card4_version: Math.max(
+        Number(existingPayload.card4_version || 1),
+        Number(generatedCard4.card4_version || 1)
+      ),
+    };
+    return Card4Schema.parse({
+      ...mergedDraft,
+      card4_hash: computeCard4Hash(mergedDraft),
+    });
+  };
+  let card4ForPublic: Card4Data = mergeExistingCompanionCard4(
+    preResolvedDealCardWs,
+    baseCard4ForPublic
+  );
   const statutoryBrokerProfile = {
     ...brokerOfficeObj,
     company: brokerOfficeObj.name,
@@ -2399,10 +2748,10 @@ export async function POST(req: NextRequest) {
           input_type: 'manual_form' as const,
           raw_input: cleanAddress,
           raw_address: cleanAddress,
-          area_signal: card4.region,
-          asset_type: card4.use,
-          price_band: card4.priceBand,
-          size_signal: `연면적 ${effectiveGfaSqm.toLocaleString()}㎡ (${Number(facts.building.totalGrossAreaPyeong).toLocaleString('ko-KR')}평)`,
+          area_signal: card4ForPublic.region,
+          asset_type: card4ForPublic.use,
+          price_band: card4ForPublic.priceBand,
+          size_signal: resolvedSizeSignal,
           vacancy_signal: ssotSummary.vacancy_signal,
           status: (effectiveStatus === 'published' ? 'public_signal_ready' : 'draft') as 'public_signal_ready' | 'draft',
           layers: {
@@ -2570,25 +2919,82 @@ export async function POST(req: NextRequest) {
             // Non-blocking legacy DealCard back-link sync
           }
         }
-        if (!linkedExistingLegacyDealCard) {
+        let existingDealCardWs: WorkspaceItemRecord | null = preResolvedDealCardWs;
+        if (!existingDealCardWs) {
+          const ownerScope = isAdmin ? undefined : persistedOwnerId;
+          existingDealCardWs =
+            (await getWorkspaceItemByAnyId(supabase, buildingId, 'dealcard', ownerScope).catch(
+              () => null
+            )) ||
+            (legacyBuildingId
+              ? await getWorkspaceItemByAnyId(
+                  supabase,
+                  legacyBuildingId,
+                  'dealcard',
+                  ownerScope
+                ).catch(() => null)
+              : null);
+        }
+        if (!linkedExistingLegacyDealCard || existingDealCardWs) {
+          const companionCard4 = existingDealCardWs
+            ? mergeExistingCompanionCard4(existingDealCardWs, card4ForPublic)
+            : card4ForPublic;
+          if (existingDealCardWs) {
+            card4ForPublic = companionCard4;
+            fullDocBody.card4 = companionCard4;
+          }
+          const preservedStatus = existingDealCardWs
+            ? existingDealCardWs.status === 'published' || existingDealCardWs.status === 'sent'
+              ? ('sent' as const)
+              : existingDealCardWs.status === 'archived'
+              ? ('archived' as const)
+              : ('draft' as const)
+            : canPublishCompanionDealCard
+            ? ('sent' as const)
+            : ('draft' as const);
+          const existingDraftObj =
+            existingDealCardWs?.draftPayload &&
+            typeof existingDealCardWs.draftPayload === 'object'
+              ? existingDealCardWs.draftPayload
+              : {};
           await upsertWorkspaceItem(supabase, {
+            ...(existingDealCardWs?.id ? { id: existingDealCardWs.id } : {}),
             buildingId,
-            ...(legacyBuildingId ? { legacyId: legacyBuildingId } : {}),
+            ...(legacyBuildingId
+              ? { legacyId: legacyBuildingId }
+              : existingDealCardWs?.legacyId
+              ? { legacyId: existingDealCardWs.legacyId }
+              : {}),
             ownerId: persistedOwnerId,
             isAdmin,
             kind: 'dealcard',
-            status: canPublishCompanionDealCard ? 'sent' : 'draft',
-            title: `${card4ForPublic.region} ${card4ForPublic.use}`.trim(),
-            address: card4ForPublic.region,
-            priceBand: card4ForPublic.priceBand,
-            draftPayload: { card4: card4ForPublic, brokerProfile: statutoryBrokerProfile },
-            publishedSnapshot: canPublishCompanionDealCard
+            status: preservedStatus,
+            title:
+              companionCard4.headline ||
+              `${companionCard4.region} ${companionCard4.use}`.trim(),
+            address: companionCard4.region,
+            priceBand: companionCard4.priceBand,
+            draftPayload: {
+              ...existingDraftObj,
+              card4: companionCard4,
+              brokerProfile: statutoryBrokerProfile,
+            },
+            publishedSnapshot: existingDealCardWs
+              ? preservedStatus === 'sent'
+                ? canPublishCompanionDealCard
+                  ? buildSanitizedDealCardPublicSnapshot({
+                      card4: companionCard4,
+                      brokerProfile: statutoryBrokerProfile,
+                    })
+                  : existingDealCardWs.publishedSnapshot ?? null
+                : null
+              : canPublishCompanionDealCard
               ? buildSanitizedDealCardPublicSnapshot({
-                  card4: card4ForPublic,
+                  card4: companionCard4,
                   brokerProfile: statutoryBrokerProfile,
                 })
               : null,
-            docHash: card4ForPublic.card4_hash,
+            docHash: companionCard4.card4_hash,
           });
         }
 

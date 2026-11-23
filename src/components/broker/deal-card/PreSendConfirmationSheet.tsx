@@ -36,6 +36,8 @@ export interface PreSendConfirmationSheetProps {
   dealId: string;
   isSaved: boolean;
   onFlushSave: () => Promise<boolean>;
+  resolveEffectiveDealId?: () => string;
+  onEnsureCanonicalId?: () => Promise<string | null>;
   onAutoMask?: () => void;
   onSendToSelf?: () => Promise<void>;
   onSendToClient?: () => void | boolean | Promise<boolean | void>;
@@ -52,6 +54,8 @@ export function PreSendConfirmationSheet({
   dealId,
   isSaved,
   onFlushSave,
+  resolveEffectiveDealId,
+  onEnsureCanonicalId,
   onAutoMask,
   onSendToClient,
   onCopyLink,
@@ -71,6 +75,8 @@ export function PreSendConfirmationSheet({
   const primaryBtnRef = useRef<HTMLButtonElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const dealIdRef = useRef<string>(dealId);
+  dealIdRef.current = dealId;
 
   const handleClose = useCallback(() => {
     setActionFeedback(null);
@@ -155,8 +161,17 @@ export function PreSendConfirmationSheet({
     onFlushSaveRef.current = onFlushSave;
   }, [onFlushSave]);
 
+  const onEnsureCanonicalIdRef = useRef(onEnsureCanonicalId);
   useEffect(() => {
-    if (!isOpen || isSaved) {
+    onEnsureCanonicalIdRef.current = onEnsureCanonicalId;
+  }, [onEnsureCanonicalId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (isSaved) {
+      if (dealIdRef.current.startsWith('bld-') && onEnsureCanonicalIdRef.current) {
+        void onEnsureCanonicalIdRef.current().catch(() => null);
+      }
       return;
     }
 
@@ -188,11 +203,24 @@ export function PreSendConfirmationSheet({
     ? flushResult.status
     : 'flushing';
 
-  const origin = getSiteOrigin();
-  const publicUrl = `${origin}/dc/${dealId}`;
-  const ogImageUrl = `${origin}/api/og/deal/${dealId}/kakao-v2${
-    card4.card4_hash ? `?v=${card4.card4_hash}` : ''
-  }`;
+  const resolveShareUrls = async (): Promise<{ publicUrl: string; ogImageUrl: string }> => {
+    let effectiveId = resolveEffectiveDealId?.() || dealIdRef.current || dealId;
+    if (effectiveId.startsWith('bld-') && onEnsureCanonicalIdRef.current) {
+      const promoted = await onEnsureCanonicalIdRef.current().catch(() => null);
+      if (promoted && !promoted.startsWith('bld-')) {
+        effectiveId = promoted;
+      } else {
+        effectiveId = resolveEffectiveDealId?.() || dealIdRef.current || effectiveId;
+      }
+    }
+    const safeOrigin = getSiteOrigin();
+    return {
+      publicUrl: `${safeOrigin}/dc/${effectiveId}`,
+      ogImageUrl: `${safeOrigin}/api/og/deal/${effectiveId}/kakao-v2${
+        card4.card4_hash ? `?v=${card4.card4_hash}` : ''
+      }`,
+    };
+  };
   const resolvedArea =
     card4.area !== undefined ? card4.area.trim() : resolveCard4AreaLabel(card4);
   const headlineDisplay =
@@ -229,7 +257,8 @@ export function PreSendConfirmationSheet({
         setActionFeedback('링크를 발행할 수 없어 복사하지 않았습니다. 아래 안내를 먼저 확인해 주세요.');
         return;
       }
-      const ok = await copyText(publicUrl);
+      const { publicUrl: targetPublicUrl } = await resolveShareUrls();
+      const ok = await copyText(targetPublicUrl);
       if (ok) {
         setFeedbackTone('info');
         setActionFeedback('✓ 링크를 복사했어요. 카카오톡 대화창에 붙여넣어 보내세요.');
@@ -256,12 +285,14 @@ export function PreSendConfirmationSheet({
         setActionFeedback('발행 조건을 먼저 확인한 뒤 다시 보내 주세요.');
         return;
       }
+      const { publicUrl: targetPublicUrl, ogImageUrl: targetOgImageUrl } =
+        await resolveShareUrls();
       const outcome = await shareKakaoFeed({
         title: headlineDisplay,
-        imageUrl: ogImageUrl,
-        url: publicUrl,
+        imageUrl: targetOgImageUrl,
+        url: targetPublicUrl,
         buttonTitle: '자세히 보기',
-        fallbackText: `${headlineDisplay}\n${publicUrl}`,
+        fallbackText: `${headlineDisplay}\n${targetPublicUrl}`,
       });
 
       if (outcome === 'kakao') {

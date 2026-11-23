@@ -204,6 +204,14 @@ export function buildClonedEditionState(
       ? [...ed.monthlyCharts]
       : buildDefaultMonthlyGraphicPair(clonedRegion, clonedPair);
 
+  // A6-04: 월간/주간 복사 초안은 원본의 오래된 작성일(issueDate)을 물려받지 않고 오늘(KST)로 갱신한다.
+  const clonedIssueDateStr =
+    anchor.cadence === "monthly" || anchor.cadence === "weekly"
+      ? todayKst()
+      : isValidIsoDate(ed.issueDate)
+        ? ed.issueDate
+        : anchor.dateStr;
+
   return {
     anchor,
     distinctSlug,
@@ -211,7 +219,7 @@ export function buildClonedEditionState(
     clonedRegion,
     clonedPair,
     clonedCharts,
-    clonedIssueDateStr: isValidIsoDate(ed.issueDate) ? ed.issueDate : anchor.dateStr,
+    clonedIssueDateStr,
     clonedSelectedDealIds: Array.isArray(ed.selectedDealIds) ? [...ed.selectedDealIds] : [],
     clonedDealComments: ed.dealComments ? { ...ed.dealComments } : {},
     clonedUnitIssues: Array.isArray(ed.unitIssues) ? [...ed.unitIssues] : [],

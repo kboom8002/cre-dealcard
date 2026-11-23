@@ -23,13 +23,45 @@ export function mergeWorkspaceDealCard(wsItem: WorkspaceItemRecord, dealcards: A
     ...normalizedC4,
     card4_version: Math.max(wsItem.version || 1, normalizedC4.card4_version || 1),
   };
-  const preferredId = wsItem.legacyId || wsItem.buildingId || wsItem.id;
-  const idx = dealcards.findIndex(
-    (dc) => dc.id === preferredId || dc.id === wsItem.id || (wsItem.buildingId && dc.id === wsItem.buildingId)
+  const preferredId = wsItem.buildingId || wsItem.id || wsItem.legacyId || "";
+  const aliasIds = new Set(
+    [wsItem.id, wsItem.buildingId, wsItem.legacyId].filter((v): v is string => Boolean(v))
   );
+  const matchedEntries: Array<Record<string, any>> = [];
+  let firstMatchIdx = -1;
+  for (let i = 0; i < dealcards.length; i++) {
+    const dc = dealcards[i];
+    if (
+      aliasIds.has(dc.id) ||
+      (dc.canonicalId && aliasIds.has(dc.canonicalId)) ||
+      (dc.buildingId && aliasIds.has(dc.buildingId)) ||
+      (dc.legacyId && aliasIds.has(dc.legacyId))
+    ) {
+      if (firstMatchIdx < 0) firstMatchIdx = i;
+      matchedEntries.push(dc);
+    }
+  }
+  for (let i = dealcards.length - 1; i >= 0; i--) {
+    const dc = dealcards[i];
+    if (
+      aliasIds.has(dc.id) ||
+      (dc.canonicalId && aliasIds.has(dc.canonicalId)) ||
+      (dc.buildingId && aliasIds.has(dc.buildingId)) ||
+      (dc.legacyId && aliasIds.has(dc.legacyId))
+    ) {
+      dealcards.splice(i, 1);
+    }
+  }
+  const fallbackMemoText =
+    typeof payload.memoText === "string"
+      ? payload.memoText
+      : matchedEntries.find((m) => typeof m.memoText === "string")?.memoText;
+  const fallbackPairedMemoId =
+    payload.pairedMemoId || matchedEntries.find((m) => m.pairedMemoId)?.pairedMemoId;
   const mapped = {
     id: preferredId,
     canonicalId: wsItem.id,
+    buildingId: wsItem.buildingId,
     legacyId: wsItem.legacyId,
     title: wsItem.title || `${c4.region} ${c4.use}`.trim(),
     region: c4.region,
@@ -40,12 +72,15 @@ export function mergeWorkspaceDealCard(wsItem: WorkspaceItemRecord, dealcards: A
     updatedAtIso: wsItem.updatedAt,
     hasUnpublishedEdits: Boolean(payload.hasUnpublishedEdits),
     card4: c4,
-    ...(typeof payload.memoText === "string" ? { memoText: payload.memoText } : {}),
-    ...(payload.pairedMemoId ? { pairedMemoId: payload.pairedMemoId } : {}),
+    ...(typeof fallbackMemoText === "string" ? { memoText: fallbackMemoText } : {}),
+    ...(fallbackPairedMemoId ? { pairedMemoId: fallbackPairedMemoId } : {}),
     generationSource: (payload.generationSource || c4.generationSource || "manual") as DealCardGenerationSource,
   };
-  if (idx >= 0) dealcards[idx] = mapped;
-  else dealcards.unshift(mapped);
+  if (firstMatchIdx >= 0) {
+    dealcards.splice(Math.min(firstMatchIdx, dealcards.length), 0, mapped);
+  } else {
+    dealcards.unshift(mapped);
+  }
 }
 
 export function mergeWorkspaceIm(
@@ -56,14 +91,43 @@ export function mergeWorkspaceIm(
   const payload = (wsItem.draftPayload || {}) as Record<string, any>;
   const imObj = (payload.imItem && typeof payload.imItem === "object" ? payload.imItem : payload) as Record<string, any>;
   const preferredId = String(imObj.id || wsItem.legacyId || wsItem.id);
-  const preferredBldId = String(imObj.buildingId || wsItem.buildingId || wsItem.legacyId || wsItem.id);
-  const idx = imList.findIndex(
-    (im) => im.id === preferredId || im.canonicalId === wsItem.id || im.buildingId === preferredBldId
+  const preferredBldId = String(wsItem.buildingId || imObj.buildingId || wsItem.legacyId || wsItem.id);
+  const imAliasIds = new Set(
+    [wsItem.id, wsItem.buildingId, wsItem.legacyId, imObj.id, imObj.buildingId]
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean)
   );
-  const prevPhotos = idx >= 0 ? imList[idx].photos : undefined;
+  let idx = -1;
+  let prevItem: ImSummaryItem | undefined;
+  for (let i = 0; i < imList.length; i++) {
+    const im = imList[i];
+    if (
+      imAliasIds.has(im.id) ||
+      (im.canonicalId && imAliasIds.has(im.canonicalId)) ||
+      (im.buildingId && imAliasIds.has(im.buildingId)) ||
+      (im.legacyId && imAliasIds.has(im.legacyId))
+    ) {
+      if (idx < 0) {
+        idx = i;
+        prevItem = im;
+      }
+    }
+  }
+  for (let i = imList.length - 1; i >= 0; i--) {
+    const im = imList[i];
+    if (
+      imAliasIds.has(im.id) ||
+      (im.canonicalId && imAliasIds.has(im.canonicalId)) ||
+      (im.buildingId && imAliasIds.has(im.buildingId)) ||
+      (im.legacyId && imAliasIds.has(im.legacyId))
+    ) {
+      imList.splice(i, 1);
+    }
+  }
+  const prevPhotos = prevItem?.photos;
   const photos = normalizeSummaryPhotoList(imObj.photos ?? payload.photos) || prevPhotos;
   const mapped: ImSummaryItem = {
-    ...(idx >= 0 ? imList[idx] : ({} as any)),
+    ...(prevItem || ({} as any)),
     ...imObj,
     ...(photos ? { photos } : {}),
     id: preferredId,
@@ -84,7 +148,7 @@ export function mergeWorkspaceIm(
     brokerageName: cleanBrokerField(imObj.brokerageName, brokerProfile?.company),
     brokerPhone: cleanBrokerField(imObj.brokerPhone, brokerProfile?.phone),
   };
-  if (idx >= 0) imList[idx] = mapped;
+  if (idx >= 0) imList.splice(Math.min(idx, imList.length), 0, mapped);
   else imList.unshift(mapped);
 }
 

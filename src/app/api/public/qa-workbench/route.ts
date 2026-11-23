@@ -19,13 +19,27 @@ import {
   issueShareLinkToken,
   verifyShareLinkToken,
   isBuildingShareLinkRevoked,
+  isBuildingShareLinkRevokedAsync,
 } from "@/lib/security/share-link-tokens";
 import {
   getInboxState,
   getQuickImRecord,
   isUuid,
 } from "@/lib/im-lite/quick-generate-store";
+import { getWorkspaceItemByAnyId } from "@/lib/workspace/workspace-repository";
+import { parseGateRequestReason } from "@/lib/inbox/inbox-helpers";
+import { canonicalKrPhoneDigits } from "@/lib/inbox/upsert-broker-client";
 import { normalizeKrPhone, toE164Kr } from "@/lib/magazine/pii";
+
+function extractImShareToken(url: URL): string | null {
+  const explicit = url.searchParams.get("token")?.trim();
+  if (explicit) return explicit;
+  const shortT = url.searchParams.get("t")?.trim();
+  if (!shortT) return null;
+  if (shortT.startsWith("slk.")) return shortT;
+  if (/^mock-/i.test(shortT) || /^\d{10,16}$/.test(shortT)) return null;
+  return shortT;
+}
 import {
   brokerKeys,
   isUnpublishedContent,
@@ -1600,7 +1614,7 @@ export async function POST(req: NextRequest) {
             };
           } else {
             const buildingId = resolvedImBldId;
-            const token = u.searchParams.get("token")?.trim() || null;
+            const token = extractImShareToken(u);
 
             let tokenBlocked = false;
             let tokenReason: string | null = null;
@@ -1612,14 +1626,20 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            // Check building-level lock across memory + activity_events + document_objects.body.is_revoked
+            // Check building-level lock across memory + activity_events + workspace_items + document_objects
             let dbGovRevoked: boolean | undefined;
             let dbGovTs = 0;
             let docBodyRevoked = false;
             let dbDocExists = false;
             let dbHasOfficialLandPrice = false;
+            let asyncRevoked = false;
 
             if (supabase) {
+              try {
+                asyncRevoked = await isBuildingShareLinkRevokedAsync(buildingId, supabase).catch(() => false);
+              } catch {
+                asyncRevoked = false;
+              }
               try {
                 const { data: govEvents } = await supabase
                   .from("activity_events")
@@ -1633,6 +1653,9 @@ export async function POST(req: NextRequest) {
                       ev?.metadata && typeof ev.metadata === "object"
                         ? (ev.metadata as Record<string, unknown>)
                         : {};
+                    if (meta.scope === "thread" || meta.scope === "recipient_approval") {
+                      continue;
+                    }
                     const evBld = String(meta.building_id || ev?.entity_id || "").trim();
                     if (evBld !== buildingId) continue;
                     if (ev.event_type === "link_revoked") {
@@ -1651,12 +1674,62 @@ export async function POST(req: NextRequest) {
                 // non-blocking
               }
 
-              if (isUuid(buildingId)) {
+              let wsLookupBuildingId: string | null = isUuid(buildingId) ? buildingId : null;
+              try {
+                const wsIm =
+                  (await getWorkspaceItemByAnyId(supabase, buildingId, "im").catch(() => null)) ||
+                  (await getWorkspaceItemByAnyId(supabase, buildingId).catch(() => null));
+                if (wsIm && !wsIm.deletedAt) {
+                  if (wsIm.revokedAt) {
+                    docBodyRevoked = true;
+                  }
+                  const wsPayload = (wsIm.publishedSnapshot || wsIm.draftPayload || {}) as Record<
+                    string,
+                    unknown
+                  >;
+                  if (wsPayload && typeof wsPayload === "object") {
+                    dbDocExists = true;
+                    const wsBasic =
+                      wsPayload.basicImDocument && typeof wsPayload.basicImDocument === "object"
+                        ? (wsPayload.basicImDocument as Record<string, unknown>)
+                        : null;
+                    const wsBasicFacts =
+                      wsBasic?.facts && typeof wsBasic.facts === "object"
+                        ? (wsBasic.facts as Record<string, unknown>)
+                        : null;
+                    const wsSsotSum =
+                      wsPayload.ssot_summary && typeof wsPayload.ssot_summary === "object"
+                        ? (wsPayload.ssot_summary as Record<string, unknown>)
+                        : null;
+                    const wsRawPrice = Number(
+                      wsPayload.officialLandPricePerSqm ??
+                        wsPayload.officialLandPriceWonSqm ??
+                        wsSsotSum?.officialLandPricePerSqm ??
+                        wsBasicFacts?.officialLandPricePerSqm ??
+                        0
+                    );
+                    if (
+                      (Number.isFinite(wsRawPrice) && wsRawPrice > 0) ||
+                      (Array.isArray(wsPayload.landPriceHistory) &&
+                        wsPayload.landPriceHistory.length > 0)
+                    ) {
+                      dbHasOfficialLandPrice = true;
+                    }
+                  }
+                  if (!wsLookupBuildingId && wsIm.buildingId && isUuid(wsIm.buildingId)) {
+                    wsLookupBuildingId = wsIm.buildingId;
+                  }
+                }
+              } catch {
+                // non-blocking
+              }
+
+              if (wsLookupBuildingId) {
                 try {
                   const { data: docRows } = await supabase
                     .from("document_objects")
                     .select("id, body, updated_at, created_at")
-                    .eq("building_id", buildingId)
+                    .eq("building_id", wsLookupBuildingId)
                     .order("created_at", { ascending: false })
                     .limit(3);
                   if (Array.isArray(docRows) && docRows.length > 0) {
@@ -1700,7 +1773,7 @@ export async function POST(req: NextRequest) {
                     const { data: ssotRow } = await supabase
                       .from("building_ssot_lite")
                       .select("id, layers")
-                      .eq("id", buildingId)
+                      .eq("id", wsLookupBuildingId)
                       .maybeSingle();
                     if (ssotRow) {
                       dbDocExists = true;
@@ -1724,7 +1797,8 @@ export async function POST(req: NextRequest) {
             const quickRec = getQuickImRecord(buildingId);
             const inboxRevokedEntry = getInboxState().revokedBuildings?.[buildingId];
             const localRevoked = Boolean(
-              inboxRevokedEntry?.revoked ||
+              asyncRevoked ||
+                inboxRevokedEntry?.revoked ||
                 isBuildingShareLinkRevoked(buildingId) ||
                 quickRec?.isRevoked
             );
@@ -1772,67 +1846,370 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ── 2C. Subscriber Check (Zero Third-Party PII Leak — Auth Required) ──
+      // ── 2C. Subscriber & Inbox Check (Zero Third-Party PII Leak — Auth Required) ──
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let subscriberCheck: Record<string, any> | null = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let inboxCheck: Record<string, any> | null = null;
       if (rawClientContact) {
         if (!brokerUser?.id) {
           subscriberCheck = {
             checked: false,
             reason: "AUTH_REQUIRED",
           };
+          inboxCheck = {
+            checked: false,
+            foundInInbox: false,
+            gateStatus: null,
+            hasEmail: false,
+            reason: "AUTH_REQUIRED",
+          };
         } else {
-          const isEmailInput = rawClientContact.includes("@");
-          const emailNorm = isEmailInput ? rawClientContact.toLowerCase() : null;
-          const krDigits = !isEmailInput
-            ? normalizeKrPhone(rawClientContact) || rawClientContact.replace(/\D/g, "")
-            : null;
-          const krDashed = krDigits ? formatDashedKrPhone(krDigits) : null;
-          const krE164 = krDigits ? toE164Kr(krDigits) : null;
+          const emailMatch = rawClientContact.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+          const phoneMatch = rawClientContact.match(
+            /(?:\+?82[-\s]?)?0?1[016789][-\s]?\d{3,4}[-\s]?\d{4}/
+          );
+          let emailNorm: string | null = emailMatch ? emailMatch[0].toLowerCase() : null;
+          let krDigits: string | null = phoneMatch
+            ? canonicalKrPhoneDigits(normalizeKrPhone(phoneMatch[0]) || phoneMatch[0])
+            : !emailNorm && !rawClientContact.includes("@")
+              ? canonicalKrPhoneDigits(normalizeKrPhone(rawClientContact) || rawClientContact)
+              : null;
+          if (krDigits && krDigits.length < 8) krDigits = null;
 
           let foundInMagazineSubscribers = false;
           let confirmStatus: string | null = null;
           let subscriberStatus: string | null = null;
           let foundInBrokerClients = false;
+          let foundInInbox = false;
+          let inboxGateStatus: string | null = null;
+          let inboxHasEmail = Boolean(emailNorm);
 
-          if (supabase && (emailNorm || (krDigits && krDigits.length >= 8))) {
-            const scopedBrokerKeys =
-              callerBrokerKeys.length > 0 ? callerBrokerKeys : [brokerUser.id];
+          if (supabase && (emailNorm || krDigits)) {
+            const scopedBrokerKeys = Array.from(
+              new Set([
+                ...(callerBrokerKeys.length > 0 ? callerBrokerKeys : [brokerUser.id]),
+                brokerUser.id,
+                ...(resolvedNewsletterBrokerKeys.some((k) => callerBrokerKeys.includes(k)) ||
+                brokerUser.role === "admin"
+                  ? resolvedNewsletterBrokerKeys
+                  : []),
+              ])
+            );
 
-            // Check magazine_subscribers strictly scoped to authenticated broker
+            // Check broker_clients first (strictly scoped to brokerUser.id) + cross-resolve email/phone
+            if (isUuid(brokerUser.id)) {
+              try {
+                let cliRows: Array<Record<string, unknown>> | null = null;
+                let cliErr: { code?: string; message?: string } | null = null;
+                {
+                  let cliQ: any = supabase
+                    .from("broker_clients")
+                    .select("phone, email, notes")
+                    .eq("broker_id", brokerUser.id);
+                  if (typeof cliQ?.order === "function") {
+                    cliQ = cliQ.order("created_at", { ascending: false });
+                  }
+                  const res = await (typeof cliQ?.limit === "function" ? cliQ.limit(200) : cliQ);
+                  cliRows = Array.isArray(res?.data) ? res.data : null;
+                  cliErr = res?.error ?? null;
+                }
+                if (
+                  cliErr &&
+                  (String(cliErr.code || "") === "42703" ||
+                    String(cliErr.code || "") === "PGRST204" ||
+                    /column .* does not exist/i.test(String(cliErr.message || "")))
+                ) {
+                  let fbQ: any = supabase
+                    .from("broker_clients")
+                    .select("phone, notes")
+                    .eq("broker_id", brokerUser.id);
+                  if (typeof fbQ?.order === "function") {
+                    fbQ = fbQ.order("created_at", { ascending: false });
+                  }
+                  const fbRes = await (typeof fbQ?.limit === "function" ? fbQ.limit(200) : fbQ);
+                  cliRows = Array.isArray(fbRes?.data) ? fbRes.data : null;
+                }
+                if (Array.isArray(cliRows)) {
+                  for (const r of cliRows) {
+                    const pDigits = canonicalKrPhoneDigits(
+                      typeof r.phone === "string" ? r.phone : ""
+                    );
+                    const rEmail =
+                      typeof r.email === "string" && r.email.includes("@")
+                        ? r.email.trim().toLowerCase()
+                        : null;
+                    const notesEmailMatch =
+                      typeof r.notes === "string"
+                        ? r.notes.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0]?.toLowerCase() || null
+                        : null;
+                    const rowEmail = rEmail || notesEmailMatch;
+
+                    const matchedPhone = Boolean(krDigits && pDigits && pDigits === krDigits);
+                    const matchedEmail = Boolean(
+                      emailNorm &&
+                        ((rEmail && rEmail === emailNorm) ||
+                          (typeof r.notes === "string" &&
+                            r.notes.toLowerCase().includes(emailNorm)))
+                    );
+                    if (matchedPhone || matchedEmail) {
+                      foundInBrokerClients = true;
+                      if (rowEmail) {
+                        inboxHasEmail = true;
+                        if (!emailNorm) emailNorm = rowEmail;
+                      }
+                      if (!krDigits && pDigits && pDigits.length >= 9) {
+                        krDigits = pDigits;
+                      }
+                      break;
+                    }
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }
+
+            // Check Inbox leads (gate_requests, im_inquiry_requests, activity_events) scoped to caller
+            try {
+              const ownedBldSet = new Set<string>();
+              try {
+                const { data: ownedBlds } = await supabase
+                  .from("building_ssot_lite")
+                  .select("id")
+                  .eq("owner_id", brokerUser.id)
+                  .limit(200);
+                if (Array.isArray(ownedBlds)) {
+                  for (const b of ownedBlds) {
+                    if (b?.id) ownedBldSet.add(String(b.id));
+                  }
+                }
+              } catch {
+                // ignore
+              }
+              try {
+                const { data: ownedWs } = await supabase
+                  .from("workspace_items")
+                  .select("id, building_id, legacy_id")
+                  .eq("owner_id", brokerUser.id)
+                  .limit(200);
+                if (Array.isArray(ownedWs)) {
+                  for (const w of ownedWs) {
+                    if (w?.id) ownedBldSet.add(String(w.id));
+                    if (w?.building_id) ownedBldSet.add(String(w.building_id));
+                    if (w?.legacy_id) ownedBldSet.add(String(w.legacy_id));
+                  }
+                }
+              } catch {
+                // ignore
+              }
+              const ownedBldList = Array.from(ownedBldSet);
+              const ownedUuidBlds = ownedBldList.filter((id) => isUuid(id));
+
+              const matchesLeadContact = (
+                pRaw?: unknown,
+                eRaw?: unknown
+              ): { matched: boolean; phone: string; email: string } => {
+                const p = canonicalKrPhoneDigits(typeof pRaw === "string" ? pRaw : "");
+                const e =
+                  typeof eRaw === "string" && eRaw.includes("@")
+                    ? eRaw.trim().toLowerCase()
+                    : "";
+                const matched = Boolean(
+                  (krDigits && p && p === krDigits) || (emailNorm && e && e === emailNorm)
+                );
+                return { matched, phone: p, email: e };
+              };
+
+              // 1) im_inquiry_requests scoped to broker_user_id or owned buildings
+              try {
+                const inqRows: Array<Record<string, unknown>> = [];
+                let q1: any = supabase
+                  .from("im_inquiry_requests")
+                  .select("id, building_id, status, broker_user_id, requester_phone, requester_email, created_at")
+                  .eq("broker_user_id", brokerUser.id);
+                if (typeof q1?.order === "function") q1 = q1.order("created_at", { ascending: false });
+                const r1 = await (typeof q1?.limit === "function" ? q1.limit(100) : q1);
+                if (Array.isArray(r1?.data)) inqRows.push(...r1.data);
+
+                if (ownedUuidBlds.length > 0) {
+                  let q2: any = supabase
+                    .from("im_inquiry_requests")
+                    .select("id, building_id, status, broker_user_id, requester_phone, requester_email, created_at")
+                    .in("building_id", ownedUuidBlds.slice(0, 50));
+                  if (typeof q2?.order === "function") q2 = q2.order("created_at", { ascending: false });
+                  const r2 = await (typeof q2?.limit === "function" ? q2.limit(100) : q2);
+                  if (Array.isArray(r2?.data)) inqRows.push(...r2.data);
+                }
+
+                for (const row of inqRows) {
+                  const rowBroker = row?.broker_user_id ? String(row.broker_user_id) : "";
+                  const rowBld = row?.building_id ? String(row.building_id) : "";
+                  if (rowBroker && rowBroker !== brokerUser.id && !ownedBldSet.has(rowBld)) continue;
+                  const res = matchesLeadContact(row?.requester_phone, row?.requester_email);
+                  if (!res.matched) continue;
+                  foundInInbox = true;
+                  if (!inboxGateStatus && typeof row?.status === "string") {
+                    inboxGateStatus = row.status;
+                  }
+                  if (res.email) {
+                    inboxHasEmail = true;
+                    if (!emailNorm) emailNorm = res.email;
+                  }
+                  if (!krDigits && res.phone && res.phone.length >= 9) {
+                    krDigits = res.phone;
+                  }
+                }
+              } catch {
+                // ignore
+              }
+
+              // 2) gate_requests scoped to target_broker_id or owned buildings
+              try {
+                const grRows: Array<Record<string, unknown>> = [];
+                let g1: any = supabase
+                  .from("gate_requests")
+                  .select("id, building_id, status, target_broker_id, reason, created_at")
+                  .eq("target_broker_id", brokerUser.id);
+                if (typeof g1?.order === "function") g1 = g1.order("created_at", { ascending: false });
+                const g1Res = await (typeof g1?.limit === "function" ? g1.limit(100) : g1);
+                if (Array.isArray(g1Res?.data)) grRows.push(...g1Res.data);
+
+                if (ownedUuidBlds.length > 0) {
+                  let g2: any = supabase
+                    .from("gate_requests")
+                    .select("id, building_id, status, reason, created_at")
+                    .in("building_id", ownedUuidBlds.slice(0, 50));
+                  if (typeof g2?.order === "function") g2 = g2.order("created_at", { ascending: false });
+                  const g2Res = await (typeof g2?.limit === "function" ? g2.limit(100) : g2);
+                  if (Array.isArray(g2Res?.data)) grRows.push(...g2Res.data);
+                }
+
+                for (const row of grRows) {
+                  const rowBroker = row?.target_broker_id ? String(row.target_broker_id) : "";
+                  const rowBld = row?.building_id ? String(row.building_id) : "";
+                  if (rowBroker && rowBroker !== brokerUser.id && !ownedBldSet.has(rowBld)) continue;
+                  if (!rowBroker && rowBld && !ownedBldSet.has(rowBld)) continue;
+                  const parsed = parseGateRequestReason(row?.reason);
+                  const res = matchesLeadContact(parsed.requesterPhone, parsed.requesterEmail);
+                  if (!res.matched) continue;
+                  foundInInbox = true;
+                  if (!inboxGateStatus && typeof row?.status === "string") {
+                    inboxGateStatus = row.status;
+                  }
+                  if (res.email) {
+                    inboxHasEmail = true;
+                    if (!emailNorm) emailNorm = res.email;
+                  }
+                  if (!krDigits && res.phone && res.phone.length >= 9) {
+                    krDigits = res.phone;
+                  }
+                }
+              } catch {
+                // ignore
+              }
+
+              // 3) activity_events(gate_request_created) scoped to broker_id or owned buildings
+              try {
+                let evQ: any = supabase
+                  .from("activity_events")
+                  .select("entity_id, metadata, created_at")
+                  .eq("event_type", "gate_request_created");
+                if (typeof evQ?.order === "function") evQ = evQ.order("created_at", { ascending: false });
+                const evRes = await (typeof evQ?.limit === "function" ? evQ.limit(150) : evQ);
+                if (Array.isArray(evRes?.data)) {
+                  for (const ev of evRes.data) {
+                    const meta =
+                      ev?.metadata && typeof ev.metadata === "object"
+                        ? (ev.metadata as Record<string, unknown>)
+                        : {};
+                    const metaBroker = meta.broker_id ? String(meta.broker_id) : "";
+                    const metaBld = String(meta.building_id || ev?.entity_id || "").trim();
+                    const isOwned =
+                      metaBroker === brokerUser.id ||
+                      (metaBld && ownedBldSet.has(metaBld));
+                    if (!isOwned) continue;
+                    const res = matchesLeadContact(
+                      meta.requester_phone ?? meta.phone,
+                      meta.requester_email ?? meta.email
+                    );
+                    if (!res.matched) continue;
+                    foundInInbox = true;
+                    if (!inboxGateStatus) inboxGateStatus = "submitted";
+                    if (res.email) {
+                      inboxHasEmail = true;
+                      if (!emailNorm) emailNorm = res.email;
+                    }
+                    if (!krDigits && res.phone && res.phone.length >= 9) {
+                      krDigits = res.phone;
+                    }
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            } catch {
+              // ignore
+            }
+
+            const krDashed = krDigits ? formatDashedKrPhone(krDigits) : null;
+            const krE164 = krDigits ? toE164Kr(krDigits) : null;
+
+            // Check magazine_subscribers strictly scoped to authenticated broker (broker_id OR broker_user_id)
             try {
               const candidateSubRows: Array<Record<string, unknown>> = [];
               const phoneCandidates = Array.from(
                 new Set([krDigits, krDashed].filter((x): x is string => Boolean(x)))
               );
 
+              const runSubQuery = async (
+                applyContact: (q: any) => any,
+                scopeMode: "broker_id" | "broker_user_id",
+              ) => {
+                const selectCols = ["status, confirm_status, unsubscribed_at", "status, unsubscribed_at"];
+                for (const cols of selectCols) {
+                  let q: any = supabase.from("magazine_subscribers").select(cols);
+                  q = applyContact(q);
+                  q =
+                    scopeMode === "broker_id"
+                      ? q.in("broker_id", scopedBrokerKeys)
+                      : q.eq("broker_user_id", brokerUser.id);
+                  const res = await q.limit(5);
+                  if (!res?.error) {
+                    if (Array.isArray(res?.data)) candidateSubRows.push(...res.data);
+                    return true;
+                  }
+                  const errMsg = String(res.error?.message || "");
+                  const errCode = String(res.error?.code || "");
+                  const isMissingCol =
+                    errCode === "42703" ||
+                    errCode === "PGRST204" ||
+                    /column .* does not exist/i.test(errMsg);
+                  if (isMissingCol && cols.includes("confirm_status")) {
+                    continue;
+                  }
+                  return false;
+                }
+                return false;
+              };
+
               if (emailNorm) {
-                const { data } = await supabase
-                  .from("magazine_subscribers")
-                  .select("status, confirm_status, unsubscribed_at")
-                  .eq("subscriber_email", emailNorm)
-                  .in("broker_id", scopedBrokerKeys)
-                  .limit(5);
-                if (Array.isArray(data)) candidateSubRows.push(...data);
+                await runSubQuery((q) => q.eq("subscriber_email", emailNorm), "broker_id");
+                if (candidateSubRows.length === 0 && isUuid(brokerUser.id)) {
+                  await runSubQuery((q) => q.eq("subscriber_email", emailNorm), "broker_user_id");
+                }
               }
 
               if (phoneCandidates.length > 0) {
-                const { data } = await supabase
-                  .from("magazine_subscribers")
-                  .select("status, confirm_status, unsubscribed_at")
-                  .in("subscriber_phone", phoneCandidates)
-                  .in("broker_id", scopedBrokerKeys)
-                  .limit(5);
-                if (Array.isArray(data)) candidateSubRows.push(...data);
-
+                await runSubQuery((q) => q.in("subscriber_phone", phoneCandidates), "broker_id");
                 if (candidateSubRows.length === 0 && krE164) {
-                  const { data: e164Data } = await supabase
-                    .from("magazine_subscribers")
-                    .select("status, confirm_status, unsubscribed_at")
-                    .eq("phone_e164", krE164)
-                    .in("broker_id", scopedBrokerKeys)
-                    .limit(5);
-                  if (Array.isArray(e164Data)) candidateSubRows.push(...e164Data);
+                  await runSubQuery((q) => q.eq("phone_e164", krE164), "broker_id");
+                }
+                if (candidateSubRows.length === 0 && isUuid(brokerUser.id)) {
+                  await runSubQuery((q) => q.in("subscriber_phone", phoneCandidates), "broker_user_id");
+                  if (candidateSubRows.length === 0 && krE164) {
+                    await runSubQuery((q) => q.eq("phone_e164", krE164), "broker_user_id");
+                  }
                 }
               }
 
@@ -1851,35 +2228,14 @@ export async function POST(req: NextRequest) {
             } catch {
               // ignore
             }
-
-            // Check broker_clients (strictly scoped to brokerUser.id)
-            if (isUuid(brokerUser.id)) {
-              try {
-                const { data: cliRows } = await supabase
-                  .from("broker_clients")
-                  .select("phone, notes")
-                  .eq("broker_id", brokerUser.id)
-                  .limit(100);
-                if (Array.isArray(cliRows)) {
-                  foundInBrokerClients = cliRows.some((r: Record<string, unknown>) => {
-                    const pDigits =
-                      typeof r.phone === "string" ? r.phone.replace(/\D/g, "") : "";
-                    if (krDigits && pDigits && pDigits === krDigits) return true;
-                    if (
-                      emailNorm &&
-                      typeof r.notes === "string" &&
-                      r.notes.toLowerCase().includes(emailNorm)
-                    ) {
-                      return true;
-                    }
-                    return false;
-                  });
-                }
-              } catch {
-                // ignore
-              }
-            }
           }
+
+          inboxCheck = {
+            checked: true,
+            foundInInbox,
+            gateStatus: inboxGateStatus,
+            hasEmail: inboxHasEmail,
+          };
 
           subscriberCheck = {
             checked: true,
@@ -1887,6 +2243,7 @@ export async function POST(req: NextRequest) {
             status: subscriberStatus,
             confirmStatus,
             foundInBrokerClients,
+            inboxCheck,
             brokerAuthenticated: true,
           };
         }
@@ -1940,18 +2297,84 @@ export async function POST(req: NextRequest) {
             const offendingTexts: string[] = [];
 
             if (supabase) {
+              const inspectTextForBlindAndTokens = (val: unknown) => {
+                if (typeof val !== "string" || !val.trim()) return;
+                if (hasUnmaskedAddressString(val)) {
+                  addressBlindPass = false;
+                  offendingTexts.push(val.slice(0, 60));
+                }
+                for (const tok of effectiveForbiddenTokens) {
+                  if (tok && val.includes(tok)) {
+                    addressBlindPass = false;
+                    offendingTexts.push(tok);
+                  }
+                }
+              };
+
+              let wsCardBuildingUuid: string | null = null;
               try {
-                if (isUuid(dealId)) {
+                const wsCard = await getWorkspaceItemByAnyId(supabase, dealId, "dealcard").catch(
+                  () => null
+                );
+                if (wsCard && !wsCard.deletedAt) {
+                  exists = true;
+                  if (wsCard.ownerId) dealCardOwnerId = wsCard.ownerId;
+                  if (wsCard.buildingId && isUuid(wsCard.buildingId)) {
+                    wsCardBuildingUuid = wsCard.buildingId;
+                  }
+                  const wsPayload = (wsCard.publishedSnapshot || wsCard.draftPayload || {}) as Record<
+                    string,
+                    unknown
+                  >;
+                  const wsC4 =
+                    wsPayload.card4 && typeof wsPayload.card4 === "object"
+                      ? (wsPayload.card4 as Record<string, unknown>)
+                      : null;
+                  const wsPts = [
+                    ...(Array.isArray(wsPayload.points) ? wsPayload.points : []),
+                    ...(Array.isArray(wsPayload.deal_points) ? wsPayload.deal_points : []),
+                    ...(Array.isArray(wsC4?.points) ? wsC4.points : []),
+                  ];
+                  for (const cand of [
+                    wsCard.title,
+                    wsPayload.title,
+                    wsPayload.headline,
+                    wsPayload.region,
+                    wsPayload.areaSignal,
+                    wsPayload.area_signal,
+                    wsPayload.priceBand,
+                    wsPayload.price_band,
+                    wsC4?.headline,
+                    wsC4?.region,
+                    ...wsPts,
+                  ]) {
+                    inspectTextForBlindAndTokens(cand);
+                  }
+                  if (
+                    typeof wsPayload.brokerPhone === "string" &&
+                    wsPayload.brokerPhone.includes("@")
+                  ) {
+                    brokerPhonePass = false;
+                  }
+                }
+              } catch {
+                // non-blocking
+              }
+
+              const ssotLookupDealId = isUuid(dealId) ? dealId : wsCardBuildingUuid;
+
+              try {
+                if (ssotLookupDealId) {
                   const [ssotRes, cardRes] = await Promise.all([
                     supabase
                       .from("building_ssot_lite")
                       .select("id, area_signal, asset_type, price_band, owner_id")
-                      .eq("id", dealId)
+                      .eq("id", ssotLookupDealId)
                       .maybeSingle(),
                     supabase
                       .from("building_signal_cards")
-                      .select("id, title, area_signal, deal_points, body")
-                      .eq("building_id", dealId)
+                      .select("id, title, area_signal, asset_type, price_band, deal_points, body")
+                      .eq("building_id", ssotLookupDealId)
                       .maybeSingle(),
                   ]);
                   const ssot = ssotRes.data as Record<string, unknown> | null;
@@ -1961,10 +2384,18 @@ export async function POST(req: NextRequest) {
                     const dealPts = Array.isArray(card?.deal_points)
                       ? (card.deal_points as unknown[])
                       : [];
+                    const bodyText =
+                      typeof card?.body === "string"
+                        ? card.body
+                        : card?.body && typeof card.body === "object"
+                          ? JSON.stringify(card.body)
+                          : undefined;
                     const candidates = [
                       ssot?.area_signal,
                       card?.title,
                       card?.area_signal,
+                      card?.price_band,
+                      bodyText,
                       ...dealPts,
                       card?.headline,
                       card?.region,
@@ -1973,22 +2404,13 @@ export async function POST(req: NextRequest) {
                       card?.point_3,
                     ];
                     for (const val of candidates) {
-                      if (typeof val === "string") {
-                        if (hasUnmaskedAddressString(val)) {
-                          addressBlindPass = false;
-                          offendingTexts.push(val.slice(0, 60));
-                        }
-                        for (const tok of effectiveForbiddenTokens) {
-                          if (tok && val.includes(tok)) {
-                            addressBlindPass = false;
-                            offendingTexts.push(tok);
-                          }
-                        }
-                      }
+                      inspectTextForBlindAndTokens(val);
                     }
                     const ownerId =
                       typeof ssot?.owner_id === "string" ? ssot.owner_id : null;
-                    dealCardOwnerId = ownerId;
+                    if (!dealCardOwnerId && ownerId) {
+                      dealCardOwnerId = ownerId;
+                    }
                     if (ownerId) {
                       const { data: prof } = await supabase
                         .from("profiles")
@@ -2003,11 +2425,18 @@ export async function POST(req: NextRequest) {
                       }
                     }
                   }
-                } else {
+                }
+                if (!exists || !ssotLookupDealId) {
                   const { data: evRows } = await supabase
                     .from("activity_events")
                     .select("actor_id, metadata")
-                    .in("event_type", ["dealcard_saved", "dealcard_created"])
+                    .in("event_type", [
+                      "dealcard_saved",
+                      "dealcard_created",
+                      "dealcard_upserted",
+                      "dealcard_sent",
+                      "dealcard_restored",
+                    ])
                     .order("created_at", { ascending: false })
                     .limit(40);
                   if (Array.isArray(evRows)) {
@@ -2018,30 +2447,28 @@ export async function POST(req: NextRequest) {
                       );
                       if (cardId !== dealId) continue;
                       exists = true;
-                      dealCardOwnerId =
-                        typeof row?.actor_id === "string"
-                          ? row.actor_id
-                          : typeof meta.ownerId === "string"
-                          ? meta.ownerId
-                          : typeof meta.brokerId === "string"
-                          ? meta.brokerId
-                          : null;
+                      if (!dealCardOwnerId) {
+                        dealCardOwnerId =
+                          typeof row?.actor_id === "string"
+                            ? row.actor_id
+                            : typeof meta.ownerId === "string"
+                            ? meta.ownerId
+                            : typeof meta.brokerId === "string"
+                            ? meta.brokerId
+                            : null;
+                      }
                       const c4 = (meta.card4 || {}) as Record<string, unknown>;
                       const pts = Array.isArray(c4.points) ? c4.points : [];
-                        for (const val of [c4.headline, c4.region, ...pts]) {
-                          if (typeof val === "string") {
-                            if (hasUnmaskedAddressString(val)) {
-                              addressBlindPass = false;
-                              offendingTexts.push(val.slice(0, 60));
-                            }
-                            for (const tok of effectiveForbiddenTokens) {
-                              if (tok && val.includes(tok)) {
-                                addressBlindPass = false;
-                                offendingTexts.push(tok);
-                              }
-                            }
-                          }
-                        }
+                      for (const val of [
+                        c4.headline,
+                        c4.region,
+                        meta.title,
+                        meta.area_signal,
+                        meta.areaSignal,
+                        ...pts,
+                      ]) {
+                        inspectTextForBlindAndTokens(val);
+                      }
                       break;
                     }
                   }
@@ -2113,7 +2540,7 @@ export async function POST(req: NextRequest) {
             };
           } else {
             const secBldId = resolvedSecBldId;
-            const secToken = parsedSec.url.searchParams.get("token")?.trim() || null;
+            const secToken = extractImShareToken(parsedSec.url);
             let secTokenBlocked = false;
             let secTokenReason: string | null = null;
             if (secToken) {
@@ -2126,7 +2553,11 @@ export async function POST(req: NextRequest) {
                 secTokenReason = tCheck.reason || "invalid";
               }
             }
-            const secBldRevoked = await isBuildingShareLinkRevoked(secBldId);
+            const secBldRevoked = supabase
+              ? await isBuildingShareLinkRevokedAsync(secBldId, supabase).catch(() =>
+                  isBuildingShareLinkRevoked(secBldId)
+                )
+              : isBuildingShareLinkRevoked(secBldId);
             const secLocked = secTokenBlocked || secBldRevoked;
             secondaryShareLinkCheck = {
               validUrl: true,
@@ -2174,138 +2605,253 @@ export async function POST(req: NextRequest) {
           let actualGfaSqm: number | null = null;
           let hiddenSectionCount = 0;
 
-          if (supabase && isUuid(candidateBldId)) {
+          if (supabase && candidateBldId) {
+            const pickPositiveSqm = (...cands: unknown[]): number | null => {
+              for (const c of cands) {
+                const n = Number(String(c ?? "").replace(/,/g, ""));
+                if (Number.isFinite(n) && n > 0) return n;
+              }
+              return null;
+            };
+
+            let oracleLookupUuid: string | null = isUuid(candidateBldId) ? candidateBldId : null;
+
             try {
-              const [ssotRes, docRes] = await Promise.all([
-                supabase
-                  .from("building_ssot_lite")
-                  .select("id, layers")
-                  .eq("id", candidateBldId)
-                  .maybeSingle(),
-                supabase
-                  .from("document_objects")
-                  .select("body")
-                  .eq("building_id", candidateBldId)
-                  .order("created_at", { ascending: false })
-                  .limit(1),
-              ]);
-              const ssotRow = ssotRes?.data as Record<string, unknown> | null;
-              const ssotLayers =
-                ssotRow?.layers && typeof ssotRow.layers === "object"
-                  ? (ssotRow.layers as Record<string, unknown>)
-                  : null;
-              const ssotPublicLayer =
-                ssotLayers?.public_data && typeof ssotLayers.public_data === "object"
-                  ? (ssotLayers.public_data as Record<string, unknown>)
-                  : null;
-              const ssotRegLayer =
-                ssotLayers?.building_register && typeof ssotLayers.building_register === "object"
-                  ? (ssotLayers.building_register as Record<string, unknown>)
-                  : null;
-              const ssotSpecsLayer =
-                ssotLayers?.specs && typeof ssotLayers.specs === "object"
-                  ? (ssotLayers.specs as Record<string, unknown>)
-                  : null;
+              const wsOracle =
+                (await getWorkspaceItemByAnyId(supabase, candidateBldId, "im").catch(() => null)) ||
+                (await getWorkspaceItemByAnyId(supabase, candidateBldId).catch(() => null));
+              if (wsOracle && !wsOracle.deletedAt) {
+                if (!oracleLookupUuid && wsOracle.buildingId && isUuid(wsOracle.buildingId)) {
+                  oracleLookupUuid = wsOracle.buildingId;
+                }
+                const wsBody = (wsOracle.publishedSnapshot || wsOracle.draftPayload || {}) as Record<
+                  string,
+                  unknown
+                >;
+                const wsSsot =
+                  wsBody.ssot && typeof wsBody.ssot === "object"
+                    ? (wsBody.ssot as Record<string, unknown>)
+                    : null;
+                const wsSsotSummary =
+                  wsBody.ssot_summary && typeof wsBody.ssot_summary === "object"
+                    ? (wsBody.ssot_summary as Record<string, unknown>)
+                    : null;
+                const wsSpecs =
+                  wsBody.specs && typeof wsBody.specs === "object"
+                    ? (wsBody.specs as Record<string, unknown>)
+                    : null;
+                const wsBasicDoc =
+                  wsBody.basicImDocument && typeof wsBody.basicImDocument === "object"
+                    ? (wsBody.basicImDocument as Record<string, unknown>)
+                    : null;
+                const wsBasicFacts =
+                  wsBasicDoc?.facts && typeof wsBasicDoc.facts === "object"
+                    ? (wsBasicDoc.facts as Record<string, unknown>)
+                    : null;
+                const wsBasicLand =
+                  wsBasicFacts?.land && typeof wsBasicFacts.land === "object"
+                    ? (wsBasicFacts.land as Record<string, unknown>)
+                    : null;
+                const wsBasicBld =
+                  wsBasicFacts?.building && typeof wsBasicFacts.building === "object"
+                    ? (wsBasicFacts.building as Record<string, unknown>)
+                    : null;
+                const wsHero =
+                  wsBody.heroCard && typeof wsBody.heroCard === "object"
+                    ? (wsBody.heroCard as Record<string, unknown>)
+                    : null;
 
-              const docBody = (
-                Array.isArray(docRes?.data) && docRes.data[0]?.body
-                  ? docRes.data[0].body
-                  : {}
-              ) as Record<string, unknown>;
-              const docSsot =
-                docBody.ssot && typeof docBody.ssot === "object"
-                  ? (docBody.ssot as Record<string, unknown>)
-                  : null;
-              const docSsotSummary =
-                docBody.ssot_summary && typeof docBody.ssot_summary === "object"
-                  ? (docBody.ssot_summary as Record<string, unknown>)
-                  : null;
-              const basicDoc =
-                docBody.basicImDocument && typeof docBody.basicImDocument === "object"
-                  ? (docBody.basicImDocument as Record<string, unknown>)
-                  : null;
-              const basicFacts =
-                basicDoc?.facts && typeof basicDoc.facts === "object"
-                  ? (basicDoc.facts as Record<string, unknown>)
-                  : null;
-              const basicLand =
-                basicFacts?.land && typeof basicFacts.land === "object"
-                  ? (basicFacts.land as Record<string, unknown>)
-                  : null;
-              const basicBuilding =
-                basicFacts?.building && typeof basicFacts.building === "object"
-                  ? (basicFacts.building as Record<string, unknown>)
-                  : null;
+                actualLandSqm = pickPositiveSqm(
+                  wsBasicLand?.landAreaSqm,
+                  wsBasicFacts?.landAreaSqm,
+                  wsSsot?.land_area_sqm,
+                  wsSsot?.land_area_m2,
+                  wsSsotSummary?.landAreaSqm,
+                  wsSsotSummary?.land_area_sqm,
+                  wsSpecs?.landAreaSqm,
+                  wsSpecs?.land_area_sqm,
+                  wsBody.landAreaSqm,
+                  wsBody.land_area_sqm,
+                  wsHero?.landAreaSqm
+                );
+                actualGfaSqm = pickPositiveSqm(
+                  wsBasicBld?.totalGrossAreaSqm,
+                  wsBasicBld?.grossFloorAreaSqm,
+                  wsBasicFacts?.grossFloorAreaSqm,
+                  wsSsot?.total_gross_area_sqm,
+                  wsSsot?.gross_floor_area_sqm,
+                  wsSsotSummary?.totalGrossAreaSqm,
+                  wsSsotSummary?.total_gross_area_sqm,
+                  wsSsotSummary?.total_gross_area_m2,
+                  wsSsotSummary?.grossFloorAreaSqm,
+                  wsSpecs?.totalGrossAreaSqm,
+                  wsSpecs?.gfaSqm,
+                  wsSpecs?.gross_floor_area_sqm,
+                  wsHero?.totalGrossAreaSqm,
+                  wsHero?.totalArea,
+                  wsBody.totalGrossAreaSqm,
+                  wsBody.grossFloorAreaSqm,
+                  wsBody.gfaSqm,
+                  wsBody.gross_floor_area_sqm,
+                  wsBody.total_gross_area_sqm
+                );
 
-              const hiddenSet = new Set<string>();
-              for (const list of [
-                docBody.hidden_sections,
-                docBody.hiddenSections,
-                basicDoc?.hiddenSections,
-                basicDoc?.hidden_sections,
-              ]) {
-                if (Array.isArray(list)) {
-                  for (const item of list) {
-                    if (typeof item === "string" && item.trim()) {
-                      hiddenSet.add(item.trim());
+                const wsHidden = new Set<string>();
+                for (const list of [
+                  wsBody.hidden_sections,
+                  wsBody.hiddenSections,
+                  wsBasicDoc?.hiddenSections,
+                  wsBasicDoc?.hidden_sections,
+                ]) {
+                  if (Array.isArray(list)) {
+                    for (const item of list) {
+                      if (typeof item === "string" && item.trim()) wsHidden.add(item.trim());
                     }
                   }
                 }
-              }
-              hiddenSectionCount = hiddenSet.size;
-
-              const pickPositiveSqm = (...cands: unknown[]): number | null => {
-                for (const c of cands) {
-                  const n = Number(String(c ?? "").replace(/,/g, ""));
-                  if (Number.isFinite(n) && n > 0) return n;
+                if (wsHidden.size > hiddenSectionCount) {
+                  hiddenSectionCount = wsHidden.size;
                 }
-                return null;
-              };
-
-              const ssotPhysical = (ssotLayers?.physical as Record<string, unknown> | undefined) || undefined;
-              const docHeroCard = (docBody?.heroCard as Record<string, unknown> | undefined) || undefined;
-
-              actualLandSqm = pickPositiveSqm(
-                basicLand?.landAreaSqm,
-                basicFacts?.landAreaSqm,
-                docSsot?.land_area_sqm,
-                docSsot?.land_area_m2,
-                docSsotSummary?.landAreaSqm,
-                docSsotSummary?.land_area_sqm,
-                docBody.landAreaSqm,
-                docBody.land_area_sqm,
-                ssotPhysical?.land_area_sqm,
-                ssotPublicLayer?.landAreaSqm,
-                ssotPublicLayer?.land_area_sqm,
-                ssotRegLayer?.platArea,
-                ssotRegLayer?.landAreaSqm,
-                ssotSpecsLayer?.landAreaSqm,
-                ssotLayers?.land_area_sqm
-              );
-              actualGfaSqm = pickPositiveSqm(
-                basicBuilding?.totalGrossAreaSqm,
-                basicBuilding?.grossFloorAreaSqm,
-                basicFacts?.grossFloorAreaSqm,
-                docSsot?.total_gross_area_sqm,
-                docSsot?.gross_floor_area_sqm,
-                docSsotSummary?.total_gross_area_sqm,
-                docSsotSummary?.total_gross_area_m2,
-                docSsotSummary?.grossFloorAreaSqm,
-                docHeroCard?.totalGrossAreaSqm,
-                docHeroCard?.totalArea,
-                ssotPhysical?.total_floor_area_sqm,
-                docBody.gfaSqm,
-                docBody.gross_floor_area_sqm,
-                docBody.total_gross_area_sqm,
-                ssotPublicLayer?.grossFloorAreaSqm,
-                ssotPublicLayer?.totalAreaSqm,
-                ssotRegLayer?.totArea,
-                ssotRegLayer?.grossFloorAreaSqm,
-                ssotSpecsLayer?.gfaSqm,
-                ssotLayers?.total_gross_area_sqm
-              );
+              }
             } catch {
               // non-blocking
+            }
+
+            if (oracleLookupUuid) {
+              try {
+                const [ssotRes, docRes] = await Promise.all([
+                  supabase
+                    .from("building_ssot_lite")
+                    .select("id, layers")
+                    .eq("id", oracleLookupUuid)
+                    .maybeSingle(),
+                  supabase
+                    .from("document_objects")
+                    .select("body")
+                    .eq("building_id", oracleLookupUuid)
+                    .order("created_at", { ascending: false })
+                    .limit(1),
+                ]);
+                const ssotRow = ssotRes?.data as Record<string, unknown> | null;
+                const ssotLayers =
+                  ssotRow?.layers && typeof ssotRow.layers === "object"
+                    ? (ssotRow.layers as Record<string, unknown>)
+                    : null;
+                const ssotPublicLayer =
+                  ssotLayers?.public_data && typeof ssotLayers.public_data === "object"
+                    ? (ssotLayers.public_data as Record<string, unknown>)
+                    : null;
+                const ssotRegLayer =
+                  ssotLayers?.building_register && typeof ssotLayers.building_register === "object"
+                    ? (ssotLayers.building_register as Record<string, unknown>)
+                    : null;
+                const ssotSpecsLayer =
+                  ssotLayers?.specs && typeof ssotLayers.specs === "object"
+                    ? (ssotLayers.specs as Record<string, unknown>)
+                    : null;
+
+                const docBody = (
+                  Array.isArray(docRes?.data) && docRes.data[0]?.body
+                    ? docRes.data[0].body
+                    : {}
+                ) as Record<string, unknown>;
+                const docSsot =
+                  docBody.ssot && typeof docBody.ssot === "object"
+                    ? (docBody.ssot as Record<string, unknown>)
+                    : null;
+                const docSsotSummary =
+                  docBody.ssot_summary && typeof docBody.ssot_summary === "object"
+                    ? (docBody.ssot_summary as Record<string, unknown>)
+                    : null;
+                const basicDoc =
+                  docBody.basicImDocument && typeof docBody.basicImDocument === "object"
+                    ? (docBody.basicImDocument as Record<string, unknown>)
+                    : null;
+                const basicFacts =
+                  basicDoc?.facts && typeof basicDoc.facts === "object"
+                    ? (basicDoc.facts as Record<string, unknown>)
+                    : null;
+                const basicLand =
+                  basicFacts?.land && typeof basicFacts.land === "object"
+                    ? (basicFacts.land as Record<string, unknown>)
+                    : null;
+                const basicBuilding =
+                  basicFacts?.building && typeof basicFacts.building === "object"
+                    ? (basicFacts.building as Record<string, unknown>)
+                    : null;
+
+                const hiddenSet = new Set<string>();
+                for (const list of [
+                  docBody.hidden_sections,
+                  docBody.hiddenSections,
+                  basicDoc?.hiddenSections,
+                  basicDoc?.hidden_sections,
+                ]) {
+                  if (Array.isArray(list)) {
+                    for (const item of list) {
+                      if (typeof item === "string" && item.trim()) {
+                        hiddenSet.add(item.trim());
+                      }
+                    }
+                  }
+                }
+                if (hiddenSet.size > hiddenSectionCount) {
+                  hiddenSectionCount = hiddenSet.size;
+                }
+
+                const ssotPhysical = (ssotLayers?.physical as Record<string, unknown> | undefined) || undefined;
+                const docHeroCard = (docBody?.heroCard as Record<string, unknown> | undefined) || undefined;
+
+                if (actualLandSqm === null) {
+                  actualLandSqm = pickPositiveSqm(
+                    basicLand?.landAreaSqm,
+                    basicFacts?.landAreaSqm,
+                    docSsot?.land_area_sqm,
+                    docSsot?.land_area_m2,
+                    docSsotSummary?.landAreaSqm,
+                    docSsotSummary?.land_area_sqm,
+                    docBody.landAreaSqm,
+                    docBody.land_area_sqm,
+                    ssotPhysical?.land_area_sqm,
+                    ssotPublicLayer?.landAreaSqm,
+                    ssotPublicLayer?.land_area_sqm,
+                    ssotRegLayer?.platArea,
+                    ssotRegLayer?.landAreaSqm,
+                    ssotSpecsLayer?.landAreaSqm,
+                    ssotLayers?.land_area_sqm
+                  );
+                }
+                if (actualGfaSqm === null) {
+                  actualGfaSqm = pickPositiveSqm(
+                    basicBuilding?.totalGrossAreaSqm,
+                    basicBuilding?.grossFloorAreaSqm,
+                    basicFacts?.grossFloorAreaSqm,
+                    docSsot?.total_gross_area_sqm,
+                    docSsot?.gross_floor_area_sqm,
+                    docSsotSummary?.totalGrossAreaSqm,
+                    docSsotSummary?.total_gross_area_sqm,
+                    docSsotSummary?.total_gross_area_m2,
+                    docSsotSummary?.grossFloorAreaSqm,
+                    docHeroCard?.totalGrossAreaSqm,
+                    docHeroCard?.totalArea,
+                    ssotPhysical?.total_floor_area_sqm,
+                    docBody.totalGrossAreaSqm,
+                    docBody.grossFloorAreaSqm,
+                    docBody.gfaSqm,
+                    docBody.gross_floor_area_sqm,
+                    docBody.total_gross_area_sqm,
+                    ssotPublicLayer?.grossFloorAreaSqm,
+                    ssotPublicLayer?.totalAreaSqm,
+                    ssotRegLayer?.totArea,
+                    ssotRegLayer?.grossFloorAreaSqm,
+                    ssotSpecsLayer?.totalGrossAreaSqm,
+                    ssotSpecsLayer?.gfaSqm,
+                    ssotLayers?.total_gross_area_sqm
+                  );
+                }
+              } catch {
+                // non-blocking
+              }
             }
           }
 
@@ -2396,6 +2942,7 @@ export async function POST(req: NextRequest) {
         shareLinkCheck,
         secondaryShareLinkCheck,
         subscriberCheck,
+        inboxCheck,
         dealCardCheck,
         groundTruthOracleCheck,
       });

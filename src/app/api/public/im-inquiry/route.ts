@@ -16,6 +16,7 @@ import {
   isBuildingShareLinkRevokedAsync,
 } from "@/lib/security/share-link-tokens";
 import { getPublicWorkspaceProjection } from "@/lib/workspace/workspace-repository";
+import { upsertBrokerClientFromInbound } from "@/lib/inbox/upsert-broker-client";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('im-inquiry-route');
@@ -49,6 +50,11 @@ export async function POST(req: NextRequest) {
       typeof (body?.message ?? body?.inquiryMessage) === "string" &&
       String(body?.message ?? body?.inquiryMessage).trim()
         ? String(body?.message ?? body?.inquiryMessage).trim()
+        : null;
+    const cleanCompany =
+      typeof (body?.company ?? body?.requester_company) === "string" &&
+      String(body?.company ?? body?.requester_company).trim()
+        ? String(body?.company ?? body?.requester_company).trim()
         : null;
 
     const consentAccepted =
@@ -290,6 +296,25 @@ export async function POST(req: NextRequest) {
     const buildingLabel = buildingInfo
       ? `${buildingInfo.area_signal || ""} ${buildingInfo.asset_type || "매물"}`.trim()
       : wsProj?.projection?.title || quickRec?.buildingName || "매물";
+
+    try {
+      await upsertBrokerClientFromInbound({
+        supabase,
+        brokerUserId: effectiveBrokerId,
+        name: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail,
+        company: cleanCompany,
+        buildingId: buildingLookupUuid || rawBuildingId,
+        buildingTitle: buildingLabel,
+        clientRole: "buyer",
+        source: "im_inquiry",
+      });
+    } catch (crmErr) {
+      log.warn("[im-inquiry] upsertBrokerClientFromInbound failed (non-blocking)", {
+        error: crmErr instanceof Error ? crmErr.message : String(crmErr),
+      });
+    }
 
     // 2. 인앱 알림 전송 (담당 중개인에게 — 비차단)
     let notifSent = false;

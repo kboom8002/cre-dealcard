@@ -75,10 +75,45 @@ import { DealCardListColumn } from "./_components/DealCardListColumn";
 import { DealCardEditorColumn } from "./_components/DealCardEditorColumn";
 import { DealCardPreviewColumn } from "./_components/DealCardPreviewColumn";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 type HydratedDealCardItem = BuildingListItem & {
   hasUnpublishedEdits?: boolean;
   updatedAtIso?: string;
+  canonicalId?: string;
+  buildingId?: string;
+  legacyId?: string;
 };
+
+function extractCanonicalUuid(data: unknown, currentId?: string | null): string | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  const candidates = [obj.canonicalBuildingId, obj.buildingId, obj.building_id, obj.id];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && UUID_RE.test(candidate.trim())) {
+      const normalized = candidate.trim();
+      if (!currentId || normalized !== currentId) {
+        return normalized;
+      }
+      return normalized;
+    }
+  }
+  return null;
+}
+
+function getDealCardAliasIds(item: HydratedDealCardItem | null | undefined): string[] {
+  if (!item) return [];
+  const aliases: string[] = [];
+  for (const candidate of [item.id, item.canonicalId, item.buildingId, item.legacyId]) {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed && !aliases.includes(trimmed)) {
+        aliases.push(trimmed);
+      }
+    }
+  }
+  return aliases;
+}
 
 function isPublishedDirtyItem(item: BuildingListItem | null | undefined): boolean {
   if (!item) return false;
@@ -193,6 +228,16 @@ function DealCardsWorkspaceInner() {
   const initialBuildingIdParamRef = useRef<string | null>(buildingIdParam);
   const initialMemoIdParamRef = useRef<string | null>(memoIdParam);
   const lastSyncedQueryIdRef = useRef<string | null>(null);
+  const buildingIdParamRef = useRef<string | null>(buildingIdParam);
+  buildingIdParamRef.current = buildingIdParam;
+  const canonicalPromotionAttemptedRef = useRef<Set<string>>(new Set());
+  const autosaveActionsRef = useRef<{
+    cancelPending: (key?: string) => void;
+    markClean: () => void;
+  }>({
+    cancelPending: () => {},
+    markClean: () => {},
+  });
   const userInteractedRef = useRef<boolean>(false);
   const userEditedIdsRef = useRef<Set<string>>(new Set());
   const serverVersionByIdRef = useRef<Map<string, number>>(new Map());
@@ -255,11 +300,17 @@ function DealCardsWorkspaceInner() {
   const activeItem = useMemo(() => {
     if (selectedMemoOnly) return null;
     if (selectedId) {
-      const bySelected = items.find((it) => it.id === selectedId);
+      const bySelected =
+        items.find((it) => it.id === selectedId) ??
+        items.find((it) => getDealCardAliasIds(it as HydratedDealCardItem).includes(selectedId));
       if (bySelected) return bySelected;
     }
     if (buildingIdParam) {
-      const byQuery = items.find((it) => it.id === buildingIdParam);
+      const byQuery =
+        items.find((it) => it.id === buildingIdParam) ??
+        items.find((it) =>
+          getDealCardAliasIds(it as HydratedDealCardItem).includes(buildingIdParam)
+        );
       if (byQuery) return byQuery;
     }
     return items[0] ?? null;
@@ -487,14 +538,27 @@ function DealCardsWorkspaceInner() {
 
         if (data?.ok && Array.isArray(data.dealcards)) {
           const serverIds = new Set<string>();
+          const serverAliasToCanonical = new Map<string, string>();
           const serverDirtyIds = new Set<string>();
           const serverCleanIds = new Set<string>();
           for (const rawSrv of data.dealcards as HydratedDealCardItem[]) {
+            const aliasIds = getDealCardAliasIds(rawSrv);
+            for (const aliasId of aliasIds) {
+              serverIds.add(aliasId);
+              if (rawSrv?.id) {
+                serverAliasToCanonical.set(aliasId, rawSrv.id);
+              }
+            }
             if (rawSrv?.id) {
-              serverIds.add(rawSrv.id);
               const srvVer = rawSrv.card4?.card4_version;
               if (typeof srvVer === "number") {
                 serverVersionByIdRef.current.set(rawSrv.id, srvVer);
+              }
+              if (aliasIds.some((aid) => userEditedIdsRef.current.has(aid))) {
+                for (const aid of aliasIds) {
+                  if (aid !== rawSrv.id) userEditedIdsRef.current.delete(aid);
+                }
+                userEditedIdsRef.current.add(rawSrv.id);
               }
               if (isPublishedDirtyItem(rawSrv)) {
                 serverDirtyIds.add(rawSrv.id);
@@ -539,14 +603,36 @@ function DealCardsWorkspaceInner() {
             const safePrev = rawLocalBase.filter(
               (loc) => !(loc.ownerUserId && resolvedUid && loc.ownerUserId !== resolvedUid)
             );
-            const localMap = new Map(safePrev.map((it) => [it.id, it]));
+            const localMap = new Map<string, HydratedDealCardItem>();
+            for (const loc of safePrev as HydratedDealCardItem[]) {
+              for (const aid of getDealCardAliasIds(loc)) {
+                const existing = localMap.get(aid);
+                if (
+                  !existing ||
+                  (UUID_RE.test(loc.id) && !UUID_RE.test(existing.id)) ||
+                  (loc.card4?.card4_version || 1) > (existing.card4?.card4_version || 1)
+                ) {
+                  localMap.set(aid, loc);
+                }
+              }
+            }
             const mergedServer: BuildingListItem[] = data.dealcards.map(
               (rawSrv: HydratedDealCardItem) => {
-                const srvHydrated = rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv;
+                const srvHydrated = (rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv) as HydratedDealCardItem;
                 const srv: HydratedDealCardItem = resolvedUid
                   ? { ...srvHydrated, ownerUserId: resolvedUid }
                   : srvHydrated;
-                const local = localMap.get(srv.id) as HydratedDealCardItem | undefined;
+                const srvAliases = getDealCardAliasIds(srv);
+                let local = localMap.get(srv.id);
+                if (!local) {
+                  for (const aid of srvAliases) {
+                    const candidate = localMap.get(aid);
+                    if (candidate) {
+                      local = candidate;
+                      break;
+                    }
+                  }
+                }
                 const rawSrvStatus = String(srv.status || "");
                 const effectiveStatus =
                   rawSrvStatus === "sent" ||
@@ -559,9 +645,17 @@ function DealCardsWorkspaceInner() {
                   (userEditedIdsRef.current.has(srv.id) ||
                     (local.card4.card4_version || 1) > (srv.card4.card4_version || 1))
                 ) {
+                  const resolvedLegacyId =
+                    srv.legacyId ??
+                    local.legacyId ??
+                    (local.id && local.id !== srv.id ? local.id : undefined);
                   return {
                     ...srv,
                     ...local,
+                    id: srv.id,
+                    ...(srv.canonicalId ? { canonicalId: srv.canonicalId } : {}),
+                    ...(srv.buildingId ? { buildingId: srv.buildingId } : {}),
+                    ...(resolvedLegacyId ? { legacyId: resolvedLegacyId } : {}),
                     ...(resolvedUid ? { ownerUserId: resolvedUid } : {}),
                     hasUnpublishedEdits: Boolean(
                       local.hasUnpublishedEdits ?? srv.hasUnpublishedEdits ?? (effectiveStatus === "sent")
@@ -595,7 +689,9 @@ function DealCardsWorkspaceInner() {
             const unsyncedLocals = safePrev.filter(
               (loc) =>
                 !(loc.ownerUserId && resolvedUid && loc.ownerUserId !== resolvedUid) &&
-                !serverIds.has(loc.id) &&
+                !getDealCardAliasIds(loc as HydratedDealCardItem).some((aid) =>
+                  serverIds.has(aid)
+                ) &&
                 (!INITIAL_IDS.has(loc.id) ||
                   userEditedIdsRef.current.has(loc.id) ||
                   (userInteractedRef.current && loc.id === resolvedActiveIdRef.current) ||
@@ -607,16 +703,22 @@ function DealCardsWorkspaceInner() {
               itemsRef.current = finalMerged;
               persistItems(finalMerged, resolvedUid);
               if (!initialMemoIdParamRef.current) {
-                const preferredId = userInteractedRef.current
+                const rawPreferred = userInteractedRef.current
                   ? resolvedActiveIdRef.current
-                  : (initQueryId && finalMerged.some((m) => m.id === initQueryId)
-                      ? initQueryId
-                      : finalMerged[0]?.id) ?? null;
+                  : initQueryId;
+                const mappedPreferred = rawPreferred
+                  ? serverAliasToCanonical.get(rawPreferred) ?? rawPreferred
+                  : null;
+                const preferredId =
+                  mappedPreferred && finalMerged.some((m) => m.id === mappedPreferred)
+                    ? mappedPreferred
+                    : finalMerged[0]?.id ?? null;
                 const targetItem =
                   (preferredId && finalMerged.find((m) => m.id === preferredId)) ||
                   finalMerged[0];
                 if (targetItem) {
-                  if (!userInteractedRef.current) {
+                  if (!userInteractedRef.current || mappedPreferred !== rawPreferred) {
+                    resolvedActiveIdRef.current = targetItem.id;
                     setSelectedId(targetItem.id);
                   }
                   if (!userEditedIdsRef.current.has(targetItem.id)) {
@@ -697,10 +799,17 @@ function DealCardsWorkspaceInner() {
     if (buildingIdParam === lastSyncedQueryIdRef.current) {
       return;
     }
-    const matched = items.find((it) => it.id === buildingIdParam);
+    const matched = items.find((it) =>
+      getDealCardAliasIds(it as HydratedDealCardItem).includes(buildingIdParam)
+    );
     if (matched) {
-      lastSyncedQueryIdRef.current = buildingIdParam;
+      lastSyncedQueryIdRef.current = matched.id;
       setSelectedId(matched.id);
+      if (matched.id !== buildingIdParam) {
+        router.replace(
+          `/broker/w/dealcards?buildingId=${encodeURIComponent(matched.id)}&tab=editor`
+        );
+      }
       return;
     }
     if (isHydrated) {
@@ -714,6 +823,157 @@ function DealCardsWorkspaceInner() {
       }
     }
   }, [buildingIdParam, items, activeItem, isHydrated, router, selectedMemoOnly]);
+
+  const promoteLegacyDealCardId = useCallback(
+    (
+      oldId: string,
+      canonicalUuid: string,
+      opts?: { savedSnapshot?: Card4Data; replaceUrl?: boolean }
+    ): string => {
+      if (!oldId || !canonicalUuid || oldId === canonicalUuid || !UUID_RE.test(canonicalUuid)) {
+        return oldId || canonicalUuid;
+      }
+
+      autosaveActionsRef.current.cancelPending(oldId);
+
+      if (
+        serverVersionByIdRef.current.has(oldId) &&
+        !serverVersionByIdRef.current.has(canonicalUuid)
+      ) {
+        serverVersionByIdRef.current.set(canonicalUuid, serverVersionByIdRef.current.get(oldId)!);
+      }
+      serverVersionByIdRef.current.delete(oldId);
+
+      if (userEditedIdsRef.current.has(oldId)) {
+        userEditedIdsRef.current.delete(oldId);
+        userEditedIdsRef.current.add(canonicalUuid);
+      }
+      canonicalPromotionAttemptedRef.current.delete(oldId);
+
+      setSyncedServerIds((prev) => {
+        const next = new Set(prev);
+        next.delete(oldId);
+        next.add(canonicalUuid);
+        return next;
+      });
+      setDirtySentIds((prev) => {
+        if (!prev.has(oldId)) return prev;
+        const next = new Set(prev);
+        next.delete(oldId);
+        next.add(canonicalUuid);
+        return next;
+      });
+
+      const applyPromotionToList = (prev: BuildingListItem[]): BuildingListItem[] => {
+        const typedPrev = prev as HydratedDealCardItem[];
+        const oldEntry = typedPrev.find((it) => it.id === oldId);
+        const existingCanonical = typedPrev.find((it) => it.id === canonicalUuid);
+        if (!oldEntry && !existingCanonical) return prev;
+        const nextList: BuildingListItem[] = [];
+        let insertedCanonical = false;
+        for (const it of typedPrev) {
+          if (it.id === oldId || it.id === canonicalUuid) {
+            if (!insertedCanonical) {
+              const source = it.id === oldId ? it : oldEntry ?? it;
+              const promoted: HydratedDealCardItem = {
+                ...existingCanonical,
+                ...source,
+                id: canonicalUuid,
+                canonicalId: canonicalUuid,
+                buildingId: canonicalUuid,
+                legacyId: source.legacyId ?? existingCanonical?.legacyId ?? oldId,
+              };
+              nextList.push(promoted as BuildingListItem);
+              insertedCanonical = true;
+            }
+          } else {
+            nextList.push(it);
+          }
+        }
+        return nextList;
+      };
+
+      const nextSyncList = applyPromotionToList(itemsRef.current);
+      itemsRef.current = nextSyncList;
+      persistItems(nextSyncList);
+      setItems((prev) => {
+        const next = applyPromotionToList(prev);
+        itemsRef.current = next;
+        persistItems(next);
+        return next;
+      });
+
+      try {
+        const activeUid = currentUserIdRef.current;
+        const imParsed = readScopedWorkspaceJson<Record<string, unknown>[]>(
+          "credeal-w-im-v4",
+          activeUid,
+          []
+        );
+        if (Array.isArray(imParsed) && imParsed.length > 0) {
+          let changed = false;
+          const nextIm = imParsed.map((it) => {
+            if (it.buildingId === oldId || it.id === oldId) {
+              changed = true;
+              return {
+                ...it,
+                ...(it.id === oldId ? { id: canonicalUuid } : {}),
+                buildingId: canonicalUuid,
+                legacyBuildingId:
+                  typeof it.legacyBuildingId === "string" && it.legacyBuildingId
+                    ? it.legacyBuildingId
+                    : oldId,
+                isDirty: false,
+              };
+            }
+            return it;
+          });
+          if (changed) {
+            writeScopedWorkspaceJson("credeal-w-im-v4", activeUid, nextIm);
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
+
+      if (resolvedActiveIdRef.current === oldId) {
+        resolvedActiveIdRef.current = canonicalUuid;
+      }
+      setSelectedId((prev) => (prev === oldId ? canonicalUuid : prev));
+      setSyncedBuildingId((prev) => (prev === oldId ? canonicalUuid : prev));
+
+      const urlQueryId =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("buildingId")
+          : null;
+      const shouldReplaceUrl =
+        opts?.replaceUrl ??
+        (buildingIdParamRef.current === oldId ||
+          lastSyncedQueryIdRef.current === oldId ||
+          urlQueryId === oldId);
+      if (shouldReplaceUrl) {
+        lastSyncedQueryIdRef.current = canonicalUuid;
+        router.replace(
+          `/broker/w/dealcards?buildingId=${encodeURIComponent(canonicalUuid)}&tab=editor`
+        );
+      }
+
+      if (opts?.savedSnapshot) {
+        const savedJson = JSON.stringify(opts.savedSnapshot);
+        setTimeout(() => {
+          if (
+            resolvedActiveIdRef.current === canonicalUuid &&
+            JSON.stringify(currentCard4Ref.current) === savedJson
+          ) {
+            autosaveActionsRef.current.markClean();
+          }
+        }, 0);
+      }
+
+      return canonicalUuid;
+    },
+    [persistItems, router]
+  );
 
   const performServerSave = useCallback(
     async ({
@@ -778,10 +1038,16 @@ function DealCardsWorkspaceInner() {
           : typeof data?.card4?.card4_version === "number"
           ? data.card4.card4_version
           : undefined;
+      const promotedUuid = !UUID_RE.test(id) ? extractCanonicalUuid(data, id) : null;
+      const effectiveId = promotedUuid || id;
       if (savedVersion !== undefined) {
-        serverVersionByIdRef.current.set(id, savedVersion);
+        serverVersionByIdRef.current.set(effectiveId, savedVersion);
       }
-      markServerSynced(id);
+      if (promotedUuid) {
+        promoteLegacyDealCardId(id, promotedUuid, { savedSnapshot: payloadCard4 });
+      } else {
+        markServerSynced(id);
+      }
       try {
         const activeUid = currentUserIdRef.current;
         const imParsed = readScopedWorkspaceJson<Record<string, unknown>[]>(
@@ -791,7 +1057,12 @@ function DealCardsWorkspaceInner() {
         );
         if (Array.isArray(imParsed) && imParsed.length > 0) {
           const nextIm = imParsed.map((it) =>
-            it.buildingId === id || it.id === id ? { ...it, isDirty: false } : it
+            it.buildingId === effectiveId ||
+            it.id === effectiveId ||
+            it.buildingId === id ||
+            it.id === id
+              ? { ...it, isDirty: false }
+              : it
           );
           writeScopedWorkspaceJson("credeal-w-im-v4", activeUid, nextIm);
         }
@@ -802,7 +1073,7 @@ function DealCardsWorkspaceInner() {
         version: savedVersion ?? payloadCard4.card4_version ?? 1,
       };
     },
-    [markServerSynced]
+    [markServerSynced, promoteLegacyDealCardId]
   );
 
   const activeExpectedServerVersion = resolvedActiveId
@@ -824,8 +1095,18 @@ function DealCardsWorkspaceInner() {
     },
   });
   const autosaveRef = useRef(autosave);
+  autosaveActionsRef.current = {
+    cancelPending: (key?: string) =>
+      (autosave as { cancelPending?: (k?: string) => void }).cancelPending?.(key),
+    markClean: () => autosave.markClean(),
+  };
   useEffect(() => {
     autosaveRef.current = autosave;
+    autosaveActionsRef.current = {
+      cancelPending: (key?: string) =>
+        (autosave as { cancelPending?: (k?: string) => void }).cancelPending?.(key),
+      markClean: () => autosave.markClean(),
+    };
   });
 
   const [isManualSyncing, setIsManualSyncing] = useState(false);
@@ -849,29 +1130,84 @@ function DealCardsWorkspaceInner() {
         if (!data?.ok || !Array.isArray(data.dealcards)) return;
 
         const uid = currentUserIdRef.current;
-        const serverList: BuildingListItem[] = data.dealcards.map(
-          (rawSrv: BuildingListItem) => {
-            const hydrated = rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv;
-            if (hydrated?.id && typeof hydrated.card4?.card4_version === "number") {
-              serverVersionByIdRef.current.set(hydrated.id, hydrated.card4.card4_version);
+        const serverAliasIds = new Set<string>();
+        const serverAliasToCanonical = new Map<string, string>();
+        const serverList: HydratedDealCardItem[] = data.dealcards.map(
+          (rawSrv: HydratedDealCardItem) => {
+            const hydrated = (rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv) as HydratedDealCardItem;
+            const aliasIds = getDealCardAliasIds(hydrated);
+            for (const aid of aliasIds) {
+              serverAliasIds.add(aid);
+              if (hydrated?.id) {
+                serverAliasToCanonical.set(aid, hydrated.id);
+              }
+            }
+            if (hydrated?.id) {
+              if (typeof hydrated.card4?.card4_version === "number") {
+                serverVersionByIdRef.current.set(hydrated.id, hydrated.card4.card4_version);
+              }
+              if (aliasIds.some((aid) => userEditedIdsRef.current.has(aid))) {
+                for (const aid of aliasIds) {
+                  if (aid !== hydrated.id) userEditedIdsRef.current.delete(aid);
+                }
+                userEditedIdsRef.current.add(hydrated.id);
+              }
             }
             return uid ? { ...hydrated, ownerUserId: uid } : hydrated;
           }
         );
-        const serverMap = new Map(serverList.map((s) => [s.id, s]));
         const mergedNext: BuildingListItem[] = [];
-        const localMap = new Map(itemsRef.current.map((l) => [l.id, l]));
+        const localMap = new Map<string, HydratedDealCardItem>();
+        for (const loc of itemsRef.current as HydratedDealCardItem[]) {
+          for (const aid of getDealCardAliasIds(loc)) {
+            const existing = localMap.get(aid);
+            if (
+              !existing ||
+              (UUID_RE.test(loc.id) && !UUID_RE.test(existing.id)) ||
+              (loc.card4?.card4_version || 1) > (existing.card4?.card4_version || 1)
+            ) {
+              localMap.set(aid, loc);
+            }
+          }
+        }
         for (const srv of serverList) {
-          const loc = localMap.get(srv.id);
+          const srvAliases = getDealCardAliasIds(srv);
+          let loc = localMap.get(srv.id);
+          if (!loc) {
+            for (const aid of srvAliases) {
+              const candidate = localMap.get(aid);
+              if (candidate) {
+                loc = candidate;
+                break;
+              }
+            }
+          }
           const keepLocal = Boolean(
             loc &&
               (loc.card4.card4_version || 1) > (srv.card4.card4_version || 1) &&
               userEditedIdsRef.current.has(srv.id)
           );
-          mergedNext.push(keepLocal ? loc! : srv);
+          if (keepLocal && loc) {
+            const resolvedLegacyId =
+              srv.legacyId ?? loc.legacyId ?? (loc.id && loc.id !== srv.id ? loc.id : undefined);
+            mergedNext.push({
+              ...srv,
+              ...loc,
+              id: srv.id,
+              ...(srv.canonicalId ? { canonicalId: srv.canonicalId } : {}),
+              ...(srv.buildingId ? { buildingId: srv.buildingId } : {}),
+              ...(resolvedLegacyId ? { legacyId: resolvedLegacyId } : {}),
+            } as BuildingListItem);
+          } else {
+            mergedNext.push(srv as BuildingListItem);
+          }
         }
-        for (const loc of itemsRef.current) {
-          if (!serverMap.has(loc.id) && !INITIAL_IDS.has(loc.id)) {
+        for (const loc of itemsRef.current as HydratedDealCardItem[]) {
+          const aliases = getDealCardAliasIds(loc);
+          if (
+            !aliases.some((aid) => serverAliasIds.has(aid)) &&
+            !INITIAL_IDS.has(loc.id)
+          ) {
             mergedNext.push(loc);
           }
         }
@@ -890,8 +1226,17 @@ function DealCardsWorkspaceInner() {
           itemsRef.current = mergedNext;
           setItems(mergedNext);
           persistItems(mergedNext, uid);
-          if (!autosaveRef.current.dirty && resolvedActiveIdRef.current) {
-            const matched = mergedNext.find((m) => m.id === resolvedActiveIdRef.current);
+          const curActiveId = resolvedActiveIdRef.current;
+          const promotedActiveId = curActiveId
+            ? serverAliasToCanonical.get(curActiveId) ?? curActiveId
+            : null;
+          if (curActiveId && promotedActiveId && promotedActiveId !== curActiveId) {
+            resolvedActiveIdRef.current = promotedActiveId;
+            setSelectedId(promotedActiveId);
+            setSyncedBuildingId(promotedActiveId);
+          }
+          if (!autosaveRef.current.dirty && promotedActiveId) {
+            const matched = mergedNext.find((m) => m.id === promotedActiveId);
             if (matched) {
               setCurrentCard4(matched.card4);
               setSyncedBuildingId(matched.id);
@@ -1247,8 +1592,15 @@ function DealCardsWorkspaceInner() {
               generationSource: "ai_memo",
             }),
           })
-            .then((res) => {
-              if (res.ok) {
+            .then(async (res) => {
+              if (!res.ok) return;
+              const json = await res.json().catch(() => null);
+              const promotedUuid = extractCanonicalUuid(json, newId);
+              if (promotedUuid && promotedUuid !== newId) {
+                promoteLegacyDealCardId(newId, promotedUuid, {
+                  savedSnapshot: cardWithMeta,
+                });
+              } else {
                 markServerSynced(newId);
                 if (resolvedActiveIdRef.current === newId) {
                   autosaveRef.current.markClean();
@@ -1257,6 +1609,7 @@ function DealCardsWorkspaceInner() {
             })
             .catch(() => {});
 
+          lastSyncedQueryIdRef.current = newId;
           router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(newId)}&tab=editor`);
           showUndoToast({
             message: "메모에서 딜카드를 생성했어요! 아래 항목을 확인하고 다듬어 보세요.",
@@ -1340,14 +1693,24 @@ function DealCardsWorkspaceInner() {
               autosaveRef.current.markDirty(targetId);
               return;
             }
-            markServerSynced(targetId);
-            if (resolvedActiveIdRef.current === targetId) {
-              autosaveRef.current.markClean();
+            const promotedUuid = !UUID_RE.test(targetId)
+              ? extractCanonicalUuid(json, targetId)
+              : null;
+            const effectiveId = promotedUuid || targetId;
+            if (promotedUuid) {
+              promoteLegacyDealCardId(targetId, promotedUuid, {
+                savedSnapshot: syncedCardPayload,
+              });
+            } else {
+              markServerSynced(targetId);
+              if (resolvedActiveIdRef.current === targetId) {
+                autosaveRef.current.markClean();
+              }
             }
             if (json?.pairedMemoId) {
               setItems((prev) => {
                 const next = prev.map((it) =>
-                  it.id === targetId ? { ...it, pairedMemoId: String(json.pairedMemoId) } : it
+                  it.id === effectiveId ? { ...it, pairedMemoId: String(json.pairedMemoId) } : it
                 );
                 persistItems(next);
                 return next;
@@ -1386,6 +1749,7 @@ function DealCardsWorkspaceInner() {
       originGroupFilter,
       persistItems,
       persistUnconvertedMemos,
+      promoteLegacyDealCardId,
       router,
       selectedMemoOnly,
       showUndoToast,
@@ -1528,13 +1892,14 @@ function DealCardsWorkspaceInner() {
     if (!activeId) return false;
     setPublishError(null);
     await autosave.flush().catch(() => false);
+    const targetId = resolvedActiveIdRef.current || activeId;
     try {
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "mark_sent",
-          buildingId: activeId,
+          buildingId: targetId,
           card4: currentCard4Ref.current,
         }),
       });
@@ -1562,23 +1927,35 @@ function DealCardsWorkspaceInner() {
           : typeof data?.card4?.card4_version === "number"
           ? data.card4.card4_version
           : undefined;
+      const promotedUuid = !UUID_RE.test(targetId)
+        ? extractCanonicalUuid(data, targetId)
+        : null;
+      const effectiveId = promotedUuid || targetId;
       if (returnedVersion !== undefined) {
-        serverVersionByIdRef.current.set(activeId, returnedVersion);
+        serverVersionByIdRef.current.set(effectiveId, returnedVersion);
       }
 
-      markServerSynced(activeId);
+      if (promotedUuid) {
+        promoteLegacyDealCardId(targetId, promotedUuid, {
+          savedSnapshot: currentCard4Ref.current,
+        });
+      } else {
+        markServerSynced(effectiveId);
+      }
       setDirtySentIds((prev) => {
-        if (!prev.has(activeId)) return prev;
+        if (!prev.has(targetId) && !prev.has(effectiveId)) return prev;
         const next = new Set(prev);
-        next.delete(activeId);
+        next.delete(targetId);
+        next.delete(effectiveId);
         return next;
       });
       setItems((prev) => {
         const nowIso = new Date().toISOString();
         const next = prev.map((it) =>
-          it.id === activeId
+          it.id === effectiveId || it.id === targetId
             ? ({
                 ...it,
+                id: effectiveId,
                 status: "sent" as const,
                 updatedAt: nowIso,
                 updatedAtIso: nowIso,
@@ -1600,7 +1977,7 @@ function DealCardsWorkspaceInner() {
       });
       return false;
     }
-  }, [autosave, markServerSynced, persistItems, showUndoToast]);
+  }, [autosave, markServerSynced, persistItems, promoteLegacyDealCardId, showUndoToast]);
 
   const {
     activeUnitId: activeDealCardUnitId,
@@ -1688,6 +2065,7 @@ function DealCardsWorkspaceInner() {
     setSelectedId(newId);
     setCurrentCard4({ ...EMPTY_CARD4, generationSource: "ai_memo" });
     setSyncedBuildingId(newId);
+    lastSyncedQueryIdRef.current = newId;
     router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(newId)}&tab=editor`);
     setTimeout(() => {
       memoTextareaRef.current?.focus();
@@ -1829,8 +2207,17 @@ function DealCardsWorkspaceInner() {
     e.stopPropagation();
     const activeUid = currentUserIdRef.current;
     const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const {
+      canonicalId: _ignoredCanonical,
+      buildingId: _ignoredBuilding,
+      legacyId: _ignoredLegacy,
+      ...sourceRest
+    } = source as HydratedDealCardItem;
+    void _ignoredCanonical;
+    void _ignoredBuilding;
+    void _ignoredLegacy;
     const cloned: BuildingListItem = {
-      ...source,
+      ...sourceRest,
       id: newId,
       ...(activeUid ? { ownerUserId: activeUid } : {}),
       title: `${source.title} (사본)`,
@@ -1855,6 +2242,7 @@ function DealCardsWorkspaceInner() {
     setSelectedId(newId);
     setCurrentCard4(cloned.card4);
     setSyncedBuildingId(newId);
+    lastSyncedQueryIdRef.current = newId;
     void fetch("/api/broker/workspace/summary", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1866,8 +2254,15 @@ function DealCardsWorkspaceInner() {
         generationSource: cloned.generationSource,
       }),
     })
-      .then((res) => {
-        if (res.ok) markServerSynced(newId);
+      .then(async (res) => {
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        const promotedUuid = extractCanonicalUuid(json, newId);
+        if (promotedUuid && promotedUuid !== newId) {
+          promoteLegacyDealCardId(newId, promotedUuid, { savedSnapshot: cloned.card4 });
+        } else {
+          markServerSynced(newId);
+        }
       })
       .catch(() => {});
     router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(newId)}&tab=editor`);
@@ -2226,9 +2621,58 @@ function DealCardsWorkspaceInner() {
       : "published_clean"
     : "live_draft";
 
+  const handleEnsureCanonicalDealId = useCallback(async (): Promise<string | null> => {
+    const currentId = resolvedActiveIdRef.current;
+    if (!currentId) return null;
+    if (UUID_RE.test(currentId)) return currentId;
+
+    const item = itemsRef.current.find((it) => it.id === currentId) as
+      | HydratedDealCardItem
+      | undefined;
+    const existingUuid =
+      (item?.canonicalId && UUID_RE.test(item.canonicalId) ? item.canonicalId : null) ||
+      (item?.buildingId && UUID_RE.test(item.buildingId) ? item.buildingId : null);
+    if (existingUuid) {
+      return promoteLegacyDealCardId(currentId, existingUuid);
+    }
+
+    if (
+      syncedServerIds.has(currentId) ||
+      canonicalPromotionAttemptedRef.current.has(currentId) ||
+      isSampleDealCardItem(item) ||
+      item?.awaitingMemoGeneration
+    ) {
+      return currentId;
+    }
+
+    canonicalPromotionAttemptedRef.current.add(currentId);
+    if (autosave.dirty) {
+      await autosave.flush().catch(() => false);
+    }
+    const postFlushId = resolvedActiveIdRef.current;
+    if (postFlushId && UUID_RE.test(postFlushId)) {
+      return postFlushId;
+    }
+    if (postFlushId && !syncedServerIds.has(postFlushId)) {
+      try {
+        await performServerSave({ id: postFlushId, data: currentCard4Ref.current });
+      } catch {
+        // Non-blocking fallback
+      }
+    }
+    return resolvedActiveIdRef.current || currentId;
+  }, [autosave, performServerSave, promoteLegacyDealCardId, syncedServerIds]);
+
+  const liveCanonicalId = (() => {
+    const item = activeItem as HydratedDealCardItem | null;
+    if (item?.canonicalId && UUID_RE.test(item.canonicalId)) return item.canonicalId;
+    if (item?.buildingId && UUID_RE.test(item.buildingId)) return item.buildingId;
+    return resolvedActiveId;
+  })();
+
   const dealCardLiveUrl =
-    resolvedActiveId && activeItem?.status === "sent"
-      ? `/dc/${encodeURIComponent(resolvedActiveId)}`
+    liveCanonicalId && activeItem?.status === "sent"
+      ? `/dc/${encodeURIComponent(liveCanonicalId)}`
       : null;
 
   const listSlot = (
@@ -2307,7 +2751,7 @@ function DealCardsWorkspaceInner() {
       liveUrl={dealCardLiveUrl}
       isPreGeneration={isDealCardPreGeneration}
       effectiveCard4={effectiveCard4}
-      dealId={resolvedActiveId || ""}
+      dealId={liveCanonicalId || ""}
       brokerProfile={brokerProfile}
       activeUnitId={activeDealCardUnitId}
       selectedMemoOnly={selectedMemoOnly}
@@ -2316,6 +2760,7 @@ function DealCardsWorkspaceInner() {
       onResyncPublished={() => {
         void handleResyncSentDealCard();
       }}
+      onEnsureCanonicalId={() => handleEnsureCanonicalDealId()}
       onSkipMemoManual={handleSkipMemoManual}
       onFillSample={handleFillSample}
       onActivateUnit={handleActivatePreviewUnit}
@@ -2404,7 +2849,9 @@ function DealCardsWorkspaceInner() {
           setPublishError(null);
         }}
         card4={effectiveCard4}
-        dealId={resolvedActiveId || ""}
+        dealId={liveCanonicalId || ""}
+        resolveEffectiveDealId={() => resolvedActiveIdRef.current || ""}
+        onEnsureCanonicalId={() => handleEnsureCanonicalDealId()}
         isSaved={isActiveSavedOnServer}
         onFlushSave={handleFlushSave}
         onAutoMask={handleAutoMaskActiveCard}

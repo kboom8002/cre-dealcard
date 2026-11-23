@@ -204,12 +204,20 @@ export function parseHydratedDraftData(
         ? "server_draft"
         : "local_dirty";
 
+  const isRollingUnpublishedDraft =
+    syncStatus !== "published" &&
+    (nextCadence === "monthly" || nextCadence === "weekly");
+
   return {
     isExplicitNewSlot: false,
     cadence: nextCadence,
     issueYear: typeof parsed.issueYear === "number" ? parsed.issueYear : undefined,
     issueMonth: typeof parsed.issueMonth === "number" ? parsed.issueMonth : undefined,
-    issueDateStr: isValidIsoDate(parsed.issueDateStr) ? parsed.issueDateStr : undefined,
+    issueDateStr: isRollingUnpublishedDraft
+      ? todayKst()
+      : isValidIsoDate(parsed.issueDateStr)
+        ? parsed.issueDateStr
+        : undefined,
     hasSlotSlug: true,
     slotSlug:
       typeof parsed.slotSlug === "string" && parsed.slotSlug.trim()
@@ -372,10 +380,18 @@ export function resolveAppliedEditionFields(
       targetSegment: resolvedSeg,
     });
   const publishedFlag = ed.status === "published";
+  const isRollingCadence =
+    anchor.cadence === "monthly" || anchor.cadence === "weekly";
+  // A6-04: 미발행 월간/주간 초안을 이어서 작성할 때는 과거 초안 생성일이 아니라 오늘(KST)로 갱신한다.
+  const nextIssueDateStr = !publishedFlag && isRollingCadence
+    ? todayKst()
+    : isValidIsoDate(ed.issueDate)
+      ? ed.issueDate
+      : anchor.dateStr;
 
   return {
     anchor,
-    issueDateStr: isValidIsoDate(ed.issueDate) ? ed.issueDate : anchor.dateStr,
+    issueDateStr: nextIssueDateStr,
     headline: ed.title ?? "",
     summary: typeof ed.summary === "string" ? ed.summary : "",
     briefingTitle: typeof ed.briefingTitle === "string" ? ed.briefingTitle : "",

@@ -2690,14 +2690,17 @@ function MagazineEditorWorkspace() {
                 applyEditionToEditorState(existingMatch);
                 return;
               }
+              const freshIssueDate = todayKst();
               setEditionId(null);
               setIsPublished(false);
               setPublishedUrl(null);
+              setIssueDateStr(freshIssueDate);
               persistLocalDraft({
                 editionId: null,
                 slotSlug: null,
                 issueYear: meta.year,
                 issueMonth: meta.month,
+                issueDateStr: freshIssueDate,
               });
               syncUrlParams(null, cadence);
             }}

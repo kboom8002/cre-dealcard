@@ -5,6 +5,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
 import { createServiceClient } from "@/lib/supabase/service";
 import { formatKoreanDate } from "@/lib/magazine/kst";
+import { resolveEditionPublicDateAndHeader } from "@/lib/magazine/edition-public-date";
 import {
   canonicalBrokerSlug,
   classifyIssueDate,
@@ -137,9 +138,22 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   // 표지 h1 과 동일한 제목 (T1-16). 루트 레이아웃 title.template 가 "| DealCard" 를 붙인다.
   const title = buildMagazineTitle(data.headline, broker.name);
   const rawKind = (data.kind ?? (data as Record<string, unknown>).edition_type) as string | undefined;
-  const cadenceKo = rawKind === "daily" ? "일간" : rawKind === "weekly" ? "주간" : "월간";
+  const { displayDateLabel, cadence } = resolveEditionPublicDateAndHeader({
+    cadence: (data as Record<string, unknown>).cadence,
+    editionType: rawKind,
+    editionLabel:
+      (data as Record<string, unknown>).edition_label ??
+      (data as Record<string, unknown>).weekLabel,
+    issueDate: (data as Record<string, unknown>).issueDate,
+    publishedAt:
+      (data as Record<string, unknown>).published_at ??
+      (data as Record<string, unknown>).publishedAt,
+    createdAt: (data as Record<string, unknown>).created_at,
+    urlDate: date,
+  });
+  const cadenceKo = cadence === "daily" ? "일간" : cadence === "weekly" ? "주간" : "월간";
   const marketTempLabel = typeof data.market_temp === "string" && data.market_temp.trim() ? ` · 시장 온도: ${data.market_temp.trim()}` : "";
-  const description = `${broker.name ?? "중개사"} 중개사의 ${formatKoreanDate(date)} ${cadenceKo} 빌딩·상업용 부동산 브리핑${marketTempLabel}`;
+  const description = `${broker.name ?? "중개사"} 중개사의 ${displayDateLabel} ${cadenceKo} 빌딩·상업용 부동산 브리핑${marketTempLabel}`;
   const ogImageUrl = `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`;
   const canonical = `${getCanonicalSiteUrl()}/magazine/${slug}/${date}`;
 
@@ -203,13 +217,30 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
   // 따라서 URL 만 아는 제3자에게는 초안이 노출되지 않는다. 날짜 형식이 잘못된 경우만 기존 안내 화면.
   if (isPreview && !(state.kind === "unpublished" && state.reason === "invalid")) {
     const slug = state.brokerSlug;
+    const previewDateLabel =
+      state.kind === "ok"
+        ? resolveEditionPublicDateAndHeader({
+            cadence: (state.data as Record<string, unknown>).cadence,
+            editionType:
+              state.data.kind ?? (state.data as Record<string, unknown>).edition_type,
+            editionLabel:
+              (state.data as Record<string, unknown>).edition_label ??
+              (state.data as Record<string, unknown>).weekLabel,
+            issueDate: (state.data as Record<string, unknown>).issueDate,
+            publishedAt:
+              (state.data as Record<string, unknown>).published_at ??
+              (state.data as Record<string, unknown>).publishedAt,
+            createdAt: (state.data as Record<string, unknown>).created_at,
+            urlDate: date,
+          }).displayDateLabel
+        : formatKoreanDate(date);
     return (
       <PreviewReceiver
         editionId={edition}
         brokerId={slug ?? brokerId}
         brokerSlug={slug}
         date={date}
-        dateLabel={formatKoreanDate(date)}
+        dateLabel={previewDateLabel}
         target={sp.target !== undefined ? parseViewerTarget(sp.target) : undefined}
       />
     );
@@ -226,8 +257,21 @@ export default async function MagazinePage({ params, searchParams }: PageProps) 
     );
   }
 
-  // 날짜·요일 표시는 서버(KST)에서 계산 — hydration 불일치 제거 (T3-40)
-  const dateLabel = formatKoreanDate(date);
+  // 날짜·카던스·발행일 표시는 서버(KST)에서 계산 — hydration 불일치 제거 (T3-40, A6-05)
+  const { displayDateLabel: dateLabel } = resolveEditionPublicDateAndHeader({
+    cadence: (state.data as Record<string, unknown>).cadence,
+    editionType:
+      state.data.kind ?? (state.data as Record<string, unknown>).edition_type,
+    editionLabel:
+      (state.data as Record<string, unknown>).edition_label ??
+      (state.data as Record<string, unknown>).weekLabel,
+    issueDate: (state.data as Record<string, unknown>).issueDate,
+    publishedAt:
+      (state.data as Record<string, unknown>).published_at ??
+      (state.data as Record<string, unknown>).publishedAt,
+    createdAt: (state.data as Record<string, unknown>).created_at,
+    urlDate: date,
+  });
   const rawQa = Array.isArray(sp.qa) ? sp.qa[0] : sp.qa;
   const showPublicQaPin = rawQa === "1" && !isPreview;
   const rawSid = ((Array.isArray(sp.sid) ? sp.sid[0] : sp.sid) || "").trim();

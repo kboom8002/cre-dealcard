@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import { KakaoBubblePreview } from "@/components/broker/deal-card/KakaoBubblePreview";
 import { PreviewCausalityBar } from "@/components/workspace/preview-sync/PreviewCausalityBar";
@@ -26,6 +26,7 @@ export interface DealCardPreviewColumnProps {
   onSkipMemoManual: () => void;
   onFillSample: () => void;
   onActivateUnit: (unitId: string) => void;
+  onEnsureCanonicalId?: () => Promise<string | null>;
 }
 
 export function DealCardPreviewColumn({
@@ -43,10 +44,39 @@ export function DealCardPreviewColumn({
   onSkipMemoManual,
   onFillSample,
   onActivateUnit,
+  onEnsureCanonicalId,
 }: DealCardPreviewColumnProps) {
+  const attemptedPromoIdsRef = useRef<Set<string>>(new Set());
+  const onEnsureCanonicalIdRef = useRef(onEnsureCanonicalId);
+  onEnsureCanonicalIdRef.current = onEnsureCanonicalId;
+
+  useEffect(() => {
+    if (!liveUrl || isPreGeneration || !dealId || !dealId.startsWith("bld-")) return;
+    if (attemptedPromoIdsRef.current.has(dealId)) return;
+    const ensureFn = onEnsureCanonicalIdRef.current;
+    if (!ensureFn) return;
+    attemptedPromoIdsRef.current.add(dealId);
+    void ensureFn().catch(() => {});
+  }, [liveUrl, isPreGeneration, dealId]);
+
+  const handleLivePreviewClickCapture = async (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    const liveAnchor = target?.closest?.('[data-testid="dealcard-live-link"]') as HTMLAnchorElement | null;
+    if (!liveAnchor || !dealId.startsWith("bld-") || !onEnsureCanonicalId) return;
+    e.preventDefault();
+    const promotedId = (await onEnsureCanonicalId().catch(() => null)) || dealId;
+    const nextUrl = `/dc/${encodeURIComponent(promotedId)}`;
+    if (typeof window !== "undefined") {
+      window.open(nextUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <div className="space-y-4" data-testid="dealcard-preview-slot">
       <div
+        onClickCapture={(e) => {
+          void handleLivePreviewClickCapture(e);
+        }}
         className={
           lifecycle === "published_dirty"
             ? "sticky -top-4 z-20 -mx-4 -mt-4 bg-[#F5F5F7] px-4 pt-3 pb-2 shadow-[0_6px_12px_-8px_rgba(15,23,42,0.18)]"

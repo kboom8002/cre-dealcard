@@ -9,7 +9,8 @@
  *  - 주소는 `maskAddress`(동 단위)로만 노출.
  */
 import { MARKET_TEMP_CONFIG, type MarketTemperature } from '@/domain/magazine/types';
-import { formatKoreanDate, parseIssueDate, todayKst } from '@/lib/magazine/kst';
+import { parseIssueDate, todayKst } from '@/lib/magazine/kst';
+import { resolveEditionPublicDateAndHeader } from '@/lib/magazine/edition-public-date';
 import { maskAddress } from '@/lib/magazine/pii';
 import { stripSyntheticScore } from '@/lib/magazine/strip-synthetic-score';
 import { isPlausibleBrokerParam } from '@/lib/magazine/slug';
@@ -209,10 +210,22 @@ export function buildImageModel(
     str(content.ai_briefing) ?? str(content.briefing) ?? str(content.theme_body_md),
   );
 
+  const { displayDateLabel } = resolveEditionPublicDateAndHeader({
+    cadence: (content as Record<string, unknown>).cadence,
+    editionType: content.edition_type ?? content.kind,
+    editionLabel:
+      (content as Record<string, unknown>).edition_label ?? content.weekLabel,
+    issueDate: content.issueDate,
+    publishedAt:
+      (content as Record<string, unknown>).published_at ?? content.publishedAt,
+    createdAt: (content as Record<string, unknown>).created_at,
+    urlDate: date,
+  });
+
   return {
     date,
     dateLabel: toDateLabel(date),
-    dateKorean: formatKoreanDate(date),
+    dateKorean: displayDateLabel,
     headline,
     marketTemp,
     keywords: strArray(content.cover_keywords ?? content.coverKeywords, 4),

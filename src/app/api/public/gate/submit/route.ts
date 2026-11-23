@@ -25,6 +25,7 @@ import {
   isBuildingShareLinkRevoked,
   verifyShareLinkToken,
 } from '@/lib/security/share-link-tokens';
+import { upsertBrokerClientFromInbound } from '@/lib/inbox/upsert-broker-client';
 
 const log = createModuleLogger('public-gate-submit');
 
@@ -65,8 +66,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. 유효성 검증 (+82 국제번호 정규화 지원)
-    const validation = validateG2Form(formData);
+    // 1. 유효성 검증 (+82 국제번호 정규화 지원, 선택 필드 email/company/memo 포함)
+    const normalizedFormData = {
+      ...(formData || {}),
+      ...(formData?.email === undefined && typeof (body as any)?.email === 'string'
+        ? { email: (body as any).email }
+        : {}),
+      ...(formData?.company === undefined && typeof (body as any)?.company === 'string'
+        ? { company: (body as any).company }
+        : {}),
+      ...(formData?.memo === undefined && typeof (body as any)?.memo === 'string'
+        ? { memo: (body as any).memo }
+        : {}),
+    };
+    const validation = validateG2Form(normalizedFormData);
     if (!validation.valid) {
       return NextResponse.json(
         { ok: false, accessGranted: false, errors: validation.errors },
@@ -74,8 +87,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedPhone = normalizeKoreanMobilePhone(formData.phone);
-    const cleanName = String(formData.name || '').trim();
+    const normalizedPhone = normalizeKoreanMobilePhone(normalizedFormData.phone);
+    const cleanName = String(normalizedFormData.name || '').trim();
+    const cleanEmail =
+      typeof normalizedFormData.email === 'string'
+        ? normalizedFormData.email.trim().toLowerCase()
+        : '';
+    const cleanCompany =
+      typeof normalizedFormData.company === 'string'
+        ? normalizedFormData.company.trim()
+        : '';
+    const cleanMemo =
+      typeof normalizedFormData.memo === 'string'
+        ? normalizedFormData.memo.trim()
+        : '';
 
     const supabase = createServiceClient();
     let effectiveDealId = typeof dealId === 'string' ? dealId.trim() : '';
@@ -133,6 +158,8 @@ export async function POST(req: NextRequest) {
 
     let resolvedBrokerId: string | undefined = undefined;
     let resolvedTenantId: string | undefined = undefined;
+    let resolvedBuildingTitle = '';
+    let resolvedGateBuildingId: string | null = null;
 
     // 잠금 상태 및 실재·소유 공인중개사(broker_id / owner_id)를 서버에서 검증
     {
@@ -214,6 +241,10 @@ export async function POST(req: NextRequest) {
         dealExists = true;
         resolvedBrokerId = wsProj.projection.ownerId;
         resolvedTenantId = wsProj.projection.ownerId;
+        resolvedBuildingTitle = String(wsProj.projection.title || '').trim();
+        if (wsProj.projection.buildingId && isUuid(wsProj.projection.buildingId)) {
+          resolvedGateBuildingId = wsProj.projection.buildingId;
+        }
       }
 
       if (!dealExists && isUuid(dealKey)) {
@@ -281,6 +312,9 @@ export async function POST(req: NextRequest) {
         if (quickRec.ownerId) {
           resolvedBrokerId = quickRec.ownerId;
           resolvedTenantId = quickRec.ownerId;
+        }
+        if (quickRec.buildingName) {
+          resolvedBuildingTitle = String(quickRec.buildingName).trim();
         }
       }
 
@@ -380,28 +414,106 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7. Record gate_request_created in activity_events so submissions appear in /broker/w/inbox
+    // 7. Persist real gate_requests row (when UUID building exists) + activity_events fallback
+    const budgetLabel =
+      BUDGET_BAND_MAP[normalizedFormData.budgetBand] || normalizedFormData.budgetBand;
+    const gateTargetBuildingId =
+      resolvedGateBuildingId || (isUuid(effectiveDealId) ? effectiveDealId : null);
+
+    let insertedGateRequestId: string | null = null;
+    if (gateTargetBuildingId) {
+      try {
+        const gateReasonPayload = JSON.stringify({
+          name: cleanName,
+          phone: normalizedPhone,
+          ...(cleanEmail ? { email: cleanEmail } : {}),
+          ...(cleanCompany ? { company: cleanCompany } : {}),
+          ...(cleanMemo ? { message: cleanMemo, memo: cleanMemo } : {}),
+          budgetBand: budgetLabel,
+          purpose: normalizedFormData.purpose,
+          financing: normalizedFormData.financing,
+          entityType: normalizedFormData.entityType,
+          source: 'gate_g2',
+        });
+
+        const baseGatePayload = {
+          building_id: gateTargetBuildingId,
+          requester_id: null,
+          requested_level: 'G2',
+          requested_fields: ['상세 주소/지번', '임대차 현황(렌트롤)', '수익성 시나리오', '매도인 희망가'],
+          reason: gateReasonPayload,
+          status: 'submitted',
+          ...(brokerId ? { target_broker_id: brokerId } : {}),
+        };
+
+        let grInsertRes: any = await supabase
+          .from('gate_requests')
+          .insert(baseGatePayload)
+          .select('id')
+          .single();
+
+        const grErrCode = String(grInsertRes?.error?.code || '');
+        const grErrMsg = String(grInsertRes?.error?.message || '');
+        if (
+          grInsertRes?.error &&
+          (grErrCode === '42703' ||
+            grErrCode === 'PGRST204' ||
+            grErrMsg.includes('target_broker_id'))
+        ) {
+          const { target_broker_id: _omitted, ...fallbackPayload } = baseGatePayload;
+          grInsertRes = await supabase
+            .from('gate_requests')
+            .insert(fallbackPayload)
+            .select('id')
+            .single();
+        }
+
+        if (
+          !grInsertRes?.error &&
+          grInsertRes?.data?.id &&
+          isUuid(String(grInsertRes.data.id))
+        ) {
+          insertedGateRequestId = String(grInsertRes.data.id);
+        }
+      } catch {
+        // Non-blocking (e.g. standalone workspace_items dealId or minimal test mock)
+      }
+    }
+
+    const eventGateRequestId =
+      insertedGateRequestId ||
+      `gr-submit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    // 7b. Record gate_request_created in activity_events so submissions appear in /broker/w/inbox
     try {
       await supabase.from('activity_events').insert({
         actor_id: party.id && isUuid(party.id) ? party.id : null,
         actor_role: 'anonymous',
         event_type: 'gate_request_created',
         entity_type: 'gate_request',
-        entity_id: isUuid(effectiveDealId)
-          ? effectiveDealId
-          : party.id && isUuid(party.id)
-          ? party.id
-          : null,
+        entity_id:
+          insertedGateRequestId ||
+          (isUuid(effectiveDealId)
+            ? effectiveDealId
+            : party.id && isUuid(party.id)
+            ? party.id
+            : null),
         metadata: {
-          building_id: effectiveDealId,
+          gate_request_id: eventGateRequestId,
+          building_id: gateTargetBuildingId || effectiveDealId,
           broker_id: brokerId,
           party_id: party.id,
           requester_name: cleanName,
           requester_phone: normalizedPhone,
+          ...(cleanEmail ? { email: cleanEmail, requester_email: cleanEmail } : {}),
+          ...(cleanCompany
+            ? { company: cleanCompany, requester_company: cleanCompany }
+            : {}),
+          ...(cleanMemo ? { memo: cleanMemo, message: cleanMemo } : {}),
           requested_level: 'G2',
-          budget_band: BUDGET_BAND_MAP[formData.budgetBand] || formData.budgetBand,
-          purpose: formData.purpose,
-          financing: formData.financing,
+          budget_band: budgetLabel,
+          purpose: normalizedFormData.purpose,
+          financing: normalizedFormData.financing,
           consent_agreed: true,
           form_source: 'gate_g2',
         },
@@ -410,17 +522,39 @@ export async function POST(req: NextRequest) {
       // non-blocking
     }
 
+    // 8. Auto-upsert into broker_clients CRM (idempotent, non-blocking)
+    try {
+      await upsertBrokerClientFromInbound({
+        supabase,
+        brokerUserId: brokerId,
+        name: cleanName,
+        phone: normalizedPhone,
+        email: cleanEmail || undefined,
+        company: cleanCompany || undefined,
+        buildingId: gateTargetBuildingId || (isUuid(effectiveDealId) ? effectiveDealId : null),
+        buildingTitle: resolvedBuildingTitle || undefined,
+        clientRole: 'buyer',
+        source: 'gate_g2',
+      });
+    } catch (crmErr) {
+      log.warn('[gate/submit] upsertBrokerClientFromInbound failed (non-blocking)', {
+        dealId: effectiveDealId,
+        error: crmErr instanceof Error ? crmErr.message : String(crmErr),
+      });
+    }
+
     recordFunnelEvent({
       funnel: 'share_view_to_gate',
       outcome: 'ok',
       entityId: effectiveDealId,
-      meta: { budgetBand: formData.budgetBand, purpose: formData.purpose },
+      meta: { budgetBand: normalizedFormData.budgetBand, purpose: normalizedFormData.purpose },
     });
 
     return NextResponse.json(
       {
         ok: true,
         partyId: party.id,
+        gateRequestId: eventGateRequestId,
         accessGranted: true,
       },
       { status: 201 }

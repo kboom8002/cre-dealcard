@@ -23,6 +23,7 @@ import {
 } from '@/lib/magazine/send-flags';
 import { clearBrokerUnsubscribeSuppression } from '@/lib/legal/email-suppression';
 import { isUuid } from '@/lib/magazine/slug';
+import { upsertBrokerClientFromInbound } from '@/lib/inbox/upsert-broker-client';
 import { renderOptInConfirmEmail } from './templates/opt-in-confirm';
 import { assertAbsoluteHttpsUrl, getSiteBaseUrl } from './templates/url-guard';
 import {
@@ -355,6 +356,22 @@ export async function recordOptIn(db: ConsentDbClient, p: RecordOptInParams): Pr
         return { ok: false, code: isSchemaMissingError(error) ? 'UNAVAILABLE' : 'DB_ERROR' };
       }
       const wasUnsub = target.status === 'unsubscribed' || !!target.unsubscribed_at;
+      if (!wasUnsub) {
+        try {
+          await upsertBrokerClientFromInbound({
+            supabase: db,
+            brokerUserId: p.brokerUserId || p.brokerSlug,
+            name: input.name ?? target.subscriber_name ?? null,
+            phone: input.phone ?? target.subscriber_phone ?? input.phoneE164 ?? target.phone_e164 ?? null,
+            email: emailOwnedByOther ? target.subscriber_email : (input.email ?? target.subscriber_email ?? null),
+            clientRole: 'buyer',
+            source: input.source || 'newsletter',
+            preferredRegions: normalizeTagGroups(input.tags)?.regions ?? [],
+          });
+        } catch {
+          // CRM auto-sync is strictly non-blocking for public opt-in
+        }
+      }
       return {
         ok: true,
         outcome: wasUnsub ? 'resubscribe_pending' : 'updated',
@@ -402,6 +419,20 @@ export async function recordOptIn(db: ConsentDbClient, p: RecordOptInParams): Pr
       if (ins.error.code === '23505' && attempt === 0) continue; // 동시 가입 경합 → 재조회 후 갱신 경로
       logDbError('insert', ins.error);
       return { ok: false, code: isSchemaMissingError(ins.error) ? 'UNAVAILABLE' : 'DB_ERROR' };
+    }
+    try {
+      await upsertBrokerClientFromInbound({
+        supabase: db,
+        brokerUserId: p.brokerUserId || p.brokerSlug,
+        name: input.name,
+        phone: input.phone ?? input.phoneE164 ?? null,
+        email: input.email,
+        clientRole: 'buyer',
+        source: input.source || 'newsletter',
+        preferredRegions: normalizeTagGroups(input.tags)?.regions ?? [],
+      });
+    } catch {
+      // CRM auto-sync is strictly non-blocking for public opt-in
     }
     return {
       ok: true,
@@ -460,7 +491,7 @@ export async function confirmOptIn(
 
   const { data, error } = await db
     .from('magazine_subscribers')
-    .select('id, broker_id, broker_user_id, subscriber_email, status, unsubscribed_at, confirm_status, confirm_token_hash, marketing_consent_at')
+    .select('id, broker_id, broker_user_id, subscriber_email, subscriber_name, subscriber_phone, phone_e164, interest_profile, status, unsubscribed_at, confirm_status, confirm_token_hash, marketing_consent_at')
     .eq('broker_id', brokerSlug)
     .eq('confirm_token_hash', hash)
     .limit(1);
@@ -474,6 +505,10 @@ export async function confirmOptIn(
         broker_id?: string | null;
         broker_user_id?: string | null;
         subscriber_email?: string | null;
+        subscriber_name?: string | null;
+        subscriber_phone?: string | null;
+        phone_e164?: string | null;
+        interest_profile?: Record<string, unknown> | null;
         status: string;
         unsubscribed_at: string | null;
         confirm_status?: string | null;
@@ -536,19 +571,36 @@ export async function confirmOptIn(
     // 동시 요청이 먼저 전이시킨 경우: 사용자가 같은 링크를 다시 열면 멱등 경로(alreadyConfirmed)로 ok가 된다
     return { ok: false, reason: 'INVALID' };
   }
-  if (row.subscriber_email) {
-    const resolvedBrokerUuid = await resolveBrokerUuidForConfirm(db, {
-      brokerUserId: row.broker_user_id,
-      brokerId: row.broker_id,
-      brokerSlug,
+  const resolvedBrokerUuid = await resolveBrokerUuidForConfirm(db, {
+    brokerUserId: row.broker_user_id,
+    brokerId: row.broker_id,
+    brokerSlug,
+  });
+  if (row.subscriber_email && resolvedBrokerUuid) {
+    // 본인의 더블 옵트인 확인 완료 시 scope='broker' & reason='unsubscribe'만 해제 (hard_bounce/complaint/global은 영구 보존)
+    await clearBrokerUnsubscribeSuppression(db, {
+      email: row.subscriber_email,
+      brokerId: resolvedBrokerUuid,
     });
-    if (resolvedBrokerUuid) {
-      // 본인의 더블 옵트인 확인 완료 시 scope='broker' & reason='unsubscribe'만 해제 (hard_bounce/complaint/global은 영구 보존)
-      await clearBrokerUnsubscribeSuppression(db, {
-        email: row.subscriber_email,
-        brokerId: resolvedBrokerUuid,
-      });
-    }
+  }
+  try {
+    const rawTags = (row.interest_profile as { tags?: { regions?: unknown } } | null)?.tags;
+    const regions = Array.isArray(rawTags?.regions)
+      ? rawTags.regions.filter((r): r is string => typeof r === 'string')
+      : [];
+    await upsertBrokerClientFromInbound({
+      supabase: db,
+      brokerUserId: resolvedBrokerUuid || row.broker_user_id || row.broker_id || brokerSlug,
+      name: row.subscriber_name,
+      phone: row.subscriber_phone || row.phone_e164,
+      email: row.subscriber_email,
+      clientRole: 'buyer',
+      source: 'newsletter',
+      preferredRegions: regions,
+      consentConfirmed: true,
+    });
+  } catch {
+    // CRM auto-sync is strictly non-blocking on opt-in confirmation
   }
   return { ok: true, subscriberId: row.id, reactivated: reactivate, alreadyConfirmed: false };
 }

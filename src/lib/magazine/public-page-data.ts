@@ -5,6 +5,7 @@
  * 모든 DB 호출은 error를 확인한다. 가짜 기본값 없음.
  */
 import { addDays, formatKoreanDate, parseIssueDate, toKstDate, todayKst } from '@/lib/magazine/kst';
+import { resolveEditionPublicDateAndHeader } from '@/lib/magazine/edition-public-date';
 import { SLUG_RE, isUuid } from '@/lib/magazine/slug';
 import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 
@@ -151,6 +152,8 @@ export function mergeEditionContent(row: Record<string, any>): MagazineContent {
   const fromColumns: MagazineContent = {
     id: row.id,
     edition_type: row.edition_type,
+    edition_label: row.edition_label,
+    published_at: row.published_at,
     market_temp: row.market_temp,
     cover_keywords: row.cover_keywords,
     cover_image_url: row.cover_image_url,
@@ -388,8 +391,26 @@ export function maskPublicAddresses(data: MagazineContent): MagazineContent {
   return out;
 }
 
-/** 서버에서 계산한 날짜 표시(hydration 불일치 제거, T3-40). */
-export function buildDateDisplay(date: string): { dateLabel: string } {
+/** 서버에서 계산한 날짜 표시(hydration 불일치 제거, T3-40, A6-05). */
+export function buildDateDisplay(
+  date: string,
+  opts?: {
+    cadence?: unknown;
+    editionType?: unknown;
+    editionLabel?: unknown;
+    issueDate?: unknown;
+    publishedAt?: unknown;
+    createdAt?: unknown;
+  },
+): { dateLabel: string } {
+  if (opts) {
+    return {
+      dateLabel: resolveEditionPublicDateAndHeader({
+        ...opts,
+        urlDate: date,
+      }).displayDateLabel,
+    };
+  }
   return { dateLabel: formatKoreanDate(date) };
 }
 
@@ -427,12 +448,17 @@ export function buildArchiveEntries(
     const editionType = typeof r.edition_type === 'string' ? r.edition_type.trim() : '';
     const stampRaw = (r.published_at ?? r.created_at) as string | null | undefined;
     const stamp = typeof stampRaw === 'string' ? stampRaw : '';
-    let date: string | null = null;
-    if (parseIssueDate(label)) date = label;
-    else if (stamp) {
-      const d = new Date(stamp);
-      if (!Number.isNaN(d.getTime())) date = toKstDate(d);
-    }
+    const hasParsedStamp = Boolean(stamp && !Number.isNaN(new Date(stamp).getTime()));
+    if (!parseIssueDate(label) && !hasParsedStamp) continue;
+
+    const resolved = resolveEditionPublicDateAndHeader({
+      editionType: editionType || undefined,
+      editionLabel: label,
+      publishedAt: r.published_at,
+      createdAt: r.created_at,
+      now,
+    });
+    const date = parseIssueDate(label) ? label : resolved.canonicalUrlDate;
     if (!date || date > today) continue;
     const dedupKey = isUuid(r.id) ? `id:${r.id}` : `slot:${editionType}:${label || date}`;
     const existing = byKey.get(dedupKey);

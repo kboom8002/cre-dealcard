@@ -17,6 +17,10 @@ import type { deriveCadenceIssueMeta, NewsletterCadence } from "@/lib/magazine/n
 export type CadenceIssueMeta = ReturnType<typeof deriveCadenceIssueMeta>;
 import { sanitizeDealAddress } from "@/lib/magazine/view-helpers";
 import {
+  resolveCanonicalAreaLabel,
+  resolveCanonicalDealHeadline,
+} from "@/lib/deal-card/canonical-summary";
+import {
   removeScopedWorkspaceKey,
   writeScopedWorkspaceJson,
 } from "@/lib/workspace/storage-namespace";
@@ -29,6 +33,7 @@ import {
   makeSlotStorageKey,
   resolveNewsletterScopeUid,
   writeLastActiveSlotKey,
+  type AssignableDealWithMetrics,
   type LocalNewsletterDraft,
   type SavedEditionSummary,
 } from "../_components/magazine-workspace-types";
@@ -37,6 +42,7 @@ export interface SelectedDealSnapshot {
   id: string;
   title: string;
   assetType: string;
+  posture?: string;
   areaSignal?: string;
   areaLabel?: string;
   address: string;
@@ -44,6 +50,10 @@ export interface SelectedDealSnapshot {
   priceBand?: string;
   yield: string;
   grossYieldNetOfDeposit?: number;
+  grossFloorAreaPyeong?: number;
+  landAreaPyeong?: number;
+  grossFloorAreaM2?: number;
+  landAreaM2?: number;
   investmentPoint?: string;
   point?: string;
   photoUrl: string | null;
@@ -57,37 +67,60 @@ export interface SelectedDealSnapshot {
  */
 export function buildSelectedDealSnapshots(
   selectedDealIds: readonly string[],
-  deals: readonly AssignableDealItem[],
+  deals: readonly (AssignableDealItem | AssignableDealWithMetrics)[],
   dealComments: Readonly<Record<string, string>>,
 ): SelectedDealSnapshot[] {
   return selectedDealIds.map((id) => {
-    const d = deals.find((item) => item.id === id);
+    const d = deals.find((item) => item.id === id) as AssignableDealWithMetrics | undefined;
     const comment = dealComments[id]?.trim() || "";
     const yieldNum = d?.yield
       ? parseFloat(String(d.yield).replace(/[^0-9.]/g, ""))
       : NaN;
-    const resolvedHasIm = d?.hasIm === true;
+    const resolvedHasIm = d?.hasIm === true && isUuidLike(id);
     const safeAreaSignal = d?.areaSignal || sanitizeDealAddress(d?.address || "");
-    const safeTitle =
-      safeAreaSignal && d?.assetType
-        ? `${safeAreaSignal} ${d.assetType}`
-        : d?.title || "추천 매물";
+    const safeTitle = resolveCanonicalDealHeadline({
+      brokerHeadline: d?.title,
+      region: safeAreaSignal,
+      assetType: d?.assetType,
+    });
+    const canonicalAreaLabel =
+      resolveCanonicalAreaLabel({
+        posture: d?.posture,
+        explicitAreaLabel: d?.areaLabel,
+        gfaSqm: d?.grossFloorAreaM2,
+        landSqm: d?.landAreaM2,
+        gfaPyeong: d?.grossFloorAreaPyeong,
+        landPyeong: d?.landAreaPyeong,
+      }) || undefined;
     return {
       id,
       title: safeTitle,
       assetType: d?.assetType || "상업용 빌딩",
+      ...(d?.posture ? { posture: d.posture } : {}),
       areaSignal: safeAreaSignal || undefined,
-      areaLabel: d?.areaLabel || undefined,
+      areaLabel: canonicalAreaLabel,
       address: d?.address || "",
       price: d?.priceBand || d?.price || "가격 문의",
       priceBand: d?.priceBand || d?.price || undefined,
       yield: d?.yield || "-",
       grossYieldNetOfDeposit:
         Number.isFinite(yieldNum) && yieldNum > 0 ? yieldNum : undefined,
+      ...(typeof d?.grossFloorAreaPyeong === "number" && d.grossFloorAreaPyeong > 0
+        ? { grossFloorAreaPyeong: d.grossFloorAreaPyeong }
+        : {}),
+      ...(typeof d?.landAreaPyeong === "number" && d.landAreaPyeong > 0
+        ? { landAreaPyeong: d.landAreaPyeong }
+        : {}),
+      ...(typeof d?.grossFloorAreaM2 === "number" && d.grossFloorAreaM2 > 0
+        ? { grossFloorAreaM2: d.grossFloorAreaM2 }
+        : {}),
+      ...(typeof d?.landAreaM2 === "number" && d.landAreaM2 > 0
+        ? { landAreaM2: d.landAreaM2 }
+        : {}),
       investmentPoint: comment || undefined,
       point: comment || undefined,
       photoUrl: d?.photoUrl || null,
-      hasIm: d?.hasIm,
+      hasIm: d?.hasIm === true ? resolvedHasIm : d?.hasIm,
       dealCardUrl: `/dc/${encodeURIComponent(id)}`,
       ...(resolvedHasIm ? { imUrl: `/im-lite/${encodeURIComponent(id)}` } : {}),
     };

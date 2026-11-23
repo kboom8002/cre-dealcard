@@ -151,11 +151,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       /^\d{4}-\d{2}-\d{2}$/.test((edition.content as { issueDate: string }).issueDate)
         ? (edition.content as { issueDate: string }).issueDate
         : null;
+    const editionTypeRaw = typeof edition.edition_type === "string" ? edition.edition_type.trim() : "";
+    const isRollingCadence = editionTypeRaw === "monthly" || editionTypeRaw === "weekly" || !editionTypeRaw;
+    // A6-04: 정정 발행은 명시적 issueDate 또는 기존 발행일을 유지하고,
+    // 월간/주간 미발행 초안의 최초 발행 시에는 오래된 초안 issueDate를 무시하고 오늘(KST)로 고정한다.
     const issueDate = correction
       ? parsed.data.issueDate ??
         existingContentIssueDate ??
         (edition.published_at ? toKstDate(new Date(edition.published_at)) : todayKst())
-      : parsed.data.issueDate ?? todayKst();
+      : isRollingCadence
+        ? todayKst()
+        : parsed.data.issueDate ?? todayKst();
 
     const rawContentSource = payloadContent !== undefined ? payloadContent : edition.content;
     const contentForNormalize =
@@ -233,7 +239,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    const content: Record<string, unknown> = { ...normalized.content, id: edition.id };
+    const resolvedPublishedAt =
+      typeof edition.published_at === "string" && edition.published_at
+        ? edition.published_at
+        : nowIso;
+    const content: Record<string, unknown> = {
+      ...normalized.content,
+      id: edition.id,
+      ...(edition.edition_type ? { edition_type: edition.edition_type } : {}),
+      ...(edition.edition_label ? { edition_label: edition.edition_label } : {}),
+      issueDate,
+      published_at: resolvedPublishedAt,
+    };
 
     const editionUpdate: Record<string, unknown> = {
       ...payloadColumns,

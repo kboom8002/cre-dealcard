@@ -9,8 +9,9 @@ import {
 } from '@/lib/im-lite/quick-generate-store';
 import { assertPublishable, type PublishAssetKind } from '@/lib/legal/publish-gate';
 import { issueShareLinkToken, type ShareLinkChannel } from '@/lib/security/share-link-tokens';
-import { toSafeEpochMs } from './inbox-helpers';
+import { parseGateRequestReason, toSafeEpochMs } from './inbox-helpers';
 import { isIgnorableSchemaError } from './inbox-schema-caps';
+import { upsertBrokerClientFromInbound } from './upsert-broker-client';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('inbox-actions-leads');
@@ -112,13 +113,13 @@ export async function handleGateDecisionAction(params: {
     const [{ data: grRow }, inqLookup] = await Promise.all([
       supabaseClient
         .from('gate_requests')
-        .select('id, building_id, status, expires_at')
+        .select('id, building_id, status, expires_at, reason')
         .eq('id', rawId)
         .maybeSingle(),
       Promise.resolve(
         supabaseClient
           .from('im_inquiry_requests')
-          .select('id, building_id, status, broker_user_id')
+          .select('id, building_id, status, broker_user_id, requester_name, requester_phone, requester_email')
           .eq('id', rawId)
           .maybeSingle()
       ).catch(() => ({ data: null, error: null })),
@@ -329,6 +330,48 @@ export async function handleGateDecisionAction(params: {
       issuedToken,
       buildingId || undefined
     );
+  }
+
+  if (decision === 'approved' && supabaseClient) {
+    try {
+      const parsedReason = existingGateRow?.reason
+        ? parseGateRequestReason(existingGateRow.reason)
+        : null;
+      const crmName =
+        parsedReason?.requesterName ||
+        (typeof existingInqRow?.requester_name === 'string' ? existingInqRow.requester_name : '') ||
+        (typeof body?.clientName === 'string' ? body.clientName : '');
+      const crmPhone =
+        parsedReason?.requesterPhone ||
+        (typeof existingInqRow?.requester_phone === 'string' ? existingInqRow.requester_phone : '') ||
+        (typeof body?.clientPhone === 'string' ? body.clientPhone : '');
+      const crmEmail =
+        parsedReason?.requesterEmail ||
+        (typeof existingInqRow?.requester_email === 'string' ? existingInqRow.requester_email : '') ||
+        (typeof body?.clientEmail === 'string' ? body.clientEmail : '');
+      const crmCompany =
+        parsedReason?.requesterCompany ||
+        (typeof body?.clientCompany === 'string' ? body.clientCompany : '');
+
+      if (crmPhone || crmEmail) {
+        await upsertBrokerClientFromInbound({
+          supabase: supabaseClient,
+          brokerUserId: userId,
+          name: crmName,
+          phone: crmPhone,
+          email: crmEmail,
+          company: crmCompany,
+          buildingId: buildingId || null,
+          buildingTitle: parsedReason?.buildingTitle || undefined,
+          clientRole: 'buyer',
+          source: 'approve_gate',
+        });
+      }
+    } catch (crmErr) {
+      log.warn('[approve_gate] upsertBrokerClientFromInbound failed (non-blocking)', {
+        error: crmErr instanceof Error ? crmErr.message : String(crmErr),
+      });
+    }
   }
 
   return NextResponse.json({

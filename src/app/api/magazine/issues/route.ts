@@ -5,7 +5,14 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireBrokerContext, assertOwnsRow, jsonError } from "@/lib/magazine/authz";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
 import { assertPublishable } from "@/lib/legal/publish-gate";
-import { todayKst } from "@/lib/magazine/kst";
+import { toKstDate, todayKst } from "@/lib/magazine/kst";
+import {
+  SQM_PER_PYEONG,
+  resolveCanonicalAreaLabel,
+  resolveCanonicalAssetUse,
+  resolveCanonicalDealHeadline,
+  toPositiveNumber,
+} from "@/lib/deal-card/canonical-summary";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { normalizeContentForPublish, DEFAULT_THEME_COLOR } from "@/lib/magazine/edition-save";
 import { maskAddressForPublic, sanitizeBrokerPhone } from "@/lib/magazine/public-page-data";
@@ -242,10 +249,32 @@ export async function POST(request: NextRequest) {
 
     const editionId = String(targetEdition.id);
     const nowIso = new Date().toISOString();
-    const issueDate =
-      data.issueDate ||
-      (editionType === "daily" && data.issueAnchorDate ? data.issueAnchorDate : undefined) ||
-      todayKst();
+    const targetAlreadyPublished = targetEdition.status === "published";
+    const existingTargetContent =
+      targetEdition.content &&
+      typeof targetEdition.content === "object" &&
+      !Array.isArray(targetEdition.content)
+        ? (targetEdition.content as Record<string, unknown>)
+        : {};
+    const existingTargetIssueDate =
+      typeof existingTargetContent.issueDate === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(existingTargetContent.issueDate)
+        ? existingTargetContent.issueDate
+        : null;
+    const isRollingCadence = editionType === "monthly" || editionType === "weekly";
+    // A6-04: 월간/주간 미발행 초안의 최초 발행/저장 시 오래된 초안 issueDate를 무시하고 오늘(KST)로 고정한다.
+    // 이미 발행된 호수 수정(correction)만 기존 발행일(issueDate / published_at KST)을 유지한다.
+    const issueDate = targetAlreadyPublished
+      ? data.issueDate ||
+        existingTargetIssueDate ||
+        (typeof targetEdition.published_at === "string" && targetEdition.published_at
+          ? toKstDate(new Date(targetEdition.published_at))
+          : todayKst())
+      : isRollingCadence
+        ? todayKst()
+        : (editionType === "daily" && data.issueAnchorDate ? data.issueAnchorDate : undefined) ||
+          data.issueDate ||
+          todayKst();
 
     // 2. 브로커 공개 프로필 조회
     const resolvedBroker = await resolveBroker(supabase, brokerSlug).catch(() => null);
@@ -383,16 +412,18 @@ export async function POST(request: NextRequest) {
         const leaseSummary = (layers.lease_summary && typeof layers.lease_summary === "object" ? (layers.lease_summary as Record<string, unknown>) : {}) || {};
         const locationLayer = (layers.location && typeof layers.location === "object" ? (layers.location as Record<string, unknown>) : {}) || {};
         const physicalLayer = (layers.physical && typeof layers.physical === "object" ? (layers.physical as Record<string, unknown>) : {}) || {};
+        const buildingLayer = (layers.building && typeof layers.building === "object" ? (layers.building as Record<string, unknown>) : {}) || {};
 
-        const snapTitle = String(snap.title ?? snap.assetType ?? "").trim();
-        const rawTitle =
-          (snapTitle && snapTitle !== "추천 매물" ? snapTitle : "") ||
-          qRec?.buildingName ||
-          String(docMeta?.title ?? docSsot.building_name ?? dbRow?.area_signal ?? dbRow?.asset_type ?? "").trim() ||
-          "추천 상업용 빌딩";
-        const safeTitle = /\d+-\d+|(?:대로|번길|로|길)\s+\d+(?!\s*일대)/.test(rawTitle)
-          ? maskAddressForPublic(rawTitle) || "추천 상업용 빌딩"
-          : rawTitle;
+        const qSpecs = ((qRec as unknown as { specs?: Record<string, unknown> })?.specs ?? {}) as Record<string, unknown>;
+        const qFacts = ((qRec?.basicImDoc?.facts as unknown as {
+          valuation?: Record<string, unknown>;
+          building?: Record<string, unknown>;
+          land?: Record<string, unknown>;
+        }) ?? {});
+        const qVal = (qFacts.valuation ?? {}) as Record<string, unknown>;
+        const qBuildingFacts = (qFacts.building ?? {}) as Record<string, unknown>;
+        const qLandFacts = (qFacts.land ?? {}) as Record<string, unknown>;
+
         const rawAddr =
           String(snap.address ?? "").trim() ||
           qRec?.address ||
@@ -400,6 +431,28 @@ export async function POST(request: NextRequest) {
         const safeAddr = maskAddressForPublic(sanitizeDealAddress(rawAddr)) || "수도권 역세권";
         const rawAreaSignal = String(qRec?.card4?.region || dbRow?.area_signal || docSsot.area_signal || safeAddr);
         const safeAreaSignal = maskAddressForPublic(sanitizeDealAddress(rawAreaSignal)) || safeAddr;
+
+        const resolvedAssetType = resolveCanonicalAssetUse({
+          mainPurpose: docSsot.main_purpose ?? qBuildingFacts.mainPurpose ?? buildingLayer.main_purpose,
+          assetType: qRec?.card4?.use ?? dbRow?.asset_type ?? docSsot.asset_type,
+          existingUse: snap.assetType,
+          fallbackUse: "수익형 근생빌딩",
+        });
+
+        const snapTitle = String(snap.title ?? "").trim();
+        const rawTitle = resolveCanonicalDealHeadline({
+          brokerHeadline: snapTitle && snapTitle !== "추천 매물" ? snapTitle : undefined,
+          card4Headline: qRec?.card4?.headline,
+          ogTitle: docSsot.og_title,
+          existingHeadline:
+            qRec?.buildingName ||
+            String(docMeta?.title ?? docSsot.building_name ?? dbRow?.area_signal ?? resolvedAssetType).trim(),
+          region: safeAreaSignal,
+          assetType: resolvedAssetType,
+        });
+        const safeTitle = /\d+-\d+|(?:대로|번길|로|길)\s+\d+(?!\s*일대)/.test(rawTitle)
+          ? maskAddressForPublic(rawTitle) || "추천 상업용 빌딩"
+          : rawTitle;
 
         const askingManwon =
           Number(qRec?.askingPriceManwon || 0) ||
@@ -441,45 +494,67 @@ export async function POST(request: NextRequest) {
           ? snap.photoUrl.trim()
           : docPhotosByBuildingId.get(dId) || qRecRealPhoto || null;
 
-        const resolvedAssetType =
-          String(
-            qRec?.card4?.use ||
-              dbRow?.asset_type ||
-              docSsot.asset_type ||
-              "수익형 근생빌딩"
-          ).trim() || "수익형 근생빌딩";
-
-        const qSpecs = ((qRec as unknown as { specs?: Record<string, unknown> })?.specs ?? {}) as Record<string, unknown>;
-        const qVal = ((qRec?.basicImDoc?.facts as unknown as { valuation?: Record<string, unknown> })?.valuation ?? {}) as Record<string, unknown>;
-
         const landAreaM2 =
-          Number(
-            snap.landAreaM2 ||
-              qSpecs.landAreaM2 ||
-              docSsot.land_area_m2 ||
-              physicalLayer.land_area_m2 ||
-              0
-          ) || undefined;
+          toPositiveNumber(snap.landAreaM2) ??
+          toPositiveNumber(snap.land_area_m2) ??
+          toPositiveNumber(snap.land_area_sqm) ??
+          toPositiveNumber(qSpecs.landAreaM2) ??
+          toPositiveNumber(qSpecs.landAreaSqm) ??
+          toPositiveNumber(qBuildingFacts.landAreaSqm) ??
+          toPositiveNumber(qLandFacts.landAreaSqm) ??
+          toPositiveNumber(docSsot.land_area_m2) ??
+          toPositiveNumber(docSsot.land_area_sqm) ??
+          toPositiveNumber(physicalLayer.land_area_m2) ??
+          toPositiveNumber(physicalLayer.land_area_sqm) ??
+          undefined;
         const grossFloorAreaM2 =
-          Number(
-            snap.grossFloorAreaM2 ||
-              qSpecs.grossFloorAreaM2 ||
-              docSsot.gross_floor_area_m2 ||
-              physicalLayer.gross_floor_area_m2 ||
-              0
-          ) || undefined;
+          toPositiveNumber(snap.grossFloorAreaM2) ??
+          toPositiveNumber(snap.total_gross_area_m2) ??
+          toPositiveNumber(snap.total_gross_area_sqm) ??
+          toPositiveNumber(snap.total_floor_area_sqm) ??
+          toPositiveNumber(snap.gross_floor_area_m2) ??
+          toPositiveNumber(qSpecs.grossFloorAreaM2) ??
+          toPositiveNumber(qSpecs.gfaSqm) ??
+          toPositiveNumber(qBuildingFacts.totalGrossAreaSqm) ??
+          toPositiveNumber(qBuildingFacts.grossFloorAreaSqm) ??
+          toPositiveNumber(docSsot.gross_floor_area_m2) ??
+          toPositiveNumber(docSsot.total_gross_area_sqm) ??
+          toPositiveNumber(docSsot.total_gross_area_m2) ??
+          toPositiveNumber(physicalLayer.gross_floor_area_m2) ??
+          toPositiveNumber(physicalLayer.total_floor_area_sqm) ??
+          undefined;
         const landAreaPyeong =
-          typeof snap.landAreaPyeong === "number" && snap.landAreaPyeong > 0
-            ? snap.landAreaPyeong
-            : landAreaM2
-            ? Math.round(landAreaM2 * 0.3025 * 10) / 10
-            : undefined;
+          toPositiveNumber(snap.landAreaPyeong ?? snap.land_area_pyeong) ??
+          toPositiveNumber(docSsot.land_area_pyeong) ??
+          (landAreaM2
+            ? Math.round((landAreaM2 / SQM_PER_PYEONG) * 10) / 10
+            : undefined);
         const grossFloorAreaPyeong =
-          typeof snap.grossFloorAreaPyeong === "number" && snap.grossFloorAreaPyeong > 0
-            ? snap.grossFloorAreaPyeong
-            : grossFloorAreaM2
-            ? Math.round(grossFloorAreaM2 * 0.3025 * 10) / 10
-            : undefined;
+          toPositiveNumber(snap.grossFloorAreaPyeong ?? snap.gross_floor_area_pyeong) ??
+          toPositiveNumber(docSsot.gross_floor_area_pyeong) ??
+          (grossFloorAreaM2
+            ? Math.round((grossFloorAreaM2 / SQM_PER_PYEONG) * 10) / 10
+            : undefined);
+        const resolvedPosture =
+          [
+            snap.posture,
+            qRec?.card4?.posture,
+            (qRec as unknown as { posture?: unknown })?.posture,
+            docSsot.investment_posture,
+            docSsot.posture,
+            buildingLayer.investment_posture,
+            layers.posture,
+          ].find((p): p is string => typeof p === "string" && p.trim().length > 0)?.trim() ||
+          undefined;
+        const canonicalAreaLabel =
+          resolveCanonicalAreaLabel({
+            posture: resolvedPosture,
+            explicitAreaLabel: snap.areaLabel,
+            gfaSqm: grossFloorAreaM2,
+            landSqm: landAreaM2,
+            gfaPyeong: grossFloorAreaPyeong,
+            landPyeong: landAreaPyeong,
+          }) || undefined;
         const zoning =
           String(
             snap.zoning ??
@@ -546,6 +621,10 @@ export async function POST(request: NextRequest) {
                   0
               ) || undefined;
 
+        const hasIm =
+          isUuid(dId) &&
+          (Boolean(docMeta) || Boolean(qRec?.basicImDoc) || snap.hasIm === true);
+
         hydratedDeals.push({
           id: dId,
           title: safeTitle,
@@ -553,6 +632,8 @@ export async function POST(request: NextRequest) {
           areaSignal: safeAreaSignal,
           address: safeAddr,
           price: priceVal,
+          ...(resolvedPosture ? { posture: resolvedPosture } : {}),
+          ...(canonicalAreaLabel ? { areaLabel: canonicalAreaLabel } : {}),
           ...(askingManwon > 0 ? { priceWon: askingManwon * 10_000 } : {}),
           ...(depositWon !== undefined ? { deposit: depositWon } : {}),
           ...(monthlyRentWon !== undefined ? { monthlyRent: monthlyRentWon } : {}),
@@ -567,7 +648,8 @@ export async function POST(request: NextRequest) {
           investmentPoint: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
           point: comment || String(dbRow?.fit_summary ?? "").trim() || undefined,
           photoUrl: resolvedPhotoUrl,
-          imUrl: `/im-lite/${encodeURIComponent(dId)}`,
+          hasIm,
+          ...(hasIm ? { imUrl: `/im-lite/${encodeURIComponent(dId)}` } : {}),
         });
       }
     }
@@ -783,7 +865,6 @@ export async function POST(request: NextRequest) {
       ? mappedSections
       : [...mappedSections, { id: "field_note", enabled: briefingToggleEnabled }];
 
-    const targetAlreadyPublished = targetEdition.status === "published";
     if (isDraftRequest && targetAlreadyPublished) {
       return NextResponse.json(
         {
@@ -827,9 +908,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const resolvedPublishedAt =
+      nextStatus === "draft"
+        ? null
+        : typeof targetEdition.published_at === "string" && targetEdition.published_at
+        ? targetEdition.published_at
+        : nowIso;
+
     const finalContent: Record<string, unknown> = {
       ...normalized.content,
       id: editionId,
+      edition_type: editionType,
+      edition_label: safeLabel,
+      issueDate,
+      ...(resolvedPublishedAt ? { published_at: resolvedPublishedAt } : {}),
       headline: nextStatus === "draft" ? headlineText : effectiveHeadline,
       summary: cleanedSummary,
       briefing_title: cleanedBriefingTitle,

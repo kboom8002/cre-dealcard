@@ -1960,27 +1960,37 @@ export function QaFullLoopWorkbenchClient({
                       </div>
                     )}
 
-                    {activeProbe.subscriberCheck && (
-                      <div className="rounded-xl p-3 border bg-slate-50 border-slate-300 text-slate-900">
-                        <div className="font-extrabold">
-                          💬 고객 소통 · 구독자 인입
+                    {(activeProbe.subscriberCheck || activeProbe.inboxCheck) && (() => {
+                      const subCheck = activeProbe.subscriberCheck;
+                      const inboxChk = activeProbe.inboxCheck ?? subCheck?.inboxCheck;
+                      const foundInClientOrInbox = Boolean(
+                        subCheck?.foundInBrokerClients || inboxChk?.foundInInbox,
+                      );
+                      return (
+                        <div className="rounded-xl p-3 border bg-slate-50 border-slate-300 text-slate-900">
+                          <div className="font-extrabold">
+                            💬 고객 소통 · 구독자 인입
+                          </div>
+                          <p className="mt-0.5">
+                            {subCheck?.checked === false
+                              ? "중개사 로그인 상태에서 재실행하면 인입 여부를 확인합니다."
+                              : `구독 명단: ${
+                                  subCheck?.foundInMagazineSubscribers
+                                    ? "등록됨"
+                                    : "미확인"
+                                } · 소통함/고객 목록: ${
+                                  foundInClientOrInbox
+                                    ? inboxChk?.foundInInbox && subCheck?.foundInBrokerClients
+                                      ? "등록됨 (소통함+CRM)"
+                                      : inboxChk?.foundInInbox
+                                        ? `등록됨 (소통함${inboxChk.gateStatus ? ` · ${inboxChk.gateStatus}` : ""})`
+                                        : "등록됨 (CRM)"
+                                    : "미확인"
+                                }`}
+                          </p>
                         </div>
-                        <p className="mt-0.5">
-                          {activeProbe.subscriberCheck.checked === false
-                            ? "중개사 로그인 상태에서 재실행하면 인입 여부를 확인합니다."
-                            : `구독 명단: ${
-                                activeProbe.subscriberCheck
-                                  .foundInMagazineSubscribers
-                                  ? "등록됨"
-                                  : "미확인"
-                              } · 고객 목록: ${
-                                activeProbe.subscriberCheck.foundInBrokerClients
-                                  ? "등록됨"
-                                  : "미확인"
-                              }`}
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
               </div>

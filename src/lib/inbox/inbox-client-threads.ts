@@ -24,6 +24,7 @@ import {
   type InboxEmailDeliveryStatus,
 } from './inbox-helpers';
 import { aggregateThreadViews, type ThreadBuildContext } from './inbox-lead-threads';
+import { canonicalKrPhoneDigits } from './upsert-broker-client';
 
 function asRecord(val: unknown): Record<string, unknown> {
   return val && typeof val === 'object' && !Array.isArray(val)
@@ -107,6 +108,8 @@ export function appendCrmAndSubscriberThreads(
   }
 
   const seenCustomClientIdentity = new Set<string>();
+  const seenCustomPhones = new Set<string>();
+  const seenCustomEmails = new Set<string>();
   const allOwnCustomSources: Array<Record<string, unknown>> = [
     ...memCustomClients.filter((c) => Boolean(c.ownerId) && c.ownerId === userId),
     ...dbClients,
@@ -190,42 +193,127 @@ export function appendCrmAndSubscriberThreads(
             ? dbSup.free_memo
             : extractFreeMemoFromLegacyNotes(row.notes ?? dbSup?.notes);
 
-    if (strippedId && seenThreadIds.has(strippedId)) {
-      const existingGate = threads.find((t) => t.id === strippedId);
-      if (existingGate) {
-        existingGate.isVip = resolvedIsVip;
-        existingGate.clientGrade = resolvedClientGrade;
-        existingGate.clientRole = resolvedClientRole;
-        existingGate.preferredRegions = resolvedPreferredRegions;
-        existingGate.preferredRegion = preferredRegion || existingGate.preferredRegion;
-        existingGate.budgetManwon = resolvedBudgetManwon;
-        existingGate.budget = budget || existingGate.budget;
-        existingGate.freeMemo = resolvedFreeMemo;
-        const rawEmailCand = row.email || row.clientEmail || dbSup?.email;
-        const upEmail = normalizeClientEmail(typeof rawEmailCand === 'string' ? rawEmailCand : null);
-        if (upEmail && !existingGate.clientEmail) existingGate.clientEmail = upEmail;
+    const name = String(row.display_name || row.name || row.clientName || dbSup?.display_name || '').trim();
+    const phone = String(row.phone || row.clientPhone || dbSup?.phone || '').trim();
+    const phoneDigits = canonicalKrPhoneDigits(phone);
+    const hasCanonicalPhone = phoneDigits.length >= 9 && phoneDigits.length <= 12;
+    const rawEmailForIdentity = row.email || row.clientEmail || dbSup?.email;
+    const emailNorm =
+      normalizeClientEmail(typeof rawEmailForIdentity === 'string' ? rawEmailForIdentity : null) || '';
+    const clientCompany = String(row.company || row.clientCompany || dbSup?.company || '').trim();
+    const rowId = strippedId || rawId || tid;
+
+    // 1) Merge CRM row into any existing non-anonymous thread matching ID or canonical contact identity
+    const matchingExistingThreads = threads.filter((t) => {
+      const existingId = String(t.id || '');
+      if (existingId.startsWith('view_')) return false;
+      if (
+        strippedId &&
+        (existingId === strippedId ||
+          existingId === `srv-${strippedId}` ||
+          existingId === tid ||
+          existingId === `custom_${strippedId}` ||
+          existingId === `cli-${strippedId}` ||
+          t.crmClientId === strippedId)
+      ) {
+        return true;
       }
+      const tPhoneDigits = canonicalKrPhoneDigits(t.clientPhone || '');
+      if (hasCanonicalPhone && tPhoneDigits === phoneDigits) return true;
+      const tEmail = normalizeClientEmail(
+        t.clientEmail || (String(t.clientPhone || '').includes('@') ? t.clientPhone : '')
+      );
+      return Boolean(emailNorm && tEmail === emailNorm);
+    });
+
+    if (matchingExistingThreads.length > 0) {
+      for (const existingThread of matchingExistingThreads) {
+        if (!existingThread.crmClientId && (strippedId || rawId)) {
+          existingThread.crmClientId = strippedId || rawId;
+        }
+        if (resolvedIsVip) {
+          existingThread.isVip = true;
+          existingThread.clientGrade = 'VIP';
+        } else if (
+          resolvedClientGrade === '잠재' &&
+          (!existingThread.clientGrade || existingThread.clientGrade === '일반')
+        ) {
+          existingThread.clientGrade = '잠재';
+        }
+        if (resolvedClientRole !== 'buyer' || !existingThread.clientRole) {
+          existingThread.clientRole = resolvedClientRole;
+        }
+        if (resolvedPreferredRegions.length > 0) {
+          const prevRegions = Array.isArray(existingThread.preferredRegions)
+            ? existingThread.preferredRegions.filter(Boolean)
+            : [];
+          const mergedRegions = Array.from(new Set([...prevRegions, ...resolvedPreferredRegions]));
+          existingThread.preferredRegions = mergedRegions;
+          if (mergedRegions.length > 0) {
+            existingThread.preferredRegion = mergedRegions.join(', ');
+          }
+        } else if (preferredRegion && !existingThread.preferredRegion) {
+          existingThread.preferredRegion = preferredRegion;
+        }
+        if (resolvedBudgetManwon != null) {
+          existingThread.budgetManwon = resolvedBudgetManwon;
+          if (budget) existingThread.budget = budget;
+        } else if (budget && !existingThread.budget) {
+          existingThread.budget = budget;
+        }
+        if (resolvedFreeMemo && !existingThread.freeMemo) {
+          existingThread.freeMemo = resolvedFreeMemo;
+        }
+        if (clientCompany && !existingThread.clientCompany) {
+          existingThread.clientCompany = clientCompany;
+          if (!existingThread.requesterCompany) {
+            existingThread.requesterCompany = clientCompany;
+          }
+        }
+        if (emailNorm && !normalizeClientEmail(existingThread.clientEmail)) {
+          existingThread.clientEmail = emailNorm;
+        }
+        if (phone && !canonicalKrPhoneDigits(existingThread.clientPhone)) {
+          existingThread.clientPhone = phone;
+        }
+        if (
+          name &&
+          (!existingThread.clientName ||
+            existingThread.clientName === '이름 미입력 고객' ||
+            existingThread.clientName === '잠재 고객')
+        ) {
+          existingThread.clientName = name;
+        }
+        if (tags.length > 0) {
+          const prevTags = Array.isArray(existingThread.tags) ? existingThread.tags : [];
+          existingThread.tags = Array.from(new Set([...prevTags, ...tags]));
+        }
+        const crmDs =
+          (strippedId ? deliveryStatusById.get(strippedId) : undefined) ||
+          deliveryStatusById.get(tid);
+        if (crmDs && crmDs !== 'ok' && existingThread.id) {
+          const exId = String(existingThread.id);
+          deliveryStatusById.set(exId, promoteDeliveryStatus(deliveryStatusById.get(exId), crmDs));
+        }
+      }
+      if (hasCanonicalPhone) seenCustomPhones.add(phoneDigits);
+      if (emailNorm) seenCustomEmails.add(emailNorm);
+      seenThreadIds.add(tid);
       continue;
     }
 
     if (seenThreadIds.has(tid) || seenThreadIds.has(rawId) || isThreadArchived(tid)) continue;
 
-    const name = String(row.display_name || row.name || row.clientName || dbSup?.display_name || '').trim();
     if (!name) continue;
     const nameLower = name.toLowerCase();
-    const phone = String(row.phone || row.clientPhone || dbSup?.phone || '').trim();
-    const phoneDigits = normalizeKrPhoneDigits(phone);
-    const rawEmailForIdentity = row.email || row.clientEmail || dbSup?.email;
-    const emailNorm =
-      normalizeClientEmail(typeof rawEmailForIdentity === 'string' ? rawEmailForIdentity : null) || '';
-    const rowId = strippedId || rawId || tid;
-    const identityKey = phoneDigits
-      ? `${nameLower}::p:${phoneDigits}`
-      : emailNorm
-        ? `${nameLower}::e:${emailNorm}`
-        : `${nameLower}::id:${rowId}`;
+    if (hasCanonicalPhone && seenCustomPhones.has(phoneDigits)) continue;
+    if (emailNorm && seenCustomEmails.has(emailNorm)) continue;
+    const identityKey = `${nameLower}::id:${rowId}`;
     if (seenCustomClientIdentity.has(identityKey)) continue;
+
     seenCustomClientIdentity.add(identityKey);
+    if (hasCanonicalPhone) seenCustomPhones.add(phoneDigits);
+    if (emailNorm) seenCustomEmails.add(emailNorm);
     seenThreadIds.add(tid);
 
     let bId = String(
@@ -303,7 +391,8 @@ export function appendCrmAndSubscriberThreads(
       newsletterStateByKey.get(tid) ||
       newsletterStateByKey.get(rawId) ||
       (strippedId ? newsletterStateByKey.get(strippedId) : undefined) ||
-      (phoneDigits ? newsletterStateByKey.get(`tel:${phoneDigits}`) : undefined);
+      (phoneDigits ? newsletterStateByKey.get(`tel:${phoneDigits}`) : undefined) ||
+      (emailNorm ? newsletterStateByKey.get(`email:${emailNorm}`) : undefined);
     const rowCreatedMs = toSafeEpochMs(row.created_at || row.createdAt);
     const rawNewsletterSubscribed =
       nlOverride && nlOverride.createdAtMs >= rowCreatedMs
@@ -314,6 +403,18 @@ export function appendCrmAndSubscriberThreads(
     const resolvedNewsletterSubscribed = isRowConsentPendingOrBlocked
       ? false
       : rawNewsletterSubscribed;
+    const resolvedNewsletterStatus: 'active' | 'pending' | 'unsubscribed' | 'none' =
+      nlOverride && nlOverride.createdAtMs >= rowCreatedMs
+        ? nlOverride.subscribed
+          ? 'active'
+          : 'unsubscribed'
+        : resolvedNewsletterSubscribed
+          ? 'active'
+          : rowConsentStatus === 'pending' || Boolean((row as { newsletterOptInPending?: boolean }).newsletterOptInPending)
+            ? 'pending'
+            : rowConsentStatus === 'unsubscribed' || Boolean(row.unsubscribed_at ?? dbSup?.unsubscribed_at)
+              ? 'unsubscribed'
+              : 'none';
 
     const summaryCleanMessage =
       [budget ? `희망 예산 ${budget}` : '', preferredRegion ? `선호 권역 ${preferredRegion}` : ''].filter(Boolean).join(' · ') ||
@@ -338,12 +439,14 @@ export function appendCrmAndSubscriberThreads(
 
     threads.push({
       id: tid,
+      ...(strippedId || rawId ? { crmClientId: strippedId || rawId } : {}),
       clientName: name,
       clientPhone: phone,
       clientEmail: resolvedClientEmail,
       transactionalBasis: resolvedBasis,
       hasTransactionalBasis: Boolean(resolvedBasis),
-      requesterCompany: '',
+      clientCompany,
+      requesterCompany: clientCompany,
       cleanMessage: summaryCleanMessage,
       clientGrade: resolvedClientGrade,
       isVip: resolvedIsVip,
@@ -374,6 +477,8 @@ export function appendCrmAndSubscriberThreads(
       freeMemo: resolvedFreeMemo,
       focusedSections: customViews.focusedSections,
       newsletterSubscribed: resolvedNewsletterSubscribed,
+      newsletterStatus: resolvedNewsletterStatus,
+      tags,
       ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
       ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       events: [
@@ -423,8 +528,8 @@ export function appendCrmAndSubscriberThreads(
       continue;
     }
 
-    const phoneDigits = normalizeKrPhoneDigits(row?.subscriber_phone || row?.phone_e164 || '');
-    const emailNorm = String(row?.subscriber_email || '').trim().toLowerCase();
+    const phoneDigits = canonicalKrPhoneDigits(String(row?.subscriber_phone || row?.phone_e164 || ''));
+    const emailNorm = normalizeClientEmail(typeof row?.subscriber_email === 'string' ? row.subscriber_email : null) || '';
     const rawProfile = asRecord(row?.interest_profile);
     const rawTags = rawProfile.tags;
     const regions: string[] = [];
@@ -476,40 +581,24 @@ export function appendCrmAndSubscriberThreads(
         ? nlOverride.subscribed
         : baseSubscribed;
 
-    const matchedExisting = threads.find((t) => {
-      const tPhoneDigits = normalizeKrPhoneDigits(t.clientPhone || '');
-      if (phoneDigits.length >= 9 && tPhoneDigits === phoneDigits) return true;
-      const tEmail = normalizeClientEmail(
-        t.clientEmail || (String(t.clientPhone || '').includes('@') ? t.clientPhone : '')
-      );
-      return Boolean(emailNorm && tEmail === emailNorm);
-    });
-    if (matchedExisting) {
-      if (effectiveSubscribed && !nlOverride) matchedExisting.newsletterSubscribed = true;
-      else if (nlOverride && nlOverride.createdAtMs >= subCreatedMs && (!isPendingConfirm || !nlOverride.subscribed)) {
-        matchedExisting.newsletterSubscribed = nlOverride.subscribed;
-      }
-      if (!matchedExisting.preferredRegion && regions.length > 0) matchedExisting.preferredRegion = regions.join(', ');
-      if (Array.isArray(matchedExisting.preferredRegions) && matchedExisting.preferredRegions.length === 0 && regions.length > 0) {
-        matchedExisting.preferredRegions = [...regions];
-      }
-      continue;
-    }
+    const subNewsletterStatus: 'active' | 'pending' | 'unsubscribed' | 'none' =
+      nlOverride && nlOverride.createdAtMs >= subCreatedMs && !nlOverride.subscribed
+        ? 'unsubscribed'
+        : isPendingConfirm && !effectiveSubscribed
+          ? 'pending'
+          : effectiveSubscribed
+            ? 'active'
+            : 'unsubscribed';
 
-    if (seenThreadIds.has(subTid) || isThreadArchived(subTid) || deletedClientIdSet.has(subTid) || deletedClientIdSet.has(rawSubId)) {
-      continue;
-    }
-    seenThreadIds.add(subTid);
-
-    const displayName =
-      String(row?.subscriber_name || '').trim() || (emailNorm ? emailNorm.split('@')[0] : '뉴스레터 구독자');
+    const rawSubName = String(row?.subscriber_name || '').trim();
+    const displayName = rawSubName || (emailNorm ? emailNorm.split('@')[0] : '뉴스레터 구독자');
     const rawPhoneDisplay = formatKrPhoneDisplay(row?.subscriber_phone, row?.phone_e164, '');
     const displayContact = rawPhoneDisplay.includes('@') ? '' : rawPhoneDisplay;
     const consentStatusLabel =
       nlOverride && !nlOverride.subscribed
         ? '수신 거부'
         : isPendingConfirm && !effectiveSubscribed
-          ? '수신 확인 대기'
+          ? '인증 대기'
           : effectiveSubscribed
             ? '수신 동의 완료'
             : '미구독';
@@ -522,6 +611,91 @@ export function appendCrmAndSubscriberThreads(
     ]
       .filter(Boolean)
       .join(' · ');
+
+    const matchedThreads = threads.filter((t) => {
+      if (String(t.id || '').startsWith('view_')) return false;
+      const tPhoneDigits = canonicalKrPhoneDigits(t.clientPhone || '');
+      if (phoneDigits.length >= 9 && tPhoneDigits === phoneDigits) return true;
+      const tEmail = normalizeClientEmail(
+        t.clientEmail || (String(t.clientPhone || '').includes('@') ? t.clientPhone : '')
+      );
+      return Boolean(emailNorm && tEmail === emailNorm);
+    });
+
+    if (matchedThreads.length > 0) {
+      const subDs = deliveryStatusById.get(subTid) || deliveryStatusById.get(rawSubId);
+      const subTsLabel =
+        formatRelativeKo(typeof row?.created_at === 'string' ? row.created_at : '') || '방금';
+
+      for (const matchedExisting of matchedThreads) {
+        if (effectiveSubscribed && !nlOverride) {
+          matchedExisting.newsletterSubscribed = true;
+          matchedExisting.newsletterStatus = 'active';
+        } else if (
+          nlOverride &&
+          nlOverride.createdAtMs >= subCreatedMs &&
+          (!isPendingConfirm || !nlOverride.subscribed)
+        ) {
+          matchedExisting.newsletterSubscribed = nlOverride.subscribed;
+          matchedExisting.newsletterStatus = nlOverride.subscribed ? 'active' : 'unsubscribed';
+        } else if (subNewsletterStatus === 'pending' && matchedExisting.newsletterSubscribed !== true) {
+          matchedExisting.newsletterSubscribed = false;
+          matchedExisting.newsletterStatus = 'pending';
+        } else if (!matchedExisting.newsletterStatus || matchedExisting.newsletterStatus === 'none') {
+          matchedExisting.newsletterStatus = subNewsletterStatus;
+        }
+
+        if (emailNorm && !normalizeClientEmail(matchedExisting.clientEmail)) {
+          matchedExisting.clientEmail = emailNorm;
+        }
+        if (displayContact && !canonicalKrPhoneDigits(matchedExisting.clientPhone)) {
+          matchedExisting.clientPhone = displayContact;
+        }
+        if (
+          rawSubName &&
+          (!matchedExisting.clientName ||
+            matchedExisting.clientName === '이름 미입력 고객' ||
+            matchedExisting.clientName === '잠재 고객')
+        ) {
+          matchedExisting.clientName = rawSubName;
+        }
+        if (regions.length > 0) {
+          const prevRegions = Array.isArray(matchedExisting.preferredRegions)
+            ? matchedExisting.preferredRegions.filter(Boolean)
+            : [];
+          const mergedRegions = Array.from(new Set([...prevRegions, ...regions]));
+          matchedExisting.preferredRegions = mergedRegions;
+          if (mergedRegions.length > 0) {
+            matchedExisting.preferredRegion = mergedRegions.join(', ');
+          }
+        }
+        if (allSelectedTags.length > 0) {
+          const prevTags = Array.isArray(matchedExisting.tags) ? matchedExisting.tags : [];
+          matchedExisting.tags = Array.from(new Set([...prevTags, ...allSelectedTags]));
+        }
+        const existingEvents = Array.isArray(matchedExisting.events) ? matchedExisting.events : [];
+        if (!existingEvents.some((e: any) => e?.id === `ev-sub-${rawSubId}`)) {
+          existingEvents.push({
+            id: `ev-sub-${rawSubId}`,
+            eventType: 'share' as const,
+            description: subSummaryMessage,
+            timestamp: subTsLabel,
+          });
+          matchedExisting.events = existingEvents;
+        }
+        if (subDs && subDs !== 'ok' && matchedExisting.id) {
+          const mId = String(matchedExisting.id);
+          deliveryStatusById.set(mId, promoteDeliveryStatus(deliveryStatusById.get(mId), subDs));
+        }
+      }
+      seenThreadIds.add(subTid);
+      continue;
+    }
+
+    if (seenThreadIds.has(subTid) || isThreadArchived(subTid) || deletedClientIdSet.has(subTid) || deletedClientIdSet.has(rawSubId)) {
+      continue;
+    }
+    seenThreadIds.add(subTid);
 
     const subNotes = callNotesByThreadId.get(subTid) || callNotesByThreadId.get(rawSubId) || [];
     const firstSubNote = subNotes[0] ? asRecord(subNotes[0]) : null;
@@ -563,6 +737,7 @@ export function appendCrmAndSubscriberThreads(
       tags: allSelectedTags,
       focusedSections: subViewStats.focusedSections,
       newsletterSubscribed: effectiveSubscribed,
+      newsletterStatus: subNewsletterStatus,
       events: [
         ...subNotes.map((nRaw: unknown) => {
           const n = asRecord(nRaw);
