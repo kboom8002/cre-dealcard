@@ -234,6 +234,7 @@ export function ImEditorPanels({
   const [dragZoneOver, setDragZoneOver] = useState<"exterior" | "interior" | null>(null);
   const [dragPhotoIdx, setDragPhotoIdx] = useState<number | null>(null);
   const [expandedPhotoKey, setExpandedPhotoKey] = useState<string | null>(null);
+  const [brokenThumbMap, setBrokenThumbMap] = useState<Record<string, boolean>>({});
 
   const showSampleBanner = isSampleSeedImItem(
     currentItem ? { ...currentItem, address } : null
@@ -2021,27 +2022,37 @@ export function ImEditorPanels({
                   >
                     <div className="flex items-center justify-between gap-2.5">
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        {thumbSrc ? (
+                        {thumbSrc && !brokenThumbMap[`${cardKey}::${thumbSrc}`] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={thumbSrc}
                             alt={name}
                             onError={(e) => {
                               const fallback = resolveKnownTestAssetUrl(name);
+                              const origin =
+                                typeof window !== "undefined"
+                                  ? window.location.origin
+                                  : "";
                               if (
                                 fallback &&
-                                e.currentTarget.src !==
-                                  window.location.origin + fallback
+                                e.currentTarget.src !== fallback &&
+                                e.currentTarget.src !== origin + fallback
                               ) {
                                 e.currentTarget.src = fallback;
                               } else {
-                                e.currentTarget.style.display = "none";
+                                setBrokenThumbMap((prev) => ({
+                                  ...prev,
+                                  [`${cardKey}::${thumbSrc}`]: true,
+                                }));
                               }
                             }}
                             className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 shrink-0">
+                          <div
+                            data-testid={`im-photo-fallback-${idx}`}
+                            className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 shrink-0"
+                          >
                             사진
                           </div>
                         )}

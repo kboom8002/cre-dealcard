@@ -57,7 +57,7 @@ export function WorkspaceBottomNav({
       aria-label="모바일 하단 내비게이션"
       className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 ios-glass-chrome bg-white/80 backdrop-blur-2xl backdrop-saturate-[190%] border-t border-white/75 shadow-[0_-4px_24px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] pb-[env(safe-area-inset-bottom,0px)] ${className}`}
     >
-      <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1.5 py-1 gap-1">
+      <div className="grid grid-cols-5 min-h-16 h-auto items-stretch max-w-lg mx-auto px-1 py-1.5 gap-0.5">
         {tabs.map((tab) => {
           const matchesPath =
             tab.href === "/broker"
@@ -91,7 +91,7 @@ export function WorkspaceBottomNav({
               prefetch={false}
               data-testid={`workspace-tab-${tab.id}`}
               data-active={isActive ? "true" : undefined}
-              className={`relative flex flex-col items-center justify-center min-h-[48px] min-w-[48px] rounded-2xl transition-all py-1 ${
+              className={`relative flex flex-col items-center justify-center min-h-[48px] min-w-0 overflow-hidden rounded-2xl transition-all px-0.5 pt-2 pb-1 ${
                 isActive
                   ? activeClass
                   : "text-[#515154] hover:text-[#1D1D1F] hover:bg-black/[0.04] font-medium"
@@ -99,16 +99,16 @@ export function WorkspaceBottomNav({
             >
               {/* Active indicator top capsule */}
               {isActive && (
-                <span className={`absolute top-0.5 left-4 right-4 h-0.5 rounded-full ${activeBarClass}`} />
+                <span className={`absolute top-0.5 left-3 right-3 h-0.5 rounded-full ${activeBarClass}`} />
               )}
 
-              {/* Icon & optional badge */}
-              <div className="relative text-xl leading-none">
+              {/* Icon & optional badge — padded inside link so badge never protrudes outside nav */}
+              <div className="relative inline-flex items-center justify-center pt-1 px-2 text-lg leading-none">
                 <span>{tab.icon}</span>
                 {tab.badge !== undefined && (
                   <span
                     aria-label={`처리할 일 ${tab.badge}건`}
-                    className="absolute -top-1.5 -right-3 min-w-[22px] h-[22px] px-1 rounded-full bg-gradient-to-b from-[#FF3B5C] to-[#FF2D55] text-white text-sm font-bold shadow-[0_2px_6px_rgba(255,45,85,0.35)] flex items-center justify-center"
+                    className="absolute -top-1 -right-1.5 min-w-[20px] h-[20px] px-1 rounded-full bg-gradient-to-b from-[#FF3B5C] to-[#FF2D55] text-white text-sm font-bold leading-none shadow-[0_2px_6px_rgba(255,45,85,0.35)] flex items-center justify-center"
                   >
                     {tab.badge}
                   </span>
@@ -116,7 +116,9 @@ export function WorkspaceBottomNav({
               </div>
 
               {/* Label: senior minimum 14px caption */}
-              <span className="text-sm tracking-tight mt-0.5">{tab.label}</span>
+              <span className="text-sm leading-tight tracking-tighter text-center break-keep mt-0.5 max-w-full">
+                {tab.label}
+              </span>
             </Link>
           );
         })}

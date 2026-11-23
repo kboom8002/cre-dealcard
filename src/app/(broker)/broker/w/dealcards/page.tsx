@@ -2357,8 +2357,12 @@ function DealCardsWorkspaceInner() {
       autosave.status === "saved"
   );
 
-  const pendingDealCardRequireMatch =
+  const isPublishedOrSentDealCard =
     pendingDeleteModal?.kind === "dealcard" &&
+    pendingDeleteModal.target.status === "sent";
+
+  const pendingDealCardRequireMatch =
+    isPublishedOrSentDealCard &&
     !isBlankStarterDealCard(pendingDeleteModal.target) &&
     !isSampleDealCardItem(pendingDeleteModal.target, syncedServerIds) &&
     pendingDeleteModal.target.title?.trim() &&

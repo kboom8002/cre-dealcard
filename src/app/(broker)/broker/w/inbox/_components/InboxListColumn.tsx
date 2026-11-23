@@ -294,10 +294,14 @@ export function InboxListColumn({
         data-testid="inbox-mobile-controls-toggle"
         aria-expanded={mobileExtraOpen}
         onClick={() => setMobileExtraOpen((prev) => !prev)}
-        className="flex lg:hidden min-h-[44px] w-full items-center justify-between rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+        className="flex lg:hidden min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
       >
-        <span>고객 등록 · 세부 필터 · 보기 전환</span>
-        <span aria-hidden="true">{mobileExtraOpen ? "접기 ▲" : "열기 ▼"}</span>
+        <span className="min-w-0 text-left leading-snug break-keep">
+          고객 등록 · 세부 필터 · 보기 전환
+        </span>
+        <span aria-hidden="true" className="shrink-0 whitespace-nowrap">
+          {mobileExtraOpen ? "접기 ▲" : "열기 ▼"}
+        </span>
       </button>
 
       {/* 상단 고객 등록 액션 바 (직접 등록 + 3-Way 엑셀·명단 대량 등록) */}

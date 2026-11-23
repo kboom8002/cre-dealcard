@@ -115,6 +115,18 @@ function isValidCategory(v: string | null): v is ShowcaseCategory {
   return v === "newsletter" || v === "dealcard" || v === "im";
 }
 
+export function isTallMobileCaptureAspect(
+  naturalWidth: number,
+  naturalHeight: number
+): boolean {
+  return (
+    Number.isFinite(naturalWidth) &&
+    Number.isFinite(naturalHeight) &&
+    naturalWidth > 0 &&
+    naturalHeight > naturalWidth * 1.8
+  );
+}
+
 export function buildShowcaseFallbackEntry(
   scenario: ShowcaseScenarioUnion,
   brokerSlug?: string | null
@@ -253,6 +265,7 @@ function ShowcaseDeliverableViewerInner({
   const [imViewMode, setImViewMode] = useState<ImViewMode>("grid");
   const [selectedSlideIdx, setSelectedSlideIdx] = useState<number>(0);
   const [lightboxSlideIdx, setLightboxSlideIdx] = useState<number | null>(null);
+  const [lightboxTallScroll, setLightboxTallScroll] = useState<boolean>(false);
   const [fontScale, setFontScale] = useState<ShowcaseFontScale>("normal");
   const [pptxDownloading, setPptxDownloading] = useState<boolean>(false);
   const [pptxDownloadStatus, setPptxDownloadStatus] = useState<string>("");
@@ -1311,11 +1324,31 @@ function ShowcaseDeliverableViewerInner({
                       </button>
                     </div>
                   </div>
-                  <div className="rounded-xl overflow-hidden bg-white border border-white/20 shadow-2xl">
+                  <div
+                    data-tall-scroll={lightboxTallScroll ? "true" : "false"}
+                    className={
+                      lightboxTallScroll
+                        ? "max-h-[80vh] overflow-y-auto flex justify-center rounded-xl bg-slate-900 p-4 border border-white/20 shadow-2xl"
+                        : "rounded-xl overflow-hidden bg-white border border-white/20 shadow-2xl"
+                    }
+                  >
                     <img
+                      key={slideUrls[lightboxSlideIdx]}
                       src={slideUrls[lightboxSlideIdx]}
                       alt={`${activeScenario.id} 슬라이드 ${lightboxSlideIdx + 1} 전체 화면`}
-                      className="block w-full max-h-[78vh] object-contain"
+                      onLoad={(e) => {
+                        setLightboxTallScroll(
+                          isTallMobileCaptureAspect(
+                            e.currentTarget.naturalWidth,
+                            e.currentTarget.naturalHeight
+                          )
+                        );
+                      }}
+                      className={
+                        lightboxTallScroll
+                          ? "block w-[min(430px,92vw)] h-auto max-h-none rounded-lg bg-white"
+                          : "block w-full max-h-[78vh] object-contain"
+                      }
                     />
                   </div>
                 </div>

@@ -12,6 +12,7 @@ import sharp from 'sharp';
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from '@/lib/testguide/testguide-data';
 import { HOLDOUT_V2_ASSET_CDN_MAP } from '@/lib/testguide/full-loop-v2-holdout-data';
 import { BROKER_CASE02_ASSET_CDN_MAP } from '@/lib/testguide/broker-full-loop-data';
+import { requireBroker } from '@/lib/auth-guard';
 import { isRealProductionRuntime } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -49,18 +50,33 @@ function hasValidQaAccessKeyHeader(req: NextRequest): boolean {
   return false;
 }
 
+async function resolveOptionalBrokerUser(
+  req: NextRequest
+): Promise<{ id: string } | null> {
+  try {
+    const guard = await requireBroker(req);
+    if (!guard.error && guard.user?.id) {
+      return { id: String(guard.user.id) };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  if (
-    (isRealProductionRuntime() || process.env.CRE_ENFORCE_QA_GATE === '1') &&
-    !hasValidQaAccessKeyHeader(req)
-  ) {
-    return NextResponse.json(
-      { ok: false, error: 'Not Found' },
-      { status: 404, headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
-    );
+  if (isRealProductionRuntime() || process.env.CRE_ENFORCE_QA_GATE === '1') {
+    const hasQaKey = hasValidQaAccessKeyHeader(req);
+    const brokerUser = hasQaKey ? null : await resolveOptionalBrokerUser(req);
+    if (!hasQaKey && !brokerUser) {
+      return NextResponse.json(
+        { ok: false, error: 'Not Found' },
+        { status: 404, headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
+      );
+    }
   }
 
   const { slug } = await params;

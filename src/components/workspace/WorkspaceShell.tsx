@@ -915,7 +915,7 @@ export function WorkspaceShell({
           )}
           <div
             ref={listContainerRef}
-            className={`flex-1 overflow-y-auto p-3 ${isRailCollapsed ? "lg:hidden" : ""}`}
+            className={`flex-1 overflow-y-auto p-3 pb-28 lg:pb-3 ${isRailCollapsed ? "lg:hidden" : ""}`}
           >
             {listSlot}
           </div>

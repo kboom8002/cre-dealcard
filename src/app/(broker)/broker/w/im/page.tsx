@@ -56,6 +56,7 @@ import {
   isSampleSeedImItem,
   sortImWorkspaceItems,
   UUID_REGEX,
+  applyUploadedPhotoBatchResult,
   buildAddedPhotoEntries,
   buildBasicImSlides,
   buildFallbackImHighlights,
@@ -70,6 +71,7 @@ import {
   normalizePostureForSelector,
   parseKrwInputToManwon,
   processAndUploadPhotoFile,
+  reorderPhotoEntryList,
   resolveKnownTestAssetUrl,
   sanitizePhotosForSync,
   type ImAxiosHighlight,
@@ -77,6 +79,7 @@ import {
   type ImListItem,
   type ImPhotoEntry,
   type ImPostureFilterKey,
+  type UploadedPhotoBatchItem,
 } from "./_components/im-workspace-types";
 import { ImListSidebar } from "./_components/ImListSidebar";
 import { ImEditorPanels } from "./_components/ImEditorPanels";
@@ -1551,13 +1554,7 @@ function ImWorkspaceInner() {
     );
     const buildingFolderHint = currentItem?.buildingId || targetId;
     const compressionPromise = (async () => {
-      const resolvedList: Array<{
-        id?: string;
-        name: string;
-        dataUrl: string;
-        remoteUrl: string | null;
-        errorMessage?: string;
-      }> = [];
+      const resolvedList: UploadedPhotoBatchItem[] = [];
       const BATCH_SIZE = 3;
       for (let bStart = 0; bStart < files.length; bStart += BATCH_SIZE) {
         const slice = files.slice(bStart, bStart + BATCH_SIZE);
@@ -1573,66 +1570,30 @@ function ImWorkspaceInner() {
       return resolvedList;
     })()
       .then((resolvedList) => {
-        const failedNames: string[] = [];
-        const applyResolved = (list: ImPhotoEntry[]) =>
-          list
-            .map((pe) => {
-              const matched = resolvedList.find((r) =>
-                pe.id && r.id ? r.id === pe.id : r.name === pe.name
-              );
-              if (!matched) return pe;
-              const existingHttpUrl =
-                pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
-                  ? isRealUploadedPhotoUrl(pe.url)
-                    ? pe.url
-                    : resolveKnownTestAssetUrl(pe.url) || pe.url
-                  : undefined;
-              const knownAsset = resolveKnownTestAssetUrl(pe.name);
-              const preferredPersistentUrl =
-                matched.remoteUrl || existingHttpUrl || knownAsset || matched.dataUrl;
-              if (!preferredPersistentUrl) {
-                failedNames.push(pe.name);
-                return null;
-              }
-              const keepInlineDataUrl =
-                !matched.remoteUrl && !existingHttpUrl && !knownAsset;
-              return {
-                ...pe,
-                dataUrl: keepInlineDataUrl ? matched.dataUrl : undefined,
-                previewUrl: matched.remoteUrl || matched.dataUrl || pe.previewUrl,
-                url: preferredPersistentUrl,
-              } as ImPhotoEntry;
-            })
-            .filter((pe): pe is ImPhotoEntry => Boolean(pe));
         if (selectedIdRef.current === targetId) {
-          const next = applyResolved(latestPhotoEntriesRef.current);
+          const { entries: next, failedNames } = applyUploadedPhotoBatchResult(
+            latestPhotoEntriesRef.current,
+            resolvedList
+          );
           latestPhotoEntriesRef.current = next;
           setPhotoEntries(next);
           const synced = sanitizePhotosForSync(next);
           setPhotoNames(next.map((p) => p.name));
-          syncCurrentItemPatch(
-            {
-              photoNames: synced.map((p) => p.name),
-              photos: synced,
-            },
-            targetId
-          );
+          syncCurrentItemPatch({ photoNames: synced.map((p) => p.name), photos: synced }, targetId);
           if (failedNames.length > 0) {
             setActionAlert(
-              `사진 변환·업로드에 실패한 파일 ${failedNames.length}개(${failedNames
-                .slice(0, 2)
-                .join(", ")})를 제외했습니다.`
+              `사진 변환·업로드에 실패한 파일 ${failedNames.length}개(${failedNames.slice(0, 2).join(", ")})를 제외했습니다.`
             );
           }
         } else {
           setItems((prev) => {
             const next = prev.map((it) => {
               if (it.id !== targetId) return it;
-              const existingPhotos: ImPhotoEntry[] =
-                Array.isArray(it.photos) && it.photos.length > 0
-                  ? it.photos
-                  : mergedEntries;
-              const updatedPhotos = sanitizePhotosForSync(applyResolved(existingPhotos));
+              const existingPhotos =
+                Array.isArray(it.photos) && it.photos.length > 0 ? it.photos : mergedEntries;
+              const updatedPhotos = sanitizePhotosForSync(
+                applyUploadedPhotoBatchResult(existingPhotos, resolvedList).entries
+              );
               return {
                 ...it,
                 photoNames: updatedPhotos.map((p) => p.name),
@@ -1660,19 +1621,12 @@ function ImWorkspaceInner() {
   ) => {
     const targetId = currentItem?.id || selectedIdRef.current;
     const baseList =
-      latestPhotoEntriesRef.current.length > 0
-        ? latestPhotoEntriesRef.current
-        : photoEntries;
-    const nextEntries = baseList.map((pe, i) =>
-      i === idx ? { ...pe, ...patch } : pe
-    );
+      latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
+    const nextEntries = baseList.map((pe, i) => (i === idx ? { ...pe, ...patch } : pe));
     latestPhotoEntriesRef.current = nextEntries;
     setPhotoEntries(nextEntries);
     syncCurrentItemPatch(
-      {
-        photoNames: nextEntries.map((pe) => pe.name),
-        photos: sanitizePhotosForSync(nextEntries),
-      },
+      { photoNames: nextEntries.map((pe) => pe.name), photos: sanitizePhotosForSync(nextEntries) },
       targetId
     );
   };
@@ -1680,29 +1634,14 @@ function ImWorkspaceInner() {
   const handleReorderPhoto = (fromIdx: number, toIdx: number) => {
     const targetId = currentItem?.id || selectedIdRef.current;
     const baseList =
-      latestPhotoEntriesRef.current.length > 0
-        ? latestPhotoEntriesRef.current
-        : photoEntries;
-    if (
-      fromIdx < 0 ||
-      toIdx < 0 ||
-      fromIdx >= baseList.length ||
-      toIdx >= baseList.length ||
-      fromIdx === toIdx
-    ) {
-      return;
-    }
-    const nextEntries = [...baseList];
-    const [moved] = nextEntries.splice(fromIdx, 1);
-    nextEntries.splice(toIdx, 0, moved);
+      latestPhotoEntriesRef.current.length > 0 ? latestPhotoEntriesRef.current : photoEntries;
+    const nextEntries = reorderPhotoEntryList(baseList, fromIdx, toIdx);
+    if (!nextEntries) return;
     latestPhotoEntriesRef.current = nextEntries;
     setPhotoEntries(nextEntries);
     setPhotoNames(nextEntries.map((pe) => pe.name));
     syncCurrentItemPatch(
-      {
-        photoNames: nextEntries.map((pe) => pe.name),
-        photos: sanitizePhotosForSync(nextEntries),
-      },
+      { photoNames: nextEntries.map((pe) => pe.name), photos: sanitizePhotosForSync(nextEntries) },
       targetId
     );
   };
@@ -2998,6 +2937,7 @@ function ImWorkspaceInner() {
         }
         requireMatchText={
           pendingDeleteIm &&
+          pendingDeleteIm.status === "published" &&
           !isSampleSeedImItem(pendingDeleteIm) &&
           pendingDeleteIm.title?.trim() &&
           pendingDeleteIm.title.trim() !== "새 IM"

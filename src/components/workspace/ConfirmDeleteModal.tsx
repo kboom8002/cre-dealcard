@@ -141,30 +141,45 @@ export function ConfirmDeleteModal({
   const matchConfirmationBlock = needsMatch ? (
     <div
       data-testid="confirm-delete-match-box"
-      className="rounded-xl border border-rose-200 bg-rose-50/75 p-3.5 space-y-2"
+      className="rounded-xl border border-rose-200 bg-rose-50/75 p-3.5 space-y-2.5"
     >
       <label
         htmlFor={matchInputId}
         className="block text-sm font-bold text-rose-950 break-keep"
       >
-        {matchInputLabel || "삭제하려면 아래 제목을 그대로 입력해 주세요."}
+        {matchInputLabel || "외부에 공유된 항목입니다. 삭제하려면 아래 제목을 확인해 주세요."}
       </label>
-      <p
-        data-testid="confirm-delete-match-target"
-        className="px-2.5 py-1.5 rounded-lg bg-white border border-rose-200 text-sm font-extrabold text-slate-900 select-all break-keep"
-      >
-        {normalizedMatch}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white border border-rose-200 px-2.5 py-1.5">
+        <p
+          data-testid="confirm-delete-match-target"
+          className="text-sm font-extrabold text-slate-900 select-all break-keep"
+        >
+          {normalizedMatch}
+        </p>
+        <button
+          type="button"
+          data-testid="confirm-delete-autofill-btn"
+          onClick={() => setTypedText(normalizedMatch)}
+          className="min-h-[38px] px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 border border-rose-300 text-sm font-extrabold text-rose-950 shrink-0 cursor-pointer whitespace-nowrap"
+        >
+          제목 자동 채우기
+        </button>
+      </div>
       <input
         id={matchInputId}
         type="text"
         data-testid="confirm-delete-match-input"
         value={typedText}
         onChange={(e) => setTypedText(e.target.value)}
-        placeholder={normalizedMatch}
+        placeholder="위 제목을 입력하거나 [제목 자동 채우기]를 누르세요"
         autoComplete="off"
         className="w-full min-h-[44px] px-3 rounded-lg bg-white border border-rose-300 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
       />
+      {isConfirmDisabled && (
+        <p className="text-sm font-semibold text-rose-900 break-keep">
+          [제목 자동 채우기]를 누르거나 제목을 똑같이 입력하면 [삭제하기] 버튼이 켜집니다.
+        </p>
+      )}
     </div>
   ) : null;
 

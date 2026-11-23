@@ -253,15 +253,15 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     expect(copyRow?.getAttribute("data-selected")).toBe("true");
     expect(patchBodies.some((b) => b.action === "upsert")).toBe(true);
 
-    // Click Column 1 inline delete on dc-owner-2: requires exact title match before delete
+    // Click Column 1 inline delete on draft dc-owner-2: 1-click confirmation (no hostile title typing on drafts)
     await act(async () => {
       q(container, "dealcard-delete-dc-owner-2")?.click();
     });
     expect(q(container, "confirm-delete-modal")).not.toBeNull();
-    expect(q(container, "confirm-delete-match-input")).not.toBeNull();
+    expect(q(container, "confirm-delete-match-input")).toBeNull();
     expect(
       (q(container, "confirm-delete-confirm-btn") as HTMLButtonElement | null)?.disabled
-    ).toBe(true);
+    ).toBe(false);
     expect(q(container, "dealcard-item-dc-owner-2")).not.toBeNull();
     expect(patchBodies.some((b) => b.action === "delete")).toBe(false);
 
@@ -274,19 +274,6 @@ describe("DealCard left list — 간단히 / 자세히 redesign", () => {
     await act(async () => {
       q(container, "dealcard-delete-dc-owner-2")?.click();
     });
-    const matchInput = q(container, "confirm-delete-match-input") as HTMLInputElement;
-    expect(matchInput).not.toBeNull();
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        "value"
-      )?.set;
-      setter?.call(matchInput, "강남구 역삼동 업무시설");
-      matchInput.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    expect(
-      (q(container, "confirm-delete-confirm-btn") as HTMLButtonElement | null)?.disabled
-    ).toBe(false);
     await act(async () => {
       q(container, "confirm-delete-confirm-btn")?.click();
     });

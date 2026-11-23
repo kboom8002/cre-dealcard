@@ -230,40 +230,40 @@ describe("IM workspace left list — 간단히 / 자세히", () => {
     expect(storedCopy?.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it("inline 삭제 enforces title-match confirmation before deleting populated IM", async () => {
+  it("inline 삭제 allows 1-click confirmation on draft IM and enforces title-match on published IM", async () => {
     await renderPage();
 
+    // 1) Draft IM (im-c): 1-click modal confirmation (no title typing required)
     await act(async () => {
       q<HTMLButtonElement>('[data-testid="im-delete-im-c"]')!.click();
     });
     expect(q('[data-testid="confirm-delete-modal"]')).not.toBeNull();
-    expect(q('[data-testid="confirm-delete-match-input"]')).not.toBeNull();
-    expect(q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.disabled).toBe(true);
-    expect(rows().length).toBe(3);
-
-    await act(async () => {
-      q<HTMLButtonElement>('[data-testid="confirm-delete-cancel-btn"]')!.click();
-    });
-    expect(q('[data-testid="confirm-delete-modal"]')).toBeNull();
-    expect(q('[data-testid="im-item-im-c"]')).not.toBeNull();
-
-    await act(async () => {
-      q<HTMLButtonElement>('[data-testid="im-delete-im-c"]')!.click();
-    });
-    const matchInput = q<HTMLInputElement>('[data-testid="confirm-delete-match-input"]')!;
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        "value"
-      )?.set;
-      setter?.call(matchInput, "성수동 신축 부지");
-      matchInput.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    expect(q('[data-testid="confirm-delete-match-input"]')).toBeNull();
     expect(q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.disabled).toBe(false);
     await act(async () => {
       q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.click();
     });
     expect(q('[data-testid="im-item-im-c"]')).toBeNull();
     expect(rows().length).toBe(2);
+
+    // 2) Published IM (im-b): requires title match (with non-deceptive placeholder & autofill button)
+    await act(async () => {
+      q<HTMLButtonElement>('[data-testid="im-delete-im-b"]')!.click();
+    });
+    expect(q('[data-testid="confirm-delete-modal"]')).not.toBeNull();
+    const matchInput = q<HTMLInputElement>('[data-testid="confirm-delete-match-input"]')!;
+    expect(matchInput).not.toBeNull();
+    expect(matchInput.placeholder).not.toBe("강남구 역삼동 사옥");
+    expect(q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.disabled).toBe(true);
+
+    await act(async () => {
+      q<HTMLButtonElement>('[data-testid="confirm-delete-autofill-btn"]')!.click();
+    });
+    expect(q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.disabled).toBe(false);
+    await act(async () => {
+      q<HTMLButtonElement>('[data-testid="confirm-delete-confirm-btn"]')!.click();
+    });
+    expect(q('[data-testid="im-item-im-b"]')).toBeNull();
+    expect(rows().length).toBe(1);
   });
 });

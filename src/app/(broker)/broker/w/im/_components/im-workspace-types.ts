@@ -437,8 +437,18 @@ export function resolveKnownTestAssetUrl(nameOrUrl?: string | null): string | un
     decodedBase,
     stripDuplicateBrowserSuffix(decodedBase),
   ]) {
-    if (candidate && KNOWN_TEST_ASSET_URLS[candidate]) {
+    if (!candidate) continue;
+    if (KNOWN_TEST_ASSET_URLS[candidate]) {
       return KNOWN_TEST_ASSET_URLS[candidate];
+    }
+    if (/^dangsan_\d{2}_[^/\\]+\.(jpe?g|png|webp)$/i.test(candidate)) {
+      return buildTestguideAssetUrl("v2-case04", candidate);
+    }
+    if (/^jamwon_\d{2}_[^/\\]+\.(jpe?g|png|webp)$/i.test(candidate)) {
+      return buildTestguideAssetUrl("v2-case03", candidate);
+    }
+    if (/^seocho_\d{2}_[^/\\]+\.(jpe?g|png|webp)$/i.test(candidate)) {
+      return buildTestguideAssetUrl("broker-case02", candidate);
     }
   }
   return undefined;
@@ -819,6 +829,71 @@ export function isPersistablePhotoUrl(u?: string | null): u is string {
   return true;
 }
 
+export interface UploadedPhotoBatchItem {
+  id?: string;
+  name: string;
+  dataUrl: string;
+  remoteUrl: string | null;
+  errorMessage?: string;
+}
+
+export function applyUploadedPhotoBatchResult(
+  list: ImPhotoEntry[],
+  resolvedList: UploadedPhotoBatchItem[]
+): { entries: ImPhotoEntry[]; failedNames: string[] } {
+  const failedNames: string[] = [];
+  const entries = list
+    .map((pe) => {
+      const matched = resolvedList.find((r) =>
+        pe.id && r.id ? r.id === pe.id : r.name === pe.name
+      );
+      if (!matched) return pe;
+      const existingHttpUrl =
+        pe.url && !pe.url.startsWith("data:") && !pe.url.startsWith("blob:")
+          ? isRealUploadedPhotoUrl(pe.url)
+            ? pe.url
+            : resolveKnownTestAssetUrl(pe.url) || pe.url
+          : undefined;
+      const knownAsset = resolveKnownTestAssetUrl(pe.name);
+      const preferredPersistentUrl =
+        matched.remoteUrl || existingHttpUrl || knownAsset || matched.dataUrl;
+      if (!preferredPersistentUrl) {
+        failedNames.push(pe.name);
+        return null;
+      }
+      const keepInlineDataUrl =
+        !matched.remoteUrl && !isRealUploadedPhotoUrl(existingHttpUrl);
+      return {
+        ...pe,
+        dataUrl: keepInlineDataUrl ? matched.dataUrl : undefined,
+        previewUrl: matched.remoteUrl || matched.dataUrl || pe.previewUrl,
+        url: preferredPersistentUrl,
+      } as ImPhotoEntry;
+    })
+    .filter((pe): pe is ImPhotoEntry => Boolean(pe));
+  return { entries, failedNames };
+}
+
+export function reorderPhotoEntryList(
+  list: ImPhotoEntry[],
+  fromIdx: number,
+  toIdx: number
+): ImPhotoEntry[] | null {
+  if (
+    fromIdx < 0 ||
+    toIdx < 0 ||
+    fromIdx >= list.length ||
+    toIdx >= list.length ||
+    fromIdx === toIdx
+  ) {
+    return null;
+  }
+  const next = [...list];
+  const [moved] = next.splice(fromIdx, 1);
+  next.splice(toIdx, 0, moved);
+  return next;
+}
+
 export function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
   let inlineBudgetUsed = 0;
   return entries
@@ -836,11 +911,11 @@ export function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
           : undefined) ||
         resolveKnownTestAssetUrl(pe.name);
       const safeInlineDataUrl =
-        !nonDataPersistentUrl &&
+        !directRealRemoteUrl &&
         isSafeInlineImageDataUrl(pe.dataUrl) &&
         inlineBudgetUsed + pe.dataUrl.length <= MAX_TOTAL_INLINE_DATA_URL_CHARS
           ? pe.dataUrl
-          : !nonDataPersistentUrl &&
+          : !directRealRemoteUrl &&
             isSafeInlineImageDataUrl(pe.url) &&
             inlineBudgetUsed + pe.url.length <= MAX_TOTAL_INLINE_DATA_URL_CHARS
           ? pe.url
