@@ -3,11 +3,11 @@
  * @description 현업 중개인 전용 2단계 페어 전 과정 클릭스루 검수 SSOT (/qa-broker/full-loop)
  *
  * 구성:
- *  - Stage 1 (Loop 1): 표준 골든 1선 — 서초구 서초동 1364-28 사옥형 오피스 230억 (실사진 10장 고밀도 키트)
- *    · 사용법 영점 조절(Calibration) + 9장 이상(10장) 사진 일괄 업로드·대표 지정·발표자료(PPT) 2면 배치 검증
- *  - Stage 2 (Loop 2): 내 매물 실전 완주 (BYOD: Bring Your Own Deal)
+ *  - Stage 1 (Loop 1): 표준 샘플 매물 — 서초구 서초동 1364-28 사옥형 오피스 230억 (실사진 10장 키트)
+ *    · 사용법 익히기 + 9장 이상(10장) 사진 일괄 업로드·대표 지정·발표자료(PPT) 2면 배치 검증
+ *  - Stage 2 (Loop 2): 내 매물 실전 완주
  *    · 평소 중개하시는 실제 매물 1건(현장 사진 9장 이상 권장)으로 완주하며 현업 용어·대장 괴리·발송 심리 수집
- *    · 커스텀 비공개 키워드 노출 0건 실시간 판정 + 테스트 직후 원클릭 매물·딜카드·IM 완전 삭제 지원
+ *    · 내 매물 비공개 단어 노출 0건 실시간 점검 + 테스트 직후 원클릭 매물·딜카드·IM 완전 삭제 지원
  */
 
 import type { TestGuideImageAsset } from '@/lib/testguide/testguide-data';
@@ -72,14 +72,20 @@ export const BROKER_CASE02_WON_TRAP_TSV = [
   '2F\t201호\t엔지니어링오피스\t한빛설계기술\t304.00\t243.20\t100,000,000\t8,200,000\t1,500,000\t2027-11-30\t임대중',
 ].join('\n');
 
-export const BROKER_CASE02_ASIS_CSV = BROKER_CASE02_ASIS_TSV.split('\n')
-  .map((line) =>
-    line
-      .split('\t')
-      .map((cell) => (/[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
-      .join(','),
-  )
-  .join('\n');
+function convertTabBlockToCsv(tabText: string): string {
+  return tabText
+    .split('\n')
+    .map((line) =>
+      line
+        .split('\t')
+        .map((cell) => (/[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
+        .join(','),
+    )
+    .join('\n');
+}
+
+export const BROKER_CASE02_ASIS_CSV = convertTabBlockToCsv(BROKER_CASE02_ASIS_TSV);
+export const BROKER_CASE02_STABILIZED_CSV = convertTabBlockToCsv(BROKER_CASE02_STABILIZED_TSV);
 
 function buildBrokerCase02Images(
   items: Array<{ filename: string; format: 'JPG' | 'PNG' | 'WEBP'; roleLabel: string; caption: string }>,
@@ -163,14 +169,14 @@ export const BROKER_FULL_LOOP_WINDOW_ROLES: ReadonlyArray<FullLoopWindowRoleCard
     id: 'windowA',
     badge: '창 A · 필수',
     title: '중개사 작업 화면 (대표님 PC)',
-    device: 'PC 일반 브라우저 (본인 중개사 계정 로그인)',
+    device: 'PC 일반 브라우저 (본인 중개사 계정 로그인 · 화면 오른쪽 배치 권장)',
     purpose: '딜카드 · IM · 부동산뉴스 작성, 자료 보내기, 테스트 후 내 매물 원클릭 삭제',
   },
   {
     id: 'windowB',
     badge: '창 B · 권장',
     title: '매수 고객 1 체험 화면',
-    device: '대표님 스마트폰 카카오톡 나에게 보내기 (또는 새 시크릿 창)',
+    device: '대표님 스마트폰 카카오톡 [나와의 채팅] (또는 PC 시크릿 창)',
     purpose: '실제 손님이 카톡에서 받아보는 썸네일·블라인드 수위·모바일 IM 가독성 직접 체감',
   },
   {
@@ -178,7 +184,7 @@ export const BROKER_FULL_LOOP_WINDOW_ROLES: ReadonlyArray<FullLoopWindowRoleCard
     badge: '창 C · 선택/비교용',
     title: '매수 고객 2 대조 화면',
     device: 'PC 크롬 시크릿 창 (Ctrl+Shift+N, 비로그인)',
-    purpose: '손님 1의 링크만 닫았을 때 손님 2의 링크는 그대로 열리는지 확인',
+    purpose: '손님 1의 링크만 잠갔을 때 손님 2의 링크는 그대로 열리는지 확인',
   },
 ];
 
@@ -189,17 +195,17 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
     code: 'LOOP-01',
     tabLabel: 'Stage 1 · 서초 사옥 10장 골든',
     shortLabel: 'Stage 1 · 서초동 230억 법인사옥 (실사진 10장 · 자가사용 복합 · 사용법 익히기)',
-    title: 'Stage 1 — 표준 골든 매물(실사진 10장)로 전 과정 손에 익히기 & 다중 사진 품격 점검',
+    title: 'Stage 1 — 표준 사옥 매물(실사진 10장)로 사용법 익히기 & 다중 사진 배치 점검',
     subtitle:
-      '양재역 더블역세권 서초동 사옥형 빌딩(230억 · 자가사용 2개층+공실 1개층+임대 4개층 · 실사진 10장)으로 딜카드부터 IM·발표자료(PPT)·부동산뉴스·고객 소통까지 먼저 한 바퀴 완주합니다.',
+      '양재역 더블역세권 서초동 사옥형 빌딩(230억 · 자가사용 2개층+공실 1개층+임대 4개층 · 실사진 10장)으로 새 딜카드부터 IM·발표자료(PPT)·부동산뉴스·고객 소통까지 먼저 한 바퀴 체험합니다.',
     targetMinutes: 17,
     personaFocus: '법인 사옥 이전 수요 대표 × 전속 매각 대표공인중개사',
-    deviceSetup: '창 A(PC 중개사) + 창 B(본인 스마트폰 카톡 또는 시크릿 창)',
+    deviceSetup: '창 A(PC 중개사) + 창 B(본인 스마트폰 카톡 [나와의 채팅] 또는 시크릿 창)',
     sampleKitZipUrl: '/api/public/qa-sample-kit?scenario=broker-loop1',
     csvDownloadUrl: '/api/public/qa-sample-kit?scenario=broker-loop1&format=csv',
-    primarySheetLabel: '📊 현행 임대 현황 CSV',
-    secondarySheetDownloadUrl: '/api/public/qa-sample-kit?scenario=broker-loop1&format=tsv-stabilized',
-    secondarySheetLabel: '📊 전층 임대 전환 시트(TSV)',
+    primarySheetLabel: '📊 현행 임대차 CSV 받기',
+    secondarySheetDownloadUrl: '/api/public/qa-sample-kit?scenario=broker-loop1&format=csv-stabilized',
+    secondarySheetLabel: '📊 기대수익률 임대차 CSV 받기',
     dealCode: 'BROKER-GOLDEN-CASE02',
     propertyName: '서초동 1364-28 코너 사옥빌딩 (실사진 10장)',
     jibunAddress: '서울특별시 서초구 서초동 1364-28',
@@ -207,22 +213,22 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
     askingPriceReadout: '230억 원 (2,300,000만 원)',
     domainTraps: [
       {
-        code: 'TRAP-BR-1A',
-        title: '현장 사진 10장(외부 4 · 내부 6) 큐레이션 & PPT 2면 배치',
+        code: '포인트 1',
+        title: '현장 사진 10장(외부 4 · 내부 6) 일괄 업로드 & PPT 2면 배치',
         detail:
-          '9장 이상(10장, 세로형 승강기 포함) 일괄 업로드 시 슬라이드 배정 안내와 [★ 1번 대표로] 버튼이 편한지, PPT 2면 갤러리 밀도가 깔끔한지 확인합니다.',
+          '9장 이상(10장, 세로형 승강기 포함)을 한 번에 올렸을 때 [★ 1번 대표로] 지정과 발표자료(PPT) 2면 갤러리 배치가 깔끔한지 확인합니다.',
       },
       {
-        code: 'TRAP-BR-1B',
+        code: '포인트 2',
         title: '매도법인 자가사용(5~6F) + 공실(4F) 사옥 입주 면적 표현',
         detail:
-          '자가사용 2개층이 공실로 오인되지 않고(임대가능 5개층 중 공실 1건 20%), 상층 3개층 즉시 사옥 입주 강점이 잘 드러나는지 봅니다.',
+          '자가사용 2개층이 공실로 오해되지 않고(임대가능 5개층 중 공실 1건 20%), 상층 3개층 즉시 사옥 입주 강점이 잘 드러나는지 봅니다.',
       },
       {
-        code: 'TRAP-BR-1C',
-        title: '원 단위 오입력(100,000,000) 자동 보정 & 건물명 블라인드',
+        code: '포인트 3',
+        title: '원 단위 숫자(100,000,000) 자동 보정 & 지번·건물명 비공개 보호',
         detail:
-          '원 단위로 잘못 복사한 숫자가 만원 단위(10,000만)로 안전 보정되는지, 공개 티저에 FM빌딩·1364-28·최상무가 숨겨지는지 확인합니다.',
+          '원 단위로 잘못 복사한 숫자가 만원 단위(10,000만원)로 자동 보정되는지, 공개 티저에 FM빌딩·1364-28·최상무가 숨겨지는지 확인합니다.',
       },
     ],
     images: BROKER_CASE02_IMAGES_10,
@@ -239,8 +245,8 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         '010-3344-8899',
         '최상무',
       ],
-      expectedDepositSummary: '현행 보 40,000만 / 월 3,200만 → 전층 임대 전환 시 보 82,000만 / 월 6,500만',
-      expectedMonthlyRentSummary: '현행 월 3,200만 (+관리비 580만) → 전환 시 월 6,500만 (+관리비 1,105만)',
+      expectedDepositSummary: '현행 보증금 40,000만 / 월세 3,200만 → 전층 임대 전환 시 보증금 82,000만 / 월세 6,500만',
+      expectedMonthlyRentSummary: '현행 월세 3,200만 (+관리비 580만) → 전환 시 월세 6,500만 (+관리비 1,105만)',
       expectedOccupancySummary: '자가사용 2개층(분모 제외) · 임대가능 5개층 중 4F 공실 1건 (공실률 20.0%)',
       expectedYieldSummary: '현행 연 순수익률 1.70% → 전층 임대 전환 시 3.52% (+1.82%p)',
     },
@@ -257,8 +263,8 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         workspaceHref: '/broker/settings/profile',
         workspaceLabel: '중개사 프로필 설정 열기',
         actionChecklist: [
-          '중개사무소 상호, 대표 공인중개사 성명, 개설등록번호, 소재지, 연락처가 입력되어 있는지 확인합니다.',
-          '저장 후 딜카드·IM·부동산뉴스 하단에 중개사 명함이 일관되게 붙을 준비가 되었는지 봅니다.',
+          '중개사무소 상호, 대표 공인중개사 성명, 개설등록번호, 소재지, 연락처가 입력되어 있는지 확인하고 [저장]을 누릅니다.',
+          '딜카드·IM·부동산뉴스 하단에 대표님 사무소 명함이 일관되게 표시될 준비가 되었는지 확인합니다.',
         ],
         copySnippets: [],
         humanFocus: '실제 손님에게 나가는 제안서 하단 명함 표기가 공인중개사법 표시의무 및 현업 관행에 비추어 안심되는지 확인합니다.',
@@ -273,31 +279,39 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 3,
         severityOnFail: 'S0',
-        title: '서초동 230억 사옥 메모 붙여넣기 → [사옥용] 선택 → 블라인드 링크 복사',
-        workspaceHref: '/broker/w/dealcards',
-        workspaceLabel: '딜카드 작업실 열기',
+        title: '새 딜카드 열기 → 서초동 230억 사옥 메모 생성 → [카톡으로 보내기]에서 링크 복사',
+        workspaceHref: '/broker/w/dealcards?new=1',
+        workspaceLabel: '새 딜카드 작성 화면 열기',
         actionChecklist: [
-          '아래 [사옥 현장 메모 복사]를 눌러 메모 입력창에 붙여넣고 [메모로 딜카드 생성하기]를 클릭합니다.',
-          '매물 유형을 [사옥용]으로 선택했을 때 연면적(약 637평)·주차 20대·즉시 입주 포인트가 돋보이는지 확인합니다.',
-          '우측 카톡 말풍선에 "서초구 서초동"만 표시되고 "1364-28", "FM빌딩", "010-3344-8899", "최상무"가 숨겨졌는지 확인한 뒤 공개 링크를 오른쪽 판정 보드 ①번 칸에 붙여넣습니다.',
+          '오른쪽 위 [🚀 새 딜카드 작성 화면 열기]를 눌러 빈 카드가 열리면(만약 기존 서교동 샘플이 보이면 좌측 상단 [새 매물 입력] 클릭), 아래 [사옥 현장 메모 복사]를 눌러 상단 메모칸에 붙여넣고 하단 파란 [✨ 메모로 딜카드 생성하기] 버튼을 누릅니다.',
+          '매물 유형을 [사옥용]으로 고르고, 한 줄 제목(18자 이내) 칸에는 아래 [한 줄 제목 복사 (16자)]를 붙여넣습니다. (우측 상단 [아주 크게] 글자 크기 버튼도 한 번 눌러 보세요.)',
+          '오른쪽 카톡 미리보기에 "서초구 서초동"만 나오고 "1364-28", "FM빌딩", "010-3344-8899", "최상무"가 숨겨졌는지 확인한 뒤, 화면 하단 [카톡으로 보내기] → 팝업창 [링크 복사]를 눌러 바로 아래 초록색 입력칸에 붙여넣습니다.',
         ],
         copySnippets: [
           {
             id: 'b1-dc-memo',
-            label: '사옥 현장 메모 복사 (지번·건물명·연락처 포함)',
-            targetHint: '/broker/w/dealcards → 메모 입력창',
+            label: '사옥 현장 메모 복사 (상단 메모칸에 붙여넣기)',
+            targetHint: '붙여넣은 뒤 하단 [✨ 메모로 딜카드 생성하기] 클릭',
             value: BROKER_CASE02_MEMO,
           },
           {
             id: 'b1-dc-headline',
-            label: '추천 한 줄 제목 복사 (16자)',
-            targetHint: '한 줄 제목 (18자 이내) 다듬기 시 활용',
+            label: '한 줄 제목 복사 (16자 · 18자 제한 맞춤)',
+            targetHint: '한 줄 제목 (18자 이내) 입력칸에 붙여넣기',
             value: '양재역 코너 사옥·주차 20대',
             isPublicFacing: true,
           },
         ],
+        inlineScratchFields: [
+          {
+            field: 'dealCardUrl',
+            label: '① 복사한 공개 딜카드 주소 붙여넣기 (/dc/...)',
+            placeholder: '하단 [카톡으로 보내기] → 팝업 [링크 복사] 후 여기에 Ctrl+V',
+            helperText: '💡 참고: 보내기를 마친 카드는 좌측 [내 딜카드 목록]에서 초록색 [● 보냄] 배지로 표시됩니다.',
+          },
+        ],
         humanFocus: '사옥을 찾는 법인 대표에게 카톡으로 첫 티저를 보낼 때 정보 노출 수위(블라인드)와 핵심 제원 배치가 적당한지 평가합니다.',
-        autoProbeFocus: '공개 딜카드 HTML 내 금지어(1364-28, FM빌딩, 010-3344-8899, 최상무) 0건 여부를 자동 검사합니다.',
+        autoProbeFocus: '공개 딜카드 화면에 비공개 단어(1364-28, FM빌딩, 010-3344-8899, 최상무) 노출이 0건인지 자동 확인합니다.',
         oracleReference: '서초구 서초동 · 업무시설 · 연면적 약 637평 · 230억 (상세 번지·건물명 비노출)',
       },
       {
@@ -308,71 +322,79 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 6,
         severityOnFail: 'S0',
-        title: '임대 현황(자가사용+공실+원단위 보정) & 실사진 10장 일괄 업로드 → PPT 2면 갤러리 검증',
-        workspaceHref: '/broker/w/im',
-        workspaceLabel: 'IM 작업실 열기',
+        title: '새 IM 주소 자동 조회(면적 대조) → 임대차 표 붙여넣기 → 실사진 10장 업로드 & PPT 받기',
+        workspaceHref: '/broker/w/im?fresh=1',
+        workspaceLabel: '새 IM 작성 화면 열기',
         actionChecklist: [
-          '① 기본 제원: 주소에 "서울특별시 서초구 서초동 1364-28", 매매 희망가에 "2300000"(= 230억 원)을 입력하고 대지 596㎡ / 연면적 2,104.88㎡ / 주차 20대를 확인합니다.',
-          '② 층별 임대 현황: (선택 체험) [원단위 오입력 부록 복사]를 먼저 붙여넣어 100,000,000원이 10,000만 원으로 자동 보정되는지 본 뒤, [현행 임대 현황 TSV 복사]를 덮어써 보 40,000만 / 월 3,200만을 확인합니다. 이어서 [+ 기대수익률 렌트롤] 탭에 [전층 임대 전환 TSV 복사]를 붙여넣어 보 82,000만 / 월 6,500만을 확인합니다.',
-          '③ 핵심 장점: 아래 사옥 맞춤 포인트 3줄을 넣거나 [AI로 쓰기] 초안과 비교합니다.',
-          '④ 사진·발행: 상단에서 내려받은 골든 ZIP 속 실사진 10장(외부 4장 + 내부 6장, 세로형 포함)을 올리고, 상단 배지("발표자료 사진 2면(10장) 자동 배치")와 카드 편집의 [★ 1번 대표로] 버튼을 직접 써 본 뒤 IM 생성·PPT 내려받기 후 공유 링크를 판정 보드 ②번 칸에 붙여넣습니다.',
+          '[① 표지·기본정보] 시작 화면에서 추천 1번 [🏢 매물 주소로 대장·토지 자동 조회] 카드를 누르면 아래 주소칸으로 자동 스크롤됩니다. 거기에 "서울특별시 서초구 서초동 1364-28"을 붙여넣고 오른쪽 [주소로 건물 정보 자동 채우기]를 누른 뒤, 대지면적 596.00㎡(약 180.3평) · 연면적 2,104.88㎡(약 636.7평)을 확인하고 매매 희망가에 "2300000"(= 230억 원)을 입력합니다.',
+          '[② 층별 임대현황] [현행 임대차 현황] 탭에서 아래 [현행 임대차 표 한 번에 복사]를 누른 뒤 화면의 파란 [📋 표 붙여넣기] 버튼을 클릭합니다(또는 [📁 엑셀 파일 불러오기 ▾]에 CSV 업로드) → 합계 보증금 40,000만 / 월세 3,200만을 확인합니다. 이어서 오른쪽 [+ 기대수익률 임대차 현황 (선택)] 탭을 누르고 [기대수익률 임대차 표 한 번에 복사] → 파란 [📋 표 붙여넣기]를 눌러 보증금 82,000만 / 월세 6,500만을 확인합니다.',
+          '[③ 강점·입지 코멘트] 상단 탭을 눌러 아래 사옥 강점 3줄을 복사해 넣거나 [✨ AI 초안 채우기] 문구와 비교합니다.',
+          '[④ 사진·위치·만들기] 상단에서 내려받은 샘플 ZIP 안 photos 폴더의 실사진 10장(외부 4장 + 내부 6장, 세로형 포함)을 한꺼번에 올리고, [★ 1번 대표로] 버튼을 써 본 뒤 하단 [✨ 모바일 IM 만들기] → 완료 창에서 [📊 발표자료(PPT) 받기]와 [🔗 공유 링크 복사]를 눌러 바로 아래 초록색 칸에 붙여넣습니다.',
         ],
         copySnippets: [
           {
             id: 'b1-im-addr',
-            label: '지번 주소 복사',
-            targetHint: 'IM ① 기본 제원 → 주소 검색창',
+            label: '지번 주소 복사 (대장 자동 조회용)',
+            targetHint: '주소칸에 붙여넣고 [주소로 건물 정보 자동 채우기] 클릭',
             value: '서울특별시 서초구 서초동 1364-28',
           },
           {
             id: 'b1-im-price',
-            label: '매매가(만원) 복사',
-            targetHint: 'IM ① 기본 제원 → 매매 희망가(만원)',
+            label: '매매 희망가(만원) 복사 (230억)',
+            targetHint: 'IM [① 표지·기본정보] → 매매 희망가(만원) 칸',
             value: '2300000',
           },
           {
-            id: 'b1-im-won-trap',
-            label: '(체험용) 원 단위 오입력 부록 TSV 복사',
-            targetHint: 'IM ② 현행 임대 현황 첫 칸 클릭 후 Ctrl+V (자동 보정 배너 확인용)',
-            value: BROKER_CASE02_WON_TRAP_TSV,
-          },
-          {
             id: 'b1-im-asis-tsv',
-            label: '현행 임대 현황 TSV 복사 (자가사용 2층 포함)',
-            targetHint: 'IM ② 현행 임대 현황 첫 칸 클릭 후 Ctrl+V',
+            label: '현행 임대차 표 한 번에 복사 (자가사용 2층 포함)',
+            targetHint: '복사 후 [현행 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭',
             value: BROKER_CASE02_ASIS_TSV,
           },
           {
             id: 'b1-im-stab-tsv',
-            label: '전층 임대 전환(기대수익률) TSV 복사',
-            targetHint: 'IM ② [+ 기대수익률 렌트롤] 탭 첫 칸 클릭 후 Ctrl+V',
+            label: '기대수익률 임대차 표 한 번에 복사 (전층 임대 전환)',
+            targetHint: '[+ 기대수익률 임대차 현황 (선택)] 탭 클릭 후 파란 [📋 표 붙여넣기] 클릭',
             value: BROKER_CASE02_STABILIZED_TSV,
           },
           {
+            id: 'b1-im-won-trap',
+            label: '(선택 체험) 원 단위 숫자(100,000,000) 자동 보정 표 복사',
+            targetHint: '파란 [📋 표 붙여넣기] 클릭 시 10,000만원으로 자동 보정되는지 확인',
+            value: BROKER_CASE02_WON_TRAP_TSV,
+          },
+          {
             id: 'b1-im-pt1',
-            label: '사옥 포인트 1 복사 (더블역세권 코너 가시성)',
-            targetHint: 'IM ③ 장점 1',
+            label: '사옥 강점 1 복사 (더블역세권 코너 가시성)',
+            targetHint: 'IM [③ 강점·입지 코멘트] → 강점 1',
             value: '양재역(3호선·신분당선·GTX-C 예정) 도보 4분 양면 도로 코너 각지로 곡면 커튼월 외관의 기업 사옥 가시성 탁월',
             isPublicFacing: true,
           },
           {
             id: 'b1-im-pt2',
-            label: '사옥 포인트 2 복사 (주차 20대 & 즉시 입주)',
-            targetHint: 'IM ③ 장점 2',
+            label: '사옥 강점 2 복사 (주차 20대 & 즉시 입주)',
+            targetHint: 'IM [③ 강점·입지 코멘트] → 강점 2',
             value: '서초권에서 희소한 자주식 포함 총 20대 주차 설비 확보 및 상층부 3개 층(4F~6F, 약 274평) 잔금 즉시 사옥 입주 가능',
             isPublicFacing: true,
           },
           {
             id: 'b1-im-pt3',
-            label: '사옥 포인트 3 복사 (저층 임대수익 금융비용 상쇄)',
-            targetHint: 'IM ③ 장점 3',
+            label: '사옥 강점 3 복사 (저층 임대수익 금융비용 상쇄)',
+            targetHint: 'IM [③ 강점·입지 코멘트] → 강점 3',
             value: '저층부(B1~3F) 우량 임차인 월 3,200만 원 임대수익으로 사옥 이자비용을 상쇄하며 전층 임대 전환 시 연 순수익률 3.52% 기대',
             isPublicFacing: true,
           },
         ],
+        inlineScratchFields: [
+          {
+            field: 'imShareUrl',
+            label: '② 복사한 모바일 IM 공유 링크 붙여넣기 (/im-lite/...)',
+            placeholder: '완료 창 [🔗 공유 링크 복사] 클릭 후 여기에 Ctrl+V',
+            helperText: '📐 비교 기준값: 대지면적 596.00㎡(약 180.3평) / 연면적 2,104.88㎡(약 636.7평) / 현행 순수익률 1.70% → 전환 3.52%',
+          },
+        ],
         humanFocus: '사진 10장을 올렸을 때 외부 4컷·내부 6컷 2면 PPT 배치와 세로형 승강기 사진 크롭 상태가 실제 법인 브리핑에 바로 쓸 수준인지 집중 확인합니다.',
         autoProbeFocus: 'IM 공유 링크 열람 가능 상태, 대지 596㎡ / 연면적 2,104.88㎡ 일치 여부를 자동 검증합니다.',
-        oracleReference: '현행 순수익률 1.70% → 전환 3.52% · 사진 10장 PPT 갤러리 2면 누락 0장',
+        oracleReference: '대지 596.00㎡ · 연면적 2,104.88㎡ · 현행 순수익률 1.70% → 전환 3.52% · 사진 10장 PPT 2면 배치',
       },
       {
         id: 'B1-S4',
@@ -384,29 +406,36 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         severityOnFail: 'S1',
         title: '강남·서초 사옥 수요 법인 대상 부동산뉴스 발행 및 공개 주소 확인',
         workspaceHref: '/broker/magazine-editor',
-        workspaceLabel: '뉴스레터 에디터 열기',
+        workspaceLabel: '부동산뉴스 작성 화면 열기',
         actionChecklist: [
-          '이달의 시장 요약에 아래 브리핑 문구를 넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결해 발행합니다.',
-          '발행된 공개 뉴스레터 주소를 오른쪽 판정 보드 ④번 칸에 붙여넣고, 모바일 화면에서도 상세 번지 노출 없이 깔끔하게 읽히는지 확인합니다.',
+          '제목과 이달의 시장 요약 칸에 아래 복사칩 문구를 넣고, 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결해 발행합니다.',
+          '발행 후 생성된 공개 뉴스레터 주소를 복사해 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 누릅니다.',
         ],
         copySnippets: [
           {
             id: 'b1-nl-title',
-            label: '뉴스레터 제목 복사',
-            targetHint: '/broker/magazine-editor → 제목',
+            label: '부동산뉴스 제목 복사',
+            targetHint: '/broker/magazine-editor → 제목 입력칸',
             value: '양재·서초권 중소형 사옥 매수세 유입과 자주식 주차 빌딩 희소성 점검',
             isPublicFacing: true,
           },
           {
             id: 'b1-nl-summary',
             label: '시장 브리핑 본문 복사',
-            targetHint: '/broker/magazine-editor → 시장 요약',
+            targetHint: '/broker/magazine-editor → 시장 요약 입력칸',
             value: '임차료 상승과 주차난으로 인해 강남·서초권에서 상층부는 직접 사옥으로 쓰고 저층부 임대료로 금융비용을 충당하는 실사용 매수 문의가 꾸준히 이어지고 있습니다.',
             isPublicFacing: true,
           },
         ],
+        inlineScratchFields: [
+          {
+            field: 'newsletterUrl',
+            label: '④ 발행된 공개 부동산뉴스 주소 붙여넣기 (/m/... 또는 /newsletter/...)',
+            placeholder: '발행 완료 후 복사한 뉴스레터 공개 주소를 여기에 Ctrl+V',
+          },
+        ],
         humanFocus: '단골 매수 법인 대표들에게 월간 안부 겸 시장 브리핑으로 보내기에 문체와 구성이 자연스러운지 평가합니다.',
-        autoProbeFocus: '공개 뉴스레터 200 응답 및 비공개 번지·건물명 노출 0건을 검증합니다.',
+        autoProbeFocus: '공개 뉴스레터 정상 열람 및 비공개 번지(1364-28)·건물명(FM빌딩) 노출 0건을 검증합니다.',
         oracleReference: '중개사 명함 정상 노출 · 비공개 번지(1364-28)·건물명(FM빌딩) 노출 0건',
       },
       {
@@ -417,10 +446,10 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 B (스마트폰 카톡 매수자 1)',
         targetMinutes: 2,
         severityOnFail: 'S0',
-        title: '스마트폰(또는 시크릿창)에서 매수 고객 시점으로 열람 후 상세 IM 자료 요청',
+        title: '스마트폰 카톡 [나와의 채팅](또는 시크릿창)에서 매수 고객 시점으로 상세 IM 요청',
         actionChecklist: [
-          '창 B(스마트폰 카카오톡 나에게 보내기 또는 시크릿 창)에서 ①번 딜카드 공개 링크를 열어 카톡 썸네일과 첫 화면 인상을 확인합니다.',
-          '[상세 제안서(IM) 요청] 버튼을 눌러 아래 예시 고객 정보로 문의를 남깁니다.',
+          '창 B(스마트폰 카카오톡 [나와의 채팅] 또는 PC 시크릿 창)에서 Step 2에서 복사한 딜카드 공개 링크를 열어 첫 화면 인상을 확인합니다.',
+          '화면 하단의 [상세 제안서(IM) 요청] 버튼을 눌러 아래 예시 고객 정보로 문의를 남깁니다.',
         ],
         copySnippets: [
           {
@@ -443,8 +472,8 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
           },
         ],
         humanFocus: '손님 입장에서 전화번호를 남기고 상세 IM을 요청하는 과정이 부담스럽거나 복잡하지 않은지 체감합니다.',
-        autoProbeFocus: '공개 딜카드 게이트 정상 응답 및 비로그인 상태 상세 정보 보호를 확인합니다.',
-        oracleReference: '문의 접수 즉시 완료 · 비승인 상태에서 상세 지번 비노출',
+        autoProbeFocus: '공개 딜카드 정상 응답 및 비로그인 상태 상세 지번 비노출을 확인합니다.',
+        oracleReference: '문의 접수 즉시 완료 · 승인 전 상태에서 상세 지번 비노출',
       },
       {
         id: 'B1-S6',
@@ -454,17 +483,25 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A ↔ 창 B·C',
         targetMinutes: 2,
         severityOnFail: 'S0',
-        title: '고객 소통함에서 [자료 보내기] 승인 → 열람 확인 → [링크 닫기] 차단 체험',
+        title: '고객 소통함에서 [자료 보내기] 승인 → 열람 확인 → [보낸 링크 잠그기] 체험',
         workspaceHref: '/broker/w/inbox',
         workspaceLabel: '고객 소통함 열기',
         actionChecklist: [
-          '창 A 고객 소통함에서 방금 도착한 "정현우 대표" 문의를 선택해 [자료 보내기]로 승인하고 인사말+IM 링크를 복사해 창 B에서 열어 봅니다 (사진 10장 갤러리 확인).',
-          '다시 창 A 소통함에서 [보낸 링크 잠그기]를 실행한 뒤, 창 B에서 새로고침했을 때 즉시 열람이 닫히는지 확인합니다 (확인 후 원하시면 다시 열거나 판정 보드에서 점검).',
+          '창 A 고객 소통함에서 방금 도착한 "정현우 대표" 문의를 선택해 [자료 보내기]로 승인하고, 발급된 IM 링크를 창 B에서 열어 사진 10장 갤러리를 확인합니다.',
+          '다시 창 A 소통함에서 [보낸 링크 잠그기]를 누른 뒤, 창 B에서 새로고침했을 때 즉시 열람이 잠기는지 확인합니다.',
         ],
         copySnippets: [],
-        humanFocus: '매물 정보가 외부에 무한정 돌아다니지 않도록 원하는 시점에 링크를 닫을 수 있는 기능이 현업에 얼마나 유용한지 평가합니다.',
+        inlineScratchFields: [
+          {
+            field: 'imShareUrl',
+            label: '② 고객에게 보낸 IM 열람 링크 확인/붙여넣기 (/im-lite/...)',
+            placeholder: '소통함에서 복사한 고객 전용 열람 링크 (/im-lite/...)',
+            helperText: '[보낸 링크 잠그기] 실행 후 옆의 [🔍 이 링크 바로 점검]을 누르면 잠금 상태가 바로 확인됩니다.',
+          },
+        ],
+        humanFocus: '매물 정보가 외부에 무한정 돌아다니지 않도록 원하는 시점에 링크를 잠글 수 있는 기능이 현업에 얼마나 유용한지 평가합니다.',
         autoProbeFocus: '링크 잠금/열림 상태 전환이 즉시 반영되는지 자동 점검합니다.',
-        oracleReference: '승인 시 모바일 IM 10장 전체 열람 · 링크 닫기 즉시 열람 차단',
+        oracleReference: '승인 시 모바일 IM 10장 전체 열람 · 링크 잠금 즉시 열람 차단',
       },
       {
         id: 'B1-S7',
@@ -474,15 +511,15 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 1,
         severityOnFail: 'S0',
-        title: '우측 [실시간 정답 오라클 & 블라인드 판정 실행] 클릭 후 Stage 2(내 매물)로 이동',
+        title: 'Stage 1 전체 링크·면적 자동 점검 확인 후 → Stage 2(내 매물 실전)로 이동',
         actionChecklist: [
-          '오른쪽 보드에 붙여넣은 딜카드·IM·뉴스레터 링크를 기준으로 [🔍 실시간 정답 오라클 & 블라인드 판정 실행]을 눌러 면적·블라인드 이상 없음을 확인합니다.',
-          '손에 익은 흐름 그대로 상단 [Stage 2 · 내 매물 실전 (BYOD)] 탭을 눌러 대표님의 실제 매물 1건으로 넘어가 주세요.',
+          '앞서 각 단계에 붙여넣은 링크가 모두 정상인지 [🔍 입력한 링크·면적 자동 점검 실행] 버튼으로 최종 확인합니다.',
+          '손에 익은 흐름 그대로 화면 상단 [Stage 2 · 내 매물 실전] 탭을 눌러 대표님의 실제 매물 1건으로 넘어가 주세요.',
         ],
         copySnippets: [],
-        humanFocus: 'Stage 1을 거치며 4대 작업공간 동선이 자연스럽게 이해되었는지 점검합니다.',
-        autoProbeFocus: '대지 596㎡ · 연면적 2,104.88㎡ · 금지어 0건 종합 자동 판정',
-        oracleReference: '오라클·블라인드 전 항목 정상',
+        humanFocus: 'Stage 1을 거치며 딜카드 → IM·발표자료 → 부동산뉴스 → 고객 소통의 4가지 흐름이 자연스럽게 이해되었는지 점검합니다.',
+        autoProbeFocus: '대지 596㎡ · 연면적 2,104.88㎡ · 비공개 단어 노출 0건 종합 자동 확인',
+        oracleReference: '면적 일치 및 비공개 보호 전 항목 정상',
       },
     ],
   },
@@ -492,16 +529,16 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
     isByodMode: true,
     enableByodCleanup: true,
     byodSafetyNotice:
-      '안심하고 실제 매물로 테스트하세요: ① 고객 연락처는 실제 손님 대신 대표님 본인 휴대폰/시크릿 창으로만 테스트하며, ② 검수 직후 우측 [🧹 내 테스트 매물·딜카드·IM 즉시 삭제] 버튼 하나로 서버에서 즉시 폐기할 수 있습니다.',
+      '안심하고 실제 매물로 테스트하세요: ① 카카오톡 [나와의 채팅]이나 시크릿 창으로만 열어 보시고(실제 고객방 발송 금지), ② 검수 직후 Step 7의 [🧹 내 테스트 매물·딜카드·IM 서버에서 즉시 삭제] 버튼 하나로 흔적 없이 지울 수 있습니다.',
     code: 'LOOP-02',
-    tabLabel: 'Stage 2 · 내 매물 실전 (BYOD)',
-    shortLabel: 'Stage 2 · 대표님 보유 실매물 1건 자율 완주 (사진 9장+ 권장 · 현업 피드백 집중 수집)',
-    title: 'Stage 2 — 대표님이 실제 중개 중이신 매물 1건으로 전 과정 실전 테스트 (BYOD)',
+    tabLabel: 'Stage 2 · 내 매물 실전',
+    shortLabel: 'Stage 2 · 대표님 보유 실매물 1건 직접 넣어 보기 (사진 9장+ 권장 · 현업 의견 집중 수집)',
+    title: 'Stage 2 — 대표님이 실제 중개 중이신 매물 1건으로 전 과정 실전 테스트',
     subtitle:
-      '평소 가지고 계신 실제 매물 메모·임대 현황·현장 사진(9장 이상 권장)을 그대로 넣어 보며, 정제된 샘플에서는 절대 알 수 없는 현장 용어·공부 괴리·간판 노출 부담·실제 발송 망설임 요인을 들려주세요.',
+      '평소 가지고 계신 실제 매물 메모·임대 현황·현장 사진(9장 이상 권장)을 그대로 넣어 보며, 샘플 데이터로는 알 수 없는 현장 용어·공부 괴리·간판 노출 부담·실제 발송 망설임 요인을 들려주세요.',
     targetMinutes: 20,
-    personaFocus: '대표님의 실제 진행 매물 × 실제 타깃 매수 고객 페르소나',
-    deviceSetup: '창 A(PC 중개사) + 창 B(대표님 본인 스마트폰 카톡 — 실제 고객 오발송 주의!)',
+    personaFocus: '대표님의 실제 진행 매물 × 실제 타깃 매수 고객',
+    deviceSetup: '창 A(PC 중개사) + 창 B(대표님 본인 스마트폰 카톡 [나와의 채팅] — 실제 고객 오발송 주의!)',
     sampleKitZipUrl: '',
     csvDownloadUrl: '',
     dealCode: 'BROKER-BYOD-LIVE',
@@ -511,22 +548,22 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
     askingPriceReadout: '실제 매각 희망가 (억/만원)',
     domainTraps: [
       {
-        code: 'BYOD-FOCUS-1',
+        code: '현장 체크 1',
         title: '날것의 현장 메모·엑셀 용어 & 공부↔현장 괴리',
         detail:
           '렌트프리·조절가·부가세·위반건축물·실사용 업종 차이 등 현업 매물만의 특이사항이 막힘없이 입력·표현되는지 봅니다.',
       },
       {
-        code: 'BYOD-FOCUS-2',
+        code: '현장 체크 2',
         title: '직접 찍은 현장 사진(9장+) 선별 & 간판 노출 부담',
         detail:
           '스마트폰으로 찍어 두신 외관·내부·설비 사진 9장 이상을 올릴 때 간판 노출 걱정이나 순서·비율 아쉬움이 없는지 확인합니다.',
       },
       {
-        code: 'BYOD-FOCUS-3',
-        title: '진짜 VIP 손님 카톡방에 바로 보낼 수 있는가?',
+        code: '현장 체크 3',
+        title: '진짜 VIP 손님 카톡방에 지금 당장 보낼 수 있는가?',
         detail:
-          '완성된 딜카드·모바일 IM·발표자료(PPT)를 실제 매수 손님에게 지금 당장 보낼 수 있는지, 망설여진다면 무엇 때문인지 기록합니다.',
+          '완성된 딜카드·모바일 IM·발표자료(PPT)를 실제 매수 손님에게 지금 바로 보낼 수 있는지, 망설여진다면 무엇 때문인지 기록합니다.',
       },
     ],
     images: [],
@@ -540,7 +577,7 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
       expectedDepositSummary: '내 매물 실제 보증금 합계와 화면 합계 일치 여부 확인',
       expectedMonthlyRentSummary: '내 매물 실제 월세·관리비 합계와 수익률 일치 여부 확인',
       expectedOccupancySummary: '공실·자가사용·비임대 호실이 내 의도대로 분류되는지 확인',
-      expectedYieldSummary: '우측 보드에 비공개 키워드(번지·건물명·소유주 번호) 입력 시 노출 0건 자동 검증',
+      expectedYieldSummary: 'Step 1에 비공개 단어(번지·건물명·소유주 번호) 입력 시 공개 화면 노출 0건 자동 확인',
     },
     steps: [
       {
@@ -551,18 +588,31 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 3,
         severityOnFail: 'S1',
-        title: '평소 쓰시는 내 매물 메모 그대로 붙여넣어 딜카드 만들기 & 블라인드 점검',
-        workspaceHref: '/broker/w/dealcards',
-        workspaceLabel: '딜카드 작업실 열기',
+        title: '새 딜카드 열기 → 평소 쓰시는 내 매물 메모 그대로 생성 & 비공개 점검',
+        workspaceHref: '/broker/w/dealcards?new=1',
+        workspaceLabel: '내 매물 새 딜카드 열기',
         actionChecklist: [
-          '수첩·카톡 나에게 보내기·엑셀 등에 적어 두신 실제 매물 메모 1건을 있는 그대로 붙여넣고 딜카드를 생성합니다.',
-          '매물 유형(임대수익용 / 사옥용 / 신축·개발용)을 고른 뒤, 우측 카톡 말풍선에 상세 번지·건물명·건물주 연락처가 새어 나오지 않았는지 확인합니다.',
-          '발행된 공개 딜카드 링크를 오른쪽 판정 보드 ①번 칸에, 절대 노출되면 안 되는 단어(예: 번지, 건물명, 소유주 번호)를 [🔒 내 매물 비공개 확인 키워드] 칸에 적어 주세요.',
+          '[🚀 내 매물 새 딜카드 열기]를 눌러 빈 카드가 열리면, 수첩·카톡·엑셀에 적어 두신 실제 매물 메모 1건을 상단 메모칸에 그대로 붙여넣고 하단 [✨ 메모로 딜카드 생성하기]를 누릅니다.',
+          '매물 유형(임대수익용 / 사옥용 / 신축·개발용)과 한 줄 제목(18자 이내)을 확인하고, 우측 카톡 말풍선에 상세 번지·건물명·건물주 연락처가 숨겨졌는지 봅니다.',
+          '화면 하단 [카톡으로 보내기] → 팝업창 [링크 복사]를 눌러 바로 아래 초록색 입력칸 ①에 붙여넣고, 절대 노출되면 안 되는 단어(번지, 건물명, 소유주 번호)를 바로 아래 칸에 적은 뒤 [🔍 이 링크 바로 점검]을 누릅니다.',
         ],
         copySnippets: [],
+        inlineScratchFields: [
+          {
+            field: 'dealCardUrl',
+            label: '① 내 매물 공개 딜카드 주소 붙여넣기 (/dc/...)',
+            placeholder: '하단 [카톡으로 보내기] → 팝업 [링크 복사] 후 여기에 Ctrl+V',
+          },
+          {
+            field: 'byodForbiddenKeywords',
+            label: '🔒 내 매물 비공개 확인 단어 (쉼표로 구분해 입력)',
+            placeholder: '예: 123-45, 역삼스타빌딩, 010-1234-5678',
+            helperText: '적어 주신 번지·건물명·전화번호가 공개 딜카드와 뉴스레터에 단 1글자도 나오지 않는지 즉시 검사합니다.',
+          },
+        ],
         humanFocus: '다듬지 않은 현업 메모를 넣었을 때 금액·면적·용도 추출 정확도와 블라인드 처리가 믿음직한지 봐주세요.',
-        autoProbeFocus: '우측에 적어 주신 내 매물 비공개 키워드(번지·건물명·전화번호)가 공개 딜카드에 0건인지 실시간 검사합니다.',
-        oracleReference: '내 매물 비공개 키워드 공개 화면 노출 0건',
+        autoProbeFocus: '입력하신 내 매물 비공개 단어(번지·건물명·전화번호)가 공개 딜카드에 0건인지 실시간 검사합니다.',
+        oracleReference: '내 매물 비공개 단어 공개 화면 노출 0건',
         brokerInsightPrompt:
           'Q1. 평소 쓰시는 매물 메모를 그대로 넣었을 때, 인식이 안 되거나 입력 칸이 없어 아쉬웠던 현업 용어가 있었나요?',
         brokerQuickTags: [
@@ -581,12 +631,12 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 5,
         severityOnFail: 'S1',
-        title: '내 매물 주소 조회(공부 연동) & 실제 임대 현황(엑셀/표) 입력해 수치 대조하기',
-        workspaceHref: '/broker/w/im',
-        workspaceLabel: 'IM 작업실 열기',
+        title: '새 IM 주소 자동 조회(공적장부 대조) & 실제 임대차 현황(엑셀 업로드 또는 표 붙여넣기)',
+        workspaceHref: '/broker/w/im?fresh=1',
+        workspaceLabel: '내 매물 새 IM 작성 화면 열기',
         actionChecklist: [
-          '① 기본 제원에서 실제 매물 지번을 조회해 대장 면적·층수·주차·공시지가가 실제 알고 계신 값과 맞는지 비교합니다.',
-          '② 층별 임대 현황에 가지고 계신 엑셀 파일을 올리거나 표로 입력해 보증금·월세·관리비 합계와 연 순수익률이 대표님 계산과 일치하는지 확인합니다.',
+          '[① 표지·기본정보] 추천 1번 [🏢 매물 주소로 대장·토지 자동 조회]를 눌러 실제 매물 주소를 넣고 [주소로 건물 정보 자동 채우기]를 클릭한 뒤, 대지면적·연면적·층수·주차·공시지가가 알고 계신 값과 맞는지 비교합니다.',
+          '[② 층별 임대현황] 가지고 계신 엑셀 파일을 [📁 엑셀 파일 불러오기 ▾]로 올리거나, 엑셀 표 영역을 복사해 파란 [📋 표 붙여넣기] 버튼을 눌러 보증금·월세·관리비 합계와 연 순수익률이 대표님 계산과 맞는지 확인합니다. (창을 닫지 말고 그대로 Step 3으로 이어갑니다.)',
         ],
         copySnippets: [],
         humanFocus: '건축물대장 공부상 내용과 실제 현장 현황(용도변경, 무허가/옥탑, 분할임대, 묵시적 갱신 등)이 다를 때 어떻게 입력·표기되는지가 핵심입니다.',
@@ -612,13 +662,20 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         severityOnFail: 'S1',
         title: '직접 촬영한 내 매물 사진(9장 이상 권장) 업로드 · 대표 지정 · PPT 내려받기',
         workspaceHref: '/broker/w/im',
-        workspaceLabel: 'IM 사진·발행 단계 열기',
+        workspaceLabel: '방금 입력한 IM 이어서 열기',
         actionChecklist: [
-          '휴대폰이나 PC에 보관 중인 해당 매물 현장 사진(가능하면 9장 이상, 외관·로비·내부·주차·옥상 등)을 일괄 업로드합니다.',
-          '[★ 1번 대표로] 버튼과 외부↔내부 전환, 빠른 캡션 선택을 써 보고 IM 생성 후 발표자료(PPT)를 내려받아 열어 봅니다.',
-          '발급된 IM 공유 링크를 오른쪽 판정 보드 ②번 칸에 붙여넣습니다.',
+          '방금 열어 둔 IM 화면의 [③ 강점·입지 코멘트]에서 [✨ AI 초안 채우기]를 써 본 뒤, [④ 사진·위치·만들기] 탭으로 이동해 PC·휴대폰에 보관 중인 현장 사진(9장 이상 권장)을 한꺼번에 올립니다.',
+          '[★ 1번 대표로] 지정과 외부↔내부 구분을 써 보고 하단 [✨ 모바일 IM 만들기] → 완료 창에서 [📊 발표자료(PPT) 받기]로 PPT를 열어 본 뒤, [🔗 공유 링크 복사]를 눌러 바로 아래 초록색 칸에 붙여넣습니다.',
         ],
         copySnippets: [],
+        inlineScratchFields: [
+          {
+            field: 'imShareUrl',
+            label: '② 내 매물 모바일 IM 공유 링크 붙여넣기 (/im-lite/...)',
+            placeholder: '완료 창 [🔗 공유 링크 복사] 클릭 후 여기에 Ctrl+V',
+            helperText: '붙여넣어 두시면 Step 7에서 원클릭 삭제 시 해당 IM과 공유 링크도 함께 깔끔히 정리됩니다.',
+          },
+        ],
         humanFocus: '실제 현장 사진에는 상호 간판, 차량 번호판, 세로 촬영본, 어두운 복도 사진 등이 섞여 있습니다. 이를 선별해 PPT로 뽑을 때의 체감을 알려주세요.',
         autoProbeFocus: '모바일 IM 공유 링크 정상 열람 및 사진 로드 상태를 확인합니다.',
         oracleReference: '다중 사진 업로드 지연 없음 · PPT 사진 슬라이드 깨짐 없음',
@@ -640,10 +697,10 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 B (스마트폰 카톡 매수자 1)',
         targetMinutes: 3,
         severityOnFail: 'S1',
-        title: '내 스마트폰 카톡(나에게 보내기)으로 내 매물 딜카드·모바일 IM 직접 열어 보기',
+        title: '내 스마트폰 카톡 [나와의 채팅]으로 내 매물 딜카드·모바일 IM 직접 열어 보기',
         actionChecklist: [
-          '⚠️ 주의: 실제 고객에게 보내지 마시고, 카카오톡 [나와의 채팅]에 내 매물 딜카드 링크와 IM 공유 링크를 붙여넣어 스마트폰으로 열어 봅니다.',
-          '진짜 VIP 매수 손님이 이 화면과 내려받은 PPT를 받았을 때의 첫인상과 신뢰감을 냉정하게 점검합니다.',
+          '⚠️ 주의: 실제 고객방에 보내지 마시고, 반드시 카카오톡 [나와의 채팅]에 내 매물 딜카드 링크와 IM 공유 링크를 붙여넣어 대표님 스마트폰으로 직접 열어 봅니다.',
+          '진짜 VIP 매수 손님이 이 모바일 화면과 내려받은 PPT를 받았을 때의 첫인상과 신뢰감을 냉정하게 점검합니다.',
         ],
         copySnippets: [],
         humanFocus: '가장 중요한 질문입니다: "오늘 당장 실제 매수 손님 카톡방에 이 링크와 PPT를 보낼 수 있는가? 멈칫한다면 딱 무엇 때문인가?"',
@@ -667,17 +724,24 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 2,
         severityOnFail: 'S2',
-        title: '내 매물을 엮어 단골 고객용 부동산뉴스 발행해 보기',
+        title: '내 매물을 연결해 단골 고객용 부동산뉴스 발행해 보기',
         workspaceHref: '/broker/magazine-editor',
-        workspaceLabel: '뉴스레터 에디터 열기',
+        workspaceLabel: '부동산뉴스 작성 화면 열기',
         actionChecklist: [
-          '내 매물이 속한 권역 동향을 2~3줄 적거나 AI 다듬기를 거친 뒤, 내 매물 딜카드를 연결해 뉴스레터를 발행합니다.',
-          '공개 뉴스레터 주소를 오른쪽 판정 보드 ④번 칸에 붙여넣습니다.',
+          '내 매물이 속한 권역 동향을 2~3줄 적고 방금 만든 내 매물 딜카드를 추천 매물로 연결해 발행합니다.',
+          '발행 후 생성된 공개 뉴스레터 주소를 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 눌러 내 매물 번지·건물명이 새어 나오지 않았는지 확인합니다.',
         ],
         copySnippets: [],
+        inlineScratchFields: [
+          {
+            field: 'newsletterUrl',
+            label: '④ 내 매물이 연결된 공개 부동산뉴스 주소 붙여넣기 (/m/... 또는 /newsletter/...)',
+            placeholder: '발행 완료 후 복사한 뉴스레터 공개 주소를 여기에 Ctrl+V',
+          },
+        ],
         humanFocus: '연락이 뜸했던 기존 매수 대기 고객들에게 안부 겸 매물 소식을 자연스럽게 전하는 용도로 쓸 만한지 평가합니다.',
-        autoProbeFocus: '공개 뉴스레터 내 비공개 키워드(번지·건물명·연락처) 유출 0건을 자동 검사합니다.',
-        oracleReference: '공개 뉴스레터 내 비공개 키워드 노출 0건',
+        autoProbeFocus: '공개 뉴스레터 내 비공개 단어(번지·건물명·연락처) 유출 0건을 자동 검사합니다.',
+        oracleReference: '공개 뉴스레터 내 비공개 단어 노출 0건',
         brokerInsightPrompt:
           'Q5. 단골 자산가·법인 고객에게 정기 발송하는 부동산뉴스로 활용하실 때 보완하고 싶은 점이 있나요?',
         brokerQuickTags: [
@@ -695,18 +759,25 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A ↔ 창 B',
         targetMinutes: 1,
         severityOnFail: 'S1',
-        title: '본인 테스트 문의 등록 → 소통함에서 승인 및 [링크 닫기] 점검',
+        title: '본인 테스트 문의 등록 → 고객 소통함에서 [자료 보내기] 및 [보낸 링크 잠그기] 점검',
         workspaceHref: '/broker/w/inbox',
         workspaceLabel: '고객 소통함 열기',
         actionChecklist: [
-          '창 B에서 본인 이름(예: 테스트매수자)으로 자료 요청을 남긴 뒤, 창 A 소통함에서 [자료 보내기]와 [보낸 링크 잠그기]를 한 번씩 실행해 봅니다.',
+          '창 B에서 본인 이름(예: 테스트매수자)으로 [상세 제안서(IM) 요청]을 남긴 뒤, 창 A 고객 소통함에서 [자료 보내기]와 [보낸 링크 잠그기]를 차례대로 눌러 실제로 열람이 차단되는지 확인합니다.',
         ],
         copySnippets: [],
+        inlineScratchFields: [
+          {
+            field: 'imShareUrl',
+            label: '② 잠금 확인할 내 매물 IM 링크 (/im-lite/...)',
+            placeholder: '소통함에서 보낸 열람 링크 (/im-lite/...)',
+          },
+        ],
         humanFocus: '전속·비공개 매물이 시중에 도는 것을 막아 주는 승인제 열람·링크 잠금 흐름이 현업 중개 사고 예방에 도움이 되는지 봅니다.',
         autoProbeFocus: '링크 잠금 시 외부 열람 즉시 차단 여부를 점검합니다.',
         oracleReference: '링크 잠금 후 비인가 열람 즉시 차단',
         brokerInsightPrompt:
-          'Q6. 매물 유출 방지(승인 후 열람 · 원할 때 링크 닫기)와 고객 열람 횟수 확인 기능에 대한 의견을 남겨 주세요.',
+          'Q6. 매물 유출 방지(승인 후 열람 · 원할 때 링크 잠그기)와 고객 열람 횟수 확인 기능에 대한 의견을 남겨 주세요.',
         brokerQuickTags: [
           '전속·알짜 매물 보호에 꼭 필요한 기능임',
           '누가 몇 번 열어봤는지 보여 영업 타이밍 잡기 좋음',
@@ -721,16 +792,16 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 1,
         severityOnFail: 'S0',
-        title: '내 매물 비공개 무결성 판정 실행 → (선택) 원클릭 내 테스트 매물 삭제 → 최종 제출',
+        title: '내 매물 비공개 0건 최종 확인 → (선택) 원클릭 테스트 매물 삭제 → 최종 제출',
         actionChecklist: [
-          '오른쪽 보드의 [🔍 실시간 보안·블라인드 판정 실행]을 눌러 내가 지정한 번지·건물명·소유주 번호가 공개 화면에 단 한 글자도 노출되지 않았음을 확인합니다.',
-          '테스트에 쓰신 실제 매물 데이터를 서버에 남기지 않으려면 바로 아래 [🧹 내 테스트 매물·딜카드·IM 즉시 삭제] 버튼을 눌러 깨끗이 지웁니다.',
-          '상단 [📋 Sign-off] 탭으로 이동해 현업 총평을 남기고 [☁️ 서버 최종 제출]을 눌러 마무리합니다.',
+          '바로 아래 초록색 박스의 [🔍 내 매물 비공개 0건 확인] 버튼을 눌러 Step 1에 적어 두신 번지·건물명·전화번호가 공개 화면에 단 한 글자도 나오지 않았음을 확인합니다.',
+          '테스트에 쓰신 실제 매물 데이터를 서버에 남기지 않으려면 바로 아래 [🧹 내 테스트 매물·딜카드·IM 서버에서 즉시 삭제] 버튼을 눌러 깨끗이 지웁니다.',
+          '화면 맨 위 초록색 [📋 Sign-off] 탭으로 이동해 현업 총평을 남기고 [☁️ 서버 최종 제출]을 눌러 마무리합니다.',
         ],
         copySnippets: [],
         humanFocus: '기존 한글·PPT·엑셀 수작업 대비 체감 시간 단축 효과와 유료 도입 의향에 결정적인 한 가지를 들려주세요.',
-        autoProbeFocus: '커스텀 비공개 금지어 0건 및 삭제 후 공개 링크 비활성화를 확인합니다.',
-        oracleReference: '비공개 정보 유출 0건 · 클린업 실행 시 즉시 폐기 완료',
+        autoProbeFocus: '내 매물 비공개 단어 노출 0건 및 삭제 실행 후 공개 링크 비활성화를 확인합니다.',
+        oracleReference: '비공개 정보 유출 0건 · 삭제 실행 시 즉시 폐기 완료',
         brokerInsightPrompt:
           'Q7. 기존 수작업(PPT·한글·엑셀) 대비 체감 작성 시간은 얼마나 줄었나요? 현업 도입을 위해 가장 바라는 개선 1가지를 적어 주세요.',
         brokerQuickTags: [

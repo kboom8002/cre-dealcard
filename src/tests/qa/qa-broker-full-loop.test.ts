@@ -147,16 +147,94 @@ describe("Broker Full-Loop Workbench (/qa-broker/full-loop: 10-Photo Golden + BY
     expect(stabRes.status).toBe(200);
     expect(await stabRes.text()).toContain("신규우량법인A");
 
+    const stabCsvReq = new NextRequest(
+      "http://localhost:3000/api/public/qa-sample-kit?scenario=broker-loop1&format=csv-stabilized&qaKey=test-broker-qa-key",
+    );
+    const stabCsvRes = await getSampleKit(stabCsvReq);
+    expect(stabCsvRes.status).toBe(200);
+    expect(await stabCsvRes.text()).toContain("신규우량법인A");
+
     const zipReq = new NextRequest(
       "http://localhost:3000/api/public/qa-sample-kit?scenario=broker-loop1&qaKey=test-broker-qa-key",
     );
     const zipRes = await getSampleKit(zipReq);
     expect(zipRes.status).toBe(200);
     const zip = await JSZip.loadAsync(Buffer.from(await zipRes.arrayBuffer()));
-    const photoEntries = Object.keys(zip.files).filter((k) =>
-      k.startsWith("photos/") && !zip.files[k].dir,
+    const allNames = Object.keys(zip.files);
+    expect(allNames).toContain("00_대장면적_및_수익률_기준값_대조표.txt");
+    expect(allNames.some((k) => k.endsWith(".tsv"))).toBe(false);
+    const refTable = await zip
+      .file("00_대장면적_및_수익률_기준값_대조표.txt")!
+      .async("string");
+    expect(refTable).toContain("596.00 ㎡");
+    expect(refTable).toContain("2,104.88 ㎡");
+    const photoEntries = allNames.filter(
+      (k) => k.startsWith("photos/") && !zip.files[k].dir,
     );
     expect(photoEntries).toHaveLength(10);
+  });
+
+  it("enforces cognitive-aligned broker links (?new=1 / ?fresh=1), inline URL+privacy inputs, and standalone HTML/MD guides", () => {
+    const [stage1, stage2] = BROKER_FULL_LOOP_CASES;
+    const b1s2 = stage1.steps.find((s) => s.id === "B1-S2")!;
+    const b1s3 = stage1.steps.find((s) => s.id === "B1-S3")!;
+    const b2s1 = stage2.steps.find((s) => s.id === "B2-S1")!;
+    const b2s2 = stage2.steps.find((s) => s.id === "B2-S2")!;
+    const b2s3 = stage2.steps.find((s) => s.id === "B2-S3")!;
+
+    expect(b1s2.workspaceHref).toBe("/broker/w/dealcards?new=1");
+    expect(b1s3.workspaceHref).toBe("/broker/w/im?fresh=1");
+    expect(b2s1.workspaceHref).toBe("/broker/w/dealcards?new=1");
+    expect(b2s2.workspaceHref).toBe("/broker/w/im?fresh=1");
+    expect(b2s3.workspaceHref).toBe("/broker/w/im");
+
+    expect(b2s1.inlineScratchFields?.map((f) => f.field)).toEqual([
+      "dealCardUrl",
+      "byodForbiddenKeywords",
+    ]);
+
+    for (const c of BROKER_FULL_LOOP_CASES) {
+      const visibleBlob = [
+        c.tabLabel,
+        c.shortLabel,
+        c.title,
+        c.subtitle,
+        c.secondarySheetLabel || "",
+        ...c.domainTraps.map((t) => `${t.code} ${t.title} ${t.detail}`),
+        ...c.steps.flatMap((s) => [
+          s.title,
+          ...s.actionChecklist,
+          ...s.copySnippets.map((sn) => `${sn.label} ${sn.targetHint}`),
+        ]),
+      ].join(" ");
+      expect(visibleBlob).not.toContain("오라클");
+      expect(visibleBlob).not.toContain("TRAP-");
+      expect(visibleBlob).not.toContain("TSV");
+      expect(visibleBlob).not.toContain("BYOD");
+    }
+
+    const mdGuide = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "docs/finaltest/BROKER_FULL_LOOP_10PHOTOS_AND_BYOD_GUIDE.md",
+      ),
+      "utf8",
+    );
+    const htmlGuide = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "docs/finaltest/BROKER_FULL_LOOP_10PHOTOS_AND_BYOD_GUIDE.html",
+      ),
+      "utf8",
+    );
+    for (const doc of [mdGuide, htmlGuide]) {
+      expect(doc).toContain("qaKey=credeal_broker_319425653f28d8673ddb");
+      expect(doc).not.toContain("<QA_");
+      expect(doc).toContain("596.00㎡");
+      expect(doc).toContain("2,104.88㎡");
+      expect(doc).toContain("[카톡으로 보내기]");
+      expect(doc).toContain("[📋 표 붙여넣기]");
+    }
   });
 
   it("verifies broker-loop1 ground truth (596 / 2104.88) and catches BYOD customForbiddenTokens leaks", async () => {

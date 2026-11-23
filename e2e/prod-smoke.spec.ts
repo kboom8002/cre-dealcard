@@ -375,7 +375,7 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     ).toBeVisible();
 
     const byodTab = page.getByRole("button", {
-      name: /Stage 2 · 내 매물 실전 \(BYOD\)/,
+      name: /Stage 2 · 내 매물 실전/,
     });
     await byodTab.click();
 

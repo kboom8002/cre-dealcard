@@ -100,6 +100,13 @@ function getWindowBadgeClass(badge: FullLoopStepItem["windowBadge"]): string {
   return "bg-blue-100 text-blue-900 border-blue-300";
 }
 
+function formatSubsystemLabel(subsystem: FullLoopStepItem["subsystem"]): string {
+  if (subsystem === "오라클·보안마감") {
+    return "최종 링크·비공개 점검";
+  }
+  return subsystem;
+}
+
 export function QaFullLoopWorkbenchClient({
   config,
 }: {
@@ -1310,7 +1317,7 @@ export function QaFullLoopWorkbenchClient({
                           : st === "NEEDS_POLISH"
                           ? "✨ "
                           : ""}
-                        Step {s.stepNumber}. {s.subsystem}
+                        Step {s.stepNumber}. {formatSubsystemLabel(s.subsystem)}
                       </button>
                     );
                   })}
@@ -1343,7 +1350,7 @@ export function QaFullLoopWorkbenchClient({
                               {step.id}
                             </span>
                             <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-sm font-bold">
-                              {step.subsystem}
+                              {formatSubsystemLabel(step.subsystem)}
                             </span>
                             <span
                               className={`px-2.5 py-0.5 rounded-md border text-sm font-extrabold ${getWindowBadgeClass(
@@ -1469,6 +1476,67 @@ export function QaFullLoopWorkbenchClient({
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+
+                      {currentLoop.enableByodCleanup &&
+                        step.stepNumber === currentLoop.steps.length && (
+                          <div
+                            data-testid="step-inline-byod-cleanup"
+                            className="rounded-xl bg-emerald-50/80 border border-emerald-300 p-3.5 space-y-2.5"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <div className="text-sm font-extrabold text-emerald-950">
+                                  🛡️ 내 매물 비공개 확인 & 테스트 매물 즉시 삭제 (스크롤 없이 바로 실행)
+                                </div>
+                                <p className="text-sm text-emerald-900 mt-0.5">
+                                  1) 먼저 비공개 확인을 실행한 뒤, 2) 서버에 테스트 데이터를 남기지 않으려면 아래 초록색 삭제 버튼을 누르세요.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={probeLoading}
+                                onClick={() => void runLiveProbe(currentLoopId)}
+                                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-extrabold cursor-pointer shrink-0"
+                              >
+                                {probeLoading ? "점검 중…" : "🔍 내 매물 비공개 0건 확인"}
+                              </button>
+                            </div>
+
+                            {!confirmingByodCleanup ? (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingByodCleanup(true)}
+                                className="w-full min-h-[42px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold cursor-pointer"
+                              >
+                                🧹 내 테스트 매물·딜카드·IM 서버에서 즉시 삭제
+                              </button>
+                            ) : (
+                              <div className="rounded-xl bg-rose-50 border border-rose-300 p-3 space-y-2">
+                                <p className="text-sm font-bold text-rose-950">
+                                  입력해 두신 테스트 딜카드와 IM을 지금 바로 서버에서 폐기할까요?
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={cleanupLoading}
+                                    onClick={() => void handleRunByodCleanup()}
+                                    className="flex-1 min-h-[40px] rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-extrabold cursor-pointer"
+                                  >
+                                    {cleanupLoading ? "삭제 중…" : "네, 지금 삭제"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={cleanupLoading}
+                                    onClick={() => setConfirmingByodCleanup(false)}
+                                    className="min-h-[40px] px-3 rounded-xl bg-white border border-slate-300 text-slate-800 text-sm font-bold cursor-pointer"
+                                  >
+                                    취소
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -1779,7 +1847,7 @@ export function QaFullLoopWorkbenchClient({
                         }`}
                       >
                         <div className="font-extrabold">
-                          📐 정답 면적·다필지 오라클
+                          📐 공적장부 면적 일치 점검
                         </div>
                         <p className="mt-0.5">
                           {activeProbe.groundTruthOracleCheck.statusLabel}
@@ -1841,7 +1909,7 @@ export function QaFullLoopWorkbenchClient({
                         }`}
                       >
                         <div className="font-extrabold">
-                          🔗 매수자 2 열람 링크 (직교 비교)
+                          🔗 매수자 2 열람 링크 비교
                         </div>
                         <p className="mt-0.5">
                           {activeProbe.secondaryShareLinkCheck.statusLabel}

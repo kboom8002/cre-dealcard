@@ -51,7 +51,8 @@ export type FullLoopScratchFieldKey =
   | 'imShareUrl'
   | 'secondaryImShareUrl'
   | 'newsletterUrl'
-  | 'subscriberContact';
+  | 'subscriberContact'
+  | 'byodForbiddenKeywords';
 
 export interface FullLoopInlineScratchSpec {
   field: FullLoopScratchFieldKey;

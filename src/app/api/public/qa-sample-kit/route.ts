@@ -22,6 +22,7 @@ import {
   BROKER_CASE02_ASIS_TSV,
   BROKER_CASE02_ASSET_CDN_MAP,
   BROKER_CASE02_MEMO,
+  BROKER_CASE02_STABILIZED_CSV,
   BROKER_CASE02_STABILIZED_TSV,
   BROKER_CASE02_WON_TRAP_TSV,
   BROKER_FULL_LOOP_CASES,
@@ -616,6 +617,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    if (format === "csv-stabilized") {
+      return new NextResponse(`\uFEFF${BROKER_CASE02_STABILIZED_CSV}\r\n`, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition":
+            'attachment; filename="seocho_1364_28_stabilized_rentroll.csv"',
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     if (format === "tsv-stabilized") {
       return new NextResponse(`\uFEFF${BROKER_CASE02_STABILIZED_TSV}\r\n`, {
         status: 200,
@@ -642,26 +655,69 @@ export async function GET(req: NextRequest) {
 
     if (brokerCase) {
       const bZip = new JSZip();
+      const bGt = brokerCase.groundTruth;
+      bZip.file(
+        "00_대장면적_및_수익률_기준값_대조표.txt",
+        [
+          `[${brokerCase.propertyName}] 건축물대장·토지대장 및 임대수익률 기준값 대조표`,
+          "================================================================",
+          `• 지번 주소   : ${brokerCase.jibunAddress}`,
+          `• 도로명 주소 : ${brokerCase.roadAddress}`,
+          `• 희망 매매가 : ${brokerCase.askingPriceReadout}`,
+          "",
+          "[1] 공적장부(건축물대장·토지대장) 자동 조회 기준값 — IM ① 표지·기본정보 대조용",
+          `• 대지면적    : ${bGt.expectedLandAreaSqm.toFixed(2)} ㎡ (약 ${bGt.expectedLandAreaPyeong.toFixed(1)} 평)`,
+          `• 연면적      : ${bGt.expectedGfaSqm.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ㎡ (약 ${bGt.expectedGfaPyeong.toFixed(1)} 평)`,
+          "• 층수·주차   : 지하 1층 ~ 지상 6층 / 자주식 포함 총 20대",
+          "",
+          "[2] 층별 임대차 합계 및 수익률 기준값 — IM ② 층별 임대현황 대조용",
+          `• 보증금·월세 : ${bGt.expectedDepositSummary}`,
+          `• 점유·공실   : ${bGt.expectedOccupancySummary}`,
+          `• 순수익률    : ${bGt.expectedYieldSummary}`,
+          "",
+          "[3] 공개 화면(딜카드·부동산뉴스) 비공개 보호 확인 단어 (노출 0건 필수)",
+          `• ${bGt.forbiddenPublicTokens.join(", ")}`,
+          "",
+        ].join("\r\n"),
+      );
       bZip.file(
         "00_README_중개인_골든10장_안내.txt",
         [
           `${brokerCase.code} — ${brokerCase.title}`,
           "================================================================",
-          `대상 실매물: ${brokerCase.propertyName} (${brokerCase.askingPriceReadout})`,
-          `지번 주소: ${brokerCase.jibunAddress} / 도로명: ${brokerCase.roadAddress}`,
-          `정답 면적: 대지 ${brokerCase.groundTruth.expectedLandAreaSqm}㎡ / 연면적 ${brokerCase.groundTruth.expectedGfaSqm}㎡`,
-          `포함 현장 사진: 총 ${brokerCase.images.length}장 (외관 4장 + 내부·설비 6장, 세로형 승강기 포함)`,
+          `대상 매물 : ${brokerCase.propertyName} (${brokerCase.askingPriceReadout})`,
+          `지번 주소 : ${brokerCase.jibunAddress} / 도로명: ${brokerCase.roadAddress}`,
+          `대지면적  : ${bGt.expectedLandAreaSqm.toFixed(2)}㎡ (약 ${bGt.expectedLandAreaPyeong.toFixed(1)}평)`,
+          `연면적    : ${bGt.expectedGfaSqm.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}㎡ (약 ${bGt.expectedGfaPyeong.toFixed(1)}평)`,
+          `현장 사진 : 총 ${brokerCase.images.length}장 (외관 4장 + 내부·설비 6장, 세로형 승강기 포함)`,
           "",
-          "[핵심 체험 포인트]",
-          ...brokerCase.domainTraps.map((t) => `- [${t.code}] ${t.title}: ${t.detail}`),
+          "[폴더 안 파일 사용법]",
+          "0. 00_대장면적_및_수익률_기준값_대조표.txt    : IM 주소 조회 시 대지면적(596.00㎡)·연면적(2,104.88㎡) 비교표",
+          "1. 01_딜카드_현장메모_원문.txt                : 새 딜카드 상단 메모칸에 붙여넣고 [✨ 메모로 딜카드 생성하기] 클릭",
+          "2. 02_현행_임대현황_복사붙여넣기용_표.txt     : 전체 복사(Ctrl+A→Ctrl+C) 후 [현행 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭",
+          "3. 03_기대수익률_임대현황_복사붙여넣기용_표.txt: 전체 복사 후 [+ 기대수익률 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭",
+          "4. 04_현행_임대현황_엑셀업로드용.csv          : [📁 엑셀 파일 불러오기 ▾]에 바로 올릴 수 있는 현행 CSV 파일",
+          "5. 05_기대수익률_임대현황_엑셀업로드용.csv    : [+ 기대수익률 임대차 현황] → [📁 엑셀 파일 불러오기 ▾] 업로드용 CSV 파일",
+          "6. photos/                                    : IM [④ 사진·위치·만들기] 탭에 한꺼번에 올릴 현장 사진 10장",
           "",
         ].join("\r\n"),
       );
-      bZip.file("01_딜카드_현장메모_원문.txt", BROKER_CASE02_MEMO);
-      bZip.file("02_현행_임대현황_붙여넣기.tsv", BROKER_CASE02_ASIS_TSV);
-      bZip.file("03_전층임대전환_기대수익률_붙여넣기.tsv", BROKER_CASE02_STABILIZED_TSV);
-      bZip.file("04_현행_임대현황_업로드용.csv", `\uFEFF${BROKER_CASE02_ASIS_CSV}\r\n`);
-      bZip.file("99_부록_원단위오입력_자동보정체험.tsv", BROKER_CASE02_WON_TRAP_TSV);
+      bZip.file(
+        "01_딜카드_현장메모_원문.txt",
+        [
+          BROKER_CASE02_MEMO,
+          "",
+          "--- [참고: 공적장부 기준 면적 대조값] ---",
+          "• 대지면적: 596.00㎡ (약 180.3평)",
+          "• 연면적  : 2,104.88㎡ (약 636.7평)",
+          "• 주차대수: 20대 (지하 1층 ~ 지상 6층)",
+        ].join("\r\n"),
+      );
+      bZip.file("02_현행_임대현황_복사붙여넣기용_표.txt", BROKER_CASE02_ASIS_TSV);
+      bZip.file("03_기대수익률_임대현황_복사붙여넣기용_표.txt", BROKER_CASE02_STABILIZED_TSV);
+      bZip.file("04_현행_임대현황_엑셀업로드용.csv", `\uFEFF${BROKER_CASE02_ASIS_CSV}\r\n`);
+      bZip.file("05_기대수익률_임대현황_엑셀업로드용.csv", `\uFEFF${BROKER_CASE02_STABILIZED_CSV}\r\n`);
+      bZip.file("99_선택체험_원단위숫자_자동보정용_표.txt", BROKER_CASE02_WON_TRAP_TSV);
 
       for (const img of brokerCase.images) {
         const imgBuf = await resolveHoldoutAssetBuffer({

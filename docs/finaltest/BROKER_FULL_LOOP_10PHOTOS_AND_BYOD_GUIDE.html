@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>크리딜(CRE DealCard) 현업 공인중개사 전용 실전 풀루프 가이드 (10장 샘플 + 내 매물)</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --ink: #0f172a;
+    --muted: #475569;
+    --line: #cbd5e1;
+    --line-soft: #e2e8f0;
+    --blue: #1d4ed8;
+    --blue-bg: #eff6ff;
+    --green: #15803d;
+    --green-bg: #dcfce7;
+    --amber: #b45309;
+    --amber-bg: #fef3c7;
+    --rose: #be123c;
+    --rose-bg: #ffe4e6;
+    --indigo: #4338ca;
+    --indigo-bg: #eef2ff;
+    --base-size: 15.5px;
+  }
+  html[data-scale="large"] { --base-size: 17.5px; }
+  html[data-scale="xlarge"] { --base-size: 19.5px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: var(--base-size);
+    line-height: 1.55;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(15, 23, 42, 0.97);
+    color: #fff;
+    padding: 9px 14px;
+    border-bottom: 1px solid #334155;
+    backdrop-filter: blur(8px);
+  }
+  .topbar-inner {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .v-badge { background: #34d399; color: #0f172a; font-weight: 800; font-size: 14px; padding: 2px 9px; border-radius: 8px; }
+  .top-title { font-weight: 800; font-size: 16px; }
+  .top-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tab-btn, .scale-btn {
+    border: 1px solid #475569;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 6px 11px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .tab-btn.active { background: #2563eb; border-color: #60a5fa; color: #fff; }
+  .tab-btn.signoff.active { background: #15803d; border-color: #4ade80; }
+  .scale-group { display: inline-flex; gap: 3px; background: #0f172a; padding: 2px; border-radius: 9px; border: 1px solid #334155; }
+  .scale-btn { border: none; padding: 4px 8px; font-size: 14px; border-radius: 7px; }
+  .scale-btn.active { background: #fbbf24; color: #0f172a; font-weight: 800; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 12px 14px 68px; }
+  .quick-banner {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .safety-banner {
+    background: #ecfdf5;
+    border: 2px solid #6ee7b7;
+    border-radius: 12px;
+    padding: 11px 14px;
+    margin-bottom: 10px;
+    font-size: 0.95em;
+    color: #064e3b;
+  }
+  .btn-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 800;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #1e40af; }
+  .btn-secondary { background: #f1f5f9; color: #0f172a; border-color: var(--line); }
+  .btn-secondary:hover { background: #e2e8f0; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover { background: #166534; }
+  .btn-amber { background: var(--amber-bg); color: #78350f; border-color: #fcd34d; }
+
+  details.compact-details {
+    background: var(--card);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+  }
+  details.compact-details summary {
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 0.96em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+  }
+  .ref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    font-size: 0.93em;
+  }
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+  .step-card.st-PASS { border-color: #4ade80; background: #f0fdf4; }
+  .step-card.st-NEEDS_POLISH { border-color: #fbbf24; background: #fffbeb; }
+  .step-card.st-FAIL { border-color: #fb7185; background: #fff1f2; }
+  .step-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .badge-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .step-code { background: #0f172a; color: #fff; font-weight: 800; font-size: 14px; padding: 2px 8px; border-radius: 6px; }
+  .win-pill { background: var(--blue-bg); color: var(--blue); border: 1px solid #bfdbfe; font-weight: 800; font-size: 14px; padding: 2px 8px; border-radius: 6px; }
+  .win-pill.mobile { background: var(--green-bg); color: var(--green); border-color: #86efac; }
+  .step-title { margin: 4px 0 0; font-size: 1.06em; font-weight: 800; }
+
+  .copy-box {
+    background: var(--blue-bg);
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 9px 11px;
+    margin: 8px 0;
+  }
+  .copy-box-title { font-size: 0.92em; font-weight: 800; color: #1e3a8a; margin-bottom: 6px; }
+  .copy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
+  .copy-chip {
+    background: #fff;
+    border: 1px solid #93c5fd;
+    border-radius: 9px;
+    padding: 8px 10px;
+    text-align: left;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .copy-chip:hover { background: #dbeafe; }
+  .copy-chip.copied { background: #16a34a; border-color: #15803d; color: #fff; }
+  .copy-chip .c-label { font-size: 14px; font-weight: 800; display: block; }
+  .copy-chip .c-hint { font-size: 14px; color: #64748b; display: block; margin-top: 2px; }
+  .copy-chip.copied .c-hint { color: #dcfce7; }
+
+  ol.steps-ol { margin: 8px 0; padding-left: 22px; }
+  ol.steps-ol li { margin-bottom: 6px; font-size: 0.98em; }
+  .ui-btn {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-weight: 800;
+    font-size: 0.92em;
+  }
+  .ui-btn.green { background: #dcfce7; color: #166534; border-color: #86efac; }
+  .ui-btn.dark { background: #0f172a; color: #fff; border-color: #0f172a; }
+
+  .insight-box {
+    background: var(--indigo-bg);
+    border: 1px solid #c7d2fe;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+  .insight-q { font-weight: 800; color: #312e81; font-size: 0.95em; margin-bottom: 7px; }
+  .tag-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+  .q-tag {
+    border: 1px solid #a5b4fc;
+    background: #fff;
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .q-tag.selected { background: var(--indigo); border-color: #3730a3; color: #fff; }
+
+  .url-save-row {
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .url-save-row label { font-size: 0.92em; font-weight: 800; color: #065f46; }
+  .url-save-row input {
+    flex: 1;
+    min-width: 210px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #34d399;
+    font-size: 14px;
+  }
+
+  .verdict-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .v-btn {
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-weight: 800;
+    font-size: 14px;
+    padding: 6px 11px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .v-btn.pass.active { background: #16a34a; border-color: #15803d; color: #fff; }
+  .v-btn.polish.active { background: #f59e0b; border-color: #d97706; color: #fff; }
+  .v-btn.fail.active { background: #e11d48; border-color: #be123c; color: #fff; }
+  .note-input {
+    flex: 1;
+    min-width: 190px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .hidden { display: none !important; }
+  .toast {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: #0f172a;
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 10px 15px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="title-row">
+      <span class="v-badge">중개인 실전</span>
+      <span class="top-title">크리딜 전 과정 클릭스루 가이드 (10장 샘플 + 내 매물)</span>
+      <span id="progressBadge" style="font-size:14px;color:#93c5fd;font-weight:700;">진행 0 / 14</span>
+    </div>
+    <div class="top-actions">
+      <div class="scale-group" role="group" aria-label="글자 크기 조절">
+        <button type="button" class="scale-btn active" id="scale-normal" onclick="setFontScale('normal')">기본</button>
+        <button type="button" class="scale-btn" id="scale-large" onclick="setFontScale('large')">크게</button>
+        <button type="button" class="scale-btn" id="scale-xlarge" onclick="setFontScale('xlarge')">아주 크게</button>
+      </div>
+      <button type="button" class="tab-btn active" id="tab-loop1" onclick="switchTab('loop1')">Stage 1 · 서초 사옥 10장</button>
+      <button type="button" class="tab-btn" id="tab-loop2" onclick="switchTab('loop2')">Stage 2 · 내 매물 실전</button>
+      <button type="button" class="tab-btn signoff" id="tab-signoff" onclick="switchTab('signoff')">📋 최종 의견·저장</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="quick-banner">
+    <div style="font-size:0.95em;">
+      <strong>🌐 온라인 검수 보드 (자동 점검 & 내 매물 원클릭 삭제 지원):</strong>
+      화면 왼쪽에 온라인 보드를 띄우시면 링크 점검과 테스트 매물 즉시 삭제까지 한 번에 됩니다.
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <a class="btn-link btn-primary" href="https://www.credeal.net/qa-broker/full-loop?qaKey=credeal_broker_319425653f28d8673ddb" target="_blank" rel="noopener">🚀 온라인 중개인 워크벤치 열기 (키 포함)</a>
+      <a class="btn-link btn-secondary" href="https://www.credeal.net/qa-broker/signoff?qaKey=credeal_broker_319425653f28d8673ddb" target="_blank" rel="noopener">📑 산출물 요약 보드 열기</a>
+    </div>
+  </div>
+
+  <details class="compact-details">
+    <summary>
+      <span>🖥️ 화면 배치 & 카카오톡 주의사항 (왼쪽: 이 가이드 / 오른쪽: 크리딜 작업창 / 스마트폰: 나와의 채팅)</span>
+      <span style="color:#64748b;font-size:14px;">펼치기 ▾</span>
+    </summary>
+    <div class="ref-grid">
+      <div><strong>창 A (PC 오른쪽 창 · 로그인)</strong><br>중개사 계정으로 로그인해 딜카드 · IM · 부동산뉴스 작성 및 테스트 매물 삭제</div>
+      <div><strong>창 B (스마트폰 카톡 [나와의 채팅])</strong><br>⚠️ 실제 손님 단톡방 오발송 주의! 반드시 [나와의 채팅]이나 시크릿 창으로만 열어 보세요.</div>
+      <div><strong>글자 크기 팁</strong><br>오른쪽 위 [기본 / 크게 / 아주 크게] 버튼을 누르면 가이드 글씨가 즉시 커집니다.</div>
+    </div>
+  </details>
+
+  <!-- STAGE 1 -->
+  <section id="sec-loop1">
+    <div class="quick-banner" style="background:#f8fafc;">
+      <div>
+        <div style="font-weight:800;font-size:1.03em;">Stage 1 — 서초동 1364-28 사옥빌딩 230억 (실사진 10장 · 사용법 익히기)</div>
+        <div style="font-size:0.92em;color:#475569;">먼저 제공된 사옥 샘플(자가사용 2개층 + 공실 1개층 + 임대 4개층 + 사진 10장)로 화면 사용법을 편하게 익힙니다.</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <a class="btn-link btn-primary" href="https://www.credeal.net/api/public/qa-sample-kit?scenario=broker-loop1&qaKey=credeal_broker_319425653f28d8673ddb">📦 Stage 1 샘플 ZIP 받기 (사진 10장 포함)</a>
+        <a class="btn-link btn-secondary" href="https://www.credeal.net/api/public/qa-sample-kit?scenario=broker-loop1&format=csv&qaKey=credeal_broker_319425653f28d8673ddb">📊 현행 임대차 CSV</a>
+        <a class="btn-link btn-amber" href="https://www.credeal.net/api/public/qa-sample-kit?scenario=broker-loop1&format=csv-stabilized&qaKey=credeal_broker_319425653f28d8673ddb">📊 기대수익률 CSV</a>
+      </div>
+    </div>
+
+    <div class="ref-grid" style="margin-bottom:12px;background:#fff;">
+      <div><strong>📐 공적장부 기준 면적 (IM 비교용)</strong><br>대지 <code>596.00㎡</code> (약 180.3평) · 연면적 <code>2,104.88㎡</code> (약 636.7평, 주차 20대)</div>
+      <div><strong>💰 임대차·수익률 기준값</strong><br>현행 보 40,000만 / 월 3,200만 (<code>1.70%</code>) → 전환 시 보 82,000만 / 월 6,500만 (<code>3.52%</code>)</div>
+      <div><strong>🔒 공개 화면 비공개 단어</strong><br><code>1364-28</code>, <code>강남대로37길 56-18</code>, <code>FM빌딩</code>, <code>010-3344-8899</code>, <code>최상무</code></div>
+    </div>
+
+    <div id="steps-loop1"></div>
+  </section>
+
+  <!-- STAGE 2 -->
+  <section id="sec-loop2" class="hidden">
+    <div class="safety-banner">
+      <strong>🛡️ 안심하고 대표님의 실제 매물 1건으로 테스트하세요!</strong><br>
+      ① 링크 확인은 반드시 <strong>카카오톡 [나와의 채팅]</strong> 또는 시크릿 창에서만 해 주세요 (실제 고객 오발송 주의).<br>
+      ② 테스트를 마친 직후 온라인 워크벤치 <strong>Step 7의 [🧹 내 테스트 매물·딜카드·IM 서버에서 즉시 삭제]</strong> 버튼을 누르면 서버에서 즉시 폐기됩니다.
+    </div>
+
+    <div class="quick-banner" style="background:#f8fafc;">
+      <div>
+        <div style="font-weight:800;font-size:1.03em;">Stage 2 — 대표님 보유 실제 매물 1건 실전 완주 (현장 사진 9장 이상 권장)</div>
+        <div style="font-size:0.92em;color:#475569;">각 단계 아래 보라색 질문(Q1~Q7)의 빠른 태그를 콕콕 눌러 현업에서 느끼신 솔직한 의견을 들려주세요.</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <a class="btn-link btn-green" href="https://www.credeal.net/qa-broker/full-loop?qaKey=credeal_broker_319425653f28d8673ddb" target="_blank" rel="noopener">🧹 온라인 보드 열기 (비공개 점검·원클릭 삭제)</a>
+      </div>
+    </div>
+
+    <div id="steps-loop2"></div>
+  </section>
+
+  <!-- SIGNOFF -->
+  <section id="sec-signoff" class="hidden">
+    <div class="step-card">
+      <h2 style="margin:0 0 8px;font-size:1.15em;">📋 현업 공인중개사 검수 결과 저장 · 내보내기</h2>
+      <p style="margin:0 0 12px;color:#475569;font-size:0.95em;">
+        작성하신 단계별 판정, Q1~Q7 현업 태그, 링크 기록은 이 브라우저에 자동 저장됩니다. 아래 버튼으로 결과 파일(<code>.md</code>)을 내려받아 전달해 주시거나, 온라인 워크벤치 상단 <code>[📋 Sign-off] → [☁️ 서버 최종 제출]</code>을 눌러 제출해 주세요.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:10px;">
+        <input id="testerName" class="note-input" placeholder="대표님 성함 (예: 김대표 공인중개사)" oninput="saveMeta()" />
+        <input id="testerOrg" class="note-input" placeholder="중개사무소 상호 (선택)" oninput="saveMeta()" />
+      </div>
+      <textarea id="overallComment" rows="4" style="width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;font-size:15px;margin-bottom:10px;" placeholder="오늘 당장 실제 매수 손님께 쓰시기에 가장 좋았던 점과, 꼭 고쳤으면 하는 현업 개선점 1가지를 자유롭게 적어 주세요." oninput="saveMeta()"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="btn-link btn-primary" onclick="downloadMarkdownReport()">⬇️ 중개인 검수 결과 파일(.md) 다운로드</button>
+        <a class="btn-link btn-green" href="https://www.credeal.net/qa-broker/full-loop?qaKey=credeal_broker_319425653f28d8673ddb" target="_blank" rel="noopener">☁️ 온라인 워크벤치에서 서버 제출하기</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+const STORAGE_KEY = "credeal_broker_guide_html_v1";
+
+const ASIS_TSV = [
+  "층\t호수\t업종\t임차인\t임대면적(㎡)\t전용면적(㎡)\t보증금(만원)\t월세(만원)\t관리비(만원)\t만기일\t상태",
+  "6F\t601호\tIT솔루션본사\t매도법인(대표실)\t298.00\t238.40\t0\t0\t0\t-\t자가사용",
+  "5F\t501호\tIT솔루션본사\t매도법인(개발본부)\t304.00\t243.20\t0\t0\t0\t-\t자가사용",
+  "4F\t401호\t업무시설\t공실(즉시입주)\t304.00\t243.20\t0\t0\t0\t-\t공실",
+  "3F\t301호\t세무회계법인\t서초세무회계\t304.00\t243.20\t10000\t780\t150\t2027-08-31\t임대중",
+  "2F\t201호\t엔지니어링오피스\t한빛설계기술\t304.00\t243.20\t10000\t820\t150\t2027-11-30\t임대중",
+  "1F\t101호\t중식레스토랑\t도화다이닝\t292.88\t234.30\t15000\t1150\t180\t2028-04-30\t임대중",
+  "B1\tB101호\t크리에이티브스튜디오\t조이너스스튜디오\t298.00\t220.00\t5000\t450\t100\t2027-05-31\t임대중"
+].join("\n");
+
+const STAB_TSV = [
+  "층\t호수\t업종\t임차인\t임대면적(㎡)\t전용면적(㎡)\t보증금(만원)\t월세(만원)\t관리비(만원)\t만기일\t상태",
+  "6F\t601호\t기업부설연구소\t신규우량법인A\t298.00\t238.40\t12000\t920\t155\t2028-12-31\t임대중",
+  "5F\t501호\t클라우드사업부\t신규우량법인A\t304.00\t243.20\t12000\t940\t160\t2028-12-31\t임대중",
+  "4F\t401호\tIT업무시설\t신규우량법인B\t304.00\t243.20\t12000\t940\t160\t2028-12-31\t임대중",
+  "3F\t301호\t세무회계법인\t서초세무회계\t304.00\t243.20\t11000\t880\t160\t2028-08-31\t임대중",
+  "2F\t201호\t엔지니어링오피스\t한빛설계기술\t304.00\t243.20\t11000\t920\t160\t2028-11-30\t임대중",
+  "1F\t101호\t중식레스토랑\t도화다이닝\t292.88\t234.30\t18000\t1350\t200\t2029-04-30\t임대중",
+  "B1\tB101호\t크리에이티브스튜디오\t조이너스스튜디오\t298.00\t220.00\t6000\t550\t110\t2028-05-31\t임대중"
+].join("\n");
+
+const STEPS = {
+  loop1: [
+    {
+      id: "B1-S1", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 1. 중개사무소 법정 표기(상호·대표자·등록번호·연락처) 확인",
+      openUrl: "https://www.credeal.net/broker/settings/profile", openLabel: "🚀 중개사 프로필 설정 열기",
+      copies: [],
+      items: [
+        "중개사무소 상호, 대표 공인중개사 성명, 개설등록번호, 소재지, 연락처가 맞는지 확인하고 <span class='ui-btn dark'>[저장]</span>을 누릅니다.",
+        "제안서 하단에 대표님 사무소 명함이 일관되게 들어갈 준비가 되었는지 확인합니다."
+      ]
+    },
+    {
+      id: "B1-S2", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 2. 새 딜카드 열기 → 서초동 사옥 메모 생성 → [카톡으로 보내기]에서 링크 복사",
+      openUrl: "https://www.credeal.net/broker/w/dealcards?new=1", openLabel: "🚀 새 딜카드 작성 화면 열기",
+      urlKey: "b1_dc", urlLabel: "① 복사한 서초동 딜카드 링크 (/dc/...)",
+      copies: [
+        { label: "사옥 현장 메모 복사", hint: "상단 메모칸 붙여넣기 → [✨ 메모로 딜카드 생성하기]", val: "서울특별시 서초구 서초동 1364-28 FM빌딩 사옥용 오피스 매각 230억, 대지 180.3평 / 연면적 636.7평(B1~6F), 자주식 주차 20대 완비, 양재역 3호선·신분당선 도보 4분 코너 각지, 상층 4~6층(약 274평) 잔금 즉시 사옥 입주 가능하며 저층부 월세 3,200만 안정 수취, 전층 임대 전환 시 월 6,500만 기대 (최상무 010-3344-8899)" },
+        { label: "한 줄 제목 복사 (16자)", hint: "한 줄 제목(18자 이내) 입력칸에 붙여넣기", val: "양재역 코너 사옥·주차 20대" }
+      ],
+      items: [
+        "빈 딜카드 화면이 열리면(기존 서교동 샘플이 보이면 좌측 상단 <span class='ui-btn'>[새 매물 입력]</span> 클릭), 위 메모를 붙여넣고 하단 <span class='ui-btn'>[✨ 메모로 딜카드 생성하기]</span>를 클릭합니다.",
+        "매물 유형을 <span class='ui-btn'>[사옥용]</span>으로 고르고, <strong>한 줄 제목(18자 이내)</strong> 칸에 위 16자 제목을 붙여넣습니다. (오른쪽 위 <span class='ui-btn'>[아주 크게]</span> 글자 버튼도 체험해 보세요.)",
+        "오른쪽 카톡 미리보기에 <code>서초구 서초동</code>만 나오고 <code>1364-28</code>·<code>FM빌딩</code>·<code>010-3344-8899</code>가 숨겨졌는지 본 뒤, 하단 <span class='ui-btn dark'>[카톡으로 보내기]</span> → 팝업창 <span class='ui-btn'>[링크 복사]</span>를 눌러 아래 초록색 칸에 붙여넣습니다."
+      ]
+    },
+    {
+      id: "B1-S3", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 3. 새 IM 주소 자동 조회(면적 대조) → 임대차 표 붙여넣기 → 사진 10장 & PPT 받기",
+      openUrl: "https://www.credeal.net/broker/w/im?fresh=1", openLabel: "🚀 새 IM 작성 화면 열기",
+      urlKey: "b1_im", urlLabel: "② 복사한 모바일 IM 공유 링크 (/im-lite/...)",
+      copies: [
+        { label: "지번 주소 복사", hint: "주소칸에 붙여넣고 [주소로 건물 정보 자동 채우기]", val: "서울특별시 서초구 서초동 1364-28" },
+        { label: "매매 희망가(만원) 복사 (230억)", hint: "매매 희망가(만원) 칸에 붙여넣기", val: "2300000" },
+        { label: "현행 임대차 표 한 번에 복사", hint: "복사 후 파란 [📋 표 붙여넣기] 버튼 클릭", val: ASIS_TSV },
+        { label: "기대수익률 임대차 표 한 번에 복사", hint: "[+ 기대수익률 임대차 현황] 클릭 후 파란 [📋 표 붙여넣기]", val: STAB_TSV },
+        { label: "사옥 강점 1 복사", hint: "③ 강점·입지 코멘트 → 강점 1", val: "양재역(3호선·신분당선·GTX-C 예정) 도보 4분 양면 도로 코너 각지로 곡면 커튼월 외관의 기업 사옥 가시성 탁월" },
+        { label: "사옥 강점 2 복사", hint: "③ 강점·입지 코멘트 → 강점 2", val: "서초권에서 희소한 자주식 포함 총 20대 주차 설비 확보 및 상층부 3개 층(4F~6F, 약 274평) 잔금 즉시 사옥 입주 가능" },
+        { label: "사옥 강점 3 복사", hint: "③ 강점·입지 코멘트 → 강점 3", val: "저층부(B1~3F) 우량 임차인 월 3,200만 원 임대수익으로 사옥 이자비용을 상쇄하며 전층 임대 전환 시 연 순수익률 3.52% 기대" }
+      ],
+      items: [
+        "<strong>[① 표지·기본정보]</strong> 추천 1번 <span class='ui-btn'>[🏢 매물 주소로 대장·토지 자동 조회]</span> 클릭 → 아래로 자동 이동된 칸에 주소 붙여넣고 <span class='ui-btn dark'>[주소로 건물 정보 자동 채우기]</span> 클릭 → 대지 <code>596.00㎡</code> · 연면적 <code>2,104.88㎡</code> 확인 후 매매가 <code>2300000</code> 입력.",
+        "<strong>[② 층별 임대현황]</strong> 위 <code>[현행 임대차 표 한 번에 복사]</code> 칩 클릭 후 화면의 파란 <span class='ui-btn'>[📋 표 붙여넣기]</span> 클릭(보증금 40,000만 / 월세 3,200만 확인) → 오른쪽 <span class='ui-btn green'>[+ 기대수익률 임대차 현황 (선택)]</span> 탭 클릭 → <code>[기대수익률 임대차 표 한 번에 복사]</code> 클릭 후 파란 <span class='ui-btn'>[📋 표 붙여넣기]</span> 클릭(보증금 82,000만 / 월세 6,500만 확인).",
+        "<strong>[③ 강점·입지 코멘트]</strong> 위 강점 3줄을 넣거나 <span class='ui-btn'>[✨ AI 초안 채우기]</span> 문구와 비교합니다.",
+        "<strong>[④ 사진·위치·만들기]</strong> 내려받은 샘플 ZIP 안 <code>photos</code> 폴더의 <strong>실사진 10장</strong>을 한꺼번에 올리고 <span class='ui-btn'>[★ 1번 대표로]</span> 지정 체험 → 하단 <span class='ui-btn dark'>[✨ 모바일 IM 만들기]</span> → 완료 창에서 <span class='ui-btn'>[📊 발표자료(PPT) 받기]</span>와 <span class='ui-btn'>[🔗 공유 링크 복사]</span> 클릭 후 아래 초록색 칸에 붙여넣습니다."
+      ]
+    },
+    {
+      id: "B1-S4", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 4. 단골 사옥 수요 고객용 부동산뉴스 발행 및 공개 주소 확인",
+      openUrl: "https://www.credeal.net/broker/magazine-editor", openLabel: "🚀 부동산뉴스 작성 화면 열기",
+      urlKey: "b1_nl", urlLabel: "④ 발행된 공개 부동산뉴스 링크 (/m/...)",
+      copies: [
+        { label: "부동산뉴스 제목 복사", hint: "제목 입력칸", val: "양재·서초권 중소형 사옥 매수세 유입과 자주식 주차 빌딩 희소성 점검" },
+        { label: "시장 브리핑 본문 복사", hint: "시장 요약 입력칸", val: "임차료 상승과 주차난으로 인해 강남·서초권에서 상층부는 직접 사옥으로 쓰고 저층부 임대료로 금융비용을 충당하는 실사용 매수 문의가 꾸준히 이어지고 있습니다." }
+      ],
+      items: [
+        "위 제목·브리핑을 붙여넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결해 발행합니다.",
+        "발행된 공개 주소를 아래 초록색 칸에 붙여넣고 상세 번지(<code>1364-28</code>)·건물명(<code>FM빌딩</code>)이 노출되지 않는지 확인합니다."
+      ]
+    },
+    {
+      id: "B1-S5", win: "창 B · 스마트폰 [나와의 채팅]", mobile: true,
+      title: "Step 5. 스마트폰 카톡 [나와의 채팅]에서 손님 시점 열람 후 상세 IM 요청",
+      copies: [
+        { label: "매수 문의자 성함 복사", hint: "창 B 성함", val: "정현우 대표 (넥스트클라우드)" },
+        { label: "매수 문의자 연락처 복사", hint: "창 B 연락처", val: "010-5581-2390" },
+        { label: "문의 내용 복사", hint: "창 B 문의 내용", val: "임직원 45명 규모 IT 법인 사옥 이전 검토 중입니다. 4~6층 즉시 입주 가능 면적과 주차 대수 상세 IM 요청드립니다." }
+      ],
+      items: [
+        "스마트폰 카카오톡 <strong>[나와의 채팅]</strong>(또는 시크릿 창)에서 Step 2의 딜카드 링크를 열어 카톡 썸네일과 첫 화면 인상을 봅니다.",
+        "하단 <span class='ui-btn dark'>[상세 제안서(IM) 요청]</span> 버튼을 눌러 위 예시 고객 정보로 문의를 남깁니다."
+      ]
+    },
+    {
+      id: "B1-S6", win: "창 A ↔ 창 B", mobile: false,
+      title: "Step 6. 고객 소통함에서 [자료 보내기] 승인 → 열람 확인 → [보낸 링크 잠그기] 체험",
+      openUrl: "https://www.credeal.net/broker/w/inbox", openLabel: "🚀 고객 소통함 열기",
+      items: [
+        "창 A 고객 소통함에서 방금 들어온 <code>정현우 대표</code> 문의를 선택해 <span class='ui-btn dark'>[자료 보내기]</span>로 승인하고, 발급된 링크를 창 B에서 열어 사진 10장 갤러리를 확인합니다.",
+        "다시 소통함에서 <span class='ui-btn'>[보낸 링크 잠그기]</span>를 누른 뒤, 창 B 새로고침 시 열람이 즉시 차단되는지 확인합니다."
+      ]
+    },
+    {
+      id: "B1-S7", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 7. Stage 1 완료! 상단 [Stage 2 · 내 매물 실전] 탭으로 이동",
+      items: [
+        "4가지 작업공간(딜카드 → IM·발표자료 → 부동산뉴스 → 고객 소통) 흐름이 손에 익으셨다면 화면 상단의 <strong>[Stage 2 · 내 매물 실전]</strong> 탭을 눌러 대표님의 실제 매물 1건을 넣어 보세요."
+      ]
+    }
+  ],
+  loop2: [
+    {
+      id: "B2-S1", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 1. 내 매물 새 딜카드 열기 → 평소 쓰시는 메모 그대로 생성 & 비공개 확인",
+      openUrl: "https://www.credeal.net/broker/w/dealcards?new=1", openLabel: "🚀 내 매물 새 딜카드 열기",
+      urlKey: "b2_dc", urlLabel: "① 내 매물 공개 딜카드 주소 (/dc/...)",
+      copies: [],
+      items: [
+        "빈 딜카드 화면에 수첩·카톡·엑셀에 적어 두신 실제 매물 메모 1건을 그대로 붙여넣고 하단 <span class='ui-btn'>[✨ 메모로 딜카드 생성하기]</span>를 클릭합니다.",
+        "매물 유형(임대수익용 / 사옥용 / 신축·개발용)과 한 줄 제목(18자 이내)을 고르고, 오른쪽 카톡 미리보기에 번지·건물명·소유주 번호가 숨겨졌는지 확인합니다.",
+        "하단 <span class='ui-btn dark'>[카톡으로 보내기]</span> → 팝업 <span class='ui-btn'>[링크 복사]</span> 후 아래 칸에 붙여넣습니다."
+      ],
+      prompt: "Q1. 평소 쓰시는 매물 메모를 그대로 넣었을 때, 인식이 안 되거나 입력 칸이 없어 아쉬웠던 현업 용어가 있었나요?",
+      tags: ["평소 메모 그대로 잘 인식됨", "매매가·보증금 조절가 표현 필요", "렌트프리·인테리어 기간 표기 희망", "부가세·관리비 별도 표기 아쉬움", "공동중개·수수료 비공개 메모칸 희망"]
+    },
+    {
+      id: "B2-S2", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 2. 내 매물 새 IM 주소 자동 조회(공적장부 대조) & 실제 임대차 현황 입력",
+      openUrl: "https://www.credeal.net/broker/w/im?fresh=1", openLabel: "🚀 내 매물 새 IM 작성 화면 열기",
+      copies: [],
+      items: [
+        "<strong>[① 표지·기본정보]</strong> 추천 1번 <span class='ui-btn'>[🏢 매물 주소로 대장·토지 자동 조회]</span> 클릭 → 실제 매물 주소를 넣고 <span class='ui-btn dark'>[주소로 건물 정보 자동 채우기]</span> 클릭 → 대장 면적·층수·주차·공시지가가 알고 계신 값과 맞는지 비교합니다.",
+        "<strong>[② 층별 임대현황]</strong> 보유하신 엑셀 파일을 <span class='ui-btn'>[📁 엑셀 파일 불러오기 ▾]</span>로 올리거나 엑셀 표를 복사해 파란 <span class='ui-btn'>[📋 표 붙여넣기]</span>로 넣어 보증금·월세·순수익률이 대표님 계산과 일치하는지 확인합니다. (창을 닫지 말고 Step 3으로 이동)"
+      ],
+      prompt: "Q2. 대장 자동 조회 수치와 실제 현장 상태(업종 차이·증축·임대 조건 등)가 다를 때 고치거나 표현하기 편했나요?",
+      tags: ["대장 연동과 수동 보정이 자연스러움", "공부상 용도와 실제 영업 업종 차이 표기 필요", "내 엑셀 렌트롤 양식과 열 구성이 달라 손봄", "위반건축물·특약사항 기재란 희망", "전세·자가사용·공실 구분이 명확함"]
+    },
+    {
+      id: "B2-S3", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 3. 직접 촬영한 내 매물 사진(9장 이상 권장) 업로드 · 대표 지정 · PPT 내려받기",
+      openUrl: "https://www.credeal.net/broker/w/im", openLabel: "🚀 방금 입력한 IM 이어서 열기",
+      urlKey: "b2_im", urlLabel: "② 내 매물 모바일 IM 공유 링크 (/im-lite/...)",
+      copies: [],
+      items: [
+        "방금 열어 둔 IM의 <strong>[④ 사진·위치·만들기]</strong> 탭에서 보관 중이신 현장 사진(9장 이상 권장, 외관·로비·내부·주차 등)을 한꺼번에 올립니다.",
+        "<span class='ui-btn'>[★ 1번 대표로]</span> 지정과 외부↔내부 구분을 써 보고 하단 <span class='ui-btn dark'>[✨ 모바일 IM 만들기]</span> → 완료 창에서 <span class='ui-btn'>[📊 발표자료(PPT) 받기]</span>로 PPT를 열어 간판 노출·세로 사진 잘림·배치 품질을 확인합니다."
+      ],
+      prompt: "Q3. 직접 찍은 현장 사진(9장+)을 올리고 PPT로 뽑았을 때, 간판 노출 부담이나 사진 배치·크롭에서 아쉬운 점이 있었나요?",
+      tags: ["9장 이상 자동 2면 배치가 깔끔함", "외관 간판·번호판 간편 가리기(모자이크) 희망", "세로 사진 잘림 위치 미세조정 희망", "1번 대표사진 지정·순서 변경이 편함", "일부 사진만 PPT에서 빼고 웹에만 두기 희망"]
+    },
+    {
+      id: "B2-S4", win: "창 B · 스마트폰 [나와의 채팅]", mobile: true,
+      title: "Step 4. 내 스마트폰 카톡 [나와의 채팅]으로 내 매물 딜카드·모바일 IM 직접 열어 보기",
+      copies: [],
+      items: [
+        "⚠️ <strong>실제 고객방 오발송 주의!</strong> 반드시 카카오톡 <strong>[나와의 채팅]</strong>에 내 매물 딜카드·IM 링크를 붙여넣어 스마트폰으로 직접 열어 봅니다.",
+        "진짜 VIP 매수 손님이 이 모바일 화면과 PPT를 받았을 때 오늘 당장 보낼 수 있을지 냉정하게 점검합니다."
+      ],
+      prompt: "Q4. 이 결과물을 실제 매수 고객에게 지금 바로 보낸다면, 가장 만족스러운 점 또는 망설여지는 단 1가지는 무엇인가요?",
+      tags: ["지금 당장 실제 고객에게 발송 가능", "수익률·기대치 문구 톤을 더 보수적으로 조정 희망", "표지·요약표 디자인이 손님 응대에 품격 있음", "지적도·입지 지도에 내 코멘트 한 줄 추가 희망", "매도인 비밀유지 안내 문구 강조 희망"]
+    },
+    {
+      id: "B2-S5", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 5. 내 매물을 연결해 단골 고객용 부동산뉴스 발행해 보기",
+      openUrl: "https://www.credeal.net/broker/magazine-editor", openLabel: "🚀 부동산뉴스 작성 화면 열기",
+      urlKey: "b2_nl", urlLabel: "④ 내 매물 연결 공개 부동산뉴스 링크 (/m/...)",
+      copies: [],
+      items: [
+        "내 매물이 속한 권역 소식을 2~3줄 적고 방금 만든 내 매물 딜카드를 연결해 발행합니다.",
+        "발행된 뉴스 화면에 내 매물의 상세 번지나 건물명이 새어 나오지 않았는지 확인합니다."
+      ],
+      prompt: "Q5. 단골 자산가·법인 고객에게 정기 발송하는 부동산뉴스로 활용하실 때 보완하고 싶은 점이 있나요?",
+      tags: ["안부 겸 매물 소개용으로 매우 유용함", "인사말 말투를 내 스타일대로 고정 저장 희망", "실거래 사례·금리 요약이 설득력 있음", "카톡 단체방·개별톡 발송 안내가 직관적임"]
+    },
+    {
+      id: "B2-S6", win: "창 A ↔ 창 B", mobile: false,
+      title: "Step 6. 본인 테스트 문의 등록 → 고객 소통함에서 [자료 보내기] & [보낸 링크 잠그기]",
+      openUrl: "https://www.credeal.net/broker/w/inbox", openLabel: "🚀 고객 소통함 열기",
+      copies: [],
+      items: [
+        "창 B에서 본인 이름(예: 테스트매수자)으로 <span class='ui-btn dark'>[상세 제안서(IM) 요청]</span>을 남긴 뒤, 창 A 소통함에서 <span class='ui-btn dark'>[자료 보내기]</span>와 <span class='ui-btn'>[보낸 링크 잠그기]</span>를 한 번씩 실행해 봅니다."
+      ],
+      prompt: "Q6. 매물 유출 방지(승인 후 열람 · 원할 때 링크 잠그기)와 고객 열람 횟수 확인 기능에 대한 의견을 남겨 주세요.",
+      tags: ["전속·알짜 매물 보호에 꼭 필요한 기능임", "누가 몇 번 열어봤는지 보여 영업 타이밍 잡기 좋음", "공동중개 중개사용 별도 열람 권한도 있으면 좋겠음"]
+    },
+    {
+      id: "B2-S7", win: "창 A · PC 중개사", mobile: false,
+      title: "Step 7. (선택) 내 테스트 매물 원클릭 즉시 삭제 → 최종 의견 제출",
+      openUrl: "https://www.credeal.net/qa-broker/full-loop?qaKey=credeal_broker_319425653f28d8673ddb", openLabel: "🧹 온라인 보드에서 원클릭 삭제 열기",
+      copies: [],
+      items: [
+        "테스트에 쓰신 실제 매물을 서버에 남기지 않으려면 온라인 보드 Step 7의 <span class='ui-btn green'>[🧹 내 테스트 매물·딜카드·IM 서버에서 즉시 삭제]</span> 버튼을 눌러 즉시 폐기하세요.",
+        "아래 Q7에 답변하신 뒤 상단 <strong>[📋 최종 의견·저장]</strong> 탭에서 결과 파일을 저장하거나 서버 제출을 눌러 마무리해 주세요!"
+      ],
+      prompt: "Q7. 기존 수작업(PPT·한글·엑셀) 대비 체감 작성 시간은 얼마나 줄었나요? 도입을 위해 가장 바라는 개선 1가지는 무엇인가요?",
+      tags: ["기존 반나절 작업이 15~20분으로 단축됨", "사진 정리·수익률 표 자동화가 가장 만족스러움", "현장 외근 중 모바일 수정 기능 강화 희망", "테스트 매물 원클릭 삭제가 있어 안심됨"]
+    }
+  ]
+};
+
+let state = { records: {}, urls: {}, scale: "normal", testerName: "", testerOrg: "", overallComment: "" };
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  if (saved && typeof saved === "object") state = Object.assign(state, saved);
+} catch {}
+
+function persist() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  updateProgress();
+}
+
+function setFontScale(scale) {
+  state.scale = scale;
+  if (scale === "normal") document.documentElement.removeAttribute("data-scale");
+  else document.documentElement.setAttribute("data-scale", scale);
+  ["normal", "large", "xlarge"].forEach((s) => {
+    const el = document.getElementById("scale-" + s);
+    if (el) el.classList.toggle("active", s === scale);
+  });
+  persist();
+}
+
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(() => el.classList.add("hidden"), 2000);
+}
+
+function copyVal(btn, encoded) {
+  const text = decodeURIComponent(encoded);
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add("copied");
+    showToast("✓ 복사 완료! 오른쪽 크리딜 화면에 붙여넣기(Ctrl+V) 하세요.");
+    setTimeout(() => btn.classList.remove("copied"), 1500);
+  });
+}
+
+function escapeHtml(str) {
+  return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function setVerdict(id, status) {
+  state.records[id] = Object.assign({ status: "PENDING", note: "" }, state.records[id], { status });
+  persist();
+  renderAll();
+}
+
+function setNote(id, note) {
+  state.records[id] = Object.assign({ status: "PENDING", note: "" }, state.records[id], { note });
+  persist();
+}
+
+function toggleTag(id, tag) {
+  const rec = Object.assign({ status: "PENDING", note: "" }, state.records[id]);
+  const token = "[" + tag + "]";
+  if (rec.note.includes(token)) {
+    rec.note = rec.note.replace(token, "").replace(/\s{2,}/g, " ").trim();
+  } else {
+    rec.note = (rec.note ? rec.note + " " : "") + token;
+  }
+  state.records[id] = rec;
+  persist();
+  renderAll();
+}
+
+function setUrl(key, val) {
+  state.urls[key] = val;
+  persist();
+}
+
+function saveMeta() {
+  state.testerName = document.getElementById("testerName").value;
+  state.testerOrg = document.getElementById("testerOrg").value;
+  state.overallComment = document.getElementById("overallComment").value;
+  persist();
+}
+
+function switchTab(tab) {
+  ["loop1", "loop2", "signoff"].forEach((t) => {
+    document.getElementById("sec-" + t).classList.toggle("hidden", t !== tab);
+    document.getElementById("tab-" + t).classList.toggle("active", t === tab);
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function updateProgress() {
+  const allIds = [...STEPS.loop1, ...STEPS.loop2].map((s) => s.id);
+  const done = allIds.filter((id) => state.records[id] && state.records[id].status && state.records[id].status !== "PENDING").length;
+  document.getElementById("progressBadge").textContent = "진행 " + done + " / " + allIds.length;
+}
+
+function renderLoop(loopKey, containerId) {
+  const host = document.getElementById(containerId);
+  host.innerHTML = STEPS[loopKey].map((s) => {
+    const rec = state.records[s.id] || { status: "PENDING", note: "" };
+    const copiesHtml = s.copies && s.copies.length ? `
+      <div class="copy-box">
+        <div class="copy-box-title">📋 1-클릭 복사칩 (타자 치지 말고 눌러서 붙여넣으세요)</div>
+        <div class="copy-grid">
+          ${s.copies.map((c) => `
+            <button type="button" class="copy-chip" onclick="copyVal(this, '${encodeURIComponent(c.val)}')">
+              <span class="c-label">📋 ${escapeHtml(c.label)}</span>
+              <span class="c-hint">${escapeHtml(c.hint)}</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>` : "";
+
+    const urlHtml = s.urlKey ? `
+      <div class="url-save-row">
+        <label>${escapeHtml(s.urlLabel)}</label>
+        <input type="text" value="${escapeHtml(state.urls[s.urlKey] || "")}" placeholder="여기에 복사한 링크(Ctrl+V)를 붙여넣어 기록하세요" oninput="setUrl('${s.urlKey}', this.value)" />
+      </div>` : "";
+
+    const insightHtml = s.prompt ? `
+      <div class="insight-box">
+        <div class="insight-q">💬 ${escapeHtml(s.prompt)}</div>
+        <div class="tag-wrap">
+          ${(s.tags || []).map((t) => {
+            const sel = (rec.note || "").includes("[" + t + "]");
+            return `<button type="button" class="q-tag ${sel ? "selected" : ""}" onclick="toggleTag('${s.id}', '${t.replace(/'/g, "\\'")}')">${sel ? "✓ " : "+ "}${escapeHtml(t)}</button>`;
+          }).join("")}
+        </div>
+      </div>` : "";
+
+    return `
+      <article class="step-card st-${rec.status}">
+        <div class="step-head">
+          <div>
+            <div class="badge-row">
+              <span class="step-code">${s.id}</span>
+              <span class="win-pill ${s.mobile ? "mobile" : ""}">${s.win}</span>
+            </div>
+            <h3 class="step-title">${s.title}</h3>
+          </div>
+          ${s.openUrl ? `<a class="btn-link btn-primary" href="${s.openUrl}" target="_blank" rel="noopener">${s.openLabel}</a>` : ""}
+        </div>
+        ${copiesHtml}
+        <ol class="steps-ol">${s.items.map((it) => `<li>${it}</li>`).join("")}</ol>
+        ${urlHtml}
+        ${insightHtml}
+        <div class="verdict-row">
+          <button type="button" class="v-btn pass ${rec.status === "PASS" ? "active" : ""}" onclick="setVerdict('${s.id}','PASS')">✅ 통과</button>
+          <button type="button" class="v-btn polish ${rec.status === "NEEDS_POLISH" ? "active" : ""}" onclick="setVerdict('${s.id}','NEEDS_POLISH')">✨ 손질 필요</button>
+          <button type="button" class="v-btn fail ${rec.status === "FAIL" ? "active" : ""}" onclick="setVerdict('${s.id}','FAIL')">🚨 결함</button>
+          <input type="text" class="note-input" value="${escapeHtml(rec.note)}" placeholder="현업 의견이나 불편했던 점을 한 줄로 적어 주세요" oninput="setNote('${s.id}', this.value)" />
+        </div>
+      </article>`;
+  }).join("");
+}
+
+function renderAll() {
+  renderLoop("loop1", "steps-loop1");
+  renderLoop("loop2", "steps-loop2");
+  document.getElementById("testerName").value = state.testerName || "";
+  document.getElementById("testerOrg").value = state.testerOrg || "";
+  document.getElementById("overallComment").value = state.overallComment || "";
+  setFontScale(state.scale || "normal");
+  updateProgress();
+}
+
+function downloadMarkdownReport() {
+  const lines = [
+    "# 크리딜(CRE DealCard) 현업 공인중개사 2단계 실전 검수 결과서",
+    `- 검수 대표님: ${state.testerName || "(미입력)"} (${state.testerOrg || "소속 미입력"})`,
+    `- 작성 시각: ${new Date().toLocaleString("ko-KR")}`,
+    "",
+    "## 1. 생성된 링크 기록",
+    `- Stage 1 딜카드: ${state.urls.b1_dc || "(미입력)"}`,
+    `- Stage 1 모바일 IM: ${state.urls.b1_im || "(미입력)"}`,
+    `- Stage 1 부동산뉴스: ${state.urls.b1_nl || "(미입력)"}`,
+    `- Stage 2 내 매물 딜카드: ${state.urls.b2_dc || "(미입력)"}`,
+    `- Stage 2 내 매물 IM: ${state.urls.b2_im || "(미입력)"}`,
+    `- Stage 2 내 매물 부동산뉴스: ${state.urls.b2_nl || "(미입력)"}`,
+    "",
+    "## 2. 단계별 판정 및 현업 의견 (Q1~Q7)",
+    ...[...STEPS.loop1, ...STEPS.loop2].map((s) => {
+      const r = state.records[s.id] || { status: "PENDING", note: "" };
+      return `- **${s.id}** (${s.title}): **${r.status}** ${r.note ? `— ${r.note}` : ""}`;
+    }),
+    "",
+    "## 3. 현업 종합 의견",
+    state.overallComment || "(없음)"
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `CRE_중개인_실전검수결과_${new Date().toISOString().slice(0, 10)}.md`;
+  a.click();
+}
+
+renderAll();
+</script>
+</body>
+</html>
