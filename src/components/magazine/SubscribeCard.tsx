@@ -99,12 +99,19 @@ export function SubscribeCard({
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (needPhone && !isPlausiblePhoneDigits(phone)) {
+    const trimmedEmail = email.trim();
+    const hasOptionalEmailInMinimalKakao =
+      effectiveVariant === 'minimal' && channel === 'kakao' && trimmedEmail.length > 0;
+    const effectiveChannel: Channel = hasOptionalEmailInMinimalKakao ? 'both' : channel;
+    const sendPhone = effectiveChannel === 'kakao' || effectiveChannel === 'both';
+    const sendEmail = effectiveChannel === 'email' || effectiveChannel === 'both';
+
+    if (sendPhone && !isPlausiblePhoneDigits(phone)) {
       setErrorMsg('올바른 전화번호를 입력해주세요.');
       setStatus('error');
       return;
     }
-    if (needEmail && !EMAIL_RE.test(email.trim())) {
+    if (sendEmail && !EMAIL_RE.test(trimmedEmail)) {
       setErrorMsg('올바른 이메일을 입력해주세요.');
       setStatus('error');
       return;
@@ -119,17 +126,17 @@ export function SubscribeCard({
     const refParam = getRefParam();
     const outcome = await postSubscribe({
       brokerId,
-      phone: needPhone ? digitsOnly(phone) : undefined,
-      email: needEmail ? email.trim() : undefined,
+      phone: sendPhone ? digitsOnly(phone) : undefined,
+      email: sendEmail ? trimmedEmail : undefined,
       name: name.trim() || undefined,
-      channel,
+      channel: effectiveChannel,
       source,
       referrer: refParam || undefined,
       consent: toConsentPayload(consent),
     });
 
-    const submittedEmailVal = needEmail ? email.trim() || undefined : undefined;
-    const submittedPhoneVal = needPhone ? phone.trim() || undefined : undefined;
+    const submittedEmailVal = sendEmail ? trimmedEmail || undefined : undefined;
+    const submittedPhoneVal = sendPhone ? phone.trim() || undefined : undefined;
     if (outcome.ok) {
       markBrokerSubscribed(brokerId);
       setDone({
@@ -222,40 +229,65 @@ export function SubscribeCard({
     if (alreadySubscribedLocally && status === 'idle') {
       return null;
     }
+    const submittedSummary = [done.submittedPhone, done.submittedEmail]
+      .filter(Boolean)
+      .join(' · ');
     return (
       <div
         data-testid="minimal-subscribe-optin"
         className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 text-left text-slate-900 shadow-sm space-y-3"
       >
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-[17px] font-bold text-slate-900">뉴스레터 신청</h2>
-              <p className="text-[15px] text-slate-700">
-                새 호가 발행되면 편하게 받아보실 수 있습니다.
-              </p>
-            </div>
-            {status !== 'success' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setChannel((prev) => (prev === 'email' ? 'kakao' : 'email'));
-                  setStatus('idle');
-                  setErrorMsg('');
-                }}
-                className="min-h-12 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-[15px] font-semibold text-slate-800 hover:bg-slate-100"
-              >
-                {channel === 'email' ? '휴대폰으로 받기' : '이메일로 받기'}
-              </button>
-            )}
+        <div className="space-y-2">
+          <div>
+            <h2 className="text-[17px] font-bold text-slate-900">뉴스레터 신청</h2>
+            <p className="text-[15px] text-slate-700">
+              새 호가 발행되면 편하게 받아보실 수 있습니다.
+            </p>
           </div>
           {status !== 'success' && (
-            <p
-              data-testid="subscribe-channel-helper"
-              className="text-[14px] text-slate-700 leading-snug break-keep"
-            >
-              {channelHelperText}
-            </p>
+            <>
+              <div
+                role="group"
+                aria-label="뉴스레터 수신 방법"
+                data-testid="minimal-subscribe-channel-group"
+                className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-xl"
+              >
+                {(
+                  [
+                    { key: 'email', label: '이메일로 받기' },
+                    { key: 'kakao', label: '휴대폰으로 받기' },
+                    { key: 'both', label: '둘 다 받기' },
+                  ] as const
+                ).map((item) => {
+                  const active = channel === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setChannel(item.key);
+                        setStatus('idle');
+                        setErrorMsg('');
+                      }}
+                      className={`min-h-[44px] rounded-lg px-2 py-1.5 text-[14px] font-bold transition-all cursor-pointer break-keep ${
+                        active
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'text-slate-800 hover:bg-slate-200'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p
+                data-testid="subscribe-channel-helper"
+                className="text-[14px] text-slate-700 leading-snug break-keep"
+              >
+                {channelHelperText}
+              </p>
+            </>
           )}
         </div>
 
@@ -263,14 +295,14 @@ export function SubscribeCard({
           <div
             role="status"
             data-testid="minimal-subscribe-success"
-            className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-[15px] font-semibold text-emerald-950 leading-relaxed space-y-2"
+            className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-[15px] font-semibold text-emerald-950 leading-relaxed space-y-2.5"
           >
-            {(done.submittedEmail || done.submittedPhone) && (
+            {submittedSummary && (
               <p data-testid="subscribe-submitted-address" className="text-emerald-900 font-bold break-all">
-                {done.submittedEmail || done.submittedPhone} 로 신청이 접수되었습니다.
+                {submittedSummary} 로 신청이 접수되었습니다.
               </p>
             )}
-            {!(done.submittedEmail || done.submittedPhone) && (
+            {!submittedSummary && (
               <p>
                 {done.status === 'pending'
                   ? '뉴스레터 신청이 접수되었습니다. 확인 후 발송됩니다.'
@@ -278,18 +310,55 @@ export function SubscribeCard({
               </p>
             )}
             {done.message && <p className="text-emerald-900">{done.message}</p>}
+            {done.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL' && (
+              <form
+                onSubmit={handleFollowUpEmailSubmit}
+                data-testid="minimal-followup-email-form"
+                className="space-y-2 pt-1 border-t border-emerald-200"
+                noValidate
+              >
+                <label
+                  htmlFor={`${uid}-min-followup-email`}
+                  className="block text-[14px] font-bold text-slate-900"
+                >
+                  이메일 주소 추가 등록 (즉시 자동 구독용)
+                </label>
+                <input
+                  id={`${uid}-min-followup-email`}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="이메일 주소 (예: hong@example.com)"
+                  value={followUpEmail}
+                  onChange={(e) => setFollowUpEmail(e.target.value)}
+                  required
+                  className={inputClass}
+                />
+                {errorMsg && (
+                  <p role="alert" className="text-[14px] font-bold text-rose-700">
+                    {errorMsg}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  className="w-full min-h-[48px] rounded-xl bg-emerald-700 hover:bg-emerald-800 px-3 py-2 text-[15px] font-bold text-white cursor-pointer"
+                >
+                  이메일 함께 등록하고 자동 발송 받기
+                </button>
+              </form>
+            )}
             <button
               type="button"
               data-testid="subscribe-reset-btn"
               onClick={() => setStatus('idle')}
-              className="mt-1 inline-flex min-h-12 items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-bold text-emerald-900 hover:bg-emerald-100 cursor-pointer"
+              className="mt-1 inline-flex min-h-12 items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-[14px] font-bold text-emerald-900 hover:bg-emerald-100 cursor-pointer"
             >
               메일·연락처 다시 입력하기
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubscribe} className="space-y-3" noValidate>
-            {channel === 'email' ? (
+            {channel === 'email' && (
               <div>
                 <label htmlFor={`${uid}-min-email`} className="sr-only">
                   이메일 주소
@@ -307,23 +376,83 @@ export function SubscribeCard({
                   className={inputClass}
                 />
               </div>
-            ) : (
-              <div>
-                <label htmlFor={`${uid}-min-phone`} className="sr-only">
-                  휴대폰 번호
-                </label>
-                <input
-                  id={`${uid}-min-phone`}
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  aria-label="휴대폰 번호"
-                  placeholder="휴대폰 번호 (예: 010-1234-5678)"
-                  value={phone}
-                  onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
-                  required
-                  className={`${inputClass} font-mono`}
-                />
+            )}
+
+            {channel === 'kakao' && (
+              <div className="space-y-2.5">
+                <div>
+                  <label htmlFor={`${uid}-min-phone`} className="sr-only">
+                    휴대폰 번호
+                  </label>
+                  <input
+                    id={`${uid}-min-phone`}
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    aria-label="휴대폰 번호"
+                    placeholder="휴대폰 번호 (예: 010-1234-5678)"
+                    value={phone}
+                    onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
+                    required
+                    className={`${inputClass} font-mono`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`${uid}-min-optional-email`} className="sr-only">
+                    이메일 주소 (선택)
+                  </label>
+                  <input
+                    id={`${uid}-min-optional-email`}
+                    data-testid="minimal-optional-email-input"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    aria-label="이메일 주소 (선택)"
+                    placeholder="이메일 주소 (선택 · 함께 입력 시 즉시 자동 구독)"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            )}
+
+            {channel === 'both' && (
+              <div className="space-y-2.5">
+                <div>
+                  <label htmlFor={`${uid}-min-phone`} className="sr-only">
+                    휴대폰 번호
+                  </label>
+                  <input
+                    id={`${uid}-min-phone`}
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    aria-label="휴대폰 번호"
+                    placeholder="휴대폰 번호 (필수 · 예: 010-1234-5678)"
+                    value={phone}
+                    onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
+                    required
+                    className={`${inputClass} font-mono`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`${uid}-min-email`} className="sr-only">
+                    이메일 주소
+                  </label>
+                  <input
+                    id={`${uid}-min-email`}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    aria-label="이메일 주소"
+                    placeholder="이메일 주소 (필수 · 확인 링크 수신용)"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className={inputClass}
+                  />
+                </div>
               </div>
             )}
 
@@ -505,9 +634,9 @@ export function SubscribeCard({
         </div>
       ) : status === 'success' ? (
         <div role="status" className="bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-xl p-4 text-center text-[16px] font-semibold leading-relaxed space-y-2">
-          {(done.submittedEmail || done.submittedPhone) && (
+          {(done.submittedPhone || done.submittedEmail) && (
             <p data-testid="subscribe-submitted-address" className="text-[15px] font-bold text-emerald-900 break-all">
-              {done.submittedEmail || done.submittedPhone} 로 신청이 접수되었습니다.
+              {[done.submittedPhone, done.submittedEmail].filter(Boolean).join(' · ')} 로 신청이 접수되었습니다.
             </p>
           )}
           <p>

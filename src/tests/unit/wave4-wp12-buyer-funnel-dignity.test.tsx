@@ -443,5 +443,133 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       expect(formPageHtml).toContain("text-[16px]");
       expect(formPageHtml).toContain("min-h-[48px]");
     });
+
+    it("SubscribeCard (minimal mode) supports [둘 다 받기] with simultaneous phone + email inputs and echoes both", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          status: "pending",
+          message: "구독 신청이 접수되었습니다. 보내드린 확인 링크를 눌러 구독을 완료해 주세요.",
+        }),
+      } as Response);
+
+      await act(async () => {
+        root.render(<SubscribeCard brokerId="seoul-broker" source="magazine" variant="minimal" />);
+      });
+
+      const channelGroup = container.querySelector('[data-testid="minimal-subscribe-channel-group"]');
+      expect(channelGroup).not.toBeNull();
+
+      const bothBtn = Array.from(container.querySelectorAll("button")).find((b) =>
+        b.textContent?.includes("둘 다 받기")
+      );
+      expect(bothBtn).toBeDefined();
+      await act(async () => {
+        bothBtn!.click();
+      });
+
+      const telInput = container.querySelector('input[type="tel"]') as HTMLInputElement;
+      const emailInput = container.querySelector('input[type="email"]') as HTMLInputElement;
+      const masterCb = container.querySelector('[data-testid="minimal-subscribe-consent"]') as HTMLInputElement;
+      const submitBtn = container.querySelector('[data-testid="minimal-subscribe-submit"]') as HTMLButtonElement;
+      expect(telInput).not.toBeNull();
+      expect(emailInput).not.toBeNull();
+
+      await act(async () => {
+        setInputValue(telInput, "010-6193-4470");
+        setInputValue(emailInput, "ms.kang@example.kr");
+        masterCb.click();
+      });
+
+      await act(async () => {
+        submitBtn.click();
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const bodyJson = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body || "{}"));
+      expect(bodyJson.channel).toBe("both");
+      expect(bodyJson.phone).toBe("01061934470");
+      expect(bodyJson.email).toBe("ms.kang@example.kr");
+
+      const submittedAddress = container.querySelector('[data-testid="subscribe-submitted-address"]');
+      expect(submittedAddress?.textContent).toContain("010-6193-4470 · ms.kang@example.kr");
+    });
+
+    it("SubscribeCard (minimal mode) under [휴대폰으로 받기] exposes optional email input that upgrades submission to channel=both", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            status: "pending",
+            message: "구독 신청이 접수되었습니다.",
+          }),
+        } as Response);
+
+      await act(async () => {
+        root.render(<SubscribeCard brokerId="seoul-broker" source="magazine" variant="minimal" />);
+      });
+
+      const phoneBtn = Array.from(container.querySelectorAll("button")).find((b) =>
+        b.textContent?.includes("휴대폰으로 받기")
+      );
+      expect(phoneBtn).toBeDefined();
+      await act(async () => {
+        phoneBtn!.click();
+      });
+
+      const telInput = container.querySelector('input[type="tel"]') as HTMLInputElement;
+      const optEmailInput = container.querySelector(
+        '[data-testid="minimal-optional-email-input"]'
+      ) as HTMLInputElement;
+      const masterCb = container.querySelector('[data-testid="minimal-subscribe-consent"]') as HTMLInputElement;
+      const submitBtn = container.querySelector('[data-testid="minimal-subscribe-submit"]') as HTMLButtonElement;
+      expect(telInput).not.toBeNull();
+      expect(optEmailInput).not.toBeNull();
+      expect(optEmailInput.required).toBe(false);
+
+      // 1) Optional email filled alongside phone -> submits channel: "both"
+      await act(async () => {
+        setInputValue(telInput, "010-6193-4470");
+        setInputValue(optEmailInput, "ms.kang@example.kr");
+        masterCb.click();
+      });
+      await act(async () => {
+        submitBtn.click();
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const firstBody = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body || "{}"));
+      expect(firstBody.channel).toBe("both");
+      expect(firstBody.phone).toBe("01061934470");
+      expect(firstBody.email).toBe("ms.kang@example.kr");
+
+      // 2) Reset and submit phone-only -> submits channel: "kakao"
+      const resetBtn = container.querySelector('[data-testid="subscribe-reset-btn"]') as HTMLButtonElement;
+      await act(async () => {
+        resetBtn.click();
+      });
+
+      const telInput2 = container.querySelector('input[type="tel"]') as HTMLInputElement;
+      const masterCb2 = container.querySelector('[data-testid="minimal-subscribe-consent"]') as HTMLInputElement;
+      const submitBtn2 = container.querySelector('[data-testid="minimal-subscribe-submit"]') as HTMLButtonElement;
+      await act(async () => {
+        setInputValue(telInput2, "010-6193-4470");
+        masterCb2.click();
+      });
+      await act(async () => {
+        submitBtn2.click();
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const secondBody = JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body || "{}"));
+      expect(secondBody.channel).toBe("kakao");
+      expect(secondBody.phone).toBe("01061934470");
+      expect(secondBody.email).toBeUndefined();
+    });
   });
 });
