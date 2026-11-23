@@ -595,6 +595,13 @@ export default function TestGuidePage() {
                 🧪 인간 검수 V2 Hold-out 풀루프 ↗
               </a>
               <a
+                href={`/qa-full-loop-v3${qaQuerySuffix}`}
+                data-testid="open-qa-full-loop-v3-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-extrabold transition inline-flex items-center"
+              >
+                🚀 인간 검수 V3 신규 풀루프 (양평 250억·잠원 242억) ↗
+              </a>
+              <a
                 href={`/qa-broker/full-loop${qaQuerySuffix}`}
                 data-testid="open-qa-broker-full-loop-hub"
                 className="min-h-[44px] px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold transition inline-flex items-center"

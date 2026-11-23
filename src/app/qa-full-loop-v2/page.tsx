@@ -19,8 +19,8 @@ const V2_HOLDOUT_CONFIG = {
   reportTitle: "CRE DealCard 상보 Hold-out 풀루프 V2 휴먼 클릭스루 검수 결과서 (2선 통합)",
   reportFilePrefix: "CRE_풀루프_V2_Holdout_휴먼검수",
   crossEditionLink: {
-    href: "/qa-full-loop",
-    label: "↩ 기존 V1 회귀 2선 (부천 · 역삼) 보기",
+    href: "/qa-full-loop-v3",
+    label: "🚀 신규 V3 검수 2선 (양평동 250억 · 잠원동 242억) 열기 →",
   },
   cases: FULL_LOOP_V2_CASES,
   windowRoles: FULL_LOOP_V2_WINDOW_ROLES,

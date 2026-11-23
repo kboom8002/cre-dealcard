@@ -11,6 +11,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from '@/lib/testguide/testguide-data';
 import { HOLDOUT_V2_ASSET_CDN_MAP } from '@/lib/testguide/full-loop-v2-holdout-data';
+import { HOLDOUT_V3_ASSET_CDN_MAP } from '@/lib/testguide/full-loop-v3-holdout-data';
 import { BROKER_CASE02_ASSET_CDN_MAP } from '@/lib/testguide/broker-full-loop-data';
 import { requireBroker } from '@/lib/auth-guard';
 import { isRealProductionRuntime } from '@/lib/env';
@@ -131,10 +132,17 @@ export async function GET(
       headers['Content-Disposition'] = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
     }
 
-    // A) Check local pre-generated file (V2 Hold-out / Broker CASE-02 docs/finaltest/testdata or V1 docs/im261110/images) first
-    if (folder === 'v2-case04' || folder === 'v2-case03' || folder === 'broker-case02') {
+    // A) Check local pre-generated file (V2/V3 Hold-out / Broker CASE-02 docs/finaltest/testdata or V1 docs/im261110/images) first
+    if (
+      folder === 'v3-case05' ||
+      folder === 'v2-case04' ||
+      folder === 'v2-case03' ||
+      folder === 'broker-case02'
+    ) {
       const holdoutDir =
-        folder === 'v2-case04'
+        folder === 'v3-case05'
+          ? 'CASE-05_영등포_양평동4가_117외2_XLSX입력_프라임오피스'
+          : folder === 'v2-case04'
           ? 'CASE-04_영등포_당산동5가_11-47_XLSX입력_다호실복합'
           : folder === 'v2-case03'
           ? 'CASE-03_서초_잠원동_26-14외1_화면입력_신축개발형'
@@ -170,7 +178,9 @@ export async function GET(
     // B) Production Vercel: Fetch real uploaded asset from Supabase Storage public CDN
     const cdnUrl =
       (folder === 'broker-case02' ? BROKER_CASE02_ASSET_CDN_MAP[filename] : undefined) ||
+      (folder === 'v3-case05' ? HOLDOUT_V3_ASSET_CDN_MAP[filename] : undefined) ||
       TESTGUIDE_IMAGE_CDN_MAP[filename] ||
+      HOLDOUT_V3_ASSET_CDN_MAP[filename] ||
       HOLDOUT_V2_ASSET_CDN_MAP[filename] ||
       BROKER_CASE02_ASSET_CDN_MAP[filename];
     if (cdnUrl) {

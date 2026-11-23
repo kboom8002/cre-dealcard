@@ -18,6 +18,16 @@ import {
   HOLDOUT_V2_CASE04_STABILIZED_TSV,
 } from "@/lib/testguide/full-loop-v2-holdout-data";
 import {
+  FULL_LOOP_V3_CASES,
+  HOLDOUT_V3_ASSET_CDN_MAP,
+  HOLDOUT_V3_CASE03_ASIS_CSV,
+  HOLDOUT_V3_CASE03_ASIS_TABLE,
+  HOLDOUT_V3_CASE03_MEMO,
+  HOLDOUT_V3_CASE03_STABILIZED_TABLE,
+  HOLDOUT_V3_CASE05_MEMO,
+  HOLDOUT_V3_CASE05_STABILIZED_TABLE,
+} from "@/lib/testguide/full-loop-v3-holdout-data";
+import {
   BROKER_CASE02_ASIS_CSV,
   BROKER_CASE02_ASIS_TSV,
   BROKER_CASE02_ASSET_CDN_MAP,
@@ -202,6 +212,7 @@ async function resolveHoldoutAssetBuffer(opts: {
   }
 
   const cdnUrl =
+    HOLDOUT_V3_ASSET_CDN_MAP[opts.assetKey] ||
     HOLDOUT_V2_ASSET_CDN_MAP[opts.assetKey] ||
     BROKER_CASE02_ASSET_CDN_MAP[opts.assetKey];
   if (cdnUrl) {
@@ -595,6 +606,239 @@ export async function GET(req: NextRequest) {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${outV2ZipName}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+  }
+
+  if (scenario === "v3-loop1" || scenario === "v3-loop2") {
+    const targetId: FullLoopCaseId = scenario === "v3-loop1" ? "loop1" : "loop2";
+    const v3Case = FULL_LOOP_V3_CASES.find((c) => c.id === targetId);
+    if (v3Case) {
+      const case05Folder = "CASE-05_영등포_양평동4가_117외2_XLSX입력_프라임오피스";
+      const case03Folder = "CASE-03_서초_잠원동_26-14외1_화면입력_신축개발형";
+
+      if (
+        scenario === "v3-loop1" &&
+        (format === "xlsx" || format === "xlsx-stabilized" || format === "xlsx-v12-trap")
+      ) {
+        const localFileKey =
+          format === "xlsx-stabilized"
+            ? "03_안정화_렌트롤_v1.5_pyeong.xlsx"
+            : format === "xlsx-v12-trap"
+            ? "99_부록_V12_단위혼동_차단게이트_체험용.xlsx"
+            : "02_현황_렌트롤_v1.5_pyeong.xlsx";
+        const outKorName =
+          format === "xlsx-stabilized"
+            ? "V3_03_양평동_기대수익률_렌트롤_v1.5_pyeong.xlsx"
+            : format === "xlsx-v12-trap"
+            ? "V3_99_선택체험_단위혼동_차단확인용.xlsx"
+            : "V3_02_양평동_현황_렌트롤_v1.5_pyeong.xlsx";
+        const asciiName =
+          format === "xlsx-stabilized"
+            ? "V3_03_yangpyeong_stabilized_v1.5_pyeong.xlsx"
+            : format === "xlsx-v12-trap"
+            ? "V3_99_yangpyeong_unit_mismatch_trap.xlsx"
+            : "V3_02_yangpyeong_asis_v1.5_pyeong.xlsx";
+        const xlsxData = await resolveHoldoutAssetBuffer({
+          caseFolder: case05Folder,
+          localRelPath: localFileKey,
+          assetKey: localFileKey,
+          publicFallbackRel: "CREDEAL_rentroll_template_v1.5.xlsx",
+          isImage: false,
+          accentHex: "#1D4ED8",
+        });
+        if (xlsxData) {
+          return new NextResponse(new Uint8Array(xlsxData), {
+            status: 200,
+            headers: {
+              "Content-Type": XLSX_CONTENT_TYPE,
+              "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(outKorName)}`,
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      }
+
+      if (scenario === "v3-loop2" && format === "csv") {
+        const bomCsv = `\uFEFF${HOLDOUT_V3_CASE03_ASIS_CSV}\r\n`;
+        const korCsv = "V3_04_잠원동_임대현황_업로드용.csv";
+        return new NextResponse(bomCsv, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="V3_04_jamwon_rentroll.csv"; filename*=UTF-8''${encodeURIComponent(korCsv)}`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
+      const v3Zip = new JSZip();
+      const nlStep = v3Case.steps.find((s) => s.subsystem === "뉴스레터" || s.stepNumber === 4);
+      const nlBrief =
+        nlStep?.copySnippets?.find((sn) => sn.id.includes("brief"))?.value || v3Case.subtitle;
+
+      const gt = v3Case.groundTruth;
+      const referenceTableTxt = [
+        `[V3 · ${v3Case.propertyName}] 건축물대장·토지대장 및 임대수익률 기준값 대조표`,
+        "================================================================",
+        `• 지번 주소   : ${v3Case.jibunAddress}`,
+        `• 도로명 주소 : ${v3Case.roadAddress}`,
+        `• 희망 매매가 : ${v3Case.askingPriceReadout}`,
+        "",
+        "[1] 공적장부(건축물대장·토지대장) 자동 조회 기준값 — IM ① 표지·기본정보 대조용",
+        `• 대지면적    : ${gt.expectedLandAreaSqm.toFixed(2)} ㎡ (약 ${gt.expectedLandAreaPyeong.toFixed(1)} 평)`,
+        `• 연면적      : ${gt.expectedGfaSqm.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ㎡ (약 ${gt.expectedGfaPyeong.toFixed(1)} 평)`,
+        ...(scenario === "v3-loop1"
+          ? [
+              "• 필지 구성   : 양평동4가 117, 134, 125-2 (3필지 코너 합산)",
+              "• 용도·규모   : 준공업지역 / 2018-09-12 신축급 (지하 1층 ~ 지상 10층, 주차 23대)",
+            ]
+          : [
+              "• 필지 구성   : 잠원동 26-14 + 26-16 (2필지 자동 합산 · 토지 약 186평)",
+              "• 준공연도    : 1990년 (지하 1층 ~ 지상 5층, 기득권 용적률 약 325.6%)",
+            ]),
+        "",
+        "[2] 층별 임대차 합계 및 수익률 기준값 — IM ② 층별 임대현황 대조용",
+        `• 보증금·월세 : ${gt.expectedDepositSummary}`,
+        `• 점유·공실   : ${gt.expectedOccupancySummary}`,
+        `• 순수익률    : ${gt.expectedYieldSummary}`,
+        "",
+        "[3] 공개 화면(딜카드·뉴스레터) 비공개 보호 확인 단어 (노출 0건 필수)",
+        `• ${gt.forbiddenPublicTokens.join(", ")}`,
+        "",
+      ].join("\r\n");
+
+      v3Zip.file("V3_00_대장면적_및_수익률_기준값_대조표.txt", referenceTableTxt);
+      v3Zip.file(
+        "V3_00_README_실행안내.txt",
+        [
+          `V3 ${v3Case.code} — ${v3Case.propertyName}`,
+          "================================================================",
+          "※ 이전 테스트 파일과 섞이지 않도록 모든 파일명이 V3_ 로 시작합니다.",
+          `대상 매물 : ${v3Case.propertyName} (${v3Case.askingPriceReadout})`,
+          `대지면적  : ${gt.expectedLandAreaSqm.toFixed(2)}㎡ (약 ${gt.expectedLandAreaPyeong.toFixed(1)}평)`,
+          `연면적    : ${gt.expectedGfaSqm.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}㎡ (약 ${gt.expectedGfaPyeong.toFixed(1)}평)`,
+          `권장 시간 : 약 ${v3Case.targetMinutes}분 (${v3Case.deviceSetup})`,
+          "",
+          "[폴더 안 V3_ 파일 사용법]",
+          ...(scenario === "v3-loop1"
+            ? [
+                "0. V3_00_대장면적_및_수익률_기준값_대조표.txt       : IM 주소 조회 시 대지(518.7㎡)·연면적(2,490.88㎡) 비교표",
+                "1. V3_01_양평동_현장메모_원문.txt                   : 새 딜카드 상단 메모칸 붙여넣기용 원문",
+                "2. V3_02_양평동_현황_렌트롤_v1.5_pyeong.xlsx        : IM [현행 임대차 현황] → [📁 엑셀 파일 불러오기 ▾] 업로드용 (평 단위 자동 환산)",
+                "3. V3_03_양평동_기대수익률_렌트롤_v1.5_pyeong.xlsx  : IM [+ 기대수익률 임대차 현황] → [📁 엑셀 파일 불러오기 ▾] 업로드용",
+                "4. V3_04_양평동_기대수익률_복사붙여넣기용_표.txt    : (엑셀 대신 표 복사 시) 전체 복사 후 파란 [📋 표 붙여넣기] 클릭",
+                "5. V3_99_선택체험_단위혼동_차단확인용.xlsx          : (선택 10초 체험) 면적 단위를 잘못 적은 파일 업로드 시 안전 차단 확인용",
+                "6. V3_05_뉴스레터_브리핑_초안.txt                   : 월간 부동산뉴스 본문 붙여넣기용",
+                "7. V3_06_고객연락처_샘플10명.csv                    : 소통함 고객 일괄 등록 샘플",
+                "8. photos/V3_01~04                                  : IM [④ 사진·위치·만들기] 탭에 올릴 사진 4장 (세로형 외관·승강기 포함)",
+              ]
+            : [
+                "0. V3_00_대장면적_및_수익률_기준값_대조표.txt       : IM 주소 조회 시 2필지 합산 대지(616.1㎡ · 약 186평)·연면적(2,032.59㎡) 비교표",
+                "1. V3_01_잠원동_현장메모_원문.txt                   : 새 딜카드 [신축·개발용] 메모칸 붙여넣기용 원문",
+                "2. V3_02_잠원동_현행_임대현황_복사용_표.txt         : 전체 복사 후 [현행 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭",
+                "3. V3_03_잠원동_기대수익률_임대현황_복사용_표.txt   : 전체 복사 후 [+ 기대수익률 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭",
+                "4. V3_04_잠원동_임대현황_업로드용.csv               : [📁 엑셀 파일 불러오기 ▾] 업로드용 CSV",
+                "5. V3_05_뉴스레터_브리핑_초안.txt                   : 주간 부동산뉴스 본문 붙여넣기용",
+                "6. V3_06_고객연락처_샘플10명.csv                    : 소통함 고객 일괄 등록 샘플",
+                "7. photos/V3_01~05                                  : IM [④ 사진·위치·만들기] 탭에 올릴 사진 5장",
+              ]),
+        ].join("\r\n"),
+      );
+
+      if (scenario === "v3-loop1") {
+        v3Zip.file(
+          "V3_01_양평동_현장메모_원문.txt",
+          [
+            HOLDOUT_V3_CASE05_MEMO,
+            "",
+            "--- [참고: 공적장부 기준 3필지 면적 대조값] ---",
+            "• 대지면적: 518.70㎡ (약 156.9평)",
+            "• 연면적  : 2,490.88㎡ (약 753.5평)",
+            "• 용도지역: 준공업지역 / 사용승인일: 2018-09-12 (주차 23대)",
+          ].join("\r\n"),
+        );
+        const asIsXlsx = await resolveHoldoutAssetBuffer({
+          caseFolder: case05Folder,
+          localRelPath: "02_현황_렌트롤_v1.5_pyeong.xlsx",
+          assetKey: "02_현황_렌트롤_v1.5_pyeong.xlsx",
+          publicFallbackRel: "CREDEAL_rentroll_template_v1.5.xlsx",
+          isImage: false,
+          accentHex: "#1D4ED8",
+        });
+        const stabXlsx = await resolveHoldoutAssetBuffer({
+          caseFolder: case05Folder,
+          localRelPath: "03_안정화_렌트롤_v1.5_pyeong.xlsx",
+          assetKey: "03_안정화_렌트롤_v1.5_pyeong.xlsx",
+          publicFallbackRel: "CREDEAL_rentroll_template_v1.5.xlsx",
+          isImage: false,
+          accentHex: "#1D4ED8",
+        });
+        const trapXlsx = await resolveHoldoutAssetBuffer({
+          caseFolder: case05Folder,
+          localRelPath: "99_부록_V12_단위혼동_차단게이트_체험용.xlsx",
+          assetKey: "99_부록_V12_단위혼동_차단게이트_체험용.xlsx",
+          isImage: false,
+          accentHex: "#B45309",
+        });
+        if (asIsXlsx) v3Zip.file("V3_02_양평동_현황_렌트롤_v1.5_pyeong.xlsx", asIsXlsx);
+        if (stabXlsx) v3Zip.file("V3_03_양평동_기대수익률_렌트롤_v1.5_pyeong.xlsx", stabXlsx);
+        v3Zip.file(
+          "V3_04_양평동_기대수익률_복사붙여넣기용_표.txt",
+          HOLDOUT_V3_CASE05_STABILIZED_TABLE,
+        );
+        if (trapXlsx) v3Zip.file("V3_99_선택체험_단위혼동_차단확인용.xlsx", trapXlsx);
+      } else {
+        v3Zip.file(
+          "V3_01_잠원동_현장메모_원문.txt",
+          [
+            HOLDOUT_V3_CASE03_MEMO,
+            "",
+            "--- [참고: 공적장부 기준 2필지 합산 면적 대조값] ---",
+            "• 대지면적(26-14 + 26-16 합산): 616.10㎡ (약 186.4평)",
+            "• 연면적                      : 2,032.59㎡ (약 614.9평)",
+          ].join("\r\n"),
+        );
+        v3Zip.file("V3_02_잠원동_현행_임대현황_복사용_표.txt", HOLDOUT_V3_CASE03_ASIS_TABLE);
+        v3Zip.file("V3_03_잠원동_기대수익률_임대현황_복사용_표.txt", HOLDOUT_V3_CASE03_STABILIZED_TABLE);
+        v3Zip.file("V3_04_잠원동_임대현황_업로드용.csv", `\uFEFF${HOLDOUT_V3_CASE03_ASIS_CSV}\r\n`);
+      }
+
+      v3Zip.file("V3_05_뉴스레터_브리핑_초안.txt", nlBrief);
+      v3Zip.file("V3_06_고객연락처_샘플10명.csv", toUtf8BomCsv(SAMPLE_CONTACTS_CSV_ROWS));
+
+      const targetFolder = scenario === "v3-loop1" ? case05Folder : case03Folder;
+      for (const img of v3Case.images) {
+        const imgBuf = await resolveHoldoutAssetBuffer({
+          caseFolder: targetFolder,
+          localRelPath: path.join("images", img.filename),
+          assetKey: img.filename,
+          publicFallbackRel: "test-images/dangsan/01_exterior.jpg",
+          isImage: true,
+          accentHex: scenario === "v3-loop1" ? "#1D4ED8" : "#0F766E",
+        });
+        if (imgBuf) {
+          v3Zip.file(`photos/V3_${img.filename}`, imgBuf);
+        }
+      }
+
+      const v3ZipBytes = await v3Zip.generateAsync({
+        type: "uint8array",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      });
+      const outV3ZipName =
+        scenario === "v3-loop1"
+          ? "V3_credeal_loop1_yangpyeong_250_pyeong_kit.zip"
+          : "V3_credeal_loop2_jamwon_242_dev_kit.zip";
+
+      return new NextResponse(Buffer.from(v3ZipBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${outV3ZipName}"`,
           "Cache-Control": "no-store",
         },
       });

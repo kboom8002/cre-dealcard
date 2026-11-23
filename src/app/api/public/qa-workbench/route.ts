@@ -91,6 +91,11 @@ import {
   QA_FULL_LOOP_V2_WORKBENCH_ID,
 } from "@/lib/testguide/full-loop-v2-holdout-data";
 import {
+  FULL_LOOP_V3_ALL_STEPS,
+  FULL_LOOP_V3_CASES,
+  QA_FULL_LOOP_V3_WORKBENCH_ID,
+} from "@/lib/testguide/full-loop-v3-holdout-data";
+import {
   BROKER_FULL_LOOP_ALL_STEPS,
   BROKER_FULL_LOOP_CASES,
   QA_BROKER_FULL_LOOP_WORKBENCH_ID,
@@ -564,6 +569,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
         }))
       : workbenchId === QA_FULL_LOOP_V2_WORKBENCH_ID
       ? FULL_LOOP_V2_ALL_STEPS.map((s) => ({
+          key: s.id,
+          severity: s.severityOnFail,
+        }))
+      : workbenchId === QA_FULL_LOOP_V3_WORKBENCH_ID
+      ? FULL_LOOP_V3_ALL_STEPS.map((s) => ({
           key: s.id,
           severity: s.severityOnFail,
         }))
@@ -1268,6 +1278,8 @@ export async function POST(req: NextRequest) {
         body.expectedLoopId === "loop2" ||
         body.expectedLoopId === "v2-loop1" ||
         body.expectedLoopId === "v2-loop2" ||
+        body.expectedLoopId === "v3-loop1" ||
+        body.expectedLoopId === "v3-loop2" ||
         body.expectedLoopId === "broker-loop1" ||
         body.expectedLoopId === "broker-byod"
           ? (body.expectedLoopId as
@@ -1275,6 +1287,8 @@ export async function POST(req: NextRequest) {
               | "loop2"
               | "v2-loop1"
               | "v2-loop2"
+              | "v3-loop1"
+              | "v3-loop2"
               | "broker-loop1"
               | "broker-byod")
           : null;
@@ -1291,6 +1305,7 @@ export async function POST(req: NextRequest) {
             (c) => c.id === expectedLoopId || c.probeLoopId === expectedLoopId
           ) ||
           FULL_LOOP_V2_CASES.find((c) => c.probeLoopId === expectedLoopId) ||
+          FULL_LOOP_V3_CASES.find((c) => c.probeLoopId === expectedLoopId) ||
           BROKER_FULL_LOOP_CASES.find((c) => c.probeLoopId === expectedLoopId)
         : undefined;
       const effectiveForbiddenTokens: string[] = Array.from(
