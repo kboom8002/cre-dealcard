@@ -328,8 +328,8 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         actionChecklist: [
           '[① 표지·기본정보] 시작 화면에서 추천 1번 [🏢 매물 주소로 대장·토지 자동 조회] 카드를 누르면 아래 주소칸으로 자동 스크롤됩니다. 거기에 "서울특별시 서초구 서초동 1364-28"을 붙여넣고 오른쪽 [주소로 건물 정보 자동 채우기]를 누른 뒤, 대지면적 596.00㎡(약 180.3평) · 연면적 2,104.88㎡(약 636.7평)을 확인하고 매매 희망가에 "2300000"(= 230억 원)을 입력합니다.',
           '[② 층별 임대현황] [현행 임대차 현황] 탭에서 아래 [현행 임대차 표 한 번에 복사]를 누른 뒤 화면의 파란 [📋 표 붙여넣기] 버튼을 클릭합니다(또는 [📁 엑셀 파일 불러오기 ▾]에 CSV 업로드) → 합계 보증금 40,000만 / 월세 3,200만을 확인합니다. 이어서 오른쪽 [+ 기대수익률 임대차 현황 (선택)] 탭을 누르고 [기대수익률 임대차 표 한 번에 복사] → 파란 [📋 표 붙여넣기]를 눌러 보증금 82,000만 / 월세 6,500만을 확인합니다.',
-          '[③ 강점·입지 코멘트] 상단 탭을 눌러 아래 사옥 강점 3줄을 복사해 넣거나 [✨ AI 초안 채우기] 문구와 비교합니다.',
-          '[④ 사진·위치·만들기] 상단에서 내려받은 샘플 ZIP 안 photos 폴더의 실사진 10장(외부 4장 + 내부 6장, 세로형 포함)을 한꺼번에 올리고, [★ 1번 대표로] 버튼을 써 본 뒤 하단 [✨ 모바일 IM 만들기] → 완료 창에서 [📊 발표자료(PPT) 받기]와 [🔗 공유 링크 복사]를 눌러 바로 아래 초록색 칸에 붙여넣습니다.',
+          '[③ 장점 3가지] 상단 탭을 눌러 아래 사옥 강점 3줄을 복사해 넣거나 [AI로 쓰기] 버튼 문구와 비교합니다.',
+          '[④ 사진·위치·만들기] 상단에서 내려받은 샘플 ZIP 안 photos 폴더의 실사진 10장(외부 4장 + 내부 6장, 세로형 포함)을 한꺼번에 올리고, [★ 1번 대표로] 버튼을 써 본 뒤 파란 [IM 만들기]를 누릅니다. 이어서 바로 옆(또는 오른쪽 아래) 초록색 [🔗 IM 링크 복사]를 눌러 아래 ②번 칸에 붙여넣고, [📥 PPTX 받기]로 10장 사진 배치를 확인합니다.',
         ],
         copySnippets: [
           {
@@ -365,21 +365,21 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
           {
             id: 'b1-im-pt1',
             label: '사옥 강점 1 복사 (더블역세권 코너 가시성)',
-            targetHint: 'IM [③ 강점·입지 코멘트] → 강점 1',
+            targetHint: 'IM [③ 장점 3가지] → 장점 1',
             value: '양재역(3호선·신분당선·GTX-C 예정) 도보 4분 양면 도로 코너 각지로 곡면 커튼월 외관의 기업 사옥 가시성 탁월',
             isPublicFacing: true,
           },
           {
             id: 'b1-im-pt2',
             label: '사옥 강점 2 복사 (주차 20대 & 즉시 입주)',
-            targetHint: 'IM [③ 강점·입지 코멘트] → 강점 2',
+            targetHint: 'IM [③ 장점 3가지] → 장점 2',
             value: '서초권에서 희소한 자주식 포함 총 20대 주차 설비 확보 및 상층부 3개 층(4F~6F, 약 274평) 잔금 즉시 사옥 입주 가능',
             isPublicFacing: true,
           },
           {
             id: 'b1-im-pt3',
             label: '사옥 강점 3 복사 (저층 임대수익 금융비용 상쇄)',
-            targetHint: 'IM [③ 강점·입지 코멘트] → 강점 3',
+            targetHint: 'IM [③ 장점 3가지] → 장점 3',
             value: '저층부(B1~3F) 우량 임차인 월 3,200만 원 임대수익으로 사옥 이자비용을 상쇄하며 전층 임대 전환 시 연 순수익률 3.52% 기대',
             isPublicFacing: true,
           },
@@ -387,8 +387,8 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         inlineScratchFields: [
           {
             field: 'imShareUrl',
-            label: '② 복사한 모바일 IM 공유 링크 붙여넣기 (/im-lite/...)',
-            placeholder: '완료 창 [🔗 공유 링크 복사] 클릭 후 여기에 Ctrl+V',
+            label: '② [🔗 IM 링크 복사]로 복사한 모바일 IM 주소 붙여넣기 (/im-lite/...)',
+            placeholder: '파란 [IM 만들기] 클릭 후 초록색 [🔗 IM 링크 복사]를 눌러 Ctrl+V',
             helperText: '📐 비교 기준값: 대지면적 596.00㎡(약 180.3평) / 연면적 2,104.88㎡(약 636.7평) / 현행 순수익률 1.70% → 전환 3.52%',
           },
         ],
@@ -404,12 +404,12 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         windowBadge: '창 A (PC 중개사)',
         targetMinutes: 3,
         severityOnFail: 'S1',
-        title: '강남·서초 사옥 수요 법인 대상 부동산뉴스 발행 및 공개 주소 확인',
-        workspaceHref: '/broker/magazine-editor',
+        title: '강남·서초 사옥 수요 법인 대상 부동산뉴스 발행 및 [링크 복사] 확인',
+        workspaceHref: '/broker/w/newsletter',
         workspaceLabel: '부동산뉴스 작성 화면 열기',
         actionChecklist: [
-          '제목과 이달의 시장 요약 칸에 아래 복사칩 문구를 넣고, 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결해 발행합니다.',
-          '발행 후 생성된 공개 뉴스레터 주소를 복사해 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 누릅니다.',
+          '왼쪽 위 [+ 새 호수 만들기] 클릭 → 표지 제목과 시장 브리핑 칸에 아래 복사칩 문구를 넣고 방금 만든 서초동 사옥 딜카드를 추천 매물로 연결합니다.',
+          '오른쪽 아래 [구독자에게 보내기] 완료 후 [링크 복사] 버튼을 눌러 바로 아래 초록색 입력칸 ④에 붙여넣고 [🔍 이 링크 바로 점검]을 누릅니다.',
         ],
         copySnippets: [
           {
@@ -664,15 +664,15 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         workspaceHref: '/broker/w/im',
         workspaceLabel: '방금 입력한 IM 이어서 열기',
         actionChecklist: [
-          '방금 열어 둔 IM 화면의 [③ 강점·입지 코멘트]에서 [✨ AI 초안 채우기]를 써 본 뒤, [④ 사진·위치·만들기] 탭으로 이동해 PC·휴대폰에 보관 중인 현장 사진(9장 이상 권장)을 한꺼번에 올립니다.',
-          '[★ 1번 대표로] 지정과 외부↔내부 구분을 써 보고 하단 [✨ 모바일 IM 만들기] → 완료 창에서 [📊 발표자료(PPT) 받기]로 PPT를 열어 본 뒤, [🔗 공유 링크 복사]를 눌러 바로 아래 초록색 칸에 붙여넣습니다.',
+          '방금 열어 둔 IM 화면의 [③ 장점 3가지]에서 [AI로 쓰기] 버튼을 써 본 뒤, [④ 사진·위치·만들기] 탭으로 이동해 PC·휴대폰에 보관 중인 현장 사진(9장 이상 권장)을 한꺼번에 올립니다.',
+          '[★ 1번 대표로] 지정과 외부↔내부 구분을 써 보고 파란 [IM 만들기]를 누릅니다. 이어서 바로 옆(또는 오른쪽 아래) 초록색 [🔗 IM 링크 복사]를 눌러 아래 초록색 칸에 붙여넣고, [📥 PPTX 받기]로 PPT를 열어 확인합니다.',
         ],
         copySnippets: [],
         inlineScratchFields: [
           {
             field: 'imShareUrl',
-            label: '② 내 매물 모바일 IM 공유 링크 붙여넣기 (/im-lite/...)',
-            placeholder: '완료 창 [🔗 공유 링크 복사] 클릭 후 여기에 Ctrl+V',
+            label: '② [🔗 IM 링크 복사]로 복사한 내 매물 IM 주소 붙여넣기 (/im-lite/...)',
+            placeholder: '파란 [IM 만들기] 후 초록색 [🔗 IM 링크 복사]를 눌러 Ctrl+V',
             helperText: '붙여넣어 두시면 Step 7에서 원클릭 삭제 시 해당 IM과 공유 링크도 함께 깔끔히 정리됩니다.',
           },
         ],
@@ -725,11 +725,11 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
         targetMinutes: 2,
         severityOnFail: 'S2',
         title: '내 매물을 연결해 단골 고객용 부동산뉴스 발행해 보기',
-        workspaceHref: '/broker/magazine-editor',
+        workspaceHref: '/broker/w/newsletter',
         workspaceLabel: '부동산뉴스 작성 화면 열기',
         actionChecklist: [
-          '내 매물이 속한 권역 동향을 2~3줄 적고 방금 만든 내 매물 딜카드를 추천 매물로 연결해 발행합니다.',
-          '발행 후 생성된 공개 뉴스레터 주소를 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 눌러 내 매물 번지·건물명이 새어 나오지 않았는지 확인합니다.',
+          '왼쪽 위 [+ 새 호수 만들기] 클릭 → 내 매물이 속한 권역 동향을 2~3줄 적고 방금 만든 내 매물 딜카드를 추천 매물로 연결합니다.',
+          '오른쪽 아래 [구독자에게 보내기] 완료 후 [링크 복사]를 눌러 바로 아래 초록색 입력칸에 붙여넣고 [🔍 이 링크 바로 점검]을 눌러 내 매물 번지·건물명이 새어 나오지 않았는지 확인합니다.',
         ],
         copySnippets: [],
         inlineScratchFields: [

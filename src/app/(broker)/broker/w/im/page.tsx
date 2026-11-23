@@ -32,6 +32,7 @@ import {
 } from "@/domain/building/mobile-im/broker-extras";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
+import { copyText } from "@/lib/ux/clipboard";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import {
@@ -173,6 +174,7 @@ function ImWorkspaceInner() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isShareLinkCopied, setIsShareLinkCopied] = useState(false);
   const [pendingDeleteIm, setPendingDeleteIm] = useState<ImListItem | null>(null);
   const [isAiPointsBusy, setIsAiPointsBusy] = useState(false);
   const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
@@ -1953,6 +1955,32 @@ function ImWorkspaceInner() {
     }
   };
 
+  const handleCopyImShareLink = async () => {
+    if (isProvisioningSheet || isGenerating) return;
+    let targetBuildingId = currentItem?.buildingId || "";
+    if (!UUID_REGEX.test(targetBuildingId) || currentItem?.isDirty || currentItem?.hasUnpublishedEdits) {
+      const target = await ensureProvisionedImTarget("IM 링크 복사");
+      if (!target) return;
+      targetBuildingId = target.buildingId;
+    }
+    if (!targetBuildingId) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+    const shareUrl = `${origin}/im-lite/${encodeURIComponent(targetBuildingId)}`;
+    const copied = await copyText(shareUrl);
+    if (copied) {
+      setIsShareLinkCopied(true);
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setIsShareLinkCopied(false), 2400);
+      }
+      showUndoToast({
+        message: "🔗 모바일 IM 링크를 복사했어요! 카톡이나 점검창에 바로 붙여넣으세요.",
+        variant: "success",
+      });
+    } else {
+      setActionAlert(`직접 복사해 주세요: ${shareUrl}`);
+    }
+  };
+
   const handleOpenFullscreen = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     if (isProvisioningSheet) return;
@@ -2788,8 +2816,10 @@ function ImWorkspaceInner() {
             onReorderPhoto={handleReorderPhoto}
             onRemovePhotoAtIndex={handleRemovePhotoAtIndex}
             isGenerating={isGenerating}
+            isShareLinkCopied={isShareLinkCopied}
             generateButtonLabel={generateButtonLabel}
             onQuickGenerate={handleQuickGenerate}
+            onCopyShareLink={handleCopyImShareLink}
           />
         }
         previewSlot={
@@ -2852,9 +2882,11 @@ function ImWorkspaceInner() {
             isProvisioningSheet={isProvisioningSheet}
             isDownloadingPptx={isDownloadingPptx}
             isDownloadingPdf={isDownloadingPdf}
+            isShareLinkCopied={isShareLinkCopied}
             previewLifecycle={previewLifecycle}
             generateButtonLabel={generateButtonLabel}
             onQuickGenerate={handleQuickGenerate}
+            onCopyShareLink={handleCopyImShareLink}
             onDownloadPptx={handleDownloadPptx}
             onDownloadPdf={handleDownloadPdf}
             onOpenStudio={handleOpenStudio}

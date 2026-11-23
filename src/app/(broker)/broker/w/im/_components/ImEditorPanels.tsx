@@ -119,8 +119,10 @@ export interface ImEditorPanelsProps {
   onReorderPhoto?: (fromIdx: number, toIdx: number) => void;
   onRemovePhotoAtIndex: (entry: ImPhotoEntry, idx: number) => void;
   isGenerating: boolean;
+  isShareLinkCopied?: boolean;
   generateButtonLabel: string;
   onQuickGenerate: () => void;
+  onCopyShareLink?: () => void;
 }
 
 export function ImEditorPanels({
@@ -209,8 +211,10 @@ export function ImEditorPanels({
   onReorderPhoto,
   onRemovePhotoAtIndex,
   isGenerating,
+  isShareLinkCopied = false,
   generateButtonLabel,
   onQuickGenerate,
+  onCopyShareLink,
 }: ImEditorPanelsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exteriorFileInputRef = useRef<HTMLInputElement>(null);
@@ -2293,19 +2297,38 @@ export function ImEditorPanels({
               입력을 마쳤다면 바로 IM을 만들어 보세요
             </p>
             <p className="text-sm text-[#475569] break-keep">
-              모바일 IM 링크와 10면 발표자료가 함께 준비됩니다.
+              모바일 IM 링크와 10면 발표자료가 함께 준비됩니다. 완료 후 [🔗 IM 링크 복사]로 바로 전달할 수 있습니다.
             </p>
           </div>
-          <button
-            type="button"
-            data-testid="im-step4-generate-btn"
-            disabled={isGenerating}
-            aria-busy={isGenerating}
-            onClick={onQuickGenerate}
-            className="min-h-[52px] px-6 py-3 bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-50 text-white rounded-xl font-extrabold text-base transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
-          >
-            <span>{generateButtonLabel}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              data-testid="im-step4-generate-btn"
+              disabled={isGenerating}
+              aria-busy={isGenerating}
+              onClick={onQuickGenerate}
+              className="min-h-[52px] px-6 py-3 bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-50 text-white rounded-xl font-extrabold text-base transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
+            >
+              <span>{generateButtonLabel}</span>
+            </button>
+            {onCopyShareLink && (
+              <button
+                type="button"
+                data-testid="im-step4-copy-link-btn"
+                disabled={isGenerating || isProvisioningSheet}
+                onClick={onCopyShareLink}
+                className={`min-h-[52px] px-4 py-3 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer border shrink-0 whitespace-nowrap ${
+                  isShareLinkCopied
+                    ? "bg-emerald-600 text-white border-emerald-700"
+                    : "bg-white hover:bg-emerald-50 text-emerald-950 border-emerald-400"
+                }`}
+              >
+                <span>
+                  {isShareLinkCopied ? "✓ IM 링크 복사됨" : "🔗 IM 링크 복사"}
+                </span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

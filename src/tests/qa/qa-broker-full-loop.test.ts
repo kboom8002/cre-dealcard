@@ -234,7 +234,43 @@ describe("Broker Full-Loop Workbench (/qa-broker/full-loop: 10-Photo Golden + BY
       expect(doc).toContain("2,104.88㎡");
       expect(doc).toContain("[카톡으로 보내기]");
       expect(doc).toContain("[📋 표 붙여넣기]");
+      expect(doc).toContain("[🔗 IM 링크 복사]");
+      expect(doc).not.toContain("강점·입지 코멘트");
+      expect(doc).not.toContain("모바일 IM 만들기");
     }
+  });
+
+  it("accepts /broker/w/im?buildingId=<uuid> address-bar URLs in live probe without path error", async () => {
+    process.env.QA_BROKER_ACCESS_KEY = "test-broker-qa-key";
+    mockLeakState.enabled = true;
+
+    const addrBarProbeReq = new NextRequest(
+      "http://localhost:3000/api/public/qa-workbench",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-qa-access-key": "test-broker-qa-key",
+        },
+        body: JSON.stringify({
+          mode: "probe",
+          expectedLoopId: "broker-loop1",
+          imShareUrl:
+            "https://www.credeal.net/broker/w/im?buildingId=33333333-3333-4333-8333-333333333333",
+          dealCardUrl:
+            "https://www.credeal.net/broker/w/dealcards?buildingId=33333333-3333-4333-8333-333333333333",
+        }),
+      },
+    );
+    const res = await postWorkbench(addrBarProbeReq);
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.shareLinkCheck?.validUrl).toBe(true);
+    expect(json.shareLinkCheck?.buildingId).toBe(
+      "33333333-3333-4333-8333-333333333333",
+    );
+    expect(json.dealCardCheck?.validUrl).toBe(true);
+    expect(json.groundTruthOracleCheck?.landMatch).toBe(true);
   });
 
   it("verifies broker-loop1 ground truth (596 / 2104.88) and catches BYOD customForbiddenTokens leaks", async () => {

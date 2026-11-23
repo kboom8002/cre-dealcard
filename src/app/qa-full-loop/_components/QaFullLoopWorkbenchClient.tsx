@@ -36,11 +36,26 @@ interface LoopScratchUrls {
   byodForbiddenKeywords?: string;
 }
 
-function extractEntityIdFromUrl(raw: string, prefixPattern: RegExp): string {
+function extractEntityIdFromUrl(
+  raw: string,
+  prefixPattern: RegExp,
+  queryKeys: readonly string[] = ["buildingId", "id"],
+): string {
   const trimmed = (raw || "").trim();
   if (!trimmed) return "";
   const m = trimmed.match(prefixPattern);
   if (m && m[1]) return decodeURIComponent(m[1]);
+  try {
+    const u = trimmed.startsWith("http")
+      ? new URL(trimmed)
+      : new URL(trimmed, "https://www.credeal.net");
+    for (const k of queryKeys) {
+      const qv = (u.searchParams.get(k) || "").trim();
+      if (qv) return qv;
+    }
+  } catch {
+    // ignore malformed URL
+  }
   return "";
 }
 
@@ -525,9 +540,9 @@ export function QaFullLoopWorkbenchClient({
           return;
         }
         setProbeResults((prev) => ({ ...prev, [loopId]: data }));
-        showToast("🔍 실시간 정답 오라클 & 블라인드 판정이 완료되었습니다.");
+        showToast("🔍 링크·면적·비공개 점검이 완료되었습니다.");
       } catch {
-        showToast("네트워크 오류로 프로브 요청에 실패했습니다.");
+        showToast("네트워크 오류로 자동 점검 요청에 실패했습니다.");
       } finally {
         setProbeLoading(false);
       }

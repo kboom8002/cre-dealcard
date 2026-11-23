@@ -1580,8 +1580,16 @@ export async function POST(req: NextRequest) {
           };
         } else {
           const u = parsedRes.url;
-          const imMatch = u.pathname.match(/^\/im-lite\/([^/?#]+)/);
-          if (!imMatch) {
+          const imPathMatch = u.pathname.match(
+            /^\/(?:im-lite|im-pro|broker\/basic-im-studio|broker\/im-approval)\/([^/?#]+)/i
+          );
+          const imQueryBldId = /^\/broker\/w\/im\/?$/i.test(u.pathname)
+            ? (u.searchParams.get("buildingId") || u.searchParams.get("id") || "").trim()
+            : "";
+          const resolvedImBldId = imPathMatch
+            ? decodeURIComponent(imPathMatch[1])
+            : imQueryBldId;
+          if (!resolvedImBldId) {
             shareLinkCheck = {
               validUrl: false,
               buildingId: "",
@@ -1591,7 +1599,7 @@ export async function POST(req: NextRequest) {
               error: "/im-lite/<매물ID> 형식의 공유 링크를 입력해 주세요.",
             };
           } else {
-            const buildingId = decodeURIComponent(imMatch[1]);
+            const buildingId = resolvedImBldId;
             const token = u.searchParams.get("token")?.trim() || null;
 
             let tokenBlocked = false;
@@ -1905,8 +1913,14 @@ export async function POST(req: NextRequest) {
             error: parsedRes.error,
           };
         } else {
-          const dcMatch = parsedRes.url.pathname.match(/^\/(?:dc|d)\/([^/?#]+)/i);
-          if (!dcMatch) {
+          const dcPathMatch = parsedRes.url.pathname.match(/^\/(?:dc|d)\/([^/?#]+)/i);
+          const dcQueryId = /^\/broker\/w\/dealcards\/?$/i.test(parsedRes.url.pathname)
+            ? (parsedRes.url.searchParams.get("buildingId") || parsedRes.url.searchParams.get("id") || "").trim()
+            : "";
+          const resolvedDcId = dcPathMatch
+            ? decodeURIComponent(dcPathMatch[1])
+            : dcQueryId;
+          if (!resolvedDcId) {
             dealCardCheck = {
               validUrl: false,
               dealId: "",
@@ -1918,7 +1932,7 @@ export async function POST(req: NextRequest) {
               error: "/dc/<딜카드ID> 형식의 링크 또는 ID를 입력해 주세요.",
             };
           } else {
-            const dealId = decodeURIComponent(dcMatch[1]);
+            const dealId = resolvedDcId;
             let exists = false;
             let addressBlindPass = true;
             let brokerPhonePass = true;
@@ -2080,8 +2094,16 @@ export async function POST(req: NextRequest) {
             error: parsedSec.error,
           };
         } else {
-          const secMatch = parsedSec.url.pathname.match(/^\/im-lite\/([^/?#]+)/);
-          if (!secMatch) {
+          const secPathMatch = parsedSec.url.pathname.match(
+            /^\/(?:im-lite|im-pro|broker\/basic-im-studio|broker\/im-approval)\/([^/?#]+)/i
+          );
+          const secQueryBldId = /^\/broker\/w\/im\/?$/i.test(parsedSec.url.pathname)
+            ? (parsedSec.url.searchParams.get("buildingId") || parsedSec.url.searchParams.get("id") || "").trim()
+            : "";
+          const resolvedSecBldId = secPathMatch
+            ? decodeURIComponent(secPathMatch[1])
+            : secQueryBldId;
+          if (!resolvedSecBldId) {
             secondaryShareLinkCheck = {
               validUrl: false,
               buildingId: "",
@@ -2090,7 +2112,7 @@ export async function POST(req: NextRequest) {
               statusLabel: "URL 경로 오류 (/im-lite/<buildingId> 필요)",
             };
           } else {
-            const secBldId = decodeURIComponent(secMatch[1]);
+            const secBldId = resolvedSecBldId;
             const secToken = parsedSec.url.searchParams.get("token")?.trim() || null;
             let secTokenBlocked = false;
             let secTokenReason: string | null = null;
