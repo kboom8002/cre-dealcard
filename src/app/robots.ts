@@ -6,11 +6,10 @@
  * - References the sitemap
  */
 import type { MetadataRoute } from "next";
-
-const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
+  const BASE_URL = getCanonicalSiteUrl();
   return {
     rules: [
       {

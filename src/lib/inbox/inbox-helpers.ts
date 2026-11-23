@@ -42,6 +42,7 @@ export interface InboxDispatchHistoryItem {
   status: string;
   createdAt: string;
   bounceReason?: string;
+  shareUrl?: string;
 }
 
 export interface ParsedGateReason {
@@ -439,6 +440,26 @@ export function toDispatchHistoryEntry(ev: Record<string, unknown>): InboxDispat
       title: eventType === 'dealcard_sent' ? '딜카드 링크 발송' : 'IM 전용 링크 발송',
       status: 'sent',
       createdAt,
+    };
+  }
+  if (eventType === 'gate_request_approved') {
+    const rawMetaUrl =
+      typeof meta.share_url === 'string' && meta.share_url.trim()
+        ? meta.share_url.trim()
+        : typeof meta.shareUrl === 'string' && meta.shareUrl.trim()
+        ? meta.shareUrl.trim()
+        : '';
+    const buildingId = typeof meta.building_id === 'string' ? meta.building_id.trim() : '';
+    const shareToken = typeof meta.share_token === 'string' ? meta.share_token.trim() : '';
+    const resolvedUrl = rawMetaUrl || (buildingId ? buildThreadShareUrl(buildingId, shareToken, true) : '');
+    return {
+      id: String(ev.id),
+      eventType,
+      channel: String(meta.channel || 'link'),
+      title: 'IM 승인 · 전용 링크 발급',
+      status: 'sent',
+      createdAt,
+      ...(resolvedUrl ? { shareUrl: resolvedUrl } : {}),
     };
   }
   if (eventType === 'email_delivered') {

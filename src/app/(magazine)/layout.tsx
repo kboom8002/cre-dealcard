@@ -12,8 +12,9 @@
 import type { Metadata, Viewport } from "next";
 import React from "react";
 import { MagazineRouteEffects } from "@/components/magazine/MagazineRouteEffects";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+const BASE_URL = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),

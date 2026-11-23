@@ -17,6 +17,7 @@ import { MobileIMViewer } from "./mobile-im-viewer";
 import { fetchIMData } from "./fetch-im-data";
 import { getServerViewer } from "@/lib/server-viewer";
 import { isOwnerOrAdmin } from "@/domain/public-projection/access";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 interface Props {
   params: Promise<{ buildingId: string }>;
@@ -57,25 +58,29 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const docId = typeof sp.doc === "string" ? sp.doc : undefined;
   const token = typeof sp.token === "string" ? sp.token : undefined;
 
-  const { data } = await loadIMData(buildingId, docId, token);
+  const { data, denyReason } = await loadIMData(buildingId, docId, token);
+  const siteUrl = getCanonicalSiteUrl();
 
   if (data && !(data as any).isRevoked) {
     const ogTitle = data.ogTitle || `${data.blindName} — ${data.priceBand} 투자설명서`;
     const ogDesc = data.ogDescription || `${data.areaSignal} · ${data.assetType} · 모바일 투자설명서`;
-    const ogImageUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}?type=im`;
+    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}?type=im`;
 
     return {
-      title: `${ogTitle} | 크리딜`,
+      title: { absolute: `${ogTitle} | 크리딜` },
       description: ogDesc,
       openGraph: {
         title: ogTitle,
         description: ogDesc,
         type: "article",
+        siteName: "크리딜 (CREDEAL)",
+        url: `${siteUrl}/im-lite/${buildingId}`,
         images: [
           {
             url: ogImageUrl,
             width: 1200,
             height: 630,
+            alt: ogTitle,
           },
         ],
       },
@@ -83,13 +88,43 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         card: "summary_large_image",
         title: ogTitle,
         description: ogDesc,
+        images: [ogImageUrl],
       },
     };
   }
 
+  const fallbackTitle = "모바일 투자설명서 (IM) | 크리딜";
+  const fallbackDesc =
+    "승인 전용 모바일 투자설명서 (IM) — 담당 중개사 승인 후 열람하실 수 있습니다.";
+  const fallbackOgImage =
+    denyReason === "token_required"
+      ? `${siteUrl}/api/og/deal/${buildingId}?type=im`
+      : `${siteUrl}/og-default.png?v=2`;
+
   return {
-    title: { absolute: "모바일 투자설명서 | 크리딜" },
-    description: "상업용 부동산 비공개 모바일 투자설명서 (IM Lite)",
+    title: { absolute: fallbackTitle },
+    description: fallbackDesc,
+    openGraph: {
+      title: fallbackTitle,
+      description: fallbackDesc,
+      type: "article",
+      siteName: "크리딜 (CREDEAL)",
+      url: `${siteUrl}/im-lite/${buildingId}`,
+      images: [
+        {
+          url: fallbackOgImage,
+          width: 1200,
+          height: 630,
+          alt: fallbackTitle,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: fallbackTitle,
+      description: fallbackDesc,
+      images: [fallbackOgImage],
+    },
   };
 }
 

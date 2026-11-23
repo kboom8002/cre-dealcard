@@ -9,9 +9,11 @@ import {
   toPublicDealCard,
   type PublicDealCardBrokerInput,
 } from '@/domain/public-projection/deal-card';
-import { evaluateDealCardPublicVisibility } from '@/domain/public-projection/visibility';
+import { evaluateDealCardPublicVisibility, PUBLIC_IM_DOC_STATUSES, PUBLIC_WORKSPACE_ITEM_STATUSES } from '@/domain/public-projection/visibility';
 import { isOwnerOrAdmin } from '@/domain/public-projection/access';
 import { getServerViewer } from '@/lib/server-viewer';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
+import { getWorkspaceItemByAnyId } from '@/lib/workspace/workspace-repository';
 import type { Card4Data } from '@/lib/deal-card/card4-schema';
 import {
   getInboxState,
@@ -103,6 +105,82 @@ function strOrNull(value: unknown): string | null {
 
 function numOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+const PUBLIC_IM_WORKSPACE_STATUS_SET = new Set<string>([
+  ...PUBLIC_WORKSPACE_ITEM_STATUSES,
+  "active",
+]);
+const PUBLIC_IM_DOC_TYPE_LIST = ["im_lite", "mobile_im", "im_pro"];
+
+function isPublishedImDocRow(row: Record<string, unknown> | null | undefined): boolean {
+  if (!row) return false;
+  const docType = String(row.document_type || "");
+  if (docType === "im_lite_draft") return false;
+  if (docType && !PUBLIC_IM_DOC_TYPE_LIST.includes(docType)) return false;
+  const status = String(row.status || "");
+  if (!PUBLIC_IM_DOC_STATUSES.includes(status)) return false;
+  if (row.visibility === "internal_only") return false;
+  const body =
+    row.body && typeof row.body === "object" ? (row.body as Record<string, unknown>) : null;
+  if (body?.is_revoked === true) return false;
+  return true;
+}
+
+async function hasPublishedWorkspaceIm(
+  supabase: ReturnType<typeof createServiceClient>,
+  candidateIds: string[]
+): Promise<boolean> {
+  const uniqueIds = Array.from(
+    new Set(candidateIds.map((c) => String(c || "").trim()).filter(Boolean))
+  );
+  for (const cid of uniqueIds) {
+    try {
+      const imItem = await getWorkspaceItemByAnyId(supabase, cid, "im");
+      if (
+        imItem &&
+        !imItem.deletedAt &&
+        !imItem.revokedAt &&
+        PUBLIC_IM_WORKSPACE_STATUS_SET.has(imItem.status)
+      ) {
+        return true;
+      }
+    } catch {
+      // Pre-cutover or transient lookup fallback
+    }
+  }
+  return false;
+}
+
+async function hasPublishedImExistence(
+  supabase: ReturnType<typeof createServiceClient>,
+  candidateIds: string[]
+): Promise<boolean> {
+  if (await hasPublishedWorkspaceIm(supabase, candidateIds)) {
+    return true;
+  }
+  const uuidIds = Array.from(
+    new Set(candidateIds.map((c) => String(c || "").trim()).filter((c) => isUuid(c)))
+  );
+  for (const cid of uuidIds) {
+    try {
+      const res = await supabase
+        .from("document_objects")
+        .select("id, status, body, document_type, visibility")
+        .eq("building_id", cid)
+        .in("document_type", PUBLIC_IM_DOC_TYPE_LIST)
+        .in("status", [...PUBLIC_IM_DOC_STATUSES])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (isPublishedImDocRow(res?.data as Record<string, unknown> | null)) {
+        return true;
+      }
+    } catch {
+      // Ignore lookup fallback
+    }
+  }
+  return false;
 }
 
 function normalizeSnapshotBrokerProfile(raw: Record<string, unknown>): PublicDealCardBrokerInput {
@@ -612,7 +690,11 @@ const getDealCardData = cache(async (id: string) => {
         },
       } as TeaserDocView,
       brokerProfile: resolvedBrokerProfile,
-      hasImDoc: Boolean(snap.hasImDoc),
+      hasImDoc: await hasPublishedImExistence(supabase, [
+        guard.item.buildingId || "",
+        guard.item.legacyId || "",
+        id,
+      ]),
       isPptxApproved: Boolean(snap.isPptxApproved),
       pptxDownloadUrl: `/api/public/im-lite/${guard.item.buildingId || guard.item.legacyId || id}/pptx`,
       ownerId: guard.ownerId,
@@ -747,13 +829,13 @@ const getDealCardData = cache(async (id: string) => {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // IM 문서 존재 여부 및 공식 승인 상태 확인 (im_lite, im_lite_draft, mobile_im)
+    // IM 문서 존재 여부 및 공식 승인 상태 확인 (published IM만 허용 — im_lite_draft/미발행 초안 제외)
     supabase
       .from("document_objects")
-      .select("id, status, body")
+      .select("id, status, body, document_type, visibility")
       .eq("building_id", targetBuildingId)
-      .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
-      .neq("status", "archived")
+      .in("document_type", PUBLIC_IM_DOC_TYPE_LIST)
+      .in("status", [...PUBLIC_IM_DOC_STATUSES])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -794,10 +876,10 @@ const getDealCardData = cache(async (id: string) => {
           .maybeSingle(),
         supabase
           .from("document_objects")
-          .select("id, status, body")
+          .select("id, status, body, document_type, visibility")
           .eq("building_id", targetBuildingId)
-          .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
-          .neq("status", "archived")
+          .in("document_type", PUBLIC_IM_DOC_TYPE_LIST)
+          .in("status", [...PUBLIC_IM_DOC_STATUSES])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -905,9 +987,13 @@ const getDealCardData = cache(async (id: string) => {
   const imPptxDownloadUrl =
     (typeof imDocRow?.pptx_download_url === "string" ? imDocRow.pptx_download_url : undefined) ??
     (typeof imDocBody.pptx_download_url === "string" ? imDocBody.pptx_download_url : undefined);
+  const hasPublishedImDoc = isPublishedImDocRow(imDocRow);
+  const hasImDoc =
+    hasPublishedImDoc || (await hasPublishedWorkspaceIm(supabase, [targetBuildingId, id]));
   const isPptxApproved =
-    imApprovalStage === 'S70_FILE_APPROVAL' ||
-    (imDocRes.data?.status === 'published' && !!imPptxHash);
+    hasPublishedImDoc &&
+    (imApprovalStage === 'S70_FILE_APPROVAL' ||
+      (imDocRes.data?.status === 'published' && !!imPptxHash));
   const pptxDownloadUrl = imPptxDownloadUrl || `/api/public/im-lite/${id}/pptx`;
 
   return {
@@ -915,7 +1001,7 @@ const getDealCardData = cache(async (id: string) => {
     signalCard: (signalCardRes.data as SignalCardView | null) ?? null,
     teaserDoc: (teaserDocRes.data as TeaserDocView | null) ?? null,
     brokerProfile,
-    hasImDoc: !!imDocRes.data,
+    hasImDoc,
     isPptxApproved,
     pptxDownloadUrl,
     ownerId,
@@ -977,7 +1063,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const ogTitle = og.title;
   const ogDescription = og.description || "상업용 부동산 비공개 매각 티저 — 담당 중개사 직통 문의";
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
+  const siteUrl = getCanonicalSiteUrl();
   const teaserCard4 = (data.teaserDoc?.body as Record<string, unknown> | undefined)?.card4 as
     | Record<string, unknown>
     | undefined;

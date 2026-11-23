@@ -130,6 +130,11 @@ const nextConfig: NextConfig = {
         destination: '/broker/w/im?buildingId=:id',
         permanent: false,
       },
+      {
+        source: '/broker/settings/profile',
+        destination: '/broker/profile',
+        permanent: false,
+      },
     ];
   },
   async headers() {

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 declare global {
   interface Window {
@@ -627,11 +628,11 @@ function OwnerReadinessContent() {
 
   const handleKakaoShare = () => {
     if (!result) return;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const siteUrl = getCanonicalSiteUrl();
     const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
     const title = `🏢 [매각준비도] ${buildingLabel}`;
     const desc = `진단 점수: ${result.readinessScore}점 (${stateInfo?.label || ''})\n\n추천 액션: ${result.nextRecommendedAction}`;
-    const ogImageUrl = `${siteUrl}/api/og/deal/default`;
+    const ogImageUrl = `${siteUrl}/og-default.png?v=2`;
 
     if (kakaoReady && window.Kakao?.Share) {
       try {
@@ -667,7 +668,7 @@ function OwnerReadinessContent() {
 
   const handleCopyLink = () => {
     if (!result) return;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const siteUrl = getCanonicalSiteUrl();
     const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
     
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -681,7 +682,7 @@ function OwnerReadinessContent() {
 
   const handleSmsShare = () => {
     if (!result) return;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const siteUrl = getCanonicalSiteUrl();
     const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
     const fullText = `[매각준비도] ${buildingLabel} 진단 결과: ${result.readinessScore}점. 링크: ${shareUrl}`;
     

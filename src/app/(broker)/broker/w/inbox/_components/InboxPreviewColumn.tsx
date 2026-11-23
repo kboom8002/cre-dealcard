@@ -12,6 +12,7 @@ import {
   computePriorityContactSignal,
   formatClientRoleLabel,
   formatPhoneKo,
+  isValidCallPhone,
 } from "./inbox-types";
 
 export type InboxAlimtalkTemplateId =
@@ -553,12 +554,23 @@ export function InboxPreviewColumn({
                   {activeThread.clientName}
                 </dd>
               </div>
+              {activeThread.clientCompany && (
+                <div
+                  data-testid="inbox-summary-client-company"
+                  className="flex items-center justify-between gap-2"
+                >
+                  <dt className="font-semibold text-slate-500">소속·회사</dt>
+                  <dd className="truncate font-bold text-slate-900">
+                    {activeThread.clientCompany}
+                  </dd>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-2">
                 <dt className="font-semibold text-slate-500">연락처</dt>
                 <dd className="font-bold text-slate-900">
-                  {activeThread.clientPhone ? (
+                  {isValidCallPhone(activeThread.clientPhone) ? (
                     <a
-                      href={`tel:${activeThread.clientPhone}`}
+                      href={`tel:${activeThread.clientPhone.trim()}`}
                       data-testid="preview-call-link"
                       className="text-blue-700 hover:underline font-bold"
                     >
@@ -618,6 +630,18 @@ export function InboxPreviewColumn({
                   </dd>
                 </div>
               )}
+              {activeThread.cleanMessage?.trim() &&
+                activeThread.cleanMessage.trim() !== (activeThread.freeMemo || "").trim() && (
+                  <div
+                    data-testid="inbox-summary-clean-message"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                  >
+                    <dt className="font-semibold text-slate-500">요청·문의 내용</dt>
+                    <dd className="mt-0.5 font-medium text-slate-800 whitespace-pre-line break-words">
+                      {activeThread.cleanMessage.trim()}
+                    </dd>
+                  </div>
+                )}
               {activeThread.freeMemo && (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                   <dt className="font-semibold text-slate-500">상담 메모</dt>

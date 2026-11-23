@@ -10,6 +10,7 @@
  *  - 'failed' : 둘 다 실패
  */
 import { copyText } from '@/lib/ux/clipboard';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 
 const SDK_URL = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js';
 
@@ -95,7 +96,7 @@ export function getSiteOrigin(): string {
   ) {
     return window.location.origin.replace(/\/$/, '');
   }
-  return (process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net').replace(/\/$/, '');
+  return getCanonicalSiteUrl();
 }
 
 /** 상대 경로(`/...`, `//...`)를 사이트 절대 URL로 정규화한다. */

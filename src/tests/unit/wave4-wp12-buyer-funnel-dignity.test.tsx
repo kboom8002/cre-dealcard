@@ -104,7 +104,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       expect(container.querySelector('[data-testid="contact-gate-modal"]')).not.toBeNull();
     });
 
-    it("shows confirmed state badge + tel: CTA when hasImDoc={false} and visitor is already verified", async () => {
+    it("shows confirmed state button (no tel: href) and opens confirmation modal when hasImDoc={false} and visitor is already verified", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue({
         ok: true,
         status: 200,
@@ -125,15 +125,29 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
 
       const confirmedEl = container.querySelector(
         '[data-testid="public-dealcard-im-request-btn"]'
-      ) as HTMLAnchorElement;
+      ) as HTMLButtonElement;
       expect(confirmedEl).not.toBeNull();
+      expect(confirmedEl.tagName).toBe("BUTTON");
       expect(confirmedEl.textContent).toContain("상세 자료 요청 접수됨");
-      expect(confirmedEl.getAttribute("href")).toBe("tel:01055557777");
+      expect(confirmedEl.getAttribute("href")).toBeNull();
       expect(container.querySelector('a[href*="/im-lite"]')).toBeNull();
       expect(h.routerPush).not.toHaveBeenCalled();
+
+      await act(async () => {
+        confirmedEl.click();
+      });
+
+      const submittedView = container.querySelector('[data-testid="contact-gate-submitted"]');
+      expect(submittedView).not.toBeNull();
+      expect(submittedView?.textContent).toContain(
+        "요청이 정상 접수되었습니다. 담당 중개사가 확인 후 카톡·문자로 승인 전용 IM 링크를 보내드립니다."
+      );
+      expect(container.querySelector('[data-testid="contact-gate-copy-phone-btn"]')).not.toBeNull();
+      const callLink = container.querySelector('[data-testid="contact-gate-call-btn"]') as HTMLAnchorElement;
+      expect(callLink?.getAttribute("href")).toBe("tel:01055557777");
     });
 
-    it("preserves /im-lite/${buildingId}?pro=true navigation when hasImDoc={true}", async () => {
+    it("unifies confirmation state when hasImDoc={true} and NEVER redirects to un-tokenized /im-lite/${buildingId}?pro=true", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue({
         ok: true,
         status: 200,
@@ -145,6 +159,7 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
           <CTALadder
             buildingId="bldg-with-im-01"
             teaserConfigId="cfg-03"
+            brokerPhone="010-5555-8888"
             hasImDoc={true}
           />
         );
@@ -154,13 +169,15 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       const primaryBtn = container.querySelector(
         '[data-testid="public-dealcard-im-request-btn"]'
       ) as HTMLButtonElement;
-      expect(primaryBtn.textContent).toContain("상세 제안서(IM) 요청");
+      expect(primaryBtn.textContent).toContain("상세 자료 요청 접수됨");
 
       await act(async () => {
         primaryBtn.click();
       });
 
-      expect(h.routerPush).toHaveBeenCalledWith("/im-lite/bldg-with-im-01?pro=true");
+      expect(h.routerPush).not.toHaveBeenCalled();
+      expect(container.querySelector('[data-testid="contact-gate-submitted"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="contact-gate-preview-btn"]')).toBeNull();
     });
   });
 
@@ -247,8 +264,11 @@ describe("Wave 4 WP-12: Buyer Funnel Dead-End Closure & Dignified Public UX", ()
       const submittedView = container.querySelector('[data-testid="contact-gate-submitted"]');
       expect(submittedView).not.toBeNull();
       expect(submittedView?.textContent).toContain(
-        "담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처(010-3333-4444)로 전용 링크를 안내해 드립니다."
+        "요청이 정상 접수되었습니다. 담당 중개사가 확인 후 카톡·문자로 승인 전용 IM 링크를 보내드립니다."
       );
+      expect(submittedView?.textContent).toContain("010-3333-4444");
+      expect(submittedView?.textContent).toContain("010-9999-1111");
+      expect(container.querySelector('[data-testid="contact-gate-copy-phone-btn"]')).not.toBeNull();
       // tel: call CTA rendered, preview button (/im-lite redirect trigger) omitted
       const callLink = container.querySelector('[data-testid="contact-gate-call-btn"]') as HTMLAnchorElement;
       expect(callLink).not.toBeNull();

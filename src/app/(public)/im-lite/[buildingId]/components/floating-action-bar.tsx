@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 /**
  * 카카오톡·라인·인스타그램·페이스북 등 인앱 WebView 감지 (순수 함수)
@@ -53,7 +54,7 @@ function attachTokenToUrl(rawUrl: string, token: string): string {
   const cleanToken = token.trim();
   if (!cleanToken) return rawUrl;
   try {
-    const parsed = new URL(rawUrl, "https://credeal.net");
+    const parsed = new URL(rawUrl, getCanonicalSiteUrl());
     parsed.searchParams.set("token", cleanToken);
     if (/^https?:\/\//i.test(rawUrl)) {
       return parsed.toString();
@@ -67,7 +68,7 @@ function attachTokenToUrl(rawUrl: string, token: string): string {
 
 function hasUrlTokenParam(rawUrl: string): boolean {
   try {
-    const parsed = new URL(rawUrl, "https://credeal.net");
+    const parsed = new URL(rawUrl, getCanonicalSiteUrl());
     return Boolean(parsed.searchParams.get("token")?.trim());
   } catch {
     return /[?&]token=[^&#\s]+/i.test(rawUrl);
@@ -481,16 +482,17 @@ export function FloatingActionBar({
   };
 
   const handleKakaoShare = async () => {
+    const siteUrl = getCanonicalSiteUrl();
     const rawCurrentUrl =
       typeof window !== "undefined"
         ? window.location.href
-        : `https://credeal.net/im-lite/${buildingId}${
+        : `${siteUrl}/im-lite/${buildingId}${
             docId ? `?doc=${docId}` : ""
           }`;
     const currentUrl = await resolveTokenizedShareUrl(rawCurrentUrl);
     if (!currentUrl) return;
 
-    const ogImageUrl = `https://credeal.net/api/og/deal/${buildingId}?type=im&t=${Date.now()}`;
+    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}?type=im&t=${Date.now()}`;
     const shareTitle =
       doc?.ogTitle || doc?.blindName || title || "모바일 투자설명서";
     const shareDesc =

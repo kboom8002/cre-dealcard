@@ -8,9 +8,11 @@
  * (parse-rentroll-sheet 와 동일 기준: 공실·자가사용 행 금액은 합계 제외, 자가사용은 공실률 분모 제외).
  */
 import { normalizeLeaseOccupancyFields, resolveLeaseOccupancy, summarizeLeaseOccupancy } from '@/domain/building/mobile-im/lease-vacancy';
+import { isExampleRentRollRow } from '@/lib/rentroll/example-row';
 
 export interface TextParsedFloorLease {
   floor: string;
+  unit_label?: string;
   tenant_type?: string;
   tenant_name?: string;
   deposit_manwon?: number;
@@ -20,6 +22,15 @@ export interface TextParsedFloorLease {
   lease_state?: string;
   note?: string;
   area_sqm?: number;
+  exclusive_area_sqm?: number;
+  contract_group?: string;
+  legal_basis?: string;
+  first_contract_date?: string;
+  renewal_exercised?: string;
+  opposing_power?: string;
+  evidence_level?: string | null;
+  rent_free_months?: number | null;
+  payment_status?: string | null;
   lease_start?: string;
   lease_end?: string;
 }
@@ -35,11 +46,21 @@ export interface TextParsedRentRoll {
 const LEASE_STATES = ['임대중', '공실', '자가사용'];
 
 export function normalizeTextParsedRentRoll(parsed: TextParsedRentRoll): TextParsedRentRoll {
-  const rows = parsed.floorLeases.map((l) => {
-    const cleaned: TextParsedFloorLease = { ...l };
-    if (cleaned.lease_state && !LEASE_STATES.includes(cleaned.lease_state)) delete cleaned.lease_state;
-    return normalizeLeaseOccupancyFields(cleaned);
-  });
+  const rows = parsed.floorLeases
+    .filter(
+      (l) =>
+        !isExampleRentRollRow({
+          floor: l.floor,
+          biz: l.tenant_type || l.tenant_name,
+          tenantName: l.tenant_name,
+          note: l.note,
+        }),
+    )
+    .map((l) => {
+      const cleaned: TextParsedFloorLease = { ...l };
+      if (cleaned.lease_state && !LEASE_STATES.includes(cleaned.lease_state)) delete cleaned.lease_state;
+      return normalizeLeaseOccupancyFields(cleaned);
+    });
 
   let monthlyRent = 0;
   let totalDeposit = 0;

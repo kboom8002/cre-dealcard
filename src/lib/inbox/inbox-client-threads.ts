@@ -503,7 +503,8 @@ export function appendCrmAndSubscriberThreads(
 
     const displayName =
       String(row?.subscriber_name || '').trim() || (emailNorm ? emailNorm.split('@')[0] : '뉴스레터 구독자');
-    const displayContact = formatKrPhoneDisplay(row?.subscriber_phone, row?.phone_e164, row?.subscriber_email);
+    const rawPhoneDisplay = formatKrPhoneDisplay(row?.subscriber_phone, row?.phone_e164, '');
+    const displayContact = rawPhoneDisplay.includes('@') ? '' : rawPhoneDisplay;
     const consentStatusLabel =
       nlOverride && !nlOverride.subscribed
         ? '수신 거부'
@@ -617,7 +618,9 @@ export function attachDispatchAndFilterThreads(params: {
     for (const ev of rawDispatchAuditEvents) {
       const meta = asRecord(ev?.metadata);
       const evType = String(ev?.event_type || '');
-      const evThreadId = String(meta.thread_id || meta.client_id || meta.recipient_id || meta.subscriber_id || '').trim();
+      const evThreadId = String(
+        meta.thread_id || meta.request_id || meta.client_id || meta.recipient_id || meta.subscriber_id || ''
+      ).trim();
       const evRawId = String(meta.raw_client_id || evThreadId.replace(/^(?:srv-|custom[-_]|cli-|sub_)/, '')).trim();
       const rawEvEmail = meta.to_email ?? meta.email ?? meta.client_email ?? meta.subscriber_email;
       const evEmail = normalizeClientEmail(typeof rawEvEmail === 'string' ? rawEvEmail : null);

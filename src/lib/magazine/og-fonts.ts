@@ -18,6 +18,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { inflateSync } from 'zlib';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 
 export interface OgFont {
   name: string;
@@ -113,9 +114,14 @@ async function loadFromPublic(): Promise<LoadResult | null> {
 }
 
 async function loadFromStaticFetch(): Promise<LoadResult | null> {
-  const base = process.env.APP_BASE_URL?.trim();
-  if (!base || !/^https?:\/\//.test(base)) return null; // localhost 폴백 금지 (S2-24)
-  const root = base.replace(/\/$/, '');
+  const root = getCanonicalSiteUrl();
+  if (
+    !root ||
+    !/^https?:\/\//.test(root) ||
+    /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(root)
+  ) {
+    return null; // localhost 폴백 금지 (S2-24)
+  }
   return loadFiles((b, ext) => tryFetch(`${root}/fonts/${b}${ext}`));
 }
 

@@ -309,6 +309,7 @@ export async function handleGetInbox(req: NextRequest) {
         'magazine_sent',
         'dealcard_sent',
         'im_link_sent',
+        'gate_request_approved',
         'email_delivered',
         'email_bounced',
         'email_complained',

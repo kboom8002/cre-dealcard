@@ -4,6 +4,7 @@ import { useState, useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 const emptySubscribe = () => () => {};
 const getClientMounted = () => true;
@@ -81,7 +82,7 @@ export function KakaoShareButton({
     document.head.appendChild(script);
   }, []);
 
-  const siteUrl = "https://credeal.net";
+  const siteUrl = getCanonicalSiteUrl();
   const dealUrl = `${siteUrl}/dc/${buildingId}`;
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
   const effectiveShareText = savedLocalText ?? text;

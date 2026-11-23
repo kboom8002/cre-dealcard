@@ -8,14 +8,43 @@ import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
-import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
+import { resolveOgDealGuard, resolvePublicDealWorkspaceGuard } from "@/lib/og/deal-public-guard";
 import {
   isSignalCardStatusPublic,
   PUBLIC_IM_DOC_STATUSES,
+  PUBLIC_WORKSPACE_ITEM_STATUSES,
 } from "@/domain/public-projection/visibility";
+import {
+  getWorkspaceItemByAnyId,
+  isMissingRelationOrColumnError,
+  type WorkspaceItemRecord,
+} from "@/lib/workspace/workspace-repository";
 import { loadOgFonts } from "@/lib/magazine/og-fonts";
 
 const PUBLIC_OG_DOC_STATUSES = new Set<string>(["published", ...PUBLIC_IM_DOC_STATUSES]);
+const PUBLIC_IM_WORKSPACE_STATUSES = new Set<string>([
+  ...PUBLIC_WORKSPACE_ITEM_STATUSES,
+  "active",
+]);
+
+function makeSafeOgText(glyphs: ReadonlySet<number> | null) {
+  return (text: string, fallback: string) => {
+    if (!glyphs) return text || fallback;
+    let out = "";
+    for (const ch of text) {
+      if (/\s/.test(ch) || glyphs.has(ch.codePointAt(0)!)) out += ch;
+    }
+    return out.replace(/\s+/g, " ").trim() || fallback;
+  };
+}
+
+function extractBlindRegionFromAddress(rawAddress: string | null | undefined): string | null {
+  if (!rawAddress || typeof rawAddress !== "string") return null;
+  const match = rawAddress.match(/([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동|읍|면|가))/);
+  if (match) return `${match[1]} ${match[2]}`;
+  const guMatch = rawAddress.match(/([가-힣]+(?:구|군|시))/);
+  return guMatch ? guMatch[1] : null;
+}
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -28,6 +57,157 @@ export async function GET(
 ) {
   const { id } = await params;
 
+  if (id === "default") {
+    const fontData = await loadOgFonts();
+    const fonts = fontData.fonts.map((f) => ({
+      name: f.name,
+      data: f.data,
+      weight: f.weight,
+      style: f.style,
+    }));
+    const safeText = makeSafeOgText(fontData.glyphs);
+    const brandBadge = safeText("크리딜 · CREDEAL", "CREDEAL");
+    const heroHeadline = safeText(
+      "상업용 부동산 투자설명서 · 블라인드 딜카드",
+      "Commercial Real Estate IM & Blind DealCard"
+    );
+    const subTagline = safeText(
+      "승인 전용 모바일 IM · 브로커 검증 딜 브리핑",
+      "Private Mobile IM & Broker Verified Deal Briefing"
+    );
+
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: "1200px",
+            height: "630px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            padding: "48px 64px",
+            background: "linear-gradient(135deg, #030712 0%, #0F172A 55%, #020617 100%)",
+            color: "#FFFFFF",
+            fontFamily: '"Noto Sans KR", sans-serif',
+            position: "relative",
+            boxSizing: "border-box",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "8px",
+              background: "linear-gradient(90deg, #D4A853 0%, #F3EBDA 50%, #B98A2E 100%)",
+              display: "flex",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "-120px",
+              right: "-120px",
+              width: "520px",
+              height: "520px",
+              background: "radial-gradient(circle, rgba(212, 168, 83, 0.2) 0%, transparent 70%)",
+              borderRadius: "50%",
+              display: "flex",
+            }}
+          />
+
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
+            <div
+              style={{
+                background: "rgba(185, 138, 46, 0.28)",
+                border: "2px solid rgba(212, 168, 83, 0.75)",
+                borderRadius: "14px",
+                padding: "10px 24px",
+                fontSize: 30,
+                fontWeight: 800,
+                color: "#F3EBDA",
+                display: "flex",
+              }}
+            >
+              {brandBadge}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "18px",
+              justifyContent: "center",
+              flex: "1",
+              maxWidth: "1060px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 72,
+                fontWeight: 900,
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                color: "#F3EBDA",
+                display: "flex",
+              }}
+            >
+              CREDEAL
+            </div>
+            <div
+              style={{
+                fontSize: 52,
+                fontWeight: 800,
+                lineHeight: 1.28,
+                letterSpacing: "-0.02em",
+                color: "#FFFFFF",
+                display: "flex",
+                wordBreak: "keep-all",
+              }}
+            >
+              {heroHeadline}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderTop: "1.5px solid rgba(148, 163, 184, 0.22)",
+              paddingTop: "22px",
+            }}
+          >
+            <div style={{ fontSize: 28, fontWeight: 600, color: "#CBD5E1", display: "flex" }}>
+              {subTagline}
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#5EEAD4", display: "flex" }}>
+              www.credeal.net
+            </div>
+          </div>
+        </div>
+      ),
+      {
+        width: 1200,
+        height: 630,
+        fonts: fonts.length > 0 ? fonts : undefined,
+        headers: {
+          "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+        },
+      }
+    );
+  }
+
+  let type: string | null = null;
+  try {
+    type = new URL(request.url).searchParams.get("type");
+  } catch {
+    type = null;
+  }
+
   let building: Record<string, any> | null = null;
   let teaser: Record<string, any> | null = null;
   let imBody: Record<string, any> | null = null;
@@ -37,15 +217,89 @@ export async function GET(
   let targetBuildingId = id;
   let quickRec: Awaited<ReturnType<typeof resolveOgDealGuard>>["quickRec"] = null;
   let snapshotCard4: Record<string, any> | null = null;
+  let imNeedleAddress: string | null = null;
 
   try {
     const supabase = createServiceClient();
     const ogGuard = await resolveOgDealGuard(id, supabase);
-    if (ogGuard.blocked) {
-      return new Response("Not Found", { status: 404 });
+
+    let imWorkspaceItem: WorkspaceItemRecord | null = null;
+    let isPublishedImItem = false;
+
+    if (type === "im") {
+      try {
+        imWorkspaceItem = await getWorkspaceItemByAnyId(supabase, id, "im");
+      } catch (err) {
+        if (!isMissingRelationOrColumnError(err)) {
+          return new Response("Not Found", { status: 404 });
+        }
+        imWorkspaceItem = null;
+      }
+
+      if (
+        imWorkspaceItem &&
+        (imWorkspaceItem.deletedAt ||
+          imWorkspaceItem.revokedAt ||
+          imWorkspaceItem.status === "archived" ||
+          imWorkspaceItem.status === "revoked")
+      ) {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      isPublishedImItem = Boolean(
+        imWorkspaceItem &&
+          !imWorkspaceItem.deletedAt &&
+          !imWorkspaceItem.revokedAt &&
+          PUBLIC_IM_WORKSPACE_STATUSES.has(imWorkspaceItem.status)
+      );
     }
+
+    if (ogGuard.blocked) {
+      if (!(type === "im" && isPublishedImItem)) {
+        return new Response("Not Found", { status: 404 });
+      }
+      const dealGuard = await resolvePublicDealWorkspaceGuard({ id, supabase });
+      if (dealGuard.reason !== "not_published") {
+        return new Response("Not Found", { status: 404 });
+      }
+    }
+
     quickRec = ogGuard.quickRec;
     snapshotCard4 = ogGuard.snapshotCard4;
+
+    if (type === "im" && isPublishedImItem && imWorkspaceItem) {
+      if (imWorkspaceItem.buildingId) {
+        targetBuildingId = imWorkspaceItem.buildingId;
+      }
+      imNeedleAddress = imWorkspaceItem.address || null;
+      const snap =
+        imWorkspaceItem.publishedSnapshot && typeof imWorkspaceItem.publishedSnapshot === "object"
+          ? imWorkspaceItem.publishedSnapshot
+          : {};
+      const snapSsot =
+        snap.ssot_summary && typeof snap.ssot_summary === "object"
+          ? (snap.ssot_summary as Record<string, any>)
+          : {};
+      const fallbackRegion =
+        snapSsot.area_signal ||
+        snap.areaSignal ||
+        extractBlindRegionFromAddress(imWorkspaceItem.address) ||
+        undefined;
+      imBody = {
+        ...snap,
+        ssot_summary: {
+          ...snapSsot,
+          ...(fallbackRegion && !snapSsot.area_signal ? { area_signal: fallbackRegion } : {}),
+          ...(imWorkspaceItem.priceBand && !snapSsot.price_band
+            ? { price_band: imWorkspaceItem.priceBand }
+            : {}),
+        },
+        ...(imWorkspaceItem.priceBand && !snap.priceBand ? { priceBand: imWorkspaceItem.priceBand } : {}),
+        ...(imWorkspaceItem.title && !snap.ogTitle && !snap.blindName
+          ? { blindName: imWorkspaceItem.title }
+          : {}),
+      };
+    }
 
     if (isUuid(id)) {
       // 1. id가 document_objects의 PK인지 확인
@@ -134,7 +388,7 @@ export async function GET(
             d.document_type !== "im_lite_draft"
           );
         });
-        if (publicDocs.length === 0 && !snapshotCard4 && !quickRec) {
+        if (publicDocs.length === 0 && !snapshotCard4 && !quickRec && !imBody) {
           return new Response("Not Found", { status: 404 });
         }
         for (const d of publicDocs) {
@@ -255,7 +509,8 @@ export async function GET(
 
   // imBody의 ssot_summary에서 값 우선 참조
   const imSsot = (imBody?.ssot_summary ?? {}) as Record<string, any>;
-  const imAskingPriceManwon = imSsot.asking_price_manwon ? Number(imSsot.asking_price_manwon) : 0;
+  const rawAskingManwon = imSsot.asking_price_manwon ?? imBody?.askingPriceManwon;
+  const imAskingPriceManwon = rawAskingManwon ? Number(rawAskingManwon) : 0;
   const askingPriceKrw = imAskingPriceManwon > 0 ? imAskingPriceManwon * 10000 : Number(rawAttrs.askingPriceKrw || 0);
 
   const rawPosture =
@@ -264,7 +519,7 @@ export async function GET(
     imBody?.investment_posture ||
     safeBuilding.investment_posture ||
     rawAttrs.investmentPosture;
-  const assetAndUseText = `${card4?.use || imSsot.asset_type || safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
+  const assetAndUseText = `${card4?.use || imSsot.asset_type || imBody?.assetType || safeBuilding.asset_type || ""} ${safeBuilding.current_use_signal || ""} ${safeBuilding.fit_summary || ""}`;
   const resolvedPosture = (!rawPosture || rawPosture === "income") && /나대지|토지|신축\s*부지|개발\s*부지/.test(assetAndUseText)
     ? "development"
     : (rawPosture || "income");
@@ -272,14 +527,15 @@ export async function GET(
   const attrs = {
     ...rawAttrs,
     askingPriceKrw,
-    areaSignal: card4?.region || imSsot.area_signal || rawAttrs.areaSignal || safeBuilding.area_signal,
+    areaSignal: card4?.region || imSsot.area_signal || imBody?.areaSignal || rawAttrs.areaSignal || safeBuilding.area_signal,
     priceBand:
       card4?.priceBand ||
       imSsot.price_band ||
+      imBody?.priceBand ||
       safeBuilding.price_band ||
       rawAttrs.priceBand ||
       (imAskingPriceManwon > 0 ? formatPriceRange(imAskingPriceManwon * 10000) : null),
-    assetType: card4?.use || imSsot.asset_type || rawAttrs.assetType || safeBuilding.asset_type,
+    assetType: card4?.use || imSsot.asset_type || imBody?.assetType || rawAttrs.assetType || safeBuilding.asset_type,
     investmentPosture: resolvedPosture,
   };
   const teaserView = projectToTeaser(attrs);
@@ -293,7 +549,9 @@ export async function GET(
     operating: "운영형",
   };
 
-  const needles = collectSensitiveNeedles(safeBuilding);
+  const needles = collectSensitiveNeedles(
+    imNeedleAddress ? { ...safeBuilding, address: imNeedleAddress } : safeBuilding
+  );
   const sanitizeOgText = (text: string, fallback: string): string => {
     const masked = maskNeedles(String(text || ""), needles);
     return cleanBlindPoints([masked])[0] || fallback;
@@ -309,16 +567,29 @@ export async function GET(
 
   // Hook copy & title priority: broker DealCard 한 줄 제목(card4.headline SSOT) > broker custom edit > fallback (blind-safe only)
   const rawMainHeadline =
-    card4?.headline ||
-    teaser?.card4?.headline ||
-    teaser?.ogTitle ||
-    imBody?.ogTitle ||
-    teaser?.kakaoOgTitle ||
-    imBody?.kakaoOgTitle ||
-    teaser?.title ||
-    `${regionLabel} ${assetType} 매각`;
+    type === "im"
+      ? imBody?.ogTitle ||
+        imBody?.kakaoOgTitle ||
+        card4?.headline ||
+        teaser?.card4?.headline ||
+        imBody?.blindName ||
+        imBody?.heroTitle ||
+        teaser?.ogTitle ||
+        teaser?.title ||
+        `${regionLabel} ${assetType} 투자설명서`
+      : card4?.headline ||
+        teaser?.card4?.headline ||
+        teaser?.ogTitle ||
+        imBody?.ogTitle ||
+        teaser?.kakaoOgTitle ||
+        imBody?.kakaoOgTitle ||
+        teaser?.title ||
+        `${regionLabel} ${assetType} 매각`;
 
-  const mainHeadline = sanitizeOgText(rawMainHeadline, `${regionLabel} ${assetType} 매각`);
+  const mainHeadline = sanitizeOgText(
+    rawMainHeadline,
+    type === "im" ? `${regionLabel} ${assetType} 투자설명서` : `${regionLabel} ${assetType} 매각`
+  );
 
   const rawSubHeadline =
     (Array.isArray(card4?.points) && card4.points.length > 0 ? card4.points[0] : null) ||
@@ -348,14 +619,7 @@ export async function GET(
     weight: f.weight,
     style: f.style,
   }));
-  const safeText = (text: string, fallback: string) => {
-    if (!fontData.glyphs) return text || fallback;
-    let out = "";
-    for (const ch of text) {
-      if (/\s/.test(ch) || fontData.glyphs.has(ch.codePointAt(0)!)) out += ch;
-    }
-    return out.replace(/\s+/g, " ").trim() || fallback;
-  };
+  const safeText = makeSafeOgText(fontData.glyphs);
 
   const rawDisplayMain = mainHeadline.length > 36 ? mainHeadline.slice(0, 36) + "..." : mainHeadline;
   const rawDisplaySub = cleanedSub.length > 60 ? cleanedSub.slice(0, 58) + "..." : cleanedSub;
@@ -366,6 +630,10 @@ export async function GET(
   const safeRegionLabel = safeText(regionLabel, "Seoul");
   const safeAssetType = assetType ? safeText(assetType, "") : "";
   const safeBandedPrice = safeText(bandedPrice, "Price TBD");
+  const footerKindLabel = safeText(
+    type === "im" ? "모바일 투자설명서 (IM)" : "블라인드 딜카드",
+    type === "im" ? "Mobile IM" : "Blind DealCard"
+  );
 
   // Hero tiles: 유효한 매각가와 권역 표시 보장 (이모지 CDN 호출 제거)
   const displayTiles = [
@@ -584,7 +852,7 @@ export async function GET(
           >
             <span>CREDEAL</span>
             <span style={{ color: "#475569" }}>·</span>
-            <span style={{ color: "#CBD5E1" }}>블라인드 딜카드</span>
+            <span style={{ color: "#CBD5E1" }}>{footerKindLabel}</span>
           </div>
         </div>
       </div>

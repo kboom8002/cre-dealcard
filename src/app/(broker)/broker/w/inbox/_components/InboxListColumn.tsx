@@ -17,6 +17,7 @@ import {
   formatClientRoleLabel,
   formatPhoneKo,
   getInboxStatusBadge,
+  isValidCallPhone,
 } from "./inbox-types";
 
 export interface InboxListColumnProps {
@@ -33,7 +34,7 @@ export interface InboxListColumnProps {
   onSearchChange: (nextQuery: string) => void;
   onViewModeChange: (nextMode: ListViewMode) => void;
   onSelectThread: (nextId: string) => void;
-  onApproveAndSendIm: (thread: InboxThreadItem) => void;
+  onApproveAndSendIm?: (thread: InboxThreadItem) => void;
   onOpenNewClientModal: () => void;
   onOpenBulkImportModal: () => void;
   hasMoreClients?: boolean;
@@ -72,7 +73,6 @@ export function InboxListColumn({
   onSearchChange,
   onViewModeChange,
   onSelectThread,
-  onApproveAndSendIm,
   onOpenNewClientModal,
   onOpenBulkImportModal,
   hasMoreClients = false,
@@ -99,20 +99,7 @@ export function InboxListColumn({
 
   const renderInlineActions = (item: InboxThreadItem) => {
     if (item.status === "pending_gate") {
-      return (
-        <button
-          type="button"
-          data-testid={`inbox-row-approve-${item.id}`}
-          disabled={Boolean(busyAction)}
-          onClick={(e) => {
-            e.stopPropagation();
-            onApproveAndSendIm(item);
-          }}
-          className="min-h-[44px] rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 text-sm font-bold text-emerald-900 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
-        >
-          승인
-        </button>
-      );
+      return undefined;
     }
     if (item.id.startsWith("custom_") && (onQuickEditClient || onQuickDeleteClient)) {
       return (
@@ -215,15 +202,15 @@ export function InboxListColumn({
             </span>
             <button
               type="button"
-              data-testid={`quick-approve-btn-${firstPendingThread.id}`}
+              data-testid={`quick-review-btn-${firstPendingThread.id}`}
               disabled={Boolean(busyAction)}
               onClick={(e) => {
                 e.stopPropagation();
-                onApproveAndSendIm(firstPendingThread);
+                onSelectThread(firstPendingThread.id);
               }}
-              className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#24B63E] to-[#188C2C] px-3 py-1.5 text-sm font-bold text-white shadow-[0_2px_6px_rgba(29,158,52,0.22)] transition hover:brightness-105 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-bold text-amber-950 shadow-2xs transition hover:bg-amber-50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
             >
-              자료 보내기
+              확인·승인하기 ›
             </button>
           </div>
         )}
@@ -431,17 +418,22 @@ export function InboxListColumn({
               const statusBadge = getInboxStatusBadge(item);
               const prioritySignal =
                 item.gateStatus !== "pending" ? computePriorityContactSignal(item) : null;
+              const secondaryContact =
+                item.clientCompany?.trim() || item.clientEmail?.trim() || "";
+              const metaText = [
+                item.buildingTitle,
+                secondaryContact,
+                prioritySignal?.isPriority ? "🔥 먼저 연락" : "",
+              ]
+                .filter(Boolean)
+                .join(" · ");
               return (
                 <SimpleListRow
                   testId={`inbox-thread-row-${item.id}`}
                   title={item.clientName}
                   date={item.updatedAt}
                   status={{ label: statusBadge.text, tone: statusBadge.tone }}
-                  meta={
-                    prioritySignal?.isPriority
-                      ? `${item.buildingTitle} · 🔥 먼저 연락`
-                      : item.buildingTitle
-                  }
+                  meta={metaText}
                   selected={activeThread?.id === item.id}
                   onSelect={() => onSelectThread(item.id)}
                   actions={renderInlineActions(item)}
@@ -528,10 +520,15 @@ export function InboxListColumn({
                         </span>
                       </div>
                       <p className="mt-1 truncate text-sm font-semibold text-slate-700">
-                        {item.id.startsWith("sub_") && item.clientPhone
+                        {item.id.startsWith("sub_") && isValidCallPhone(item.clientPhone)
                           ? `${formatPhoneKo(item.clientPhone)} · ${item.buildingTitle}`
                           : item.buildingTitle}
                       </p>
+                      {(item.clientCompany || item.clientEmail) && (
+                        <p className="mt-0.5 truncate text-sm text-slate-600">
+                          {[item.clientCompany, item.clientEmail].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                       <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
                         {item.latestEvent}
                       </p>

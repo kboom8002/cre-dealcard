@@ -937,7 +937,7 @@ export function mapRentRollImportPayloadToRows(
       return {
         id: `r-xlsx-${stamp}-${idx}`,
         floor: normalizeFloorName(r.floor || `${idx + 1}F`),
-        unit: r.unit_label || `${idx + 1}01호`,
+        unit: r.unit_label || "",
         use: useLabel,
         tenantName: tenantNameTrimmed,
         areaSqm: r.area_sqm ?? r.exclusive_area_sqm,

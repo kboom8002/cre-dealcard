@@ -440,14 +440,16 @@ export function RentRollGrid({
           const status: RentRollStatus = isVac ? "vacant" : isOwner ? "owner" : "occupied";
           const rawExpiry = String(fl.lease_end || fl.lease_expiry || "").trim();
           const parsedExp = parseLeaseExpiryDate(rawExpiry);
-          const { unitNo } = toUnitPrefixAndBase(floorLabel);
+          const exclSqm = Number(fl.exclusive_area_sqm ?? fl.exclusiveAreaSqm);
+          const noteStr = fl.note != null ? String(fl.note).trim() : "";
           return {
             id: `rr-ai-${Date.now()}-${idx}`,
             floor: floorLabel,
-            unit: String(fl.unit || unitNo),
+            unit: String(fl.unit_label || fl.unit || "").trim(),
             tenantName: isVac ? undefined : fl.tenant_name ? String(fl.tenant_name) : undefined,
             use: isVac ? "공실" : String(fl.tenant_type || fl.use || "근린생활시설"),
             ...(Number(fl.area_sqm) > 0 ? { areaSqm: Number(fl.area_sqm) } : {}),
+            ...(Number.isFinite(exclSqm) && exclSqm > 0 ? { exclusiveAreaSqm: exclSqm } : {}),
             depositManwon: Number(fl.deposit_manwon) || 0,
             monthlyRentManwon: isVac ? 0 : Number(fl.rent_manwon) || 0,
             maintenanceManwon: isVac ? 0 : Number(fl.mgmt_fee_manwon) || 0,
@@ -455,6 +457,7 @@ export function RentRollGrid({
             normalizedExpiry: parsedExp.normalized,
             isExpired: parsedExp.isExpired,
             status,
+            ...(noteStr ? { note: noteStr } : {}),
           };
         });
         const sorted = mapped.sort(

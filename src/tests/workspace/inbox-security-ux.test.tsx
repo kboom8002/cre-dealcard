@@ -348,13 +348,13 @@ describe('Client Inbox Security & UX Overhaul (IB-01 ~ IB-28)', () => {
         root.render(<InboxWorkspacePage initialThreads={sampleThreads} />);
       });
 
-      // Column 1: "지금 할 일 1건" summary card with 1-click [자료 보내기]
+      // Column 1: "지금 할 일 1건" summary card with thread-focus [확인·승인하기 ›]
       const todoSummary = container.querySelector(
         '[data-testid="inbox-todo-summary-card"]'
       );
       expect(todoSummary).not.toBeNull();
       expect(todoSummary?.textContent).toContain('지금 할 일 1건');
-      expect(todoSummary?.textContent).toContain('자료 보내기');
+      expect(todoSummary?.textContent).toContain('확인·승인하기 ›');
 
       // Column 1: 3 filter chips (할 일 · 열람 · 전체 고객)
       const filterTabs = container.querySelector('[data-testid="inbox-filter-tabs"]');

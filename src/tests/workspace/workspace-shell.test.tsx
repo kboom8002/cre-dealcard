@@ -129,8 +129,45 @@ describe('M3 Workspace: 3-Column WorkspaceShell (WP-P2-02 & WP-P2-03)', () => {
     expect(container.textContent).toContain('🏠 홈');
     expect(container.textContent).toContain('📄 딜카드');
     expect(container.textContent).toContain('📊 IM');
-    expect(container.textContent).toContain('📰 뉴스레터');
-    expect(container.textContent).toContain('💬 소통함');
+    expect(container.textContent).toContain('📰 부동산뉴스');
+    expect(container.textContent).toContain('💬 고객 소통');
+  });
+
+  it('supports custom previewDrawerLabel while keeping "미리보기" default', async () => {
+    await act(async () => {
+      root.render(
+        <WorkspaceShell
+          workspace="dealcards"
+          editorSlot={<div>에디터</div>}
+          previewSlot={<div>미리보기</div>}
+        />
+      );
+    });
+    const defaultDrawerBtn = container.querySelector(
+      '[data-testid="workspace-editor-preview-drawer-btn"]'
+    ) as HTMLButtonElement;
+    expect(defaultDrawerBtn.textContent).toContain('미리보기 열기');
+
+    await act(async () => {
+      root.render(
+        <WorkspaceShell
+          workspace="inbox"
+          previewDrawerLabel="자료 전달 · 링크 관리"
+          mobileTabLabels={{ editor: '상담', preview: '자료 전달·관리' }}
+          editorSlot={<div>에디터</div>}
+          previewSlot={<div>미리보기</div>}
+        />
+      );
+    });
+    const customDrawerBtn = container.querySelector(
+      '[data-testid="workspace-editor-preview-drawer-btn"]'
+    ) as HTMLButtonElement;
+    expect(customDrawerBtn.textContent).toContain('자료 전달 · 링크 관리 열기');
+
+    await act(async () => {
+      customDrawerBtn.click();
+    });
+    expect(customDrawerBtn.textContent).toContain('자료 전달 · 링크 관리 닫기');
   });
 
   it('renders mobile bottom navigation bar', async () => {

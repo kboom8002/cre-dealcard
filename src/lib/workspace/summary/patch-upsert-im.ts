@@ -467,7 +467,7 @@ async function updateLegacyImDocumentAndBuilding(params: {
           const rawFlStr = String(r?.floor || prevFl.floor || `${idx + 1}F`).trim();
           const roomNumMatch = rawFlStr.match(/^(B|지하\s*)?(\d{1,2})(\d{2})\s*호$/i);
           const normFloor = roomNumMatch ? (roomNumMatch[1] ? `B${parseInt(roomNumMatch[2], 10)}` : `${parseInt(roomNumMatch[2], 10)}F`) : rawFlStr;
-          const normUnit = roomNumMatch ? `${roomNumMatch[1] ? "B" : ""}${roomNumMatch[2]}${roomNumMatch[3]}호` : String(r?.unit || r?.unit_label || prevFl.unit_label || `${idx + 1}01호`);
+          const normUnit = roomNumMatch ? `${roomNumMatch[1] ? "B" : ""}${roomNumMatch[2]}${roomNumMatch[3]}호` : String(r?.unit || r?.unit_label || prevFl.unit_label || "");
           const rowNote = r?.note !== undefined && String(r.note).trim().length > 0 ? String(r.note).trim() : prevFl.note;
           return {
             ...prevFl,

@@ -50,6 +50,7 @@ export interface InboxDispatchHistoryItem {
   status: InboxDispatchStatus;
   createdAt: string;
   bounceReason?: string;
+  shareUrl?: string;
 }
 
 export interface InboxThreadItem {
@@ -228,9 +229,24 @@ export function formatPhoneKo(raw: string): string {
   return raw;
 }
 
+export function isValidCallPhone(raw: unknown): boolean {
+  if (typeof raw !== "string") return false;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.includes("@")) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 8;
+}
+
 export function sanitizeClientPhone(raw: unknown): string {
   const trimmed = typeof raw === "string" ? raw.trim() : "";
-  if (!trimmed || trimmed === "010-0000-0000" || trimmed === "01000000000") return "";
+  if (
+    !trimmed ||
+    trimmed.includes("@") ||
+    trimmed === "010-0000-0000" ||
+    trimmed === "01000000000"
+  ) {
+    return "";
+  }
   return formatPhoneKo(trimmed);
 }
 
@@ -473,6 +489,7 @@ export function matchesInboxThreadFilter(
     const matched =
       thread.clientName.toLowerCase().includes(q) ||
       thread.clientPhone.toLowerCase().includes(q) ||
+      (thread.clientEmail || "").toLowerCase().includes(q) ||
       ((isPhoneLikeQuery || qDigits.length >= 4) &&
         qDigits.length > 0 &&
         phoneDigits.includes(qDigits)) ||
@@ -547,9 +564,11 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
       ? "high_interest"
       : "active";
 
-  const phone = sanitizeClientPhone(
-    raw?.clientPhone || raw?.requesterPhone || parsedReason.requesterPhone
-  );
+  const rawPhoneCandidate = String(
+    raw?.clientPhone || raw?.requesterPhone || parsedReason.requesterPhone || ""
+  ).trim();
+  const phone = sanitizeClientPhone(rawPhoneCandidate);
+  const rescuedEmailFromPhone = rawPhoneCandidate.includes("@") ? rawPhoneCandidate : "";
   const clientName =
     String(
       raw?.clientName ||
@@ -695,6 +714,9 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
               : "sent",
           createdAt: String(d?.createdAt || "방금"),
           bounceReason: typeof d?.bounceReason === "string" ? d.bounceReason : undefined,
+          ...(typeof d?.shareUrl === "string" && d.shareUrl.trim()
+            ? { shareUrl: d.shareUrl.trim() }
+            : {}),
         };
       })
     : [];
@@ -706,11 +728,11 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
     clientName,
     clientPhone: phone,
     clientEmail:
-      typeof raw?.clientEmail === "string"
+      typeof raw?.clientEmail === "string" && raw.clientEmail.trim()
         ? raw.clientEmail.trim()
-        : typeof raw?.requester_email === "string"
+        : typeof raw?.requester_email === "string" && raw.requester_email.trim()
         ? raw.requester_email.trim()
-        : "",
+        : rescuedEmailFromPhone,
     transactionalBasis:
       raw?.transactionalBasis === "im_request" ||
       raw?.transactionalBasis === "property_inquiry" ||
@@ -828,6 +850,13 @@ export function getInboxStatusBadge(item: InboxThreadItem): {
       text: "수신 거부",
       cls: "bg-slate-100 text-slate-700 border border-slate-200",
       tone: "muted",
+    };
+  }
+  if (item.gateStatus === "approved" && item.openCount === 0) {
+    return {
+      text: "승인됨 · 미열람",
+      cls: "bg-emerald-100 text-emerald-900 border border-emerald-200",
+      tone: "sent",
     };
   }
   return {

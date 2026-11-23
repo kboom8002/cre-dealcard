@@ -120,17 +120,26 @@ describe('Inbox left list — simple / detailed view', () => {
     });
   }
 
-  it('renders a slim one-line todo bar with 자료 보내기 and no explanatory sentences', async () => {
+  it('renders a slim one-line todo bar with 확인·승인하기 › focus trigger and no blind approve buttons', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     await renderPage();
 
     const bar = q(container, 'inbox-todo-summary-card');
     expect(bar).not.toBeNull();
     expect(bar!.textContent).toContain('지금 할 일 1건');
-    expect(bar!.textContent).toContain('자료 보내기');
+    expect(bar!.textContent).toContain('확인·승인하기 ›');
     expect(q(container, 'quick-todo-card-thr-pending-1')).not.toBeNull();
-    expect(q(container, 'quick-approve-btn-thr-pending-1')).not.toBeNull();
+    expect(q(container, 'quick-review-btn-thr-pending-1')).not.toBeNull();
+    expect(q(container, 'quick-approve-btn-thr-pending-1')).toBeNull();
     expect(bar!.textContent).not.toContain('승인을 기다리는 IM 열람 요청');
     expect(bar!.textContent).not.toMatch(/외 \d+건/);
+
+    // Clicking 확인·승인하기 › focuses the pending thread on the 할 일 tab without calling approve_gate
+    await click(q(container, 'quick-review-btn-thr-pending-1'));
+    expect(q(container, 'inbox-pending-gate-card')).not.toBeNull();
+    expect(
+      fetchSpy.mock.calls.some((c) => String(c[1]?.body || '').includes('approve_gate'))
+    ).toBe(false);
 
     // + 고객 직접 등록 is a secondary control outside the todo bar
     const addBtn = q(container, 'open-new-client-modal-btn');
@@ -188,9 +197,9 @@ describe('Inbox left list — simple / detailed view', () => {
       /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
     );
 
-    // Rich detail is NOT in simple rows, while 1-click inline actions (approve/archive) ARE available
+    // Rich detail is NOT in simple rows; pending rows no longer render duplicate inline approve buttons
     expect(pendingRow!.textContent).not.toContain('IM 열람 요청:');
-    expect(q(pendingRow!, 'inbox-row-approve-thr-pending-1')).not.toBeNull();
+    expect(q(pendingRow!, 'inbox-row-approve-thr-pending-1')).toBeNull();
     expect(q(activeRow!, 'inbox-row-archive-thr-active-2')).not.toBeNull();
     expect(pendingRow!.querySelector('[data-testid="ws-list-thumbnail"]')).toBeNull();
 

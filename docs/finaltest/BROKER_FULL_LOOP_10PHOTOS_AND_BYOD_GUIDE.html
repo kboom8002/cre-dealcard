@@ -437,10 +437,10 @@ const STEPS = {
     {
       id: "B1-S1", win: "창 A · PC 중개사", mobile: false,
       title: "Step 1. 중개사무소 법정 표기(상호·대표자·등록번호·연락처) 확인",
-      openUrl: "https://www.credeal.net/broker/settings/profile", openLabel: "🚀 중개사 프로필 설정 열기",
+      openUrl: "https://www.credeal.net/broker/profile", openLabel: "🚀 중개사 프로필 설정 열기",
       copies: [],
       items: [
-        "중개사무소 상호, 대표 공인중개사 성명, 개설등록번호, 소재지, 연락처가 맞는지 확인하고 <span class='ui-btn dark'>[저장]</span>을 누릅니다.",
+        "중개사무소 상호, 대표 공인중개사 성명, 개설등록번호, 소재지, 연락처가 맞는지 확인하고 <span class='ui-btn dark'>[💾 내 프로필 · 사무소 정보 저장하기]</span>을 누릅니다.",
         "제안서 하단에 대표님 사무소 명함이 일관되게 들어갈 준비가 되었는지 확인합니다."
       ]
     },
@@ -466,7 +466,7 @@ const STEPS = {
       urlKey: "b1_im", urlLabel: "② 초록색 [🔗 IM 링크 복사]로 복사한 IM 링크 (/im-lite/...)",
       copies: [
         { label: "지번 주소 복사", hint: "주소칸에 붙여넣고 [주소로 건물 정보 자동 채우기]", val: "서울특별시 서초구 서초동 1364-28" },
-        { label: "매매 희망가(만원) 복사 (230억)", hint: "매매 희망가(만원) 칸에 붙여넣기", val: "2300000" },
+        { label: "매매 희망가(억 단위) 복사 (230억)", hint: "희망 매매가 '억 단위' 칸에 붙여넣기 (만원 칸은 비움)", val: "230" },
         { label: "현행 임대차 표 한 번에 복사", hint: "복사 후 파란 [📋 표 붙여넣기] 버튼 클릭", val: ASIS_TSV },
         { label: "기대수익률 임대차 표 한 번에 복사", hint: "[+ 기대수익률 임대차 현황] 클릭 후 파란 [📋 표 붙여넣기]", val: STAB_TSV },
         { label: "사옥 강점 1 복사", hint: "③ 장점 3가지 → 장점 1", val: "양재역(3호선·신분당선·GTX-C 예정) 도보 4분 양면 도로 코너 각지로 곡면 커튼월 외관의 기업 사옥 가시성 탁월" },
@@ -474,7 +474,7 @@ const STEPS = {
         { label: "사옥 강점 3 복사", hint: "③ 장점 3가지 → 장점 3", val: "저층부(B1~3F) 우량 임차인 월 3,200만 원 임대수익으로 사옥 이자비용을 상쇄하며 전층 임대 전환 시 연 순수익률 3.52% 기대" }
       ],
       items: [
-        "<strong>[① 표지·기본정보]</strong> 추천 1번 <span class='ui-btn'>[🏢 매물 주소로 대장·토지 자동 조회]</span> 클릭 → 아래로 자동 이동된 칸에 주소 붙여넣고 <span class='ui-btn dark'>[주소로 건물 정보 자동 채우기]</span> 클릭 → 대지 <code>596.00㎡</code> · 연면적 <code>2,104.88㎡</code> 확인 후 매매가 <code>2300000</code> 입력.",
+        "<strong>[① 표지·기본정보]</strong> 추천 1번 <span class='ui-btn'>[🏢 매물 주소로 대장·토지 자동 조회]</span> 클릭 → 아래로 자동 이동된 칸에 주소 붙여넣고 <span class='ui-btn dark'>[주소로 건물 정보 자동 채우기]</span> 클릭 → 대지 <code>596.00㎡</code> · 연면적 <code>2,104.88㎡</code> 확인 후 <strong>억 단위</strong> 칸에 <code>230</code>(만원 칸은 비움) 입력.",
         "<strong>[② 층별 임대현황]</strong> 위 <code>[현행 임대차 표 한 번에 복사]</code> 칩 클릭 후 화면의 파란 <span class='ui-btn'>[📋 표 붙여넣기]</span> 클릭(보증금 40,000만 / 월세 3,200만 확인) → 오른쪽 <span class='ui-btn green'>[+ 기대수익률 임대차 현황 (선택)]</span> 탭 클릭 → <code>[기대수익률 임대차 표 한 번에 복사]</code> 클릭 후 파란 <span class='ui-btn'>[📋 표 붙여넣기]</span> 클릭(보증금 82,000만 / 월세 6,500만 확인).",
         "<strong>[③ 장점 3가지]</strong> 위 강점 3줄을 넣거나 <span class='ui-btn'>[AI로 쓰기]</span> 문구와 비교합니다.",
         "<strong>[④ 사진·위치·만들기]</strong> 내려받은 샘플 ZIP 안 <code>photos</code> 폴더의 <strong>실사진 10장</strong>을 한꺼번에 올리고 <span class='ui-btn'>[★ 1번 대표로]</span> 지정 체험 → 파란 <span class='ui-btn dark'>[IM 만들기]</span> 클릭 → 바로 옆(또는 오른쪽 아래) 초록색 <span class='ui-btn green'>[🔗 IM 링크 복사]</span> 버튼을 눌러 아래 초록색 칸에 붙여넣고, <span class='ui-btn'>[📥 PPTX 받기]</span>로 10장 사진 배치를 확인합니다."

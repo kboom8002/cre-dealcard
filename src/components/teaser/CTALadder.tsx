@@ -44,6 +44,9 @@ export function CTALadder({
 
   useEffect(() => {
     let cancelled = false;
+    if (readSafeLocalStorage(`contact_verified_${buildingId}`) === "true") {
+      setRequestConfirmed(true);
+    }
     fetch(`/api/gate-requests?buildingId=${encodeURIComponent(buildingId)}`, {
       credentials: "same-origin",
     })
@@ -87,15 +90,7 @@ export function CTALadder({
       router.push(`/nda/${buildingId}`);
       return;
     }
-    if (!hasImDoc) {
-      setShowContactModal(true);
-      return;
-    }
-    if (isVerified) {
-      router.push(`/im-lite/${buildingId}?pro=true`);
-    } else {
-      setShowContactModal(true);
-    }
+    setShowContactModal(true);
   };
 
   return (
@@ -114,27 +109,16 @@ export function CTALadder({
           <span>{TERMS.recipientCallCta}</span>
         </button>
 
-        {!hasImDoc && isVerified ? (
-          hasValidPhone ? (
-            <a
-              href={`tel:${cleanPhone}`}
-              data-testid="public-dealcard-im-request-btn"
-              data-cta-action="상세 자료 요청 접수됨"
-              className="min-h-[52px] bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-sm sm:text-base font-extrabold py-3 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-95 cursor-pointer"
-            >
-              <span>✅ 상세 자료 요청 접수됨</span>
-            </a>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowContactModal(true)}
-              data-testid="public-dealcard-im-request-btn"
-              data-cta-action="상세 자료 요청 접수됨"
-              className="min-h-[52px] bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-sm sm:text-base font-extrabold py-3 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-95 cursor-pointer"
-            >
-              <span>✅ 상세 자료 요청 접수됨</span>
-            </button>
-          )
+        {isVerified ? (
+          <button
+            type="button"
+            onClick={() => setShowContactModal(true)}
+            data-testid="public-dealcard-im-request-btn"
+            data-cta-action="상세 자료 요청 접수됨"
+            className="min-h-[52px] bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-sm sm:text-base font-extrabold py-3 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-center active:scale-95 cursor-pointer"
+          >
+            <span>✅ 상세 자료 요청 접수됨</span>
+          </button>
         ) : (
           <button
             type="button"
@@ -191,7 +175,7 @@ export function CTALadder({
       <ContactGateModal
         isOpen={showContactModal}
         onClose={() => {
-          if (!hasImDoc && readSafeLocalStorage(`contact_verified_${buildingId}`)) {
+          if (readSafeLocalStorage(`contact_verified_${buildingId}`) === "true") {
             setRequestConfirmed(true);
           }
           setShowContactModal(false);
@@ -199,14 +183,11 @@ export function CTALadder({
         buildingId={buildingId}
         hasImDoc={hasImDoc}
         brokerPhone={brokerPhone}
+        initialConfirmed={isVerified}
+        onSubmitted={() => setRequestConfirmed(true)}
         onSuccess={() => {
-          if (hasImDoc) {
-            setShowContactModal(false);
-            router.push(`/im-lite/${buildingId}?pro=true`);
-          } else {
-            setRequestConfirmed(true);
-            setShowContactModal(false);
-          }
+          setRequestConfirmed(true);
+          setShowContactModal(false);
         }}
       />
     </>

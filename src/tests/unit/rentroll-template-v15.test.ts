@@ -81,9 +81,9 @@ describe("렌트롤 템플릿 v1.5 — 구조 계약", () => {
       expect(formulaOf(ws.getCell(`AE${r}`))).toBe(`IF(OR($A${r}="",C${r}=""),"",ROUND(C${r}*IF($G$9="평",3.305785,1),2))`);
       expect(formulaOf(ws.getCell(`AF${r}`))).toBe(`IF(OR($A${r}="",D${r}=""),"",ROUND(D${r}*IF($G$9="평",3.305785,1),2))`);
     }
-    expect(formulaOf(ws.getCell("AE10"))).toBe("SUM(AE13:AE112)");
-    expect(formulaOf(ws.getCell("AF10"))).toBe("SUM(AF13:AF112)");
-    expect(formulaOf(ws.getCell("C10"))).toBe("SUM(C13:C112)");
+    expect(formulaOf(ws.getCell("AE10"))).toBe('SUMIFS(AE13:AE112,$A$13:$A$112,"<>[예시]*",$P$13:$P$112,"<>*예시 행*")');
+    expect(formulaOf(ws.getCell("AF10"))).toBe('SUMIFS(AF13:AF112,$A$13:$A$112,"<>[예시]*",$P$13:$P$112,"<>*예시 행*")');
+    expect(formulaOf(ws.getCell("C10"))).toBe('SUMIFS(C13:C112,$A$13:$A$112,"<>[예시]*",$P$13:$P$112,"<>*예시 행*")');
   });
 
   it("Q/R 은 AE/AF(㎡ 환산) 기준, Y 는 통합계약 그룹 전용면적 합(AF) 기준", () => {
@@ -219,12 +219,21 @@ describe("렌트롤 템플릿 v1.5 — 구조 계약", () => {
     expect(formulaOf(ws.getCell("AE113"))).toBe("");
   });
 
-  it("자동검증 V01~V13 행 (35~47행)", () => {
+  it("자동검증 V01~V13 행 (35~47행) 및 13행 [예시] 행 동적 제외", () => {
     const ids = Array.from({ length: 13 }, (_, i) => `V${String(i + 1).padStart(2, "0")}`);
     ids.forEach((id, i) => expect(textOf(check.getCell(`A${35 + i}`)), `A${35 + i}`).toBe(id));
-    // 면적 합계는 ㎡ 환산 열(AE/AF)을 쓴다
+    // 면적 합계는 ㎡ 환산 열(AE/AF)을 쓰고 [예시] 13행을 제외한다
+    expect(formulaOf(check.getCell("C4"))).toContain('"<>[예시]*"');
+    expect(formulaOf(check.getCell("C4"))).toContain('"<>*예시 행*"');
     expect(formulaOf(check.getCell("C5"))).toContain("렌트롤!$AE$13:$AE$112");
+    expect(formulaOf(check.getCell("C5"))).toContain('"<>[예시]*"');
     expect(formulaOf(check.getCell("C6"))).toContain("렌트롤!$AF$13:$AF$112");
+    expect(formulaOf(check.getCell("C37"))).toContain('"<>[예시]*"');
+    // 빈 양식에서는 13행 예시 행이 제외되어 C4/C5가 0, C23 판정이 미달이어야 한다
+    expect(check.getCell("C4").result).toBe("0원");
+    expect(check.getCell("C5").result).toBe("0.00㎡ / 0.0평");
+    expect(check.getCell("C23").result).toBe("미달");
+    expect(textOf(ws.getCell("B13"))).toBe("");
     // V03/V12 는 J4 연면적(㎡ 고정)과 AE 합을 비교, V12 임계값 2 / 0.45
     expect(formulaOf(check.getCell("C37"))).toContain("렌트롤!$J$4");
     const v12 = formulaOf(check.getCell("C46"));

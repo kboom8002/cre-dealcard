@@ -1210,7 +1210,7 @@ export function synthesizeQuickRecordFromImItem(
 
           return {
             floor: String(r.floor || `${idx + 1}F`),
-            unit: String(r.unit || r.unit_label || `${idx + 1}01호`),
+            unit: String(r.unit || r.unit_label || ''),
             use: splitUse,
             ...(explicitTenantName ? { tenantName: explicitTenantName } : {}),
             ...(areaSqm ? { areaSqm } : {}),

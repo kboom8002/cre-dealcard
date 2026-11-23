@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { formatKrPhoneInput } from "@/lib/magazine/phone-input";
+import { toast } from "sonner";
+import { formatKrPhoneInput } from "@/lib/format/phone";
+import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 
 interface Props {
   isOpen: boolean;
@@ -10,6 +12,8 @@ interface Props {
   onSuccess: () => void;
   hasImDoc?: boolean;
   brokerPhone?: string;
+  initialConfirmed?: boolean;
+  onSubmitted?: () => void;
 }
 
 export function ContactGateModal({
@@ -19,6 +23,8 @@ export function ContactGateModal({
   onSuccess,
   hasImDoc = true,
   brokerPhone,
+  initialConfirmed = false,
+  onSubmitted,
 }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -29,12 +35,18 @@ export function ContactGateModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [phoneCopied, setPhoneCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const cleanBrokerPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, "") : "";
   const hasValidBrokerPhone = cleanBrokerPhone.length >= 8;
+  const formattedBrokerPhone = hasValidBrokerPhone
+    ? formatKrPhoneInput(cleanBrokerPhone) || (brokerPhone ?? "").trim()
+    : "";
+  const showConfirmationState = isSubmitted || Boolean(initialConfirmed);
+  void onSuccess;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -152,6 +164,7 @@ export function ContactGateModal({
         // ignore storage error
       }
       setIsSubmitted(true);
+      onSubmitted?.();
 
       // Best-effort non-blocking telemetry after /api/gate-requests succeeds
       void fetch("/api/public/teaser/event", {
@@ -207,33 +220,67 @@ export function ContactGateModal({
           ✕
         </button>
 
-        {isSubmitted ? (
+        {showConfirmationState ? (
           <div className="space-y-4 py-2" data-testid="contact-gate-submitted">
             <div className="space-y-2 pr-8">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                 ✓ 신청 접수 완료
               </span>
               <h3 id="contact-gate-modal-title" className="text-xl font-extrabold text-slate-950 break-keep">
-                {hasImDoc
-                  ? "상세 IM 열람 신청이 접수되었습니다"
-                  : "담당 공인중개사에게 상세 자료 요청이 접수되었습니다"}
+                상세 자료 요청이 접수되었습니다
               </h3>
               <p className="text-sm text-slate-700 leading-relaxed break-keep">
-                {hasImDoc
-                  ? `담당 중개사가 신청 내용을 확인한 뒤 입력하신 연락처(${formatKrPhoneInput(phone.trim()) || phone}${email.trim() ? ` · ${email.trim()}` : ""})로 전용 열람 링크를 보내드립니다.`
-                  : `담당 공인중개사에게 상세 자료 요청이 접수되었습니다. 준비되는 대로 입력하신 연락처(${formatKrPhoneInput(phone.trim()) || phone}${email.trim() ? ` · ${email.trim()}` : ""})로 전용 링크를 안내해 드립니다.`}
+                요청이 정상 접수되었습니다. 담당 중개사가 확인 후 카톡·문자로 승인 전용 IM 링크를 보내드립니다.
               </p>
+              {phone.trim() ? (
+                <p className="text-sm font-semibold text-slate-800 break-keep">
+                  수신 연락처: {formatKrPhoneInput(phone.trim()) || phone.trim()}
+                  {email.trim() ? ` · ${email.trim()}` : ""}
+                </p>
+              ) : null}
             </div>
-            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-              {!hasImDoc && hasValidBrokerPhone && (
-                <a
-                  href={`tel:${cleanBrokerPhone}`}
-                  data-testid="contact-gate-call-btn"
-                  className="flex-1 min-h-[48px] py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-base flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  📞 담당 중개사 전화 연결
-                </a>
-              )}
+
+            {hasValidBrokerPhone && (
+              <div
+                data-testid="contact-gate-broker-phone-card"
+                className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-700">담당 중개사 직통 번호</span>
+                  <span className="text-base font-extrabold text-slate-950 tabular-nums">
+                    {formattedBrokerPhone}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    data-testid="contact-gate-copy-phone-btn"
+                    onClick={async () => {
+                      const ok = await copyText(formattedBrokerPhone);
+                      if (ok) {
+                        setPhoneCopied(true);
+                        toast.success(`전화번호(${formattedBrokerPhone})를 복사했습니다.`);
+                        setTimeout(() => setPhoneCopied(false), 2000);
+                      } else {
+                        toast.error(COPY_FAILED_MESSAGE);
+                      }
+                    }}
+                    className="min-h-[48px] py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    {phoneCopied ? "✓ 복사됨" : "📞 전화번호 복사"}
+                  </button>
+                  <a
+                    href={`tel:${cleanBrokerPhone}`}
+                    data-testid="contact-gate-call-btn"
+                    className="min-h-[48px] py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    📞 전화 연결
+                  </a>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={onClose}
@@ -242,16 +289,6 @@ export function ContactGateModal({
               >
                 확인
               </button>
-              {hasImDoc && (
-                <button
-                  type="button"
-                  onClick={onSuccess}
-                  data-testid="contact-gate-preview-btn"
-                  className="flex-1 min-h-[48px] py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl text-sm border border-slate-300 transition-all cursor-pointer"
-                >
-                  기본 요약본 먼저 보기
-                </button>
-              )}
             </div>
           </div>
         ) : (

@@ -208,7 +208,7 @@ export function mapDocumentRowToImSummary(
         const useLabel = Array.from(new Set(rawUseParts)).join(" / ") || (isVac ? "공실" : isOwn ? "자가사용" : "근린생활시설");
         const rawFl = String(r?.floor || flMatch?.floor || `${rIdx + 1}F`).trim();
         const rawUn = String(r?.unit || r?.unit_label || flMatch?.unit_label || "").trim();
-        const resolvedUnit = /^(?:B|지하\s*)?\d{3,4}\s*호$/i.test(rawFl) ? rawFl : rawUn || `${rIdx + 1}01호`;
+        const resolvedUnit = /^(?:B|지하\s*)?\d{3,4}\s*호$/i.test(rawFl) ? rawFl : rawUn;
         const rawAreaSqm = Number(r?.areaSqm ?? r?.area_sqm ?? r?.area_m2 ?? r?.exclusive_area_sqm ?? flMatch?.area_sqm ?? 0);
         const validAreaSqm = rawAreaSqm > 0 && Math.abs(rawAreaSqm - 2.45) > 0.05 ? rawAreaSqm : undefined;
         const rawExclSqm = Number(r?.exclusiveAreaSqm ?? r?.exclusive_area_sqm ?? flMatch?.exclusive_area_sqm ?? 0);

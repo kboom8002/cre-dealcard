@@ -175,6 +175,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     useState<KakaoOutreachPresetKind>("intro");
   const [copiedBundlePreview, setCopiedBundlePreview] = useState<string | null>(null);
   const [lastBundleShareUrl, setLastBundleShareUrl] = useState<string>("");
+  const [lastIssuedUrl, setLastIssuedUrl] = useState<{ threadId: string; url: string } | null>(null);
 
   const [currentBrokerId, setCurrentBrokerId] = useState<string>("");
   const [clientOffset, setClientOffset] = useState<number>(0);
@@ -186,7 +187,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const lastSyncedQueryKeyRef = useRef<string | null>(null);
   const lastPushedQueryKeyRef = useRef<string | null>(null);
   const lastSyncedFilterParamRef = useRef<string | null>(null);
-  const [, setStatusFeedback] = useState<string | null>(null);
 
   const purgeInboxLocalStorage = useCallback(() => {
     try {
@@ -247,6 +247,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
     setSelectedId(nextId);
     setMobileStayOnList(false);
+    const targetThread = threads.find((t) => t.id === nextId);
+    if (targetThread?.status === "pending_gate") {
+      setActiveEditorTab("todo");
+    }
 
     const qs = nextParams.toString();
     const targetHref = qs ? `${pathname}?${qs}` : pathname;
@@ -652,7 +656,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             : typeof json?.error?.message === "string" && json.error.message.trim()
             ? json.error.message.trim()
             : `${fallbackError} (HTTP ${res.status})`;
-        setStatusFeedback(errMsg);
         setInlineActionError(errMsg);
         showUndoToast(errMsg);
         return { ok: false, error: errMsg };
@@ -662,7 +665,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         data: json && typeof json === "object" ? (json as Record<string, unknown>) : {},
       };
     } catch {
-      setStatusFeedback(fallbackError);
       setInlineActionError(fallbackError);
       showUndoToast(fallbackError);
       return { ok: false, error: fallbackError };
@@ -672,25 +674,36 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
+  const handleCopyClientEmail = async (email: string) => {
+    const clean = email.trim();
+    if (!clean) return;
+    const copied = await copyText(clean);
+    showUndoToast(
+      copied
+        ? `이메일 주소(${clean})가 클립보드에 복사되었습니다.`
+        : "이메일 주소 복사에 실패했습니다. 다시 시도해 주세요."
+    );
+  };
+
   const handleCopyActiveShareLink = async () => {
-    if (!activeThread?.shareUrl || activeThread.status === "revoked") return;
+    const sharePath =
+      activeThread?.shareUrl ||
+      (lastIssuedUrl?.threadId === activeThread?.id ? lastIssuedUrl?.url : "") ||
+      "";
+    if (!activeThread || !sharePath || activeThread.status === "revoked") return;
     const origin =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "https://credeal.net";
-    const fullUrl = activeThread.shareUrl.startsWith("/")
-      ? `${origin}${activeThread.shareUrl}`
-      : activeThread.shareUrl;
+    const fullUrl = sharePath.startsWith("/") ? `${origin}${sharePath}` : sharePath;
     const copied = await copyText(fullUrl);
     const msg = copied
       ? `${activeThread.clientName}님 전용 링크가 클립보드에 복사되었습니다.`
       : "링크 복사에 실패했습니다. 다시 시도해 주세요.";
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
   const handleApproveAndSendIm = async (targetThread: InboxThreadItem) => {
-    setStatusFeedback(null);
     let apiRes = await postJsonHonest(
       `approve:${targetThread.id}`,
       "/api/broker/inbox/actions",
@@ -756,11 +769,26 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         : shareUrl;
     const copied = fullUrl ? await copyText(fullUrl) : false;
 
+    if (shareUrl) {
+      setLastIssuedUrl({ threadId: targetThread.id, url: shareUrl });
+      setLastBundleShareUrl(shareUrl);
+    }
+
+    const nowIso = new Date().toISOString();
     const approvalEvent: RecipientEvent = {
       id: `ev-approve-${Date.now()}`,
       eventType: "gate_request",
       description: "IM 열람 요청을 승인하고 전용 링크를 발급했습니다.",
       timestamp: "방금",
+    };
+    const approvalDispatchEntry: InboxDispatchHistoryItem = {
+      id: `disp-approve-${Date.now()}`,
+      eventType: "gate_request_approved",
+      channel: "link",
+      title: "IM 승인 · 전용 링크 발급",
+      status: "sent",
+      createdAt: nowIso,
+      ...(shareUrl ? { shareUrl } : {}),
     };
 
     setThreads((prev) => {
@@ -775,6 +803,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               detail: "IM 열람 요청이 승인되었습니다.",
               latestEvent: "IM 열람 요청을 승인하고 전용 링크를 전달했습니다.",
               events: [approvalEvent, ...t.events],
+              dispatchHistory: [approvalDispatchEntry, ...(t.dispatchHistory || [])],
             }
           : t
       );
@@ -785,12 +814,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const msg = copied
       ? `${targetThread.clientName}님에게 보낼 IM 전용 링크가 복사되었습니다.`
       : `${targetThread.clientName}님의 IM 열람 요청을 승인했습니다.`;
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
   const handleRejectRequest = async (targetThread: InboxThreadItem) => {
-    setStatusFeedback(null);
     const apiRes = await postJsonHonest(
       `reject:${targetThread.id}`,
       "/api/broker/inbox/actions",
@@ -820,7 +847,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     });
 
     const msg = `${targetThread.clientName}님의 IM 열람 요청을 거절했습니다.`;
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
@@ -828,14 +854,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     kind: "im" | "dealcard" | "newsletter" | "magazine"
   ) => {
     if (!activeThread) return;
-    setStatusFeedback(null);
 
     const normalizedKind: "im" | "dealcard" | "newsletter" =
       kind === "magazine" ? "newsletter" : kind;
 
     if (normalizedKind === "im" && activeThread.status === "revoked") {
       const msg = "잠긴 전용 링크입니다. 먼저 '링크 다시 열기'로 잠금을 해제해 주세요.";
-      setStatusFeedback(msg);
       showUndoToast(msg);
       return;
     }
@@ -843,7 +867,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const cleanBuildingId = activeThread.buildingId.trim();
     if ((normalizedKind === "im" || normalizedKind === "dealcard") && !cleanBuildingId) {
       const msg = "연결된 매물이 없습니다. 매물을 먼저 지정해 주세요.";
-      setStatusFeedback(msg);
       showUndoToast(msg);
       return;
     }
@@ -941,12 +964,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         shareRes === "kakao"
           ? `카카오톡으로 ${labelMap[normalizedKind]} 공유 창을 열었습니다.`
           : `${labelMap[normalizedKind]}가 클립보드에 복사되었습니다. 카톡에 붙여넣어 보내세요.`;
-      setStatusFeedback(msg);
       showUndoToast(msg);
       setShowShareSheet(false);
     } else {
       const errMsg = `${labelMap[normalizedKind]} 복사에 실패했습니다. 다시 시도해 주세요.`;
-      setStatusFeedback(errMsg);
       showUndoToast(errMsg);
     }
   };
@@ -968,7 +989,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   const handlePrepareCopyBundle = async () => {
     if (!activeThread) return;
-    setStatusFeedback(null);
     const resolvedAssetKind: "im" | "dealcard" | "magazine" =
       (outboundAssetKind === "im" || outboundAssetKind === "dealcard") &&
       !activeThread.buildingId.trim()
@@ -1048,13 +1068,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       setCopiedBundlePreview(finalMessageText);
     }
     const toastMsg = "안내 문구와 추적 링크를 복사했습니다.";
-    setStatusFeedback(toastMsg);
     showUndoToast(toastMsg);
   };
 
   const handleSendInboxEmail = async () => {
     if (!activeThread) return;
-    setStatusFeedback(null);
     const targetEmail = outboundEmail.trim() || (activeThread.clientEmail || "").trim();
     const resolvedBasis = outboundBasis || activeThread.transactionalBasis || "";
     const resolvedAssetKind: "im" | "dealcard" | "magazine" =
@@ -1128,13 +1146,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const msg = apiRes.data.simulated
       ? `${targetEmail}로 이메일 발송을 접수했습니다(테스트 시뮬레이션).`
       : `${targetEmail}로 매물 자료 이메일을 발송했습니다.`;
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
   const handleSendInboxAlimtalk = async () => {
     if (!activeThread) return;
-    setStatusFeedback(null);
     if (subscriptionTier === "free") {
       setShowAlimtalkUpgradeSheet(true);
       showUndoToast(ALIMTALK_EARLY_ACCESS_NOTICE);
@@ -1182,7 +1198,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           typeof json?.error === "string" && json.error.trim()
             ? json.error.trim()
             : "카카오 알림톡 발송 조건을 확인해 주세요.";
-        setStatusFeedback(errMsg);
         setInlineActionError(errMsg);
         showUndoToast(errMsg);
         return;
@@ -1190,7 +1205,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
       if (json?.earlyAccess || json?.dispatched === false) {
         setShowAlimtalkUpgradeSheet(true);
-        setStatusFeedback(ALIMTALK_EARLY_ACCESS_NOTICE);
         showUndoToast(ALIMTALK_EARLY_ACCESS_NOTICE);
         return;
       }
@@ -1227,11 +1241,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       const okMsg = json?.simulated
         ? "카카오 정보성 알림톡 발송을 접수했습니다(테스트 시뮬레이션)."
         : "카카오 정보성 알림톡을 발송했습니다.";
-      setStatusFeedback(okMsg);
       showUndoToast(okMsg);
     } catch {
       const errMsg = "카카오 알림톡 발송 중 오류가 발생했습니다.";
-      setStatusFeedback(errMsg);
       setInlineActionError(errMsg);
       showUndoToast(errMsg);
     } finally {
@@ -1252,7 +1264,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
     setConfirmLockOpen(false);
     setLockEntireBuilding(false);
-    setStatusFeedback(null);
 
     const apiRes = await postJsonHonest(
       `lock:${targetThread.id}`,
@@ -1297,14 +1308,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       effectiveScope === "building"
         ? `[${targetThread.buildingTitle}] 전체 열람 링크를 잠갔습니다.`
         : `${targetThread.clientName}님에게 보낸 열람 링크를 잠갔습니다.`;
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
   const handleUnlockLink = async () => {
     if (!activeThread) return;
     const targetThread = activeThread;
-    setStatusFeedback(null);
 
     const apiRes = await postJsonHonest(
       `unlock:${targetThread.id}`,
@@ -1334,7 +1343,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     });
 
     const msg = `${targetThread.clientName}님의 전용 링크를 다시 열었습니다.`;
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
@@ -1399,7 +1407,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       : effectiveSubscribed
         ? `${targetThread.clientName}님의 뉴스레터 수신 동의가 켜졌습니다.`
         : `${targetThread.clientName}님의 뉴스레터 수신이 해제되었습니다.`;
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
@@ -1449,7 +1456,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
     setCorrectionNoticeOpen(false);
     const toastMsg = `⚠️ 매물 정보가 정정되었습니다: ${msgText}`;
-    setStatusFeedback(toastMsg);
     showUndoToast(toastMsg);
   };
 
@@ -1494,7 +1500,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     });
 
     const toastMsg = "수치 정정 안내 배너를 내렸습니다.";
-    setStatusFeedback(toastMsg);
     showUndoToast(toastMsg);
   };
 
@@ -1537,7 +1542,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       return next;
     });
     setCallNote("");
-    setStatusFeedback("통화 및 상담 기록을 저장했습니다.");
     showUndoToast("통화 및 상담 기록을 저장했습니다.");
   };
 
@@ -1680,7 +1684,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         : `${created.clientName} 고객이 등록되었습니다.`;
     setNewClientForm(INITIAL_CLIENT_FORM);
     setShowNewClientModal(false);
-    setStatusFeedback(registrationToast);
     showUndoToast(registrationToast);
   };
 
@@ -1869,7 +1872,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   };
 
   const handleArchiveThread = async (targetThread: InboxThreadItem) => {
-    setStatusFeedback(null);
     const apiRes = await postJsonHonest(
       `archive:${targetThread.id}`,
       "/api/broker/inbox/actions",
@@ -1890,7 +1892,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     );
     setSelectedId(nextVisible[0]?.id || remaining[0]?.id || "");
     const msg = "소통 목록에서 보관(숨김) 처리했습니다.";
-    setStatusFeedback(msg);
     showUndoToast(msg);
   };
 
@@ -1952,18 +1953,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
-  const primaryActionSlot = activeThread ? (
-    activeThread.status === "pending_gate" ? (
-      <button
-        type="button"
-        data-testid="primary-cta-approve-im"
-        disabled={Boolean(busyAction)}
-        onClick={() => handleApproveAndSendIm(activeThread)}
-        className="min-h-[48px] w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
-      >
-        승인하고 IM 보내기
-      </button>
-    ) : (
+  const primaryActionSlot =
+    activeThread && activeThread.status !== "pending_gate" ? (
       <button
         type="button"
         data-testid="primary-cta-kakao-send"
@@ -1982,8 +1973,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       >
         카톡으로 자료 보내기
       </button>
-    )
-  ) : null;
+    ) : null;
 
   return (
     <>
@@ -2004,7 +1994,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onSearchChange={handleSearchChange}
             onViewModeChange={setViewMode}
             onSelectThread={(id) => selectThread(id)}
-            onApproveAndSendIm={handleApproveAndSendIm}
             onOpenNewClientModal={() => setShowNewClientModal(true)}
             onOpenBulkImportModal={() => setBulkImportOpen(true)}
             hasMoreClients={hasMoreClients}
@@ -2040,6 +2029,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             activeEditorTab={activeEditorTab}
             inlineActionError={inlineActionError}
             busyAction={busyAction}
+            lastIssuedUrl={
+              lastIssuedUrl?.threadId === activeThread?.id ? lastIssuedUrl?.url || "" : ""
+            }
             kakaoHeadline={kakaoHeadline}
             kakaoBrief={kakaoBrief}
             callNote={callNote}
@@ -2052,6 +2044,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onRejectRequest={handleRejectRequest}
             onSendMaterial={handleSendMaterial}
             onArchiveThread={handleArchiveThread}
+            onCopyActiveShareLink={handleCopyActiveShareLink}
+            onPrepareCopyBundle={handlePrepareCopyBundle}
+            onConfirmLockLink={handleConfirmLockLink}
+            onUnlockLink={handleUnlockLink}
+            onCopyClientEmail={handleCopyClientEmail}
             onGenerateAiReply={handleGenerateAiReply}
             aiReplyLoading={aiReplyLoading}
             aiReplyCount={aiReplyHistory.length}
@@ -2115,7 +2112,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         selectedBuildingId={selectedId || activeThread?.id || null}
         selectedLabel={activeThread?.clientName}
         navBadges={{ inbox: pendingCount }}
-        mobileTabLabels={{ editor: "상담", preview: "고객 정보" }}
+        previewDrawerLabel="자료 전달 · 링크 관리"
+        mobileTabLabels={{ editor: "상담", preview: "자료 전달·관리" }}
         mobileStartOnList={mobileStayOnList}
       />
 

@@ -150,6 +150,8 @@ export interface WorkspaceShellProps {
   navBadges?: Partial<Record<"dealcards" | "im" | "magazine" | "inbox", number>>;
   /** Mobile editor/preview switch labels (default: 채우기 / 미리보기) */
   mobileTabLabels?: { editor: string; preview: string };
+  /** Label prefix for the <1280px preview drawer toggle button (default: "미리보기") */
+  previewDrawerLabel?: string;
   /** Start mobile on the list even if a selection exists (default true when no explicit tab query) */
   mobileStartOnList?: boolean;
   /** Children fallback if editorSlot is omitted */
@@ -200,6 +202,7 @@ export function WorkspaceShell({
   onBuildingSelect,
   navBadges,
   mobileTabLabels = { editor: "채우기", preview: "미리보기" },
+  previewDrawerLabel = "미리보기",
   mobileStartOnList = false,
   children,
 }: WorkspaceShellProps) {
@@ -835,7 +838,9 @@ export function WorkspaceShell({
               aria-expanded={isPreviewDrawerOpen}
               className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/78 hover:bg-white/95 border border-slate-900/[0.08] text-base font-semibold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.04)] transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
-              <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
+              <span>
+                {isPreviewDrawerOpen ? `${previewDrawerLabel} 닫기` : `${previewDrawerLabel} 열기`}
+              </span>
             </button>
 
             <WorkspaceHelpButton workspace={workspace as HelpWorkspaceKey} />
@@ -1010,7 +1015,9 @@ export function WorkspaceShell({
                   aria-expanded={isPreviewDrawerOpen}
                   className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[44px] rounded-xl border border-[#007AFF]/25 bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-sm font-semibold text-[#0040DD] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all cursor-pointer shrink-0"
                 >
-                  <span>{isPreviewDrawerOpen ? "미리보기 닫기" : "미리보기 열기"}</span>
+                  <span>
+                    {isPreviewDrawerOpen ? `${previewDrawerLabel} 닫기` : `${previewDrawerLabel} 열기`}
+                  </span>
                 </button>
 
                 {mobileView === "editor" && (
@@ -1062,7 +1069,7 @@ export function WorkspaceShell({
           <button
             type="button"
             tabIndex={-1}
-            aria-label="미리보기 서랍 닫기"
+            aria-label={`${previewDrawerLabel} 서랍 닫기`}
             data-testid="workspace-preview-drawer-backdrop"
             data-modal-backdrop="true"
             onClick={() => setIsPreviewDrawerOpen(false)}
@@ -1119,7 +1126,7 @@ export function WorkspaceShell({
                 <button
                   type="button"
                   onClick={() => setIsPreviewDrawerOpen(false)}
-                  aria-label="미리보기 닫기"
+                  aria-label={`${previewDrawerLabel} 닫기`}
                   className="hidden lg:inline-flex xl:hidden px-2.5 min-h-[44px] items-center justify-center rounded-xl ios-glass-pill bg-white/85 border border-slate-900/[0.08] text-[#1D1D1F] text-sm font-semibold hover:bg-white cursor-pointer"
                 >
                   ✕ 닫기

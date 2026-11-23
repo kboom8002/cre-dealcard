@@ -8,15 +8,15 @@ import type { Metadata, Viewport } from "next";
 import { serializeJsonLd, organization, website } from "@/lib/schema-org";
 import { PublicBottomNav } from "@/components/layout/PublicBottomNav";
 import { ThemeToggle, PublicContentShell } from "@/components/ui/ThemeToggle";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+const BASE_URL = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: "DealCard — AI 상업용 부동산 딜 어시스턴트",
-    template: "%s | DealCard",
+    default: "크리딜 (CREDEAL) — AI 상업용 부동산 딜 어시스턴트",
+    template: "%s | 크리딜 (CREDEAL)",
   },
   description:
     "주소나 매물 메모 하나로 건물 딜카드를 만들어보세요. AI 기반 CRE 딜 어시스턴트가 매칭, 시장 분석, IM 생성을 도와드립니다.",
@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     "여의도 오피스",
     "AI 부동산",
   ],
-  authors: [{ name: "DealCard", url: BASE_URL }],
-  creator: "DealCard",
-  publisher: "DealCard",
+  authors: [{ name: "크리딜 (CREDEAL)", url: BASE_URL }],
+  creator: "크리딜 (CREDEAL)",
+  publisher: "크리딜 (CREDEAL)",
   robots: {
     index: true,
     follow: true,
@@ -48,26 +48,25 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    url: BASE_URL,
-    siteName: "DealCard",
-    title: "DealCard — AI 상업용 부동산 딜 어시스턴트",
+    siteName: "크리딜 (CREDEAL)",
+    title: "크리딜 (CREDEAL) — AI 상업용 부동산 딜 어시스턴트",
     description:
       "주소 하나, 메모 하나로 건물 딜 가능성을 확인하세요. AI 기반 CRE 딜 어시스턴트.",
     images: [
       {
-        url: `${BASE_URL}/api/og/deal/default`,
+        url: `${BASE_URL}/og-default.png?v=2`,
         width: 1200,
         height: 630,
-        alt: "DealCard — AI CRE 딜 어시스턴트",
+        alt: "크리딜 (CREDEAL) — AI 상업용 부동산 딜 어시스턴트",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "DealCard — AI 상업용 부동산 딜 어시스턴트",
+    title: "크리딜 (CREDEAL) — AI 상업용 부동산 딜 어시스턴트",
     description:
       "주소 하나, 메모 하나로 건물 딜 가능성을 확인하세요.",
-    images: [`${BASE_URL}/api/og/deal/default`],
+    images: [`${BASE_URL}/og-default.png?v=2`],
   },
   // P2 (WP-7.3A): no group-wide `alternates.canonical` here — a layout-level canonical
   // pointing at BASE_URL was inherited by every public page and told crawlers that

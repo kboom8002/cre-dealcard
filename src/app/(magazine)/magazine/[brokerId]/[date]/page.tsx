@@ -25,6 +25,7 @@ import { buildMagazineTitle, parseViewerTarget } from "@/lib/magazine/view-helpe
 import { UnpublishedNotice, type UnpublishedReason } from "@/components/magazine/UnpublishedNotice";
 import { PreviewReceiver } from "@/components/magazine/PreviewReceiver";
 import { buildPreviewSrc } from "@/lib/magazine/preview-bridge";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { MagazineView, type MagazineData } from "./magazine-view";
 
 interface PageProps {
@@ -140,7 +141,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const marketTempLabel = typeof data.market_temp === "string" && data.market_temp.trim() ? ` · 시장 온도: ${data.market_temp.trim()}` : "";
   const description = `${broker.name ?? "중개사"} 중개사의 ${formatKoreanDate(date)} ${cadenceKo} 빌딩·상업용 부동산 브리핑${marketTempLabel}`;
   const ogImageUrl = `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`;
-  const canonical = `https://credeal.net/magazine/${slug}/${date}`;
+  const canonical = `${getCanonicalSiteUrl()}/magazine/${slug}/${date}`;
 
   return {
     title,

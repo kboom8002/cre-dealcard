@@ -192,12 +192,12 @@ describe("Hold-out V2 Complementary Golden Human Click-Through Suite (/qa-full-l
     }
   });
 
-  it("parses Dangsan stabilized (14 rows) & Jamwon as-is/stabilized (6 rows each) TSVs cleanly", () => {
+  it("parses Dangsan stabilized (15 rows including B1 기계실) & Jamwon as-is/stabilized (6 rows each) TSVs cleanly", () => {
     const dangsanStab = parseTsvRentRoll(HOLDOUT_V2_CASE04_STABILIZED_TSV);
     const jamwonAsIs = parseTsvRentRoll(HOLDOUT_V2_CASE03_ASIS_TSV);
     const jamwonStab = parseTsvRentRoll(HOLDOUT_V2_CASE03_STABILIZED_TSV);
 
-    expect(dangsanStab.rows).toHaveLength(14);
+    expect(dangsanStab.rows).toHaveLength(15);
     expect(jamwonAsIs.rows).toHaveLength(6);
     expect(jamwonStab.rows).toHaveLength(6);
   });

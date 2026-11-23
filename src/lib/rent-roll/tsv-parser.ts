@@ -5,6 +5,7 @@
  */
 
 import { parseLeaseExpiryDate } from './date-parser';
+import { EXAMPLE_ROW_NOTE_RE, isExampleRentRollRow } from '@/lib/rentroll/example-row';
 
 export type RentRollStatus = 'occupied' | 'vacant' | 'owner';
 
@@ -198,7 +199,7 @@ function isMarkdownSeparatorLine(cells: string[]): boolean {
 
 function isSummaryRow(cells: string[]): boolean {
   const firstTwo = `${cells[0] || ''} ${cells[1] || ''}`.replace(/\s+/g, '');
-  return /^(합계|소계|총계|total|만실시총계)/i.test(firstTwo);
+  return /^(합계|소계|총계|총합계|total|subtotal|sum|만실시총계)/i.test(firstTwo);
 }
 
 /**
@@ -250,6 +251,7 @@ export function parseTsvRentRoll(
     maintIdx?: number;
     expiryIdx?: number;
     statusIdx?: number;
+    noteIdx?: number;
   } | null = null;
 
   if (!isDataFloor) {
@@ -259,6 +261,7 @@ export function parseTsvRentRoll(
         c === '층수' ||
         c === '구분' ||
         c === 'floor' ||
+        c === '호실/층' ||
         c === '호수' ||
         c === '호' ||
         c === '호실' ||
@@ -294,7 +297,7 @@ export function parseTsvRentRoll(
             col === '평' ||
             col === 'area');
 
-        if (headerMap!.floorIdx === undefined && (col === '층' || col === '층수' || col === '구분' || col === 'floor')) {
+        if (headerMap!.floorIdx === undefined && (col === '층' || col === '층수' || col === '구분' || col === 'floor' || col === '호실/층')) {
           headerMap!.floorIdx = idx;
         } else if (headerMap!.unitIdx === undefined && (col === '호수' || col === '호' || col === '호실' || col === 'unit')) {
           headerMap!.unitIdx = idx;
@@ -328,10 +331,12 @@ export function parseTsvRentRoll(
           headerMap!.rentIdx = idx;
         } else if (headerMap!.maintIdx === undefined && (col.includes('관리비') || col === 'maintenance' || col === 'cam')) {
           headerMap!.maintIdx = idx;
-        } else if (headerMap!.expiryIdx === undefined && (col.includes('만기') || col.includes('계약기간') || col.includes('종료') || col.includes('expiry'))) {
+        } else if (headerMap!.expiryIdx === undefined && (col.includes('만기') || col.includes('만료') || col.includes('계약기간') || col.includes('종료') || col.includes('expiry'))) {
           headerMap!.expiryIdx = idx;
-        } else if (headerMap!.statusIdx === undefined && (col.includes('상태') || col.includes('비고') || col.includes('안내') || col === 'status')) {
+        } else if (headerMap!.statusIdx === undefined && (col.includes('상태') || col.includes('임대구분') || col === 'status')) {
           headerMap!.statusIdx = idx;
+        } else if (headerMap!.noteIdx === undefined && (col.includes('비고') || col.includes('안내') || col.includes('note') || col.includes('remark') || col.includes('특이'))) {
+          headerMap!.noteIdx = idx;
         }
       });
     }
@@ -358,6 +363,7 @@ export function parseTsvRentRoll(
     let rawMaintenance = '';
     let rawExpiry = '';
     let rawStatus = '';
+    let rawNote = '';
 
     if (headerMap && headerMap.depositIdx !== undefined && headerMap.rentIdx !== undefined) {
       floor = headerMap.floorIdx !== undefined ? cells[headerMap.floorIdx] || '' : cells[0] || '';
@@ -381,6 +387,7 @@ export function parseTsvRentRoll(
       rawMaintenance = headerMap.maintIdx !== undefined ? cells[headerMap.maintIdx] || '0' : '0';
       rawExpiry = headerMap.expiryIdx !== undefined ? cells[headerMap.expiryIdx] || '' : '';
       rawStatus = headerMap.statusIdx !== undefined ? cells[headerMap.statusIdx] || '' : '';
+      rawNote = headerMap.noteIdx !== undefined ? cells[headerMap.noteIdx] || '' : '';
     } else if (cells.length >= 7) {
       floor = cells[0];
       unit = cells[1];
@@ -410,9 +417,30 @@ export function parseTsvRentRoll(
       rawMaintenance = cells[3] || '0';
     }
 
+    const exampleNoteCandidate =
+      rawNote ||
+      rawStatus ||
+      cells.find((c) => EXAMPLE_ROW_NOTE_RE.test(String(c ?? ''))) ||
+      '';
+    const exampleBizCandidate =
+      !headerMap && cells.length >= 15 ? cells[4] || use || tenantName : use || tenantName;
+    if (
+      isExampleRentRollRow({
+        floor: floor || cells[0],
+        biz: exampleBizCandidate,
+        tenantName,
+        note: exampleNoteCandidate,
+      })
+    ) {
+      continue;
+    }
+    if (EXAMPLE_ROW_NOTE_RE.test(rawNote)) {
+      rawNote = '';
+    }
+
     // Status resolution (guard against notes like "공실 아님" or "공실 체크 금지")
     let status: RentRollStatus = 'occupied';
-    const combinedStatusText = `${rawStatus} ${rawExpiry} ${use}`.toLowerCase();
+    const combinedStatusText = `${rawStatus} ${rawNote} ${rawExpiry} ${use}`.toLowerCase();
     const isExplicitlyNotVacant =
       combinedStatusText.includes('공실 아님') ||
       combinedStatusText.includes('공실아님') ||
@@ -473,11 +501,18 @@ export function parseTsvRentRoll(
     }
 
     const expiryResult = parseLeaseExpiryDate(rawExpiry);
+    const trimmedNote = rawNote.trim();
+    const cleanNote =
+      trimmedNote &&
+      trimmedNote !== '-' &&
+      !(headerMap?.statusIdx === undefined && /^(임대중|공실|자가|자가사용)$/.test(trimmedNote))
+        ? trimmedNote
+        : undefined;
 
     rows.push({
       id: `rr-${startIdIndex + rows.length}`,
       floor: normalizeFloorName(floor || `${rows.length + 1}F`),
-      unit: unit || `${rows.length + 1}호`,
+      unit: unit || '',
       use: status === 'vacant' && (!use || use === '공실') ? '공실' : (use || '근린생활시설'),
       ...(tenantName ? { tenantName } : {}),
       ...(Number.isFinite(areaSqmVal) && areaSqmVal > 0 ? { areaSqm: areaSqmVal } : {}),
@@ -492,6 +527,7 @@ export function parseTsvRentRoll(
       normalizedExpiry: expiryResult.normalized,
       isExpired: expiryResult.isExpired,
       status,
+      ...(cleanNote ? { note: cleanNote } : {}),
       unitMistakeWarning,
     });
   }

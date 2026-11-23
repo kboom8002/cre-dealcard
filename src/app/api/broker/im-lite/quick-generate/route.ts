@@ -1630,7 +1630,7 @@ export async function POST(req: NextRequest) {
             ? rawFloorStr.endsWith('호')
               ? rawFloorStr
               : `${rawFloorStr}호`
-            : rawUnitStr || String(prevFl.unit_label || prevFl.unit || `${idx + 1}01호`);
+            : rawUnitStr || String(prevFl.unit_label || prevFl.unit || '');
           const explicitTenantName = String(r.tenantName || r.tenant_name || '').trim();
           const resolvedTenantName = isVacant
             ? '공실'

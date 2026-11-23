@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SurveyProvider } from "@/components/feedback/SurveyProvider";
 import { ToastProvider } from "@/components/ui/toast-provider";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const notoKr = localFont({
@@ -26,7 +27,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
+const SITE_URL = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

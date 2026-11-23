@@ -10,6 +10,7 @@
  */
 import { pyeongToSqm } from "@/lib/utils/area-conversion";
 import { calculateEfficiencyRatio } from "@/types/im";
+import { EXAMPLE_ROW_NOTE_RE, isExampleRentRollRow } from "@/lib/rentroll/example-row";
 import {
   EVIDENCE_LEVELS,
   PAYMENT_STATUSES,
@@ -279,7 +280,6 @@ function parseRatioCell(raw: unknown): number | undefined {
 }
 
 const SUMMARY_LABEL = /^(합계|소계|총계|총합계|계|total|subtotal|sum)(자동)?$/i;
-const EXAMPLE_ROW_MARKER = /예시\s*행/;
 const INVALID_GROUP_USE_RE = /^(\(통합계약.*\)|근린생활(시설)?|근생|제?[12]종근린생활(시설)?|상가|상업(시설)?|주거(시설|용)?|주택|업무(시설|용)?|오피스|오피스텔|단독(계약)?|개별(계약)?|-|없음|해당없음)$/i;
 
 /** 허용값 밖의 문구는 추측하지 않고 undefined — lease_ledger CHECK 제약을 깨지 않기 위함 */
@@ -462,17 +462,24 @@ export function parseRentRollData(data: any[][], options: ParseRentRollOptions =
     if (labelCandidates.some((l) => l && SUMMARY_LABEL.test(l))) continue;
     const rawFloorCell = floorIdx >= 0 ? text(floorIdx) : text(0);
     const rawBizCell = bizTypeIdx >= 0 ? text(bizTypeIdx) : "";
+    const rawTenantCell = tenantNameIdx >= 0 ? text(tenantNameIdx) : "";
     const rawNoteCell = noteIdx >= 0 ? text(noteIdx) : "";
-    const hasExampleNote = EXAMPLE_ROW_MARKER.test(rawNoteCell) || (noteIdx < 0 && cols.some((c) => EXAMPLE_ROW_MARKER.test(String(c ?? ""))));
-    let stripExampleNotePokaYoke = false;
-    if (hasExampleNote) {
-      const isUntouchedDemoFloor = !rawFloorCell || /^\[예시\]/i.test(rawFloorCell) || rawFloorCell === "3F";
-      const isUntouchedDemoBiz = !rawBizCell || /^\[예시\]/i.test(rawBizCell) || rawBizCell === "사무실";
-      if (isUntouchedDemoFloor || isUntouchedDemoBiz) {
-        continue;
-      }
-      stripExampleNotePokaYoke = true;
+    const exampleNoteCandidate =
+      rawNoteCell ||
+      (noteIdx < 0
+        ? cols.map((c) => String(c ?? "")).find((s) => EXAMPLE_ROW_NOTE_RE.test(s)) ?? ""
+        : "");
+    if (
+      isExampleRentRollRow({
+        floor: rawFloorCell,
+        biz: rawBizCell || rawTenantCell,
+        tenantName: rawTenantCell,
+        note: exampleNoteCandidate,
+      })
+    ) {
+      continue;
     }
+    const stripExampleNotePokaYoke = EXAMPLE_ROW_NOTE_RE.test(exampleNoteCandidate);
 
     rowCount++;
 

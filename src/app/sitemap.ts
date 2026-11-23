@@ -16,9 +16,7 @@
  */
 import type { MetadataRoute } from "next";
 import { createServiceClient } from "@/lib/supabase/service";
-
-const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 /** Canonical Korean CRE region slugs */
 const REGIONS = [
@@ -51,6 +49,7 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T):
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const BASE_URL = getCanonicalSiteUrl();
   const now = new Date();
 
   /* ── 1. Static pages ──────────────────────────────────────────── */
