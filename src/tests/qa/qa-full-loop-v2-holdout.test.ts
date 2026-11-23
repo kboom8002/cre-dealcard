@@ -182,6 +182,12 @@ describe("Hold-out V2 Complementary Golden Human Click-Through Suite (/qa-full-l
         for (const forbidden of loopCase.groundTruth.forbiddenPublicTokens) {
           expect(sn.value.includes(forbidden), `Leak "${forbidden}" in ${sn.id}`).toBe(false);
         }
+        if (sn.id.endsWith("dc-headline")) {
+          expect(
+            Array.from(sn.value).length,
+            `${sn.id} must fit within DealCard 18-char headline limit`,
+          ).toBeLessThanOrEqual(18);
+        }
       }
     }
   });
@@ -242,12 +248,16 @@ describe("Hold-out V2 Complementary Golden Human Click-Through Suite (/qa-full-l
     expect(zip1Res.status).toBe(200);
     const zip1 = await JSZip.loadAsync(await zip1Res.arrayBuffer());
     const zip1Names = Object.keys(zip1.files);
+    expect(zip1Names).toContain("00_대장면적_및_수익률_기준값_대조표.txt");
     expect(zip1Names).toContain("02_현황_렌트롤_v1.5_sqm.xlsx");
     expect(zip1Names).toContain("03_안정화_렌트롤_v1.5_sqm.xlsx");
-    expect(zip1Names).toContain("04_안정화_서브탭_화면붙여넣기.tsv");
+    expect(zip1Names).toContain("04_기대수익률_복사붙여넣기용_표.txt");
+    const ref1Text = await zip1.files["00_대장면적_및_수익률_기준값_대조표.txt"].async("string");
+    expect(ref1Text).toContain("506.80");
+    expect(ref1Text).toContain("1,441.15");
     expect(zip1Names.filter((n) => n.startsWith("photos/") && !zip1.files[n].dir)).toHaveLength(6);
 
-    // 3. Full Hold-out Loop 2 ZIP (Jamwon TSVs + CSV + 5 real photos)
+    // 3. Full Hold-out Loop 2 ZIP (Jamwon reference table + pasteable txt + CSV + 5 real photos)
     const zip2Res = await getSampleKit(
       new NextRequest("http://localhost:3000/api/public/qa-sample-kit?scenario=v2-loop2", {
         headers: { "x-qa-access-key": "secret-v2-holdout-key" },
@@ -256,9 +266,13 @@ describe("Hold-out V2 Complementary Golden Human Click-Through Suite (/qa-full-l
     expect(zip2Res.status).toBe(200);
     const zip2 = await JSZip.loadAsync(await zip2Res.arrayBuffer());
     const zip2Names = Object.keys(zip2.files);
-    expect(zip2Names).toContain("02_현황_렌트롤_화면붙여넣기.tsv");
-    expect(zip2Names).toContain("03_안정화_렌트롤_화면붙여넣기.tsv");
+    expect(zip2Names).toContain("00_대장면적_및_수익률_기준값_대조표.txt");
+    expect(zip2Names).toContain("02_현행_임대현황_복사용_표.txt");
+    expect(zip2Names).toContain("03_기대수익률_임대현황_복사용_표.txt");
     expect(zip2Names).toContain("04_임대현황_업로드용.csv");
+    const ref2Text = await zip2.files["00_대장면적_및_수익률_기준값_대조표.txt"].async("string");
+    expect(ref2Text).toContain("616.10");
+    expect(ref2Text).toContain("2,032.59");
     expect(zip2Names.filter((n) => n.startsWith("photos/") && !zip2.files[n].dir)).toHaveLength(5);
   }, 25000);
 

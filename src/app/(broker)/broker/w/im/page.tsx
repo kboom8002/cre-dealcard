@@ -68,6 +68,7 @@ import {
   isHeicLikeFile,
   isRealUploadedPhotoUrl,
   isSafeInlineImageDataUrl,
+  mapRentRollImportPayloadToRows,
   normalizePostureForSelector,
   parseKrwInputToManwon,
   processAndUploadPhotoFile,
@@ -137,7 +138,8 @@ function ImWorkspaceInner() {
   const { showUndoToast } = useUndoToast();
 
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
-  const isFreshParam = searchParams.get("fresh") === "1";
+  const isFreshParam =
+    searchParams.get("fresh") === "1" || searchParams.get("new") === "1";
   const currentUserIdRef = useRef<string | null>(getLastActiveBrokerUserId());
   const hydratedUserIdRef = useRef<string | null>(currentUserIdRef.current);
   // Deterministic SSR/CSR initial state: fresh draft creation runs post-mount in useImServerHydration
@@ -1422,71 +1424,9 @@ function ImWorkspaceInner() {
   };
 
   const handleExcelRentRollImport = (payload: RentRollImportPayload) => {
-    if (!Array.isArray(payload.floorLeases) || payload.floorLeases.length === 0) return;
+    const finalRows = mapRentRollImportPayloadToRows(payload);
+    if (finalRows.length === 0) return;
     const targetId = currentItem?.id || selectedIdRef.current;
-    const mappedRows: RentRollRowItem[] = payload.floorLeases.map((r, idx) => {
-      let dep = Number(r.deposit_manwon ?? 0);
-      let rent = Number(r.rent_manwon ?? 0);
-      let mgmt = Number(r.mgmt_fee_manwon ?? 0);
-      if ((r.is_vacant || r.lease_state === "공실") && dep === 0 && rent === 0 && r.note) {
-        const depM = r.note.match(/보증금\s*([\d,.]+)/);
-        const rentM = r.note.match(/월세\s*([\d,.]+)/);
-        const mgmtM = r.note.match(/관리비\s*([\d,.]+)/);
-        if (depM) dep = parseFloat(depM[1].replace(/,/g, "")) || 0;
-        if (rentM) rent = parseFloat(rentM[1].replace(/,/g, "")) || 0;
-        if (mgmtM) mgmt = parseFloat(mgmtM[1].replace(/,/g, "")) || 0;
-      }
-      const rawTenantName = r.tenant_name?.trim() || undefined;
-      const rawTenantType = r.tenant_type?.trim() || undefined;
-      // v1.5 표준양식 E열은 '업종/상호 (원문)' (예: '약국 / 고은약국', '클라우드솔루션 / 네오테크아이티').
-      // 파서가 bizTenant 단일 열을 tenant_type·tenant_name 양쪽에 동일 문자열로 담으므로,
-      // tenant_name이 비어 있거나 tenant_type과 동일하면서 '/' 구분자가 있으면 앞쪽=용도(업종), 뒤쪽=임차인(상호)으로 정규 분리한다.
-      let tenantNameTrimmed = rawTenantName;
-      let tenantTypeTrimmed = rawTenantType;
-      if (
-        tenantTypeTrimmed &&
-        tenantTypeTrimmed.includes("/") &&
-        (!tenantNameTrimmed || tenantNameTrimmed === tenantTypeTrimmed)
-      ) {
-        const slashParts = tenantTypeTrimmed
-          .split(/\s*\/\s*/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (slashParts.length >= 2) {
-          tenantTypeTrimmed = slashParts[0];
-          tenantNameTrimmed = slashParts.slice(1).join(" / ");
-        }
-      }
-      const useLabel =
-        tenantTypeTrimmed || (r.is_vacant ? "공실" : tenantNameTrimmed ? "근린생활시설" : "근린생활시설");
-      return {
-        id: `r-xlsx-${Date.now()}-${idx}`,
-        floor: normalizeFloorName(r.floor || `${idx + 1}F`),
-        unit: r.unit_label || `${idx + 1}01호`,
-        use: useLabel,
-        tenantName: tenantNameTrimmed,
-        areaSqm: r.area_sqm ?? r.exclusive_area_sqm,
-        exclusiveAreaSqm: r.exclusive_area_sqm,
-        note: r.note,
-        depositManwon: dep,
-        monthlyRentManwon: rent,
-        maintenanceManwon: mgmt,
-        leaseExpiry: r.lease_end || "-",
-        status:
-          r.lease_state === "자가사용"
-            ? "owner"
-            : r.lease_state === "공실" || r.is_vacant
-            ? "vacant"
-            : "occupied",
-      };
-    });
-    const normalizedRows = mappedRows
-      .map((r) => ({
-        ...r,
-        floor: normalizeFloorName(r.floor),
-      }))
-      .sort((a, b) => rankFloorTopDown(b.floor) - rankFloorTopDown(a.floor));
-    const finalRows = normalizedRows;
     const prevRows = [...rentRoll];
     const prevPrice = askingPriceManwon;
     let didUpdatePrice = false;
@@ -1527,6 +1467,24 @@ function ImWorkspaceInner() {
           }
         }
         syncCurrentItemPatch(undoPatch, targetId);
+      },
+    });
+  };
+
+  const handleExpectedExcelRentRollImport = (payload: RentRollImportPayload) => {
+    const finalRows = mapRentRollImportPayloadToRows(payload);
+    if (finalRows.length === 0) return;
+    const targetId = currentItem?.id || selectedIdRef.current;
+    const prevExpected = [...expectedRentRoll];
+    setExpectedRentRoll(finalRows);
+    syncCurrentItemPatch({ expectedRentRoll: finalRows }, targetId);
+    showUndoToast({
+      message: `기대수익률 임대 현황 ${finalRows.length}개 호실을 엑셀에서 반영했어요`,
+      undoAction: () => {
+        if (selectedIdRef.current === targetId) {
+          setExpectedRentRoll(prevExpected);
+        }
+        syncCurrentItemPatch({ expectedRentRoll: prevExpected }, targetId);
       },
     });
   };
@@ -2780,6 +2738,7 @@ function ImWorkspaceInner() {
             isRentRollImportOpen={isRentRollImportOpen}
             onToggleRentRollImport={() => setIsRentRollImportOpen((prev) => !prev)}
             onExcelRentRollImport={handleExcelRentRollImport}
+            onExpectedExcelRentRollImport={handleExpectedExcelRentRollImport}
             compRows={brokerExtrasForm.compRows || []}
             onChangeCompRows={(nextCompRows) => {
               const nextForm = { ...brokerExtrasForm, compRows: nextCompRows };

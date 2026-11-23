@@ -86,6 +86,7 @@ export interface ImEditorPanelsProps {
   isRentRollImportOpen: boolean;
   onToggleRentRollImport: () => void;
   onExcelRentRollImport: (payload: RentRollImportPayload) => void;
+  onExpectedExcelRentRollImport?: (payload: RentRollImportPayload) => void;
   compRows?: BrokerCompRowForm[];
   onChangeCompRows?: (rows: BrokerCompRowForm[]) => void;
 
@@ -179,6 +180,7 @@ export function ImEditorPanels({
   isRentRollImportOpen,
   onToggleRentRollImport,
   onExcelRentRollImport,
+  onExpectedExcelRentRollImport,
   compRows = [],
   onChangeCompRows,
   axiosHighlights,
@@ -235,6 +237,8 @@ export function ImEditorPanels({
   const [dragPhotoIdx, setDragPhotoIdx] = useState<number | null>(null);
   const [expandedPhotoKey, setExpandedPhotoKey] = useState<string | null>(null);
   const [brokenThumbMap, setBrokenThumbMap] = useState<Record<string, boolean>>({});
+  const [starterHighlightAddress, setStarterHighlightAddress] = useState<boolean>(false);
+  const [isExpectedImportOpen, setIsExpectedImportOpen] = useState<boolean>(false);
 
   const showSampleBanner = isSampleSeedImItem(
     currentItem ? { ...currentItem, address } : null
@@ -302,8 +306,14 @@ export function ImEditorPanels({
                 onClick: () => {
                   onChangeEditorTab("specs");
                   onNotifyEditorFocus("im-unit-address");
-                  if (typeof document !== "undefined") {
-                    document.getElementById("im-address-input")?.focus();
+                  setStarterHighlightAddress(true);
+                  if (typeof window !== "undefined") {
+                    window.requestAnimationFrame(() => {
+                      const el = document.getElementById("im-address-input");
+                      el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+                      el?.focus({ preventScroll: true });
+                    });
+                    window.setTimeout(() => setStarterHighlightAddress(false), 3200);
                   }
                 },
               },
@@ -318,6 +328,13 @@ export function ImEditorPanels({
                   if (!isRentRollImportOpen) {
                     onToggleRentRollImport();
                   }
+                  if (typeof window !== "undefined") {
+                    window.requestAnimationFrame(() => {
+                      document
+                        .querySelector('[data-testid="im-rentroll-xlsx-importer"]')
+                        ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+                    });
+                  }
                 },
               },
               {
@@ -328,6 +345,13 @@ export function ImEditorPanels({
                 testId: "im-starter-photos-btn",
                 onClick: () => {
                   onChangeEditorTab("media_publish");
+                  if (typeof window !== "undefined") {
+                    window.requestAnimationFrame(() => {
+                      document
+                        .querySelector('[data-testid="im-tab-panel-photos"]')
+                        ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+                    });
+                  }
                 },
               },
             ]}
@@ -738,7 +762,22 @@ export function ImEditorPanels({
         </div>
 
         {/* 카드 C: 건물 주소 및 공부 제원 */}
-        <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200 space-y-4">
+        <div
+          data-highlighted={starterHighlightAddress ? "true" : undefined}
+          className={`p-4 rounded-2xl border space-y-4 transition-all ${
+            starterHighlightAddress
+              ? "bg-blue-50/60 border-[#1D4ED8] ring-4 ring-blue-400/40"
+              : "bg-[#F8FAFC] border-slate-200"
+          }`}
+        >
+          {starterHighlightAddress && (
+            <div
+              data-testid="im-starter-address-guide"
+              className="rounded-xl bg-[#1D4ED8] text-white px-3.5 py-2 text-sm font-extrabold"
+            >
+              👇 아래 칸에 주소를 붙여넣고 오른쪽 [주소로 건물 정보 자동 채우기] 버튼을 누르세요
+            </div>
+          )}
           <div
             className="space-y-1.5"
             data-testid="im-address-section"
@@ -1097,7 +1136,7 @@ export function ImEditorPanels({
           <div className="space-y-3" data-testid="im-expected-rentroll-panel">
             <div className="rounded-xl bg-blue-50/70 border border-blue-200 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-800">
               <span className="font-semibold break-keep">
-                공실 해소·임대조건 정상화 후 가정을 입력하면 IM <strong>기대수익률 임대차 현황</strong> 슬라이드와 <strong>기대수익률</strong>이 자동 반영됩니다. (현행과 달라진 항목은 이탤릭으로 구분 표시)
+                공실 해소·임대조건 정상화 후 가정을 입력하면 IM <strong>기대수익률 임대차 현황</strong> 슬라이드와 <strong>기대수익률</strong>이 자동 반영됩니다. 엑셀(.xlsx·.csv)은 <strong>[📁 엑셀 파일 불러오기 ▾]</strong>를, 복사한 표는 파란 <strong>[📋 표 붙여넣기]</strong> 버튼만 누르세요.
               </span>
               {expectedRentRoll.length > 0 && onChangeExpectedRentRoll && (
                 <button
@@ -1109,6 +1148,40 @@ export function ImEditorPanels({
                 </button>
               )}
             </div>
+            {onExpectedExcelRentRollImport && (
+              <div
+                className={isExpectedImportOpen ? "block" : "hidden"}
+                data-testid="im-expected-rentroll-xlsx-importer"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const droppedFile = e.dataTransfer?.files?.[0];
+                  if (!droppedFile) return;
+                  const fileInput = e.currentTarget.querySelector(
+                    'input[data-testid="rentroll-file-input"]'
+                  ) as HTMLInputElement | null;
+                  if (fileInput && typeof DataTransfer !== "undefined") {
+                    const dt = new DataTransfer();
+                    dt.items.add(droppedFile);
+                    fileInput.files = dt.files;
+                    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
+                }}
+              >
+                <RentRollImporter
+                  key={`expected-${currentItem?.id || selectedId}`}
+                  hasExistingData={false}
+                  onImport={(payload) => {
+                    onExpectedExcelRentRollImport(payload);
+                    setIsExpectedImportOpen(false);
+                  }}
+                />
+              </div>
+            )}
             <RentRollGrid
               rows={expectedRentRoll}
               onChange={(rows) => onChangeExpectedRentRoll?.(rows)}
@@ -1116,6 +1189,23 @@ export function ImEditorPanels({
               floorsBelow={currentItem?.floorsBelow}
               buildingFloors={buildingFloors}
               askingPriceManwon={askingPriceManwon}
+              extraToolbarAction={
+                onExpectedExcelRentRollImport ? (
+                  <button
+                    type="button"
+                    data-testid="im-expected-rentroll-import-toggle"
+                    aria-expanded={isExpectedImportOpen}
+                    onClick={() => setIsExpectedImportOpen((prev) => !prev)}
+                    className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-[#CBD5E1] text-slate-900 text-sm font-extrabold cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+                  >
+                    <span>
+                      {isExpectedImportOpen
+                        ? "📁 엑셀 파일 접기 ▴"
+                        : "📁 엑셀 파일 불러오기 ▾"}
+                    </span>
+                  </button>
+                ) : undefined
+              }
             />
           </div>
         )}

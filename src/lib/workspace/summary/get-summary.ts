@@ -91,6 +91,16 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
   if (bldQuery && typeof bldQuery.limit === "function") bldQuery = bldQuery.limit(20);
   if (bldQuery && !isAdmin && typeof bldQuery.eq === "function") bldQuery = bldQuery.eq("owner_id", userId);
 
+  const LIFECYCLE_TOMBSTONE_TYPES = [
+    "dealcard_deleted",
+    "dealcard_restored",
+    "dealcard_sent",
+    "im_deleted",
+    "im_restored",
+    "unconverted_memo_deleted",
+    "unconverted_memo_restored",
+  ];
+
   let actQuery: any =
     supabase && typeof supabase.from === "function"
       ? supabase
@@ -100,7 +110,24 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
       : null;
   if (actQuery && typeof actQuery.in === "function") actQuery = actQuery.in("event_type", SUMMARY_ACTIVITY_TYPES);
   if (actQuery && typeof actQuery.order === "function") actQuery = actQuery.order("created_at", { ascending: false });
-  if (actQuery && typeof actQuery.limit === "function") actQuery = actQuery.limit(120);
+  if (actQuery && typeof actQuery.limit === "function") actQuery = actQuery.limit(200);
+
+  let lifecycleActQuery: any =
+    supabase && typeof supabase.from === "function"
+      ? supabase
+          .from("activity_events")
+          .select("id, event_type, entity_id, metadata, created_at")
+          .eq("actor_id", userId)
+      : null;
+  if (lifecycleActQuery && typeof lifecycleActQuery.in === "function") {
+    lifecycleActQuery = lifecycleActQuery.in("event_type", LIFECYCLE_TOMBSTONE_TYPES);
+  }
+  if (lifecycleActQuery && typeof lifecycleActQuery.order === "function") {
+    lifecycleActQuery = lifecycleActQuery.order("created_at", { ascending: false });
+  }
+  if (lifecycleActQuery && typeof lifecycleActQuery.limit === "function") {
+    lifecycleActQuery = lifecycleActQuery.limit(500);
+  }
 
   let memoQuery: any =
     supabase && typeof supabase.from === "function"
@@ -115,15 +142,37 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
   if (memoQuery && typeof memoQuery.order === "function") memoQuery = memoQuery.order("created_at", { ascending: false });
   if (memoQuery && typeof memoQuery.limit === "function") memoQuery = memoQuery.limit(60);
 
-  const [wsRes, bldRes, actRes, memoRes] = await Promise.all([
+  const [wsRes, bldRes, actRes, lifecycleActRes, memoRes] = await Promise.all([
     listWorkspaceItemsForOwner(supabase, { ownerId: userId, isAdmin, limit: 200 }).catch(() => ({
       items: [] as WorkspaceItemRecord[],
       tableAvailable: false,
     })),
     safeRunQuery<{ data: any[] | null }>(bldQuery, { data: [] }),
     safeRunQuery<{ data: any[] | null }>(actQuery, { data: [] }),
+    safeRunQuery<{ data: any[] | null }>(lifecycleActQuery, { data: [] }),
     safeRunQuery<{ data: any[] | null }>(memoQuery, { data: [] }),
   ]);
+
+  const mergedActivityEvents = (() => {
+    const seenIds = new Set<string>();
+    const combined: any[] = [];
+    for (const row of [...(actRes?.data || []), ...(lifecycleActRes?.data || [])]) {
+      if (!row || typeof row !== "object") continue;
+      const rowKey = row.id
+        ? String(row.id)
+        : `${row.event_type || ""}:${row.entity_id || ""}:${row.created_at || ""}:${
+            row.metadata?.building_id || row.metadata?.im_id || row.metadata?.memo_id || ""
+          }`;
+      if (seenIds.has(rowKey)) continue;
+      seenIds.add(rowKey);
+      combined.push(row);
+    }
+    combined.sort(
+      (a, b) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+    return combined;
+  })();
 
   const buildings = [...(bldRes?.data || [])];
   if (targetId && isUuid(targetId) && !buildings.some((b) => b.id === targetId)) {
@@ -325,7 +374,7 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
   const restoredOrActiveImIds = new Set<string>();
   const customImUpsertedByKey = new Map<string, { item: Record<string, any>; updatedAt: string }>();
 
-  for (const act of actRes?.data || []) {
+  for (const act of mergedActivityEvents) {
     const meta = (act.metadata as Record<string, any>) || {};
     const bId = String(meta.building_id || act.entity_id || "").trim();
     const imKey = String(meta.im_id || meta.building_id || act.entity_id || "").trim();

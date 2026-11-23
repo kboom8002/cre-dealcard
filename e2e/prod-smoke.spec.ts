@@ -371,7 +371,7 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
       page.getByRole("button", { name: /Stage 1 · 서초 사옥 10장 골든/ })
     ).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.getByRole("button", { name: /사진 10장 · 도메인 함정 보기/ })
+      page.getByRole("button", { name: /현장 사진 10장/ })
     ).toBeVisible();
 
     const byodTab = page.getByRole("button", {

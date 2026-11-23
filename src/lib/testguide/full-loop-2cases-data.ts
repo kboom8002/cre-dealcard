@@ -46,6 +46,20 @@ export interface FullLoopCopySnippet {
   isPublicFacing?: boolean;
 }
 
+export type FullLoopScratchFieldKey =
+  | 'dealCardUrl'
+  | 'imShareUrl'
+  | 'secondaryImShareUrl'
+  | 'newsletterUrl'
+  | 'subscriberContact';
+
+export interface FullLoopInlineScratchSpec {
+  field: FullLoopScratchFieldKey;
+  label: string;
+  placeholder: string;
+  helperText?: string;
+}
+
 export interface FullLoopStepItem {
   id: string;
   loopId: FullLoopCaseId;
@@ -59,6 +73,7 @@ export interface FullLoopStepItem {
   workspaceLabel?: string;
   actionChecklist: string[];
   copySnippets: FullLoopCopySnippet[];
+  inlineScratchFields?: ReadonlyArray<FullLoopInlineScratchSpec>;
   humanFocus: string;
   autoProbeFocus: string;
   oracleReference: string;
@@ -249,9 +264,9 @@ export const FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
           },
           {
             id: 'l1-dc-headline',
-            label: '블라인드 안전 한 줄 제목 복사',
-            targetHint: '딜카드 → 한 줄 제목 (지번·건물명 비노출)',
-            value: '1호선 부천역 도보 3분 전관 리모델링 완료 역세권 코너 근생빌딩 (58억)',
+            label: '블라인드 안전 한 줄 제목 복사 (16자)',
+            targetHint: '딜카드 → 한 줄 제목 (18자 이내)',
+            value: '부천역 3분 올수리 코너 근생',
             isPublicFacing: true,
           },
         ],

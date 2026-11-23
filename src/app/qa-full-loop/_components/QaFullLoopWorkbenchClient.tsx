@@ -771,17 +771,17 @@ export function QaFullLoopWorkbenchClient({
       )}
 
       <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-900 text-amber-400 font-extrabold text-lg shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-5 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-900 text-amber-400 font-extrabold text-base shrink-0">
               {config.badgeCode}
             </span>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                <h1 className="text-base sm:text-lg font-extrabold text-slate-900">
                   {config.pageTitle}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-sm font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-sm font-bold">
                   진행 {summaryStats.done}/{summaryStats.total}
                 </span>
                 <span className="text-sm text-slate-500 font-medium">
@@ -799,13 +799,13 @@ export function QaFullLoopWorkbenchClient({
           </div>
 
           {activeTab !== "report" && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={() =>
                   setViewMode((m) => (m === "all" ? "focus" : "all"))
                 }
-                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold cursor-pointer"
+                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold cursor-pointer"
               >
                 {viewMode === "all"
                   ? "🎯 한 단계씩 집중 보기"
@@ -813,15 +813,9 @@ export function QaFullLoopWorkbenchClient({
               </button>
               <a
                 href={appendQaKeyIfPresent(config.crossEditionLink.href)}
-                className="min-h-[44px] inline-flex items-center px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-sm font-bold"
+                className="min-h-[40px] inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-sm font-bold"
               >
                 {config.crossEditionLink.label}
-              </a>
-              <a
-                href={appendQaKeyIfPresent("/testguide")}
-                className="min-h-[44px] inline-flex items-center px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-sm font-bold"
-              >
-                기존 상세 가이드
               </a>
             </div>
           )}
@@ -832,7 +826,7 @@ export function QaFullLoopWorkbenchClient({
         aria-label="시나리오 및 계측 제어바"
         className="md:sticky md:top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-xs"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {config.cases.map((c) => {
               const isSelected = activeTab === c.id;
@@ -931,21 +925,32 @@ export function QaFullLoopWorkbenchClient({
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
-        <section className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 className="text-base font-extrabold text-slate-900">
-              시작 전 물리적 3-창 세팅 (로그인 쿠키 분리 필수)
-            </h2>
-            <span className="text-sm text-slate-600">
-              같은 창에서 탭만 바꾸면 비로그인 매수자 블라인드·권한 회수를 검증할 수 없습니다.
+      <main className="max-w-7xl mx-auto px-4 sm:px-5 pt-3 space-y-3.5">
+        <details className="group rounded-2xl bg-white border border-slate-200 px-4 py-2.5 shadow-xs">
+          <summary className="flex flex-wrap items-center justify-between gap-2 cursor-pointer list-none">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-extrabold text-slate-900">
+                🖥️ 시작 전 창 분리 안내
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 font-bold">
+                창 A: PC 크롬(중개사 로그인)
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-950 font-bold">
+                창 B: 스마트폰 카톡(매수자 1)
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-950 font-bold">
+                창 C: PC 시크릿 창(매수자 2)
+              </span>
+            </div>
+            <span className="text-sm font-bold text-blue-700">
+              상세 역할 보기 ▾
             </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          </summary>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-3 mt-2.5 border-t border-slate-100">
             {config.windowRoles.map((w) => (
               <div
                 key={w.id}
-                className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-1"
+                className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-1"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-extrabold text-slate-900">
@@ -960,7 +965,7 @@ export function QaFullLoopWorkbenchClient({
               </div>
             ))}
           </div>
-        </section>
+        </details>
 
         {activeTab === "report" ? (
           <section className="rounded-2xl bg-white border border-slate-200 p-6 shadow-xs space-y-6">
@@ -1103,9 +1108,9 @@ export function QaFullLoopWorkbenchClient({
             </div>
           </section>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-8 space-y-5">
-              <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <div className="lg:col-span-8 space-y-3.5">
+              <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1117,7 +1122,7 @@ export function QaFullLoopWorkbenchClient({
                         {currentLoop.deviceSetup}
                       </span>
                     </div>
-                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                    <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
                       {currentLoop.title}
                     </h2>
                     <p className="text-sm text-slate-600">
@@ -1125,55 +1130,48 @@ export function QaFullLoopWorkbenchClient({
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {currentLoop.sampleKitZipUrl && (
-                      <a
-                        href={appendQaKeyIfPresent(currentLoop.sampleKitZipUrl)}
-                        className="min-h-[44px] inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold shadow-xs"
-                      >
-                        📦 실매물 골든 키트 ZIP 받기
-                      </a>
-                    )}
-                    {currentLoop.csvDownloadUrl && (
-                      <a
-                        href={appendQaKeyIfPresent(currentLoop.csvDownloadUrl)}
-                        className="min-h-[44px] inline-flex items-center px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-bold border border-slate-300"
-                      >
-                        {currentLoop.primarySheetLabel || "📊 임대 현황 CSV"}
-                      </a>
-                    )}
-                    {currentLoop.secondarySheetDownloadUrl && (
-                      <a
-                        href={appendQaKeyIfPresent(currentLoop.secondarySheetDownloadUrl)}
-                        className="min-h-[44px] inline-flex items-center px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 text-sm font-bold border border-amber-300"
-                      >
-                        {currentLoop.secondarySheetLabel || "📊 안정화 시트"}
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowAssetsDrawer((v) => !v)}
-                      className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-sm font-bold border border-slate-300 cursor-pointer"
-                    >
-                      {showAssetsDrawer
-                        ? "🖼️ 안내 접기"
-                        : currentLoop.images.length > 0
-                        ? `🖼️ 사진 ${currentLoop.images.length}장 · 도메인 함정 보기`
-                        : "🎯 현업 집중 포인트 3가지 보기"}
-                    </button>
-                  </div>
+                  {(currentLoop.sampleKitZipUrl ||
+                    currentLoop.csvDownloadUrl ||
+                    currentLoop.secondarySheetDownloadUrl) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {currentLoop.sampleKitZipUrl && (
+                        <a
+                          href={appendQaKeyIfPresent(currentLoop.sampleKitZipUrl)}
+                          className="min-h-[42px] inline-flex items-center px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold shadow-xs"
+                        >
+                          📦 전체 테스트 자료 ZIP 받기
+                        </a>
+                      )}
+                      {currentLoop.csvDownloadUrl && (
+                        <a
+                          href={appendQaKeyIfPresent(currentLoop.csvDownloadUrl)}
+                          className="min-h-[42px] inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-bold border border-slate-300"
+                        >
+                          {currentLoop.primarySheetLabel || "📊 임대 현황 CSV"}
+                        </a>
+                      )}
+                      {currentLoop.secondarySheetDownloadUrl && (
+                        <a
+                          href={appendQaKeyIfPresent(currentLoop.secondarySheetDownloadUrl)}
+                          className="min-h-[42px] inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 text-sm font-bold border border-amber-300"
+                        >
+                          {currentLoop.secondarySheetLabel || "📊 안정화 시트"}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {currentLoop.byodSafetyNotice && (
                   <div
                     data-testid="byod-safety-notice-banner"
-                    className="rounded-xl bg-emerald-50 border border-emerald-300 p-3.5 text-sm font-bold text-emerald-950 leading-relaxed"
+                    className="rounded-xl bg-emerald-50 border border-emerald-300 p-3 text-sm font-bold text-emerald-950 leading-relaxed"
                   >
                     🛡️ {currentLoop.byodSafetyNotice}
                   </div>
                 )}
 
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm">
                   <div>
                     <span className="font-bold text-slate-700">대상 실매물: </span>
                     <span className="font-extrabold text-slate-900">
@@ -1181,11 +1179,11 @@ export function QaFullLoopWorkbenchClient({
                     </span>
                   </div>
                   <div>
-                    <span className="font-bold text-slate-700">면적 확인: </span>
+                    <span className="font-bold text-slate-700">대장 기준 면적: </span>
                     <span className="font-mono font-bold text-slate-900">
                       {currentLoop.isByodMode
                         ? "대장 자동 연동 면적 ↔ 현장 실면적 일치 여부 확인"
-                        : `대지 ${currentLoop.groundTruth.expectedLandAreaSqm}㎡ / 연면적 ${currentLoop.groundTruth.expectedGfaSqm}㎡`}
+                        : `대지 ${currentLoop.groundTruth.expectedLandAreaSqm}㎡ (약 ${currentLoop.groundTruth.expectedLandAreaPyeong.toFixed(1)}평) / 연면적 ${currentLoop.groundTruth.expectedGfaSqm}㎡ (약 ${currentLoop.groundTruth.expectedGfaPyeong.toFixed(1)}평)`}
                     </span>
                   </div>
                   <div>
@@ -1202,54 +1200,80 @@ export function QaFullLoopWorkbenchClient({
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-sm text-slate-500">
+                    {currentLoop.images.length > 0
+                      ? `ZIP을 받지 않아도 아래에서 현장 사진 ${currentLoop.images.length}장을 개별 저장할 수 있습니다.`
+                      : "검수 시 눈여겨볼 현업 핵심 포인트를 확인해 보세요."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAssetsDrawer((v) => !v)}
+                    className="min-h-[38px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold border border-slate-300 cursor-pointer shrink-0"
+                  >
+                    {showAssetsDrawer
+                      ? "📸 사진·확인 포인트 접기 ▴"
+                      : currentLoop.images.length > 0
+                      ? `📸 현장 사진 ${currentLoop.images.length}장 미리보기 · 개별 받기 ▾`
+                      : "🎯 현업 집중 포인트 3가지 보기 ▾"}
+                  </button>
+                </div>
+
                 {showAssetsDrawer && (
-                  <div className="space-y-4 pt-2 border-t border-slate-200">
+                  <div className="space-y-3 pt-2.5 border-t border-slate-200">
+                    {currentLoop.images.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-extrabold text-slate-900 mb-2">
+                          현장 사진 {currentLoop.images.length}장 미리보기 (ZIP 일괄 또는 개별 저장)
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {currentLoop.images.map((img) => (
+                            <div
+                              key={img.filename}
+                              className="rounded-xl border border-slate-200 p-2 bg-slate-50 flex flex-col justify-between gap-2"
+                            >
+                              <div className="flex items-start gap-2">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={appendQaKeyIfPresent(img.previewUrl)}
+                                  alt={img.caption}
+                                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-slate-900 truncate">
+                                    {img.roleLabel}
+                                  </p>
+                                  <p className="text-sm text-slate-600 line-clamp-2">
+                                    {img.caption}
+                                  </p>
+                                </div>
+                              </div>
+                              <a
+                                href={appendQaKeyIfPresent(img.downloadUrl)}
+                                className="min-h-[36px] inline-flex items-center justify-center rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-sm font-bold text-slate-800"
+                              >
+                                ⬇️ 사진 파일 저장
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <h3 className="text-sm font-extrabold text-slate-900 mb-2">
-                        핵심 도메인 함정 {currentLoop.domainTraps.length}가지 (자동/육안 동시 검증 포인트)
+                        이번 매물 핵심 확인 포인트 ({currentLoop.domainTraps.length}가지)
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                         {currentLoop.domainTraps.map((tr) => (
                           <div
                             key={tr.code}
-                            className="rounded-xl bg-amber-50/70 border border-amber-200 p-3 space-y-1"
+                            className="rounded-xl bg-amber-50/70 border border-amber-200 p-2.5 space-y-1"
                           >
                             <div className="text-sm font-extrabold text-amber-950">
                               [{tr.code}] {tr.title}
                             </div>
                             <p className="text-sm text-slate-700">{tr.detail}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm font-extrabold text-slate-900 mb-2">
-                        실매물 검증 사진 {currentLoop.images.length}종 (ZIP 일괄 또는 개별 내려받기)
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {currentLoop.images.map((img) => (
-                          <div
-                            key={img.filename}
-                            className="rounded-xl border border-slate-200 p-2.5 bg-slate-50 flex flex-col justify-between gap-2"
-                          >
-                            <div>
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-200 text-slate-800 text-sm font-bold">
-                                {img.format}
-                              </span>
-                              <p className="text-sm font-bold text-slate-900 mt-1">
-                                {img.roleLabel}
-                              </p>
-                              <p className="text-sm text-slate-600 mt-0.5">
-                                {img.caption}
-                              </p>
-                            </div>
-                            <a
-                              href={appendQaKeyIfPresent(img.downloadUrl)}
-                              className="min-h-[38px] inline-flex items-center justify-center rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-sm font-bold text-slate-800"
-                            >
-                              ⬇️ 사진 받기
-                            </a>
                           </div>
                         ))}
                       </div>
@@ -1293,7 +1317,7 @@ export function QaFullLoopWorkbenchClient({
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {visibleSteps.map((step) => {
                   const rec = records[step.id] || {
                     status: "PENDING" as FullLoopVerdict,
@@ -1302,7 +1326,7 @@ export function QaFullLoopWorkbenchClient({
                   return (
                     <article
                       key={step.id}
-                      className={`rounded-2xl bg-white border p-5 shadow-xs space-y-4 transition ${
+                      className={`rounded-2xl bg-white border p-4 shadow-xs space-y-3 transition ${
                         rec.status === "PASS"
                           ? "border-emerald-300"
                           : rec.status === "FAIL"
@@ -1392,7 +1416,7 @@ export function QaFullLoopWorkbenchClient({
                         </div>
                       )}
 
-                      <ol className="space-y-2 list-decimal list-inside text-base text-slate-800 leading-relaxed">
+                      <ol className="space-y-1.5 list-decimal list-inside text-base text-slate-800 leading-relaxed">
                         {step.actionChecklist.map((act, idx) => (
                           <li key={idx} className="pl-1">
                             {act}
@@ -1400,16 +1424,64 @@ export function QaFullLoopWorkbenchClient({
                         ))}
                       </ol>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-3">
+                      {step.inlineScratchFields &&
+                        step.inlineScratchFields.length > 0 && (
+                          <div
+                            data-testid={`step-inline-scratch-${step.id}`}
+                            className="rounded-xl bg-emerald-50/70 border border-emerald-300 p-3 space-y-2.5"
+                          >
+                            {step.inlineScratchFields.map((spec) => (
+                              <div key={`${step.id}-${spec.field}`} className="space-y-1">
+                                <label
+                                  htmlFor={`inline-${step.id}-${spec.field}`}
+                                  className="block text-sm font-extrabold text-emerald-950"
+                                >
+                                  {spec.label}
+                                </label>
+                                {spec.helperText && (
+                                  <p className="text-sm text-emerald-900">
+                                    {spec.helperText}
+                                  </p>
+                                )}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                  <input
+                                    id={`inline-${step.id}-${spec.field}`}
+                                    type="text"
+                                    value={activeScratch[spec.field] || ""}
+                                    onChange={(e) =>
+                                      handleUpdateScratch(
+                                        currentLoopId,
+                                        spec.field,
+                                        e.target.value,
+                                      )
+                                    }
+                                    placeholder={spec.placeholder}
+                                    className="flex-1 min-h-[42px] rounded-xl border border-emerald-400 bg-white px-3 py-1.5 text-sm font-medium text-slate-900"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={probeLoading}
+                                    onClick={() => void runLiveProbe(currentLoopId)}
+                                    className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-extrabold cursor-pointer shrink-0"
+                                  >
+                                    {probeLoading ? "점검 중…" : "🔍 이 링크 바로 점검"}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-sm">
+                        <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-2.5">
                           <div className="font-extrabold text-amber-950 mb-0.5">
-                            👀 인간 검수자 집중 포인트 (체감·어감·시각)
+                            👀 눈으로 확인할 포인트
                           </div>
                           <p className="text-slate-800">{step.humanFocus}</p>
                         </div>
-                        <div className="rounded-xl bg-slate-100 border border-slate-200 p-3">
+                        <div className="rounded-xl bg-slate-100 border border-slate-200 p-2.5">
                           <div className="font-extrabold text-slate-900 mb-0.5">
-                            🤖 우측 자동 프로브 대행 포인트 (수치·검증)
+                            🤖 자동 점검기가 확인하는 항목
                           </div>
                           <p className="text-slate-700">{step.autoProbeFocus}</p>
                         </div>
@@ -1522,17 +1594,17 @@ export function QaFullLoopWorkbenchClient({
               </div>
             </div>
 
-            <aside className="lg:col-span-4 lg:sticky lg:top-20 space-y-4">
-              <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-xs space-y-4">
+            <aside className="lg:col-span-4 lg:sticky lg:top-16 space-y-3.5">
+              <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs space-y-3.5">
                 <div>
                   <span className="inline-block px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-sm font-extrabold">
-                    AI 오라클 코파일럿
+                    자동 점검 도우미
                   </span>
-                  <h3 className="text-lg font-extrabold text-slate-900 mt-1">
-                    {currentLoop.code} 실시간 링크·수치 검증기
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                    {currentLoop.code} 실시간 링크·면적 자동 점검기
                   </h3>
                   <p className="text-sm text-slate-600 mt-0.5">
-                    생성한 링크를 붙여넣고 누르면 면적 오차·지번 노출·열람 잠금을 1초 만에 판정합니다.
+                    각 단계 안의 입력칸에 붙여넣은 주소가 여기에 자동 연동됩니다. 아래 검은색 버튼을 누르면 면적·비공개·잠금 상태를 1초 만에 판정합니다.
                   </p>
                 </div>
 
@@ -1688,8 +1760,8 @@ export function QaFullLoopWorkbenchClient({
                   className="w-full min-h-[46px] rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                 >
                   {probeLoading
-                    ? "검증 중…"
-                    : "🔍 1초 자동 오라클 & 블라인드 프로브 실행"}
+                    ? "점검 중…"
+                    : "🔍 입력한 링크·면적 자동 점검 실행"}
                 </button>
 
                 {activeProbe && (

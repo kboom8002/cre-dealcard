@@ -444,38 +444,85 @@ export async function GET(req: NextRequest) {
       const nlBrief =
         nlStep?.copySnippets?.find((sn) => sn.id.includes("brief"))?.value || v2Case.subtitle;
 
+      const gt = v2Case.groundTruth;
+      const referenceTableTxt = [
+        `[${v2Case.propertyName}] 건축물대장·토지대장 및 임대수익률 기준값 대조표`,
+        "================================================================",
+        `• 지번 주소   : ${v2Case.jibunAddress}`,
+        `• 도로명 주소 : ${v2Case.roadAddress}`,
+        `• 희망 매매가 : ${v2Case.askingPriceReadout}`,
+        "",
+        "[1] 공적장부(건축물대장·토지대장) 자동 조회 기준값 — IM ① 표지·기본정보 대조용",
+        `• 대지면적    : ${gt.expectedLandAreaSqm.toFixed(2)} ㎡ (약 ${gt.expectedLandAreaPyeong.toFixed(1)} 평)`,
+        `• 연면적      : ${gt.expectedGfaSqm.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ㎡ (약 ${gt.expectedGfaPyeong.toFixed(1)} 평)`,
+        ...(scenario === "v2-loop1"
+          ? [
+              "• 용도지역    : 준공업지역",
+              "• 사용승인일  : 2002-12-12 (지하 1층 ~ 지상 5층)",
+            ]
+          : [
+              "• 필지 구성   : 잠원동 26-14 + 26-16 (2필지 자동 합산)",
+              "• 준공연도    : 1990년 (지하 1층 ~ 지상 5층, 기득권 용적률 약 325.6%)",
+            ]),
+        "",
+        "[2] 층별 임대차 합계 및 수익률 기준값 — IM ② 층별 임대현황 대조용",
+        `• 보증금·월세 : ${gt.expectedDepositSummary}`,
+        `• 점유·공실   : ${gt.expectedOccupancySummary}`,
+        `• 순수익률    : ${gt.expectedYieldSummary}`,
+        "",
+        "[3] 공개 화면(딜카드·뉴스레터) 비공개 보호 확인 키워드 (노출 0건 필수)",
+        `• ${gt.forbiddenPublicTokens.join(", ")}`,
+        "",
+      ].join("\r\n");
+
+      v2Zip.file("00_대장면적_및_수익률_기준값_대조표.txt", referenceTableTxt);
       v2Zip.file(
-        "00_README_홀드아웃_V2_실행안내.txt",
+        "00_README_실행안내.txt",
         [
-          `${v2Case.code} (${v2Case.dealCode}) — ${v2Case.title}`,
+          `${v2Case.code} — ${v2Case.propertyName}`,
           "================================================================",
-          `대상 실매물: ${v2Case.propertyName} (${v2Case.askingPriceReadout})`,
-          `권장 소요시간: 약 ${v2Case.targetMinutes}분 (${v2Case.deviceSetup})`,
+          `대상 매물 : ${v2Case.propertyName} (${v2Case.askingPriceReadout})`,
+          `대지면적  : ${gt.expectedLandAreaSqm.toFixed(2)}㎡ (약 ${gt.expectedLandAreaPyeong.toFixed(1)}평)`,
+          `연면적    : ${gt.expectedGfaSqm.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}㎡ (약 ${gt.expectedGfaPyeong.toFixed(1)}평)`,
+          `권장 시간 : 약 ${v2Case.targetMinutes}분 (${v2Case.deviceSetup})`,
           "",
+          "[폴더 안 파일 사용법]",
           ...(scenario === "v2-loop1"
             ? [
-                "1. 01_현장메모_원문.txt                 : 딜카드/IM 메모 원문",
-                "2. 02_현황_렌트롤_v1.5_sqm.xlsx          : 15행 현황 표준양식 XLSX 업로드용",
-                "3. 03_안정화_렌트롤_v1.5_sqm.xlsx        : 14행 안정화 표준양식 XLSX 검증용",
-                "4. 04_안정화_서브탭_화면붙여넣기.tsv     : +기대수익률 서브탭 Ctrl+V용 TSV",
-                "5. 05_뉴스레터_브리핑_초안.txt           : 영등포 메디컬 브리핑 본문 (지번 비노출)",
-                "6. 06_고객연락처_샘플10명.csv            : 고객 소통·구독자 등록 샘플",
-                "7. photos/                              : 고해상도 실사진 6장 (외관 3 · 내부 3)",
+                "0. 00_대장면적_및_수익률_기준값_대조표.txt : IM 주소 조회 시 대지면적(506.8㎡)·연면적(1,441.15㎡) 비교표",
+                "1. 01_현장메모_원문.txt                    : 딜카드 작성 화면 상단 메모칸에 붙여넣을 원문",
+                "2. 02_현황_렌트롤_v1.5_sqm.xlsx            : IM [② 층별 임대현황] → [현행 임대차 현황] → [📁 엑셀 파일 불러오기 ▾] 업로드용",
+                "3. 03_안정화_렌트롤_v1.5_sqm.xlsx          : IM [② 층별 임대현황] → [+ 기대수익률 임대차 현황] → [📁 엑셀 파일 불러오기 ▾] 업로드용",
+                "4. 04_기대수익률_복사붙여넣기용_표.txt     : (엑셀 업로드 대신 복사할 때) 전체 복사(Ctrl+A→Ctrl+C) 후 파란 [📋 표 붙여넣기] 버튼 클릭",
+                "5. 05_뉴스레터_브리핑_초안.txt             : 부동산뉴스 본문 붙여넣기용 초안",
+                "6. 06_고객연락처_샘플10명.csv              : 소통함 대량 고객 등록 샘플",
+                "7. photos/                                 : IM [④ 사진·위치·만들기] 탭에 올릴 현장 사진 6장",
               ]
             : [
-                "1. 01_현장메모_원문.txt                 : 잠원동 2필지 신축·개발 메모 원문",
-                "2. 02_현황_렌트롤_화면붙여넣기.tsv       : 현황 6행 (만기경과 2개층 포함)",
-                "3. 03_안정화_렌트롤_화면붙여넣기.tsv     : 대수선 안정화 6행 (+기대수익률 4.14%)",
-                "4. 04_임대현황_업로드용.csv              : CSV 업로드용 현황 시트 (UTF-8 BOM)",
-                "5. 05_뉴스레터_브리핑_초안.txt           : 서초 개발 브리핑 본문 (지번 비노출)",
-                "6. 06_고객연락처_샘플10명.csv            : 고객 소통·구독자 등록 샘플",
-                "7. photos/                              : 고해상도 실사진 5장 (외관 PNG 3 · 내부 JPEG 2)",
+                "0. 00_대장면적_및_수익률_기준값_대조표.txt : IM 주소 조회 시 2필지 합산 대지면적(616.1㎡)·연면적(2,032.59㎡) 비교표",
+                "1. 01_현장메모_원문.txt                    : 딜카드 작성 화면 상단 메모칸에 붙여넣을 원문",
+                "2. 02_현행_임대현황_복사용_표.txt          : 전체 복사(Ctrl+A→Ctrl+C) 후 [현행 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭",
+                "3. 03_기대수익률_임대현황_복사용_표.txt    : 전체 복사(Ctrl+A→Ctrl+C) 후 [+ 기대수익률 임대차 현황]의 파란 [📋 표 붙여넣기] 클릭",
+                "4. 04_임대현황_업로드용.csv                : [📁 엑셀 파일 불러오기 ▾]로 바로 올릴 수 있는 CSV 파일",
+                "5. 05_뉴스레터_브리핑_초안.txt             : 부동산뉴스 본문 붙여넣기용 초안",
+                "6. 06_고객연락처_샘플10명.csv              : 소통함 대량 고객 등록 샘플",
+                "7. photos/                                 : IM [④ 사진·위치·만들기] 탭에 올릴 현장 사진 5장",
               ]),
         ].join("\r\n"),
       );
 
       if (scenario === "v2-loop1") {
-        v2Zip.file("01_현장메모_원문.txt", HOLDOUT_V2_CASE04_MEMO);
+        v2Zip.file(
+          "01_현장메모_원문.txt",
+          [
+            HOLDOUT_V2_CASE04_MEMO,
+            "",
+            "--- [참고: 공적장부 기준 면적 대조값] ---",
+            "• 대지면적: 506.80㎡ (약 153.3평)",
+            "• 연면적  : 1,441.15㎡ (약 436.0평)",
+            "• 용도지역: 준공업지역 / 사용승인일: 2002-12-12",
+          ].join("\r\n"),
+        );
         const asIsXlsx = await resolveHoldoutAssetBuffer({
           caseFolder: case04Folder,
           localRelPath: "02_현황_렌트롤_v1.5_sqm.xlsx",
@@ -494,11 +541,23 @@ export async function GET(req: NextRequest) {
         });
         if (asIsXlsx) v2Zip.file("02_현황_렌트롤_v1.5_sqm.xlsx", asIsXlsx);
         if (stabXlsx) v2Zip.file("03_안정화_렌트롤_v1.5_sqm.xlsx", stabXlsx);
-        v2Zip.file("04_안정화_서브탭_화면붙여넣기.tsv", HOLDOUT_V2_CASE04_STABILIZED_TSV);
+        v2Zip.file(
+          "04_기대수익률_복사붙여넣기용_표.txt",
+          HOLDOUT_V2_CASE04_STABILIZED_TSV,
+        );
       } else {
-        v2Zip.file("01_현장메모_원문.txt", HOLDOUT_V2_CASE03_MEMO);
-        v2Zip.file("02_현황_렌트롤_화면붙여넣기.tsv", HOLDOUT_V2_CASE03_ASIS_TSV);
-        v2Zip.file("03_안정화_렌트롤_화면붙여넣기.tsv", HOLDOUT_V2_CASE03_STABILIZED_TSV);
+        v2Zip.file(
+          "01_현장메모_원문.txt",
+          [
+            HOLDOUT_V2_CASE03_MEMO,
+            "",
+            "--- [참고: 공적장부 기준 2필지 합산 면적 대조값] ---",
+            "• 대지면적(26-14 + 26-16 합산): 616.10㎡ (약 186.4평)",
+            "• 연면적                      : 2,032.59㎡ (약 614.9평)",
+          ].join("\r\n"),
+        );
+        v2Zip.file("02_현행_임대현황_복사용_표.txt", HOLDOUT_V2_CASE03_ASIS_TSV);
+        v2Zip.file("03_기대수익률_임대현황_복사용_표.txt", HOLDOUT_V2_CASE03_STABILIZED_TSV);
         v2Zip.file("04_임대현황_업로드용.csv", `\uFEFF${HOLDOUT_V2_CASE03_ASIS_CSV}\r\n`);
       }
 

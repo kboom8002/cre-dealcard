@@ -13,9 +13,9 @@ const V2_HOLDOUT_CONFIG = {
   localStorageKey: "credeal-qa-full-loop-v2-holdout",
   sessionPrefix: "fl2v2",
   badgeCode: "V2",
-  pageTitle: "실매물 상보 Hold-out 풀루프 휴먼 클릭스루 워크벤치 (V2 · 2선)",
+  pageTitle: "실매물 풀루프 클릭스루 검수 가이드 (V2 · 2건 완주)",
   pageSubtitle:
-    "XLSX v1.5 업로드(당산 115억 · 기계실/자가/전세) + 신축·개발형 2필지(잠원 242억 · 역전 스왑 가드 · 직교 회수)로 AI 미검증 경로까지 끝까지 관통합니다.",
+    "화면 왼쪽에 이 가이드를 띄워 두고, 오른쪽 작업창에서 파란 버튼과 복사 칩만 순서대로 누르며 테스트하세요.",
   reportTitle: "CRE DealCard 상보 Hold-out 풀루프 V2 휴먼 클릭스루 검수 결과서 (2선 통합)",
   reportFilePrefix: "CRE_풀루프_V2_Holdout_휴먼검수",
   crossEditionLink: {

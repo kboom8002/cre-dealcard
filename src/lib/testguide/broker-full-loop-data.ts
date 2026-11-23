@@ -290,9 +290,9 @@ export const BROKER_FULL_LOOP_CASES: ReadonlyArray<FullLoopCaseDefinition> = [
           },
           {
             id: 'b1-dc-headline',
-            label: '추천 한 줄 제목 복사',
-            targetHint: '한 줄 제목 직접 다듬기 시 활용',
-            value: '양재역 더블역세권 코너 사옥빌딩 · 상층 274평 즉시 입주 및 자주식 주차 20대',
+            label: '추천 한 줄 제목 복사 (16자)',
+            targetHint: '한 줄 제목 (18자 이내) 다듬기 시 활용',
+            value: '양재역 코너 사옥·주차 20대',
             isPublicFacing: true,
           },
         ],

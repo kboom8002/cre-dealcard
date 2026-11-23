@@ -1,9 +1,11 @@
-import { generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
+import { generateFloorScaffolding, rankFloorTopDown } from "@/components/workspace/RentRollGrid";
+import type { RentRollImportPayload } from "@/components/broker/rent-roll-importer";
 import { toListTime } from "@/lib/workspace/list-date";
 import { extractMemoExactAddressAndPrice } from "@/lib/deal-card/memo-pairing";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import {
   formatKoreanCurrencyReadout,
+  normalizeFloorName,
   parseManwonAmount,
 } from "@/lib/rent-roll/tsv-parser";
 import { pyeongToM2 } from "@/domain/building/im-core/facts/area";
@@ -892,6 +894,68 @@ export function reorderPhotoEntryList(
   const [moved] = next.splice(fromIdx, 1);
   next.splice(toIdx, 0, moved);
   return next;
+}
+
+export function mapRentRollImportPayloadToRows(
+  payload: Pick<RentRollImportPayload, "floorLeases">
+): RentRollRowItem[] {
+  if (!Array.isArray(payload.floorLeases) || payload.floorLeases.length === 0) {
+    return [];
+  }
+  const stamp = Date.now();
+  return payload.floorLeases
+    .map((r, idx): RentRollRowItem => {
+      let dep = Number(r.deposit_manwon ?? 0);
+      let rent = Number(r.rent_manwon ?? 0);
+      let mgmt = Number(r.mgmt_fee_manwon ?? 0);
+      if ((r.is_vacant || r.lease_state === "공실") && dep === 0 && rent === 0 && r.note) {
+        const depM = r.note.match(/보증금\s*([\d,.]+)/);
+        const rentM = r.note.match(/월세\s*([\d,.]+)/);
+        const mgmtM = r.note.match(/관리비\s*([\d,.]+)/);
+        if (depM) dep = parseFloat(depM[1].replace(/,/g, "")) || 0;
+        if (rentM) rent = parseFloat(rentM[1].replace(/,/g, "")) || 0;
+        if (mgmtM) mgmt = parseFloat(mgmtM[1].replace(/,/g, "")) || 0;
+      }
+      let tenantNameTrimmed = r.tenant_name?.trim() || undefined;
+      let tenantTypeTrimmed = r.tenant_type?.trim() || undefined;
+      if (
+        tenantTypeTrimmed &&
+        tenantTypeTrimmed.includes("/") &&
+        (!tenantNameTrimmed || tenantNameTrimmed === tenantTypeTrimmed)
+      ) {
+        const slashParts = tenantTypeTrimmed
+          .split(/\s*\/\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (slashParts.length >= 2) {
+          tenantTypeTrimmed = slashParts[0];
+          tenantNameTrimmed = slashParts.slice(1).join(" / ");
+        }
+      }
+      const useLabel =
+        tenantTypeTrimmed || (r.is_vacant ? "공실" : "근린생활시설");
+      return {
+        id: `r-xlsx-${stamp}-${idx}`,
+        floor: normalizeFloorName(r.floor || `${idx + 1}F`),
+        unit: r.unit_label || `${idx + 1}01호`,
+        use: useLabel,
+        tenantName: tenantNameTrimmed,
+        areaSqm: r.area_sqm ?? r.exclusive_area_sqm,
+        exclusiveAreaSqm: r.exclusive_area_sqm,
+        note: r.note,
+        depositManwon: dep,
+        monthlyRentManwon: rent,
+        maintenanceManwon: mgmt,
+        leaseExpiry: r.lease_end || "-",
+        status:
+          r.lease_state === "자가사용"
+            ? "owner"
+            : r.lease_state === "공실" || r.is_vacant
+            ? "vacant"
+            : "occupied",
+      };
+    })
+    .sort((a, b) => rankFloorTopDown(b.floor) - rankFloorTopDown(a.floor));
 }
 
 export function sanitizePhotosForSync(entries: ImPhotoEntry[]): ImPhotoEntry[] {
