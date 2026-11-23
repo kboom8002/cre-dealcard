@@ -6,7 +6,7 @@ import * as path from 'path';
 const E2E_PORT = Number(process.env.E2E_PORT || 3000);
 const ISOLATED = E2E_PORT !== 3000;
 const IS_PROD_SMOKE = process.env.PROD_SMOKE === '1';
-const PROD_SMOKE_BASE_URL = process.env.PROD_SMOKE_BASE_URL || 'https://credeal.net';
+const PROD_SMOKE_BASE_URL = process.env.PROD_SMOKE_BASE_URL || 'https://www.credeal.net';
 const EXPLICIT_BASE_URL = (process.env.PLAYWRIGHT_BASE_URL || '').trim();
 const SKIP_WEBSERVER = IS_PROD_SMOKE || Boolean(EXPLICIT_BASE_URL);
 const RESOLVED_BASE_URL = IS_PROD_SMOKE
