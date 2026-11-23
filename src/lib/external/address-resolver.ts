@@ -8,6 +8,7 @@ import {
   isMountainLotAddress,
   lookupSeoulFallbackDong,
 } from "@/domain/verification/address-resolver";
+import { splitMultiParcelAddressPure } from "@/lib/address/multi-parcel-format";
 import { createModuleLogger } from "@/lib/logger";
 
 export { isEligibleForSeoulFallback } from "@/domain/verification/address-resolver";
@@ -86,60 +87,23 @@ export function extract19DigitPnus(pnuInput?: string | string[]): string[] {
 }
 
 /**
- * 다필지 주소 문자열("서울 영등포구 양평동4가 117, 134, 125-2" 또는 "양평동4가 117 외 2필지 (134, 125-2)")에서
- * 대표 지번 주소(primaryAddress)와 부속 지번 목록(secondaryLots)을 분리합니다.
+ * 다필지 주소 문자열("서울 영등포구 양평동4가 117, 134, 125-2", "양평동4가 117 외 2필지", "잠원동 26-14외1")에서
+ * 대표 지번 주소(primaryAddress), 부속 지번 목록(secondaryLots), 다필지 힌트 여부(hasExplicitMultiLotHint)를 분리합니다.
  */
 export function splitMultiParcelAddress(rawAddress: string): {
   primaryAddress: string;
   secondaryLots: Array<{ bun: string; ji: string; isMount: boolean }>;
+  hasExplicitMultiLotHint: boolean;
 } {
-  if (!rawAddress) return { primaryAddress: '', secondaryLots: [] };
-
-  const secondaryLots: Array<{ bun: string; ji: string; isMount: boolean }> = [];
-  let working = rawAddress.trim();
-
-  // 1. 괄호 안 부속 지번 추출: 예) "양평동4가 117 외 2필지 (134, 125-2)"
-  const parenMatch = working.match(/\(([^)]+)\)/);
-  if (parenMatch) {
-    const tokens = parenMatch[1].split(/[,/·\s]+/).map(t => t.trim()).filter(Boolean);
-    for (const tok of tokens) {
-      const m = tok.match(/^(산\s*)?(\d+)(?:-(\d+))?$/);
-      if (m) {
-        secondaryLots.push({
-          bun: m[2],
-          ji: m[3] || '0',
-          isMount: Boolean(m[1]),
-        });
-      }
-    }
-    working = working.replace(/\s*\([^)]+\)/g, '').trim();
-  }
-
-  // 2. "외 N필지" 문구 제거
-  working = working.replace(/\s*외\s*\d*\s*필지/g, '').trim();
-
-  // 3. 쉼표로 나열된 지번 분리: 예) "서울특별시 영등포구 양평동4가 117, 134, 125-2"
-  const commaParts = working.split(',').map(p => p.trim()).filter(Boolean);
-  if (commaParts.length > 1) {
-    const firstPart = commaParts[0];
-    for (let i = 1; i < commaParts.length; i++) {
-      const lotStr = commaParts[i].replace(/^산\s*/, '');
-      const isMount = /^산\s*\d/.test(commaParts[i]);
-      const lotMatch = lotStr.match(/^(\d+)(?:-(\d+))?$/);
-      if (lotMatch) {
-        secondaryLots.push({
-          bun: lotMatch[1],
-          ji: lotMatch[2] || '0',
-          isMount,
-        });
-      }
-    }
-    working = firstPart;
-  }
-
+  const parsed = splitMultiParcelAddressPure(rawAddress);
   return {
-    primaryAddress: working,
-    secondaryLots,
+    primaryAddress: parsed.primaryAddress,
+    secondaryLots: parsed.secondaryLots.map(({ bun, ji, isMount }) => ({
+      bun,
+      ji,
+      isMount,
+    })),
+    hasExplicitMultiLotHint: parsed.hasExplicitMultiLotHint,
   };
 }
 

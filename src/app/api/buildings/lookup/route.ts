@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { padNumber, resolveAddress, splitMultiParcelAddress } from "@/lib/external/address-resolver";
-import { fetchBuildingRegister } from "@/lib/external/building-register-api";
+import { fetchBuildingAttachedLots, fetchBuildingRegister } from "@/lib/external/building-register-api";
+import {
+  appendSecondaryLotsToAddress,
+  formatPnuLotShortLabel,
+} from "@/lib/address/multi-parcel-format";
 import { fetchLandUsePlan } from "@/lib/external/land-use-api";
 import { defaultParcelLookupDeps, fillParcelsFromPublicData } from "@/domain/building/mobile-im/parcel-enrichment";
 import { summarizeParcels, type BrokerParcel } from "@/domain/building/mobile-im/parcel-input";
@@ -172,7 +176,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { primaryAddress, secondaryLots } = splitMultiParcelAddress(rawAddress);
+    const { primaryAddress, secondaryLots, hasExplicitMultiLotHint } =
+      splitMultiParcelAddress(rawAddress);
     const searchTarget = primaryAddress || rawAddress;
     const safeSearch = searchTarget.replace(/[,()]/g, ' ').trim();
 
@@ -210,17 +215,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Fetch public building register & land use plan if address resolved
+    // 2. Fetch public building register, attached lots (getBrAtchJibunInfo), & land use plan
     let bldReg: Awaited<ReturnType<typeof fetchBuildingRegister>> = null;
     let landUse: Awaited<ReturnType<typeof fetchLandUsePlan>> = null;
+    let discoveredAttachedPnus: string[] = [];
+    let resolvedMainLotPnuOverride = "";
 
     if (resolved?.sigunguCd && resolved?.bjdongCd && resolved?.bun) {
+      let activeBun = resolved.bun;
+      let activeJi = resolved.ji || "0000";
+      let activePlatGbCd: string = resolved.platGbCd || "0";
+
       const [regRes, landRes] = await Promise.allSettled([
         fetchBuildingRegister(
           resolved.sigunguCd,
           resolved.bjdongCd,
-          resolved.bun,
-          resolved.ji || "0000"
+          activeBun,
+          activeJi,
+          undefined,
+          activePlatGbCd
         ),
         resolved.pnu && resolved.pnu.length === 19
           ? fetchLandUsePlan(resolved.pnu)
@@ -228,6 +241,51 @@ export async function GET(req: NextRequest) {
       ]);
       bldReg = regRes.status === "fulfilled" ? regRes.value : null;
       landUse = landRes.status === "fulfilled" ? landRes.value : null;
+
+      // 부속지번을 먼저 적은 다필지 입력(예: "양평동4가 134, 117") 시 표제부가 있는 대표지번 자동 탐색
+      if (!bldReg && secondaryLots.length > 0) {
+        const dongCd10 = `${resolved.sigunguCd}${resolved.bjdongCd}`;
+        for (const secLot of secondaryLots.slice(0, 4)) {
+          const secBun = padNumber(secLot.bun);
+          const secJi = padNumber(secLot.ji);
+          const secPlatGb = secLot.isMount ? "1" : "0";
+          const altReg = await fetchBuildingRegister(
+            resolved.sigunguCd,
+            resolved.bjdongCd,
+            secBun,
+            secJi,
+            undefined,
+            secPlatGb
+          ).catch(() => null);
+          if (altReg) {
+            bldReg = altReg;
+            activeBun = secBun;
+            activeJi = secJi;
+            activePlatGbCd = secPlatGb;
+            if (dongCd10.length === 10) {
+              resolvedMainLotPnuOverride = `${dongCd10}${secLot.isMount ? "2" : "1"}${secBun}${secJi}`;
+            }
+            break;
+          }
+        }
+      }
+
+      // "117 외 2필지" 또는 단일 지번/도로명 입력 시 건축물대장 부속지번(getBrAtchJibunInfo) 자동 역조회
+      if (
+        (bldReg || hasExplicitMultiLotHint) &&
+        typeof fetchBuildingAttachedLots === "function"
+      ) {
+        discoveredAttachedPnus = await Promise.race([
+          fetchBuildingAttachedLots(
+            resolved.sigunguCd,
+            resolved.bjdongCd,
+            activeBun,
+            activeJi,
+            activePlatGbCd
+          ),
+          new Promise<string[]>((r) => setTimeout(() => r([]), 3500)),
+        ]).catch(() => []);
+      }
     }
 
     // 3. Extract from ssotRow / verified public register fallback if needed (e.g. data.go.kr 503)
@@ -391,9 +449,12 @@ export async function GET(req: NextRequest) {
       verifiedFallback?.officialLandPricePerSqm ??
       null;
 
-    // 4. Multi-parcel enrichment (when 2+ lots are present in address or resolved.allPnus)
+    // 4. Multi-parcel enrichment (when 2+ lots are present in address, resolved.allPnus, or getBrAtchJibunInfo)
     const candidatePnus: string[] = [];
-    if (effectivePnu && /^\d{19}$/.test(effectivePnu)) {
+    if (resolvedMainLotPnuOverride && /^\d{19}$/.test(resolvedMainLotPnuOverride)) {
+      candidatePnus.push(resolvedMainLotPnuOverride);
+    }
+    if (effectivePnu && /^\d{19}$/.test(effectivePnu) && !candidatePnus.includes(effectivePnu)) {
       candidatePnus.push(effectivePnu);
     }
     if (Array.isArray(resolved?.allPnus)) {
@@ -409,6 +470,15 @@ export async function GET(req: NextRequest) {
         const secPnu = `${dongCd}${lot.isMount ? "2" : "1"}${padNumber(lot.bun)}${padNumber(lot.ji)}`;
         if (/^\d{19}$/.test(secPnu) && !candidatePnus.includes(secPnu)) {
           candidatePnus.push(secPnu);
+        }
+      }
+    }
+    let attachedLotsAutoDiscovered = false;
+    if (Array.isArray(discoveredAttachedPnus) && discoveredAttachedPnus.length > 0) {
+      for (const atchPnu of discoveredAttachedPnus) {
+        if (/^\d{19}$/.test(atchPnu) && !candidatePnus.includes(atchPnu)) {
+          candidatePnus.push(atchPnu);
+          attachedLotsAutoDiscovered = true;
         }
       }
     }
@@ -526,13 +596,28 @@ export async function GET(req: NextRequest) {
       null;
 
     const parcelSummaryOut = resolvedParcels ? summarizeParcels(resolvedParcels) : null;
+    const baseJibunForCanonical =
+      resolved?.jibunAddress || bldReg?.platPlc || primaryAddress || rawAddress;
+    const canonicalMultiParcelAddress =
+      candidatePnus.length >= 2 && baseJibunForCanonical
+        ? appendSecondaryLotsToAddress(
+            baseJibunForCanonical,
+            candidatePnus
+              .slice(1)
+              .map((p) => formatPnuLotShortLabel(p))
+              .filter(Boolean)
+              .join(", ")
+          ).nextAddress
+        : undefined;
 
     return NextResponse.json({
       ok: true,
       address: resolved?.jibunAddress || resolved?.roadAddress || ssotRow?.raw_address || rawAddress,
-      pnu: effectivePnu || null,
+      pnu: resolvedMainLotPnuOverride || effectivePnu || null,
       ...(candidatePnus.length >= 2 ? { pnus: candidatePnus } : {}),
       ...(resolvedParcels ? { parcels: resolvedParcels } : {}),
+      ...(attachedLotsAutoDiscovered ? { attachedLotsAutoDiscovered: true } : {}),
+      ...(canonicalMultiParcelAddress ? { canonicalMultiParcelAddress } : {}),
       ...(parcelSummaryOut?.landCategoryLabel ? { landCategoryLabel: parcelSummaryOut.landCategoryLabel } : {}),
       ...(zoningShares ? { zoningShares } : {}),
       lat: resolved?.lat ?? verifiedFallback?.lat ?? null,

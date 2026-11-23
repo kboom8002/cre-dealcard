@@ -1174,8 +1174,10 @@ function ImWorkspaceInner() {
     syncCurrentItemPatch({ askingPriceManwon: combinedManwon });
   };
 
-  const handleLookupAddress = async () => {
-    const reqAddress = address.trim();
+  const handleLookupAddress = async (overrideAddress?: string) => {
+    const reqAddress = (
+      typeof overrideAddress === "string" ? overrideAddress : address
+    ).trim();
     if (!reqAddress) {
       setActionAlert("주소를 먼저 입력해 주세요.");
       return;
@@ -1268,8 +1270,15 @@ function ImWorkspaceInner() {
           Array.isArray(data.parcels) && data.parcels.length > 0
             ? data.parcels
             : undefined;
+        const expandedMultiAddress =
+          (data.attachedLotsAutoDiscovered || /\s*외\s*\d*/.test(reqAddress)) &&
+          typeof data.canonicalMultiParcelAddress === "string" &&
+          data.canonicalMultiParcelAddress.trim()
+            ? data.canonicalMultiParcelAddress.trim()
+            : undefined;
 
         if (isStillSelected) {
+          if (expandedMultiAddress) setAddress(expandedMultiAddress);
           if (nextGfa) setGfaSqm(String(nextGfa));
           if (nextLand) setLandAreaSqm(String(nextLand));
           if (nextZoning) setZoning(String(nextZoning));
@@ -1293,6 +1302,7 @@ function ImWorkspaceInner() {
         const isDifferentFromSample =
           !reqAddress.includes("서교동") && !reqAddress.includes("양평동");
         const patch: Partial<ImListItem> = {
+          ...(expandedMultiAddress ? { address: expandedMultiAddress } : {}),
           gfaSqm: nextGfa ? String(nextGfa) : originGfa,
           landAreaSqm: nextLand ? String(nextLand) : originLand,
           zoning: nextZoning ? String(nextZoning) : originZoning,

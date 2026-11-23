@@ -15,6 +15,11 @@ import {
 import { TERMS } from "@/lib/ux/lexicon";
 import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
 import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
+import {
+  appendSecondaryLotsToAddress,
+  removeSecondaryLotFromAddress,
+  splitMultiParcelAddressPure,
+} from "@/lib/address/multi-parcel-format";
 import type { BrokerCompRowForm } from "@/domain/building/mobile-im/broker-extras";
 import type { ImPostitStyle } from "./ImPreviewPane";
 import {
@@ -53,7 +58,7 @@ export interface ImEditorPanelsProps {
   onChangeAddress: (next: string) => void;
   pnu?: string;
   isLookingUpAddress: boolean;
-  onLookupAddress: () => void;
+  onLookupAddress: (overrideAddress?: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parcels?: any[];
   buildingFloors?: BuildingRegisterFloorItem[];
@@ -232,6 +237,40 @@ export function ImEditorPanels({
   const interiorFileInputRef = useRef<HTMLInputElement>(null);
   const [rentRollSubTab, setRentRollSubTab] = useState<"actual" | "expected">("actual");
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+  const [isAddSubLotOpen, setIsAddSubLotOpen] = useState<boolean>(false);
+  const [subLotDraft, setSubLotDraft] = useState<string>("");
+  const [subLotHintError, setSubLotHintError] = useState<string | null>(null);
+
+  const parsedAddrLots = useMemo(
+    () => splitMultiParcelAddressPure(address),
+    [address]
+  );
+
+  const handleCommitSubLot = () => {
+    if (!address.trim()) {
+      setSubLotHintError("먼저 대표 주소(예: 서초구 잠원동 26-14)를 입력한 뒤 번지를 추가해 주세요.");
+      return;
+    }
+    const { nextAddress, addedLots } = appendSecondaryLotsToAddress(address, subLotDraft);
+    if (addedLots.length === 0) {
+      setSubLotHintError("유효한 부속 번지 숫자(예: 26-16 또는 134, 125-2)를 입력해 주세요.");
+      return;
+    }
+    setSubLotHintError(null);
+    setSubLotDraft("");
+    setIsAddSubLotOpen(false);
+    onChangeAddress(nextAddress);
+    onLookupAddress(nextAddress);
+  };
+
+  const handleRemoveSecondaryLot = (target: { lotLabel?: string; pnu?: string }) => {
+    const nextAddr = removeSecondaryLotFromAddress(address, target);
+    if (nextAddr.trim() === address.trim()) return;
+    onChangeAddress(nextAddr);
+    if (nextAddr.trim()) {
+      onLookupAddress(nextAddr);
+    }
+  };
   const [isCompsSectionOpen, setIsCompsSectionOpen] = useState<boolean>(compRows.length > 0);
   const [isLoadingNearbyComps, setIsLoadingNearbyComps] = useState<boolean>(false);
   const [nearbyCompNotice, setNearbyCompNotice] = useState<string | null>(null);
@@ -879,7 +918,7 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-address-lookup-btn"
                 disabled={isLookingUpAddress}
-                onClick={onLookupAddress}
+                onClick={() => onLookupAddress()}
                 className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold transition cursor-pointer"
               >
                 {isLookingUpAddress ? "불러오는 중…" : "주소로 건물 정보 자동 채우기"}
@@ -891,9 +930,95 @@ export function ImEditorPanels({
               data-testid="im-address-input"
               value={address}
               onChange={(e) => onChangeAddress(e.target.value)}
-              placeholder="예: 서울특별시 마포구 서교동 395-166"
+              placeholder="예: 서울특별시 서초구 잠원동 26-14, 26-16 (여러 번지는 쉼표 또는 '외 2필지')"
               className="w-full min-h-[48px] px-3.5 text-lg rounded-xl bg-white border border-slate-300 focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs"
             />
+            <div
+              data-testid="im-multiparcel-helper-bar"
+              className="flex flex-wrap items-center justify-between gap-2 pt-0.5"
+            >
+              <span className="text-sm font-medium text-slate-600">
+                여러 필지 매물은 쉼표(<code className="font-semibold text-slate-800">26-14, 26-16</code>)나{" "}
+                <code className="font-semibold text-slate-800">외 2필지</code>로 적으면 대지면적·공시지가가 자동 합산됩니다.
+              </span>
+              <button
+                type="button"
+                data-testid="im-add-subparcel-toggle-btn"
+                onClick={() => {
+                  setSubLotHintError(null);
+                  setIsAddSubLotOpen((prev) => !prev);
+                }}
+                className="min-h-[40px] shrink-0 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800 transition cursor-pointer"
+              >
+                {isAddSubLotOpen ? "닫기" : "+ 부속 번지 추가"}
+              </button>
+            </div>
+            {isAddSubLotOpen && (
+              <div
+                data-testid="im-add-subparcel-form"
+                className="mt-1.5 rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-2"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    data-testid="im-add-subparcel-input"
+                    value={subLotDraft}
+                    onChange={(e) => {
+                      setSubLotDraft(e.target.value);
+                      if (subLotHintError) setSubLotHintError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCommitSubLot();
+                      }
+                    }}
+                    placeholder="추가할 번지 입력 (예: 26-16 또는 134, 125-2)"
+                    aria-label="추가할 부속 번지"
+                    className="min-w-[200px] flex-1 min-h-[44px] rounded-lg border border-blue-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-[#1D4ED8] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    data-testid="im-add-subparcel-submit-btn"
+                    disabled={isLookingUpAddress}
+                    onClick={handleCommitSubLot}
+                    className="min-h-[44px] rounded-lg bg-[#1D4ED8] hover:bg-blue-800 px-4 py-2 text-sm font-extrabold text-white transition disabled:opacity-50 cursor-pointer"
+                  >
+                    번지 추가·조회
+                  </button>
+                </div>
+                {subLotHintError && (
+                  <p role="alert" className="text-sm font-bold text-[#991B1B]">
+                    {subLotHintError}
+                  </p>
+                )}
+              </div>
+            )}
+            {!(Array.isArray(parcels) && parcels.length >= 2) &&
+              parsedAddrLots.secondaryLots.length > 0 && (
+                <div
+                  data-testid="im-pending-subparcels-strip"
+                  className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-slate-700"
+                >
+                  <span className="font-bold text-slate-800">입력된 부속 번지:</span>
+                  {parsedAddrLots.secondaryLots.map((lot) => (
+                    <span
+                      key={lot.label}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm font-semibold text-slate-800"
+                    >
+                      <span>{lot.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSecondaryLot({ lotLabel: lot.label })}
+                        aria-label={`${lot.label} 번지 제외`}
+                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             {Array.isArray(parcels) && parcels.length >= 2 && (
               <div
                 data-testid="im-multiparcel-summary"
@@ -927,11 +1052,29 @@ export function ImEditorPanels({
                     return (
                       <span
                         key={p?.pnu || idx}
-                        className="inline-flex items-center rounded-md bg-white border border-[#93C5FD] px-2.5 py-1 text-sm font-semibold text-[#0F172A] tabular-nums"
+                        className="inline-flex items-center gap-1 rounded-md bg-white border border-[#93C5FD] px-2.5 py-1 text-sm font-semibold text-[#0F172A] tabular-nums"
                       >
-                        {jibunLabel}
-                        {catLabel}
-                        {areaLabel}
+                        <span>
+                          {jibunLabel}
+                          {catLabel}
+                          {areaLabel}
+                        </span>
+                        {idx >= 1 && (
+                          <button
+                            type="button"
+                            data-testid={`im-remove-subparcel-btn-${idx}`}
+                            onClick={() =>
+                              handleRemoveSecondaryLot({
+                                lotLabel: jibunLabel,
+                                pnu: typeof p?.pnu === "string" ? p.pnu : undefined,
+                              })
+                            }
+                            aria-label={`${jibunLabel} 번지 제외`}
+                            className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-blue-100 hover:text-[#991B1B] cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        )}
                       </span>
                     );
                   })}

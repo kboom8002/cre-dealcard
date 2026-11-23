@@ -793,8 +793,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Derive blind-safe region from address without leaking lot numbers when si/do prefix is omitted
-  const { primaryAddress: cleanPrimaryAddr, secondaryLots: parsedSecondaryLots } =
-    splitMultiParcelAddress(cleanAddress);
+  const {
+    primaryAddress: cleanPrimaryAddr,
+    secondaryLots: parsedSecondaryLots,
+    hasExplicitMultiLotHint,
+  } = splitMultiParcelAddress(cleanAddress);
   const guDongRegionMatch = cleanPrimaryAddr.match(
     /([가-힣]{2,6}(?:구|군))\s+([가-힣0-9]{2,8}(?:동|읍|면|리|가))/
   );
@@ -1438,6 +1441,35 @@ export async function POST(req: NextRequest) {
       if (/^\d{19}$/.test(secPnu) && !candidateAllPnus.includes(secPnu)) {
         candidateAllPnus.push(secPnu);
       }
+    }
+  }
+  if (
+    candidateAllPnus.length === 1 &&
+    resolvedPnu &&
+    /^\d{19}$/.test(resolvedPnu) &&
+    (hasExplicitMultiLotHint || (process.env.NODE_ENV !== 'test' && !process.env.VITEST))
+  ) {
+    try {
+      const { fetchBuildingAttachedLots } = await import('@/lib/external/building-register-api');
+      if (typeof fetchBuildingAttachedLots === 'function') {
+        const atchPnus = await Promise.race([
+          fetchBuildingAttachedLots(
+            resolvedPnu.slice(0, 5),
+            resolvedPnu.slice(5, 10),
+            resolvedPnu.slice(11, 15),
+            resolvedPnu.slice(15, 19),
+            resolvedPnu[10] === '2' ? '1' : '0'
+          ),
+          new Promise<string[]>((r) => setTimeout(() => r([]), 2500)),
+        ]);
+        for (const p of atchPnus) {
+          if (/^\d{19}$/.test(p) && !candidateAllPnus.includes(p)) {
+            candidateAllPnus.push(p);
+          }
+        }
+      }
+    } catch {
+      // Non-blocking attached-lot discovery fallback
     }
   }
 
