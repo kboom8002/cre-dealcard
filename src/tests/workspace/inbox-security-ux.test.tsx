@@ -217,16 +217,56 @@ describe('Client Inbox Security & UX Overhaul (IB-01 ~ IB-28)', () => {
       expect(logCallJson.ok).toBe(true);
       expect(logCallJson.persisted).toBe(true);
 
-      // Lock & restore share link token (P0-INBOX-LOCK-04)
+      // Lock & restore share link token — verify both thread scope & building scope cross-kernel invariant (P0-INBOX-LOCK-04)
       const {
         revokeShareLinkToken,
         verifyShareLinkToken,
         isBuildingShareLinkRevoked,
       } = await import('@/lib/security/share-link-tokens');
+
+      // 1) Thread-scoped lock & restore: does not lock building; thread-scoped restore_link recovers token
       await revokeShareLinkToken({
         token: sendImJson.shareToken,
         buildingId: 'bld-01',
+        scope: 'thread',
         reason: 'broker_locked',
+      });
+      expect(isBuildingShareLinkRevoked('bld-01')).toBe(false);
+      expect(
+        (
+          await verifyShareLinkToken({
+            token: sendImJson.shareToken,
+            buildingId: 'bld-01',
+          })
+        ).valid
+      ).toBe(false);
+
+      const threadRestoreReq = new NextRequest('http://localhost/api/broker/inbox/actions', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'restore_link',
+          threadId: 'custom_101',
+          buildingId: 'bld-01',
+          shareToken: sendImJson.shareToken,
+        }),
+      });
+      const threadRestoreRes = await POST(threadRestoreReq);
+      expect(threadRestoreRes.status).toBe(200);
+      expect(
+        (
+          await verifyShareLinkToken({
+            token: sendImJson.shareToken,
+            buildingId: 'bld-01',
+          })
+        ).valid
+      ).toBe(true);
+
+      // 2) Building-scoped lock & restore: thread-scoped Inbox restore MUST NOT lift a building-wide lock; explicit scope: 'building' lifts it
+      await revokeShareLinkToken({
+        token: sendImJson.shareToken,
+        buildingId: 'bld-01',
+        scope: 'building',
+        reason: 'building_locked',
       });
       expect(isBuildingShareLinkRevoked('bld-01')).toBe(true);
       expect(
@@ -238,17 +278,40 @@ describe('Client Inbox Security & UX Overhaul (IB-01 ~ IB-28)', () => {
         ).valid
       ).toBe(false);
 
-      const restoreReq = new NextRequest('http://localhost/api/broker/inbox/actions', {
+      const blockedThreadRestoreRes = await POST(
+        new NextRequest('http://localhost/api/broker/inbox/actions', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'restore_link',
+            threadId: 'custom_101',
+            buildingId: 'bld-01',
+            shareToken: sendImJson.shareToken,
+          }),
+        })
+      );
+      expect(blockedThreadRestoreRes.status).toBe(200);
+      expect(isBuildingShareLinkRevoked('bld-01')).toBe(true);
+      expect(
+        (
+          await verifyShareLinkToken({
+            token: sendImJson.shareToken,
+            buildingId: 'bld-01',
+          })
+        ).valid
+      ).toBe(false);
+
+      const buildingRestoreReq = new NextRequest('http://localhost/api/broker/inbox/actions', {
         method: 'POST',
         body: JSON.stringify({
           action: 'restore_link',
           threadId: 'custom_101',
           buildingId: 'bld-01',
           shareToken: sendImJson.shareToken,
+          scope: 'building',
         }),
       });
-      const restoreRes = await POST(restoreReq);
-      expect(restoreRes.status).toBe(200);
+      const buildingRestoreRes = await POST(buildingRestoreReq);
+      expect(buildingRestoreRes.status).toBe(200);
       expect(isBuildingShareLinkRevoked('bld-01')).toBe(false);
       expect(
         (

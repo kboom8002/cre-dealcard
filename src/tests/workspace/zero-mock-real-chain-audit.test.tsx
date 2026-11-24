@@ -728,15 +728,34 @@ describe("Zero-Mock Real-Chain Integration Audit Suite (Axis A ~ Axis E)", () =>
     expect(container.querySelector("nav[data-magazine-bottom-bar]")).toBeNull();
     expect(container.querySelector('[data-testid="minimal-subscribe-optin"]')).not.toBeNull();
 
-    // Verify featured deal hydrated from DB and rendered with real title, price, comment, and /im-lite CTA
-    expect(fullText).toContain("마포구 동교동 더파크빌딩");
-    expect(fullText).toContain("77억");
+    // Verify featured deal hydrated from DB cleanly and rendered via blind 2×2 DealCard privacy surface
+    const hydratedDeals = (
+      (consumerData as unknown as Record<string, unknown>).featured_deals ??
+      (consumerData as unknown as Record<string, unknown>).featuredDeals ??
+      []
+    ) as Array<Record<string, unknown>>;
+    const hydratedDeal = hydratedDeals.find((d) => d.id === "im-doc-donggyo-77");
+    expect(hydratedDeal).toBeDefined();
+    expect(hydratedDeal?.price).toBe("77억");
+    expect(hydratedDeal?.priceWon).toBe(7_700_000_000);
+    expect(hydratedDeal?.hasIm).toBe(false); // bbf6c9e9 non-UUID guard
+
+    expect(fullText).toContain("마포구 동교동");
+    expect(fullText).toContain("근린생활시설");
+    expect(fullText).toContain("연면적 211평");
+    expect(fullText).toContain("70~80억");
     expect(fullText).toContain("경의선숲길 코너 전 층 우량 임차인 100% 임대 완료 매물");
+    expect(fullText).toContain("딜카드 보기");
+    expect(fullText).not.toContain("더파크빌딩");
+    expect(fullText).not.toContain("189-6");
 
     const dealCtaLink = container.querySelector(
-      'a[href="/im-lite/im-doc-donggyo-77"]'
+      'a[data-testid="newsletter-dealcard-thumb"][data-deal-id="im-doc-donggyo-77"]'
     ) as HTMLAnchorElement | null;
     expect(dealCtaLink).not.toBeNull();
+    expect(dealCtaLink?.getAttribute("href")).toBe("#deal-inquiry-im-doc-donggyo-77");
+    expect(dealCtaLink?.getAttribute("data-deal-inquiry")).toBe("true");
+    expect(dealCtaLink?.getAttribute("data-deal-has-im")).toBe("false");
 
     // Verify AXIOS 2-line post-it cards rendered with zero non-CRE gossip
     const postitCards = container.querySelectorAll('[data-testid="axios-postit-card"]');
