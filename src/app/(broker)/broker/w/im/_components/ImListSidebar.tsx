@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Copy, Trash2 } from "lucide-react";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
@@ -10,6 +11,7 @@ import {
   SimpleListRow,
   DateGroupedList,
   ListThumbnail,
+  RowIconActionButton,
 } from "@/components/workspace/list/WorkspaceList";
 import {
   IM_POSTURE_FILTER_TABS,
@@ -186,28 +188,19 @@ export function ImListSidebar({
                 onSelect={() => onSelectItem(item.id)}
                 actions={
                   <>
-                    <button
-                      type="button"
-                      data-testid={`im-duplicate-${item.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDuplicateItem(item, e);
-                      }}
-                      className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
-                    >
-                      복제
-                    </button>
-                    <button
-                      type="button"
-                      data-testid={`im-delete-${item.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteItem(item, e);
-                      }}
-                      className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
-                    >
-                      삭제
-                    </button>
+                    <RowIconActionButton
+                      testId={`im-duplicate-${item.id}`}
+                      label={`${item.title || "새 IM"} 복제`}
+                      icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+                      onClick={(e) => onDuplicateItem(item, e)}
+                    />
+                    <RowIconActionButton
+                      testId={`im-delete-${item.id}`}
+                      label={`${item.title || "새 IM"} 삭제`}
+                      tone="danger"
+                      icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+                      onClick={(e) => onDeleteItem(item, e)}
+                    />
                   </>
                 }
               />
@@ -306,22 +299,25 @@ export function ImListSidebar({
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          data-testid={`im-duplicate-${item.id}`}
-                          onClick={(e) => onDuplicateItem(item, e)}
-                          className="min-h-[44px] text-sm font-semibold px-3 py-1.5 rounded-xl bg-[#767680]/10 hover:bg-[#767680]/18 text-[#3A3A3C] border border-slate-900/[0.08] cursor-pointer transition-colors"
-                        >
-                          복제
-                        </button>
-                        <button
-                          type="button"
-                          data-testid={`im-delete-${item.id}`}
-                          onClick={(e) => onDeleteItem(item, e)}
-                          className="min-h-[44px] text-sm font-semibold px-3 py-1.5 rounded-xl bg-[#FF2D55]/10 hover:bg-[#FF2D55]/18 text-[#C8102E] border border-[#FF2D55]/22 cursor-pointer transition-colors"
-                        >
-                          삭제
-                        </button>
+                        <RowIconActionButton
+                          testId={`im-duplicate-${item.id}`}
+                          label={`${item.title || "새 IM"} 복제`}
+                          icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDuplicateItem(item, e);
+                          }}
+                        />
+                        <RowIconActionButton
+                          testId={`im-delete-${item.id}`}
+                          label={`${item.title || "새 IM"} 삭제`}
+                          tone="danger"
+                          icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteItem(item, e);
+                          }}
+                        />
                       </div>
                     </div>
                   </div>

@@ -76,7 +76,7 @@ export function getPrimaryTabsForCadence(cadence: EditionType): EditorPrimaryTab
   ];
 }
 
-export type NewsletterStepKey = "title" | "content" | "send";
+export type NewsletterStepKey = "title" | "content" | "send" | "history";
 
 export interface SavedEditionSummary {
   id: string;
@@ -215,6 +215,9 @@ export function resolveMagazineQueryAction(
   }
   if (tabParam === "send" || tabParam === "publish" || stepParam === "publish" || stepParam === "send") {
     return { dealIds, step: "send" };
+  }
+  if (tabParam === "history" || stepParam === "history") {
+    return { dealIds, step: "history" };
   }
   if (tabParam === "ai_assist" || tabParam === "cover" || tabParam === "title" || stepParam === "title") {
     return { dealIds, step: "title" };

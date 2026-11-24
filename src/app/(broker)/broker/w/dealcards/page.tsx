@@ -38,7 +38,9 @@ import {
 } from "@/lib/deal-card/memo-pairing";
 import { cleanBlindPoints, validateBlindPoints } from "@/lib/deal-card/blind-guard";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
+import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import { Copy, Trash2 } from "lucide-react";
 import { repairDealCardLine } from "@/lib/deal-card/copy-limits";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
@@ -126,14 +128,39 @@ function isPublishedDirtyItem(item: BuildingListItem | null | undefined): boolea
   );
 }
 
-function toListTime(raw?: string): number {
+function isValidIsoTimestamp(raw?: string | null): raw is string {
+  if (typeof raw !== "string") return false;
+  const trimmed = raw.trim();
+  if (!/^\d{4}-\d{1,2}-\d{1,2}[T ]/.test(trimmed)) return false;
+  const parsed = Date.parse(trimmed);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+function hydrateDealCardItem(raw: HydratedDealCardItem): HydratedDealCardItem {
+  const base = (raw?.card4 ? hydrateItem(raw) : raw) as HydratedDealCardItem;
+  const iso = isValidIsoTimestamp(base.updatedAtIso)
+    ? base.updatedAtIso
+    : isValidIsoTimestamp(base.updatedAt)
+    ? base.updatedAt
+    : undefined;
+  if (!iso) return base;
+  if (base.updatedAt === iso && base.updatedAtIso === iso) {
+    return base;
+  }
+  return {
+    ...base,
+    updatedAt: iso,
+    updatedAtIso: iso,
+  };
+}
+
+function toListTime(raw?: string, nowMs: number = Date.now()): number {
   if (!raw) return 0;
   const parsed = Date.parse(raw);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   const trimmed = raw.trim();
-  const now = Date.now();
-  if (trimmed === "방금" || trimmed === "방금 전") return now;
-  if (trimmed === "어제") return now - 86_400_000;
+  if (trimmed === "방금" || trimmed === "방금 전") return nowMs;
+  if (trimmed === "어제") return nowMs - 86_400_000;
   const match = trimmed.match(/^(\d+)\s*(초|분|시간|일|주|개월|달|년)\s*전$/);
   if (match) {
     const n = Number(match[1]);
@@ -152,9 +179,34 @@ function toListTime(raw?: string): number {
         : unit === "개월" || unit === "달"
         ? 30 * 86_400_000
         : 365 * 86_400_000;
-    return now - n * mult;
+    return nowMs - n * mult;
   }
   return 0;
+}
+
+function getDealCardSortTime(item: BuildingListItem, nowMs: number = Date.now()): number {
+  const iso = (item as HydratedDealCardItem).updatedAtIso;
+  if (isValidIsoTimestamp(iso)) {
+    return Date.parse(iso);
+  }
+  return toListTime(item.updatedAt, nowMs);
+}
+
+function sortDealCardsNewestFirst(list: BuildingListItem[]): BuildingListItem[] {
+  if (list.length <= 1) return list.slice();
+  const nowMs = Date.now();
+  return list
+    .map((item, index) => ({ item, index, time: getDealCardSortTime(item, nowMs) }))
+    .sort((a, b) => {
+      if (b.time !== a.time) return b.time - a.time;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.item);
+}
+
+function pickNewestDealCard(list: BuildingListItem[]): BuildingListItem | null {
+  if (list.length === 0) return null;
+  return sortDealCardsNewestFirst(list)[0] ?? null;
 }
 
 function isBlankStarterDealCard(item: BuildingListItem | null | undefined): boolean {
@@ -187,15 +239,17 @@ function DealCardsWorkspaceInner() {
   const buildingIdParam = rawBuildingIdParam ? rawBuildingIdParam.trim() || null : null;
   const rawMemoIdParam = searchParams.get("memoId");
   const memoIdParam = rawMemoIdParam ? rawMemoIdParam.trim() || null : null;
-  const isNewParam = searchParams.get("new") === "true";
+  const isNewParam = searchParams.get("new") === "true" || searchParams.get("new") === "1";
   const isFreshParam = searchParams.get("fresh") === "1";
 
   const [items, setItems] = useState<BuildingListItem[]>(() =>
-    allowInitialDemoSeed() ? INITIAL_BUILDINGS : []
+    allowInitialDemoSeed() ? sortDealCardsNewestFirst(INITIAL_BUILDINGS) : []
   );
   const [unconvertedMemos, setUnconvertedMemos] = useState<ScopedUnconvertedMemoItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(
-    () => buildingIdParam || (allowInitialDemoSeed() ? INITIAL_BUILDINGS[0]?.id || null : null)
+    () =>
+      buildingIdParam ||
+      (allowInitialDemoSeed() ? pickNewestDealCard(INITIAL_BUILDINGS)?.id || null : null)
   );
   const [selectedMemoOnlyId, setSelectedMemoOnlyId] = useState<string | null>(
     () => memoIdParam || null
@@ -215,6 +269,7 @@ function DealCardsWorkspaceInner() {
   });
 
   const [isGeneratingFromMemo, setIsGeneratingFromMemo] = useState(false);
+  const [justRefilledTick, setJustRefilledTick] = useState(0);
   const [memoSaveStatus, setMemoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isPreSendOpen, setIsPreSendOpen] = useState(false);
   const [publishError, setPublishError] = useState<PreSendPublishError | null>(null);
@@ -226,7 +281,7 @@ function DealCardsWorkspaceInner() {
   const memoTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const memoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasHandledNewRef = useRef(false);
-  const initialFreshParamRef = useRef<boolean>(isFreshParam);
+  const initialFreshParamRef = useRef<boolean>(isFreshParam || isNewParam);
   const initialBuildingIdParamRef = useRef<string | null>(buildingIdParam);
   const initialMemoIdParamRef = useRef<string | null>(memoIdParam);
   const lastSyncedQueryIdRef = useRef<string | null>(null);
@@ -315,7 +370,7 @@ function DealCardsWorkspaceInner() {
         );
       if (byQuery) return byQuery;
     }
-    return items[0] ?? null;
+    return pickNewestDealCard(items);
   }, [items, selectedId, buildingIdParam, selectedMemoOnly]);
 
   const resolvedActiveId = activeItem?.id ?? null;
@@ -342,6 +397,7 @@ function DealCardsWorkspaceInner() {
       if (!nextId) return;
       userInteractedRef.current = true;
       setPublishError(null);
+      setJustRefilledTick(0);
       setSelectedMemoOnlyId(null);
       setSelectedId(nextId);
       setMemoSaveStatus("idle");
@@ -355,6 +411,7 @@ function DealCardsWorkspaceInner() {
   const selectUnconvertedMemo = useCallback(
     (memo: UnconvertedMemoItem) => {
       userInteractedRef.current = true;
+      setJustRefilledTick(0);
       setSelectedMemoOnlyId(memo.id);
       setMemoSaveStatus("idle");
       router.replace(`/broker/w/dealcards?memoId=${encodeURIComponent(memo.id)}&tab=editor`);
@@ -398,8 +455,8 @@ function DealCardsWorkspaceInner() {
           (it) => !(it?.ownerUserId && initialUid && it.ownerUserId !== initialUid)
         );
         if (ownedLocal.length > 0 && !initialFreshParamRef.current) {
-          const hydratedLocal = ownedLocal.map((it: BuildingListItem) =>
-            it?.card4 ? hydrateItem(it) : it
+          const hydratedLocal = sortDealCardsNewestFirst(
+            ownedLocal.map((it: BuildingListItem) => hydrateDealCardItem(it))
           );
           const localDirtyIds = hydratedLocal
             .filter((it) => isPublishedDirtyItem(it))
@@ -415,8 +472,12 @@ function DealCardsWorkspaceInner() {
           setItems(hydratedLocal);
           const initTargetId = initialBuildingIdParamRef.current;
           const initMatch =
-            (initTargetId && hydratedLocal.find((it) => it.id === initTargetId)) ||
-            hydratedLocal[0];
+            (initTargetId &&
+              (hydratedLocal.find((it) => it.id === initTargetId) ??
+                hydratedLocal.find((it) =>
+                  getDealCardAliasIds(it as HydratedDealCardItem).includes(initTargetId)
+                ))) ||
+            pickNewestDealCard(hydratedLocal);
           if (initMatch && !userInteractedRef.current && !initialMemoIdParamRef.current) {
             setSelectedId(initMatch.id);
             setCurrentCard4(initMatch.card4);
@@ -449,13 +510,16 @@ function DealCardsWorkspaceInner() {
           userEditedIdsRef.current.clear();
           serverVersionByIdRef.current.clear();
           setUnconvertedMemos([]);
-          const seedItems = allowInitialDemoSeed() ? INITIAL_BUILDINGS : [];
+          const seedItems = allowInitialDemoSeed()
+            ? sortDealCardsNewestFirst(INITIAL_BUILDINGS.map((it) => hydrateDealCardItem(it)))
+            : [];
           itemsRef.current = seedItems;
           setItems(seedItems);
-          if (seedItems[0]) {
-            setSelectedId(seedItems[0].id);
-            setCurrentCard4(seedItems[0].card4);
-            setSyncedBuildingId(seedItems[0].id);
+          const newestSeed = pickNewestDealCard(seedItems);
+          if (newestSeed) {
+            setSelectedId(newestSeed.id);
+            setCurrentCard4(newestSeed.card4);
+            setSyncedBuildingId(newestSeed.id);
           } else {
             setSelectedId(null);
             setCurrentCard4(EMPTY_CARD4);
@@ -597,9 +661,7 @@ function DealCardsWorkspaceInner() {
                     !scopedItemsForResolvedUser.some((s) => s.id === activeFreshItem.id)
                       ? [activeFreshItem]
                       : []),
-                    ...scopedItemsForResolvedUser.map((it) =>
-                      it?.card4 ? hydrateItem(it) : it
-                    ),
+                    ...scopedItemsForResolvedUser.map((it) => hydrateDealCardItem(it)),
                   ]
                 : prev;
             const safePrev = rawLocalBase.filter(
@@ -620,7 +682,7 @@ function DealCardsWorkspaceInner() {
             }
             const mergedServer: BuildingListItem[] = data.dealcards.map(
               (rawSrv: HydratedDealCardItem) => {
-                const srvHydrated = (rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv) as HydratedDealCardItem;
+                const srvHydrated = hydrateDealCardItem(rawSrv) as HydratedDealCardItem;
                 const srv: HydratedDealCardItem = resolvedUid
                   ? { ...srvHydrated, ownerUserId: resolvedUid }
                   : srvHydrated;
@@ -651,6 +713,11 @@ function DealCardsWorkspaceInner() {
                     srv.legacyId ??
                     local.legacyId ??
                     (local.id && local.id !== srv.id ? local.id : undefined);
+                  const resolvedUpdatedAtIso =
+                    (isValidIsoTimestamp(local.updatedAtIso) ? local.updatedAtIso : undefined) ??
+                    (isValidIsoTimestamp(local.updatedAt) ? local.updatedAt : undefined) ??
+                    (isValidIsoTimestamp(srv.updatedAtIso) ? srv.updatedAtIso : undefined) ??
+                    (isValidIsoTimestamp(srv.updatedAt) ? srv.updatedAt : undefined);
                   return {
                     ...srv,
                     ...local,
@@ -662,7 +729,8 @@ function DealCardsWorkspaceInner() {
                     hasUnpublishedEdits: Boolean(
                       local.hasUnpublishedEdits ?? srv.hasUnpublishedEdits ?? (effectiveStatus === "sent")
                     ),
-                    updatedAtIso: local.updatedAtIso ?? srv.updatedAtIso,
+                    updatedAt: resolvedUpdatedAtIso ?? local.updatedAt ?? srv.updatedAt,
+                    ...(resolvedUpdatedAtIso ? { updatedAtIso: resolvedUpdatedAtIso } : {}),
                     memoText: local.memoText ?? srv.memoText,
                     pairedMemoId: local.pairedMemoId ?? srv.pairedMemoId,
                     generationSource:
@@ -672,10 +740,16 @@ function DealCardsWorkspaceInner() {
                     status: effectiveStatus,
                   } as BuildingListItem;
                 }
+                const resolvedUpdatedAtIso =
+                  (isValidIsoTimestamp(srv.updatedAtIso) ? srv.updatedAtIso : undefined) ??
+                  (isValidIsoTimestamp(srv.updatedAt) ? srv.updatedAt : undefined) ??
+                  (isValidIsoTimestamp(local?.updatedAtIso) ? local?.updatedAtIso : undefined) ??
+                  (isValidIsoTimestamp(local?.updatedAt) ? local?.updatedAt : undefined);
                 return {
                   ...srv,
                   hasUnpublishedEdits: Boolean(srv.hasUnpublishedEdits),
-                  updatedAtIso: srv.updatedAtIso ?? local?.updatedAtIso,
+                  updatedAt: resolvedUpdatedAtIso ?? srv.updatedAt,
+                  ...(resolvedUpdatedAtIso ? { updatedAtIso: resolvedUpdatedAtIso } : {}),
                   memoText: srv.memoText ?? local?.memoText,
                   pairedMemoId: srv.pairedMemoId ?? local?.pairedMemoId,
                   generationSource:
@@ -700,7 +774,7 @@ function DealCardsWorkspaceInner() {
                   (loc.card4.card4_version || 1) > 1)
             );
 
-            const finalMerged = [...unsyncedLocals, ...mergedServer];
+            const finalMerged = sortDealCardsNewestFirst([...unsyncedLocals, ...mergedServer]);
             if (finalMerged.length > 0) {
               itemsRef.current = finalMerged;
               persistItems(finalMerged, resolvedUid);
@@ -714,10 +788,10 @@ function DealCardsWorkspaceInner() {
                 const preferredId =
                   mappedPreferred && finalMerged.some((m) => m.id === mappedPreferred)
                     ? mappedPreferred
-                    : finalMerged[0]?.id ?? null;
+                    : pickNewestDealCard(finalMerged)?.id ?? null;
                 const targetItem =
                   (preferredId && finalMerged.find((m) => m.id === preferredId)) ||
-                  finalMerged[0];
+                  pickNewestDealCard(finalMerged);
                 if (targetItem) {
                   if (!userInteractedRef.current || mappedPreferred !== rawPreferred) {
                     resolvedActiveIdRef.current = targetItem.id;
@@ -732,7 +806,9 @@ function DealCardsWorkspaceInner() {
               return finalMerged;
             }
 
-            const emptyFallback = allowInitialDemoSeed() ? INITIAL_BUILDINGS : [];
+            const emptyFallback = allowInitialDemoSeed()
+              ? sortDealCardsNewestFirst(INITIAL_BUILDINGS.map((it) => hydrateDealCardItem(it)))
+              : [];
             if (
               switchedAccount ||
               prev.some(
@@ -742,10 +818,11 @@ function DealCardsWorkspaceInner() {
               const switchedFallback =
                 switchedAccount && !allowInitialDemoSeed() ? [] : emptyFallback;
               itemsRef.current = switchedFallback;
-              if (switchedFallback[0]) {
-                setSelectedId(switchedFallback[0].id);
-                setCurrentCard4(switchedFallback[0].card4);
-                setSyncedBuildingId(switchedFallback[0].id);
+              const newestSwitched = pickNewestDealCard(switchedFallback);
+              if (newestSwitched) {
+                setSelectedId(newestSwitched.id);
+                setCurrentCard4(newestSwitched.card4);
+                setSyncedBuildingId(newestSwitched.id);
               } else {
                 setSelectedId(null);
                 setCurrentCard4(EMPTY_CARD4);
@@ -764,18 +841,22 @@ function DealCardsWorkspaceInner() {
             return emptyFallback;
           });
         } else if (scopedItemsForResolvedUser !== null) {
-          const emptyFallback = allowInitialDemoSeed() ? INITIAL_BUILDINGS : [];
+          const emptyFallback = allowInitialDemoSeed()
+            ? sortDealCardsNewestFirst(INITIAL_BUILDINGS.map((it) => hydrateDealCardItem(it)))
+            : [];
           const hydratedScoped = scopedItemsForResolvedUser.map((it) =>
-            it?.card4 ? hydrateItem(it) : it
+            hydrateDealCardItem(it)
           );
-          const nextItems =
-            hydratedScoped.length > 0 ? hydratedScoped : emptyFallback;
+          const nextItems = sortDealCardsNewestFirst(
+            hydratedScoped.length > 0 ? hydratedScoped : emptyFallback
+          );
           itemsRef.current = nextItems;
           setItems(nextItems);
-          if (nextItems[0] && !userInteractedRef.current) {
-            setSelectedId(nextItems[0].id);
-            setCurrentCard4(nextItems[0].card4);
-            setSyncedBuildingId(nextItems[0].id);
+          const newestScoped = pickNewestDealCard(nextItems);
+          if (newestScoped && !userInteractedRef.current) {
+            setSelectedId(newestScoped.id);
+            setCurrentCard4(newestScoped.card4);
+            setSyncedBuildingId(newestScoped.id);
           } else if (nextItems.length === 0 && !userInteractedRef.current) {
             setSelectedId(null);
             setCurrentCard4(EMPTY_CARD4);
@@ -816,7 +897,8 @@ function DealCardsWorkspaceInner() {
     }
     if (isHydrated) {
       lastSyncedQueryIdRef.current = buildingIdParam;
-      const fallback = (userInteractedRef.current ? activeItem : null) ?? items[0];
+      const fallback =
+        (userInteractedRef.current ? activeItem : null) ?? pickNewestDealCard(items);
       if (fallback) {
         setSelectedId(fallback.id);
         router.replace(
@@ -1136,7 +1218,7 @@ function DealCardsWorkspaceInner() {
         const serverAliasToCanonical = new Map<string, string>();
         const serverList: HydratedDealCardItem[] = data.dealcards.map(
           (rawSrv: HydratedDealCardItem) => {
-            const hydrated = (rawSrv?.card4 ? hydrateItem(rawSrv) : rawSrv) as HydratedDealCardItem;
+            const hydrated = hydrateDealCardItem(rawSrv) as HydratedDealCardItem;
             const aliasIds = getDealCardAliasIds(hydrated);
             for (const aid of aliasIds) {
               serverAliasIds.add(aid);
@@ -1192,6 +1274,11 @@ function DealCardsWorkspaceInner() {
           if (keepLocal && loc) {
             const resolvedLegacyId =
               srv.legacyId ?? loc.legacyId ?? (loc.id && loc.id !== srv.id ? loc.id : undefined);
+            const resolvedUpdatedAtIso =
+              (isValidIsoTimestamp(loc.updatedAtIso) ? loc.updatedAtIso : undefined) ??
+              (isValidIsoTimestamp(loc.updatedAt) ? loc.updatedAt : undefined) ??
+              (isValidIsoTimestamp(srv.updatedAtIso) ? srv.updatedAtIso : undefined) ??
+              (isValidIsoTimestamp(srv.updatedAt) ? srv.updatedAt : undefined);
             mergedNext.push({
               ...srv,
               ...loc,
@@ -1199,6 +1286,8 @@ function DealCardsWorkspaceInner() {
               ...(srv.canonicalId ? { canonicalId: srv.canonicalId } : {}),
               ...(srv.buildingId ? { buildingId: srv.buildingId } : {}),
               ...(resolvedLegacyId ? { legacyId: resolvedLegacyId } : {}),
+              updatedAt: resolvedUpdatedAtIso ?? loc.updatedAt ?? srv.updatedAt,
+              ...(resolvedUpdatedAtIso ? { updatedAtIso: resolvedUpdatedAtIso } : {}),
             } as BuildingListItem);
           } else {
             mergedNext.push(srv as BuildingListItem);
@@ -1214,9 +1303,10 @@ function DealCardsWorkspaceInner() {
           }
         }
         if (mergedNext.length > 0) {
+          const sortedMergedNext = sortDealCardsNewestFirst(mergedNext);
           setDirtySentIds((prev) => {
             const next = new Set(prev);
-            for (const item of mergedNext) {
+            for (const item of sortedMergedNext) {
               if (isPublishedDirtyItem(item)) {
                 next.add(item.id);
               } else if (!userEditedIdsRef.current.has(item.id)) {
@@ -1225,9 +1315,9 @@ function DealCardsWorkspaceInner() {
             }
             return next;
           });
-          itemsRef.current = mergedNext;
-          setItems(mergedNext);
-          persistItems(mergedNext, uid);
+          itemsRef.current = sortedMergedNext;
+          setItems(sortedMergedNext);
+          persistItems(sortedMergedNext, uid);
           const curActiveId = resolvedActiveIdRef.current;
           const promotedActiveId = curActiveId
             ? serverAliasToCanonical.get(curActiveId) ?? curActiveId
@@ -1238,7 +1328,7 @@ function DealCardsWorkspaceInner() {
             setSyncedBuildingId(promotedActiveId);
           }
           if (!autosaveRef.current.dirty && promotedActiveId) {
-            const matched = mergedNext.find((m) => m.id === promotedActiveId);
+            const matched = sortedMergedNext.find((m) => m.id === promotedActiveId);
             if (matched) {
               setCurrentCard4(matched.card4);
               setSyncedBuildingId(matched.id);
@@ -1330,7 +1420,8 @@ function DealCardsWorkspaceInner() {
           ? pairingOverride.pairedMemoId
           : existingItem?.pairedMemoId ?? existingItem?.card4?.pairedMemoId;
 
-      const nextVersion = (updated.card4_version || 1) + 1;
+      const nextVersion =
+        Math.max(updated.card4_version || 1, existingItem?.card4?.card4_version || 1) + 1;
       const withMeta: Card4Data = {
         ...updated,
         generationSource: effectiveGenSource,
@@ -1407,6 +1498,7 @@ function DealCardsWorkspaceInner() {
         ...EMPTY_CARD4,
         ...(opts?.generationSource ? { generationSource: opts.generationSource } : {}),
       };
+      const nowIso = new Date().toISOString();
       const newItem: BuildingListItem = {
         id: newId,
         ...(activeUid ? { ownerUserId: activeUid } : {}),
@@ -1415,12 +1507,13 @@ function DealCardsWorkspaceInner() {
         use: baseCard4.use || "",
         priceBand: baseCard4.priceBand || "",
         status: "draft",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
+        updatedAtIso: nowIso,
         card4: baseCard4,
         ...(opts?.memoText !== undefined ? { memoText: opts.memoText } : {}),
         ...(opts?.generationSource ? { generationSource: opts.generationSource } : {}),
         awaitingMemoGeneration: opts?.awaitingMemoGeneration ?? true,
-      };
+      } as HydratedDealCardItem;
       resolvedActiveIdRef.current = newId;
       userInteractedRef.current = true;
       userEditedIdsRef.current.add(newId);
@@ -1472,14 +1565,16 @@ function DealCardsWorkspaceInner() {
       const isAwaiting = Boolean(targetItem?.awaitingMemoGeneration);
 
       setItems((prev) => {
+        const nowIso = new Date().toISOString();
         const next = prev.map((it) =>
           it.id === targetId
-            ? {
+            ? ({
                 ...it,
                 ...(activeUid ? { ownerUserId: activeUid } : {}),
                 memoText: nextText,
-                updatedAt: new Date().toISOString(),
-              }
+                updatedAt: nowIso,
+                updatedAtIso: nowIso,
+              } as BuildingListItem)
             : it
         );
         itemsRef.current = next;
@@ -1545,6 +1640,7 @@ function DealCardsWorkspaceInner() {
             card4_version: 1,
           };
           const activeUid = currentUserIdRef.current;
+          const nowIso = new Date().toISOString();
           const newDealCardItem: BuildingListItem = {
             id: newId,
             ...(activeUid ? { ownerUserId: activeUid } : {}),
@@ -1553,13 +1649,14 @@ function DealCardsWorkspaceInner() {
             use: cardWithMeta.use,
             priceBand: cardWithMeta.priceBand,
             status: "draft",
-            updatedAt: new Date().toISOString(),
+            updatedAt: nowIso,
+            updatedAtIso: nowIso,
             card4: cardWithMeta,
             memoText: rawText,
             pairedMemoId: targetMemoOnly.id,
             generationSource: "ai_memo",
             awaitingMemoGeneration: false,
-          };
+          } as HydratedDealCardItem;
 
           userInteractedRef.current = true;
           userEditedIdsRef.current.add(newId);
@@ -1613,6 +1710,12 @@ function DealCardsWorkspaceInner() {
 
           lastSyncedQueryIdRef.current = newId;
           router.replace(`/broker/w/dealcards?buildingId=${encodeURIComponent(newId)}&tab=editor`);
+          setJustRefilledTick((prev) => prev + 1);
+          setTimeout(() => {
+            document
+              .querySelector('[data-testid="dealcard-card4-stage"]')
+              ?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+          }, 60);
           showUndoToast({
             message: "메모에서 딜카드를 생성했어요! 아래 항목을 확인하고 다듬어 보세요.",
             variant: "success",
@@ -1638,28 +1741,12 @@ function DealCardsWorkspaceInner() {
 
       setIsGeneratingFromMemo(true);
       try {
-        const baseForParse = wasAwaiting ? EMPTY_CARD4 : currentCard4Ref.current;
+        const baseForParse = EMPTY_CARD4;
         const rawGenerated = await runHybridMemoGenerationApi(rawText, baseForParse);
-        const preserveImSyncedSpecs =
-          !wasAwaiting &&
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId) &&
-          prevGenSource !== "ai_memo" &&
-          Boolean(prevCard4Snapshot.priceBand?.trim() && prevCard4Snapshot.priceBand !== "가격 협의") &&
-          Boolean(prevCard4Snapshot.area?.trim());
-        const generatedCard4 = preserveImSyncedSpecs
-          ? {
-              ...rawGenerated,
-              region: prevCard4Snapshot.region || rawGenerated.region,
-              use: prevCard4Snapshot.use || rawGenerated.use,
-              area: prevCard4Snapshot.area || rawGenerated.area,
-              priceBand: prevCard4Snapshot.priceBand || rawGenerated.priceBand,
-              posture: prevCard4Snapshot.posture || rawGenerated.posture,
-              ...(prevCard4Snapshot.gfaPyung ? { gfaPyung: prevCard4Snapshot.gfaPyung } : {}),
-              ...(prevCard4Snapshot.landAreaPyung
-                ? { landAreaPyung: prevCard4Snapshot.landAreaPyung }
-                : {}),
-            }
-          : rawGenerated;
+        const generatedCard4: Card4Data = {
+          ...rawGenerated,
+          card4_version: prevCard4Snapshot.card4_version || rawGenerated.card4_version || 1,
+        };
 
         handleCardChangeFor(targetId, generatedCard4, {
           memoText: rawText,
@@ -1723,6 +1810,13 @@ function DealCardsWorkspaceInner() {
             autosaveRef.current.markDirty(targetId);
           });
 
+        setJustRefilledTick((prev) => prev + 1);
+        setTimeout(() => {
+          document
+            .querySelector('[data-testid="dealcard-card4-stage"]')
+            ?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+        }, 60);
+
         if (wasAwaiting) {
           showUndoToast({
             message: "메모에서 딜카드를 생성했어요! 아래 항목을 확인하고 다듬어 보세요.",
@@ -1730,9 +1824,10 @@ function DealCardsWorkspaceInner() {
           });
         } else {
           showUndoToast({
-            message: "메모 내용으로 딜카드 항목을 다시 채웠어요",
+            message: "✓ 원문 지번·건물명을 가린 공개 딜카드를 아래에 다시 채웠어요",
             variant: "success",
             undoAction: () => {
+              setJustRefilledTick(0);
               handleCardChangeFor(targetId, prevCard4Snapshot, {
                 memoText: rawText,
                 generationSource: prevGenSource || "ai_memo",
@@ -1827,6 +1922,7 @@ function DealCardsWorkspaceInner() {
     const activeUid = currentUserIdRef.current;
     if (selectedMemoOnly) {
       const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const nowIso = new Date().toISOString();
       const manualItem: BuildingListItem = {
         id: newId,
         ...(activeUid ? { ownerUserId: activeUid } : {}),
@@ -1835,12 +1931,13 @@ function DealCardsWorkspaceInner() {
         use: "",
         priceBand: "",
         status: "draft",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
+        updatedAtIso: nowIso,
         card4: { ...EMPTY_CARD4, generationSource: "manual" },
         memoText: selectedMemoOnly.memoText,
         generationSource: "manual",
         awaitingMemoGeneration: false,
-      };
+      } as HydratedDealCardItem;
       setItems((prev) => {
         const next = [manualItem, ...prev];
         persistItems(next);
@@ -2039,6 +2136,7 @@ function DealCardsWorkspaceInner() {
   const handleCreateNew = useCallback(() => {
     const activeUid = currentUserIdRef.current;
     const newId = `bld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const nowIso = new Date().toISOString();
     const newItem: BuildingListItem = {
       id: newId,
       ...(activeUid ? { ownerUserId: activeUid } : {}),
@@ -2047,15 +2145,17 @@ function DealCardsWorkspaceInner() {
       use: "",
       priceBand: "",
       status: "draft",
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
+      updatedAtIso: nowIso,
       card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
       memoText: "",
       generationSource: "ai_memo",
       awaitingMemoGeneration: true,
-    };
+    } as HydratedDealCardItem;
     userInteractedRef.current = true;
     resolvedActiveIdRef.current = newId;
     userEditedIdsRef.current.add(newId);
+    setJustRefilledTick(0);
     setSelectedMemoOnlyId(null);
     setMemoSaveStatus("idle");
     setItems((prev) => {
@@ -2218,13 +2318,15 @@ function DealCardsWorkspaceInner() {
     void _ignoredCanonical;
     void _ignoredBuilding;
     void _ignoredLegacy;
+    const nowIso = new Date().toISOString();
     const cloned: BuildingListItem = {
       ...sourceRest,
       id: newId,
       ...(activeUid ? { ownerUserId: activeUid } : {}),
       title: `${source.title} (사본)`,
       status: "draft",
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
+      updatedAtIso: nowIso,
       pairedMemoId: undefined,
       awaitingMemoGeneration: false,
       card4: {
@@ -2233,7 +2335,7 @@ function DealCardsWorkspaceInner() {
         headline: source.card4.headline ? repairDealCardLine(source.card4.headline) : "",
         card4_version: 1,
       },
-    };
+    } as HydratedDealCardItem;
     userInteractedRef.current = true;
     setSelectedMemoOnlyId(null);
     setItems((prev) => {
@@ -2286,6 +2388,7 @@ function DealCardsWorkspaceInner() {
       remaining.length === 0 && !isDeletingOnlyBlankStarter;
 
     if (isDeletingOnlyBlankStarter) {
+      const nowIso = new Date().toISOString();
       const clearedCard: BuildingListItem = {
         ...target,
         title: "새 딜카드",
@@ -2293,13 +2396,14 @@ function DealCardsWorkspaceInner() {
         use: "",
         priceBand: "",
         status: "draft",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
+        updatedAtIso: nowIso,
         card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
         memoText: "",
         pairedMemoId: undefined,
         generationSource: "ai_memo",
         awaitingMemoGeneration: true,
-      };
+      } as HydratedDealCardItem;
       const clearedList = [clearedCard];
       userInteractedRef.current = true;
       userEditedIdsRef.current.delete(target.id);
@@ -2318,6 +2422,7 @@ function DealCardsWorkspaceInner() {
       return;
     }
 
+    const fallbackNowIso = new Date().toISOString();
     const nextList: BuildingListItem[] =
       remaining.length > 0
         ? remaining
@@ -2332,12 +2437,13 @@ function DealCardsWorkspaceInner() {
               use: "",
               priceBand: "",
               status: "draft",
-              updatedAt: new Date().toISOString(),
+              updatedAt: fallbackNowIso,
+              updatedAtIso: fallbackNowIso,
               card4: { ...EMPTY_CARD4, generationSource: "ai_memo" },
               memoText: "",
               generationSource: "ai_memo",
               awaitingMemoGeneration: true,
-            },
+            } as HydratedDealCardItem,
           ];
     userInteractedRef.current = true;
     itemsRef.current = nextList;
@@ -2352,8 +2458,9 @@ function DealCardsWorkspaceInner() {
       }),
     }).catch(() => {});
 
-    if (target.id === resolvedActiveId && nextList[0]) {
-      const nextActive = nextList[0];
+    const nextActive =
+      target.id === resolvedActiveId ? pickNewestDealCard(nextList) ?? nextList[0] : null;
+    if (nextActive) {
       resolvedActiveIdRef.current = nextActive.id;
       setSelectedId(nextActive.id);
       setCurrentCard4(nextActive.card4);
@@ -2734,6 +2841,7 @@ function DealCardsWorkspaceInner() {
       isAwaitingMemoGeneration={isAwaitingMemoGeneration}
       activeMemoText={activeMemoText}
       isGeneratingFromMemo={isGeneratingFromMemo}
+      justRefilledTick={justRefilledTick}
       memoSaveStatus={memoSaveStatus}
       activeGenerationSource={activeGenerationSource}
       memoTextareaRef={memoTextareaRef}
@@ -2852,6 +2960,34 @@ function DealCardsWorkspaceInner() {
       ? pendingDeleteModal.target.title.trim()
       : undefined;
 
+  const editorHeaderActions = selectedMemoOnly ? (
+    <EditorHeaderActionButton
+      testId="dealcard-header-delete-memo-btn"
+      label="메모 삭제"
+      icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+      tone="danger"
+      onClick={(e) => handleDeleteUnconvertedMemo(selectedMemoOnly, e)}
+    />
+  ) : activeItem ? (
+    <>
+      <EditorHeaderActionButton
+        testId="dealcard-header-duplicate-btn"
+        label="복제"
+        title={`${activeItem.card4.headline || activeItem.title || "딜카드"} 복제`}
+        icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+        onClick={(e) => handleDuplicateItem(activeItem, e)}
+      />
+      <EditorHeaderActionButton
+        testId="dealcard-header-delete-btn"
+        label={isSingleUntouchedStarter ? "입력 비우기" : "삭제"}
+        title={`${activeItem.card4.headline || activeItem.title || "딜카드"} 삭제`}
+        icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+        tone="danger"
+        onClick={(e) => handleDeleteItem(activeItem, e)}
+      />
+    </>
+  ) : undefined;
+
   return (
     <>
       <WorkspaceShell
@@ -2863,6 +2999,7 @@ function DealCardsWorkspaceInner() {
         editorSlot={editorSlot}
         previewSlot={previewSlot}
         primaryActionSlot={primaryActionSlot}
+        editorHeaderActions={editorHeaderActions}
         saveState={autosave.status}
         lastSavedAt={autosave.lastSavedAt}
         onRetrySave={() => {

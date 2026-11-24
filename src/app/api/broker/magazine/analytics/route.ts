@@ -196,11 +196,33 @@ export async function GET(req: NextRequest) {
         .eq("actor_id", ctx.userId) // uuid 컬럼 — slug를 넣으면 22P02
         .eq("event_type", "magazine_distributed")
         .order("created_at", { ascending: false })
-        .limit(1),
+        .limit(10),
       "distribution history",
     );
 
-    const lastDist = distEvents?.[0];
+    const distList = Array.isArray(distEvents) ? distEvents : [];
+    const recentDistributions = distList.map((ev) => {
+      const meta = (ev?.metadata ?? {}) as Record<string, unknown>;
+      const createdAt = ev?.created_at ? String(ev.created_at) : null;
+      return {
+        createdAt,
+        date: createdAt
+          ? toKstDate(ev.created_at instanceof Date ? ev.created_at : new Date(createdAt))
+          : null,
+        issueDate: typeof meta.issue_date === "string" ? meta.issue_date : null,
+        sentCount: (meta.sent_count as number | undefined) ?? 0,
+        failedCount: (meta.failed_count as number | undefined) ?? 0,
+        recordedCount: (meta.recorded_count as number | undefined) ?? 0,
+        totalCount:
+          (meta.total_count as number | undefined) ??
+          (meta.subscriber_count as number | undefined) ??
+          (meta.total as number | undefined) ??
+          0,
+        dryRun: meta.dry_run === true,
+      };
+    });
+
+    const lastDist = distList[0];
     const lastDistMeta = (lastDist?.metadata ?? {}) as Record<string, unknown>;
     const lastDistDate = lastDist?.created_at
       ? toKstDate(lastDist.created_at instanceof Date ? lastDist.created_at : new Date(String(lastDist.created_at)))
@@ -400,10 +422,156 @@ export async function GET(req: NextRequest) {
       kpiNotice = { code: "NO_V2_EVENTS", message: "최근 30일 새 기준 열람 기록이 없습니다. 2026-10 이전 데이터는 정확도가 낮아 제외됩니다." };
     }
 
+    // 9. 수신자별 발송·수신확인(열람) 내역 (best-effort; 모의/미마이그레이션 환경에서도 안전 폴백)
+    type DeliveryReceipt = {
+      id: string;
+      recipientLabel: string;
+      editionLabel: string;
+      channel?: string | null;
+      sentAt: string | null;
+      openedAt: string | null;
+      status: "opened" | "sent" | "failed";
+    };
+    let deliveryReceipts: DeliveryReceipt[] = [];
+    try {
+      const subMap = new Map<string, { name: string; contact: string }>();
+      for (const s of activeSubscribers) {
+        if (s && typeof s.id === "string") {
+          const name = String(s.subscriber_name ?? "").trim() || "구독 고객";
+          const contact = String(s.subscriber_email || s.subscriber_phone || "").trim();
+          subMap.set(s.id, { name, contact });
+        }
+      }
+      const edMap = new Map<string, string>();
+      for (const ed of scopeEditions) {
+        if (ed && typeof ed.id === "string") {
+          const label =
+            (typeof ed.title === "string" && ed.title.trim()) ||
+            (typeof ed.edition_label === "string" && ed.edition_label.trim()) ||
+            "뉴스레터";
+          edMap.set(ed.id, label);
+        }
+      }
+
+      const [dispRes, viewActRes] = await Promise.all([
+        supabase
+          .from("magazine_dispatch_logs")
+          .select("id, edition_id, subscriber_id, channel, status, sent_at, created_at")
+          .in("broker_id", brokerIds)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("activity_events")
+          .select("created_at, metadata")
+          .eq("actor_id", ctx.userId)
+          .eq("event_type", "magazine_view")
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+
+      const openBySubAndEd = new Map<string, string>();
+      const openBySub = new Map<string, string>();
+      const sidViews: Array<{ subscriberId: string; editionId: string | null; issueDate: string | null; openedAt: string }> = [];
+      const viewActRows =
+        !viewActRes?.error && Array.isArray(viewActRes?.data)
+          ? (viewActRes.data as Array<{ created_at?: unknown; metadata?: unknown }>)
+          : [];
+      for (const ev of viewActRows) {
+        const meta = (ev?.metadata && typeof ev.metadata === "object" ? ev.metadata : {}) as Record<string, unknown>;
+        if (meta.source !== "sid_link") continue;
+        const subId = typeof meta.subscriber_id === "string"
+          ? meta.subscriber_id
+          : typeof meta.recipient_id === "string"
+            ? meta.recipient_id
+            : "";
+        if (!subId) continue;
+        const openedAt = ev?.created_at ? String(ev.created_at) : "";
+        if (!openedAt) continue;
+        const edId = typeof meta.edition_id === "string" && meta.edition_id ? meta.edition_id : null;
+        const issueDate = typeof meta.issue_date === "string" && meta.issue_date ? meta.issue_date : null;
+        sidViews.push({ subscriberId: subId, editionId: edId, issueDate, openedAt });
+        if (edId) {
+          const pairKey = `${subId}:${edId}`;
+          const prev = openBySubAndEd.get(pairKey);
+          if (!prev || openedAt > prev) openBySubAndEd.set(pairKey, openedAt);
+        }
+        const prevSub = openBySub.get(subId);
+        if (!prevSub || openedAt > prevSub) openBySub.set(subId, openedAt);
+      }
+
+      const dispRows =
+        !dispRes?.error && Array.isArray(dispRes?.data)
+          ? (dispRes.data as Array<Record<string, unknown>>)
+          : [];
+
+      if (dispRows.length > 0) {
+        deliveryReceipts = dispRows.slice(0, 30).map((row, idx) => {
+          const subId = typeof row.subscriber_id === "string" ? row.subscriber_id : "";
+          const edId = typeof row.edition_id === "string" ? row.edition_id : "";
+          const sub = subId ? subMap.get(subId) : undefined;
+          const recipientLabel = sub
+            ? sub.contact
+              ? `${sub.name} (${sub.contact})`
+              : sub.name
+            : "구독 고객";
+          const editionLabel = (edId && edMap.get(edId)) || "뉴스레터";
+          const sentAt =
+            (typeof row.sent_at === "string" && row.sent_at) ||
+            (typeof row.created_at === "string" && row.created_at) ||
+            null;
+          const openedAt =
+            (subId && edId ? openBySubAndEd.get(`${subId}:${edId}`) : undefined) ??
+            (subId ? openBySub.get(subId) : undefined) ??
+            null;
+          const rawStatus = typeof row.status === "string" ? row.status : "";
+          const status: "opened" | "sent" | "failed" =
+            rawStatus === "failed" || rawStatus === "blocked"
+              ? "failed"
+              : openedAt
+                ? "opened"
+                : "sent";
+          return {
+            id: typeof row.id === "string" && row.id ? row.id : `disp-${idx}`,
+            recipientLabel,
+            editionLabel,
+            channel: typeof row.channel === "string" ? row.channel : null,
+            sentAt,
+            openedAt,
+            status,
+          };
+        });
+      } else if (sidViews.length > 0) {
+        deliveryReceipts = sidViews.slice(0, 30).map((v, idx) => {
+          const sub = subMap.get(v.subscriberId);
+          const recipientLabel = sub
+            ? sub.contact
+              ? `${sub.name} (${sub.contact})`
+              : sub.name
+            : "구독 고객";
+          const editionLabel =
+            (v.editionId && edMap.get(v.editionId)) ||
+            (v.issueDate ? `${v.issueDate} 뉴스레터` : "뉴스레터");
+          return {
+            id: `sid-${v.subscriberId}-${idx}`,
+            recipientLabel,
+            editionLabel,
+            channel: null,
+            sentAt: null,
+            openedAt: v.openedAt,
+            status: "opened",
+          };
+        });
+      }
+    } catch {
+      deliveryReceipts = [];
+    }
+
     return NextResponse.json({
       subscriberCount: subscriberCount ?? 0,
       editions: editions ?? [],
       lastDistribution,
+      recentDistributions,
+      deliveryReceipts,
       viewStats: {
         totalViews,
         uniqueVisitors,

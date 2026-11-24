@@ -2,12 +2,24 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BarChart3, ExternalLink, Save } from "lucide-react";
+import {
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  Copy,
+  ExternalLink,
+  Mail,
+  RefreshCw,
+  Save,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
   useEditorPreviewSync, PreviewCausalityBar,
   type PreviewLifecycleState, type EditorUnitTarget,
 } from "@/components/workspace/preview-sync";
+import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import {
@@ -50,7 +62,10 @@ import type {
   MarketTemperature,
   MonthlyRegionalChart,
 } from "@/domain/magazine/types";
-import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { copyText, copyTextFromPromise, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
+import { EditorOutreachTab } from "@/components/magazine-editor/EditorOutreachTab";
+import { EditorAnalyticsTab } from "@/components/magazine-editor/EditorAnalyticsTab";
+import { MAGAZINE_SEND_DAY_LABEL } from "@/lib/magazine/schedule-labels";
 import { buildNewsletterKakaoGreeting } from "@/lib/magazine/kakao-greeting";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
 import { kstParts, toKstDate, todayKst } from "@/lib/magazine/kst";
@@ -84,7 +99,6 @@ import {
   formatDistributeOutcomeBanner,
   type DistributeOutcomeCardData,
 } from "./_components/distribute-result-helper";
-import { NewsletterInsightsModal } from "./_components/NewsletterInsightsModal";
 import {
   MagazineStatusBanner,
   NewsletterPreviewBody,
@@ -137,19 +151,63 @@ const STEP_TABS: readonly {
   label: string;
   shortDesc: string;
 }[] = [
-  { key: "title", label: "제목", shortDesc: "연·월 선택 및 표지 제목" },
-  { key: "content", label: "내용", shortDesc: "시장 브리핑과 추천 매물" },
-  { key: "send", label: "보내기", shortDesc: "받을 고객 확인 및 발송" },
+  { key: "title", label: "1. 제목", shortDesc: "연·월 선택 및 표지 제목" },
+  { key: "content", label: "2. 내용", shortDesc: "시장 브리핑과 추천 매물" },
+  { key: "send", label: "3. 보내기", shortDesc: "받을 고객 확인 및 발송" },
+  { key: "history", label: "4. 발송·수신확인", shortDesc: "발송 내역 · 열람(수신) 확인 · 구독자" },
 ] as const;
+
+interface HistoryReceiptItem {
+  id: string;
+  recipientLabel: string;
+  editionLabel: string;
+  channel?: string | null;
+  sentAt: string | null;
+  openedAt: string | null;
+  status: "opened" | "sent" | "failed";
+}
+
+interface HistoryDistributionItem {
+  createdAt: string | null;
+  date: string | null;
+  issueDate: string | null;
+  sentCount: number;
+  failedCount: number;
+  recordedCount: number;
+  totalCount: number;
+  dryRun: boolean;
+}
+
+function formatReceiptTimeKo(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+  } catch {
+    return iso.slice(0, 16).replace("T", " ");
+  }
+}
 
 function MagazineEditorWorkspace() {
   const router = useRouter();
   const pathname = usePathname() || "/broker/magazine-editor";
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
+  const isNewParam =
+    searchParams?.get?.("new") === "1" || searchParams?.get?.("new") === "true";
 
   // ── 1. 단계 및 기본 메타 상태 ──
-  const [activeStep, setActiveStep] = useState<NewsletterStepKey>("title");
+  const [activeStep, setActiveStep] = useState<NewsletterStepKey>(
+    () => resolveMagazineQueryAction(searchParams).step ?? "title",
+  );
   const [cadence, setCadence] = useState<NewsletterCadence>("monthly");
   const [issueDateStr, setIssueDateStr] = useState<string>(() => todayKst());
   const [editionCadenceFilter, setEditionCadenceFilter] = useState<
@@ -186,7 +244,7 @@ function MagazineEditorWorkspace() {
   const [summary, setSummary] = useState<string>("");
   const [briefingTitle, setBriefingTitle] = useState<string>("");
   const [briefingBody, setBriefingBody] = useState<string>("");
-  const [regionFocus, setRegionFocus] = useState<string>("강남·서초");
+  const [regionFocus, setRegionFocus] = useState<string>("");
   const [monthlyRegion, setMonthlyRegion] = useState<MonthlyRegionKey>("gbd");
   const [monthlyPairId, setMonthlyPairId] = useState<MonthlyChartPairId>("molit_bok");
   const [monthlyCharts, setMonthlyCharts] = useState<MonthlyRegionalChart[]>(() =>
@@ -235,8 +293,11 @@ function MagazineEditorWorkspace() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [sending, setSending] = useState<boolean>(false);
   const [isPrefsOpen, setIsPrefsOpen] = useState<boolean>(false);
-  const [isInsightsOpen, setIsInsightsOpen] = useState<boolean>(false);
   const [insightsTab, setInsightsTab] = useState<"subscribers" | "analytics">("subscribers");
+  const [historyReceipts, setHistoryReceipts] = useState<HistoryReceiptItem[]>([]);
+  const [historyDistributions, setHistoryDistributions] = useState<HistoryDistributionItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [sendDisabled, setSendDisabled] = useState<boolean>(false);
   const [statusBanner, setStatusBanner] = useState<StatusBannerState | null>(null);
   const [distributeOutcome, setDistributeOutcome] = useState<DistributeOutcomeCardData | null>(null);
@@ -257,12 +318,14 @@ function MagazineEditorWorkspace() {
   const scopeUidRef = useRef<string | null>(getLastActiveBrokerUserId());
   const userEditedSinceMountRef = useRef<boolean>(false);
   const appliedInitialParamsRef = useRef<boolean>(false);
+  const initialNewParamRef = useRef<boolean>(isNewParam);
+  const hasHandledNewQueryRef = useRef<boolean>(isNewParam);
 
   const syncUrlParams = useCallback(
     (
       nextEditionId: string | null,
       nextCadence: NewsletterCadence | "special",
-      opts?: { openMobileEditor?: boolean },
+      opts?: { openMobileEditor?: boolean; nextStep?: NewsletterStepKey },
     ) => {
       try {
         const baseSearch =
@@ -270,6 +333,7 @@ function MagazineEditorWorkspace() {
             ? window.location.search
             : searchParams?.toString?.() ?? "";
         const params = new URLSearchParams(baseSearch);
+        params.delete("new");
         if (nextEditionId) {
           params.set("editionId", nextEditionId);
           lastSyncedEditionQueryRef.current = nextEditionId;
@@ -283,6 +347,9 @@ function MagazineEditorWorkspace() {
           if (opts?.openMobileEditor) {
             params.set("tab", "editor");
           }
+        }
+        if (opts?.nextStep) {
+          params.set("step", opts.nextStep);
         }
         params.set("cadence", nextCadence === "special" ? "weekly" : nextCadence);
         const qs = params.toString();
@@ -311,6 +378,7 @@ function MagazineEditorWorkspace() {
         setSummary("");
         setBriefingTitle("");
         setBriefingBody("");
+        setRegionFocus("");
         setMarketTemp(null);
         setSelectedDealIds([]);
         setDealComments({});
@@ -347,7 +415,6 @@ function MagazineEditorWorkspace() {
       if (data.preferredPrefs) {
         setPreferredRegions(data.preferredPrefs.preferredRegions);
         setPreferredChannels(data.preferredPrefs.preferredChannels);
-        setRegionFocus(data.preferredPrefs.preferredRegions.join(", "));
       }
       if (data.unitIssuesUpdate) {
         setUnitIssues(data.unitIssuesUpdate.issues);
@@ -836,19 +903,22 @@ function MagazineEditorWorkspace() {
       searchParams?.get?.("editionId") || searchParams?.get?.("buildingId") || null;
     const initialUrlCadence = searchParams?.get?.("cadence") || null;
     const initialScopeUid = scopeUidRef.current;
+    const skipDraftResumeOnMount = initialNewParamRef.current;
 
     let initialDraft: Record<string, unknown> | null = null;
     let initialDraftKey: string | null = null;
 
     try {
       if (typeof window !== "undefined") {
-        const found = findScopedInitialDraftRecord({
-          initialUrlEditionId,
-          initialUrlCadence,
-          targetScopeUid: initialScopeUid,
-        });
-        initialDraft = found.draft;
-        initialDraftKey = found.key;
+        if (!skipDraftResumeOnMount) {
+          const found = findScopedInitialDraftRecord({
+            initialUrlEditionId,
+            initialUrlCadence,
+            targetScopeUid: initialScopeUid,
+          });
+          initialDraft = found.draft;
+          initialDraftKey = found.key;
+        }
 
         if (initialDraft) {
           hydrateFromParsedDraft(initialDraft, initialDraftKey ?? undefined);
@@ -878,6 +948,7 @@ function MagazineEditorWorkspace() {
         setSummary("");
         setBriefingTitle("");
         setBriefingBody("");
+        setRegionFocus("");
         setMarketTemp(null);
         setMonthlyRegion("gbd");
         setMonthlyPairId("molit_bok");
@@ -999,7 +1070,7 @@ function MagazineEditorWorkspace() {
               if (purgedActiveDraft) {
                 clearLastActiveSlotKey(initialScopeUid);
                 resetEditorFieldsToBlank();
-                if (verifiedScopeUid) {
+                if (verifiedScopeUid && !skipDraftResumeOnMount) {
                   const ownScoped = findScopedInitialDraftRecord({
                     initialUrlEditionId,
                     initialUrlCadence,
@@ -1019,7 +1090,7 @@ function MagazineEditorWorkspace() {
                     hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
                   }
                 }
-              } else if (!initialScopeUid && verifiedScopeUid) {
+              } else if (!initialScopeUid && verifiedScopeUid && !skipDraftResumeOnMount) {
                 if (!initialDraft && !userEditedSinceMountRef.current) {
                   const ownScoped = findScopedInitialDraftRecord({
                     initialUrlEditionId,
@@ -1056,7 +1127,6 @@ function MagazineEditorWorkspace() {
               const normPrefs = normalizeBrokerPreferences(edJson.brokerPreferences);
               setPreferredRegions(normPrefs.preferredRegions);
               setPreferredChannels(normPrefs.preferredChannels);
-              setRegionFocus(normPrefs.preferredRegions.join(", "));
               if (!initialDraft) {
                 const prefMonthlyRegion = mapPreferredRegionsToMonthlyKey(
                   normPrefs.preferredRegions,
@@ -1093,83 +1163,118 @@ function MagazineEditorWorkspace() {
                 );
               setEditions(mapped);
 
-              const sessionKey = readLastActiveSlotKey(verifiedScopeUid);
-              const sessionEditionId =
-                sessionKey &&
-                sessionKey.startsWith(SLOT_DRAFT_PREFIX) &&
-                !sessionKey.slice(SLOT_DRAFT_PREFIX.length).includes(":")
-                  ? sessionKey.slice(SLOT_DRAFT_PREFIX.length)
-                  : null;
-              const explicitUrlCadenceForServer =
-                !initialUrlEditionId &&
-                (initialUrlCadence === "daily" ||
+              if (skipDraftResumeOnMount) {
+                clearLastActiveSlotKey(verifiedScopeUid);
+                const initCadence: NewsletterCadence =
+                  initialUrlCadence === "daily" ||
                   initialUrlCadence === "weekly" ||
-                  initialUrlCadence === "monthly")
-                  ? initialUrlCadence
-                  : null;
-              const allowedSessionEditionId =
-                sessionEditionId &&
-                (!explicitUrlCadenceForServer ||
-                  mapped.some(
-                    (e) => e.id === sessionEditionId && e.cadence === explicitUrlCadenceForServer,
-                  ))
-                  ? sessionEditionId
-                  : null;
-              const desiredEditionId =
-                initialUrlEditionId ||
-                allowedSessionEditionId ||
-                (initialDraft && typeof initialDraft.editionId === "string"
-                  ? initialDraft.editionId
-                  : null);
+                  initialUrlCadence === "monthly"
+                    ? initialUrlCadence
+                    : "monthly";
+                const initBaseSlug = deriveCadenceIssueMeta(initCadence, {
+                  year: kstParts().year,
+                  month: kstParts().month,
+                  dateStr: todayKst(),
+                }).slug;
+                const hasCollision = mapped.some(
+                  (e) =>
+                    e.status === "published" &&
+                    (e.cadence ?? "monthly") === initCadence &&
+                    e.slug === initBaseSlug,
+                );
+                if (hasCollision) {
+                  for (let suffix = 2; suffix <= 9; suffix++) {
+                    const candidate = `${initBaseSlug}-${suffix}`;
+                    const taken = mapped.some(
+                      (e) =>
+                        (e.cadence ?? "monthly") === initCadence &&
+                        e.slug === candidate,
+                    );
+                    if (!taken) {
+                      setDraftSlotSlugOverride(candidate);
+                      break;
+                    }
+                  }
+                }
+              } else {
+                const sessionKey = readLastActiveSlotKey(verifiedScopeUid);
+                const sessionEditionId =
+                  sessionKey &&
+                  sessionKey.startsWith(SLOT_DRAFT_PREFIX) &&
+                  !sessionKey.slice(SLOT_DRAFT_PREFIX.length).includes(":")
+                    ? sessionKey.slice(SLOT_DRAFT_PREFIX.length)
+                    : null;
+                const explicitUrlCadenceForServer =
+                  !initialUrlEditionId &&
+                  (initialUrlCadence === "daily" ||
+                    initialUrlCadence === "weekly" ||
+                    initialUrlCadence === "monthly")
+                    ? initialUrlCadence
+                    : null;
+                const allowedSessionEditionId =
+                  sessionEditionId &&
+                  (!explicitUrlCadenceForServer ||
+                    mapped.some(
+                      (e) => e.id === sessionEditionId && e.cadence === explicitUrlCadenceForServer,
+                    ))
+                    ? sessionEditionId
+                    : null;
+                const desiredEditionId =
+                  initialUrlEditionId ||
+                  allowedSessionEditionId ||
+                  (initialDraft && typeof initialDraft.editionId === "string"
+                    ? initialDraft.editionId
+                    : null);
 
-              if (desiredEditionId) {
-                const matchedServerEd = mapped.find((e) => e.id === desiredEditionId);
-                if (matchedServerEd) {
-                  lastSyncedEditionQueryRef.current = matchedServerEd.id;
-                  const draftBelongsToDesired =
-                    initialDraft && initialDraft.editionId === matchedServerEd.id;
-                  const draftIsDirty =
-                    draftBelongsToDesired &&
-                    initialDraft?.serverPublished !== true &&
-                    initialDraft?.serverSavedDraft !== true;
-                  const draftSavedAt =
-                    draftBelongsToDesired && typeof initialDraft?.savedAt === "string"
-                      ? initialDraft.savedAt
-                      : "";
-                  const serverUpdatedAt = matchedServerEd.updatedAt ?? "";
-                  const draftIsNewerOrSame =
-                    Boolean(draftBelongsToDesired) &&
-                    Boolean(draftSavedAt) &&
-                    (!serverUpdatedAt || draftSavedAt >= serverUpdatedAt);
+                if (desiredEditionId) {
+                  const matchedServerEd = mapped.find((e) => e.id === desiredEditionId);
+                  if (matchedServerEd) {
+                    lastSyncedEditionQueryRef.current = matchedServerEd.id;
+                    const draftBelongsToDesired =
+                      initialDraft && initialDraft.editionId === matchedServerEd.id;
+                    const draftIsDirty =
+                      draftBelongsToDesired &&
+                      initialDraft?.serverPublished !== true &&
+                      initialDraft?.serverSavedDraft !== true;
+                    const draftSavedAt =
+                      draftBelongsToDesired && typeof initialDraft?.savedAt === "string"
+                        ? initialDraft.savedAt
+                        : "";
+                    const serverUpdatedAt = matchedServerEd.updatedAt ?? "";
+                    const draftIsNewerOrSame =
+                      Boolean(draftBelongsToDesired) &&
+                      Boolean(draftSavedAt) &&
+                      (!serverUpdatedAt || draftSavedAt >= serverUpdatedAt);
 
-                  if (!draftIsDirty && !draftIsNewerOrSame) {
-                    applyEditionToEditorState(matchedServerEd, {
+                    if (!draftIsDirty && !draftIsNewerOrSame) {
+                      applyEditionToEditorState(matchedServerEd, {
+                        syncUrl: false,
+                        effectiveSlugOverride: currentBrokerSlug,
+                      });
+                    } else {
+                      restoredLocalIssuesRef.current = true;
+                    }
+                  }
+                } else if (!initialDraft && !userEditedSinceMountRef.current) {
+                  // 기기 간 초안 이어쓰기: PC에서 저장된 작성 중 초안을 스마트폰 진입 시 자동 복원
+                  const resumableServerDraft = mapped.find(
+                    (e) =>
+                      e.status === "draft" &&
+                      (!explicitUrlCadenceForServer ||
+                        (e.cadence ?? "monthly") === explicitUrlCadenceForServer) &&
+                      Boolean(
+                        e.title.trim() ||
+                          e.briefingBody?.trim() ||
+                          e.summary?.trim() ||
+                          (e.selectedDealIds && e.selectedDealIds.length > 0),
+                      ),
+                  );
+                  if (resumableServerDraft) {
+                    applyEditionToEditorState(resumableServerDraft, {
                       syncUrl: false,
                       effectiveSlugOverride: currentBrokerSlug,
                     });
-                  } else {
-                    restoredLocalIssuesRef.current = true;
                   }
-                }
-              } else if (!initialDraft && !userEditedSinceMountRef.current) {
-                // 기기 간 초안 이어쓰기: PC에서 저장된 작성 중 초안을 스마트폰 진입 시 자동 복원
-                const resumableServerDraft = mapped.find(
-                  (e) =>
-                    e.status === "draft" &&
-                    (!explicitUrlCadenceForServer ||
-                      (e.cadence ?? "monthly") === explicitUrlCadenceForServer) &&
-                    Boolean(
-                      e.title.trim() ||
-                        e.briefingBody?.trim() ||
-                        e.summary?.trim() ||
-                        (e.selectedDealIds && e.selectedDealIds.length > 0),
-                    ),
-                );
-                if (resumableServerDraft) {
-                  applyEditionToEditorState(resumableServerDraft, {
-                    syncUrl: false,
-                    effectiveSlugOverride: currentBrokerSlug,
-                  });
                 }
               }
             }
@@ -1186,17 +1291,24 @@ function MagazineEditorWorkspace() {
           ) {
             clearLastActiveSlotKey(initialScopeUid);
             resetEditorFieldsToBlank();
-            const ownScoped = findScopedInitialDraftRecord({
-              initialUrlEditionId,
-              initialUrlCadence,
-              targetScopeUid: authUid,
-            });
-            if (ownScoped.draft && !isBrokerMismatch(ownScoped.draft, authUid, "", authUid)) {
-              initialDraft = ownScoped.draft;
-              initialDraftKey = ownScoped.key;
-              hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
+            if (!skipDraftResumeOnMount) {
+              const ownScoped = findScopedInitialDraftRecord({
+                initialUrlEditionId,
+                initialUrlCadence,
+                targetScopeUid: authUid,
+              });
+              if (ownScoped.draft && !isBrokerMismatch(ownScoped.draft, authUid, "", authUid)) {
+                initialDraft = ownScoped.draft;
+                initialDraftKey = ownScoped.key;
+                hydrateFromParsedDraft(ownScoped.draft, ownScoped.key ?? undefined);
+              }
             }
-          } else if (!initialScopeUid && !initialDraft && !userEditedSinceMountRef.current) {
+          } else if (
+            !skipDraftResumeOnMount &&
+            !initialScopeUid &&
+            !initialDraft &&
+            !userEditedSinceMountRef.current
+          ) {
             const ownScoped = findScopedInitialDraftRecord({
               initialUrlEditionId,
               initialUrlCadence,
@@ -1282,7 +1394,7 @@ function MagazineEditorWorkspace() {
       }
       if (action.insightsTab) {
         setInsightsTab(action.insightsTab);
-        setIsInsightsOpen(true);
+        setActiveStep("history");
       }
       if (action.step) setActiveStep(action.step);
     });
@@ -1290,6 +1402,55 @@ function MagazineEditorWorkspace() {
       cancelled = true;
     };
   }, [isWorkspaceHydrated, searchParams]);
+
+  useEffect(() => {
+    if (!isNewParam) {
+      hasHandledNewQueryRef.current = false;
+      return;
+    }
+    if (!isWorkspaceHydrated || hasHandledNewQueryRef.current) return;
+    hasHandledNewQueryRef.current = true;
+    handleStartNewThisMonth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNewParam, isWorkspaceHydrated]);
+
+  const fetchHistoryAnalytics = useCallback(async () => {
+    if (typeof fetch === "undefined") return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch("/api/broker/magazine/analytics?tier=warm", {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setHistoryError("발송·수신확인 내역을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      const json = (await res.json().catch(() => null)) as {
+        deliveryReceipts?: unknown;
+        recentDistributions?: unknown;
+      } | null;
+      setHistoryReceipts(
+        Array.isArray(json?.deliveryReceipts)
+          ? (json.deliveryReceipts as HistoryReceiptItem[])
+          : [],
+      );
+      setHistoryDistributions(
+        Array.isArray(json?.recentDistributions)
+          ? (json.recentDistributions as HistoryDistributionItem[])
+          : [],
+      );
+    } catch {
+      setHistoryError("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeStep !== "history") return;
+    void fetchHistoryAnalytics();
+  }, [activeStep, fetchHistoryAnalytics]);
 
   // 월간 상단 통계 그래픽 2선 — 공공 DB 적재 행 자동 승격
   useEffect(() => {
@@ -1332,6 +1493,7 @@ function MagazineEditorWorkspace() {
   const handleServerSave = useCallback(
     async (opts?: {
       saveAsDraft?: boolean;
+      refreshPublishDate?: boolean;
     }): Promise<{
       ok: boolean;
       publicUrl: string | null;
@@ -1372,31 +1534,34 @@ function MagazineEditorWorkspace() {
           monthlyRegion,
           monthlyPairId,
         );
-        const requestBody = buildIssueRequestBody({
-          editionId,
-          cadence,
-          autoMeta,
-          fallbackIsoDate,
-          issueSlug,
-          shouldSaveAsDraft,
-          createDistinctIfPublished: Boolean(draftSlotSlugOverride) || hasPublishedCollision,
-          headline,
-          summary,
-          briefingTitle,
-          briefingBody,
-          marketTemp,
-          monthlyRegion,
-          monthlyPairId,
-          populatedMonthlyCharts,
-          selectedDealIds,
-          selectedDealSnapshots,
-          dealComments,
-          unitIssues,
-          preferredRegions,
-          preferredChannels,
-          sections,
-          targetSegment,
-        });
+        const requestBody = {
+          ...buildIssueRequestBody({
+            editionId,
+            cadence,
+            autoMeta,
+            fallbackIsoDate,
+            issueSlug,
+            shouldSaveAsDraft,
+            createDistinctIfPublished: Boolean(draftSlotSlugOverride) || hasPublishedCollision,
+            headline,
+            summary,
+            briefingTitle,
+            briefingBody,
+            marketTemp,
+            monthlyRegion,
+            monthlyPairId,
+            populatedMonthlyCharts,
+            selectedDealIds,
+            selectedDealSnapshots,
+            dealComments,
+            unitIssues,
+            preferredRegions,
+            preferredChannels,
+            sections,
+            targetSegment,
+          }),
+          ...(opts?.refreshPublishDate ? { refreshPublishDate: true } : {}),
+        };
 
         const res = await fetch("/api/magazine/issues", {
           method: "POST",
@@ -1443,6 +1608,9 @@ function MagazineEditorWorkspace() {
           autosave.markClean();
           setPublishedUrl(parsed.resolvedUrl);
           setIsPublished(!shouldSaveAsDraft);
+          if (!shouldSaveAsDraft && isValidIsoDate(parsed.savedIssueDate)) {
+            setIssueDateStr(parsed.savedIssueDate);
+          }
           setLocalStorageMode("none");
           setSaveState("saved");
           setLastSavedAt(new Date());
@@ -1599,10 +1767,14 @@ function MagazineEditorWorkspace() {
     }
   }, [handleServerSave, isPublished]);
 
-  const handleSelectStep = useCallback((nextStep: NewsletterStepKey) => {
-    setActiveStep(nextStep);
-    setStatusBanner(null);
-  }, []);
+  const handleSelectStep = useCallback(
+    (nextStep: NewsletterStepKey) => {
+      setActiveStep(nextStep);
+      setStatusBanner(null);
+      syncUrlParams(editionId, cadence, { nextStep });
+    },
+    [cadence, editionId, syncUrlParams],
+  );
 
   // ── 8. 주기 전환 / 새로 쓰기 / 복제 / 2단계 확인 삭제 ──
   const findEditionFor = useCallback(
@@ -1656,6 +1828,7 @@ function MagazineEditorWorkspace() {
     setSummary("");
     setBriefingTitle("");
     setBriefingBody("");
+    setRegionFocus("");
     const mappedRegion = mapPreferredRegionsToMonthlyKey(preferredRegions);
     setMarketTemp(null);
     setMonthlyRegion(mappedRegion);
@@ -2296,39 +2469,62 @@ function MagazineEditorWorkspace() {
 
   // ── 11. 정직한 링크 복사 · 카카오톡 공유 · 통합 발송 ──
   const handleCopyLink = async () => {
-    let targetUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
+    const existingUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
     const needsServerSave =
-      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error" || saveState === "conflict";
-    if (needsServerSave) {
-      if (!headline.trim()) {
-        setActiveStep("title");
-        setStatusBanner({
-          tone: "error",
-          message: "표지 제목을 입력하면 바로 보낼 수 있어요",
-        });
-        return;
-      }
-      const saved = await handleServerSave({ saveAsDraft: false });
-      if (!saved.ok || !saved.publicUrl) {
-        setStatusBanner(
-          saved.errorBanner ?? {
-            tone: "error",
-            message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-          },
-        );
-        return;
-      }
-      targetUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+      !existingUrl ||
+      !isPublished ||
+      saveState === "dirty" ||
+      saveState === "error" ||
+      saveState === "conflict";
+
+    if (needsServerSave && !headline.trim()) {
+      setActiveStep("title");
+      setStatusBanner({
+        tone: "error",
+        message: "표지 제목을 입력하면 바로 보낼 수 있어요",
+      });
+      return;
     }
 
-    const copied = await copyText(targetUrl!);
-    if (copied) {
+    if (!needsServerSave && existingUrl) {
+      const copied = await copyText(existingUrl);
+      if (copied) {
+        setStatusBanner({ tone: "success", message: "링크를 복사했어요" });
+      } else {
+        setStatusBanner({
+          tone: "error",
+          message: COPY_FAILED_MESSAGE,
+          fallbackUrl: existingUrl,
+        });
+      }
+      return;
+    }
+
+    let saveErrorBanner: StatusBannerState | null = null;
+    const { ok, text: resolvedCopiedUrl } = await copyTextFromPromise(async () => {
+      const saved = await handleServerSave({ saveAsDraft: false });
+      if (!saved.ok || !saved.publicUrl) {
+        saveErrorBanner = saved.errorBanner ?? {
+          tone: "error",
+          message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+        };
+        return null;
+      }
+      return appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+    });
+
+    if (saveErrorBanner) {
+      setStatusBanner(saveErrorBanner);
+      return;
+    }
+
+    if (ok) {
       setStatusBanner({ tone: "success", message: "링크를 복사했어요" });
     } else {
       setStatusBanner({
         tone: "error",
         message: COPY_FAILED_MESSAGE,
-        fallbackUrl: targetUrl ?? undefined,
+        fallbackUrl: resolvedCopiedUrl ?? undefined,
       });
     }
   };
@@ -2343,39 +2539,72 @@ function MagazineEditorWorkspace() {
       return;
     }
 
-    let targetUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
+    const existingUrl = appendTargetSegmentToUrl(publishedUrl, targetSegment);
     const needsServerSave =
-      !targetUrl || !isPublished || saveState === "dirty" || saveState === "error" || saveState === "conflict";
-    if (needsServerSave) {
-      const saved = await handleServerSave({ saveAsDraft: false });
-      if (!saved.ok || !saved.publicUrl) {
-        setStatusBanner(
-          saved.errorBanner ?? {
-            tone: "error",
-            message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-          },
-        );
-        return;
+      !existingUrl ||
+      !isPublished ||
+      saveState === "dirty" ||
+      saveState === "error" ||
+      saveState === "conflict";
+
+    if (!needsServerSave && existingUrl) {
+      const greetingText = buildNewsletterKakaoGreeting({
+        headline: headline.trim(),
+        briefingBody,
+        publicUrl: existingUrl,
+        brokerName,
+        brokerOffice,
+        brokerPhone,
+      });
+      const copied = await copyText(greetingText);
+      if (copied) {
+        setStatusBanner({ tone: "success", message: "카카오톡 인사말을 복사했어요" });
+      } else {
+        setStatusBanner({
+          tone: "error",
+          message: COPY_FAILED_MESSAGE,
+          fallbackUrl: existingUrl,
+        });
       }
-      targetUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+      return;
     }
 
-    const greetingText = buildNewsletterKakaoGreeting({
-      headline: headline.trim(),
-      briefingBody,
-      publicUrl: targetUrl!,
-      brokerName,
-      brokerOffice,
-      brokerPhone,
+    let saveErrorBanner: StatusBannerState | null = null;
+    let resolvedTargetUrl: string | undefined;
+    const { ok } = await copyTextFromPromise(async () => {
+      const saved = await handleServerSave({ saveAsDraft: false });
+      if (!saved.ok || !saved.publicUrl) {
+        saveErrorBanner = saved.errorBanner ?? {
+          tone: "error",
+          message: "아직 뉴스레터 주소를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+        };
+        return null;
+      }
+      const nextUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+      if (!nextUrl) return null;
+      resolvedTargetUrl = nextUrl;
+      return buildNewsletterKakaoGreeting({
+        headline: headline.trim(),
+        briefingBody,
+        publicUrl: nextUrl,
+        brokerName,
+        brokerOffice,
+        brokerPhone,
+      });
     });
-    const copied = await copyText(greetingText);
-    if (copied) {
+
+    if (saveErrorBanner) {
+      setStatusBanner(saveErrorBanner);
+      return;
+    }
+
+    if (ok) {
       setStatusBanner({ tone: "success", message: "카카오톡 인사말을 복사했어요" });
     } else {
       setStatusBanner({
         tone: "error",
         message: COPY_FAILED_MESSAGE,
-        fallbackUrl: targetUrl ?? undefined,
+        fallbackUrl: resolvedTargetUrl,
       });
     }
   };
@@ -2435,6 +2664,65 @@ function MagazineEditorWorkspace() {
     }
   };
 
+  const handlePublishWebOnly = async (opts?: { scheduleMorning?: boolean }) => {
+    if (sending) return;
+    const briefingOn = isSectionEnabled("field_note");
+    const dealsOn = isSectionEnabled("featured_deals");
+    const newsOn = isSectionEnabled("news_curation");
+
+    const hint = getNextPublishHint({
+      headline,
+      briefingBody,
+      dealCount: selectedDealIds.length,
+      newsCount: newsOn ? unitIssues.length : 0,
+      briefingEnabled: briefingOn,
+      dealsEnabled: dealsOn,
+      newsEnabled: newsOn,
+    });
+
+    if (hint) {
+      setActiveStep(hint.targetStep);
+      setStatusBanner({ tone: "error", message: hint.message });
+      return;
+    }
+
+    setSending(true);
+    setStatusBanner(null);
+
+    try {
+      const today = todayKst();
+      const prevPublishedKst = selectedSavedEdition?.publishedAt
+        ? toKstDate(new Date(selectedSavedEdition.publishedAt))
+        : null;
+      const shouldRefreshDate =
+        !isPublished ||
+        issueDateStr < today ||
+        (prevPublishedKst !== null && prevPublishedKst < today);
+      const saved = await handleServerSave({
+        saveAsDraft: false,
+        refreshPublishDate: shouldRefreshDate,
+      });
+      const nextUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
+      if (!saved.ok || !nextUrl) {
+        setStatusBanner(
+          saved.errorBanner ?? {
+            tone: "error",
+            message: "뉴스레터 웹 발행에 실패했어요. 잠시 후 다시 시도해 주세요.",
+          },
+        );
+        return;
+      }
+      setStatusBanner({
+        tone: "success",
+        message: opts?.scheduleMorning
+          ? "웹 발행을 완료했습니다. 오전 08:30 정규 발송 기준에 맞춰 안전하게 전달할 수 있어요."
+          : "웹 링크 발행을 완료했어요. 아래 복사 버튼으로 카카오톡·문자에 바로 전달하세요.",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleSendSelected = async () => {
     if (sending) return;
 
@@ -2462,7 +2750,18 @@ function MagazineEditorWorkspace() {
     setStatusBanner(null);
 
     try {
-      const saved = await handleServerSave({ saveAsDraft: false });
+      const today = todayKst();
+      const prevPublishedKst = selectedSavedEdition?.publishedAt
+        ? toKstDate(new Date(selectedSavedEdition.publishedAt))
+        : null;
+      const shouldRefreshDate =
+        !isPublished ||
+        issueDateStr < today ||
+        (prevPublishedKst !== null && prevPublishedKst < today);
+      const saved = await handleServerSave({
+        saveAsDraft: false,
+        refreshPublishDate: shouldRefreshDate,
+      });
       const publicUrl = appendTargetSegmentToUrl(saved.publicUrl, targetSegment);
       if (!saved.ok || !publicUrl) {
         setStatusBanner(
@@ -2571,8 +2870,8 @@ function MagazineEditorWorkspace() {
         >
           <div
             role="tablist"
-            aria-label="뉴스레터 작성 3단계"
-            className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs"
+            aria-label="뉴스레터 작성 4단계"
+            className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs"
           >
             {STEP_TABS.map((tab) => {
               const selected = activeStep === tab.key;
@@ -2581,7 +2880,9 @@ function MagazineEditorWorkspace() {
                   ? headline.trim().length > 0
                   : tab.key === "content"
                     ? briefingBody.trim().length > 0 || selectedDealIds.length > 0
-                    : isPublished && saveState === "saved";
+                    : tab.key === "send"
+                      ? isPublished && saveState === "saved"
+                      : false;
               return (
                 <button
                   key={tab.key}
@@ -2592,7 +2893,7 @@ function MagazineEditorWorkspace() {
                   aria-controls={`newsletter-panel-${tab.key}`}
                   data-testid={`step-tab-${tab.key}`}
                   onClick={() => handleSelectStep(tab.key)}
-                  className={`min-h-[48px] rounded-xl px-2.5 py-2 text-base font-extrabold transition flex flex-wrap items-center justify-center gap-1.5 overflow-hidden ${
+                  className={`min-h-[48px] rounded-xl px-2.5 py-2 text-base font-extrabold transition flex flex-wrap items-center justify-center gap-1.5 overflow-hidden cursor-pointer ${
                     selected
                       ? "border-2 border-blue-500 bg-blue-50/90 text-blue-950 shadow-2xs"
                       : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
@@ -2614,8 +2915,8 @@ function MagazineEditorWorkspace() {
             <button
               type="button"
               data-testid="magazine-insights-open-btn"
-              onClick={() => setIsInsightsOpen(true)}
-              className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-800 shadow-2xs transition hover:bg-slate-50 shrink-0"
+              onClick={() => handleSelectStep("history")}
+              className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-800 shadow-2xs transition hover:bg-slate-50 shrink-0 cursor-pointer"
             >
               <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>구독자·성과</span>
@@ -2648,9 +2949,16 @@ function MagazineEditorWorkspace() {
           </div>
         </div>
 
-        <MagazineStatusBanner statusBanner={statusBanner} />
+        <MagazineStatusBanner
+          statusBanner={statusBanner}
+          suppressUrlInput={
+            activeStep === "send" &&
+            isPublished &&
+            Boolean(activeReaderPreviewUrl)
+          }
+        />
 
-        {isPublished && activeReaderPreviewUrl && (
+        {isPublished && activeReaderPreviewUrl && activeStep !== "send" && (
           <div
             data-testid="newsletter-inline-live-bar"
             className="xl:hidden flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-2xs"
@@ -2861,15 +3169,203 @@ function MagazineEditorWorkspace() {
             isPublished={isPublished}
             publicUrl={activeReaderPreviewUrl}
             distributeOutcome={distributeOutcome}
-            onJumpToStep={(step) => setActiveStep(step)}
+            onJumpToStep={(step) => handleSelectStep(step)}
             onNotifyEditorFocus={sync.notifyEditorFocus}
             onBulkSubscribersImported={handleBulkSubscribersImported}
             onKakaoShare={() => void handleKakaoShare()}
             onCopyLink={() => void handleCopyLink()}
             onCopyKakaoGreeting={() => void handleCopyKakaoGreeting()}
+            onPublishWebOnly={(opts) => void handlePublishWebOnly(opts)}
             onBackToContent={() => handleSelectStep("content")}
             onSendSelected={() => void handleSendSelected()}
           />
+        )}
+
+        {activeStep === "history" && (
+          <div
+            id="newsletter-panel-history"
+            role="tabpanel"
+            aria-labelledby="newsletter-tab-history"
+            className="space-y-5"
+          >
+            {/* 1. 이메일 수신확인형 발송·열람 내역 */}
+            <section
+              data-testid="newsletter-delivery-receipts-section"
+              aria-label="발송 및 수신확인 내역"
+              className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-blue-700" aria-hidden="true" />
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      발송 · 수신확인 내역
+                    </h3>
+                  </div>
+                  <p className="text-sm font-medium text-slate-600">
+                    구독자별 발송 시각과 개인 링크 열람(수신확인) 여부를 바로 확인합니다.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-bold text-slate-800">
+                    전체 {historyReceipts.length}건
+                  </span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-extrabold text-emerald-900">
+                    열람 {historyReceipts.filter((r) => r.status === "opened").length}건
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="history-receipts-refresh-btn"
+                    onClick={() => void fetchHistoryAnalytics()}
+                    disabled={historyLoading}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${historyLoading ? "animate-spin text-blue-700" : ""}`}
+                      aria-hidden="true"
+                    />
+                    <span>새로고침</span>
+                  </button>
+                </div>
+              </div>
+
+              {historyDistributions.length > 0 && (
+                <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  {historyDistributions.slice(0, 3).map((d, idx) => (
+                    <span
+                      key={`${d.createdAt ?? d.date ?? idx}-${idx}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold text-slate-800"
+                    >
+                      <span>{d.issueDate || d.date || "최근 발송"}</span>
+                      <span className="text-blue-800">발송 {d.sentCount}건</span>
+                      {d.failedCount > 0 && (
+                        <span className="text-rose-700">· 실패 {d.failedCount}건</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {historyError ? (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-900"
+                >
+                  {historyError}
+                </div>
+              ) : historyLoading && historyReceipts.length === 0 ? (
+                <p className="py-4 text-sm font-medium text-slate-600">
+                  발송 및 수신확인 기록을 불러오는 중입니다…
+                </p>
+              ) : historyReceipts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center space-y-2">
+                  <p className="text-base font-bold text-slate-800">
+                    아직 기록된 발송 · 수신확인 내역이 없습니다
+                  </p>
+                  <p className="text-sm font-medium text-slate-600">
+                    3. 보내기 단계에서 구독자에게 발송하면 수신자별 발송 상태와 열람 시간이 이곳에 표시됩니다.
+                  </p>
+                </div>
+              ) : (
+                <ul
+                  aria-label="수신자별 발송 및 열람 내역"
+                  className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white"
+                >
+                  {historyReceipts.map((item) => {
+                    const sentLabel = formatReceiptTimeKo(item.sentAt);
+                    const openedLabel = formatReceiptTimeKo(item.openedAt);
+                    return (
+                      <li
+                        key={item.id}
+                        data-testid={`delivery-receipt-row-${item.id}`}
+                        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <p className="truncate text-base font-extrabold text-slate-900">
+                            {item.recipientLabel}
+                          </p>
+                          <p className="truncate text-sm font-medium text-slate-600">
+                            {item.editionLabel}
+                            {sentLabel ? ` · 발송 ${sentLabel}` : ""}
+                          </p>
+                        </div>
+
+                        {item.status === "opened" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-extrabold text-emerald-900 shrink-0">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                            <span>
+                              ✓ 열람 완료{openedLabel ? ` (${openedLabel})` : ""}
+                            </span>
+                          </span>
+                        ) : item.status === "failed" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm font-extrabold text-rose-900 shrink-0">
+                            <XCircle className="h-4 w-4 text-rose-700" aria-hidden="true" />
+                            <span>발송 실패</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700 shrink-0">
+                            <Clock className="h-4 w-4 text-slate-600" aria-hidden="true" />
+                            <span>발송됨 (미열람)</span>
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            {/* 2. 구독자 관리 · 발행 성과 요약 인라인 탭 */}
+            <section
+              aria-label="구독자 관리 및 발행 성과"
+              className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4"
+            >
+              <div
+                role="tablist"
+                aria-label="구독자 및 발행 성과 보기 전환"
+                className="flex gap-2 rounded-xl bg-slate-100 p-1"
+              >
+                {(
+                  [
+                    { key: "subscribers" as const, label: "구독자 관리" },
+                    { key: "analytics" as const, label: "발행 성과 요약" },
+                  ] as const
+                ).map((sub) => (
+                  <button
+                    key={sub.key}
+                    type="button"
+                    role="tab"
+                    data-testid={`history-subtab-${sub.key}`}
+                    aria-selected={insightsTab === sub.key}
+                    onClick={() => setInsightsTab(sub.key)}
+                    className={`flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-extrabold transition cursor-pointer ${
+                      insightsTab === sub.key
+                        ? "bg-white text-slate-900 shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+
+              {insightsTab === "subscribers" ? (
+                <EditorOutreachTab
+                  brokerSlug={brokerSlug || "me"}
+                  brokerName={brokerName || "공인중개사"}
+                  baseUrl={resolvePublicBaseUrl() ?? getSiteOrigin()}
+                  sendDayLabel={MAGAZINE_SEND_DAY_LABEL}
+                  sendDisabled={sendDisabled}
+                  editionDate={issueDateStr}
+                  shareTitle={headline}
+                  deals={deals.map((d) => ({ id: d.id, title: d.title }))}
+                />
+              ) : (
+                <EditorAnalyticsTab brokerDisplayName={brokerName || null} />
+              )}
+            </section>
+          </div>
         )}
       </div>
     </div>
@@ -2933,7 +3429,7 @@ function MagazineEditorWorkspace() {
         activeStep={activeStep}
         briefingBody={briefingBody}
         selectedDealCount={selectedDealIds.length}
-        onJumpToStep={(step) => setActiveStep(step)}
+        onJumpToStep={(step) => handleSelectStep(step)}
       />
     </div>
   );
@@ -3036,6 +3532,27 @@ function MagazineEditorWorkspace() {
         }}
         onManualSync={() => { void handleManualSync(); }}
         isSyncing={isManualSyncing}
+        editorHeaderActions={
+          selectedSavedEdition ? (
+            <>
+              <EditorHeaderActionButton
+                testId="edition-header-duplicate-btn"
+                label="복제"
+                title={`${selectedSavedEdition.title || selectedSavedEdition.slug} 복제`}
+                icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+                onClick={(e) => handleDuplicateEdition(selectedSavedEdition, e)}
+              />
+              <EditorHeaderActionButton
+                testId="edition-header-delete-btn"
+                label="삭제"
+                title={`${selectedSavedEdition.title || selectedSavedEdition.slug} 삭제`}
+                tone="danger"
+                icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+                onClick={(e) => handleRequestDeleteEdition(selectedSavedEdition, e)}
+              />
+            </>
+          ) : null
+        }
         primaryActionSlot={primaryActionSlot}
         listSlot={listSlot}
         editorSlot={editorSlot}
@@ -3046,20 +3563,6 @@ function MagazineEditorWorkspace() {
         targetEdition={pendingDeleteEdition}
         onCancel={() => setPendingDeleteEdition(null)}
         onConfirm={() => void handleConfirmDeleteEdition()}
-      />
-      <NewsletterInsightsModal
-        open={isInsightsOpen}
-        onOpenChange={setIsInsightsOpen}
-        insightsTab={insightsTab}
-        onTabChange={setInsightsTab}
-        sendDisabled={sendDisabled}
-        onSendDisabledChange={setSendDisabled}
-        brokerSlug={brokerSlug || "me"}
-        brokerName={brokerName || "공인중개사"}
-        baseUrl={resolvePublicBaseUrl() ?? getSiteOrigin()}
-        editionDate={issueDateStr}
-        shareTitle={headline}
-        deals={deals.map((d) => ({ id: d.id, title: d.title }))}
       />
     </div>
   );

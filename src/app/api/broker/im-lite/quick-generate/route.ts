@@ -1101,6 +1101,7 @@ export async function POST(req: NextRequest) {
   // Fetch authenticated broker's saved profile from Supabase if available
   let dbBrokerProfile: {
     displayName?: string;
+    representativeName?: string;
     company?: string;
     phone?: string;
     officeAddress?: string;
@@ -1144,7 +1145,8 @@ export async function POST(req: NextRequest) {
 
         if (pRow || bpRow) {
           dbBrokerProfile = {
-            displayName: pRow?.display_name || bpRow?.representative_name || bpRow?.name || undefined,
+            displayName: pRow?.display_name || bpRow?.name || bpRow?.representative_name || undefined,
+            representativeName: bpRow?.representative_name || undefined,
             company: pRow?.company || undefined,
             phone: pRow?.phone || undefined,
             officeAddress: bpRow?.office_address || undefined,
@@ -1193,6 +1195,11 @@ export async function POST(req: NextRequest) {
     cleanBrokerVal(dbBrokerProfile?.officeAddress) ||
     '';
 
+  const resolvedDisplayNameVal =
+    cleanBrokerVal(brokerName) ||
+    cleanBrokerVal(dbBrokerProfile?.displayName) ||
+    '';
+
   const brokerOfficeObj = {
     name:
       cleanBrokerVal(brokerageName) ||
@@ -1201,9 +1208,11 @@ export async function POST(req: NextRequest) {
       cleanBrokerVal(dbBrokerProfile?.company) ||
       '',
     representative:
-      cleanBrokerVal(brokerName) ||
+      cleanBrokerVal(body.brokerOffice?.representativeName) ||
+      cleanBrokerVal(body.brokerOffice?.representative_name) ||
+      cleanBrokerVal(dbBrokerProfile?.representativeName) ||
       cleanBrokerVal(body.brokerOffice?.representative) ||
-      cleanBrokerVal(dbBrokerProfile?.displayName) ||
+      resolvedDisplayNameVal ||
       '',
     registrationNo:
       cleanBrokerVal(body.brokerRegNo) ||
@@ -2461,13 +2470,16 @@ export async function POST(req: NextRequest) {
     ...(closingLine ? { closingLine, closing_line: closingLine } : {}),
     ...(parsedExtras ? { broker_extras: parsedExtras } : {}),
     broker_contact: {
-      name: brokerOfficeObj.representative,
+      name: resolvedDisplayNameVal || brokerOfficeObj.representative,
       company: brokerOfficeObj.name,
       phone: brokerOfficeObj.phone,
       officeAddress: brokerOfficeObj.officeAddress,
       office_address: brokerOfficeObj.officeAddress,
       registration_no: brokerOfficeObj.registrationNo,
-      brokerName: brokerOfficeObj.representative,
+      brokerName: resolvedDisplayNameVal || brokerOfficeObj.representative,
+      representativeName: brokerOfficeObj.representative,
+      representative_name: brokerOfficeObj.representative,
+      representative: brokerOfficeObj.representative,
       brokerageName: brokerOfficeObj.name,
       brokerPhone: brokerOfficeObj.phone,
       registrationNo: brokerOfficeObj.registrationNo,
@@ -2616,14 +2628,25 @@ export async function POST(req: NextRequest) {
 
   const requestedRegionRaw =
     typeof body.region === 'string' && body.region.trim() ? body.region.trim() : card4.region;
-  const cleanedRegionCandidate = stripBlindIdentifiers(requestedRegionRaw, '', '')
-    .replace(/(?:산\s*)?\b\d{1,5}(?:-\d{1,5})?(?:\s*번지)?\b/g, '')
+  const stripLotNumbersSafe = (raw: string): string =>
+    raw
+      .replace(
+        /([가-힣0-9]+(?:동|로)\s*\d+가|[가-힣]+(?:동|읍|면|리|대로|번길|로|길))\s+(?:산\s*)?\d+(?:-\d+)?(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d+(?:-\d+)?(?:\s*번지)?)*(?:\s*외\s*\d*\s*필지)?/g,
+        '$1'
+      )
+      .replace(
+        /(?<![가-힣0-9])(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?!(?:가|동|읍|면|리|로|길|번길|호선|역|[가-힣\d]))/g,
+        ''
+      );
+  const cleanedRegionCandidate = stripLotNumbersSafe(
+    stripBlindIdentifiers(requestedRegionRaw, '', '')
+  )
     .replace(/(?:OO번지|OO-OO|인근)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  const hasUnmaskedLotNumber = /(?:-\d+|번지|\s+\d+)/.test(cleanedRegionCandidate);
   const safePublicRegion =
-    !cleanedRegionCandidate ||
-    /\d/.test(cleanedRegionCandidate)
+    !cleanedRegionCandidate || hasUnmaskedLotNumber
       ? derivedRegion
       : cleanedRegionCandidate.slice(0, 14);
 
@@ -2720,8 +2743,12 @@ export async function POST(req: NextRequest) {
 
     const existingRegionRaw =
       typeof existingPayload.region === 'string' ? existingPayload.region.trim() : '';
+    const isLegacyBrokenDongGa =
+      /동가$/.test(existingRegionRaw) && /동\d+가$/.test(generatedCard4.region);
     const preservedRegion =
-      existingRegionRaw && existingRegionRaw !== DEALCARD_PLACEHOLDER_REGION
+      existingRegionRaw &&
+      existingRegionRaw !== DEALCARD_PLACEHOLDER_REGION &&
+      !isLegacyBrokenDongGa
         ? stripBlindIdentifiers(existingRegionRaw, '', '') || generatedCard4.region
         : generatedCard4.region;
 
@@ -2771,7 +2798,8 @@ export async function POST(req: NextRequest) {
     office_reg_number: brokerOfficeObj.registrationNo,
     representativeName: brokerOfficeObj.representative,
     representative_name: brokerOfficeObj.representative,
-    displayName: brokerOfficeObj.representative,
+    representative: brokerOfficeObj.representative,
+    displayName: resolvedDisplayNameVal || brokerOfficeObj.representative,
   };
   const dealCardContentGate = evaluateDealCardPublishContent(card4ForPublic);
   const canPublishCompanionDealCard =
@@ -2817,7 +2845,9 @@ export async function POST(req: NextRequest) {
       ...(body.mainPurpose ? { mainPurpose: String(body.mainPurpose) } : {}),
     },
     brokerProfile: {
-      displayName: brokerOfficeObj.representative,
+      displayName: resolvedDisplayNameVal || brokerOfficeObj.representative,
+      representativeName: brokerOfficeObj.representative,
+      officeAddress: brokerOfficeObj.officeAddress || undefined,
       company: brokerOfficeObj.name,
       phone: brokerOfficeObj.phone,
       registrationNo: brokerOfficeObj.registrationNo,

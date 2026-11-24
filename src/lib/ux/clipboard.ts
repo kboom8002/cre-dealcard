@@ -23,11 +23,69 @@ export async function copyText(text: string): Promise<boolean> {
     ta.style.top = '-1000px';
     ta.style.opacity = '0';
     document.body.appendChild(ta);
+    ta.focus();
     ta.select();
+    if (typeof ta.setSelectionRange === 'function') {
+      ta.setSelectionRange(0, text.length);
+    }
     const ok = typeof document.execCommand === 'function' ? document.execCommand('copy') : false;
     ta.remove();
     return !!ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * 비동기 저장 후 클립보드 복사를 사용자 제스처 컨텍스트 안에서 즉시 시작한다.
+ * ClipboardItem(Promise<Blob>) 지원 브라우저에서는 클릭 제스처를 유지한 채 비동기 텍스트를 복사하고,
+ * 미지원/거부 환경에서는 텍스트 해석 후 copyText 폴백을 수행한다.
+ */
+export async function copyTextFromPromise(
+  getText: () => Promise<string | null | undefined>,
+): Promise<{ ok: boolean; text: string | null }> {
+  if (typeof window === 'undefined') return { ok: false, text: null };
+
+  let resolvedText: string | null = null;
+  let sharedPromise: Promise<string | null> | null = null;
+  const resolveOnce = (): Promise<string | null> => {
+    if (!sharedPromise) {
+      sharedPromise = getText().then((val) => {
+        resolvedText = typeof val === 'string' && val.length > 0 ? val : null;
+        return resolvedText;
+      });
+    }
+    return sharedPromise;
+  };
+
+  const canUseClipboardItem =
+    typeof ClipboardItem !== 'undefined' &&
+    typeof navigator?.clipboard?.write === 'function' &&
+    window.isSecureContext !== false;
+
+  if (canUseClipboardItem) {
+    try {
+      const blobPromise = resolveOnce().then((val) => {
+        if (!val) {
+          throw new Error('EMPTY_CLIPBOARD_TEXT');
+        }
+        return new Blob([val], { type: 'text/plain' });
+      });
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'text/plain': blobPromise }),
+      ]);
+      return { ok: true, text: resolvedText };
+    } catch {
+      // fall through to resolved copyText fallback
+    }
+  }
+
+  try {
+    const text = await resolveOnce();
+    if (!text) return { ok: false, text: null };
+    const ok = await copyText(text);
+    return { ok, text };
+  } catch {
+    return { ok: false, text: resolvedText };
   }
 }

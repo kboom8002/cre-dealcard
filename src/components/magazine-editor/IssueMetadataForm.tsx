@@ -167,14 +167,30 @@ export function IssueMetadataForm({
               : `${cadenceMeta.yearMonthLabel} · ${cadenceMeta.rangeLabel} 자동 지정`}
           </span>
         </div>
-        <input
-          id="newsletter-headline-input"
-          type="text"
-          value={headline}
-          onChange={(e) => onChangeHeadline(formatSingleLineTitle(e.target.value, 50))}
-          placeholder="예: 금리 인하 기대감 속 강남 중소형 빌딩 매수 흐름"
-          className="w-full min-h-[48px] whitespace-nowrap overflow-hidden text-ellipsis rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        />
+        <div className="relative">
+          <input
+            id="newsletter-headline-input"
+            type="text"
+            value={headline}
+            onChange={(e) => onChangeHeadline(formatSingleLineTitle(e.target.value, 50))}
+            placeholder="예: 금리 인하 기대감 속 강남 중소형 빌딩 매수 흐름"
+            className="w-full min-h-[48px] whitespace-nowrap overflow-hidden text-ellipsis rounded-xl border border-slate-300 bg-white pl-4 pr-12 py-3 text-base font-bold text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          {headline.length > 0 && (
+            <button
+              type="button"
+              data-testid="clear-headline-btn"
+              aria-label="입력 지우기"
+              title="입력 지우기"
+              onClick={() => onChangeHeadline("")}
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+            >
+              <span aria-hidden="true" className="text-lg font-bold leading-none">
+                ×
+              </span>
+            </button>
+          )}
+        </div>
         {headlineTooLong && (
           <p
             role="status"

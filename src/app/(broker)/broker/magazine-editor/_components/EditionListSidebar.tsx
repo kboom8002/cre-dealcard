@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { FilePlus2, Search, Trash2 } from "lucide-react";
+import { Copy, FilePlus2, Search, Trash2 } from "lucide-react";
 import {
   DateGroupedList,
   ListThumbnail,
   ListToolbar,
+  RowIconActionButton,
   SimpleListRow,
   WorkspaceListPanel,
   type ActiveFilterChip,
@@ -322,30 +323,19 @@ export function EditionListSidebar({
                 onSelect={() => onSelectExistingEdition(ed)}
                 actions={
                   <>
-                    <button
-                      type="button"
-                      data-testid={`edition-duplicate-btn-${ed.id}`}
-                      aria-label={`${editionDisplayTitle(ed)} 복제`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDuplicateEdition(ed, e);
-                      }}
-                      className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-sm font-bold text-slate-700 transition cursor-pointer"
-                    >
-                      복제
-                    </button>
-                    <button
-                      type="button"
-                      data-testid={`edition-delete-btn-${ed.id}`}
-                      aria-label={`${editionDisplayTitle(ed)} 삭제`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRequestDeleteEdition(ed, e);
-                      }}
-                      className="min-h-[44px] inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 hover:border-rose-300 hover:bg-rose-50 px-2.5 py-1 text-sm font-bold text-slate-700 hover:text-rose-700 transition cursor-pointer"
-                    >
-                      삭제
-                    </button>
+                    <RowIconActionButton
+                      testId={`edition-duplicate-btn-${ed.id}`}
+                      label={`${editionDisplayTitle(ed)} 복제`}
+                      icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+                      onClick={(e) => onDuplicateEdition(ed, e)}
+                    />
+                    <RowIconActionButton
+                      testId={`edition-delete-btn-${ed.id}`}
+                      label={`${editionDisplayTitle(ed)} 삭제`}
+                      tone="danger"
+                      icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+                      onClick={(e) => onRequestDeleteEdition(ed, e)}
+                    />
                   </>
                 }
               />
@@ -401,26 +391,20 @@ export function EditionListSidebar({
                           </span>
                           {ed.slug} · 추천 매물 {ed.dealCount}건
                         </p>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            data-testid={`edition-duplicate-btn-${ed.id}`}
-                            aria-label={`${ed.title || ed.slug} 복제`}
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <RowIconActionButton
+                            testId={`edition-duplicate-btn-${ed.id}`}
+                            label={`${ed.title || ed.slug} 복제`}
+                            icon={<Copy className="h-4 w-4" aria-hidden="true" />}
                             onClick={(e) => onDuplicateEdition(ed, e)}
-                            className="min-h-[44px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100"
-                          >
-                            복제
-                          </button>
-                          <button
-                            type="button"
-                            data-testid={`edition-delete-btn-${ed.id}`}
-                            aria-label={`${ed.title || ed.slug} 삭제`}
+                          />
+                          <RowIconActionButton
+                            testId={`edition-delete-btn-${ed.id}`}
+                            label={`${ed.title || ed.slug} 삭제`}
+                            tone="danger"
+                            icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
                             onClick={(e) => onRequestDeleteEdition(ed, e)}
-                            className="min-h-[44px] inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-1 text-sm font-bold text-rose-800 hover:bg-rose-100"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                            <span>삭제</span>
-                          </button>
+                          />
                         </div>
                       </div>
                     </div>

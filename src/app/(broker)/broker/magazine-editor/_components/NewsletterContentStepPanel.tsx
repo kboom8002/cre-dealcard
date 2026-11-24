@@ -403,21 +403,36 @@ export function NewsletterContentStepPanel({
             >
               브리핑 내용 (5줄 · 500자 이내)
             </label>
-            <span
-              data-testid="briefing-length-counter"
-              className={`text-sm font-bold ${
-                Array.from(briefingBody).length > 500 ||
-                briefingBody.split(/\r?\n/).filter((l) => l.trim()).length > 5
-                  ? "text-rose-700"
-                  : "text-slate-600"
-              }`}
-            >
-              {Array.from(briefingBody).length}/500자 ·{" "}
-              {briefingBody.trim()
-                ? briefingBody.split(/\r?\n/).filter((l) => l.trim()).length
-                : 0}
-              /5줄
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                data-testid="briefing-length-counter"
+                className={`text-sm font-bold ${
+                  Array.from(briefingBody).length > 500 ||
+                  briefingBody.split(/\r?\n/).filter((l) => l.trim()).length > 5
+                    ? "text-rose-700"
+                    : "text-slate-600"
+                }`}
+              >
+                {Array.from(briefingBody).length}/500자 ·{" "}
+                {briefingBody.trim()
+                  ? briefingBody.split(/\r?\n/).filter((l) => l.trim()).length
+                  : 0}
+                /5줄
+              </span>
+              {briefingBody.length > 0 && (
+                <button
+                  type="button"
+                  data-testid="clear-briefing-btn"
+                  aria-label="입력 지우기"
+                  title="입력 지우기"
+                  onClick={() => onChangeBriefingBody("")}
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                >
+                  <span aria-hidden="true">×</span>
+                  <span>비우기</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <textarea

@@ -1081,34 +1081,47 @@ describe('WP-7.1D: Pro IM Grant Lifecycle, Export Snake/Camel Mapping, Download 
     });
     expect(spoofRes.status).toBe(415);
 
-    // 9b. MobileIMViewer forwards shareToken into resolved PPTX download anchor href
-    const markup = renderToStaticMarkup(
+    // 9b. MobileIMViewer hides broker-only PPTX/Studio clutter on buyer shareToken views (V3 D-01),
+    // while owner broker previews (isBroker=true without shareToken) expose the PPTX download anchor
+    const viewerDoc = {
+      buildingId: 'bldg-viewer-1',
+      title: '테스트 빌딩',
+      subtitle: '강남구 테헤란로',
+      dataGrade: 'B',
+      sections: [],
+      facts: {
+        buildingName: '테스트 빌딩',
+        roadAddress: '서울 강남구 테헤란로 1',
+        askPriceManwon: 1000000,
+        depositManwon: 100000,
+        monthlyRentManwon: 5000,
+        landAreaSqm: 500,
+        grossAreaSqm: 1500,
+        builtYear: 2020,
+        floorsText: 'B2/10F',
+      },
+      metadata: { title: '테스트 빌딩', generatedAt: '2026-01-01', tier: 'im_lite' },
+    } as any;
+    const buyerMarkup = renderToStaticMarkup(
       React.createElement(MobileIMViewer, {
-        document: {
-          buildingId: 'bldg-viewer-1',
-          title: '테스트 빌딩',
-          subtitle: '강남구 테헤란로',
-          dataGrade: 'B',
-          sections: [],
-          facts: {
-            buildingName: '테스트 빌딩',
-            roadAddress: '서울 강남구 테헤란로 1',
-            askPriceManwon: 1000000,
-            depositManwon: 100000,
-            monthlyRentManwon: 5000,
-            landAreaSqm: 500,
-            grossAreaSqm: 1500,
-            builtYear: 2020,
-            floorsText: 'B2/10F',
-          },
-          metadata: { title: '테스트 빌딩', generatedAt: '2026-01-01', tier: 'im_lite' },
-        } as any,
+        document: viewerDoc,
         buildingId: 'bldg-viewer-1',
         docId: 'doc-viewer-1',
         shareToken: 'slk.buyer.tok',
       }),
     );
-    expect(markup).toContain('/api/public/im-lite/bldg-viewer-1/pptx?direct=1&amp;doc_id=doc-viewer-1&amp;token=slk.buyer.tok');
+    expect(buyerMarkup).not.toContain('data-testid="mobile-im-download-pptx-btn"');
+    expect(buyerMarkup).not.toContain('data-testid="mobile-im-open-studio-btn"');
+
+    const brokerMarkup = renderToStaticMarkup(
+      React.createElement(MobileIMViewer, {
+        document: viewerDoc,
+        buildingId: 'bldg-viewer-1',
+        docId: 'doc-viewer-1',
+        isBroker: true,
+      }),
+    );
+    expect(brokerMarkup).toContain('/api/public/im-lite/bldg-viewer-1/pptx?direct=1&amp;doc_id=doc-viewer-1');
 
     // 9c. consumeProGrantDownload prefers RPC when present and falls back cleanly on 42883
     state.imProGrants.set('grant-rpc-1', {

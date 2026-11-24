@@ -176,9 +176,23 @@ export function MobileIMViewer({
   const [isDownloadingPptx, setIsDownloadingPptx] = useState<boolean>(false);
   const [inAppWebView, setInAppWebView] = useState<boolean>(false);
   const [dismissedWebViewBanner, setDismissedWebViewBanner] = useState<boolean>(false);
+  const [queryShareToken, setQueryShareToken] = useState<string | null>(null);
   const mountedAtRef = useRef<number>(Date.now());
   const activeSectionRef = useRef<string>("01_cover");
   const dwellSentRef = useRef<boolean>(false);
+  const sentInitialViewKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tok = new URLSearchParams(window.location.search).get("token")?.trim() || null;
+    setQueryShareToken(tok);
+  }, []);
+
+  const effectiveShareToken =
+    (typeof shareToken === "string" && shareToken.trim()) ||
+    queryShareToken ||
+    undefined;
+  const isBrokerPreview = Boolean(isBroker && !effectiveShareToken);
 
   useEffect(() => {
     if (typeof navigator !== "undefined" && isInAppWebView(navigator.userAgent)) {
@@ -193,26 +207,31 @@ export function MobileIMViewer({
   useEffect(() => {
     if (!buildingId) return;
     const resolvedToken =
-      (shareToken && shareToken.trim()) ||
+      effectiveShareToken ||
       (typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("token")?.trim() || undefined
         : undefined);
     // Avoid recording owner self-preview clicks unless visiting with an issued recipient share token
     if (isBroker && !resolvedToken) return;
 
-    mountedAtRef.current = Date.now();
-    dwellSentRef.current = false;
+    const viewKey = `${buildingId}::${resolvedToken ?? ""}`;
+    if (sentInitialViewKeyRef.current !== viewKey) {
+      sentInitialViewKeyRef.current = viewKey;
+      mountedAtRef.current = Date.now();
+      dwellSentRef.current = false;
+
+      const endpoint = `/api/public/im-lite/${encodeURIComponent(buildingId)}/view`;
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          section_viewed: activeSectionRef.current,
+          ...(resolvedToken ? { share_token: resolvedToken } : {}),
+        }),
+      }).catch(() => {});
+    }
 
     const endpoint = `/api/public/im-lite/${encodeURIComponent(buildingId)}/view`;
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        section_viewed: activeSectionRef.current,
-        ...(resolvedToken ? { share_token: resolvedToken } : {}),
-      }),
-    }).catch(() => {});
-
     const sendDwell = () => {
       if (dwellSentRef.current) return;
       dwellSentRef.current = true;
@@ -241,14 +260,10 @@ export function MobileIMViewer({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", sendDwell);
     };
-  }, [buildingId, isBroker, shareToken]);
+  }, [buildingId, isBroker, effectiveShareToken]);
 
   const resolvedPptxDownloadUrl = useMemo(() => {
-    const effectiveToken =
-      (typeof shareToken === "string" && shareToken.trim()) ||
-      (typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search).get("token")?.trim() || ""
-        : "");
+    const effectiveToken = effectiveShareToken || "";
     const prebuiltUrl = (initialDoc as any)?.pptxDownloadUrl;
     if (typeof prebuiltUrl === "string" && prebuiltUrl.trim()) {
       return prebuiltUrl.trim();
@@ -262,7 +277,7 @@ export function MobileIMViewer({
     return `/api/public/im-lite/${encodeURIComponent(buildingId)}/pptx?direct=1${
       docId ? `&doc_id=${encodeURIComponent(docId)}` : ""
     }${effectiveToken ? `&token=${encodeURIComponent(effectiveToken)}` : ""}`;
-  }, [initialDoc, buildingId, docId, shareToken]);
+  }, [initialDoc, buildingId, docId, effectiveShareToken]);
 
   const hasDirectPrebuiltPptxUrl = Boolean(
     (typeof (initialDoc as any)?.pptxDownloadUrl === "string" &&
@@ -620,13 +635,16 @@ export function MobileIMViewer({
       representative:
         cleanViewerBrokerField(initialDoc?.broker?.representativeName, "name") ||
         cleanViewerBrokerField(initialDoc?.broker?.representative_name, "name") ||
-        cleanViewerBrokerField(initialDoc?.broker?.name, "name") ||
-        cleanViewerBrokerField(initialDoc?.broker?.displayName, "name") ||
         cleanViewerBrokerField(topBrokerProfile?.representativeName, "name") ||
         cleanViewerBrokerField(topBrokerProfile?.representative_name, "name") ||
-        cleanViewerBrokerField(topBrokerProfile?.displayName, "name") ||
         cleanViewerBrokerField(ssotBrokerProfile?.representativeName, "name") ||
         cleanViewerBrokerField(ssotBrokerProfile?.representative_name, "name") ||
+        cleanViewerBrokerField((initialDoc as any)?.broker_contact?.representativeName, "name") ||
+        cleanViewerBrokerField((initialDoc as any)?.broker_contact?.representative_name, "name") ||
+        cleanViewerBrokerField((ssotData as any)?.representative_name, "name") ||
+        cleanViewerBrokerField(initialDoc?.broker?.displayName, "name") ||
+        cleanViewerBrokerField(initialDoc?.broker?.name, "name") ||
+        cleanViewerBrokerField(topBrokerProfile?.displayName, "name") ||
         cleanViewerBrokerField(ssotBrokerProfile?.displayName, "name") ||
         "담당 공인중개사",
       registrationNo:
@@ -1415,28 +1433,42 @@ export function MobileIMViewer({
   const brokerOfficeName = realBrokerOfficeName || "전담 중개사무소";
 
   const realBrokerRepresentative =
-    cleanViewerBrokerField(contactBrokerObj?.representativeName, "name") ||
-    cleanViewerBrokerField(contactBrokerObj?.representative_name, "name") ||
-    cleanViewerBrokerField(contactBrokerObj?.representative, "name") ||
-    cleanViewerBrokerField(contactBrokerObj?.displayName, "name") ||
-    cleanViewerBrokerField(factsBrokerObj?.representativeName, "name") ||
-    cleanViewerBrokerField(factsBrokerObj?.representative_name, "name") ||
-    cleanViewerBrokerField(factsBrokerObj?.representative, "name") ||
+    // Explicit statutory representativeName / representative_name across ALL live & contact objects
+    cleanViewerBrokerField(topBrokerObj?.representativeName, "name") ||
+    cleanViewerBrokerField(topBrokerObj?.representative_name, "name") ||
     cleanViewerBrokerField(initialBrokerProfile?.representativeName, "name") ||
     cleanViewerBrokerField(initialBrokerProfile?.representative_name, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.representativeName, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.representative_name, "name") ||
+    cleanViewerBrokerField(factsBrokerObj?.representativeName, "name") ||
+    cleanViewerBrokerField(factsBrokerObj?.representative_name, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.representativeName, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.representative_name, "name") ||
+    cleanViewerBrokerField(legacyBrokerContact?.representativeName, "name") ||
+    cleanViewerBrokerField(legacyBrokerContact?.representative_name, "name") ||
+    cleanViewerBrokerField((ssotData as any)?.representative_name, "name") ||
+    // Fallback to generic representative / displayName / brokerName
+    cleanViewerBrokerField(contactBrokerObj?.representative, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.displayName, "name") ||
+    cleanViewerBrokerField(factsBrokerObj?.representative, "name") ||
     cleanViewerBrokerField(initialBrokerProfile?.displayName, "name") ||
     cleanViewerBrokerField(initialBrokerProfile?.display_name, "name") ||
     cleanViewerBrokerField(legacyBrokerContact?.brokerName, "name") ||
-    cleanViewerBrokerField(topBrokerObj?.representativeName, "name") ||
-    cleanViewerBrokerField(topBrokerObj?.representative_name, "name") ||
     cleanViewerBrokerField(topBrokerObj?.displayName, "name") ||
     cleanViewerBrokerField(topBrokerObj?.name, "name") ||
-    cleanViewerBrokerField(ssotBrokerProfileObj?.representativeName, "name") ||
-    cleanViewerBrokerField(ssotBrokerProfileObj?.representative_name, "name") ||
     cleanViewerBrokerField(ssotBrokerProfileObj?.displayName, "name") ||
-    cleanViewerBrokerField(ssotBrokerProfileObj?.display_name, "name") ||
-    cleanViewerBrokerField((ssotData as any)?.representative_name, "name");
+    cleanViewerBrokerField(ssotBrokerProfileObj?.display_name, "name");
   const brokerRepresentative = realBrokerRepresentative || "담당 공인중개사";
+  const realBrokerAssignee =
+    cleanViewerBrokerField(topBrokerObj?.displayName, "name") ||
+    cleanViewerBrokerField(topBrokerObj?.name, "name") ||
+    cleanViewerBrokerField(initialBrokerProfile?.displayName, "name") ||
+    cleanViewerBrokerField(initialBrokerProfile?.display_name, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.displayName, "name") ||
+    cleanViewerBrokerField(contactBrokerObj?.brokerName, "name") ||
+    cleanViewerBrokerField(legacyBrokerContact?.brokerName, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.displayName, "name") ||
+    cleanViewerBrokerField(ssotBrokerProfileObj?.display_name, "name");
 
   const realBrokerRegistrationNo =
     cleanViewerBrokerField(contactBrokerObj?.registrationNo, "regNo") ||
@@ -1584,7 +1616,7 @@ export function MobileIMViewer({
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#CBD5E1] shadow-xs no-print">
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            {isBroker ? (
+            {isBrokerPreview ? (
               <>
                 <Link
                   href="/broker/w/im"
@@ -1608,7 +1640,7 @@ export function MobileIMViewer({
             <ReaderFontScaleToggle variant="light" />
 
             {/* Version Switcher Dropdown (Broker Preview Only when real previousVersion exists) */}
-            {isBroker ? (
+            {isBrokerPreview ? (
               v1Doc ? (
                 <div className="flex items-center gap-2" data-testid="version-switcher-bar">
                   <select
@@ -1642,6 +1674,52 @@ export function MobileIMViewer({
             )}
           </div>
         </div>
+
+        {isBrokerPreview && (
+          <div
+            data-testid="mobile-im-broker-toolbar"
+            className="bg-[#F8FAFC] border-t border-[#E2E8F0] px-3 sm:px-4 py-1.5 no-print"
+          >
+            <div className="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-extrabold text-[#1E293B] flex items-center gap-1.5 whitespace-nowrap">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#1D4ED8]" aria-hidden="true" />
+                중개사 미리보기 도구
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Link
+                  href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
+                  data-testid="mobile-im-open-studio-btn"
+                  className="min-h-[44px] px-3 py-1.5 bg-white border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-lg inline-flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
+                  title="10면 발표자료(PPT) 꾸미기"
+                >
+                  <span>📐 스튜디오</span>
+                </Link>
+                {resolvedPptxDownloadUrl && (
+                  <a
+                    href={resolvedPptxDownloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="mobile-im-download-pptx-btn"
+                    aria-busy={isDownloadingPptx}
+                    onClick={handleMobilePptxDownload}
+                    className="min-h-[44px] px-3 py-1.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-lg inline-flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
+                    title="PPTX 투자설명서 다운로드"
+                  >
+                    <span>{isDownloadingPptx ? "⏳ 생성 중" : "📥 PPTX"}</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="min-h-[44px] px-3 py-1.5 bg-white border border-[#CBD5E1] text-[#0F172A] font-bold rounded-lg inline-flex items-center justify-center gap-1 hover:bg-[#F1F5F9] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
+                  title="A4 인쇄 및 PDF 내보내기"
+                >
+                  <span>🖨️ 인쇄</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Sticky Top Section Navigation Chips (WP-P4b-01) ── */}
         <div
@@ -1783,7 +1861,11 @@ export function MobileIMViewer({
             >
               {[
                 realBrokerOfficeName,
-                realBrokerRepresentative ? `대표 ${realBrokerRepresentative}` : "",
+                realBrokerRepresentative ? `대표 ${brokerRepresentative}` : "",
+                realBrokerAssignee &&
+                realBrokerAssignee !== (realBrokerRepresentative || brokerRepresentative)
+                  ? `담당 ${realBrokerAssignee}`
+                  : "",
                 realBrokerRegistrationNo ? `등록번호 ${realBrokerRegistrationNo}` : "",
                 realBrokerOfficeAddress ? `소재지 ${realBrokerOfficeAddress}` : "",
                 realBrokerPhone ? `연락처 ${realBrokerPhone}` : "",
@@ -2515,7 +2597,15 @@ export function MobileIMViewer({
           <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1.5 text-base">
             <p className="font-extrabold text-[#0F172A]">{brokerOfficeName}</p>
             <p className="text-[#475569]">
-              대표 공인중개사: {brokerRepresentative}
+              {realBrokerAssignee && realBrokerAssignee !== brokerRepresentative ? (
+                <>
+                  개업공인중개사(대표): {brokerRepresentative}
+                  {" · "}
+                  담당 중개사: {realBrokerAssignee}
+                </>
+              ) : (
+                <>대표 공인중개사: {brokerRepresentative}</>
+              )}
               {realBrokerRegistrationNo ? ` · 등록번호: ${realBrokerRegistrationNo}` : ""}
             </p>
             {realBrokerOfficeAddress && (
@@ -2533,7 +2623,7 @@ export function MobileIMViewer({
                 <span className="text-[#64748B] font-semibold">문의 시 안내</span>
               )}
             </p>
-            {isBroker && isMissingBrokerContact && (
+            {isBrokerPreview && isMissingBrokerContact && (
               <div
                 data-testid="mobile-im-broker-profile-nudge"
                 className="mt-2 pt-2 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 text-sm text-[#475569]"
@@ -2789,82 +2879,49 @@ export function MobileIMViewer({
           </div>
         )}
 
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-2 min-h-14 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
-          <div className="flex items-stretch gap-2 w-full sm:flex-1 min-w-0">
-            <PhoneActionButton
-              phone={brokerPhone}
-              variant="compact"
-              className="inline-flex items-stretch gap-1.5 shrink-0"
-              callClassName="shrink-0 min-h-[48px] px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
-              copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] font-bold rounded-xl transition-colors cursor-pointer text-sm whitespace-nowrap"
-              renderCallContent={
-                <>
-                  <span>📞</span>
-                  <span>전화 문의</span>
-                </>
-              }
-              fallbackLabel={
-                <>
-                  <span>📞</span>
-                  <span>전화 문의</span>
-                </>
-              }
-              fallbackHref="#10_contact"
-              fallbackClassName="shrink-0 min-h-[48px] px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
-            />
-            {realKakaoChannelUrl ? (
-              <a
-                href={realKakaoChannelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#FDD835] transition-colors cursor-pointer text-sm sm:text-base leading-snug break-keep text-center overflow-hidden"
-              >
-                <span>💬</span>
-                <span>카톡 상담</span>
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowInquiry(true)}
-                className="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#1E40AF] transition-colors cursor-pointer text-sm sm:text-base leading-snug break-keep text-center overflow-hidden"
-              >
-                <span aria-hidden="true" className="shrink-0">📩</span>
-                <span>간편 문의 · 자료 요청</span>
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-2 grid grid-cols-2 gap-2.5 items-stretch">
+          <PhoneActionButton
+            phone={brokerPhone}
+            variant="compact"
+            showFormattedNumber={false}
+            className="w-full min-w-0 flex items-stretch gap-1.5"
+            callClassName="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
+            copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1 px-2.5 py-2 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm whitespace-nowrap"
+            renderCallContent={
+              <>
+                <span aria-hidden="true" className="shrink-0">📞</span>
+                <span>전화 문의</span>
+              </>
+            }
+            fallbackLabel={
+              <>
+                <span aria-hidden="true" className="shrink-0">📞</span>
+                <span>전화 문의</span>
+              </>
+            }
+            fallbackHref="#10_contact"
+            fallbackClassName="w-full min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
+          />
+          {realKakaoChannelUrl ? (
             <a
-              href={resolvedPptxDownloadUrl}
+              href={realKakaoChannelUrl}
               target="_blank"
               rel="noopener noreferrer"
-              data-testid="mobile-im-download-pptx-btn"
-              aria-busy={isDownloadingPptx}
-              onClick={handleMobilePptxDownload}
-              className="flex-1 sm:flex-initial min-h-[48px] px-3.5 bg-[#EFF6FF] border border-[#1D4ED8] text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#DBEAFE] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
-              title="PPTX 투자설명서 다운로드"
+              className="w-full min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
             >
-              <span>{isDownloadingPptx ? "⏳ 생성 중" : "📥 PPTX"}</span>
+              <span aria-hidden="true" className="shrink-0">💬</span>
+              <span>카톡 상담</span>
             </a>
-            {isBroker && (
-              <Link
-                href={`/broker/basic-im-studio/${encodeURIComponent(buildingId)}`}
-                data-testid="mobile-im-open-studio-btn"
-                className="flex-1 sm:flex-initial min-h-[48px] px-3 bg-[#F8FAFC] border border-[#1D4ED8]/40 text-[#1D4ED8] font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#EFF6FF] transition-colors cursor-pointer text-sm whitespace-nowrap shrink-0"
-                title="10면 발표자료(PPT) 꾸미기"
-              >
-                <span>📐 스튜디오</span>
-              </Link>
-            )}
+          ) : (
             <button
               type="button"
-              onClick={() => window.print()}
-              className="min-h-[48px] min-w-[48px] px-3.5 bg-[#FAF9F5] border border-[#64748B] text-[#0F172A] font-bold rounded-xl flex items-center justify-center hover:bg-[#F3F2EE] transition-colors cursor-pointer text-base shrink-0"
-              title="A4 인쇄 및 PDF 내보내기"
+              onClick={() => setShowInquiry(true)}
+              className="w-full min-w-0 min-h-[48px] px-2 sm:px-3 py-2 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#1E40AF] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
             >
-              <span>🖨️</span>
+              <span aria-hidden="true" className="shrink-0">📩</span>
+              <span>간편 문의 · 자료 요청</span>
             </button>
-          </div>
+          )}
         </div>
       </footer>
     </div>

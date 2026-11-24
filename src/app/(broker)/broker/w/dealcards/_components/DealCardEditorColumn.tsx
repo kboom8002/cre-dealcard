@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
 import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
@@ -44,6 +44,7 @@ export interface DealCardEditorColumnProps {
   onDeleteUnconvertedMemo?: (memo: UnconvertedMemoItem, e: React.MouseEvent) => void;
   onOpenImForBuilding: (buildingId: string) => void;
   isSingleUntouchedStarter?: boolean;
+  justRefilledTick?: number;
 }
 
 export function DealCardEditorColumn({
@@ -74,7 +75,22 @@ export function DealCardEditorColumn({
   onCardChange,
   onFocusEditorUnit,
   onOpenImForBuilding,
+  justRefilledTick = 0,
 }: DealCardEditorColumnProps) {
+  const [showRefilledHighlight, setShowRefilledHighlight] = useState(false);
+
+  useEffect(() => {
+    if (!justRefilledTick || justRefilledTick <= 0) {
+      setShowRefilledHighlight(false);
+      return;
+    }
+    setShowRefilledHighlight(true);
+    const timer = window.setTimeout(() => {
+      setShowRefilledHighlight(false);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [justRefilledTick]);
+
   const showInlineStatusStrip = Boolean(
     activeItem?.status === "sent" || previewLifecycle === "published_dirty" || publishError
   );
@@ -317,8 +333,25 @@ export function DealCardEditorColumn({
         data-testid="dealcard-card4-stage"
         data-collapsed={isAwaitingMemoGeneration ? "true" : "false"}
         aria-hidden={isAwaitingMemoGeneration ? "true" : undefined}
-        className={isAwaitingMemoGeneration ? "hidden" : "space-y-4"}
+        className={
+          isAwaitingMemoGeneration
+            ? "hidden"
+            : `space-y-4 rounded-2xl transition-all duration-300 ${
+                showRefilledHighlight
+                  ? "ring-2 ring-emerald-500/70 bg-emerald-50/35 p-2 -m-2"
+                  : ""
+              }`
+        }
       >
+        {showRefilledHighlight && !isAwaitingMemoGeneration && (
+          <div
+            data-testid="dealcard-refilled-pill"
+            role="status"
+            className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-sm font-bold leading-snug"
+          >
+            ✓ 원문의 지번·건물명·상호를 자동으로 가린 공개용 딜카드가 채워졌습니다 (위 원문은 나만 보는 비공개 영역입니다)
+          </div>
+        )}
         <Card4ConfirmCard
           key={editorTargetId || "memo-only"}
           card4={effectiveCard4}

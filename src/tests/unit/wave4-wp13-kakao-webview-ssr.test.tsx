@@ -289,11 +289,24 @@ describe("Wave 4 WP-13: KakaoTalk WebView Download, copyText Unification, Safe-A
       ) as unknown as typeof fetch;
 
       const doc = createNeutralViewerDoc();
+      // 1) Buyer / public viewer hides broker-only PPTX download CTA (V3 D-01)
       await act(async () => {
         root!.render(
           <MobileIMViewer
             document={doc as any}
             buildingId="bld-wp13-01"
+          />
+        );
+      });
+      expect(container!.querySelector('[data-testid="mobile-im-download-pptx-btn"]')).toBeNull();
+
+      // 2) Owner broker preview renders PPTX CTA in top toolbar and surfaces toast.error on 500
+      await act(async () => {
+        root!.render(
+          <MobileIMViewer
+            document={doc as any}
+            buildingId="bld-wp13-01"
+            isBroker={true}
           />
         );
       });

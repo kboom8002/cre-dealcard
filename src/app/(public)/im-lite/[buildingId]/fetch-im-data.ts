@@ -242,6 +242,8 @@ function buildBrokerObject(profile: any) {
     return {
       userId: "system",
       displayName: "담당 중개인",
+      representativeName: "",
+      representative_name: null as string | null,
       company: "",
       phone: "",
       registrationNo: "",
@@ -264,12 +266,17 @@ function buildBrokerObject(profile: any) {
       latestMagazine: null as { date: string; headline: string; url: string; marketTemp?: string } | null,
     };
   }
+  const representativeName = cleanImBrokerPlaceholder(
+    profile.representative_name ?? profile.representativeName
+  );
   return {
     userId: profile.id || profile.user_id || "system",
     displayName:
       cleanImBrokerPlaceholder(profile.display_name) ||
       cleanImBrokerPlaceholder(profile.name) ||
       "담당 중개인",
+    representativeName,
+    representative_name: representativeName || null,
     company: cleanImBrokerPlaceholder(profile.company), // 실제 DB 값만 (가공 상호 폴백 금지 — Rule 34)
     phone: cleanImBrokerPlaceholder(profile.phone),
     registrationNo:
@@ -310,7 +317,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .single(),
     supabase
       .from("broker_profiles")
-      .select("user_id, name, slug, office_reg_number, license_number, office_address, vibe_template_id, avatar_url, photo_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url, contact_email")
+      .select("user_id, name, slug, representative_name, office_reg_number, license_number, office_address, vibe_template_id, avatar_url, photo_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url, contact_email")
       .eq("user_id", ownerId)
       .single(),
   ]);
@@ -366,6 +373,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
   return {
     id: ownerId,
     display_name: profile?.display_name || brokerProfile?.name || "담당 중개인",
+    representative_name: brokerProfile?.representative_name ?? null,
     company: profile?.company || "",
     phone: profile?.phone || "",
     office_reg_number: brokerProfile?.office_reg_number ?? null,
@@ -481,15 +489,30 @@ function hydrateQuickRecordToMobileIM(
   if (facts.brokerOffice) {
     const cleanCo = cleanImBrokerPlaceholder(facts.brokerOffice.name);
     const cleanRep = cleanImBrokerPlaceholder(facts.brokerOffice.representative);
+    const cleanExplicitRep = cleanImBrokerPlaceholder(
+      (facts.brokerOffice as any).representativeName ??
+        (facts.brokerOffice as any).representative_name
+    );
     const cleanPh = cleanImBrokerPlaceholder(facts.brokerOffice.phone);
     const cleanReg = cleanImBrokerPlaceholder(facts.brokerOffice.registrationNo);
+    const cleanAddr = cleanImBrokerPlaceholder((facts.brokerOffice as any).address);
     if (cleanCo) brokerObj.company = cleanCo;
     if (cleanRep) brokerObj.displayName = cleanRep;
+    if (cleanExplicitRep || cleanRep) {
+      const resolvedFactsRep = cleanExplicitRep || cleanRep;
+      brokerObj.representativeName = resolvedFactsRep;
+      brokerObj.representative_name = resolvedFactsRep;
+    }
     if (cleanPh) brokerObj.phone = cleanPh;
     if (cleanReg) brokerObj.registrationNo = cleanReg;
+    if (cleanAddr) brokerObj.officeAddress = cleanAddr;
   }
   if (quickRec.brokerProfile) {
     const qpName = cleanImBrokerPlaceholder(quickRec.brokerProfile.displayName);
+    const qpRep = cleanImBrokerPlaceholder(
+      (quickRec.brokerProfile as any).representativeName ??
+        (quickRec.brokerProfile as any).representative_name
+    );
     const qpCo = cleanImBrokerPlaceholder(quickRec.brokerProfile.company);
     const qpPh = cleanImBrokerPlaceholder(quickRec.brokerProfile.phone);
     const qpReg = cleanImBrokerPlaceholder(
@@ -497,10 +520,19 @@ function hydrateQuickRecordToMobileIM(
         (quickRec.brokerProfile as any).office_reg_number ||
         (quickRec.brokerProfile as any).license_number
     );
+    const qpAddr = cleanImBrokerPlaceholder(
+      (quickRec.brokerProfile as any).officeAddress ??
+        (quickRec.brokerProfile as any).office_address
+    );
     if (qpName) brokerObj.displayName = qpName;
+    if (qpRep) {
+      brokerObj.representativeName = qpRep;
+      brokerObj.representative_name = qpRep;
+    }
     if (qpCo) brokerObj.company = qpCo;
     if (qpPh) brokerObj.phone = qpPh;
     if (qpReg) brokerObj.registrationNo = qpReg;
+    if (qpAddr) brokerObj.officeAddress = qpAddr;
     if (quickRec.brokerProfile.tagline) brokerObj.tagline = quickRec.brokerProfile.tagline;
     if (quickRec.brokerProfile.photoUrl) brokerObj.photoUrl = quickRec.brokerProfile.photoUrl;
     if (quickRec.brokerProfile.slug) brokerObj.slug = quickRec.brokerProfile.slug;
@@ -1567,6 +1599,9 @@ export async function fetchIMData(
         cleanImBrokerPlaceholder(bc.brokerName) ||
         cleanImBrokerPlaceholder(prevBroker.displayName) ||
         cleanImBrokerPlaceholder(prevBroker.name);
+      const cleanRep =
+        cleanImBrokerPlaceholder(prevBroker.representativeName ?? prevBroker.representative_name) ||
+        cleanImBrokerPlaceholder(bc.representativeName ?? bc.representative_name ?? bc.representative);
       const cleanCo =
         cleanImBrokerPlaceholder(bc.brokerageName) ||
         cleanImBrokerPlaceholder(prevBroker.company) ||
@@ -1580,6 +1615,7 @@ export async function fetchIMData(
       mappedResult.broker = {
         ...prevBroker,
         displayName: cleanName || '담당 공인중개사',
+        ...(cleanRep ? { representativeName: cleanRep, representative_name: cleanRep } : {}),
         company: cleanCo || '',
         name: cleanName || '담당 공인중개사',
         office: cleanCo || '',
@@ -1699,6 +1735,9 @@ export async function fetchIMData(
       const brokerName =
         cleanImBrokerPlaceholder(it.brokerName) ||
         cleanImBrokerPlaceholder(bp.displayName || bp.display_name || bp.name);
+      const brokerRepName =
+        cleanImBrokerPlaceholder(it.representativeName || it.representative_name) ||
+        cleanImBrokerPlaceholder(bp.representativeName || bp.representative_name);
       const brokerageName =
         cleanImBrokerPlaceholder(it.brokerageName) ||
         cleanImBrokerPlaceholder(bp.company || bp.office);
@@ -1709,11 +1748,17 @@ export async function fetchIMData(
         cleanImBrokerPlaceholder(it.registrationNo || it.officeRegNumber) ||
         cleanImBrokerPlaceholder(bp.registrationNo || bp.office_reg_number || bp.license_number);
       const closingLine = it.closingLine || bp.tagline;
-      if (brokerName || brokerageName || brokerPhone || brokerRegNo || closingLine) {
+      if (brokerName || brokerRepName || brokerageName || brokerPhone || brokerRegNo || closingLine) {
         const prevBroker = (mappedResult.broker || {}) as any;
+        const resolvedRepName =
+          cleanImBrokerPlaceholder(prevBroker.representativeName ?? prevBroker.representative_name) ||
+          brokerRepName;
         mappedResult.broker = {
           ...prevBroker,
           ...(brokerName ? { displayName: brokerName, name: brokerName } : {}),
+          ...(resolvedRepName
+            ? { representativeName: resolvedRepName, representative_name: resolvedRepName }
+            : {}),
           ...(brokerageName ? { company: brokerageName, office: brokerageName } : {}),
           ...(brokerPhone ? { phone: brokerPhone } : {}),
           ...(brokerRegNo ? { registrationNo: brokerRegNo } : {}),

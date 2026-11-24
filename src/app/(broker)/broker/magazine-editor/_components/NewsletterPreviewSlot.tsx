@@ -95,7 +95,7 @@ export function NewsletterPreviewBody({
         isSectionEnabled={isSectionEnabled}
       />
 
-      {activeStep !== "send" && previewLifecycle !== "pre_generation" && (
+      {activeStep !== "send" && activeStep !== "history" && previewLifecycle !== "pre_generation" && (
         <MagazinePublishChecklist
           headline={headline}
           briefingBody={briefingBody}
@@ -128,8 +128,10 @@ export function NewsletterPreviewBody({
  */
 export function MagazineStatusBanner({
   statusBanner,
+  suppressUrlInput = false,
 }: {
   statusBanner: StatusBannerState | null;
+  suppressUrlInput?: boolean;
 }) {
   if (!statusBanner) return null;
   return (
@@ -168,7 +170,7 @@ export function MagazineStatusBanner({
           </Link>
         )}
       </div>
-      {statusBanner.fallbackUrl && (
+      {statusBanner.fallbackUrl && !suppressUrlInput && (
         <input
           type="text"
           readOnly

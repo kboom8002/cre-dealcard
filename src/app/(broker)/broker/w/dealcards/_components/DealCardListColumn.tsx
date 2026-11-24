@@ -5,10 +5,12 @@ import {
   DateGroupedList,
   ListThumbnail,
   ListToolbar,
+  RowIconActionButton,
   SimpleListRow,
   WorkspaceListPanel,
   type ActiveFilterChip,
 } from "@/components/workspace/list/WorkspaceList";
+import { Copy, Trash2 } from "lucide-react";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import {
   classifyDealCardOriginGroup,
@@ -139,29 +141,27 @@ export function DealCardListColumn({
           onSelect={() => onSelectUnconvertedMemo(memo)}
           dataAttrs={{ "data-origin-group": "unconverted_memo" }}
           actions={
-            <button
-              type="button"
-              data-testid={`unconverted-memo-delete-${memo.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteUnconvertedMemo(memo, e);
-              }}
-              className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
-            >
-              삭제
-            </button>
+            <RowIconActionButton
+              testId={`unconverted-memo-delete-${memo.id}`}
+              label={`${summarizeMemoOneLine(memo.memoText, 24) || "빈 메모"} 삭제`}
+              tone="danger"
+              icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+              onClick={(e) => onDeleteUnconvertedMemo(memo, e)}
+            />
           }
         />
       );
     }
     const item = entry.item;
+    const itemDate =
+      (item as BuildingListItem & { updatedAtIso?: string }).updatedAtIso || item.updatedAt;
     const { statusTitle, simpleStatus, rowTitle } = describeDealCardStatus(item);
     const isSample = isSampleDealCardItem(item, syncedServerIds);
     return (
       <SimpleListRow
         testId={`dealcard-item-${item.id}`}
         title={rowTitle}
-        date={item.updatedAt}
+        date={itemDate}
         meta={isSample ? "[체험 예시]" : undefined}
         status={{
           ...simpleStatus,
@@ -173,28 +173,19 @@ export function DealCardListColumn({
         dataAttrs={{ "data-origin-group": classifyDealCardOriginGroup(item) }}
         actions={
           <>
-            <button
-              type="button"
-              data-testid={`dealcard-duplicate-${item.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicateItem(item, e);
-              }}
-              className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
-            >
-              복제
-            </button>
-            <button
-              type="button"
-              data-testid={`dealcard-delete-${item.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteItem(item, e);
-              }}
-              className="min-h-[44px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 text-sm font-bold transition cursor-pointer"
-            >
-              {isSingleUntouchedStarter ? "입력 비우기" : "삭제"}
-            </button>
+            <RowIconActionButton
+              testId={`dealcard-duplicate-${item.id}`}
+              label={`${rowTitle} 복제`}
+              icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+              onClick={(e) => onDuplicateItem(item, e)}
+            />
+            <RowIconActionButton
+              testId={`dealcard-delete-${item.id}`}
+              label={`${rowTitle} ${isSingleUntouchedStarter ? "입력 비우기" : "삭제"}`}
+              tone="danger"
+              icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+              onClick={(e) => onDeleteItem(item, e)}
+            />
           </>
         }
       />
@@ -207,7 +198,7 @@ export function DealCardListColumn({
     const postureLabel = POSTURE_LABELS[itemPosture].shortBadge;
     const originGroup = classifyDealCardOriginGroup(item);
     const memoPreview = summarizeMemoOneLine(item.memoText, 34);
-    const { itemBlind, isCardReady } = describeDealCardStatus(item);
+    const { itemBlind, isCardReady, rowTitle } = describeDealCardStatus(item);
     const isSample = isSampleDealCardItem(item, syncedServerIds);
     const thumbFallback =
       (item.card4.region || item.region || item.title || "").trim().split(/\s+/).pop() || "";
@@ -312,8 +303,8 @@ export function DealCardListColumn({
               </p>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2">
-              <div className="flex items-center gap-1.5 text-sm text-[#515154] font-medium">
+            <div className="mt-2 pt-1.5 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-2 pl-2">
+              <div className="flex items-center gap-1.5 min-w-0 flex-wrap text-sm text-[#515154] font-medium">
                 <span className="font-bold text-[#1D1D1F]">
                   {item.priceBand || "가격 미입력"}
                 </span>
@@ -321,23 +312,20 @@ export function DealCardListColumn({
                 <span>{postureLabel}</span>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  data-testid={`dealcard-duplicate-${item.id}`}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <RowIconActionButton
+                  testId={`dealcard-duplicate-${item.id}`}
+                  label={`${rowTitle} 복제`}
+                  icon={<Copy className="h-4 w-4" aria-hidden="true" />}
                   onClick={(e) => onDuplicateItem(item, e)}
-                  className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
-                >
-                  복제
-                </button>
-                <button
-                  type="button"
-                  data-testid={`dealcard-delete-${item.id}`}
+                />
+                <RowIconActionButton
+                  testId={`dealcard-delete-${item.id}`}
+                  label={`${rowTitle} ${isSingleUntouchedStarter ? "입력 비우기" : "삭제"}`}
+                  tone="danger"
+                  icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
                   onClick={(e) => onDeleteItem(item, e)}
-                  className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
-                >
-                  {isSingleUntouchedStarter ? "입력 비우기" : "삭제"}
-                </button>
+                />
               </div>
             </div>
           </div>
@@ -389,7 +377,7 @@ export function DealCardListColumn({
 
         <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2.5">
           <span className="text-sm text-[#515154] font-medium">{badgeLabel}</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               data-testid={`unconverted-memo-generate-${memo.id}`}
@@ -401,14 +389,13 @@ export function DealCardListColumn({
             >
               ✨ 딜카드 생성
             </button>
-            <button
-              type="button"
-              data-testid={`unconverted-memo-delete-${memo.id}`}
+            <RowIconActionButton
+              testId={`unconverted-memo-delete-${memo.id}`}
+              label={`${summarizeMemoOneLine(memo.memoText, 24) || "빈 메모"} 삭제`}
+              tone="danger"
+              icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
               onClick={(e) => onDeleteUnconvertedMemo(memo, e)}
-              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-white hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-300 cursor-pointer"
-            >
-              삭제
-            </button>
+            />
           </div>
         </div>
       </div>
@@ -557,7 +544,8 @@ export function DealCardListColumn({
                 getDate={(entry) =>
                   entry.kind === "memo"
                     ? entry.memo.updatedAt || entry.memo.createdAt
-                    : entry.item.updatedAt
+                    : (entry.item as BuildingListItem & { updatedAtIso?: string }).updatedAtIso ||
+                      entry.item.updatedAt
                 }
                 getKey={(entry) => entry.key}
                 renderRow={renderSimpleListRow}

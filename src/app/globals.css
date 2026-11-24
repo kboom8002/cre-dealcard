@@ -1139,6 +1139,14 @@
   opacity: 1;
 }
 
+.broker-paper-theme input:focus::placeholder,
+.broker-paper-theme textarea:focus::placeholder,
+.broker-paper-theme input:not([data-theme-lock="dark"] *):focus::placeholder,
+.broker-paper-theme textarea:not([data-theme-lock="dark"] *):focus::placeholder {
+  opacity: 0 !important;
+  color: transparent !important;
+}
+
 .broker-paper-theme input:not([data-theme-lock="dark"] *):focus,
 .broker-paper-theme textarea:not([data-theme-lock="dark"] *):focus,
 .broker-paper-theme select:not([data-theme-lock="dark"] *):focus {

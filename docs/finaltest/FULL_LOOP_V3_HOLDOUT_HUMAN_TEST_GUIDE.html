@@ -367,11 +367,12 @@ const LOOPS = {
         items: [
           `맨 위 파란 <strong>[📦 V3 양평동 전체 자료 ZIP 받기]</strong>를 받아 압축을 풀어 둡니다 (파일명이 모두 <code>V3_</code>로 시작합니다).`,
           `<span class="ui-btn">🚀 새 IM 작성 화면 열기</span> → 주소 붙여넣고 <span class="ui-btn">주소로 건물 정보 자동 채우기</span> 클릭 → 희망 매매가 <strong>억 단위</strong>에 <strong>250</strong> 입력!`,
-          `<span class="ui-btn white">② 층별 임대현황</span> 탭 → <span class="ui-btn white">📁 엑셀 파일 불러오기 ▾</span> 클릭 → <em>(선택: <code>V3_99_선택체험_단위혼동_차단확인용.xlsx</code>로 차단 안내 먼저 확인 후)</em> <code>V3_02_양평동_현황_렌트롤_v1.5_pyeong.xlsx</code> 업로드!`,
-          `옆 파란 <span class="ui-btn">+ 기대수익률 임대차 현황 (선택)</span> 탭 클릭 → <code>V3_03_양평동_기대수익률_렌트롤_v1.5_pyeong.xlsx</code> 업로드 (또는 표 복사 후 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭)!`,
+          `<span class="ui-btn white">② 층별 임대현황</span> 탭 → <span class="ui-btn white">📁 엑셀 파일 불러오기 ▾</span> 클릭 → <em>(선택: <code>V3_99_선택체험_단위혼동_차단확인용.xlsx</code>로 차단 안내 먼저 확인 후)</em> <code>V3_02_양평동_현황_렌트롤_v1.5_pyeong.xlsx</code> 업로드! (<span class="ui-btn">[✓ 표에 적용하기]</span> 누르기 전 미리보기에서부터 예상 수익률 <strong>연 2.54%</strong>가 즉시 표시됩니다.)`,
+          `옆 파란 <span class="ui-btn">+ 기대수익률 임대차 현황 (선택)</span> 탭 클릭 → <code>V3_03_양평동_기대수익률_렌트롤_v1.5_pyeong.xlsx</code> 업로드 (또는 표 복사 후 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭)! (엑셀 미리보기에서도 <span class="ui-btn">[✓ 표에 적용하기]</span> 전부터 <strong>연 3.38%</strong>가 즉시 표시됩니다.)`,
+          `<span class="ui-btn white">③ 장점 3가지</span> 탭 클릭 → 시작 안내 카드 또는 상단 보라색 <span class="ui-btn">AI로 쓰기</span> 버튼을 1번 눌러 핵심 장점 3가지를 자동 채우기로 작성한 뒤(이미 채워져 있으면 확인 후) 넘어갑니다.`,
           `<span class="ui-btn white">④ 사진·위치·만들기</span> 탭에 <code>photos/V3_01~04</code> 사진 4장 업로드 → 파란 <span class="ui-btn">IM 만들기</span> 클릭 → 바로 옆(및 하단 바) 초록색 <span class="ui-btn green">🔗 IM 링크 복사</span> 버튼을 눌러 아래 ②번 칸에 붙여넣고, <span class="ui-btn white">📥 PPTX 받기</span>로 세로형 외관 사진 비율을 확인합니다.`
         ],
-        check: "대지 518.7㎡ · 연면적 2,490.88㎡ · 현황 연 2.54%(보 6.8억/월 5,150만, 공실 보증금 비활성) → 기대수익률 탭 전환 즉시 상단 배지 연 3.38%(보 8.8억/월 6,800만) 전환!",
+        check: "대지 518.7㎡ · 연면적 2,490.88㎡ · 엑셀 미리보기 [✓ 표에 적용하기] 전 예상 수익률(2.54% / 3.38%) 즉시 표시 · 적용 후 기대수익률 탭 전환 즉시 상단 배지 연 3.38%(보 8.8억/월 6,800만) 전환!",
         urlSlots: [{ key: "v3_l1_im", label: "② 초록색 [🔗 IM 링크 복사]로 복사한 IM 주소 (/im-lite/...)" }]
       },
       {
@@ -423,7 +424,7 @@ const LOOPS = {
         title: "Step 7. 매물 1 자동 점검 및 체감 판정 마감",
         copies: [],
         items: [
-          `온라인 워크벤치를 함께 띄우셨다면 검은색 <strong>[🔍 입력한 링크·면적 자동 점검 실행]</strong>으로 전체 초록색 통과를 확인하고 각 단계의 [✅ 통과 / ✨ 손질 필요 / 🚨 결함]을 선택합니다.`
+          `온라인 워크벤치를 함께 띄우셨다면 파란색 <strong>[🔍 입력한 링크·면적 자동 점검 실행]</strong>으로 전체 초록색 통과를 확인하고 각 단계의 [✅ 통과 / ✨ 손질 필요 / 🚨 결함]을 선택합니다.`
         ],
         check: "중복 매물 생성 없이 단일 건물로 딜카드·IM·뉴스레터·소통함이 모두 연결됩니다."
       }
@@ -470,6 +471,7 @@ const LOOPS = {
         items: [
           `① 표지·기본정보 맨 위 <span class="ui-btn">신축·개발용</span> 선택 → 주소 자동 채우기 클릭 → 일부러 연면적·대지면적을 반대로 적어 <span class="ui-btn white">⇄ 연면적·대지면적 값 서로 바꾸기</span> 복구 확인 후 <strong>242억 + 2680만</strong> 입력!`,
           `<span class="ui-btn white">② 층별 임대현황</span>에서 현행 6행 복사 → 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭(열 순서 '업종 / 상호' 확인) → 옆 <span class="ui-btn">+ 기대수익률 임대차 현황 (선택)</span>에서 기대 6행 복사 → 파란 <span class="ui-btn">📋 표 붙여넣기</span> 클릭!`,
+          `<span class="ui-btn white">③ 장점 3가지</span> 탭 클릭 → 시작 안내 카드 또는 상단 보라색 <span class="ui-btn">AI로 쓰기</span> 1클릭으로 핵심 장점 3가지를 자동 채운 뒤(이미 채워져 있으면 확인 후) 다음 단계로 이동합니다.`,
           `<span class="ui-btn white">④ 사진·위치·만들기</span>에 사진 5장 업로드 후 파란 <span class="ui-btn">IM 만들기</span> &amp; <span class="ui-btn white">📥 PPTX 받기</span> 실행!`
         ],
         check: "2필지 대지 616.1㎡(약 186평) · 연면적 2,032.59㎡ · 수익률 1.37% → 4.14% 전환 완료."

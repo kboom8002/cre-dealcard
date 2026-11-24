@@ -114,8 +114,10 @@ export interface StoredQuickImRecord {
   };
   brokerProfile?: {
     displayName?: string;
+    representativeName?: string;
     company?: string;
     phone?: string;
+    officeAddress?: string;
     registrationNo?: string;
     licenseNo?: string;
     tagline?: string;

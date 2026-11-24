@@ -92,8 +92,19 @@ export function bandPrice(krw: number): string {
 }
 
 export function bandLocation(rawLoc: string): string {
-  // Strip any numbers or bunji
-  const sanitized = rawLoc.replace(/\d+(?:-\d+)?(?:번지)?/g, '').trim();
+  // 행정구역 숫자(예: 양평동4가, 당산동5가, 종로3가, 수유1동, 당산로41길, 2호선)는 보존하고 지번/번지만 제거한다.
+  const withoutFollowingLots = rawLoc.replace(
+    /([가-힣0-9]+(?:동|로)\s*\d+가|[가-힣0-9]+(?:대로|로)\s*\d+(?:번길|길)|[가-힣]+\d*(?:동|읍|면|리|대로|번길|로|길))\s*(?:산\s*)?\d+(?:-\d+)?(?!(?:-\d|\d|가|동|읍|면|리|로|길|번길|호선|역))(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d+(?:-\d+)?(?!(?:-\d|\d|가|동|읍|면|리|로|길|번길|호선|역))(?:\s*번지)?)*(?:\s*외\s*\d*\s*필지)?/g,
+    '$1'
+  );
+  const withoutStandaloneLots = withoutFollowingLots.replace(
+    /(?<![가-힣0-9])(?:산\s*)?\d+(?:-\d+)?(?!(?:-\d|\d|가|동|읍|면|리|로|길|번길|호선|역))(?:\s*번지)?/g,
+    ''
+  );
+  const sanitized = withoutStandaloneLots
+    .replace(/,\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (sanitized.includes('역') && !sanitized.includes('인근')) {
     return `${sanitized} 인근`;
   }

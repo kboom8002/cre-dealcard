@@ -625,6 +625,7 @@ export function ImDataBottomSheet({
             <RentRollAiHelperModal />
             <RentRollImporter 
               hasExistingData={floorLeases.length > 0}
+              askingPriceManwon={Number(askingPrice) || undefined}
               onImport={(data) => {
                 if (data.monthlyRent) setMonthlyRent(data.monthlyRent.toString());
                 if (data.totalDeposit) setTotalDeposit(data.totalDeposit.toString());

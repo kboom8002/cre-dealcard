@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
+import { Archive, Pencil, Trash2 } from "lucide-react";
 import {
   WorkspaceListPanel,
   ListToolbar,
   SimpleListRow,
   DateGroupedList,
   ListThumbnail,
+  RowIconActionButton,
 } from "@/components/workspace/list/WorkspaceList";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import { formatListDate } from "@/lib/workspace/list-date";
@@ -105,32 +107,23 @@ export function InboxListColumn({
       return (
         <>
           {onQuickEditClient && (
-            <button
-              type="button"
-              data-testid={`inbox-row-edit-${item.id}`}
+            <RowIconActionButton
+              testId={`inbox-row-edit-${item.id}`}
+              label={`${item.clientName} 수정`}
+              icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
               disabled={Boolean(busyAction)}
-              onClick={(e) => {
-                e.stopPropagation();
-                onQuickEditClient(item);
-              }}
-              className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-sm font-bold text-slate-700 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
-            >
-              수정
-            </button>
+              onClick={() => onQuickEditClient(item)}
+            />
           )}
           {onQuickDeleteClient && (
-            <button
-              type="button"
-              data-testid={`inbox-row-delete-${item.id}`}
+            <RowIconActionButton
+              testId={`inbox-row-delete-${item.id}`}
+              label={`${item.clientName} 삭제`}
+              tone="danger"
+              icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
               disabled={Boolean(busyAction)}
-              onClick={(e) => {
-                e.stopPropagation();
-                onQuickDeleteClient(item);
-              }}
-              className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:border-rose-300 hover:bg-rose-50 px-2.5 py-1 text-sm font-bold text-slate-700 hover:text-rose-700 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
-            >
-              삭제
-            </button>
+              onClick={() => onQuickDeleteClient(item)}
+            />
           )}
         </>
       );
@@ -142,18 +135,13 @@ export function InboxListColumn({
       !item.id.startsWith("sub_")
     ) {
       return (
-        <button
-          type="button"
-          data-testid={`inbox-row-archive-${item.id}`}
+        <RowIconActionButton
+          testId={`inbox-row-archive-${item.id}`}
+          label={`${item.clientName} 보관`}
+          icon={<Archive className="h-4 w-4" aria-hidden="true" />}
           disabled={Boolean(busyAction)}
-          onClick={(e) => {
-            e.stopPropagation();
-            onQuickArchiveThread(item);
-          }}
-          className="min-h-[44px] rounded-lg border border-slate-300 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-sm font-bold text-slate-700 disabled:opacity-50 transition cursor-pointer whitespace-nowrap"
-        >
-          보관
-        </button>
+          onClick={() => onQuickArchiveThread(item)}
+        />
       );
     }
     return undefined;
@@ -195,10 +183,22 @@ export function InboxListColumn({
               className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg pt-1 border-t border-[#FF9500]/20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
             >
             <span
-              title={firstPendingThread.clientName}
+              title={
+                firstPendingThread.clientCompany?.trim()
+                  ? `${firstPendingThread.clientName} (${firstPendingThread.clientCompany.trim()})`
+                  : firstPendingThread.clientName
+              }
               className="min-w-0 truncate text-sm font-bold text-[#1D1D1F]"
             >
               {firstPendingThread.clientName}
+              {firstPendingThread.clientCompany?.trim() ? (
+                <>
+                  {" "}
+                  <span className="font-extrabold text-indigo-950">
+                    ({firstPendingThread.clientCompany.trim()})
+                  </span>
+                </>
+              ) : null}
             </span>
             <button
               type="button"
@@ -418,22 +418,32 @@ export function InboxListColumn({
               const statusBadge = getInboxStatusBadge(item);
               const prioritySignal =
                 item.gateStatus !== "pending" ? computePriorityContactSignal(item) : null;
-              const secondaryContact =
-                item.clientCompany?.trim() || item.clientEmail?.trim() || "";
-              const metaText = [
+              const cleanCompany = item.clientCompany?.trim() || "";
+              const cleanEmail = !cleanCompany ? item.clientEmail?.trim() || "" : "";
+              const trailingParts = [
                 item.buildingTitle,
-                secondaryContact,
+                cleanEmail,
                 prioritySignal?.isPriority ? "🔥 먼저 연락" : "",
-              ]
-                .filter(Boolean)
-                .join(" · ");
+              ].filter(Boolean);
+              const metaNode =
+                cleanCompany || trailingParts.length > 0 ? (
+                  <>
+                    {cleanCompany ? (
+                      <span className="font-bold text-indigo-900">
+                        🏢 {cleanCompany}
+                      </span>
+                    ) : null}
+                    {cleanCompany && trailingParts.length > 0 ? " · " : null}
+                    {trailingParts.join(" · ")}
+                  </>
+                ) : undefined;
               return (
                 <SimpleListRow
                   testId={`inbox-thread-row-${item.id}`}
                   title={item.clientName}
                   date={item.updatedAt}
                   status={{ label: statusBadge.text, tone: statusBadge.tone }}
-                  meta={metaText}
+                  meta={metaNode}
                   selected={activeThread?.id === item.id}
                   onSelect={() => onSelectThread(item.id)}
                   actions={renderInlineActions(item)}
@@ -524,10 +534,19 @@ export function InboxListColumn({
                           ? `${formatPhoneKo(item.clientPhone)} · ${item.buildingTitle}`
                           : item.buildingTitle}
                       </p>
-                      {(item.clientCompany || item.clientEmail) && (
-                        <p className="mt-0.5 truncate text-sm text-slate-600">
-                          {[item.clientCompany, item.clientEmail].filter(Boolean).join(" · ")}
-                        </p>
+                      {(item.clientCompany?.trim() || item.clientEmail?.trim()) && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
+                          {item.clientCompany?.trim() && (
+                            <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-sm font-bold text-indigo-950">
+                              🏢 {item.clientCompany.trim()}
+                            </span>
+                          )}
+                          {item.clientEmail?.trim() && (
+                            <span className="truncate text-sm font-medium text-slate-700">
+                              {item.clientEmail.trim()}
+                            </span>
+                          )}
+                        </div>
                       )}
                       <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
                         {item.latestEvent}

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
-import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
@@ -15,14 +14,6 @@ import {
 } from "@/lib/rent-roll/tsv-parser";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
-
-const ImDataBottomSheet = dynamic(
-  () =>
-    import("@/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet").then(
-      (m) => m.ImDataBottomSheet
-    ),
-  { ssr: false, loading: () => null }
-);
 import type { RentRollImportPayload } from "@/components/broker/rent-roll-importer";
 import type { RentRollMeta } from "@/domain/building/mobile-im/rentroll-meta";
 import {
@@ -34,7 +25,6 @@ import {
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
 import { copyText } from "@/lib/ux/clipboard";
-import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import {
   useEditorPreviewSync,
@@ -55,7 +45,6 @@ import {
   IM_STORAGE_KEY,
   INITIAL_IM_LIST,
   SAMPLE_SEED_IDS,
-  isSampleSeedImItem,
   sortImWorkspaceItems,
   UUID_REGEX,
   applyUploadedPhotoBatchResult,
@@ -89,7 +78,11 @@ import { ImEditorPanels } from "./_components/ImEditorPanels";
 import { ImPreviewPane, ImPreviewTabSwitcher, type ImPostitStyle } from "./_components/ImPreviewPane";
 import { ImSlideVisualCard } from "./_components/ImSlideVisualCard";
 import { ImBottomActionBar } from "./_components/ImBottomActionBar";
-import { ImFullscreenModal } from "./_components/ImFullscreenModal";
+import {
+  ImEditorHeaderActions,
+  buildDuplicatedImItem,
+} from "./_components/ImEditorHeaderActions";
+import { ImWorkspaceModals } from "./_components/ImWorkspaceModals";
 import { useImServerHydration } from "./_hooks/useImServerHydration";
 
 export {
@@ -132,6 +125,25 @@ export function mintDuplicateImIds(sourceBuildingId?: string | null): {
     buildingId: isSharedOrFresh || !rawBid ? `bld-dup-${suffix}` : `bld-dup-${suffix}`,
     suffix,
   };
+}
+
+function sumRentRollMetric(
+  rows: RentRollRowItem[],
+  field: "monthlyRentManwon" | "depositManwon",
+  legacyField: "rent_manwon" | "deposit_manwon"
+): number {
+  return (
+    Math.round(
+      rows.reduce(
+        (s, r) =>
+          s +
+          (r.status !== "vacant" && r.status !== "owner"
+            ? Number(r[field] ?? (r as unknown as Record<string, unknown>)[legacyField] ?? 0)
+            : 0),
+        0
+      ) * 10
+    ) / 10
+  );
 }
 
 function ImWorkspaceInner() {
@@ -291,6 +303,30 @@ function ImWorkspaceInner() {
     []
   );
 
+  const replaceBuildingQueryUrl = useCallback(
+    (targetBid: string, normalizeListTab = true) => {
+      try {
+        const baseSearch =
+          typeof window !== "undefined"
+            ? window.location.search
+            : searchParams.toString();
+        const nextParams = new URLSearchParams(baseSearch);
+        nextParams.set("buildingId", targetBid);
+        nextParams.delete("id");
+        nextParams.delete("fresh");
+        if (normalizeListTab && nextParams.get("tab") === "list") {
+          nextParams.set("tab", "editor");
+        }
+        router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
+          scroll: false,
+        });
+      } catch {
+        // Safe no-op
+      }
+    },
+    [router, searchParams]
+  );
+
   const selectImItem = useCallback(
     (nextId: string, options?: { syncUrl?: boolean; listSnapshot?: ImListItem[] }) => {
       if (!nextId) return;
@@ -312,27 +348,10 @@ function ImWorkspaceInner() {
       pendingUrlBuildingIdRef.current = urlTargetId;
 
       if (options?.syncUrl !== false) {
-        try {
-          const baseSearch =
-            typeof window !== "undefined"
-              ? window.location.search
-              : searchParams.toString();
-          const nextParams = new URLSearchParams(baseSearch);
-          nextParams.set("buildingId", urlTargetId);
-          nextParams.delete("id");
-          nextParams.delete("fresh");
-          if (nextParams.get("tab") === "list") {
-            nextParams.set("tab", "editor");
-          }
-          router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
-            scroll: false,
-          });
-        } catch {
-          // Safe no-op
-        }
+        replaceBuildingQueryUrl(urlTargetId, true);
       }
     },
-    [router, searchParams]
+    [replaceBuildingQueryUrl, searchParams]
   );
 
   const currentItem = useMemo(() => {
@@ -576,100 +595,27 @@ function ImWorkspaceInner() {
     applyItemToFormState,
     persistImItems,
     onFreshDraftCreated: (freshBldId) => {
-      try {
-        const baseSearch =
-          typeof window !== "undefined"
-            ? window.location.search
-            : searchParams.toString();
-        const nextParams = new URLSearchParams(baseSearch);
-        nextParams.set("buildingId", freshBldId);
-        nextParams.delete("id");
-        nextParams.delete("fresh");
-        inFlightSelfUrlIdsRef.current.add(freshBldId);
-        lastAppliedQueryIdRef.current = freshBldId;
-        pendingUrlBuildingIdRef.current = freshBldId;
-        router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
-          scroll: false,
-        });
-      } catch {
-        // Safe no-op
-      }
+      inFlightSelfUrlIdsRef.current.add(freshBldId);
+      lastAppliedQueryIdRef.current = freshBldId;
+      pendingUrlBuildingIdRef.current = freshBldId;
+      replaceBuildingQueryUrl(freshBldId, false);
     },
   });
 
   const totalRentManwon = useMemo(
-    () =>
-      Math.round(
-        rentRoll.reduce(
-          (s, r) =>
-            s +
-            (r.status !== "vacant" && r.status !== "owner"
-              ? Number(
-                  r.monthlyRentManwon ??
-                    (r as unknown as Record<string, unknown>).rent_manwon ??
-                    0
-                )
-              : 0),
-          0
-        ) * 10
-      ) / 10,
+    () => sumRentRollMetric(rentRoll, "monthlyRentManwon", "rent_manwon"),
     [rentRoll]
   );
-
   const totalDepositManwon = useMemo(
-    () =>
-      Math.round(
-        rentRoll.reduce(
-          (s, r) =>
-            s +
-            (r.status !== "vacant" && r.status !== "owner"
-              ? Number(
-                  r.depositManwon ??
-                    (r as unknown as Record<string, unknown>).deposit_manwon ??
-                    0
-                )
-              : 0),
-          0
-        ) * 10
-      ) / 10,
+    () => sumRentRollMetric(rentRoll, "depositManwon", "deposit_manwon"),
     [rentRoll]
   );
-
   const expectedRentManwon = useMemo(
-    () =>
-      Math.round(
-        expectedRentRoll.reduce(
-          (s, r) =>
-            s +
-            (r.status !== "vacant" && r.status !== "owner"
-              ? Number(
-                  r.monthlyRentManwon ??
-                    (r as unknown as Record<string, unknown>).rent_manwon ??
-                    0
-                )
-              : 0),
-          0
-        ) * 10
-      ) / 10,
+    () => sumRentRollMetric(expectedRentRoll, "monthlyRentManwon", "rent_manwon"),
     [expectedRentRoll]
   );
-
   const expectedDepositManwon = useMemo(
-    () =>
-      Math.round(
-        expectedRentRoll.reduce(
-          (s, r) =>
-            s +
-            (r.status !== "vacant" && r.status !== "owner"
-              ? Number(
-                  r.depositManwon ??
-                    (r as unknown as Record<string, unknown>).deposit_manwon ??
-                    0
-                )
-              : 0),
-          0
-        ) * 10
-      ) / 10,
+    () => sumRentRollMetric(expectedRentRoll, "depositManwon", "deposit_manwon"),
     [expectedRentRoll]
   );
 
@@ -1924,24 +1870,20 @@ function ImWorkspaceInner() {
     }
   };
 
+  const resolveExportTarget = async (actionLabel: string) => {
+    const existingBid = currentItem?.buildingId || "";
+    if (!UUID_REGEX.test(existingBid) || currentItem?.isDirty || currentItem?.hasUnpublishedEdits) {
+      return ensureProvisionedImTarget(actionLabel);
+    }
+    return { buildingId: existingBid, documentId: currentItem?.documentId };
+  };
+
   const handleDownloadPptx = async (e?: React.MouseEvent<HTMLElement>) => {
     e?.preventDefault();
     if (isProvisioningSheet || isDownloadingPptx) return;
-    const existingBid = currentItem?.buildingId || "";
-    let targetBuildingId = existingBid;
-    let targetDocId = currentItem?.documentId;
-
-    if (
-      !UUID_REGEX.test(existingBid) ||
-      currentItem?.isDirty ||
-      currentItem?.hasUnpublishedEdits
-    ) {
-      const target = await ensureProvisionedImTarget("PPTX 내려받기");
-      if (!target) return;
-      targetBuildingId = target.buildingId;
-      targetDocId = target.documentId;
-    }
-    if (!targetBuildingId) return;
+    const target = await resolveExportTarget("PPTX 내려받기");
+    if (!target?.buildingId) return;
+    const { buildingId: targetBuildingId, documentId: targetDocId } = target;
 
     const docQs = targetDocId
       ? `&doc=${encodeURIComponent(targetDocId)}&doc_id=${encodeURIComponent(targetDocId)}`
@@ -1983,21 +1925,9 @@ function ImWorkspaceInner() {
   const handleDownloadPdf = async (e?: React.MouseEvent<HTMLElement>) => {
     e?.preventDefault();
     if (isProvisioningSheet || isDownloadingPdf || isDownloadingPptx) return;
-    const existingBid = currentItem?.buildingId || "";
-    let targetBuildingId = existingBid;
-    let targetDocId = currentItem?.documentId;
-
-    if (
-      !UUID_REGEX.test(existingBid) ||
-      currentItem?.isDirty ||
-      currentItem?.hasUnpublishedEdits
-    ) {
-      const target = await ensureProvisionedImTarget("PDF 저장");
-      if (!target) return;
-      targetBuildingId = target.buildingId;
-      targetDocId = target.documentId;
-    }
-    if (!targetBuildingId) return;
+    const target = await resolveExportTarget("PDF 저장");
+    if (!target?.buildingId) return;
+    const { buildingId: targetBuildingId, documentId: targetDocId } = target;
 
     setIsDownloadingPdf(true);
     try {
@@ -2221,23 +2151,10 @@ function ImWorkspaceInner() {
           const nextUrlBldId =
             String(data?.buildingId || "").trim() || originItem?.buildingId;
           if (typeof window !== "undefined" && nextUrlBldId) {
-            try {
-              const nextParams = new URLSearchParams(window.location.search);
-              nextParams.set("buildingId", nextUrlBldId);
-              nextParams.delete("id");
-              nextParams.delete("fresh");
-              if (nextParams.get("tab") === "list") {
-                nextParams.set("tab", "editor");
-              }
-              inFlightSelfUrlIdsRef.current.add(nextUrlBldId);
-              lastAppliedQueryIdRef.current = nextUrlBldId;
-              pendingUrlBuildingIdRef.current = nextUrlBldId;
-              router?.replace?.(`/broker/w/im?${nextParams.toString()}`, {
-                scroll: false,
-              });
-            } catch {
-              // Safe no-op
-            }
+            inFlightSelfUrlIdsRef.current.add(nextUrlBldId);
+            lastAppliedQueryIdRef.current = nextUrlBldId;
+            pendingUrlBuildingIdRef.current = nextUrlBldId;
+            replaceBuildingQueryUrl(nextUrlBldId, true);
           }
           autosave.markClean();
           if (typeof window !== "undefined") {
@@ -2283,27 +2200,13 @@ function ImWorkspaceInner() {
   const handleDuplicateIm = (source: ImListItem, e: React.MouseEvent) => {
     e.stopPropagation();
     const dupIds = mintDuplicateImIds(source.buildingId);
-    const newId = dupIds.id;
     const sourceLabel = source.title?.trim() || "새 IM";
-    const cloned: ImListItem = {
-      ...source,
-      id: newId,
-      buildingId: dupIds.buildingId,
-      ...(currentUserIdRef.current ? { ownerUserId: currentUserIdRef.current } : {}),
-      documentId: undefined,
-      title: `${sourceLabel} (사본)`,
-      status: "draft",
-      versionLabel: "작성 중",
-      updatedAt: new Date().toISOString(),
-      isDirty: true,
-      hasUnpublishedEdits: false,
-      isSample: false,
-    };
+    const cloned = buildDuplicatedImItem(source, dupIds, currentUserIdRef.current);
     const next = [cloned, ...items];
     itemsRef.current = next;
     setItems(next);
     persistImItems(next);
-    selectImItem(newId, { listSnapshot: next });
+    selectImItem(dupIds.id, { listSnapshot: next });
     applyItemToFormState(cloned);
     showUndoToast({
       message: `'${sourceLabel}' IM을 복제했어요`,
@@ -2665,8 +2568,6 @@ function ImWorkspaceInner() {
     />
   );
 
-  const selectedItemActionsNode = null;
-
   return (
     <>
       <WorkspaceShell
@@ -2674,6 +2575,15 @@ function ImWorkspaceInner() {
         listTitle="매물 선택"
         editorTitle="내용 입력"
         previewTitle="미리보기 · 발행"
+        editorHeaderActions={
+          currentItem ? (
+            <ImEditorHeaderActions
+              currentItem={currentItem}
+              onDuplicate={handleDuplicateIm}
+              onDelete={handleDeleteIm}
+            />
+          ) : null
+        }
         listSlot={
           <ImListSidebar
             filteredItems={filteredItems}
@@ -2696,7 +2606,6 @@ function ImWorkspaceInner() {
             selectedId={selectedId}
             activeEditorTab={activeEditorTab}
             onChangeEditorTab={setActiveEditorTab}
-            selectedItemActionsNode={selectedItemActionsNode}
             isProvisioningSheet={isProvisioningSheet}
             onOpenBottomSheet={handleOpenBottomSheet}
             isDownloadingPptx={isDownloadingPptx}
@@ -2970,51 +2879,23 @@ function ImWorkspaceInner() {
         onBuildingSelect={(id) => selectImItem(id)}
       />
 
-      <ImDataBottomSheet
-        key={bottomSheetBuildingId}
-        buildingId={bottomSheetBuildingId}
-        isOpen={isBottomSheetOpen}
-        onClose={() => setIsBottomSheetOpen(false)}
-        initialAddress={address}
-        prefillAskingPrice={askingPriceManwon}
-        prefillTotalDeposit={totalDepositManwon}
-        prefillMonthlyRent={totalRentManwon}
-        initialInvestmentPosture={normalizedPosture}
-      />
-
-      <ConfirmDeleteModal
-        isOpen={pendingDeleteIm !== null}
-        title={`'${pendingDeleteIm?.title || "새 IM"}'을(를) 삭제할까요?`}
-        description={
-          pendingDeleteIm?.status === "published"
-            ? "이미 발행된 IM 자료입니다. 삭제하더라도 하단 되돌리기 버튼으로 잠시 복구할 수 있습니다."
-            : "삭제한 IM은 하단 되돌리기 버튼으로 잠시 복구할 수 있습니다."
-        }
-        requireMatchText={
-          pendingDeleteIm &&
-          pendingDeleteIm.status === "published" &&
-          !isSampleSeedImItem(pendingDeleteIm) &&
-          pendingDeleteIm.title?.trim() &&
-          pendingDeleteIm.title.trim() !== "새 IM"
-            ? pendingDeleteIm.title.trim()
-            : undefined
-        }
-        matchInputLabel="삭제를 확정하려면 위 IM 제목을 그대로 입력해 주세요."
-        onCancel={() => setPendingDeleteIm(null)}
-        onConfirm={() => {
-          if (pendingDeleteIm) {
-            executeDeleteIm(pendingDeleteIm);
-          }
-          setPendingDeleteIm(null);
-        }}
-      />
-
-      <ImFullscreenModal
+      <ImWorkspaceModals
+        bottomSheetBuildingId={bottomSheetBuildingId}
+        isBottomSheetOpen={isBottomSheetOpen}
+        onCloseBottomSheet={() => setIsBottomSheetOpen(false)}
+        address={address}
+        askingPriceManwon={askingPriceManwon}
+        totalDepositManwon={totalDepositManwon}
+        totalRentManwon={totalRentManwon}
+        normalizedPosture={normalizedPosture}
+        pendingDeleteIm={pendingDeleteIm}
+        onCancelDelete={() => setPendingDeleteIm(null)}
+        onConfirmDelete={executeDeleteIm}
         fullscreenModalUrl={fullscreenModalUrl}
-        title={imTitle || currentItem?.title || "IM 전체화면 미리보기"}
+        fullscreenTitle={imTitle || currentItem?.title || "IM 전체화면 미리보기"}
         previewTab={previewTab}
         onChangePreviewTab={setPreviewTab}
-        onClose={() => setFullscreenModalUrl(null)}
+        onCloseFullscreen={() => setFullscreenModalUrl(null)}
         basicImSlides={basicImSlides}
         renderSlideCard={renderSlideVisualCard}
       />

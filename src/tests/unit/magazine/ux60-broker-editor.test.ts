@@ -24,11 +24,18 @@ vi.mock('@/components/ui/modal', () => ({
 import { EditorAiAssistTab } from '@/components/magazine-editor/EditorAiAssistTab';
 import { EditorCoverTab } from '@/components/magazine-editor/EditorCoverTab';
 import { EditorFieldNoteTab } from '@/components/magazine-editor/EditorFieldNoteTab';
+import { IssueMetadataForm } from '@/components/magazine-editor/IssueMetadataForm';
 import { PublishConfirmModal } from '@/components/magazine-editor/PublishConfirmModal';
 import { SaveStatusBadge } from '@/components/magazine-editor/SaveStatusBadge';
 import { SlugSetupGate } from '@/components/magazine-editor/SlugSetupGate';
+import { MagazineQuickDraftCard } from '@/components/broker/studio/MagazineQuickDraftCard';
 import { MagazineInsightCard } from '@/components/dashboard/MagazineInsightCard';
 import { ToastProvider } from '@/components/ui/toast-provider';
+import { NewsletterContentStepPanel } from '@/app/(broker)/broker/magazine-editor/_components/NewsletterContentStepPanel';
+import { NewsletterSendStepPanel } from '@/app/(broker)/broker/magazine-editor/_components/NewsletterSendStepPanel';
+import { resolveMagazineQueryAction } from '@/app/(broker)/broker/magazine-editor/_components/magazine-workspace-types';
+import { buildDefaultMonthlyGraphicPair } from '@/domain/magazine/monthly-stats-hydration';
+import { MagazineView } from '@/app/(magazine)/magazine/[brokerId]/[date]/magazine-view';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const readSrc = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -122,22 +129,23 @@ describe('U-F1-01 (B-03, B-11): 발행 확인 모달 발송 중지 모순 제거
   });
 });
 
-describe('U-F1-03 & U-F1-04 (B-08, B-14, B-16, B-17, B-20): SOTA 3열 스튜디오 · 3단계 탭 · 실시간 인과 미리보기', () => {
+describe('U-F1-03 & U-F1-04 (B-08, B-14, B-16, B-17, B-20): SOTA 3열 스튜디오 · 4단계 탭 · 실시간 인과 미리보기', () => {
   const pageSrc = readSrc('app/(broker)/broker/magazine-editor/page.tsx');
 
-  it('WorkspaceShell 3열(고르기·채우기·확인하고 보내기)과 3단계 탭을 표시한다', () => {
+  it('WorkspaceShell 3열(고르기·채우기·확인하고 보내기)과 4단계 탭을 표시한다', () => {
     expect(pageSrc).toContain('<WorkspaceShell');
     expect(pageSrc).toContain('workspace="magazine"');
-    expect(pageSrc).toContain('aria-label="뉴스레터 작성 3단계"');
+    expect(pageSrc).toContain('aria-label="뉴스레터 작성 4단계"');
   });
 
-  it('모바일(390px)에서도 3단계 탭 라벨이 숨겨지지 않고(hidden sm:inline 제거) 3열 그리드로 표시된다', () => {
+  it('모바일(390px)에서도 4단계 탭 라벨이 숨겨지지 않고(hidden sm:inline 제거) 반응형 4단계 그리드로 표시된다', () => {
     expect(pageSrc).not.toContain('hidden sm:inline');
-    expect(pageSrc).toContain('grid-cols-3');
+    expect(pageSrc).toContain('grid-cols-2 sm:grid-cols-4');
     expect(pageSrc).toContain('data-testid={`step-tab-${tab.key}`}');
     expect(pageSrc).toContain('key: "title"');
     expect(pageSrc).toContain('key: "content"');
     expect(pageSrc).toContain('key: "send"');
+    expect(pageSrc).toContain('key: "history"');
   });
 
   it('PreviewCausalityBar를 통해 "공개 독자 화면 보기 ↗" 링크와 발행·미리보기 동기화 상태를 제공한다', () => {
@@ -277,5 +285,149 @@ describe('U-F1-06 (B-04, B-05, B-09, B-10, B-12, B-15, B-18, B-19, B-21, B-22, B
     expect(qrSrc).toContain('width: 210');
     expect(qrSrc).not.toContain('서비스 주소(APP_BASE_URL)');
     expect(shareSrc).not.toContain('공유 주소(APP_BASE_URL)');
+  });
+});
+
+describe('Track 3B (E-01 ~ E-05) 회귀 검증', () => {
+  it('E-01: globals.css 포커스 placeholder 숨김, [×] 입력 지우기 버튼(44px), AI 참고 지역 안내 칩을 제공한다', () => {
+    const cssSrc = readSrc('app/globals.css');
+    expect(cssSrc).toContain('.broker-paper-theme input:focus::placeholder');
+    expect(cssSrc).toContain('.broker-paper-theme textarea:focus::placeholder');
+    expect(cssSrc).toContain('opacity: 0 !important');
+
+    const titleHtml = renderToStaticMarkup(
+      React.createElement(IssueMetadataForm, {
+        year: 2026,
+        month: 11,
+        headline: '11월 강남 빌딩 시장',
+        onChangeHeadline: () => {},
+      }),
+    );
+    expect(titleHtml).toContain('data-testid="clear-headline-btn"');
+    expect(titleHtml).toContain('aria-label="입력 지우기"');
+    expect(titleHtml).toContain('min-h-[44px] min-w-[44px]');
+
+    const quickHtml = renderToStaticMarkup(
+      React.createElement(MagazineQuickDraftCard, {
+        monthLabel: '2026년 11월호',
+        regionFocus: '강남·서초',
+        onChangeRegionFocus: () => {},
+        currentDraft: { headline: '', summary: '', briefingTitle: '', briefingBody: '' },
+        onApplyDraft: () => {},
+      }),
+    );
+    expect(quickHtml).toContain('🤖 AI 초안 참고 지역·주제 (선택 · 비워두면 기본 권역 사용)');
+    expect(quickHtml).toContain('data-testid="clear-region-focus-btn"');
+
+    const contentHtml = renderToStaticMarkup(
+      React.createElement(NewsletterContentStepPanel, {
+        cadence: 'monthly',
+        yearMonthLabel: '2026년 11월호',
+        regionFocus: '',
+        headline: '제목',
+        sections: [{ id: 'field_note', enabled: true }],
+        isSectionEnabled: () => true,
+        onToggleSection: () => {},
+        monthlyRegion: 'gbd',
+        monthlyPairId: 'molit_bok',
+        monthlyCharts: buildDefaultMonthlyGraphicPair('gbd'),
+        monthlyLiveDbAvailable: false,
+        onChangeMonthlyRegion: () => {},
+        onChangeMonthlyPair: () => {},
+        onUpdateMonthlyChartField: () => {},
+        onResetMonthlyCharts: () => {},
+        briefingBody: '이번 달 브리핑 본문입니다.',
+        onChangeBriefingBody: () => {},
+        unitIssues: [],
+        onChangeUnitIssues: () => {},
+        newsPool: [],
+        preferredRegions: ['강남·서초'],
+        preferredChannels: ['real_estate'],
+        deals: [],
+        selectedDeals: [],
+        selectedDealIds: [],
+        onToggleDeal: () => {},
+        dealComments: {},
+        onChangeDealComment: () => {},
+        isAiClustering: false,
+        onAiClusterIssues: () => {},
+        onRefreshLiveChannel: async () => {},
+        canUndoRecluster: false,
+        onUndoRecluster: () => {},
+        onOpenPreferences: () => {},
+        onNotifyEditorFocus: () => {},
+        onBackToTitle: () => {},
+        onNextToSend: () => {},
+      }),
+    );
+    expect(contentHtml).toContain('data-testid="clear-briefing-btn"');
+    expect(contentHtml).toContain('aria-label="입력 지우기"');
+  });
+
+  it('E-02 & E-03: ?step=history 해석 및 NewsletterSendStepPanel 3단 번호 구조·발송 방식 선택기를 렌더링한다', () => {
+    expect(resolveMagazineQueryAction({ get: (k) => (k === 'step' ? 'history' : null) })).toEqual({
+      dealIds: [],
+      step: 'history',
+    });
+
+    const sendHtml = renderToStaticMarkup(
+      React.createElement(NewsletterSendStepPanel, {
+        headline: '11월 빌딩 브리핑',
+        briefingBody: '강남 역세권 수요 견조',
+        selectedDealCount: 1,
+        enabledNewsCount: 2,
+        briefingEnabled: true,
+        dealsEnabled: true,
+        newsEnabled: true,
+        targetSegment: 'all',
+        onChangeTargetSegment: () => {},
+        subscriberCount: 3,
+        highInterestCount: 1,
+        sending: false,
+        quietHoursNow: false,
+        onJumpToStep: () => {},
+        onNotifyEditorFocus: () => {},
+        onBulkSubscribersImported: () => {},
+        onKakaoShare: () => {},
+        onCopyLink: () => {},
+        onBackToContent: () => {},
+        onSendSelected: () => {},
+      }),
+    );
+    expect(sendHtml).toContain('① 누구에게 보낼까요?');
+    expect(sendHtml).toContain('② 어떻게 보낼까요?');
+    expect(sendHtml).toContain('③ 발송 실행');
+    expect(sendHtml).toContain('지금 바로 발송');
+    expect(sendHtml).toContain('오전 08:30 예약 발송');
+    expect(sendHtml).toContain('웹 링크만 먼저 발행·복사');
+    expect(sendHtml).toContain('④ 발송·수신확인 내역 보기');
+  });
+
+  it('E-05: MagazineView 추천 매물 <li> 가 w-full shrink-0 snap-start 로 뉴스·브로커 카드와 좌우 폭이 일치한다', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(MagazineView, {
+        brokerId: 'hong-cre',
+        brokerSlug: 'hong-cre',
+        date: '2026-11-24',
+        dateLabel: '2026년 11월호 · 2026.11.24 발행',
+        data: {
+          broker: { name: '홍길동', company: '신한중개', phone: '010-1234-5678' },
+          headline: '11월 강남 빌딩 브리핑',
+          briefing: '브리핑 본문',
+          featured_deals: [
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              areaSignal: '강남구 역삼동',
+              assetType: '근린생활시설',
+              areaLabel: '연면적 300평',
+              priceBand: '100~110억',
+              investmentPoint: '역세권 코너 빌딩',
+            },
+          ],
+        },
+      }),
+    );
+    expect(html).toContain('w-full shrink-0 snap-start');
+    expect(html).not.toContain('w-[300px] sm:w-[320px]');
   });
 });

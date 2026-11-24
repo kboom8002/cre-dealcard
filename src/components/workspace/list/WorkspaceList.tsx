@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 import type { ListViewMode } from "./useListViewMode";
 import {
   formatListDate,
@@ -257,8 +257,13 @@ export function SimpleListRow({
   dataAttrs,
   now,
 }: SimpleListRowProps) {
+  const mountNowRef = useRef<Date | null>(null);
+  if (mountNowRef.current === null) {
+    mountNowRef.current = new Date();
+  }
+  const effectiveNow = now ?? mountNowRef.current;
   const tone = status ? TONE_STYLES[status.tone] : null;
-  const dateLabel = formatListDate(date, now);
+  const dateLabel = formatListDate(date, effectiveNow);
   const sharedClassName = `group relative flex w-full min-h-[3.5rem] cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-xl border py-2.5 pl-4 pr-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#007AFF]/60 ${
     selected
       ? "border-[#007AFF] bg-[#EAF3FF] shadow-[0_2px_8px_rgba(0,122,255,0.16)]"
@@ -270,63 +275,70 @@ export function SimpleListRow({
       {selected && (
         <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
       )}
-      <div className="min-w-0 w-full">
-        <span
-          data-single-line-title="true"
-          title={title}
-          className={`ws-simple-row-title block w-full min-w-0 truncate text-base font-bold break-keep ${
-            selected ? "text-[#0040DD]" : "text-[#1D1D1F]"
-          }`}
-        >
-          {selected && (
-            <span aria-hidden="true" className="mr-1">
-              ✓
-            </span>
-          )}
-          {selected && <span className="sr-only">선택됨: </span>}
-          {title}
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 w-full min-w-0 text-sm">
-        {(status || meta) && (
-          <div className="flex min-w-0 items-center gap-1.5 flex-wrap">
-            {status && tone && (
-              <span
-                data-testid={status.testId}
-                title={status.title}
-                className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${tone.text}`}
-              >
-                <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${tone.dot}`} />
-                <span>
-                  {tone.mark}
-                  {status.label}
+      <div className="flex w-full items-center justify-between gap-1.5 min-w-0">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="min-w-0 w-full">
+            <span
+              data-single-line-title="true"
+              title={title}
+              className={`ws-simple-row-title block w-full min-w-0 truncate text-base font-bold break-keep ${
+                selected ? "text-[#0040DD]" : "text-[#1D1D1F]"
+              }`}
+            >
+              {selected && (
+                <span aria-hidden="true" className="mr-1">
+                  ✓
                 </span>
-              </span>
-            )}
-            {status && meta ? (
-              <span aria-hidden="true" className="text-[#AEAEB2]">
-                ·
-              </span>
-            ) : null}
-            {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
+              )}
+              {selected && <span className="sr-only">선택됨: </span>}
+              {title}
+            </span>
           </div>
-        )}
-        <span
-          data-testid={`${testId}-date`}
-          className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
-        >
-          {dateLabel}
-        </span>
-      </div>
-      {actions ? (
-        <div
-          className={`flex flex-wrap items-center justify-end gap-1.5 w-full mt-2 pt-2 border-t ${
-            selected ? "border-[#007AFF]/20" : "border-slate-200/80"
-          }`}
-        >
-          {actions}
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 w-full min-w-0 text-sm">
+            {(status || meta) && (
+              <div className="flex min-w-0 items-center gap-1.5 flex-wrap">
+                {status && tone && (
+                  <span
+                    data-testid={status.testId}
+                    title={status.title}
+                    className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${tone.text}`}
+                  >
+                    <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${tone.dot}`} />
+                    <span>
+                      {tone.mark}
+                      {status.label}
+                    </span>
+                  </span>
+                )}
+                {status && meta ? (
+                  <span aria-hidden="true" className="text-[#AEAEB2]">
+                    ·
+                  </span>
+                ) : null}
+                {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
+              </div>
+            )}
+            <span
+              data-testid={`${testId}-date`}
+              className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
+            >
+              {dateLabel}
+            </span>
+          </div>
         </div>
-      ) : null}
+        {actions ? (
+          <div
+            data-row-actions={testId}
+            className={`flex shrink-0 items-center gap-0.5 transition-opacity ${
+              selected
+                ? "opacity-100"
+                : "opacity-100 sm:opacity-35 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+            }`}
+          >
+            {actions}
+          </div>
+        ) : null}
+      </div>
     </>
   );
 
@@ -391,7 +403,12 @@ export function DateGroupedList<T>({
   now,
   ariaLabel = "목록",
 }: DateGroupedListProps<T>) {
-  const groups = groupItemsByListDate(items, getDate, now);
+  const mountNowRef = useRef<Date | null>(null);
+  if (mountNowRef.current === null) {
+    mountNowRef.current = new Date();
+  }
+  const effectiveNow = now ?? mountNowRef.current;
+  const groups = groupItemsByListDate(items, getDate, effectiveNow);
   return (
     <div data-testid="ws-date-grouped-list" className="space-y-3">
       {groups.map((g) => (
@@ -498,5 +515,89 @@ export function SelectedItemActions({
         </button>
       )}
     </div>
+  );
+}
+
+/* ── SOTA 슬림 행 고스트 아이콘 & 2열 상단 헤더 액션 버튼 ───────────────── */
+
+export interface RowIconActionButtonProps {
+  testId?: string;
+  label: string;
+  icon: React.ReactNode;
+  tone?: "default" | "danger";
+  disabled?: boolean;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
+}
+
+export function RowIconActionButton({
+  testId,
+  label,
+  icon,
+  tone = "default",
+  disabled = false,
+  onClick,
+  className = "",
+}: RowIconActionButtonProps) {
+  const toneClass =
+    tone === "danger"
+      ? "text-slate-500 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-rose-500/40"
+      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-[#007AFF]/50";
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(e);
+      }}
+      className={`inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 ${toneClass} ${className}`}
+    >
+      {icon}
+    </button>
+  );
+}
+
+export interface EditorHeaderActionButtonProps {
+  testId?: string;
+  label: string;
+  title?: string;
+  icon: React.ReactNode;
+  tone?: "default" | "danger";
+  disabled?: boolean;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
+}
+
+export function EditorHeaderActionButton({
+  testId,
+  label,
+  title,
+  icon,
+  tone = "default",
+  disabled = false,
+  onClick,
+  className = "",
+}: EditorHeaderActionButtonProps) {
+  const toneClass =
+    tone === "danger"
+      ? "border-slate-200 bg-white text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900";
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-label={title || label}
+      title={title || label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${toneClass} ${className}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }

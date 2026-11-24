@@ -320,7 +320,7 @@ export function MagazineView({
             return (
               <li
                 key={i}
-                className="block w-[300px] sm:w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl border-2 border-amber-400/75 bg-white shadow-sm transition-all duration-300 hover:border-amber-500"
+                className="block w-full shrink-0 snap-start overflow-hidden rounded-2xl border-2 border-amber-400/75 bg-white shadow-sm transition-all duration-300 hover:border-amber-500"
               >
                 <a
                   href={dealCardHref}

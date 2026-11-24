@@ -174,8 +174,11 @@ export function InboxEditorColumn({
                     {activeThread.clientName}
                   </h2>
                   {activeThread.clientCompany && (
-                    <span className="text-sm font-semibold text-slate-600">
-                      · {activeThread.clientCompany}
+                    <span
+                      data-testid="inbox-editor-client-company-badge"
+                      className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-sm font-extrabold text-indigo-950 shrink-0"
+                    >
+                      🏢 {activeThread.clientCompany}
                     </span>
                   )}
                 </div>
@@ -361,10 +364,20 @@ export function InboxEditorColumn({
                   data-testid="inbox-pending-gate-card"
                   className="rounded-2xl border-2 border-amber-300 bg-amber-50/70 p-5 shadow-xs"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center rounded-md bg-amber-200 px-2.5 py-1 text-sm font-extrabold text-amber-950">
-                      IM 열람 요청
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center rounded-md bg-amber-200 px-2.5 py-1 text-sm font-extrabold text-amber-950">
+                        IM 열람 요청
+                      </span>
+                      {activeThread.clientCompany && (
+                        <span
+                          data-testid="inbox-pending-gate-company-badge"
+                          className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-sm font-extrabold text-indigo-950"
+                        >
+                          🏢 소속: {activeThread.clientCompany}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-sm font-semibold text-amber-900">
                       {formatListDate(activeThread.updatedAt)}
                     </span>
@@ -386,7 +399,9 @@ export function InboxEditorColumn({
                       onClick={() => onApproveAndSendIm(activeThread)}
                       className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
                     >
-                      자료 보내기(승인)
+                      {busyAction === `approve:${activeThread.id}`
+                        ? "승인 처리 중…"
+                        : "자료 보내기(승인)"}
                     </button>
                     <button
                       type="button"
@@ -450,7 +465,9 @@ export function InboxEditorColumn({
                     onClick={() => onApproveAndSendIm(activeThread)}
                     className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
                   >
-                    다시 승인·발급
+                    {busyAction === `approve:${activeThread.id}`
+                      ? "승인 처리 중…"
+                      : "다시 승인·발급"}
                   </button>
                 </div>
               ) : (

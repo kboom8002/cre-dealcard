@@ -31,6 +31,7 @@ import { InboxDispatchTimeline } from '@/app/(broker)/broker/w/inbox/_components
 import { DealCardEditorColumn } from '@/app/(broker)/broker/w/dealcards/_components/DealCardEditorColumn';
 import { PreSendConfirmationSheet } from '@/components/broker/deal-card/PreSendConfirmationSheet';
 import { NewsletterSendStepPanel } from '@/app/(broker)/broker/magazine-editor/_components/NewsletterSendStepPanel';
+import MagazineEditorPage from '@/app/(broker)/broker/magazine-editor/page';
 import { MagazineShareModal } from '@/components/magazine-editor/MagazineShareModal';
 import { handleUpsertClientAction } from '@/lib/inbox/inbox-actions-clients';
 
@@ -54,6 +55,12 @@ vi.mock('next/navigation', () => ({
 const mockCopyText = vi.fn().mockResolvedValue(true);
 vi.mock('@/lib/ux/clipboard', () => ({
   copyText: (...args: unknown[]) => mockCopyText(...args),
+  copyTextFromPromise: vi.fn(async (getText: () => Promise<string | null | undefined>) => {
+    const text = (await getText()) ?? null;
+    if (!text) return { ok: false, text: null };
+    const ok = await mockCopyText(text);
+    return { ok, text };
+  }),
   COPY_FAILED_MESSAGE: '복사하지 못했습니다.',
 }));
 
@@ -607,10 +614,10 @@ describe('Wave 3 Agent 2: WorkspaceShell, Inbox, DealCards & Magazine Split-Scre
     expect(
       container.querySelector('[data-testid="step3-published-open-btn"]')?.getAttribute('href')
     ).toBe('https://credeal.net/magazine/hong/2026-11-23');
-    expect(
-      container.querySelector('[data-testid="distribute-outcome-open-btn"]')?.getAttribute('href')
-    ).toBe('https://credeal.net/magazine/hong/2026-11-23');
-    fireEvent.click(container.querySelector('[data-testid="distribute-outcome-copy-btn"]')!);
+    expect(container.querySelector('[data-testid="distribute-outcome-open-btn"]')).toBeNull();
+    const step3CopyBtn = container.querySelector('[data-testid="step3-published-copy-btn"]');
+    expect(step3CopyBtn).not.toBeNull();
+    fireEvent.click(step3CopyBtn!);
     expect(onCopyLink).toHaveBeenCalledTimes(1);
 
     const writeClipboard = vi.fn().mockResolvedValue(undefined);
@@ -667,5 +674,147 @@ describe('Wave 3 Agent 2: WorkspaceShell, Inbox, DealCards & Magazine Split-Scre
     expect(magazinePageSrc).toContain('setActiveStep("send")');
     expect(magazinePageSrc).toContain('newsletter-inline-live-bar');
     expect(magazinePageSrc).not.toMatch(/if\s*\(\s*nextStep\s*===\s*["']send["']/);
+  });
+
+  it('Track 3B (E-01/E-02/E-03): supports web-only mode in SendStepPanel, clean ?new=1 draft reset, and Step 4 발송·수신확인 receipts', async () => {
+    const onPublishWebOnly = vi.fn();
+    const onJumpToStep = vi.fn();
+    await act(async () => {
+      root.render(
+        <NewsletterSendStepPanel
+          headline="11월 강남 오피스 브리핑"
+          briefingBody="핵심 매물 요약입니다."
+          selectedDealCount={1}
+          enabledNewsCount={1}
+          briefingEnabled
+          dealsEnabled
+          newsEnabled
+          targetSegment="all"
+          onChangeTargetSegment={vi.fn()}
+          subscriberCount={5}
+          highInterestCount={2}
+          sending={false}
+          quietHoursNow={false}
+          onJumpToStep={onJumpToStep}
+          onNotifyEditorFocus={vi.fn()}
+          onBulkSubscribersImported={vi.fn()}
+          onKakaoShare={vi.fn()}
+          onCopyLink={vi.fn()}
+          onPublishWebOnly={onPublishWebOnly}
+          onBackToContent={vi.fn()}
+          onSendSelected={vi.fn()}
+        />
+      );
+    });
+
+    const webOnlyRadio = container.querySelector('[data-testid="send-mode-web-only"]') as HTMLButtonElement;
+    expect(webOnlyRadio).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(webOnlyRadio);
+    });
+    const sendBtn = container.querySelector('[data-testid="newsletter-step3-send-btn"]') as HTMLButtonElement;
+    expect(sendBtn.textContent).toContain('웹 링크만 발행하기');
+    await act(async () => {
+      fireEvent.click(sendBtn);
+    });
+    expect(onPublishWebOnly).toHaveBeenCalledTimes(1);
+
+    const goHistoryBtn = container.querySelector('[data-testid="newsletter-step3-go-history-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(goHistoryBtn);
+    });
+    expect(onJumpToStep).toHaveBeenCalledWith('history');
+
+    // Verify ?new=1 skips previous local/server draft while loading editions, and ?step=history renders receipts
+    const origFetch = global.fetch;
+    try {
+      window.localStorage.setItem(
+        'cre-newsletter-local-draft-v2',
+        JSON.stringify({ headline: '이전 로컬 제목', briefingBody: '이전 본문', savedAt: '2026-11-20T00:00:00Z' }),
+      );
+      mockPathname = '/broker/magazine-editor';
+      mockSearchParams = new URLSearchParams('new=1');
+      global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/magazine/editions')) {
+          return Response.json({
+            ok: true,
+            brokerId: '11111111-1111-4111-8111-111111111111',
+            brokerSlug: 'gangnam-ace',
+            brokerName: '김에이스',
+            brokerPreferences: { preferredRegions: ['강남·서초'], preferredChannels: ['real_estate'] },
+            editions: [
+              {
+                id: 'dddddddd-1111-4111-8111-111111111111',
+                edition_type: 'monthly',
+                edition_label: '2026-11',
+                status: 'draft',
+                title: '이전 서버 초안 제목',
+                content: { headline: '이전 서버 초안 제목', briefing_body_md: '이전 본문' },
+              },
+            ],
+          });
+        }
+        if (url.includes('/api/broker/magazine/analytics')) {
+          return Response.json({
+            ok: true,
+            subscriberCount: 2,
+            editions: [],
+            lastDistribution: null,
+            recentDistributions: [],
+            deliveryReceipts: [
+              {
+                id: 'rcpt-1',
+                recipientLabel: '홍길동 (hong@example.com)',
+                editionLabel: '11월 강남 오피스 브리핑',
+                sentAt: '2026-11-24T00:00:00.000Z',
+                openedAt: '2026-11-24T01:15:00.000Z',
+                status: 'opened',
+              },
+              {
+                id: 'rcpt-2',
+                recipientLabel: '김투자 (kim@example.com)',
+                editionLabel: '11월 강남 오피스 브리핑',
+                sentAt: '2026-11-24T00:00:00.000Z',
+                openedAt: null,
+                status: 'sent',
+              },
+            ],
+          });
+        }
+        return Response.json({ ok: true, buildings: [] });
+      }) as typeof global.fetch;
+
+      await act(async () => {
+        root.render(<MagazineEditorPage />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const headlineEl = container.querySelector('#newsletter-headline-input') as HTMLInputElement;
+      const regionFocusEl = container.querySelector('#quick-draft-region-focus') as HTMLInputElement;
+      expect(headlineEl?.value).toBe('');
+      expect(regionFocusEl?.value).toBe('');
+
+      const historyTab = container.querySelector('[data-testid="step-tab-history"]') as HTMLButtonElement;
+      await act(async () => {
+        fireEvent.click(historyTab);
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining('step=history'));
+      const receiptsSection = container.querySelector('[data-testid="newsletter-delivery-receipts-section"]');
+      expect(receiptsSection).not.toBeNull();
+      expect(receiptsSection?.textContent).toContain('홍길동 (hong@example.com)');
+      expect(receiptsSection?.textContent).toContain('✓ 열람 완료');
+      expect(receiptsSection?.textContent).toContain('발송됨 (미열람)');
+    } finally {
+      global.fetch = origFetch;
+      window.localStorage.clear();
+    }
   });
 });

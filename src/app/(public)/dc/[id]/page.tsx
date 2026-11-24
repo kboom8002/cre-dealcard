@@ -349,8 +349,18 @@ function buildDealCardDataFromQuickRecord(
     buildingStatus?: string | null;
     draftOnly?: boolean;
     correctionNotice?: { message: string; updatedAt?: string } | null;
+    liveDbProfile?: PublicDealCardBrokerInput | null;
   }
 ) {
+  const live = extra?.liveDbProfile ?? null;
+  const liveDisplayName =
+    live?.display_name && live.display_name !== "담당 중개사"
+      ? strOrNull(live.display_name)
+      : null;
+  const liveSpecialty =
+    live?.specialty && live.specialty !== "검증 공인중개사"
+      ? strOrNull(live.specialty)
+      : null;
   return {
     building: {
       id: quickRec.buildingId,
@@ -390,38 +400,58 @@ function buildDealCardDataFromQuickRecord(
         key_points: quickRec.card4.points,
       },
     } as TeaserDocView,
-    brokerProfile: (quickRec.brokerProfile || quickRec.basicImDoc?.facts?.brokerOffice
+    brokerProfile: (quickRec.brokerProfile || quickRec.basicImDoc?.facts?.brokerOffice || live
       ? (() => {
           const bp = (quickRec.brokerProfile ?? {}) as Record<string, unknown>;
           const bo = (quickRec.basicImDoc?.facts?.brokerOffice ?? {}) as Record<string, unknown>;
           const bpPhone = strOrNull(bp.phone);
           const boPhone = strOrNull(bo.phone);
           return {
-            display_name: strOrNull(bp.displayName) || strOrNull(bo.representative) || "담당 중개사",
+            display_name:
+              liveDisplayName ||
+              strOrNull(bp.displayName) ||
+              strOrNull(bp.display_name) ||
+              strOrNull(bo.representative) ||
+              "담당 중개사",
             phone:
+              strOrNull(live?.phone) ||
               (bpPhone && bpPhone !== "-" ? bpPhone : null) ||
               (boPhone && boPhone !== "-" ? boPhone : null),
-            specialty: strOrNull(bp.company) || strOrNull(bo.name) || "검증 공인중개사",
-            company: strOrNull(bp.company) || strOrNull(bp.officeName) || strOrNull(bo.name),
+            specialty:
+              liveSpecialty ||
+              strOrNull(live?.company) ||
+              strOrNull(bp.company) ||
+              strOrNull(bo.name) ||
+              "검증 공인중개사",
+            company:
+              strOrNull(live?.company) ||
+              strOrNull(bp.company) ||
+              strOrNull(bp.officeName) ||
+              strOrNull(bo.name),
             office_address:
+              strOrNull(live?.office_address) ||
               strOrNull(bp.officeAddress) ||
               strOrNull(bp.office_address) ||
               strOrNull(bo.address) ||
               strOrNull(bo.officeAddress),
             office_reg_number:
+              strOrNull(live?.office_reg_number) ||
               strOrNull(bp.registrationNo) ||
               strOrNull(bp.office_reg_number) ||
               strOrNull(bo.registrationNo),
             representative_name:
+              strOrNull(live?.representative_name) ||
               strOrNull(bp.representativeName) ||
               strOrNull(bp.representative_name) ||
               strOrNull(bo.representative) ||
               strOrNull(bp.displayName),
-            avatar_url: strOrNull(bp.photoUrl),
-            is_licensed: Boolean(bp.registrationNo || bp.office_reg_number || bo.registrationNo),
-            response_guarantee_hours: null,
-            closed_deals: null,
-            slug: strOrNull(bp.slug),
+            avatar_url: strOrNull(live?.avatar_url) || strOrNull(bp.photoUrl),
+            is_licensed: Boolean(
+              live?.is_licensed || bp.registrationNo || bp.office_reg_number || bo.registrationNo
+            ),
+            response_guarantee_hours: live?.response_guarantee_hours ?? null,
+            closed_deals: live?.closed_deals ?? null,
+            slug: strOrNull(live?.slug) || strOrNull(bp.slug),
           };
         })()
       : null) as PublicDealCardBrokerInput | null,
@@ -444,6 +474,22 @@ function buildDealCardDataFromQuickRecord(
     blockedReason: extra?.blockedReason as string | undefined,
     correctionNotice: extra?.correctionNotice ?? null,
   };
+}
+
+async function buildDealCardDataFromQuickRecordWithLiveProfile(
+  supabase: ReturnType<typeof createServiceClient>,
+  quickRec: StoredQuickImRecord,
+  extra?: Omit<NonNullable<Parameters<typeof buildDealCardDataFromQuickRecord>[1]>, "liveDbProfile">,
+  fallbackOwnerId?: string | null
+) {
+  const effectiveOwnerId = quickRec.ownerId || fallbackOwnerId || null;
+  const liveDbProfile = effectiveOwnerId
+    ? await fetchPublicBrokerProfile(supabase, effectiveOwnerId)
+    : null;
+  return buildDealCardDataFromQuickRecord(quickRec, {
+    ...extra,
+    liveDbProfile,
+  });
 }
 
 function synthesizeReadOnlyQuickRecord(
@@ -686,21 +732,74 @@ const getDealCardData = cache(async (id: string) => {
       rawSnapshotProfile && typeof rawSnapshotProfile === "object"
         ? normalizeSnapshotBrokerProfile(rawSnapshotProfile as Record<string, unknown>)
         : null;
-    if (!resolvedBrokerProfile && guard.ownerId) {
-      resolvedBrokerProfile = await fetchPublicBrokerProfile(supabase, guard.ownerId);
-    } else if (
-      resolvedBrokerProfile &&
-      guard.ownerId &&
-      (!resolvedBrokerProfile.office_reg_number && !resolvedBrokerProfile.officeRegNumber)
-    ) {
+    if (guard.ownerId) {
       const dbProfile = await fetchPublicBrokerProfile(supabase, guard.ownerId);
       if (dbProfile) {
-        resolvedBrokerProfile = {
-          ...dbProfile,
-          ...resolvedBrokerProfile,
-          avatar_url: resolvedBrokerProfile.avatar_url || dbProfile.avatar_url || null,
-          is_licensed: Boolean(resolvedBrokerProfile.is_licensed || dbProfile.is_licensed),
-        };
+        const liveDisplayName =
+          dbProfile.display_name && dbProfile.display_name !== "담당 중개사"
+            ? dbProfile.display_name
+            : null;
+        const liveSpecialty =
+          dbProfile.specialty && dbProfile.specialty !== "검증 공인중개사"
+            ? dbProfile.specialty
+            : null;
+        resolvedBrokerProfile = resolvedBrokerProfile
+          ? {
+              ...resolvedBrokerProfile,
+              ...dbProfile,
+              display_name:
+                liveDisplayName ||
+                resolvedBrokerProfile.display_name ||
+                dbProfile.display_name,
+              representative_name:
+                dbProfile.representative_name ||
+                resolvedBrokerProfile.representative_name ||
+                resolvedBrokerProfile.representativeName ||
+                null,
+              office_address:
+                dbProfile.office_address ||
+                resolvedBrokerProfile.office_address ||
+                resolvedBrokerProfile.officeAddress ||
+                null,
+              office_reg_number:
+                dbProfile.office_reg_number ||
+                resolvedBrokerProfile.office_reg_number ||
+                resolvedBrokerProfile.officeRegNumber ||
+                null,
+              company:
+                dbProfile.company ||
+                resolvedBrokerProfile.company ||
+                null,
+              specialty:
+                liveSpecialty ||
+                resolvedBrokerProfile.specialty ||
+                dbProfile.specialty ||
+                null,
+              phone:
+                dbProfile.phone ||
+                resolvedBrokerProfile.phone ||
+                null,
+              avatar_url:
+                dbProfile.avatar_url ||
+                resolvedBrokerProfile.avatar_url ||
+                null,
+              slug:
+                dbProfile.slug ||
+                resolvedBrokerProfile.slug ||
+                null,
+              response_guarantee_hours:
+                dbProfile.response_guarantee_hours ??
+                resolvedBrokerProfile.response_guarantee_hours ??
+                null,
+              closed_deals:
+                dbProfile.closed_deals ??
+                resolvedBrokerProfile.closed_deals ??
+                null,
+              is_licensed: Boolean(
+                dbProfile.is_licensed || resolvedBrokerProfile.is_licensed
+              ),
+            }
+          : dbProfile;
       }
     }
     return {
@@ -752,10 +851,15 @@ const getDealCardData = cache(async (id: string) => {
     return { ...emptyData, buildingStatus: "archived", workspaceItemStatus: "revoked", blockedReason: "revoked" };
   }
   if (quickRec && quickRec.ownerId) {
-    return buildDealCardDataFromQuickRecord(quickRec, {
-      workspaceItemStatus: guard.workspaceItemStatus,
-      blockedReason: guard.reason,
-    });
+    return await buildDealCardDataFromQuickRecordWithLiveProfile(
+      supabase,
+      quickRec,
+      {
+        workspaceItemStatus: guard.workspaceItemStatus,
+        blockedReason: guard.reason,
+      },
+      guard.ownerId
+    );
   }
 
   if (!isUuid(id)) {
@@ -814,22 +918,34 @@ const getDealCardData = cache(async (id: string) => {
             brokerProfile: matched.metadata.broker_profile as StoredQuickImRecord["brokerProfile"],
           });
           if (hydrated) {
-            return buildDealCardDataFromQuickRecord(hydrated, legacyExtra);
+            return await buildDealCardDataFromQuickRecordWithLiveProfile(
+              supabase,
+              hydrated,
+              legacyExtra,
+              guard.ownerId
+            );
           }
         }
-        return buildDealCardDataFromQuickRecord(
+        return await buildDealCardDataFromQuickRecordWithLiveProfile(
+          supabase,
           synthesizeReadOnlyQuickRecord(String(id), matched),
-          legacyExtra
+          legacyExtra,
+          guard.ownerId
         );
       }
 
       if (memoryFallbackAllowed) {
         const synthesizedNonUuid = await resolveOrSynthesizeQuickImRecord(id, supabase);
         if (synthesizedNonUuid) {
-          return buildDealCardDataFromQuickRecord(synthesizedNonUuid, {
-            workspaceItemStatus: guard.workspaceItemStatus,
-            blockedReason: guard.reason,
-          });
+          return await buildDealCardDataFromQuickRecordWithLiveProfile(
+            supabase,
+            synthesizedNonUuid,
+            {
+              workspaceItemStatus: guard.workspaceItemStatus,
+              blockedReason: guard.reason,
+            },
+            guard.ownerId
+          );
         }
       }
     } catch {
@@ -837,7 +953,12 @@ const getDealCardData = cache(async (id: string) => {
     }
 
     if (quickRec) {
-      return buildDealCardDataFromQuickRecord(quickRec);
+      return await buildDealCardDataFromQuickRecordWithLiveProfile(
+        supabase,
+        quickRec,
+        undefined,
+        guard.ownerId
+      );
     }
 
     const rawIdStr = String(id);
@@ -927,19 +1048,29 @@ const getDealCardData = cache(async (id: string) => {
           .maybeSingle(),
       ]);
     } else if (quickRec) {
-      return buildDealCardDataFromQuickRecord(quickRec, {
-        workspaceItemStatus: guard.workspaceItemStatus,
-        blockedReason: guard.reason,
-      });
+      return await buildDealCardDataFromQuickRecordWithLiveProfile(
+        supabase,
+        quickRec,
+        {
+          workspaceItemStatus: guard.workspaceItemStatus,
+          blockedReason: guard.reason,
+        },
+        guard.ownerId
+      );
     } else {
       const synthesized = memoryFallbackAllowed
         ? await resolveOrSynthesizeQuickImRecord(id, supabase)
         : null;
       if (synthesized) {
-        return buildDealCardDataFromQuickRecord(synthesized, {
-          workspaceItemStatus: guard.workspaceItemStatus,
-          blockedReason: guard.reason,
-        });
+        return await buildDealCardDataFromQuickRecordWithLiveProfile(
+          supabase,
+          synthesized,
+          {
+            workspaceItemStatus: guard.workspaceItemStatus,
+            blockedReason: guard.reason,
+          },
+          guard.ownerId
+        );
       }
       try {
         let actQuery = supabase
@@ -993,12 +1124,19 @@ const getDealCardData = cache(async (id: string) => {
               brokerProfile: matched.metadata.broker_profile as StoredQuickImRecord["brokerProfile"],
             });
             if (hydrated) {
-              return buildDealCardDataFromQuickRecord(hydrated, legacyExtra);
+              return await buildDealCardDataFromQuickRecordWithLiveProfile(
+                supabase,
+                hydrated,
+                legacyExtra,
+                guard.ownerId
+              );
             }
           }
-          return buildDealCardDataFromQuickRecord(
+          return await buildDealCardDataFromQuickRecordWithLiveProfile(
+            supabase,
             synthesizeReadOnlyQuickRecord(String(id), matched),
-            legacyExtra
+            legacyExtra,
+            guard.ownerId
           );
         }
       } catch {

@@ -631,8 +631,12 @@ export async function GET(
   const safeAssetType = assetType ? safeText(assetType, "") : "";
   const safeBandedPrice = safeText(bandedPrice, "Price TBD");
   const footerKindLabel = safeText(
-    type === "im" ? "모바일 투자설명서 (IM)" : "블라인드 딜카드",
+    type === "im" ? "모바일 투자설명서" : "블라인드 딜카드",
     type === "im" ? "Mobile IM" : "Blind DealCard"
+  );
+  const footerTagLabel = safeText(
+    "공적장부 · 현장검증 기반 투자 브리핑",
+    "Verified Real Estate Briefing"
   );
 
   // Hero tiles: 유효한 매각가와 권역 표시 보장 (이모지 CDN 호출 제거)
@@ -653,7 +657,7 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "40px 56px",
+          padding: "34px 60px",
           background: "linear-gradient(135deg, #030712 0%, #0F172A 55%, #020617 100%)",
           color: "white",
           fontFamily: '"Noto Sans KR", sans-serif',
@@ -689,13 +693,13 @@ export async function GET(
           }}
         />
 
-        {/* Top Header Row: Badges — 2x larger */}
+        {/* Top Header Row: Badges */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "16px",
-            marginTop: "8px",
+            gap: "12px",
+            marginTop: "6px",
           }}
         >
           <div
@@ -703,8 +707,8 @@ export async function GET(
               background: "rgba(185, 138, 46, 0.3)",
               border: "2px solid rgba(212, 168, 83, 0.7)",
               borderRadius: "12px",
-              padding: "10px 22px",
-              fontSize: 36,
+              padding: "8px 20px",
+              fontSize: 30,
               fontWeight: 800,
               color: "#F3EBDA",
               display: "flex",
@@ -717,8 +721,8 @@ export async function GET(
               background: "rgba(59, 130, 246, 0.2)",
               border: "2px solid rgba(59, 130, 246, 0.5)",
               borderRadius: "12px",
-              padding: "10px 22px",
-              fontSize: 36,
+              padding: "8px 20px",
+              fontSize: 30,
               fontWeight: 700,
               color: "#93c5fd",
               display: "flex",
@@ -732,8 +736,8 @@ export async function GET(
                 background: "rgba(148, 163, 184, 0.15)",
                 border: "2px solid rgba(148, 163, 184, 0.3)",
                 borderRadius: "12px",
-                padding: "10px 22px",
-                fontSize: 36,
+                padding: "8px 20px",
+                fontSize: 30,
                 fontWeight: 700,
                 color: "#cbd5e1",
                 display: "flex",
@@ -748,8 +752,8 @@ export async function GET(
                 background: "rgba(239, 68, 68, 0.25)",
                 border: "2px solid rgba(239, 68, 68, 0.7)",
                 borderRadius: "12px",
-                padding: "10px 22px",
-                fontSize: 36,
+                padding: "8px 20px",
+                fontSize: 30,
                 fontWeight: 800,
                 color: "#FCA5A5",
                 display: "flex",
@@ -760,14 +764,15 @@ export async function GET(
           ) : null}
         </div>
 
-        {/* Center Main Section: 2x larger headline */}
-        <div 
-          style={{ 
-            display: "flex", 
-            flexDirection: "column", 
-            gap: "14px", 
+        {/* Row 1: Center Headline / Sub */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
             margin: "0",
-            maxWidth: "1090px",
+            width: "100%",
+            maxWidth: "1080px",
             flex: "1",
             justifyContent: "center",
           }}
@@ -805,54 +810,73 @@ export async function GET(
           ) : null}
         </div>
 
-        {/* Bottom Section: 2x larger stat tiles + branding */}
-        <div 
-          style={{ 
-            display: "flex", 
-            justifyContent: "space-between", 
-            alignItems: "flex-end",
-            paddingBottom: "4px",
+        {/* Bottom Section: Row 2 (2 Stat Tiles) + Row 3 (Dedicated Full-Width Footer Bar) */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "14px",
+            width: "100%",
           }}
         >
-          <div style={{ display: "flex", gap: "24px" }}>
+          {/* Row 2: 2 stat tiles */}
+          <div style={{ display: "flex", gap: "20px", width: "100%" }}>
             {displayTiles.map((tile: { label: string; value: string }, i: number) => (
               <div
                 key={i}
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "6px",
+                  gap: "4px",
                   background: "rgba(255, 255, 255, 0.08)",
                   border: "1.5px solid rgba(255, 255, 255, 0.18)",
                   borderRadius: "16px",
-                  padding: "16px 32px",
-                  minWidth: "260px",
+                  padding: "14px 28px",
+                  flex: "1",
+                  minWidth: 0,
+                  overflow: "hidden",
                 }}
               >
-                <span style={{ display: "flex", fontSize: 28, color: "#9AA7B5", fontWeight: 600 }}>
+                <span style={{ display: "flex", fontSize: 24, color: "#9AA7B5", fontWeight: 600 }}>
                   {tile.label}
                 </span>
-                <span style={{ display: "flex", fontSize: 52, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
+                <span
+                  style={{
+                    display: "flex",
+                    fontSize: tile.value.length > 16 ? 32 : tile.value.length > 12 ? 38 : 44,
+                    fontWeight: 900,
+                    color: i === 0 ? "#5EEAD4" : "#FFFFFF",
+                    overflow: "hidden",
+                  }}
+                >
                   {tile.value}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Bottom Branding — larger */}
-          <div 
-            style={{ 
-              fontSize: 30, 
-              fontWeight: 700, 
-              color: "#94A3B8", 
+          {/* Row 3: Dedicated Full-Width Footer Bar */}
+          <div
+            style={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: "10px",
+              width: "100%",
+              paddingTop: "12px",
+              borderTop: "1px solid rgba(255, 255, 255, 0.14)",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#94A3B8",
             }}
           >
-            <span>CREDEAL</span>
-            <span style={{ color: "#475569" }}>·</span>
-            <span style={{ color: "#CBD5E1" }}>{footerKindLabel}</span>
+            <div style={{ display: "flex", alignItems: "center", color: "#94A3B8" }}>
+              {footerTagLabel}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ display: "flex" }}>CREDEAL</span>
+              <span style={{ display: "flex", color: "#475569" }}>·</span>
+              <span style={{ display: "flex", color: "#CBD5E1" }}>{footerKindLabel}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -190,21 +190,42 @@ export function MagazineQuickDraftCard({
         </button>
       </div>
 
-      <div>
-        <label
-          htmlFor="quick-draft-region-focus"
-          className="block text-sm font-bold text-slate-700 mb-1"
-        >
-          이번 호 중점 지역·주제 (선택 사항)
-        </label>
-        <input
-          id="quick-draft-region-focus"
-          type="text"
-          value={effectiveRegion}
-          onChange={(e) => handleRegionChange(e.target.value)}
-          placeholder="예: 강남·서초 역세권 사옥형 빌딩"
-          className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        />
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label
+            htmlFor="quick-draft-region-focus"
+            className="text-sm font-bold text-slate-800"
+          >
+            이번 호 중점 지역·주제 (선택 사항)
+          </label>
+          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-sm font-semibold text-blue-900">
+            🤖 AI 초안 참고 지역·주제 (선택 · 비워두면 기본 권역 사용)
+          </span>
+        </div>
+        <div className="relative">
+          <input
+            id="quick-draft-region-focus"
+            type="text"
+            value={effectiveRegion}
+            onChange={(e) => handleRegionChange(e.target.value)}
+            placeholder="예: 강남·서초 역세권 사옥형 빌딩"
+            className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white pl-3.5 pr-12 py-2.5 text-base font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          {effectiveRegion.length > 0 && (
+            <button
+              type="button"
+              data-testid="clear-region-focus-btn"
+              aria-label="입력 지우기"
+              title="입력 지우기"
+              onClick={() => handleRegionChange("")}
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+            >
+              <span aria-hidden="true" className="text-lg font-bold leading-none">
+                ×
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {errorMessage && (

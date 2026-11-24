@@ -143,8 +143,16 @@ export function isUnpublishedContent(content: MagazineContent): boolean {
   return isNonPublicMarker((content as { status?: unknown }).status, qg ? qg.passed : undefined);
 }
 
-const EDITION_COLUMNS =
+const EDITION_COLUMNS_BASE =
   'id, edition_type, edition_label, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at';
+const EDITION_COLUMNS = `${EDITION_COLUMNS_BASE}, updated_at`;
+
+function isMissingEditionUpdatedAtColumn(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === 'PGRST204') return true;
+  const msg = String(error.message ?? '');
+  return /updated_at/i.test(msg) && /does not exist|schema cache/i.test(msg);
+}
 
 /** edition 행의 개별 컬럼과 content jsonb를 합친다(content 값이 null/undefined일 때만 컬럼 사용). */
 export function mergeEditionContent(row: Record<string, any>): MagazineContent { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -154,6 +162,7 @@ export function mergeEditionContent(row: Record<string, any>): MagazineContent {
     edition_type: row.edition_type,
     edition_label: row.edition_label,
     published_at: row.published_at,
+    updated_at: row.updated_at,
     market_temp: row.market_temp,
     cover_keywords: row.cover_keywords,
     cover_image_url: row.cover_image_url,
@@ -167,6 +176,9 @@ export function mergeEditionContent(row: Record<string, any>): MagazineContent {
   const merged: MagazineContent = { ...content };
   if (typeof row.id === 'string' && isUuid(row.id)) {
     merged.id = row.id;
+  }
+  if (typeof row.published_at === 'string' && row.published_at) {
+    merged.published_at = row.published_at;
   }
   for (const [k, v] of Object.entries(fromColumns)) {
     if (merged[k] === undefined || merged[k] === null) {
@@ -195,23 +207,35 @@ export async function findIssueForDate(
         ? editionId.editionId.trim() || undefined
         : undefined;
 
+  const queryWithEditionColumns = async (
+    buildQuery: (cols: string) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>,
+  ) => {
+    const first = await withTransientSupabaseRetry<{ data: unknown; error: { code?: string; message?: string } | null }>(
+      () => buildQuery(EDITION_COLUMNS),
+    );
+    if (first?.error && isMissingEditionUpdatedAtColumn(first.error)) {
+      return await withTransientSupabaseRetry<{ data: unknown; error: { code?: string; message?: string } | null }>(
+        () => buildQuery(EDITION_COLUMNS_BASE),
+      );
+    }
+    return first;
+  };
+
   // When editionId is provided (?edition=<id>), query magazine_editions directly first.
   // This prevents same-day Special Editions (호외) from being shadowed by Weekly issues on the same date.
   // When an explicit UUID is passed and magazine_editions succeeds with no published row, NEVER fall through to magazine_issues.
   if (resolvedEditionId) {
-    let q = supabase
-      .from('magazine_editions')
-      .select(EDITION_COLUMNS);
-    if (typeof q.in === 'function') {
-      q = q.in('broker_id', keys);
-    } else if (typeof q.eq === 'function') {
-      q = q.eq('broker_id', keys[0]);
-    }
     const explicitUuid = isUuid(resolvedEditionId);
     const lookupCol = explicitUuid ? 'id' : 'edition_label';
-    const byId = await withTransientSupabaseRetry<{ data: unknown; error: { code?: string; message?: string } | null }>(
-      () => q.eq(lookupCol, resolvedEditionId).eq('status', 'published').limit(1),
-    );
+    const byId = await queryWithEditionColumns((cols) => {
+      let q = supabase.from('magazine_editions').select(cols);
+      if (typeof q.in === 'function') {
+        q = q.in('broker_id', keys);
+      } else if (typeof q.eq === 'function') {
+        q = q.eq('broker_id', keys[0]);
+      }
+      return q.eq(lookupCol, resolvedEditionId).eq('status', 'published').limit(1);
+    });
     if (byId?.error) {
       if (!isMissingEditionSchemaError(byId.error)) {
         throw new Error(`edition lookup by ${lookupCol} failed: ${byId.error.message}`);
@@ -243,34 +267,34 @@ export async function findIssueForDate(
   const startIso = new Date(`${date}T00:00:00+09:00`).toISOString();
   const endIso = new Date(`${addDays(date, 1)}T00:00:00+09:00`).toISOString();
 
-  const byLabel = await withTransientSupabaseRetry<{ data: unknown[] | null; error: { message?: string } | null }>(
-    () =>
-      supabase
-        .from('magazine_editions')
-        .select(EDITION_COLUMNS)
-        .in('broker_id', keys)
-        .eq('status', 'published')
-        .eq('edition_label', date)
-        .order('published_at', { ascending: false })
-        .limit(1),
+  const byLabel = await queryWithEditionColumns((cols) =>
+    supabase
+      .from('magazine_editions')
+      .select(cols)
+      .in('broker_id', keys)
+      .eq('status', 'published')
+      .eq('edition_label', date)
+      .order('published_at', { ascending: false })
+      .limit(1),
   );
   if (byLabel.error) throw new Error(`edition lookup failed: ${byLabel.error.message}`);
-  if (byLabel.data?.[0]) return mergeEditionContent(byLabel.data[0] as Record<string, unknown>);
+  const byLabelRows = Array.isArray(byLabel.data) ? byLabel.data : [];
+  if (byLabelRows[0]) return mergeEditionContent(byLabelRows[0] as Record<string, unknown>);
 
-  const byPublished = await withTransientSupabaseRetry<{ data: unknown[] | null; error: { message?: string } | null }>(
-    () =>
-      supabase
-        .from('magazine_editions')
-        .select(EDITION_COLUMNS)
-        .in('broker_id', keys)
-        .eq('status', 'published')
-        .gte('published_at', startIso)
-        .lt('published_at', endIso)
-        .order('published_at', { ascending: false })
-        .limit(1),
+  const byPublished = await queryWithEditionColumns((cols) =>
+    supabase
+      .from('magazine_editions')
+      .select(cols)
+      .in('broker_id', keys)
+      .eq('status', 'published')
+      .gte('published_at', startIso)
+      .lt('published_at', endIso)
+      .order('published_at', { ascending: false })
+      .limit(1),
   );
   if (byPublished.error) throw new Error(`edition lookup failed: ${byPublished.error.message}`);
-  if (byPublished.data?.[0]) return mergeEditionContent(byPublished.data[0] as Record<string, unknown>);
+  const byPublishedRows = Array.isArray(byPublished.data) ? byPublished.data : [];
+  if (byPublishedRows[0]) return mergeEditionContent(byPublishedRows[0] as Record<string, unknown>);
 
   return null;
 }

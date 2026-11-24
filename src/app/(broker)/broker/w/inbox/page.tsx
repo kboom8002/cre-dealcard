@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Archive, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import {
   useEditorPreviewSync,
   type EditorUnitTarget,
@@ -811,9 +814,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     });
 
     const msg = copied
-      ? `${targetThread.clientName}님에게 보낼 IM 전용 링크가 복사되었습니다.`
-      : `${targetThread.clientName}님의 IM 열람 요청을 승인했습니다.`;
+      ? "✓ 승인 완료! 고객 전용 열람 링크가 발급·복사되었습니다."
+      : "✓ 승인 완료! 고객 전용 열람 링크가 발급되었습니다.";
     showUndoToast({ message: msg, variant: "success" });
+    toast.success(msg, { duration: 3500 });
   };
 
   const handleRejectRequest = async (targetThread: InboxThreadItem) => {
@@ -1596,29 +1600,34 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     showUndoToast({ message: registrationToast, variant: "success" });
   };
 
-  const handleOpenEditCustomClient = () => {
-    if (!activeThread || activeThread.id.startsWith("view_")) return;
+  const openEditCustomClientModal = (target: InboxThreadItem) => {
+    if (target.id.startsWith("view_")) return;
     setEditClientForm({
-      name: activeThread.clientName,
-      phone: activeThread.clientPhone,
-      email: activeThread.clientEmail || "",
-      company: activeThread.clientCompany || "",
-      basis: activeThread.transactionalBasis || "",
-      grade: activeThread.clientGrade,
-      role: activeThread.clientRole || "buyer",
-      budget: activeThread.budget,
+      name: target.clientName,
+      phone: target.clientPhone,
+      email: target.clientEmail || "",
+      company: target.clientCompany || "",
+      basis: target.transactionalBasis || "",
+      grade: target.clientGrade,
+      role: target.clientRole || "buyer",
+      budget: target.budget || "",
       region:
-        activeThread.preferredRegion ||
-        (activeThread.preferredRegions || []).join(", "),
+        target.preferredRegion ||
+        (target.preferredRegions || []).join(", "),
       buildingTitle:
-        activeThread.buildingTitle === "관심 매물 미지정" ||
-        activeThread.buildingTitle === "뉴스레터 구독 고객" ||
-        activeThread.buildingTitle === "관심 매물 상담"
+        target.buildingTitle === "관심 매물 미지정" ||
+        target.buildingTitle === "뉴스레터 구독 고객" ||
+        target.buildingTitle === "관심 매물 상담"
           ? ""
-          : activeThread.buildingTitle,
-      freeMemo: activeThread.freeMemo || "",
+          : target.buildingTitle || "",
+      freeMemo: target.freeMemo || "",
     });
     setEditingClientOpen(true);
+  };
+
+  const handleOpenEditCustomClient = () => {
+    if (!activeThread) return;
+    openEditCustomClientModal(activeThread);
   };
 
   const handleUpdateCustomClient = async (e: React.FormEvent) => {
@@ -1919,10 +1928,44 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       </button>
     ) : null;
 
+  const editorHeaderActions = activeThread ? (
+    activeThread.id.startsWith("custom_") ? (
+      <>
+        <EditorHeaderActionButton
+          testId="inbox-header-edit-btn"
+          label="수정"
+          title={`${activeThread.clientName} 정보 수정`}
+          icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
+          disabled={Boolean(busyAction)}
+          onClick={() => openEditCustomClientModal(activeThread)}
+        />
+        <EditorHeaderActionButton
+          testId="inbox-header-delete-btn"
+          label="삭제"
+          title={`${activeThread.clientName} 삭제`}
+          tone="danger"
+          icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+          disabled={Boolean(busyAction)}
+          onClick={() => setPendingDeleteClient(activeThread)}
+        />
+      </>
+    ) : !activeThread.id.startsWith("cli-") && !activeThread.id.startsWith("sub_") ? (
+      <EditorHeaderActionButton
+        testId="inbox-header-archive-btn"
+        label="보관"
+        title={`${activeThread.clientName} 스레드 보관`}
+        icon={<Archive className="h-4 w-4" aria-hidden="true" />}
+        disabled={Boolean(busyAction)}
+        onClick={() => void handleArchiveThread(activeThread)}
+      />
+    ) : undefined
+  ) : undefined;
+
   return (
     <>
       <WorkspaceShell
         workspace="inbox"
+        editorHeaderActions={editorHeaderActions}
         listSlot={
           <InboxListColumn
             threads={threads}
@@ -1946,25 +1989,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onLoadMoreClients={handleLoadMoreClients}
             onQuickEditClient={(target) => {
               selectThread(target.id);
-              setEditClientForm({
-                name: target.clientName,
-                phone: target.clientPhone,
-                email: target.clientEmail || "",
-                company: target.clientCompany || "",
-                basis: target.transactionalBasis || "",
-                grade: target.clientGrade,
-                role: target.clientRole || "buyer",
-                budget: target.budget || "",
-                region: target.preferredRegion || "",
-                freeMemo: target.freeMemo || "",
-                buildingTitle:
-                  target.buildingTitle === "관심 매물 미지정" ||
-                  target.buildingTitle === "뉴스레터 구독 고객" ||
-                  target.buildingTitle === "관심 매물 상담"
-                    ? ""
-                    : target.buildingTitle || "",
-              });
-              setEditingClientOpen(true);
+              openEditCustomClientModal(target);
             }}
             onQuickDeleteClient={(target) => {
               selectThread(target.id);

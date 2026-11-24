@@ -45,6 +45,7 @@ export interface RentRollImportPayload {
 interface RentRollImporterProps {
   hasExistingData?: boolean;
   hideTextMode?: boolean;
+  askingPriceManwon?: number;
   onImport: (data: RentRollImportPayload) => void;
 }
 
@@ -72,7 +73,12 @@ const HELP_CONTENT = [
   { icon: "📁", text: "지원 파일: 엑셀(.xlsx, .xls) 및 CSV 파일 모두 업로드 가능합니다" },
 ];
 
-export function RentRollImporter({ hasExistingData, hideTextMode = false, onImport }: RentRollImporterProps) {
+export function RentRollImporter({
+  hasExistingData,
+  hideTextMode = false,
+  askingPriceManwon,
+  onImport,
+}: RentRollImporterProps) {
   const [mode, setMode] = useState<"excel" | "text">("excel");
   const activeMode = hideTextMode ? "excel" : mode;
   const [isImporting, setIsImporting] = useState(false);
@@ -214,7 +220,7 @@ export function RentRollImporter({ hasExistingData, hideTextMode = false, onImpo
       setOverrideReason(null);
       setParsedPreview(preview);
 
-      setResult("✅ AI 분석이 완료되었습니다. 아래 미리보기를 확인한 뒤 [적용]을 눌러 반영해 주세요.");
+      setResult("✅ AI 분석이 완료되었습니다. 아래 미리보기를 확인한 뒤 [✓ 표에 적용하기]를 눌러 반영해 주세요.");
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "텍스트 파싱 실패"}`);
@@ -303,7 +309,7 @@ export function RentRollImporter({ hasExistingData, hideTextMode = false, onImpo
         setIsError(true);
         setResult(`⛔ ${parsed.rowCount}개 호실을 읽었지만 면적 단위 확인이 필요해 아직 반영할 수 없습니다.`);
       } else {
-        setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 아래 미리보기를 확인한 뒤 [적용]을 눌러 반영해 주세요.`);
+        setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}.${areaLabel} 아래 미리보기를 확인한 뒤 [✓ 표에 적용하기]를 눌러 반영해 주세요.`);
       }
     } catch (err: any) {
       setIsError(true);
@@ -326,6 +332,19 @@ export function RentRollImporter({ hasExistingData, hideTextMode = false, onImpo
 
     await processSelectedFile(file);
   };
+
+  const effectiveAskingManwon = parsedPreview
+    ? askingPriceManwon != null && Number.isFinite(askingPriceManwon) && askingPriceManwon > 0
+      ? askingPriceManwon
+      : parsedPreview.meta.asking_price_krw != null
+      ? Math.round(parsedPreview.meta.asking_price_krw / 10000)
+      : 0
+    : 0;
+  const netInvestManwon = parsedPreview ? effectiveAskingManwon - parsedPreview.totalDeposit : 0;
+  const previewYieldPct =
+    parsedPreview && netInvestManwon > 0 && parsedPreview.monthlyRent > 0
+      ? Math.round(((parsedPreview.monthlyRent * 12) / netInvestManwon) * 10000) / 100
+      : 0;
 
   return (
     <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-3">
@@ -667,10 +686,33 @@ export function RentRollImporter({ hasExistingData, hideTextMode = false, onImpo
               </tbody>
             </table>
           </div>
-          <div className="flex justify-between items-center text-xs text-muted-foreground mb-3 font-medium">
-            <span>총 보증금: {parsedPreview.totalDeposit.toLocaleString()}만원</span>
-            <span>총 월세: {parsedPreview.monthlyRent.toLocaleString()}만원</span>
-            <span>공실률: {parsedPreview.vacancyPct}%</span>
+          <div className="flex flex-wrap justify-between items-center gap-2 text-sm text-slate-700 mb-3 font-semibold">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 text-sm font-semibold text-slate-800">
+                총 보증금: {parsedPreview.totalDeposit.toLocaleString()}만원
+              </span>
+              <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 text-sm font-semibold text-slate-800">
+                총 월세: {parsedPreview.monthlyRent.toLocaleString()}만원
+              </span>
+              <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 text-sm font-semibold text-slate-800">
+                공실률: {parsedPreview.vacancyPct}%
+              </span>
+            </div>
+            {previewYieldPct > 0 ? (
+              <span
+                data-testid="rentroll-preview-yield"
+                className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-sm font-extrabold text-emerald-900"
+              >
+                예상 연 임대수익률 {previewYieldPct.toFixed(2)}%
+              </span>
+            ) : (
+              <span
+                data-testid="rentroll-preview-yield"
+                className="rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-sm font-semibold text-slate-600"
+              >
+                예상 연 임대수익률 (매매가 입력 후 계산)
+              </span>
+            )}
           </div>
           {(parsedPreview.areaSummary.leaseSqm > 0 || parsedPreview.areaSummary.exclusiveSqm > 0) && (
             <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
@@ -713,7 +755,7 @@ export function RentRollImporter({ hasExistingData, hideTextMode = false, onImpo
                       if (!reason || !parsedPreview) return;
                       setOverrideReason(reason);
                       setIsError(false);
-                      setResult("✅ 사유를 기록하고 면적 단위 경고를 해제했습니다. 아래 [적용]을 눌러 반영해 주세요.");
+                      setResult("✅ 사유를 기록하고 면적 단위 경고를 해제했습니다. 아래 [✓ 표에 적용하기]를 눌러 반영해 주세요.");
                     }}
                     className="min-h-[44px] w-full bg-rose-600 text-white py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
@@ -757,9 +799,9 @@ export function RentRollImporter({ hasExistingData, hideTextMode = false, onImpo
                 setIsError(false);
                 setResult("✅ 데이터가 성공적으로 반영되었습니다.");
               }} 
-              className="flex-1 min-h-[44px] bg-primary text-primary-foreground py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="flex-1 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-extrabold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              적용
+              ✓ 표에 적용하기
             </button>
             <button 
               type="button"

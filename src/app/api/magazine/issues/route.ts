@@ -94,6 +94,7 @@ const IssueBodySchema = z.object({
   saveAsDraft: z.boolean().optional(),
   status: z.enum(["draft", "published"]).optional(),
   createDistinctIfPublished: z.boolean().optional(),
+  refreshPublishDate: z.boolean().optional(),
 });
 
 async function ensureBrokerSlug(
@@ -261,20 +262,31 @@ export async function POST(request: NextRequest) {
       /^\d{4}-\d{2}-\d{2}$/.test(existingTargetContent.issueDate)
         ? existingTargetContent.issueDate
         : null;
+    const todayDate = todayKst();
+    const existingPublishedKstDate =
+      typeof targetEdition.published_at === "string" && targetEdition.published_at
+        ? toKstDate(new Date(targetEdition.published_at))
+        : null;
+    const shouldRefreshPublishDate =
+      !isDraftRequest &&
+      data.refreshPublishDate === true &&
+      (!existingPublishedKstDate || existingPublishedKstDate !== todayDate);
     const isRollingCadence = editionType === "monthly" || editionType === "weekly";
     // A6-04: 월간/주간 미발행 초안의 최초 발행/저장 시 오래된 초안 issueDate를 무시하고 오늘(KST)로 고정한다.
-    // 이미 발행된 호수 수정(correction)만 기존 발행일(issueDate / published_at KST)을 유지한다.
-    const issueDate = targetAlreadyPublished
-      ? data.issueDate ||
-        existingTargetIssueDate ||
-        (typeof targetEdition.published_at === "string" && targetEdition.published_at
-          ? toKstDate(new Date(targetEdition.published_at))
-          : todayKst())
-      : isRollingCadence
-        ? todayKst()
-        : (editionType === "daily" && data.issueAnchorDate ? data.issueAnchorDate : undefined) ||
-          data.issueDate ||
-          todayKst();
+    // 이미 발행된 호수 수정(correction)만 기존 발행일(issueDate / published_at KST)을 유지하되,
+    // 명시적 재발송(refreshPublishDate: true) 시에는 오늘(KST) 발행일로 갱신한다.
+    const issueDate = shouldRefreshPublishDate
+      ? todayDate
+      : targetAlreadyPublished
+        ? data.issueDate ||
+          existingTargetIssueDate ||
+          existingPublishedKstDate ||
+          todayDate
+        : isRollingCadence
+          ? todayDate
+          : (editionType === "daily" && data.issueAnchorDate ? data.issueAnchorDate : undefined) ||
+            data.issueDate ||
+            todayDate;
 
     // 2. 브로커 공개 프로필 조회
     const resolvedBroker = await resolveBroker(supabase, brokerSlug).catch(() => null);
@@ -911,6 +923,8 @@ export async function POST(request: NextRequest) {
     const resolvedPublishedAt =
       nextStatus === "draft"
         ? null
+        : shouldRefreshPublishDate
+        ? nowIso
         : typeof targetEdition.published_at === "string" && targetEdition.published_at
         ? targetEdition.published_at
         : nowIso;
@@ -960,12 +974,7 @@ export async function POST(request: NextRequest) {
       featured_deal_ids: data.featuredDealIds ?? [],
       target_segments: [data.targetSegment ?? "all"],
       status: nextStatus,
-      published_at:
-        nextStatus === "draft"
-          ? null
-          : typeof targetEdition.published_at === "string" && targetEdition.published_at
-          ? targetEdition.published_at
-          : nowIso,
+      published_at: resolvedPublishedAt,
       content: finalContent,
       updated_at: nowIso,
       ...(isUuid(ctx.userId) ? { broker_user_id: ctx.userId } : {}),

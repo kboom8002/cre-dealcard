@@ -240,6 +240,12 @@ export function ImEditorPanels({
   const [isAddSubLotOpen, setIsAddSubLotOpen] = useState<boolean>(false);
   const [subLotDraft, setSubLotDraft] = useState<string>("");
   const [subLotHintError, setSubLotHintError] = useState<string | null>(null);
+  const [manwonFocused, setManwonFocused] = useState<boolean>(false);
+  const [expectedEmptyStepNotice, setExpectedEmptyStepNotice] = useState<boolean>(false);
+
+  const allAxiosHighlightsEmpty = axiosHighlights.every(
+    (h) => !(h.headline || "").trim() && !(h.brief || "").trim()
+  );
 
   const parsedAddrLots = useMemo(
     () => splitMultiParcelAddressPure(address),
@@ -757,12 +763,29 @@ export function ImEditorPanels({
                 min={0}
                 max={9999}
                 data-testid="im-price-man-input"
-                value={priceManwonRemainder || ""}
+                value={
+                  priceManwonRemainder > 0
+                    ? priceManwonRemainder
+                    : manwonFocused || priceEokPart <= 0
+                    ? priceManwonRemainder || ""
+                    : "0"
+                }
+                onFocus={(e) => {
+                  setManwonFocused(true);
+                  if (priceManwonRemainder > 0) {
+                    e.currentTarget.select();
+                  }
+                }}
+                onBlur={() => setManwonFocused(false)}
                 onChange={(e) =>
                   onSplitPriceChange(priceEokPart, Number(e.target.value))
                 }
-                placeholder="0"
-                className="w-full min-h-[48px] px-3.5 text-lg font-extrabold tabular-nums rounded-xl bg-white border border-slate-300 focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs"
+                placeholder={priceEokPart > 0 ? "0 (만원 단위 없음)" : "0"}
+                className={`w-full min-h-[48px] px-3.5 text-lg font-extrabold tabular-nums rounded-xl bg-white border focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#1D4ED8]/20 outline-none shadow-2xs ${
+                  priceEokPart > 0 && priceManwonRemainder === 0
+                    ? "border-slate-400 text-slate-900 placeholder:text-slate-600 placeholder:font-semibold"
+                    : "border-slate-300 text-slate-900"
+                }`}
               />
               <span className="text-base font-extrabold text-slate-900 shrink-0">
                 만 원
@@ -1290,34 +1313,42 @@ export function ImEditorPanels({
           {activeEditorTab === "rentroll" && selectedItemActionsNode}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
-          <button
-            type="button"
-            data-testid="im-rentroll-subtab-actual"
-            aria-pressed={rentRollSubTab === "actual"}
-            onClick={() => setRentRollSubTab("actual")}
-            className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
-              rentRollSubTab === "actual"
-                ? "bg-[#0F172A] text-white border-[#0F172A]"
-                : "bg-slate-50 text-slate-700 border-[#CBD5E1] hover:bg-slate-100"
-            }`}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+          <div
+            role="tablist"
+            aria-label="임대차 현황 구분"
+            className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200"
           >
-            현행 임대차 현황 ({rentRoll.length}행)
-          </button>
-          <button
-            type="button"
-            data-testid="im-rentroll-subtab-expected"
-            aria-pressed={rentRollSubTab === "expected"}
-            onClick={() => setRentRollSubTab("expected")}
-            className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-extrabold border transition-colors cursor-pointer ${
-              rentRollSubTab === "expected"
-                ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
-                : "bg-blue-50/70 text-[#1D4ED8] border-blue-200 hover:bg-blue-100/70"
-            }`}
-          >
-            + 기대수익률 임대차 현황{" "}
-            {expectedRentRoll.length > 0 ? `(${expectedRentRoll.length}행 · 별도 면 반영)` : "(선택)"}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={rentRollSubTab === "actual"}
+              data-testid="im-rentroll-subtab-actual"
+              onClick={() => setRentRollSubTab("actual")}
+              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-extrabold border transition-all cursor-pointer ${
+                rentRollSubTab === "actual"
+                  ? "bg-white text-slate-950 shadow-sm border-slate-300"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70 border-transparent"
+              }`}
+            >
+              📊 현행 임대차 현황 ({rentRoll.length}행)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={rentRollSubTab === "expected"}
+              data-testid="im-rentroll-subtab-expected"
+              onClick={() => setRentRollSubTab("expected")}
+              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-extrabold border transition-all cursor-pointer ${
+                rentRollSubTab === "expected"
+                  ? "bg-white text-slate-950 shadow-sm border-slate-300"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/70 border-transparent"
+              }`}
+            >
+              ✨ 기대수익률 임대차 현황{" "}
+              {expectedRentRoll.length > 0 ? `(${expectedRentRoll.length}행 · 별도 면 반영)` : "(선택)"}
+            </button>
+          </div>
           {rentRollSubTab === "expected" && onCopyActualToExpectedRentRoll && (
             <button
               type="button"
@@ -1359,6 +1390,7 @@ export function ImEditorPanels({
                 key={currentItem?.id || selectedId}
                 hideTextMode
                 hasExistingData={hasExistingRentRollData(rentRoll)}
+                askingPriceManwon={askingPriceManwon}
                 onImport={onExcelRentRollImport}
               />
             </div>
@@ -1433,6 +1465,7 @@ export function ImEditorPanels({
                   key={`expected-${currentItem?.id || selectedId}`}
                   hideTextMode
                   hasExistingData={hasExistingRentRollData(expectedRentRoll)}
+                  askingPriceManwon={askingPriceManwon}
                   onImport={(payload) => {
                     onExpectedExcelRentRollImport(payload);
                     setIsExpectedImportOpen(false);
@@ -1725,6 +1758,7 @@ export function ImEditorPanels({
             onClick={() => {
               onClearActionAlert();
               onChangeEditorTab("axios_brief");
+              setExpectedEmptyStepNotice(expectedRentRoll.length === 0);
             }}
             className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
           >
@@ -1742,6 +1776,27 @@ export function ImEditorPanels({
             : "hidden"
         }
       >
+        {expectedEmptyStepNotice && expectedRentRoll.length === 0 && (
+          <div
+            data-testid="im-expected-empty-step-notice"
+            role="status"
+            className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start justify-between gap-3 text-sm font-semibold text-blue-950"
+          >
+            <span className="leading-relaxed">
+              ✓ 현행 임대차 기준으로 ③ 장점 3가지 단계로 이동했습니다. (선택 사항인 기대수익률 임대차는 필요할 때 언제든 ②단계 상단 탭에서 추가할 수 있습니다.)
+            </span>
+            <button
+              type="button"
+              data-testid="im-expected-empty-step-notice-dismiss"
+              aria-label="안내 닫기"
+              onClick={() => setExpectedEmptyStepNotice(false)}
+              className="min-h-[44px] min-w-[44px] -my-1.5 -mr-1.5 inline-flex items-center justify-center rounded-lg text-blue-800 hover:bg-blue-100 text-base font-extrabold cursor-pointer shrink-0 transition-colors"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h2 className="text-xl font-extrabold text-[#0F172A]">
@@ -1765,6 +1820,36 @@ export function ImEditorPanels({
             </button>
           </div>
         </div>
+
+        {allAxiosHighlightsEmpty && (
+          <div
+            data-testid="im-axios-empty-ai-banner"
+            className="rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-4 sm:p-5 space-y-3 shadow-2xs"
+          >
+            <p className="text-base font-extrabold text-slate-950 leading-snug">
+              비어 있는 장점 3가지를 입력된 건물·수익률 데이터로 3초 만에 자동 작성할 수 있습니다
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                data-testid="im-axios-empty-ai-btn"
+                disabled={isAiPointsBusy}
+                aria-busy={isAiPointsBusy}
+                onClick={onReclusterImAxios}
+                className="min-h-[48px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-700 to-blue-700 hover:from-purple-800 hover:to-blue-800 disabled:opacity-60 text-white text-base font-extrabold shadow-sm transition cursor-pointer inline-flex items-center gap-2"
+              >
+                <span>
+                  {isAiPointsBusy
+                    ? TERMS.aiWriting
+                    : "✨ 건물·수익률 정보로 장점 3가지 자동 작성하기"}
+                </span>
+              </button>
+            </div>
+            <p className="text-sm font-medium text-slate-700 leading-relaxed">
+              직접 적거나 [AI로 쓰기]를 누르지 않아도, 다음 ④단계에서 [IM 만들기]를 누르면 기본 요약이 함께 채워집니다.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-3">
           {axiosHighlights.map((item, idx) => {

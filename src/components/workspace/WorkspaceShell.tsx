@@ -140,6 +140,8 @@ export interface WorkspaceShellProps {
   isSyncing?: boolean;
   /** Optional preview tab toggle buttons (e.g. '[카톡 | 받는 화면]') */
   previewTabSlot?: React.ReactNode;
+  /** Optional contextual action buttons for the currently selected item in Column 2 header */
+  editorHeaderActions?: React.ReactNode;
   /** Optional active building ID override */
   selectedBuildingId?: string | null;
   /** Human-readable label of the selection (announced to screen readers instead of internal IDs) */
@@ -197,6 +199,7 @@ export function WorkspaceShell({
   onManualSync,
   isSyncing = false,
   previewTabSlot,
+  editorHeaderActions,
   selectedBuildingId,
   selectedLabel,
   onBuildingSelect,
@@ -637,7 +640,7 @@ export function WorkspaceShell({
       if (!target) return;
       if (
         target.closest(
-          '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], [data-testid^="edition-filter-"], input, select, textarea'
+          '[data-testid*="delete-"], [data-testid*="duplicate-"], [data-testid*="archive-"], [data-testid*="edit-"], [data-testid^="im-posture-tab-"], [data-testid^="dealcard-posture-tab-"], [data-testid^="inbox-filter-"], [data-testid^="edition-filter-"], input, select, textarea'
         )
       ) {
         return;
@@ -1001,6 +1004,15 @@ export function WorkspaceShell({
                       <span>저장됨 · 방금</span>
                     </div>
                   )
+                )}
+
+                {editorHeaderActions && (
+                  <div
+                    data-testid="ws-editor-header-actions"
+                    className="flex items-center gap-1.5 shrink-0"
+                  >
+                    {editorHeaderActions}
+                  </div>
                 )}
 
                 {onManualSync && (

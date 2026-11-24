@@ -1687,7 +1687,7 @@ export function QaFullLoopWorkbenchClient({
                     {currentLoop.code} 실시간 링크·면적 자동 점검기
                   </h3>
                   <p className="text-sm text-slate-600 mt-0.5">
-                    각 단계 안의 입력칸에 붙여넣은 주소가 여기에 자동 연동됩니다. 아래 검은색 버튼을 누르면 면적·비공개·잠금 상태를 1초 만에 판정합니다.
+                    각 단계 안의 입력칸에 붙여넣은 주소가 여기에 자동 연동됩니다. 아래 파란색 버튼을 누르면 면적·비공개·잠금 상태를 1초 만에 판정합니다.
                   </p>
                 </div>
 
@@ -1840,7 +1840,7 @@ export function QaFullLoopWorkbenchClient({
                   type="button"
                   disabled={probeLoading}
                   onClick={() => void runLiveProbe(currentLoopId)}
-                  className="w-full min-h-[46px] rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-extrabold cursor-pointer shadow-xs"
+                  className="w-full min-h-[46px] rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                 >
                   {probeLoading
                     ? "점검 중…"
