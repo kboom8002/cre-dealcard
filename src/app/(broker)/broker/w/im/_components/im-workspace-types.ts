@@ -54,6 +54,7 @@ export interface ImListItem {
   status: "draft" | "review" | "approved" | "published";
   versionLabel: string;
   updatedAt: string;
+  updatedAtIso?: string;
   rentRoll?: RentRollRowItem[];
   expectedRentRoll?: RentRollRowItem[];
   rentRollMeta?: RentRollMeta;
@@ -243,8 +244,8 @@ export function sortImWorkspaceItems(items: ImListItem[]): ImListItem[] {
     .sort((a, b) => {
       const tierDiff = getImSortTier(a.item) - getImSortTier(b.item);
       if (tierDiff !== 0) return tierDiff;
-      const tb = toListTime(b.item.updatedAt) ?? 0;
-      const ta = toListTime(a.item.updatedAt) ?? 0;
+      const tb = toListTime(b.item.updatedAtIso || b.item.updatedAt) ?? 0;
+      const ta = toListTime(a.item.updatedAtIso || a.item.updatedAt) ?? 0;
       if (tb !== ta) return tb - ta;
       return a.idx - b.idx;
     })
@@ -262,6 +263,7 @@ export function createBlankImItem(options?: {
 }): ImListItem {
   const stamp = Date.now();
   const newId = options?.id || `im-doc-${stamp}`;
+  const resolvedUpdatedAt = options?.updatedAt ?? new Date().toISOString();
   return {
     id: newId,
     buildingId: options?.buildingId || `bld-${stamp}`,
@@ -272,7 +274,8 @@ export function createBlankImItem(options?: {
     grossYieldPct: 0,
     status: "draft",
     versionLabel: "작성 중",
-    updatedAt: options?.updatedAt ?? new Date().toISOString(),
+    updatedAt: resolvedUpdatedAt,
+    ...(resolvedUpdatedAt ? { updatedAtIso: resolvedUpdatedAt } : {}),
     investmentPosture: "core_income",
     gfaSqm: "",
     completionDate: "",
@@ -350,6 +353,7 @@ export function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
         bullets: [],
       }))
     : BLANK_IM_HIGHLIGHTS;
+  const nowIso = new Date().toISOString();
   return {
     id: `im-${targetBid}`,
     buildingId: targetBid,
@@ -361,7 +365,8 @@ export function buildImItemFromDealCardRecord(dc: any): ImListItem | null {
     grossYieldPct: 0,
     status: dc.status === "sent" || dc.status === "published" ? "published" : "draft",
     versionLabel: dc.status === "sent" || dc.status === "published" ? "v1 공개 중 ★" : "작성 중",
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
+    updatedAtIso: nowIso,
     investmentPosture: posture,
     gfaSqm: exact.gfaSqm
       ? String(exact.gfaSqm)

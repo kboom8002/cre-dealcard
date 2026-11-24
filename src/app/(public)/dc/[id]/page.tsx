@@ -40,6 +40,7 @@ import { ReaderFontScaleToggle } from '@/components/ui/ReaderFontScaleToggle';
 import { InAppBrowserBanner } from '@/components/public/InAppBrowserBanner';
 
 import { m2ToPyeong } from '@/domain/building/im-core/facts/area';
+import { healCorruptedRegionLabel } from '@/domain/building/dealcard-publication/banding-engine';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { DealCardLineText } from '@/components/broker/deal-card/DealCardLineText';
 
@@ -361,15 +362,24 @@ function buildDealCardDataFromQuickRecord(
     live?.specialty && live.specialty !== "검증 공인중개사"
       ? strOrNull(live.specialty)
       : null;
+  const healedRegion = healCorruptedRegionLabel(quickRec.card4.region, [
+    quickRec.address,
+    quickRec.buildingName,
+    quickRec.card4.headline,
+  ]);
+  const healedCard4 =
+    healedRegion === quickRec.card4.region
+      ? quickRec.card4
+      : { ...quickRec.card4, region: healedRegion };
   return {
     building: {
       id: quickRec.buildingId,
       address: quickRec.address,
       building_name: quickRec.buildingName,
-      area_signal: quickRec.card4.region,
-      asset_type: quickRec.card4.use,
-      main_usage: quickRec.card4.use,
-      price_band: quickRec.card4.priceBand,
+      area_signal: healedRegion,
+      asset_type: healedCard4.use,
+      main_usage: healedCard4.use,
+      price_band: healedCard4.priceBand,
       asking_price_krw: (quickRec.askingPriceManwon || 0) * 10_000,
       gross_floor_area_sqm: quickRec.specs?.gfaSqm,
       land_area_sqm: quickRec.specs?.landAreaSqm,
@@ -379,25 +389,25 @@ function buildDealCardDataFromQuickRecord(
     } as Record<string, unknown>,
     signalCard: {
       id: quickRec.buildingId,
-      title: `${quickRec.card4.region} ${quickRec.card4.use} ${quickRec.card4.priceBand}`.trim(),
-      area_signal: quickRec.card4.region,
-      asset_type: quickRec.card4.use,
-      price_band: quickRec.card4.priceBand,
-      deal_points: quickRec.card4.points,
-      body: { shortSummary: quickRec.card4.points.join(" · ") },
+      title: `${healedRegion} ${healedCard4.use} ${healedCard4.priceBand}`.trim(),
+      area_signal: healedRegion,
+      asset_type: healedCard4.use,
+      price_band: healedCard4.priceBand,
+      deal_points: healedCard4.points,
+      body: { shortSummary: healedCard4.points.join(" · ") },
       status: extra?.draftOnly ? "draft" : "published",
       visibility: "public",
     } as SignalCardView,
     teaserDoc: {
       status: extra?.draftOnly ? "draft" : "published",
       body: {
-        card4: quickRec.card4,
-        kakaoOgTitle: quickRec.card4.headline || undefined,
-        title: quickRec.card4.headline || `${quickRec.card4.region} ${quickRec.card4.use}`,
-        dealPoints: quickRec.card4.points,
-        price_band: quickRec.card4.priceBand,
-        region_display: quickRec.card4.region,
-        key_points: quickRec.card4.points,
+        card4: healedCard4,
+        kakaoOgTitle: healedCard4.headline || undefined,
+        title: healedCard4.headline || `${healedRegion} ${healedCard4.use}`,
+        dealPoints: healedCard4.points,
+        price_band: healedCard4.priceBand,
+        region_display: healedRegion,
+        key_points: healedCard4.points,
       },
     } as TeaserDocView,
     brokerProfile: (quickRec.brokerProfile || quickRec.basicImDoc?.facts?.brokerOffice || live
@@ -684,12 +694,21 @@ const getDealCardData = cache(async (id: string) => {
         : null;
     const snapHeadline =
       strOrNull(rawSnapCard4?.headline) || strOrNull(snap.headline) || guard.item.title;
-    const snapRegion =
+    const rawSnapRegion =
       strOrNull(rawSnapCard4?.region) ||
       strOrNull(snap.region) ||
       strOrNull(snap.area_signal) ||
       guard.item.address ||
       "";
+    const snapRegion = healCorruptedRegionLabel(rawSnapRegion, [
+      guard.item.address,
+      guard.item.title,
+      snapHeadline,
+      strOrNull(snap.address),
+      strOrNull(snap.raw_address),
+      strOrNull(snap.road_address),
+      strOrNull(snap.jibun_address),
+    ]);
     const snapUse =
       strOrNull(rawSnapCard4?.use) || strOrNull(snap.use) || strOrNull(snap.asset_type) || "";
     const snapPriceBand =
@@ -1200,13 +1219,152 @@ function PostureMeta(props: { input: DealCardData extends never ? never : unknow
   return null;
 }
 
+function asRec(val: unknown): Record<string, unknown> {
+  return val && typeof val === "object" && !Array.isArray(val) ? (val as Record<string, unknown>) : {};
+}
+
+function collectRegionFallbackSources(data: DealCardData): string[] {
+  const b = asRec(data.building);
+  const attrs = asRec(b.attrs);
+  const layers = asRec(b.layers);
+  const loc = asRec(layers.location);
+  const assetId = asRec(layers.asset_identity);
+  const tBody = asRec(data.teaserDoc?.body);
+  const tCard4 = asRec(tBody.card4);
+  const lCard4 = asRec(layers.card4);
+  const sBody = asRec(data.signalCard?.body);
+  return [
+    b.raw_address,
+    b.raw_input,
+    b.address,
+    b.road_address,
+    b.jibun_address,
+    b.title,
+    b.building_name,
+    attrs.rawAddress,
+    attrs.raw_address,
+    attrs.address,
+    attrs.roadAddress,
+    attrs.jibunAddress,
+    attrs.buildingName,
+    loc.raw_address,
+    loc.exact_address,
+    loc.address,
+    loc.road_address,
+    loc.jibun_address,
+    assetId.raw_address,
+    assetId.address,
+    assetId.road_address,
+    assetId.jibun_address,
+    data.signalCard?.title,
+    sBody.title,
+    tBody.title,
+    tBody.ogTitle,
+    tBody.kakaoOgTitle,
+    tBody.card4Headline,
+    tCard4.headline,
+    lCard4.headline,
+  ].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
+
 /** Server-only → public DTO. Only this crosses into JSX / client components. */
 function projectPublic(id: string, data: DealCardData) {
+  const sources = collectRegionFallbackSources(data);
+  const rawBuilding = data.building as Record<string, unknown> | null | undefined;
+  const rawAttrs =
+    rawBuilding?.attrs && typeof rawBuilding.attrs === "object"
+      ? (rawBuilding.attrs as Record<string, unknown>)
+      : null;
+  const rawLayers =
+    rawBuilding?.layers && typeof rawBuilding.layers === "object"
+      ? (rawBuilding.layers as Record<string, unknown>)
+      : null;
+  const rawLayerCard4 =
+    rawLayers?.card4 && typeof rawLayers.card4 === "object"
+      ? (rawLayers.card4 as Record<string, unknown>)
+      : null;
+
+  const healedBuilding = rawBuilding
+    ? {
+        ...rawBuilding,
+        ...(typeof rawBuilding.area_signal === "string"
+          ? { area_signal: healCorruptedRegionLabel(rawBuilding.area_signal, sources) }
+          : {}),
+        ...(rawAttrs
+          ? {
+              attrs: {
+                ...rawAttrs,
+                ...(typeof rawAttrs.areaSignal === "string"
+                  ? { areaSignal: healCorruptedRegionLabel(rawAttrs.areaSignal, sources) }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(rawLayers
+          ? {
+              layers: {
+                ...rawLayers,
+                ...(rawLayerCard4
+                  ? {
+                      card4: {
+                        ...rawLayerCard4,
+                        ...(typeof rawLayerCard4.region === "string"
+                          ? { region: healCorruptedRegionLabel(rawLayerCard4.region, sources) }
+                          : {}),
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {}),
+      }
+    : data.building;
+
+  const healedSignalCard = data.signalCard
+    ? {
+        ...data.signalCard,
+        ...(typeof data.signalCard.area_signal === "string"
+          ? { area_signal: healCorruptedRegionLabel(data.signalCard.area_signal, sources) }
+          : {}),
+      }
+    : data.signalCard;
+
+  const tBody =
+    data.teaserDoc?.body && typeof data.teaserDoc.body === "object"
+      ? (data.teaserDoc.body as Record<string, unknown>)
+      : null;
+  const tCard4 =
+    tBody?.card4 && typeof tBody.card4 === "object"
+      ? (tBody.card4 as Record<string, unknown>)
+      : null;
+  const healedTeaserDoc =
+    data.teaserDoc && tBody
+      ? {
+          ...data.teaserDoc,
+          body: {
+            ...tBody,
+            ...(typeof tBody.region_display === "string"
+              ? { region_display: healCorruptedRegionLabel(tBody.region_display, sources) }
+              : {}),
+            ...(tCard4
+              ? {
+                  card4: {
+                    ...tCard4,
+                    ...(typeof tCard4.region === "string"
+                      ? { region: healCorruptedRegionLabel(tCard4.region, sources) }
+                      : {}),
+                  },
+                }
+              : {}),
+          },
+        }
+      : data.teaserDoc;
+
   return toPublicDealCard({
     id,
-    building: data.building,
-    signalCard: data.signalCard,
-    teaserDoc: data.teaserDoc,
+    building: healedBuilding,
+    signalCard: healedSignalCard,
+    teaserDoc: healedTeaserDoc,
     brokerProfile: data.brokerProfile,
     hasImDoc: data.hasImDoc,
     isPptxApproved: data.isPptxApproved,

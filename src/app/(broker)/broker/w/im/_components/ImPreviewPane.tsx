@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { hasExistingRentRollData } from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
 import {
@@ -163,7 +164,7 @@ export function ImPreviewPane({
   basicImSlides,
   renderSlideCard,
 }: ImPreviewPaneProps) {
-  const hasExpectedRentRoll = expectedRentRoll.length > 0;
+  const hasExpectedRentRoll = hasExistingRentRollData(expectedRentRoll);
   const hasComps = compRows.length > 0;
 
   // 순차 번호 동적 할당 (표지 미번호 -> 본문 01, 02, ...)

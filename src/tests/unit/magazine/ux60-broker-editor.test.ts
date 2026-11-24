@@ -31,10 +31,12 @@ import { SlugSetupGate } from '@/components/magazine-editor/SlugSetupGate';
 import { MagazineQuickDraftCard } from '@/components/broker/studio/MagazineQuickDraftCard';
 import { MagazineInsightCard } from '@/components/dashboard/MagazineInsightCard';
 import { ToastProvider } from '@/components/ui/toast-provider';
+import { NextRequest } from 'next/server';
 import { NewsletterContentStepPanel } from '@/app/(broker)/broker/magazine-editor/_components/NewsletterContentStepPanel';
 import { NewsletterSendStepPanel } from '@/app/(broker)/broker/magazine-editor/_components/NewsletterSendStepPanel';
+import { NewsletterPrimaryActionButton } from '@/app/(broker)/broker/magazine-editor/_components/NewsletterPreviewSlot';
 import { resolveMagazineQueryAction } from '@/app/(broker)/broker/magazine-editor/_components/magazine-workspace-types';
-import { buildDefaultMonthlyGraphicPair } from '@/domain/magazine/monthly-stats-hydration';
+import { buildDefaultMonthlyGraphicPair, hydrateMonthlyChartsFromDbRows } from '@/domain/magazine/monthly-stats-hydration';
 import { MagazineView } from '@/app/(magazine)/magazine/[brokerId]/[date]/magazine-view';
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -429,5 +431,332 @@ describe('Track 3B (E-01 ~ E-05) 회귀 검증', () => {
     );
     expect(html).toContain('w-full shrink-0 snap-start');
     expect(html).not.toContain('w-[300px] sm:w-[320px]');
+  });
+});
+
+describe('Track 2 회귀 검증 (P0-1, P0-2, P1-5, P1-9)', () => {
+  it('P0-1: analytics GET은 sent_at 미존재 컬럼·교차호수 open 폴백·dry_run·더블 .or() 덮어쓰기를 제거하고 queued/historical 수신자 이름을 정확히 반환한다', async () => {
+    const BROKER_ID = '11111111-1111-4111-8111-111111111111';
+    const ED_A = '22222222-2222-4222-8222-222222222221';
+    const ED_B = '22222222-2222-4222-8222-222222222222';
+    const SUB_ACTIVE = '33333333-3333-4333-8333-333333333331';
+    const SUB_PENDING_CONFIRM = '33333333-3333-4333-8333-333333333332';
+    const SUB_PENDING_CONSENT = '33333333-3333-4333-8333-333333333333';
+    const SUB_HIST_UNSUB = '33333333-3333-4333-8333-333333333334';
+
+    const subscribers = [
+      {
+        id: SUB_ACTIVE,
+        broker_id: BROKER_ID,
+        status: 'active',
+        unsubscribed_at: null,
+        confirm_status: 'confirmed',
+        consent_status: 'confirmed',
+        subscriber_name: '박현직',
+        subscriber_email: 'active@cre.kr',
+        subscriber_phone: null,
+        segment: 'investor',
+        channel: 'email',
+        interest_profile: {},
+        subscribed_at: '2026-10-01T00:00:00Z',
+      },
+      {
+        id: SUB_PENDING_CONFIRM,
+        broker_id: BROKER_ID,
+        status: 'active',
+        unsubscribed_at: null,
+        confirm_status: 'pending',
+        consent_status: 'confirmed',
+        subscriber_name: '미확인A',
+        subscriber_email: 'p1@cre.kr',
+        subscriber_phone: null,
+        segment: 'investor',
+        channel: 'email',
+        interest_profile: {},
+        subscribed_at: '2026-10-02T00:00:00Z',
+      },
+      {
+        id: SUB_PENDING_CONSENT,
+        broker_id: BROKER_ID,
+        status: 'active',
+        unsubscribed_at: null,
+        confirm_status: 'confirmed',
+        consent_status: 'pending',
+        subscriber_name: '미동의B',
+        subscriber_email: 'p2@cre.kr',
+        subscriber_phone: null,
+        segment: 'investor',
+        channel: 'email',
+        interest_profile: {},
+        subscribed_at: '2026-10-03T00:00:00Z',
+      },
+      {
+        id: SUB_HIST_UNSUB,
+        broker_id: BROKER_ID,
+        status: 'unsubscribed',
+        unsubscribed_at: '2026-11-20T00:00:00Z',
+        confirm_status: 'confirmed',
+        consent_status: 'confirmed',
+        subscriber_name: '김과거',
+        subscriber_email: 'hist@cre.kr',
+        subscriber_phone: null,
+        segment: 'investor',
+        channel: 'email',
+        interest_profile: {},
+        subscribed_at: '2026-09-01T00:00:00Z',
+      },
+    ];
+
+    const editions = [
+      {
+        id: ED_B,
+        broker_id: BROKER_ID,
+        edition_type: 'monthly',
+        edition_label: '2026년 11월호',
+        title: '11월호',
+        status: 'published',
+        market_temp: 60,
+        view_count: 1,
+        share_count: 0,
+        published_at: '2026-11-24T00:00:00Z',
+        created_at: '2026-11-24T00:00:00Z',
+        content: {},
+      },
+      {
+        id: ED_A,
+        broker_id: BROKER_ID,
+        edition_type: 'monthly',
+        edition_label: '2026년 10월호',
+        title: '10월호',
+        status: 'published',
+        market_temp: 55,
+        view_count: 2,
+        share_count: 0,
+        published_at: '2026-10-24T00:00:00Z',
+        created_at: '2026-10-24T00:00:00Z',
+        content: {},
+      },
+    ];
+
+    const dispatchLogs = [
+      { id: 'd-dry', broker_id: BROKER_ID, edition_id: ED_B, subscriber_id: SUB_ACTIVE, channel: 'email', status: 'dry_run', created_at: '2026-11-24T06:00:00Z' },
+      { id: 'd-hist', broker_id: BROKER_ID, edition_id: ED_A, subscriber_id: SUB_HIST_UNSUB, channel: 'email', status: 'sent', created_at: '2026-11-24T05:00:00Z' },
+      { id: 'd-failed', broker_id: BROKER_ID, edition_id: ED_B, subscriber_id: SUB_ACTIVE, channel: 'email', status: 'bounced', created_at: '2026-11-24T04:00:00Z' },
+      { id: 'd-queued', broker_id: BROKER_ID, edition_id: ED_B, subscriber_id: SUB_ACTIVE, channel: 'email', status: 'pending_worker', created_at: '2026-11-24T03:00:00Z' },
+      { id: 'd-unopened-b', broker_id: BROKER_ID, edition_id: ED_B, subscriber_id: SUB_ACTIVE, channel: 'email', status: 'delivered', created_at: '2026-11-24T02:00:00Z' },
+      { id: 'd-opened-a', broker_id: BROKER_ID, edition_id: ED_A, subscriber_id: SUB_ACTIVE, channel: 'email', status: 'sent', created_at: '2026-11-24T01:00:00Z' },
+    ];
+
+    const activityEvents = [
+      {
+        actor_id: BROKER_ID,
+        event_type: 'magazine_view',
+        created_at: '2026-11-24T01:30:00Z',
+        metadata: { source: 'sid_link', subscriber_id: SUB_ACTIVE, edition_id: ED_A, issue_date: '2026-10-24' },
+      },
+    ];
+
+    const dispatchSelectCalls: string[] = [];
+    const subscriberOrCalls: number[] = [];
+    const tables: Record<string, Array<Record<string, unknown>>> = {
+      magazine_subscribers: subscribers,
+      magazine_editions: editions,
+      magazine_dispatch_logs: dispatchLogs,
+      activity_events: activityEvents,
+      magazine_analytics_events: [],
+      magazine_poll_responses: [],
+    };
+
+    const makeQuery = (table: string) => {
+      const filters: Array<(r: Record<string, unknown>) => boolean> = [];
+      let orCount = 0;
+      let isCount = false;
+      let single = false;
+      let limitVal: number | null = null;
+      const run = () => {
+        if (table === 'magazine_subscribers') subscriberOrCalls.push(orCount);
+        let rows = (tables[table] ?? []).filter((r) => filters.every((f) => f(r)));
+        const count = rows.length;
+        if (limitVal !== null) rows = rows.slice(0, limitVal);
+        if (single) return { data: rows[0] ?? null, error: null };
+        return { data: rows, count: isCount ? count : undefined, error: null };
+      };
+      const q: Record<string, unknown> = {
+        select(cols: string, opts?: { count?: string }) {
+          if (table === 'magazine_dispatch_logs') dispatchSelectCalls.push(cols);
+          if (opts?.count === 'exact') isCount = true;
+          return q;
+        },
+        eq(col: string, val: unknown) { filters.push((r) => r[col] === val); return q; },
+        neq(col: string, val: unknown) { filters.push((r) => r[col] !== val); return q; },
+        not(col: string, op: string, val: unknown) {
+          if (op === 'eq') filters.push((r) => r[col] !== val);
+          return q;
+        },
+        is(col: string, val: unknown) { filters.push((r) => (r[col] ?? null) === val); return q; },
+        in(col: string, vals: unknown[]) { filters.push((r) => vals.includes(r[col])); return q; },
+        or() { orCount += 1; return q; },
+        like() { return q; },
+        gte() { return q; },
+        order() { return q; },
+        limit(n: number) { limitVal = n; return q; },
+        maybeSingle() { single = true; return Promise.resolve(run()); },
+        then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
+          return Promise.resolve(run()).then(resolve, reject);
+        },
+      };
+      return q;
+    };
+
+    vi.resetModules();
+    vi.doMock('@/lib/supabase/service', () => ({
+      createServiceClient: () => ({ from: makeQuery }),
+    }));
+    vi.doMock('@/lib/magazine/authz', () => ({
+      requireBrokerContext: async () => ({
+        ctx: { userId: BROKER_ID, email: 'b@cre.kr', slug: 'hong-cre', displayName: '홍길동', brokerKeys: [BROKER_ID] },
+        error: null,
+      }),
+      assertOwnsRow: () => true,
+      notFoundResponse: () => new Response(null, { status: 404 }),
+      jsonError: (code: string, message: string, status: number) =>
+        Response.json({ ok: false, error: { code, message } }, { status }),
+    }));
+
+    try {
+      const { GET } = await import('@/app/api/broker/magazine/analytics/route');
+      const res = await GET(new NextRequest('http://localhost/api/broker/magazine/analytics?tier=warm'));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        subscriberCount: number;
+        deliveryReceipts: Array<{ id: string; recipientLabel: string; sentAt: string | null; openedAt: string | null; status: string }>;
+      };
+
+      expect(body.subscriberCount).toBe(1);
+      expect(Math.max(...subscriberOrCalls)).toBe(0);
+      expect(dispatchSelectCalls[0]).not.toContain('sent_at');
+      expect(dispatchSelectCalls[0]).toContain('created_at');
+
+      const byId = new Map(body.deliveryReceipts.map((r) => [r.id, r]));
+      expect(byId.has('d-dry')).toBe(false);
+      expect(byId.get('d-opened-a')?.status).toBe('opened');
+      expect(byId.get('d-opened-a')?.openedAt).toBe('2026-11-24T01:30:00Z');
+      expect(byId.get('d-unopened-b')?.status).toBe('sent');
+      expect(byId.get('d-unopened-b')?.openedAt).toBeNull();
+      expect(byId.get('d-queued')?.status).toBe('queued');
+      expect(byId.get('d-queued')?.sentAt).toBe('2026-11-24T03:00:00Z');
+      expect(byId.get('d-failed')?.status).toBe('failed');
+      expect(byId.get('d-hist')?.recipientLabel).toBe('김과거 (hist@cre.kr)');
+    } finally {
+      vi.doUnmock('@/lib/supabase/service');
+      vi.doUnmock('@/lib/magazine/authz');
+      vi.resetModules();
+    }
+
+    const editorSrc = readSrc('app/(broker)/broker/magazine-editor/page.tsx');
+    expect(editorSrc).toContain('⏳ 발송 대기');
+  });
+
+  it('P0-2: 야간 schedule_0830 가 즉시발송으로 폴스루하지 않고 NewsletterPrimaryActionButton 이 sendMode 별로 분기·라벨링한다', () => {
+    const sendPanelSrc = readSrc('app/(broker)/broker/magazine-editor/_components/NewsletterSendStepPanel.tsx');
+    expect(sendPanelSrc).toContain('if (sendMode === "schedule_0830" && onPublishWebOnly)');
+    expect(sendPanelSrc).not.toContain('sendMode === "schedule_0830" && !isQuietHours');
+
+    const quietHtml = renderToStaticMarkup(
+      React.createElement(NewsletterSendStepPanel, {
+        headline: '야간 테스트 브리핑',
+        briefingBody: '내용',
+        selectedDealCount: 1,
+        enabledNewsCount: 1,
+        briefingEnabled: true,
+        dealsEnabled: true,
+        newsEnabled: true,
+        targetSegment: 'all',
+        onChangeTargetSegment: () => {},
+        sendMode: 'schedule_0830',
+        onChangeSendMode: () => {},
+        subscriberCount: 3,
+        highInterestCount: 1,
+        sending: false,
+        quietHoursNow: true,
+        onJumpToStep: () => {},
+        onNotifyEditorFocus: () => {},
+        onBulkSubscribersImported: () => {},
+        onKakaoShare: () => {},
+        onCopyLink: () => {},
+        onBackToContent: () => {},
+        onSendSelected: () => {},
+      }),
+    );
+    expect(quietHtml).toContain('야간 발송 제한 시간대입니다 (21:00 ~ 08:00 KST)');
+    expect(quietHtml).toContain('오전 08:30 예약 발송 선택됨');
+
+    const onWebOnly = vi.fn();
+    const onSend = vi.fn();
+    const webBtnEl = NewsletterPrimaryActionButton({
+      isPublished: false,
+      previewLifecycle: 'live_draft',
+      activeStep: 'content',
+      sending: false,
+      saveState: 'saved',
+      sendMode: 'web_only',
+      onDraftSaveClick: () => {},
+      onSelectSendStep: () => {},
+      onSendSelected: onSend,
+      onPublishWebOnly: onWebOnly,
+    }) as React.ReactElement<{ onClick?: () => void }>;
+    webBtnEl.props.onClick?.();
+    expect(onWebOnly).toHaveBeenCalledWith();
+    expect(onSend).not.toHaveBeenCalled();
+
+    const schedBtnEl = NewsletterPrimaryActionButton({
+      isPublished: false,
+      previewLifecycle: 'live_draft',
+      activeStep: 'send',
+      sending: false,
+      saveState: 'saved',
+      sendMode: 'schedule_0830',
+      onDraftSaveClick: () => {},
+      onSelectSendStep: () => {},
+      onSendSelected: onSend,
+      onPublishWebOnly: onWebOnly,
+    }) as React.ReactElement<{ onClick?: () => void }>;
+    schedBtnEl.props.onClick?.();
+    expect(onWebOnly).toHaveBeenCalledWith({ scheduleMorning: true });
+
+    const webLabelHtml = renderToStaticMarkup(webBtnEl);
+    const schedLabelHtml = renderToStaticMarkup(schedBtnEl);
+    expect(webLabelHtml).toContain('🔗 웹 링크만 먼저 발행·복사');
+    expect(schedLabelHtml).toContain('⏰ 오전 08:30 예약 발송 준비');
+  });
+
+  it('P1-5: magazine-editor/page.tsx 가 ?step= · regionFocus 영속화 및 Step 4 상단 버튼 중복 억제를 적용한다', () => {
+    const editorSrc = readSrc('app/(broker)/broker/magazine-editor/page.tsx');
+    expect(editorSrc).toContain('syncUrlParams(saved.savedEditionId ?? editionId, cadence, { nextStep: "send" })');
+    expect(editorSrc).toContain('patchEditionRegionFocusRequest');
+    expect(editorSrc).toContain('syncServerRegionFocusMap');
+    expect(editorSrc).toContain('{activeStep !== "history" && (');
+  });
+
+  it('P1-9: hydrateMonthlyChartsFromDbRows JS 폴백도 N >= 3 미만 월의 평당가 중앙값을 표본 부족으로 억제한다', () => {
+    const charts = hydrateMonthlyChartsFromDbRows({
+      regionKey: 'gbd',
+      pair: ['molit_tx_price_trend', 'bok_loan_rate_cap_spread'],
+      transactions: [
+        { transaction_date: '2026-09-05', transaction_price: 5_000_000_000, building_area: 100 / 0.3025, land_area: 50 / 0.3025, building_type: '업무시설' },
+        { transaction_date: '2026-09-12', transaction_price: 6_000_000_000, building_area: 100 / 0.3025, land_area: 50 / 0.3025, building_type: '업무시설' },
+        { transaction_date: '2026-10-03', transaction_price: 4_000_000_000, building_area: 100 / 0.3025, land_area: 50 / 0.3025, building_type: '업무시설' },
+        { transaction_date: '2026-10-10', transaction_price: 5_000_000_000, building_area: 100 / 0.3025, land_area: 50 / 0.3025, building_type: '업무시설' },
+        { transaction_date: '2026-10-18', transaction_price: 6_000_000_000, building_area: 100 / 0.3025, land_area: 50 / 0.3025, building_type: '업무시설' },
+      ],
+    });
+    const txChart = charts.find((c) => c.chartType === 'molit_tx_price_trend');
+    expect(txChart).toBeDefined();
+    expect(txChart!.series[0].primaryValue).toBe(2);
+    expect(txChart!.series[0].secondaryValue).toBeUndefined();
+    expect(txChart!.series[0].displaySecondary).toBe('표본 부족');
+    expect(txChart!.series[1].primaryValue).toBe(3);
+    expect(txChart!.series[1].secondaryValue).toBe(5000);
+    expect(txChart!.series[1].displaySecondary).toBe('5,000만');
   });
 });

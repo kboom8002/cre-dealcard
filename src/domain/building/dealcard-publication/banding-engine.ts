@@ -111,6 +111,81 @@ export function bandLocation(rawLoc: string): string {
   return sanitized || '서울 주요 생활권';
 }
 
+const CORRUPTED_ADMIN_GA_PATTERN = /([가-힣]+(?:동|로))가(?=$|\s|,)/g;
+
+function escapeRegexForHeal(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findTrueAdminGaToken(
+  basePrefix: string,
+  sources: readonly string[]
+): string | null {
+  const exactPattern = new RegExp(
+    `(${escapeRegexForHeal(basePrefix)})\\s*(\\d+)가(?=$|[^0-9가-힣]|역)`
+  );
+  for (const src of sources) {
+    const directMatch = src.match(exactPattern);
+    if (directMatch) {
+      return `${directMatch[1]}${directMatch[2]}가`;
+    }
+    const banded = bandLocation(src);
+    const bandedMatch = banded.match(exactPattern);
+    if (bandedMatch) {
+      return `${bandedMatch[1]}${bandedMatch[2]}가`;
+    }
+  }
+
+  const tokenPattern = /([가-힣]{1,5}(?:동|로))\s*(\d+)가(?=$|[^0-9가-힣]|역)/g;
+  for (const src of sources) {
+    for (const candidate of [src, bandLocation(src)]) {
+      for (const m of candidate.matchAll(tokenPattern)) {
+        if (m[1] && basePrefix.endsWith(m[1])) {
+          return `${m[1]}${m[2]}가`;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Heals corrupted Dong/Ro-Ga labels (e.g., "영등포구 양평동가", "양평동가 인근", "을지로가")
+ * using fallback address/title sources, or strips the orphaned "가" cleanly if no match exists.
+ * Never alters valid non-Dong/Ro words such as "상가" or "아파트 상가".
+ */
+export function healCorruptedRegionLabel(
+  region: string,
+  fallbackSources?: readonly (string | null | undefined)[]
+): string {
+  if (!region || typeof region !== 'string') return region || '';
+  const trimmed = region.trim();
+  if (!trimmed) return '';
+  if (!/([가-힣]+(?:동|로))가(?=$|\s|,)/.test(trimmed)) {
+    return region;
+  }
+
+  const cleanSources = (fallbackSources ?? [])
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .map((s) => s.trim());
+
+  return trimmed.replace(
+    CORRUPTED_ADMIN_GA_PATTERN,
+    (_full, basePrefix: string) => {
+      const recovered = findTrueAdminGaToken(basePrefix, cleanSources);
+      if (recovered) {
+        const bareAdmin = recovered.replace(/\d+가$/, '');
+        if (basePrefix.endsWith(bareAdmin)) {
+          const head = basePrefix.slice(0, basePrefix.length - bareAdmin.length);
+          return `${head}${recovered}`;
+        }
+        return recovered;
+      }
+      return basePrefix;
+    }
+  );
+}
+
 export function bandLandArea(sqm: number): string {
   const pyeong = Math.round(sqmToPyeong(sqm));
   return `대지 약 ${pyeong}평 (${Math.round(sqm)}㎡)`;

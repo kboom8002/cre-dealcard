@@ -215,6 +215,7 @@ export function WorkspaceShell({
 
   // State sync from URL query params (WP-P2-06) — support legacy ?id= alongside ?buildingId=
   const queryBuildingId = searchParams.get("buildingId") || searchParams.get("id");
+  const queryMemoId = searchParams.get("memoId");
   const rawQueryTab = searchParams.get("tab");
   const queryTab = rawQueryTab || "editor";
 
@@ -335,15 +336,18 @@ export function WorkspaceShell({
   } | null>(null);
   const [eventAnnouncement, setEventAnnouncement] = useState("");
 
-  const routeSyncKey = `${activeBuildingId ?? ""}|${rawQueryTab ?? ""}|${
+  const routeSyncKey = `${activeBuildingId ?? ""}|${queryMemoId ?? ""}|${rawQueryTab ?? ""}|${
     mobileStartOnList ? "1" : "0"
   }`;
 
   const derivedMobileView: "list" | "editor" | "preview" = (() => {
     if (rawQueryTab === "list" && !hasSelectedFromList) return "list";
-    if (activeBuildingId) {
+    if (activeBuildingId || queryMemoId) {
       if (mobileStartOnList && !rawQueryTab && !hasSelectedFromList) return "list";
       return queryTab === "preview" ? "preview" : "editor";
+    }
+    if (rawQueryTab === "editor" || rawQueryTab === "preview") {
+      return rawQueryTab;
     }
     return "list";
   })();
@@ -646,7 +650,7 @@ export function WorkspaceShell({
         return;
       }
       const matchedItem = target.closest<HTMLElement>(
-        '[data-testid^="dealcard-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
+        '[data-testid^="dealcard-item-"], [data-testid^="unconverted-memo-item-"], [data-testid^="im-item-"], [data-testid^="inbox-thread-"], [data-testid^="inbox-item-"], [data-testid="inbox-todo-card"], [data-testid^="issue-card-"], [data-testid^="mag-issue-"], [data-testid^="magazine-edition-item-"], [data-testid="workspace-new-dealcard-btn"], [data-testid="im-create-new-btn"], [data-testid="new-issue-btn"], [data-testid="new-newsletter-btn"]'
       );
       if (!matchedItem) return;
 
@@ -664,6 +668,7 @@ export function WorkspaceShell({
           liveParams.get("tab") !== "list" ||
           liveParams.get("buildingId") !== beforeParams.get("buildingId") ||
           liveParams.get("id") !== beforeParams.get("id") ||
+          liveParams.get("memoId") !== beforeParams.get("memoId") ||
           liveParams.get("thread") !== beforeParams.get("thread") ||
           liveParams.get("threadId") !== beforeParams.get("threadId") ||
           liveParams.get("editionId") !== beforeParams.get("editionId")
@@ -685,6 +690,7 @@ export function WorkspaceShell({
 
       const itemPrefixes = [
         "dealcard-item-",
+        "unconverted-memo-item-",
         "im-item-",
         "inbox-thread-",
         "inbox-item-",
@@ -703,6 +709,7 @@ export function WorkspaceShell({
       const urlEntityId =
         liveParams.get("buildingId") ||
         liveParams.get("id") ||
+        liveParams.get("memoId") ||
         liveParams.get("thread") ||
         liveParams.get("threadId") ||
         liveParams.get("editionId");

@@ -46,6 +46,8 @@ export interface NewsletterSendStepPanelProps {
   publicUrl?: string | null;
   distributeOutcome?: DistributeOutcomeCardData | null;
   quietHoursNow?: boolean;
+  sendMode?: SendDeliveryMode;
+  onChangeSendMode?: (nextMode: SendDeliveryMode) => void;
   onJumpToStep: (step: NewsletterStepKey) => void;
   onNotifyEditorFocus: (unitId: string) => void;
   onBulkSubscribersImported: (result: BulkImportApiResult) => void;
@@ -96,6 +98,8 @@ export function NewsletterSendStepPanel({
   publicUrl = null,
   distributeOutcome = null,
   quietHoursNow,
+  sendMode: controlledSendMode,
+  onChangeSendMode,
   onJumpToStep,
   onNotifyEditorFocus,
   onBulkSubscribersImported,
@@ -108,7 +112,12 @@ export function NewsletterSendStepPanel({
 }: NewsletterSendStepPanelProps) {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [scheduleRecommendedToast, setScheduleRecommendedToast] = useState(false);
-  const [sendMode, setSendMode] = useState<SendDeliveryMode>("now");
+  const [localSendMode, setLocalSendMode] = useState<SendDeliveryMode>("now");
+  const sendMode = controlledSendMode ?? localSendMode;
+  const updateSendMode = (nextMode: SendDeliveryMode) => {
+    setLocalSendMode(nextMode);
+    onChangeSendMode?.(nextMode);
+  };
   const isQuietHours = quietHoursNow ?? isQuietHoursKst(new Date());
 
   const handlePrimaryStep3Execute = () => {
@@ -120,7 +129,7 @@ export function NewsletterSendStepPanel({
       }
       return;
     }
-    if (sendMode === "schedule_0830" && !isQuietHours && onPublishWebOnly) {
+    if (sendMode === "schedule_0830" && onPublishWebOnly) {
       onPublishWebOnly({ scheduleMorning: true });
       return;
     }
@@ -152,7 +161,7 @@ export function NewsletterSendStepPanel({
             data-testid="quiet-hours-schedule-btn"
             onClick={() => {
               setScheduleRecommendedToast(true);
-              setSendMode("schedule_0830");
+              updateSendMode("schedule_0830");
             }}
             className="inline-flex min-h-[44px] items-center rounded-xl border border-amber-400 bg-white px-4 py-2 text-sm font-bold text-amber-950 hover:bg-amber-100 cursor-pointer"
           >
@@ -267,7 +276,7 @@ export function NewsletterSendStepPanel({
                 role="radio"
                 aria-checked={selected}
                 data-testid={`send-mode-${opt.id === "schedule_0830" ? "schedule" : opt.id === "web_only" ? "web-only" : "now"}`}
-                onClick={() => setSendMode(opt.id)}
+                onClick={() => updateSendMode(opt.id)}
                 className={`min-h-[48px] rounded-xl border p-3.5 text-left transition flex flex-col justify-between gap-1.5 cursor-pointer ${
                   selected
                     ? "border-blue-600 bg-blue-50/80 text-blue-950 shadow-2xs"

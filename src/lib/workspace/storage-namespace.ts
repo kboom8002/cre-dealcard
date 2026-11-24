@@ -53,6 +53,9 @@ const SENSITIVE_EXACT_STORAGE_KEYS = new Set<string>([
   "credeal-qa-signoff-session-v1",
   "dealcard_recent_searches",
   "memo_transfer",
+  "dealcard_onboarding",
+  "credeal-dealcard-im-mece-workbench-v1",
+  "credeal-nl-inbox-mece-workbench-v1",
 ]);
 
 export function isSensitiveWorkspaceStorageKey(key: string): boolean {

@@ -694,7 +694,8 @@ describe("2026-11-24 이상덕 V3 Hold-out Review 20 Items + Col-1 SOTA Remediat
     expect(container.textContent).toContain("승인 처리 중…");
 
     const inboxPageSrc = readWorkspaceFile("src/app/(broker)/broker/w/inbox/page.tsx");
-    expect(inboxPageSrc).toContain("toast.success");
+    expect(inboxPageSrc).toContain("showUndoToast");
+    expect(inboxPageSrc).not.toContain("toast.success");
 
     const workbenchSrc = readWorkspaceFile(
       "src/app/qa-full-loop/_components/QaFullLoopWorkbenchClient.tsx",
@@ -767,8 +768,8 @@ describe("2026-11-24 이상덕 V3 Hold-out Review 20 Items + Col-1 SOTA Remediat
     expect(rowEl?.querySelector(".border-t")).toBeNull();
 
     const rowDup = container.querySelector('[data-testid="row-dup-btn"]') as HTMLButtonElement | null;
-    expect(rowDup?.className).toContain("h-11");
-    expect(rowDup?.className).toContain("w-11");
+    expect(rowDup?.className).toContain("h-[44px]");
+    expect(rowDup?.className).toContain("w-[44px]");
     expect(rowDup?.className).toContain("min-h-[44px]");
     expect(rowDup?.className).toContain("min-w-[44px]");
 

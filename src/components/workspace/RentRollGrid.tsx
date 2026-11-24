@@ -34,6 +34,7 @@ export interface RentRollGridProps {
   buildingFloors?: BuildingRegisterFloorItem[];
   askingPriceManwon?: number;
   extraToolbarAction?: React.ReactNode;
+  disableAutoScaffold?: boolean;
   className?: string;
 }
 
@@ -167,6 +168,7 @@ export function RentRollGrid({
   buildingFloors,
   askingPriceManwon,
   extraToolbarAction,
+  disableAutoScaffold = false,
   className = "",
 }: RentRollGridProps) {
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -215,11 +217,12 @@ export function RentRollGrid({
 
   // Pre-fill scaffolding if rows empty
   useEffect(() => {
+    if (disableAutoScaffold) return;
     if (!rows || rows.length === 0) {
       const scaffold = generateFloorScaffolding(floorsAbove, floorsBelow, buildingFloors);
       onChange(scaffold);
     }
-  }, [rows, floorsAbove, floorsBelow, buildingFloors, onChange]);
+  }, [disableAutoScaffold, rows, floorsAbove, floorsBelow, buildingFloors, onChange]);
 
   const handleUpdateRow = (index: number, patch: Partial<RentRollRowItem>) => {
     if (index < 0 || index >= rows.length) return;
@@ -860,6 +863,16 @@ export function RentRollGrid({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0]">
+              {rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={showExclusiveCol ? 12 : 11}
+                    className="py-6 px-4 text-center text-sm font-semibold text-slate-600"
+                  >
+                    입력된 임대차 내역이 없습니다. 상단 버튼으로 붙여넣거나 [+ 층 추가]를 눌러 입력하세요.
+                  </td>
+                </tr>
+              )}
               {rows.map((row, idx) => {
                 const isVacant = row.status === "vacant";
                 const isOwner = row.status === "owner";

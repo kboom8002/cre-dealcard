@@ -2,7 +2,16 @@
 
 import React from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, ExternalLink, Loader2, Save, Send } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarClock,
+  CheckCircle2,
+  ExternalLink,
+  Link2,
+  Loader2,
+  Save,
+  Send,
+} from "lucide-react";
 import type { AssignableDealItem } from "@/components/magazine-editor/DealSlotAssigner";
 import { MagazinePublishChecklist } from "@/components/magazine-editor/MagazinePublishChecklist";
 import {
@@ -22,6 +31,7 @@ import type {
   StatusBannerState,
 } from "./magazine-workspace-types";
 import { NewsletterPreviewCard } from "./NewsletterPreviewCard";
+import type { SendDeliveryMode } from "./NewsletterSendStepPanel";
 
 export interface NewsletterPreviewBodyProps {
   previewLifecycle: PreviewLifecycleState;
@@ -191,13 +201,15 @@ export interface NewsletterPrimaryActionButtonProps {
   activeStep: NewsletterStepKey;
   sending: boolean;
   saveState: HonestSaveState;
+  sendMode?: SendDeliveryMode;
   onDraftSaveClick: () => void;
   onSelectSendStep: () => void;
   onSendSelected: () => void;
+  onPublishWebOnly?: (opts?: { scheduleMorning?: boolean }) => void;
 }
 
 /**
- * 상단/하단 주 액션 CTA 버튼 (임시저장 반영 · 발행 완료 · 구독자에게 보내기).
+ * 상단/하단 주 액션 CTA 버튼 (임시저장 반영 · 발행 완료 · 발송 방식별 실행).
  */
 export function NewsletterPrimaryActionButton({
   isPublished,
@@ -205,10 +217,32 @@ export function NewsletterPrimaryActionButton({
   activeStep,
   sending,
   saveState,
+  sendMode = "now",
   onDraftSaveClick,
   onSelectSendStep,
   onSendSelected,
+  onPublishWebOnly,
 }: NewsletterPrimaryActionButtonProps) {
+  const handleModeDispatch = () => {
+    if (sendMode === "web_only") {
+      if (onPublishWebOnly) {
+        onPublishWebOnly();
+      } else {
+        onSendSelected();
+      }
+      return;
+    }
+    if (sendMode === "schedule_0830") {
+      if (onPublishWebOnly) {
+        onPublishWebOnly({ scheduleMorning: true });
+      } else {
+        onSendSelected();
+      }
+      return;
+    }
+    onSendSelected();
+  };
+
   return (
     <button
       type="button"
@@ -218,7 +252,7 @@ export function NewsletterPrimaryActionButton({
           ? onDraftSaveClick
           : isPublished && previewLifecycle === "published_clean" && activeStep !== "send"
             ? onSelectSendStep
-            : onSendSelected
+            : handleModeDispatch
       }
       disabled={sending || saveState === "saving"}
       aria-busy={sending || saveState === "saving"}
@@ -241,14 +275,25 @@ export function NewsletterPrimaryActionButton({
           <Save className="h-5 w-5" aria-hidden="true" />
           <span>변경사항 발행본에 반영하기</span>
         </>
+      ) : isPublished && previewLifecycle === "published_clean" && activeStep !== "send" ? (
+        <>
+          <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+          <span>발행 완료 · 공유 / 다시 보내기</span>
+        </>
+      ) : sendMode === "web_only" ? (
+        <>
+          <Link2 className="h-5 w-5" aria-hidden="true" />
+          <span>🔗 웹 링크만 먼저 발행·복사</span>
+        </>
+      ) : sendMode === "schedule_0830" ? (
+        <>
+          <CalendarClock className="h-5 w-5" aria-hidden="true" />
+          <span>⏰ 오전 08:30 예약 발송 준비</span>
+        </>
       ) : isPublished && previewLifecycle === "published_clean" ? (
         <>
           <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
-          <span>
-            {activeStep === "send"
-              ? "발행 완료 · 다시 보내기"
-              : "발행 완료 · 공유 / 다시 보내기"}
-          </span>
+          <span>발행 완료 · 다시 보내기</span>
         </>
       ) : (
         <>

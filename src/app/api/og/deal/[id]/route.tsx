@@ -5,6 +5,7 @@ import { buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { healCorruptedRegionLabel } from "@/domain/building/dealcard-publication/banding-engine";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
@@ -40,7 +41,9 @@ function makeSafeOgText(glyphs: ReadonlySet<number> | null) {
 
 function extractBlindRegionFromAddress(rawAddress: string | null | undefined): string | null {
   if (!rawAddress || typeof rawAddress !== "string") return null;
-  const match = rawAddress.match(/([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동|읍|면|가))/);
+  const match = rawAddress.match(
+    /([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동(?:\s*\d+가)?|읍|면|로(?:\s*\d+가)?|가))/
+  );
   if (match) return `${match[1]} ${match[2]}`;
   const guMatch = rawAddress.match(/([가-힣]+(?:구|군|시))/);
   return guMatch ? guMatch[1] : null;
@@ -218,12 +221,12 @@ export async function GET(
   let quickRec: Awaited<ReturnType<typeof resolveOgDealGuard>>["quickRec"] = null;
   let snapshotCard4: Record<string, any> | null = null;
   let imNeedleAddress: string | null = null;
+  let imWorkspaceItem: WorkspaceItemRecord | null = null;
 
   try {
     const supabase = createServiceClient();
     const ogGuard = await resolveOgDealGuard(id, supabase);
 
-    let imWorkspaceItem: WorkspaceItemRecord | null = null;
     let isPublishedImItem = false;
 
     if (type === "im") {
@@ -524,10 +527,49 @@ export async function GET(
     ? "development"
     : (rawPosture || "income");
 
+  const safeBuildingAttrs = (safeBuilding.attrs as Record<string, unknown> | undefined) ?? undefined;
+  const safeBuildingLocation = (
+    (safeBuilding.layers as Record<string, unknown> | undefined)?.location as
+      | Record<string, unknown>
+      | undefined
+  ) ?? undefined;
+  const regionFallbackSources: Array<string | null | undefined> = [
+    imNeedleAddress,
+    imWorkspaceItem?.address,
+    imWorkspaceItem?.title,
+    safeBuilding.raw_address as string | undefined,
+    safeBuilding.raw_input as string | undefined,
+    safeBuilding.address as string | undefined,
+    safeBuilding.road_address as string | undefined,
+    safeBuilding.jibun_address as string | undefined,
+    safeBuilding.building_name as string | undefined,
+    safeBuilding.title as string | undefined,
+    safeBuildingAttrs?.rawAddress as string | undefined,
+    safeBuildingAttrs?.address as string | undefined,
+    safeBuildingLocation?.raw_address as string | undefined,
+    safeBuildingLocation?.address as string | undefined,
+    quickRec?.address,
+    quickRec?.buildingName,
+    card4?.headline as string | undefined,
+    imBody?.resolved_address,
+    imBody?.address,
+    imBody?.title,
+    imBody?.ogTitle,
+    teaser?.title,
+    teaser?.ogTitle,
+    signalCard?.title,
+  ];
+  const rawAreaSignalInput =
+    card4?.region || imSsot.area_signal || imBody?.areaSignal || rawAttrs.areaSignal || safeBuilding.area_signal;
+  const healedAreaSignal =
+    typeof rawAreaSignalInput === "string"
+      ? healCorruptedRegionLabel(rawAreaSignalInput, regionFallbackSources)
+      : rawAreaSignalInput;
+
   const attrs = {
     ...rawAttrs,
     askingPriceKrw,
-    areaSignal: card4?.region || imSsot.area_signal || imBody?.areaSignal || rawAttrs.areaSignal || safeBuilding.area_signal,
+    areaSignal: healedAreaSignal,
     priceBand:
       card4?.priceBand ||
       imSsot.price_band ||
@@ -549,15 +591,19 @@ export async function GET(
     operating: "운영형",
   };
 
+  const rawRegionLabel = healCorruptedRegionLabel(
+    String(card4?.region || attrs.areaSignal || teaserView.region || safeBuilding.area_signal || "서울"),
+    regionFallbackSources
+  );
   const needles = collectSensitiveNeedles(
-    imNeedleAddress ? { ...safeBuilding, address: imNeedleAddress } : safeBuilding
+    imNeedleAddress ? { ...safeBuilding, address: imNeedleAddress } : safeBuilding,
+    rawRegionLabel
   );
   const sanitizeOgText = (text: string, fallback: string): string => {
     const masked = maskNeedles(String(text || ""), needles);
     return cleanBlindPoints([masked])[0] || fallback;
   };
 
-  const rawRegionLabel = card4?.region || attrs.areaSignal || teaserView.region || safeBuilding.area_signal || "서울";
   const regionLabel = sanitizeOgText(rawRegionLabel, "서울");
   const rawAssetType = card4?.use || attrs.assetType || teaserView.assetType || safeBuilding.asset_type || "상업용 부동산";
   const assetType = sanitizeOgText(rawAssetType, "상업용 부동산");

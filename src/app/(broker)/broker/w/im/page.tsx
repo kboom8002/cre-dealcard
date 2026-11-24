@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import {
   generateFloorScaffolding,
+  hasExistingRentRollData,
   rankFloorTopDown,
   type BuildingRegisterFloorItem,
 } from "@/components/workspace/RentRollGrid";
@@ -24,7 +25,7 @@ import {
 } from "@/domain/building/mobile-im/broker-extras";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
 import { IM_POSTURE_LABELS, TERMS } from "@/lib/ux/lexicon";
-import { copyText } from "@/lib/ux/clipboard";
+import { copyTextFromPromise } from "@/lib/ux/clipboard";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import {
   useEditorPreviewSync,
@@ -620,13 +621,17 @@ function ImWorkspaceInner() {
   );
 
   const expectedYieldPct = useMemo(() => {
-    if (!askingPriceManwon || askingPriceManwon <= 0 || expectedRentRoll.length === 0) {
+    if (
+      !askingPriceManwon ||
+      askingPriceManwon <= 0 ||
+      !hasExistingRentRollData(expectedRentRoll)
+    ) {
       return 0;
     }
     const netInv = askingPriceManwon - expectedDepositManwon;
     if (netInv <= 0 || expectedRentManwon <= 0) return 0;
     return ((expectedRentManwon * 12) / netInv) * 100;
-  }, [askingPriceManwon, expectedDepositManwon, expectedRentManwon, expectedRentRoll.length]);
+  }, [askingPriceManwon, expectedDepositManwon, expectedRentManwon, expectedRentRoll]);
 
   const calculatedYield = useMemo(() => {
     if (!askingPriceManwon || askingPriceManwon <= 0) return 0;
@@ -817,12 +822,14 @@ function ImWorkspaceInner() {
             : it.status === "published"
             ? true
             : it.hasUnpublishedEdits;
+        const nowIso = new Date().toISOString();
         return {
           ...it,
           ...patch,
           ...(currentUserIdRef.current ? { ownerUserId: currentUserIdRef.current } : {}),
           grossYieldPct: nextYield,
-          updatedAt: new Date().toISOString(),
+          updatedAt: nowIso,
+          updatedAtIso: nowIso,
           isDirty: patch.isDirty ?? true,
           ...(nextHasUnpublishedEdits !== undefined
             ? { hasUnpublishedEdits: nextHasUnpublishedEdits }
@@ -934,12 +941,10 @@ function ImWorkspaceInner() {
             matchedLocalIds.add(loc.id);
           }
           const srvTime =
-            Date.parse((srv as { updatedAtIso?: string }).updatedAtIso || "") ||
+            Date.parse(srv.updatedAtIso || "") ||
             (toListTime(srv.updatedAt || "") ?? 0);
           const locTime =
-            Date.parse(
-              (loc as { updatedAtIso?: string } | undefined)?.updatedAtIso || ""
-            ) || (toListTime(loc?.updatedAt || "") ?? 0);
+            Date.parse(loc?.updatedAtIso || "") || (toListTime(loc?.updatedAt || "") ?? 0);
           const keepLocal = Boolean(
             loc &&
               (loc.isDirty ||
@@ -1642,47 +1647,50 @@ function ImWorkspaceInner() {
       ...(r.firstContractDate ? { first_contract_date: r.firstContractDate } : {}),
     }));
 
-  const buildCurrentRequestPayload = (originItem?: ImListItem, cleanTitle?: string) => ({
-    address: address.trim(),
-    askingPriceManwon,
-    title: cleanTitle || undefined,
-    investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
-    axiosHighlights,
-    rentRoll: serializeRentRollRowsForRequest(rentRoll),
-    ...(rentRollMeta ? { rent_roll_meta: rentRollMeta, rentRollMeta } : {}),
-    ...(expectedRentRoll.length > 0
-      ? { expectedRentRoll: serializeRentRollRowsForRequest(expectedRentRoll) }
-      : {}),
-    ...(expectedRentRoll.length > 0 && expectedRentRollMeta
-      ? {
-          expected_rent_roll_meta: expectedRentRollMeta,
-          expectedRentRollMeta,
-        }
-      : {}),
-    posture: investmentPosture,
-    gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
-    completionDate: completionDate || undefined,
-    landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
-    zoning: zoning || undefined,
-    handoverNote: handoverNote || undefined,
-    pnu: originItem?.pnu,
-    lat: originItem?.lat,
-    lng: originItem?.lng,
-    floorsAbove: originItem?.floorsAbove,
-    floorsBelow: originItem?.floorsBelow,
-    bcrPct: bcrPct ?? originItem?.bcrPct,
-    farPct: farPct ?? originItem?.farPct,
-    parkingSpaces: parkingTotal ?? originItem?.parkingTotal,
-    elevators: elevatorCount ?? originItem?.elevatorCount,
-    officialLandPricePerSqm:
-      officialLandPricePerSqm ?? originItem?.officialLandPricePerSqm,
-    parcels: parcels ?? originItem?.parcels,
-    closingLine: brokerExtrasForm.closingLine,
-    mainPurpose: originItem?.mainPurpose,
-    brokerName,
-    brokerageName,
-    brokerPhone,
-  });
+  const buildCurrentRequestPayload = (originItem?: ImListItem, cleanTitle?: string) => {
+    const hasExpectedData = hasExistingRentRollData(expectedRentRoll);
+    return {
+      address: address.trim(),
+      askingPriceManwon,
+      title: cleanTitle || undefined,
+      investmentPoints: axiosHighlights.map((h) => h.headline).filter(Boolean),
+      axiosHighlights,
+      rentRoll: serializeRentRollRowsForRequest(rentRoll),
+      ...(rentRollMeta ? { rent_roll_meta: rentRollMeta, rentRollMeta } : {}),
+      ...(hasExpectedData
+        ? { expectedRentRoll: serializeRentRollRowsForRequest(expectedRentRoll) }
+        : {}),
+      ...(hasExpectedData && expectedRentRollMeta
+        ? {
+            expected_rent_roll_meta: expectedRentRollMeta,
+            expectedRentRollMeta,
+          }
+        : {}),
+      posture: investmentPosture,
+      gfaSqm: Number(String(gfaSqm || "").replace(/,/g, "")) || undefined,
+      completionDate: completionDate || undefined,
+      landAreaSqm: Number(String(landAreaSqm || "").replace(/,/g, "")) || undefined,
+      zoning: zoning || undefined,
+      handoverNote: handoverNote || undefined,
+      pnu: originItem?.pnu,
+      lat: originItem?.lat,
+      lng: originItem?.lng,
+      floorsAbove: originItem?.floorsAbove,
+      floorsBelow: originItem?.floorsBelow,
+      bcrPct: bcrPct ?? originItem?.bcrPct,
+      farPct: farPct ?? originItem?.farPct,
+      parkingSpaces: parkingTotal ?? originItem?.parkingTotal,
+      elevators: elevatorCount ?? originItem?.elevatorCount,
+      officialLandPricePerSqm:
+        officialLandPricePerSqm ?? originItem?.officialLandPricePerSqm,
+      parcels: parcels ?? originItem?.parcels,
+      closingLine: brokerExtrasForm.closingLine,
+      mainPurpose: originItem?.mainPurpose,
+      brokerName,
+      brokerageName,
+      brokerPhone,
+    };
+  };
 
   const handleOpenBottomSheet = async () => {
     const targetId = currentItem?.id || selectedIdRef.current;
@@ -1954,17 +1962,64 @@ function ImWorkspaceInner() {
 
   const handleCopyImShareLink = async () => {
     if (isProvisioningSheet || isGenerating) return;
-    let targetBuildingId = currentItem?.buildingId || "";
-    if (!UUID_REGEX.test(targetBuildingId) || currentItem?.isDirty || currentItem?.hasUnpublishedEdits) {
-      const target = await ensureProvisionedImTarget("IM 링크 복사");
-      if (!target) return;
-      targetBuildingId = target.buildingId;
-    }
-    if (!targetBuildingId) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
-    const shareUrl = `${origin}/im-lite/${encodeURIComponent(targetBuildingId)}`;
-    const copied = await copyText(shareUrl);
-    if (copied) {
+    setActionAlert(null);
+    const result = await copyTextFromPromise(async () => {
+      let targetBuildingId = currentItem?.buildingId || "";
+      if (
+        !UUID_REGEX.test(targetBuildingId) ||
+        currentItem?.isDirty ||
+        currentItem?.hasUnpublishedEdits
+      ) {
+        const target = await ensureProvisionedImTarget("IM 링크 복사");
+        if (!target?.buildingId) return null;
+        targetBuildingId = target.buildingId;
+      }
+      if (!targetBuildingId) {
+        setActionAlert("공유할 매물을 찾지 못했어요. 먼저 매물 정보를 저장해 주세요.");
+        return null;
+      }
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+      try {
+        const res = await fetch("/api/broker/share-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ buildingId: targetBuildingId, kind: "im" }),
+        });
+        const data = await res.json().catch(() => null);
+        const token =
+          (typeof data?.token === "string" && data.token.trim()) ||
+          (typeof data?.shareToken === "string" && data.shareToken.trim()) ||
+          (typeof data?.link?.token === "string" && data.link.token.trim()) ||
+          "";
+        const rawUrl = typeof data?.shareUrl === "string" ? data.shareUrl.trim() : "";
+        const fullUrl = rawUrl
+          ? /^https?:\/\//i.test(rawUrl)
+            ? rawUrl
+            : `${origin}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`
+          : "";
+        const tokenizedUrl =
+          fullUrl && /[?&]token=[^&#\s]+/i.test(fullUrl)
+            ? fullUrl
+            : token
+            ? `${origin}/im-lite/${encodeURIComponent(targetBuildingId)}?token=${encodeURIComponent(token)}`
+            : "";
+        if (!res.ok || !tokenizedUrl) {
+          setActionAlert(
+            (typeof data?.error === "string" && data.error.trim()) ||
+              "공유 링크를 발급하지 못했습니다. 잠시 후 다시 시도해 주세요."
+          );
+          return null;
+        }
+        return tokenizedUrl;
+      } catch {
+        setActionAlert(
+          "네트워크 오류로 공유 링크를 발급하지 못했습니다. 잠시 후 다시 시도해 주세요."
+        );
+        return null;
+      }
+    });
+    if (result.ok && result.text) {
       setIsShareLinkCopied(true);
       if (typeof window !== "undefined") {
         window.setTimeout(() => setIsShareLinkCopied(false), 2400);
@@ -1973,8 +2028,8 @@ function ImWorkspaceInner() {
         message: "🔗 모바일 IM 링크를 복사했어요! 카톡이나 대화창에 바로 붙여넣으세요.",
         variant: "success",
       });
-    } else {
-      setActionAlert(`직접 복사해 주세요: ${shareUrl}`);
+    } else if (result.text && /[?&]token=[^&#\s]+/i.test(result.text)) {
+      setActionAlert(`직접 복사해 주세요: ${result.text}`);
     }
   };
 
@@ -2077,6 +2132,10 @@ function ImWorkspaceInner() {
         const nextPublishStatus: "published" | "draft" =
           data?.publishStatus === "draft" ? "draft" : "published";
         const syncedPhotos = sanitizePhotosForSync(latestPhotos);
+        const generatedAtIso = new Date().toISOString();
+        const nextExpectedRentRoll = hasExistingRentRollData(expectedRentRoll)
+          ? [...expectedRentRoll]
+          : [];
         setItems((prev) => {
           const nextItems = prev.map((it) =>
             it.id === targetId
@@ -2091,9 +2150,10 @@ function ImWorkspaceInner() {
                   grossYieldPct: reqYield || it.grossYieldPct,
                   status: nextPublishStatus,
                   versionLabel: nextPublishStatus === "published" ? "발행됨" : "임시저장",
-                  updatedAt: new Date().toISOString(),
+                  updatedAt: generatedAtIso,
+                  updatedAtIso: generatedAtIso,
                   rentRoll: reqRentRoll,
-                  expectedRentRoll: [...expectedRentRoll],
+                  expectedRentRoll: nextExpectedRentRoll,
                   ...(rentRollMeta ? { rentRollMeta } : {}),
                   ...(expectedRentRollMeta ? { expectedRentRollMeta } : {}),
                   investmentPosture: reqPosture,
@@ -2201,7 +2261,8 @@ function ImWorkspaceInner() {
     e.stopPropagation();
     const dupIds = mintDuplicateImIds(source.buildingId);
     const sourceLabel = source.title?.trim() || "새 IM";
-    const cloned = buildDuplicatedImItem(source, dupIds, currentUserIdRef.current);
+    const rawCloned = buildDuplicatedImItem(source, dupIds, currentUserIdRef.current);
+    const cloned = { ...rawCloned, updatedAtIso: rawCloned.updatedAt };
     const next = [cloned, ...items];
     itemsRef.current = next;
     setItems(next);
@@ -2531,7 +2592,9 @@ function ImWorkspaceInner() {
     axiosHighlights,
     calculatedYield,
     expectedYieldPct,
-    expectedRentRollLength: expectedRentRoll.length,
+    expectedRentRollLength: hasExistingRentRollData(expectedRentRoll)
+      ? expectedRentRoll.length
+      : 0,
     compCount: (brokerExtrasForm.compRows || []).length,
     gfaSqm,
     completionDate,

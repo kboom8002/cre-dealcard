@@ -278,7 +278,7 @@ export async function upsertBrokerClientFromInbound(
         existing.consent_status !== 'confirmed'
       ) {
         patch.consent_status = 'confirmed';
-        patch.consent_updated_at = new Date().toISOString();
+        patch.consented_at = new Date().toISOString();
       }
 
       if (Object.keys(patch).length > 0 && existing.id) {
@@ -347,7 +347,12 @@ export async function upsertBrokerClientFromInbound(
       building_id: validBuildingUuid,
       building_title: cleanBuildingTitle || null,
       consent_status: params.consentConfirmed ? 'confirmed' : 'unconfirmed',
-      ...(params.consentConfirmed ? { consent_source: sourceTag || 'newsletter' } : {}),
+      ...(params.consentConfirmed
+        ? {
+            consent_source: sourceTag || 'newsletter',
+            consented_at: new Date().toISOString(),
+          }
+        : {}),
     };
 
     const insertRes = await supabase

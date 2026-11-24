@@ -107,7 +107,7 @@ function formatDateTimeYyMmDdHhMmSs(d: Date): string {
   return `${formatDateYyMmDd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 
-/** Formats a list date for the simple list row (exact YY-MM-DD HH:mm:ss or bare date YY-MM-DD). */
+/** Formats a list date for the simple list row (exact YY-MM-DD HH:mm:ss or date-only YY-MM-DD). */
 export function formatListDate(value: ListDateValue, now: Date = new Date()): string {
   if (value === null || value === undefined || (typeof value === "string" && !value.trim())) {
     return "날짜 없음";
@@ -116,8 +116,15 @@ export function formatListDate(value: ListDateValue, now: Date = new Date()): st
   if (t === null) return typeof value === "string" ? value.trim() : "날짜 없음";
 
   const d = new Date(t);
-  if (typeof value === "string" && /^\d{4}[-./]\d{1,2}[-./]\d{1,2}\.?$/.test(value.trim())) {
-    return formatDateYyMmDd(d);
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (
+      /^\d{4}[-./]\d{1,2}[-./]\d{1,2}\.?$/.test(trimmed) ||
+      trimmed === "어제" ||
+      /^\d+\s*(일|주|개월|달)\s*전$/.test(trimmed)
+    ) {
+      return formatDateYyMmDd(d);
+    }
   }
   return formatDateTimeYyMmDdHhMmSs(d);
 }

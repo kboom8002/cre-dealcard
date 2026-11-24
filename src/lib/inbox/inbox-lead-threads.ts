@@ -151,7 +151,7 @@ export function appendGateAndInquiryThreads(
         ? undefined
         : ctx.dealCardBuildingIdSet.has(bIdStr);
     const resolvedShareUrl =
-      isApproved && !isRevoked
+      isApproved && !isRevoked && bIdStr && (resolvedHasIm === false || Boolean(resolvedShareToken))
         ? buildThreadShareUrl(bIdStr, resolvedShareToken, resolvedHasIm !== false)
         : '';
 
@@ -444,7 +444,7 @@ export function appendViewerThreads(ctx: ThreadBuildContext) {
         : ctx.dealCardBuildingIdSet.has(bIdStr);
     const resolvedShareToken = issuedTokenByThreadId.get(tid) || threadRevokeState?.shareToken || '';
     const resolvedShareUrl =
-      !isRevoked && bIdStr
+      !isRevoked && bIdStr && (resolvedHasIm === false || Boolean(resolvedShareToken))
         ? buildThreadShareUrl(bIdStr, resolvedShareToken, resolvedHasIm !== false)
         : '';
     const viewCallNotes = callNotesByThreadId.get(tid) || [];

@@ -77,6 +77,7 @@ export interface InboxThreadItem {
   gateStatus?: "pending" | "approved" | "rejected" | "none";
   memo?: string;
   updatedAt: string;
+  lastActivityAt?: string;
   openCount: number;
   dwellSeconds?: number;
   lastViewedAt?: string | null;
@@ -655,14 +656,14 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
 
   const shareToken = String(raw?.shareToken || "").trim();
   const shareUrl =
-    typeof raw?.shareUrl === "string" && raw.shareUrl
+    typeof raw?.shareUrl === "string"
       ? raw.shareUrl
       : buildingId
       ? hasIm === false
         ? `/dc/${encodeURIComponent(buildingId)}`
         : shareToken
         ? `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`
-        : `/im-lite/${encodeURIComponent(buildingId)}`
+        : ""
       : "";
 
   const isVip =
@@ -794,6 +795,9 @@ export function normalizeServerThread(rawInput: unknown): InboxThreadItem {
         : "none",
     memo: typeof raw?.memo === "string" ? raw.memo : undefined,
     updatedAt: String(raw?.updatedAt || "방금"),
+    ...(typeof raw?.lastActivityAt === "string" && raw.lastActivityAt.trim()
+      ? { lastActivityAt: raw.lastActivityAt.trim() }
+      : {}),
     openCount: Math.max(0, Number(raw?.openCount ?? 0)),
     dwellSeconds: Math.max(0, Number(raw?.dwellSeconds ?? 0)),
     lastViewedAt: typeof raw?.lastViewedAt === "string" ? raw.lastViewedAt : null,

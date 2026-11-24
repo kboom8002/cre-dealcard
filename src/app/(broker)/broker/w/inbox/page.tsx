@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Archive, Pencil, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import {
@@ -753,17 +752,21 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
 
     const json = apiRes.data;
+    const issuedToken =
+      typeof json.shareToken === "string" && json.shareToken
+        ? json.shareToken
+        : targetThread.shareToken;
     const shareUrl =
       typeof json.shareUrl === "string" && json.shareUrl
         ? json.shareUrl
         : targetThread.shareUrl ||
           (targetThread.buildingId
-            ? `/im-lite/${encodeURIComponent(targetThread.buildingId)}`
+            ? targetThread.hasIm === false
+              ? `/dc/${encodeURIComponent(targetThread.buildingId)}`
+              : issuedToken
+              ? `/im-lite/${encodeURIComponent(targetThread.buildingId)}?token=${encodeURIComponent(issuedToken)}`
+              : ""
             : "");
-    const issuedToken =
-      typeof json.shareToken === "string" && json.shareToken
-        ? json.shareToken
-        : targetThread.shareToken;
 
     const fullUrl =
       typeof window !== "undefined" && shareUrl.startsWith("/")
@@ -802,6 +805,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
               gateStatus: "approved" as const,
               shareToken: issuedToken,
               shareUrl,
+              lastActivityAt: nowIso,
               detail: "IM 열람 요청이 승인되었습니다.",
               latestEvent: "IM 열람 요청을 승인하고 전용 링크를 전달했습니다.",
               events: [approvalEvent, ...t.events],
@@ -817,7 +821,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       ? "✓ 승인 완료! 고객 전용 열람 링크가 발급·복사되었습니다."
       : "✓ 승인 완료! 고객 전용 열람 링크가 발급되었습니다.";
     showUndoToast({ message: msg, variant: "success" });
-    toast.success(msg, { duration: 3500 });
   };
 
   const handleRejectRequest = async (targetThread: InboxThreadItem) => {
@@ -1522,6 +1525,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const resolvedHasIm = resolvedInvItem?.hasIm ?? true;
     const resolvedHasDealCard = resolvedInvItem?.hasDealCard;
 
+    const nowIso = new Date().toISOString();
     const created: InboxThreadItem = {
       id: canonicalId,
       clientName: newClientForm.name.trim(),
@@ -1542,17 +1546,17 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       buildingId: resolvedBuildingId,
       latestEvent: "직접 등록한 고객입니다.",
       cleanMessage: "직접 등록한 고객입니다.",
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
+      lastActivityAt: nowIso,
       openCount: 0,
       dwellSeconds: 0,
       isRead: true,
       status: "active",
       shareToken: "",
-      shareUrl: resolvedBuildingId
-        ? resolvedHasIm === false
+      shareUrl:
+        resolvedBuildingId && resolvedHasIm === false
           ? `/dc/${encodeURIComponent(resolvedBuildingId)}`
-          : `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
-        : "",
+          : "",
       ...(resolvedInvItem?.hasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
       ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),
       budget: newClientForm.budget.trim(),
@@ -1739,7 +1743,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
                     ? `/dc/${encodeURIComponent(resolvedBuildingId)}`
                     : t.shareToken
                     ? `/im-lite/${encodeURIComponent(resolvedBuildingId)}?token=${encodeURIComponent(t.shareToken)}`
-                    : `/im-lite/${encodeURIComponent(resolvedBuildingId)}`
+                    : ""
                   : "",
               ...(resolvedHasIm !== undefined ? { hasIm: resolvedHasIm } : {}),
               ...(resolvedHasDealCard !== undefined ? { hasDealCard: resolvedHasDealCard } : {}),

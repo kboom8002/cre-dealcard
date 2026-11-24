@@ -159,7 +159,7 @@ export function ImListSidebar({
       ) : viewMode === "simple" ? (
         <DateGroupedList
           items={filteredItems}
-          getDate={(item) => item.updatedAt}
+          getDate={(item) => item.updatedAtIso || item.updatedAt}
           getKey={(item) => item.id}
           ariaLabel="보유 IM 목록"
           renderRow={(item) => {
@@ -168,7 +168,7 @@ export function ImListSidebar({
               <SimpleListRow
                 testId={`im-item-${item.id}`}
                 title={item.title || "새 IM"}
-                date={item.updatedAt}
+                date={item.updatedAtIso || item.updatedAt}
                 status={
                   item.status === "published"
                     ? { label: TERMS.statusPublished, tone: "sent" }

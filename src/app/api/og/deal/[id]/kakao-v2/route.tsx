@@ -12,6 +12,7 @@ import {
 import { formatPriceRange, parseLegacyBand } from '@/lib/deal-card/price-band';
 import { collectSensitiveNeedles, maskNeedles } from '@/domain/public-projection/deal-card';
 import { cleanBlindPoints } from '@/lib/deal-card/blind-guard';
+import { healCorruptedRegionLabel } from '@/domain/building/dealcard-publication/banding-engine';
 import { isUuid } from '@/lib/im-lite/quick-generate-store';
 import { resolveOgDealGuard } from '@/lib/og/deal-public-guard';
 import {
@@ -41,7 +42,9 @@ function getQuadrantFontSize(text: string, defaultSize: 64 | 68 = 64): string {
 
 function extractRegion(address?: string | null): string {
   if (!address || typeof address !== 'string') return '서울시';
-  const match = address.match(/([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동|읍|면|가))/);
+  const match = address.match(
+    /([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동(?:\s*\d+가)?|읍|면|로(?:\s*\d+가)?|가))/
+  );
   if (match) return `${match[1]} ${match[2]}`;
   const guMatch = address.match(/([가-힣]+(?:구|군|시))/);
   return guMatch ? guMatch[1] : '서울시';
@@ -404,6 +407,24 @@ export async function GET(
   }
 
   const safeBuilding = building || {};
+  const regionFallbackSources: Array<string | null | undefined> = [
+    typeof safeBuilding.raw_address === 'string' ? safeBuilding.raw_address : undefined,
+    typeof safeBuilding.raw_input === 'string' ? safeBuilding.raw_input : undefined,
+    typeof safeBuilding.address === 'string' ? safeBuilding.address : undefined,
+    typeof safeBuilding.road_address === 'string' ? safeBuilding.road_address : undefined,
+    typeof safeBuilding.jibun_address === 'string' ? safeBuilding.jibun_address : undefined,
+    typeof safeBuilding.building_name === 'string' ? safeBuilding.building_name : undefined,
+    typeof safeBuilding.title === 'string' ? safeBuilding.title : undefined,
+    typeof (safeBuilding.attrs as Record<string, unknown> | undefined)?.rawAddress === 'string'
+      ? ((safeBuilding.attrs as Record<string, unknown>).rawAddress as string)
+      : undefined,
+    typeof (safeBuilding.attrs as Record<string, unknown> | undefined)?.address === 'string'
+      ? ((safeBuilding.attrs as Record<string, unknown>).address as string)
+      : undefined,
+    quickRec?.address,
+    quickRec?.buildingName,
+    bodyCard4?.headline,
+  ];
 
   let region: string;
   let use: string;
@@ -412,7 +433,7 @@ export async function GET(
   let card4Hash: string;
 
   if (bodyCard4?.region && bodyCard4?.use && bodyCard4?.priceBand && bodyCard4?.points) {
-    region = bodyCard4.region;
+    region = healCorruptedRegionLabel(bodyCard4.region, regionFallbackSources);
     use = bodyCard4.use;
     priceBand = bodyCard4.priceBand;
     points = cleanBlindPoints(bodyCard4.points) as [string, string, string];
@@ -428,7 +449,13 @@ export async function GET(
         headline: bodyCard4.headline,
       });
   } else {
-    region = String(safeBuilding.area_signal || extractRegion(String(safeBuilding.address || safeBuilding.road_address || '')));
+    region = healCorruptedRegionLabel(
+      String(
+        safeBuilding.area_signal ||
+          extractRegion(String(safeBuilding.address || safeBuilding.road_address || ''))
+      ),
+      regionFallbackSources
+    );
     use = extractUse(safeBuilding);
     priceBand = extractPriceBand(safeBuilding);
 
@@ -510,7 +537,7 @@ export async function GET(
     return out.replace(/\s+/g, ' ').trim() || fallback;
   };
 
-  const needles = collectSensitiveNeedles(safeBuilding);
+  const needles = collectSensitiveNeedles(safeBuilding, region);
   const sanitizeV2Text = (text: string, fallback = '-'): string => {
     const masked = maskNeedles(String(text || ''), needles);
     return safeText(cleanBlindPoints([masked])[0] || fallback, fallback);

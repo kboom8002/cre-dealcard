@@ -6,6 +6,7 @@ import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { healCorruptedRegionLabel } from "@/domain/building/dealcard-publication/banding-engine";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
 import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
 import {
@@ -268,21 +269,55 @@ export async function GET(
       ? "development"
       : (rawPosture || "income");
 
+  const safeBuildingAttrs = (safeBuilding.attrs as Record<string, unknown> | undefined) ?? undefined;
+  const safeBuildingLocation = (
+    (safeBuilding.layers as Record<string, unknown> | undefined)?.location as
+      | Record<string, unknown>
+      | undefined
+  ) ?? undefined;
+  const regionFallbackSources: Array<string | null | undefined> = [
+    safeBuilding.raw_address,
+    safeBuilding.raw_input,
+    safeBuilding.address,
+    safeBuilding.road_address,
+    safeBuilding.jibun_address,
+    safeBuilding.building_name,
+    safeBuilding.title,
+    safeBuildingAttrs?.rawAddress as string | undefined,
+    safeBuildingAttrs?.address as string | undefined,
+    safeBuildingLocation?.raw_address as string | undefined,
+    safeBuildingLocation?.address as string | undefined,
+    quickRec?.address,
+    quickRec?.buildingName,
+    card4?.headline,
+    imBody?.resolved_address,
+    imBody?.title,
+    imBody?.ogTitle,
+  ];
+  const rawAreaSignalInput = card4?.region || rawAttrs.areaSignal || safeBuilding.area_signal;
+  const healedAreaSignal =
+    typeof rawAreaSignalInput === "string"
+      ? healCorruptedRegionLabel(rawAreaSignalInput, regionFallbackSources)
+      : rawAreaSignalInput;
+
   const attrs = {
     ...rawAttrs,
-    areaSignal: card4?.region || rawAttrs.areaSignal || safeBuilding.area_signal,
+    areaSignal: healedAreaSignal,
     priceBand: card4?.priceBand || rawAttrs.priceBand || safeBuilding.price_band,
     assetType: card4?.use || rawAttrs.assetType || safeBuilding.asset_type,
     investmentPosture: inferredPosture,
   };
   const teaserView = projectToTeaser(attrs);
-  const needles = collectSensitiveNeedles(safeBuilding);
+  const rawRegionDisplay = healCorruptedRegionLabel(
+    String(card4?.region || attrs.areaSignal || teaserView.region || safeBuilding.area_signal || "서울권역"),
+    regionFallbackSources
+  );
+  const needles = collectSensitiveNeedles(safeBuilding, rawRegionDisplay);
   const sanitizeKakaoText = (text: string, fallback: string): string => {
     const masked = maskNeedles(String(text || ""), needles);
     return cleanBlindPoints([masked])[0] || fallback;
   };
 
-  const rawRegionDisplay = card4?.region || teaserView.region || safeBuilding.area_signal || "서울권역";
   const regionDisplay = sanitizeKakaoText(rawRegionDisplay, "서울권역");
   const rawAssetTypeDisplay = card4?.use || teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
   const assetTypeDisplay = sanitizeKakaoText(rawAssetTypeDisplay, "근생·오피스");

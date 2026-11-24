@@ -94,7 +94,10 @@ import {
 } from "./_components/EditionListSidebar";
 import { NewsletterTitleStepPanel } from "./_components/NewsletterTitleStepPanel";
 import { NewsletterContentStepPanel } from "./_components/NewsletterContentStepPanel";
-import { NewsletterSendStepPanel } from "./_components/NewsletterSendStepPanel";
+import {
+  NewsletterSendStepPanel,
+  type SendDeliveryMode,
+} from "./_components/NewsletterSendStepPanel";
 import {
   formatDistributeOutcomeBanner,
   type DistributeOutcomeCardData,
@@ -164,7 +167,7 @@ interface HistoryReceiptItem {
   channel?: string | null;
   sentAt: string | null;
   openedAt: string | null;
-  status: "opened" | "sent" | "failed";
+  status: "opened" | "sent" | "queued" | "failed";
 }
 
 interface HistoryDistributionItem {
@@ -194,6 +197,40 @@ function formatReceiptTimeKo(iso: string | null | undefined): string {
   } catch {
     return iso.slice(0, 16).replace("T", " ");
   }
+}
+
+function syncServerRegionFocusMap(rows: unknown[], targetMap: Map<string, string>): void {
+  for (const rawRow of rows) {
+    if (!rawRow || typeof rawRow !== "object") continue;
+    const rec = rawRow as Record<string, unknown>;
+    const recId = typeof rec.id === "string" ? rec.id : null;
+    if (!recId) continue;
+    const recContent =
+      rec.content && typeof rec.content === "object" ? (rec.content as Record<string, unknown>) : null;
+    const srvRf =
+      recContent && typeof recContent.regionFocus === "string"
+        ? recContent.regionFocus.trim()
+        : recContent && typeof recContent.region_focus === "string"
+          ? recContent.region_focus.trim()
+          : "";
+    targetMap.set(recId, srvRf);
+  }
+}
+
+async function patchEditionRegionFocusRequest(
+  editionId: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; updatedAt: string | null }> {
+  const patchRes = await fetch("/api/magazine/editions", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ edition_id: editionId, ...payload }),
+  });
+  if (!patchRes.ok) return { ok: false, updatedAt: null };
+  const patchJson = (await patchRes.json().then((v) => v, () => null)) as {
+    edition?: { updated_at?: string | null };
+  } | null;
+  return { ok: true, updatedAt: patchJson?.edition?.updated_at ?? null };
 }
 
 function MagazineEditorWorkspace() {
@@ -292,6 +329,7 @@ function MagazineEditorWorkspace() {
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [sending, setSending] = useState<boolean>(false);
+  const [sendMode, setSendMode] = useState<SendDeliveryMode>("now");
   const [isPrefsOpen, setIsPrefsOpen] = useState<boolean>(false);
   const [insightsTab, setInsightsTab] = useState<"subscribers" | "analytics">("subscribers");
   const [historyReceipts, setHistoryReceipts] = useState<HistoryReceiptItem[]>([]);
@@ -316,6 +354,8 @@ function MagazineEditorWorkspace() {
   const lastSyncedEditionQueryRef = useRef<string | null>(null);
   const hydratedSlotKeyRef = useRef<string | null>(null);
   const scopeUidRef = useRef<string | null>(getLastActiveBrokerUserId());
+  const serverRegionFocusByIdRef = useRef<Map<string, string>>(new Map());
+  const lastSyncedRegionFocusRef = useRef<string>("");
   const userEditedSinceMountRef = useRef<boolean>(false);
   const appliedInitialParamsRef = useRef<boolean>(false);
   const initialNewParamRef = useRef<boolean>(isNewParam);
@@ -379,6 +419,8 @@ function MagazineEditorWorkspace() {
         setBriefingTitle("");
         setBriefingBody("");
         setRegionFocus("");
+        lastSyncedRegionFocusRef.current = "";
+        setSendMode("now");
         setMarketTemp(null);
         setSelectedDealIds([]);
         setDealComments({});
@@ -399,6 +441,18 @@ function MagazineEditorWorkspace() {
       if (typeof data.summary === "string") setSummary(data.summary);
       if (typeof data.briefingTitle === "string") setBriefingTitle(data.briefingTitle);
       if (typeof data.briefingBody === "string") setBriefingBody(data.briefingBody);
+      const restoredRegionFocus =
+        typeof parsed.regionFocus === "string"
+          ? parsed.regionFocus
+          : typeof parsed.region_focus === "string"
+            ? parsed.region_focus
+            : undefined;
+      if (restoredRegionFocus !== undefined) {
+        setRegionFocus(restoredRegionFocus);
+        if (data.syncStatus !== "local_dirty") {
+          lastSyncedRegionFocusRef.current = restoredRegionFocus;
+        }
+      }
       if (typeof data.issueYear === "number") setIssueYear(data.issueYear);
       if (typeof data.issueMonth === "number") setIssueMonth(data.issueMonth);
       if (typeof parsed.cadence === "string") setCadence(data.cadence);
@@ -467,6 +521,8 @@ function MagazineEditorWorkspace() {
         targetSegment: NewsletterTargetSegment;
         cadence: NewsletterCadence;
         issueDateStr: string;
+        regionFocus: string;
+        sendMode: SendDeliveryMode;
       }>,
     ) => {
       const targetEditionId =
@@ -522,7 +578,16 @@ function MagazineEditorWorkspace() {
             },
             scopeUidRef.current,
           );
-          saveDraftRecordToSlots({ slotKey, activeScopeUid, payload });
+          const nextRegionFocus =
+            nextPatch && "regionFocus" in nextPatch ? (nextPatch.regionFocus ?? "") : regionFocus;
+          const nextSendMode =
+            nextPatch && "sendMode" in nextPatch ? (nextPatch.sendMode ?? "now") : sendMode;
+          const localRecord = {
+            ...payload,
+            regionFocus: nextRegionFocus,
+            sendMode: nextSendMode,
+          } as typeof payload & { regionFocus: string; sendMode: SendDeliveryMode };
+          saveDraftRecordToSlots({ slotKey, activeScopeUid, payload: localRecord });
           hydratedSlotKeyRef.current = slotKey;
           userEditedSinceMountRef.current = true;
         }
@@ -534,31 +599,11 @@ function MagazineEditorWorkspace() {
       setSaveState("dirty");
     },
     [
-      brokerId,
-      brokerSlug,
-      editionId,
-      draftSlotSlugOverride,
-      headline,
-      summary,
-      briefingTitle,
-      briefingBody,
-      issueYear,
-      issueMonth,
-      marketTemp,
-      monthlyRegion,
-      monthlyPairId,
-      monthlyCharts,
-      selectedDealIds,
-      dealComments,
-      preferredRegions,
-      preferredChannels,
-      unitIssues,
-      sections,
-      targetSegment,
-      cadence,
-      issueDateStr,
-      isPublished,
-      publishedUrl,
+      brokerId, brokerSlug, editionId, draftSlotSlugOverride, headline, summary,
+      briefingTitle, briefingBody, issueYear, issueMonth, marketTemp, monthlyRegion,
+      monthlyPairId, monthlyCharts, selectedDealIds, dealComments, preferredRegions,
+      preferredChannels, unitIssues, sections, targetSegment, cadence, issueDateStr,
+      regionFocus, sendMode, isPublished, publishedUrl,
     ],
   );
 
@@ -598,43 +643,26 @@ function MagazineEditorWorkspace() {
         },
         scopeUidRef.current,
       );
+      const localRecord = {
+        ...payload,
+        regionFocus,
+        sendMode,
+      } as typeof payload & { regionFocus: string; sendMode: SendDeliveryMode };
       saveDraftRecordToSlots({
         slotKey: currentSlotKey,
         activeScopeUid,
-        payload,
+        payload: localRecord,
         updateLastActive: false,
       });
     } catch {
       // ignore storage errors
     }
   }, [
-    saveState,
-    localStorageMode,
-    editionId,
-    cadence,
-    effectiveSlotSlug,
-    brokerId,
-    brokerSlug,
-    headline,
-    summary,
-    briefingTitle,
-    briefingBody,
-    issueYear,
-    issueMonth,
-    marketTemp,
-    monthlyRegion,
-    monthlyPairId,
-    monthlyCharts,
-    selectedDealIds,
-    dealComments,
-    preferredRegions,
-    preferredChannels,
-    unitIssues,
-    sections,
-    targetSegment,
-    issueDateStr,
-    isPublished,
-    publishedUrl,
+    saveState, localStorageMode, editionId, cadence, effectiveSlotSlug, brokerId,
+    brokerSlug, headline, summary, briefingTitle, briefingBody, issueYear, issueMonth,
+    marketTemp, monthlyRegion, monthlyPairId, monthlyCharts, selectedDealIds,
+    dealComments, preferredRegions, preferredChannels, unitIssues, sections,
+    targetSegment, issueDateStr, regionFocus, sendMode, isPublished, publishedUrl,
   ]);
 
   const applyEditionToEditorState = useCallback(
@@ -676,6 +704,17 @@ function MagazineEditorWorkspace() {
             if (isDirtySlot) {
               writeLastActiveSlotKey(activeScopeUid, targetSlotKey);
               removeScopedWorkspaceKey(LEGACY_DRAFT_STORAGE_KEY, activeScopeUid);
+              if (
+                typeof parsedSlot.regionFocus !== "string" &&
+                typeof parsedSlot.region_focus !== "string"
+              ) {
+                const srvRegionFocus = serverRegionFocusByIdRef.current.get(ed.id) ?? "";
+                setRegionFocus(srvRegionFocus);
+                lastSyncedRegionFocusRef.current = srvRegionFocus;
+              }
+              if (typeof parsedSlot.sendMode !== "string") {
+                setSendMode("now");
+              }
               hydrateFromParsedDraft(
                 { ...parsedSlot, editionId: ed.id },
                 targetSlotKey,
@@ -713,6 +752,10 @@ function MagazineEditorWorkspace() {
       setUnitIssues(f.unitIssues);
       setSections(f.sections);
       setTargetSegment(f.resolvedSeg);
+      const srvRegionFocus = serverRegionFocusByIdRef.current.get(ed.id) ?? "";
+      setRegionFocus(srvRegionFocus);
+      lastSyncedRegionFocusRef.current = srvRegionFocus;
+      setSendMode("now");
       setIsPublished(f.publishedFlag);
       setPublishedUrl(f.publishedFlag ? f.resolvedPubUrl : null);
       setLocalStorageMode("none");
@@ -846,55 +889,105 @@ function MagazineEditorWorkspace() {
       } catch {
         // ignore storage errors
       }
+      if (regionFocus.trim().length > 0) {
+        lastSyncedRegionFocusRef.current = "";
+      }
     },
     [
-      editionId,
-      headline,
-      selectedDealIds,
-      briefingBody,
-      summary,
-      briefingTitle,
-      marketTemp,
-      dealComments,
-      unitIssues,
-      sections,
-      targetSegment,
-      brokerId,
-      brokerSlug,
-      cadence,
-      effectiveSlotSlug,
+      editionId, headline, selectedDealIds, briefingBody, summary, briefingTitle, marketTemp,
+      dealComments, unitIssues, sections, targetSegment, brokerId, brokerSlug, cadence,
+      effectiveSlotSlug, regionFocus,
+    ],
+  );
+
+  const buildEditionRegionPatchPayload = useCallback(
+    (focusValue: string) => {
+      const populatedMonthlyCharts = resolvePopulatedMonthlyCharts(
+        cadence, sections, monthlyCharts, monthlyRegion, monthlyPairId,
+      );
+      const validUnitIssues = unitIssues
+        .filter((u) => u.title.trim().length > 0 || u.brief.trim().length > 0)
+        .slice(0, 8);
+      const content: Record<string, unknown> = {
+        headline: headline.trim(), summary: summary.trim(), briefing: briefingBody.trim(),
+        ai_briefing: briefingBody.trim(), briefing_title: briefingTitle.trim(),
+        briefing_body_md: briefingBody.trim(), market_temp: marketTemp,
+        featured_deal_ids: [...selectedDealIds], deal_comments: { ...dealComments },
+        monthlyRegion, monthlyPairId, preferredRegions: [...preferredRegions],
+        preferredChannels: [...preferredChannels], sections: [...sections],
+        target_segment: targetSegment, issueDate: issueDateStr, regionFocus: focusValue.trim(),
+        ...(validUnitIssues.length > 0 ? { unitIssues: validUnitIssues } : {}),
+        ...(populatedMonthlyCharts.length > 0 ? { monthlyCharts: populatedMonthlyCharts } : {}),
+      };
+      return {
+        title: headline.trim(), market_temp: marketTemp, cover_keywords: [],
+        field_note: {
+          question: "", buyerReaction: "", sellerReaction: "",
+          marketJudgment: "", comment: briefingBody.trim(),
+        },
+        theme_title: briefingTitle.trim(), theme_body_md: briefingBody.trim(),
+        featured_deal_ids: [...selectedDealIds], theme_color: "#6366f1",
+        target_segments: [targetSegment], content,
+      };
+    },
+    [
+      briefingBody, briefingTitle, cadence, dealComments, headline, issueDateStr,
+      marketTemp, monthlyCharts, monthlyPairId, monthlyRegion, preferredChannels,
+      preferredRegions, sections, selectedDealIds, summary, targetSegment, unitIssues,
     ],
   );
 
   const autosave = useNewsletterServerDraftSync({
-    hydrated: isWorkspaceHydrated,
-    hasUserEdited: hasUserEditedDraft,
-    editionId,
-    brokerId,
-    isPublished,
-    cadence,
-    effectiveSlotSlug,
-    issueDateStr,
-    headline,
-    summary,
-    briefingTitle,
-    briefingBody,
-    marketTemp,
-    monthlyRegion,
-    monthlyPairId,
-    monthlyCharts,
-    selectedDealIds,
-    dealComments,
-    unitIssues,
-    preferredRegions,
-    preferredChannels,
-    sections,
-    targetSegment,
+    hydrated: isWorkspaceHydrated, hasUserEdited: hasUserEditedDraft, editionId, brokerId,
+    isPublished, cadence, effectiveSlotSlug, issueDateStr, headline, summary, briefingTitle,
+    briefingBody, marketTemp, monthlyRegion, monthlyPairId, monthlyCharts, selectedDealIds,
+    dealComments, unitIssues, preferredRegions, preferredChannels, sections, targetSegment,
     initialUpdatedAt: currentServerEditionUpdatedAt,
     onDraftBootstrapped: handleServerDraftBootstrapped,
     onServerSynced: handleServerDraftSynced,
     onSavingStatus: setSaveState,
   });
+
+  useEffect(() => {
+    const targetId = editionId ?? "";
+    if (!isWorkspaceHydrated || isPublished || !isUuidLike(targetId)) return;
+    if (saveState === "saving" || saveState === "conflict") return;
+    const trimmedFocus = regionFocus.trim();
+    if (trimmedFocus === lastSyncedRegionFocusRef.current) return;
+    const timer = setTimeout(() => {
+      if (typeof fetch === "undefined") return;
+      void (async () => {
+        try {
+          const { ok, updatedAt: nextUpdatedAt } = await patchEditionRegionFocusRequest(
+            targetId,
+            buildEditionRegionPatchPayload(trimmedFocus),
+          );
+          if (!ok) return;
+          if (nextUpdatedAt) autosave.syncUpdatedAt(nextUpdatedAt);
+          autosave.markClean();
+          serverRegionFocusByIdRef.current.set(targetId, trimmedFocus);
+          lastSyncedRegionFocusRef.current = trimmedFocus;
+          try {
+            markSlotSyncedOnServer({
+              brokerId, brokerSlug, scopeUidHint: scopeUidRef.current, editionId: targetId,
+              cadence, effectiveSlotSlug, isoStr: nextUpdatedAt ?? new Date().toISOString(),
+            });
+          } catch {
+            // ignore storage errors
+          }
+          setLocalStorageMode("none");
+          setSaveState((prev) => (prev === "saving" ? prev : "saved"));
+          setLastSavedAt(nextUpdatedAt ? new Date(nextUpdatedAt) : new Date());
+        } catch {
+          // keep local draft; retry on next edit or manual save
+        }
+      })();
+    }, 650);
+    return () => clearTimeout(timer);
+  }, [
+    autosave, brokerId, brokerSlug, buildEditionRegionPatchPayload, cadence,
+    editionId, effectiveSlotSlug, isPublished, isWorkspaceHydrated, regionFocus, saveState,
+  ]);
 
   // ── 5. 초기 데이터 및 슬롯별 로컬·서버 초안 복원 ──
   useEffect(() => {
@@ -949,6 +1042,8 @@ function MagazineEditorWorkspace() {
         setBriefingTitle("");
         setBriefingBody("");
         setRegionFocus("");
+        lastSyncedRegionFocusRef.current = "";
+        setSendMode("now");
         setMarketTemp(null);
         setMonthlyRegion("gbd");
         setMonthlyPairId("molit_bok");
@@ -1150,6 +1245,7 @@ function MagazineEditorWorkspace() {
             }
 
             if (Array.isArray(edJson.editions)) {
+              syncServerRegionFocusMap(edJson.editions, serverRegionFocusByIdRef.current);
               const mapped: SavedEditionSummary[] = edJson.editions
                 .filter(
                   (row): row is Record<string, unknown> => !!row && typeof row === "object",
@@ -1253,6 +1349,13 @@ function MagazineEditorWorkspace() {
                       });
                     } else {
                       restoredLocalIssuesRef.current = true;
+                      if (!draftIsDirty && typeof initialDraft?.regionFocus !== "string") {
+                        const srvRf = serverRegionFocusByIdRef.current.get(matchedServerEd.id) ?? "";
+                        if (srvRf) {
+                          setRegionFocus(srvRf);
+                          lastSyncedRegionFocusRef.current = srvRf;
+                        }
+                      }
                     }
                   }
                 } else if (!initialDraft && !userEditedSinceMountRef.current) {
@@ -1534,6 +1637,7 @@ function MagazineEditorWorkspace() {
           monthlyRegion,
           monthlyPairId,
         );
+        const trimmedRegionFocus = regionFocus.trim();
         const requestBody = {
           ...buildIssueRequestBody({
             editionId,
@@ -1560,6 +1664,7 @@ function MagazineEditorWorkspace() {
             sections,
             targetSegment,
           }),
+          regionFocus: trimmedRegionFocus,
           ...(opts?.refreshPublishDate ? { refreshPublishDate: true } : {}),
         };
 
@@ -1604,7 +1709,27 @@ function MagazineEditorWorkspace() {
             setDraftSlotSlugOverride(null);
           }
           setEditions((prev) => upsertSavedEditionSummary(prev, parsed.nextEntry));
-          autosave.syncUpdatedAt(parsed.nowIso);
+          let effectiveNowIso = parsed.nowIso;
+          if (
+            shouldSaveAsDraft &&
+            isUuidLike(parsed.effectiveId) &&
+            trimmedRegionFocus !== lastSyncedRegionFocusRef.current
+          ) {
+            try {
+              const { ok: rfOk, updatedAt: rfUpdatedAt } = await patchEditionRegionFocusRequest(
+                parsed.effectiveId,
+                buildEditionRegionPatchPayload(trimmedRegionFocus),
+              );
+              if (rfOk) {
+                if (rfUpdatedAt) effectiveNowIso = rfUpdatedAt;
+                lastSyncedRegionFocusRef.current = trimmedRegionFocus;
+              }
+            } catch {
+              // ignore regionFocus follow-up failure; local draft remains intact
+            }
+          }
+          serverRegionFocusByIdRef.current.set(parsed.effectiveId, trimmedRegionFocus);
+          autosave.syncUpdatedAt(effectiveNowIso);
           autosave.markClean();
           setPublishedUrl(parsed.resolvedUrl);
           setIsPublished(!shouldSaveAsDraft);
@@ -1620,7 +1745,14 @@ function MagazineEditorWorkspace() {
               removeSlotKey: parsed.prevTempSlotKey,
               writeLegacyKey: true,
               activeScopeUid: parsed.activeScopeUid,
-              payload: parsed.savedDraftPayload,
+              payload: {
+                ...parsed.savedDraftPayload,
+                regionFocus: trimmedRegionFocus,
+                sendMode,
+              } as typeof parsed.savedDraftPayload & {
+                regionFocus: string;
+                sendMode: SendDeliveryMode;
+              },
             });
             hydratedSlotKeyRef.current = parsed.finalSlotKey;
           } catch {
@@ -1639,28 +1771,37 @@ function MagazineEditorWorkspace() {
         let errorJson = await res.json().then((v) => v, () => null);
 
         if (!shouldSaveAsDraft && res.status === 404 && editionId) {
+          const basePublishPatch = buildPublishPatchBody({
+            isPublished,
+            fallbackIsoDate,
+            headline,
+            summary,
+            briefingTitle,
+            briefingBody,
+            marketTemp,
+            monthlyRegion,
+            monthlyPairId,
+            populatedMonthlyCharts,
+            selectedDealIds,
+            dealComments,
+            unitIssues,
+            sections,
+            targetSegment,
+          }) as Record<string, unknown>;
+          const publishPatchBody =
+            basePublishPatch.content && typeof basePublishPatch.content === "object"
+              ? {
+                  ...basePublishPatch,
+                  content: {
+                    ...(basePublishPatch.content as Record<string, unknown>),
+                    regionFocus: trimmedRegionFocus,
+                  },
+                }
+              : { ...basePublishPatch, regionFocus: trimmedRegionFocus };
           const patchRes = await fetch(`/api/magazine/editions/${encodeURIComponent(editionId)}/publish`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(
-              buildPublishPatchBody({
-                isPublished,
-                fallbackIsoDate,
-                headline,
-                summary,
-                briefingTitle,
-                briefingBody,
-                marketTemp,
-                monthlyRegion,
-                monthlyPairId,
-                populatedMonthlyCharts,
-                selectedDealIds,
-                dealComments,
-                unitIssues,
-                sections,
-                targetSegment,
-              }),
-            ),
+            body: JSON.stringify(publishPatchBody),
           });
           if (patchRes.ok) {
             const patchJson = (await patchRes.json().then((v) => v, () => null)) as Record<string, unknown> | null;
@@ -1672,6 +1813,7 @@ function MagazineEditorWorkspace() {
               editionId,
               targetSegment,
             });
+            serverRegionFocusByIdRef.current.set(editionId, trimmedRegionFocus);
             setPublishedUrl(fallbackUrl);
             setIsPublished(true);
             setLocalStorageMode("none");
@@ -1715,35 +1857,12 @@ function MagazineEditorWorkspace() {
       }
     },
     [
-      autoMeta,
-      cadence,
-      issueDateStr,
-      editionId,
-      effectiveSlotSlug,
-      draftSlotSlugOverride,
-      editions,
-      isPublished,
-      headline,
-      summary,
-      briefingTitle,
-      briefingBody,
-      marketTemp,
-      monthlyRegion,
-      monthlyPairId,
-      monthlyCharts,
-      selectedDealIds,
-      deals,
-      dealComments,
-      unitIssues,
-      preferredRegions,
-      preferredChannels,
-      sections,
-      targetSegment,
-      brokerId,
-      brokerSlug,
-      publishedUrl,
-      autosave,
-      syncUrlParams,
+      autoMeta, cadence, issueDateStr, editionId, effectiveSlotSlug, draftSlotSlugOverride,
+      editions, isPublished, headline, summary, briefingTitle, briefingBody, marketTemp,
+      monthlyRegion, monthlyPairId, monthlyCharts, selectedDealIds, deals, dealComments,
+      unitIssues, preferredRegions, preferredChannels, sections, targetSegment, brokerId,
+      brokerSlug, publishedUrl, autosave, syncUrlParams, regionFocus, sendMode,
+      buildEditionRegionPatchPayload,
     ],
   );
 
@@ -1768,10 +1887,22 @@ function MagazineEditorWorkspace() {
   }, [handleServerSave, isPublished]);
 
   const handleSelectStep = useCallback(
-    (nextStep: NewsletterStepKey) => {
+    (
+      nextStep: NewsletterStepKey,
+      opts?: {
+        preserveBanner?: boolean;
+        editionIdOverride?: string | null;
+        cadenceOverride?: NewsletterCadence | "special";
+        openMobileEditor?: boolean;
+      },
+    ) => {
       setActiveStep(nextStep);
-      setStatusBanner(null);
-      syncUrlParams(editionId, cadence, { nextStep });
+      if (!opts?.preserveBanner) setStatusBanner(null);
+      syncUrlParams(
+        opts && "editionIdOverride" in opts ? (opts.editionIdOverride ?? null) : editionId,
+        opts?.cadenceOverride ?? cadence,
+        { nextStep, ...(opts?.openMobileEditor ? { openMobileEditor: true } : {}) },
+      );
     },
     [cadence, editionId, syncUrlParams],
   );
@@ -1829,6 +1960,8 @@ function MagazineEditorWorkspace() {
     setBriefingTitle("");
     setBriefingBody("");
     setRegionFocus("");
+    lastSyncedRegionFocusRef.current = "";
+    setSendMode("now");
     const mappedRegion = mapPreferredRegionsToMonthlyKey(preferredRegions);
     setMarketTemp(null);
     setMonthlyRegion(mappedRegion);
@@ -1847,7 +1980,12 @@ function MagazineEditorWorkspace() {
     );
     setIsPublished(false);
     setPublishedUrl(null);
-    setActiveStep("title");
+    handleSelectStep("title", {
+      preserveBanner: true,
+      editionIdOverride: null,
+      cadenceOverride: nextCadence,
+      openMobileEditor: true,
+    });
     setLocalStorageMode("none");
     setSaveState("idle");
     setLastSavedAt(null);
@@ -1868,8 +2006,6 @@ function MagazineEditorWorkspace() {
     } catch {
       // ignore storage errors
     }
-
-    syncUrlParams(null, nextCadence, { openMobileEditor: true });
 
     const meta = NEWSLETTER_CADENCE_META[nextCadence];
     setStatusBanner({
@@ -2019,10 +2155,14 @@ function MagazineEditorWorkspace() {
     setIssueYear(c.anchor.year);
     setIssueMonth(c.anchor.month);
     setIssueDateStr(c.clonedIssueDateStr);
+    const clonedRegionFocus = serverRegionFocusByIdRef.current.get(ed.id) ?? "";
     setHeadline(c.clonedHeadline);
     setSummary(ed.summary ?? "");
     setBriefingTitle(ed.briefingTitle ?? "");
     setBriefingBody(ed.briefingBody ?? "");
+    setRegionFocus(clonedRegionFocus);
+    lastSyncedRegionFocusRef.current = "";
+    setSendMode("now");
     setMarketTemp(ed.marketTemp ?? null);
     setMonthlyRegion(c.clonedRegion);
     setMonthlyPairId(c.clonedPair);
@@ -2034,7 +2174,12 @@ function MagazineEditorWorkspace() {
     setTargetSegment(c.clonedSegment);
     setIsPublished(false);
     setPublishedUrl(null);
-    setActiveStep("title");
+    handleSelectStep("title", {
+      preserveBanner: true,
+      editionIdOverride: null,
+      cadenceOverride: c.anchor.cadence,
+      openMobileEditor: true,
+    });
 
     persistLocalDraft({
       editionId: null,
@@ -2047,6 +2192,8 @@ function MagazineEditorWorkspace() {
       summary: ed.summary ?? "",
       briefingTitle: ed.briefingTitle ?? "",
       briefingBody: ed.briefingBody ?? "",
+      regionFocus: clonedRegionFocus,
+      sendMode: "now",
       marketTemp: ed.marketTemp ?? null,
       monthlyRegion: c.clonedRegion,
       monthlyPairId: c.clonedPair,
@@ -2057,7 +2204,6 @@ function MagazineEditorWorkspace() {
       sections: c.clonedSections,
       targetSegment: c.clonedSegment,
     });
-    syncUrlParams(null, c.anchor.cadence, { openMobileEditor: true });
     setStatusBanner({
       tone: "info",
       message: "선택한 뉴스레터를 새 초안으로 복제했어요. 제목과 내용을 다듬어 보세요.",
@@ -2243,7 +2389,8 @@ function MagazineEditorWorkspace() {
           ? prev.filter((r) => r !== regionLabel)
           : prev
         : [...prev, regionLabel].slice(0, 5);
-      setRegionFocus(next.join(", "));
+      const nextFocus = next.join(", ");
+      setRegionFocus(nextFocus);
       if (unitIssues.length > 0) setPreviousIssuesSnapshot(unitIssues);
       const reclustered = clusterArticlesIntoFiveIssues(newsPool, {
         cadence,
@@ -2254,7 +2401,7 @@ function MagazineEditorWorkspace() {
           .map((d) => d.title),
       });
       setUnitIssues(reclustered);
-      persistLocalDraft({ preferredRegions: next, unitIssues: reclustered });
+      persistLocalDraft({ preferredRegions: next, regionFocus: nextFocus, unitIssues: reclustered });
       return next;
     });
   };
@@ -2457,10 +2604,12 @@ function MagazineEditorWorkspace() {
     [cadence, deals, selectedDealIds, isSectionEnabled],
   );
 
-  const selectStepFromSync = useCallback((nextTab: NewsletterStepKey) => {
-    setActiveStep(nextTab);
-    setStatusBanner(null);
-  }, []);
+  const selectStepFromSync = useCallback(
+    (nextTab: NewsletterStepKey) => {
+      handleSelectStep(nextTab);
+    },
+    [handleSelectStep],
+  );
 
   const sync = useEditorPreviewSync<NewsletterStepKey>({
     units: editorSyncUnits,
@@ -2478,7 +2627,7 @@ function MagazineEditorWorkspace() {
       saveState === "conflict";
 
     if (needsServerSave && !headline.trim()) {
-      setActiveStep("title");
+      handleSelectStep("title", { preserveBanner: true });
       setStatusBanner({
         tone: "error",
         message: "표지 제목을 입력하면 바로 보낼 수 있어요",
@@ -2531,7 +2680,7 @@ function MagazineEditorWorkspace() {
 
   const handleCopyKakaoGreeting = async () => {
     if (!headline.trim()) {
-      setActiveStep("title");
+      handleSelectStep("title", { preserveBanner: true });
       setStatusBanner({
         tone: "error",
         message: "표지 제목을 입력하면 바로 보낼 수 있어요",
@@ -2611,7 +2760,7 @@ function MagazineEditorWorkspace() {
 
   const handleKakaoShare = async () => {
     if (!headline.trim()) {
-      setActiveStep("title");
+      handleSelectStep("title", { preserveBanner: true });
       setStatusBanner({
         tone: "error",
         message: "표지 제목을 입력하면 바로 보낼 수 있어요",
@@ -2681,7 +2830,7 @@ function MagazineEditorWorkspace() {
     });
 
     if (hint) {
-      setActiveStep(hint.targetStep);
+      handleSelectStep(hint.targetStep, { preserveBanner: true });
       setStatusBanner({ tone: "error", message: hint.message });
       return;
     }
@@ -2741,7 +2890,7 @@ function MagazineEditorWorkspace() {
     });
 
     if (hint) {
-      setActiveStep(hint.targetStep);
+      handleSelectStep(hint.targetStep, { preserveBanner: true });
       setStatusBanner({ tone: "error", message: hint.message });
       return;
     }
@@ -2823,6 +2972,7 @@ function MagazineEditorWorkspace() {
         }),
       );
       setActiveStep("send");
+      syncUrlParams(saved.savedEditionId ?? editionId, cadence, { nextStep: "send" });
     } finally {
       setSending(false);
     }
@@ -2912,15 +3062,17 @@ function MagazineEditorWorkspace() {
 
           <div className="flex flex-wrap items-center justify-end gap-2 min-h-[48px]">
 
-            <button
-              type="button"
-              data-testid="magazine-insights-open-btn"
-              onClick={() => handleSelectStep("history")}
-              className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-800 shadow-2xs transition hover:bg-slate-50 shrink-0 cursor-pointer"
-            >
-              <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>구독자·성과</span>
-            </button>
+            {activeStep !== "history" && (
+              <button
+                type="button"
+                data-testid="magazine-insights-open-btn"
+                onClick={() => handleSelectStep("history")}
+                className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-800 shadow-2xs transition hover:bg-slate-50 shrink-0 cursor-pointer"
+              >
+                <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>구독자·성과</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -3020,7 +3172,10 @@ function MagazineEditorWorkspace() {
             briefingBody={briefingBody}
             marketTemp={marketTemp}
             regionFocus={regionFocus}
-            onChangeRegionFocus={setRegionFocus}
+            onChangeRegionFocus={(nextFocus) => {
+              setRegionFocus(nextFocus);
+              persistLocalDraft({ regionFocus: nextFocus });
+            }}
             preferredRegions={preferredRegions}
             preferredChannels={preferredChannels}
             selectedDealTitles={selectedDeals.map((d) => d.title)}
@@ -3141,7 +3296,7 @@ function MagazineEditorWorkspace() {
             onUndoRecluster={handleUndoReclusterIssues}
             onOpenPreferences={() => {
               setIsPrefsOpen(true);
-              setActiveStep("title");
+              handleSelectStep("title");
             }}
             onNotifyEditorFocus={sync.notifyEditorFocus}
             onBackToTitle={() => handleSelectStep("title")}
@@ -3162,6 +3317,11 @@ function MagazineEditorWorkspace() {
             onChangeTargetSegment={(nextSeg) => {
               setTargetSegment(nextSeg);
               persistLocalDraft({ targetSegment: nextSeg });
+            }}
+            sendMode={sendMode}
+            onChangeSendMode={(nextMode) => {
+              setSendMode(nextMode);
+              persistLocalDraft({ sendMode: nextMode });
             }}
             subscriberCount={subscriberCount}
             highInterestCount={highInterestCount}
@@ -3287,7 +3447,7 @@ function MagazineEditorWorkspace() {
                           </p>
                           <p className="truncate text-sm font-medium text-slate-600">
                             {item.editionLabel}
-                            {sentLabel ? ` · 발송 ${sentLabel}` : ""}
+                            {sentLabel ? ` · ${item.status === "queued" ? "대기 등록" : "발송"} ${sentLabel}` : ""}
                           </p>
                         </div>
 
@@ -3302,6 +3462,11 @@ function MagazineEditorWorkspace() {
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm font-extrabold text-rose-900 shrink-0">
                             <XCircle className="h-4 w-4 text-rose-700" aria-hidden="true" />
                             <span>발송 실패</span>
+                          </span>
+                        ) : item.status === "queued" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-extrabold text-amber-900 shrink-0">
+                            <Clock className="h-4 w-4 text-amber-700" aria-hidden="true" />
+                            <span>⏳ 발송 대기</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700 shrink-0">
@@ -3441,9 +3606,11 @@ function MagazineEditorWorkspace() {
       activeStep={activeStep}
       sending={sending}
       saveState={saveState}
+      sendMode={sendMode}
       onDraftSaveClick={() => void handleDraftSaveClick()}
       onSelectSendStep={() => handleSelectStep("send")}
       onSendSelected={() => void handleSendSelected()}
+      onPublishWebOnly={(opts) => void handlePublishWebOnly(opts)}
     />
   );
 
@@ -3458,7 +3625,7 @@ function MagazineEditorWorkspace() {
           cache: "no-store",
         });
         if (!res.ok) return;
-        const edJson = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        const edJson = (await res.json().then((v) => v, () => null)) as Record<string, unknown> | null;
         if (!edJson) return;
         if (typeof edJson.subscriberCount === "number") {
           setSubscriberCount(edJson.subscriberCount);
@@ -3467,6 +3634,7 @@ function MagazineEditorWorkspace() {
           setHighInterestCount(edJson.highInterestCount);
         }
         if (Array.isArray(edJson.editions)) {
+          syncServerRegionFocusMap(edJson.editions, serverRegionFocusByIdRef.current);
           const currentSlug = brokerSlug || "";
           const mapped: SavedEditionSummary[] = edJson.editions
             .filter(

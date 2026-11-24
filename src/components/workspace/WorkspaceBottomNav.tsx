@@ -35,7 +35,7 @@ export interface WorkspaceBottomNavProps {
 /**
  * WP-P2-03: WorkspaceBottomNav
  *
- * 5-tab mobile bottom navigation bar shown below 1024px.
+ * 5-tab mobile bottom navigation bar shown below 640px (where top navbar takes over).
  * Follows senior accessibility: >= 48px touch targets, min 14px caption,
  * high-contrast borders, safe-area inset padding.
  */
@@ -55,7 +55,7 @@ export function WorkspaceBottomNav({
     <nav
       data-testid="workspace-bottom-nav"
       aria-label="모바일 하단 내비게이션"
-      className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 ios-glass-chrome bg-white/80 backdrop-blur-2xl backdrop-saturate-[190%] border-t border-white/75 shadow-[0_-4px_24px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] pb-[env(safe-area-inset-bottom,0px)] ${className}`}
+      className={`sm:hidden fixed bottom-0 left-0 right-0 z-40 ios-glass-chrome bg-white/80 backdrop-blur-2xl backdrop-saturate-[190%] border-t border-white/75 shadow-[0_-4px_24px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] pb-[env(safe-area-inset-bottom,0px)] ${className}`}
     >
       <div className="grid grid-cols-5 min-h-16 h-auto items-stretch max-w-lg mx-auto px-1 py-1.5 gap-0.5">
         {tabs.map((tab) => {

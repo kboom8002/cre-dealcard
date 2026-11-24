@@ -7,6 +7,7 @@ import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { healCorruptedRegionLabel } from "@/domain/building/dealcard-publication/banding-engine";
 import { isUuid } from "@/lib/im-lite/quick-generate-store";
 import { resolveOgDealGuard } from "@/lib/og/deal-public-guard";
 import {
@@ -215,22 +216,52 @@ export async function GET(
     price_band: (card4?.priceBand as string | undefined) || "가격 협의",
   };
   const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
+  const regionFallbackSources: Array<string | null | undefined> = [
+    typeof safeBuilding.raw_address === "string" ? safeBuilding.raw_address : undefined,
+    typeof safeBuilding.raw_input === "string" ? safeBuilding.raw_input : undefined,
+    typeof safeBuilding.address === "string" ? safeBuilding.address : undefined,
+    typeof safeBuilding.road_address === "string" ? safeBuilding.road_address : undefined,
+    typeof safeBuilding.jibun_address === "string" ? safeBuilding.jibun_address : undefined,
+    typeof safeBuilding.building_name === "string" ? safeBuilding.building_name : undefined,
+    typeof safeBuilding.title === "string" ? safeBuilding.title : undefined,
+    typeof (safeBuilding.attrs as Record<string, unknown> | undefined)?.rawAddress === "string"
+      ? ((safeBuilding.attrs as Record<string, unknown>).rawAddress as string)
+      : undefined,
+    typeof (safeBuilding.attrs as Record<string, unknown> | undefined)?.address === "string"
+      ? ((safeBuilding.attrs as Record<string, unknown>).address as string)
+      : undefined,
+    quickRec?.address,
+    quickRec?.buildingName,
+    typeof card4?.headline === "string" ? card4.headline : undefined,
+    typeof teaserDocBody?.title === "string" ? teaserDocBody.title : undefined,
+    typeof teaserDocBody?.ogTitle === "string" ? teaserDocBody.ogTitle : undefined,
+  ];
+  const rawAreaSignalInput =
+    (card4?.region as string | undefined) || rawAttrs.areaSignal || (safeBuilding.area_signal as string | undefined);
+  const healedAreaSignal =
+    typeof rawAreaSignalInput === "string"
+      ? healCorruptedRegionLabel(rawAreaSignalInput, regionFallbackSources)
+      : rawAreaSignalInput;
   const attrs = {
     ...rawAttrs,
-    areaSignal: (card4?.region as string | undefined) || rawAttrs.areaSignal || (safeBuilding.area_signal as string | undefined),
+    areaSignal: healedAreaSignal,
     priceBand: (card4?.priceBand as string | undefined) || rawAttrs.priceBand || (safeBuilding.price_band as string | undefined),
     assetType: (card4?.use as string | undefined) || rawAttrs.assetType || (safeBuilding.asset_type as string | undefined),
     investmentPosture: ((card4?.posture as string | undefined) || rawAttrs.investmentPosture) as typeof rawAttrs.investmentPosture,
   };
   const teaserView = projectToTeaser(attrs);
   const imBody: Record<string, unknown> = teaserDocBody ?? {};
-  const needles = collectSensitiveNeedles(safeBuilding);
+  const rawRegionDisplay = healCorruptedRegionLabel(
+    String(card4?.region || attrs.areaSignal || teaserView.region || "서울 주요 권역"),
+    regionFallbackSources
+  );
+  const needles = collectSensitiveNeedles(safeBuilding, rawRegionDisplay);
   const sanitizeCardText = (text: string, fallback: string): string => {
     const masked = maskNeedles(String(text || ""), needles);
     return cleanBlindPoints([masked])[0] || fallback;
   };
 
-  const regionDisplay = sanitizeCardText(String(card4?.region || teaserView.region || "서울 주요 권역"), "서울 주요 권역");
+  const regionDisplay = sanitizeCardText(rawRegionDisplay, "서울 주요 권역");
   const useDisplay = sanitizeCardText(String(card4?.use || teaserView.assetType || "상업용 빌딩"), "상업용 빌딩");
   const priceBandDisplay = maskNeedles(String(card4?.priceBand || teaserView.bandedPrice || "가격 협의"), needles);
 

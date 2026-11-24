@@ -331,16 +331,18 @@ export function ImEditorPanels({
     );
   }, [expectedRentManwon, expectedRentRoll]);
 
+  const hasExpectedData = hasExistingRentRollData(expectedRentRoll);
+
   const computedExpectedYield = useMemo(() => {
     if (typeof expectedYieldPct === "number") return expectedYieldPct;
-    if (!askingPriceManwon || askingPriceManwon <= 0 || expectedRentRoll.length === 0) return 0;
+    if (!askingPriceManwon || askingPriceManwon <= 0 || !hasExpectedData) return 0;
     const netInv = askingPriceManwon - computedExpectedDeposit;
     if (netInv <= 0 || computedExpectedRent <= 0) return 0;
     return ((computedExpectedRent * 12) / netInv) * 100;
   }, [
     expectedYieldPct,
     askingPriceManwon,
-    expectedRentRoll.length,
+    hasExpectedData,
     computedExpectedDeposit,
     computedExpectedRent,
   ]);
@@ -1346,7 +1348,7 @@ export function ImEditorPanels({
               }`}
             >
               ✨ 기대수익률 임대차 현황{" "}
-              {expectedRentRoll.length > 0 ? `(${expectedRentRoll.length}행 · 별도 면 반영)` : "(선택)"}
+              {hasExpectedData ? `(${expectedRentRoll.length}행 · 별도 면 반영)` : "(선택)"}
             </button>
           </div>
           {rentRollSubTab === "expected" && onCopyActualToExpectedRentRoll && (
@@ -1480,6 +1482,7 @@ export function ImEditorPanels({
               floorsBelow={currentItem?.floorsBelow}
               buildingFloors={buildingFloors}
               askingPriceManwon={askingPriceManwon}
+              disableAutoScaffold={true}
               extraToolbarAction={
                 onExpectedExcelRentRollImport ? (
                   <button
@@ -1758,7 +1761,7 @@ export function ImEditorPanels({
             onClick={() => {
               onClearActionAlert();
               onChangeEditorTab("axios_brief");
-              setExpectedEmptyStepNotice(expectedRentRoll.length === 0);
+              setExpectedEmptyStepNotice(!hasExpectedData);
             }}
             className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
           >
@@ -1776,7 +1779,7 @@ export function ImEditorPanels({
             : "hidden"
         }
       >
-        {expectedEmptyStepNotice && expectedRentRoll.length === 0 && (
+        {expectedEmptyStepNotice && !hasExpectedData && (
           <div
             data-testid="im-expected-empty-step-notice"
             role="status"

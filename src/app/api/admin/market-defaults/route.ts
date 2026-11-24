@@ -6,6 +6,40 @@ import { fetchRegionalCommercialBenchmarks } from "@/lib/external/rone-api";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
+
+interface MarketDefaultsInsertPayload {
+  commercial_mortgage_rate_pct: unknown;
+  pf_interest_rate_pct: unknown;
+  max_ltv_pct: unknown;
+  construction_cost_rc: unknown;
+  construction_cost_sc: unknown;
+  construction_cost_src: unknown;
+  acquisition_tax_rate_pct: unknown;
+  cap_rate_benchmarks: unknown;
+  notes: unknown;
+  created_by: string | undefined;
+}
+
+/** Deactivates previous active defaults and inserts a new active market_defaults row. */
+async function replaceActiveMarketDefaults(
+  supabase: ServerSupabaseClient,
+  payload: MarketDefaultsInsertPayload,
+) {
+  const table = supabase.from("market_defaults");
+  await table.update({ active: false }).eq("active", true);
+  const { data, error } = await table
+    .insert({
+      ...payload,
+      active: true,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  invalidateMarketDefaultsCache();
+  return data;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const guard = await requireRole(req, ["admin"]);
@@ -54,27 +88,18 @@ export async function POST(req: NextRequest) {
         };
       }
 
-      await supabase.from("market_defaults").update({ active: false }).eq("active", true);
-      const { data: syncedRow, error: syncErr } = await supabase
-        .from("market_defaults")
-        .insert({
-          commercial_mortgage_rate_pct: (current as any)?.commercial_mortgage_rate_pct,
-          pf_interest_rate_pct: (current as any)?.pf_interest_rate_pct,
-          max_ltv_pct: (current as any)?.max_ltv_pct,
-          construction_cost_rc: (current as any)?.construction_cost_rc,
-          construction_cost_sc: (current as any)?.construction_cost_sc,
-          construction_cost_src: (current as any)?.construction_cost_src,
-          acquisition_tax_rate_pct: (current as any)?.acquisition_tax_rate_pct,
-          cap_rate_benchmarks: mergedCapBenchmarks,
-          notes: `R-ONE 12M 평균 자동 동기화 (${syncedAt.slice(0, 10)})`,
-          active: true,
-          created_by: guard.user?.id,
-        })
-        .select()
-        .single();
-
-      if (syncErr) throw syncErr;
-      invalidateMarketDefaultsCache();
+      const syncedRow = await replaceActiveMarketDefaults(supabase, {
+        commercial_mortgage_rate_pct: (current as any)?.commercial_mortgage_rate_pct,
+        pf_interest_rate_pct: (current as any)?.pf_interest_rate_pct,
+        max_ltv_pct: (current as any)?.max_ltv_pct,
+        construction_cost_rc: (current as any)?.construction_cost_rc,
+        construction_cost_sc: (current as any)?.construction_cost_sc,
+        construction_cost_src: (current as any)?.construction_cost_src,
+        acquisition_tax_rate_pct: (current as any)?.acquisition_tax_rate_pct,
+        cap_rate_benchmarks: mergedCapBenchmarks,
+        notes: `R-ONE 12M 평균 자동 동기화 (${syncedAt.slice(0, 10)})`,
+        created_by: guard.user?.id,
+      });
 
       return NextResponse.json({
         ok: true,
@@ -97,31 +122,18 @@ export async function POST(req: NextRequest) {
       notes,
     } = body;
 
-    // Deactivate previous defaults
-    await supabase.from("market_defaults").update({ active: false }).eq("active", true);
-
-    // Insert new active defaults
-    const { data, error } = await supabase
-      .from("market_defaults")
-      .insert({
-        commercial_mortgage_rate_pct,
-        pf_interest_rate_pct,
-        max_ltv_pct,
-        construction_cost_rc,
-        construction_cost_sc,
-        construction_cost_src,
-        acquisition_tax_rate_pct,
-        cap_rate_benchmarks,
-        notes,
-        active: true,
-        created_by: guard.user?.id,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    invalidateMarketDefaultsCache();
+    const data = await replaceActiveMarketDefaults(supabase, {
+      commercial_mortgage_rate_pct,
+      pf_interest_rate_pct,
+      max_ltv_pct,
+      construction_cost_rc,
+      construction_cost_sc,
+      construction_cost_src,
+      acquisition_tax_rate_pct,
+      cap_rate_benchmarks,
+      notes,
+      created_by: guard.user?.id,
+    });
 
     log.info("[MarketDefaults] Admin updated market defaults", { adminId: guard.user?.id });
 

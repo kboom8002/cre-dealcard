@@ -237,7 +237,7 @@ export interface SimpleListRowProps {
   meta?: React.ReactNode;
   selected?: boolean;
   onSelect: () => void;
-  /** Optional inline action buttons (e.g. 복제 / 삭제). Uses <div role="button"> wrapper so buttons are never nested. */
+  /** Optional inline action buttons (e.g. 복제 / 삭제). Uses a non-interactive outer container with a sibling primary <button> so buttons are never nested. */
   actions?: React.ReactNode;
   /** Extra data-* attributes preserved for tests/analytics */
   dataAttrs?: Record<string, string>;
@@ -270,99 +270,94 @@ export function SimpleListRow({
       : "border-slate-200 bg-white hover:border-slate-300 hover:bg-[#FAFAFC]"
   }`;
 
-  const innerContent = (
-    <>
-      {selected && (
-        <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
-      )}
-      <div className="flex w-full items-center justify-between gap-1.5 min-w-0">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="min-w-0 w-full">
-            <span
-              data-single-line-title="true"
-              title={title}
-              className={`ws-simple-row-title block w-full min-w-0 truncate text-base font-bold break-keep ${
-                selected ? "text-[#0040DD]" : "text-[#1D1D1F]"
-              }`}
-            >
-              {selected && (
-                <span aria-hidden="true" className="mr-1">
-                  ✓
+  const primaryContent = (
+    <div className="min-w-0 flex-1 space-y-0.5">
+      <div className="min-w-0 w-full">
+        <span
+          data-single-line-title="true"
+          title={title}
+          className={`ws-simple-row-title block w-full min-w-0 truncate text-base font-bold break-keep ${
+            selected ? "text-[#0040DD]" : "text-[#1D1D1F]"
+          }`}
+        >
+          {selected && (
+            <span aria-hidden="true" className="mr-1">
+              ✓
+            </span>
+          )}
+          {selected && <span className="sr-only">선택됨: </span>}
+          {title}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 w-full min-w-0 text-sm">
+        {(status || meta) && (
+          <div className="flex min-w-0 items-center gap-x-2 gap-y-0.5 flex-wrap">
+            {status && tone && (
+              <span
+                data-testid={status.testId}
+                title={status.title}
+                className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${tone.text}`}
+              >
+                <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${tone.dot}`} />
+                <span>
+                  {tone.mark}
+                  {status.label}
                 </span>
-              )}
-              {selected && <span className="sr-only">선택됨: </span>}
-              {title}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 w-full min-w-0 text-sm">
-            {(status || meta) && (
-              <div className="flex min-w-0 items-center gap-1.5 flex-wrap">
-                {status && tone && (
-                  <span
-                    data-testid={status.testId}
-                    title={status.title}
-                    className={`inline-flex shrink-0 items-center gap-1.5 font-semibold ${tone.text}`}
-                  >
-                    <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${tone.dot}`} />
-                    <span>
-                      {tone.mark}
-                      {status.label}
-                    </span>
-                  </span>
-                )}
-                {status && meta ? (
-                  <span aria-hidden="true" className="text-[#AEAEB2]">
-                    ·
-                  </span>
-                ) : null}
-                {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
-              </div>
+              </span>
             )}
-            <span
-              data-testid={`${testId}-date`}
-              className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
-            >
-              {dateLabel}
-            </span>
+            {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
           </div>
-        </div>
-        {actions ? (
+        )}
+        <span
+          data-testid={`${testId}-date`}
+          className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
+        >
+          {dateLabel}
+        </span>
+      </div>
+    </div>
+  );
+
+  if (actions) {
+    return (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- keyboard activation is handled by the primary <button type="button"> inside; outer container only delegates blank-padding clicks
+      <div
+        data-testid={testId}
+        data-list-row="simple"
+        data-selected={selected ? "true" : "false"}
+        aria-current={selected ? "true" : undefined}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("button, a, input, [data-row-actions]")) return;
+          onSelect();
+        }}
+        {...(dataAttrs || {})}
+        className={sharedClassName}
+      >
+        {selected && (
+          <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
+        )}
+        <div className="flex w-full items-center justify-between gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className="flex-1 min-w-0 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] rounded-lg"
+          >
+            {primaryContent}
+          </button>
           <div
             data-row-actions={testId}
             className={`flex shrink-0 items-center gap-0.5 transition-opacity ${
               selected
                 ? "opacity-100"
-                : "opacity-100 sm:opacity-35 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                : "opacity-100 sm:opacity-70 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
             }`}
           >
             {actions}
           </div>
-        ) : null}
-      </div>
-    </>
-  );
-
-  if (actions) {
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        data-testid={testId}
-        data-list-row="simple"
-        data-selected={selected ? "true" : "false"}
-        aria-current={selected ? "true" : undefined}
-        onClick={onSelect}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onSelect();
-          }
-        }}
-        {...(dataAttrs || {})}
-        className={sharedClassName}
-      >
-        {innerContent}
+        </div>
       </div>
     );
   }
@@ -378,7 +373,12 @@ export function SimpleListRow({
       {...(dataAttrs || {})}
       className={sharedClassName}
     >
-      {innerContent}
+      {selected && (
+        <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-[#007AFF]" />
+      )}
+      <div className="flex w-full items-center justify-between gap-1.5 min-w-0">
+        {primaryContent}
+      </div>
     </button>
   );
 }
@@ -554,7 +554,7 @@ export function RowIconActionButton({
         e.stopPropagation();
         onClick(e);
       }}
-      className={`inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 ${toneClass} ${className}`}
+      className={`inline-flex h-[44px] w-[44px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 ${toneClass} ${className}`}
     >
       {icon}
     </button>

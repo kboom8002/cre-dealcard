@@ -389,4 +389,99 @@ test.describe("T3 Live Production Read-Only Smoke (credeal.net)", () => {
     expect(overflow).toBeLessThanOrEqual(0);
     expect(pageErrors).toEqual([]);
   });
+
+  test("[Smoke-08] /qa-full-loop-v3 fail-closed + kakao-v2 OG PNG + /dc/6958c7c4 zero 양평동가 check", async ({
+    page,
+    request,
+  }) => {
+    const denied = await request.get("/qa-full-loop-v3", { maxRedirects: 0 });
+    expect(denied.status()).toBe(404);
+    expect((denied.headers()["x-robots-tag"] || "").toLowerCase()).toContain(
+      "noindex"
+    );
+
+    // Verify both DealCard OG routes (primary kakao-v2 & base deal route) render 200 PNG
+    const ogPaths = [
+      "/api/og/deal/6958c7c4-82bd-4f12-bbc1-47abcb158ca8/kakao-v2",
+      "/api/og/deal/6958c7c4-82bd-4f12-bbc1-47abcb158ca8",
+    ];
+    for (const ogPath of ogPaths) {
+      const ogRes = await request.get(ogPath);
+      expect(ogRes.status(), `OG route ${ogPath}`).toBe(200);
+      expect(ogRes.headers()["content-type"] || "").toContain("image/png");
+      const buf = await ogRes.body();
+      expect(buf.length).toBeGreaterThan(5_000);
+    }
+
+    // Verify public DealCard heals legacy corrupted 동가 region & preserves 차상혁 statutory name
+    const dcRes = await request.get("/dc/6958c7c4-82bd-4f12-bbc1-47abcb158ca8");
+    expect(dcRes.status()).toBe(200);
+    const dcHtml = await dcRes.text();
+    expect(dcHtml).toContain("차상혁");
+    expect(dcHtml).toContain("양평동4가");
+    expect(dcHtml).not.toMatch(/양평동가(?![0-9])/);
+
+    if (!QA_ACCESS_KEY) {
+      test.skip(
+        true,
+        "QA_ACCESS_KEY 미설정 — /qa-full-loop-v3 인증 화면 검증은 건너뜁니다."
+      );
+      return;
+    }
+
+    const encodedKey = encodeURIComponent(QA_ACCESS_KEY);
+    const res = await page.goto(`/qa-full-loop-v3?qaKey=${encodedKey}`, {
+      waitUntil: "domcontentloaded",
+    });
+    expect(res?.status()).toBe(200);
+    await expect(page.getByText(/양평동/).first()).toBeVisible({
+      timeout: 20_000,
+    });
+  });
+
+  test("[Smoke-09] 900x900 split-screen renders single topbar nav (zero dual bottom nav) & zero horizontal overflow", async ({
+    page,
+  }) => {
+    const email = (
+      process.env.PROD_SMOKE_EMAIL ||
+      process.env.E2E_TEST_EMAIL ||
+      ""
+    ).trim();
+    const password = (
+      process.env.PROD_SMOKE_PASSWORD ||
+      process.env.E2E_TEST_PASSWORD ||
+      ""
+    ).trim();
+    if (!email || !password) {
+      test.skip(
+        true,
+        "PROD_SMOKE_EMAIL/E2E_TEST_EMAIL 미설정 — 분할화면 인증 뷰포트 검증을 건너뜁니다."
+      );
+      return;
+    }
+
+    await page.setViewportSize({ width: 900, height: 900 });
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await page.locator("#email").fill(email);
+    await page.locator("#password").fill(password);
+    await page.getByRole("button", { name: "로그인" }).click();
+    await page.waitForURL("**/broker**", { timeout: 45_000 });
+
+    for (const route of [
+      "/broker/w/dealcards",
+      "/broker/w/im",
+      "/broker/magazine-editor",
+      "/broker/w/inbox",
+    ]) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId("workspace-topbar")).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(page.getByTestId("workspace-bottom-nav")).toBeHidden();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth
+      );
+      expect(overflow, `Overflow on ${route} at 900px`).toBeLessThanOrEqual(0);
+    }
+  });
 });

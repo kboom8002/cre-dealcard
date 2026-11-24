@@ -169,51 +169,44 @@ export function InboxListColumn({
           {firstPendingThread && (
             <div
               key={`todo-quick-${firstPendingThread.id}`}
-              role="button"
-              tabIndex={0}
               data-testid={`quick-todo-card-${firstPendingThread.id}`}
-              onClick={() => onSelectThread(firstPendingThread.id)}
-              onKeyDown={(e) => {
-                if (e.target !== e.currentTarget) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectThread(firstPendingThread.id);
-                }
-              }}
-              className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg pt-1 border-t border-[#FF9500]/20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
-            >
-            <span
-              title={
-                firstPendingThread.clientCompany?.trim()
-                  ? `${firstPendingThread.clientName} (${firstPendingThread.clientCompany.trim()})`
-                  : firstPendingThread.clientName
-              }
-              className="min-w-0 truncate text-sm font-bold text-[#1D1D1F]"
-            >
-              {firstPendingThread.clientName}
-              {firstPendingThread.clientCompany?.trim() ? (
-                <>
-                  {" "}
-                  <span className="font-extrabold text-indigo-950">
-                    ({firstPendingThread.clientCompany.trim()})
-                  </span>
-                </>
-              ) : null}
-            </span>
-            <button
-              type="button"
-              data-testid={`quick-review-btn-${firstPendingThread.id}`}
-              disabled={Boolean(busyAction)}
               onClick={(e) => {
-                e.stopPropagation();
+                if ((e.target as HTMLElement).closest("button")) return;
                 onSelectThread(firstPendingThread.id);
               }}
-              className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-bold text-amber-950 shadow-2xs transition hover:bg-amber-50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg pt-1 border-t border-[#FF9500]/20"
             >
-              확인·승인하기 ›
-            </button>
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={() => onSelectThread(firstPendingThread.id)}
+                title={
+                  firstPendingThread.clientCompany?.trim()
+                    ? `${firstPendingThread.clientName} (${firstPendingThread.clientCompany.trim()})`
+                    : firstPendingThread.clientName
+                }
+                className="min-w-0 flex-1 min-h-[44px] truncate rounded-lg px-1 text-left text-sm font-bold text-[#1D1D1F] cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF]"
+              >
+                {firstPendingThread.clientName}
+                {firstPendingThread.clientCompany?.trim() ? (
+                  <>
+                    {" "}
+                    <span className="font-extrabold text-indigo-950">
+                      ({firstPendingThread.clientCompany.trim()})
+                    </span>
+                  </>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                data-testid={`quick-review-btn-${firstPendingThread.id}`}
+                disabled={Boolean(busyAction)}
+                onClick={() => onSelectThread(firstPendingThread.id)}
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-bold text-amber-950 shadow-2xs transition hover:bg-amber-50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              >
+                확인·승인하기 ›
+              </button>
+            </div>
+          )}
       </div>
 
       {/* 1열 기본 필터 탭 3개: 할 일 · 열람 · 전체 고객 (IB-12 — iOS Segmented Control, 동심원 12px/9px) */}
@@ -411,7 +404,7 @@ export function InboxListColumn({
         ) : viewMode === "simple" ? (
           <DateGroupedList
             items={filteredThreads}
-            getDate={(item) => item.updatedAt}
+            getDate={(item) => item.lastActivityAt || item.updatedAt}
             getKey={(item) => item.id}
             ariaLabel="고객 목록"
             renderRow={(item) => {
@@ -441,7 +434,7 @@ export function InboxListColumn({
                 <SimpleListRow
                   testId={`inbox-thread-row-${item.id}`}
                   title={item.clientName}
-                  date={item.updatedAt}
+                  date={item.lastActivityAt || item.updatedAt}
                   status={{ label: statusBadge.text, tone: statusBadge.tone }}
                   meta={metaNode}
                   selected={activeThread?.id === item.id}
@@ -554,7 +547,7 @@ export function InboxListColumn({
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
-                        {formatListDate(item.updatedAt)}
+                        {formatListDate(item.lastActivityAt || item.updatedAt)}
                       </span>
                       {(() => {
                         const cardActions = renderInlineActions(item);

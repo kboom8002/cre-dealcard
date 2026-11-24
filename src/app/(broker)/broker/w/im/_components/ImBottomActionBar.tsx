@@ -49,34 +49,42 @@ export function ImBottomActionBar({
       data-testid="im-bottom-action-bar"
       className="w-full space-y-1.5 md:space-y-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-0"
     >
-      <button
-        type="button"
-        data-testid="im-quick-generate-btn"
-        disabled={isGenerating}
-        aria-busy={isGenerating}
-        onClick={onQuickGenerate}
-        className="w-full min-h-[48px] md:min-h-[52px] px-3.5 md:px-4 py-2.5 bg-[#1D4ED8] text-white rounded-xl md:rounded-2xl font-extrabold text-base leading-snug break-keep text-center hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+      <div
+        className={
+          showPostGenerateCopyBtn
+            ? "grid grid-cols-1 sm:grid-cols-[1.15fr_1fr] xl:grid-cols-1 gap-1.5 md:gap-2"
+            : ""
+        }
       >
-        <span>{generateButtonLabel}</span>
-      </button>
-
-      {showPostGenerateCopyBtn && (
         <button
           type="button"
-          data-testid="im-copy-share-link-btn"
-          disabled={isProvisioningSheet || isGenerating}
-          onClick={onCopyShareLink}
-          className={`w-full min-h-[44px] px-3 py-2 rounded-xl font-extrabold text-sm leading-tight break-keep text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer border ${
-            isShareLinkCopied
-              ? "bg-emerald-600 text-white border-emerald-700"
-              : "bg-emerald-50 text-emerald-950 border-emerald-400 hover:bg-emerald-100"
-          }`}
+          data-testid="im-quick-generate-btn"
+          disabled={isGenerating}
+          aria-busy={isGenerating}
+          onClick={onQuickGenerate}
+          className="w-full min-h-[48px] xl:min-h-[52px] px-3.5 md:px-4 py-2.5 bg-[#1D4ED8] text-white rounded-xl md:rounded-2xl font-extrabold text-base leading-snug break-keep text-center hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
         >
-          <span>
-            {isShareLinkCopied ? "✓ IM 링크 복사됨 (붙여넣기 가능)" : "🔗 IM 링크 복사"}
-          </span>
+          <span>{generateButtonLabel}</span>
         </button>
-      )}
+
+        {showPostGenerateCopyBtn && (
+          <button
+            type="button"
+            data-testid="im-copy-share-link-btn"
+            disabled={isProvisioningSheet || isGenerating}
+            onClick={onCopyShareLink}
+            className={`w-full min-h-[44px] sm:min-h-[48px] xl:min-h-[44px] px-3 py-2 rounded-xl md:rounded-2xl xl:rounded-xl font-extrabold text-sm leading-tight break-keep text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer border ${
+              isShareLinkCopied
+                ? "bg-emerald-600 text-white border-emerald-700"
+                : "bg-emerald-50 text-emerald-950 border-emerald-400 hover:bg-emerald-100"
+            }`}
+          >
+            <span>
+              {isShareLinkCopied ? "✓ IM 링크 복사됨 (붙여넣기 가능)" : "🔗 IM 링크 복사"}
+            </span>
+          </button>
+        )}
+      </div>
 
       <div
         data-testid="im-secondary-actions-row"

@@ -159,14 +159,15 @@ export async function GET(req: NextRequest) {
 
     const thirtyDaysAgo = new Date(now - 30 * DAY_MS).toISOString();
 
-    // 2. 활성 확인 구독자 수 (pending 미확인 제외, pre-cutover 스키마 42703/PGRST204 폴백)
+    // 2. 활성 확인 구독자 수 (pending 미확인·수신거부 제외, pre-cutover 스키마 42703/PGRST204 폴백; .or() 중복 덮어쓰기 방지)
     let subCountRes = await supabase
       .from("magazine_subscribers")
       .select("id", { count: "exact" })
       .in("broker_id", brokerIds)
       .eq("status", "active")
-      .or("confirm_status.is.null,confirm_status.neq.pending")
-      .or("consent_status.is.null,consent_status.neq.pending")
+      .is("unsubscribed_at", null)
+      .not("confirm_status", "eq", "pending")
+      .not("consent_status", "eq", "pending")
       .limit(1);
     if (subCountRes.error && (isMissingColumnError(subCountRes.error) || !subCountRes.error.message)) {
       subCountRes = await supabase
@@ -174,7 +175,8 @@ export async function GET(req: NextRequest) {
         .select("id", { count: "exact" })
         .in("broker_id", brokerIds)
         .eq("status", "active")
-        .or("confirm_status.is.null,confirm_status.neq.pending")
+        .is("unsubscribed_at", null)
+        .not("confirm_status", "eq", "pending")
         .limit(1);
       if (subCountRes.error && (isMissingColumnError(subCountRes.error) || !subCountRes.error.message)) {
         subCountRes = await supabase
@@ -423,6 +425,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 9. 수신자별 발송·수신확인(열람) 내역 (best-effort; 모의/미마이그레이션 환경에서도 안전 폴백)
+    type DeliveryReceiptStatus = "opened" | "sent" | "queued" | "failed";
     type DeliveryReceipt = {
       id: string;
       recipientLabel: string;
@@ -430,7 +433,7 @@ export async function GET(req: NextRequest) {
       channel?: string | null;
       sentAt: string | null;
       openedAt: string | null;
-      status: "opened" | "sent" | "failed";
+      status: DeliveryReceiptStatus;
     };
     let deliveryReceipts: DeliveryReceipt[] = [];
     try {
@@ -456,8 +459,9 @@ export async function GET(req: NextRequest) {
       const [dispRes, viewActRes] = await Promise.all([
         supabase
           .from("magazine_dispatch_logs")
-          .select("id, edition_id, subscriber_id, channel, status, sent_at, created_at")
+          .select("id, edition_id, subscriber_id, channel, status, created_at")
           .in("broker_id", brokerIds)
+          .neq("status", "dry_run")
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
@@ -470,7 +474,6 @@ export async function GET(req: NextRequest) {
       ]);
 
       const openBySubAndEd = new Map<string, string>();
-      const openBySub = new Map<string, string>();
       const sidViews: Array<{ subscriberId: string; editionId: string | null; issueDate: string | null; openedAt: string }> = [];
       const viewActRows =
         !viewActRes?.error && Array.isArray(viewActRes?.data)
@@ -495,14 +498,44 @@ export async function GET(req: NextRequest) {
           const prev = openBySubAndEd.get(pairKey);
           if (!prev || openedAt > prev) openBySubAndEd.set(pairKey, openedAt);
         }
-        const prevSub = openBySub.get(subId);
-        if (!prevSub || openedAt > prevSub) openBySub.set(subId, openedAt);
       }
 
-      const dispRows =
+      const rawDispRows =
         !dispRes?.error && Array.isArray(dispRes?.data)
           ? (dispRes.data as Array<Record<string, unknown>>)
           : [];
+      const dispRows = rawDispRows.filter(
+        (row) => String(row?.status ?? "").trim().toLowerCase() !== "dry_run",
+      );
+
+      // 해지·일시정지된 과거 수신자도 이름·연락처가 보존되도록 status 필터 없이 보충 조회
+      const targetSubIds =
+        dispRows.length > 0
+          ? dispRows.slice(0, 30).map((r) => (typeof r.subscriber_id === "string" ? r.subscriber_id : ""))
+          : sidViews.slice(0, 30).map((v) => v.subscriberId);
+      const missingSubIds = Array.from(new Set(targetSubIds)).filter(
+        (id) => Boolean(id) && !subMap.has(id) && isUuid(id),
+      );
+      if (missingSubIds.length > 0) {
+        const { data: histSubs, error: histErr } = await supabase
+          .from("magazine_subscribers")
+          .select("id, subscriber_name, subscriber_phone, subscriber_email")
+          .in("broker_id", brokerIds)
+          .in("id", missingSubIds);
+        if (!histErr && Array.isArray(histSubs)) {
+          for (const s of histSubs as Array<Record<string, unknown>>) {
+            if (s && typeof s.id === "string") {
+              const name = String(s.subscriber_name ?? "").trim() || "구독 고객";
+              const contact = String(s.subscriber_email || s.subscriber_phone || "").trim();
+              subMap.set(s.id, { name, contact });
+            }
+          }
+        }
+      }
+
+      const QUEUED_STATUSES = new Set(["queued", "pending_worker", "retryable", "pending"]);
+      const FAILED_STATUSES = new Set(["failed", "blocked", "bounced"]);
+      const SENT_STATUSES = new Set(["sent", "delivered", "succeeded", "ok"]);
 
       if (dispRows.length > 0) {
         deliveryReceipts = dispRows.slice(0, 30).map((row, idx) => {
@@ -516,20 +549,25 @@ export async function GET(req: NextRequest) {
             : "구독 고객";
           const editionLabel = (edId && edMap.get(edId)) || "뉴스레터";
           const sentAt =
-            (typeof row.sent_at === "string" && row.sent_at) ||
-            (typeof row.created_at === "string" && row.created_at) ||
-            null;
+            typeof row.created_at === "string" && row.created_at
+              ? row.created_at
+              : row.created_at instanceof Date
+                ? row.created_at.toISOString()
+                : null;
           const openedAt =
-            (subId && edId ? openBySubAndEd.get(`${subId}:${edId}`) : undefined) ??
-            (subId ? openBySub.get(subId) : undefined) ??
-            null;
-          const rawStatus = typeof row.status === "string" ? row.status : "";
-          const status: "opened" | "sent" | "failed" =
-            rawStatus === "failed" || rawStatus === "blocked"
+            subId && edId ? (openBySubAndEd.get(`${subId}:${edId}`) ?? null) : null;
+          const rawStatus = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+          const status: DeliveryReceiptStatus = QUEUED_STATUSES.has(rawStatus)
+            ? "queued"
+            : FAILED_STATUSES.has(rawStatus)
               ? "failed"
-              : openedAt
-                ? "opened"
-                : "sent";
+              : SENT_STATUSES.has(rawStatus)
+                ? openedAt
+                  ? "opened"
+                  : "sent"
+                : openedAt
+                  ? "opened"
+                  : "sent";
           return {
             id: typeof row.id === "string" && row.id ? row.id : `disp-${idx}`,
             recipientLabel,

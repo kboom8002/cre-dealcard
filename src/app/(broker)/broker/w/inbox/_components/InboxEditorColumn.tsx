@@ -379,7 +379,7 @@ export function InboxEditorColumn({
                       )}
                     </div>
                     <span className="text-sm font-semibold text-amber-900">
-                      {formatListDate(activeThread.updatedAt)}
+                      {formatListDate(activeThread.lastActivityAt || activeThread.updatedAt)}
                     </span>
                   </div>
                   <h3 className="mt-3 text-base font-bold text-slate-900">

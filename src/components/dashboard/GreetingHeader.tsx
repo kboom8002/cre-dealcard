@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { UserCircle, LogOut, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { purgeWorkspaceClientStorage } from "@/lib/workspace/storage-namespace";
 import { useRouter } from "next/navigation";
 
 interface GreetingHeaderProps {
@@ -34,6 +35,7 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
   }, []);
 
   const handleLogout = async () => {
+    purgeWorkspaceClientStorage();
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/");

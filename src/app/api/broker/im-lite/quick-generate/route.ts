@@ -29,6 +29,7 @@ import {
 } from '@/lib/deal-card/canonical-summary';
 import { repairDealCardLine } from '@/lib/deal-card/copy-limits';
 import { cleanBlindPoints, suggestFallbackRegion } from '@/lib/deal-card/blind-guard';
+import { healCorruptedRegionLabel } from '@/domain/building/dealcard-publication/banding-engine';
 import { formatPriceRange, validateBlindPriceBand } from '@/lib/deal-card/price-band';
 import {
   DEALCARD_PLACEHOLDER_REGION,
@@ -2638,13 +2639,17 @@ export async function POST(req: NextRequest) {
         /(?<![가-힣0-9])(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?!(?:가|동|읍|면|리|로|길|번길|호선|역|[가-힣\d]))/g,
         ''
       );
-  const cleanedRegionCandidate = stripLotNumbersSafe(
-    stripBlindIdentifiers(requestedRegionRaw, '', '')
-  )
-    .replace(/(?:OO번지|OO-OO|인근)/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const hasUnmaskedLotNumber = /(?:-\d+|번지|\s+\d+)/.test(cleanedRegionCandidate);
+  const cleanedRegionCandidate = healCorruptedRegionLabel(
+    stripLotNumbersSafe(stripBlindIdentifiers(requestedRegionRaw, '', ''))
+      .replace(/(?:OO번지|OO-OO|인근)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim(),
+    [cleanAddress, derivedRegion, resolvedTitle]
+  );
+  const hasUnmaskedLotNumber =
+    /(?:-\d+|번지|\s+\d+(?![\d]|(?:\s*(?:가|동|읍|면|리|로|길|번길|호선|역))))/.test(
+      cleanedRegionCandidate
+    );
   const safePublicRegion =
     !cleanedRegionCandidate || hasUnmaskedLotNumber
       ? derivedRegion
@@ -2744,12 +2749,19 @@ export async function POST(req: NextRequest) {
     const existingRegionRaw =
       typeof existingPayload.region === 'string' ? existingPayload.region.trim() : '';
     const isLegacyBrokenDongGa =
-      /동가$/.test(existingRegionRaw) && /동\d+가$/.test(generatedCard4.region);
+      /(?:동|로)가(?=$|[\s,])/.test(existingRegionRaw) &&
+      /(?:동|로)\d+가(?=$|[\s,])/.test(generatedCard4.region);
+    const healedExistingRegion = existingRegionRaw
+      ? healCorruptedRegionLabel(
+          stripBlindIdentifiers(existingRegionRaw, '', '') || existingRegionRaw,
+          [generatedCard4.region, cleanAddress, resolvedTitle]
+        )
+      : '';
     const preservedRegion =
-      existingRegionRaw &&
-      existingRegionRaw !== DEALCARD_PLACEHOLDER_REGION &&
+      healedExistingRegion &&
+      healedExistingRegion !== DEALCARD_PLACEHOLDER_REGION &&
       !isLegacyBrokenDongGa
-        ? stripBlindIdentifiers(existingRegionRaw, '', '') || generatedCard4.region
+        ? healedExistingRegion
         : generatedCard4.region;
 
     const mergedDraft = {

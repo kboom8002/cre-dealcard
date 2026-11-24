@@ -846,15 +846,18 @@ export function hydrateMonthlyChartsFromDbRows(
       const series: MonthlyChartSeriesPoint[] = sortedMonths.map((ym) => {
         const b = bucket.get(ym)!;
         const targetSamples = useLandBasis ? b.landPyeongPrices : b.gfaPyeongPrices;
-        const medianPyeongManwon = computeMedianNumber(targetSamples);
+        const medianPyeongManwon =
+          b.count >= 3 && targetSamples.length >= 3
+            ? computeMedianNumber(targetSamples)
+            : null;
         return {
           label: `${Number(ym.slice(5, 7))}월`,
           primaryValue: b.count,
           ...(medianPyeongManwon ? { secondaryValue: medianPyeongManwon } : {}),
           displayPrimary: `${b.count}건`,
-          ...(medianPyeongManwon
-            ? { displaySecondary: `${medianPyeongManwon.toLocaleString()}만` }
-            : {}),
+          displaySecondary: medianPyeongManwon
+            ? `${medianPyeongManwon.toLocaleString()}만`
+            : '표본 부족',
         };
       });
       const latest = series[series.length - 1];
