@@ -4,6 +4,7 @@
  */
 import { z } from "zod/v4";
 import { DEAL_CARD_LINE_MAX, isCompleteDealCardLine } from "@/lib/deal-card/copy-limits";
+import { DEAL_CARD_POINT_AXES } from "@/lib/deal-card/card4-schema";
 
 // ---- Memo Parser Output (section 7.3) ----
 
@@ -182,9 +183,17 @@ export type BlindTeaserOutput = z.infer<typeof BlindTeaserOutputSchema>;
 // 1단계(느슨): LLM 원문 수용 — 길이 초과 문구도 받아서 결정적 교정기로 넘긴다.
 // 2단계(엄격): 교정 후 고객 화면 계약(≤18자 · 완결 체언 · 말줄임 없음) 검증.
 
+export const DealCardCopyLLMPointCandidateSchema = z.object({
+  text: z.string().trim().min(1).max(120),
+  axis: z.string().trim().optional(),
+  recommended: z.boolean().optional(),
+});
+
 export const DealCardCopyLLMOutputSchema = z.object({
   headline: z.string().trim().min(1).max(80).optional(),
   points: z.array(z.string().trim().min(1).max(120)).min(3).optional(),
+  alternativePoints: z.array(z.string().trim().min(1).max(120)).max(8).optional(),
+  pointCandidates: z.array(DealCardCopyLLMPointCandidateSchema).max(10).optional(),
 });
 
 export type DealCardCopyLLMOutput = z.infer<typeof DealCardCopyLLMOutputSchema>;
@@ -195,9 +204,16 @@ const strictLine = z
     message: `각 줄은 ${DEAL_CARD_LINE_MAX}자 이내의 완결된 문구여야 합니다 (말줄임·조사 끝 금지).`,
   });
 
+export const DealCardCopyStrictPointCandidateSchema = z.object({
+  text: strictLine,
+  axis: z.enum(DEAL_CARD_POINT_AXES),
+  recommended: z.boolean(),
+});
+
 export const DealCardCopyStrictOutputSchema = z.object({
   headline: strictLine.optional(),
   points: z.tuple([strictLine, strictLine, strictLine]).optional(),
+  pointCandidates: z.array(DealCardCopyStrictPointCandidateSchema).min(3).max(8).optional(),
 });
 
 export type DealCardCopyStrictOutput = z.infer<typeof DealCardCopyStrictOutputSchema>;

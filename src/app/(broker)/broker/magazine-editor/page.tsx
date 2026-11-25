@@ -3180,6 +3180,17 @@ function MagazineEditorWorkspace() {
             preferredChannels={preferredChannels}
             selectedDealTitles={selectedDeals.map((d) => d.title)}
             unitIssueTitles={unitIssues.map((u) => u.title)}
+            selectedDealSummaries={selectedDeals.map((d) =>
+              [d.title, d.areaSignal || d.address, d.priceBand || d.price, d.yield !== "-" ? `연 ${d.yield}` : ""]
+                .filter(Boolean)
+                .join(" · "),
+            )}
+            unitIssueEvidence={unitIssues.map((u) => `${u.title}: ${u.brief}`)}
+            monthlyStatsSummary={monthlyCharts
+              .slice(0, 2)
+              .map((c) => `${c.title} ${c.highlightMetric?.value ?? ""}`.trim())
+              .filter(Boolean)
+              .join(" / ")}
             isPrefsOpen={isPrefsOpen}
             onTogglePrefsOpen={() => setIsPrefsOpen((prev) => !prev)}
             canUndoRecluster={previousIssuesSnapshot !== null}

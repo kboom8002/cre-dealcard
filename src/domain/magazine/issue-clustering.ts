@@ -215,10 +215,10 @@ function decodeBasicEntities(raw: string): string {
     .replace(/&gt;/gi, '>');
 }
 
-/** 카드뉴스 포스트잇 이슈 제목 최대 글자 수 (70대 매수자 2줄 권장 · 모바일 360px 3줄 이내 보장 = 44자) */
+/** 카드뉴스 포스트잇 이슈 제목 최대 글자 수 (2줄 권장 · 모바일 360px 3줄 이내 보장 = 44자) */
 export const AXIOS_TITLE_MAX_CHARS = 44;
-/** 카드뉴스 포스트잇 이슈 해설 최대 글자 수 (70대 매수자 3줄 상세 해설 · 모바일 360px 4줄 이내 보장 = 74자) */
-export const AXIOS_BRIEF_MAX_CHARS = 74;
+/** 카드뉴스 포스트잇 이슈 해설 최대 글자 수 (1문장 수치·근거 + 2문장 시사점 · 모바일 4줄 이내 = 96자) */
+export const AXIOS_BRIEF_MAX_CHARS = 96;
 
 const BUYER_JARGON_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/자기자본\s*수익률(?:\s*\(ROE\))?/gi, '내 돈 대비 실제 수익률'],
@@ -1366,4 +1366,39 @@ export function resolveUnitIssuesFromData(
     });
   }
   return out;
+}
+
+const ARTICLE_EVIDENCE_RE =
+  /(?:(?:기준금리|대출금리|금리|공실률|거래량|거래|매매|수익률|임대료|평당가|평당|전년\s*대비|전분기\s*대비|연초\s*대비|상승|하락|증가|감소|돌파|유지|기록|약)\s*)?\d[\d,.]*(?:\s*(?:~|-|∼)\s*\d[\d,.]*)?\s*(?:%p|%|％|bp|조\s*원?|억\s*원?|천만\s*원?|만\s*원?|원|평|㎡|건|배|개월|분기|년|층|호)/g;
+
+/**
+ * 기사 제목·요약에서 FactBook용 검증 수치·근거 구절(최대 4건)을 결정론적으로 추출한다.
+ * AI 뉴스 클러스터링 시 추상 요약 대신 검증된 수치를 최우선 기술하기 위한 근거 풀이다.
+ */
+export function extractArticleNumericEvidence(article: {
+  title?: string | null;
+  summary?: string | null;
+}): string[] {
+  const combined = `${article.title ?? ''} ${article.summary ?? ''}`
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!combined) return [];
+
+  const snippets: string[] = [];
+  const seen = new Set<string>();
+  for (const match of combined.matchAll(ARTICLE_EVIDENCE_RE)) {
+    const raw = match[0].replace(/\s+/g, ' ').trim();
+    const start = match.index ?? 0;
+    const prefix = combined.slice(Math.max(0, start - 10), start);
+    const prefixWord = prefix.match(/([가-힣A-Za-z0-9·]{2,8})\s*$/)?.[1] ?? '';
+    const snippet =
+      prefixWord && !raw.startsWith(prefixWord) ? `${prefixWord} ${raw}` : raw;
+    const compact = snippet.replace(/\s+/g, ' ').trim().slice(0, 28);
+    const key = compact.replace(/\s+/g, '');
+    if (!compact || seen.has(key)) continue;
+    seen.add(key);
+    snippets.push(compact);
+    if (snippets.length >= 4) break;
+  }
+  return snippets;
 }

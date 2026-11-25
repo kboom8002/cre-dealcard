@@ -11,10 +11,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  DEAL_CARD_POINT_AXIS_LABELS,
   reclusterDealCardPointsAsAxios,
   resolveAreaOnPostureChange,
   resolveCard4AreaLabel,
   type Card4Data,
+  type Card4PointCandidate,
   type DealCardPointTone,
   type DealCardPosture,
   type ProvenanceSource,
@@ -82,7 +84,7 @@ function LineRepairHint({
 }) {
   const a = assessDealCardLine(text);
   if (!text.trim() || a.ok) return null;
-  const reason = a.isOver ? '18자를 넘었어요' : a.hasEllipsis ? '말줄임표는 쓰지 않아요' : '문장이 끝나지 않았어요';
+  const reason = a.isOver ? `${DEAL_CARD_LINE_MAX}자를 넘었어요` : a.hasEllipsis ? '말줄임표는 쓰지 않아요' : '문장이 끝나지 않았어요';
   return (
     <div
       data-testid={testId}
@@ -477,9 +479,94 @@ export function Card4ConfirmCard({
     onChange({ ...card4, points: nextPoints });
   };
 
+  const activePointKeys = useMemo(
+    () => new Set(card4.points.map((p) => p.replace(/\s+/g, '').trim()).filter(Boolean)),
+    [card4.points],
+  );
+
+  const backupPointCandidates = useMemo(
+    () =>
+      (card4.pointCandidates ?? []).filter(
+        (c) => c.text.trim() && !activePointKeys.has(c.text.replace(/\s+/g, '').trim()),
+      ),
+    [card4.pointCandidates, activePointKeys],
+  );
+
+  const handleSwapCandidatePoint = (
+    candidate: Card4PointCandidate,
+    slotIdx?: 0 | 1 | 2,
+  ) => {
+    const incomingText = repairDealCardLine(candidate.text);
+    if (!incomingText) return;
+    const prevSnapshot: Card4Data = {
+      ...card4,
+      points: [...card4.points] as [string, string, string],
+      ...(card4.pointCandidates ? { pointCandidates: [...card4.pointCandidates] } : {}),
+    };
+    const targetIdx: 0 | 1 | 2 =
+      slotIdx !== undefined
+        ? slotIdx
+        : focusedPointIdx !== null
+          ? focusedPointIdx
+          : lastFocusedPointIdxRef.current ?? 2;
+
+    const replacedText = (card4.points[targetIdx] ?? '').trim();
+    const incomingKey = incomingText.replace(/\s+/g, '');
+    if (replacedText.replace(/\s+/g, '') === incomingKey) return;
+
+    const nextPoints: [string, string, string] = [...card4.points];
+    nextPoints[targetIdx] = incomingText;
+
+    const provenanceList: [ProvenanceSource, ProvenanceSource, ProvenanceSource] = [
+      ...(card4.provenance?.points ?? ['ai', 'ai', 'ai']),
+    ];
+    provenanceList[targetIdx] = 'ai';
+
+    const existingPool = card4.pointCandidates ?? [];
+    const nextPool = existingPool.filter(
+      (c) => c.text.replace(/\s+/g, '').trim() !== incomingKey,
+    );
+    if (
+      replacedText &&
+      !nextPool.some((c) => c.text.replace(/\s+/g, '').trim() === replacedText.replace(/\s+/g, ''))
+    ) {
+      nextPool.unshift({ text: replacedText });
+    }
+    nextPool.push({
+      text: incomingText,
+      ...(candidate.axis ? { axis: candidate.axis } : {}),
+    });
+
+    onChange({
+      ...card4,
+      points: nextPoints,
+      pointCandidates: nextPool.slice(0, 8),
+      provenance: { points: provenanceList },
+    });
+
+    showUndoToast({
+      message: `장점 ${targetIdx + 1}을 '${incomingText}'로 바꿨어요`,
+      undoAction: () => onChange(prevSnapshot),
+    });
+  };
+
   const handleAiRecluster = async () => {
-    const prevSnapshot: Card4Data = { ...card4, points: [...card4.points] as [string, string, string] };
+    const prevSnapshot: Card4Data = {
+      ...card4,
+      points: [...card4.points] as [string, string, string],
+      ...(card4.pointCandidates ? { pointCandidates: [...card4.pointCandidates] } : {}),
+    };
     const commitForCard = onChange;
+    const avoidPoints = Array.from(
+      new Set(
+        [
+          ...prevSnapshot.points,
+          ...(prevSnapshot.pointCandidates?.map((c) => c.text) ?? []),
+        ]
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ).slice(-12);
     setAiPointsBusy(true);
     setAiFeedback(null);
     try {
@@ -495,6 +582,8 @@ export function Card4ConfirmCard({
           priceBand: prevSnapshot.priceBand,
           currentHeadline,
           currentPoints: prevSnapshot.points,
+          ...(avoidPoints.length > 0 ? { avoidPoints } : {}),
+          candidateCount: 6,
           ...(Object.keys(memoFacts).length > 0 ? { facts: memoFacts } : {}),
         }),
       });
@@ -505,19 +594,36 @@ export function Card4ConfirmCard({
           repairDealCardLine(String(data.result.points[1] || '')),
           repairDealCardLine(String(data.result.points[2] || '')),
         ];
+        const nextCandidates: Card4PointCandidate[] = Array.isArray(data.result?.pointCandidates)
+          ? data.result.pointCandidates
+              .filter(
+                (c: unknown): c is { text: string; axis?: Card4PointCandidate['axis'] } =>
+                  Boolean(c && typeof c === 'object' && typeof (c as { text?: unknown }).text === 'string'),
+              )
+              .map((c: { text: string; axis?: Card4PointCandidate['axis'] }) => ({
+                text: repairDealCardLine(c.text),
+                ...(c.axis ? { axis: c.axis } : {}),
+              }))
+              .filter((c: Card4PointCandidate) => c.text.length > 0)
+              .slice(0, 8)
+          : [];
         commitForCard({
           ...prevSnapshot,
           ...(typeof data.result.headline === 'string' && !currentHeadline.trim()
             ? { headline: repairDealCardLine(data.result.headline) }
             : {}),
           points: nextPts,
+          ...(nextCandidates.length > 0 ? { pointCandidates: nextCandidates } : {}),
           provenance: { points: ['ai', 'ai', 'ai'] },
         });
         if (isMountedRef.current && Array.isArray(data.warnings) && data.warnings.length > 0) {
           setAiFeedback(String(data.warnings[0]));
         }
         showUndoToast({
-          message: 'AI가 장점 3줄을 작성했어요',
+          message:
+            nextCandidates.length >= 6
+              ? `AI가 장점 ${nextCandidates.length}개를 추천하고 상위 3개를 채웠어요`
+              : 'AI가 장점 3줄을 작성했어요',
           undoAction: () => commitForCard(prevSnapshot),
         });
       } else if (isMountedRef.current) {
@@ -823,7 +929,7 @@ export function Card4ConfirmCard({
                 htmlFor="card4-headline-input"
                 className="text-base font-extrabold text-slate-900"
               >
-                {TERMS.headlineLabel} (18자 이내)
+                {TERMS.headlineLabel} ({DEAL_CARD_LINE_MAX}자 이내)
               </label>
               <button
                 type="button"
@@ -849,7 +955,7 @@ export function Card4ConfirmCard({
                 onChange={(e) => handleHeadlineChange(e.target.value)}
                 onBlur={handleHeadlineBlur}
                 className="w-full min-h-[48px] px-3.5 text-[18px] font-extrabold text-slate-900 bg-white rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="지역·용도 반복 없이 핵심 장점을 18자 이내로 적어 주세요"
+                placeholder={`지역·용도 반복 없이 핵심 장점을 ${DEAL_CARD_LINE_MAX}자 이내로 적어 주세요`}
               />
               <LineCounter text={currentHeadline} testId="card4-headline-counter" id="card4-headline-counter" />
             </div>
@@ -902,7 +1008,7 @@ export function Card4ConfirmCard({
       >
         <div className="bg-[#F8FAFC] border-b border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-slate-900">
-            {TERMS.pointsSectionTitle} (각 18자 이내)
+            {TERMS.pointsSectionTitle} (각 {DEAL_CARD_LINE_MAX}자 이내)
           </h3>
           <button
             type="button"
@@ -913,7 +1019,13 @@ export function Card4ConfirmCard({
             onClick={handleAiRecluster}
             className="min-h-[48px] px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-sm font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
-            <span>{aiPointsBusy ? TERMS.aiWriting : 'AI로 3줄 쓰기'}</span>
+            <span>
+              {aiPointsBusy
+                ? TERMS.aiWriting
+                : backupPointCandidates.length > 0
+                  ? 'AI로 6개 다시 추천'
+                  : 'AI로 6개 추천'}
+            </span>
           </button>
         </div>
 
@@ -1014,7 +1126,7 @@ export function Card4ConfirmCard({
                         ? 'border-red-400 bg-red-50/60 focus:ring-red-500'
                         : 'border-slate-300 bg-white focus:ring-blue-600'
                     } focus:outline-none focus:ring-2 transition`}
-                    placeholder={`장점 ${idx + 1} (18자 이내로 적어 주세요)`}
+                    placeholder={`장점 ${idx + 1} (${DEAL_CARD_LINE_MAX}자 이내로 적어 주세요)`}
                   />
                   <LineCounter
                     text={ptText}
@@ -1049,6 +1161,67 @@ export function Card4ConfirmCard({
               </div>
             );
           })}
+
+          {/* AI 예비 장점 후보 (3+개 양방향 스왑 트레이) */}
+          {backupPointCandidates.length > 0 && (
+            <div
+              data-testid="card4-ai-candidates-tray"
+              className="rounded-xl border border-purple-200 bg-purple-50/60 p-3.5 space-y-2.5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-extrabold text-purple-950 break-keep">
+                  💡 다른 장점 후보 {backupPointCandidates.length}개 (누르면 위 장점 1~3과 바로 바뀝니다)
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {backupPointCandidates.map((cand, cIdx) => {
+                  const axisLabel = cand.axis ? DEAL_CARD_POINT_AXIS_LABELS[cand.axis] : '추천 후보';
+                  return (
+                    <div
+                      key={`${cand.text}-${cIdx}`}
+                      data-testid={`card4-ai-candidate-${cIdx}`}
+                      className="rounded-xl border border-purple-200 bg-white p-3 space-y-2 shadow-2xs"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-0.5 text-xs font-extrabold text-purple-900 shrink-0">
+                          {axisLabel}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSwapCandidatePoint(cand)}
+                        className="w-full text-left text-base font-extrabold text-slate-900 hover:text-purple-800 transition cursor-pointer break-keep"
+                      >
+                        {cand.text}
+                      </button>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {([0, 1, 2] as const).map((slot) => {
+                          const isFocusedSlot = focusedPointIdx === slot;
+                          return (
+                            <button
+                              key={slot}
+                              type="button"
+                              data-testid={`card4-swap-candidate-${cIdx}-to-${slot}`}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSwapCandidatePoint(cand, slot)}
+                              className={`min-h-[44px] px-2.5 py-1 rounded-lg border text-sm font-extrabold transition cursor-pointer ${
+                                isFocusedSlot
+                                  ? 'border-blue-600 bg-blue-600 text-white'
+                                  : 'border-purple-200 bg-purple-50 text-purple-950 hover:bg-purple-100'
+                              }`}
+                            >
+                              {slot + 1}번 교체
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* 현장 장점 원클릭 추천 태그칩 (장점 1~3 하단 배치 + 커서 위치 교체) */}
           <div

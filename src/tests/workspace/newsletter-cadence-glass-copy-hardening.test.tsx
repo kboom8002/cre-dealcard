@@ -426,13 +426,13 @@ describe("[Prompt] 뉴스레터 아이템 TF8(AI Core) 프롬프트 하드닝", 
       expect(all).toContain(tag);
     }
     expect(p.systemPrompt).toContain("44자");
-    expect(p.systemPrompt).toContain("74자");
+    expect(p.systemPrompt).toContain("96자");
     expect(p.systemPrompt).toContain("[70s-Buyer-Plain-Korean]");
     expect(p.systemPrompt).toContain("[No-Truncation]");
     expect(p.systemPrompt).toContain("[Grounding]");
     expect(p.systemPrompt).toContain("주간");
     expect(p.userPrompt).toContain("원문요약:");
-    expect(p.spec.version).toBe("3.0");
+    expect(p.spec.version).toBe("4.0");
   });
 
   it("초안 프롬프트: 주기(주간)별 기간 표현 일관성·글자 수·자체검증 체크리스트를 강제한다", () => {

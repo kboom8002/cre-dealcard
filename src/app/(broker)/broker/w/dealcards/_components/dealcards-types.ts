@@ -348,31 +348,56 @@ export async function runHybridMemoGenerationApi(
 
         let nextPoints = slotMapped.points;
         if (Array.isArray(aiJson.result.points) && aiJson.result.points.length >= 3) {
-          const sanitizedAiPts = aiJson.result.points.slice(0, 3).map((pt: string) => {
-            const grounded = stripUngroundedNumbers(String(pt || ""), factContext).cleaned;
-            const masked = cleanBlindPoints([grounded])[0] || "";
-            return repairDealCardLine(masked);
-          });
-          nextPoints = repairDealCardPoints(sanitizedAiPts, {
-            fillEmpty: true,
-            fallbacks: slotMapped.points,
-          });
+          const serverPts = aiJson.result.points
+            .slice(0, 3)
+            .map((pt: string) => String(pt || "").trim());
+          if (serverPts.every((p: string) => p.length > 0 && isCompleteDealCardLine(p))) {
+            nextPoints = [serverPts[0], serverPts[1], serverPts[2]];
+          } else {
+            const sanitizedAiPts = serverPts.map((pt: string) => {
+              const grounded = stripUngroundedNumbers(pt, factContext).cleaned;
+              const masked = cleanBlindPoints([grounded])[0] || "";
+              return repairDealCardLine(masked);
+            });
+            nextPoints = repairDealCardPoints(sanitizedAiPts, {
+              fillEmpty: true,
+              fallbacks: slotMapped.points,
+            });
+          }
         }
+
+        const nextPointCandidates = Array.isArray(aiJson.result.pointCandidates)
+          ? aiJson.result.pointCandidates
+              .filter(
+                (c: unknown): c is { text: string; axis?: string; recommended?: boolean } =>
+                  Boolean(c && typeof c === "object" && typeof (c as { text?: unknown }).text === "string"),
+              )
+              .map((c: { text: string; axis?: string }) => ({
+                text: c.text.trim(),
+                ...(c.axis ? { axis: c.axis as NonNullable<Card4Data["pointCandidates"]>[number]["axis"] } : {}),
+              }))
+              .slice(0, 8)
+          : undefined;
 
         let nextHeadline = slotMapped.headline;
         if (typeof aiJson.result.headline === "string" && aiJson.result.headline.trim()) {
-          const groundedH = stripUngroundedNumbers(
-            aiJson.result.headline,
-            factContext
-          ).cleaned;
-          const maskedH = cleanBlindPoints([groundedH])[0] || "";
-          const noChipH = stripChipRepetition(maskedH, {
-            region: slotMapped.region,
-            use: slotMapped.use,
-          });
-          const repairedH = repairDealCardLine(noChipH);
-          if (isCompleteDealCardLine(repairedH)) {
-            nextHeadline = repairedH;
+          const rawHeadline = aiJson.result.headline.trim();
+          if (isCompleteDealCardLine(rawHeadline)) {
+            nextHeadline = rawHeadline;
+          } else {
+            const groundedH = stripUngroundedNumbers(
+              rawHeadline,
+              factContext
+            ).cleaned;
+            const maskedH = cleanBlindPoints([groundedH])[0] || "";
+            const noChipH = stripChipRepetition(maskedH, {
+              region: slotMapped.region,
+              use: slotMapped.use,
+            });
+            const repairedH = repairDealCardLine(noChipH);
+            if (isCompleteDealCardLine(repairedH)) {
+              nextHeadline = repairedH;
+            }
           }
         }
 
@@ -385,6 +410,9 @@ export async function runHybridMemoGenerationApi(
               points: nextPoints,
             }),
           points: nextPoints,
+          ...(nextPointCandidates && nextPointCandidates.length > 0
+            ? { pointCandidates: nextPointCandidates }
+            : {}),
           generationSource: "ai_memo",
           provenance: {
             points: ["ai", "ai", "ai"],

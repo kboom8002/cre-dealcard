@@ -1,6 +1,10 @@
 import { z } from "zod/v4";
 import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
-import { isDanglingKoreanWord } from "@/domain/magazine/issue-clustering";
+import {
+  AXIOS_BRIEF_MAX_CHARS,
+  AXIOS_TITLE_MAX_CHARS,
+  isDanglingKoreanWord,
+} from "@/domain/magazine/issue-clustering";
 
 export const SPECIFIC_CHANNEL_IDS = [
   "real_estate",
@@ -37,13 +41,13 @@ export const MagazineDraftOutputSchema = z.object({
 
 export type MagazineDraftOutput = z.infer<typeof MagazineDraftOutputSchema>;
 
-/** 카드뉴스 이슈 제목 44자 (2줄 권장) · 해설 74자 (3줄 상세 해설) — issue-clustering SSOT 동일 */
+/** 카드뉴스 이슈 제목 44자 (2줄 권장) · 해설 96자 (수치·근거 우선 2문장) — issue-clustering SSOT 동일 */
 export const AxiosIssueItemSchema = z.object({
   id: z.string().min(1),
   title: z
     .string()
     .min(10)
-    .max(44)
+    .max(AXIOS_TITLE_MAX_CHARS)
     .refine(
       (val) => {
         const words = val.trim().split(/\s+/);
@@ -55,7 +59,7 @@ export const AxiosIssueItemSchema = z.object({
   brief: z
     .string()
     .min(28)
-    .max(74)
+    .max(AXIOS_BRIEF_MAX_CHARS)
     .refine((val) => !/…|\.\.\./.test(val) && /(?:다|요|죠)\.$/.test(val.trim()), {
       message: "이슈 해설은 개조식(~음/~됨)이나 잘림 없이 완결된 한국어 평서문(~다.)으로 끝나야 합니다.",
     }),

@@ -26,6 +26,17 @@ export interface MagazineDraftSnapshot {
   briefingBody: string;
 }
 
+export type NewsletterVoicePresetUi = "calm_advisor" | "field_broker" | "yield_focused";
+
+const VOICE_PRESET_OPTIONS: ReadonlyArray<{
+  id: NewsletterVoicePresetUi;
+  label: string;
+}> = [
+  { id: "calm_advisor", label: "담백·신뢰형" },
+  { id: "field_broker", label: "현장 밀착형" },
+  { id: "yield_focused", label: "실속·수익형" },
+];
+
 export interface MagazineQuickDraftCardProps {
   monthLabel: string;
   /** 발행 주기 (일간·주간·월간) — AI 초안 프롬프트의 기간 표현·분량 기준 */
@@ -36,6 +47,9 @@ export interface MagazineQuickDraftCardProps {
   preferredChannels?: readonly SpecificNewsChannelId[];
   dealTitles?: string[];
   newsTitles?: string[];
+  dealSummaries?: string[];
+  newsEvidence?: string[];
+  monthlyStatsSummary?: string;
   currentDraft: MagazineDraftSnapshot;
   onApplyDraft: (next: MagazineDraftSnapshot) => void;
 }
@@ -49,11 +63,15 @@ export function MagazineQuickDraftCard({
   preferredChannels = [],
   dealTitles = [],
   newsTitles = [],
+  dealSummaries = [],
+  newsEvidence = [],
+  monthlyStatsSummary,
   currentDraft,
   onApplyDraft,
 }: MagazineQuickDraftCardProps) {
   const [loading, setLoading] = useState(false);
   const [localRegion, setLocalRegion] = useState(regionFocus);
+  const [voicePreset, setVoicePreset] = useState<NewsletterVoicePresetUi>("calm_advisor");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recentHeadlines, setRecentHeadlines] = useState<string[]>([]);
   const [attemptSeed, setAttemptSeed] = useState(0);
@@ -93,6 +111,10 @@ export function MagazineQuickDraftCard({
           preferredChannels: preferredChannels.length > 0 ? [...preferredChannels] : undefined,
           dealTitles: dealTitles.filter(Boolean),
           newsTitles: newsTitles.filter(Boolean),
+          ...(dealSummaries.length > 0 ? { dealSummaries: dealSummaries.filter(Boolean).slice(0, 6) } : {}),
+          ...(newsEvidence.length > 0 ? { newsEvidence: newsEvidence.filter(Boolean).slice(0, 6) } : {}),
+          ...(monthlyStatsSummary?.trim() ? { monthlyStatsSummary: monthlyStatsSummary.trim() } : {}),
+          voicePreset,
           currentHeadline: currentDraft.headline.trim() || undefined,
           currentBriefing: currentDraft.briefingBody.trim() || undefined,
           ...(recentHeadlines.length > 0 ? { avoidHeadlines: recentHeadlines, attemptSeed } : {}),
@@ -225,6 +247,29 @@ export function MagazineQuickDraftCard({
               </span>
             </button>
           )}
+        </div>
+
+        <div className="pt-1 flex flex-wrap items-center gap-1.5" role="group" aria-label="브리핑 말투 선택">
+          <span className="text-sm font-bold text-slate-700 mr-1">말투:</span>
+          {VOICE_PRESET_OPTIONS.map((opt) => {
+            const active = voicePreset === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                data-testid={`ai-draft-voice-${opt.id}`}
+                aria-pressed={active}
+                onClick={() => setVoicePreset(opt.id)}
+                className={`min-h-[44px] rounded-xl border px-3 py-1.5 text-sm font-bold transition cursor-pointer ${
+                  active
+                    ? "border-blue-600 bg-blue-50 text-blue-950"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

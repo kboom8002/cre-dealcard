@@ -69,7 +69,7 @@ const DANGLING_CASES = [
 function expectCompleteLine(out: string) {
   expect(out.trim().length).toBeGreaterThan(0);
   expect(countDealCardChars(out)).toBeLessThanOrEqual(DEAL_CARD_LINE_MAX);
-  expect(Array.from(out.trim()).length).toBeLessThanOrEqual(18);
+  expect(Array.from(out.trim()).length).toBeLessThanOrEqual(22);
   expect(out).not.toMatch(/…|\.\.\./);
   expect(endsWithDanglingParticle(out)).toBe(false);
   expect(out).not.toMatch(/(?:습니다|입니다)$/);
@@ -97,12 +97,12 @@ const baseCard4: Card4Data = {
  * 1. 결정적 교정기
  * ════════════════════════════════════════════════════════════════════════ */
 describe('1. copy-limits repair helper (2.1 root fix — no mid-word hard slicing)', () => {
-  it('repairs the three screenshot sentences into complete ≤18-char noun phrases', () => {
+  it('repairs the three screenshot sentences into complete ≤22-char noun phrases', () => {
     const outs = SCREENSHOT_SENTENCES.map((s) => repairDealCardLine(s));
     outs.forEach(expectCompleteLine);
-    expect(outs[0]).toBe('8m 도로 코너 입지 가시성 우수');
-    expect(outs[1]).toBe('신사·잠원역 접근 가능 잠원권역');
-    expect(outs[2]).toBe('F&B·IT·디자인 오피스 만실');
+    expect(outs[0]).toBe('8m 도로 코너 입지로 가시성 우수');
+    expect(outs[1]).toBe('신사·잠원역 접근이 가능한 잠원권역');
+    expect(outs[2]).toBe('F&B·IT·디자인 오피스 만실 운영 중');
     // 스크린샷의 잘린 출력과 달라야 한다
     expect(outs).not.toContain('8m 도로 코너 입지로 가시성이');
     expect(outs).not.toContain('신사역과 잠원역 접근이 가능한 잠');
@@ -162,7 +162,7 @@ describe('2. deal-card copy prompt hardening (TaskFlow TF8)', () => {
     const p = DEAL_CARD_COPY_SYSTEM;
     expect(DEAL_CARD_AI_SYSTEM_PROMPT).toBe(p); // legacy export points at the hardened prompt
     expect(p).toContain('상업용 부동산 매각 전문 중개인');
-    expect(p).toContain('18자');
+    expect(p).toContain('22자');
     expect(p).toContain('JSON');
     expect(p).toMatch(/근거|Grounding/);
     expect(p).toContain('FactBook');
@@ -193,10 +193,10 @@ describe('2. deal-card copy prompt hardening (TaskFlow TF8)', () => {
     expect(built.userPrompt).not.toMatch(/base64|data:image/);
   });
 
-  it('blind-teaser (from-memo) prompt now requests 18-char card4Headline/card4Points', () => {
+  it('blind-teaser (from-memo) prompt now requests 22-char card4Headline/card4Points', () => {
     expect(BLIND_TEASER_USER_TEMPLATE).toContain('card4Headline');
     expect(BLIND_TEASER_USER_TEMPLATE).toContain('card4Points');
-    expect(BLIND_TEASER_USER_TEMPLATE).toContain('18자');
+    expect(BLIND_TEASER_USER_TEMPLATE).toContain('22자');
   });
 
   it('strict output schema rejects over-length, dangling and ellipsis lines', () => {
@@ -272,7 +272,7 @@ describe('3. editor "한 줄 제목" ↔ preview/customer title SSOT (2.2)', () 
     expect(q<HTMLElement>('[data-testid="kakao-bubble-og-title"]').textContent).toBe('연 4.2% 우량임차 만실 코너');
     expect(q<HTMLElement>('[data-testid="dealcard-preview-customer-title"]').textContent).toBe('연 4.2% 우량임차 만실 코너');
     expect(q('[data-testid="card4-headline-suggestion"]')).toBeNull();
-    expect(q<HTMLElement>('[data-testid="card4-headline-counter"]').textContent).toBe('17/18');
+    expect(q<HTMLElement>('[data-testid="card4-headline-counter"]').textContent).toBe('17/22');
 
     await act(async () => {
       setNativeInputValue(headlineInput, '우량임차 만실 코너 빌딩');
@@ -282,7 +282,7 @@ describe('3. editor "한 줄 제목" ↔ preview/customer title SSOT (2.2)', () 
     expect(q<HTMLElement>('[data-testid="dealcard-preview-customer-title"]').textContent).toBe('우량임차 만실 코너 빌딩');
   });
 
-  it('"AI로 3줄 쓰기" repairs long AI sentences instead of chopping them; preview shows complete lines', async () => {
+  it('"AI로 6개 추천" repairs long AI sentences instead of chopping them; preview shows complete lines', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       status: 200,
@@ -296,7 +296,11 @@ describe('3. editor "한 줄 제목" ↔ preview/customer title SSOT (2.2)', () 
       q<HTMLButtonElement>('[data-testid="card4-ai-recluster-btn"]').click();
     });
 
-    const expected = ['8m 도로 코너 입지 가시성 우수', '신사·잠원역 접근 가능 잠원권역', 'F&B·IT·디자인 오피스 만실'];
+    const expected = [
+      '8m 도로 코너 입지로 가시성 우수',
+      '신사·잠원역 접근이 가능한 잠원권역',
+      'F&B·IT·디자인 오피스 만실 운영 중',
+    ];
     expected.forEach((line, idx) => {
       expect(q<HTMLInputElement>(`[data-testid="card4-point-input-${idx}"]`).value).toBe(line);
       expect(q<HTMLElement>(`[data-testid="dealcard-postit-preview-text-${idx}"]`).textContent).toBe(line);
@@ -314,17 +318,23 @@ describe('3. editor "한 줄 제목" ↔ preview/customer title SSOT (2.2)', () 
     await act(async () => {
       setNativeInputValue(input0, SCREENSHOT_SENTENCES[1]); // paste (multi-char jump)
     });
-    expect(input0.value).toBe('신사·잠원역 접근 가능 잠원권역');
+    expect(input0.value).toBe('신사·잠원역 접근이 가능한 잠원권역');
 
     // 한 글자씩 넘치게 타이핑하면 원문 유지 + 경고 카운터 + 고객 화면 교정 미리보기
     await act(async () => {
-      setNativeInputValue(input0, '신사·잠원역 접근 가능 잠원권역입');
+      setNativeInputValue(input0, '신사·잠원역 접근이 가능한 잠원권역 ');
     });
     await act(async () => {
-      setNativeInputValue(input0, '신사·잠원역 접근 가능 잠원권역입니');
+      setNativeInputValue(input0, '신사·잠원역 접근이 가능한 잠원권역 매');
     });
-    expect(input0.value).toBe('신사·잠원역 접근 가능 잠원권역입니');
-    expect(q<HTMLElement>('[data-testid="card4-point-counter-0"]').textContent).toBe('19/18');
+    await act(async () => {
+      setNativeInputValue(input0, '신사·잠원역 접근이 가능한 잠원권역 매물');
+    });
+    await act(async () => {
+      setNativeInputValue(input0, '신사·잠원역 접근이 가능한 잠원권역 매물이');
+    });
+    expect(input0.value).toBe('신사·잠원역 접근이 가능한 잠원권역 매물이');
+    expect(q<HTMLElement>('[data-testid="card4-point-counter-0"]').textContent).toBe('23/22');
     expect(q<HTMLElement>('[data-testid="card4-point-counter-0"]').getAttribute('data-state')).toBe('warn');
     expect(q<HTMLElement>('[data-testid="card4-point-repair-hint-0"]')).not.toBeNull();
   });
@@ -421,7 +431,7 @@ describe('4. customer view never single-line-truncates advantage lines', () => {
     });
     const el = container.querySelector('[data-testid="line"]');
     expectNoClipClasses(el);
-    expect(el?.textContent).toBe('F&B·IT·디자인 오피스 만실');
+    expect(el?.textContent).toBe('F&B·IT·디자인 오피스 만실 운영 중');
   });
 
   it('/dc/[id] customer page source uses the shared wrap-safe renderer and no hard 18-char slicing', () => {

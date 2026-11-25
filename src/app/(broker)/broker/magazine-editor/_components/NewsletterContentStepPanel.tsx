@@ -357,7 +357,7 @@ export function NewsletterContentStepPanel({
             </div>
             <p className="text-sm text-slate-600">
               {isSectionEnabled("field_note")
-                ? "1~3줄만 간단히 적고 [AI로 5줄 윤문하기]를 누르면 매수자·건물주도 한눈에 읽기 쉽게 다듬어 드립니다."
+                ? "1~3줄만 간단히 적고 [AI로 3줄 개조식 다듬기]를 누르면 바쁜 고객도 5초 만에 훑어보기 쉽게 정리해 드립니다."
                 : "코너가 꺼져 있어 입력칸을 접어 두었습니다. 위 [코너 켜기]를 누르면 바로 작성할 수 있습니다."}
             </p>
           </div>
@@ -378,7 +378,7 @@ export function NewsletterContentStepPanel({
                   yearMonthLabel,
                   regionFocus,
                   headline,
-                  ...unitIssues.slice(0, 3).map((u) => u.title),
+                  ...unitIssues.slice(0, 3).map((u) => `${u.title} (${u.brief})`),
                 ]
                   .filter(Boolean)
                   .join(" / ") || "이번 호 상업용 빌딩 시장 분위기"
@@ -387,7 +387,7 @@ export function NewsletterContentStepPanel({
                 const clean = normalizeMarketBriefingPlain(next, 500, 5);
                 onChangeBriefingBody(clean);
               }}
-              label="AI로 5줄 윤문하기"
+              label="AI로 3줄 개조식 다듬기"
             />
           </div>
         </div>

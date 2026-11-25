@@ -1,12 +1,12 @@
 /**
  * @file src/app/api/broker/deal-card/ai-copy/route.ts
- * @description 딜카드 한 줄 제목(<=18자) + 장점 3줄(각 <=18자) LLM 생성 API — TaskFlow TF8 하드닝.
+ * @description 딜카드 한 줄 제목(<=22자) + 장점 3줄 및 예비 후보(총 6~8개) LLM 생성 API — TaskFlow TF8.
  *
- * 파이프라인 (응답 형태는 하위 호환: { ok, result: { headline?, points? }, warnings? } + source):
- *  1. buildDealCardCopyPrompt — 역할/단계/근거/출력계약/few-shot/자체검증 프롬프트 (FactBook = 중개사 입력만)
+ * 파이프라인 (응답 형태는 하위 호환: { ok, result: { headline?, points?, pointCandidates? }, warnings? } + source):
+ *  1. buildDealCardCopyPrompt — 역할/단계/근거/6대 소구축/출력계약/few-shot/자체검증 프롬프트 (FactBook = 중개사 입력만)
  *  2. callLLM(json_object) → safeParseAIResponse(DealCardCopyLLMOutputSchema) — 실패 시 핀포인트 교정 재시도 1회
- *  3. 결정적 후처리: 근거 없는 숫자 제거 → 블라인드 정리 → 칩 중복 제거 → 18자 어절 경계 교정
- *  4. 엄격 검증(DealCardCopyStrictOutputSchema) — 위반/누락 줄은 입력 기반 결정적 문구로 대체
+ *  3. 결정적 후처리: 근거 없는 숫자 제거 → 블라인드 정리 → 칩 중복 제거 → 22자 어절 경계 교정
+ *  4. 엄격 검증(DealCardCopyStrictOutputSchema) — 위반/누락 줄은 입력 기반 결정적 문구로 보충 (최소 6개 후보 보장)
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM, LLMMockNotAllowedError } from '@/ai/llm-client';
@@ -32,10 +32,14 @@ import {
 import { getMarketDefaults } from '@/domain/ontology/market-data-provider';
 import { getCapRateBenchmark } from '@/domain/ontology/market-defaults';
 import {
+  DEAL_CARD_POINT_AXES,
   dealCardAiCopyRequestSchema,
   type DealCardAiCopyResponse,
+  type DealCardPointAxis,
+  type DealCardPointCandidate,
 } from '@/lib/deal-card/ai-copy-schema';
 import {
+  DEAL_CARD_LINE_MAX,
   GENERIC_POINT_FALLBACKS,
   deriveDealCardHeadline,
   isCompleteDealCardLine,
@@ -45,6 +49,7 @@ import {
   stripChipRepetition,
   stripUngroundedNumbers,
 } from '@/lib/deal-card/copy-limits';
+import { getFieldStrengthTagsForPosture } from '@/lib/deal-card/field-strength-tags';
 import { POSTURE_LABELS } from '@/lib/ux/lexicon';
 import { humanizeSeniorBrokerTone } from '@/domain/building/mobile-im/broker-sales-tone-lexicon';
 import { createModuleLogger } from '@/lib/logger';
@@ -59,7 +64,26 @@ const log = createModuleLogger('deal-card-ai-copy');
 
 const WARN_NUMBERS = '입력 정보에 없는 숫자는 자동으로 제외했어요.';
 const WARN_FALLBACK = 'AI 연결이 원활하지 않아 입력하신 내용으로 추천 문구를 채웠어요. 확인 후 고쳐 주세요.';
-const WARN_REPAIRED = '18자를 넘거나 끝맺음이 어색한 문구는 자동으로 다듬었어요.';
+const WARN_REPAIRED = `${DEAL_CARD_LINE_MAX}자를 넘거나 끝맺음이 어색한 문구는 자동으로 다듬었어요.`;
+
+const AXIS_SET = new Set<string>(DEAL_CARD_POINT_AXES);
+
+function normalizePointAxis(raw: unknown, fallbackIdx: number): DealCardPointAxis {
+  if (typeof raw === 'string' && AXIS_SET.has(raw.trim())) {
+    return raw.trim() as DealCardPointAxis;
+  }
+  return DEAL_CARD_POINT_AXES[fallbackIdx % DEAL_CARD_POINT_AXES.length];
+}
+
+function inferAxisFromText(text: string, fallbackIdx: number): DealCardPointAxis {
+  if (/수익률|월세|임대수익|평균\s*상회|수지/.test(text)) return 'yield';
+  if (/만실|임차|입주|명도|카페|은행|병원|의원|약국|프랜차이즈|세입자/.test(text)) return 'tenant';
+  if (/역\s*도보|역세권|상권|배후|접근성|유동/.test(text)) return 'location';
+  if (/코너|각지|대로변|접면|가시성|간판|m\s|양면/.test(text)) return 'scarcity';
+  if (/신축|준공|리모델링|올수리|승강기|주차|층고|테라스|자주식/.test(text)) return 'building';
+  if (/사옥|용적률|증축|토지|평당|개발|전환|활용/.test(text)) return 'value';
+  return DEAL_CARD_POINT_AXES[fallbackIdx % DEAL_CARD_POINT_AXES.length];
+}
 
 function fail(status: number, code: string, message: string) {
   return NextResponse.json({ ok: false, error: { code, message } }, { status });
@@ -81,7 +105,7 @@ async function requestCopy(
   let prompt = userPrompt;
   for (let attempt = 0; attempt < 2; attempt++) {
     const llmResult = await callLLM(
-      { systemPrompt, userPrompt: prompt, model: getModel('luna'), temperature, responseFormat: 'json_object' },
+      { systemPrompt, userPrompt: prompt, model: getModel('terra'), temperature, responseFormat: 'json_object' },
       { allowMock: false },
     );
     if ((llmResult as { isMock?: boolean }).isMock) return null;
@@ -148,6 +172,9 @@ export async function POST(req: NextRequest) {
           .filter(Boolean),
       ),
     );
+    const avoidPointsList = Array.from(
+      new Set((input.avoidPoints || []).map((s) => String(s ?? '').trim()).filter(Boolean)),
+    );
     const prompt = buildDealCardCopyPrompt({
       mode: input.mode,
       postureTitle: postureInfo.title,
@@ -159,6 +186,8 @@ export async function POST(req: NextRequest) {
       currentHeadline: input.currentHeadline,
       avoidHeadlines: avoidList,
       currentPoints: input.currentPoints,
+      avoidPoints: avoidPointsList,
+      candidateCount: input.candidateCount,
       facts: sanitizedFacts,
     });
 
@@ -203,19 +232,142 @@ export async function POST(req: NextRequest) {
     const result: DealCardAiCopyResponse['result'] = {};
 
     if (input.mode === 'points' || input.mode === 'both') {
-      const used = new Set<string>();
-      const fallbacks = [...currentRepaired, ...GENERIC_POINT_FALLBACKS].filter(Boolean);
-      const pts: string[] = [];
-      for (let i = 0; i < 3; i++) {
-        let line = finalizeLine(llmOut?.points?.[i], false);
-        if (!line || used.has(line)) {
-          line = fallbacks.find((f) => !used.has(f) && isCompleteDealCardLine(f)) || '';
-          if (llmOut) warnings.add(WARN_REPAIRED);
+      const targetCandidateCount = Math.min(8, Math.max(6, input.candidateCount ?? 6));
+      const usedKeys = new Set<string>();
+      const candidatePool: Array<{ text: string; axis: DealCardPointAxis; preferredRec: boolean }> = [];
+
+      const pushCandidate = (rawText: string | undefined, rawAxis: unknown, preferredRec: boolean) => {
+        const finalized = finalizeLine(rawText, false);
+        if (!finalized) return;
+        const key = finalized.replace(/\s+/g, '');
+        if (usedKeys.has(key)) return;
+        usedKeys.add(key);
+        const idx = candidatePool.length;
+        const axis = rawAxis && AXIS_SET.has(String(rawAxis).trim())
+          ? normalizePointAxis(rawAxis, idx)
+          : inferAxisFromText(finalized, idx);
+        candidatePool.push({ text: finalized, axis, preferredRec });
+      };
+
+      // 1. LLM pointCandidates & points & alternativePoints 순차 수집
+      for (const item of llmOut?.pointCandidates ?? []) {
+        pushCandidate(item.text, item.axis, Boolean(item.recommended));
+      }
+      for (let i = 0; i < (llmOut?.points?.length ?? 0); i++) {
+        pushCandidate(llmOut?.points?.[i], undefined, true);
+      }
+      for (const alt of llmOut?.alternativePoints ?? []) {
+        pushCandidate(alt, undefined, false);
+      }
+
+      // 2. FactBook 기반 결정적 후보 & 현장 태그 보충 (최소 6개 보장)
+      const f = sanitizedFacts;
+      const factDerivedRaw: Array<{ text: string; axis: DealCardPointAxis }> = [];
+      if (f && 'yieldPct' in f && typeof f.yieldPct === 'number') {
+        const bench =
+          'regionalBenchmarkYieldPct' in f && typeof f.regionalBenchmarkYieldPct === 'number'
+            ? f.regionalBenchmarkYieldPct
+            : undefined;
+        factDerivedRaw.push({
+          text:
+            bench && f.yieldPct > bench
+              ? `연 ${f.yieldPct}% 권역 평균 상회`
+              : `연 ${f.yieldPct}% 임대수익 확보`,
+          axis: 'yield',
+        });
+      }
+      if (f && 'occupancyStatus' in f && typeof f.occupancyStatus === 'string') {
+        factDerivedRaw.push({ text: `${f.occupancyStatus} 안정 운영`, axis: 'tenant' });
+      }
+      if (f && 'anchorCategory' in f && typeof f.anchorCategory === 'string') {
+        factDerivedRaw.push({ text: `1층 ${f.anchorCategory} 입점`, axis: 'tenant' });
+      }
+      if (f && 'subwayWalkMinutes' in f && typeof f.subwayWalkMinutes === 'number') {
+        factDerivedRaw.push({ text: `역 도보 ${f.subwayWalkMinutes}분 초역세권`, axis: 'location' });
+      }
+      if (f?.roadContact) {
+        factDerivedRaw.push({ text: `${f.roadContact} 가시성 우수`, axis: 'scarcity' });
+      }
+      if (f && 'parkingCount' in f && typeof f.parkingCount === 'number') {
+        const pType = 'parkingType' in f && f.parkingType ? `${f.parkingType} ` : '';
+        factDerivedRaw.push({ text: `${pType}주차 ${f.parkingCount}대 확보`, axis: 'building' });
+      }
+      if (f && 'hasElevator' in f && f.hasElevator) {
+        factDerivedRaw.push({ text: '승강기 보유·층간 이동 편리', axis: 'building' });
+      }
+      if (f && 'remodelingYear' in f && typeof f.remodelingYear === 'number') {
+        factDerivedRaw.push({ text: `${f.remodelingYear}년 올리모델링 완료`, axis: 'building' });
+      } else if (f?.completionYear) {
+        factDerivedRaw.push({ text: `${f.completionYear}년 준공 양호 상태`, axis: 'building' });
+      }
+      if (f && 'farPotential' in f && typeof f.farPotential === 'string') {
+        factDerivedRaw.push({ text: `${f.farPotential}·개발 여력`, axis: 'value' });
+      }
+
+      const postureTags = getFieldStrengthTagsForPosture(input.posture, f?.memoSummary).map((tag) => ({
+        text: tag.label,
+        axis: inferAxisFromText(tag.label, 0),
+      }));
+
+      for (const item of [...factDerivedRaw, ...postureTags]) {
+        if (candidatePool.length >= targetCandidateCount) break;
+        pushCandidate(item.text, item.axis, false);
+      }
+
+      for (const fallbackText of [...currentRepaired, ...GENERIC_POINT_FALLBACKS]) {
+        if (candidatePool.length >= targetCandidateCount) break;
+        pushCandidate(fallbackText, undefined, false);
+      }
+
+      // 3. 상위 3개 추천 선정 (서로 다른 축 우선)
+      const pickedIndices: number[] = [];
+      const pickedAxes = new Set<DealCardPointAxis>();
+
+      // Pass 1: recommended 플래그 + 축 비중복
+      candidatePool.forEach((c, idx) => {
+        if (pickedIndices.length >= 3) return;
+        if (c.preferredRec && !pickedAxes.has(c.axis)) {
+          pickedIndices.push(idx);
+          pickedAxes.add(c.axis);
         }
-        used.add(line);
-        pts.push(line);
+      });
+      // Pass 2: 축 비중복 보충
+      candidatePool.forEach((c, idx) => {
+        if (pickedIndices.length >= 3) return;
+        if (!pickedIndices.includes(idx) && !pickedAxes.has(c.axis)) {
+          pickedIndices.push(idx);
+          pickedAxes.add(c.axis);
+        }
+      });
+      // Pass 3: 남은 후보 순서대로 3개 채움
+      candidatePool.forEach((_c, idx) => {
+        if (pickedIndices.length >= 3) return;
+        if (!pickedIndices.includes(idx)) {
+          pickedIndices.push(idx);
+        }
+      });
+
+      const pickedSet = new Set(pickedIndices);
+      const recommendedList = pickedIndices.map((idx) => candidatePool[idx]);
+      const reserveList = candidatePool.filter((_c, idx) => !pickedSet.has(idx));
+
+      const pts = recommendedList.map((c) => c.text);
+      while (pts.length < 3) {
+        pts.push(GENERIC_POINT_FALLBACKS[pts.length] ?? '접근성 좋은 입지');
       }
       result.points = [pts[0], pts[1], pts[2]];
+      result.pointCandidates = [
+        ...recommendedList.map((c): DealCardPointCandidate => ({
+          text: c.text,
+          axis: c.axis,
+          recommended: true,
+        })),
+        ...reserveList.slice(0, 5).map((c): DealCardPointCandidate => ({
+          text: c.text,
+          axis: c.axis,
+          recommended: false,
+        })),
+      ];
     }
 
     if (input.mode === 'headline' || input.mode === 'both') {

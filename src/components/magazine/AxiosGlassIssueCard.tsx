@@ -10,7 +10,11 @@
  *    렌더링은 line-clamp/truncate 없이 자연 줄바꿈(break-keep)만 허용해 "잘리는 글 0건"을 보장
  */
 import React from "react";
-import { POST_IT_TONE_META } from "@/domain/magazine/issue-clustering";
+import {
+  AXIOS_BRIEF_MAX_CHARS,
+  AXIOS_TITLE_MAX_CHARS,
+  POST_IT_TONE_META,
+} from "@/domain/magazine/issue-clustering";
 import type { PostItTone } from "@/domain/magazine/types";
 
 export type AxiosGlassCardSize = "preview" | "viewer";
@@ -146,7 +150,7 @@ export function AxiosGlassIssueCard({
         <TitleTag
           data-testid={titleTestId}
           data-axios-headline-lines="2"
-          data-max-chars="44"
+          data-max-chars={AXIOS_TITLE_MAX_CHARS}
           title={title}
           className={`mt-3 break-keep font-extrabold tracking-[-0.02em] text-slate-900 ${s.title}`}
           style={{
@@ -158,12 +162,12 @@ export function AxiosGlassIssueCard({
           {title}
         </TitleTag>
 
-        {/* AXIOS 부제형 상세 해설 — 3줄 74자 예산 · #1E293B 12:1+ 고대비 · 자연 줄바꿈 · 잘림 없음 */}
+        {/* AXIOS 부제형 상세 해설 — 96자(수치·근거 + 시사점) 예산 · #1E293B 12:1+ 고대비 · 자연 줄바꿈 · 잘림 없음 */}
         {brief && (
           <p
             data-testid={briefTestId}
             data-axios-brief-lines="3"
-            data-max-chars="74"
+            data-max-chars={AXIOS_BRIEF_MAX_CHARS}
             className={`mt-2 break-keep font-medium text-slate-800 ${s.brief}`}
             style={{
               color: meta.bodyColor,

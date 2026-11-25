@@ -18,6 +18,15 @@ function useSafeShowUndoToast(): (input: UndoToastInput) => void {
   }
 }
 
+export interface AiCommentDealContext {
+  title?: string;
+  region?: string;
+  posture?: string;
+  priceBand?: string;
+  area?: string;
+  points?: string[];
+}
+
 export interface AiCommentRecommendButtonProps {
   /** 현재 작성된 추천글/코멘트 또는 초안 */
   currentValue: string;
@@ -25,10 +34,12 @@ export interface AiCommentRecommendButtonProps {
   fallbackContext?: string;
   /** 생성된 추천글 반영 콜백 */
   onChangeValue: (nextValue: string) => void;
-  /** 생성 모드 (deal_comment: 매물 한줄평 / market_briefing: 5줄·500자 시장 브리핑 윤문) */
+  /** 생성 모드 (deal_comment: 매물 한줄평 / market_briefing: 3줄 개조식 시장 브리핑 윤문) */
   mode?: "deal_comment" | "market_briefing";
   /** 발행 주기 (market_briefing 윤문 시 기간 표현 일관성 유지) */
   cadence?: "daily" | "weekly" | "monthly";
+  /** 대상 매물 상세 메타데이터 (deal_comment 품질 향상용) */
+  dealContext?: AiCommentDealContext;
   /** 버튼 라벨 (기본: "AI로 추천글 쓰기") */
   label?: string;
   /** 접근성 구분 라벨 */
@@ -43,6 +54,7 @@ export function AiCommentRecommendButton({
   onChangeValue,
   mode = "deal_comment",
   cadence,
+  dealContext,
   label = "AI로 추천글 쓰기",
   ariaLabel,
   testId = "ai-comment-recommend-btn",
@@ -84,6 +96,14 @@ export function AiCommentRecommendButton({
           mode,
           ...(mode === "market_briefing" && trimmedDraft ? { draftText: trimmedDraft } : {}),
           ...(cadence ? { cadence } : {}),
+          ...(dealContext?.title?.trim() ? { dealTitle: dealContext.title.trim() } : {}),
+          ...(dealContext?.region?.trim() ? { regionFocus: dealContext.region.trim() } : {}),
+          ...(dealContext?.posture?.trim() ? { posture: dealContext.posture.trim() } : {}),
+          ...(dealContext?.priceBand?.trim() ? { priceBand: dealContext.priceBand.trim() } : {}),
+          ...(dealContext?.area?.trim() ? { area: dealContext.area.trim() } : {}),
+          ...(dealContext?.points && dealContext.points.length > 0
+            ? { points: dealContext.points.filter(Boolean).slice(0, 3) }
+            : {}),
           ...(avoidList.length > 0 ? { avoidComments: avoidList, attemptSeed } : {}),
         }),
       });

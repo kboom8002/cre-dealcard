@@ -280,16 +280,16 @@ describe("요구사항 4: 70대 매수자 쉬운 말투 + 44/74자 예산 + 잘�
     expect(humanized).toContain("디지털 건물 관리");
   });
 
-  it("CURATED_CHANNEL_POOL과 clusterArticlesIntoFiveIssues 5건 모두 44/74자 예산을 지키고 70대 매수자 비호환 어휘가 0건이다", () => {
+  it("CURATED_CHANNEL_POOL과 clusterArticlesIntoFiveIssues 5건 모두 44/96자 예산을 지키고 70대 매수자 비호환 어휘가 0건이다", () => {
     expect(AXIOS_TITLE_MAX_CHARS).toBe(44);
-    expect(AXIOS_BRIEF_MAX_CHARS).toBe(74);
+    expect(AXIOS_BRIEF_MAX_CHARS).toBe(96);
 
     const issues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, { cadence: "weekly" });
     expect(issues).toHaveLength(5);
 
     for (const item of [...CURATED_CHANNEL_POOL.map((c) => ({ title: c.cardTitle ?? c.title, brief: c.cardBrief ?? c.summary })), ...issues]) {
       expect(charLength(item.title)).toBeLessThanOrEqual(44);
-      expect(charLength(item.brief)).toBeLessThanOrEqual(74);
+      expect(charLength(item.brief)).toBeLessThanOrEqual(96);
       expect(isDanglingKoreanWord(item.title.trim().split(/\s+/).pop() ?? "")).toBe(false);
       expect(item.title).not.toMatch(/소구가 가능|성사율|브리핑에 활용|ROE|Cap Rate|스프레드|밸류애드|리파이낸싱/i);
       expect(item.brief).not.toMatch(/소구가 가능|성사율|브리핑에 활용|ROE|Cap Rate|스프레드|밸류애드|리파이낸싱/i);
@@ -299,7 +299,7 @@ describe("요구사항 4: 70대 매수자 쉬운 말투 + 44/74자 예산 + 잘�
     expect(viewerHtml).toContain('data-axios-headline-lines="2"');
     expect(viewerHtml).toContain('data-max-chars="44"');
     expect(viewerHtml).toContain('data-axios-brief-lines="3"');
-    expect(viewerHtml).toContain('data-max-chars="74"');
+    expect(viewerHtml).toContain('data-max-chars="96"');
     expect(viewerHtml).not.toMatch(/data-testid="axios-postit-(?:title|brief)"[^>]*class="[^"]*(?:line-clamp|truncate|whitespace-nowrap)/);
 
     const prompt = buildTf8AxiosClusterPrompt({
@@ -312,6 +312,6 @@ describe("요구사항 4: 70대 매수자 쉬운 말투 + 44/74자 예산 + 잘�
     expect(prompt.systemPrompt).toContain("[70s-Buyer-Plain-Korean]");
     expect(prompt.systemPrompt).toContain("[No-Broker-Coaching]");
     expect(prompt.systemPrompt).toContain("[44-Char Card Title]");
-    expect(prompt.systemPrompt).toContain("[74-Char Detailed Brief]");
+    expect(prompt.systemPrompt).toContain("[96-Char Detailed Brief]");
   });
 });

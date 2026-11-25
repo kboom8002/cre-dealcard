@@ -22,6 +22,32 @@ export type DealCardPosture = 'income' | 'owner_occupied' | 'value_add';
 export type DealCardPointTone = 'amber' | 'sky' | 'mint' | 'lavender' | 'peach';
 export type DealCardGenerationSource = 'ai_memo' | 'manual';
 
+export const DEAL_CARD_POINT_AXES = [
+  'yield',
+  'tenant',
+  'location',
+  'scarcity',
+  'building',
+  'value',
+] as const;
+export type DealCardPointAxis = (typeof DEAL_CARD_POINT_AXES)[number];
+export const DealCardPointAxisSchema = z.enum(DEAL_CARD_POINT_AXES);
+
+export const DEAL_CARD_POINT_AXIS_LABELS: Readonly<Record<DealCardPointAxis, string>> = {
+  yield: '수익·현금흐름',
+  tenant: '임차·운영',
+  location: '입지·접근성',
+  scarcity: '도로·가시성',
+  building: '건물·스펙',
+  value: '가치·활용',
+};
+
+export const Card4PointCandidateSchema = z.object({
+  text: z.string().min(1),
+  axis: DealCardPointAxisSchema.optional(),
+});
+export type Card4PointCandidate = z.infer<typeof Card4PointCandidateSchema>;
+
 export const ProvenanceSourceSchema = z.enum(['public', 'broker', 'ai']);
 export const DealCardPostureSchema = z.enum(['income', 'owner_occupied', 'value_add']);
 export const DealCardPointToneSchema = z.enum(['amber', 'sky', 'mint', 'lavender', 'peach']);
@@ -51,6 +77,7 @@ export const Card4Schema = z.object({
     z.string().min(1, '특징 2를 입력해주세요'),
     z.string().min(1, '특징 3를 입력해주세요'),
   ]),
+  pointCandidates: z.array(Card4PointCandidateSchema).max(8).optional(),
   pointBriefs: z.tuple([z.string(), z.string(), z.string()]).optional(),
   pointTones: z
     .tuple([
@@ -229,6 +256,7 @@ export interface UpdateDealCard4Input {
     landAreaPyung?: number;
     priceBand: string;
     points: [string, string, string];
+    pointCandidates?: Card4PointCandidate[];
     pointBriefs?: [string, string, string];
     pointTones?: [DealCardPointTone, DealCardPointTone, DealCardPointTone];
     provenance?: {
@@ -310,6 +338,7 @@ export async function updateDealCard4(
   const newHash = computeCard4Hash({ ...input.card4, headline: resolvedHeadline, points: repairedPoints });
 
   const resolvedPointBriefs = input.card4.pointBriefs ?? currentCard4?.pointBriefs;
+  const resolvedPointCandidates = input.card4.pointCandidates ?? currentCard4?.pointCandidates;
   const resolvedPointTones = input.card4.pointTones ?? currentCard4?.pointTones;
   const resolvedPairedMemoId = input.card4.pairedMemoId ?? currentCard4?.pairedMemoId;
   const resolvedGenerationSource =
@@ -333,6 +362,7 @@ export async function updateDealCard4(
       : {}),
     priceBand: input.card4.priceBand.trim(),
     points: repairedPoints,
+    ...(resolvedPointCandidates ? { pointCandidates: resolvedPointCandidates } : {}),
     ...(resolvedPointBriefs ? { pointBriefs: resolvedPointBriefs } : {}),
     ...(resolvedPointTones ? { pointTones: resolvedPointTones } : {}),
     ...(resolvedPairedMemoId ? { pairedMemoId: resolvedPairedMemoId } : {}),

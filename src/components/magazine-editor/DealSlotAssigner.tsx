@@ -143,6 +143,13 @@ export function DealSlotAssigner({
                       <AiCommentRecommendButton
                         currentValue={currentComment}
                         fallbackContext={fallbackSeed}
+                        dealContext={{
+                          title: deal.title,
+                          region: deal.areaSignal || deal.address,
+                          posture: deal.assetType,
+                          priceBand: deal.priceBand || (deal.price !== "-" ? deal.price : undefined),
+                          area: deal.areaLabel,
+                        }}
                         onChangeValue={(next) => onChangeDealComment(deal.id, next)}
                         label="AI로 추천글 쓰기"
                         ariaLabel={`${deal.title} AI로 추천글 쓰기`}

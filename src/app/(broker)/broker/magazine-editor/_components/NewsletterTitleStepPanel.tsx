@@ -33,6 +33,9 @@ export interface NewsletterTitleStepPanelProps {
   preferredChannels: SpecificNewsChannelId[];
   selectedDealTitles: string[];
   unitIssueTitles: string[];
+  selectedDealSummaries?: string[];
+  unitIssueEvidence?: string[];
+  monthlyStatsSummary?: string;
   isPrefsOpen: boolean;
   onTogglePrefsOpen: () => void;
   canUndoRecluster: boolean;
@@ -70,6 +73,9 @@ export function NewsletterTitleStepPanel({
   preferredChannels,
   selectedDealTitles,
   unitIssueTitles,
+  selectedDealSummaries,
+  unitIssueEvidence,
+  monthlyStatsSummary,
   isPrefsOpen,
   onTogglePrefsOpen,
   canUndoRecluster,
@@ -131,6 +137,9 @@ export function NewsletterTitleStepPanel({
           preferredChannels={preferredChannels}
           dealTitles={selectedDealTitles}
           newsTitles={unitIssueTitles}
+          dealSummaries={selectedDealSummaries}
+          newsEvidence={unitIssueEvidence}
+          monthlyStatsSummary={monthlyStatsSummary}
           currentDraft={{
             headline,
             summary,

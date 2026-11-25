@@ -26,7 +26,7 @@ export function getModel(tier: ModelTier = "terra"): string {
     case "sol":
       return process.env.AI_MODEL_SOL || "gpt-5.6-sol";
     case "terra":
-      return process.env.AI_MODEL_TERRA || process.env.AI_DEFAULT_MODEL || "gpt-5.6-terra";
+      return process.env.AI_MODEL_TERRA || process.env.AI_DEFAULT_MODEL || "gpt-6.1-terra";
     case "luna":
       return process.env.AI_MODEL_LUNA || "gpt-5.6-luna";
   }

@@ -1,15 +1,15 @@
 /**
  * @file src/lib/deal-card/copy-limits.ts
- * @description 딜카드 문구(한 줄 제목 · 장점 3줄) 18자 SSOT + 결정적(deterministic) 교정기.
+ * @description 딜카드 문구(한 줄 제목 · 장점 3줄) 22자 SSOT + 결정적(deterministic) 교정기.
  *
  * - 고객 화면(/dc/[id]) · 편집기 미리보기 · OG · 저장 API 가 모두 이 모듈 하나만 사용한다.
  * - 글자 수는 `Array.from(text.trim()).length` (코드포인트 기준) 로 센다.
- * - 18자를 넘거나 조사·관형어로 끝나는(…이/…가/…한/…및) 문구를 **어절 경계에서** 완결된
+ * - 22자를 넘거나 조사·관형어로 끝나는(…이/…가/…한/…및) 문구를 **어절 경계에서** 완결된
  *   체언형 문구로 교정한다. 절대 단어 중간에서 자르지 않고 말줄임표(…)를 붙이지 않는다.
  * - Pure: I/O · Node 의존성 없음 (서버/클라이언트 공용).
  */
 
-export const DEAL_CARD_LINE_MAX = 18;
+export const DEAL_CARD_LINE_MAX = 22;
 
 /** 코드포인트 기준 글자 수 (앞뒤 공백 제외). */
 export function countDealCardChars(text: string | null | undefined): number {

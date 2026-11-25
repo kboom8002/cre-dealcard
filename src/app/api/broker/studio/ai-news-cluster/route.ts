@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       {
         systemPrompt,
         userPrompt,
-        model: getModel("luna"),
+        model: getModel("terra"),
         temperature: 0.35,
         responseFormat: "json_object",
       },

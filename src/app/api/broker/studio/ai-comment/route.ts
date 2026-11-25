@@ -10,7 +10,6 @@ import {
 import { requireBroker } from "@/lib/auth-guard";
 import { humanizeBuyerCopy } from "@/domain/magazine/issue-clustering";
 import {
-  AI_COMMENT_SYSTEM_PROMPT,
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
   aiCommentRequestSchema,
   findNumbersNotInContext,
@@ -56,18 +55,49 @@ export async function POST(req: NextRequest) {
 
   const quotaErr = await enforceBrokerAiQuota(req, auth.user?.id ?? "", "studio_ai_comment");
   if (quotaErr) return quotaErr;
-  const { comment, mode, draftText, cadence, avoidComments } = parsed.data;
+  const {
+    comment,
+    mode,
+    draftText,
+    cadence,
+    dealTitle,
+    regionFocus,
+    posture,
+    priceBand,
+    area,
+    points,
+    avoidComments,
+    attemptSeed,
+  } = parsed.data;
   const avoidList = (avoidComments ?? []).map((item) => item.trim()).filter(Boolean).slice(0, 8);
   const temperature = avoidList.length === 0 ? 0.4 : avoidList.length === 1 ? 0.72 : 0.85;
   const isBriefingMode = mode === "market_briefing";
-  const groundingContext = [draftText ?? "", comment].filter(Boolean).join(" ");
+  const groundingContext = [
+    draftText ?? "",
+    comment,
+    ...(isBriefingMode
+      ? []
+      : [dealTitle ?? "", regionFocus ?? "", priceBand ?? "", area ?? "", ...(points ?? [])]),
+  ]
+    .filter(Boolean)
+    .join(" ");
   const tf8 = isBriefingMode
     ? buildTf8BriefingPolishPrompt({
         draftText: draftText?.trim() || comment,
         contextText: comment,
         cadence,
+        regionFocus,
       })
-    : buildTf8CommentPrompt({ comment });
+    : buildTf8CommentPrompt({
+        comment,
+        dealTitle,
+        regionFocus,
+        posture,
+        priceBand,
+        area,
+        points,
+        attemptSeed,
+      });
 
   const userPromptWithAvoid =
     avoidList.length > 0
@@ -77,9 +107,9 @@ export async function POST(req: NextRequest) {
   try {
     const result = await callLLM(
       {
-        systemPrompt: `${AI_COMMENT_SYSTEM_PROMPT}\n\n${tf8.systemPrompt}`,
+        systemPrompt: tf8.systemPrompt,
         userPrompt: userPromptWithAvoid,
-        model: getModel("luna"),
+        model: getModel("terra"),
         temperature,
       },
       { allowMock: false },

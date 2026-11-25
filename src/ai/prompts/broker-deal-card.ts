@@ -3,9 +3,11 @@
  * - prompt_memo_parser_v1
  * - prompt_building_mini_truth_v1
  * - prompt_blind_teaser_v1
+ * - prompt_deal_card_copy_tf8_v2
  *
  * Source: docs/10-prompt-contracts.md sections 5-8
  */
+import { DEAL_CARD_LINE_MAX } from "@/lib/deal-card/copy-limits";
 
 // ---- Global system base ----
 
@@ -207,11 +209,11 @@ ${GLOBAL_SAFETY}
 ○ "주차 30대 가능하여 임차인 유치에 유리합니다"
 ○ "대로변 코너 입지로 가시성이 좋습니다"
 
-[딜카드 18자 문구 — card4Headline · card4Points 전용 (문장형 금지)]
-- 고객 카톡 화면은 한 줄 제목 1줄 + 장점 3줄을 큰 글씨로 보여주며, 각 줄은 공백 포함 18자 이내여야 잘리지 않습니다.
+[딜카드 ${DEAL_CARD_LINE_MAX}자 문구 — card4Headline · card4Points 전용 (문장형 금지)]
+- 고객 카톡 화면은 한 줄 제목 1줄 + 장점 3줄을 큰 글씨로 보여주며, 각 줄은 공백 포함 ${DEAL_CARD_LINE_MAX}자 이내여야 잘리지 않습니다.
 - 각 줄은 완결된 체언형(명사구)으로 끝내세요. "~습니다/~입니다" 문장형, 조사·관형어로 끝나는 미완성 문구(…이, …가, …한, …는, …의, …및), 말줄임표(…, ...)를 절대 쓰지 마세요.
 - GOOD: "8m 코너 입지 높은 가시성", "신사·잠원역 더블 역세권", "F&B·IT 오피스 만실 운영"
-- BAD: "8m 도로 코너 입지로 가시성이 좋습니다." (문장형·18자 초과), "F&B 및 IT·디자인 오피스가" (조사로 끝남)
+- BAD: "8m 도로 코너 입지로 가시성이 좋습니다." (문장형), "F&B 및 IT·디자인 오피스가" (조사로 끝남)
 - 입력(Building SSoT Lite)에 없는 숫자·역명·상호는 만들지 마세요. card4Headline 에는 지역명·용도명·가격을 반복하지 마세요.
 
 [톤 & 스타일]
@@ -297,20 +299,20 @@ JSON 키별 작성 요령:
 - "kakaoOgTitle": 카카오 OG 카드 제목 (25자 이내). 매수 검토 고객이 카톡에서 한눈에 파악할 제목 ('60대', '자산가', '시니어' 등 독자 연령·계층 직접 표기 절대 금지). 한자어/영어 최소화. 형식: "{핵심매력} · {권역} {자산유형}"
 - "kakaoOgDescription": 카카오 OG 카드 설명 (40자 이내). 가격대+수익률+핵심 장점 1가지. 쉬운 한국어로.
 
-### 딜카드 18자 문구 (반드시 포함 — 편집기 "한 줄 제목"·"장점 3줄"에 그대로 들어갑니다)
-- "card4Headline": 수익률(입력에 있을 때만)·임차 안정성 중심 대표 장점 1줄. 공백 포함 18자 이내 체언형. 지역·용도·가격 반복 금지.
-- "card4Points": 정확히 3개 배열. 각 18자 이내 체언형. ①수익·임차 ②입지·교통 ③건물·활용 — 서로 다른 축, 중복 금지.
+### 딜카드 ${DEAL_CARD_LINE_MAX}자 문구 (반드시 포함 — 편집기 "한 줄 제목"·"장점 3줄"에 그대로 들어갑니다)
+- "card4Headline": 수익률(입력에 있을 때만)·임차 안정성 중심 대표 장점 1줄. 공백 포함 ${DEAL_CARD_LINE_MAX}자 이내 체언형. 지역·용도·가격 반복 금지.
+- "card4Points": 정확히 3개 배열. 각 ${DEAL_CARD_LINE_MAX}자 이내 체언형. ①수익·임차 ②입지·교통 ③건물·활용 — 서로 다른 축, 중복 금지.
 
 JSON으로 응답해주세요.`;
 
 
-// ---- Deal Card Copy (한 줄 제목 + 장점 3줄) — TaskFlow TF8 ----
-// 소비처: /api/broker/deal-card/ai-copy ("AI로 쓰기" · "AI로 3줄 쓰기")
+// ---- Deal Card Copy (한 줄 제목 + 장점 3줄 + 예비 후보 3+개 = 총 6+개) — TaskFlow TF8 ----
+// 소비처: /api/broker/deal-card/ai-copy ("AI로 쓰기" · "AI로 6개 추천")
 // 출력 검증: src/ai/schemas/broker-deal-card.ts (DealCardCopyLLMOutputSchema / isDealCardCopyLineValid)
 // 결정적 교정·대체: src/lib/deal-card/copy-limits.ts (repairDealCardLine · deriveDealCardHeadline)
 
-export const DEAL_CARD_COPY_PROMPT_ID = "prompt_deal_card_copy_tf8_v1";
-export const DEAL_CARD_COPY_LINE_LIMIT = 18;
+export const DEAL_CARD_COPY_PROMPT_ID = "prompt_deal_card_copy_tf8_v2";
+export const DEAL_CARD_COPY_LINE_LIMIT = DEAL_CARD_LINE_MAX;
 
 export type DealCardCopyMode = "headline" | "points" | "both";
 
@@ -331,47 +333,62 @@ export interface DealCardCopyTf8Spec {
 
 export const DEAL_CARD_COPY_TF8_SPEC: DealCardCopyTf8Spec = {
   slotKey: "deal_card_copy_tf8",
-  version: "1.0",
+  version: "2.0",
   task:
-    "상업용 부동산 매각 딜카드의 '한 줄 제목'(headline)과 '장점 3줄'(points)을 JSON으로 작성합니다. " +
-    "이 문구는 카카오톡 썸네일 아래와 고객이 링크를 눌렀을 때 보는 화면에 큰 글씨로 그대로 표시됩니다.",
+    "한국 소형부동산(꼬마빌딩·근생빌딩) 매각 딜카드의 '한 줄 제목'(headline)과 " +
+    "'우선 추천 장점 3줄'(points) + '교체용 예비 장점 3~5줄'(pointCandidates 내 recommended=false)까지 총 6~8개 장점을 JSON으로 작성합니다. " +
+    "추천 3줄은 카카오톡 썸네일 아래 고객 화면에 큰 글씨로 바로 노출되며, 나머지 예비 후보는 중개인이 클릭 한 번으로 교체할 선택지입니다.",
   audience:
-    "당신은 상업용 부동산 매각 전문 중개인 겸 카피라이터입니다. 독자는 카톡으로 매물을 받아보는 매수 검토 고객입니다. " +
-    "과장 없이 사실 중심의 짧은 실무 어휘를 씁니다. 독자의 연령·계층·성별을 문구에 직접 지칭하지 마십시오.",
+    "당신은 20년 경력 상업용 부동산 매각 전문 중개인 겸 카피라이터입니다. 독자는 카톡으로 매물을 받아보는 매수 검토 고객입니다. " +
+    "단순 스펙 나열('지상5층 근생') 대신 '그래서 매수자에게 무엇이 유리한가(Buyer Benefit)'가 3초 만에 느껴지도록 생생하고 담백한 한국 중개 실무 어휘를 씁니다. 독자의 연령·계층·성별은 절대 지칭하지 마십시오.",
   warnings: [
-    `[18자] headline 과 points 의 각 줄은 공백 포함 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내입니다 (글자 단위로 셉니다). 넘칠 것 같으면 수식어를 빼고 어절을 줄이십시오.`,
-    "[완결 체언형] 각 줄은 명사(체언) 또는 '우수·가능·확보·보유·운영·만실' 같은 명사형으로 끝냅니다. '~습니다/~입니다/~해요' 문장형은 쓰지 않습니다.",
+    `[${DEAL_CARD_COPY_LINE_LIMIT}자] headline 과 points, pointCandidates 의 각 문구는 공백 포함 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내입니다 (글자 단위로 셉니다). 22자를 넘기면 잘리므로 핵심 실익만 간결하게 압축하십시오.`,
+    "[완결 체언형] 각 줄은 명사(체언) 또는 '상회·확보·완료·불필요·입점·유리·우수·가능·운영·만실' 같은 명사형으로 끝냅니다. '~습니다/~입니다/~해요' 문장형은 쓰지 않습니다.",
     "[미완성 금지] 조사·관형어로 끝나는 문구(…이, …가, …은, …는, …의, …에, …로, …한, …및)를 절대 출력하지 마십시오.",
     "[말줄임 금지] '…' 또는 '...' 를 쓰지 마십시오. 잘라서 줄이지 말고 완결된 짧은 문구로 다시 쓰십시오.",
-    "[근거 Grounding] [K] FactBook 에 있는 사실만 사용합니다. FactBook 에 없는 숫자(수익률 %, 도보 분, 층수, 연도, 금액, 평수, 주차 대수)·역 이름·임차인 상호를 만들지 마십시오. 숫자는 FactBook 에 그대로 있는 값만 씁니다.",
+    "[사실→매수자 실익(Feature→Benefit)] 상단 썸네일 칩(지역·용도·면적·가격)을 단순 반복하지 말고, 매수자가 전화를 거는 진짜 이유(만실 현금흐름, 권역 평균 대비 수익 우위, 코너 간판 노출, 즉시 입주·명도 완료, 올수리로 추가 비용 없음, 자주식 주차·승강기, 잔여 용적률)를 쓰십시오.",
+    "[총 6개+ 분산 도출] points/both 모드에서는 6대 소구 축(yield:수익·현금흐름, tenant:임차·운영, location:입지·접근성, scarcity:도로·가시성, building:건물·스펙, value:가치·활용)에 고르게 걸쳐 총 6~8개 후보(pointCandidates)를 만들고, 그중 매물 유형에 가장 잘 맞는 서로 다른 3개 축을 recommended=true 및 points 3개로 추천하십시오.",
+    "[근거 Grounding] [K] FactBook 에 있는 사실만 사용합니다. FactBook 에 없는 숫자(수익률 %, 도보 분, 층수, 연도, 금액, 평수, 주차 대수, 도로폭 m)·역 이름·임차인 상호를 절대 만들지 마십시오. 단, FactBook 에 수익률과 인근 권역 평균 수익률이 모두 있고 수익률이 더 높으면 '권역 평균 상회' 비교 표현을 활용할 수 있습니다.",
     "[칩 중복 금지] 썸네일 칩(지역·용도·면적·가격)에 이미 보이는 지역명·용도명·면적·가격을 headline 에 반복하지 마십시오.",
-    "[장점 비중복] 장점 3줄은 서로 다른 축(①수익·임차 ②입지·교통 ③건물·활용)으로 쓰고, 같은 내용을 다른 표현으로 반복하지 마십시오. headline 을 장점에 그대로 복사하지 마십시오.",
-    "[블라인드] 상세 지번(번지), 건물 고유 이름(OO빌딩·OO타워), 프랜차이즈 상호, 소유주 정보를 쓰지 마십시오.",
-    "[금지 표현·용어] 투자 권유, 원금·수익 보장, 시세차익 단정 표현 금지. 수익률·면적 숫자에 '양호한/높은/우수한/넓은/알찬' 같은 주관적 형용사 금지(객관 수치나 입지·외관·올수리 같은 현장 매력으로 작성). '60대', '자산가', '시니어' 등 독자 연령·계층 직접 표기 절대 금지. '밸류업', '검토(검토 부지/매물)', '캡레이트', '캡익스' 등 번역체·모호 표현 금지('신축·리모델링', '수익률', '추천', '즉시 입주' 등 한국 중개사 현장 어휘 사용).",
+    "[블라인드] 상세 지번(번지), 건물 고유 이름(OO빌딩·OO타워), 프랜차이즈 상호(스타벅스 등→'대형 카페'로 일반화), 소유주 정보를 쓰지 마십시오.",
+    "[금지 표현·용어] 투자 권유, 원금·수익 보장, 시세차익 단정 표현 금지. 수익률·면적 숫자에 '양호한/높은/우수한/넓은/알찬' 같은 빈 형용사 금지(대신 '만실·권역 평균 상회', '추가 수리 불필요' 같은 구체 이득 사용). '60대', '자산가', '시니어' 등 독자 연령·계층 직접 표기 절대 금지. '밸류업', '검토(검토 부지/매물)', '캡레이트', '캡익스' 등 번역체 금지.",
   ],
   outputContract: [
     "반드시 아래 JSON 객체 하나만 반환하십시오 (설명·마크다운·코드펜스 금지):",
     "{",
-    `  "headline": "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 — 수익률(있을 때만)·임차 안정성 중심 대표 장점 1줄",`,
-    `  "points": ["${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형", "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형", "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형"]`,
+    `  "headline": "${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 — 매물 유형 맞춤 대표 매력 1줄",`,
+    `  "points": ["${DEAL_CARD_COPY_LINE_LIMIT}자 추천1", "${DEAL_CARD_COPY_LINE_LIMIT}자 추천2", "${DEAL_CARD_COPY_LINE_LIMIT}자 추천3"],`,
+    '  "pointCandidates": [',
+    `    { "text": "${DEAL_CARD_COPY_LINE_LIMIT}자 추천1 (points[0]과 동일)", "axis": "yield|tenant|location|scarcity|building|value", "recommended": true },`,
+    `    { "text": "${DEAL_CARD_COPY_LINE_LIMIT}자 추천2 (points[1]과 동일)", "axis": "...", "recommended": true },`,
+    `    { "text": "${DEAL_CARD_COPY_LINE_LIMIT}자 추천3 (points[2]과 동일)", "axis": "...", "recommended": true },`,
+    `    { "text": "${DEAL_CARD_COPY_LINE_LIMIT}자 예비후보1", "axis": "...", "recommended": false },`,
+    `    { "text": "${DEAL_CARD_COPY_LINE_LIMIT}자 예비후보2", "axis": "...", "recommended": false },`,
+    `    { "text": "${DEAL_CARD_COPY_LINE_LIMIT}자 예비후보3", "axis": "...", "recommended": false }`,
+    "  ]",
     "}",
-    "요청모드가 headline 이면 points 를 생략할 수 있고, points 이면 headline 을 생략할 수 있습니다. both 는 둘 다 필수입니다.",
+    "요청모드가 headline 이면 points·pointCandidates 를 생략할 수 있고, points 이면 headline 을 생략할 수 있습니다. both 는 모두 필수이며, points/both 모드에서 pointCandidates 는 반드시 6~8개여야 합니다.",
   ].join("\n"),
   logicChain: [
-    "사실 추출: [K] FactBook 에서 수익률·임차 현황·입지/교통·건물 상태·활용성 사실만 뽑습니다 (없는 사실은 비워 둡니다).",
-    "대표 장점 1개 선택(hero benefit): 임대수익용은 수익률 중심(FactBook 에 수익률이 있을 때만 숫자 사용, 없으면 임차 안정성), 사옥용은 활용성·접근성, 신축·개발용은 토지·개발 여력.",
-    `한 줄 제목 작성: hero benefit 으로 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 headline 을 씁니다 (칩 중복 없음).`,
-    `장점 3줄 작성: 서로 다른 축 3개로 각 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형 points 를 씁니다.`,
-    "자체 검증(self-check): 아래 체크리스트를 한 줄씩 확인하고, 하나라도 어기면 그 줄만 다시 써서 모두 통과한 JSON 만 출력합니다.",
+    "사실 추출: [K] FactBook 에서 수익률·권역 평균 비교·임차 현황·1층 업종·역 거리·도로폭/코너·리모델링·승강기·주차·용적률 여유 사실만 뽑습니다.",
+    "포스처별 우선 3축 결정: 임대수익용은 [수익·임차→입지·도로→건물 컨디션], 사옥용은 [즉시입주·명도→대로변·주차→1층 수익·활용], 신축·개발용은 [용적률·개발여력→도로·대지형상→입지·명도].",
+    `6~8개 후보 도출: 6개 소구 축에서 서로 겹치지 않게 총 6~8개의 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내 '사실+매수자 이득' 문구를 뽑습니다.`,
+    "상위 3개 우선 추천: 가장 소구력이 높은 서로 다른 3개 축을 points 와 recommended=true 로, 나머지 3~5개를 recommended=false 로 배치합니다.",
+    "자체 검증(self-check): 글자 수(<=22자)·체언형·미출처 숫자 0건·6개 이상 분산·칩 비중복을 확인한 JSON 만 출력합니다.",
   ],
   fewShotGood: [
-    '"8m 코너 입지 높은 가시성"',
-    '"신사·잠원역 더블 역세권"',
-    '"F&B·IT 오피스 만실 운영"',
-    '"연 4.2% 우량임차 만실 코너" (FactBook 에 4.2% 가 있을 때만)',
+    '[임대수익형] "전 층 만실·연 4.3% 권역 평균 상회" (yield, recommended=true)',
+    '[임대수익형] "역 도보 3분 8m 코너, 1층 카페 입점" (location, recommended=true)',
+    '[임대수익형] "2021년 올리모델링, 추가 수리 불필요" (building, recommended=true)',
+    '[임대수익형 예비] "승강기·자주식 6대, 도심 주차 경쟁력" (building, recommended=false)',
+    '[임대수익형 예비] "8m 양면 코너, 전 층 간판 노출" (scarcity, recommended=false)',
+    '[임대수익형 예비] "임대수익 운용 후 사옥 전환도 가능" (value, recommended=false)',
+    '[입지] "신사·잠원역 더블 역세권" (location)',
+    '[사옥형] "상층부 명도 완료, 계약 후 즉시 입주" (tenant) / "대로변 사옥 노출·자주식 주차 7대" (scarcity)',
+    '[신축·개발] "잔여 용적률 풍부, 신축 시 연면적 확대" (value) / "6m 코너 정방형 대지, 설계·가시성 우수" (scarcity)',
   ],
   fewShotBad: [
-    '"8m 도로 코너 입지로 가시성이 좋습니다." → 문장형 · 18자 초과',
+    '"8m 도로 코너 입지로 가시성이 좋습니다." → 문장형 · 22자 초과',
     '"신사역과 잠원역 접근이 가능한 잠" → 단어 중간에서 잘림',
     '"F&B 및 IT·디자인 오피스가" → 조사로 끝난 미완성 문구',
     '"연 4%대 우량임차 만실" → FactBook 에 없는 수익률 창작',
@@ -379,17 +396,15 @@ export const DEAL_CARD_COPY_TF8_SPEC: DealCardCopyTf8Spec = {
     '"역세권 입지…" → 말줄임표',
   ],
   selfCheck: [
-    `모든 줄이 ${DEAL_CARD_COPY_LINE_LIMIT}자 이하인가?`,
+    `모든 줄(headline, points, pointCandidates[].text)이 ${DEAL_CARD_COPY_LINE_LIMIT}자 이하인가?`,
     "모든 줄이 체언형으로 끝나고 조사·관형어로 끝나지 않는가?",
-    "말줄임표가 없는가?",
-    "FactBook 밖의 숫자·역명·상호가 없는가?",
-    "headline 에 지역·용도·면적·가격 칩이 반복되지 않는가?",
-    "장점 3줄이 서로 다른 축인가?",
+    "points/both 모드에서 pointCandidates가 서로 중복 없이 6~8개이며 4개 이상 다른 축으로 분산되었는가?",
+    "FactBook 밖의 숫자·역명·상호·단순 면적/칩 반복이 0건인가?",
     "유효한 JSON 객체 1개만 출력했는가?",
   ],
   fallbackRepair:
     "규칙을 지키기 어려우면 숫자를 빼고 정성 표현(입지·가시성·임차 안정성·활용성)으로 짧게 쓰십시오. " +
-    "서버는 결정적 교정기로 모든 줄을 재검증하며, 위반 줄은 어절 경계에서 교정되거나 입력 기반 문구로 대체됩니다.",
+    "서버는 결정적 교정기로 모든 줄을 재검증하며, 위반 줄은 어절 경계에서 교정되거나 입력 기반 문구로 보충해 최소 6개 후보를 보장합니다.",
 };
 
 function renderDealCardCopySystem(spec: DealCardCopyTf8Spec): string {
@@ -420,7 +435,9 @@ export interface DealCardCopyPromptInput {
   currentHeadline?: string;
   avoidHeadlines?: readonly string[];
   currentPoints?: readonly string[];
-  facts?: Record<string, string | number | undefined>;
+  avoidPoints?: readonly string[];
+  candidateCount?: number;
+  facts?: Record<string, string | number | boolean | undefined>;
 }
 
 /**
@@ -442,36 +459,79 @@ export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
         .filter(Boolean),
     ),
   );
+  const avoidPointsList = Array.from(
+    new Set((input.avoidPoints ?? []).map((p) => String(p ?? "").trim()).filter(Boolean)),
+  ).slice(-12);
+
   const factEntries = Object.entries(input.facts ?? {}).filter(
-    ([, v]) => (typeof v === "string" && v.trim().length > 0) || (typeof v === "number" && Number.isFinite(v)),
+    ([, v]) =>
+      (typeof v === "string" && v.trim().length > 0) ||
+      (typeof v === "number" && Number.isFinite(v)) ||
+      typeof v === "boolean",
   );
   const factLabels: Record<string, string> = {
     yieldPct: "수익률(%)",
+    regionalBenchmarkYieldPct: "인근 권역 평균 수익률(%)",
     completionYear: "준공연도",
+    remodelingYear: "올리모델링 연도",
     roadContact: "도로 접면",
+    roadWidthMeters: "도로폭(m)",
     subwayWalkMinutes: "역 도보(분)",
     floorsLabel: "층수",
     zoning: "용도지역",
+    parkingCount: "주차(대)",
+    parkingType: "주차 방식",
+    hasElevator: "승강기 보유",
+    occupancyStatus: "임차·명도 현황",
+    anchorCategory: "주요 입점 업종(블라인드)",
+    farPotential: "용적률·신축 여지",
+    landUnitPriceHint: "토지 평당가 참고",
     memoSummary: "메모 핵심 사실(블라인드 정제)",
   };
 
+  const yieldVal = typeof input.facts?.yieldPct === "number" ? input.facts.yieldPct : undefined;
+  const benchVal =
+    typeof input.facts?.regionalBenchmarkYieldPct === "number"
+      ? input.facts.regionalBenchmarkYieldPct
+      : undefined;
+  const benchmarkNote =
+    yieldVal !== undefined && benchVal !== undefined && yieldVal > benchVal
+      ? `연 ${yieldVal}%는 인근 권역 평균(${benchVal}%)을 상회함`
+      : undefined;
+
+  const formattedFacts = factEntries.map(([k, v]) => {
+    const label = factLabels[k] ?? k;
+    const displayVal = typeof v === "boolean" ? (v ? "있음" : "없음") : String(v);
+    return `${label}=${displayVal}`;
+  });
+  if (benchmarkNote) formattedFacts.push(`수익률 비교=${benchmarkNote}`);
+
   const knowledge = [
-    `- 썸네일 칩(제목에서 반복 금지): 지역=${input.region || "미입력"} | 용도=${input.use || "미입력"} | 면적=${input.area || "미입력"} | 가격=${input.priceBand || "미입력"}`,
+    `- 썸네일 칩(제목·장점에서 단순 반복 금지): 지역=${input.region || "미입력"} | 용도=${input.use || "미입력"} | 면적=${input.area || "미입력"} | 가격=${input.priceBand || "미입력"}`,
     `- 중개사 현재 제목: ${input.currentHeadline?.trim() || "(없음)"}`,
     `- 중개사 현재 장점: ${points.length > 0 ? points.map((p, i) => `(${i + 1}) ${p}`).join(" ") : "(없음)"}`,
-    factEntries.length > 0
-      ? `- 추가 사실: ${factEntries.map(([k, v]) => `${factLabels[k] ?? k}=${v}`).join(" | ")}`
+    formattedFacts.length > 0
+      ? `- 추가 사실: ${formattedFacts.join(" | ")}`
       : "- 추가 사실: (없음 — 숫자 없이 정성 표현만 사용)",
   ].join("\n");
 
+  const targetCount = Math.min(8, Math.max(6, input.candidateCount ?? 6));
   const situationLines = [
     `요청모드: ${input.mode}`,
     `매물 유형: ${input.postureTitle}${input.postureSubtitle ? ` (${input.postureSubtitle})` : ""}`,
-    "중개사 현재 문구가 문장형이거나 18자를 넘으면, 같은 사실로 18자 이내 체언형으로 다시 쓰십시오.",
+    `중개사 현재 문구가 문장형이거나 ${DEAL_CARD_COPY_LINE_LIMIT}자를 넘으면, 같은 사실로 ${DEAL_CARD_COPY_LINE_LIMIT}자 이내 체언형으로 다시 쓰십시오.`,
+    ...(input.mode === "points" || input.mode === "both"
+      ? [`points 3개(우선 추천) + 예비 후보를 포함해 pointCandidates에 총 ${targetCount}개 이상 서로 다른 축의 장점을 생성하십시오.`]
+      : []),
   ];
   if ((input.mode === "headline" || input.mode === "both") && avoidList.length > 0) {
     situationLines.push(
-      `중복 회피 (반드시 새로운 소구 각도): [${avoidList.join(" / ")}] 와 같거나 어순만 바꾼 제목은 금지하며, FactBook의 수익·임차·교통·도로·건물활용 중 다른 축으로 새 18자 제목을 작성하십시오.`,
+      `제목 중복 회피 (반드시 새로운 소구 각도): [${avoidList.join(" / ")}] 와 같거나 어순만 바꾼 제목은 금지하며, FactBook의 수익·임차·교통·도로·건물활용 중 다른 축으로 새 ${DEAL_CARD_COPY_LINE_LIMIT}자 제목을 작성하십시오.`,
+    );
+  }
+  if ((input.mode === "points" || input.mode === "both") && avoidPointsList.length > 0) {
+    situationLines.push(
+      `장점 중복 회피 (새로운 조합 도출): [${avoidPointsList.join(" / ")}] 와 표현이 겹치지 않도록 FactBook 안의 다른 특장점이나 새로운 각도로 6~8개 후보를 작성하십시오.`,
     );
   }
   const situation = situationLines.join("\n");
@@ -483,9 +543,14 @@ export function buildDealCardCopyPrompt(input: DealCardCopyPromptInput): {
     input.priceBand,
     input.currentHeadline,
     ...points,
-    ...factEntries.map(([k, v]) =>
-      k === "yieldPct" ? `수익률 ${v}%` : `${factLabels[k] ?? k} ${String(v)}`
-    ),
+    ...factEntries.map(([k, v]) => {
+      if (k === "yieldPct") return `수익률 ${v}%`;
+      if (k === "regionalBenchmarkYieldPct") return `권역 평균 수익률 ${v}%`;
+      if (k === "roadWidthMeters") return `${v}m 도로`;
+      if (k === "parkingCount") return `주차 ${v}대`;
+      if (k === "remodelingYear") return `${v}년 리모델링`;
+      return `${factLabels[k] ?? k} ${String(v)}`;
+    }),
   ]
     .filter(Boolean)
     .join(" ");

@@ -16,6 +16,7 @@ import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import { formatPriceRange, parseKoreanPriceKrw, validateBlindPriceBand } from "./price-band";
 import { cleanBlindPoints, validateBlindPoints } from "./blind-guard";
 import {
+  DEAL_CARD_LINE_MAX,
   deriveDealCardHeadline,
   repairDealCardLine,
   repairDealCardPoints,
@@ -36,10 +37,19 @@ export interface UnconvertedMemoItem {
 export interface ExtractedMemoFacts {
   yieldPct?: number;
   completionYear?: number;
+  remodelingYear?: number;
   roadContact?: string;
+  roadWidthMeters?: number;
   subwayWalkMinutes?: number;
   floorsLabel?: string;
   zoning?: string;
+  parkingCount?: number;
+  parkingType?: "자주식" | "기계식";
+  hasElevator?: boolean;
+  occupancyStatus?: string;
+  anchorCategory?: string;
+  farPotential?: string;
+  landUnitPriceHint?: string;
   memoSummary?: string;
 }
 
@@ -116,6 +126,14 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
     }
   }
 
+  const remodelMatch = text.match(/(19\d{2}|20\d{2})\s*년\s*(?:올\s*)?(?:리모델링|대수선|올수리)/);
+  if (remodelMatch) {
+    const yr = parseInt(remodelMatch[1], 10);
+    if (yr >= 1980 && yr <= 2035) {
+      facts.remodelingYear = yr;
+    }
+  }
+
   const walkMatch = text.match(/도보\s*(\d{1,2})\s*분/);
   if (walkMatch) {
     const mins = parseInt(walkMatch[1], 10);
@@ -124,10 +142,22 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
     }
   }
 
+  const roadWidthMatch =
+    text.match(/(\d+(?:\.\d+)?)\s*m\s*(?:[×x*]\s*\d+(?:\.\d+)?\s*m\s*)?(?:도로|접도|코너|각지|대로변|양면)/i) ||
+    text.match(/(?:도로\s*폭?|접도)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*m/i);
+  if (roadWidthMatch) {
+    const w = parseFloat(roadWidthMatch[1]);
+    if (Number.isFinite(w) && w >= 2 && w <= 80) {
+      facts.roadWidthMeters = w;
+    }
+  }
+
   if (/코너|각지/.test(text)) {
-    facts.roadContact = /대로변/.test(text) ? "대로변 코너" : "코너 입지";
+    const prefix = facts.roadWidthMeters ? `${facts.roadWidthMeters}m ` : "";
+    facts.roadContact = /대로변/.test(text) ? `${prefix}대로변 코너`.trim() : `${prefix}코너 입지`.trim();
   } else if (/대로변/.test(text)) {
-    facts.roadContact = "대로변 접면";
+    const prefix = facts.roadWidthMeters ? `${facts.roadWidthMeters}m ` : "";
+    facts.roadContact = `${prefix}대로변 접면`.trim();
   }
 
   const floorMatch = text.match(/(?:지하\s*\d+층\s*[~/·-]?\s*)?지상\s*\d+층|B\d+\s*[~/·-]\s*\d+F/i);
@@ -140,7 +170,38 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
     facts.zoning = zoningMatch[0];
   }
 
-  // 연락처 제거 후 블라인드 정제된 안전 요약 생성
+  const parkingMatch =
+    text.match(/(자주식|기계식)\s*(?:주차\s*)?(?:약\s*)?(\d{1,3})\s*대/) ||
+    text.match(/주차\s*(?:[:：]?\s*)?(?:약\s*)?(자주식|기계식)?\s*(\d{1,3})\s*대/);
+  if (parkingMatch) {
+    const pCount = parseInt(parkingMatch[2], 10);
+    if (Number.isFinite(pCount) && pCount > 0 && pCount <= 500) {
+      facts.parkingCount = pCount;
+    }
+    if (parkingMatch[1] === "자주식" || parkingMatch[1] === "기계식") {
+      facts.parkingType = parkingMatch[1];
+    } else if (/자주식/.test(text)) {
+      facts.parkingType = "자주식";
+    } else if (/기계식/.test(text)) {
+      facts.parkingType = "기계식";
+    }
+  }
+
+  if (/(?:승강기|엘리베이터|E\/?V)/i.test(text) && !/(?:승강기|엘리베이터|E\/?V)\s*(?:없|무)/i.test(text)) {
+    facts.hasElevator = true;
+  }
+
+  if (/전\s*층\s*만실|올\s*만실/.test(text)) {
+    facts.occupancyStatus = "전 층 만실";
+  } else if (/즉시\s*입주|명도\s*완료/.test(text)) {
+    facts.occupancyStatus = "즉시 입주 가능";
+  } else if (/명도\s*(?:가능|협의)/.test(text)) {
+    facts.occupancyStatus = "명도 협의 가능";
+  } else if (/만실|공실\s*없/.test(text)) {
+    facts.occupancyStatus = "만실 운영";
+  }
+
+  // 연락처 제거 후 블라인드 정제된 안전 요약 생성 (브랜드·번지·건물명 사전 마스킹)
   const withoutPhones = text
     .replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g, "")
     .replace(/\d{2,3}-\d{3,4}-\d{4}/g, "");
@@ -148,6 +209,34 @@ export function extractMemoStructuredFacts(memoText: string): ExtractedMemoFacts
     ?.replace(/\s+/g, " ")
     .trim()
     .slice(0, 1200);
+
+  // 1층/핵심 업종은 반드시 블라인드 일반 카테고리로만 추출
+  if (/스타벅스|투썸플레이스|이디야|블루보틀|할리스|카페|커피/.test(text)) {
+    facts.anchorCategory = "대형 카페·식음료";
+  } else if (/병원|의원|메디컬|치과|피부과|정형외과|한의원/.test(text)) {
+    facts.anchorCategory = "병의원·의료 업종";
+  } else if (/약국/.test(text)) {
+    facts.anchorCategory = "약국·생활근생";
+  } else if (/국민은행|신한은행|하나은행|우리은행|농협은행|기업은행|은행/.test(text)) {
+    facts.anchorCategory = "시중 은행";
+  } else if (/올리브영|다이소|파리바게뜨|뚜레쥬르|서브웨이|맥도날드|버거킹|편의점|프랜차이즈/.test(text)) {
+    facts.anchorCategory = "우량 프랜차이즈";
+  } else if (/전시장|쇼룸/.test(text)) {
+    facts.anchorCategory = "전시장·쇼룸";
+  } else if (/사옥|오피스/.test(text)) {
+    facts.anchorCategory = "오피스·사옥 업종";
+  }
+
+  const farMatch = text.match(/(?:잔여\s*용적률|용적률\s*(?:여유|잔존|미달|상향)|신축\s*가능|증축\s*가능|합필\s*신축)/);
+  if (farMatch) {
+    facts.farPotential = farMatch[0].replace(/\s+/g, " ").trim();
+  }
+
+  const landPriceMatch = (cleanedSummary || text).match(/(?:토지|대지)?\s*평당\s*[\d,.]+\s*만?원?(?:\s*대)?/);
+  if (landPriceMatch) {
+    facts.landUnitPriceHint = landPriceMatch[0].replace(/\s+/g, " ").trim();
+  }
+
   if (cleanedSummary) {
     facts.memoSummary = cleanedSummary;
   }
@@ -616,8 +705,8 @@ export function parseMemoIntoCard4(
   };
 
   const compactRentClause = (clause: string): string => {
-    // 예: "보증금 2억7,950만 월세 809만" (20자) -> 18자 이내에서 월세 핵심이 잘리지 않도록 정돈 (소수점 억 금지)
-    if (clause.length <= 18) return clause;
+    // 예: "보증금 2억7,950만 월세 809만" (20자) -> DEAL_CARD_LINE_MAX 이내에서 월세 핵심이 잘리지 않도록 정돈
+    if (clause.length <= DEAL_CARD_LINE_MAX) return clause;
     const rentMatch = clause.match(/월세\s*([\d,.]+\s*(?:억(?:\s*[\d,.]+\s*만)?|만|천만?))\s*(?:원)?/);
     const depEokManMatch = clause.match(/보증금\s*(\d+)\s*억\s*(\d[\d,]*)\s*만/);
     if (depEokManMatch && rentMatch) {
@@ -626,7 +715,7 @@ export function parseMemoIntoCard4(
       const totalMan = eok * 10000 + man;
       const depDisplay = formatManWithoutDecimalEok(totalMan);
       const compact = `보증금 ${depDisplay}·월세 ${normalizeRentToken(rentMatch[1])}`;
-      if (compact.length <= 18) return compact;
+      if (compact.length <= DEAL_CARD_LINE_MAX) return compact;
     }
     if (rentMatch) {
       return `월세 ${normalizeRentToken(rentMatch[1])} 임대수익`;
