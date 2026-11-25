@@ -12,6 +12,22 @@ import {
   type WorkspaceItemRecord,
 } from "@/lib/workspace/workspace-repository";
 import { buildOwnedEventOrClause } from "@/lib/inbox/inbox-pending-count";
+import { computeBrokerStatutoryCompleteness } from "@/lib/legal/broker-statutory-disclosure";
+
+export interface BrokerHomeStatutoryStatus {
+  isComplete: boolean;
+  filledCount: number;
+  totalCount: number;
+  missingLabels: string[];
+  initialValues: {
+    displayName: string;
+    company: string;
+    representativeName: string;
+    officeRegNumber: string;
+    officeAddress: string;
+    phone: string;
+  };
+}
 
 export interface BrokerHomeResumeItem {
   id: string;
@@ -44,6 +60,7 @@ export interface AggregatedBrokerHomeData {
     photoUrl: string | null;
     role: string;
   };
+  statutory?: BrokerHomeStatutoryStatus;
   resumeItem: BrokerHomeResumeItem | null;
   doors: {
     dealcards: BrokerDoorConfig;
@@ -447,6 +464,42 @@ export async function getInboxPendingCount(
   return pendingIdSet.size;
 }
 
+async function fetchBrokerStatutorySummaryRow(
+  dbClient: SupabaseClient,
+  userId: string,
+): Promise<Record<string, unknown>> {
+  try {
+    const q1 = dbClient
+      .from("broker_profiles")
+      .select("office_reg_number, office_address, representative_name")
+      .eq("user_id", userId);
+    const r1 =
+      q1 && typeof (q1 as unknown as { maybeSingle?: () => unknown }).maybeSingle === "function"
+        ? await (q1 as unknown as { maybeSingle: () => Promise<{ data?: unknown; error?: { code?: string } | null }> }).maybeSingle()
+        : await (q1 as unknown as Promise<{ data?: unknown; error?: { code?: string } | null }>);
+    if (r1?.error && (r1.error.code === "42703" || r1.error.code === "PGRST204")) {
+      const q2 = dbClient
+        .from("broker_profiles")
+        .select("office_reg_number")
+        .eq("user_id", userId);
+      const r2 =
+        q2 && typeof (q2 as unknown as { maybeSingle?: () => unknown }).maybeSingle === "function"
+          ? await (q2 as unknown as { maybeSingle: () => Promise<{ data?: unknown }> }).maybeSingle()
+          : await (q2 as unknown as Promise<{ data?: unknown }>);
+      if (r2?.data && typeof r2.data === "object") {
+        return r2.data as Record<string, unknown>;
+      }
+      return {};
+    }
+    if (r1?.data && typeof r1.data === "object") {
+      return r1.data as Record<string, unknown>;
+    }
+  } catch {
+    // Non-blocking fallback when schema/mock omits broker_profiles columns
+  }
+  return {};
+}
+
 /**
  * WP-P2-08 & WP-7.5A: Aggregated Broker Home Data Fetcher
  */
@@ -463,12 +516,13 @@ export async function getAggregatedBrokerHomeData(
     }
   }
 
-  const [profileRes, buildingsRes, activityRes, wsRes] = await Promise.all([
+  const [profileRes, brokerRow, buildingsRes, activityRes, wsRes] = await Promise.all([
     dbClient
       .from("profiles")
-      .select("display_name, photo_url, role")
+      .select("display_name, photo_url, role, company, phone")
       .eq("id", userId)
       .maybeSingle(),
+    fetchBrokerStatutorySummaryRow(dbClient, userId),
     dbClient
       .from("building_ssot_lite")
       .select("id, owner_id, area_signal, asset_type, price_band, fit_summary, status, updated_at, layers")
@@ -488,10 +542,48 @@ export async function getAggregatedBrokerHomeData(
     })),
   ]);
 
+  const profileData = (profileRes?.data ?? {}) as Record<string, unknown>;
   const profile = {
-    displayName: profileRes.data?.display_name || "중개사",
-    photoUrl: profileRes.data?.photo_url || null,
-    role: profileRes.data?.role || "broker",
+    displayName: (typeof profileData.display_name === "string" && profileData.display_name) || "중개사",
+    photoUrl: (typeof profileData.photo_url === "string" && profileData.photo_url) || null,
+    role: (typeof profileData.role === "string" && profileData.role) || "broker",
+  };
+
+  const initialDisplayName =
+    typeof profileData.display_name === "string" ? profileData.display_name : "";
+  const initialCompany =
+    typeof profileData.company === "string" ? profileData.company : "";
+  const initialPhone =
+    typeof profileData.phone === "string" ? profileData.phone : "";
+  const initialRepName =
+    typeof brokerRow.representative_name === "string" ? brokerRow.representative_name : "";
+  const initialOfficeRegNumber =
+    typeof brokerRow.office_reg_number === "string" ? brokerRow.office_reg_number : "";
+  const initialOfficeAddress =
+    typeof brokerRow.office_address === "string" ? brokerRow.office_address : "";
+
+  const completeness = computeBrokerStatutoryCompleteness({
+    company: initialCompany || null,
+    office_address: initialOfficeAddress || null,
+    phone: initialPhone || null,
+    office_reg_number: initialOfficeRegNumber || null,
+    representative_name: initialRepName || null,
+    display_name: initialDisplayName || null,
+  });
+
+  const statutory: BrokerHomeStatutoryStatus = {
+    isComplete: completeness.isComplete,
+    filledCount: completeness.filledCount,
+    totalCount: completeness.totalCount,
+    missingLabels: completeness.missingLabels,
+    initialValues: {
+      displayName: initialDisplayName,
+      company: initialCompany,
+      representativeName: initialRepName,
+      officeRegNumber: initialOfficeRegNumber,
+      officeAddress: initialOfficeAddress,
+      phone: initialPhone,
+    },
   };
 
   const allowMem = allowDealPublicMemoryFallback();
@@ -867,6 +959,7 @@ export async function getAggregatedBrokerHomeData(
 
   return {
     profile,
+    statutory,
     resumeItem,
     doors,
   };

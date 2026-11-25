@@ -154,6 +154,8 @@ export default function BrokerProfilePage() {
   const [brokerSlug, setBrokerSlug] = useState('');
   const [togglingPublic, setTogglingPublic] = useState(false);
   const [vibeStatus, setVibeStatus] = useState<'uploading' | 'done' | null>(null);
+  const [showOptionalSections, setShowOptionalSections] = useState(true);
+  const [isSelfRepresentative, setIsSelfRepresentative] = useState(false);
 
   /* ─── 공인중개사법 제18조의2 필수 5항목 점검 ─── */
   const statutoryCheck = useMemo(
@@ -235,6 +237,9 @@ export default function BrokerProfilePage() {
       // Section 1
       setDisplayName(data.display_name ?? '');
       setRepresentativeName(data.broker?.representative_name ?? '');
+      const cleanDisp = String(data.display_name ?? '').trim();
+      const cleanRep = String(data.broker?.representative_name ?? '').trim();
+      setIsSelfRepresentative(Boolean(cleanDisp && (!cleanRep || cleanRep === cleanDisp)));
       setPhone(data.phone ?? '');
       setCompany(data.company ?? '');
       setOfficeAddress(data.broker?.office_address ?? '');
@@ -282,6 +287,12 @@ export default function BrokerProfilePage() {
   }, [router]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('focus') === 'statutory') {
+        setShowOptionalSections(false);
+      }
+    }
     let cancelled = false;
     fetchProfile(() => cancelled);
     return () => {
@@ -691,6 +702,302 @@ export default function BrokerProfilePage() {
           </div>
         )}
 
+        {/* ─── Section 1: 법정 필수 5항목 + 기본 명함 정보 ─── */}
+        <section className="space-y-5 rounded-2xl border-2 border-amber-500/40 bg-card p-6 shadow-sm">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-sm font-extrabold">
+                가장 중요 · 법정 필수 5항목
+              </span>
+              <h2 className={sectionTitleClass}>① 기본 명함 및 중개사무소 필수 정보</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              딜카드, PPTX 제안서(IM) 표지, 고객 소식지에 대표님의 명함 및 법정 표시사항으로 바로 인쇄되는 항목입니다.
+            </p>
+          </div>
+
+          <div className="space-y-1.5 mt-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-display-name" className="block text-base font-bold">
+                담당자 성함 (직함 포함 가능) <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="대표자 성함 인쇄 위치" />
+            </div>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => {
+                const nextName = e.target.value;
+                setDisplayName(nextName);
+                if (isSelfRepresentative) {
+                  setRepresentativeName(nextName);
+                }
+                if (statutoryFieldError?.field === 'display_name') setStatutoryFieldError(null);
+              }}
+              className={inputClass}
+              placeholder="예: 김중개"
+              id="profile-display-name"
+            />
+            {statutoryFieldError?.field === 'display_name' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              제안서(IM) 표지 하단과 카카오톡 명함에 표시될 성함입니다.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label htmlFor="profile-representative-name" className="block text-base font-bold">
+                개업공인중개사(대표자) 성명 <span className="text-rose-500">*</span>
+              </label>
+              <label className="inline-flex min-h-[44px] items-center gap-2 cursor-pointer select-none px-2 py-1 rounded-lg hover:bg-muted/60">
+                <input
+                  type="checkbox"
+                  data-testid="profile-self-rep-checkbox"
+                  checked={isSelfRepresentative}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsSelfRepresentative(checked);
+                    if (checked) {
+                      if (displayName.trim()) setRepresentativeName(displayName.trim());
+                    } else if (representativeName.trim() === displayName.trim()) {
+                      setRepresentativeName('');
+                    }
+                    if (statutoryFieldError?.field === 'representative_name') setStatutoryFieldError(null);
+                  }}
+                  className="w-4 h-4 rounded border-slate-400 accent-primary"
+                />
+                <span className="text-sm font-semibold text-foreground">본인이 대표 공인중개사입니다</span>
+              </label>
+            </div>
+            <input
+              type="text"
+              value={representativeName}
+              onChange={(e) => {
+                const nextRep = e.target.value;
+                setRepresentativeName(nextRep);
+                setIsSelfRepresentative(Boolean(displayName.trim() && nextRep.trim() === displayName.trim()));
+                if (statutoryFieldError?.field === 'representative_name') setStatutoryFieldError(null);
+              }}
+              className={inputClass}
+              placeholder="예: 김중개"
+              id="profile-representative-name"
+            />
+            {statutoryFieldError?.field === 'representative_name' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              본인이 대표 공인중개사인 경우 위 체크박스를 켜거나 성함을 동일하게 유지하시면 됩니다.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-phone" className="block text-base font-bold">
+                휴대폰 또는 사무실 전화번호 <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="직통 연락처 인쇄 위치" />
+            </div>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
+              className={inputClass}
+              placeholder="예: 010-1234-5678"
+              id="profile-phone"
+            />
+            <p className="text-sm text-muted-foreground">
+              고객이 딜카드나 제안서에서 [전화 문의하기] 버튼을 누르면 이 번호로 바로 연결됩니다.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-company" className="block text-base font-bold">
+                중개사무소 상호 (회사명) <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="중개법인 상호 인쇄 위치" />
+            </div>
+            <textarea
+              rows={2}
+              value={company}
+              onChange={(e) => setCompany(e.target.value.replace(/[\r\n]+/g, ' '))}
+              className={`${inputClass} resize-none leading-snug`}
+              placeholder="예: 양평 삼성 공인중개사사무소"
+              id="profile-company"
+            />
+            <p className="text-sm text-muted-foreground">
+              PPTX 투자설명서(IM) 첫 장 표지와 매수자용 웹 화면 상단에 인쇄됩니다.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="profile-office-address" className="block text-base font-bold">
+              중개사무소 소재지 (도로명 주소) <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              rows={2}
+              value={officeAddress}
+              onChange={(e) => setOfficeAddress(e.target.value.replace(/[\r\n]+/g, ' '))}
+              className={`${inputClass} resize-none leading-snug`}
+              placeholder="예: 서울특별시 강남구 테헤란로 152, 3층"
+              id="profile-office-address"
+            />
+            <p className="text-sm text-muted-foreground">
+              공인중개사법 제18조의2에 따라 딜카드·IM·뉴스레터 하단에 중개사무소 소재지로 표시됩니다. (매물의 지번은 비공개로 안전하게 보호됩니다.)
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="profile-office-reg-number" className="block text-base font-bold">
+                중개사무소 개설등록번호 <span className="text-rose-500">*</span>
+              </label>
+              <SeniorTermTooltip termKey="개설등록번호 인쇄 위치" />
+            </div>
+            <input
+              type="text"
+              value={officeRegNumber}
+              onChange={(e) => {
+                setOfficeRegNumber(e.target.value);
+                if (statutoryFieldError?.field === 'office_reg_number') setStatutoryFieldError(null);
+              }}
+              className={inputClass}
+              placeholder="예: 11560-2024-00088"
+              id="profile-office-reg-number"
+            />
+            {statutoryFieldError?.field === 'office_reg_number' && (
+              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
+                {statutoryFieldError.message}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-5 py-2 p-4 rounded-xl bg-muted/40 border border-border">
+            <div className="relative w-24 h-24 rounded-full bg-muted border-2 border-border overflow-hidden flex-shrink-0 group">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-4xl">
+                  👤
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-base font-bold text-foreground">대표님 인물 사진 또는 사무소 로고 (선택)</p>
+                <SeniorTermTooltip termKey="프로필 사진 인쇄 위치" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                밝게 웃으시는 정장 사진이나 사무소 로고를 등록하시면 고객 소식지와 모바일 명함 상단에 표시됩니다.
+              </p>
+              <div>
+                <label className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-sm font-extrabold cursor-pointer transition-colors">
+                  <span>📷 내 컴퓨터/폰에서 사진 선택하기</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      setVibeStatus('uploading');
+
+                      try {
+                        const res = await fetch("/api/broker/profile/avatar", {
+                          method: "POST",
+                          body: formData,
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                          setAvatarUrl(data.url);
+                          setVibeStatus('done');
+                        } else {
+                          throw new Error(data.error || "업로드 실패");
+                        }
+                      } catch (err: any) {
+                        setError(err.message);
+                        setVibeStatus(null);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              {vibeStatus === 'uploading' && (
+                <p className="text-sm text-blue-500 font-semibold animate-pulse">📤 사진을 올리고 있습니다...</p>
+              )}
+              {vibeStatus === 'done' && (
+                <p className="text-sm text-emerald-500 font-bold">✅ 사진 등록 완료! 아래 [필수 5항목 저장] 버튼을 꼭 눌러주세요.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="profile-tagline" className="block text-base font-bold">
+              명함 한줄 소개 문구 (선택 · 카카오톡 공유 제목)
+            </label>
+            <textarea
+              rows={2}
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value.replace(/[\r\n]+/g, ' '))}
+              className={`${inputClass} resize-none leading-snug`}
+              placeholder="예: 강남·서초 꼬마빌딩 전문 중개"
+              id="profile-tagline"
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              카카오톡으로 명함이나 소식지를 보낼 때 성함 옆에 따라붙는 한줄 소개글입니다.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border">
+            <Link
+              href="/broker"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-800 transition-colors"
+            >
+              4대 업무 홈으로 →
+            </Link>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={loading || saving}
+              data-testid="save-statutory-section-btn"
+              className="flex-1 sm:flex-none bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl px-6 py-3 min-h-[48px] text-base shadow-sm transition-all disabled:opacity-60 cursor-pointer"
+            >
+              {saving ? '저장 중...' : '💾 필수 5항목 저장'}
+            </button>
+          </div>
+        </section>
+
+        {/* ─── 선택 입력 항목 접기/펼치기 바 ─── */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-2xs">
+          <div>
+            <p className="text-base font-extrabold text-slate-900">
+              선택 입력 항목 (경력 · 전문지역 · 공개 프로필)
+            </p>
+            <p className="text-sm text-slate-600">
+              핵심 4대 메뉴 사용에는 필수가 아니며 필요하실 때 천천히 채우셔도 됩니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="profile-optional-sections-toggle"
+            aria-expanded={showOptionalSections}
+            onClick={() => setShowOptionalSections((prev) => !prev)}
+            className="shrink-0 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 px-4 py-2 text-sm font-extrabold text-slate-800 transition-colors cursor-pointer"
+          >
+            {showOptionalSections ? '선택 항목 접기 ▲' : '선택 항목 펼치기 ▼'}
+          </button>
+        </div>
+
+        {showOptionalSections && (<>
         {/* ─── 공개 중개사 프로필 노출 (is_public) 설정 ─── */}
         <section
           data-testid="broker-public-profile-section"
@@ -753,7 +1060,7 @@ export default function BrokerProfilePage() {
           )}
         </section>
 
-        {/* ─── Section 7: 프로필 완성도 게이지 (placed at top) ─── */}
+        {/* ─── Section 7: 프로필 완성도 게이지 ─── */}
         <section className={sectionClass}>
           <div className="flex items-center justify-between">
             <div>
@@ -778,219 +1085,12 @@ export default function BrokerProfilePage() {
           </div>
         </section>
 
-        {/* ─── Section 1: 기본 정보 (필수 3대 정보 강조) ─── */}
-        <section className="space-y-5 rounded-2xl border-2 border-amber-500/40 bg-card p-6 shadow-sm">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-sm font-extrabold">
-                가장 중요 · 필수 입력
-              </span>
-              <h2 className={sectionTitleClass}>① 기본 명함 정보 (이름 · 연락처 · 상호 · 소재지 · 사진)</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              딜카드, PPTX 제안서(IM) 표지, 고객 소식지에 대표님의 명함으로 바로 인쇄되는 항목입니다.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-5 py-2 p-4 rounded-xl bg-muted/40 border border-border">
-            <div className="relative w-24 h-24 rounded-full bg-muted border-2 border-border overflow-hidden flex-shrink-0 group">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-4xl">
-                  👤
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-[200px] space-y-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="text-base font-bold text-foreground">대표님 인물 사진 (또는 사무소 로고)</p>
-                <SeniorTermTooltip termKey="프로필 사진 인쇄 위치" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                밝게 웃으시는 정장 사진이나 사무소 로고를 등록하시면 고객 소식지와 모바일 명함 상단에 표시됩니다.
-              </p>
-              <div>
-                <label className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-sm font-extrabold cursor-pointer transition-colors">
-                  <span>📷 내 컴퓨터/폰에서 사진 선택하기</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      
-                      const formData = new FormData();
-                      formData.append("file", file);
-                      setVibeStatus('uploading');
-                      
-                      try {
-                        const res = await fetch("/api/broker/profile/avatar", {
-                          method: "POST",
-                          body: formData,
-                        });
-                        const data = await res.json();
-                        if (data.url) {
-                          setAvatarUrl(data.url);
-                          setVibeStatus('done');
-                        } else {
-                          throw new Error(data.error || "업로드 실패");
-                        }
-                      } catch (err: any) {
-                        setError(err.message);
-                        setVibeStatus(null);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-              {/* ─── 사진 업로드 피드백 ─── */}
-              {vibeStatus === 'uploading' && (
-                <p className="text-sm text-blue-500 font-semibold animate-pulse">📤 사진을 올리고 있습니다...</p>
-              )}
-              {vibeStatus === 'done' && (
-                <p className="text-sm text-emerald-500 font-bold">✅ 사진 등록 완료! 아래 [프로필 저장] 버튼을 꼭 눌러주세요.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-1.5 mt-2">
-            <div className="flex items-center justify-between">
-              <label htmlFor="profile-display-name" className="block text-base font-bold">
-                성함 (직함 포함 가능) <span className="text-rose-500">*</span>
-              </label>
-              <SeniorTermTooltip termKey="대표자 성함 인쇄 위치" />
-            </div>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => {
-                setDisplayName(e.target.value);
-                if (statutoryFieldError?.field === 'display_name') setStatutoryFieldError(null);
-              }}
-              className={inputClass}
-              placeholder="예: 김중개"
-              id="profile-display-name"
-            />
-            {statutoryFieldError?.field === 'display_name' && (
-              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
-                {statutoryFieldError.message}
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              제안서(IM) 표지 하단과 카카오톡 명함에 표시될 성함입니다.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="profile-representative-name" className="block text-base font-bold">
-                개업공인중개사(대표자) 성명
-              </label>
-            </div>
-            <input
-              type="text"
-              value={representativeName}
-              onChange={(e) => {
-                setRepresentativeName(e.target.value);
-                if (statutoryFieldError?.field === 'representative_name') setStatutoryFieldError(null);
-              }}
-              className={inputClass}
-              placeholder="예: 김중개"
-              id="profile-representative-name"
-            />
-            {statutoryFieldError?.field === 'representative_name' && (
-              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
-                {statutoryFieldError.message}
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              본인이 대표 공인중개사인 경우 비워두면 이름과 동일하게 표시됩니다
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="profile-phone" className="block text-base font-bold">
-                휴대폰 또는 사무실 전화번호 <span className="text-rose-500">*</span>
-              </label>
-              <SeniorTermTooltip termKey="직통 연락처 인쇄 위치" />
-            </div>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(formatKrPhoneInput(e.target.value))}
-              className={inputClass}
-              placeholder="예: 010-1234-5678"
-              id="profile-phone"
-            />
-            <p className="text-sm text-muted-foreground">
-              고객이 딜카드나 제안서에서 [전화 문의하기] 버튼을 누르면 이 번호로 바로 연결됩니다.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="profile-company" className="block text-base font-bold">
-                중개사무소 상호 (회사명) <span className="text-rose-500">*</span>
-              </label>
-              <SeniorTermTooltip termKey="중개법인 상호 인쇄 위치" />
-            </div>
-            <textarea
-              rows={2}
-              value={company}
-              onChange={(e) => setCompany(e.target.value.replace(/[\r\n]+/g, ' '))}
-              className={`${inputClass} resize-none leading-snug`}
-              placeholder="예: 양평 삼성 공인중개사사무소"
-              id="profile-company"
-            />
-            <p className="text-sm text-muted-foreground">
-              PPTX 투자설명서(IM) 첫 장 표지와 매수자용 웹 화면 상단에 인쇄됩니다.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="profile-office-address" className="block text-base font-bold">
-              중개사무소 소재지 (도로명 주소) <span className="text-rose-500">*</span>
-            </label>
-            <textarea
-              rows={2}
-              value={officeAddress}
-              onChange={(e) => setOfficeAddress(e.target.value.replace(/[\r\n]+/g, ' '))}
-              className={`${inputClass} resize-none leading-snug`}
-              placeholder="예: 서울특별시 강남구 테헤란로 152, 3층"
-              id="profile-office-address"
-            />
-            <p className="text-sm text-muted-foreground">
-              공인중개사법 제18조의2에 따라 딜카드·IM·뉴스레터 하단에 중개사무소 소재지로 표시됩니다. (매물의 지번은 비공개로 안전하게 보호됩니다.)
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="profile-tagline" className="block text-base font-bold">
-              명함 한줄 소개 문구 (카카오톡 공유 제목)
-            </label>
-            <textarea
-              rows={2}
-              value={tagline}
-              onChange={(e) => setTagline(e.target.value.replace(/[\r\n]+/g, ' '))}
-              className={`${inputClass} resize-none leading-snug`}
-              placeholder="예: 강남·서초 꼬마빌딩 전문 중개"
-              id="profile-tagline"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              카카오톡으로 명함이나 소식지를 보낼 때 성함 옆에 따라붙는 한줄 소개글입니다.
-            </p>
-          </div>
-        </section>
-
         {/* ─── Section 2: 자격/등록 정보 ─── */}
         <section className={sectionClass}>
           <div className="space-y-1">
-            <h2 className={sectionTitleClass}>② 공인중개사 자격 및 사무소 등록 정보</h2>
+            <h2 className={sectionTitleClass}>② 공인중개사 자격 및 개업 경력 (선택)</h2>
             <p className="text-sm text-muted-foreground">
-              자격증 번호와 등록번호를 입력해 두시면 법인·자산가 고객이 제안서를 열람할 때 공식 등록 중개사무소로 표시되어 신뢰도가 높아집니다.
+              자격증 번호와 경력을 입력해 두시면 법인·자산가 고객이 제안서를 열람할 때 신뢰도가 더욱 높아집니다.
             </p>
           </div>
 
@@ -1011,31 +1111,6 @@ export default function BrokerProfilePage() {
               id="profile-license-number"
             />
             {statutoryFieldError?.field === 'license_number' && (
-              <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
-                {statutoryFieldError.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="profile-office-reg-number" className="block text-base font-bold">
-                중개사무소 개설등록번호 <span className="text-rose-500">*</span>
-              </label>
-              <SeniorTermTooltip termKey="개설등록번호 인쇄 위치" />
-            </div>
-            <input
-              type="text"
-              value={officeRegNumber}
-              onChange={(e) => {
-                setOfficeRegNumber(e.target.value);
-                if (statutoryFieldError?.field === 'office_reg_number') setStatutoryFieldError(null);
-              }}
-              className={inputClass}
-              placeholder="예: 11560-2024-00088"
-              id="profile-office-reg-number"
-            />
-            {statutoryFieldError?.field === 'office_reg_number' && (
               <p data-testid="statutory-field-error" className="text-sm font-bold text-destructive">
                 {statutoryFieldError.message}
               </p>
@@ -1327,6 +1402,7 @@ export default function BrokerProfilePage() {
         >
           {saving ? '저장 중...' : '💾 내 프로필 · 사무소 정보 저장하기'}
         </button>
+        </>)}
         </fieldset>
 
         {/* Logout */}

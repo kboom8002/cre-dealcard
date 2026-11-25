@@ -1,8 +1,9 @@
 'use client';
 
-import { Suspense, useActionState, useState, useEffect, useRef } from 'react';
+import { Suspense, useActionState, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 import { login } from '@/app/actions/auth';
 import { COMPANY_LEGAL_CONFIG } from '@/config/company-legal';
 import { consumeLogoutPurgeSignal } from '@/lib/workspace/storage-namespace';
@@ -13,8 +14,11 @@ function LoginFormContent() {
   const searchParams = useSearchParams();
   const [state, action, pending] = useActionState(login, undefined);
   const [rememberEmail, setRememberEmail] = useState(false);
-  const [savedEmail, setSavedEmail] = useState('');
-  const formRef = useRef<HTMLFormElement>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [loggedOutNotice, setLoggedOutNotice] = useState(false);
 
   const redirectToParam =
     searchParams?.get('redirectTo') ||
@@ -26,27 +30,47 @@ function LoginFormContent() {
       : '');
 
   const callbackError = searchParams?.get('error');
+  const resetSuccess = searchParams?.get('reset') === 'success';
+  const emailVerified = searchParams?.get('verified') === '1';
 
   // 마운트 시 로그아웃 퍼지 쿠키 처리 및 저장된 이메일 복원
   useEffect(() => {
-    consumeLogoutPurgeSignal();
-    const stored = localStorage.getItem(REMEMBER_EMAIL_KEY);
-    if (stored) {
-      setSavedEmail(stored);
-      setRememberEmail(true);
+    const purged = consumeLogoutPurgeSignal();
+    if (purged) {
+      setLoggedOutNotice(true);
+    }
+    try {
+      const stored = localStorage.getItem(REMEMBER_EMAIL_KEY);
+      if (stored) {
+        setEmail(stored);
+        setRememberEmail(true);
+      }
+    } catch {
+      // Ignore storage read failures
     }
   }, []);
 
   // form 제출 시 이메일 기억 처리 (server action 전 실행)
   const handleSubmit = () => {
-    const emailInput = formRef.current?.querySelector<HTMLInputElement>('input[name="email"]');
-    const email = emailInput?.value || '';
-    if (rememberEmail && email) {
-      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
-    } else {
-      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    const trimmed = email.trim();
+    try {
+      if (rememberEmail && trimmed) {
+        localStorage.setItem(REMEMBER_EMAIL_KEY, trimmed);
+      } else {
+        localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      }
+    } catch {
+      // Ignore storage write failures
     }
   };
+
+  const handlePasswordKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    setCapsLockOn(Boolean(e.getModifierState?.('CapsLock')));
+  };
+
+  const signupHref = redirectToParam
+    ? `/signup?redirectTo=${encodeURIComponent(redirectToParam)}`
+    : '/signup';
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-slate-900">
@@ -56,12 +80,41 @@ function LoginFormContent() {
         </p>
         <h1 className="text-2xl font-black text-slate-900 mb-1">로그인</h1>
         <p className="text-[15px] text-slate-600">
-          {COMPANY_LEGAL_CONFIG.serviceName} 계정으로 워크스페이스에 접속하세요.
+          공인중개사 계정으로 4대 핵심 작업공간에 접속하세요.
         </p>
       </div>
 
-      <form ref={formRef} action={action} onSubmit={handleSubmit} className="space-y-5">
+      <form action={action} onSubmit={handleSubmit} className="space-y-5">
         <input type="hidden" name="redirectTo" value={redirectToParam} />
+
+        {/* Status Notices */}
+        {!state?.message && loggedOutNotice && (
+          <div
+            role="status"
+            data-testid="login-logged-out-banner"
+            className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[15px] text-emerald-900"
+          >
+            안전하게 로그아웃되었으며 공용 PC 보호를 위해 임시 작업 기록을 비웠습니다.
+          </div>
+        )}
+
+        {!state?.message && resetSuccess && (
+          <div
+            role="status"
+            className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[15px] text-emerald-900"
+          >
+            새 비밀번호가 설정되었습니다. 변경된 비밀번호로 로그인해 주세요.
+          </div>
+        )}
+
+        {!state?.message && emailVerified && (
+          <div
+            role="status"
+            className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[15px] text-emerald-900"
+          >
+            이메일 인증이 완료되었습니다. 이제 로그인하여 바로 시작하실 수 있습니다.
+          </div>
+        )}
 
         {/* Callback Error */}
         {!state?.message && callbackError === 'auth_callback_failed' && (
@@ -94,7 +147,8 @@ function LoginFormContent() {
             type="email"
             autoComplete="email"
             required
-            defaultValue={savedEmail}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="name@company.co.kr"
             className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
           />
@@ -108,15 +162,39 @@ function LoginFormContent() {
           <label htmlFor="password" className="block text-[15px] font-semibold text-slate-800">
             비밀번호
           </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            placeholder="••••••••"
-            className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handlePasswordKey}
+              onKeyUp={handlePasswordKey}
+              onBlur={() => setCapsLockOn(false)}
+              autoComplete="current-password"
+              required
+              placeholder="••••••••"
+              className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg pl-4 pr-12 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
+            />
+            <button
+              type="button"
+              data-testid="login-password-toggle"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+            >
+              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
+          </div>
+          {capsLockOn && (
+            <p
+              data-testid="login-capslock-warning"
+              className="text-sm font-semibold text-amber-800"
+            >
+              Caps Lock이 켜져 있습니다. 영문 대소문자를 확인해 주세요.
+            </p>
+          )}
           {state?.errors?.password && (
             <p className="text-sm text-red-700">{state.errors.password[0]}</p>
           )}
@@ -152,7 +230,7 @@ function LoginFormContent() {
       <div className="mt-6 text-center space-y-3">
         <p className="text-[15px] text-slate-600">
           아직 계정이 없으신가요?{' '}
-          <Link href="/signup" className="inline-flex min-h-[44px] items-center text-blue-700 hover:underline font-semibold">
+          <Link href={signupHref} className="inline-flex min-h-[44px] items-center text-blue-700 hover:underline font-semibold">
             회원가입
           </Link>
         </p>

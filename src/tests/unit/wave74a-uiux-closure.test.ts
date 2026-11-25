@@ -277,7 +277,8 @@ describe("Wave 7.4A — Global UI/UX & Public Link Hygiene Closure", () => {
       expect(html).toContain(
         '<input type="hidden" name="redirectTo" value="/broker/w/newsletter"/>',
       );
-      expect(html).toContain('placeholder="예: 박성훈 (한강부동산중개법인)"');
+      expect(html).toContain('placeholder="예: 박성훈"');
+      expect(html).not.toContain('placeholder="예: 박성훈 (한강부동산중개법인)"');
       expect(html).not.toContain("김대표 (크리딜중개법인)");
     });
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +17,7 @@ import type { AggregatedBrokerHomeData } from "@/domain/broker/home-aggregated";
 import { WORKSPACE_IDENTITY } from "@/lib/ux/workspace-identity";
 import { FontScaleToggle } from "@/components/workspace/FontScaleToggle";
 import { WorkspaceHelpButton } from "@/components/workspace/WorkspaceHelpButton";
+import { QuickStatutorySetupCard } from "./QuickStatutorySetupCard";
 
 interface BrokerHome4DoorsProps {
   data: AggregatedBrokerHomeData;
@@ -47,7 +48,10 @@ export function shouldIgnoreDoorShortcut(e: KeyboardEvent): boolean {
 
 export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
   const router = useRouter();
-  const { doors, resumeItem } = data;
+  const { doors, resumeItem, statutory } = data;
+  const [setupDismissed, setSetupDismissed] = useState(false);
+  const [setupCompleted, setSetupCompleted] = useState(false);
+  const needsStatutorySetup = Boolean(statutory && !statutory.isComplete && !setupCompleted);
 
   // Keyboard shortcuts: 1~4 in confirmed order: 1. 부동산뉴스 → 2. 딜카드 → 3. IM → 4. 고객 소통.
   useEffect(() => {
@@ -166,12 +170,20 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
           <FontScaleToggle />
           <WorkspaceHelpButton workspace="home" />
           <Link
-            href="/broker/profile"
+            href={needsStatutorySetup ? "/broker/profile?focus=statutory" : "/broker/profile"}
             data-testid="home-profile-settings-btn"
             className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-2.5 min-h-[48px] rounded-xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.09] text-[#1D1D1F] font-semibold text-base shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2px_8px_rgba(15,23,42,0.05)] transition-all active:scale-[0.98] whitespace-nowrap"
           >
             <UserCog className="w-4 h-4 text-[#007AFF] shrink-0" aria-hidden="true" />
             <span>내 프로필 · 사무소 설정</span>
+            {needsStatutorySetup && statutory && (
+              <span
+                data-testid="home-profile-missing-badge"
+                className="inline-flex items-center rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-sm font-extrabold text-amber-900"
+              >
+                미입력 ({statutory.filledCount}/{statutory.totalCount})
+              </span>
+            )}
           </Link>
         </div>
       </header>
@@ -211,6 +223,25 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
             </Link>
           </div>
         </section>
+      )}
+
+      {/* ── 2.5. 첫 시작 60초 법정 5항목 설정 카드 (미입력 시에만 노출) ── */}
+      {needsStatutorySetup && !setupDismissed && statutory && (
+        <QuickStatutorySetupCard
+          statutory={statutory}
+          onCompleted={() => setSetupCompleted(true)}
+          onDismiss={() => setSetupDismissed(true)}
+        />
+      )}
+
+      {setupCompleted && (
+        <div
+          role="status"
+          data-testid="home-statutory-complete-banner"
+          className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base font-bold text-emerald-900"
+        >
+          ✓ 중개사무소 법정 5항목 설정 완료 — 이제 아래 4대 핵심 업무를 바로 이용하실 수 있습니다.
+        </div>
       )}
 
       {/* ── 3. WP-P2-04: 4-Door Task Hub Grid (Spatial Liquid Glass Cards) ── */}

@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { signup } from '@/app/actions/auth';
 import { COMPANY_LEGAL_CONFIG } from '@/config/company-legal';
-import { Eye, EyeOff, Check, X, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Check, X, ShieldCheck, MailCheck } from 'lucide-react';
 
 function SignupFormContent() {
   const searchParams = useSearchParams();
   const [state, action, pending] = useActionState(signup, undefined);
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -52,6 +54,38 @@ function SignupFormContent() {
     { label: '매우 강력', color: 'bg-blue-700', textColor: 'text-blue-700 font-bold' },
   ][strengthScore];
 
+  const loginHref = redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login';
+
+  if (state?.needsEmailConfirmation) {
+    return (
+      <div
+        data-testid="signup-email-confirm-card"
+        className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-slate-900 space-y-5 text-center"
+      >
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+          <MailCheck size={28} aria-hidden="true" />
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm font-bold tracking-wider text-blue-700">
+            {COMPANY_LEGAL_CONFIG.serviceName}
+          </p>
+          <h1 className="text-2xl font-black text-slate-900">인증 메일을 보냈습니다</h1>
+          <p className="text-[15px] text-slate-700 leading-relaxed">
+            <strong className="text-blue-700">{state.confirmedEmail}</strong> 주소로 확인 메일을 발송했습니다.
+            <br />
+            메일함(또는 스팸함)에서 인증 링크를 누르신 뒤 바로 로그인해 주세요.
+          </p>
+        </div>
+        <Link
+          href={loginHref}
+          className="inline-flex w-full min-h-[48px] items-center justify-center rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-3 text-[16px] font-black text-white transition-colors"
+        >
+          로그인 화면으로 이동
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-slate-900">
       <div className="mb-8">
@@ -60,7 +94,7 @@ function SignupFormContent() {
         </p>
         <h1 className="text-2xl font-black text-slate-900 mb-1">회원가입</h1>
         <p className="text-[15px] text-slate-600">
-          {COMPANY_LEGAL_CONFIG.serviceName} 중개사 계정을 만들어 시작하세요.
+          {COMPANY_LEGAL_CONFIG.serviceName} 중개사 계정을 만들어 4대 핵심 업무를 시작하세요.
         </p>
       </div>
 
@@ -80,17 +114,22 @@ function SignupFormContent() {
         {/* Display Name */}
         <div className="space-y-1.5">
           <label htmlFor="displayName" className="block text-[15px] font-semibold text-slate-800">
-            이름 / 표시명
+            담당자 성함
           </label>
           <input
             id="displayName"
             name="displayName"
             type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
             autoComplete="name"
             required
-            placeholder="예: 박성훈 (한강부동산중개법인)"
+            placeholder="예: 박성훈"
             className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
           />
+          <p className="text-sm text-slate-600">
+            성함만 입력해 주세요. 중개사무소 상호·등록번호는 가입 직후 60초 만에 입력합니다.
+          </p>
           {state?.errors?.displayName && (
             <p className="text-sm text-red-700">{state.errors.displayName[0]}</p>
           )}
@@ -105,6 +144,8 @@ function SignupFormContent() {
             id="email"
             name="email"
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
             placeholder="name@company.co.kr"
@@ -200,7 +241,7 @@ function SignupFormContent() {
         <div className="flex items-center gap-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700">
           <ShieldCheck size={18} className="text-blue-700 shrink-0" />
           <span>
-            얼리액세스 기간 동안 모든 신규 계정은 <strong>공인중개사(Broker)</strong> 워크스페이스 권한으로 생성됩니다.
+            베타 기간 동안 모든 신규 계정은 <strong>공인중개사 전용 4대 작업공간</strong>(부동산뉴스·딜카드·IM·고객 소통)으로 즉시 시작됩니다.
           </span>
         </div>
 

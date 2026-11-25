@@ -26,7 +26,12 @@ const LoginSchema = z.object({
 });
 
 export type AuthFormState =
-  | { errors?: Record<string, string[]>; message?: string }
+  | {
+      errors?: Record<string, string[]>;
+      message?: string;
+      needsEmailConfirmation?: boolean;
+      confirmedEmail?: string;
+    }
   | undefined;
 
 function resolveSafeRedirectTarget(raw: FormDataEntryValue | null | undefined, fallback = '/broker'): string {
@@ -178,6 +183,13 @@ export async function signup(
     }
   }
 
+  if (signUpData && 'session' in signUpData && signUpData.session === null) {
+    return {
+      needsEmailConfirmation: true,
+      confirmedEmail: email,
+    };
+  }
+
   const safeTarget = resolveSafeRedirectTarget(formData.get('redirectTo'), '/broker');
   redirect(safeTarget);
 }
@@ -204,7 +216,31 @@ export async function login(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return { message: '이메일 또는 비밀번호가 올바르지 않습니다.' };
+    const rawMsg = (error.message || '').toLowerCase();
+    const rawCode = ((error as { code?: string }).code || '').toLowerCase();
+    const rawStatus = (error as { status?: number }).status;
+
+    if (rawCode === 'email_not_confirmed' || rawMsg.includes('email not confirmed')) {
+      return {
+        message:
+          '이메일 인증이 아직 완료되지 않았습니다. 가입 시 받은 메일함(스팸함 포함)에서 확인 링크를 눌러 주세요.',
+      };
+    }
+    if (
+      rawStatus === 429 ||
+      rawCode.includes('rate_limit') ||
+      rawMsg.includes('rate limit') ||
+      rawMsg.includes('too many')
+    ) {
+      return {
+        message: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+      };
+    }
+
+    return {
+      message:
+        '이메일 또는 비밀번호가 올바르지 않습니다. 비밀번호 보기(눈 아이콘)로 오타를 확인해 보세요.',
+    };
   }
 
   const safeTarget = resolveSafeRedirectTarget(
