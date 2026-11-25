@@ -3743,6 +3743,9 @@ function MagazineEditorWorkspace() {
     <div data-local-draft-mode={localStorageMode}>
       <WorkspaceShell
         workspace="magazine"
+        listTitle="뉴스레터 선택"
+        editorTitle="내용 입력"
+        previewTitle="미리보기 · 발행"
         selectedBuildingId={editionId ?? `draft:${effectiveSlotSlug}`}
         selectedLabel={`${autoMeta.yearMonthLabel} 뉴스레터`}
         saveState={saveState}

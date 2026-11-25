@@ -110,11 +110,11 @@ const MAX_PREVIEW_WIDTH = 600;
 export interface WorkspaceShellProps {
   /** Current active workspace category */
   workspace: "dealcards" | "im" | "magazine" | "inbox" | "common";
-  /** Header title for column 1 (default: '① 고르기') */
+  /** Header title for column 1 (default: '목록 선택') */
   listTitle?: string;
-  /** Header title for column 2 (default: '② 채우기') */
+  /** Header title for column 2 (default: '내용 입력') */
   editorTitle?: string;
-  /** Header title for column 3 (default: '③ 확인하고 보내기') */
+  /** Header title for column 3 (default: '미리보기') */
   previewTitle?: string;
   /** Slot for Column 1: Item list & filters */
   listSlot?: React.ReactNode;
@@ -173,9 +173,9 @@ export const WS_TOPBAR_LINKS = [
  * WP-P2-02 & WP-P2-06: 3-Column WorkspaceShell
  *
  * Implements the unified desktop 3-column workspace shell:
- * - ① 고르기 (280px-340px list column)
- * - ② 채우기 (min 540px editor column)
- * - ③ 확인하고 보내기 (360px-440px preview column)
+ * - 목록 선택 (280px-340px list column)
+ * - 내용 입력 (min 540px editor column)
+ * - 미리보기 (360px-440px preview column)
  *
  * Features:
  * - Auto-collapses list column to a 72px icon rail below 1280px when editor is constrained.
@@ -185,9 +185,9 @@ export const WS_TOPBAR_LINKS = [
  */
 export function WorkspaceShell({
   workspace,
-  listTitle = "① 고르기",
-  editorTitle = "② 채우기",
-  previewTitle = "③ 확인하고 보내기",
+  listTitle = "목록 선택",
+  editorTitle = "내용 입력",
+  previewTitle = "미리보기",
   listSlot,
   editorSlot,
   previewSlot,

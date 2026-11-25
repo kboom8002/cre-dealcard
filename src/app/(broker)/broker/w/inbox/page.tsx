@@ -1966,9 +1966,9 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     <>
       <WorkspaceShell
         workspace="inbox"
-        listTitle="① 고객 목록"
-        editorTitle="② 고객 응대 · 자료 발송"
-        previewTitle="③ 고객 정보 · 상담 기록"
+        listTitle="고객 목록"
+        editorTitle="고객 응대 · 자료 발송"
+        previewTitle="고객 정보 · 상담 기록"
         listSlot={
           <InboxListColumn
             threads={threads}

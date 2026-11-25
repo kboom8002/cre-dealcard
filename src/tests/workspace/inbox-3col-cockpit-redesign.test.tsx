@@ -3,7 +3,7 @@
  * @file src/tests/workspace/inbox-3col-cockpit-redesign.test.tsx
  * @description 고객 소통함 3열 CRM Cockpit 재균형 및 익명 열람 스레드 소유권 검증 스위트
  *
- * 1. 3열 제목 직관화 (`① 고객 목록` | `② 고객 응대 · 자료 발송` | `③ 고객 정보 · 상담 기록`)
+ * 1. 3열 제목 직관화 (`고객 목록` | `고객 응대 · 자료 발송` | `고객 정보 · 상담 기록`) — 최상단 원형 번호 제거
  * 2. 1열 상단 모순 제거 (pending=0 숨김, `🔥 관심 높음만 보기 (M)` 카운터 일치, 통합 `+ 고객 등록` 모달, 행 오클릭 아이콘 제거)
  * 3. 2열 원스톱 자료·메시지 발송 허브 & 3열 상시 상담 메모·통합 타임라인·접이식 링크 관리
  * 4. 익명 열람자(`view_*`) 매물 우선 표기 + 정식 고객 전환 모달 프리필 + `verifyBrokerOwnership` 소유권 검증
@@ -231,11 +231,14 @@ describe("고객 소통함 3열 CRM Cockpit 재균형 & 익명 스레드 소유�
       root.render(<InboxWorkspacePage initialThreads={TEST_THREADS} />);
     });
 
-    // 3열 헤더가 소통함 문맥으로 표기됨
+    // 3열 헤더가 소통함 문맥으로 표기됨 (최상단 원형 번호 없음)
     const shellText = container.querySelector('[data-testid="workspace-shell"]')?.textContent || "";
-    expect(shellText).toContain("① 고객 목록");
-    expect(shellText).toContain("② 고객 응대 · 자료 발송");
-    expect(shellText).toContain("③ 고객 정보 · 상담 기록");
+    expect(shellText).toContain("고객 목록");
+    expect(shellText).toContain("고객 응대 · 자료 발송");
+    expect(shellText).toContain("고객 정보 · 상담 기록");
+    expect(shellText).not.toContain("① 고객 목록");
+    expect(shellText).not.toContain("② 고객 응대 · 자료 발송");
+    expect(shellText).not.toContain("③ 고객 정보 · 상담 기록");
 
     // 1열: pendingCount === 0 이므로 "지금 할 일 0건" 배너 미노출, 관심 높음만 보기(2)는 정확한 건수와 일치
     expect(container.querySelector('[data-testid="inbox-todo-summary-card"]')).toBeNull();
