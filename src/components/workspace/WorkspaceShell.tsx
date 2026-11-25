@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import { WorkspaceBottomNav, DEFAULT_WORKSPACE_TABS } from "./WorkspaceBottomNav";
 import { SAVE_STATE_LABELS, formatRelativeKo, type HonestSaveState } from "@/lib/ux/lexicon";
 import { WORKSPACE_IDENTITY, type WorkspaceServiceId } from "@/lib/ux/workspace-identity";
@@ -821,7 +822,7 @@ export function WorkspaceShell({
 
               const activeClass =
                 link.id === "home"
-                  ? "bg-slate-900 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_2px_8px_rgba(15,23,42,0.24)]"
+                  ? "bg-[#1D1D1F] text-white shadow-xs"
                   : WORKSPACE_IDENTITY[link.id as WorkspaceServiceId].activePillClass;
 
               return (
@@ -843,7 +844,7 @@ export function WorkspaceShell({
                     <span
                       data-testid={`workspace-nav-badge-${link.id}`}
                       aria-label={`처리할 일 ${badge}건`}
-                      className="min-w-[22px] h-5 sm:h-6 px-1.5 rounded-full bg-gradient-to-b from-[#FF3B5C] to-[#FF2D55] text-white text-sm font-bold shadow-[0_2px_6px_rgba(255,45,85,0.35)] flex items-center justify-center"
+                      className="min-w-[22px] h-5 sm:h-6 px-1.5 rounded-full bg-[#E11D48] text-white text-sm font-bold flex items-center justify-center"
                     >
                       {badge > 99 ? "99+" : badge}
                     </span>
@@ -858,8 +859,11 @@ export function WorkspaceShell({
             {/* Compact <1280px font-scale cycling button (prevents 768-1279px nav clipping, min-h-[44px]) */}
             <MobileFontScaleButton />
 
-            {/* Desktop >=1280px Font Density Toggle (표준 15px / 큰글씨 17px / 더 크게 19px / 아주 크게 21px) */}
-            <FontScaleToggle className="hidden xl:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 shrink-0" />
+            {/* Desktop >=1280px 1-capsule Font Scale Stepper (가- / 현재 / 가+) */}
+            <FontScaleToggle
+              variant="stepper"
+              className="hidden xl:inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] overflow-hidden border border-white/60 gap-0.5 shrink-0"
+            />
 
             <WorkspaceHelpButton workspace={workspace as HelpWorkspaceKey} />
 
@@ -1022,16 +1026,20 @@ export function WorkspaceShell({
                   </div>
                 )}
 
-                {onManualSync && (
+                {onManualSync && (saveState === "error" || saveState === "conflict" || isSyncing) && (
                   <button
                     type="button"
                     data-testid="workspace-manual-sync-btn"
                     disabled={isSyncing}
                     onClick={() => void onManualSync()}
-                    title="다른 창이나 모바일에서 수정한 최신 내용 불러오기"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/80 hover:bg-white border border-slate-900/[0.08] text-sm font-semibold text-[#1D1D1F] transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
+                    title="최신 내용 다시 불러오기"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/80 hover:bg-white border border-slate-900/[0.08] text-sm font-semibold text-[#1D1D1F] transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
                   >
-                    <span>{isSyncing ? "🔄 동기화 중..." : "🔄 동기화"}</span>
+                    <RefreshCw
+                      className={`h-4 w-4 ${isSyncing ? "animate-spin text-[#1D4ED8]" : "text-[#515154]"}`}
+                      aria-hidden="true"
+                    />
+                    <span>{isSyncing ? "동기화 중..." : "동기화"}</span>
                   </button>
                 )}
 
@@ -1040,7 +1048,7 @@ export function WorkspaceShell({
                   data-testid="workspace-editor-preview-drawer-btn"
                   onClick={() => setIsPreviewDrawerOpen(!isPreviewDrawerOpen)}
                   aria-expanded={isPreviewDrawerOpen}
-                  className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[44px] rounded-xl border border-[#007AFF]/25 bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-sm font-semibold text-[#0040DD] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all cursor-pointer shrink-0"
+                  className="hidden lg:inline-flex xl:hidden items-center gap-1 px-3 py-1.5 min-h-[44px] rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-[#1D1D1F] transition-all cursor-pointer shrink-0"
                 >
                   <span>
                     {isPreviewDrawerOpen ? `${previewDrawerLabel} 닫기` : `${previewDrawerLabel} 열기`}

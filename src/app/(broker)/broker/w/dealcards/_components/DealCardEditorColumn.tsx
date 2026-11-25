@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
 import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
 import type { PreviewLifecycleState } from "@/components/workspace/preview-sync/useEditorPreviewSync";
-import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import type { Card4Data, DealCardGenerationSource } from "@/lib/deal-card/card4-schema";
 import type { UnconvertedMemoItem } from "@/lib/deal-card/memo-pairing";
@@ -212,48 +212,6 @@ export function DealCardEditorColumn({
         </div>
       )}
 
-      {(isBlankCard || isAwaitingMemoGeneration) &&
-        !activeMemoText.trim() &&
-        !isSampleCard && (
-          <ZeroBlankStarterCard
-            testId="dealcard-zero-blank-starter"
-            heading="어떻게 시작하시겠어요? 가장 편한 방법 1가지를 누르세요"
-            subheading="빈 칸이 부담스러우면 아래 3가지 중 하나만 고르시면 바로 이어집니다."
-            options={[
-              {
-                id: "paste_memo",
-                badge: "가장 빠름",
-                title: "📋 내 메모 붙여넣기로 10초 시작",
-                subtitle: "카톡·문자·수첩 메모를 넣으면 4칸 요약과 문구를 자동 정리합니다",
-                testId: "dealcard-starter-paste-btn",
-                onClick: () => {
-                  memoTextareaRef.current?.focus();
-                  memoTextareaRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                  });
-                },
-              },
-              {
-                id: "manual_4fields",
-                badge: "직접 입력",
-                title: "✍️ 메모 없이 직접 4칸 채우기",
-                subtitle: "지역·용도·면적·가격대만 간단히 적고 바로 시작합니다",
-                testId: "dealcard-starter-manual-btn",
-                onClick: onSkipMemoManual,
-              },
-              {
-                id: "try_sample",
-                badge: "둘러보기",
-                title: "✨ 연습 예시 넣어보기",
-                subtitle: "샘플 매물로 딜카드 화면이 어떻게 나오는지 먼저 확인합니다",
-                testId: "dealcard-starter-sample-btn",
-                onClick: onFillSample,
-              },
-            ]}
-          />
-        )}
-
       <PairedMemoTopCard
         mode={isAwaitingMemoGeneration ? "capture" : "paired"}
         memoText={activeMemoText}
@@ -261,6 +219,7 @@ export function DealCardEditorColumn({
         onGenerateFromMemo={onGenerateFromMemo}
         onSaveMemoOnly={onSaveMemoOnly}
         onSkipMemoManual={onSkipMemoManual}
+        onFillSample={!selectedMemoOnly ? onFillSample : undefined}
         onOpenMemoImportModal={onOpenMemoImportModal}
         isGenerating={isGeneratingFromMemo}
         memoSaveStatus={memoSaveStatus}
@@ -268,29 +227,10 @@ export function DealCardEditorColumn({
         textareaRef={memoTextareaRef}
       />
 
-      {isAwaitingMemoGeneration ? (
-        <div
-          data-testid="dealcard-awaiting-memo-guide"
-          className="p-4 rounded-2xl bg-white/92 border border-dashed border-slate-300 flex flex-wrap items-center justify-between gap-3"
-        >
-          <p className="text-sm font-extrabold text-[#1D1D1F] break-keep">
-            위 메모창에 매물 메모를 적고 [✨ 메모로 딜카드 생성하기]를 눌러 주세요.
-          </p>
-          {!selectedMemoOnly && (
-            <button
-              type="button"
-              data-testid="dealcard-fill-sample-btn"
-              onClick={onFillSample}
-              className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-sm font-extrabold transition cursor-pointer shrink-0 whitespace-nowrap"
-            >
-              예시 채우기
-            </button>
-          )}
-        </div>
-      ) : (
+      {!isAwaitingMemoGeneration && (
         <div
           data-testid="dealcard-editor-toolbar"
-          className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5"
+          className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 flex flex-wrap items-center justify-between gap-2.5"
         >
           <span className="text-sm font-bold text-[#3A3A3C]">
             블라인드 딜카드 편집
@@ -302,7 +242,7 @@ export function DealCardEditorColumn({
                 type="button"
                 data-testid="dealcard-fill-sample-btn"
                 onClick={onFillSample}
-                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-sm font-bold transition cursor-pointer"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-[#1D1D1F] border border-slate-300 text-sm font-bold transition cursor-pointer"
               >
                 예시 채우기
               </button>
@@ -320,9 +260,10 @@ export function DealCardEditorColumn({
                   e.preventDefault();
                   onOpenImForBuilding(activeItem.id);
                 }}
-                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-sm font-extrabold transition cursor-pointer inline-flex items-center gap-1.5"
+                className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-[#1D1D1F] border border-slate-300 text-sm font-bold transition cursor-pointer inline-flex items-center gap-1.5"
               >
-                <span>📊 이 매물로 IM 편집 →</span>
+                <span>이 매물로 IM 편집</span>
+                <ArrowRight className="h-4 w-4 text-[#515154]" aria-hidden="true" />
               </a>
             )}
           </div>
@@ -338,7 +279,7 @@ export function DealCardEditorColumn({
             ? "hidden"
             : `space-y-4 rounded-2xl transition-all duration-300 ${
                 showRefilledHighlight
-                  ? "ring-2 ring-emerald-500/70 bg-emerald-50/35 p-2 -m-2"
+                  ? "ring-2 ring-[#059669]/60 bg-white p-2 -m-2"
                   : ""
               }`
         }
@@ -347,9 +288,9 @@ export function DealCardEditorColumn({
           <div
             data-testid="dealcard-refilled-pill"
             role="status"
-            className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-sm font-bold leading-snug"
+            className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-[#1D1D1F] text-sm font-bold leading-snug"
           >
-            ✓ 원문의 지번·건물명·상호를 자동으로 가린 공개용 딜카드가 채워졌습니다 (위 원문은 나만 보는 비공개 영역입니다)
+            비공개 정보를 가린 딜카드가 채워졌습니다
           </div>
         )}
         <Card4ConfirmCard

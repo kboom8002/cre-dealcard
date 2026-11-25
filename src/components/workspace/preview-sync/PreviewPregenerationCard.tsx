@@ -14,8 +14,8 @@ export interface PreviewPregenerationCardProps {
   title: string;
   description: string;
   checklist?: PregenerationChecklistItem[];
-  primaryActionLabel: string;
-  onPrimaryAction: () => void;
+  primaryActionLabel?: string;
+  onPrimaryAction?: () => void;
   primaryActionTestId?: string;
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
@@ -80,26 +80,30 @@ export function PreviewPregenerationCard({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <button
-          type="button"
-          data-testid={primaryActionTestId || `${testId}-primary-btn`}
-          onClick={onPrimaryAction}
-          className="min-h-[48px] px-4 rounded-xl bg-[#007AFF] hover:bg-[#0062CC] text-white text-base font-extrabold transition cursor-pointer"
-        >
-          {primaryActionLabel}
-        </button>
-        {secondaryActionLabel && onSecondaryAction && (
-          <button
-            type="button"
-            data-testid={secondaryActionTestId || `${testId}-secondary-btn`}
-            onClick={onSecondaryAction}
-            className="min-h-[48px] px-4 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 text-base font-bold transition cursor-pointer"
-          >
-            {secondaryActionLabel}
-          </button>
-        )}
-      </div>
+      {(primaryActionLabel && onPrimaryAction) || (secondaryActionLabel && onSecondaryAction) ? (
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {primaryActionLabel && onPrimaryAction && (
+            <button
+              type="button"
+              data-testid={primaryActionTestId || `${testId}-primary-btn`}
+              onClick={onPrimaryAction}
+              className="min-h-[48px] px-4 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-base font-extrabold transition cursor-pointer"
+            >
+              {primaryActionLabel}
+            </button>
+          )}
+          {secondaryActionLabel && onSecondaryAction && (
+            <button
+              type="button"
+              data-testid={secondaryActionTestId || `${testId}-secondary-btn`}
+              onClick={onSecondaryAction}
+              className="min-h-[48px] px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-[#1D1D1F] text-base font-bold transition cursor-pointer"
+            >
+              {secondaryActionLabel}
+            </button>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }

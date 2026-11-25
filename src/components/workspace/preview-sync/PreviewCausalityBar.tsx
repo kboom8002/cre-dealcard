@@ -39,27 +39,24 @@ export function PreviewCausalityBar({
         data-lifecycle="pre_generation"
         role="status"
         aria-live="polite"
-        className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 flex flex-col items-stretch gap-1.5 shadow-2xs"
+        className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 flex flex-col items-stretch gap-2"
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-2 text-sm font-bold text-slate-900 min-w-0">
+        <div className="flex items-center justify-between gap-2 min-h-[36px]">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1D1D1F] min-w-0">
             <span
               aria-hidden="true"
-              className="inline-block w-2.5 h-2.5 rounded-full border-2 border-slate-500 bg-transparent shrink-0"
+              className="inline-block w-2 h-2 rounded-full border-2 border-slate-400 bg-transparent shrink-0"
             />
             <span className="break-keep">미리보기 생성 전</span>
           </span>
           {auxActionSlot && <div className="shrink-0">{auxActionSlot}</div>}
         </div>
-        <p className="text-sm text-slate-600 break-keep">
-          핵심 항목을 입력하면 즉시 만들어집니다
-        </p>
         {onStartInput && (
           <button
             type="button"
             data-testid="preview-causality-start-btn"
             onClick={onStartInput}
-            className="w-full min-h-[44px] px-3.5 rounded-lg bg-[#007AFF] hover:bg-[#0062CC] text-white text-sm font-bold transition cursor-pointer"
+            className="w-full min-h-[44px] px-3.5 rounded-lg bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-sm font-bold transition cursor-pointer"
           >
             {startButtonLabel}
           </button>
@@ -75,15 +72,15 @@ export function PreviewCausalityBar({
         data-lifecycle="published_dirty"
         role="status"
         aria-live="polite"
-        className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-3 flex flex-col items-stretch gap-2.5 shadow-xs"
+        className="rounded-xl border-2 border-amber-400 bg-amber-50 px-3.5 py-2.5 flex flex-col items-stretch gap-2"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 space-y-0.5">
             <p className="text-sm font-extrabold text-amber-950 break-keep">
-              ▲ 고친 내용이 아직 고객 화면에는 반영 전입니다
+              고친 내용이 아직 고객 화면에는 반영 전입니다
             </p>
             <p className="text-sm text-amber-900 break-keep">
-              미리보기에만 반영된 상태입니다. 아래 버튼을 누르면 고객 링크에도 적용됩니다.
+              아래 버튼을 누르면 고객 링크에도 적용됩니다
             </p>
           </div>
           {auxActionSlot && <div className="shrink-0">{auxActionSlot}</div>}
@@ -94,7 +91,7 @@ export function PreviewCausalityBar({
             data-testid="preview-causality-resync-btn"
             onClick={onResyncPublished}
             disabled={isSyncing}
-            className="w-full min-h-[44px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-extrabold whitespace-nowrap transition cursor-pointer"
+            className="w-full min-h-[44px] px-4 rounded-xl bg-[#B45309] hover:bg-[#92400E] disabled:opacity-60 text-white text-sm font-extrabold whitespace-nowrap transition cursor-pointer"
           >
             {isSyncing ? "반영 중…" : resyncButtonLabel}
           </button>
@@ -110,24 +107,25 @@ export function PreviewCausalityBar({
         data-lifecycle="published_clean"
         role="status"
         aria-live="polite"
-        className="rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 flex flex-col items-stretch gap-1.5 shadow-xs"
+        className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 flex flex-col items-stretch gap-2"
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-extrabold text-emerald-900 break-keep">
-            ✓ 고객 화면과 일치
+        <div className="flex items-center justify-between gap-2 min-h-[36px]">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1D1D1F] min-w-0">
+            <span
+              aria-hidden="true"
+              className="inline-block w-2 h-2 rounded-full bg-[#059669] shrink-0"
+            />
+            <span className="break-keep">고객 화면과 일치</span>
           </span>
           {auxActionSlot && <div className="shrink-0">{auxActionSlot}</div>}
         </div>
-        <p className="text-sm text-emerald-800 break-keep">
-          지금 보이는 내용 그대로 반영되어 있습니다
-        </p>
         {liveUrl && (
           <a
             href={liveUrl}
             target="_blank"
             rel="noopener noreferrer"
             data-testid={liveLinkTestId || "preview-causality-live-link"}
-            className="min-h-[44px] w-full inline-flex items-center justify-center px-3 rounded-lg bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 text-sm font-bold whitespace-nowrap transition"
+            className="min-h-[44px] w-full inline-flex items-center justify-center px-3 rounded-lg bg-white border border-slate-300 text-[#1D1D1F] hover:bg-slate-50 text-sm font-bold whitespace-nowrap transition"
           >
             {liveUrlLabel}
           </a>
@@ -142,21 +140,16 @@ export function PreviewCausalityBar({
       data-lifecycle="live_draft"
       role="status"
       aria-live="polite"
-      className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 flex flex-col items-stretch gap-1"
+      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 flex items-center justify-between gap-2 min-h-[44px]"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-950 min-w-0">
-          <span
-            aria-hidden="true"
-            className="inline-block w-2.5 h-2.5 rounded-full bg-[#007AFF] shrink-0"
-          />
-          <span className="break-keep">실시간 미리보기</span>
-        </span>
-        {auxActionSlot && <div className="shrink-0">{auxActionSlot}</div>}
-      </div>
-      <p className="text-sm text-blue-900 break-keep">
-        항목을 누르면 해당 입력칸이 열립니다
-      </p>
+      <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1D1D1F] min-w-0">
+        <span
+          aria-hidden="true"
+          className="inline-block w-2 h-2 rounded-full bg-[#1D4ED8] shrink-0"
+        />
+        <span className="break-keep">실시간 미리보기</span>
+      </span>
+      {auxActionSlot && <div className="shrink-0">{auxActionSlot}</div>}
     </div>
   );
 }

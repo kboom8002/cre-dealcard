@@ -240,7 +240,7 @@ describe("고객 소통함 3열 CRM Cockpit 재균형 & 익명 스레드 소유�
     // 1열: pendingCount === 0 이므로 "지금 할 일 0건" 배너 미노출, 관심 높음만 보기(2)는 정확한 건수와 일치
     expect(container.querySelector('[data-testid="inbox-todo-summary-card"]')).toBeNull();
     const hotChip = container.querySelector('[data-testid="inbox-hot-only-chip"]') as HTMLButtonElement;
-    expect(hotChip.textContent).toContain("관심 높음만 보기 (2)");
+    expect(hotChip.textContent).toContain("관심 높음만 (2)");
     expect(container.querySelector('[data-testid="inbox-list-visible-count"]')?.textContent).toBe("표시 3건");
 
     await act(async () => {

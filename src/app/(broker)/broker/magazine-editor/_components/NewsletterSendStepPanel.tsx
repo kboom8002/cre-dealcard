@@ -105,7 +105,7 @@ export function NewsletterSendStepPanel({
   onBulkSubscribersImported,
   onKakaoShare,
   onCopyLink,
-  onCopyKakaoGreeting,
+  onCopyKakaoGreeting: _onCopyKakaoGreeting,
   onPublishWebOnly,
   onBackToContent,
   onSendSelected,
@@ -134,6 +134,9 @@ export function NewsletterSendStepPanel({
       return;
     }
     onSendSelected();
+  };
+  const onKakaoGreetingOrShare = () => {
+    onKakaoShare();
   };
 
   return (
@@ -176,12 +179,10 @@ export function NewsletterSendStepPanel({
       )}
 
       {/* ① 누구에게 보낼까요? */}
-      <div aria-label="① 누구에게 보낼까요?" className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-900">
-            ① 누구에게 보낼까요?
-          </span>
-        </div>
+      <div aria-label="① 받는 대상" className="space-y-3">
+        <h3 className="text-base font-extrabold text-[#1D1D1F]">
+          1. 받는 대상
+        </h3>
 
         <MagazinePublishChecklist
           headline={headline}
@@ -208,14 +209,14 @@ export function NewsletterSendStepPanel({
           <section
             data-testid="step3-empty-subscriber-card"
             aria-label="구독 고객 바로 등록"
-            className="rounded-2xl border border-blue-200 bg-blue-50/70 p-5 text-slate-900 space-y-3"
+            className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 text-[#1D1D1F] space-y-3"
           >
             <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-slate-900">
-                아직 등록된 구독 고객이 없습니다
+              <h3 className="text-base font-extrabold text-[#1D1D1F]">
+                등록된 구독 고객이 없습니다
               </h3>
-              <p className="text-sm font-medium text-slate-700">
-                화면을 이동하지 않고 바로 여기서 엑셀 파일이나 연락처 명단을 붙여넣어 구독 고객을 한 번에 등록할 수 있습니다.
+              <p className="text-sm font-medium text-[#515154]">
+                엑셀 파일이나 연락처 명단을 바로 등록할 수 있습니다
               </p>
             </div>
 
@@ -223,9 +224,9 @@ export function NewsletterSendStepPanel({
               type="button"
               data-testid="step3-empty-subscriber-bulk-btn"
               onClick={() => setIsBulkImportOpen(true)}
-              className="w-full sm:w-auto inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-blue-800 cursor-pointer"
+              className="w-full sm:w-auto inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#1D4ED8] px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-[#1E40AF] cursor-pointer"
             >
-              <span>📋 엑셀·명단으로 구독자 바로 등록하기</span>
+              <span>엑셀·명단으로 구독자 등록</span>
             </button>
           </section>
         )}
@@ -241,19 +242,12 @@ export function NewsletterSendStepPanel({
 
       {/* ② 어떻게 보낼까요? */}
       <section
-        aria-label="② 어떻게 보낼까요?"
-        className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4"
+        aria-label="② 발송 방식"
+        className="rounded-2xl border border-slate-200 bg-white p-5 text-[#1D1D1F] shadow-2xs space-y-4"
       >
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-900">
-              ② 어떻게 보낼까요?
-            </span>
-          </div>
-          <p className="text-sm font-medium text-slate-600 pt-1">
-            원하는 전달 방식을 고른 뒤 아래에서 바로 발송하거나 링크를 복사해 카카오톡·문자로 보내세요.
-          </p>
-        </div>
+        <h3 className="text-base font-extrabold text-[#1D1D1F]">
+          2. 발송 방식 및 공유
+        </h3>
 
         <div
           role="radiogroup"
@@ -315,71 +309,49 @@ export function NewsletterSendStepPanel({
           <div
             data-testid="step3-published-url-banner"
             aria-label="발행된 공개 독자 링크"
-            className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-950 space-y-2.5"
+            className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-3.5 text-[#1D1D1F] space-y-2"
           >
-            <p className="text-sm font-extrabold">
-              공개 독자 링크 (발행 완료)
+            <p className="text-sm font-bold flex items-center gap-1.5">
+              <span aria-hidden="true" className="inline-block w-2 h-2 rounded-full bg-[#059669]" />
+              <span>공개 독자 링크</span>
             </p>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
               <span
                 data-testid="step3-published-url-text"
-                className="min-w-0 flex-1 break-all font-mono text-sm font-semibold text-slate-800 select-all"
+                className="min-w-0 flex-1 break-all font-mono text-sm font-semibold text-[#1D1D1F] select-all"
               >
                 {publicUrl}
               </span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <a
-                  href={publicUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid="step3-published-open-btn"
-                  className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 hover:bg-slate-100 whitespace-nowrap"
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                  <span>공개 화면 열기 ↗</span>
-                </a>
-                <button
-                  type="button"
-                  data-testid="step3-published-copy-btn"
-                  onClick={onCopyLink}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 hover:bg-slate-100 whitespace-nowrap cursor-pointer"
-                >
-                  <Copy className="h-4 w-4" aria-hidden="true" />
-                  <span>복사</span>
-                </button>
-              </div>
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="step3-published-open-btn"
+                className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-[#1D1D1F] hover:bg-slate-50 whitespace-nowrap shrink-0"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                <span>열기 ↗</span>
+              </a>
             </div>
           </div>
         )}
 
-        <div className={onCopyKakaoGreeting ? "grid grid-cols-1 sm:grid-cols-3 gap-3" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
             data-testid="kakao-share-btn"
-            onClick={onKakaoShare}
-            className="min-h-[48px] rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-base font-extrabold text-amber-950 hover:bg-amber-100 flex items-center justify-center gap-2 cursor-pointer"
+            onClick={onKakaoGreetingOrShare}
+            className="min-h-[48px] rounded-xl bg-[#FEE500] border border-[#F5DC00] px-4 py-3 text-base font-extrabold text-[#191919] hover:bg-[#F7DE00] flex items-center justify-center gap-2 cursor-pointer"
           >
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
-            <span>카카오톡으로 공유</span>
+            <span>카톡으로 공유</span>
           </button>
-
-          {onCopyKakaoGreeting && (
-            <button
-              type="button"
-              data-testid="copy-kakao-greeting-btn"
-              onClick={onCopyKakaoGreeting}
-              className="min-h-[48px] rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base font-extrabold text-emerald-950 hover:bg-emerald-100 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Copy className="h-5 w-5" aria-hidden="true" />
-              <span>카톡 인사말 복사</span>
-            </button>
-          )}
 
           <button
             type="button"
             data-testid="copy-link-btn"
             onClick={onCopyLink}
-            className="min-h-[48px] rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-extrabold text-slate-900 hover:bg-slate-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="min-h-[48px] rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-bold text-[#1D1D1F] hover:bg-slate-50 flex items-center justify-center gap-2 cursor-pointer"
           >
             <Copy className="h-5 w-5" aria-hidden="true" />
             <span>링크 복사</span>
@@ -389,11 +361,9 @@ export function NewsletterSendStepPanel({
 
       {/* ③ 발송 실행 */}
       <section aria-label="③ 발송 실행" className="space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-900">
-            ③ 발송 실행
-          </span>
-        </div>
+        <h3 className="text-base font-extrabold text-[#1D1D1F]">
+          3. 발송 실행
+        </h3>
 
         {distributeOutcome && (
           <section

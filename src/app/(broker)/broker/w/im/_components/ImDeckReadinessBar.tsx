@@ -74,29 +74,24 @@ export function ImDeckReadinessBar({
   return (
     <div
       data-testid="im-deck-readiness-bar"
-      className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-2xs space-y-2"
+      className="rounded-xl border border-slate-200 bg-white px-3 py-2 space-y-1.5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-extrabold text-slate-900">
-            발행 준비도
+          <span className="text-sm font-bold text-[#1D1D1F]">
+            준비도
           </span>
           <span
             data-testid="im-deck-readiness-count"
-            className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-extrabold ${
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-sm font-bold ${
               allReady
-                ? "bg-emerald-100 text-emerald-900 border border-emerald-200"
-                : "bg-amber-100 text-amber-950 border border-amber-300"
+                ? "bg-slate-100 text-[#059669]"
+                : "bg-amber-50 text-amber-950 border border-amber-200"
             }`}
           >
             {readyCount}/5 채워짐
           </span>
         </div>
-        <span className="text-sm text-slate-600 break-keep">
-          {allReady
-            ? "고객에게 바로 보낼 수 있습니다"
-            : "비어 있는 항목을 누르면 바로 이동합니다"}
-        </span>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -106,13 +101,15 @@ export function ImDeckReadinessBar({
             type="button"
             data-testid={`im-readiness-chip-${item.key}`}
             onClick={() => onFocusEditorUnit?.(item.unitId)}
-            className={`inline-flex min-h-[44px] items-center gap-1 rounded-lg border px-2.5 py-1.5 text-sm font-bold transition cursor-pointer ${
+            className={`inline-flex min-h-[44px] items-center gap-1 rounded-lg border px-2.5 py-1 text-sm font-bold transition cursor-pointer ${
               item.ready
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                : "border-amber-300 bg-amber-50/70 text-amber-950 hover:bg-amber-100"
+                ? "border-slate-200 bg-slate-50 text-[#515154] hover:bg-slate-100"
+                : "border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100"
             }`}
           >
-            <span aria-hidden="true">{item.ready ? "✓" : "+"}</span>
+            <span aria-hidden="true" className={item.ready ? "text-[#059669]" : "text-amber-700"}>
+              {item.ready ? "✓" : "+"}
+            </span>
             <span>{item.label}</span>
           </button>
         ))}

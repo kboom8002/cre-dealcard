@@ -343,7 +343,7 @@ describe("[1.4] 일간·주간·월간 발행 주기 SSOT", () => {
       expect(screen.getByTestId("quickstart-cadence-daily")).toBeTruthy();
       expect(screen.getByTestId("quickstart-cadence-weekly")).toBeTruthy();
       expect(screen.getByTestId("quickstart-cadence-monthly")).toBeTruthy();
-      expect(screen.getByTestId("metadata-cadence-weekly")).toBeTruthy();
+      expect(screen.queryByTestId("metadata-cadence-selector")).toBeNull();
       expect(screen.getByTestId("new-newsletter-btn").textContent).toContain(
         NEWSLETTER_CADENCE_META.monthly.newButtonLabel,
       );

@@ -183,7 +183,7 @@ describe("DealCard CASE-01 Upgrade & 5-Case Golden Audit", () => {
     });
     expect(
       container.querySelector('[data-testid="dealcard-strength-tag-caption"]')?.textContent
-    ).toContain("장점 1 선택됨");
+    ).toContain("빠른 장점 추가 · 장점 1");
 
     await act(async () => {
       (container.querySelector('[data-testid="dealcard-strength-chip-loc_corner"]') as HTMLButtonElement).click();

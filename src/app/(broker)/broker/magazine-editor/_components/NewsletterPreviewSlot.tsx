@@ -258,10 +258,8 @@ export function NewsletterPrimaryActionButton({
       aria-busy={sending || saveState === "saving"}
       className={`w-full inline-flex min-h-[56px] items-center justify-center gap-2 rounded-2xl px-6 py-3 text-base font-extrabold text-white shadow-sm transition disabled:opacity-60 cursor-pointer ${
         isPublished && previewLifecycle === "published_dirty"
-          ? "bg-amber-600 hover:bg-amber-700"
-          : isPublished && previewLifecycle === "published_clean"
-            ? "bg-emerald-700 hover:bg-emerald-800"
-            : "bg-blue-700 hover:bg-blue-800"
+          ? "bg-[#B45309] hover:bg-[#92400E]"
+          : "bg-[#1D4ED8] hover:bg-[#1E40AF]"
       }`}
     >
       {sending ||
@@ -273,27 +271,27 @@ export function NewsletterPrimaryActionButton({
       ) : isPublished && previewLifecycle === "published_dirty" ? (
         <>
           <Save className="h-5 w-5" aria-hidden="true" />
-          <span>변경사항 발행본에 반영하기</span>
+          <span>변경사항 발행본에 반영</span>
         </>
       ) : isPublished && previewLifecycle === "published_clean" && activeStep !== "send" ? (
         <>
           <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
-          <span>발행 완료 · 공유 / 다시 보내기</span>
+          <span>발행 완료 · 공유</span>
         </>
       ) : sendMode === "web_only" ? (
         <>
           <Link2 className="h-5 w-5" aria-hidden="true" />
-          <span>🔗 웹 링크만 먼저 발행·복사</span>
+          <span>웹 링크만 발행·복사</span>
         </>
       ) : sendMode === "schedule_0830" ? (
         <>
           <CalendarClock className="h-5 w-5" aria-hidden="true" />
-          <span>⏰ 오전 08:30 예약 발송 준비</span>
+          <span>오전 08:30 예약 발송 준비</span>
         </>
       ) : isPublished && previewLifecycle === "published_clean" ? (
         <>
           <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
-          <span>발행 완료 · 다시 보내기</span>
+          <span>다시 보내기</span>
         </>
       ) : (
         <>

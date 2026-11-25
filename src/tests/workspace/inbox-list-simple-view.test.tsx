@@ -155,7 +155,7 @@ describe('Inbox left list — simple / detailed view', () => {
     expect(q(container, 'inbox-todo-summary-card')).toBeNull();
     const hotChip = q(container, 'inbox-hot-only-chip');
     expect(hotChip).not.toBeNull();
-    expect(hotChip!.textContent).toContain('관심 높음만 보기 (0)');
+    expect(hotChip!.textContent).toContain('관심 높음만 (0)');
     expect(q(container, 'inbox-list-visible-count')?.textContent).toContain('표시 1건');
   });
 

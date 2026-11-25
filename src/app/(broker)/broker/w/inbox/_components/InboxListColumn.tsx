@@ -112,14 +112,13 @@ export function InboxListColumn({
 
   const listControls = (
     <>
-      {/* 1열 최상단 제목 + 단일 [+ 고객 등록] 버튼 (모달에서 직접/엑셀 통합) */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-base font-extrabold text-slate-900">고객 목록</span>
+      {/* 1열 최상단 단일 [+ 고객 등록] 버튼 (모달에서 직접/엑셀 통합) */}
+      <div>
         <button
           type="button"
           onClick={onOpenNewClientModal}
           data-testid="open-new-client-modal-btn"
-          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full bg-blue-600 px-3.5 py-2 text-sm font-bold text-white shadow-2xs transition-colors hover:bg-blue-700 cursor-pointer whitespace-nowrap"
+          className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#1D4ED8] px-4 py-2.5 text-base font-bold text-white shadow-xs transition-colors hover:bg-[#1E40AF] cursor-pointer whitespace-nowrap"
         >
           + 고객 등록
         </button>
@@ -256,12 +255,11 @@ export function InboxListColumn({
           onClick={() => onToggleHotOnly?.()}
           className={`inline-flex min-h-[44px] items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer whitespace-nowrap ${
             hotOnly
-              ? "border-amber-600 bg-amber-500 text-white shadow-2xs"
-              : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+              ? "border-[#1D4ED8] bg-[#1D4ED8] text-white"
+              : "border-slate-300 bg-white text-[#1D1D1F] hover:bg-slate-50"
           }`}
         >
-          <span aria-hidden="true">🔥</span>
-          <span>관심 높음만 보기 ({hotCount})</span>
+          <span>관심 높음만 ({hotCount})</span>
         </button>
         <span
           data-testid="inbox-list-visible-count"

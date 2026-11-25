@@ -606,7 +606,7 @@ describe('Wave 3 Agent 2: WorkspaceShell, Inbox, DealCards & Magazine Split-Scre
       container.querySelector('[data-testid="step3-published-open-btn"]')?.getAttribute('href')
     ).toBe('https://credeal.net/magazine/hong/2026-11-23');
     expect(container.querySelector('[data-testid="distribute-outcome-open-btn"]')).toBeNull();
-    const step3CopyBtn = container.querySelector('[data-testid="step3-published-copy-btn"]');
+    const step3CopyBtn = container.querySelector('[data-testid="copy-link-btn"]');
     expect(step3CopyBtn).not.toBeNull();
     fireEvent.click(step3CopyBtn!);
     expect(onCopyLink).toHaveBeenCalledTimes(1);

@@ -13,7 +13,6 @@ import {
   type RentRollImportPayload,
 } from "@/components/broker/rent-roll-importer";
 import { TERMS } from "@/lib/ux/lexicon";
-import { ZeroBlankStarterCard } from "@/components/workspace/ZeroBlankStarterCard";
 import { m2ToPyeong } from "@/domain/building/im-core/facts/area";
 import {
   appendSecondaryLotsToAddress,
@@ -297,7 +296,6 @@ export function ImEditorPanels({
   const [dragPhotoIdx, setDragPhotoIdx] = useState<number | null>(null);
   const [expandedPhotoKey, setExpandedPhotoKey] = useState<string | null>(null);
   const [brokenThumbMap, setBrokenThumbMap] = useState<Record<string, boolean>>({});
-  const [starterHighlightAddress, setStarterHighlightAddress] = useState<boolean>(false);
   const [isExpectedImportOpen, setIsExpectedImportOpen] = useState<boolean>(false);
 
   const showSampleBanner = isSampleSeedImItem(
@@ -420,82 +418,12 @@ export function ImEditorPanels({
         </div>
       )}
 
-      {!showSampleBanner &&
-        !imTitle.trim() &&
-        !address.trim() &&
-        activeEditorTab === "specs" && (
-          <ZeroBlankStarterCard
-            testId="im-zero-blank-starter"
-            heading="처음 작성하시는 매물인가요? 편한 순서부터 시작하세요"
-            subheading="주소·엑셀·사진 중 가지고 계신 자료 1가지만 먼저 올리시면 나머지도 쉽게 채워집니다."
-            options={[
-              {
-                id: "lookup_address",
-                badge: "추천 1번",
-                title: "🏢 매물 주소로 대장·토지 자동 조회",
-                subtitle: "지번이나 도로명 주소를 넣으면 건축물대장·공시지가를 불러옵니다",
-                testId: "im-starter-address-btn",
-                onClick: () => {
-                  onChangeEditorTab("specs");
-                  onNotifyEditorFocus("im-unit-address");
-                  setStarterHighlightAddress(true);
-                  if (typeof window !== "undefined") {
-                    window.requestAnimationFrame(() => {
-                      const el = document.getElementById("im-address-input");
-                      el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-                      el?.focus({ preventScroll: true });
-                    });
-                    window.setTimeout(() => setStarterHighlightAddress(false), 3200);
-                  }
-                },
-              },
-              {
-                id: "upload_rentroll",
-                badge: "엑셀 보유 시",
-                title: "📊 엑셀 임대현황표 먼저 올리기",
-                subtitle: "가지고 계신 임대차 내역표(.xlsx·.csv)나 표 텍스트를 바로 반영합니다",
-                testId: "im-starter-rentroll-btn",
-                onClick: () => {
-                  onChangeEditorTab("rentroll");
-                  if (!isRentRollImportOpen) {
-                    onToggleRentRollImport();
-                  }
-                  if (typeof window !== "undefined") {
-                    window.requestAnimationFrame(() => {
-                      document
-                        .querySelector('[data-testid="im-rentroll-xlsx-importer"]')
-                        ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-                    });
-                  }
-                },
-              },
-              {
-                id: "upload_photos",
-                badge: "사진 보유 시",
-                title: "📷 현장 사진 먼저 올리기",
-                subtitle: "외관·내부 사진을 올리면 표지와 사진 슬라이드에 자동 배치됩니다",
-                testId: "im-starter-photos-btn",
-                onClick: () => {
-                  onChangeEditorTab("media_publish");
-                  if (typeof window !== "undefined") {
-                    window.requestAnimationFrame(() => {
-                      document
-                        .querySelector('[data-testid="im-tab-panel-photos"]')
-                        ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-                    });
-                  }
-                },
-              },
-            ]}
-          />
-        )}
-
       {/* Top 4 Primary Tabs */}
       <div
         role="tablist"
         aria-label="IM 작성 단계"
         data-testid="im-editor-primary-tabs"
-        className="sticky top-2 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-slate-200/95 backdrop-blur-xs border border-slate-300 shadow-xs"
+        className="sticky top-2 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 rounded-xl bg-slate-100 border border-slate-200"
       >
         {(
           [
@@ -543,31 +471,28 @@ export function ImEditorPanels({
                 onClearActionAlert();
                 onChangeEditorTab(tab.id);
               }}
-              className={`min-h-[56px] px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer min-w-0 overflow-hidden ${
+              className={`min-h-[56px] px-3 py-2 rounded-lg text-left transition-all cursor-pointer min-w-0 overflow-hidden border ${
                 isActive
-                  ? "bg-[#0F172A] text-white shadow-sm"
-                  : "bg-white/90 text-slate-800 hover:bg-white"
+                  ? "bg-white text-[#1D1D1F] border-[#1D4ED8] ring-1 ring-[#1D4ED8]/20 shadow-xs"
+                  : "bg-transparent border-transparent text-[#515154] hover:bg-white/70 hover:text-[#1D1D1F]"
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-1">
+              <div className="flex items-center justify-between gap-1">
                 <span className="text-sm font-extrabold leading-tight break-keep">
                   {tab.label}
                 </span>
                 {tab.done && (
                   <span
-                    className={`text-sm font-extrabold px-1.5 py-0.5 rounded-full shrink-0 ${
-                      isActive
-                        ? "bg-emerald-700 text-white"
-                        : "bg-emerald-100 text-emerald-800"
-                    }`}
+                    aria-label="완료"
+                    className="text-sm font-extrabold text-[#059669] shrink-0"
                   >
-                    ✓ 완료
+                    ✓
                   </span>
                 )}
               </div>
               <div
                 className={`text-sm mt-0.5 font-medium break-keep ${
-                  isActive ? "text-amber-300" : "text-slate-600"
+                  isActive ? "text-[#1D4ED8]" : "text-[#6E6E73]"
                 }`}
               >
                 {tab.sub}
@@ -912,21 +837,8 @@ export function ImEditorPanels({
 
         {/* 카드 C: 건물 주소 및 공부 제원 */}
         <div
-          data-highlighted={starterHighlightAddress ? "true" : undefined}
-          className={`p-4 rounded-2xl border space-y-4 transition-all ${
-            starterHighlightAddress
-              ? "bg-blue-50/60 border-[#1D4ED8] ring-4 ring-blue-400/40"
-              : "bg-[#F8FAFC] border-slate-200"
-          }`}
+          className="p-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] space-y-4"
         >
-          {starterHighlightAddress && (
-            <div
-              data-testid="im-starter-address-guide"
-              className="rounded-xl bg-[#1D4ED8] text-white px-3.5 py-2 text-sm font-extrabold"
-            >
-              👇 아래 칸에 주소를 붙여넣고 [주소로 건물 정보 자동 채우기] 버튼을 누르세요
-            </div>
-          )}
           <div
             className="space-y-1.5"
             data-testid="im-address-section"
@@ -1802,12 +1714,9 @@ export function ImEditorPanels({
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
-            <h2 className="text-xl font-extrabold text-[#0F172A]">
+            <h2 className="text-xl font-extrabold text-[#1D1D1F]">
               핵심 장점 3가지 · 담당 중개사 안내
             </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              명사형 종결 개조식으로 자동 작성되며, 요약 슬라이드에는 <strong>소제목 + 상세 설명</strong>이 함께 표시됩니다.
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {activeEditorTab === "axios_brief" && selectedItemActionsNode}
@@ -1817,7 +1726,7 @@ export function ImEditorPanels({
               disabled={isAiPointsBusy}
               aria-busy={isAiPointsBusy}
               onClick={onReclusterImAxios}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-sm font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 disabled:opacity-60 text-[#1D1D1F] text-sm font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0"
             >
               <span>{isAiPointsBusy ? TERMS.aiWriting : TERMS.aiWriteButton}</span>
             </button>
@@ -1827,10 +1736,10 @@ export function ImEditorPanels({
         {allAxiosHighlightsEmpty && (
           <div
             data-testid="im-axios-empty-ai-banner"
-            className="rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-4 sm:p-5 space-y-3 shadow-2xs"
+            className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 space-y-2.5"
           >
-            <p className="text-base font-extrabold text-slate-950 leading-snug">
-              비어 있는 장점 3가지를 입력된 건물·수익률 데이터로 3초 만에 자동 작성할 수 있습니다
+            <p className="text-base font-bold text-[#1D1D1F] leading-snug">
+              입력된 건물·수익률 정보로 장점 3가지를 바로 채울 수 있습니다
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -1839,18 +1748,15 @@ export function ImEditorPanels({
                 disabled={isAiPointsBusy}
                 aria-busy={isAiPointsBusy}
                 onClick={onReclusterImAxios}
-                className="min-h-[48px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-700 to-blue-700 hover:from-purple-800 hover:to-blue-800 disabled:opacity-60 text-white text-base font-extrabold shadow-sm transition cursor-pointer inline-flex items-center gap-2"
+                className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-60 text-white text-base font-extrabold shadow-xs transition cursor-pointer inline-flex items-center gap-2"
               >
                 <span>
                   {isAiPointsBusy
                     ? TERMS.aiWriting
-                    : "✨ 건물·수익률 정보로 장점 3가지 자동 작성하기"}
+                    : "건물·수익률 정보로 장점 3가지 자동 작성"}
                 </span>
               </button>
             </div>
-            <p className="text-sm font-medium text-slate-700 leading-relaxed">
-              직접 적거나 [AI로 쓰기]를 누르지 않아도, 다음 ④단계에서 [IM 만들기]를 누르면 기본 요약이 함께 채워집니다.
-            </p>
           </div>
         )}
 
@@ -1876,18 +1782,12 @@ export function ImEditorPanels({
                 key={idx}
                 data-testid={`im-axios-postit-${idx}`}
                 onFocusCapture={() => onNotifyEditorFocus(`im-unit-highlight-${idx}`)}
-                style={{ backgroundColor: style.bg, borderColor: style.border }}
-                className="rounded-xl border border-l-4 p-4 space-y-2.5 shadow-2xs"
+                style={{ borderLeftColor: style.badgeText }}
+                className="rounded-xl border border-slate-200 border-l-4 bg-white p-4 space-y-2.5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold px-2 py-0.5 rounded bg-slate-200/80 text-slate-700">
-                      포인트 0{idx + 1} 가이드 · 슬라이드 미표시
-                    </span>
-                    <span
-                      style={{ backgroundColor: style.badgeBg, color: style.badgeText }}
-                      className="text-sm font-extrabold px-2 py-0.5 rounded"
-                    >
+                    <span className="text-sm font-bold px-2 py-0.5 rounded bg-slate-100 text-[#1D1D1F]">
                       {style.label}
                     </span>
                   </div>
@@ -2249,28 +2149,12 @@ export function ImEditorPanels({
                   onFilesSelected(droppedFiles, "exterior");
                 }
               }}
-              className={`rounded-xl border-2 border-dashed p-3.5 space-y-2.5 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] transition-colors ${
+              className={`rounded-xl border-2 border-dashed p-3.5 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] transition-colors ${
                 dragZoneOver === "exterior"
-                  ? "border-blue-600 bg-blue-50/90"
-                  : "border-blue-300 bg-white hover:border-blue-400"
+                  ? "border-[#1D4ED8] bg-slate-50"
+                  : "border-slate-300 bg-white hover:border-slate-400"
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-extrabold text-[#0F172A]">
-                  외부·전경 사진 (1번 = 대표 외관)
-                </span>
-                <span className="text-sm font-bold text-[#1D4ED8] bg-blue-50 px-2 py-0.5 rounded">
-                  드래그 · Ctrl+V
-                </span>
-              </div>
-              <div
-                onClick={() => exteriorFileInputRef.current?.click()}
-                className="rounded-lg bg-[#F8FAFC] border border-dashed border-blue-200 px-3 py-3 text-center text-sm text-slate-600 cursor-pointer hover:bg-blue-50/50"
-              >
-                {dragZoneOver === "exterior"
-                  ? "여기에 놓으면 외부 사진으로 즉시 추가됩니다"
-                  : "파일을 여기로 끌어다 놓거나 클릭하여 여러 장 선택하세요"}
-              </div>
               <input
                 ref={exteriorFileInputRef}
                 type="file"
@@ -2289,9 +2173,16 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-exterior-btn"
                 onClick={() => exteriorFileInputRef.current?.click()}
-                className="w-full min-h-[44px] px-3 py-1.5 rounded-lg bg-[#EFF6FF] border border-blue-300 text-sm font-extrabold text-[#1E3A8A] hover:bg-blue-100 cursor-pointer"
+                className="w-full min-h-[76px] flex flex-col items-center justify-center gap-1 rounded-lg bg-[#F8FAFC] hover:bg-slate-100 px-3 py-3 text-center cursor-pointer transition-colors"
               >
-                + 외부·전경 사진 파일 선택
+                <span className="text-sm font-extrabold text-[#1D1D1F]">
+                  + 외부·전경 사진 올리기 (1번 = 대표)
+                </span>
+                <span className="text-sm text-[#515154]">
+                  {dragZoneOver === "exterior"
+                    ? "놓으면 외부 사진으로 추가됩니다"
+                    : "클릭·드래그 · Ctrl+V"}
+                </span>
               </button>
             </div>
 
@@ -2320,28 +2211,12 @@ export function ImEditorPanels({
                   onFilesSelected(droppedFiles, "interior");
                 }
               }}
-              className={`rounded-xl border-2 border-dashed p-3.5 space-y-2.5 transition-colors ${
+              className={`rounded-xl border-2 border-dashed p-3.5 transition-colors ${
                 dragZoneOver === "interior"
-                  ? "border-blue-600 bg-blue-50/90"
+                  ? "border-[#1D4ED8] bg-slate-50"
                   : "border-slate-300 bg-white hover:border-slate-400"
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-extrabold text-[#0F172A]">
-                  내부·층별 사진
-                </span>
-                <span className="text-sm font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                  각 2장+ 슬라이드 분리
-                </span>
-              </div>
-              <div
-                onClick={() => interiorFileInputRef.current?.click()}
-                className="rounded-lg bg-[#F8FAFC] border border-dashed border-slate-200 px-3 py-3 text-center text-sm text-slate-600 cursor-pointer hover:bg-slate-100/70"
-              >
-                {dragZoneOver === "interior"
-                  ? "여기에 놓으면 내부 사진으로 즉시 추가됩니다"
-                  : "로비·승강기·매장 내부 사진을 끌어다 놓거나 클릭하세요"}
-              </div>
               <input
                 ref={interiorFileInputRef}
                 type="file"
@@ -2360,9 +2235,16 @@ export function ImEditorPanels({
                 type="button"
                 data-testid="im-photo-select-interior-btn"
                 onClick={() => interiorFileInputRef.current?.click()}
-                className="w-full min-h-[44px] px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-sm font-extrabold text-slate-800 hover:bg-slate-100 cursor-pointer"
+                className="w-full min-h-[76px] flex flex-col items-center justify-center gap-1 rounded-lg bg-[#F8FAFC] hover:bg-slate-100 px-3 py-3 text-center cursor-pointer transition-colors"
               >
-                + 내부·층별 사진 파일 선택
+                <span className="text-sm font-extrabold text-[#1D1D1F]">
+                  + 내부·층별 사진 올리기
+                </span>
+                <span className="text-sm text-[#515154]">
+                  {dragZoneOver === "interior"
+                    ? "놓으면 내부 사진으로 추가됩니다"
+                    : "클릭 또는 사진 끌어다 놓기"}
+                </span>
               </button>
             </div>
           </div>
@@ -2391,14 +2273,14 @@ export function ImEditorPanels({
               <div className="space-y-3 pt-2 text-left">
                 <div
                   data-testid="im-photo-slide-allocation-banner"
-                  className="rounded-xl border border-blue-200 bg-blue-50/70 px-3.5 py-2.5 text-sm font-bold text-[#1E3A8A] flex flex-wrap items-center justify-between gap-2"
+                  className="rounded-xl border border-slate-200 bg-[#F8FAFC] px-3.5 py-2 text-sm font-bold text-[#1D1D1F] flex flex-wrap items-center justify-between gap-2"
                 >
                   <span>
-                    📄 현재 총 {resolvedPhotos.length}장 (외부 {extCount} · 내부 {intCount}) → 발표자료(PPT) 사진 {pptSlideCount}면({firstTwelve.length}장)으로 자동 배치됩니다
+                    사진 {resolvedPhotos.length}장 (외부 {extCount} · 내부 {intCount} · PPT {pptSlideCount}면)
                   </span>
                   {resolvedPhotos.length > 12 && (
                     <span className="text-sm font-semibold text-amber-900">
-                      모바일 IM에는 {resolvedPhotos.length}장 전체가 보이며, 발표자료(PPT)에는 앞쪽 12장까지 실립니다
+                      PPT는 앞쪽 12장 반영
                     </span>
                   )}
                 </div>
@@ -2631,49 +2513,6 @@ export function ImEditorPanels({
               </div>
             );
           })()}
-        </div>
-
-        <div
-          data-testid="im-step4-footer-cta-bar"
-          className="hidden xl:flex p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex-col sm:flex-row sm:items-center justify-between gap-3"
-        >
-          <div className="space-y-0.5">
-            <p className="text-base font-extrabold text-[#0F172A] break-keep">
-              입력을 마쳤다면 바로 IM을 만들어 보세요
-            </p>
-            <p className="text-sm text-[#475569] break-keep">
-              모바일 IM 링크와 10면 발표자료가 함께 준비됩니다. 완료 후 [🔗 IM 링크 복사]로 바로 전달할 수 있습니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              data-testid="im-step4-generate-btn"
-              disabled={isGenerating}
-              aria-busy={isGenerating}
-              onClick={onQuickGenerate}
-              className="min-h-[52px] px-6 py-3 bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-50 text-white rounded-xl font-extrabold text-base transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
-            >
-              <span>{generateButtonLabel}</span>
-            </button>
-            {onCopyShareLink && (
-              <button
-                type="button"
-                data-testid="im-step4-copy-link-btn"
-                disabled={isGenerating || isProvisioningSheet}
-                onClick={onCopyShareLink}
-                className={`min-h-[52px] px-4 py-3 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer border shrink-0 whitespace-nowrap ${
-                  isShareLinkCopied
-                    ? "bg-emerald-600 text-white border-emerald-700"
-                    : "bg-white hover:bg-emerald-50 text-emerald-950 border-emerald-400"
-                }`}
-              >
-                <span>
-                  {isShareLinkCopied ? "✓ IM 링크 복사됨" : "🔗 IM 링크 복사"}
-                </span>
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>

@@ -38,9 +38,7 @@ import {
 } from "@/lib/deal-card/memo-pairing";
 import { cleanBlindPoints, validateBlindPoints } from "@/lib/deal-card/blind-guard";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
-import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
-import { Copy, Trash2 } from "lucide-react";
 import { repairDealCardLine } from "@/lib/deal-card/copy-limits";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { useWorkspaceAutosave } from "@/lib/hooks/useWorkspaceAutosave";
@@ -2960,34 +2958,6 @@ function DealCardsWorkspaceInner() {
       ? pendingDeleteModal.target.title.trim()
       : undefined;
 
-  const editorHeaderActions = selectedMemoOnly ? (
-    <EditorHeaderActionButton
-      testId="dealcard-header-delete-memo-btn"
-      label="메모 삭제"
-      icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
-      tone="danger"
-      onClick={(e) => handleDeleteUnconvertedMemo(selectedMemoOnly, e)}
-    />
-  ) : activeItem ? (
-    <>
-      <EditorHeaderActionButton
-        testId="dealcard-header-duplicate-btn"
-        label="복제"
-        title={`${activeItem.card4.headline || activeItem.title || "딜카드"} 복제`}
-        icon={<Copy className="h-4 w-4" aria-hidden="true" />}
-        onClick={(e) => handleDuplicateItem(activeItem, e)}
-      />
-      <EditorHeaderActionButton
-        testId="dealcard-header-delete-btn"
-        label={isSingleUntouchedStarter ? "입력 비우기" : "삭제"}
-        title={`${activeItem.card4.headline || activeItem.title || "딜카드"} 삭제`}
-        icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
-        tone="danger"
-        onClick={(e) => handleDeleteItem(activeItem, e)}
-      />
-    </>
-  ) : undefined;
-
   return (
     <>
       <WorkspaceShell
@@ -2999,7 +2969,6 @@ function DealCardsWorkspaceInner() {
         editorSlot={editorSlot}
         previewSlot={previewSlot}
         primaryActionSlot={primaryActionSlot}
-        editorHeaderActions={editorHeaderActions}
         saveState={autosave.status}
         lastSavedAt={autosave.lastSavedAt}
         onRetrySave={() => {

@@ -58,13 +58,13 @@ export const WORKSPACE_IDENTITY: Readonly<
     textClass: "text-emerald-700",
     borderClass: "border-emerald-300",
     activePillClass:
-      "bg-gradient-to-b from-[#10B981] to-[#059669] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(5,150,105,0.28)]",
+      "bg-[#059669] text-white shadow-xs",
     bottomTabActiveClass:
-      "bg-emerald-600/12 text-[#047857] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
+      "bg-emerald-600/12 text-[#047857] font-semibold",
     bottomTabBarClass: "bg-[#059669]",
     doorGlowClass: "from-[#10B981]/[0.09] via-transparent to-transparent",
     doorAccentBgClass:
-      "bg-gradient-to-b from-[#10B981] to-[#059669] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(5,150,105,0.28)]",
+      "bg-[#059669] text-white shadow-xs",
     doorBadgeHighlightClass:
       "bg-[#10B981]/12 text-[#065F46] border-[#10B981]/28 hover:bg-[#10B981]/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
   },
@@ -83,13 +83,13 @@ export const WORKSPACE_IDENTITY: Readonly<
     textClass: "text-amber-700",
     borderClass: "border-amber-300",
     activePillClass:
-      "bg-gradient-to-b from-[#F59E0B] to-[#D97706] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(217,119,6,0.28)]",
+      "bg-[#B45309] text-white shadow-xs",
     bottomTabActiveClass:
-      "bg-amber-500/14 text-[#B45309] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
-    bottomTabBarClass: "bg-[#D97706]",
+      "bg-amber-500/14 text-[#B45309] font-semibold",
+    bottomTabBarClass: "bg-[#B45309]",
     doorGlowClass: "from-[#F59E0B]/[0.10] via-transparent to-transparent",
     doorAccentBgClass:
-      "bg-gradient-to-b from-[#F59E0B] to-[#D97706] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(217,119,6,0.28)]",
+      "bg-[#B45309] text-white shadow-xs",
     doorBadgeHighlightClass:
       "bg-[#F59E0B]/14 text-[#92400E] border-[#F59E0B]/30 hover:bg-[#F59E0B]/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
   },
@@ -108,13 +108,13 @@ export const WORKSPACE_IDENTITY: Readonly<
     textClass: "text-blue-700",
     borderClass: "border-blue-300",
     activePillClass:
-      "bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(29,78,216,0.28)]",
+      "bg-[#1D4ED8] text-white shadow-xs",
     bottomTabActiveClass:
-      "bg-blue-600/12 text-[#1D4ED8] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
+      "bg-blue-600/12 text-[#1D4ED8] font-semibold",
     bottomTabBarClass: "bg-[#1D4ED8]",
     doorGlowClass: "from-[#2563EB]/[0.09] via-transparent to-transparent",
     doorAccentBgClass:
-      "bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(29,78,216,0.28)]",
+      "bg-[#1D4ED8] text-white shadow-xs",
     doorBadgeHighlightClass:
       "bg-[#2563EB]/12 text-[#1E40AF] border-[#2563EB]/25 hover:bg-[#2563EB]/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
   },
@@ -133,13 +133,13 @@ export const WORKSPACE_IDENTITY: Readonly<
     textClass: "text-pink-700",
     borderClass: "border-pink-300",
     activePillClass:
-      "bg-gradient-to-b from-[#EC4899] to-[#DB2777] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(219,39,119,0.28)]",
+      "bg-[#BE185D] text-white shadow-xs",
     bottomTabActiveClass:
-      "bg-pink-600/12 text-[#BE185D] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
-    bottomTabBarClass: "bg-[#DB2777]",
+      "bg-pink-600/12 text-[#BE185D] font-semibold",
+    bottomTabBarClass: "bg-[#BE185D]",
     doorGlowClass: "from-[#EC4899]/[0.09] via-transparent to-transparent",
     doorAccentBgClass:
-      "bg-gradient-to-b from-[#EC4899] to-[#DB2777] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(219,39,119,0.28)]",
+      "bg-[#BE185D] text-white shadow-xs",
     doorBadgeHighlightClass:
       "bg-[#EC4899]/12 text-[#9D174D] border-[#EC4899]/26 hover:bg-[#EC4899]/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
   },

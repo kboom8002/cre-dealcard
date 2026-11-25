@@ -62,7 +62,11 @@ export function ImBottomActionBar({
           disabled={isGenerating}
           aria-busy={isGenerating}
           onClick={onQuickGenerate}
-          className="w-full min-h-[48px] xl:min-h-[52px] px-3.5 md:px-4 py-2.5 bg-[#1D4ED8] text-white rounded-xl md:rounded-2xl font-extrabold text-base leading-snug break-keep text-center hover:bg-[#1E40AF] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+          className={`w-full min-h-[48px] xl:min-h-[52px] px-3.5 md:px-4 py-2.5 text-white rounded-xl md:rounded-2xl font-extrabold text-base leading-snug break-keep text-center transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 ${
+            previewLifecycle === "published_dirty"
+              ? "bg-[#B45309] hover:bg-[#92400E]"
+              : "bg-[#1D4ED8] hover:bg-[#1E40AF]"
+          }`}
         >
           <span>{generateButtonLabel}</span>
         </button>
@@ -73,14 +77,14 @@ export function ImBottomActionBar({
             data-testid="im-copy-share-link-btn"
             disabled={isProvisioningSheet || isGenerating}
             onClick={onCopyShareLink}
-            className={`w-full min-h-[44px] sm:min-h-[48px] xl:min-h-[44px] px-3 py-2 rounded-xl md:rounded-2xl xl:rounded-xl font-extrabold text-sm leading-tight break-keep text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer border ${
+            className={`w-full min-h-[44px] sm:min-h-[48px] xl:min-h-[44px] px-3 py-2 rounded-xl md:rounded-2xl xl:rounded-xl font-bold text-sm leading-tight break-keep text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer border ${
               isShareLinkCopied
-                ? "bg-emerald-600 text-white border-emerald-700"
-                : "bg-emerald-50 text-emerald-950 border-emerald-400 hover:bg-emerald-100"
+                ? "bg-[#059669] text-white border-[#059669]"
+                : "bg-white text-[#1D1D1F] border-slate-300 hover:bg-slate-50"
             }`}
           >
             <span>
-              {isShareLinkCopied ? "✓ IM 링크 복사됨 (붙여넣기 가능)" : "🔗 IM 링크 복사"}
+              {isShareLinkCopied ? "링크 복사됨" : "IM 링크 복사"}
             </span>
           </button>
         )}
@@ -102,12 +106,12 @@ export function ImBottomActionBar({
             previewLifecycle === "pre_generation"
           }
           onClick={onDownloadPptx}
-          className={`min-h-[44px] px-2 py-2 bg-[#ECFDF5] text-[#065F46] border border-[#10B981]/35 rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-[#D1FAE5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+          className={`min-h-[44px] px-2 py-2 bg-white text-[#1D1D1F] border border-slate-300 rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer ${
             previewLifecycle === "pre_generation" ? "opacity-50" : ""
           }`}
         >
           <span>
-            {isDownloadingPptx ? "PPTX 중…" : "📥 PPTX 받기"}
+            {isDownloadingPptx ? "PPTX 중…" : "PPTX 받기"}
           </span>
         </button>
 
@@ -123,12 +127,12 @@ export function ImBottomActionBar({
             !onDownloadPdf
           }
           onClick={onDownloadPdf}
-          className={`min-h-[44px] px-2 py-2 bg-[#F8FAFC] text-[#0F172A] border border-[#CBD5E1] rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+          className={`min-h-[44px] px-2 py-2 bg-white text-[#1D1D1F] border border-slate-300 rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer ${
             previewLifecycle === "pre_generation" ? "opacity-50" : ""
           }`}
         >
           <span>
-            {isDownloadingPdf ? "PDF 중…" : "📄 PDF 저장"}
+            {isDownloadingPdf ? "PDF 중…" : "PDF 저장"}
           </span>
         </button>
 
@@ -138,10 +142,10 @@ export function ImBottomActionBar({
           disabled={isProvisioningSheet}
           aria-busy={isProvisioningSheet}
           onClick={onOpenStudio}
-          className="min-h-[44px] px-2 py-2 bg-white text-[#1D4ED8] border border-[#1D4ED8] rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-[#EFF6FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer"
+          className="min-h-[44px] px-2 py-2 bg-white text-[#1D1D1F] border border-slate-300 rounded-xl font-bold text-sm leading-tight break-keep text-center hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 cursor-pointer"
         >
           <span>
-            {isProvisioningSheet ? "준비 중…" : "📐 발표자료 꾸미기"}
+            {isProvisioningSheet ? "준비 중…" : "발표자료 꾸미기"}
           </span>
         </button>
       </div>

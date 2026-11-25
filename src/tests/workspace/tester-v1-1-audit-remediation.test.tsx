@@ -194,10 +194,10 @@ describe("Human Tester V-1.1 Audit Remediation Suite (Positive + Negative Pairs)
     });
 
     const compactBtn = container.querySelector(
-      '[data-testid="workspace-font-scale-compact"]'
+      '[data-testid="workspace-font-scale-dec"]'
     ) as HTMLButtonElement;
     const normalBtn = container.querySelector(
-      '[data-testid="workspace-font-scale-normal"]'
+      '[data-testid="workspace-font-scale-inc"]'
     ) as HTMLButtonElement;
     expect(compactBtn).not.toBeNull();
     expect(normalBtn).not.toBeNull();

@@ -464,10 +464,8 @@ describe("Wave 4 Agent 1 P2 Polish (A1-11, A1-12, A3-10)", () => {
     });
 
     const imStep4Footer = container.querySelector('[data-testid="im-step4-footer-cta-bar"]');
-    expect(imStep4Footer).not.toBeNull();
-    expect(imStep4Footer?.className).toContain("hidden");
-    expect(imStep4Footer?.className).toContain("xl:flex");
-    expect(container.querySelector('[data-testid="im-step4-generate-btn"]')).not.toBeNull();
+    expect(imStep4Footer).toBeNull();
+    expect(container.querySelector('[data-testid="im-step4-generate-btn"]')).toBeNull();
 
     // Tabs 1-3 navigation buttons remain visible at all viewport sizes
     expect(

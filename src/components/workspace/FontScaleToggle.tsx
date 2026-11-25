@@ -84,7 +84,23 @@ export function applyAndPersistFontScale(nextScale: UiFontScale): void {
 
 export interface FontScaleToggleProps {
   className?: string;
+  /** "stepper": compact 3-part capsule (가- | 현재 | 가+) for topbars; "segmented": 4 explicit preset buttons */
+  variant?: "segmented" | "stepper";
 }
+
+const FONT_SCALE_ORDER: readonly UiFontScale[] = [
+  "compact",
+  "normal",
+  "large",
+  "xlarge",
+];
+
+const SHORT_FONT_LABELS: Record<UiFontScale, string> = {
+  compact: "표준",
+  normal: "큰글씨",
+  large: "더 크게",
+  xlarge: "최대",
+};
 
 /**
  * Shared 4-step workspace & broker home font size switcher synced across tabs and views.
@@ -93,7 +109,7 @@ export interface FontScaleToggleProps {
  * - large   (19px): 더 크게
  * - xlarge  (21px): 아주 크게
  */
-export function FontScaleToggle({ className }: FontScaleToggleProps) {
+export function FontScaleToggle({ className, variant = "segmented" }: FontScaleToggleProps) {
   const fontScale = useSyncExternalStore(
     subscribeFontScale,
     getFontScaleSnapshot,
@@ -140,6 +156,63 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
     applyAndPersistFontScale(nextScale);
   }, []);
 
+  const currentIdx = Math.max(0, FONT_SCALE_ORDER.indexOf(fontScale));
+  const handleStep = useCallback(
+    (delta: -1 | 1) => {
+      const nextIdx = Math.max(0, Math.min(FONT_SCALE_ORDER.length - 1, currentIdx + delta));
+      applyAndPersistFontScale(FONT_SCALE_ORDER[nextIdx]);
+    },
+    [currentIdx],
+  );
+  const handleCycle = useCallback(() => {
+    const nextIdx = (currentIdx + 1) % FONT_SCALE_ORDER.length;
+    applyAndPersistFontScale(FONT_SCALE_ORDER[nextIdx]);
+  }, [currentIdx]);
+
+  if (variant === "stepper") {
+    return (
+      <div
+        role="group"
+        aria-label="화면 글자 크기 조절"
+        data-testid="workspace-font-scale-toggle"
+        className={
+          className ||
+          "inline-flex items-center ios-segmented-track bg-[#767680]/[0.10] p-[3px] rounded-[12px] border border-white/60 gap-0.5 shrink-0"
+        }
+      >
+        <button
+          type="button"
+          data-testid="workspace-font-scale-dec"
+          aria-label="글자 작게"
+          disabled={currentIdx <= 0}
+          onClick={() => handleStep(-1)}
+          className="px-2 min-h-[44px] min-w-[44px] rounded-[9px] text-sm font-bold text-[#1D1D1F] hover:bg-white/70 disabled:opacity-35 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+        >
+          가-
+        </button>
+        <button
+          type="button"
+          data-testid="workspace-font-scale-current"
+          aria-label={`현재 글자 크기 ${SHORT_FONT_LABELS[fontScale]} (누르면 다음 크기)`}
+          onClick={handleCycle}
+          className="px-2.5 min-h-[44px] rounded-[9px] ios-segmented-pill bg-white text-[#1D1D1F] text-sm font-bold transition-colors cursor-pointer whitespace-nowrap"
+        >
+          {SHORT_FONT_LABELS[fontScale]}
+        </button>
+        <button
+          type="button"
+          data-testid="workspace-font-scale-inc"
+          aria-label="글자 크게"
+          disabled={currentIdx >= FONT_SCALE_ORDER.length - 1}
+          onClick={() => handleStep(1)}
+          className="px-2 min-h-[44px] min-w-[44px] rounded-[9px] text-sm font-bold text-[#1D1D1F] hover:bg-white/70 disabled:opacity-35 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+        >
+          가+
+        </button>
+      </div>
+    );
+  }
+
   const options: Array<{ id: UiFontScale; label: string }> = [
     { id: "compact", label: "표준 글씨" },
     { id: "normal", label: "큰글씨" },
@@ -168,7 +241,7 @@ export function FontScaleToggle({ className }: FontScaleToggleProps) {
             onClick={() => handleSelect(opt.id)}
             className={`px-2 sm:px-2.5 min-h-[44px] rounded-[9px] text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
               active
-                ? "ios-segmented-pill bg-white text-[#007AFF]"
+                ? "ios-segmented-pill bg-white text-[#1D4ED8]"
                 : "text-[#3A3A3C] hover:text-[#1D1D1F]"
             }`}
           >

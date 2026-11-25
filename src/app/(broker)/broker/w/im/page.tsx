@@ -80,7 +80,6 @@ import { ImPreviewPane, ImPreviewTabSwitcher, type ImPostitStyle } from "./_comp
 import { ImSlideVisualCard } from "./_components/ImSlideVisualCard";
 import { ImBottomActionBar } from "./_components/ImBottomActionBar";
 import {
-  ImEditorHeaderActions,
   buildDuplicatedImItem,
 } from "./_components/ImEditorHeaderActions";
 import { ImWorkspaceModals } from "./_components/ImWorkspaceModals";
@@ -2524,9 +2523,9 @@ function ImWorkspaceInner() {
   const generateButtonLabel = isGenerating
     ? "IM 만드는 중…"
     : previewLifecycle === "published_dirty"
-    ? "변경사항 IM에 다시 반영하기"
+    ? "변경 내용 반영"
     : previewLifecycle === "published_clean"
-    ? `✓ ${TERMS.createIm} 완료 (다시 반영하기)`
+    ? "IM 다시 반영"
     : TERMS.createIm;
 
   const imSyncUnits = buildImSyncUnits({
@@ -2638,15 +2637,6 @@ function ImWorkspaceInner() {
         listTitle="매물 선택"
         editorTitle="내용 입력"
         previewTitle="미리보기 · 발행"
-        editorHeaderActions={
-          currentItem ? (
-            <ImEditorHeaderActions
-              currentItem={currentItem}
-              onDuplicate={handleDuplicateIm}
-              onDelete={handleDeleteIm}
-            />
-          ) : null
-        }
         listSlot={
           <ImListSidebar
             filteredItems={filteredItems}

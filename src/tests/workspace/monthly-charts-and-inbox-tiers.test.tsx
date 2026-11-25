@@ -773,7 +773,7 @@ describe("Monthly Top-2 Option A + Per-Client Attribution + Free/Paid Inbox Tier
     expect(summaryCard?.textContent).toContain("kim@alpha.co.kr");
     expect(reactionBadge?.textContent).toContain("열람 2회 · 체류 75초");
     expect(summaryCard?.textContent).toContain("입지·교통");
-    expect(channelBar?.textContent).toContain("무료 플랜");
+    expect(channelBar?.textContent).toContain("카톡 문구·링크 복사");
 
     await act(async () => {
       alimBtn.click();

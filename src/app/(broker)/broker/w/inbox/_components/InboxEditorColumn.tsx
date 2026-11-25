@@ -219,47 +219,38 @@ export function InboxEditorColumn({
             </div>
           )}
 
-          {/* 선택된 고객 상단 프로필 및 연락 · 연결 문서 바 */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          {/* 선택된 고객 상단 컨텍스트 바 */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-bold ${
-                      isAnon
-                        ? "border border-slate-300 bg-slate-100 text-slate-700"
-                        : "border border-blue-200 bg-blue-50 text-blue-800"
-                    }`}
-                  >
-                    {isAnon ? "익명 열람" : "연락처 고객"}
-                  </span>
+                  <h2 className="text-lg font-extrabold text-[#1D1D1F]">
+                    {displayTitle}
+                  </h2>
                   {statusBadge && (
                     <span
                       data-testid="inbox-editor-status-badge"
-                      className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-bold ${statusBadge.cls}`}
+                      className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-sm font-bold ${statusBadge.cls}`}
                     >
                       {statusBadge.text}
                     </span>
                   )}
                   {(activeThread.isVip === true || activeThread.clientGrade === "VIP") && (
-                    <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-sm font-bold text-amber-900">
-                      ⭐ VIP
+                    <span className="inline-flex items-center rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-sm font-bold text-[#1D1D1F]">
+                      VIP
                     </span>
                   )}
                   {activeThread.clientRole && !activeThread.id.startsWith("view_") && (
-                    <span className="inline-flex items-center rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-800">
-                      {formatClientRoleLabel(activeThread.clientRole)}
+                    <span className="text-sm font-semibold text-[#515154]">
+                      · {formatClientRoleLabel(activeThread.clientRole)}
                     </span>
                   )}
-                  <h2 className="text-lg font-extrabold text-slate-900">
-                    {displayTitle}
-                  </h2>
                   {!isAnon && activeThread.clientCompany && (
                     <span
                       data-testid="inbox-editor-client-company-badge"
-                      className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-sm font-extrabold text-indigo-950 shrink-0"
+                      className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-sm font-semibold text-[#515154] shrink-0"
                     >
-                      🏢 {activeThread.clientCompany}
+                      {activeThread.clientCompany}
                     </span>
                   )}
                 </div>
@@ -289,11 +280,13 @@ export function InboxEditorColumn({
 
                   return (
                     <>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
-                        <span>{isNewsletterThread ? "열람 자료:" : "관심 매물:"}</span>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-base font-semibold text-[#1D1D1F]">
+                        <span className="text-sm font-semibold text-[#6E6E73]">
+                          {isNewsletterThread ? "열람 자료:" : "관심 매물:"}
+                        </span>
                         {!buildingDisplay || buildingDisplay === "관심 매물 미지정" ? (
-                          <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-600">
-                            관심 매물 연결 전
+                          <span className="text-sm font-semibold text-[#6E6E73]">
+                            미지정
                           </span>
                         ) : (
                           <span>{buildingDisplay}</span>
@@ -303,13 +296,13 @@ export function InboxEditorColumn({
                       {cleanEmail && (
                         <div
                           data-testid="inbox-editor-email-chip"
-                          className="mt-2.5 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 px-3 py-1 text-sm font-semibold text-slate-900"
+                          className="mt-2 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-1 text-sm font-semibold text-[#1D1D1F]"
                         >
-                          <span className="font-bold text-blue-900">✉️ 이메일:</span>
+                          <span className="font-semibold text-[#515154]">이메일:</span>
                           <a
                             href={`mailto:${cleanEmail}`}
                             data-testid="inbox-editor-email-mailto"
-                            className="inline-flex min-h-[44px] items-center break-all font-bold text-blue-900 underline decoration-blue-300 underline-offset-2 hover:text-blue-700"
+                            className="inline-flex min-h-[44px] items-center break-all font-bold text-[#1D4ED8] underline underline-offset-2"
                           >
                             {cleanEmail}
                           </a>
@@ -320,7 +313,7 @@ export function InboxEditorColumn({
                               if (onCopyClientEmail) onCopyClientEmail(cleanEmail);
                               else void copyText(cleanEmail);
                             }}
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-bold text-blue-900 transition hover:bg-blue-100 cursor-pointer"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50 cursor-pointer"
                           >
                             복사
                           </button>
@@ -328,7 +321,7 @@ export function InboxEditorColumn({
                       )}
 
                       {hasValidBuildingLink || showNewsletterLink ? (
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           {hasValidBuildingLink && (
                             <>
                               <Link
@@ -336,18 +329,18 @@ export function InboxEditorColumn({
                                   activeThread.buildingId.trim()
                                 )}`}
                                 data-testid="inbox-open-dealcard-link"
-                                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50"
                               >
-                                📄 딜카드 편집 →
+                                딜카드 편집 →
                               </Link>
                               <Link
                                 href={`/broker/w/im?buildingId=${encodeURIComponent(
                                   activeThread.buildingId.trim()
                                 )}`}
                                 data-testid="inbox-open-im-link"
-                                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100"
+                                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50"
                               >
-                                {activeThread.hasIm === false ? "📊 IM 먼저 만들기 →" : "📊 IM 편집 →"}
+                                {activeThread.hasIm === false ? "IM 만들기 →" : "IM 편집 →"}
                               </Link>
                             </>
                           )}
@@ -355,9 +348,9 @@ export function InboxEditorColumn({
                             <Link
                               href="/broker/magazine-editor"
                               data-testid="inbox-open-magazine-link"
-                              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
+                              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50"
                             >
-                              📰 뉴스레터 편집·보내기 →
+                              뉴스레터 →
                             </Link>
                           )}
                         </div>
@@ -372,7 +365,7 @@ export function InboxEditorColumn({
                   <a
                     href={`tel:${activeThread.clientPhone.trim()}`}
                     data-testid="editor-call-link"
-                    className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-slate-50"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-[#1D1D1F] hover:bg-slate-50"
                   >
                     전화 걸기 ({formatPhoneKo(activeThread.clientPhone)})
                   </a>
@@ -381,7 +374,7 @@ export function InboxEditorColumn({
                     type="button"
                     disabled
                     data-testid="preview-call-disabled"
-                    className="inline-flex min-h-[48px] cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-400"
+                    className="inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-400"
                   >
                     전화번호 없음
                   </button>
@@ -394,9 +387,9 @@ export function InboxEditorColumn({
                       data-testid="inbox-archive-thread-btn"
                       disabled={Boolean(busyAction)}
                       onClick={() => onArchiveThread(activeThread)}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-[#515154] transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                     >
-                      보관(숨김)
+                      숨김
                     </button>
                   )}
               </div>
@@ -531,23 +524,9 @@ export function InboxEditorColumn({
             {/* STEP 1. 보낼 자료 고르기 & 전용 링크 확인 */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-sm font-extrabold text-white">
-                    1
-                  </span>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    보낼 자료 선택 및 전용 링크 확인
-                  </h3>
-                </div>
-                <span
-                  className={`rounded-md px-2.5 py-1 text-sm font-bold ${
-                    subscriptionTier === "free"
-                      ? "border border-slate-200 bg-slate-100 text-slate-700"
-                      : "border border-blue-200 bg-blue-50 text-blue-800"
-                  }`}
-                >
-                  {subscriptionTier === "free" ? "무료 플랜 · 바로 이용" : "PRO 플랜"}
-                </span>
+                <h3 className="text-base font-extrabold text-[#1D1D1F]">
+                  1. 보낼 자료 선택
+                </h3>
               </div>
 
               <div
@@ -558,9 +537,9 @@ export function InboxEditorColumn({
               >
                 {(
                   [
-                    { key: "dealcard", label: "📄 딜카드" },
-                    { key: "im", label: "📊 제안서(IM)" },
-                    { key: "magazine", label: "📰 부동산뉴스" },
+                    { key: "dealcard", label: "딜카드" },
+                    { key: "im", label: "제안서(IM)" },
+                    { key: "magazine", label: "부동산뉴스" },
                   ] as const
                 ).map((opt) => {
                   const isSelected = effectiveAssetKind === opt.key;
@@ -576,8 +555,8 @@ export function InboxEditorColumn({
                       onClick={() => selectAssetKind(opt.key)}
                       className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-bold transition cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
                         isSelected
-                          ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
-                          : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                          ? "border-[#1D4ED8] bg-white text-[#1D4ED8] ring-1 ring-[#1D4ED8]/25 shadow-2xs"
+                          : "border-slate-300 bg-white text-[#1D1D1F] hover:bg-slate-50"
                       }`}
                     >
                       {opt.label}
@@ -665,29 +644,24 @@ export function InboxEditorColumn({
               data-testid="inbox-tab-panel-message"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-sm font-extrabold text-white">
-                    2
-                  </span>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    안내 문구 작성 후 바로 발송
-                  </h3>
-                </div>
+                <h3 className="text-base font-extrabold text-[#1D1D1F]">
+                  2. 안내 메시지 작성
+                </h3>
                 {onGenerateAiReply && (
                   <button
                     type="button"
                     data-testid="inbox-ai-reply-btn"
                     disabled={aiReplyLoading || busyAction !== null}
                     onClick={() => void onGenerateAiReply(activeThread)}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3.5 py-2 text-sm font-extrabold text-blue-900 transition hover:bg-blue-100 disabled:opacity-60 cursor-pointer"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
                   >
-                    <Sparkles className="h-4 w-4 text-blue-700" aria-hidden="true" />
+                    <Sparkles className="h-4 w-4 text-[#1D4ED8]" aria-hidden="true" />
                     <span>
                       {aiReplyLoading
-                        ? "AI 문구 작성 중..."
+                        ? "AI 작성 중…"
                         : aiReplyCount > 0
-                        ? "다른 표현으로 다시 쓰기"
-                        : "✨ AI 맞춤 답장 작성"}
+                        ? "AI 다시 쓰기"
+                        : "AI 답장 쓰기"}
                     </span>
                   </button>
                 )}
@@ -744,7 +718,7 @@ export function InboxEditorColumn({
                   htmlFor="inbox-kakao-brief-input"
                   className="mb-1 block text-sm font-bold text-slate-700"
                 >
-                  안내 본문 (카카오톡 · 이메일 공통 사용)
+                  안내 메시지
                 </label>
                 <textarea
                   id="inbox-kakao-brief-input"
@@ -757,7 +731,7 @@ export function InboxEditorColumn({
               </div>
             </div>
 
-            {/* STEP 3. 원클릭 발송 바 (카톡 복사 + 이메일 바로 보내기) */}
+            {/* STEP 3. 발송 바 (카톡 브랜드 옐로우 + 이메일 아웃라인 위계 분리) */}
             <div className="space-y-3 border-t border-slate-200 pt-4">
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <button
@@ -767,30 +741,30 @@ export function InboxEditorColumn({
                   onClick={() => onPrepareCopyBundle?.()}
                   className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#FEE500] border border-[#F5DC00] px-4 py-3 text-center text-base font-extrabold text-[#191919] shadow-2xs transition hover:bg-[#F7DE00] disabled:opacity-50 cursor-pointer"
                 >
-                  💬 카톡 안내문 + 링크 한 번에 복사
+                  카톡 문구·링크 복사
                 </button>
                 <button
                   type="button"
                   data-testid="inbox-send-email-btn"
                   disabled={Boolean(busyAction)}
                   onClick={() => onSendInboxEmail?.()}
-                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-center text-base font-extrabold text-white shadow-2xs transition hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl border-2 border-[#1D4ED8] bg-white px-4 py-3 text-center text-base font-extrabold text-[#1D4ED8] transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
-                  ✉️ 이메일로 자료 바로 보내기
+                  이메일로 보내기
                 </button>
               </div>
 
               {copiedBundlePreview && (
                 <div
                   data-testid="inbox-copied-bundle-preview"
-                  className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-sm text-slate-800 whitespace-pre-line break-words"
+                  className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3.5 text-sm text-[#1D1D1F] whitespace-pre-line break-words"
                 >
                   {copiedBundlePreview}
                 </div>
               )}
 
-              {/* 이메일 발송 조건 (2열 그리드로 압축 배치) */}
-              <div className="space-y-2.5 rounded-xl border border-blue-100 bg-blue-50/40 p-3.5">
+              {/* 이메일 발송 조건 (순백/라이트슬레이트 폼) */}
+              <div className="space-y-2.5 rounded-xl border border-slate-200 bg-[#F8FAFC] p-3.5">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label
@@ -814,7 +788,7 @@ export function InboxEditorColumn({
                       htmlFor="inbox-client-basis-select"
                       className="mb-1 block text-sm font-bold text-slate-800"
                     >
-                      발송 근거 (1:1 안내 근거)
+                      발송 근거
                     </label>
                     <select
                       id="inbox-client-basis-select"
@@ -838,7 +812,7 @@ export function InboxEditorColumn({
 
                 <label
                   htmlFor="inbox-marketing-consent-checkbox"
-                  className="flex min-h-[44px] items-center gap-2.5 rounded-lg border border-blue-200/80 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-pointer"
+                  className="flex min-h-[44px] items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-pointer"
                 >
                   <input
                     id="inbox-marketing-consent-checkbox"
@@ -846,7 +820,7 @@ export function InboxEditorColumn({
                     type="checkbox"
                     checked={Boolean(marketingConsentConfirmed)}
                     onChange={(e) => onMarketingConsentConfirmedChange?.(e.target.checked)}
-                    className="h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="h-5 w-5 shrink-0 rounded border-slate-300 text-[#1D4ED8] focus:ring-[#1D4ED8]"
                   />
                   <span>
                     광고성 이메일 수신 동의를 확인했습니다 (수신거부 링크 자동 포함)
@@ -854,16 +828,22 @@ export function InboxEditorColumn({
                 </label>
               </div>
 
-              {/* 카카오 알림톡 PRO (사후 오픈 예정) — 1줄 컴팩트 접힘 안내 */}
+              {/* 카카오 알림톡 PRO (사후 오픈 예정) — 1줄 접힘 안에 안내 단일화 */}
               <details
                 data-testid="inbox-alimtalk-disclosure"
-                className="rounded-xl border border-amber-200 bg-amber-50/40 px-3.5 py-2"
+                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2"
               >
-                <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold text-amber-950 cursor-pointer list-none">
-                  <span>💬 카카오 알림톡 자동 발송 · PRO (오픈 예정)</span>
-                  <span className="text-sm font-semibold text-amber-800">자세히 ▾</span>
+                <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold text-[#515154] cursor-pointer list-none">
+                  <span>카카오 알림톡 자동 발송 (오픈 예정)</span>
+                  <span className="text-sm font-semibold text-[#6E6E73]">자세히 ▾</span>
                 </summary>
-                <div className="mt-2.5 space-y-2.5 border-t border-amber-200/70 pt-2.5">
+                <div className="mt-2.5 space-y-2.5 border-t border-slate-200 pt-2.5">
+                  <p
+                    data-testid="inbox-alimtalk-early-access-hint"
+                    className="rounded-lg border border-slate-200 bg-[#F8FAFC] px-3 py-2 text-sm leading-relaxed text-[#515154]"
+                  >
+                    {ALIMTALK_EARLY_ACCESS_NOTICE}
+                  </p>
                   <div>
                     <label
                       htmlFor="inbox-alimtalk-template-select"
@@ -894,19 +874,12 @@ export function InboxEditorColumn({
                     data-testid="inbox-send-alimtalk-btn"
                     disabled={Boolean(busyAction)}
                     onClick={() => onSendInboxAlimtalk?.()}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-center text-sm font-extrabold text-amber-950 whitespace-normal transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-center text-sm font-bold text-[#1D1D1F] whitespace-normal transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                   >
-                    💬 카카오 알림톡 자동 발송 · PRO (사후 오픈 예정)
+                    카카오 알림톡 발송 (오픈 예정)
                   </button>
                 </div>
               </details>
-
-              <p
-                data-testid="inbox-alimtalk-early-access-hint"
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700"
-              >
-                {ALIMTALK_EARLY_ACCESS_NOTICE}
-              </p>
 
               {showAlimtalkUpgradeSheet && (
                 <div

@@ -326,11 +326,11 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
     const causalityAfterPub = container.querySelector('[data-testid="preview-causality-bar"]');
     expect(causalityAfterPub?.getAttribute("data-lifecycle")).toBe("published_clean");
     const liveLink = container.querySelector(
-      '[data-testid="preview-causality-live-link"]'
+      '[data-testid="im-open-fullscreen-link"]'
     ) as HTMLAnchorElement;
     expect(liveLink).not.toBeNull();
-    expect(liveLink.getAttribute("href")).toBe(`/im-lite/${PUBLISHED_UUID}`);
-    expect(quickGenBtn.textContent).toContain("완료");
+    expect(liveLink.getAttribute("href")).toContain(`/im-lite/${PUBLISHED_UUID}`);
+    expect(quickGenBtn.textContent).toContain("다시 반영");
 
     // Edit asking price AFTER publishing -> must immediately become published_dirty
     const priceInput = container.querySelector("#im-price-won-input") as HTMLInputElement;
@@ -342,7 +342,7 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
       container.querySelector('[data-testid="preview-causality-bar"]')?.getAttribute("data-lifecycle")
     ).toBe("published_dirty");
     expect(container.querySelector('[data-testid="preview-causality-resync-btn"]')).not.toBeNull();
-    expect(quickGenBtn.textContent).toBe("변경사항 IM에 다시 반영하기");
+    expect(quickGenBtn.textContent).toBe("변경 내용 반영");
 
     // Let debounced upsert_im autosave run (900ms+) -> isDirty becomes false in storage,
     // BUT hasUnpublishedEdits MUST remain true so published_dirty is NOT wiped out!
@@ -476,7 +476,7 @@ describe("IM Workspace SOTA Minimalist Editor & Bidirectional Preview Sync (P1)"
     );
 
     const step4GenBtn = container.querySelector(
-      '[data-testid="im-step4-generate-btn"]'
+      '[data-testid="im-quick-generate-btn"]'
     ) as HTMLButtonElement;
     expect(step4GenBtn).not.toBeNull();
     await act(async () => {

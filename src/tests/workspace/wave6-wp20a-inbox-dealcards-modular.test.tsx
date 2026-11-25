@@ -695,12 +695,15 @@ describe("Wave 6 — WP-20A: Inbox & DealCards Modularization + CRM/Audit/Profil
       container.querySelector('[data-testid="dealcard-list-sample-badge"]')?.textContent
     ).toBe("[체험 예시]");
 
-    // Direct /broker/profile link rendered in preview column
+    // Single /broker/profile link rendered in topbar (no duplicate bottom preview box)
     const profileLink = container.querySelector(
-      '[data-testid="dealcard-broker-profile-link"]'
+      '[data-testid="workspace-nav-profile"]'
     ) as HTMLAnchorElement;
     expect(profileLink).not.toBeNull();
     expect(profileLink.getAttribute("href")).toBe("/broker/profile");
+    expect(
+      container.querySelector('[data-testid="dealcard-broker-profile-link"]')
+    ).toBeNull();
 
     // ConfirmDeleteModal opens when deleting DealCard (no native window.confirm)
     const confirmSpy = vi.spyOn(window, "confirm");

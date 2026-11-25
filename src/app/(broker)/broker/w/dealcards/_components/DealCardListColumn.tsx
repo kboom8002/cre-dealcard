@@ -385,9 +385,9 @@ export function DealCardListColumn({
                 e.stopPropagation();
                 onGenerateFromMemo(memo);
               }}
-              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-[#007AFF] hover:bg-[#0062CC] text-white cursor-pointer"
+              className="min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg bg-[#1D4ED8] hover:bg-[#1E40AF] text-white cursor-pointer"
             >
-              ✨ 딜카드 생성
+              딜카드 생성
             </button>
             <RowIconActionButton
               testId={`unconverted-memo-delete-${memo.id}`}
@@ -412,7 +412,7 @@ export function DealCardListColumn({
             type="button"
             onClick={onCreateNew}
             data-testid="workspace-new-dealcard-btn"
-            className="w-full min-h-[52px] rounded-2xl bg-gradient-to-b from-[#1A88FF] to-[#007AFF] hover:brightness-105 text-white font-semibold text-base flex items-center justify-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_14px_rgba(0,122,255,0.28)] transition-all cursor-pointer"
+            className="w-full min-h-[52px] rounded-2xl bg-[#1D4ED8] hover:bg-[#1E40AF] text-white font-semibold text-base flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <span>＋</span>
             <span>새 딜카드 만들기</span>
@@ -583,9 +583,9 @@ export function DealCardListColumn({
                   type="button"
                   onClick={() => onToggleGroupCollapse("ai_memo")}
                   aria-expanded={!collapsedGroups.ai_memo}
-                  className="w-full min-h-[44px] flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-blue-50/80 hover:bg-blue-100/70 text-[#0040DD] text-sm font-bold transition cursor-pointer"
+                  className="w-full min-h-[44px] flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[#1D1D1F] text-sm font-bold transition cursor-pointer"
                 >
-                  <span>✨ AI 메모 생성 딜카드 ({aiMemoDealCards.length}건)</span>
+                  <span>AI 메모 생성 딜카드 ({aiMemoDealCards.length}건)</span>
                   <span>{collapsedGroups.ai_memo ? "▸" : "▾"}</span>
                 </button>
                 {!collapsedGroups.ai_memo &&
@@ -595,8 +595,8 @@ export function DealCardListColumn({
                     </div>
                   ) : (
                     originGroupFilter === "ai_memo" && (
-                      <p className="px-3 py-4 rounded-2xl bg-white/80 border border-slate-200 text-sm text-[#515154] text-center break-keep">
-                        상단 메모창에 매물 메모를 적고 [✨ 메모로 딜카드 생성하기]를 누르면 이곳에 표시됩니다.
+                      <p className="px-3 py-4 rounded-2xl bg-white border border-slate-200 text-sm text-[#515154] text-center break-keep">
+                        메모로 생성한 딜카드가 아직 없습니다.
                       </p>
                     )
                   ))}
@@ -612,9 +612,9 @@ export function DealCardListColumn({
                   type="button"
                   onClick={() => onToggleGroupCollapse("unconverted_memo")}
                   aria-expanded={!collapsedGroups.unconverted_memo}
-                  className="w-full min-h-[44px] flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100/70 text-amber-950 text-sm font-bold transition cursor-pointer"
+                  className="w-full min-h-[44px] flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[#1D1D1F] text-sm font-bold transition cursor-pointer"
                 >
-                  <span>📝 딜카드 미생성 메모 ({filteredUnconvertedMemos.length}건)</span>
+                  <span>딜카드 미생성 메모 ({filteredUnconvertedMemos.length}건)</span>
                   <span>{collapsedGroups.unconverted_memo ? "▸" : "▾"}</span>
                 </button>
                 {!collapsedGroups.unconverted_memo && (
@@ -622,8 +622,8 @@ export function DealCardListColumn({
                     {filteredUnconvertedMemos.length > 0 ? (
                       filteredUnconvertedMemos.map((memo) => renderUnconvertedMemoRow(memo))
                     ) : (
-                      <p className="px-3 py-3 rounded-2xl bg-white/75 border border-slate-200/80 text-sm text-[#515154] text-center break-keep">
-                        아직 딜카드로 변환하지 않고 보관 중인 매물 메모가 없습니다.
+                      <p className="px-3 py-3 rounded-2xl bg-white border border-slate-200 text-sm text-[#515154] text-center break-keep">
+                        보관 중인 미생성 매물 메모가 없습니다.
                       </p>
                     )}
 
@@ -654,9 +654,9 @@ export function DealCardListColumn({
                     type="button"
                     onClick={() => onToggleGroupCollapse("manual")}
                     aria-expanded={!collapsedGroups.manual}
-                    className="w-full min-h-[44px] flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-[#1D1D1F] text-sm font-bold transition cursor-pointer"
+                    className="w-full min-h-[44px] flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[#1D1D1F] text-sm font-bold transition cursor-pointer"
                   >
-                    <span>✍️ 직접 작성 딜카드 ({manualDealCards.length}건)</span>
+                    <span>직접 작성 딜카드 ({manualDealCards.length}건)</span>
                     <span>{collapsedGroups.manual ? "▸" : "▾"}</span>
                   </button>
                   {!collapsedGroups.manual &&

@@ -316,12 +316,15 @@ describe("Wave 6 — WP-19: <900ms Keepalive Autosave Flush, Mobile Shell Polish
       expect(mobileFontBtn).not.toBeNull();
       expect(mobileFontBtn?.className).toContain("min-h-[44px]");
 
-      // Desktop font scale testids remain intact
+      // Desktop font scale stepper testids remain intact
       expect(
-        container.querySelector('[data-testid="workspace-font-scale-compact"]')
+        container.querySelector('[data-testid="workspace-font-scale-dec"]')
       ).not.toBeNull();
       expect(
-        container.querySelector('[data-testid="workspace-font-scale-normal"]')
+        container.querySelector('[data-testid="workspace-font-scale-current"]')
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-testid="workspace-font-scale-inc"]')
       ).not.toBeNull();
 
       // Clicking mobile font-scale button cycles normal -> large -> xlarge -> compact

@@ -306,7 +306,7 @@ describe("Wave 6 WP-20B: IM & Newsletter Domain Modularization + Mobile Footer +
     ) as HTMLButtonElement | null;
     expect(emptySubBtn).not.toBeNull();
     expect(emptySubBtn?.className).toContain("min-h-[48px]");
-    expect(emptySubBtn?.textContent).toContain("📋 엑셀·명단으로 구독자 바로 등록하기");
+    expect(emptySubBtn?.textContent).toContain("엑셀·명단으로 구독자 등록");
 
     // Click opens ContactBulkImportModal inline without router navigation
     await act(async () => {

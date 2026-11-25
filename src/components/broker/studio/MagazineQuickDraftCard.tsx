@@ -207,23 +207,19 @@ export function MagazineQuickDraftCard({
       className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-3.5"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-1 min-w-0 flex-1">
+        <div className="space-y-0.5 min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-blue-700 shrink-0" aria-hidden="true" />
-            <h3 className="text-base font-extrabold text-slate-900 break-keep">
+            <Sparkles className="h-5 w-5 text-[#1D4ED8] shrink-0" aria-hidden="true" />
+            <h3 className="text-base font-extrabold text-[#1D1D1F] break-keep">
               {cadence === "daily"
-                ? "오늘 일간 뉴스레터 AI 초안 도우미"
+                ? "오늘 일간 뉴스레터 AI 초안"
                 : cadence === "weekly"
-                  ? "이번 주 주간 뉴스레터 AI 초안 도우미"
-                  : "이번 달 뉴스레터 AI 초안 도우미"}
+                  ? "이번 주 주간 뉴스레터 AI 초안"
+                  : "이번 달 뉴스레터 AI 초안"}
             </h3>
           </div>
-          <p className="text-sm font-medium text-slate-600 break-keep">
-            {cadence === "daily"
-              ? "오늘 내 권역·매물에 맞춰 제목·소개 초안을 한 번에 채우며, 실행 후 언제든 되돌릴 수 있습니다."
-              : cadence === "weekly"
-                ? "이번 주 내 권역·매물에 맞춰 제목·브리핑 초안을 한 번에 채우며, 실행 후 언제든 되돌릴 수 있습니다."
-                : "이번 달 내 권역·매물에 맞춰 제목·브리핑 초안을 한 번에 채우며, 실행 후 언제든 되돌릴 수 있습니다."}
+          <p className="text-sm font-medium text-[#515154] break-keep">
+            내 권역·매물에 맞춰 제목과 브리핑 초안을 채웁니다
           </p>
         </div>
 
@@ -233,7 +229,7 @@ export function MagazineQuickDraftCard({
           onClick={handleAiDraft}
           disabled={loading}
           aria-busy={loading}
-          className="w-full sm:w-auto inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-blue-300 bg-blue-50 px-5 py-2.5 text-base font-extrabold text-blue-800 shadow-2xs transition hover:bg-blue-100 disabled:opacity-60 cursor-pointer shrink-0"
+          className="w-full sm:w-auto inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-base font-extrabold text-[#1D1D1F] hover:bg-slate-50 disabled:opacity-60 cursor-pointer shrink-0"
         >
           {loading ? (
             <>
@@ -253,13 +249,10 @@ export function MagazineQuickDraftCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <label
             htmlFor="quick-draft-region-focus"
-            className="text-sm font-bold text-slate-800"
+            className="text-sm font-bold text-[#1D1D1F]"
           >
-            이번 호 중점 지역·주제 (선택 사항)
+            이번 호 중점 지역·주제 (선택)
           </label>
-          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-sm font-semibold text-blue-900">
-            🤖 AI 초안 참고 지역·주제 (선택 · 비워두면 기본 권역 사용)
-          </span>
         </div>
         <div className="relative">
           <input

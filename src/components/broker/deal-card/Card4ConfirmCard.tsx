@@ -10,6 +10,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import {
   DEAL_CARD_POINT_AXIS_LABELS,
   reclusterDealCardPointsAsAxios,
@@ -938,8 +939,9 @@ export function Card4ConfirmCard({
                 aria-busy={aiHeadlineBusy}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAiHeadlineGenerate}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white text-sm font-extrabold transition cursor-pointer flex items-center gap-1.5"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 disabled:opacity-60 text-[#1D1D1F] text-sm font-bold transition cursor-pointer flex items-center gap-1.5"
               >
+                <Sparkles className="h-4 w-4 text-[#1D4ED8] shrink-0" aria-hidden="true" />
                 <span>{aiHeadlineBusy ? TERMS.aiWriting : TERMS.aiWriteButton}</span>
               </button>
             </div>
@@ -967,20 +969,17 @@ export function Card4ConfirmCard({
             {suggestedHeadline && (
               <div
                 data-testid="card4-headline-suggestion"
-                className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-blue-50 border border-blue-200"
+                className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200"
               >
-                <p className="text-sm font-bold text-blue-950 break-keep">
-                  AI 추천: <span data-testid="card4-headline-suggestion-text">{suggestedHeadline}</span>
-                  <span className="block text-sm font-semibold text-blue-800">
-                    지금 미리보기·카톡 썸네일에는 이 제목이 보여요
-                  </span>
+                <p className="text-sm font-bold text-[#1D1D1F] break-keep">
+                  추천 제목: <span data-testid="card4-headline-suggestion-text">{suggestedHeadline}</span>
                 </p>
                 <button
                   type="button"
                   data-testid="card4-headline-suggestion-apply"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleApplySuggestedHeadline}
-                  className="min-h-[48px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold transition cursor-pointer shrink-0"
+                  className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-sm font-bold transition cursor-pointer shrink-0"
                 >
                   적용
                 </button>
@@ -1017,13 +1016,14 @@ export function Card4ConfirmCard({
             aria-busy={aiPointsBusy}
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleAiRecluster}
-            className="min-h-[48px] px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white text-sm font-extrabold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 disabled:opacity-60 text-[#1D1D1F] text-sm font-bold transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
+            <Sparkles className="h-4 w-4 text-[#1D4ED8] shrink-0" aria-hidden="true" />
             <span>
               {aiPointsBusy
                 ? TERMS.aiWriting
                 : backupPointCandidates.length > 0
-                  ? 'AI로 6개 다시 추천'
+                  ? 'AI 장점 다시 추천'
                   : 'AI로 6개 추천'}
             </span>
           </button>
@@ -1036,7 +1036,7 @@ export function Card4ConfirmCard({
               role="status"
               className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-sm font-bold space-y-1"
             >
-              <p>💡 {numericSpinWarnings[0].reason}</p>
+              <p>{numericSpinWarnings[0].reason}</p>
             </div>
           )}
 
@@ -1057,10 +1057,10 @@ export function Card4ConfirmCard({
             >
               <div className="space-y-0.5">
                 <p className="text-base font-extrabold text-rose-900">
-                  ⚠ 건물 위치가 드러날 수 있는 단어가 있어요
+                  건물 위치가 드러날 수 있는 단어가 있습니다
                 </p>
                 <p className="text-sm font-semibold text-rose-800">
-                  오른쪽 단추를 누르면 번지·건물명·상호를 안전한 표현으로 바로 가려 드립니다.
+                  번지·건물명·상호 등 비공개 정보를 안전한 표현으로 바꿀 수 있습니다
                 </p>
               </div>
               <button
@@ -1090,23 +1090,23 @@ export function Card4ConfirmCard({
                 key={idx}
                 data-testid={`card4-postit-card-${idx}`}
                 style={{
-                  backgroundColor: toneStyle.bgHex,
-                  borderColor: toneStyle.borderHex,
+                  borderLeftColor: toneStyle.dotHex,
                 }}
-                className={`rounded-lg border border-l-4 p-3.5 space-y-2 shadow-2xs transition ${
-                  isSlotFocused ? 'ring-2 ring-blue-500/40' : ''
+                className={`rounded-xl border border-slate-200 border-l-4 bg-white p-3.5 space-y-2 transition ${
+                  isSlotFocused ? 'ring-2 ring-[#1D4ED8]/30 border-[#1D4ED8]/40' : ''
                 }`}
               >
                 <div className="flex items-center gap-2.5">
                   <label
                     htmlFor={`card4-point-input-${idx}`}
-                    style={{
-                      backgroundColor: toneStyle.badgeBgHex,
-                      color: toneStyle.badgeTextHex,
-                    }}
-                    className="font-extrabold px-3 py-1.5 rounded-md text-sm shrink-0"
+                    className="font-bold px-2.5 py-1 rounded-md bg-slate-100 text-[#1D1D1F] text-sm shrink-0 inline-flex items-center gap-1.5"
                   >
-                    장점 {idx + 1}
+                    <span
+                      aria-hidden="true"
+                      style={{ backgroundColor: toneStyle.dotHex }}
+                      className="inline-block w-2 h-2 rounded-full shrink-0"
+                    />
+                    <span>장점 {idx + 1}</span>
                   </label>
                   <input
                     id={`card4-point-input-${idx}`}
@@ -1166,11 +1166,11 @@ export function Card4ConfirmCard({
           {backupPointCandidates.length > 0 && (
             <div
               data-testid="card4-ai-candidates-tray"
-              className="rounded-xl border border-purple-200 bg-purple-50/60 p-3.5 space-y-2.5"
+              className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3.5 space-y-2.5"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-extrabold text-purple-950 break-keep">
-                  💡 다른 장점 후보 {backupPointCandidates.length}개 (누르면 위 장점 1~3과 바로 바뀝니다)
+                <p className="text-sm font-extrabold text-[#1D1D1F] break-keep">
+                  추가 장점 후보 {backupPointCandidates.length}개
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1180,10 +1180,10 @@ export function Card4ConfirmCard({
                     <div
                       key={`${cand.text}-${cIdx}`}
                       data-testid={`card4-ai-candidate-${cIdx}`}
-                      className="rounded-xl border border-purple-200 bg-white p-3 space-y-2 shadow-2xs"
+                      className="rounded-xl border border-slate-200 bg-white p-3 space-y-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-0.5 text-sm font-extrabold text-purple-900 shrink-0">
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-sm font-bold text-[#515154] shrink-0">
                           {axisLabel}
                         </span>
                       </div>
@@ -1191,7 +1191,7 @@ export function Card4ConfirmCard({
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSwapCandidatePoint(cand)}
-                        className="w-full text-left text-base font-extrabold text-slate-900 hover:text-purple-800 transition cursor-pointer break-keep"
+                        className="w-full text-left text-base font-extrabold text-[#1D1D1F] hover:text-[#1D4ED8] transition cursor-pointer break-keep"
                       >
                         {cand.text}
                       </button>
@@ -1205,10 +1205,10 @@ export function Card4ConfirmCard({
                               data-testid={`card4-swap-candidate-${cIdx}-to-${slot}`}
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => handleSwapCandidatePoint(cand, slot)}
-                              className={`min-h-[44px] px-2.5 py-1 rounded-lg border text-sm font-extrabold transition cursor-pointer ${
+                              className={`min-h-[44px] px-2.5 py-1 rounded-lg border text-sm font-bold transition cursor-pointer ${
                                 isFocusedSlot
-                                  ? 'border-blue-600 bg-blue-600 text-white'
-                                  : 'border-purple-200 bg-purple-50 text-purple-950 hover:bg-purple-100'
+                                  ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
+                                  : 'border-slate-300 bg-white text-[#1D1D1F] hover:bg-slate-50'
                               }`}
                             >
                               {slot + 1}번 교체
@@ -1223,18 +1223,18 @@ export function Card4ConfirmCard({
             </div>
           )}
 
-          {/* 현장 장점 원클릭 추천 태그칩 (장점 1~3 하단 배치 + 커서 위치 교체) */}
+          {/* 현장 장점 원클릭 추천 태그칩 */}
           <div
             data-testid="dealcard-strength-tag-chips"
-            className="rounded-xl border border-amber-200 bg-amber-50/75 p-3 space-y-2"
+            className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3 space-y-2"
           >
             <p
               data-testid="dealcard-strength-tag-caption"
-              className="text-sm font-extrabold text-amber-950"
+              className="text-sm font-bold text-[#3A3A3C]"
             >
               {focusedPointIdx !== null
-                ? `현장 장점 바로 넣기 — 현재 장점 ${focusedPointIdx + 1} 선택됨 (누르면 장점 ${focusedPointIdx + 1}이 바뀝니다)`
-                : '현장 장점 바로 넣기 (원하는 장점 칸을 클릭한 뒤 누르면 그 칸이 바뀝니다)'}
+                ? `빠른 장점 추가 · 장점 ${focusedPointIdx + 1}`
+                : '빠른 장점 추가'}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {availableStrengthTags.map((tag) => {
@@ -1249,8 +1249,8 @@ export function Card4ConfirmCard({
                     onClick={() => handleApplyStrengthTag(tag.label)}
                     className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-sm font-bold transition cursor-pointer ${
                       alreadyAdded
-                        ? 'border-amber-600 bg-amber-600 text-white'
-                        : 'border-amber-300 bg-white text-amber-950 hover:bg-amber-100'
+                        ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
+                        : 'border-slate-300 bg-white text-[#1D1D1F] hover:bg-slate-50'
                     }`}
                   >
                     + {tag.label}

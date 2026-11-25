@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
-import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import {
   useEditorPreviewSync,
   type EditorUnitTarget,
@@ -1964,29 +1962,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
-  const editorHeaderActions =
-    activeThread && activeThread.id.startsWith("custom_") ? (
-      <>
-        <EditorHeaderActionButton
-          testId="inbox-header-edit-btn"
-          label="수정"
-          title={`${activeThread.clientName} 정보 수정`}
-          icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
-          disabled={Boolean(busyAction)}
-          onClick={() => openEditCustomClientModal(activeThread)}
-        />
-        <EditorHeaderActionButton
-          testId="inbox-header-delete-btn"
-          label="삭제"
-          title={`${activeThread.clientName} 삭제`}
-          tone="danger"
-          icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
-          disabled={Boolean(busyAction)}
-          onClick={() => setPendingDeleteClient(activeThread)}
-        />
-      </>
-    ) : undefined;
-
   return (
     <>
       <WorkspaceShell
@@ -1994,7 +1969,6 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         listTitle="① 고객 목록"
         editorTitle="② 고객 응대 · 자료 발송"
         previewTitle="③ 고객 정보 · 상담 기록"
-        editorHeaderActions={editorHeaderActions}
         listSlot={
           <InboxListColumn
             threads={threads}

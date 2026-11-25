@@ -147,9 +147,9 @@ describe("DealCard & Inbox SOTA Bidirectional Sync & Senior Physics (Wave 1)", (
       container.querySelector('[data-testid="dealcard-pregeneration-card"]')
     ).not.toBeNull();
 
-    // 3. Click [✍️ 메모 없이 직접 입력하기] on Pregeneration card -> expands editor & switches to KakaoBubblePreview
+    // 3. Click [✍️ 메모 없이 직접 입력하기] on PairedMemoTopCard -> expands editor & switches to KakaoBubblePreview
     const manualBtn = container.querySelector(
-      '[data-testid="dealcard-pregeneration-card-primary-btn"]'
+      '[data-testid="dealcard-skip-memo-manual-btn"]'
     ) as HTMLButtonElement;
     await act(async () => {
       manualBtn.click();

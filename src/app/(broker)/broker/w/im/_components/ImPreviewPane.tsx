@@ -192,12 +192,6 @@ export function ImPreviewPane({
           onResyncPublished={onQuickGenerate}
           resyncButtonLabel="변경사항 IM에 다시 반영하기"
           isSyncing={isGenerating}
-          liveUrl={
-            currentItem?.status === "published" &&
-            UUID_REGEX.test(currentItem.buildingId)
-              ? `/im-lite/${encodeURIComponent(currentItem.buildingId)}`
-              : null
-          }
           auxActionSlot={
             <a
               href={`/im-lite/${encodeURIComponent(currentItem?.buildingId || "bld-01")}${
@@ -212,7 +206,7 @@ export function ImPreviewPane({
                 isProvisioningSheet || previewLifecycle === "pre_generation"
               }
               onClick={onOpenFullscreen}
-              className={`min-h-[44px] text-sm font-extrabold text-[#1D4ED8] hover:underline inline-flex items-center gap-1 px-2 whitespace-nowrap ${
+              className={`min-h-[44px] text-sm font-bold text-[#1D4ED8] hover:underline inline-flex items-center gap-1 px-2 whitespace-nowrap ${
                 isProvisioningSheet
                   ? "opacity-50 pointer-events-none"
                   : previewLifecycle === "pre_generation"
@@ -220,7 +214,7 @@ export function ImPreviewPane({
                   : ""
               }`}
             >
-              <span>전체화면 ↗</span>
+              <span>큰 화면 ↗</span>
             </a>
           }
         />
@@ -281,7 +275,7 @@ export function ImPreviewPane({
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded">
+                <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded">
                   표지 · {postureKoreanLabel}
                 </span>
               </div>
@@ -339,7 +333,7 @@ export function ImPreviewPane({
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2.5"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded">
+                <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded">
                   {secNo("02")} 핵심 장점
                 </span>
               </div>
@@ -387,7 +381,7 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                 {secNo("03")} 건축물 개요
               </span>
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -420,7 +414,7 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                 {secNo("04")} 입지 및 교통
               </span>
               <p className="text-sm font-semibold text-slate-900 break-keep">
@@ -442,7 +436,7 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                 {secNo("05")} 토지 및 도시계획
               </span>
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -485,7 +479,7 @@ export function ImPreviewPane({
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded">
+                <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded">
                   {secNo("06")} 층별 임대차 현황
                 </span>
                 <span className="text-sm font-bold text-[#065F46]">
@@ -584,7 +578,7 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                 {secNo("07")} 수지 및 수익률 분석
               </span>
               <div className="p-3 bg-emerald-50/70 rounded-lg border border-emerald-200 space-y-1.5 text-sm">
@@ -632,7 +626,7 @@ export function ImPreviewPane({
                 onActivate={onFocusEditorUnit}
                 className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
               >
-                <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+                <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                   {secNo("08")} 인근 실거래 비교 ({compRows.length}건)
                 </span>
                 <div className="space-y-1.5 text-sm">
@@ -666,7 +660,7 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                 {secNo("09")} 현장 사진 및 지적도
               </span>
               <p className="text-sm text-slate-700">
@@ -713,7 +707,7 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-1.5"
             >
-              <span className="text-sm font-bold text-[#1D4ED8] bg-[#EFF6FF] px-2.5 py-0.5 rounded inline-block">
+              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
                 {secNo("10")} 거래 조건 및 담당 중개인
               </span>
               <p className="text-sm font-bold text-slate-900 break-keep">

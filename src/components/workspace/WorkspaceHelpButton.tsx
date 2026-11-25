@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { BookOpen, HelpCircle, MessageSquareWarning, PlayCircle } from "lucide-react";
 import { useSeniorHelp } from "@/components/help/SeniorHelpContext";
 
 export type HelpWorkspaceKey =
@@ -97,9 +98,9 @@ export function WorkspaceHelpButton({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex items-center justify-center gap-1 px-3 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.12] text-sm sm:text-base font-bold text-[#1D1D1F] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_1px_2px_rgba(15,23,42,0.06)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[44px] rounded-xl ios-glass-pill bg-white/88 hover:bg-white border border-slate-900/[0.10] text-sm sm:text-base font-semibold text-[#1D1D1F] transition-colors cursor-pointer whitespace-nowrap shrink-0"
       >
-        <span aria-hidden="true">❓</span>
+        <HelpCircle className="h-4 w-4 text-[#515154] shrink-0" aria-hidden="true" />
         <span>사용법</span>
       </button>
 
@@ -108,7 +109,7 @@ export function WorkspaceHelpButton({
           role="menu"
           data-testid="workspace-help-menu"
           aria-label="사용법 및 도움말 메뉴"
-          className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-300 bg-white p-2 shadow-xl z-50 space-y-1 text-slate-900"
+          className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg z-50 space-y-0.5 text-[#1D1D1F]"
         >
           <button
             type="button"
@@ -118,10 +119,10 @@ export function WorkspaceHelpButton({
               setOpen(false);
               openHelpDrawer(target.moduleId);
             }}
-            className="w-full min-h-[44px] flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-900 hover:bg-blue-50 hover:text-blue-900 transition-colors cursor-pointer"
+            className="w-full min-h-[44px] flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#1D1D1F] hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            <span aria-hidden="true">🎬</span>
-            <span>20초 사용법 바로 보기</span>
+            <PlayCircle className="h-4 w-4 text-[#1D4ED8] shrink-0" aria-hidden="true" />
+            <span>20초 사용법 보기</span>
           </button>
 
           <button
@@ -134,10 +135,10 @@ export function WorkspaceHelpButton({
                 window.dispatchEvent(new CustomEvent("credeal:open-feedback"));
               }
             }}
-            className="w-full min-h-[44px] flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold text-slate-900 hover:bg-amber-50 hover:text-amber-950 transition-colors cursor-pointer"
+            className="w-full min-h-[44px] flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#1D1D1F] hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            <span aria-hidden="true">🛠️</span>
-            <span>10초 불편 · 오류 제보</span>
+            <MessageSquareWarning className="h-4 w-4 text-[#515154] shrink-0" aria-hidden="true" />
+            <span>불편 · 오류 제보</span>
           </button>
 
           <Link
@@ -145,9 +146,9 @@ export function WorkspaceHelpButton({
             role="menuitem"
             data-testid="workspace-help-tutorial-link"
             onClick={() => setOpen(false)}
-            className="w-full min-h-[44px] flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold text-blue-800 hover:bg-blue-50 transition-colors"
+            className="w-full min-h-[44px] flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#1D4ED8] hover:bg-slate-100 transition-colors"
           >
-            <span aria-hidden="true">📖</span>
+            <BookOpen className="h-4 w-4 text-[#1D4ED8] shrink-0" aria-hidden="true" />
             <span>{target.chapterLabel}</span>
           </Link>
         </div>

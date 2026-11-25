@@ -145,18 +145,9 @@ describe("Tester 이상덕 2026-11-23 Hold-out V2 Cognitive & Functional Remedia
       root.render(renderPanels("specs"));
     });
 
-    const starterAddrBtn = container.querySelector(
-      '[data-testid="im-starter-address-btn"]'
-    ) as HTMLButtonElement | null;
-    expect(starterAddrBtn).not.toBeNull();
-
-    await act(async () => {
-      starterAddrBtn!.click();
-    });
-
-    expect(scrollSpy).toHaveBeenCalled();
-    expect(container.querySelector('[data-testid="im-starter-address-guide"]')).not.toBeNull();
-    expect(document.activeElement?.id).toBe("im-address-input");
+    expect(container.querySelector('[data-testid="im-zero-blank-starter"]')).toBeNull();
+    expect(container.querySelector("#im-address-input")).not.toBeNull();
+    expect(container.querySelector('[data-testid="im-editor-primary-tabs"]')).not.toBeNull();
 
     await act(async () => {
       root.render(renderPanels("rentroll"));

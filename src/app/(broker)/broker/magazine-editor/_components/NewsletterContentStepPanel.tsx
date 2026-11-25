@@ -150,14 +150,11 @@ export function NewsletterContentStepPanel({
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-slate-900">
+              <h3 className="text-base font-extrabold text-[#1D1D1F]">
                 월간 상단 주요 통계 그래픽 2선
               </h3>
-              <p className="text-sm font-medium text-slate-600">
-                월간 뉴스레터 맨 위에 카드뉴스형 막대 그래픽 2개가 표시됩니다. 권역과 지표 구성을 고르거나 수치를 직접 다듬을 수 있습니다.
-              </p>
             </div>
-            <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-900">
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-bold text-[#3A3A3C]">
               {monthlyCharts.some((c) => c.sourceMode === "broker_custom")
                 ? "중개사 직접 입력"
                 : monthlyLiveDbAvailable ||
@@ -351,18 +348,11 @@ export function NewsletterContentStepPanel({
         }`}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-blue-700" aria-hidden="true" />
-              <h3 className="text-base font-extrabold text-slate-900">
-                시장 브리핑
-              </h3>
-            </div>
-            <p className="text-sm text-slate-600">
-              {isSectionEnabled("field_note")
-                ? "1~3줄만 간단히 적고 [AI로 3줄 개조식 다듬기]를 누르면 바쁜 고객도 5초 만에 훑어보기 쉽게 정리해 드립니다."
-                : "코너가 꺼져 있어 입력칸을 접어 두었습니다. 위 [코너 켜기]를 누르면 바로 작성할 수 있습니다."}
-            </p>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-[#1D4ED8]" aria-hidden="true" />
+            <h3 className="text-base font-extrabold text-[#1D1D1F]">
+              시장 브리핑
+            </h3>
           </div>
           <div
             className={

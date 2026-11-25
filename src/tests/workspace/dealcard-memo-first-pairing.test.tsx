@@ -143,6 +143,9 @@ describe("DealCard Memo-First Authoring, 1:1 Pairing & 3-Group List", () => {
     expect(topMemoCard?.getAttribute("data-memo-mode")).toBe("capture");
     expect(
       container.querySelector('[data-testid="dealcard-awaiting-memo-guide"]')
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="dealcard-fill-sample-btn"]')
     ).not.toBeNull();
 
     const card4Stage = container.querySelector(

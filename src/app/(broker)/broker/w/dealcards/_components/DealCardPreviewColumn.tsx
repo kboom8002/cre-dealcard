@@ -119,8 +119,8 @@ export function DealCardPreviewColumn({
       {isPreGeneration ? (
         <PreviewPregenerationCard
           testId="dealcard-pregeneration-card"
-          title="메모나 매물 정보를 입력하면 미리보기가 만들어집니다"
-          description="편집 화면의 메모창에 매물을 붙여넣고 생성하거나 직접 항목을 입력하면 고객에게 보일 카톡 말풍선과 받는 화면이 즉시 만들어집니다."
+          title="입력하시면 고객용 카톡 카드가 여기에 표시됩니다"
+          description="메모로 생성하거나 직접 4칸을 채우면 블라인드 처리된 미리보기가 바로 나타납니다."
           checklist={[
             {
               label: "권역·동명 및 매물 용도",
@@ -136,10 +136,6 @@ export function DealCardPreviewColumn({
               onClick: onSkipMemoManual,
             },
           ]}
-          primaryActionLabel="✍️ 메모 없이 직접 입력하기"
-          onPrimaryAction={onSkipMemoManual}
-          secondaryActionLabel={!selectedMemoOnly ? "💡 예시로 채워보기" : undefined}
-          onSecondaryAction={!selectedMemoOnly ? onFillSample : undefined}
         />
       ) : (
         <KakaoBubblePreview
@@ -152,16 +148,6 @@ export function DealCardPreviewColumn({
           onActivateUnit={onActivateUnit}
         />
       )}
-
-      <div className="rounded-2xl border border-slate-200 bg-white/90 p-3">
-        <Link
-          href="/broker/profile"
-          data-testid="dealcard-broker-profile-link"
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-50"
-        >
-          내 중개사 명함·프로필 수정 →
-        </Link>
-      </div>
     </div>
   );
 }

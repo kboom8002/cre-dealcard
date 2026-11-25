@@ -66,7 +66,7 @@ export function ImListSidebar({
             type="button"
             data-testid="im-create-new-btn"
             onClick={onCreateNew}
-            className="w-full min-h-[52px] px-4 py-3 bg-gradient-to-b from-[#1A88FF] to-[#007AFF] text-white rounded-2xl font-semibold text-base hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_14px_rgba(0,122,255,0.28)]"
+            className="w-full min-h-[52px] px-4 py-3 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-2xl font-semibold text-base transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             <span>+ 새 IM 만들기</span>
           </button>

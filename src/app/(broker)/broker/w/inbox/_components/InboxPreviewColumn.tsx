@@ -369,15 +369,15 @@ export function InboxPreviewColumn({
             onToggle={(e) => setGovOpen((e.currentTarget as HTMLDetailsElement).open)}
             className="rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-xs"
           >
-            <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-extrabold text-slate-900 cursor-pointer list-none">
-              <span>⚙️ 전용 링크 잠금 · 수치 정정 관리</span>
+            <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-extrabold text-[#1D1D1F] cursor-pointer list-none">
+              <span>전용 링크 잠금 · 수치 정정</span>
               <span
                 className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${
                   activeThread.status === "revoked"
                     ? "bg-rose-100 text-rose-800"
                     : activeThread.hasCorrectionNotice
                     ? "bg-amber-100 text-amber-900"
-                    : "bg-emerald-100 text-emerald-900"
+                    : "bg-slate-100 text-[#059669]"
                 }`}
               >
                 {activeThread.status === "revoked"
@@ -411,7 +411,7 @@ export function InboxPreviewColumn({
                     data-testid="lock-share-link-trigger-btn"
                     disabled={Boolean(busyAction)}
                     onClick={onOpenConfirmLock}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-[#1D1D1F] transition hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50/40 disabled:opacity-50 cursor-pointer"
                   >
                     보낸 링크 잠그기
                   </button>
@@ -507,9 +507,9 @@ export function InboxPreviewColumn({
                     data-testid="open-correction-notice-btn"
                     disabled={Boolean(busyAction)}
                     onClick={onOpenCorrectionNotice}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                   >
-                    ⚠️ 수치 정정 안내 띄우기
+                    수치 정정 안내 띄우기
                   </button>
                 ) : (
                   <div

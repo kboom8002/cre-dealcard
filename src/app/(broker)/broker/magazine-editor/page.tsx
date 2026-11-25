@@ -6,12 +6,10 @@ import {
   BarChart3,
   CheckCircle2,
   Clock,
-  Copy,
   ExternalLink,
   Mail,
   RefreshCw,
   Save,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
@@ -19,7 +17,6 @@ import {
   useEditorPreviewSync, PreviewCausalityBar,
   type PreviewLifecycleState, type EditorUnitTarget,
 } from "@/components/workspace/preview-sync";
-import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import {
@@ -3638,20 +3635,6 @@ function MagazineEditorWorkspace() {
           liveUrl={isPublished ? activeReaderPreviewUrl : null}
           liveUrlLabel="공개 독자 화면 보기 ↗"
           liveLinkTestId="preview-live-reader-link"
-          auxActionSlot={
-            previewLifecycle === "published_dirty" && isPublished && activeReaderPreviewUrl ? (
-              <a
-                href={activeReaderPreviewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="preview-live-reader-link"
-                className="inline-flex min-h-[44px] items-center gap-1 px-2 text-sm font-extrabold text-blue-900 hover:underline whitespace-nowrap"
-              >
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                <span>공개 독자 화면</span>
-              </a>
-            ) : null
-          }
         />
       </div>
 
@@ -3782,27 +3765,6 @@ function MagazineEditorWorkspace() {
         }}
         onManualSync={() => { void handleManualSync(); }}
         isSyncing={isManualSyncing}
-        editorHeaderActions={
-          selectedSavedEdition ? (
-            <>
-              <EditorHeaderActionButton
-                testId="edition-header-duplicate-btn"
-                label="복제"
-                title={`${selectedSavedEdition.title || selectedSavedEdition.slug} 복제`}
-                icon={<Copy className="h-4 w-4" aria-hidden="true" />}
-                onClick={(e) => handleDuplicateEdition(selectedSavedEdition, e)}
-              />
-              <EditorHeaderActionButton
-                testId="edition-header-delete-btn"
-                label="삭제"
-                title={`${selectedSavedEdition.title || selectedSavedEdition.slug} 삭제`}
-                tone="danger"
-                icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
-                onClick={(e) => handleRequestDeleteEdition(selectedSavedEdition, e)}
-              />
-            </>
-          ) : null
-        }
         primaryActionSlot={primaryActionSlot}
         listSlot={listSlot}
         editorSlot={editorSlot}

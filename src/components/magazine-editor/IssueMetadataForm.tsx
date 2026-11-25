@@ -8,7 +8,6 @@ import { MARKET_TEMP_CONFIG } from "@/domain/magazine/types";
 import { formatSingleLineTitle } from "@/domain/magazine/issue-clustering";
 import { kstParts } from "@/lib/magazine/kst";
 import {
-  NEWSLETTER_CADENCES,
   NEWSLETTER_CADENCE_META,
   buildNewsletterTitlePresets,
   deriveCadenceIssueMeta,
@@ -111,7 +110,7 @@ export function IssueMetadataForm({
   marketTemp = null,
   onChangeMarketTemp,
   cadence = "monthly",
-  onChangeCadence,
+  onChangeCadence: _onChangeCadence,
   issueDate,
   onChangeIssueDate,
   toneStance,
@@ -164,11 +163,11 @@ export function IssueMetadataForm({
           </label>
           <span
             data-testid="auto-issue-badge"
-            className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-bold text-blue-900"
+            className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-bold text-[#3A3A3C]"
           >
             {cadence === "monthly"
-              ? `${autoMeta.yearMonthLabel} · 제${autoMeta.issueNumber}호 자동 지정`
-              : `${cadenceMeta.yearMonthLabel} · ${cadenceMeta.rangeLabel} 자동 지정`}
+              ? `${autoMeta.yearMonthLabel} · 제${autoMeta.issueNumber}호`
+              : `${cadenceMeta.yearMonthLabel} · ${cadenceMeta.rangeLabel}`}
           </span>
         </div>
         <div className="relative">
@@ -211,7 +210,7 @@ export function IssueMetadataForm({
           className="pt-1.5 space-y-2"
         >
           <p className="text-sm font-bold text-slate-600">
-            제목이 부담스러우시면 아래에서 바로 고르세요
+            추천 제목
           </p>
           <div className="flex flex-wrap gap-2">
             {titlePresets.map((preset, idx) => {
@@ -236,14 +235,14 @@ export function IssueMetadataForm({
         </div>
       </div>
 
-      {/* 3. 발행 주기 · 호수 설정 (1열과 중복 방지: 1줄 요약 바 + 필요 시 펼치기, 내부 DOM 항상 유지) */}
+      {/* 3. 발행 호수 · 날짜 설정 (발행 주기 일간/주간/월간은 1열 1곳 SSOT) */}
       <div className="space-y-3 pt-3 border-t border-slate-100">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Calendar className="h-5 w-5 text-blue-700 shrink-0" aria-hidden="true" />
-            <span className="text-sm font-extrabold text-slate-800">
-              발행 호수 · 주기:{" "}
-              <span className="text-blue-900">
+            <Calendar className="h-5 w-5 text-[#1D4ED8] shrink-0" aria-hidden="true" />
+            <span className="text-sm font-extrabold text-[#1D1D1F]">
+              발행 호수:{" "}
+              <span className="text-[#1D4ED8]">
                 {NEWSLETTER_CADENCE_META[cadence].label} ·{" "}
                 {cadence === "monthly" ? autoMeta.yearMonthLabel : cadenceMeta.yearMonthLabel}
               </span>
@@ -255,45 +254,13 @@ export function IssueMetadataForm({
             data-testid="toggle-issue-schedule-btn"
             aria-expanded={isScheduleOpen}
             onClick={() => setIsScheduleOpen((prev) => !prev)}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-extrabold text-slate-800 hover:bg-slate-100 transition cursor-pointer shrink-0"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-bold text-[#1D1D1F] hover:bg-slate-100 transition cursor-pointer shrink-0"
           >
-            <span>{isScheduleOpen ? "호수·주기 접기 ▴" : "호수·주기 바꾸기 ▾"}</span>
+            <span>{isScheduleOpen ? "날짜 접기 ▴" : "날짜 변경 ▾"}</span>
           </button>
         </div>
 
         <div className={isScheduleOpen ? "space-y-3 pt-1" : "hidden"}>
-          {onChangeCadence && (
-            <div
-              role="radiogroup"
-              aria-label="발행 주기 선택"
-              data-testid="metadata-cadence-selector"
-              className="grid grid-cols-1 sm:grid-cols-3 gap-2"
-            >
-              {NEWSLETTER_CADENCES.map((key) => {
-                const meta = NEWSLETTER_CADENCE_META[key];
-                const selected = cadence === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    data-testid={`metadata-cadence-${key}`}
-                    onClick={() => onChangeCadence(key)}
-                    className={`min-h-[48px] rounded-xl border px-3 py-2 text-left transition ${
-                      selected
-                        ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="block text-sm font-extrabold">{meta.label} 뉴스레터</span>
-                    <span className="block text-sm font-medium text-slate-600">{meta.description}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
           {cadence === "monthly" ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -377,8 +344,8 @@ export function IssueMetadataForm({
             >
               <span>
                 {marketTemp
-                  ? `시장 분위기 배지 선택 (선택 사항) · ${marketTemp}`
-                  : "시장 분위기 배지 선택 (선택 사항)"}
+                  ? `표지 분위기 · ${marketTemp}`
+                  : "표지 분위기 (선택)"}
               </span>
               <span aria-hidden="true">{isMoodOpen ? "▴" : "▾"}</span>
             </button>
