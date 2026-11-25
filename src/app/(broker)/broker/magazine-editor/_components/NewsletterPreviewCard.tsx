@@ -13,7 +13,11 @@ import {
   MONTHLY_REGION_PRESETS,
   type MonthlyRegionKey,
 } from "@/domain/magazine/monthly-stats-charts";
-import { normalizeAxiosIssueCopy } from "@/domain/magazine/issue-clustering";
+import {
+  formatShortIssueSource,
+  normalizeAxiosIssueCopy,
+  parseMarketBriefingBullets,
+} from "@/domain/magazine/issue-clustering";
 import {
   NEWS_CHANNEL_MAP,
   type NewsChannelId,
@@ -153,21 +157,47 @@ export function NewsletterPreviewCard({
       )}
 
       {isSectionEnabled("field_note") &&
-        formattedPreviewBriefing.trim().length > 0 && (
-          <PreviewEditableUnit
-            as="section"
-            testId="preview-market-briefing-section"
-            unitId="nl-unit-briefing"
-            label="시장 브리핑"
-            isActive={activeUnitId === "nl-unit-briefing"}
-            onActivate={onFocusEditorUnit}
-            className="rounded-xl px-2.5 pt-2 pb-2 -mx-2.5"
-          >
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 whitespace-pre-line leading-relaxed">
-              {formattedPreviewBriefing.trim()}
-            </div>
-          </PreviewEditableUnit>
-        )}
+        formattedPreviewBriefing.trim().length > 0 && (() => {
+          const parsedBriefing = parseMarketBriefingBullets(formattedPreviewBriefing);
+          const showAsBullets =
+            parsedBriefing.isBulleted || parsedBriefing.items.length > 1;
+          return (
+            <PreviewEditableUnit
+              as="section"
+              testId="preview-market-briefing-section"
+              unitId="nl-unit-briefing"
+              label="시장 브리핑"
+              isActive={activeUnitId === "nl-unit-briefing"}
+              onActivate={onFocusEditorUnit}
+              className="rounded-xl px-2.5 pt-2 pb-2 -mx-2.5"
+            >
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base font-medium text-slate-800 leading-relaxed">
+                {showAsBullets ? (
+                  <ul
+                    data-testid="preview-market-briefing-bullets"
+                    className="list-none m-0 p-0 space-y-2"
+                  >
+                    {parsedBriefing.items.map((item, bIdx) => (
+                      <li key={bIdx} className="flex items-start gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="font-extrabold text-[#1D4ED8] shrink-0"
+                        >
+                          •
+                        </span>
+                        <span className="break-keep">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="whitespace-pre-line break-keep">
+                    {formattedPreviewBriefing.trim()}
+                  </p>
+                )}
+              </div>
+            </PreviewEditableUnit>
+          );
+        })()}
 
       {isSectionEnabled("news_curation") && unitIssues.length > 0 && (
         <section
@@ -184,6 +214,10 @@ export function NewsletterPreviewCard({
                 title: issue.title,
                 brief: issue.brief,
                 channel: chMeta.id === "all" ? "real_estate" : chMeta.id,
+              });
+              const shortSource = formatShortIssueSource({
+                sources: issue.sources,
+                url: issue.url,
               });
               return (
                 <PreviewEditableUnit
@@ -205,6 +239,7 @@ export function NewsletterPreviewCard({
                       channelLabel={
                         chMeta.shortLabel || NEWS_CHANNEL_MAP.real_estate.shortLabel
                       }
+                      source={shortSource}
                       cardTestId={`preview-postit-card-${idx}`}
                       titleTestId={`preview-postit-title-${idx}`}
                       briefTestId={`preview-postit-brief-${idx}`}

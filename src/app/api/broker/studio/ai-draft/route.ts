@@ -14,9 +14,9 @@ import { requireBroker } from "@/lib/auth-guard";
 import {
   charLength,
   condenseKoreanParagraph,
+  formatMarketBriefingThreeBullets,
   formatSingleLineTitle,
   humanizeBuyerCopy,
-  normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
 import {
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
@@ -61,7 +61,7 @@ export const AI_DRAFT_SYSTEM_PROMPT = [
   "2) [No-Solicitation] 투자 권유·단정 표현(원금 보장, 확정 수익, 무조건 상승 등)을 사용하지 마세요.",
   "3) [70s-Buyer-Plain-Korean] '스프레드', '레버리지', '자기자본수익률', '밸류애드', '리파이낸싱' 대신 쉬운 일상 우리말을 쓰세요.",
   "4) [O] Output Contract: 반드시 아래 JSON 키만 포함하여 응답하세요:",
-  '   { "headline": "45자 이내 뉴스레터 제목", "summary": "", "briefingTitle": "", "briefingBody": "소제목·기호 없이 3~5줄 이내 500자 이내 순수 텍스트 시장 브리핑" }',
+  '   { "headline": "45자 이내 뉴스레터 제목", "summary": "", "briefingTitle": "", "briefingBody": "• 로 시작하고 명사로 끝나는 44자 이내 3줄 개조식 시장 브리핑 (줄바꿈 \\n 구분)" }',
 ].join("\n");
 
 export const aiDraftRequestSchema = z.object({
@@ -259,10 +259,8 @@ export async function POST(req: NextRequest) {
         typeof jsonObj.briefingTitle === "string" && jsonObj.briefingTitle.trim()
           ? clampText(jsonObj.briefingTitle, 30, "title")
           : "",
-      briefingBody: normalizeMarketBriefingPlain(
+      briefingBody: formatMarketBriefingThreeBullets(
         clampMultilineText(jsonObj.briefingBody, 500),
-        500,
-        5,
       ),
     };
 
@@ -295,7 +293,7 @@ export async function POST(req: NextRequest) {
       briefingTitle: repaired.result.briefingTitle
         ? clampText(humanizeBuyerCopy(repaired.result.briefingTitle), 30, "title")
         : "",
-      briefingBody: normalizeMarketBriefingPlain(humanizeBuyerCopy(repaired.result.briefingBody), 500, 5),
+      briefingBody: formatMarketBriefingThreeBullets(repaired.result.briefingBody),
     };
 
     const finalValidated = aiDraftResultSchema.safeParse(humanizedCandidate);

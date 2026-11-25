@@ -13,6 +13,7 @@ import {
   clusterArticlesIntoFiveIssues,
   formatAxiosCardTitle,
   formatAxiosTwoLineBrief,
+  formatShortIssueSource,
 } from "@/domain/magazine/issue-clustering";
 import {
   CURATED_CHANNEL_POOL,
@@ -299,6 +300,10 @@ export function AxiosIssuesEditorPanel({
               summary: issue.brief,
               channel: issue.channel,
             });
+            const shortSource = formatShortIssueSource({
+              sources: issue.sources,
+              url: issue.url,
+            });
 
             return (
               <div
@@ -311,9 +316,9 @@ export function AxiosIssuesEditorPanel({
                 }}
                 className="rounded-2xl border-2 border-l-[6px] p-4 shadow-2xs transition-all space-y-3"
               >
-                {/* 카드 상단 메타 바: 이슈 분야 선택 배지 + 보조 도구 접기/펼치기 */}
+                {/* 카드 상단 메타 바: 이슈 분야 선택 배지 + 짧은 출처 + 보조 도구 접기/펼치기 */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <select
                       aria-label="이슈 분야 선택"
                       data-testid={`axios-issue-channel-${idx}`}
@@ -335,6 +340,14 @@ export function AxiosIssuesEditorPanel({
                         </option>
                       ))}
                     </select>
+                    {shortSource && (
+                      <span
+                        data-testid={`axios-editor-issue-source-${idx}`}
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-sm font-semibold text-slate-600"
+                      >
+                        {shortSource}
+                      </span>
+                    )}
                   </div>
 
                   <button

@@ -8,7 +8,10 @@ import {
   repairCommentOutputBlock,
 } from "@/ai/prompts/magazine-taskflow";
 import { requireBroker } from "@/lib/auth-guard";
-import { humanizeBuyerCopy } from "@/domain/magazine/issue-clustering";
+import {
+  formatMarketBriefingThreeBullets,
+  humanizeBuyerCopy,
+} from "@/domain/magazine/issue-clustering";
 import {
   AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT,
   aiCommentRequestSchema,
@@ -136,9 +139,13 @@ export async function POST(req: NextRequest) {
       ? repairBriefingPolishOutputBlock(text, groundingContext)
       : repairCommentOutputBlock(text, comment);
 
+    const finalComment = isBriefingMode
+      ? formatMarketBriefingThreeBullets(repaired.comment || text)
+      : humanizeBuyerCopy(repaired.comment || text).replace(/\s+/g, " ").trim();
+
     const body: AiCommentResponse & { envelope?: unknown } = {
       ok: true,
-      result: { comment: humanizeBuyerCopy(repaired.comment || text) },
+      result: { comment: finalComment },
       ...(warnings.length > 0 ? { warnings } : {}),
       envelope: repaired.envelope,
     };

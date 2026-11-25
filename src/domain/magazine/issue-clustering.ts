@@ -221,15 +221,23 @@ function decodeBasicEntities(raw: string): string {
 export const AXIOS_TITLE_MAX_CHARS = 44;
 /** 카드뉴스 포스트잇 이슈 해설 최대 글자 수 (1문장 수치·근거 + 2문장 시사점 · 모바일 4줄 이내 = 96자) */
 export const AXIOS_BRIEF_MAX_CHARS = 96;
+/** 시장 브리핑 표준 줄 수 (3줄 명사형 개조식 뷸렛 목록) */
+export const MARKET_BRIEFING_MAX_LINES = 3;
+/** 시장 브리핑 줄당 본문 최대 글자 수 (뷸렛 기호 제외 44자 이내) */
+export const MARKET_BRIEFING_LINE_MAX_CHARS = 44;
+/** 시장 브리핑 전체 권장 글자 수 상한 */
+export const MARKET_BRIEFING_MAX_CHARS = 150;
 
 const BUYER_JARGON_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/자기자본\s*수익률(?:\s*\(ROE\))?/gi, '내 돈 대비 실제 수익률'],
   [/표면\s*수익률(?:\s*\(Cap\s*Rate\))?/gi, '단순 연 월세 수익률'],
   [/금리\s*스프레드/gi, '은행 대출금리 차이'],
+  [/스프레드/gi, '금리 차이'],
   [/조달\s*금리/gi, '대출 이자율'],
   [/밸류\s*애드|value[\s-]*add/gi, '수리·임차 개선'],
   [/리파이낸싱/gi, '기존 대출 갈아타기'],
   [/레버리지\s*비율/gi, '대출 활용 비중'],
+  [/레버리지와/gi, '대출 활용과'],
   [/레버리지/gi, '대출 활용'],
   [/명도\s*여건/gi, '기존 세입자 퇴거 협의'],
   [/프롭테크/gi, '디지털 건물 관리'],
@@ -246,25 +254,32 @@ const BUYER_JARGON_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/(?:신중한|면밀한)\s*검토/gi, '현장 확인'],
 ];
 
-/** 전문용어·영문 외래어를 매수자·건물주가 바로 이해할 수 있는 일상 한국어로 풀어쓴다. */
+/** 전문용어·영문 외래어를 매수자·건물주가 바로 이해할 수 있는 일상 한국어로 풀어쓴다 (줄바꿈 \n 보존). */
 export function humanizeBuyerCopy(text: string): string {
   if (!text) return '';
   let out = text;
   for (const [pattern, replacement] of BUYER_JARGON_REPLACEMENTS) {
     out = out.replace(pattern, replacement);
   }
-  return out.replace(/\s+/g, ' ').trim();
+  return out
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .trim();
 }
 
 /**
- * 5줄 · 500자 이내 순수 텍스트 시장 브리핑 정규화기
- * - 별도 브리핑 소제목(■ ...), 강조 마크다운(**), 구분선(───)을 제거하고
- *   줄바꿈은 최대 maxLines(기본 5줄), 글자 수는 최대 maxChars(기본 500자)로 정돈한다.
+ * 순수 텍스트 시장 브리핑 정규화기
+ * - 별도 브리핑 소제목(■ ...), 강조 마크다운(**), 구분선(───)을 제거하고,
+ *   한 줄에 이어 붙은 인라인 뷸렛(`... • ...`)을 항목별 줄바꿈(`\n• `)으로 자동 복원한다.
+ * - 줄바꿈은 최대 maxLines, 글자 수는 최대 maxChars로 정돈한다.
  */
 export function normalizeMarketBriefingPlain(raw: unknown, maxChars = 500, maxLines = 5): string {
   if (typeof raw !== 'string') return '';
   const cleanedLines = decodeBasicEntities(raw)
     .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+(?=[•▪▸]\s+)/g, '\n')
     .replace(/^[■◆▶●★※]\s*[^\n]*(?:\n|$)/gm, '')
     .replace(/^[─━=\-]{3,}$/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -583,6 +598,237 @@ export function formatSingleLineTitle(raw: unknown, maxChars = 50): string {
  */
 export function formatAxiosCardTitle(raw: unknown, maxChars = AXIOS_TITLE_MAX_CHARS): string {
   return formatSingleLineTitle(raw, Math.min(maxChars, AXIOS_TITLE_MAX_CHARS));
+}
+
+const BRIEFING_INLINE_PREFIX_RE =
+  /^(?:현장\s*분위기|핵심\s*수치\s*[·/]?\s*변수|주요\s*수치\s*[·/]?\s*변수|(?:이번\s*(?:주|달|호)|오늘)\s*체크(?:\s*포인트)?|체크\s*포인트)\s*[:：\-]\s*/i;
+
+/**
+ * 서술형 종결어미('~이어지고 있습니다.', '~선호됩니다.' 등)를 간결한 한국어 명사형 개조식 어미로 변환한다.
+ */
+function nominalizeBriefingClause(raw: string): string {
+  let s = raw
+    .replace(/[.。!]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!s) return '';
+
+  const rules: ReadonlyArray<readonly [RegExp, string]> = [
+    [/(?:편하게\s*)?(?:답장|문의|연락)(?:을?\s*주시면|해\s*주시면|해\s*주세요|바랍니다).*$/, '요청 시 상세 자료 안내'],
+    [/(?:요청\s*시|필요하시면)\s*.*(?:보내드리겠습니다|정리해\s*드립니다|안내해\s*드립니다|전달드립니다)$/, '요청 시 상세 자료 안내'],
+    [/(?:살펴보시길|점검하시길|확인하시길|비교해\s*보시길|챙기시길)\s*(?:권합니다|권장합니다|바랍니다|제안합니다|좋습니다)$/, '사전 점검 권장'],
+    [/(?:살펴보시는|점검하시는|확인하시는|챙기시는)\s*것이\s*(?:좋습니다|유리합니다|중요합니다)$/, '사전 점검 권장'],
+    [/꾸준히\s*이어지고\s*(?:있습니다|있음)$/, '지속'],
+    [/이어지고\s*(?:있습니다|있음)$|이어집니다$/, '지속'],
+    [/(?:늘고|늘어나고|증가하고)\s*(?:있습니다|있음)$|(?:늘었습니다|증가했습니다)$/, '증가'],
+    [/(?:줄고|줄어들고|감소하고)\s*(?:있습니다|있음)$|(?:줄었습니다|감소했습니다)$/, '감소'],
+    [/(?:모이고|집중되고)\s*(?:있습니다|있음)$/, '집중'],
+    [/(?:주목받고|부각되고)\s*(?:있습니다|있음)$/, '부각'],
+    [/(?:유지하고|유지되고)\s*(?:있습니다|있음)$|유지됩니다$/, '유지'],
+    [/(?:완화되고\s*있습니다|완화되었습니다|완화됩니다)$/, '완화'],
+    [/(?:개선되고\s*있습니다|개선되었습니다|개선됩니다)$/, '개선'],
+    [/(?:확대되고\s*있습니다|확대되었습니다|확대됩니다)$/, '확대'],
+    [/(?:나아지고\s*있습니다|수월해졌습니다|수월해집니다)$/, '여건 개선'],
+    [/활발합니다$|활발한\s*편입니다$/, '활발'],
+    [/유리합니다$/, '유리'],
+    [/중요합니다$/, '중요'],
+    [/필요합니다$/, '필요'],
+    [/선호합니다$|선호됩니다$|선호하는\s*추세입니다$/, '선호'],
+    [/([가-힣]{2,})(?:하는|되는|보는)\s*(?:흐름|추세|분위기|장세)(?:입니다|임)$/, '$1 흐름'],
+    [/([가-힣]{2,})입니다$/, '$1'],
+  ];
+
+  for (const [pattern, replacement] of rules) {
+    if (pattern.test(s)) {
+      s = s.replace(pattern, replacement).replace(/\s+/g, ' ').trim();
+      break;
+    }
+  }
+
+  return s.replace(/[.。,·:：-]+$/g, '').trim();
+}
+
+/**
+ * 시장 브리핑 1줄을 `• <44자 이내 명사형 개조식>` 형태로 정규화한다.
+ */
+export function formatMarketBriefingBulletLine(
+  rawLine: string,
+  maxContentChars = MARKET_BRIEFING_LINE_MAX_CHARS,
+): string {
+  const stripped = humanizeBuyerCopy(decodeBasicEntities(rawLine))
+    .replace(/^[•·\-*▪▸●▶■]+\s*/, '')
+    .replace(/^\d+[.)]\s*/, '')
+    .replace(BRIEFING_INLINE_PREFIX_RE, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!stripped) return '';
+
+  const nominalized = nominalizeBriefingClause(stripped);
+  const compressed = compressKoreanTitle(stripWrappingQuotes(nominalized), maxContentChars);
+  if (!compressed) return '';
+  return `• ${compressed}`;
+}
+
+/**
+ * 시장 브리핑을 정확히 최대 3줄 `• 명사형 개조식 (줄당 44자 이내)` 뷸렛 목록 문자열로 정규화한다.
+ */
+export function formatMarketBriefingThreeBullets(
+  raw: unknown,
+  maxContentChars = MARKET_BRIEFING_LINE_MAX_CHARS,
+): string {
+  if (typeof raw !== 'string') return '';
+  const preSplit = decodeBasicEntities(raw)
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+(?=[•▪▸]\s+)/g, '\n')
+    .replace(/^[■◆▶●★※]\s*[^\n]*(?:\n|$)/gm, '')
+    .replace(/^[─━=\-]{3,}$/gm, '')
+    .trim();
+  if (!preSplit) return '';
+
+  let rawItems = preSplit
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (rawItems.length === 1 && !/^[•·\-*▪▸]/.test(rawItems[0])) {
+    const sentences = splitKoreanSentences(rawItems[0]);
+    if (sentences.length > 1) {
+      rawItems = sentences;
+    }
+  }
+
+  const bullets = rawItems
+    .slice(0, MARKET_BRIEFING_MAX_LINES)
+    .map((item) => formatMarketBriefingBulletLine(item, maxContentChars))
+    .filter(Boolean);
+
+  return bullets.join('\n');
+}
+
+/**
+ * 미리보기 및 공개 뷰어에서 시장 브리핑을 `<ul><li>` 뷸렛 목록으로 렌더링하기 위한 파서.
+ */
+export function parseMarketBriefingBullets(raw: string): {
+  isBulleted: boolean;
+  items: string[];
+} {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return { isBulleted: false, items: [] };
+  }
+  const lines = raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+(?=[•▪▸]\s+)/g, '\n')
+    .split('\n')
+    .map((l) => l.replace(/[ \t]+/g, ' ').trim())
+    .filter(Boolean);
+  if (lines.length === 0) return { isBulleted: false, items: [] };
+
+  const bulletLineRe = /^[•·▪▸\-*]\s+/;
+  const hasExplicitBullets = lines.some((l) => bulletLineRe.test(l));
+  if (!hasExplicitBullets) {
+    return { isBulleted: false, items: lines };
+  }
+  const items = lines
+    .map((l) => l.replace(bulletLineRe, '').trim())
+    .filter(Boolean);
+  return { isBulleted: items.length > 0, items };
+}
+
+const SYNTHETIC_ISSUE_SOURCE_SET = new Set([
+  '시장 브리핑',
+  'AI 클러스터링 종합',
+  '부동산·빌딩',
+  '경제·금리',
+  '절세·상속',
+  '문화·라이프',
+  '상권·트렌드',
+  '부동산·시장',
+  '국세·자산관리 브리핑',
+  '문화·건축 디자인 저널',
+]);
+
+function normalizeSingleIssueSourceName(raw: string): string {
+  const trimmed = raw.replace(/\s+/g, ' ').trim();
+  if (!trimmed || SYNTHETIC_ISSUE_SOURCE_SET.has(trimmed)) return '';
+
+  if (/^(?:한국경제|한경)(?:\s|$|·)/.test(trimmed)) return '한국경제';
+  if (/^(?:매일경제|매경)(?:\s|$|·)/.test(trimmed)) return '매일경제';
+  if (/^(?:서울경제|서경)(?:\s|$|·)/.test(trimmed)) return '서울경제';
+  if (/^조선비즈(?:\s|$|·)/.test(trimmed)) return '조선비즈';
+  if (/^연합뉴스(?:\s|$|·)/.test(trimmed)) return '연합뉴스';
+  if (/^헤럴드경제(?:\s|$|·)/.test(trimmed)) return '헤럴드경제';
+  if (/^머니투데이(?:\s|$|·)/.test(trimmed)) return '머니투데이';
+  if (/^이데일리(?:\s|$|·)/.test(trimmed)) return '이데일리';
+  if (/^파이낸셜뉴스(?:\s|$|·)/.test(trimmed)) return '파이낸셜뉴스';
+  if (/^아시아경제(?:\s|$|·)/.test(trimmed)) return '아시아경제';
+  if (/^국토교통부|^국토부(?:\s|$)/.test(trimmed)) return '국토부';
+  if (/^한국은행|^한은(?:\s|$)/.test(trimmed)) return '한국은행';
+  if (/^국세청(?:\s|$)/.test(trimmed)) return '국세청';
+  if (/^서울시(?:\s|$)/.test(trimmed)) return '서울시';
+  if (/CRE\s*리서치/i.test(trimmed)) return 'CRE 리서치';
+
+  const stripped = trimmed
+    .replace(/\s+(?:부동산|경제|금융|거시|정책|문화|라이프|아르떼|세무|자산관리|이코노미|도시계획|공식|리포트).*$/g, '')
+    .trim();
+  if (!stripped || SYNTHETIC_ISSUE_SOURCE_SET.has(stripped)) return '';
+  return charLength(stripped) <= 12 ? stripped : Array.from(stripped).slice(0, 12).join('').trim();
+}
+
+function inferSourceFromUrl(rawUrl?: string | null): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  try {
+    const host = new URL(rawUrl.trim()).hostname.toLowerCase();
+    if (host.includes('hankyung.com')) return '한국경제';
+    if (host.includes('mk.co.kr')) return '매일경제';
+    if (host.includes('sedaily.com')) return '서울경제';
+    if (host.includes('chosun.com')) return '조선비즈';
+    if (host.includes('yna.co.kr') || host.includes('yonhapnews')) return '연합뉴스';
+    if (host.includes('heraldcorp.com')) return '헤럴드경제';
+    if (host.includes('mt.co.kr')) return '머니투데이';
+    if (host.includes('edaily.co.kr')) return '이데일리';
+    if (host.includes('fnnews.com')) return '파이낸셜뉴스';
+    if (host.includes('seoul.go.kr')) return '서울시';
+    if (host.includes('molit.go.kr')) return '국토부';
+    if (host.includes('bok.or.kr')) return '한국은행';
+    if (host.includes('nts.go.kr')) return '국세청';
+  } catch {
+    // ignore invalid URL
+  }
+  return '';
+}
+
+/**
+ * 이슈 브리핑 카드용 짧은 매체 출처 포맷터 (에디터 2열 · 미리보기 3열 · 공개 뷰어 공용 SSOT)
+ * - 예: "한경 부동산·CRE 리포트" -> "한국경제", ["한국경제 금융", "매일경제 부동산"] -> "한국경제 외 1곳"
+ * - 가짜 플레이스홀더("시장 브리핑", "AI 클러스터링 종합")는 숨기고, 빈 배열일 때 원문 URL 도메인에서 복원한다.
+ */
+export function formatShortIssueSource(input: {
+  sources?: readonly string[] | null;
+  source?: string | null;
+  sourceLabel?: string | null;
+  url?: string | null;
+}): string {
+  const rawCandidates: string[] = [];
+  if (Array.isArray(input.sources)) {
+    for (const s of input.sources) {
+      if (typeof s === 'string' && s.trim()) rawCandidates.push(s);
+    }
+  }
+  if (typeof input.source === 'string' && input.source.trim()) {
+    rawCandidates.push(...input.source.split(',').map((s) => s.trim()));
+  }
+  if (typeof input.sourceLabel === 'string' && input.sourceLabel.trim()) {
+    rawCandidates.push(...input.sourceLabel.split(',').map((s) => s.trim()));
+  }
+
+  const normalized = Array.from(
+    new Set(rawCandidates.map(normalizeSingleIssueSourceName).filter(Boolean)),
+  );
+  if (normalized.length === 1) return normalized[0];
+  if (normalized.length > 1) return `${normalized[0]} 외 ${normalized.length - 1}곳`;
+
+  return inferSourceFromUrl(input.url);
 }
 
 /**

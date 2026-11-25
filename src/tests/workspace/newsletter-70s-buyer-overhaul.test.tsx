@@ -105,26 +105,31 @@ describe("요구사항 1: 제목 프리셋 + 5줄(500자) 순수 브리핑 + AI 
     expect(clamped).not.toMatch(/…|\.\.\./);
   });
 
-  it("buildTf8BriefingPolishPrompt 및 repairBriefingPolishOutputBlock은 5줄·500자 순수 윤문을 강제하고 미출처 숫자를 차단한다", () => {
+  it("buildTf8BriefingPolishPrompt 및 repairBriefingPolishOutputBlock은 3줄·44자 명사형 개조식 윤문을 강제하고 미출처 숫자를 차단한다", () => {
     const prompt = buildTf8BriefingPolishPrompt({
       draftText: "요즘 성수동 코너 빌딩 찾는 분이 늘었고 대출 이자 부담도 조금 덜해진 분위기",
       cadence: "weekly",
       regionFocus: "성수·강남",
     });
     expect(prompt.spec.slotKey).toBe("magazine_briefing_polish_tf8");
-    expect(prompt.systemPrompt).toContain("[Strict-5-Line-500-Char]");
+    expect(prompt.systemPrompt).toContain("[Strict-3-Bullet-44-Char-Noun-Ending]");
     expect(prompt.systemPrompt).toContain("[70s-Buyer-Plain-Korean]");
 
     const repaired = repairBriefingPolishOutputBlock(
-      "■ AI 추천 소제목\n**성수·강남** 레버리지와 스프레드 부담이 낮아져 수익률 14.2% 확정 수익이 기대됩니다.",
+      "■ AI 추천 소제목\n• 현장 분위기 : **성수·강남** 레버리지와 스프레드 부담이 낮아져 수익률 14.2% 확정 수익이 이어지고 있습니다.\n• 핵심 수치·변수 : 코너 근생 건물 중심 실수요 매수 문의가 활발합니다.",
       "요즘 성수동 코너 빌딩 찾는 분이 늘었고 대출 이자 부담도 조금 덜해진 분위기",
     );
     expect(repaired.comment).not.toContain("■");
     expect(repaired.comment).not.toContain("14.2%");
     expect(repaired.comment).not.toContain("확정 수익");
+    expect(repaired.comment).not.toContain("현장 분위기 :");
     expect(repaired.comment).not.toMatch(/레버리지|스프레드/);
-    expect(repaired.comment.split("\n").length).toBeLessThanOrEqual(5);
-    expect(charLength(repaired.comment)).toBeLessThanOrEqual(500);
+    const lines = repaired.comment.split("\n");
+    expect(lines.length).toBeLessThanOrEqual(3);
+    for (const line of lines) {
+      expect(line.startsWith("• ")).toBe(true);
+      expect(charLength(line.replace(/^•\s*/, ""))).toBeLessThanOrEqual(44);
+    }
   });
 
   it("AiCommentRecommendButton(mode='market_briefing')은 중개인 초안으로 /api/broker/studio/ai-comment를 호출해 윤문 결과를 반영한다", async () => {

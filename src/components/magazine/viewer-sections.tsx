@@ -34,6 +34,7 @@ import {
   formatAxiosBrief,
   formatAxiosCardTitle,
   formatAxiosTwoLineBrief,
+  formatShortIssueSource,
 } from "@/domain/magazine/issue-clustering";
 import type { AxiosUnitIssue, MonthlyRegionalChart, PostItTone } from "@/domain/magazine/types";
 import {
@@ -354,9 +355,11 @@ export function NewsSection({
           typeof (u as AnyRec).sourceLabel === "string"
             ? (u as AnyRec).sourceLabel.trim()
             : "";
-        const sourceText =
-          (Array.isArray(u.sources) && u.sources.length > 0 ? u.sources.join(", ") : "") ||
-          (rawSourceLabel && rawSourceLabel !== "AI 클러스터링 종합" ? rawSourceLabel : "");
+        const sourceText = formatShortIssueSource({
+          sources: u.sources,
+          sourceLabel: rawSourceLabel,
+          url: safeUrl,
+        });
         return {
           id: u.id || `issue-${idx + 1}`,
           tone,
@@ -390,7 +393,7 @@ export function NewsSection({
           brief: cleanedBrief,
           topic,
           channelMeta,
-          source: n.source && n.source !== "AI 클러스터링 종합" ? n.source : "",
+          source: formatShortIssueSource({ source: n.source, url: safeUrl }),
           clusterCount: 1,
           safeUrl,
         };

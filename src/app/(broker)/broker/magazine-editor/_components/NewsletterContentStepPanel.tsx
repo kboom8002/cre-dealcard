@@ -17,7 +17,13 @@ import {
   MONTHLY_GRAPHIC_PAIR_PRESETS,
   type MonthlyChartPairId,
 } from "@/domain/magazine/monthly-stats-hydration";
-import { normalizeMarketBriefingPlain } from "@/domain/magazine/issue-clustering";
+import {
+  MARKET_BRIEFING_LINE_MAX_CHARS,
+  MARKET_BRIEFING_MAX_LINES,
+  charLength,
+  formatMarketBriefingThreeBullets,
+  normalizeMarketBriefingPlain,
+} from "@/domain/magazine/issue-clustering";
 import type {
   NewsChannelId,
   NewsPoolItem,
@@ -378,7 +384,10 @@ export function NewsletterContentStepPanel({
                   .join(" / ") || "이번 호 상업용 빌딩 시장 분위기"
               }
               onChangeValue={(next) => {
-                const clean = normalizeMarketBriefingPlain(next, 500, 5);
+                const clean = formatMarketBriefingThreeBullets(
+                  next,
+                  MARKET_BRIEFING_LINE_MAX_CHARS,
+                );
                 onChangeBriefingBody(clean);
               }}
               label="AI로 3줄 개조식 다듬기"
@@ -386,67 +395,84 @@ export function NewsletterContentStepPanel({
           </div>
         </div>
 
-        <div
-          data-testid="market-briefing-editor-body"
-          className={isSectionEnabled("field_note") ? "space-y-2" : "hidden"}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label
-              htmlFor="newsletter-briefing-body"
-              className="block text-sm font-extrabold text-slate-800"
-            >
-              브리핑 내용 (5줄 · 500자 이내)
-            </label>
-            <div className="flex items-center gap-2">
-              <span
-                data-testid="briefing-length-counter"
-                className={`text-sm font-bold ${
-                  Array.from(briefingBody).length > 500 ||
-                  briefingBody.split(/\r?\n/).filter((l) => l.trim()).length > 5
-                    ? "text-rose-700"
-                    : "text-slate-600"
-                }`}
-              >
-                {Array.from(briefingBody).length}/500자 ·{" "}
-                {briefingBody.trim()
-                  ? briefingBody.split(/\r?\n/).filter((l) => l.trim()).length
-                  : 0}
-                /5줄
-              </span>
-              {briefingBody.length > 0 && (
-                <button
-                  type="button"
-                  data-testid="clear-briefing-btn"
-                  aria-label="입력 지우기"
-                  title="입력 지우기"
-                  onClick={() => onChangeBriefingBody("")}
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
-                >
-                  <span aria-hidden="true">×</span>
-                  <span>비우기</span>
-                </button>
-              )}
-            </div>
-          </div>
+        {(() => {
+          const normalizedLines = briefingBody.trim()
+            ? normalizeMarketBriefingPlain(briefingBody, 500, 10)
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .filter(Boolean)
+            : [];
+          const lineCount = normalizedLines.length;
+          const maxLineChars = normalizedLines.reduce((acc, line) => {
+            const contentOnly = line.replace(/^[•·\-*▪▸]+\s*/, "").trim();
+            return Math.max(acc, charLength(contentOnly));
+          }, 0);
+          const isOverBudget =
+            lineCount > MARKET_BRIEFING_MAX_LINES ||
+            maxLineChars > MARKET_BRIEFING_LINE_MAX_CHARS;
 
-          <textarea
-            id="newsletter-briefing-body"
-            rows={5}
-            maxLength={500}
-            value={briefingBody}
-            onChange={(e) => onChangeBriefingBody(e.target.value)}
-            onBlur={() => {
-              const clean = normalizeMarketBriefingPlain(briefingBody, 500, 5);
-              if (clean !== briefingBody) {
-                onChangeBriefingBody(clean);
-              }
-            }}
-            placeholder={
-              "예) 이번 주 강남 꼬마빌딩은 금리 안정 기대감으로 문의가 늘고 있습니다.\n급매물 위주로 현장 답사가 활발하니 조건 좋은 매물은 서둘러 살펴보시길 권합니다."
-            }
-            className="w-full rounded-xl border border-slate-300 bg-white p-4 text-base font-medium leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none resize-y"
-          />
-        </div>
+          return (
+            <div
+              data-testid="market-briefing-editor-body"
+              className={isSectionEnabled("field_note") ? "space-y-2" : "hidden"}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label
+                  htmlFor="newsletter-briefing-body"
+                  className="block text-sm font-extrabold text-slate-800"
+                >
+                  브리핑 내용 (3줄 개조식 · 줄당 {MARKET_BRIEFING_LINE_MAX_CHARS}자 이내)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span
+                    data-testid="briefing-length-counter"
+                    className={`text-sm font-bold ${
+                      isOverBudget ? "text-rose-700" : "text-slate-600"
+                    }`}
+                  >
+                    {lineCount}/{MARKET_BRIEFING_MAX_LINES}줄 · 최대 {maxLineChars}/
+                    {MARKET_BRIEFING_LINE_MAX_CHARS}자
+                  </span>
+                  {briefingBody.length > 0 && (
+                    <button
+                      type="button"
+                      data-testid="clear-briefing-btn"
+                      aria-label="입력 지우기"
+                      title="입력 지우기"
+                      onClick={() => onChangeBriefingBody("")}
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                    >
+                      <span aria-hidden="true">×</span>
+                      <span>비우기</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <textarea
+                id="newsletter-briefing-body"
+                rows={4}
+                maxLength={300}
+                value={briefingBody}
+                onChange={(e) => onChangeBriefingBody(e.target.value)}
+                onBlur={() => {
+                  const clean = normalizeMarketBriefingPlain(
+                    briefingBody,
+                    300,
+                    MARKET_BRIEFING_MAX_LINES,
+                  );
+                  if (clean !== briefingBody) {
+                    onChangeBriefingBody(clean);
+                  }
+                }}
+                placeholder={
+                  "• 역세권 알짜 빌딩 중심 실사용·안정 임대 매수 문의 지속\n• 담보대출 금리 안정세 속 우량 세입자 장기계약 건물 선호\n• 코너·가시성 우수 매물 우선 검토 및 임대 조건 사전 점검"
+                }
+                className="w-full rounded-xl border border-slate-300 bg-white p-4 text-base font-medium leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none resize-y"
+              />
+            </div>
+          );
+        })()}
       </section>
 
       {isSectionEnabled("news_curation") && (

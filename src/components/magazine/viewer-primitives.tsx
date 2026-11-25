@@ -9,6 +9,7 @@ import React from "react";
 // 주의: isomorphic-dompurify(jsdom)는 Vercel 런타임에서 ERR_REQUIRE_ESM 으로 모듈 로딩이 실패해 뷰어 전체가 500 이 됐다 (2026-10-16). 서버 렌더 경로에 쓰지 말 것.
 import { escapeHtml } from "@/lib/magazine/escape";
 import { stripUneditedFormatPlaceholders } from "@/lib/magazine/simple-format";
+import { parseMarketBriefingBullets } from "@/domain/magazine/issue-clustering";
 
 export { SectionCard } from "./SectionCard";
 
@@ -35,9 +36,33 @@ export function briefingParaToSafeHtml(para: string): string {
     .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-800 font-bold">$1</span>');
 }
 
-/** 브리핑/테마 본문. 독자 본문 16px(text-reader). 강조 span 은 이스케이프 후 고정 태그로만 만든다. */
+/** 브리핑/테마 본문. 독자 본문 16px(text-reader). 뷸렛(`• `) 개조식은 `<ul><li>` 목록으로 렌더하며, 강조 span 은 이스케이프 후 고정 태그로만 만든다. */
 export function RichBriefing({ text }: { text: string }) {
   const cleaned = stripUneditedFormatPlaceholders(text);
+  const parsedBullets = parseMarketBriefingBullets(cleaned);
+  if (parsedBullets.isBulleted) {
+    return (
+      <ul
+        data-testid="viewer-market-briefing-bullets"
+        className="list-none m-0 p-0 space-y-2.5"
+      >
+        {parsedBullets.items.map((item, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-2 text-reader leading-relaxed text-slate-800"
+          >
+            <span aria-hidden="true" className="font-extrabold text-[#1D4ED8] shrink-0">
+              •
+            </span>
+            <span
+              className="break-keep"
+              dangerouslySetInnerHTML={{ __html: briefingParaToSafeHtml(item) }}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
   const paras = cleaned.split(/\n{1,2}/).filter(Boolean);
   return (
     <div className="space-y-3">

@@ -38,6 +38,7 @@ import {
 import { normalizeReadableBriefingText } from "@/lib/magazine/simple-format";
 import {
   clusterArticlesIntoFiveIssues,
+  formatMarketBriefingThreeBullets,
   formatSingleLineTitle,
   normalizeMarketBriefingPlain,
   resolveUnitIssuesFromData,
@@ -3303,10 +3304,8 @@ function MagazineEditorWorkspace() {
             }}
             onApplyDraft={(next: MagazineDraftSnapshot) => {
               const nextHeadline = formatSingleLineTitle(next.headline, 50);
-              const nextBriefing = normalizeMarketBriefingPlain(
+              const nextBriefing = formatMarketBriefingThreeBullets(
                 next.briefingBody,
-                500,
-                5,
               );
               setHeadline(nextHeadline);
               setSummary("");

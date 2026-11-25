@@ -20,15 +20,15 @@ import {
   AXIOS_BRIEF_MAX_CHARS,
   AXIOS_TITLE_MAX_CHARS,
   ISSUE_CARD_COUNT,
+  MARKET_BRIEFING_LINE_MAX_CHARS,
   POST_IT_TONES,
   charLength,
   extractArticleNumericEvidence,
   formatAxiosCardTitle,
   formatAxiosTwoLineBrief,
   condenseKoreanParagraph,
+  formatMarketBriefingThreeBullets,
   formatSingleLineTitle,
-  humanizeBuyerCopy,
-  normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
 import {
   TONE_STANCE_META,
@@ -143,7 +143,7 @@ const TONE_STANCE_PROMPT_RULES: Readonly<
     headlineRule:
       "회복 신호·금리 완화·실수요 유입·선점 기회 어휘를 자연스럽게 앞세우십시오(단, 원금 보장·무조건 상승 등 단정 금지어는 절대 금지).",
     briefingRule:
-      "1줄차(• 현장 분위기 :)에는 매수·답사 문의 활기를, 2줄차(• 핵심 수치·변수 :)에는 거래 회복·금리 완화·낮은 공실 등 우호적 수치·근거를 우선 배치하고, 3줄차(• 이번 주 체크 :)에는 우량 조건 매물을 한발 앞서 살펴보시도록 긍정적으로 권하십시오.",
+      "1줄차에는 매수·답사 문의 활기를, 2줄차에는 거래 회복·금리 완화·낮은 공실 등 우호적 수치·근거를 우선 배치하고, 3줄차에는 우량 조건 매물 선점 체크포인트를 명사형 개조식(줄당 44자 이내)으로 정리하십시오.",
     clusterSoWhatRule:
       "1문장은 원문 수치·사실을 왜곡 없이 그대로 적고, 2문장(매수자 시사점)은 이자 절감·임차 호조·가치 회복 등 매수·보유 기회 요인을 중심으로 밝고 긍정적으로 해석하십시오.",
     dealCommentRule:
@@ -154,7 +154,7 @@ const TONE_STANCE_PROMPT_RULES: Readonly<
     headlineRule:
       "과열이나 위축 어느 한쪽으로 치우치지 않고 '옥석 가리기·선별 흐름·조건 비교' 관점의 차분한 제목으로 작성하십시오.",
     briefingRule:
-      "1줄차(• 현장 분위기 :)에는 입지별 선별 검토 흐름을, 2줄차(• 핵심 수치·변수 :)에는 회복 지표와 점검할 변수를 균형 있게 담고, 3줄차(• 이번 주 체크 :)에는 임차 안정성과 수익 구조를 차분히 비교해 보시도록 안내하십시오.",
+      "1줄차에는 입지별 선별 검토 흐름을, 2줄차에는 회복 지표와 점검할 변수를 균형 있게 담고, 3줄차에는 임차 안정성과 수익 구조 비교 기준을 명사형 개조식(줄당 44자 이내)으로 정리하십시오.",
     clusterSoWhatRule:
       "1문장은 원문 수치·사실을 그대로 적고, 2문장은 기회 요인과 사전 확인 사항을 균형 있게 짚어 옥석 가리기 기준을 제시하십시오.",
     dealCommentRule:
@@ -165,7 +165,7 @@ const TONE_STANCE_PROMPT_RULES: Readonly<
     headlineRule:
       "공포 조장은 피하되 '관망세·공실 양극화·수지 점검·보수적 접근·눈높이 현실화' 관점의 냉철한 전문가 제목으로 작성하십시오.",
     briefingRule:
-      "1줄차(• 현장 분위기 :)에는 추격 매수를 자제하는 신중한 관망세와 까다로워진 눈높이를, 2줄차(• 핵심 수치·변수 :)에는 공실·대출이자·세무·공사비 부담 등 리스크 수치·근거를 우선 배치하고, 3줄차(• 이번 주 체크 :)에는 공실 방어력이 검증된 안전·급매 매물만 보수적으로 추려 보거나 보유 건물 호가·임차 조건을 냉정히 점검하시도록 제안하십시오.",
+      "1줄차에는 추격 매수를 자제하는 신중한 관망세와 까다로워진 눈높이를, 2줄차에는 공실·대출이자·세무·공사비 부담 등 리스크 수치·근거를 우선 배치하고, 3줄차에는 공실 방어력이 검증된 안전 매물 선별 및 조건 점검 기준을 명사형 개조식(줄당 44자 이내)으로 정리하십시오.",
     clusterSoWhatRule:
       "1문장은 원문 수치·사실을 왜곡 없이 그대로 적고, 2문장(매수자·건물주 시사점)은 역마진 경계·공실 방어·세무 리스크 점검·적정 호가 현실화 등 보수적 리스크 관리 관점으로 해석하십시오.",
     dealCommentRule:
@@ -191,10 +191,10 @@ const VOICE_PRESET_GUIDANCE: Record<NewsletterVoicePreset, { label: string; tone
 export type Tf8Cadence = "daily" | "weekly" | "monthly" | "special";
 
 const CADENCE_PROMPT_META: Record<Tf8Cadence, { label: string; period: string; bodyRange: string }> = {
-  daily: { label: "일간", period: "오늘", bodyRange: "160~320자 (정확히 3줄 개조식, 400자 이내)" },
-  weekly: { label: "주간", period: "이번 주", bodyRange: "200~360자 (정확히 3줄 개조식, 400자 이내)" },
-  monthly: { label: "월간", period: "이번 달", bodyRange: "220~380자 (정확히 3줄 개조식, 400자 이내)" },
-  special: { label: "호외", period: "지금", bodyRange: "160~320자 (정확히 3줄 개조식, 400자 이내)" },
+  daily: { label: "일간", period: "오늘", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
+  weekly: { label: "주간", period: "이번 주", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
+  monthly: { label: "월간", period: "이번 달", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
+  special: { label: "호외", period: "지금", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
 };
 
 function resolveCadence(raw: unknown, monthLabel?: string): Tf8Cadence {
@@ -288,16 +288,16 @@ export function buildTf8DraftPrompt(
 
   const spec: TaskFlow8PromptSpec = {
     slotKey: "magazine_draft_tf8",
-    version: "4.0",
-    task: `한국 소형부동산(꼬마빌딩·근생빌딩) 공인중개사가 매수자·건물주 고객에게 보내는 ${cad.label} 뉴스레터(${input.monthLabel})의 제목(headline, 36자 이내)과 정확히 3줄 개조식 시장 브리핑(briefingBody, 400자 이내)을 JSON으로 작성합니다.`,
+    version: "5.0",
+    task: `한국 소형부동산(꼬마빌딩·근생빌딩) 공인중개사가 매수자·건물주 고객에게 보내는 ${cad.label} 뉴스레터(${input.monthLabel})의 제목(headline, 36자 이내)과 정확히 3줄 명사형 개조식 시장 브리핑(briefingBody, 줄당 44자 이내)을 JSON으로 작성합니다.`,
     audience:
-      `모바일 카카오톡으로 소식지를 열어보시는 중소형 빌딩 매수 검토자, 법인 대표, 건물주 독자. ${voice.label}(${voice.tone}) 어조의 정중한 존댓말('~합니다/~입니다')로 작성하며, 바쁜 고객이 5초 만에 핵심만 읽을 수 있도록 3줄 개조식으로 간결하게 씁니다.`,
+      `모바일 카카오톡으로 소식지를 열어보시는 중소형 빌딩 매수 검토자, 법인 대표, 건물주 독자. ${voice.label}(${voice.tone}) 관점을 살리되 바쁜 고객이 3초 만에 훑어볼 수 있도록 명사로 간결하게 끝나는 3줄 개조식 뷸렛 목록으로 작성합니다.`,
     warnings: [
       ...COMMON_COPY_WARNINGS,
-      "[3-Bullet-Executive-Brief] briefingBody는 줄바꿈(\\n)으로 나눈 정확히 3줄 개조식으로 작성하십시오. 각 줄은 반드시 `• 항목명 : 내용` 형식으로 시작하고 '~합니다.' 또는 '~입니다.'로 완결하십시오(별도 ■ 소제목·마크다운 **·구분선 ─── 금지):\n  1줄: `• 현장 분위기 :` 선택 권역·매물 유형의 이번 시기 실제 문의·매수 흐름\n  2줄: `• 핵심 수치·변수 :` FactBook의 뉴스·통계에 있는 검증 수치/객관적 근거 우선 기술 (없으면 사실 근거만, 날조 금지)\n  3줄: `• 이번 주 체크 :` 첨부 추천 매물과 연결한 매수 체크포인트 및 가벼운 답장·자료 요청 유도",
+      "[3-Bullet-Executive-Brief] briefingBody는 줄바꿈(\\n)으로 나눈 정확히 3줄 개조식 뷸렛 목록으로 작성하십시오. 각 줄은 반드시 `• `로 시작하고(앞에 '현장 분위기 :' 같은 부연 라벨 절대 금지), 서술형('~합니다/~입니다/~다') 대신 간결한 명사형('~지속', '~선호', '~점검 권장', '~완화' 등, 마침표 없음)으로 끝내며, 뷸렛 기호를 제외한 줄당 본문 길이는 반드시 44자 이내로 맞추십시오:\n  1줄: 선택 권역·매물 유형의 실제 문의·매수 흐름 (명사 종결, 44자 이내)\n  2줄: FactBook의 뉴스·통계에 있는 검증 수치·금리·수익 변수 (없으면 사실 근거만, 날조 금지, 명사 종결, 44자 이내)\n  3줄: 추천 매물과 연결한 매수·보유 핵심 체크포인트 (명사 종결, 44자 이내)",
       `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. 수치는 절대 왜곡하지 않되, 제목은 (${stance.headlineRule}), 본문 3줄은 (${stance.briefingRule}) 방향으로 일관되게 프레이밍하십시오.`,
       "[70s-Buyer-Plain-Korean] '금리 스프레드', '조달 금리', '자기자본수익률', '표면 수익률', '밸류애드', '리파이낸싱', '레버리지', '명도' 같은 어려운 전문용어·외래어 대신 '은행 대출금리 차이', '대출 이자', '내 돈 대비 실제 수익', '단순 연 월세 수익', '건물 수리·세입자 개선', '대출 갈아타기', '기존 세입자 퇴거 협의' 등 쉬운 일상어를 쓰십시오.",
-      "[Char-Budget] headline 36자 이내(공백 포함), briefingBody " + cad.bodyRange + " (총 400자 이내). summary와 briefingTitle은 빈 문자열(\"\")로 두십시오.",
+      "[Char-Budget] headline 36자 이내(공백 포함), briefingBody " + cad.bodyRange + ". summary와 briefingTitle은 빈 문자열(\"\")로 두십시오.",
       `[Cadence-Consistency] ${cad.label} 뉴스레터이므로 '${cad.period}' 기간 표현만 사용하고, 다른 주기 표현(예: 일간인데 '이번 달')을 섞지 마십시오.`,
     ],
     outputContract: [
@@ -306,33 +306,33 @@ export function buildTf8DraftPrompt(
       '  "headline": "36자 이내 — 권역+핵심 흐름을 쉬운 말로 담은 완결된 제목",',
       '  "summary": "",',
       '  "briefingTitle": "",',
-      `  "briefingBody": "${cad.bodyRange} — '• 현장 분위기 : ...\\n• 핵심 수치·변수 : ...\\n• 이번 주 체크 : ...' 3줄 개조식 순수 텍스트 (400자 이내)"`,
+      `  "briefingBody": "${cad.bodyRange} — '• 첫째 줄 명사형 요약\\n• 둘째 줄 명사형 요약\\n• 셋째 줄 명사형 요약' 3줄 개조식 순수 텍스트"`,
       "}",
     ].join("\n"),
     situation: [
       `발송 대상 가시성: ${envelope?.targetVisibility ?? "public_named"}`,
       `발행 주기: ${cad.label} (${input.monthLabel})`,
       `적용 화법: ${voice.label} (${voice.tone})`,
-      `중개사 주력 권역(${regions.join(", ") || "주요 업무·상업 권역"})과 관심 분야(${channelLabels.join(", ")}) 관점을 담아 3줄 개조식으로 바로 읽히게 작성하십시오.`,
+      `중개사 주력 권역(${regions.join(", ") || "주요 업무·상업 권역"})과 관심 분야(${channelLabels.join(", ")}) 관점을 담아 3줄 명사형 개조식(줄당 44자 이내)으로 바로 읽히게 작성하십시오.`,
     ].join("\n"),
     knowledge: factBookContext,
     logicChain: [
       "[K] FactBook에서 발행 시기·주기, 주력 권역, 추천 매물 스펙, 뉴스 수치·근거, 월간 통계, 중개사 메모를 추출합니다.",
       "일반 매수자·건물주 독자도 한 번에 뜻을 알아들을 수 있도록 전문용어를 쉬운 일상어로 바꿉니다.",
       "36자 이내의 명확한 뉴스레터 제목(headline)을 씁니다.",
-      "• 현장 분위기 / • 핵심 수치·변수 / • 이번 주 체크 3줄 개조식(총 220~380자, 400자 이내, 존댓말 완결문)으로 briefingBody를 작성합니다.",
-      "[V] 체크리스트로 글자 수·3줄 개조식·쉬운 용어·존댓말 종결·미출처 숫자 0건·금지어를 검증한 뒤 JSON만 출력합니다.",
+      "줄바꿈(\\n)으로 구분된 정확히 3줄 `• 명사형 개조식`(각 줄 본문 44자 이내, 앞 라벨 및 마침표 없음)으로 briefingBody를 작성합니다.",
+      "[V] 체크리스트로 글자 수(줄당 ≤44자)·3줄 줄바꿈·명사형 종결·쉬운 용어·미출처 숫자 0건·금지어를 검증한 뒤 JSON만 출력합니다.",
     ],
     examples: [
       "✅ headline (26자): \"역세권 알짜 빌딩, 실수요 중심 선별 매수 흐름\"",
-      "✅ briefingBody (담백·신뢰형 3줄 개조식):\n\"• 현장 분위기 : 이번 주 강남·성수 권역은 만실 올근생과 즉시 입주 가능한 중소형 사옥 위주로 실수요 문의가 이어지고 있습니다.\\n• 핵심 수치·변수 : 대출 금리 안정 기대감과 상권 회복세가 맞물리며 공실 부담이 적은 역세권 코너 건물부터 우선 검토되는 흐름입니다.\\n• 이번 주 체크 : 아래 추천 매물의 상세 임대내역이나 현장 답사가 필요하시면 이 메시지에 편하게 답장해 주세요.\"",
-      "✅ briefingBody (실속·수익형 3줄 개조식 — FactBook에 수치가 있을 때):\n\"• 현장 분위기 : 이번 달 성수 권역은 안정적인 월세가 꾸준히 나오는 연 4%대 수익형 건물 문의가 활발합니다.\\n• 핵심 수치·변수 : 3분기 서울 중소형 거래량이 14% 늘고 공실률이 2.8% 수준을 유지하면서 임대수익 안정성이 더욱 부각되고 있습니다.\\n• 이번 주 체크 : 권역 평균 대비 수익 조건이 돋보이는 첨부 매물을 먼저 살펴보시고 조건표 요청 시 바로 보내드리겠습니다.\"",
-      "❌ briefingBody: \"■ 이번 달 동향\\n금리 주요 수준 속에서 입지가 좋습니다.\" (■ 소제목, 기계적 표현 금지)",
+      "✅ briefingBody (담백·신뢰형 3줄 명사형 개조식):\n\"• 강남·성수 역세권 만실 올근생 중심 실수요 매수 문의 지속\\n• 대출 금리 안정 기대 속 공실 부담 적은 코너 건물 선호\\n• 추천 매물 임대 조건 및 수리 여건 사전 비교 점검 권장\"",
+      "✅ briefingBody (실속·수익형 3줄 명사형 개조식 — FactBook에 수치가 있을 때):\n\"• 성수 권역 연 4%대 안정 월세 수익형 근생 빌딩 문의 활발\\n• 3분기 거래량 14% 증가·공실률 2.8% 유지로 임대 안정성 부각\\n• 권역 평균 대비 수익 우수한 추천 매물 조건표 우선 확인 권장\"",
+      "❌ briefingBody: \"■ 이번 달 동향\\n이번 주 문의가 이어지고 있습니다. 금리가 안정세입니다.\" (■ 소제목·서술형 어미·줄바꿈 누락 금지)",
     ],
     selfCheck: [
-      "headline 글자 수 ≤ 36, summary=\"\", briefingTitle=\"\", briefingBody가 정확히 3줄 개조식(`• ...`)이며 ≤ 400자 인가?",
-      "전문용어·영어 약어나 '■ 소제목'·마크다운(**) 기호가 0건이고 모든 줄이 정중한 존댓말('~합니다.', '~입니다.')로 완결되었는가?",
-      "2줄차(`• 핵심 수치·변수 :`)에 FactBook의 검증 수치·객관 근거를 우선 반영하고, FactBook에 없는 숫자는 0건인가?",
+      "headline 글자 수 ≤ 36, summary=\"\", briefingTitle=\"\", briefingBody가 줄바꿈(\\n) 기준 정확히 3줄(`• ...`)이며 각 줄 본문이 44자 이내인가?",
+      "전문용어·영어 약어나 '현장 분위기 :' 같은 앞 라벨, '■ 소제목'·마크다운(**) 기호가 0건이고 모든 줄이 명사로 간결하게 끝나는가?",
+      "2줄차에 FactBook의 검증 수치·객관 근거를 우선 반영하고, FactBook에 없는 숫자는 0건인가?",
       "금지어(원금 보장·확정 수익 등)·내부 라벨·이모지가 0건인가?",
       `기간 표현이 '${cad.period}'으로 일관된가?`,
     ],
@@ -630,17 +630,20 @@ export function repairDraftOutputBlock(
   const briefingTitle = rawCandidate.briefingTitle
     ? cleanField(rawCandidate.briefingTitle, 30, "", false, "title")
     : "";
+  const defaultFallbackBullets = [
+    `• ${regionLabel} 역세권 알짜 빌딩 중심 실수요 매수 문의 지속`,
+    `• 세입자 계약 안정성과 대출 조건 병행 검토 흐름`,
+    `• 입지·임대 현황 우수한 매물 우선 비교 점검 권장`,
+  ].join("\n");
   const rawBriefingBody = cleanField(
     rawCandidate.briefingBody,
     500,
-    `${opts.monthLabel} ${regionLabel} 일대 중소형 빌딩 시장은 입지가 좋고 세입자가 안정적인 건물을 중심으로 실수요 문의가 이어지고 있습니다.\n자금 사정에 맞춘 대출 조건과 건물 수리 상태를 함께 점검해 두시면 좋은 매물을 고르실 때 큰 도움이 됩니다.`,
+    defaultFallbackBullets,
     true,
   );
-  const briefingBody = normalizeMarketBriefingPlain(
-    humanizeBuyerCopy(rawBriefingBody),
-    500,
-    5,
-  ) || normalizeMarketBriefingPlain(rawBriefingBody, 500, 5);
+  const briefingBody =
+    formatMarketBriefingThreeBullets(rawBriefingBody, MARKET_BRIEFING_LINE_MAX_CHARS) ||
+    formatMarketBriefingThreeBullets(defaultFallbackBullets, MARKET_BRIEFING_LINE_MAX_CHARS);
 
   const result: DraftBlockShape = {
     headline,
@@ -806,7 +809,7 @@ export interface Tf8BriefingPolishPromptInput {
 }
 
 /**
- * 1~3줄 거친 중개인 메모 → 일반 매수자·건물주 눈높이의 3줄 개조식·500자 이내 순수 시장 브리핑 윤문 프롬프트
+ * 1~3줄 거친 중개인 메모 → 일반 매수자·건물주 눈높이의 3줄 명사형 개조식(줄당 44자 이내) 순수 시장 브리핑 윤문 프롬프트
  */
 export function buildTf8BriefingPolishPrompt(
   input: Tf8BriefingPolishPromptInput,
@@ -833,28 +836,28 @@ export function buildTf8BriefingPolishPrompt(
 
   const spec: TaskFlow8PromptSpec = {
     slotKey: "magazine_briefing_polish_tf8",
-    version: "2.0",
-    task: `중개사가 적은 1~3줄의 짧은 메모를 바탕으로, 건물 매수자·건물주가 5초 만에 훑어보기 편한 ${cad.label} 3줄 개조식 시장 브리핑(3줄 · 400자 이내 순수 텍스트)으로 정중하고 자연스럽게 윤문합니다.`,
+    version: "3.0",
+    task: `중개사가 적은 짧은 메모를 바탕으로, 건물 매수자·건물주가 3초 만에 훑어보기 편한 ${cad.label} 3줄 명사형 개조식 시장 브리핑(각 줄 '• ' 시작 · 줄당 44자 이내 · 항목별 줄바꿈)으로 간결하게 다듬습니다.`,
     audience:
-      "모바일로 소식지를 받아보는 빌딩 매수자·건물주. 한 번에 쏙 읽히는 쉬운 우리말 존댓말('~합니다/~입니다')을 선호하며, '• 항목명 : 내용' 형태의 3줄 개조식 브리핑을 원합니다.",
+      "모바일로 소식지를 받아보는 빌딩 매수자·건물주. 한눈에 들어오는 쉬운 우리말과 명사형 종결('~지속', '~선호', '~점검 권장' 등)의 깔끔한 3줄 뷸렛 개조식을 선호합니다.",
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[70s-Buyer-Plain-Korean] '스프레드', '레버리지', '자기자본수익률', '밸류애드', '리파이낸싱' 등 어려운 금융·영문 전문용어를 쉬운 일상 우리말로 풀어쓰십시오.",
-      "[Strict-5-Line-500-Char] 반드시 줄바꿈 기준 3줄 개조식(최대 5줄 · 500자 이내) 순수 텍스트로만 출력하십시오. 각 줄은 '• 현장 분위기 :', '• 핵심 수치·변수 :', '• 이번 주 체크 :' 형식으로 시작해 '~합니다./~입니다.'로 완결하십시오. '■ 소제목', 제목 줄, 하이픈(-), 마크다운 강조(**)를 절대 넣지 마십시오.",
+      "[Strict-3-Bullet-44-Char-Noun-Ending] 반드시 줄바꿈(\\n) 기준 정확히 3줄 개조식 뷸렛 목록으로만 출력하십시오. 각 줄은 '• '로 시작하고(앞에 '현장 분위기 :' 같은 라벨 금지), 서술형('~합니다/~입니다/~다') 대신 명사형('~지속', '~선호', '~완화', '~점검 권장' 등, 마침표 없음)으로 끝내며, 줄당 본문 길이는 44자 이내로 작성하십시오. '■ 소제목', 하이픈(-), 마크다운 강조(**)를 절대 넣지 마십시오.",
       `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. ${stance.briefingRule}`,
       `[Cadence-Consistency] ${cad.label} 뉴스레터이므로 '${cad.period}' 흐름에 자연스럽게 맞추십시오.`,
     ],
     outputContract:
-      "소제목·따옴표·마크다운 기호 없이 '• 현장 분위기 : ...\\n• 핵심 수치·변수 : ...\\n• 이번 주 체크 : ...' 3줄 개조식 한국어 시장 브리핑 본문만 출력 (총 400자 이내).",
-    situation: `${cad.label} 뉴스레터 상단 '시장 브리핑' 영역에 들어가는 중개인 직접 브리핑입니다.`,
+      "소제목·따옴표·마크다운·앞 라벨 없이 '• 첫째 줄 명사형 요약\\n• 둘째 줄 명사형 요약\\n• 셋째 줄 명사형 요약' 형식의 3줄 개조식(줄당 44자 이내)만 출력.",
+    situation: `${cad.label} 뉴스레터 상단 '시장 브리핑' 영역에 들어가는 중개인 3줄 개조식 브리핑입니다.`,
     knowledge: factBookContext || "상업용 빌딩 시장의 전반적인 매수·임대 흐름",
     logicChain: [
-      "중개사 초안의 핵심 뜻(입지, 금리 분위기, 매수·세입자 흐름, 당부 말씀)과 입력된 숫자만 그대로 추출합니다.",
-      "• 현장 분위기 / • 핵심 수치·변수 / • 이번 주 체크 3줄 개조식(각 줄 존댓말 완결문)으로 다듬어 연결합니다.",
-      "줄 수(3~5줄), 글자 수(<=500자), 미출처 숫자 0건, 소제목/마크다운 0건을 검증한 뒤 본문만 출력합니다.",
+      "중개사 초안의 핵심 뜻(입지, 금리 분위기, 매수·세입자 흐름, 체크포인트)과 입력된 숫자만 그대로 추출합니다.",
+      "줄바꿈(\\n)으로 나눈 정확히 3줄 '• 명사형 개조식'(줄당 본문 44자 이내, 마침표·앞 라벨 없음)으로 정리합니다.",
+      "줄 수(3줄), 줄당 글자 수(<=44자), 명사형 종결, 미출처 숫자 0건, 소제목/마크다운 0건을 검증한 뒤 본문만 출력합니다.",
     ],
     fallbackRepair:
-      "M11 핀포인트 윤문 교정: 미출처 숫자 제거 후 normalizeMarketBriefingPlain(text, 500, 5)로 3~5줄·500자 이내 순수 텍스트를 보장합니다.",
+      "M11 핀포인트 윤문 교정: 미출처 숫자 제거 후 formatMarketBriefingThreeBullets(text, 44)로 3줄·줄당 44자 이내 명사형 개조식을 보장합니다.",
   };
 
   const { systemPrompt, userPrompt } = renderTf8Prompt(spec);
@@ -862,7 +865,7 @@ export function buildTf8BriefingPolishPrompt(
 }
 
 /**
- * M11 핀포인트 5줄·500자 시장 브리핑 윤문 교정기
+ * M11 핀포인트 3줄·44자 명사형 개조식 시장 브리핑 윤문 교정기
  */
 export function repairBriefingPolishOutputBlock(
   rawText: string,
@@ -882,8 +885,14 @@ export function repairBriefingPolishOutputBlock(
     warnings.push("입력에 없는 숫자가 감지되어 핀포인트 교정되었습니다.");
   }
 
-  const normalized = normalizeMarketBriefingPlain(humanizeBuyerCopy(repairedText), 500, 5);
-  const fallbackPlain = normalizeMarketBriefingPlain(sanitizeReaderText(inputContext), 500, 5);
+  const normalized = formatMarketBriefingThreeBullets(
+    repairedText,
+    MARKET_BRIEFING_LINE_MAX_CHARS,
+  );
+  const fallbackPlain = formatMarketBriefingThreeBullets(
+    sanitizeReaderText(inputContext),
+    MARKET_BRIEFING_LINE_MAX_CHARS,
+  );
   const finalComment = normalized || fallbackPlain;
 
   const output: MarketBriefingPolishOutput = {
@@ -893,7 +902,7 @@ export function repairBriefingPolishOutputBlock(
   const envelope = createSuccessEnvelope<MarketBriefingPolishOutput>(output, {
     warnings,
     protected_fields_detected: detected,
-    boundary_note: "AI가 5줄·500자 이내로 다듬은 시장 브리핑입니다.",
+    boundary_note: "AI가 3줄·줄당 44자 이내 명사형 개조식으로 다듬은 시장 브리핑입니다.",
     confidence: "memo_based_inference",
     source_refs: [{ type: "memo", label: "broker-market-briefing" }],
   });

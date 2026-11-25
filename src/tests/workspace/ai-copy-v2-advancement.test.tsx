@@ -50,10 +50,17 @@ vi.mock("@/ai/llm-client", () => {
 import { getModel } from "@/ai/model-selector";
 import {
   AXIOS_BRIEF_MAX_CHARS,
+  charLength,
   clusterArticlesIntoFiveIssues,
   extractArticleNumericEvidence,
+  formatMarketBriefingThreeBullets,
+  formatShortIssueSource,
+  humanizeBuyerCopy,
   normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
+import { NewsletterPreviewCard } from "@/app/(broker)/broker/magazine-editor/_components/NewsletterPreviewCard";
+import { AxiosIssuesEditorPanel } from "@/components/magazine-editor/AxiosIssuesEditorPanel";
+import { MONTHLY_REGION_PRESETS } from "@/domain/magazine/monthly-stats-charts";
 import {
   CURATED_CHANNEL_POOL,
   inferCreArticleSentiment,
@@ -103,7 +110,7 @@ describe("1. gpt-6.1-terra 모델 티어 전환 검증", () => {
 });
 
 describe("2. 뉴스레터 3줄 개조식 & 원문 수치·근거 최우선 기술 고도화", () => {
-  it("buildTf8DraftPrompt는 3줄 개조식·존댓말 통일·확장 FactBook(매물 요약·뉴스 근거·화법)을 주입한다", () => {
+  it("buildTf8DraftPrompt는 3줄 명사형 개조식(줄당 44자 이내)·확장 FactBook(매물 요약·뉴스 근거·화법)을 주입한다", () => {
     const built = buildTf8DraftPrompt({
       monthLabel: "2026년 11월 4주차 주간호",
       cadence: "weekly",
@@ -115,25 +122,125 @@ describe("2. 뉴스레터 3줄 개조식 & 원문 수치·근거 최우선 기�
     });
 
     expect(built.systemPrompt).toContain("[3-Bullet-Executive-Brief]");
-    expect(built.systemPrompt).toContain("• 현장 분위기 :");
-    expect(built.systemPrompt).toContain("• 핵심 수치·변수 :");
-    expect(built.systemPrompt).toContain("• 이번 주 체크 :");
+    expect(built.systemPrompt).toContain("44자 이내");
+    expect(built.systemPrompt).toContain("명사형");
+    expect(built.systemPrompt).not.toContain("• 현장 분위기 :");
     expect(built.systemPrompt).toContain("실속·수익형");
-    expect(built.systemPrompt).not.toContain("모든 문장이 '~다.'로 끝나는가");
     expect(built.userPrompt).toContain("역삼 8m 코너 올근생 · 80~90억 · 연 4.3%");
     expect(built.userPrompt).toContain("상업용 대출 금리 연 4.1%대 진입");
     expect(built.userPrompt).toContain("강남구 거래 23건");
   });
 
-  it("normalizeMarketBriefingPlain은 3줄 개조식(• ) 구조를 손상 없이 보존한다", () => {
-    const bullets = [
-      "• 현장 분위기 : 이번 주 강남·성수 권역은 만실 올근생 문의가 이어지고 있습니다.",
-      "• 핵심 수치·변수 : 상업용 대출 금리가 연 4.1%대로 내려오며 매수 부담이 완화되었습니다.",
-      "• 이번 주 체크 : 아래 추천 매물의 상세 임대내역이 필요하시면 편하게 답장해 주세요.",
-    ].join("\n");
-    const plain = normalizeMarketBriefingPlain(bullets, 500, 5);
-    expect(plain.split("\n")).toHaveLength(3);
-    expect(plain.split("\n").every((line) => line.startsWith("• "))).toBe(true);
+  it("humanizeBuyerCopy·normalizeMarketBriefingPlain·formatMarketBriefingThreeBullets는 줄바꿈을 보존하고 인라인 뷸렛을 3줄 명사형 개조식(<=44자)으로 정규화한다", () => {
+    const rawCollapsed =
+      "• 현장 분위기 : 이번 주 서초·송파·중구는 실사용과 안정 임대를 함께 보는 매수 문의와 답사 검토가 꾸준히 이어지고 있습니다. • 핵심 수치·변수 : 강남·서초 조달 금리 연 5.2%와 LTV 60% 기준 세입자 계약 상태와 수리 여건을 따져보는 흐름입니다. • 이번 주 체크 : 역세권 코너 건물을 우선 보시고 절세 검토가 필요하시면 답장 주시면 자료 정리해 드립니다.";
+
+    // 1) humanizeBuyerCopy가 \n 줄바꿈을 절대 뭉개지 않음
+    const multilineSample = "• 조달 금리 완화 기대 지속\n• 레버리지 부담 경감으로 매수세 유입";
+    expect(humanizeBuyerCopy(multilineSample).split("\n")).toHaveLength(2);
+
+    // 2) 기존 DB에 한 줄로 합쳐진 인라인 뷸렛 문자열도 3줄로 자동 분리 복원
+    const restored = normalizeMarketBriefingPlain(rawCollapsed, 500, 5);
+    expect(restored.split("\n")).toHaveLength(3);
+    expect(restored.split("\n").every((line) => line.startsWith("• "))).toBe(true);
+
+    // 3) AI 출력/윤문용 3줄 명사형 개조식 정규화 (앞 라벨 제거 + 명사 종결 + 본문 44자 이내)
+    const threeBullets = formatMarketBriefingThreeBullets(rawCollapsed, 44);
+    const lines = threeBullets.split("\n");
+    expect(lines).toHaveLength(3);
+    for (const line of lines) {
+      expect(line.startsWith("• ")).toBe(true);
+      expect(line).not.toMatch(/현장 분위기|핵심 수치·변수|이번 주 체크/);
+      expect(line).not.toMatch(/(?:입니다|합니다)\.?$/);
+      const bodyOnly = line.replace(/^•\s*/, "");
+      expect(charLength(bodyOnly)).toBeLessThanOrEqual(44);
+    }
+  });
+
+  it("formatShortIssueSource 및 미리보기·에디터 카드가 짧은 출처와 <ul><li> 뷸렛 목록을 일관되게 표시한다", async () => {
+    expect(
+      formatShortIssueSource({ sources: ["한경 부동산·CRE 리포트"] }),
+    ).toBe("한국경제");
+    expect(
+      formatShortIssueSource({
+        sources: ["한국경제 금융·거시", "매일경제 부동산"],
+      }),
+    ).toBe("한국경제 외 1곳");
+    expect(
+      formatShortIssueSource({
+        sources: [],
+        url: "https://www.sedaily.com/NewsList/GB01",
+      }),
+    ).toBe("서울경제");
+    expect(
+      formatShortIssueSource({
+        sources: ["시장 브리핑", "AI 클러스터링 종합"],
+      }),
+    ).toBe("");
+
+    const sampleIssues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+      cadence: "weekly",
+    });
+
+    const localContainer = document.createElement("div");
+    document.body.appendChild(localContainer);
+    const localRoot: Root = createRoot(localContainer);
+    try {
+      await act(async () => {
+        localRoot.render(
+          <div>
+            <NewsletterPreviewCard
+              previewLifecycle="live_draft"
+              activeUnitId={null}
+              onFocusEditorUnit={() => {}}
+              yearMonthLabel="2026년 11월 4주차 주간호"
+              marketTemp={null}
+              headline="서초·송파·중구 역세권 빌딩 매수 활기"
+              brokerName="이상은"
+              brokerOffice="크리딜중개"
+              brokerPhone="010-1234-5678"
+              cadence="weekly"
+              monthlyRegion={MONTHLY_REGION_PRESETS[0].key}
+              monthlyCharts={[]}
+              formattedPreviewBriefing={
+                "• 서초·송파 역세권 알짜 빌딩 실사용 문의 지속\n• 담보대출 연 5.2% 기준 우량 임차 건물 선호\n• 코너·가시성 우수 매물 임대 조건 사전 점검"
+              }
+              unitIssues={sampleIssues}
+              selectedDeals={[]}
+              dealComments={{}}
+              isSectionEnabled={() => true}
+            />
+            <AxiosIssuesEditorPanel
+              unitIssues={sampleIssues}
+              onChangeUnitIssues={() => {}}
+              newsPool={[...CURATED_CHANNEL_POOL]}
+              cadenceLabel="2026년 11월 4주차 주간호"
+            />
+          </div>,
+        );
+      });
+
+      const bulletList = localContainer.querySelector(
+        '[data-testid="preview-market-briefing-bullets"]',
+      );
+      expect(bulletList).not.toBeNull();
+      expect(bulletList?.querySelectorAll("li")).toHaveLength(3);
+
+      const previewSources = localContainer.querySelectorAll(
+        '[data-testid="axios-postit-source"]',
+      );
+      expect(previewSources.length).toBeGreaterThanOrEqual(5);
+      expect(previewSources[0]?.textContent).toBeTruthy();
+
+      const editorSource0 = localContainer.querySelector(
+        '[data-testid="axios-editor-issue-source-0"]',
+      );
+      expect(editorSource0).not.toBeNull();
+      expect(editorSource0?.textContent).toBeTruthy();
+    } finally {
+      act(() => localRoot.unmount());
+      localContainer.remove();
+    }
   });
 
   it("extractArticleNumericEvidence와 buildTf8AxiosClusterPrompt는 원문 수치·근거를 최우선 FactBook으로 주입한다", () => {
@@ -437,10 +544,10 @@ describe("4. 뉴스레터 거래 온도 3단계(긍정 기본값 · 중립 · �
     expect(defaultDraft.systemPrompt).toContain("[Tone-Temperature-Framing]");
     expect(defaultDraft.systemPrompt).toContain("긍정적 (매수 활기)");
     expect(cautiousDraft.systemPrompt).toContain("보수·신중 (조정·점검)");
-    // 3줄 개조식 정규 라벨은 어느 온도에서나 불변 유지
-    expect(cautiousDraft.systemPrompt).toContain("• 현장 분위기 :");
-    expect(cautiousDraft.systemPrompt).toContain("• 핵심 수치·변수 :");
-    expect(cautiousDraft.systemPrompt).toContain("• 이번 주 체크 :");
+    // 3줄 명사형 개조식(44자 이내) 규칙은 어느 온도에서나 불변 유지
+    expect(cautiousDraft.systemPrompt).toContain("[3-Bullet-Executive-Brief]");
+    expect(cautiousDraft.systemPrompt).toContain("44자 이내");
+    expect(cautiousDraft.systemPrompt).not.toContain("• 현장 분위기 :");
     expect(neutralCluster.systemPrompt).toContain("중립적 (균형·선별)");
     expect(cautiousComment.systemPrompt).toContain("보수·신중 (조정·점검)");
 

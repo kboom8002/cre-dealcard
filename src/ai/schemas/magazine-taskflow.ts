@@ -34,7 +34,7 @@ export const MagazineDraftOutputSchema = z.object({
   headline: z.string().min(6).max(45),
   summary: z.string().max(80).optional().default(""),
   briefingTitle: z.string().max(30).optional().default(""),
-  briefingBody: z.string().min(40).max(500),
+  briefingBody: z.string().min(12).max(500),
   marketTemp: z.enum(MARKET_TEMP_VALUES).optional(),
   coverKeywords: z.array(z.string().min(1).max(18)).max(5).optional(),
 });
@@ -85,7 +85,7 @@ export const MagazineCommentOutputSchema = z.object({
 export type MagazineCommentOutput = z.infer<typeof MagazineCommentOutputSchema>;
 
 export const MarketBriefingPolishOutputSchema = z.object({
-  comment: z.string().min(20).max(500),
+  comment: z.string().min(12).max(500),
 });
 
 export type MarketBriefingPolishOutput = z.infer<typeof MarketBriefingPolishOutputSchema>;
