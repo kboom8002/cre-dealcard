@@ -14,11 +14,14 @@ import {
   areArticlesSameEvent,
   enrichNewsPoolWithChannels,
   hasStrongCreOrChannelSignal,
+  inferCreArticleSentiment,
   isCreRelevantArticle,
   isSpecificNewsChannelId,
+  normalizeNewsletterToneStance,
   resolveNewsChannel,
   type CuratedChannelNewsItem,
   type NewsChannelId,
+  type NewsletterToneStance,
   type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 import { clusterArticlesIntoFiveIssues } from "@/domain/magazine/issue-clustering";
@@ -51,6 +54,7 @@ function isSpecificChannel(v: string | null | undefined): v is SpecificNewsChann
 async function fetchLiveChannelNews(opts: {
   channel: NewsChannelId;
   query?: string;
+  toneStance?: NewsletterToneStance;
 }): Promise<CuratedChannelNewsItem[]> {
   const collected: CuratedChannelNewsItem[] = [];
   const seenUrls = new Set<string>();
@@ -89,6 +93,22 @@ async function fetchLiveChannelNews(opts: {
     }
   }
 
+  if (!trimmedQuery && opts.toneStance === "negative") {
+    searchTargets.push({
+      query: "꼬마빌딩 상가 공실 금리부담 급매 감정평가",
+      channel: targetChannel ?? "real_estate",
+      topic: "vacancy",
+      score: 9,
+    });
+  } else if (!trimmedQuery && opts.toneStance === "positive") {
+    searchTargets.push({
+      query: "꼬마빌딩 중소형빌딩 거래량 반등 금리완화 사옥매입",
+      channel: targetChannel ?? "real_estate",
+      topic: "transaction",
+      score: 9,
+    });
+  }
+
   const naverId = process.env.NAVER_CLIENT_ID || "";
   const naverSecret = process.env.NAVER_CLIENT_SECRET || "";
 
@@ -122,13 +142,14 @@ async function fetchLiveChannelNews(opts: {
                 title,
                 summary: desc,
               });
+              const summaryText = desc || `${title} 관련 최신 시장 브리핑입니다.`;
               collected.push({
                 id: `live-${Buffer.from(link).toString("base64url").slice(0, 20)}`,
                 title,
-                summary: desc || `${title} 관련 최신 시장 브리핑입니다.`,
+                summary: summaryText,
                 source: "네이버뉴스",
                 url: link,
-                sentiment: "neutral",
+                sentiment: inferCreArticleSentiment({ title, summary: summaryText }),
                 importance_score: computeNewsImportance(title, desc, target.score),
                 topic: target.topic,
                 channel: ch,
@@ -173,7 +194,7 @@ async function fetchLiveChannelNews(opts: {
               summary: desc,
               source: press,
               url: item.link,
-              sentiment: "neutral",
+              sentiment: inferCreArticleSentiment({ title: cleanTitle, summary: desc }),
               importance_score: target.score,
               topic: target.topic,
               channel: ch,
@@ -221,15 +242,16 @@ async function fetchLiveChannelNews(opts: {
               summary: item.description,
               source: feed.name,
             });
+            const feedSummary =
+              item.description ||
+              `${item.title} (${feed.name}) 관련 최신 시장 소식입니다. 건물 매수와 보유 관리에 참고해 보세요.`;
             collected.push({
               id: `feed-${Buffer.from(item.link).toString("base64url").slice(0, 20)}`,
               title: item.title,
-              summary:
-                item.description ||
-                `${item.title} (${feed.name}) 관련 최신 시장 소식입니다. 건물 매수와 보유 관리에 참고해 보세요.`,
+              summary: feedSummary,
               source: feed.name,
               url: item.link,
-              sentiment: "neutral",
+              sentiment: inferCreArticleSentiment({ title: item.title, summary: feedSummary }),
               importance_score: feed.baseScore,
               topic: feed.defaultTopic,
               channel: ch,
@@ -273,6 +295,9 @@ export async function GET(req: NextRequest) {
       .map((c) => c.trim())
       .filter(isSpecificNewsChannelId);
 
+    const toneParam = searchParams.get("tone");
+    const toneStance = toneParam ? normalizeNewsletterToneStance(toneParam) : undefined;
+
     const supabase = createServiceClient();
     const { data: dbRows } = await supabase
       .from("external_news")
@@ -282,21 +307,28 @@ export async function GET(req: NextRequest) {
       .limit(60);
 
     const dbNews = ((dbRows ?? []) as Record<string, unknown>[])
-      .map((n) => ({
-        id: String(n.id ?? n.title ?? ""),
-        title: cleanNewsText(String(n.title ?? "")),
-        summary: typeof n.summary === "string" ? decodeEntities(n.summary) : "",
-        source: typeof n.source === "string" ? cleanNewsText(n.source) : "뉴스",
-        url: typeof n.url === "string" && safeHttpUrl(n.url) ? n.url : undefined,
-        sentiment:
-          n.sentiment === "bullish" || n.sentiment === "bearish" ? n.sentiment : ("neutral" as const),
-        importance_score: typeof n.importance_score === "number" ? n.importance_score : 7,
-        topic: typeof n.topic === "string" ? n.topic : "market_trend",
-        created_at: typeof n.created_at === "string" ? n.created_at : undefined,
-      }))
+      .map((n) => {
+        const cleanT = cleanNewsText(String(n.title ?? ""));
+        const cleanS = typeof n.summary === "string" ? decodeEntities(n.summary) : "";
+        return {
+          id: String(n.id ?? n.title ?? ""),
+          title: cleanT,
+          summary: cleanS,
+          source: typeof n.source === "string" ? cleanNewsText(n.source) : "뉴스",
+          url: typeof n.url === "string" && safeHttpUrl(n.url) ? n.url : undefined,
+          sentiment: inferCreArticleSentiment({
+            title: cleanT,
+            summary: cleanS,
+            sentiment: typeof n.sentiment === "string" ? n.sentiment : undefined,
+          }),
+          importance_score: typeof n.importance_score === "number" ? n.importance_score : 7,
+          topic: typeof n.topic === "string" ? n.topic : "market_trend",
+          created_at: typeof n.created_at === "string" ? n.created_at : undefined,
+        };
+      })
       .filter((item) => isCreRelevantArticle(item));
 
-    const liveItems = live ? await fetchLiveChannelNews({ channel: channelParam, query }) : [];
+    const liveItems = live ? await fetchLiveChannelNews({ channel: channelParam, query, toneStance }) : [];
 
     // 실시간 수집 기사가 있으면 external_news 에 비차단 캐시 적재 시도
     if (liveItems.length > 0) {

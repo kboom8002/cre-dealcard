@@ -21,6 +21,7 @@ import { normalizeMarketBriefingPlain } from "@/domain/magazine/issue-clustering
 import type {
   NewsChannelId,
   NewsPoolItem,
+  NewsletterToneStance,
   SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 import type {
@@ -31,6 +32,7 @@ import type { NewsletterCadence } from "@/lib/magazine/newsletter-cadence";
 
 export interface NewsletterContentStepPanelProps {
   cadence: NewsletterCadence;
+  toneStance?: NewsletterToneStance;
   yearMonthLabel: string;
   regionFocus: string;
   headline: string;
@@ -76,6 +78,7 @@ export interface NewsletterContentStepPanelProps {
 
 export function NewsletterContentStepPanel({
   cadence,
+  toneStance = "positive",
   yearMonthLabel,
   regionFocus,
   headline,
@@ -371,6 +374,7 @@ export function NewsletterContentStepPanel({
             <AiCommentRecommendButton
               mode="market_briefing"
               cadence={cadence}
+              toneStance={toneStance}
               testId="ai-polish-briefing-btn"
               currentValue={briefingBody}
               fallbackContext={
@@ -504,6 +508,7 @@ export function NewsletterContentStepPanel({
           onToggleDeal={onToggleDeal}
           dealComments={dealComments}
           onChangeDealComment={onChangeDealComment}
+          toneStance={toneStance}
         />
       </div>
 

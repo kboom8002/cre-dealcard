@@ -3,6 +3,7 @@
 import React from "react";
 import { Building2 } from "lucide-react";
 import { AiCommentRecommendButton } from "@/components/broker/studio/AiCommentRecommendButton";
+import type { NewsletterToneStance } from "@/domain/magazine/news-channels";
 
 export interface AssignableDealItem {
   id: string;
@@ -24,6 +25,7 @@ export interface DealSlotAssignerProps {
   onToggleDeal: (dealId: string) => void;
   dealComments?: Record<string, string>;
   onChangeDealComment?: (dealId: string, comment: string) => void;
+  toneStance?: NewsletterToneStance;
 }
 
 export function DealSlotAssigner({
@@ -32,6 +34,7 @@ export function DealSlotAssigner({
   onToggleDeal,
   dealComments = {},
   onChangeDealComment,
+  toneStance = "positive",
 }: DealSlotAssignerProps) {
   return (
     <section
@@ -143,6 +146,7 @@ export function DealSlotAssigner({
                       <AiCommentRecommendButton
                         currentValue={currentComment}
                         fallbackContext={fallbackSeed}
+                        toneStance={toneStance}
                         dealContext={{
                           title: deal.title,
                           region: deal.areaSignal || deal.address,

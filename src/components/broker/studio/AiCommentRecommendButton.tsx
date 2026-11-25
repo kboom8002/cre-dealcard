@@ -5,6 +5,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useUndoToast, type UndoToastInput } from "@/components/workspace/UndoConfirmToast";
 import { editorToast } from "@/components/magazine-editor/editor-toaster";
 import { AI_COMMENT_WARNING_INPUT_NOT_IN_CONTEXT } from "@/lib/magazine/ai-comment-schema";
+import type { NewsletterToneStance } from "@/domain/magazine/news-channels";
 
 function useSafeShowUndoToast(): (input: UndoToastInput) => void {
   try {
@@ -38,6 +39,8 @@ export interface AiCommentRecommendButtonProps {
   mode?: "deal_comment" | "market_briefing";
   /** 발행 주기 (market_briefing 윤문 시 기간 표현 일관성 유지) */
   cadence?: "daily" | "weekly" | "monthly";
+  /** 거래 온도 프리셋 (기본값: 'positive' 긍정적) */
+  toneStance?: NewsletterToneStance;
   /** 대상 매물 상세 메타데이터 (deal_comment 품질 향상용) */
   dealContext?: AiCommentDealContext;
   /** 버튼 라벨 (기본: "AI로 추천글 쓰기") */
@@ -54,6 +57,7 @@ export function AiCommentRecommendButton({
   onChangeValue,
   mode = "deal_comment",
   cadence,
+  toneStance = "positive",
   dealContext,
   label = "AI로 추천글 쓰기",
   ariaLabel,
@@ -94,6 +98,7 @@ export function AiCommentRecommendButton({
         body: JSON.stringify({
           comment: seed,
           mode,
+          toneStance,
           ...(mode === "market_briefing" && trimmedDraft ? { draftText: trimmedDraft } : {}),
           ...(cadence ? { cadence } : {}),
           ...(dealContext?.title?.trim() ? { dealTitle: dealContext.title.trim() } : {}),

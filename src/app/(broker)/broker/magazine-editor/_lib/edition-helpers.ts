@@ -12,6 +12,7 @@ import {
 } from "@/domain/magazine/monthly-stats-hydration";
 import type {
   NewsPoolItem,
+  NewsletterToneStance,
   SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 import type {
@@ -463,7 +464,9 @@ export async function requestAiNewsClusterIssues(params: {
   preferredChannels: readonly SpecificNewsChannelId[];
   dealTitles: string[];
   newsPool: readonly NewsPoolItem[];
+  toneStance?: NewsletterToneStance;
 }): Promise<{ unitIssues: AxiosUnitIssue[]; isAi: boolean }> {
+  const toneStance = params.toneStance ?? "positive";
   try {
     const res = await fetch("/api/broker/studio/ai-news-cluster", {
       method: "POST",
@@ -473,6 +476,7 @@ export async function requestAiNewsClusterIssues(params: {
         preferredRegions: [...params.preferredRegions],
         preferredChannels: [...params.preferredChannels],
         dealTitles: params.dealTitles,
+        toneStance,
         articles: params.newsPool.slice(0, 30),
       }),
     });
@@ -492,6 +496,7 @@ export async function requestAiNewsClusterIssues(params: {
     preferredRegions: params.preferredRegions,
     preferredChannels: params.preferredChannels,
     dealKeywords: params.dealTitles,
+    toneStance,
   });
   return { unitIssues: fallback, isAi: false };
 }

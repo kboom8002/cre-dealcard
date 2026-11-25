@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Calendar, FileText } from "lucide-react";
+import type { NewsletterToneStance } from "@/domain/magazine/news-channels";
 import type { MarketTemperature } from "@/domain/magazine/types";
 import { MARKET_TEMP_CONFIG } from "@/domain/magazine/types";
 import { formatSingleLineTitle } from "@/domain/magazine/issue-clustering";
@@ -84,6 +85,8 @@ export interface IssueMetadataFormProps {
   /** 일간·주간 기준 날짜 (KST YYYY-MM-DD) */
   issueDate?: string;
   onChangeIssueDate?: (next: string) => void;
+  /** 거래 온도 프리셋 (전달 시 제목 추천 칩을 온도에 맞춰 반환) */
+  toneStance?: NewsletterToneStance;
 }
 
 const YEAR_OPTIONS = [2025, 2026, 2027] as const;
@@ -111,6 +114,7 @@ export function IssueMetadataForm({
   onChangeCadence,
   issueDate,
   onChangeIssueDate,
+  toneStance,
 }: IssueMetadataFormProps) {
   const [isMoodOpen, setIsMoodOpen] = React.useState<boolean>(() => Boolean(marketTemp));
   const [prevMarketTemp, setPrevMarketTemp] = React.useState<MarketTemperature | null>(marketTemp);
@@ -128,8 +132,8 @@ export function IssueMetadataForm({
   const cadenceMeta = deriveCadenceIssueMeta(cadence, { year: safeYear, month: safeMonth, dateStr: issueDate });
   const headlineTooLong = headline.trim().length > 45;
   const titlePresets = React.useMemo(
-    () => buildNewsletterTitlePresets(brokerName, cadence, safeMonth),
-    [brokerName, cadence, safeMonth],
+    () => buildNewsletterTitlePresets(brokerName, cadence, safeMonth, toneStance),
+    [brokerName, cadence, safeMonth, toneStance],
   );
 
   const handleYearChange = (nextYear: number) => {

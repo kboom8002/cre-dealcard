@@ -50,15 +50,23 @@ vi.mock("@/ai/llm-client", () => {
 import { getModel } from "@/ai/model-selector";
 import {
   AXIOS_BRIEF_MAX_CHARS,
+  clusterArticlesIntoFiveIssues,
   extractArticleNumericEvidence,
   normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
+import {
+  CURATED_CHANNEL_POOL,
+  inferCreArticleSentiment,
+  normalizeNewsletterToneStance,
+} from "@/domain/magazine/news-channels";
+import { buildNewsletterTitlePresets } from "@/lib/magazine/newsletter-cadence";
 import {
   buildTf8AxiosClusterPrompt,
   buildTf8CommentPrompt,
   buildTf8DraftPrompt,
   repairUngroundedNumbers,
 } from "@/ai/prompts/magazine-taskflow";
+import { MagazineQuickDraftCard } from "@/components/broker/studio/MagazineQuickDraftCard";
 import { extractMemoStructuredFacts } from "@/lib/deal-card/memo-pairing";
 import { DEAL_CARD_LINE_MAX, countDealCardChars } from "@/lib/deal-card/copy-limits";
 import { type Card4Data } from "@/lib/deal-card/card4-schema";
@@ -332,5 +340,170 @@ describe("3. 딜카드 8대 팩트 추출 · 6+ 후보 생성 API · 양방향 �
     expect(container.querySelector('[data-testid="card4-ai-candidates-tray"]')?.textContent).toContain(
       "전 층 만실·연 4.3% 권역 평균 상회",
     );
+  });
+});
+
+describe("4. 뉴스레터 거래 온도 3단계(긍정 기본값 · 중립 · 보수·신중) 선별 및 카피라이팅", () => {
+  let root: Root;
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  it("기본 거래 온도는 'positive'이며 inferCreArticleSentiment가 호재·보수·중립 기사를 정확히 분류한다", () => {
+    expect(normalizeNewsletterToneStance(undefined)).toBe("positive");
+    expect(normalizeNewsletterToneStance("invalid-value")).toBe("positive");
+    expect(normalizeNewsletterToneStance("negative")).toBe("negative");
+
+    expect(
+      inferCreArticleSentiment({
+        title: "강남 역세권 꼬마빌딩 거래량 18% 증가, 시중 금리 인하 기대 확산",
+        summary: "사옥 수요 유입으로 공실 해소가 빨라지고 있습니다.",
+      }),
+    ).toBe("bullish");
+
+    expect(
+      inferCreArticleSentiment({
+        title: "상권별 공실 양극화 심화, 대출 이자 부담·역마진 점검 필수",
+        summary: "이면도로 노후 건물은 임대료 정체와 공실 위험에 유의해야 합니다.",
+      }),
+    ).toBe("bearish");
+
+    expect(
+      inferCreArticleSentiment({
+        title: "국토교통부 건축물대장 표기 기준 행정 안내 공고",
+        summary: "이번 달부터 온라인 열람 서식이 개편됩니다.",
+      }),
+    ).toBe("neutral");
+  });
+
+  it("clusterArticlesIntoFiveIssues는 positive일 때 호재 이슈를, negative일 때 보수·점검 이슈를 우선 선별한다", () => {
+    const posIssues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+      cadence: "monthly",
+      toneStance: "positive",
+    });
+    const negIssues = clusterArticlesIntoFiveIssues(CURATED_CHANNEL_POOL, {
+      cadence: "monthly",
+      toneStance: "negative",
+    });
+
+    expect(posIssues).toHaveLength(5);
+    expect(negIssues).toHaveLength(5);
+
+    const posBearCount = posIssues.filter((u) => u.id.includes("-bear-")).length;
+    const negBearCount = negIssues.filter((u) => u.id.includes("-bear-")).length;
+    expect(posBearCount).toBe(0);
+    expect(negBearCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it("TF8 프롬프트 빌더와 제목 프리셋은 기본값 'positive'를 적용하고 negative 전환 시 보수·점검 프레이밍으로 전환한다", () => {
+    const defaultDraft = buildTf8DraftPrompt({
+      monthLabel: "2026년 11월호",
+      cadence: "monthly",
+    });
+    const cautiousDraft = buildTf8DraftPrompt({
+      monthLabel: "2026년 11월호",
+      cadence: "monthly",
+      toneStance: "negative",
+    });
+    const neutralCluster = buildTf8AxiosClusterPrompt({
+      cadence: "weekly",
+      toneStance: "neutral",
+      candidateIssues: [
+        {
+          id: "c1",
+          title: "강남 꼬마빌딩 거래 동향",
+          brief: "거래 동향 점검입니다.",
+          memoTone: "amber",
+          channel: "real_estate",
+        },
+      ],
+      sourceArticles: [],
+    });
+    const cautiousComment = buildTf8CommentPrompt({
+      comment: "전 층 만실 역세권 근생",
+      toneStance: "negative",
+    });
+
+    expect(defaultDraft.systemPrompt).toContain("[Tone-Temperature-Framing]");
+    expect(defaultDraft.systemPrompt).toContain("긍정적 (매수 활기)");
+    expect(cautiousDraft.systemPrompt).toContain("보수·신중 (조정·점검)");
+    // 3줄 개조식 정규 라벨은 어느 온도에서나 불변 유지
+    expect(cautiousDraft.systemPrompt).toContain("• 현장 분위기 :");
+    expect(cautiousDraft.systemPrompt).toContain("• 핵심 수치·변수 :");
+    expect(cautiousDraft.systemPrompt).toContain("• 이번 주 체크 :");
+    expect(neutralCluster.systemPrompt).toContain("중립적 (균형·선별)");
+    expect(cautiousComment.systemPrompt).toContain("보수·신중 (조정·점검)");
+
+    const posPresets = buildNewsletterTitlePresets("한결", "monthly", 11, "positive");
+    const negPresets = buildNewsletterTitlePresets("한결", "monthly", 11, "negative");
+    expect(posPresets[0]).toContain("한결");
+    expect(negPresets[0]).toContain("한결");
+    expect(posPresets[0]).not.toBe(negPresets[0]);
+  });
+
+  it("MagazineQuickDraftCard는 기본 거래 온도로 '긍정적'이 선택되어 있고 보수·신중 전환 시 API와 재선별 콜백에 반영한다", async () => {
+    const captured: { body: Record<string, unknown> | null } = { body: null };
+    const onReclusterWithTone = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      captured.body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          result: {
+            headline: "조정기 실속 급매·수익률 점검 브리핑",
+            summary: "",
+            briefingTitle: "",
+            briefingBody:
+              "• 현장 분위기 : 공실과 임대수익률을 차분히 따져보는 선별 장세입니다.\n• 핵심 수치·변수 : 대출 이자 대비 순수익 여유 폭 점검이 중요합니다.\n• 이번 주 체크 : 아래 만실 매물의 임대내역이 궁금하시면 편하게 답장해 주세요.",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+
+    await act(async () => {
+      root.render(
+        <MagazineQuickDraftCard
+          monthLabel="2026년 11월호"
+          cadence="monthly"
+          onReclusterWithTone={onReclusterWithTone}
+          currentDraft={{ headline: "", summary: "", briefingTitle: "", briefingBody: "" }}
+          onApplyDraft={() => {}}
+        />,
+      );
+    });
+
+    const posBtn = container.querySelector('[data-testid="ai-draft-tone-positive"]') as HTMLButtonElement;
+    const negBtn = container.querySelector('[data-testid="ai-draft-tone-negative"]') as HTMLButtonElement;
+    expect(posBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(negBtn.getAttribute("aria-pressed")).toBe("false");
+
+    await act(async () => {
+      negBtn.click();
+    });
+    expect(negBtn.getAttribute("aria-pressed")).toBe("true");
+
+    const reclusterBtn = container.querySelector('[data-testid="ai-recluster-by-tone-btn"]') as HTMLButtonElement;
+    expect(reclusterBtn).not.toBeNull();
+    await act(async () => {
+      reclusterBtn.click();
+    });
+    expect(onReclusterWithTone).toHaveBeenCalledWith("negative");
+
+    const draftBtn = container.querySelector('[data-testid="ai-draft-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      draftBtn.click();
+    });
+    expect(captured.body?.toneStance).toBe("negative");
   });
 });

@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     priceBand,
     area,
     points,
+    toneStance,
     avoidComments,
     attemptSeed,
   } = parsed.data;
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
         contextText: comment,
         cadence,
         regionFocus,
+        toneStance,
       })
     : buildTf8CommentPrompt({
         comment,
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
         area,
         points,
         attemptSeed,
+        toneStance,
       });
 
   const userPromptWithAvoid =

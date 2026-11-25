@@ -31,9 +31,12 @@ import {
   normalizeMarketBriefingPlain,
 } from "@/domain/magazine/issue-clustering";
 import {
+  TONE_STANCE_META,
   isCreRelevantArticle,
+  normalizeNewsletterToneStance,
   resolveNewsChannel,
   type NewsPoolItem,
+  type NewsletterToneStance,
   type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 import type { AxiosUnitIssue, PostItTone } from "@/domain/magazine/types";
@@ -121,6 +124,54 @@ export function repairUngroundedNumbers(
 }
 
 export type NewsletterVoicePreset = "calm_advisor" | "field_broker" | "yield_focused";
+export type { NewsletterToneStance };
+
+const TONE_STANCE_PROMPT_RULES: Readonly<
+  Record<
+    NewsletterToneStance,
+    {
+      label: string;
+      headlineRule: string;
+      briefingRule: string;
+      clusterSoWhatRule: string;
+      dealCommentRule: string;
+    }
+  >
+> = {
+  positive: {
+    label: TONE_STANCE_META.positive.label,
+    headlineRule:
+      "회복 신호·금리 완화·실수요 유입·선점 기회 어휘를 자연스럽게 앞세우십시오(단, 원금 보장·무조건 상승 등 단정 금지어는 절대 금지).",
+    briefingRule:
+      "1줄차(• 현장 분위기 :)에는 매수·답사 문의 활기를, 2줄차(• 핵심 수치·변수 :)에는 거래 회복·금리 완화·낮은 공실 등 우호적 수치·근거를 우선 배치하고, 3줄차(• 이번 주 체크 :)에는 우량 조건 매물을 한발 앞서 살펴보시도록 긍정적으로 권하십시오.",
+    clusterSoWhatRule:
+      "1문장은 원문 수치·사실을 왜곡 없이 그대로 적고, 2문장(매수자 시사점)은 이자 절감·임차 호조·가치 회복 등 매수·보유 기회 요인을 중심으로 밝고 긍정적으로 해석하십시오.",
+    dealCommentRule:
+      "상권 회복 수혜, 안정적인 현금흐름, 향후 가치 상승 및 우량 조건 선점 매력을 자신감 있고 정중하게 부각하십시오.",
+  },
+  neutral: {
+    label: TONE_STANCE_META.neutral.label,
+    headlineRule:
+      "과열이나 위축 어느 한쪽으로 치우치지 않고 '옥석 가리기·선별 흐름·조건 비교' 관점의 차분한 제목으로 작성하십시오.",
+    briefingRule:
+      "1줄차(• 현장 분위기 :)에는 입지별 선별 검토 흐름을, 2줄차(• 핵심 수치·변수 :)에는 회복 지표와 점검할 변수를 균형 있게 담고, 3줄차(• 이번 주 체크 :)에는 임차 안정성과 수익 구조를 차분히 비교해 보시도록 안내하십시오.",
+    clusterSoWhatRule:
+      "1문장은 원문 수치·사실을 그대로 적고, 2문장은 기회 요인과 사전 확인 사항을 균형 있게 짚어 옥석 가리기 기준을 제시하십시오.",
+    dealCommentRule:
+      "입지·도로·임차 현황 등 객관적인 강점과 안정성을 담백하게 짚어 비교 검토를 권하십시오.",
+  },
+  negative: {
+    label: TONE_STANCE_META.negative.label,
+    headlineRule:
+      "공포 조장은 피하되 '관망세·공실 양극화·수지 점검·보수적 접근·눈높이 현실화' 관점의 냉철한 전문가 제목으로 작성하십시오.",
+    briefingRule:
+      "1줄차(• 현장 분위기 :)에는 추격 매수를 자제하는 신중한 관망세와 까다로워진 눈높이를, 2줄차(• 핵심 수치·변수 :)에는 공실·대출이자·세무·공사비 부담 등 리스크 수치·근거를 우선 배치하고, 3줄차(• 이번 주 체크 :)에는 공실 방어력이 검증된 안전·급매 매물만 보수적으로 추려 보거나 보유 건물 호가·임차 조건을 냉정히 점검하시도록 제안하십시오.",
+    clusterSoWhatRule:
+      "1문장은 원문 수치·사실을 왜곡 없이 그대로 적고, 2문장(매수자·건물주 시사점)은 역마진 경계·공실 방어·세무 리스크 점검·적정 호가 현실화 등 보수적 리스크 관리 관점으로 해석하십시오.",
+    dealCommentRule:
+      "무조건 좋다는 과장 대신 '요즘처럼 시장이 까다롭고 관망세가 짙을수록 전 층 만실·장기 우량 임차·추가 수리비 부담 없음으로 하방 위험을 꽉 잡은 방어형·알짜 조건'이라는 역발상 신뢰 소구로 작성하십시오.",
+  },
+};
 
 const VOICE_PRESET_GUIDANCE: Record<NewsletterVoicePreset, { label: string; tone: string }> = {
   calm_advisor: {
@@ -171,6 +222,8 @@ export interface Tf8DraftPromptInput {
   monthlyStatsSummary?: string;
   /** 중개사 화법 프리셋 */
   voicePreset?: NewsletterVoicePreset;
+  /** 거래 온도 프리셋 (기본값: 'positive' 긍정적) */
+  toneStance?: NewsletterToneStance;
   currentHeadline?: string;
   currentBriefing?: string;
 }
@@ -206,10 +259,13 @@ export function buildTf8DraftPrompt(
   const cadence = resolveCadence(input.cadence, input.monthLabel);
   const cad = CADENCE_PROMPT_META[cadence];
   const voice = VOICE_PRESET_GUIDANCE[input.voicePreset ?? "calm_advisor"] ?? VOICE_PRESET_GUIDANCE.calm_advisor;
+  const stanceKey = normalizeNewsletterToneStance(input.toneStance, "positive");
+  const stance = TONE_STANCE_PROMPT_RULES[stanceKey];
 
   const knowledgeLines = [
     `- 발행 호수/시기: ${input.monthLabel}`,
     `- 발행 주기: ${cad.label} 뉴스레터 (기간 표현은 '${cad.period}'을 사용)`,
+    `- 목표 거래 온도: ${stance.label}`,
     `- 선택 화법: ${voice.label} (${voice.tone})`,
     regions.length > 0 ? `- 중개사 주력 권역: ${regions.join(", ")}` : "- 중개사 주력 권역: 서울·수도권 주요 상권",
     `- 관심 분야: ${channelLabels.join(", ")}`,
@@ -239,6 +295,7 @@ export function buildTf8DraftPrompt(
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[3-Bullet-Executive-Brief] briefingBody는 줄바꿈(\\n)으로 나눈 정확히 3줄 개조식으로 작성하십시오. 각 줄은 반드시 `• 항목명 : 내용` 형식으로 시작하고 '~합니다.' 또는 '~입니다.'로 완결하십시오(별도 ■ 소제목·마크다운 **·구분선 ─── 금지):\n  1줄: `• 현장 분위기 :` 선택 권역·매물 유형의 이번 시기 실제 문의·매수 흐름\n  2줄: `• 핵심 수치·변수 :` FactBook의 뉴스·통계에 있는 검증 수치/객관적 근거 우선 기술 (없으면 사실 근거만, 날조 금지)\n  3줄: `• 이번 주 체크 :` 첨부 추천 매물과 연결한 매수 체크포인트 및 가벼운 답장·자료 요청 유도",
+      `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. 수치는 절대 왜곡하지 않되, 제목은 (${stance.headlineRule}), 본문 3줄은 (${stance.briefingRule}) 방향으로 일관되게 프레이밍하십시오.`,
       "[70s-Buyer-Plain-Korean] '금리 스프레드', '조달 금리', '자기자본수익률', '표면 수익률', '밸류애드', '리파이낸싱', '레버리지', '명도' 같은 어려운 전문용어·외래어 대신 '은행 대출금리 차이', '대출 이자', '내 돈 대비 실제 수익', '단순 연 월세 수익', '건물 수리·세입자 개선', '대출 갈아타기', '기존 세입자 퇴거 협의' 등 쉬운 일상어를 쓰십시오.",
       "[Char-Budget] headline 36자 이내(공백 포함), briefingBody " + cad.bodyRange + " (총 400자 이내). summary와 briefingTitle은 빈 문자열(\"\")로 두십시오.",
       `[Cadence-Consistency] ${cad.label} 뉴스레터이므로 '${cad.period}' 기간 표현만 사용하고, 다른 주기 표현(예: 일간인데 '이번 달')을 섞지 마십시오.`,
@@ -294,6 +351,8 @@ export interface Tf8AxiosClusterPromptInput {
   preferredRegions?: readonly string[];
   preferredChannels?: readonly SpecificNewsChannelId[];
   dealTitles?: readonly string[];
+  /** 거래 온도 프리셋 (기본값: 'positive' 긍정적) */
+  toneStance?: NewsletterToneStance;
   candidateIssues: readonly AxiosUnitIssue[];
   /** 후보 원문 기사(제목·요약 전문) — 있으면 압축 전 원문을 근거로 재작성 */
   sourceArticles?: readonly NewsPoolItem[];
@@ -312,6 +371,8 @@ export function buildTf8AxiosClusterPrompt(
   const channelLabels = getPreferredChannelLabels(channels);
   const cadence = resolveCadence(input.cadence, input.cadenceLabel);
   const cad = CADENCE_PROMPT_META[cadence];
+  const stanceKey = normalizeNewsletterToneStance(input.toneStance, "positive");
+  const stance = TONE_STANCE_PROMPT_RULES[stanceKey];
   const sourceById = new Map(
     (input.sourceArticles ?? []).map((a) => [String(a.id ?? a.title).trim(), a] as const),
   );
@@ -333,6 +394,7 @@ export function buildTf8AxiosClusterPrompt(
   });
   const factBookContext = [
     `발행 주기: ${cad.label} 뉴스레터${input.cadenceLabel ? ` (${input.cadenceLabel})` : ""}`,
+    `목표 거래 온도: ${stance.label}`,
     regions.length > 0 ? `중개사 주력 권역: ${regions.join(", ")}` : "중개사 주력 권역: 서울·수도권 핵심 권역",
     `중개사 선택 관심 분야: ${channelLabels.join(", ")}`,
     ...(input.dealTitles && input.dealTitles.length > 0
@@ -350,6 +412,7 @@ export function buildTf8AxiosClusterPrompt(
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[Data-Evidence-First] 각 후보의 '검증된 원문 수치·근거'에 숫자(금리·거래량·공실률·평당가·세율·시점 등)나 기관·정책 근거가 있으면 반드시 title 앞부분과 brief 첫 문장의 핵심 사실로 최우선 기술하십시오. 반대로 원문에 숫자가 아예 없는 기사는 기관명·시행 시기·대상 구역 등 객관적 근거만 먼저 쓰고, 절대 숫자를 지어내지 마십시오.",
+      `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. ${stance.clusterSoWhatRule}`,
       "[70s-Buyer-Plain-Korean] 한자식 압축 조어나 금융 외래어를 절대 그대로 쓰지 말고 쉬운 일상어로 풀어쓰십시오: '금리 스프레드→은행 대출금리 차이', '조달 금리→대출 이자', '자기자본수익률(ROE)→내 돈 대비 실제 수익률', '표면 수익률→단순 연 월세 수익률', '밸류애드→건물 수리·세입자 개선', '리파이낸싱→기존 대출 갈아타기', '레버리지→대출 활용', '명도 여건→기존 세입자 퇴거 협의', '플래그십→대표 매장', '아트테크→미술품 전시·절세', '프롭테크→디지털 건물 관리'.",
       "[No-Broker-Coaching] 중개사에게 지시하는 내부 말투('소구가 가능합니다', '성사율을 높입니다', '브리핑에 활용하세요', '안내하세요')를 절대 쓰지 말고, 오직 건물 매수자·건물주 본인에게 직접 전하는 말씀('~보시면 유리합니다', '~부담이 줄어듭니다', '~미리 챙기셔야 합니다')으로 쓰십시오.",
       `[${AXIOS_TITLE_MAX_CHARS}-Char Card Title] [Card-News 2-Line Title] 각 title은 공백 포함 24~40자 권장(최대 ${AXIOS_TITLE_MAX_CHARS}자)으로, 원문 핵심 수치나 변화 포인트를 앞쪽에 담아 모바일에서 2줄 안팎으로 읽히게 씁니다.`,
@@ -405,6 +468,7 @@ export interface Tf8CommentPromptInput {
   area?: string;
   points?: readonly string[];
   attemptSeed?: number;
+  toneStance?: NewsletterToneStance;
 }
 
 const COMMENT_ANGLES = [
@@ -433,9 +497,12 @@ export function buildTf8CommentPrompt(input: Tf8CommentPromptInput): {
 } {
   const points = (input.points ?? []).map((p) => p.trim()).filter(Boolean).slice(0, 3);
   const angle = COMMENT_ANGLES[Math.abs(input.attemptSeed ?? 0) % COMMENT_ANGLES.length];
+  const stanceKey = normalizeNewsletterToneStance(input.toneStance, "positive");
+  const stance = TONE_STANCE_PROMPT_RULES[stanceKey];
 
   const factBookContext = [
     `중개사 입력 메모: ${input.comment.trim()}`,
+    `목표 거래 온도: ${stance.label}`,
     input.dealTitle ? `대상 매물명: ${input.dealTitle.trim()}` : "",
     input.regionFocus ? `주력 권역/지역: ${input.regionFocus.trim()}` : "",
     input.posture ? `매물 유형: ${input.posture.trim()}` : "",
@@ -455,10 +522,11 @@ export function buildTf8CommentPrompt(input: Tf8CommentPromptInput): {
       "[No-LLM-Numbers] [K] FactBook(메모·매물 스펙·장점)에 없는 가격·수익률·면적·층수·도보 분 등 숫자를 절대 추가하지 마십시오. FactBook에 있는 수치만 그대로 활용하십시오.",
       "[No-Solicitation] '원금 보장', '확정 수익', '100% 보장', '무조건 상승' 등 과장·단정 표현을 금지합니다.",
       "[No-Tautology] 단순 메모 번역 투('양호합니다. 문의 주세요.')를 피하고, FactBook의 입지·도로·임차·활용 근거와 매수자 실익을 자연스럽게 연결하십시오.",
+      `[Tone-Temperature-Framing] 목표 거래 온도(${stance.label}): ${stance.dealCommentRule}`,
       "[Concise] 인사말이나 따옴표, 마크다운 기호 없이 추천 코멘트 본문 2문장(60~140자, 최대 150자)만 출력하십시오.",
     ],
     outputContract: "순수 한국어 추천 코멘트 문자열 (60~140자, 2문장, 따옴표나 마크다운 없이 본문만 반환)",
-    situation: `뉴스레터 추천 매물 카드 하단 '중개사 한마디' 슬롯입니다. 이번 생성 강조 각도: [${angle.label}] — ${angle.instruction}`,
+    situation: `뉴스레터 추천 매물 카드 하단 '중개사 한마디' 슬롯입니다. 이번 생성 강조 각도: [${angle.label}] — ${angle.instruction}\n거래 온도 지침([${stance.label}]): ${stance.dealCommentRule}`,
     knowledge: factBookContext,
     logicChain: [
       "FactBook에서 매물의 지역·가격대·유형·핵심 장점(있는 수치 포함)을 확인합니다.",
@@ -734,10 +802,11 @@ export interface Tf8BriefingPolishPromptInput {
   contextText?: string;
   cadence?: Tf8Cadence;
   regionFocus?: string;
+  toneStance?: NewsletterToneStance;
 }
 
 /**
- * 1~3줄 거친 중개인 메모 → 일반 매수자·건물주 눈높이의 5줄·500자 이내 순수 시장 브리핑 윤문 프롬프트
+ * 1~3줄 거친 중개인 메모 → 일반 매수자·건물주 눈높이의 3줄 개조식·500자 이내 순수 시장 브리핑 윤문 프롬프트
  */
 export function buildTf8BriefingPolishPrompt(
   input: Tf8BriefingPolishPromptInput,
@@ -748,10 +817,13 @@ export function buildTf8BriefingPolishPrompt(
   factBookContext: string;
 } {
   const cad = CADENCE_PROMPT_META[input.cadence ?? "monthly"];
+  const stanceKey = normalizeNewsletterToneStance(input.toneStance, "positive");
+  const stance = TONE_STANCE_PROMPT_RULES[stanceKey];
   const draft = input.draftText.trim();
   const extraContext = input.contextText?.trim() ?? "";
 
   const factBookContext = [
+    `목표 거래 온도: ${stance.label}`,
     draft ? `중개사 입력 초안(1~3줄 메모):\n${draft}` : "",
     extraContext && extraContext !== draft ? `참고 맥락(발행 호수·주력 권역·주요 이슈): ${extraContext}` : "",
     input.regionFocus ? `주력 권역: ${input.regionFocus.trim()}` : "",
@@ -769,6 +841,7 @@ export function buildTf8BriefingPolishPrompt(
       ...COMMON_COPY_WARNINGS,
       "[70s-Buyer-Plain-Korean] '스프레드', '레버리지', '자기자본수익률', '밸류애드', '리파이낸싱' 등 어려운 금융·영문 전문용어를 쉬운 일상 우리말로 풀어쓰십시오.",
       "[Strict-5-Line-500-Char] 반드시 줄바꿈 기준 3줄 개조식(최대 5줄 · 500자 이내) 순수 텍스트로만 출력하십시오. 각 줄은 '• 현장 분위기 :', '• 핵심 수치·변수 :', '• 이번 주 체크 :' 형식으로 시작해 '~합니다./~입니다.'로 완결하십시오. '■ 소제목', 제목 줄, 하이픈(-), 마크다운 강조(**)를 절대 넣지 마십시오.",
+      `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. ${stance.briefingRule}`,
       `[Cadence-Consistency] ${cad.label} 뉴스레터이므로 '${cad.period}' 흐름에 자연스럽게 맞추십시오.`,
     ],
     outputContract:

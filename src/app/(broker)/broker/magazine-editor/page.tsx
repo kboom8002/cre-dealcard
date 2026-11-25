@@ -52,9 +52,11 @@ import {
 } from "@/domain/magazine/broker-preferences";
 import {
   CURATED_CHANNEL_POOL,
+  TONE_STANCE_META,
   resolveNewsChannel,
   type NewsChannelId,
   type NewsPoolItem,
+  type NewsletterToneStance,
   type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 import type {
@@ -233,6 +235,15 @@ async function patchEditionRegionFocusRequest(
   return { ok: true, updatedAt: patchJson?.edition?.updated_at ?? null };
 }
 
+function mapMarketTempToToneStance(
+  temp: MarketTemperature | null | undefined,
+): NewsletterToneStance | null {
+  if (temp === "적극 매수") return "positive";
+  if (temp === "선별 매수" || temp === "관망") return "neutral";
+  if (temp === "조정 대기" || temp === "위기 경계") return "negative";
+  return null;
+}
+
 function MagazineEditorWorkspace() {
   const router = useRouter();
   const pathname = usePathname() || "/broker/magazine-editor";
@@ -290,6 +301,7 @@ function MagazineEditorWorkspace() {
   const [monthlyLiveDbAvailable, setMonthlyLiveDbAvailable] = useState<boolean>(false);
   const [statTuneOpen, setStatTuneOpen] = useState<boolean>(false);
   const [marketTemp, setMarketTemp] = useState<MarketTemperature | null>(null);
+  const [toneStance, setToneStance] = useState<NewsletterToneStance>("positive");
 
   // ── 3. 매물·코너·발송 대상·중개사 개인 설정 상태 ──
   const [preferredRegions, setPreferredRegions] = useState<string[]>(() => [
@@ -304,6 +316,7 @@ function MagazineEditorWorkspace() {
       cadence: "monthly",
       preferredRegions: DEFAULT_PREFERRED_REGIONS,
       preferredChannels: DEFAULT_PREFERRED_CHANNELS,
+      toneStance: "positive",
     }),
   );
   const [previousIssuesSnapshot, setPreviousIssuesSnapshot] = useState<AxiosUnitIssue[] | null>(
@@ -422,6 +435,7 @@ function MagazineEditorWorkspace() {
         lastSyncedRegionFocusRef.current = "";
         setSendMode("now");
         setMarketTemp(null);
+        setToneStance("positive");
         setSelectedDealIds([]);
         setDealComments({});
         setSections(data.sections);
@@ -459,6 +473,15 @@ function MagazineEditorWorkspace() {
       if (data.issueDateStr) setIssueDateStr(data.issueDateStr);
       setDraftSlotSlugOverride(data.slotSlug);
       if (data.hasMarketTemp) setMarketTemp(data.marketTemp);
+      setToneStance(
+        parsed.toneStance === "positive" ||
+          parsed.toneStance === "neutral" ||
+          parsed.toneStance === "negative"
+          ? parsed.toneStance
+          : data.hasMarketTemp
+            ? (mapMarketTempToToneStance(data.marketTemp) ?? "positive")
+            : data.toneStance,
+      );
       setMonthlyRegion(data.monthlyRegion);
       setMonthlyPairId(data.monthlyPairId);
       setMonthlyCharts(data.monthlyCharts);
@@ -523,6 +546,7 @@ function MagazineEditorWorkspace() {
         issueDateStr: string;
         regionFocus: string;
         sendMode: SendDeliveryMode;
+        toneStance: NewsletterToneStance;
       }>,
     ) => {
       const targetEditionId =
@@ -582,11 +606,17 @@ function MagazineEditorWorkspace() {
             nextPatch && "regionFocus" in nextPatch ? (nextPatch.regionFocus ?? "") : regionFocus;
           const nextSendMode =
             nextPatch && "sendMode" in nextPatch ? (nextPatch.sendMode ?? "now") : sendMode;
+          const nextToneStance = nextPatch?.toneStance ?? toneStance;
           const localRecord = {
             ...payload,
             regionFocus: nextRegionFocus,
             sendMode: nextSendMode,
-          } as typeof payload & { regionFocus: string; sendMode: SendDeliveryMode };
+            toneStance: nextToneStance,
+          } as typeof payload & {
+            regionFocus: string;
+            sendMode: SendDeliveryMode;
+            toneStance: NewsletterToneStance;
+          };
           saveDraftRecordToSlots({ slotKey, activeScopeUid, payload: localRecord });
           hydratedSlotKeyRef.current = slotKey;
           userEditedSinceMountRef.current = true;
@@ -603,7 +633,7 @@ function MagazineEditorWorkspace() {
       briefingTitle, briefingBody, issueYear, issueMonth, marketTemp, monthlyRegion,
       monthlyPairId, monthlyCharts, selectedDealIds, dealComments, preferredRegions,
       preferredChannels, unitIssues, sections, targetSegment, cadence, issueDateStr,
-      regionFocus, sendMode, isPublished, publishedUrl,
+      regionFocus, sendMode, toneStance, isPublished, publishedUrl,
     ],
   );
 
@@ -647,7 +677,12 @@ function MagazineEditorWorkspace() {
         ...payload,
         regionFocus,
         sendMode,
-      } as typeof payload & { regionFocus: string; sendMode: SendDeliveryMode };
+        toneStance,
+      } as typeof payload & {
+        regionFocus: string;
+        sendMode: SendDeliveryMode;
+        toneStance: NewsletterToneStance;
+      };
       saveDraftRecordToSlots({
         slotKey: currentSlotKey,
         activeScopeUid,
@@ -662,7 +697,7 @@ function MagazineEditorWorkspace() {
     brokerSlug, headline, summary, briefingTitle, briefingBody, issueYear, issueMonth,
     marketTemp, monthlyRegion, monthlyPairId, monthlyCharts, selectedDealIds,
     dealComments, preferredRegions, preferredChannels, unitIssues, sections,
-    targetSegment, issueDateStr, regionFocus, sendMode, isPublished, publishedUrl,
+    targetSegment, issueDateStr, regionFocus, sendMode, toneStance, isPublished, publishedUrl,
   ]);
 
   const applyEditionToEditorState = useCallback(
@@ -744,6 +779,7 @@ function MagazineEditorWorkspace() {
       setBriefingTitle(f.briefingTitle);
       setBriefingBody(f.briefingBody);
       setMarketTemp(f.marketTemp);
+      setToneStance(mapMarketTempToToneStance(f.marketTemp) ?? "positive");
       setMonthlyRegion(f.nextRegion);
       setMonthlyPairId(f.nextPair);
       setMonthlyCharts(f.monthlyCharts);
@@ -1045,6 +1081,7 @@ function MagazineEditorWorkspace() {
         lastSyncedRegionFocusRef.current = "";
         setSendMode("now");
         setMarketTemp(null);
+        setToneStance("positive");
         setMonthlyRegion("gbd");
         setMonthlyPairId("molit_bok");
         setMonthlyCharts(buildDefaultMonthlyGraphicPair("gbd", "molit_bok"));
@@ -1238,6 +1275,7 @@ function MagazineEditorWorkspace() {
                         cadence: "monthly",
                         preferredRegions: normPrefs.preferredRegions,
                         preferredChannels: normPrefs.preferredChannels,
+                        toneStance: "positive",
                       })
                     : prev,
                 );
@@ -1749,9 +1787,11 @@ function MagazineEditorWorkspace() {
                 ...parsed.savedDraftPayload,
                 regionFocus: trimmedRegionFocus,
                 sendMode,
+                toneStance,
               } as typeof parsed.savedDraftPayload & {
                 regionFocus: string;
                 sendMode: SendDeliveryMode;
+                toneStance: NewsletterToneStance;
               },
             });
             hydratedSlotKeyRef.current = parsed.finalSlotKey;
@@ -1862,7 +1902,7 @@ function MagazineEditorWorkspace() {
       monthlyRegion, monthlyPairId, monthlyCharts, selectedDealIds, deals, dealComments,
       unitIssues, preferredRegions, preferredChannels, sections, targetSegment, brokerId,
       brokerSlug, publishedUrl, autosave, syncUrlParams, regionFocus, sendMode,
-      buildEditionRegionPatchPayload,
+      toneStance, buildEditionRegionPatchPayload,
     ],
   );
 
@@ -1964,6 +2004,7 @@ function MagazineEditorWorkspace() {
     setSendMode("now");
     const mappedRegion = mapPreferredRegionsToMonthlyKey(preferredRegions);
     setMarketTemp(null);
+    setToneStance("positive");
     setMonthlyRegion(mappedRegion);
     setMonthlyPairId("molit_bok");
     setMonthlyCharts(buildDefaultMonthlyGraphicPair(mappedRegion, "molit_bok"));
@@ -1976,6 +2017,7 @@ function MagazineEditorWorkspace() {
         cadence: nextCadence,
         preferredRegions,
         preferredChannels,
+        toneStance: "positive",
       }),
     );
     setIsPublished(false);
@@ -2096,6 +2138,7 @@ function MagazineEditorWorkspace() {
                 preferredRegions,
                 preferredChannels,
                 dealKeywords: deals.map((d) => `${d.title} ${d.address}`),
+                toneStance,
               });
         if (unitIssues.length === 0) setUnitIssues(nextIssues);
         persistLocalDraft({
@@ -2162,8 +2205,10 @@ function MagazineEditorWorkspace() {
     setBriefingBody(ed.briefingBody ?? "");
     setRegionFocus(clonedRegionFocus);
     lastSyncedRegionFocusRef.current = "";
+    const clonedToneStance = mapMarketTempToToneStance(ed.marketTemp) ?? "positive";
     setSendMode("now");
     setMarketTemp(ed.marketTemp ?? null);
+    setToneStance(clonedToneStance);
     setMonthlyRegion(c.clonedRegion);
     setMonthlyPairId(c.clonedPair);
     setMonthlyCharts(c.clonedCharts);
@@ -2195,6 +2240,7 @@ function MagazineEditorWorkspace() {
       regionFocus: clonedRegionFocus,
       sendMode: "now",
       marketTemp: ed.marketTemp ?? null,
+      toneStance: clonedToneStance,
       monthlyRegion: c.clonedRegion,
       monthlyPairId: c.clonedPair,
       monthlyCharts: c.clonedCharts,
@@ -2251,6 +2297,7 @@ function MagazineEditorWorkspace() {
       setBriefingTitle("");
       setBriefingBody("");
       setMarketTemp(null);
+      setToneStance("positive");
       setSelectedDealIds([]);
       setDealComments({});
       setLocalStorageMode("none");
@@ -2399,6 +2446,7 @@ function MagazineEditorWorkspace() {
         dealKeywords: deals
           .filter((d) => selectedDealIds.includes(d.id))
           .map((d) => d.title),
+        toneStance,
       });
       setUnitIssues(reclustered);
       persistLocalDraft({ preferredRegions: next, regionFocus: nextFocus, unitIssues: reclustered });
@@ -2422,6 +2470,7 @@ function MagazineEditorWorkspace() {
         dealKeywords: deals
           .filter((d) => selectedDealIds.includes(d.id))
           .map((d) => d.title),
+        toneStance,
       });
       setUnitIssues(reclustered);
       persistLocalDraft({ preferredChannels: next, unitIssues: reclustered });
@@ -2432,11 +2481,13 @@ function MagazineEditorWorkspace() {
   const handleAiClusterIssues = async (
     overrideRegions?: readonly string[],
     overrideChannels?: readonly SpecificNewsChannelId[],
+    overrideToneStance?: NewsletterToneStance,
   ) => {
     if (isAiClustering) return;
     setIsAiClustering(true);
     const activeRegions = overrideRegions ?? preferredRegions;
     const activeChannels = overrideChannels ?? preferredChannels;
+    const activeTone = overrideToneStance ?? toneStance;
     const activeDealTitles = deals
       .filter((d) => selectedDealIds.includes(d.id))
       .map((d) => `${d.title} ${d.address}`);
@@ -2450,14 +2501,16 @@ function MagazineEditorWorkspace() {
         preferredChannels: activeChannels,
         dealTitles: activeDealTitles,
         newsPool,
+        toneStance: activeTone,
       });
       setUnitIssues(nextIssues);
-      persistLocalDraft({ unitIssues: nextIssues });
+      persistLocalDraft({ unitIssues: nextIssues, toneStance: activeTone });
+      const toneLabel = TONE_STANCE_META[activeTone].label;
       setStatusBanner({
         tone: "success",
         message: isAi
-          ? "내 주력 권역과 관심 분야에 맞춰 핵심 이슈 포스트잇 5선을 새로 구성했어요."
-          : "내 주력 권역과 관심 분야 기반으로 핵심 이슈 5선을 구성했어요.",
+          ? `내 주력 권역·관심 분야와 '${toneLabel}' 온도에 맞춰 핵심 이슈 5선을 새로 구성했어요.`
+          : `내 주력 권역·관심 분야와 '${toneLabel}' 온도에 맞춰 핵심 이슈 5선을 구성했어요.`,
       });
     } finally {
       setIsAiClustering(false);
@@ -2500,6 +2553,7 @@ function MagazineEditorWorkspace() {
         live: "1",
         regions: preferredRegions.join(","),
         channels: preferredChannels.join(","),
+        tone: toneStance,
       });
       const res = await fetch(`/api/broker/magazine/news-channels?${qs.toString()}`);
       if (!res.ok) return;
@@ -3171,6 +3225,16 @@ function MagazineEditorWorkspace() {
             briefingTitle={briefingTitle}
             briefingBody={briefingBody}
             marketTemp={marketTemp}
+            toneStance={toneStance}
+            onChangeToneStance={(nextTone) => {
+              setToneStance(nextTone);
+              persistLocalDraft({ toneStance: nextTone });
+            }}
+            onReclusterWithTone={(nextTone) => {
+              setToneStance(nextTone);
+              persistLocalDraft({ toneStance: nextTone });
+              void handleAiClusterIssues(preferredRegions, preferredChannels, nextTone);
+            }}
             regionFocus={regionFocus}
             onChangeRegionFocus={(nextFocus) => {
               setRegionFocus(nextFocus);
@@ -3232,7 +3296,13 @@ function MagazineEditorWorkspace() {
             }}
             onChangeMarketTemp={(nextTemp) => {
               setMarketTemp(nextTemp);
-              persistLocalDraft({ marketTemp: nextTemp });
+              const syncedTone = mapMarketTempToToneStance(nextTemp);
+              if (syncedTone) {
+                setToneStance(syncedTone);
+                persistLocalDraft({ marketTemp: nextTemp, toneStance: syncedTone });
+              } else {
+                persistLocalDraft({ marketTemp: nextTemp });
+              }
             }}
             onApplyDraft={(next: MagazineDraftSnapshot) => {
               const nextHeadline = formatSingleLineTitle(next.headline, 50);
@@ -3260,6 +3330,7 @@ function MagazineEditorWorkspace() {
         {activeStep === "content" && (
           <NewsletterContentStepPanel
             cadence={cadence}
+            toneStance={toneStance}
             yearMonthLabel={autoMeta.yearMonthLabel}
             regionFocus={regionFocus}
             headline={headline}

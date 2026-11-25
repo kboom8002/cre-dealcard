@@ -19,6 +19,82 @@ export type NewsChannelId =
 
 export type SpecificNewsChannelId = Exclude<NewsChannelId, "all">;
 
+/**
+ * 뉴스레터 거래 온도 3단계 (콘텐츠 선별 + 카피라이팅 프레이밍 공용 SSOT)
+ * - 기본값: "positive" (긍정적 · 매수 활기)
+ */
+export type NewsletterToneStance = "positive" | "neutral" | "negative";
+
+export const NEWSLETTER_TONE_STANCES: readonly NewsletterToneStance[] = [
+  "positive",
+  "neutral",
+  "negative",
+] as const;
+
+export const TONE_STANCE_META: Readonly<
+  Record<
+    NewsletterToneStance,
+    {
+      id: NewsletterToneStance;
+      label: string;
+      shortLabel: string;
+      description: string;
+    }
+  >
+> = {
+  positive: {
+    id: "positive",
+    label: "긍정적 (매수 활기)",
+    shortLabel: "긍정적",
+    description: "회복 신호·금리 완화·우량 매물 선점 기회를 앞세워 매수 실행을 돕습니다.",
+  },
+  neutral: {
+    id: "neutral",
+    label: "중립적 (균형·선별)",
+    shortLabel: "중립적",
+    description: "시장 회복 요인과 점검 변수를 균형 있게 짚어 옥석 가리기를 안내합니다.",
+  },
+  negative: {
+    id: "negative",
+    label: "보수·신중 (조정·점검)",
+    shortLabel: "보수·신중",
+    description: "공실·이자·세무 부담을 냉정히 점검해 호가 현실화나 방어형 급매 설득에 활용합니다.",
+  },
+};
+
+export function normalizeNewsletterToneStance(
+  raw: unknown,
+  fallback: NewsletterToneStance = "positive",
+): NewsletterToneStance {
+  if (raw === "positive" || raw === "neutral" || raw === "negative") return raw;
+  return fallback;
+}
+
+const CRE_BULLISH_SIGNAL_RE =
+  /반등|회복|완화|인하|돌파|활발|급증|확대|호조|만실|선호|수혜|최고가|흥행|모이는|늘어|커져|껑충|유리/g;
+const CRE_BEARISH_SIGNAL_RE =
+  /위축|급감|침체|공실\s*증가|공실률\s*상승|공실\s*우려|공실\s*경고|하락|경매|유찰|연체|이자\s*부담|역마진|동결|과세\s*강화|감정평가\s*확대|공사비\s*급등|공사비\s*상승|양극화|급매|관망세|주의|경계|냉각|멈춰/g;
+
+/**
+ * 실시간 RSS·DB 뉴스 기사의 제목·요약에서 상업용 부동산 거래 온도 감성(bullish/neutral/bearish)을 결정론적으로 판별한다.
+ */
+export function inferCreArticleSentiment(input: {
+  title?: string | null;
+  summary?: string | null;
+  sentiment?: string | null;
+}): "bullish" | "neutral" | "bearish" {
+  if (input.sentiment === "bullish" || input.sentiment === "bearish") {
+    return input.sentiment;
+  }
+  const combined = `${input.title ?? ""} ${input.summary ?? ""}`.trim();
+  if (!combined) return "neutral";
+  const bullHits = combined.match(CRE_BULLISH_SIGNAL_RE)?.length ?? 0;
+  const bearHits = combined.match(CRE_BEARISH_SIGNAL_RE)?.length ?? 0;
+  if (bearHits > bullHits) return "bearish";
+  if (bullHits > bearHits) return "bullish";
+  return "neutral";
+}
+
 export interface NewsChannelMeta {
   id: NewsChannelId;
   label: string;
@@ -660,6 +736,78 @@ export const CURATED_CHANNEL_POOL: readonly CuratedChannelNewsItem[] = [
     sentiment: "neutral",
     importance_score: 7,
     topic: "tech",
+    channel: "commercial_trend",
+  },
+
+  // ── 보수·신중(bearish) 모드 대응 5대 채널 리스크·점검 큐레이션 ──
+  {
+    id: "curated-re-bear-1",
+    title: "서울 상권 입지별 공실 양극화 뚜렷, 이면도로 노후 상가는 보수적 점검 필요",
+    cardTitle: "상권별 공실 양극화 심화, 이면도로 노후 건물은 신중 점검",
+    cardBrief: "역에서 멀거나 주차가 불편한 노후 상가는 세입자 구하기가 까다로워져 가격과 월세 눈높이를 낮춰 잡아야 합니다.",
+    summary:
+      "핵심 역세권과 달리 이면도로 노후 근생 건물은 공실 기간이 길어지며 입지별 양극화가 뚜렷해지고 있습니다. 매수나 보유 시 공실 버팀목과 적정 호가를 냉정하게 재점검하셔야 합니다.",
+    source: "서울경제 부동산",
+    url: "https://www.sedaily.com/NewsList/GB01",
+    sentiment: "bearish",
+    importance_score: 7,
+    topic: "vacancy",
+    channel: "real_estate",
+  },
+  {
+    id: "curated-eco-bear-1",
+    title: "연 4%대 빌딩 담보대출 이자 부담 여전, 낮은 월세 수익률 매물은 역마진 주의",
+    cardTitle: "여전한 대출 이자 부담, 월세 수익 낮은 빌딩은 역마진 경계",
+    cardBrief: "단순 연 월세 수익률이 은행 대출 이자보다 낮으면 매달 현금을 보태야 하므로 보수적인 수지 계산이 필수입니다.",
+    summary:
+      "시중은행 담보대출 금리가 여전히 연 4% 안팎에 머물면서 임대수익률이 낮은 건물은 이자 부담이 큽니다. 무리한 대출 매수보다 공실 시에도 이자를 감당할 수 있는 안전 매물만 골라야 합니다.",
+    source: "한국경제 금융·거시",
+    url: "https://www.hankyung.com/economy",
+    sentiment: "bearish",
+    importance_score: 7,
+    topic: "rate",
+    channel: "economy_finance",
+  },
+  {
+    id: "curated-tax-bear-1",
+    title: "국세청 꼬마빌딩 시가 감정평가 대상 확대, 예상 밖 세금 부담 경계해야",
+    cardTitle: "국세청 빌딩 감정평가 과세 강화, 예상 밖 세금 부담 주의",
+    cardBrief: "기준시가만 믿고 증여나 상속을 진행했다가 감정가 기준으로 큰 세금이 나올 수 있어 사전 세무 점검이 시급합니다.",
+    summary:
+      "중소형 빌딩 상속·증여 시 국세청의 직접 감정평가 사례가 늘어나며 세금 부담이 예상보다 커지고 있습니다. 거래나 증여 전 시가 기준 세액을 보수적으로 먼저 계산해 두셔야 안전합니다.",
+    source: "매경 세무·PB 칼럼",
+    url: "https://www.mk.co.kr/news/economy/",
+    sentiment: "bearish",
+    importance_score: 7,
+    topic: "tax",
+    channel: "tax_wealth",
+  },
+  {
+    id: "curated-cul-bear-1",
+    title: "건축 자재비·인건비 상승 지속, 무리한 철거 신축보다 실속 외관 수리가 안전",
+    cardTitle: "높아진 건축 공사비 부담, 무리한 신축보다 실속 수리가 유리",
+    cardBrief: "공사비와 공사 기간 이자 부담이 크게 늘어 섣부른 철거 신축보다는 기존 골조를 살린 수리가 훨씬 안전합니다.",
+    summary:
+      "건축 자재비와 인건비가 높은 수준을 유지하면서 중소형 신축 사업의 수지 맞추기가 까다로워졌습니다. 신축 부지 매입 시 공사비 여유 자금을 보수적으로 잡거나 리모델링 대안을 우선 검토하세요.",
+    source: "문화·건축 디자인 저널",
+    url: "https://www.mk.co.kr/news/culture/",
+    sentiment: "bearish",
+    importance_score: 6,
+    topic: "architecture",
+    channel: "culture_lifestyle",
+  },
+  {
+    id: "curated-trd-bear-1",
+    title: "반짝 유행 업종 빠진 상가 공실 장기화 우려, 생활 밀착 세입자 구성이 방어력 좌우",
+    cardTitle: "유행 타는 업종 공실 위험, 경기 덜 타는 생활 업종인지 점검",
+    cardBrief: "단기 유행 매장만 보고 높은 값에 매수하면 세입자 이탈 시 월세 공백이 길어지므로 장기 계약 여부를 꼭 확인합니다.",
+    summary:
+      "유행 주기가 짧은 식음료·팝업 위주 상가에서 세입자 교체기 공실 위험이 커지고 있습니다. 당장 높아 보이는 월세보다 병원·약국·사무실 등 오래 머무는 업종 비중을 보수적으로 따져보셔야 합니다.",
+    source: "한경 상권·리테일 분석",
+    url: "https://www.hankyung.com/economy",
+    sentiment: "bearish",
+    importance_score: 7,
+    topic: "retail",
     channel: "commercial_trend",
   },
 ] as const;

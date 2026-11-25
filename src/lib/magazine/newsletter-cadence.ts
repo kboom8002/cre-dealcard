@@ -225,6 +225,7 @@ export function buildNewsletterTitlePresets(
   brokerName: string | null | undefined,
   cadence: NewsletterCadence,
   month?: number,
+  toneStance?: "positive" | "neutral" | "negative",
 ): string[] {
   const raw = typeof brokerName === "string" ? brokerName.trim() : "";
   const cleanName = raw.replace(/\s*(공인)?중개사(?:의)?$/u, "").trim();
@@ -233,6 +234,56 @@ export function buildNewsletterTitlePresets(
     typeof month === "number" && Number.isFinite(month)
       ? Math.max(1, Math.min(12, Math.floor(month)))
       : kstParts().month;
+
+  if (toneStance === "negative") {
+    if (cadence === "daily") {
+      return [
+        `${prefix} 오늘 빌딩 공실·수지 점검 리포트`,
+        `${prefix} 관망기 꼭 따져볼 상가·빌딩 동향`,
+        `${prefix} 오늘 아침 보수적 매수 체크포인트`,
+        `${prefix} 조정기 방어형 알짜 빌딩 브리핑`,
+      ];
+    }
+    if (cadence === "weekly") {
+      return [
+        `${prefix} 이번 주 빌딩 공실·금리 신중 점검`,
+        `${prefix} 관망세 속 옥석 가리기 주간 브리핑`,
+        `${prefix} 주간 빌딩 수지·세무 리스크 점검`,
+        `${prefix} 조정기 눈여겨볼 방어형 빌딩 소식`,
+      ];
+    }
+    return [
+      `${prefix} ${m}월 빌딩 공실·수지 신중 점검`,
+      `${prefix} 관망기 건물주·매수자 점검 리포트`,
+      `${prefix} ${m}월 보수적 빌딩 시장 분석`,
+      `${prefix} 조정기 방어형 알짜 빌딩 브리핑`,
+    ];
+  }
+
+  if (toneStance === "positive") {
+    if (cadence === "daily") {
+      return [
+        `${prefix} 오늘 아침 알짜 빌딩 선점 소식`,
+        `${prefix} 매수 활기 도는 오늘의 빌딩 브리핑`,
+        `${prefix} 오늘 눈여겨볼 역세권 추천 빌딩`,
+        `${prefix} 금리 완화 흐름 속 일간 빌딩 동향`,
+      ];
+    }
+    if (cadence === "weekly") {
+      return [
+        `${prefix} 이번 주 알짜 빌딩 선점 브리핑`,
+        `${prefix} 매수 문의 늘어난 주간 빌딩 소식`,
+        `${prefix} 이번 주 눈여겨볼 추천 빌딩 리포트`,
+        `${prefix} 회복 흐름 타는 주간 빌딩 핵심 동향`,
+      ];
+    }
+    return [
+      `${prefix} ${m}월 알짜 빌딩 선점 브리핑`,
+      `${prefix} 매수 활기 도는 이달의 빌딩 소식`,
+      `${prefix} ${m}월 눈여겨볼 추천 빌딩 리포트`,
+      `${prefix} 회복 흐름 속 상업용 빌딩 동향`,
+    ];
+  }
 
   if (cadence === "daily") {
     return [

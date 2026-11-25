@@ -119,6 +119,7 @@ export interface LocalNewsletterDraft {
   cadence: NewsletterCadence;
   issueDateStr: string;
   marketTemp: MarketTemperature | null;
+  toneStance?: "positive" | "neutral" | "negative";
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId?: MonthlyChartPairId;
   monthlyCharts?: MonthlyRegionalChart[];

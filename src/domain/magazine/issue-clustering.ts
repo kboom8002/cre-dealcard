@@ -15,10 +15,12 @@ import {
   CURATED_CHANNEL_POOL,
   NEWS_CHANNEL_MAP,
   areArticlesSameEvent,
+  inferCreArticleSentiment,
   isCreRelevantArticle,
   isSpecificNewsChannelId,
   resolveNewsChannel,
   type NewsPoolItem,
+  type NewsletterToneStance,
   type SpecificNewsChannelId,
 } from './news-channels';
 import { expandRegionKeywords } from './broker-preferences';
@@ -1016,6 +1018,8 @@ export interface ClusterIssuesOptions {
   preferredRegions?: readonly string[];
   preferredChannels?: readonly SpecificNewsChannelId[];
   dealKeywords?: readonly string[];
+  /** 거래 온도 ('positive' 긍정 · 'neutral' 중립 · 'negative' 보수·신중) */
+  toneStance?: NewsletterToneStance;
 }
 
 /**
@@ -1045,12 +1049,18 @@ export function clusterArticlesIntoFiveIssues(
   const preferredIdSet = new Set<string>((opts.preferredIds ?? []).map((id) => String(id).trim()));
 
   // 1. 입력 기사(비부동산 가십 필터링 적용) + 부족분 보충용 기본 풀 준비
-  const pool: Array<{ item: NewsPoolItem; score: number; channel: SpecificNewsChannelId }> = [];
+  const pool: Array<{
+    item: NewsPoolItem;
+    score: number;
+    channel: SpecificNewsChannelId;
+    sentiment: 'bullish' | 'neutral' | 'bearish';
+  }> = [];
   const seenKey = new Set<string>();
 
   const computeScore = (
     item: NewsPoolItem,
     ch: SpecificNewsChannelId,
+    sentiment: 'bullish' | 'neutral' | 'bearish',
     isUserProvided: boolean,
   ): number => {
     const id = String(item.id ?? item.title ?? '').trim();
@@ -1077,6 +1087,20 @@ export function clusterArticlesIntoFiveIssues(
       }
     }
 
+    if (opts.toneStance === 'positive') {
+      if (sentiment === 'bullish') score += 18;
+      else if (sentiment === 'neutral') score += 2;
+      else score -= 16;
+    } else if (opts.toneStance === 'negative') {
+      if (sentiment === 'bearish') score += 22;
+      else if (sentiment === 'neutral') score += 4;
+      else score -= 16;
+    } else if (opts.toneStance === 'neutral') {
+      if (sentiment === 'neutral') score += 8;
+      else if (sentiment === 'bullish') score += 5;
+      else score += 4;
+    }
+
     return score;
   };
 
@@ -1090,8 +1114,9 @@ export function clusterArticlesIntoFiveIssues(
     seenKey.add(key);
     seenKey.add(normTitle);
     const channel = resolveNewsChannel(item);
-    const score = computeScore(item, channel, isUserProvided);
-    pool.push({ item, score, channel });
+    const sentiment = inferCreArticleSentiment(item);
+    const score = computeScore(item, channel, sentiment, isUserProvided);
+    pool.push({ item: { ...item, sentiment }, score, channel, sentiment });
   };
 
   if (preferredIdSet.size > 0) {
@@ -1235,10 +1260,7 @@ export function clusterArticlesIntoFiveIssues(
       uniqueSources.push(NEWS_CHANNEL_MAP[channel]?.shortLabel ?? '시장 브리핑');
     }
 
-    const sentiment =
-      primary.sentiment === 'bullish' || primary.sentiment === 'bearish'
-        ? primary.sentiment
-        : 'neutral';
+    const sentiment = inferCreArticleSentiment(primary);
 
     return {
       id: String(primary.id ?? `issue-${idx + 1}`),

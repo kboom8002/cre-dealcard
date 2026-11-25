@@ -71,6 +71,7 @@ export interface ParsedHydratedDraftResult {
   briefingBody?: string;
   hasMarketTemp: boolean;
   marketTemp: MarketTemperature | null;
+  toneStance: "positive" | "neutral" | "negative";
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
   monthlyCharts: MonthlyRegionalChart[];
@@ -130,6 +131,7 @@ export function parseHydratedDraftData(
           : null,
       hasMarketTemp: true,
       marketTemp: null,
+      toneStance: "positive",
       monthlyRegion: "gbd",
       monthlyPairId: "molit_bok",
       monthlyCharts: buildDefaultMonthlyGraphicPair("gbd", "molit_bok"),
@@ -229,6 +231,12 @@ export function parseHydratedDraftData(
     briefingBody: typeof parsed.briefingBody === "string" ? parsed.briefingBody : undefined,
     hasMarketTemp: typeof parsed.marketTemp === "string" || parsed.marketTemp === null,
     marketTemp: (parsed.marketTemp as MarketTemperature | null) ?? null,
+    toneStance:
+      parsed.toneStance === "positive" ||
+      parsed.toneStance === "neutral" ||
+      parsed.toneStance === "negative"
+        ? parsed.toneStance
+        : "positive",
     monthlyRegion: normMonthly,
     monthlyPairId: normPair,
     monthlyCharts: restoredCharts ?? buildDefaultMonthlyGraphicPair(normMonthly, normPair),

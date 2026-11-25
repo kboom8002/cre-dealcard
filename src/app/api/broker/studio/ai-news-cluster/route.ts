@@ -45,6 +45,7 @@ export const aiNewsClusterRequestSchema = z.object({
   preferredRegions: z.array(z.string().trim().max(40)).max(8).optional(),
   preferredChannels: z.array(z.string().trim().max(40)).max(5).optional(),
   dealTitles: z.array(z.string().trim().max(200)).max(20).optional(),
+  toneStance: z.enum(["positive", "neutral", "negative"]).optional().default("positive"),
   articles: z.array(articleItemSchema).max(60).optional(),
 });
 
@@ -121,12 +122,15 @@ export async function POST(req: NextRequest) {
   const dealTitles = parsed.data.dealTitles ?? [];
   const articles: NewsPoolItem[] = parsed.data.articles ?? [];
 
-  // 1. 결정론적 가중치 클러스터링 베이스라인 (가십 노이즈 제거 + 권역/채널 가중치 적용)
+  const toneStance = parsed.data.toneStance ?? "positive";
+
+  // 1. 결정론적 가중치 클러스터링 베이스라인 (가십 노이즈 제거 + 권역/채널/거래온도 가중치 적용)
   const baselineClusters = clusterArticlesIntoFiveIssues(articles, {
     cadence: parsed.data.cadence ?? "monthly",
     preferredRegions,
     preferredChannels,
     dealKeywords: dealTitles,
+    toneStance,
   });
 
   // 2. TaskFlow TF8 프롬프트 생성
@@ -138,6 +142,7 @@ export async function POST(req: NextRequest) {
     preferredRegions,
     preferredChannels,
     dealTitles,
+    toneStance,
     candidateIssues: baselineClusters,
   });
 

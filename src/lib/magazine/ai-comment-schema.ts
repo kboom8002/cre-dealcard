@@ -36,6 +36,7 @@ export const aiCommentRequestSchema = z.preprocess(
     priceBand: z.string().trim().max(60).optional(),
     area: z.string().trim().max(60).optional(),
     points: z.array(z.string().trim().max(120)).max(5).optional(),
+    toneStance: z.enum(['positive', 'neutral', 'negative']).optional().default('positive'),
     avoidComments: z.array(z.string().trim().max(AI_COMMENT_MAX_LENGTH)).max(8).optional(),
     attemptSeed: z.number().int().min(0).max(1000).optional(),
   }),

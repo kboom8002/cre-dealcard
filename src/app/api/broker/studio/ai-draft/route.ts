@@ -76,6 +76,7 @@ export const aiDraftRequestSchema = z.object({
   newsEvidence: z.array(z.string().trim().max(320)).max(10).optional(),
   monthlyStatsSummary: z.string().trim().max(400).optional(),
   voicePreset: z.enum(["calm_advisor", "field_broker", "yield_focused"]).optional(),
+  toneStance: z.enum(["positive", "neutral", "negative"]).optional().default("positive"),
   currentHeadline: z.string().trim().max(300).optional(),
   currentBriefing: z.string().trim().max(5000).optional(),
   avoidHeadlines: z.array(z.string().trim().max(120)).max(8).optional(),
@@ -210,6 +211,7 @@ export async function POST(req: NextRequest) {
     newsEvidence: input.newsEvidence,
     monthlyStatsSummary: input.monthlyStatsSummary,
     voicePreset: input.voicePreset,
+    toneStance: input.toneStance,
     currentHeadline: input.currentHeadline,
     currentBriefing: input.currentBriefing,
   });

@@ -5,7 +5,11 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useUndoToast, type UndoToastInput } from "@/components/workspace/UndoConfirmToast";
 import { editorToast } from "@/components/magazine-editor/editor-toaster";
 import type { AiDraftResult } from "@/app/api/broker/studio/ai-draft/route";
-import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import {
+  TONE_STANCE_META,
+  type NewsletterToneStance,
+  type SpecificNewsChannelId,
+} from "@/domain/magazine/news-channels";
 
 function useSafeShowUndoToast(): (input: UndoToastInput) => void {
   try {
@@ -37,12 +41,28 @@ const VOICE_PRESET_OPTIONS: ReadonlyArray<{
   { id: "yield_focused", label: "실속·수익형" },
 ];
 
+const TONE_STANCE_OPTIONS: ReadonlyArray<{
+  id: NewsletterToneStance;
+  badge: string;
+  label: string;
+}> = [
+  { id: "positive", badge: "🟢", label: TONE_STANCE_META.positive.label },
+  { id: "neutral", badge: "⚖️", label: TONE_STANCE_META.neutral.label },
+  { id: "negative", badge: "🟠", label: TONE_STANCE_META.negative.label },
+];
+
 export interface MagazineQuickDraftCardProps {
   monthLabel: string;
   /** 발행 주기 (일간·주간·월간) — AI 초안 프롬프트의 기간 표현·분량 기준 */
   cadence?: "daily" | "weekly" | "monthly";
   regionFocus?: string;
   onChangeRegionFocus?: (region: string) => void;
+  /** 거래 온도 프리셋 (기본값: 'positive' 긍정적) */
+  toneStance?: NewsletterToneStance;
+  onChangeToneStance?: (next: NewsletterToneStance) => void;
+  /** 선택한 거래 온도에 맞춰 이슈 5선도 즉시 재선별하는 콜백 */
+  onReclusterWithTone?: (next: NewsletterToneStance) => void;
+  isReclustering?: boolean;
   preferredRegions?: readonly string[];
   preferredChannels?: readonly SpecificNewsChannelId[];
   dealTitles?: string[];
@@ -59,6 +79,10 @@ export function MagazineQuickDraftCard({
   cadence,
   regionFocus = "",
   onChangeRegionFocus,
+  toneStance,
+  onChangeToneStance,
+  onReclusterWithTone,
+  isReclustering = false,
   preferredRegions = [],
   preferredChannels = [],
   dealTitles = [],
@@ -71,7 +95,19 @@ export function MagazineQuickDraftCard({
 }: MagazineQuickDraftCardProps) {
   const [loading, setLoading] = useState(false);
   const [localRegion, setLocalRegion] = useState(regionFocus);
+  const [localTone, setLocalTone] = useState<NewsletterToneStance>("positive");
   const [voicePreset, setVoicePreset] = useState<NewsletterVoicePresetUi>("calm_advisor");
+  const effectiveToneStance: NewsletterToneStance = onChangeToneStance
+    ? (toneStance ?? "positive")
+    : (toneStance ?? localTone);
+
+  const handleToneStanceChange = (next: NewsletterToneStance) => {
+    if (onChangeToneStance) {
+      onChangeToneStance(next);
+    } else {
+      setLocalTone(next);
+    }
+  };
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recentHeadlines, setRecentHeadlines] = useState<string[]>([]);
   const [attemptSeed, setAttemptSeed] = useState(0);
@@ -115,6 +151,7 @@ export function MagazineQuickDraftCard({
           ...(newsEvidence.length > 0 ? { newsEvidence: newsEvidence.filter(Boolean).slice(0, 6) } : {}),
           ...(monthlyStatsSummary?.trim() ? { monthlyStatsSummary: monthlyStatsSummary.trim() } : {}),
           voicePreset,
+          toneStance: effectiveToneStance,
           currentHeadline: currentDraft.headline.trim() || undefined,
           currentBriefing: currentDraft.briefingBody.trim() || undefined,
           ...(recentHeadlines.length > 0 ? { avoidHeadlines: recentHeadlines, attemptSeed } : {}),
@@ -247,6 +284,50 @@ export function MagazineQuickDraftCard({
               </span>
             </button>
           )}
+        </div>
+
+        <div className="pt-1.5 space-y-2 border-t border-slate-200/80">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="거래 온도 선택">
+              <span className="text-sm font-bold text-slate-700 mr-1">거래 온도:</span>
+              {TONE_STANCE_OPTIONS.map((opt) => {
+                const active = effectiveToneStance === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-testid={`ai-draft-tone-${opt.id}`}
+                    aria-pressed={active}
+                    onClick={() => handleToneStanceChange(opt.id)}
+                    className={`min-h-[44px] rounded-xl border px-3 py-1.5 text-sm font-extrabold transition cursor-pointer ${
+                      active
+                        ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span aria-hidden="true" className="mr-1">
+                      {opt.badge}
+                    </span>
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {onReclusterWithTone && (
+              <button
+                type="button"
+                data-testid="ai-recluster-by-tone-btn"
+                disabled={isReclustering}
+                onClick={() => onReclusterWithTone(effectiveToneStance)}
+                className="min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-extrabold text-slate-800 hover:bg-slate-100 disabled:opacity-60 transition cursor-pointer"
+              >
+                {isReclustering ? "이슈 재구성 중…" : "이 온도로 이슈 5선 맞추기"}
+              </button>
+            )}
+          </div>
+          <p className="text-sm font-medium text-slate-600">
+            {TONE_STANCE_META[effectiveToneStance].description}
+          </p>
         </div>
 
         <div className="pt-1 flex flex-wrap items-center gap-1.5" role="group" aria-label="브리핑 말투 선택">

@@ -10,7 +10,10 @@ import {
   MagazineQuickDraftCard,
   type MagazineDraftSnapshot,
 } from "@/components/broker/studio/MagazineQuickDraftCard";
-import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import type {
+  NewsletterToneStance,
+  SpecificNewsChannelId,
+} from "@/domain/magazine/news-channels";
 import type { MarketTemperature } from "@/domain/magazine/types";
 import type { NewsletterCadence } from "@/lib/magazine/newsletter-cadence";
 import { BrokerPreferencesSection } from "./BrokerPreferencesSection";
@@ -27,6 +30,9 @@ export interface NewsletterTitleStepPanelProps {
   briefingTitle: string;
   briefingBody: string;
   marketTemp: MarketTemperature | null;
+  toneStance?: NewsletterToneStance;
+  onChangeToneStance?: (next: NewsletterToneStance) => void;
+  onReclusterWithTone?: (next: NewsletterToneStance) => void;
   regionFocus: string;
   onChangeRegionFocus: (next: string) => void;
   preferredRegions: string[];
@@ -67,6 +73,9 @@ export function NewsletterTitleStepPanel({
   briefingTitle,
   briefingBody,
   marketTemp,
+  toneStance = "positive",
+  onChangeToneStance,
+  onReclusterWithTone,
   regionFocus,
   onChangeRegionFocus,
   preferredRegions,
@@ -124,6 +133,7 @@ export function NewsletterTitleStepPanel({
           onChangeHeadline={onChangeHeadline}
           marketTemp={marketTemp}
           onChangeMarketTemp={onChangeMarketTemp}
+          toneStance={toneStance}
         />
       </div>
 
@@ -133,6 +143,10 @@ export function NewsletterTitleStepPanel({
           cadence={cadence}
           regionFocus={regionFocus}
           onChangeRegionFocus={onChangeRegionFocus}
+          toneStance={toneStance}
+          onChangeToneStance={onChangeToneStance}
+          onReclusterWithTone={onReclusterWithTone}
+          isReclustering={isAiClustering}
           preferredRegions={preferredRegions}
           preferredChannels={preferredChannels}
           dealTitles={selectedDealTitles}
