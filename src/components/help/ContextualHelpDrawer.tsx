@@ -3,71 +3,22 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BROKER_GLOSSARY_LIST } from "@/lib/tutorial/broker-tutorial-data";
 import {
-  BROKER_TUTORIAL_MODULES,
-  BROKER_FAQ_LIST,
-  BROKER_GLOSSARY_LIST,
-  type TutorialModule,
-} from "@/lib/tutorial/broker-tutorial-data";
+  MINIMAL_ESSENTIAL_FAQS,
+  MINIMAL_SPACE_GUIDES,
+  resolveMinimalSpaceGuide,
+} from "@/lib/tutorial/minimal-guide-data";
 import { useSeniorHelp } from "./SeniorHelpContext";
 
-function resolveModuleForPathname(pathname: string, overrideId: string | null): TutorialModule {
-  if (overrideId) {
-    const found = BROKER_TUTORIAL_MODULES.find((m) => m.id === overrideId);
-    if (found) return found;
-  }
-
-  if (pathname === "/broker") {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-01") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (pathname.startsWith("/broker/w/dealcards") || pathname.startsWith("/broker/deal-card/new")) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-02") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (pathname.startsWith("/broker/deal-card/")) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-03") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (pathname.startsWith("/broker/w/im")) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-04") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (pathname.startsWith("/broker/basic-im-studio") || pathname.includes("/im-lite")) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-05") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (pathname.startsWith("/broker/buildings")) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-06") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (
-    pathname.startsWith("/broker/w/newsletter") ||
-    pathname.startsWith("/broker/w/magazine") ||
-    pathname.startsWith("/broker/magazine-editor")
-  ) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-07") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (
-    pathname.startsWith("/broker/w/inbox") ||
-    pathname.startsWith("/broker/clients") ||
-    pathname.startsWith("/broker/inbox")
-  ) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-08") || BROKER_TUTORIAL_MODULES[0];
-  }
-  if (pathname.startsWith("/broker/profile")) {
-    return BROKER_TUTORIAL_MODULES.find((m) => m.id === "module-09") || BROKER_TUTORIAL_MODULES[0];
-  }
-
-  return BROKER_TUTORIAL_MODULES[0];
-}
-
-/**
- * 화면 이동 없이 현재 작업 화면 위에서 바로 열리는 '이 화면 20초 따라하기' 슬라이드 서랍 (Tier 3)
- * - 현재 URL(pathname)을 자동 감지하여 해당 단원의 동영상·빨간번호 캡처·자주 묻는 질문을 표시합니다.
- */
 export function ContextualHelpDrawer() {
   const pathname = usePathname();
   const { isDrawerOpen, activeModuleId, closeHelpDrawer } = useSeniorHelp();
-  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [selectedGuideId, setSelectedGuideId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"steps" | "faq" | "glossary">("steps");
 
   useEffect(() => {
-    setSelectedModuleId(null);
+    setSelectedGuideId(null);
     setActiveTab("steps");
   }, [pathname, activeModuleId]);
 
@@ -82,7 +33,10 @@ export function ContextualHelpDrawer() {
 
   if (!isDrawerOpen) return null;
 
-  const currentModule = resolveModuleForPathname(pathname, selectedModuleId || activeModuleId);
+  const currentGuide = resolveMinimalSpaceGuide(
+    pathname,
+    selectedGuideId || activeModuleId,
+  );
 
   return (
     <div
@@ -92,49 +46,49 @@ export function ContextualHelpDrawer() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="현재 화면 20초 사용법 도우미"
+        aria-label="현재 화면 빠른 안내 서랍"
         data-testid="contextual-help-drawer"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl h-full bg-[#F3F2EE] text-[#0F172A] shadow-2xl border-l-2 border-slate-300 flex flex-col overflow-hidden"
+        className="w-full max-w-xl h-full bg-[#F5F5F7] text-[#1D1D1F] shadow-2xl border-l border-slate-200 flex flex-col overflow-hidden"
       >
         {/* Top Drawer Header */}
-        <div className="px-5 py-4 bg-white border-b border-slate-300 flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-4 bg-white border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-sm font-extrabold">
-              🎬 화면 이동 없이 바로 보는 20초 도우미 ({currentModule.moduleNumber})
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-100 text-[#515154] border border-slate-200 text-sm font-bold">
+              빠른 안내 · {currentGuide.roleTag}
             </span>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-1 leading-snug">
-              {currentModule.shortTitle}
+            <h2 className="text-lg sm:text-xl font-extrabold text-[#1D1D1F] mt-1 leading-snug">
+              {currentGuide.name} 3단계 사용법
             </h2>
           </div>
           <button
             type="button"
             onClick={closeHelpDrawer}
             data-testid="close-contextual-help-drawer"
-            className="px-4 py-2 min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 text-base font-extrabold shrink-0 cursor-pointer"
+            className="px-4 py-2 min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 text-[#1D1D1F] border border-slate-200 text-base font-bold shrink-0 cursor-pointer"
           >
             ✕ 닫기
           </button>
         </div>
 
-        {/* Module Switcher Pills & Sub-tabs */}
-        <div className="px-5 py-3 bg-white/90 border-b border-slate-200 space-y-2.5 shrink-0">
+        {/* Space Switcher & Sub-tabs */}
+        <div className="px-5 py-3 bg-white border-b border-slate-200 space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <label htmlFor="drawer-module-select" className="text-sm font-extrabold text-slate-700 shrink-0">
-              다른 기능 설명 보기:
+            <label htmlFor="drawer-module-select" className="text-sm font-bold text-[#515154] shrink-0">
+              공간 선택
             </label>
             <select
               id="drawer-module-select"
-              value={currentModule.id}
+              value={currentGuide.anchorId}
               onChange={(e) => {
-                setSelectedModuleId(e.target.value);
+                setSelectedGuideId(e.target.value);
                 setActiveTab("steps");
               }}
-              className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] text-[max(16px,1rem)] font-extrabold text-slate-900"
+              className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 min-h-[44px] text-[max(16px,1rem)] font-bold text-[#1D1D1F]"
             >
-              {BROKER_TUTORIAL_MODULES.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.shortTitle} ({m.duration})
+              {MINIMAL_SPACE_GUIDES.map((g) => (
+                <option key={g.id} value={g.anchorId}>
+                  {g.order}. {g.name} ({g.roleTag})
                 </option>
               ))}
             </select>
@@ -144,149 +98,88 @@ export function ContextualHelpDrawer() {
             <button
               type="button"
               onClick={() => setActiveTab("steps")}
-              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-extrabold transition-colors cursor-pointer ${
+              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-bold transition-colors cursor-pointer ${
                 activeTab === "steps"
-                  ? "bg-blue-700 text-white shadow-2xs"
-                  : "text-slate-700 hover:bg-white"
+                  ? "bg-[#1D4ED8] text-white shadow-2xs"
+                  : "text-[#3A3A3C] hover:bg-white"
               }`}
             >
-              📸 단계별 사진·영상
+              핵심 3단계
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("faq")}
-              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-extrabold transition-colors cursor-pointer ${
+              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-bold transition-colors cursor-pointer ${
                 activeTab === "faq"
-                  ? "bg-blue-700 text-white shadow-2xs"
-                  : "text-slate-700 hover:bg-white"
+                  ? "bg-[#1D4ED8] text-white shadow-2xs"
+                  : "text-[#3A3A3C] hover:bg-white"
               }`}
             >
-              ❓ 자주 묻는 질문
+              자주 묻는 질문
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("glossary")}
-              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-extrabold transition-colors cursor-pointer ${
+              className={`py-2 px-2 min-h-[44px] rounded-lg text-sm font-bold transition-colors cursor-pointer ${
                 activeTab === "glossary"
-                  ? "bg-blue-700 text-white shadow-2xs"
-                  : "text-slate-700 hover:bg-white"
+                  ? "bg-[#1D4ED8] text-white shadow-2xs"
+                  : "text-[#3A3A3C] hover:bg-white"
               }`}
             >
-              📖 쉬운 용어사전
+              용어 안내
             </button>
           </div>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {activeTab === "steps" && (
             <>
-              {/* Summary Box */}
-              <div className="rounded-2xl border-2 border-blue-300 bg-white p-4 space-y-2 shadow-2xs">
-                <p className="text-base font-black text-blue-950">
-                  📌 이 화면 3줄 핵심 요약 ({currentModule.duration})
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-2xs">
+                <p className="text-base font-extrabold text-[#1D1D1F]">
+                  {currentGuide.name}의 역할
                 </p>
-                <ul className="space-y-1.5 text-base text-slate-800 font-medium leading-relaxed">
-                  {currentModule.summaryPoints.map((pt, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-blue-700 font-black">•</span>
-                      <span>{pt}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="text-base font-medium text-[#3A3A3C] leading-relaxed break-keep">
+                  {currentGuide.oneLiner}
+                </p>
               </div>
 
-              {/* 20-Sec Follow-Along Video */}
-              {currentModule.videoUrl && (
-                <div className="rounded-2xl border border-slate-300 bg-white p-4 space-y-2 shadow-2xs">
-                  <p className="text-base font-extrabold text-slate-900">
-                    {currentModule.videoTitle}
-                  </p>
-                  <video
-                    key={currentModule.videoUrl}
-                    src={currentModule.videoUrl}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-950"
-                  />
-                </div>
-              )}
-
-              {/* Step-by-Step Cards */}
-              <div className="space-y-4">
-                {currentModule.steps.map((step) => (
+              <div className="space-y-3">
+                {currentGuide.steps.map((stepText, idx) => (
                   <div
-                    key={step.id}
-                    className="rounded-2xl border border-slate-300 bg-white p-4 sm:p-5 space-y-3 shadow-2xs"
+                    key={idx}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 flex items-start gap-3 shadow-2xs"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-blue-700 text-white text-sm font-black">
-                        {step.stepNumber}
-                      </span>
-                      <h3 className="text-lg font-black text-slate-900 leading-snug">
-                        {step.title}
-                      </h3>
-                    </div>
-
-                    {step.imageUrl && (
-                      <div className="space-y-1.5">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={step.imageUrl}
-                          alt={step.imageCaption}
-                          className="w-full rounded-xl border border-slate-300"
-                        />
-                        <p className="text-sm text-slate-600 font-semibold">
-                          ▲ {step.imageCaption}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="space-y-2 text-base leading-relaxed">
-                      <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-3">
-                        <span className="font-black text-blue-950">👆 어디를 누르나요?: </span>
-                        <span className="text-slate-900 font-semibold">{step.whereToClick}</span>
-                      </div>
-                      <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                        <span className="font-black text-slate-900">✨ 어떻게 바뀌나요?: </span>
-                        <span className="text-slate-800">{step.whatChanges}</span>
-                      </div>
-                      {step.commonMistake && (
-                        <div className="rounded-xl bg-amber-50 border border-amber-300 p-3 text-amber-950">
-                          <span className="font-black">⚠️ 자주 하는 실수: </span>
-                          <span>{step.commonMistake}</span>
-                        </div>
-                      )}
-                    </div>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#1D1D1F] text-white text-sm font-bold shrink-0">
+                      {idx + 1}
+                    </span>
+                    <p className="text-base font-medium text-[#1D1D1F] leading-relaxed break-keep">
+                      {stepText}
+                    </p>
                   </div>
                 ))}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-[#515154] leading-relaxed break-keep">
+                핵심 팁: {currentGuide.keyTip}
               </div>
             </>
           )}
 
           {activeTab === "faq" && (
             <div className="space-y-3">
-              <p className="text-base font-extrabold text-slate-700">
-                대표님들이 현장에서 가장 자주 물어보시는 질문과 10초 해결법입니다.
+              <p className="text-sm font-bold text-[#515154]">
+                자주 묻는 핵심 질문 5선입니다.
               </p>
-              {BROKER_FAQ_LIST.slice(0, 12).map((faq) => (
+              {MINIMAL_ESSENTIAL_FAQS.map((faq, idx) => (
                 <div
-                  key={faq.qNumber}
-                  className="rounded-2xl border border-slate-300 bg-white p-4 space-y-2 shadow-2xs"
+                  key={idx}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-2xs"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-sm font-black">
-                      {faq.qNumber} · {faq.category}
-                    </span>
-                  </div>
-                  <p className="text-base font-black text-slate-900 leading-snug">
-                    Q. {faq.question}
+                  <p className="text-base font-extrabold text-[#1D1D1F] leading-snug break-keep">
+                    Q{idx + 1}. {faq.q}
                   </p>
-                  <p className="text-base text-slate-800 leading-relaxed">{faq.answer}</p>
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-sm text-emerald-950 font-bold">
-                    👉 바로 해결: {faq.actionTip}
-                  </div>
+                  <p className="text-base text-[#3A3A3C] leading-relaxed break-keep">{faq.a}</p>
                 </div>
               ))}
             </div>
@@ -294,20 +187,20 @@ export function ContextualHelpDrawer() {
 
           {activeTab === "glossary" && (
             <div className="space-y-3">
-              <p className="text-base font-extrabold text-slate-700">
-                어려운 영어·부동산 용어를 60대 대표님 눈높이에 맞춰 쉽게 풀었습니다.
+              <p className="text-sm font-bold text-[#515154]">
+                어려운 영어·부동산 용어를 쉽게 풀었습니다.
               </p>
               {BROKER_GLOSSARY_LIST.map((item) => (
                 <div
                   key={item.term}
-                  className="rounded-2xl border border-slate-300 bg-white p-4 space-y-1.5 shadow-2xs"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 space-y-1.5 shadow-2xs"
                 >
-                  <p className="text-base font-black text-blue-950">{item.term}</p>
-                  <p className="text-base text-slate-900 font-medium leading-relaxed">
+                  <p className="text-base font-extrabold text-[#1D1D1F]">{item.term}</p>
+                  <p className="text-base text-[#3A3A3C] font-medium leading-relaxed">
                     {item.easyMeaning}
                   </p>
-                  <p className="text-sm text-slate-600 font-semibold">
-                    📍 나오는 곳: {item.whereUsed}
+                  <p className="text-sm text-[#515154] font-semibold">
+                    나오는 곳: {item.whereUsed}
                   </p>
                 </div>
               ))}
@@ -316,21 +209,14 @@ export function ContextualHelpDrawer() {
         </div>
 
         {/* Footer Link to Full Manual */}
-        <div className="px-5 py-3.5 bg-white border-t border-slate-300 flex items-center justify-between gap-2 shrink-0">
+        <div className="px-5 py-3.5 bg-white border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
           <Link
             href="/broker/tutorial"
             onClick={closeHelpDrawer}
-            className="inline-flex min-h-[44px] items-center text-sm font-extrabold text-blue-700 hover:underline"
+            className="inline-flex min-h-[44px] items-center rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] px-4 py-2 text-sm font-bold text-white transition-colors"
           >
-            📖 전체 큰글씨 설명서 · 인쇄 화면으로 이동 →
+            핵심 사용 안내 전체 보기 →
           </Link>
-          <a
-            href="/tutorials/CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
-            download="CREDEAL_60대_중개인_큰글씨_매뉴얼.pdf"
-            className="px-3.5 py-2 min-h-[44px] inline-flex items-center rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-extrabold"
-          >
-            📥 PDF 매뉴얼 받기
-          </a>
         </div>
       </aside>
     </div>

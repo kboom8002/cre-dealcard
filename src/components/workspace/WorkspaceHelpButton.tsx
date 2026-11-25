@@ -22,32 +22,32 @@ const WORKSPACE_TUTORIAL_TARGETS: Readonly<
   home: {
     moduleId: "module-01",
     sectionHash: "module-01",
-    chapterLabel: "홈 화면 4대 작업실 안내",
+    chapterLabel: "크리딜 전체 흐름 안내",
   },
   dealcards: {
     moduleId: "module-02",
     sectionHash: "module-02",
-    chapterLabel: "1분 딜카드 작성법",
+    chapterLabel: "딜카드 3단계 안내",
   },
   im: {
     moduleId: "module-04",
     sectionHash: "module-04",
-    chapterLabel: "IM · PPTX 제작법",
+    chapterLabel: "IM 제안서 3단계 안내",
   },
   magazine: {
     moduleId: "module-07",
     sectionHash: "module-07",
-    chapterLabel: "주간·월간 뉴스레터 발행법",
+    chapterLabel: "부동산뉴스 3단계 안내",
   },
   inbox: {
     moduleId: "module-08",
     sectionHash: "module-08",
-    chapterLabel: "고객 소통함 · 발송법",
+    chapterLabel: "고객 소통 3단계 안내",
   },
   common: {
     moduleId: "module-00",
     sectionHash: "module-00",
-    chapterLabel: "전체 사용 설명서",
+    chapterLabel: "핵심 사용 안내 전체 보기",
   },
 };
 

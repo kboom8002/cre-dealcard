@@ -8,6 +8,7 @@ import { SeniorTermTooltip, BUILTIN_TERMS } from "../SeniorTermTooltip";
 import { KakaoTemplatePicker } from "../KakaoTemplatePicker";
 import { BrokerHomeCoachBanner } from "@/app/(broker)/broker/_components/BrokerHomeCoachBanner";
 import { SeniorHelpProvider } from "../SeniorHelpContext";
+import BrokerTutorialClient from "@/app/(broker)/broker/tutorial/BrokerTutorialClient";
 import { BROKER_MESSAGE_TEMPLATES } from "@/lib/tutorial/broker-tutorial-data";
 import { toast } from "sonner";
 
@@ -82,12 +83,12 @@ describe("BrokerScreensHelpIntegration", () => {
     vi.restoreAllMocks();
   });
 
-  describe("BrokerSeniorLayout Global Helper Toggle Integration", () => {
+  describe("BrokerSeniorLayout Unified V2 Topbar & Minimal Tutorial", () => {
     beforeEach(() => {
       currentPathname = "/broker/profile";
     });
 
-    it("renders topbar buttons: contextual help, feedback modal, and helper toggle", async () => {
+    it("renders unified 4-space V2 topbar, font-scale stepper, and help menu drawer/feedback triggers", async () => {
       await act(async () => {
         root.render(
           <BrokerSeniorLayout>
@@ -96,82 +97,77 @@ describe("BrokerScreensHelpIntegration", () => {
         );
       });
 
-      const contextualHelpBtn = container.querySelector('[data-testid="broker-contextual-help-btn"]');
-      const feedbackBtn = container.querySelector('[data-testid="broker-feedback-btn"]');
-      const toggleBtn = container.querySelector('[data-testid="broker-helper-toggle-btn"]');
+      expect(container.querySelector('[data-testid="workspace-nav-magazine"]')?.textContent).toContain("부동산뉴스");
+      expect(container.querySelector('[data-testid="workspace-nav-dealcards"]')?.textContent).toContain("딜카드");
+      expect(container.querySelector('[data-testid="workspace-nav-im"]')?.textContent).toContain("IM");
+      expect(container.querySelector('[data-testid="workspace-nav-inbox"]')?.textContent).toContain("고객 소통");
+      expect(container.querySelector('[data-testid="workspace-font-scale-dec"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="workspace-font-scale-inc"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="workspace-nav-profile"]')?.textContent).toContain("내 프로필");
 
-      expect(contextualHelpBtn).not.toBeNull();
-      expect(contextualHelpBtn?.textContent).toContain("🎬 이 화면 20초 사용법");
-
-      expect(feedbackBtn).not.toBeNull();
-      expect(feedbackBtn?.textContent).toContain("🛠️ 10초 불편 제보");
-
-      expect(toggleBtn).not.toBeNull();
-      expect(toggleBtn?.textContent).toContain("💡 친절 도우미 (켜짐)");
-    });
-
-    it("toggling helperEnabled=false hides inline banners/tooltips while preserving topbar actions", async () => {
+      // Open help dropdown and launch 20s drawer
+      const helpTrigger = container.querySelector('[data-testid="workspace-help-trigger"]') as HTMLButtonElement;
+      expect(helpTrigger).not.toBeNull();
       await act(async () => {
-        root.render(
-          <BrokerSeniorLayout>
-            <div data-testid="test-screen-area">
-              <FieldCoachBanner
-                headline="화면 입력 코칭"
-                guidance="입력창 가이드"
-              />
-              <SeniorTermTooltip
-                termKey="1분 딜카드"
-                buttonLabel="❓ 딜카드 도움말"
-              />
-            </div>
-          </BrokerSeniorLayout>
-        );
+        helpTrigger.click();
       });
-
-      // Initially enabled
-      expect(container.querySelector('[data-testid="field-coach-banner"]')).not.toBeNull();
-      expect(container.querySelector('button[data-testid="senior-tooltip-trigger-1분 딜카드"]')).not.toBeNull();
-
-      const toggleBtn = container.querySelector('[data-testid="broker-helper-toggle-btn"]') as HTMLButtonElement;
-      expect(toggleBtn.textContent).toContain("💡 친절 도우미 (켜짐)");
-
-      // Toggle off
+      const drawerBtn = container.querySelector('[data-testid="workspace-help-20s-btn"]') as HTMLButtonElement;
+      expect(drawerBtn).not.toBeNull();
       await act(async () => {
-        toggleBtn.click();
+        drawerBtn.click();
       });
+      expect(document.querySelector('[data-testid="contextual-help-drawer"]')).not.toBeNull();
 
-      expect(toggleBtn.textContent).toContain("💡 도우미 (꺼짐)");
-      expect(container.querySelector('[data-testid="field-coach-banner"]')).toBeNull();
-      expect(container.querySelector('button[data-testid="senior-tooltip-trigger-1분 딜카드"]')).toBeNull();
+      const closeDrawerBtn = document.querySelector('[data-testid="close-contextual-help-drawer"]') as HTMLButtonElement;
+      await act(async () => {
+        closeDrawerBtn?.click();
+      });
+      expect(document.querySelector('[data-testid="contextual-help-drawer"]')).toBeNull();
 
-      // Topbar help and feedback buttons MUST remain visible and operational!
-      const helpBtn = container.querySelector('[data-testid="broker-contextual-help-btn"]') as HTMLButtonElement;
-      const feedbackBtn = container.querySelector('[data-testid="broker-feedback-btn"]') as HTMLButtonElement;
-      expect(helpBtn).not.toBeNull();
-      expect(feedbackBtn).not.toBeNull();
-
-      // Open feedback modal even when inline helper is off
+      // Re-open help dropdown and open QuickFeedbackReportModal
+      await act(async () => {
+        helpTrigger.click();
+      });
+      const feedbackBtn = container.querySelector('[data-testid="workspace-help-feedback-btn"]') as HTMLButtonElement;
       await act(async () => {
         feedbackBtn.click();
       });
       expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    });
 
-      // Close modal
-      const closeBtn = Array.from(document.querySelectorAll("button")).find((b) =>
-        b.textContent?.includes("✕ 닫기")
-      );
+    it("renders V2 minimal 1-page /broker/tutorial with mental model, 4 anchors, 3-column rule, and zero obsolete SOTA/legacy strings", async () => {
+      currentPathname = "/broker/tutorial";
       await act(async () => {
-        closeBtn?.click();
+        root.render(
+          <BrokerSeniorLayout>
+            <BrokerTutorialClient isPrintMode={false} />
+          </BrokerSeniorLayout>
+        );
       });
-      expect(document.querySelector('[role="dialog"]')).toBeNull();
 
-      // Toggle back on
-      await act(async () => {
-        toggleBtn.click();
-      });
-      expect(toggleBtn.textContent).toContain("💡 친절 도우미 (켜짐)");
-      expect(container.querySelector('[data-testid="field-coach-banner"]')).not.toBeNull();
-      expect(container.querySelector('button[data-testid="senior-tooltip-trigger-1분 딜카드"]')).not.toBeNull();
+      const page = container.querySelector('[data-testid="broker-tutorial-page"]');
+      expect(page).not.toBeNull();
+      expect(container.querySelector('[data-testid="tutorial-print-btn"]')).not.toBeNull();
+
+      for (const anchor of ["#module-00", "#module-01", "#module-02", "#module-04", "#module-07", "#module-08", "#faq-section"]) {
+        expect(container.querySelector(anchor), `Missing anchor ${anchor}`).not.toBeNull();
+      }
+
+      const text = page?.textContent ?? "";
+      expect(text).toContain("부동산뉴스");
+      expect(text).toContain("딜카드");
+      expect(text).toContain("IM");
+      expect(text).toContain("고객 소통");
+      expect(text).toContain("왼쪽 열 · 선택");
+      expect(text).toContain("가운데 열 · 입력");
+      expect(text).toContain("오른쪽 열 · 보내기");
+
+      // Legacy obsolete version copy must be completely absent
+      expect(text).not.toContain("SOTA");
+      expect(text).not.toContain("8단계");
+      expect(text).not.toContain("6대 탭");
+      expect(text).not.toContain("큰글씨 밝은 화면");
+      expect(text).not.toContain("더보기");
     });
   });
 

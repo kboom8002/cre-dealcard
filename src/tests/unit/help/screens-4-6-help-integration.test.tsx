@@ -365,8 +365,8 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
     });
   });
 
-  describe("5. BrokerSeniorLayout Global Integration (R3 Compliance)", () => {
-    it("renders topbar feedback trigger button and drawer button", () => {
+  describe("5. BrokerSeniorLayout Unified Topbar Integration", () => {
+    it("renders V2 topbar navigation, font-scale stepper, and workspace help menu", () => {
       act(() => {
         root.render(
           <BrokerSeniorLayout>
@@ -375,16 +375,13 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
         );
       });
 
-      const feedbackBtn = container.querySelector('[data-testid="broker-feedback-btn"]');
-      expect(feedbackBtn).not.toBeNull();
-      expect(feedbackBtn?.textContent).toContain("🛠️ 10초 불편 제보");
-
-      const drawerBtn = container.querySelector('[data-testid="broker-contextual-help-btn"]');
-      expect(drawerBtn).not.toBeNull();
-      expect(drawerBtn?.textContent).toContain("🎬 이 화면 20초 사용법");
+      expect(container.querySelector('[data-testid="workspace-nav-magazine"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="workspace-font-scale-dec"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="workspace-help-trigger"]')?.textContent).toContain("사용법");
+      expect(container.querySelector('[data-testid="workspace-nav-profile"]')?.textContent).toContain("내 프로필");
     });
 
-    it("opens QuickFeedbackReportModal when broker-feedback-btn is clicked", () => {
+    it("opens QuickFeedbackReportModal via workspace help menu feedback button", () => {
       act(() => {
         root.render(
           <BrokerSeniorLayout>
@@ -393,14 +390,19 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
         );
       });
 
-      const feedbackBtn = container.querySelector('[data-testid="broker-feedback-btn"]') as HTMLButtonElement;
+      const helpTrigger = container.querySelector('[data-testid="workspace-help-trigger"]') as HTMLButtonElement;
+      act(() => {
+        helpTrigger.click();
+      });
+
+      const feedbackBtn = container.querySelector('[data-testid="workspace-help-feedback-btn"]') as HTMLButtonElement;
+      expect(feedbackBtn).not.toBeNull();
       act(() => {
         feedbackBtn.click();
       });
 
       expect(document.body.textContent).toContain("10초 현장 불편 제보 · 개선 요청");
 
-      // Close modal
       const closeBtn = Array.from(document.body.querySelectorAll("button")).find((b) =>
         b.textContent?.includes("닫기")
       );
@@ -413,7 +415,7 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
       expect(document.body.textContent).not.toContain("10초 현장 불편 제보 · 개선 요청");
     });
 
-    it("keeps feedback-btn and drawer-btn visible and active even when helperEnabled is false (R3)", () => {
+    it("opens ContextualHelpDrawer with minimal 3-step guide from workspace help menu", () => {
       act(() => {
         root.render(
           <BrokerSeniorLayout>
@@ -422,27 +424,21 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
         );
       });
 
-      const helperToggleBtn = container.querySelector('[data-testid="broker-helper-toggle-btn"]') as HTMLButtonElement;
-      expect(helperToggleBtn.textContent).toContain("💡 친절 도우미 (켜짐)");
-
-      // Turn helper off
+      const helpTrigger = container.querySelector('[data-testid="workspace-help-trigger"]') as HTMLButtonElement;
       act(() => {
-        helperToggleBtn.click();
+        helpTrigger.click();
       });
-      expect(helperToggleBtn.textContent).toContain("💡 도우미 (꺼짐)");
 
-      // Both buttons remain in DOM and functional
-      const feedbackBtn = container.querySelector('[data-testid="broker-feedback-btn"]') as HTMLButtonElement;
-      expect(feedbackBtn).not.toBeNull();
-
-      const drawerBtn = container.querySelector('[data-testid="broker-contextual-help-btn"]');
+      const drawerBtn = container.querySelector('[data-testid="workspace-help-20s-btn"]') as HTMLButtonElement;
       expect(drawerBtn).not.toBeNull();
-
-      // Clicking feedback still opens modal
       act(() => {
-        feedbackBtn.click();
+        drawerBtn.click();
       });
-      expect(document.body.textContent).toContain("10초 현장 불편 제보 · 개선 요청");
+
+      const drawer = document.body.querySelector('[data-testid="contextual-help-drawer"]');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain("빠른 안내");
+      expect(drawer?.textContent).toContain("핵심 사용 안내 전체 보기");
     });
   });
 });
