@@ -190,11 +190,34 @@ const VOICE_PRESET_GUIDANCE: Record<NewsletterVoicePreset, { label: string; tone
 
 export type Tf8Cadence = "daily" | "weekly" | "monthly" | "special";
 
-const CADENCE_PROMPT_META: Record<Tf8Cadence, { label: string; period: string; bodyRange: string }> = {
-  daily: { label: "일간", period: "오늘", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
-  weekly: { label: "주간", period: "이번 주", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
-  monthly: { label: "월간", period: "이번 달", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
-  special: { label: "호외", period: "지금", bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)" },
+const CADENCE_PROMPT_META: Record<
+  Tf8Cadence,
+  { label: string; period: string; bodyRange: string; headlineFlavor: string }
+> = {
+  daily: {
+    label: "일간",
+    period: "오늘",
+    bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)",
+    headlineFlavor: "오늘 현장 답사·금리·매물 체감이 살아 있는 당일 속보형 제목",
+  },
+  weekly: {
+    label: "주간",
+    period: "이번 주",
+    bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)",
+    headlineFlavor: "이번 주 핵심 매수·임차 실무 판단 기준을 짚는 주간 동향 제목",
+  },
+  monthly: {
+    label: "월간",
+    period: "이번 달",
+    bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)",
+    headlineFlavor: "이달 권역 거래량·공실률·수익률 흐름을 아우르는 월간 결산 제목",
+  },
+  special: {
+    label: "호외",
+    period: "지금",
+    bodyRange: "60~135자 (정확히 3줄 명사형 개조식, 줄당 44자 이내)",
+    headlineFlavor: "지금 즉시 챙겨야 할 정책·시장 변화를 담은 호외 제목",
+  },
 };
 
 function resolveCadence(raw: unknown, monthLabel?: string): Tf8Cadence {
@@ -231,6 +254,7 @@ export interface Tf8DraftPromptInput {
 /** 공통 카피 하드 제약 (모든 뉴스레터 슬롯 공용) */
 const COMMON_COPY_WARNINGS = [
   "[No-LLM-Numbers] [K] Knowledge FactBook에 없는 구체적 수치(공실률, 수익률, 매매가, 변동률, 거래건수, 금리, 날짜 등)를 절대 창작·추정·반올림하지 마십시오. FactBook 숫자는 단위까지 그대로 옮기십시오.",
+  "[Unit-Denominator-Lock] 수치를 쓸 때는 원문의 기준 단위·모수·대상('평당 950만원'의 '평당', '감정가 대비 55~60%'의 '감정가 대비', '전년 대비 8.5%'의 '전년 대비', '연 4.2%'의 '연', 어느 지역/유형의 공실률인지)을 절대 빼먹지 마십시오 ('공사비 950만원'처럼 단위를 생략해 총액으로 오해되게 쓰지 마십시오).",
   "[No-Solicitation] '원금 보장', '확정 수익', '100% 보장', '무조건 상승', '반드시 오릅니다', '즉시 매수 권유', '절대 손해' 등 투자 권유·단정 표현을 절대 사용하지 마십시오.",
   "[No-Internal-Labels] '핵심 팩트:', '브로커 임플리케이션:', '추천 액션:', 'Why it matters:', 파이프('|'), 마크다운(#, **, -), 코드펜스, 이모지를 출력하지 마십시오.",
   "[No-Gossip] 연예인·정치인·사생활·자택 경매·아파트 시세 등 상업용 부동산(빌딩·근생·오피스·상가) 본질과 무관한 소재를 절대 언급하지 마십시오.",
@@ -294,7 +318,9 @@ export function buildTf8DraftPrompt(
       `모바일 카카오톡으로 소식지를 열어보시는 중소형 빌딩 매수 검토자, 법인 대표, 건물주 독자. ${voice.label}(${voice.tone}) 관점을 살리되 바쁜 고객이 3초 만에 훑어볼 수 있도록 명사로 간결하게 끝나는 3줄 개조식 뷸렛 목록으로 작성합니다.`,
     warnings: [
       ...COMMON_COPY_WARNINGS,
-      "[3-Bullet-Executive-Brief] briefingBody는 줄바꿈(\\n)으로 나눈 정확히 3줄 개조식 뷸렛 목록으로 작성하십시오. 각 줄은 반드시 `• `로 시작하고(앞에 '현장 분위기 :' 같은 부연 라벨 절대 금지), 서술형('~합니다/~입니다/~다') 대신 간결한 명사형('~지속', '~선호', '~점검 권장', '~완화' 등, 마침표 없음)으로 끝내며, 뷸렛 기호를 제외한 줄당 본문 길이는 반드시 44자 이내로 맞추십시오:\n  1줄: 선택 권역·매물 유형의 실제 문의·매수 흐름 (명사 종결, 44자 이내)\n  2줄: FactBook의 뉴스·통계에 있는 검증 수치·금리·수익 변수 (없으면 사실 근거만, 날조 금지, 명사 종결, 44자 이내)\n  3줄: 추천 매물과 연결한 매수·보유 핵심 체크포인트 (명사 종결, 44자 이내)",
+      `[3-Bullet-Executive-Brief] briefingBody는 줄바꿈(\\n)으로 나눈 정확히 3줄 개조식 뷸렛 목록으로 작성하십시오. 각 줄은 반드시 \`• \`로 시작하고(앞에 '현장 분위기 :' 같은 부연 라벨 절대 금지), 서술형('~합니다/~입니다/~다') 대신 간결한 명사형('~지속', '~선호', '~점검 권장', '~완화' 등, 마침표 없음)으로 끝내며, 뷸렛 기호를 제외한 줄당 본문 길이는 반드시 44자 이내로 맞추십시오:\n  1줄: '${cad.period}' 시점과 제목 권역을 일치시킨 실제 문의·매수 흐름 (명사 종결, 44자 이내)\n  2줄: FactBook의 뉴스·통계에 있는 검증 수치(평당·연·대비 등 기준 단위 필수 포함)와 변수 (명사 종결, 44자 이내)\n  3줄: 추천 매물과 연결한 매수·보유 핵심 체크포인트 (명사 종결, 44자 이내)`,
+      "[Natural-Korean-Particles] 줄의 맨 끝만 명사형으로 맺고, 문장 중간의 자연스러운 조사('~을/를 위한', '~이/가 확인된', '~에 따른')는 생략하지 마십시오 ('우량 매물 선점 위한' ❌ → '우량 매물 선점을 위한' ✅, '감정평가 세금' ❌ → '상속·증여 감정평가 세액' ✅).",
+      `[Cadence-Headline-Identity] 표지 제목(headline)이 천편일률적인 '~매수 검토', '~조건 비교'로만 끝나지 않도록 [${cad.headlineFlavor}] 결을 살리고, 제목에 쓴 권역명과 본문 1줄차의 권역명을 정확히 일치시키십시오.`,
       `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. 수치는 절대 왜곡하지 않되, 제목은 (${stance.headlineRule}), 본문 3줄은 (${stance.briefingRule}) 방향으로 일관되게 프레이밍하십시오.`,
       "[70s-Buyer-Plain-Korean] '금리 스프레드', '조달 금리', '자기자본수익률', '표면 수익률', '밸류애드', '리파이낸싱', '레버리지', '명도' 같은 어려운 전문용어·외래어 대신 '은행 대출금리 차이', '대출 이자', '내 돈 대비 실제 수익', '단순 연 월세 수익', '건물 수리·세입자 개선', '대출 갈아타기', '기존 세입자 퇴거 협의' 등 쉬운 일상어를 쓰십시오.",
       "[Char-Budget] headline 36자 이내(공백 포함), briefingBody " + cad.bodyRange + ". summary와 briefingTitle은 빈 문자열(\"\")로 두십시오.",
@@ -843,7 +869,7 @@ export function buildTf8BriefingPolishPrompt(
     warnings: [
       ...COMMON_COPY_WARNINGS,
       "[70s-Buyer-Plain-Korean] '스프레드', '레버리지', '자기자본수익률', '밸류애드', '리파이낸싱' 등 어려운 금융·영문 전문용어를 쉬운 일상 우리말로 풀어쓰십시오.",
-      "[Strict-3-Bullet-44-Char-Noun-Ending] 반드시 줄바꿈(\\n) 기준 정확히 3줄 개조식 뷸렛 목록으로만 출력하십시오. 각 줄은 '• '로 시작하고(앞에 '현장 분위기 :' 같은 라벨 금지), 서술형('~합니다/~입니다/~다') 대신 명사형('~지속', '~선호', '~완화', '~점검 권장' 등, 마침표 없음)으로 끝내며, 줄당 본문 길이는 44자 이내로 작성하십시오. '■ 소제목', 하이픈(-), 마크다운 강조(**)를 절대 넣지 마십시오.",
+      "[Strict-3-Bullet-44-Char-Noun-Ending] 반드시 줄바꿈(\\n) 기준 정확히 3줄 개조식 뷸렛 목록으로만 출력하십시오. 각 줄은 '• '로 시작하고(앞에 '현장 분위기 :' 같은 라벨 금지), 서술형('~합니다/~입니다/~다') 대신 명사형('~지속', '~선호', '~완화', '~점검 권장' 등, 마침표 없음)으로 끝내며, 줄당 본문 길이는 44자 이내로 작성하십시오. 단, 줄 끝만 명사형으로 맺고 문장 중간의 조사('~을/를 위한', '~이/가 검증된')와 수치 앞 단위('평당', '감정가 대비', '연')는 생략하지 마십시오. '■ 소제목', 하이픈(-), 마크다운 강조(**), '감정평가 세금' 같은 어색한 축약어를 절대 넣지 마십시오.",
       `[Tone-Temperature-Framing] 현재 설정된 거래 온도는 [${stance.label}] 입니다. ${stance.briefingRule}`,
       `[Cadence-Consistency] ${cad.label} 뉴스레터이므로 '${cad.period}' 흐름에 자연스럽게 맞추십시오.`,
     ],

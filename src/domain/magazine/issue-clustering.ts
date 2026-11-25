@@ -645,6 +645,16 @@ function nominalizeBriefingClause(raw: string): string {
     }
   }
 
+  // 어색한 조어 및 전보체(목적격 조사 생략 '... 선점 위한' 등) 자연 복원
+  s = s
+    .replace(/감정평가\s*세금/g, '감정평가 세액')
+    .replace(/([가-힣]{2,})\s+위한(?=\s|$)/g, (full, noun: string) => {
+      if (/(?:을|를)$/.test(noun)) return full;
+      const lastSyllable = Array.from(noun).pop() ?? '';
+      const particle = hasBatchim(lastSyllable) ? '을' : '를';
+      return `${noun}${particle} 위한`;
+    });
+
   return s.replace(/[.。,·:：-]+$/g, '').trim();
 }
 
@@ -1224,8 +1234,18 @@ export function formatAxiosTwoLineBrief(
   let joined = sentences[0] ?? '';
   for (const next of sentences.slice(1)) {
     const candidate = `${joined} ${next}`;
-    if (charLength(candidate) <= maxTotalChars) joined = candidate;
-    else break;
+    if (charLength(candidate) <= maxTotalChars) {
+      joined = candidate;
+    } else {
+      const remaining = maxTotalChars - charLength(joined) - 1;
+      if (remaining >= 22) {
+        const fittedSecond = condenseSentence(next, remaining);
+        if (fittedSecond && charLength(`${joined} ${fittedSecond}`) <= maxTotalChars) {
+          joined = `${joined} ${fittedSecond}`;
+        }
+      }
+      break;
+    }
   }
   return joined;
 }
@@ -1334,13 +1354,13 @@ export function clusterArticlesIntoFiveIssues(
     }
 
     if (opts.toneStance === 'positive') {
-      if (sentiment === 'bullish') score += 18;
+      if (sentiment === 'bullish') score += 22;
       else if (sentiment === 'neutral') score += 2;
-      else score -= 16;
+      else score -= 20;
     } else if (opts.toneStance === 'negative') {
-      if (sentiment === 'bearish') score += 22;
+      if (sentiment === 'bearish') score += 28;
       else if (sentiment === 'neutral') score += 4;
-      else score -= 16;
+      else score -= 24;
     } else if (opts.toneStance === 'neutral') {
       if (sentiment === 'neutral') score += 8;
       else if (sentiment === 'bullish') score += 5;
@@ -1483,6 +1503,25 @@ export function clusterArticlesIntoFiveIssues(
     const related: NewsPoolItem[] = [];
     collectSameEventArticles(entry.item, related);
     clusters.push({ primary: entry.item, related, channel: entry.channel });
+  }
+
+  // 거래 온도(positive/negative) 설정 시 1번 대표 카드가 목표 온도와 부합하도록 정렬
+  if (opts.toneStance === 'negative') {
+    const rank = (s: 'bullish' | 'neutral' | 'bearish') =>
+      s === 'bearish' ? 0 : s === 'neutral' ? 1 : 2;
+    clusters.sort(
+      (a, b) =>
+        rank(inferCreArticleSentiment(a.primary)) -
+        rank(inferCreArticleSentiment(b.primary)),
+    );
+  } else if (opts.toneStance === 'positive') {
+    const rank = (s: 'bullish' | 'neutral' | 'bearish') =>
+      s === 'bullish' ? 0 : s === 'neutral' ? 1 : 2;
+    clusters.sort(
+      (a, b) =>
+        rank(inferCreArticleSentiment(a.primary)) -
+        rank(inferCreArticleSentiment(b.primary)),
+    );
   }
 
   // 3. 각 클러스터를 AXIOS 카드뉴스형 2줄 헤드라인 + 2줄 부제 브리프 + 포스트잇 5톤으로 변환

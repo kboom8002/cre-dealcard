@@ -122,6 +122,10 @@ describe("2. 뉴스레터 3줄 개조식 & 원문 수치·근거 최우선 기�
     });
 
     expect(built.systemPrompt).toContain("[3-Bullet-Executive-Brief]");
+    expect(built.systemPrompt).toContain("[Unit-Denominator-Lock]");
+    expect(built.systemPrompt).toContain("[Natural-Korean-Particles]");
+    expect(built.systemPrompt).toContain("[Cadence-Headline-Identity]");
+    expect(built.systemPrompt).toContain("'이번 주' 시점과 제목 권역을 일치시킨");
     expect(built.systemPrompt).toContain("44자 이내");
     expect(built.systemPrompt).toContain("명사형");
     expect(built.systemPrompt).not.toContain("• 현장 분위기 :");
@@ -129,6 +133,39 @@ describe("2. 뉴스레터 3줄 개조식 & 원문 수치·근거 최우선 기�
     expect(built.userPrompt).toContain("역삼 8m 코너 올근생 · 80~90억 · 연 4.3%");
     expect(built.userPrompt).toContain("상업용 대출 금리 연 4.1%대 진입");
     expect(built.userPrompt).toContain("강남구 거래 23건");
+
+    // 전보체 목적격 조사('을/를 위한') 복원 및 '감정평가 세액' 교정 검증
+    const polishedBullet = formatMarketBriefingThreeBullets(
+      "• 우량 매물 선점 위한 공실 점검\n• 투자 리스크 방어 위한 감정평가 세금 확인\n• 평당 공사비 950만원 부담 점검",
+      44,
+    );
+    expect(polishedBullet).toContain("선점을 위한");
+    expect(polishedBullet).toContain("방어를 위한");
+    expect(polishedBullet).toContain("감정평가 세액");
+
+    // 보수·신중(negative) 설정 시 1번 대표 이슈 카드가 리스크(bearish) 기사로 우선 정렬됨
+    const negRanked = clusterArticlesIntoFiveIssues(
+      [
+        {
+          id: "bull-re",
+          title: "강남·서초 중소형 빌딩 거래량 18% 증가, 공실률 2.7% 유지",
+          summary: "강남·서초 역세권 빌딩 거래량이 직전 분기 대비 18% 늘었다.",
+          source: "한국경제",
+          channel: "real_estate",
+          importance_score: 9.5,
+        },
+        {
+          id: "bear-re",
+          title: "이면도로 노후 상가빌딩 공실률 9.4% 급등, 임대 수지 악화 주의",
+          summary: "비역세권 노후 상가 공실률이 9.4%로 상승하고 공실 위험과 이자 부담이 커졌다.",
+          source: "서울경제",
+          channel: "real_estate",
+          importance_score: 9.0,
+        },
+      ],
+      { cadence: "weekly", preferredRegions: ["강남·서초"], toneStance: "negative" },
+    );
+    expect(negRanked[0]?.sentiment).toBe("bearish");
   });
 
   it("humanizeBuyerCopy·normalizeMarketBriefingPlain·formatMarketBriefingThreeBullets는 줄바꿈을 보존하고 인라인 뷸렛을 3줄 명사형 개조식(<=44자)으로 정규화한다", () => {
