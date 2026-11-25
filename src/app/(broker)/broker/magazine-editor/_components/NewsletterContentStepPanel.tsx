@@ -495,6 +495,7 @@ export function NewsletterContentStepPanel({
             preferredRegions={preferredRegions}
             preferredChannels={preferredChannels}
             dealTitles={selectedDeals.map((d) => `${d.title} ${d.address}`)}
+            toneStance={toneStance}
             onAiClusterIssues={onAiClusterIssues}
             isAiClustering={isAiClustering}
             onRefreshLiveChannel={onRefreshLiveChannel}
@@ -535,7 +536,7 @@ export function NewsletterContentStepPanel({
           className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-800 hover:bg-slate-50"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-          <span>이전: ① 제목</span>
+          <span>이전: 1. 제목</span>
         </button>
         <button
           type="button"
@@ -543,7 +544,7 @@ export function NewsletterContentStepPanel({
           onClick={onNextToSend}
           className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-[#1D1D1F] px-5 py-3 text-base font-extrabold text-white transition hover:bg-[#2C2C2E]"
         >
-          <span>다음: ③ 보내기</span>
+          <span>다음: 3. 보내기</span>
           <ArrowRight className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>

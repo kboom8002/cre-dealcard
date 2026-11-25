@@ -25,7 +25,7 @@ describe('WP-P1-05 & WP-P1-08 & WP-P1-09: Deal Card UI Components (Static HTML R
   };
 
   describe('Card4ConfirmCard (WP-P1-05)', () => {
-    it('renders the 3 distinct visual sections (어떤 매물인가요?, 카톡 썸네일, 장점 3줄) and 4 thumbnail inputs', () => {
+    it('renders the 3 distinct visual sections (매물 유형, 카톡 썸네일, 장점 3줄) and 4 thumbnail inputs', () => {
       const html = renderToStaticMarkup(
         <Card4ConfirmCard card4={baseCard4} onChange={vi.fn()} />
       );
@@ -34,7 +34,7 @@ describe('WP-P1-05 & WP-P1-08 & WP-P1-09: Deal Card UI Components (Static HTML R
       expect(html).toContain('card4-section-posture');
       expect(html).toContain('card4-section-og-editor');
       expect(html).toContain('card4-section-detail-points');
-      expect(html).toContain('어떤 매물인가요?');
+      expect(html).toContain('매물 유형');
       expect(html).toContain('카톡 썸네일');
       expect(html).toContain('장점 3줄');
 

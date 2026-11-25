@@ -79,27 +79,38 @@ export function SubscribeFormClient({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!isPlausiblePhoneDigits(phone)) {
+    const phoneTrim = phone.trim();
+    const emailTrim = email.trim();
+    const hasPhone = phoneTrim.length > 0;
+    const hasEmail = emailTrim.length > 0;
+
+    if (!hasPhone && !hasEmail) {
+      toast.error('이메일 주소 또는 휴대폰 번호 중 하나 이상을 입력해주세요.');
+      return;
+    }
+    if (hasPhone && !isPlausiblePhoneDigits(phone)) {
       toast.error('올바른 휴대폰 번호를 입력해주세요.');
+      return;
+    }
+    if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      toast.error('올바른 이메일 주소를 입력해주세요.');
       return;
     }
     if (!consentOk) {
       toast.error('필수 동의 항목을 모두 체크해주세요.');
       return;
     }
-    const emailTrim = email.trim();
-    if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-      toast.error('올바른 이메일 주소를 입력해주세요.');
-      return;
-    }
+
+    const channel: 'email' | 'kakao' | 'both' =
+      hasPhone && hasEmail ? 'both' : hasEmail ? 'email' : 'kakao';
 
     setLoading(true);
     const outcome = await postSubscribe({
       brokerId,
-      phone: digitsOnly(phone),
+      phone: hasPhone ? digitsOnly(phone) : undefined,
       name: name.trim() || undefined,
-      email: emailTrim || undefined,
-      channel: emailTrim ? 'both' : 'kakao',
+      email: hasEmail ? emailTrim : undefined,
+      channel,
       source: initialSource || 'qr_card',
       tags: [...selectedRegions, ...selectedAssets],
       referrer: referrer || undefined,
@@ -112,8 +123,8 @@ export function SubscribeFormClient({
       return;
     }
     markBrokerSubscribed(brokerId);
-    const submittedEmailTrim = emailTrim || undefined;
-    const submittedPhoneRaw = isPlausiblePhoneDigits(phone) ? phone.trim() : undefined;
+    const submittedEmailTrim = hasEmail ? emailTrim : undefined;
+    const submittedPhoneRaw = hasPhone && isPlausiblePhoneDigits(phone) ? phoneTrim : undefined;
     setResult({
       status: outcome.status,
       message: outcome.message,
@@ -174,7 +185,9 @@ export function SubscribeFormClient({
   if (result) {
     const pending = result.status === 'pending';
     const isNoEmailConfirm = result.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL';
-    const targetAddr = result.submittedEmail || result.submittedPhone;
+    const targetAddr = [result.submittedEmail, result.submittedPhone]
+      .filter(Boolean)
+      .join(' · ');
     const messageHasSchedule = Boolean(result.message?.includes('발송'));
     return (
       <div role="status" className="bg-white border border-emerald-300 rounded-2xl p-6 text-center space-y-4 shadow-sm animate-in fade-in zoom-in-95 duration-200">
@@ -298,27 +311,12 @@ export function SubscribeFormClient({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="sub-phone" className="text-body font-bold text-slate-900 flex items-center gap-1.5">
-            <Phone className="w-4 h-4 text-indigo-700" aria-hidden="true" />
-            휴대폰 번호 <span className="text-rose-700" aria-hidden="true">*</span>
-          </label>
-          <input
-            id="sub-phone"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel"
-            required
-            value={phone}
-            onChange={e => setPhone(formatKrPhoneInput(e.target.value))}
-            placeholder="010-1234-5678"
-            className={`${INPUT_CLS} font-mono`}
-          />
-          <p className="text-sm text-slate-700">구독자 확인 및 중개사 안내용 번호입니다. 숫자만 입력하면 하이픈(-)이 자동으로 들어갑니다.</p>
-        </div>
+        <p className="text-sm font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2.5 leading-snug break-keep">
+          이메일 또는 휴대폰 번호 중 하나만 입력하셔도 구독할 수 있습니다. (둘 다 입력하시면 이메일 자동 발송과 중개사 안내를 함께 받으실 수 있습니다)
+        </p>
 
         <div className="space-y-1.5">
-          <label htmlFor="sub-email" className="text-label font-semibold text-slate-900 flex items-center gap-1.5">
+          <label htmlFor="sub-email" className="text-body font-bold text-slate-900 flex items-center gap-1.5">
             <Mail className="w-4 h-4 text-amber-700" aria-hidden="true" />
             이메일 (정기 소식지 자동 수신용 · 권장)
           </label>
@@ -333,8 +331,26 @@ export function SubscribeFormClient({
             className={INPUT_CLS}
           />
           <p className="text-sm font-medium text-amber-800 leading-snug break-keep">
-            이메일 인증 완료 후 정기 부동산 브리핑이 무료로 자동 발송됩니다. 이메일을 입력하시면 확인 링크를 받아 바로 구독이 시작됩니다.
+            이메일 인증 완료 후 정기 부동산 브리핑이 무료로 자동 발송됩니다. 이메일만 입력하셔도 바로 구독이 시작됩니다.
           </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="sub-phone" className="text-label font-semibold text-slate-900 flex items-center gap-1.5">
+            <Phone className="w-4 h-4 text-indigo-700" aria-hidden="true" />
+            휴대폰 번호 (선택 · 이메일만 입력 시 생략 가능)
+          </label>
+          <input
+            id="sub-phone"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            value={phone}
+            onChange={e => setPhone(formatKrPhoneInput(e.target.value))}
+            placeholder="010-1234-5678"
+            className={`${INPUT_CLS} font-mono`}
+          />
+          <p className="text-sm text-slate-700">중개사 개별 안내를 원하실 때 입력해 주세요. 숫자만 입력하면 하이픈(-)이 자동으로 들어갑니다.</p>
         </div>
       </div>
 

@@ -122,12 +122,12 @@ describe('PPTX 36h Audit Remediation: A27 Cadastral Badge & A23 Option 1 (1,2,3)
       });
     });
 
-    // Must contain Option 1 items 1, 2, 3 exact Right Card strings
-    expect(xml).toContain('국토교통부 공시지가');
+    // Must contain current 5-year R-ONE & land price framing on Right Card
+    expect(xml).toContain('한국부동산원 R-ONE');
     expect(xml).toContain('대지 평당 매매가');
-    expect(xml).toContain('평당 개별공시지가');
-    expect(xml).toContain('공시지가 대비 배율 · 비중');
-    expect(xml).toContain('본건 공시지가 5년 연평균(CAGR)');
+    expect(xml).toContain('연평균 지가변동률');
+    expect(xml).toContain('지가동향 및 토지 평당 매매가');
+    expect(xml).toContain('한국부동산원 전국지가변동률조사');
 
     // Enlarged bottom bar font sizes (>= 18pt => OOXML sz >= 1800)
     const largeSizes = [...xml.matchAll(/sz="(\d+)"/g)]

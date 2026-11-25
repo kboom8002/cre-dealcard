@@ -5,6 +5,8 @@
  * 발송 사고(깨진 링크, 개발 환경 노출)로 이어진다. 발견 즉시 throw해서 발송 전에 차단한다.
  */
 
+import { getCanonicalSiteUrl } from '@/lib/site-url';
+
 const FORBIDDEN_HOST = /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[::1\]|.*\.local|.*\.internal)$/i;
 
 /** https 절대 URL만 허용. 그 외는 Error (메시지에는 라벨만, URL 본문은 노출하지 않음 — 토큰 포함 가능). */
@@ -32,8 +34,7 @@ export function assertAbsoluteHttpsUrl(url: unknown, label: string): string {
 
 /** 사이트 기준 URL (끝 슬래시 제거). 환경변수 미설정 시 운영 도메인. */
 export function getSiteBaseUrl(): string {
-  const raw = (process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net').trim();
-  return raw.replace(/\/+$/, '');
+  return getCanonicalSiteUrl();
 }
 
 /** `tel:` 링크용 번호 정제 (숫자와 선행 + 만). 유효하지 않으면 null. */

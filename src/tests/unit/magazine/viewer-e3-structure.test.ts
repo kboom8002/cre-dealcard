@@ -83,10 +83,10 @@ describe('U-06 서버 셸 / 클라이언트 섬 분리', () => {
     expect(shell).not.toMatch(/onInteract\s*=/);
   });
 
-  it('독자 이미지는 크기를 명시한 지연 로드 <img> 다 (배경 이미지 url() 직접 주입 없음)', () => {
+  it('독자 표지 이미지는 크기를 명시한 LCP <img> 다 (배경 이미지 url() 직접 주입 없음)', () => {
     const shell = read(SHELL);
     expect(shell).not.toMatch(/url\(\\?"\$\{(deal\.photoUrl|coverImageUrl)\}/);
-    expect(shell).toMatch(/loading="lazy"/);
+    expect(shell).toMatch(/width=\{440\}\s+height=\{320\}/);
     expect(shell).toMatch(/fetchPriority="high"/);
   });
 });

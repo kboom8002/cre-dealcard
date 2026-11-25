@@ -381,14 +381,14 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     }
   }
 
-  // 2b. Road-name addresses with specific building numbers: e.g. "테헤란로 152", "양화로 161", "도산대로45길 18"
+  // 2b. Road-name addresses with specific building numbers: e.g. "테헤란로 152", "양화로 161", "도산대로45길 18", "연무장7길 11"
   const roadAddressRegex =
-    /([가-힣]{2,10}(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?)\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))/g;
+    /([가-힣]{2,10}(?:(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?|\s*\d{1,4}(?:번)?길))\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))/g;
   let rMatch: RegExpExecArray | null;
   while ((rMatch = roadAddressRegex.exec(text)) !== null) {
     const roadPart = rMatch[1].trim();
     const baseRoad = roadPart.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
-    if (!GENERIC_ROAD_TERMS.has(baseRoad)) {
+    if (!GENERIC_ROAD_TERMS.has(baseRoad) && !GENERIC_ROAD_TERMS.has(roadPart)) {
       violations.push({
         pointIndex,
         pointText: text,
@@ -666,12 +666,15 @@ export function cleanBlindPoints(points: string[]): string[] {
       'OO번지',
     );
 
-    // Mask road-name addresses with building numbers: e.g. "테헤란로 152" -> "테헤란로 인근"
+    // Mask road-name addresses with building numbers: e.g. "테헤란로 152", "연무장7길 11" -> "테헤란로 인근", "연무장7길 인근"
     cleaned = cleaned.replace(
-      /([가-힣]{2,10}(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?)\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))(\s*인근)?/g,
+      /([가-힣]{2,10}(?:(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?|\s*\d{1,4}(?:번)?길))\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))(\s*인근)?/g,
       (match, roadPart: string) => {
-        const baseRoad = roadPart.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
-        return GENERIC_ROAD_TERMS.has(baseRoad) ? match : `${roadPart.trim()} 인근`;
+        const trimmedRoad = roadPart.trim();
+        const baseRoad = trimmedRoad.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
+        return GENERIC_ROAD_TERMS.has(baseRoad) || GENERIC_ROAD_TERMS.has(trimmedRoad)
+          ? match
+          : `${trimmedRoad} 인근`;
       },
     );
 

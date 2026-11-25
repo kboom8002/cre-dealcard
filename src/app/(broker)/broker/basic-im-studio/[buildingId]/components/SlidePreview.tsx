@@ -129,6 +129,7 @@ export function SlidePreview({
   const { tokens, coverStyle, layoutStyle, headerFooterConfig } = useTheme();
   const [galleryPreviewPage, setGalleryPreviewPage] = useState<0 | 1>(0);
   const [rentRollPreviewPage, setRentRollPreviewPage] = useState<0 | 1>(0);
+  const [failedCadSrc, setFailedCadSrc] = useState<string | null>(null);
   const ov = (slide.slideOverrides || {}) as Record<string, any>;
   const ssot = buildingContext?.ssot_summary ?? {};
   const enrichment = buildingContext?.enrichment ?? {};
@@ -302,46 +303,102 @@ export function SlidePreview({
 
         {/* Bottom Clean Branding Bar */}
         <div
-          className={`relative z-10 pt-3 border-t flex items-center justify-between gap-3 text-sm ${contentMaxWidthClass}`}
+          className={`relative z-10 pt-3 border-t flex flex-col gap-1 text-sm ${contentMaxWidthClass}`}
           style={{ borderColor: `#${tokens.darkBorder}` }}
         >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-            {headerFooterConfig.logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={headerFooterConfig.logoUrl}
-                alt="로고"
-                className="h-4 w-auto object-contain rounded-sm bg-white/90 px-1 shrink-0"
-              />
-            )}
-            <span className="font-bold text-white break-keep">
-              <InlineEditableText
-                fieldKey="brokerCompany"
-                value={companyVal}
-                onCommit={handleFieldCommit}
-                className="break-keep"
-              />
-            </span>
-            {ov.brokerName && (
-              <span
-                className="inline-flex items-center gap-1.5 min-w-0"
-                style={{ color: `#${tokens.darkMute}` }}
-              >
-                <span aria-hidden="true" className="shrink-0 opacity-70">
-                  ·
-                </span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+              {headerFooterConfig.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={headerFooterConfig.logoUrl}
+                  alt="로고"
+                  className="h-4 w-auto object-contain rounded-sm bg-white/90 px-1 shrink-0"
+                />
+              )}
+              <span className="font-bold text-white break-keep">
                 <InlineEditableText
-                  fieldKey="brokerName"
-                  value={String(ov.brokerName)}
+                  fieldKey="brokerCompany"
+                  value={companyVal}
                   onCommit={handleFieldCommit}
                   className="break-keep"
                 />
               </span>
-            )}
+              {ov.representativeName && (
+                <span
+                  className="inline-flex items-center gap-1.5 min-w-0"
+                  style={{ color: `#${tokens.darkMute}` }}
+                >
+                  <span aria-hidden="true" className="shrink-0 opacity-70">
+                    ·
+                  </span>
+                  <span className="shrink-0">대표자</span>
+                  <InlineEditableText
+                    fieldKey="representativeName"
+                    value={String(ov.representativeName)}
+                    onCommit={handleFieldCommit}
+                    className="break-keep"
+                  />
+                </span>
+              )}
+              {ov.brokerName &&
+                (!ov.representativeName ||
+                  String(ov.brokerName).trim() !== String(ov.representativeName).trim()) && (
+                  <span
+                    className="inline-flex items-center gap-1.5 min-w-0"
+                    style={{ color: `#${tokens.darkMute}` }}
+                  >
+                    <span aria-hidden="true" className="shrink-0 opacity-70">
+                      ·
+                    </span>
+                    <span className="shrink-0">담당</span>
+                    <InlineEditableText
+                      fieldKey="brokerName"
+                      value={String(ov.brokerName)}
+                      onCommit={handleFieldCommit}
+                      className="break-keep"
+                    />
+                  </span>
+                )}
+            </div>
+            <span className="font-mono text-sm shrink-0 whitespace-nowrap" style={{ color: `#${tokens.darkMute}` }}>
+              <InlineEditableText fieldKey="date" value={dateVal} onCommit={handleFieldCommit} />
+            </span>
           </div>
-          <span className="font-mono text-sm shrink-0 whitespace-nowrap" style={{ color: `#${tokens.darkMute}` }}>
-            <InlineEditableText fieldKey="date" value={dateVal} onCommit={handleFieldCommit} />
-          </span>
+          {(ov.brokerPhone || ov.brokerRegNo || ov.officeAddress) && (
+            <div
+              className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm"
+              style={{ color: `#${tokens.darkMute}` }}
+            >
+              {ov.brokerPhone && (
+                <InlineEditableText
+                  fieldKey="brokerPhone"
+                  value={String(ov.brokerPhone)}
+                  onCommit={handleFieldCommit}
+                />
+              )}
+              {ov.brokerRegNo && (
+                <span>
+                  등록번호{' '}
+                  <InlineEditableText
+                    fieldKey="brokerRegNo"
+                    value={String(ov.brokerRegNo)}
+                    onCommit={handleFieldCommit}
+                  />
+                </span>
+              )}
+              {ov.officeAddress && (
+                <span>
+                  소재지{' '}
+                  <InlineEditableText
+                    fieldKey="officeAddress"
+                    value={String(ov.officeAddress)}
+                    onCommit={handleFieldCommit}
+                  />
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -855,10 +912,15 @@ export function SlidePreview({
   // ── 05 LAND & ZONING SLIDE ──
   const renderLandSlide = () => {
     const isCadastralFocus = slide.layoutType === 'A06_LAND_CADASTRAL';
-    const rawCad = ov.cadastralMapImage || enrichment?.cadastralMapImage;
+    const rawCad =
+      ov.cadastralMapImage ||
+      ov.cadastralMapUrl ||
+      enrichment?.cadastralMapImage ||
+      enrichment?.cadastralMapUrl;
     const cadastralSrc = typeof rawCad === 'object' && rawCad !== null ? (rawCad as any).base64 : rawCad;
     const hasCadastralImg =
       typeof cadastralSrc === 'string' &&
+      failedCadSrc !== cadastralSrc &&
       (cadastralSrc.startsWith('data:image') || cadastralSrc.startsWith('http') || cadastralSrc.startsWith('/'));
     const landRows = [
       { key: 'landArea', label: '대지면적', val: ov.landArea },
@@ -877,7 +939,12 @@ export function SlidePreview({
         >
           {hasCadastralImg ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cadastralSrc} alt="지적도" className="w-full h-full object-cover rounded-lg" />
+            <img
+              src={cadastralSrc}
+              alt="지적도"
+              onError={() => setFailedCadSrc(cadastralSrc)}
+              className="w-full h-full object-cover rounded-lg"
+            />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-3">
               <svg className="w-28 h-24 mb-2" viewBox="0 0 120 100">
@@ -1221,23 +1288,50 @@ export function SlidePreview({
     const yieldSpread =
       Number.isFinite(rawStabNum) && Number.isFinite(rawBaseNum) ? rawStabNum - rawBaseNum : 0;
 
+    const roneSeries = enrichment?.regionalLandPriceRates as
+      | {
+          regionName?: string;
+          points?: Array<{ year: string | number; ratePct: number }>;
+          last5GeometricMeanPct?: number;
+          last5CumulativePct?: number;
+        }
+      | undefined;
+    const ronePoints = Array.isArray(roneSeries?.points) ? roneSeries.points.slice(-5) : [];
+    const hasRoneSeries = ronePoints.length >= 2;
+
     const rawHistory: Array<{ year: number; pricePerSqm: number }> = Array.isArray(
       enrichment?.landPriceHistory?.history
     )
-      ? enrichment.landPriceHistory.history.slice(-10)
+      ? enrichment.landPriceHistory.history.slice(-5)
       : [];
     const hasRealLandHistory = rawHistory.length >= 2;
+
+    const maxRoneAbs = hasRoneSeries
+      ? Math.max(0.5, ...ronePoints.map(p => Math.abs(Number(p.ratePct) || 0)))
+      : 1;
     const maxHistPrice = hasRealLandHistory
       ? Math.max(...rawHistory.map(h => Number(h.pricePerSqm) || 0), 1)
       : 1;
-    const chartBars = hasRealLandHistory
+    const chartBars = hasRoneSeries
+      ? ronePoints.map(pt => {
+          const val = Number(pt.ratePct) || 0;
+          return {
+            yearLabel: String(pt.year),
+            pct: Math.max(18, Math.round((Math.abs(val) / maxRoneAbs) * 100)),
+            tooltip: `${pt.year}년: ${val >= 0 ? '+' : ''}${val.toFixed(2)}%`,
+          };
+        })
+      : hasRealLandHistory
       ? rawHistory.map(h => ({
-          yearLabel: `'${String(h.year).slice(-2)}`,
+          yearLabel: String(h.year),
           pct: Math.max(18, Math.round(((Number(h.pricePerSqm) || 0) / maxHistPrice) * 100)),
           tooltip: `${h.year}년: ${Number(h.pricePerSqm || 0).toLocaleString()}원/㎡`,
         }))
       : [];
-    const landChartYearRange = hasRealLandHistory
+    const hasChartData = hasRoneSeries || hasRealLandHistory;
+    const landChartYearRange = hasRoneSeries
+      ? ` (${ronePoints[0].year}~${ronePoints[ronePoints.length - 1].year})`
+      : hasRealLandHistory
       ? ` (${rawHistory[0].year}~${rawHistory[rawHistory.length - 1].year})`
       : '';
 
@@ -1315,22 +1409,28 @@ export function SlidePreview({
           </div>
         </div>
 
-        {/* Right 5 cols: Multi-Year Official Land Price Trend Chart */}
+        {/* Right 5 cols: 5-Year R-ONE Annual Land Price Change / Land Trend Chart */}
         <div
           className="col-span-5 rounded-xl border p-3.5 flex flex-col justify-between"
           style={{ backgroundColor: `#${tokens.tint}`, borderColor: `#${tokens.line}` }}
         >
           <div>
             <div className="text-sm font-extrabold text-[#0F172A]">
-              📈 개별공시지가 다개년 추이{landChartYearRange}
+              📈 {hasRoneSeries
+                ? `${roneSeries?.regionName || '권역'} 한국부동산원 연간 지가변동률${landChartYearRange}`
+                : hasRealLandHistory
+                ? `최근 ${rawHistory.length}개년 지가 추이${landChartYearRange}`
+                : '한국부동산원 연간 지가변동률 (최근 5개년)'}
             </div>
-            {hasRealLandHistory && (
-              <div className="text-sm font-bold text-[#475569]">
-                개별공시지가 다개년 열람 데이터 ({rawHistory.length}개년)
-              </div>
-            )}
+            <div className="text-sm font-bold text-[#475569]">
+              {hasRoneSeries
+                ? `한국부동산원 R-ONE 최근 ${ronePoints.length}개년 지가변동률 (%)`
+                : hasRealLandHistory
+                ? `최근 ${rawHistory.length}개년 공시지가 열람 기준 (X축=연도)`
+                : '한국부동산원 R-ONE 권역 지가변동률 추이'}
+            </div>
           </div>
-          {hasRealLandHistory ? (
+          {hasChartData ? (
             <div className="h-32 flex items-end justify-between gap-1.5 px-2 pt-4">
               {chartBars.map((bar, i) => {
                 const isLast = i === chartBars.length - 1;
@@ -1354,7 +1454,7 @@ export function SlidePreview({
           ) : (
             <div className="h-32 my-2 rounded-lg border border-dashed border-[#CBD5E1] bg-white/80 px-3 flex items-center justify-center text-center">
               <span className="text-sm font-bold text-[#475569] leading-snug">
-                개별공시지가 다개년 이력 데이터 미수집 (공공데이터 연동 후 표시)
+                한국부동산원 최근 5개년 지가변동률 미연동 (PPTX 다운로드 시 권역 R-ONE 통계 반영)
               </span>
             </div>
           )}
@@ -1658,11 +1758,24 @@ export function SlidePreview({
                 />
               </div>
               <div className="text-sm font-semibold mt-1.5 space-y-0.5" style={{ color: `#${tokens.darkBody}` }}>
+                {(ov.representativeName || !ov.brokerName) && (
+                  <div>
+                    대표자: <InlineEditableText fieldKey="representativeName" value={String(ov.representativeName || '')} placeholder="대표자 성명 입력" onCommit={handleFieldCommit} />
+                  </div>
+                )}
+                {(!ov.representativeName || !ov.brokerName || String(ov.brokerName).trim() !== String(ov.representativeName).trim()) && (
+                  <div>
+                    담당자: <InlineEditableText fieldKey="brokerName" value={String(ov.brokerName || '')} placeholder="담당자 성명 입력" onCommit={handleFieldCommit} />
+                  </div>
+                )}
                 <div>
-                  담당자: <InlineEditableText fieldKey="brokerName" value={String(ov.brokerName || '전담 매각자문팀')} onCommit={handleFieldCommit} />
+                  연락처: <InlineEditableText fieldKey="brokerPhone" value={String(ov.brokerPhone || '')} placeholder="연락처 입력" onCommit={handleFieldCommit} />
                 </div>
                 <div>
-                  연락처: <InlineEditableText fieldKey="brokerPhone" value={String(ov.brokerPhone || '문의 요망')} onCommit={handleFieldCommit} />
+                  등록번호: <InlineEditableText fieldKey="brokerRegNo" value={String(ov.brokerRegNo || '')} placeholder="등록번호 입력" onCommit={handleFieldCommit} />
+                </div>
+                <div>
+                  소재지: <InlineEditableText fieldKey="officeAddress" value={String(ov.officeAddress || '')} placeholder="사무소 소재지 입력" onCommit={handleFieldCommit} />
                 </div>
               </div>
             </div>
@@ -1743,7 +1856,7 @@ export function SlidePreview({
               🚫 현재 다운로드 제외 (숨김 상태)
             </span>
             <p className="text-sm text-white/90">
-              좌측 슬라이드 목록에서 [표시] 버튼을 누르면 PPTX 다운로드에 다시 포함됩니다.
+              좌측 슬라이드 목록에서 [포함] 버튼을 누르면 PPTX 다운로드에 다시 포함됩니다.
             </p>
           </div>
         )}

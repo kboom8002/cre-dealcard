@@ -572,40 +572,44 @@ describe("Newsletter & Inbox 30-Item Golden Test Dry-Run (NL-G01~08, IB-G01~16, 
       expect(actionCalls.some((c) => c.action === "approve_gate")).toBe(true);
       expect(container.textContent).toContain("관심 높음");
 
-      // IB-G06 & IB-G07: Switch to [메시지] tab, send DealCard & Newsletter
-      const msgTabBtn = container.querySelector(
-        '[data-testid="inbox-editor-tab-message"]'
+      // IB-G06 & IB-G07: Single-canvas outbound station — select DealCard & Magazine and copy bundle
+      const dealcardTabBtn = container.querySelector(
+        '[data-testid="inbox-asset-tab-dealcard"]'
       ) as HTMLButtonElement;
-      await act(async () => {
-        msgTabBtn.click();
-      });
-      const msgPanel = container.querySelector('[data-testid="inbox-tab-panel-message"]');
-      const msgButtons = Array.from(msgPanel?.querySelectorAll("button") || []);
-      const dealcardBtn = msgButtons.find((b) =>
-        b.textContent?.includes("딜카드 보내기")
+      const magazineTabBtn = container.querySelector(
+        '[data-testid="inbox-asset-tab-magazine"]'
       ) as HTMLButtonElement;
-      const newsletterBtn = msgButtons.find((b) =>
-        b.textContent?.includes("뉴스레터 보내기")
+      const copyBundleBtn = container.querySelector(
+        '[data-testid="inbox-copy-bundle-btn"]'
       ) as HTMLButtonElement;
-      expect(dealcardBtn).toBeDefined();
-      expect(newsletterBtn).toBeDefined();
+      expect(dealcardTabBtn).not.toBeNull();
+      expect(magazineTabBtn).not.toBeNull();
+      expect(copyBundleBtn).not.toBeNull();
 
       await act(async () => {
-        dealcardBtn.click();
+        dealcardTabBtn.click();
       });
       await act(async () => {
-        newsletterBtn.click();
+        copyBundleBtn.click();
       });
-      expect(actionCalls.some((c) => c.action === "send_dealcard")).toBe(true);
-      expect(actionCalls.some((c) => c.action === "send_magazine")).toBe(true);
+      await act(async () => {
+        magazineTabBtn.click();
+      });
+      await act(async () => {
+        copyBundleBtn.click();
+      });
+      expect(
+        actionCalls.some(
+          (c) => c.action === "prepare_copy_bundle" && c.assetKind === "dealcard"
+        )
+      ).toBe(true);
+      expect(
+        actionCalls.some(
+          (c) => c.action === "prepare_copy_bundle" && c.assetKind === "magazine"
+        )
+      ).toBe(true);
 
-      // IB-G09: Switch to [기록] tab and save call note
-      const historyTabBtn = container.querySelector(
-        '[data-testid="inbox-editor-tab-history"]'
-      ) as HTMLButtonElement;
-      await act(async () => {
-        historyTabBtn.click();
-      });
+      // IB-G09: Single-canvas timeline & call note persistence
       const callNoteInput = container.querySelector(
         '[data-testid="inbox-call-note-input"]'
       ) as HTMLInputElement;

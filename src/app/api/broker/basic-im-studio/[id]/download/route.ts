@@ -190,9 +190,13 @@ export async function GET(
       ...(broker || {}),
       company_name: effectiveCompanyName || broker?.company_name || '',
       display_name: closingOv.brokerName || coverOv.brokerName || broker?.display_name || '',
+      representative_name:
+        closingOv.representativeName || coverOv.representativeName || broker?.representative_name || '',
       phone: closingOv.brokerPhone || coverOv.brokerPhone || broker?.phone || '',
       email: closingOv.brokerEmail || broker?.email || '',
-      registration_no: closingOv.brokerRegNo || broker?.registration_no || '',
+      registration_no: closingOv.brokerRegNo || coverOv.brokerRegNo || broker?.registration_no || '',
+      office_address:
+        closingOv.officeAddress || coverOv.officeAddress || broker?.office_address || '',
     };
 
     const effectiveVisualPreset = queryVisualPreset || project.visualPreset || 'credeal_basic';

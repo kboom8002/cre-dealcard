@@ -47,9 +47,6 @@ export interface InboxListColumnProps {
   loadingMoreClients?: boolean;
   totalClientsCount?: number | null;
   onLoadMoreClients?: () => void;
-  onQuickEditClient?: (thread: InboxThreadItem) => void;
-  onQuickDeleteClient?: (thread: InboxThreadItem) => void;
-  onQuickArchiveThread?: (thread: InboxThreadItem) => void;
 }
 
 const CRM_FILTER_CHIPS: ReadonlyArray<{

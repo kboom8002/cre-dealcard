@@ -9,12 +9,14 @@
  *  - 'seller' 판정은 option.intent 메타만 사용 (인덱스 하드코딩 금지)
  */
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { BarChart3, Check, Copy, MessageSquare, Phone } from "lucide-react";
+import { BarChart3, MessageSquare, Phone } from "lucide-react";
 import { SectionCard } from "@/components/magazine/SectionCard";
 import { useViewerTrack } from "@/components/magazine/viewer-track";
 import { messageFromResponse, toUserMessage } from "@/lib/magazine/user-message";
-import { formatPhoneDisplay, sanitizeTelHref } from "@/lib/magazine/view-helpers";
-import { copyText } from "@/lib/ux/clipboard";
+import {
+  PhoneActionButton,
+  formatKrPhoneForDisplay,
+} from "@/components/common/PhoneActionButton";
 import {
   MIN_POLL_RESULTS,
   normalizePoll,
@@ -53,10 +55,9 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
   const [pending, setPending] = useState<number | null>(null); // 실패한 마지막 선택 (재시도용)
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<PollResults | null>(null);
-  const [phoneCopied, setPhoneCopied] = useState(false);
 
-  const rawTelDigits = telHref ? sanitizeTelHref(telHref.replace(/^tel:/i, "")) : null;
-  const formattedPhone = telHref ? formatPhoneDisplay(telHref.replace(/^tel:/i, "")) : "";
+  const rawPhoneInput = telHref ? telHref.replace(/^tel:/i, "") : "";
+  const formattedPhone = formatKrPhoneForDisplay(rawPhoneInput);
   const consultProfileHref = brokerId
     ? `/broker-profile/${encodeURIComponent(brokerId)}?ref=poll-consult`
     : null;
@@ -220,43 +221,27 @@ export function PollSection({ brokerId, date, poll, preview = false, telHref }: 
                   {selectedIntent === "seller" ? "매도 상담 문의하기" : "이 주제로 상담하기"}
                 </a>
               )}
-              {rawTelDigits && formattedPhone && (
-                <>
-                  <a
-                    href={`tel:${rawTelDigits}`}
-                    data-testid="poll-consult-tel-link"
-                    onClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
-                    className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 text-sm font-bold text-emerald-900 hover:bg-emerald-100"
-                  >
-                    <Phone className="h-4 w-4" aria-hidden="true" />
-                    <span>{formattedPhone}</span>
-                  </a>
-                  <button
-                    type="button"
-                    data-testid="poll-consult-copy-phone"
-                    onClick={async () => {
-                      onTrack?.("poll_consult", { intent: selectedIntent ?? undefined });
-                      const ok = await copyText(formattedPhone);
-                      if (ok) {
-                        setPhoneCopied(true);
-                        window.setTimeout(() => setPhoneCopied(false), 2000);
-                      }
-                    }}
-                    className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
-                  >
-                    {phoneCopied ? (
-                      <>
-                        <Check className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-                        <span>복사됨</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4" aria-hidden="true" />
-                        <span>번호 복사</span>
-                      </>
-                    )}
-                  </button>
-                </>
+              {formattedPhone && (
+                <PhoneActionButton
+                  phone={rawPhoneInput}
+                  variant="inline"
+                  showFormattedNumber={false}
+                  className="inline-flex flex-wrap items-center justify-center gap-2"
+                  callTestId="poll-consult-tel-link"
+                  copyTestId="poll-consult-copy-phone"
+                  onCallClick={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
+                  onCopySuccess={() => onTrack?.("poll_consult", { intent: selectedIntent ?? undefined })}
+                  callClassName="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 text-sm font-bold text-emerald-900 hover:bg-emerald-100"
+                  copyClassName="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                  copyLabel="번호 복사"
+                  copiedLabel="✓ 복사됨"
+                  renderCallContent={
+                    <>
+                      <Phone className="h-4 w-4" aria-hidden="true" />
+                      <span>{formattedPhone}</span>
+                    </>
+                  }
+                />
               )}
             </div>
           </div>

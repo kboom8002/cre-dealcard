@@ -487,7 +487,7 @@ export function SimpleEditor({
                   ) : (
                     <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-indigo-300" aria-hidden="true" />
                   )}
-                  ✨ 제목·3줄 요약 다시 만들기
+                  제목·3줄 요약 다시 만들기
                 </motion.button>
               </div>
               <AnimatePresence>

@@ -503,8 +503,8 @@ describe("Human Tester V-1.1 Audit Remediation Suite (Positive + Negative Pairs)
       );
     });
 
-    const approveBtn = Array.from(container.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("승인")
+    const approveBtn = container.querySelector(
+      '[data-testid="approve-gate-primary-btn"]'
     ) as HTMLButtonElement;
     expect(approveBtn).not.toBeNull();
 

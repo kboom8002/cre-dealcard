@@ -15,6 +15,7 @@ import {
   assertLegacyOrDbOwnership,
   WorkspaceRepositoryError,
 } from '@/lib/workspace/workspace-repository';
+import { verifyBrokerOwnership } from '@/lib/inbox/inbox-ownership';
 
 type ServiceSupabase = ReturnType<typeof createServiceClient>;
 
@@ -421,6 +422,29 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      if (effectiveThreadId.startsWith('view_') && !isAdmin) {
+        const viewOwn = await verifyBrokerOwnership({
+          userId,
+          isAdmin,
+          buildingId: resolvedBuildingId,
+          threadId: effectiveThreadId,
+          action: 'revoke_link',
+        });
+        if (!viewOwn.allowed) {
+          return NextResponse.json(
+            { ok: false, error: viewOwn.reason || '다른 중개인의 열람 링크는 잠글 수 없습니다.' },
+            { status: viewOwn.status || 403 }
+          );
+        }
+      }
+
+      if (!resolvedBuildingId && !token) {
+        return NextResponse.json(
+          { ok: false, error: '잠글 링크 토큰 또는 대상 매물 ID(buildingId)가 필요합니다.' },
+          { status: 400 }
+        );
+      }
+
       if (effectiveThreadId) {
         await revokeRecipientShareLinkTokens(effectiveThreadId, { brokerId: userId, supabase });
         if (rawGateId && rawGateId !== effectiveThreadId) {
@@ -530,6 +554,13 @@ export async function POST(req: NextRequest) {
         gateRequestId: resolvedGateRequestId || undefined,
         revokedAt,
       });
+    }
+
+    if (!token && !buildingId) {
+      return NextResponse.json(
+        { ok: false, error: '잠글 링크 토큰 또는 대상 매물 ID(buildingId)가 필요합니다.' },
+        { status: 400 }
+      );
     }
 
     // Building-scoped ownership validation

@@ -257,6 +257,14 @@ function renderCommonCoverContent(
 
     const companyName = cleanBrokerVal(d.companyName);
     const brokerName = cleanBrokerVal(d.brokerName);
+    const representativeName = cleanBrokerVal(
+      d.representativeName ||
+        (d as Record<string, unknown>).representative_name ||
+        (input.data?.brokerContact as Record<string, unknown> | undefined)?.representativeName ||
+        (input.data?.brokerContact as Record<string, unknown> | undefined)?.representative_name ||
+        (d as Record<string, any>)?.brokerOffice?.representativeName ||
+        (d as Record<string, any>)?.brokerOffice?.representative
+    );
     const primaryBrand = companyName || brokerName || '매각 투자설명서';
     slide.addText(primaryBrand, {
       x: M, y: 5.65, w: 7.50, h: 0.36,
@@ -278,8 +286,19 @@ function renderCommonCoverContent(
     );
     const docDate = String(d.documentDate || '').trim();
     const cleanBrokerName = brokerName.replace(/^담당\s*(?:자)?\s*[:：]?\s*/, '').trim();
+    const cleanRepName = representativeName.replace(/^대표\s*(?:자)?\s*[:：]?\s*/, '').trim();
+    const repLabel =
+      cleanRepName && !DUMMY_BROKER_VALUES.has(cleanRepName) ? `대표자 ${cleanRepName}` : '';
+    const staffLabel =
+      companyName &&
+      cleanBrokerName &&
+      !DUMMY_BROKER_VALUES.has(cleanBrokerName) &&
+      cleanBrokerName !== cleanRepName
+        ? `담당 ${cleanBrokerName}`
+        : '';
     const secondaryParts = [
-      companyName && cleanBrokerName && !DUMMY_BROKER_VALUES.has(cleanBrokerName) ? `담당 ${cleanBrokerName}` : '',
+      repLabel,
+      staffLabel,
       docDate,
       brokerPhone,
       registrationNo ? `등록번호 ${registrationNo}` : '',
@@ -404,7 +423,18 @@ function renderCommonCoverContent(
     });
   }
 
-  const broker = String(d.brokerName || '').trim();
+  const broker = String(d.brokerName || '')
+    .replace(/^담당\s*(?:자)?\s*[:：]?\s*/, '')
+    .trim();
+  const proRepName = String(
+    d.representativeName ||
+      (d as Record<string, unknown>).representative_name ||
+      (input.data?.brokerContact as Record<string, unknown> | undefined)?.representativeName ||
+      (input.data?.brokerContact as Record<string, unknown> | undefined)?.representative_name ||
+      ''
+  )
+    .replace(/^대표\s*(?:자)?\s*[:：]?\s*/, '')
+    .trim();
   const proRegNo = String(
     d.registrationNo || (input.data?.brokerContact as Record<string, unknown> | undefined)?.registrationNo || ''
   ).trim();
@@ -417,10 +447,13 @@ function renderCommonCoverContent(
       ''
   ).trim();
   const proPhone = String(d.brokerPhone || d.phone || '').trim();
+  const proRepLabel = proRepName ? `대표자 ${proRepName}` : '';
+  const proStaffLabel = broker && broker !== proRepName ? `담당 ${broker}` : '';
   const infoText = [
     d.documentDate || '',
-    broker,
     companyName,
+    proRepLabel,
+    proStaffLabel,
     proRegNo ? `등록번호 ${proRegNo}` : '',
     proOfficeAddress ? `소재지 ${proOfficeAddress}` : '',
     proPhone,

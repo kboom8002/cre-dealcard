@@ -54,8 +54,11 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
     { key: 'address', label: '소재지 표기' },
     { key: 'date', label: '작성 기준일 (YYYY-MM-DD)' },
     { key: 'brokerCompany', label: '담당 중개법인 명칭' },
+    { key: 'representativeName', label: '대표자(개업공인중개사) 성명' },
     { key: 'brokerName', label: '담당 컨설턴트 성명' },
     { key: 'brokerPhone', label: '담당자 연락처' },
+    { key: 'brokerRegNo', label: '중개사무소 등록번호' },
+    { key: 'officeAddress', label: '중개사무소 소재지' },
   ],
   highlights: [
     { key: 'leadSentence', label: '슬라이드 상단 핵심 리드 문장', aiEnabled: true },
@@ -133,10 +136,12 @@ const SLIDE_FIELD_SPECS: Record<string, FieldSpec[]> = {
   closing: [
     { key: 'closingLine', label: '매수 제안 한 줄 요약 문구', multiline: true, aiEnabled: true },
     { key: 'brokerCompany', label: '중개법인 · 사무소 명칭' },
+    { key: 'representativeName', label: '대표자(개업공인중개사) 성명' },
     { key: 'brokerName', label: '담당자 성명 · 직책' },
     { key: 'brokerPhone', label: '담당자 직통 연락처' },
     { key: 'brokerEmail', label: '담당자 이메일' },
     { key: 'brokerRegNo', label: '중개사무소 등록번호' },
+    { key: 'officeAddress', label: '중개사무소 소재지' },
     { key: 'disclaimer', label: '법적 면책 고지 문구', multiline: true },
   ],
 };

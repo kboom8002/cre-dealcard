@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, KR, NUM, CD } from '../imlib';
+import { C, M, CW, KR, NUM, CD, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { optimizeImageForPptx } from '../utils/image-optimizer';
 
@@ -27,6 +27,11 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   const slide = L.dark(input.pres);
   const warnings: string[] = [];
   L.headD(slide, input.slideNum, input.data.kicker || 'DISCLAIMER', input.data.title || '표기 기준 및 면책');
+  const isBasicClosing =
+    THEME_META.presetId === 'credeal_basic' ||
+    input.data?.isBasicIm === true ||
+    input.data?.preset === 'credeal_basic' ||
+    input.data?.title === '문의 및 유의사항';
   
   // ── 상단: 다음 단계 (프로세스 3단계 가로 바) ──
   const processSteps = [
@@ -81,8 +86,8 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     }
   });
 
-  // ── 중앙: 한 줄 매수 제안(closingLine) + 담당 중개사 와이드 카드 (데이터 출처 표기·면책 카드 제거) ──
-  const sectionY = stepY + stepH + 0.42;
+  // ── 중앙: 한 줄 매수 제안(closingLine) + 담당 중개사 와이드 카드 ──
+  const sectionY = stepY + stepH + (isBasicClosing ? 0.42 : 0.22);
 
   const closingLine = String(
     (input.data as any)?.closingLine ?? (input.data?.brokerContact as any)?.closingLine ?? ''
@@ -90,7 +95,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
 
   let brokerSectionY = sectionY;
   if (closingLine) {
-    const quoteH = 0.58;
+    const quoteH = isBasicClosing ? 0.58 : 0.46;
     slide.addShape('roundRect', {
       x: M, y: sectionY, w: CW, h: quoteH,
       rectRadius: 0.05,
@@ -105,7 +110,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
       fontFace: KR, fontSize: 10.5, bold: true, color: 'FFFFFF',
       margin: 0, valign: 'middle', shrinkText: true,
     });
-    brokerSectionY = sectionY + quoteH + 0.22;
+    brokerSectionY = sectionY + quoteH + 0.18;
   }
 
   // 중개사 문의처 와이드 카드
@@ -122,8 +127,21 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     const s = String(v || '').trim();
     return !s || DUMMY_BROKER_VALUES.has(s) ? '' : s;
   };
+  const cleanRepName = cleanBrokerVal(
+    (rawBroker as Record<string, unknown>).representativeName ||
+      (rawBroker as Record<string, unknown>).representative_name ||
+      (input.data as Record<string, unknown>).representativeName ||
+      (input.data as Record<string, unknown>).representative_name
+  )
+    .replace(/^대표\s*(?:자)?\s*[:：]?\s*/, '')
+    .trim();
+  const cleanStaffName = cleanBrokerVal(rawBroker.name)
+    .replace(/^담당\s+담당/, '담당')
+    .replace(/^담당\s*(?:자)?\s*[:：]?\s*/, '')
+    .trim();
   const broker = {
-    name: cleanBrokerVal(rawBroker.name).replace(/^담당\s+담당/, '담당'),
+    name: cleanStaffName,
+    representativeName: cleanRepName,
     title: cleanBrokerVal(rawBroker.title),
     phone: cleanBrokerVal(rawBroker.phone),
     email: cleanBrokerVal(rawBroker.email),
@@ -136,7 +154,12 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     ),
   };
   const hasBrokerInfo = Boolean(
-    broker.name || broker.phone || broker.company || broker.officeAddress || broker.registrationNo
+    broker.name ||
+      broker.representativeName ||
+      broker.phone ||
+      broker.company ||
+      broker.officeAddress ||
+      broker.registrationNo
   );
 
   let logoImg: Awaited<ReturnType<typeof optimizeImageForPptx>> | null = null;
@@ -148,10 +171,11 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     }
   }
 
+  let afterBrokerY = brokerSectionY;
   if (hasBrokerInfo) {
     L.sub(slide, M, brokerSectionY, CW, '담당 중개사', true);
-    const contactY = brokerSectionY + 0.36;
-    const contactH = closingLine ? 1.95 : 2.25;
+    const contactY = brokerSectionY + 0.34;
+    const contactH = isBasicClosing ? (closingLine ? 1.95 : 2.25) : 1.55;
 
     slide.addShape('roundRect', {
       x: M, y: contactY, w: CW, h: contactH,
@@ -160,7 +184,14 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
       line: { color: C.brass, width: 0.9 },
     });
 
-    const nameLine = [broker.name, broker.title].filter((s: unknown) => typeof s === 'string' && s.trim()).join('  ');
+    const repPart = broker.representativeName ? `대표자 ${broker.representativeName}` : '';
+    const staffPart =
+      broker.name && broker.name !== broker.representativeName
+        ? `담당 ${broker.name}${broker.title ? ` ${broker.title}` : ''}`
+        : !broker.representativeName && broker.name
+        ? [broker.name, broker.title].filter(Boolean).join(' ')
+        : '';
+    const nameLine = [repPart, staffPart].filter(Boolean).join('    ');
     const contactLine = [
       broker.phone ? `☎ ${broker.phone}` : '',
       broker.email ? `✉ ${broker.email}` : '',
@@ -172,23 +203,23 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     const addressLine = broker.officeAddress ? `소재지: ${broker.officeAddress}` : '';
 
     const cardLines: Array<{ text: string; fontSize: number; bold: boolean; color: string }> = [
-      ...(nameLine ? [{ text: nameLine, fontSize: 14, bold: true, color: 'FFFFFF' }] : []),
-      ...(contactLine ? [{ text: contactLine, fontSize: 11.5, bold: false, color: CD.body }] : []),
+      ...(nameLine ? [{ text: nameLine, fontSize: 13.5, bold: true, color: 'FFFFFF' }] : []),
+      ...(contactLine ? [{ text: contactLine, fontSize: 11, bold: false, color: CD.body }] : []),
       ...(companyLine ? [{ text: companyLine, fontSize: 10.5, bold: false, color: CD.mute }] : []),
       ...(addressLine ? [{ text: addressLine, fontSize: 10, bold: false, color: CD.mute }] : []),
     ];
 
     const textW = logoImg ? CW - 2.10 : CW - 0.56;
-    const rowStep = cardLines.length <= 3 ? 0.44 : 0.38;
+    const rowStep = cardLines.length <= 3 ? Math.min(0.44, (contactH - 0.24) / Math.max(1, cardLines.length)) : Math.min(0.38, (contactH - 0.20) / cardLines.length);
     const contentH = cardLines.length * rowStep;
-    const startLineY = contactY + Math.max(0.18, (contactH - contentH) / 2);
+    const startLineY = contactY + Math.max(0.12, (contactH - contentH) / 2);
 
     cardLines.forEach((line, idx) => {
       slide.addText(line.text, {
         x: M + 0.28,
         y: startLineY + idx * rowStep,
         w: textW,
-        h: rowStep - 0.04,
+        h: Math.max(0.24, rowStep - 0.04),
         fontFace: KR,
         fontSize: line.fontSize,
         bold: line.bold,
@@ -209,6 +240,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
         sizing: { type: 'contain', w: 1.45, h: 0.85 },
       });
     }
+    afterBrokerY = contactY + contactH + 0.18;
   } else if (logoImg) {
     slide.addImage({
       data: logoImg.base64,
@@ -218,24 +250,116 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
       h: 0.85,
       sizing: { type: 'contain', w: 1.45, h: 0.85 },
     });
+    afterBrokerY = brokerSectionY + 1.15;
   }
 
-  // ── 하단 1줄 미세 면책 안내 (카드·제목 박스 제거, 법적 보호용 최소 표기) ──
-  const singleLineDisclaimer =
-    '※ 면책 안내: 본 자료는 매수 검토 참고용이며 공부 및 현장 실사를 통해 최종 확인하시기 바랍니다.';
-  slide.addText(singleLineDisclaimer, {
-    x: M,
-    y: 6.44,
-    w: CW,
-    h: 0.28,
-    fontFace: KR,
-    fontSize: 8,
-    color: CD.mute,
-    align: 'left',
-    valign: 'middle',
-    shrinkText: true,
-    margin: 0,
-  });
+  if (isBasicClosing) {
+    // ── Basic IM: 하단 1줄 미세 면책 안내 (카드·제목 박스 제거, 법적 보호용 최소 표기) ──
+    const singleLineDisclaimer =
+      '※ 면책 안내: 본 자료는 매수 검토 참고용이며 공부 및 현장 실사를 통해 최종 확인하시기 바랍니다.';
+    slide.addText(singleLineDisclaimer, {
+      x: M,
+      y: 6.44,
+      w: CW,
+      h: 0.28,
+      fontFace: KR,
+      fontSize: 8,
+      color: CD.mute,
+      align: 'left',
+      valign: 'middle',
+      shrinkText: true,
+      margin: 0,
+    });
+  } else {
+    // ── Pro IM / 기본 마감: 5대 데이터 출처 표기 기준 + 법적 면책 조항 ──
+    const defaultBadges = [
+      { label: '✓ 공부확인', description: '등기부·대장 등 공적 장부 직접 확인' },
+      { label: '★ 전문가검증', description: '세무사·감정평가사 등 전문가 확인' },
+      { label: '▲ 매도인고지', description: '매도인이 구두 또는 서면으로 고지' },
+      { label: '● 중개인입력', description: '중개인 현장 조사 및 경험 기반 입력' },
+      { label: '◇ AI추정·가정', description: '시나리오 분석 및 AI 모델 추정' },
+    ];
+    const badges: Array<{ label: string; description?: string }> =
+      Array.isArray(input.data?.badges) && input.data.badges.length > 0
+        ? input.data.badges
+        : defaultBadges;
+    const disclaimerText = String(
+      input.data?.disclaimer ||
+        '본 자료는 투자 권유가 아니며, 기재된 정보의 정확성을 보증하지 않습니다.'
+    ).trim();
+
+    const legalStartY = Math.max(afterBrokerY, hasBrokerInfo ? 4.55 : 2.65);
+    L.sub(slide, M, legalStartY, CW, '데이터 출처 표기 및 법적 면책 고지', true);
+
+    const badgeGap = 0.12;
+    const badgeCount = Math.min(badges.length, 5);
+    const badgeW = (CW - badgeGap * (badgeCount - 1)) / badgeCount;
+    const badgeY = legalStartY + 0.34;
+    const badgeH = 0.86;
+
+    badges.slice(0, 5).forEach((b, idx) => {
+      const bx = M + idx * (badgeW + badgeGap);
+      slide.addShape('roundRect', {
+        x: bx,
+        y: badgeY,
+        w: badgeW,
+        h: badgeH,
+        rectRadius: 0.04,
+        fill: { color: CD.block },
+        line: { color: CD.border, width: 0.6 },
+      });
+      slide.addText(String(b.label || ''), {
+        x: bx + 0.10,
+        y: badgeY + 0.08,
+        w: badgeW - 0.20,
+        h: 0.26,
+        fontFace: KR,
+        fontSize: 9.5,
+        bold: true,
+        color: C.brass,
+        margin: 0,
+        shrinkText: true,
+      });
+      if (b.description) {
+        slide.addText(String(b.description), {
+          x: bx + 0.10,
+          y: badgeY + 0.36,
+          w: badgeW - 0.20,
+          h: 0.44,
+          fontFace: KR,
+          fontSize: 8,
+          color: CD.mute,
+          valign: 'top',
+          margin: 0,
+          shrinkText: true,
+        });
+      }
+    });
+
+    const discY = Math.min(badgeY + badgeH + 0.16, 6.00);
+    const discH = Math.min(0.68, 6.70 - discY);
+    slide.addShape('roundRect', {
+      x: M,
+      y: discY,
+      w: CW,
+      h: discH,
+      rectRadius: 0.04,
+      fill: { color: CD.block },
+      line: { color: CD.border, width: 0.6 },
+    });
+    slide.addText(disclaimerText, {
+      x: M + 0.20,
+      y: discY + 0.06,
+      w: CW - 0.40,
+      h: discH - 0.12,
+      fontFace: KR,
+      fontSize: 8.8,
+      color: CD.body,
+      valign: 'middle',
+      shrinkText: true,
+      margin: 0,
+    });
+  }
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
   L.foot(slide, input.slideNum, input.docno, true);

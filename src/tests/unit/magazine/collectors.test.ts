@@ -113,13 +113,13 @@ describe('crawlNaverCRENews', () => {
 
     expect(upsert).toHaveBeenCalledTimes(1);
     const rows = (upsert.mock.calls[0] as unknown[])[0] as any[];
-    expect(rows.map((r) => r.url).sort()).toEqual(['https://n.news.naver.com/a1', 'https://n.news.naver.com/a3']);
+    // 아파트/주거 가십('a3') 및 위험 링크('javascript:alert(1)')는 필터링되고 CRE 기사('a1')만 적재된다
+    expect(rows.map((r) => r.url)).toEqual(['https://n.news.naver.com/a1']);
     const r1 = rows.find((r) => r.url.endsWith('a1'))!;
-    const r3 = rows.find((r) => r.url.endsWith('a3'))!;
-    expect(r1.title).toBe('[네이버뉴스] 꼬마빌딩 "거래" 급증');
+    expect(r1.title).toBe('꼬마빌딩 "거래" 급증');
     expect(r1.title).not.toContain('&quot;');
     expect(r1.content).toBe('공실 & 임대');
-    expect(r1.importance_score - r3.importance_score).toBe(4);
+    expect(r1.importance_score).toBe(10);
     // Mock LLM 응답은 저장하지 않는다
     expect(callLLMMock).toHaveBeenCalled();
     for (const call of callLLMMock.mock.calls) expect(call[1]).toEqual({ allowMock: false });

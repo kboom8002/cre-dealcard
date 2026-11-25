@@ -8,6 +8,11 @@ import { useBottomSlot } from "@/components/ui/use-bottom-slot";
 import { TERMS } from "@/lib/ux/lexicon";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { formatKrPhoneInput } from "@/lib/format/phone";
+import {
+  PhoneActionButton,
+  isValidKrPhone,
+  sanitizePhoneDigits,
+} from "@/components/common/PhoneActionButton";
 
 interface CTALadderProps {
   buildingId: string;
@@ -62,21 +67,17 @@ export function CTALadder({
   }, [buildingId]);
 
   const fp = readSafeLocalStorage("visitorFp") || "anon";
-  const cleanPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, "") : "";
-  const hasValidPhone = cleanPhone.length >= 8;
+  const cleanPhone = sanitizePhoneDigits(brokerPhone);
+  const hasValidPhone = isValidKrPhone(brokerPhone);
   const isVerified = requestConfirmed || serverCookieVerified;
 
-  const handleCallPhone = () => {
+  const handleCallPhoneUnavailable = () => {
     trackTeaserCta(teaserConfigId, fp, "cta_click", { action: "phone_call" });
-    if (hasValidPhone) {
-      window.location.href = `tel:${cleanPhone}`;
-    } else {
-      toast.info(
-        hasImDoc
-          ? "전화번호가 등록되지 않았습니다. IM 요청하기를 이용해 주세요."
-          : "전화번호가 등록되지 않았습니다. 상세 자료 요청을 이용해 주세요."
-      );
-    }
+    toast.info(
+      hasImDoc
+        ? "전화번호가 등록되지 않았습니다. IM 요청하기를 이용해 주세요."
+        : "전화번호가 등록되지 않았습니다. 상세 자료 요청을 이용해 주세요."
+    );
   };
 
   const handleProImRequest = () => {
@@ -93,14 +94,31 @@ export function CTALadder({
         data-testid="public-dealcard-sticky-cta"
         className="grid grid-cols-2 gap-3 pt-2"
       >
-        <button
-          type="button"
-          onClick={handleCallPhone}
-          data-testid="public-dealcard-call-btn"
-          className="min-h-[52px] bg-emerald-600 hover:bg-emerald-500 text-white text-base font-extrabold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
-        >
-          <span>{TERMS.recipientCallCta}</span>
-        </button>
+        {hasValidPhone ? (
+          <PhoneActionButton
+            phone={brokerPhone}
+            variant="compact"
+            showCopyButton={false}
+            callTestId="public-dealcard-call-btn"
+            onCallClick={() =>
+              trackTeaserCta(teaserConfigId, fp, "cta_click", {
+                action: "phone_call",
+              })
+            }
+            className="flex w-full"
+            callClassName="w-full min-h-[52px] bg-emerald-600 hover:bg-emerald-500 text-white text-base font-extrabold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
+            renderCallContent={<span>{TERMS.recipientCallCta}</span>}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleCallPhoneUnavailable}
+            data-testid="public-dealcard-call-btn"
+            className="min-h-[52px] bg-emerald-600 hover:bg-emerald-500 text-white text-base font-extrabold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
+          >
+            <span>{TERMS.recipientCallCta}</span>
+          </button>
+        )}
 
         {isVerified ? (
           <button

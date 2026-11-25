@@ -3,7 +3,7 @@ import { requireBrokerContext, assertOwnsRow, jsonError, notFoundResponse } from
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseIssueDate, todayKst } from "@/lib/magazine/kst";
 import { distributeMagazine, type DistributeMagazineEditionInput } from "@/domain/magazine/distribute-magazine";
-import { enqueueMagazineDispatch } from "@/domain/magazine/distribute-queue";
+import { computeNextKst0830Iso, enqueueMagazineDispatch } from "@/domain/magazine/distribute-queue";
 import { assertPublishable } from "@/lib/legal/publish-gate";
 import { createModuleLogger } from "@/lib/logger";
 
@@ -102,8 +102,9 @@ export async function POST(req: NextRequest) {
       target,
     };
 
-    const forceAsync = body.async === true;
-    const forceSync = body.sync === true;
+    const scheduleMorning = body.scheduleMorning === true;
+    const forceAsync = body.async === true || scheduleMorning;
+    const forceSync = body.sync === true && !scheduleMorning;
     let useAsyncQueue = forceAsync;
     if (!forceAsync && !forceSync) {
       const { count: activeSubCount } = await supabase
@@ -117,7 +118,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (useAsyncQueue) {
-      const queueRes = await enqueueMagazineDispatch(supabase, ctx.slug, edition);
+      const scheduledForIso = scheduleMorning ? computeNextKst0830Iso() : undefined;
+      const queueRes = await enqueueMagazineDispatch(
+        supabase,
+        ctx.slug,
+        edition,
+        scheduledForIso ? { scheduledForIso } : undefined,
+      );
       if (queueRes.queueUnavailable) {
         // D2 사전 컷오버: 대기열 스키마(000003) 미적용 → 기존 동기 발송 경로로 폴백(아래로 진행)
         log.warn(`[api/broker/magazine/distribute] queue unavailable — falling back to sync send for ${ctx.slug}`);
@@ -135,6 +142,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           asyncQueued: true,
+          ...(scheduledForIso ? { scheduledForIso } : {}),
           published,
           dryRun: queueRes.dryRun,
           subscriberCount: queueRes.subscriberCount,

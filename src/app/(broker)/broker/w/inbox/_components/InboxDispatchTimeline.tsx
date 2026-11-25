@@ -40,11 +40,20 @@ export function InboxDispatchTimeline({
   const filteredEvents = thread.events.filter((ev) => {
     if (activityFilter === "all") return true;
     const isMemo =
+      ev.id.startsWith("ev-note-") ||
       ev.description.startsWith("통화 기록:") ||
-      ev.description.includes("고객 직접 등록") ||
-      (ev.eventType === "dwell" && !ev.sectionName);
+      ev.description.includes("고객 직접 등록");
     if (activityFilter === "memo") return isMemo;
-    if (activityFilter === "view") return !isMemo;
+    if (activityFilter === "view") {
+      return (
+        !isMemo &&
+        (ev.eventType === "open" || ev.eventType === "dwell") &&
+        !ev.description.includes("잠갔습니다") &&
+        !ev.description.includes("다시 열었습니다") &&
+        !ev.description.includes("정정") &&
+        !ev.description.includes("수신")
+      );
+    }
     return false;
   });
 

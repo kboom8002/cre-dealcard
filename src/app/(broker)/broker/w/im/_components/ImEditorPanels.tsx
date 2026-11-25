@@ -429,13 +429,13 @@ export function ImEditorPanels({
           [
             {
               id: "specs",
-              label: "① 표지·기본정보",
+              label: "1단계 표지·기본정보",
               sub: "제목·주소·희망가",
               done: Boolean(address.trim() && askingPriceManwon > 0),
             },
             {
               id: "rentroll",
-              label: "② 층별 임대현황",
+              label: "2단계 층별 임대현황",
               sub: `총 ${rentRoll.length}층·엑셀 불러오기`,
               done: rentRoll.some(
                 (r) =>
@@ -446,14 +446,14 @@ export function ImEditorPanels({
             },
             {
               id: "axios_brief",
-              label: "③ 장점 3가지",
+              label: "3단계 장점 3가지",
               sub: "장점 3가지·중개의견",
               done:
                 axiosHighlights.filter((h) => h.headline.trim().length > 0).length >= 3,
             },
             {
               id: "media_publish",
-              label: "④ 사진·위치·만들기",
+              label: "4단계 사진·위치·만들기",
               sub: `사진 ${photoNames.length}장`,
               done: photoNames.length > 0 || currentItem?.status === "published",
             },
@@ -1161,7 +1161,7 @@ export function ImEditorPanels({
             }}
             className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] disabled:opacity-40 disabled:cursor-not-allowed text-white text-base font-extrabold transition cursor-pointer"
           >
-            다음 단계 (② 층별 임대현황) →
+            다음 단계 (2단계 층별 임대현황) →
           </button>
         </div>
       </div>
@@ -1677,12 +1677,12 @@ export function ImEditorPanels({
             }}
             className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
           >
-            다음 단계 (③ 장점 3가지) →
+            다음 단계 (3단계 장점 3가지) →
           </button>
         </div>
       </div>
 
-      {/* ── TAB 3 PANEL: ③ 핵심 장점·중개의견 ── */}
+      {/* ── TAB 3 PANEL: 3단계 핵심 장점·중개의견 ── */}
       <div
         data-testid="im-tab-panel-axios-brief"
         className={
@@ -1698,7 +1698,7 @@ export function ImEditorPanels({
             className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start justify-between gap-3 text-sm font-semibold text-blue-950"
           >
             <span className="leading-relaxed">
-              ✓ 현행 임대차 기준으로 ③ 장점 3가지 단계로 이동했습니다. (선택 사항인 기대수익률 임대차는 필요할 때 언제든 ②단계 상단 탭에서 추가할 수 있습니다.)
+              ✓ 현행 임대차 기준으로 3단계 장점 3가지로 이동했습니다. (선택 사항인 기대수익률 임대차는 필요할 때 언제든 2단계 상단 탭에서 추가할 수 있습니다.)
             </span>
             <button
               type="button"
@@ -2000,7 +2000,7 @@ export function ImEditorPanels({
             }}
             className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-base font-extrabold transition cursor-pointer"
           >
-            다음 단계 (④ 사진·위치·만들기) →
+            다음 단계 (4단계 사진·위치·만들기) →
           </button>
         </div>
       </div>

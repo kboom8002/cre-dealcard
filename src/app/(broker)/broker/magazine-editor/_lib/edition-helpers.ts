@@ -319,6 +319,7 @@ export async function dispatchEditionDistribution(params: {
   targetSegment: NewsletterTargetSegment;
   effectiveSlotSlug: string;
   publicUrl: string;
+  scheduleMorning?: boolean;
   isUuidLike: (val: string | null | undefined) => boolean;
 }): Promise<{
   distAttempted: boolean;
@@ -336,6 +337,7 @@ export async function dispatchEditionDistribution(params: {
     targetSegment,
     effectiveSlotSlug,
     publicUrl,
+    scheduleMorning,
     isUuidLike,
   } = params;
 
@@ -345,6 +347,7 @@ export async function dispatchEditionDistribution(params: {
   if (savedEditionId && isUuidLike(savedEditionId)) {
     distAttempted = true;
     try {
+      const cleanBriefing = briefingSnippet.trim();
       const distRes = await fetch("/api/broker/magazine/distribute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -352,10 +355,11 @@ export async function dispatchEditionDistribution(params: {
           editionId: savedEditionId,
           editionType: cadence,
           title: headline.trim(),
-          headline: briefingSnippet || headline.trim(),
+          ...(cleanBriefing ? { headline: cleanBriefing } : {}),
           market_temp: marketTemp ?? undefined,
           date: savedIssueDate,
           target: targetSegment,
+          ...(scheduleMorning ? { scheduleMorning: true } : {}),
         }),
       });
       distStatus = distRes.status;
@@ -369,9 +373,27 @@ export async function dispatchEditionDistribution(params: {
     }
   }
 
-  const outcome = distAttempted
+  let outcome = distAttempted
     ? formatDistributeOutcomeBanner(distJson, distStatus || 500, publicUrl)
     : null;
+
+  const scheduledForIso =
+    typeof distJson?.scheduledForIso === "string" && distJson.scheduledForIso.trim()
+      ? distJson.scheduledForIso.trim()
+      : null;
+  if (outcome && scheduledForIso && distJson?.asyncQueued === true) {
+    const kstLabel = formatScheduledKstLabel(scheduledForIso);
+    const queuedCount = outcome.queued;
+    const msg =
+      queuedCount > 0
+        ? `오전 08:30 예약 발송이 등록되었습니다. (${kstLabel} · 구독자 ${queuedCount.toLocaleString("ko-KR")}건 대기열 등록)`
+        : `웹 발행을 완료했습니다. (${kstLabel} 오전 08:30 예약 발송 기준 등록 · 대기열 ${queuedCount}건)`;
+    outcome = {
+      ...outcome,
+      title: `오전 08:30 예약 발송 등록 (${kstLabel})`,
+      message: msg,
+    };
+  }
 
   const sentCount = outcome?.sent ?? 0;
   const queuedCount = outcome?.queued ?? 0;
@@ -405,6 +427,23 @@ export async function dispatchEditionDistribution(params: {
   return { distAttempted, distStatus, distJson, outcome };
 }
 
+function formatScheduledKstLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "오전 08:30 (KST)";
+  try {
+    return new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+  } catch {
+    return iso.slice(0, 16).replace("T", " ");
+  }
+}
+
 /**
  * 발송 API + 카카오톡/링크 복사 결과를 종합해 최종 상태 배너를 산출한다.
  */
@@ -418,6 +457,10 @@ export function resolveSendCompletionBanner(params: {
   const { distStatus, distJson, outcome, shareResult, publicUrl } = params;
   const sentCount = outcome?.sent ?? 0;
   const queuedCount = outcome?.queued ?? 0;
+  const scheduledForIso =
+    typeof distJson?.scheduledForIso === "string" && distJson.scheduledForIso.trim()
+      ? distJson.scheduledForIso.trim()
+      : null;
 
   if (distStatus === 422) {
     return buildApiErrorStatusBanner(
@@ -425,6 +468,14 @@ export function resolveSendCompletionBanner(params: {
       distJson,
       outcome?.message || "발송 요건을 충족하지 못했습니다.",
     );
+  }
+  if (scheduledForIso && distJson?.asyncQueued === true) {
+    const kstLabel = formatScheduledKstLabel(scheduledForIso);
+    return {
+      tone: "success",
+      message: `오전 08:30 예약 발송 등록 완료 (${kstLabel} KST · 대상 ${queuedCount.toLocaleString("ko-KR")}건 대기열 등록)`,
+      ...(queuedCount === 0 ? { fallbackUrl: publicUrl } : {}),
+    };
   }
   if (outcome) {
     return {

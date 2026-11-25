@@ -8,6 +8,7 @@ import {
 } from '@/lib/magazine/send-flags';
 import { isQuietHoursKst, toKstDate, todayKst } from '@/lib/magazine/kst';
 import { isRateLimitErrorDetail, resolveBaseUrl } from '@/domain/magazine/send-batch';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { hashRecipient, normalizeRecipient } from '@/domain/magazine/send-gate';
 import { buildListUnsubscribeHeaders, buildUnsubscribeUrl, issueUnsubToken } from '@/domain/magazine/unsub-token';
 import { isEmailSuppressed } from '@/lib/legal/email-suppression';
@@ -386,7 +387,7 @@ async function handleConsentReconfirm2Yr(req: NextRequest) {
   const cutoffIso = new Date(now.getTime() - TWENTY_THREE_MONTHS_MS).toISOString();
   const nowIso = now.toISOString();
   const allowlist = getMagazineSendAllowlist();
-  const baseUrl = resolveBaseUrl() || process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') || 'https://credeal.net';
+  const baseUrl = resolveBaseUrl() || getCanonicalSiteUrl();
   const paceMs = resolveReconfirmPaceMs();
   const timeBudgetMs = resolveReconfirmTimeBudgetMs();
 

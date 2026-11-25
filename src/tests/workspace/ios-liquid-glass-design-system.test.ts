@@ -26,6 +26,7 @@ describe("Apple iOS SOTA 'Cupertino Daylight & Spatial Liquid Glass' Design Syst
   const brokerSeniorLayout = readProjectFile("src/components/layout/BrokerSeniorLayout.tsx");
   const workspaceBottomNav = readProjectFile("src/components/workspace/WorkspaceBottomNav.tsx");
   const brokerHome4Doors = readProjectFile("src/app/(broker)/broker/_components/BrokerHome4Doors.tsx");
+  const workspaceIdentity = readProjectFile("src/lib/ux/workspace-identity.ts");
 
   it("LG-01: globals.css defines Cupertino Daylight & Spatial Liquid Glass tokens (--ios-*) and reusable glass utilities", () => {
     // Positive assertions: Core iOS palette & glass tokens
@@ -102,14 +103,19 @@ describe("Apple iOS SOTA 'Cupertino Daylight & Spatial Liquid Glass' Design Syst
     expect(brokerSeniorLayout).not.toContain("bg-[#F3F2EE]");
   });
 
-  it("LG-05: BrokerHome4Doors replaces thick rainbow borders with Spatial Liquid Glass Cards and System Accents", () => {
+  it("LG-05: BrokerHome4Doors replaces thick rainbow borders with Spatial Liquid Glass Cards and flat V2 4-color pills", () => {
     // Positive assertions
     expect(brokerHome4Doors).toContain("ios-glass-card");
     expect(brokerHome4Doors).toContain("backdrop-blur-2xl");
     expect(brokerHome4Doors).toContain("from-[#1A88FF] to-[#007AFF]");
-    expect(brokerHome4Doors).toContain("from-[#24B63E] to-[#188C2C]");
-    expect(brokerHome4Doors).toContain("from-[#6B69E6] to-[#4A48C4]");
-    expect(brokerHome4Doors).toContain("from-[#FFAA00] to-[#E68600]");
+    expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.magazine.doorAccentBgClass");
+    expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.dealcards.doorAccentBgClass");
+    expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.im.doorAccentBgClass");
+    expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.inbox.doorAccentBgClass");
+    expect(workspaceIdentity).toContain("bg-[#059669]");
+    expect(workspaceIdentity).toContain("bg-[#B45309]");
+    expect(workspaceIdentity).toContain("bg-[#1D4ED8]");
+    expect(workspaceIdentity).toContain("bg-[#BE185D]");
 
     // Negative pair: Old thick pastel border classes are completely removed from 4-Door hub
     expect(brokerHome4Doors).not.toContain("border-blue-300 hover:border-blue-500 bg-white");

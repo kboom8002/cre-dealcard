@@ -20,7 +20,7 @@ export function QuickStatutorySetupCard({
   const router = useRouter();
   const init = statutory.initialValues;
 
-  const [displayName] = useState(init.displayName || "");
+  const [displayName, setDisplayName] = useState(init.displayName || "");
   const [company, setCompany] = useState(init.company || "");
   const [isSelfRepresentative, setIsSelfRepresentative] = useState<boolean>(() => {
     const cleanRep = (init.representativeName || "").trim();
@@ -176,6 +176,29 @@ export function QuickStatutorySetupCard({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 담당자 성함 */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label htmlFor="quick-setup-display-name" className="block text-sm font-bold text-[#1D1D1F]">
+              담당자 성함 <span className="text-rose-600">*</span>
+            </label>
+            <input
+              id="quick-setup-display-name"
+              data-testid="quick-setup-display-name"
+              type="text"
+              value={displayName}
+              onChange={(e) => {
+                const nextName = e.target.value;
+                setDisplayName(nextName);
+                if (isSelfRepresentative) {
+                  setRepresentativeName(nextName);
+                }
+                setErrorMessage(null);
+              }}
+              placeholder="예: 박성훈"
+              className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-slate-50/70 px-3.5 py-2.5 text-[16px] text-[#1D1D1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30 focus:border-[#007AFF]"
+            />
+          </div>
+
           {/* 1. 중개사무소 명칭 */}
           <div className="space-y-1.5">
             <label htmlFor="quick-setup-company" className="block text-sm font-bold text-[#1D1D1F]">

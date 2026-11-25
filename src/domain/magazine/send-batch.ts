@@ -10,6 +10,7 @@ import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure'
 import { hashEmailForSuppression, loadSuppressedEmailHashesForBroker } from '@/lib/legal/email-suppression';
 import { maskAddress, redactPiiInText } from '@/lib/magazine/pii';
 import type { MagazineDbClient } from './types';
+import { formatShortIssueSource } from './issue-clustering';
 import { renderMagazineEmail, renderMagazineKakaoText, type MagazineEmailInput } from './email-template';
 import type { MagazineDealInput } from './templates/types';
 import { buildListUnsubscribeHeaders, buildUnsubscribeUrl, issueUnsubToken } from './unsub-token';
@@ -138,21 +139,47 @@ export async function loadBrokerIdentity(supabase: MagazineDbClient, brokerKey: 
   };
 }
 
+export interface HydratedOutboundDeal extends MagazineDealInput {
+  areaLabel?: string;
+  investmentPoint?: string;
+  dealUrl?: string;
+}
+
+export interface HydratedOutboundNews {
+  title?: string;
+  source?: string;
+  brief?: string;
+  url?: string;
+}
+
+export interface HydratedOutboundMonthlyChart {
+  title: string;
+  value?: string;
+  label?: string;
+  deltaText?: string;
+}
+
 export interface HydratedOutboundEdition {
   title?: string;
   headline?: string;
   marketTemp?: string;
+  showMarketTempBadge?: boolean;
   cadence?: string;
   fieldNote?: { question?: string; comment?: string } | null;
-  deals?: MagazineDealInput[];
-  topNews?: Array<{ title?: string; source?: string }>;
+  deals?: HydratedOutboundDeal[];
+  topNews?: HydratedOutboundNews[];
+  monthlyCharts?: HydratedOutboundMonthlyChart[];
 }
 
 const LOT_NUMBER_RE = /\b\d{1,5}(?:-\d{1,4})\b(?:\s*번지)?/g;
 
 function sanitizeOutboundProse(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  return redactPiiInText(raw.replace(LOT_NUMBER_RE, '')).replace(/\s{2,}/g, ' ').trim();
+  return redactPiiInText(raw.replace(LOT_NUMBER_RE, ''))
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
@@ -217,7 +244,7 @@ export async function hydrateEditionForOutboundEmail(
         : Array.isArray(content.teaser_cards)
           ? content.teaser_cards
           : [];
-    const deals: MagazineDealInput[] = [];
+    const deals: HydratedOutboundDeal[] = [];
     for (const item of rawDealsSource.slice(0, 3)) {
       if (!item || typeof item !== 'object') continue;
       const d = item as Record<string, unknown>;
@@ -234,13 +261,33 @@ export async function hydrateEditionForOutboundEmail(
         (typeof d.asset_type === 'string' && d.asset_type.trim()) ||
         '이번 호 추천 매물';
       const cleanDealTitle = sanitizeOutboundProse(rawDealTitle) || '이번 호 추천 매물';
-      const rawPrice = d.priceWon ?? d.price ?? d.sale_price;
+      const rawPrice = d.priceBand ?? d.price_band ?? d.price ?? d.sale_price ?? d.priceWon;
       const price =
         typeof rawPrice === 'number' || typeof rawPrice === 'string' ? rawPrice : undefined;
+      const areaLabelRaw =
+        (typeof d.areaLabel === 'string' && d.areaLabel.trim()) ||
+        (typeof d.area_label === 'string' && d.area_label.trim()) ||
+        '';
+      const areaLabel = areaLabelRaw ? sanitizeOutboundProse(areaLabelRaw) : '';
+      const invPointRaw =
+        (typeof d.investmentPoint === 'string' && d.investmentPoint.trim()) ||
+        (typeof d.investment_point === 'string' && d.investment_point.trim()) ||
+        (typeof d.point === 'string' && d.point.trim()) ||
+        '';
+      const investmentPoint = invPointRaw ? sanitizeOutboundProse(invPointRaw) : '';
+      const dealId = typeof d.id === 'string' ? d.id.trim() : '';
+      const rawDealUrl =
+        (typeof d.dealCardUrl === 'string' && d.dealCardUrl.trim()) ||
+        (typeof d.deal_card_url === 'string' && d.deal_card_url.trim()) ||
+        (typeof d.dealUrl === 'string' && d.dealUrl.trim()) ||
+        (dealId ? `/dc/${encodeURIComponent(dealId)}` : '');
       deals.push({
         title: cleanDealTitle,
         ...(maskedAddr ? { address: maskedAddr } : {}),
         ...(price !== undefined ? { price } : {}),
+        ...(areaLabel ? { areaLabel } : {}),
+        ...(investmentPoint ? { investmentPoint } : {}),
+        ...(rawDealUrl ? { dealUrl: rawDealUrl } : {}),
       });
     }
 
@@ -255,27 +302,79 @@ export async function hydrateEditionForOutboundEmail(
             : Array.isArray(content.news)
               ? content.news
               : [];
-    const topNews: Array<{ title?: string; source?: string }> = [];
-    for (const item of rawNewsSource.slice(0, 3)) {
+    const topNews: HydratedOutboundNews[] = [];
+    for (const item of rawNewsSource.slice(0, 5)) {
       if (!item || typeof item !== 'object') continue;
       const n = item as Record<string, unknown>;
-      const newsTitle = typeof n.title === 'string' ? n.title.trim() : '';
+      const newsTitle = typeof n.title === 'string' ? sanitizeOutboundProse(n.title) : '';
       if (!newsTitle) continue;
+      const rawSources = Array.isArray(n.sources)
+        ? n.sources.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+        : undefined;
+      const newsUrl =
+        typeof n.url === 'string' && /^https?:\/\//i.test(n.url.trim()) ? n.url.trim() : undefined;
       const newsSource =
-        (typeof n.source === 'string' && n.source.trim()) ||
-        (Array.isArray(n.sources) && typeof n.sources[0] === 'string' ? n.sources[0].trim() : '') ||
-        undefined;
-      topNews.push({ title: newsTitle, ...(newsSource ? { source: newsSource } : {}) });
+        formatShortIssueSource({
+          sources: rawSources,
+          source: typeof n.source === 'string' ? n.source : undefined,
+          sourceLabel: typeof n.sourceLabel === 'string' ? n.sourceLabel : undefined,
+          url: newsUrl,
+        }) || undefined;
+      const rawBrief =
+        (typeof n.brief === 'string' && n.brief.trim()) ||
+        (typeof n.summary === 'string' && n.summary.trim()) ||
+        '';
+      const newsBrief = rawBrief ? sanitizeOutboundProse(rawBrief) : '';
+      topNews.push({
+        title: newsTitle,
+        ...(newsSource ? { source: newsSource } : {}),
+        ...(newsBrief ? { brief: newsBrief } : {}),
+        ...(newsUrl ? { url: newsUrl } : {}),
+      });
     }
+
+    const rawChartsSource = Array.isArray(content.monthlyCharts)
+      ? content.monthlyCharts
+      : Array.isArray(content.monthly_charts)
+        ? content.monthly_charts
+        : [];
+    const isMonthlyCadence = (rawCadence ?? '').toLowerCase() === 'monthly';
+    const monthlyCharts: HydratedOutboundMonthlyChart[] = [];
+    if (isMonthlyCadence) {
+      for (const item of rawChartsSource.slice(0, 2)) {
+        if (!item || typeof item !== 'object') continue;
+        const c = item as Record<string, unknown>;
+        if (c.isPlaceholder === true) continue;
+        const chartTitle = typeof c.title === 'string' ? sanitizeOutboundProse(c.title) : '';
+        if (!chartTitle) continue;
+        const hm =
+          c.highlightMetric && typeof c.highlightMetric === 'object'
+            ? (c.highlightMetric as Record<string, unknown>)
+            : null;
+        const val = hm && typeof hm.value === 'string' ? hm.value.trim() : undefined;
+        const lbl = hm && typeof hm.label === 'string' ? hm.label.trim() : undefined;
+        const delta = hm && typeof hm.deltaText === 'string' ? hm.deltaText.trim() : undefined;
+        monthlyCharts.push({
+          title: chartTitle,
+          ...(val ? { value: val } : {}),
+          ...(lbl ? { label: lbl } : {}),
+          ...(delta ? { deltaText: delta } : {}),
+        });
+      }
+    }
+
+    const showMarketTempBadge = content.show_market_temp_badge === true;
 
     return {
       title: rawTitle,
       headline: rawHeadline,
       marketTemp: rawTemp,
+      showMarketTempBadge,
       cadence: rawCadence,
       fieldNote,
       ...(deals.length > 0 ? { deals } : {}),
       ...(topNews.length > 0 ? { topNews } : {}),
+      ...(monthlyCharts.length > 0 ? { monthlyCharts } : {}),
     };
   } catch {
     return {};
@@ -286,15 +385,29 @@ export function mergeHydratedEdition(
   edition: MagazineEmailInput['edition'],
   hydrated: HydratedOutboundEdition,
 ): MagazineEmailInput['edition'] {
+  const edHeadline = (edition.headline ?? '').trim();
+  const dbHeadline = (hydrated.headline ?? '').trim();
+  const mergedHeadline =
+    dbHeadline &&
+    (!edHeadline ||
+      (dbHeadline.includes('\n') && !edHeadline.includes('\n')) ||
+      dbHeadline.length > edHeadline.length)
+      ? dbHeadline
+      : edHeadline || dbHeadline;
   return {
     ...edition,
     title: edition.title || hydrated.title || '',
-    headline: edition.headline || hydrated.headline || '',
+    headline: mergedHeadline,
     marketTemp: edition.marketTemp || hydrated.marketTemp || '',
+    showMarketTempBadge: edition.showMarketTempBadge ?? hydrated.showMarketTempBadge ?? false,
     cadence: edition.cadence || hydrated.cadence,
     fieldNote: edition.fieldNote ?? hydrated.fieldNote ?? undefined,
     deals: edition.deals && edition.deals.length > 0 ? edition.deals : hydrated.deals,
     topNews: edition.topNews && edition.topNews.length > 0 ? edition.topNews : hydrated.topNews,
+    monthlyCharts:
+      edition.monthlyCharts && edition.monthlyCharts.length > 0
+        ? edition.monthlyCharts
+        : hydrated.monthlyCharts,
   };
 }
 

@@ -53,6 +53,7 @@ import {
 import { buildSanitizedImPublicSnapshot } from '@/lib/workspace/summary/patch-upsert-im';
 import {
   applyBrokerExtrasToSections,
+  brokerExtrasToForm,
   parseBrokerExtras,
   type BrokerExtras,
 } from '@/domain/building/mobile-im/broker-extras';
@@ -3005,6 +3006,13 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        const resolvedBrokerExtrasForm =
+          body.brokerExtrasForm && typeof body.brokerExtrasForm === 'object'
+            ? body.brokerExtrasForm
+            : parsedExtras
+              ? brokerExtrasToForm(parsedExtras)
+              : undefined;
+
         const imWorkspacePayload: Record<string, any> = {
           ...dbDocBody,
           title: resolvedTitle,
@@ -3031,6 +3039,8 @@ export async function POST(req: NextRequest) {
             : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
               ? { expectedRentRoll: rawExpectedRentRollSnake }
               : {}),
+          ...(parsedExtras ? { broker_extras: parsedExtras } : {}),
+          ...(resolvedBrokerExtrasForm ? { brokerExtrasForm: resolvedBrokerExtrasForm } : {}),
           sections: pptxSections,
           basicImDocument: basicImDoc,
           ssot_summary: ssotSummary,

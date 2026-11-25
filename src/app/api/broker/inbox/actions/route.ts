@@ -19,6 +19,7 @@ import {
   handleUpsertClientAction,
 } from '@/lib/inbox/inbox-actions-clients';
 import { handleOutboundChannelAction } from '@/lib/inbox/inbox-actions-outbound';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 
 const GATE_ACTIONS = new Set(['approve_gate', 'approve', 'send_im', 'reject_gate', 'reject', 'reset_gate']);
 const REVOKE_ACTIONS = new Set(['revoke_link', 'revoke', 'restore_link', 'unlock_share_link']);
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest) {
       return handleSendDealcardOrMagazineAction({ action, userId, buildingId, threadId, clientId, body });
     }
     if (OUTBOUND_ACTIONS.has(action)) {
-      const origin = req.nextUrl?.origin || process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
+      const origin = req.nextUrl?.origin || getCanonicalSiteUrl();
       return handleOutboundChannelAction({ action, userId, buildingId, threadId, clientId, shareToken, origin, body });
     }
 

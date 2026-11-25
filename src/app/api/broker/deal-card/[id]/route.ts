@@ -8,6 +8,7 @@ import { z } from "zod/v4";
 import { createModuleLogger } from '@/lib/logger';
 import {
   computeCard4Hash,
+  normalizeCard4PointCandidates,
   updateDealCard4,
   type Card4Data,
 } from '@/lib/deal-card/card4-schema';
@@ -81,6 +82,18 @@ const UpdateSchema = z.object({
     landAreaPyung: z.number().optional(),
     priceBand: z.string(),
     points: z.tuple([z.string(), z.string(), z.string()]),
+    pointCandidates: z
+      .array(
+        z.union([
+          z.object({
+            text: z.string().min(1).max(80),
+            axis: z.enum(['yield', 'tenant', 'location', 'scarcity', 'building', 'value']).optional(),
+          }),
+          z.string().max(80),
+        ])
+      )
+      .max(12)
+      .optional(),
     pointTones: z.tuple([
       z.enum(['amber', 'sky', 'mint', 'lavender', 'peach']),
       z.enum(['amber', 'sky', 'mint', 'lavender', 'peach']),
@@ -533,18 +546,27 @@ async function persistStandaloneWorkspaceCard4(params: {
     provenance: { points: ['broker', 'broker', 'broker'] },
     card4_version: 1,
   };
+  const normalizedPatchCandidates =
+    updateData.card4?.pointCandidates !== undefined
+      ? normalizeCard4PointCandidates(updateData.card4.pointCandidates)
+      : normalizeCard4PointCandidates(wsCard4?.pointCandidates);
   const baseCard4: Card4Data = updateData.card4
-    ? {
-        ...fallbackCard4,
-        ...wsCard4,
-        ...updateData.card4,
-        region: updateData.card4.region ?? wsCard4?.region ?? fallbackCard4.region,
-        use: updateData.card4.use ?? wsCard4?.use ?? fallbackCard4.use,
-        priceBand: updateData.card4.priceBand ?? wsCard4?.priceBand ?? fallbackCard4.priceBand,
-        points: updateData.card4.points ?? wsCard4?.points ?? fallbackCard4.points,
-        provenance: updateData.card4.provenance || wsCard4?.provenance || fallbackCard4.provenance,
-        card4_version: wsCard4?.card4_version || fallbackCard4.card4_version || 1,
-      }
+    ? (() => {
+        const { pointCandidates: _rawInCand, ...restCard4Input } = updateData.card4;
+        void _rawInCand;
+        return {
+          ...fallbackCard4,
+          ...wsCard4,
+          ...restCard4Input,
+          pointCandidates: normalizedPatchCandidates,
+          region: updateData.card4.region ?? wsCard4?.region ?? fallbackCard4.region,
+          use: updateData.card4.use ?? wsCard4?.use ?? fallbackCard4.use,
+          priceBand: updateData.card4.priceBand ?? wsCard4?.priceBand ?? fallbackCard4.priceBand,
+          points: updateData.card4.points ?? wsCard4?.points ?? fallbackCard4.points,
+          provenance: updateData.card4.provenance || wsCard4?.provenance || fallbackCard4.provenance,
+          card4_version: wsCard4?.card4_version || fallbackCard4.card4_version || 1,
+        };
+      })()
     : {
         ...fallbackCard4,
         ...wsCard4,
@@ -570,8 +592,16 @@ async function persistStandaloneWorkspaceCard4(params: {
   const normalized = normalizeDealCardCopy(baseCard4, { fillHeadline: true });
   const nextVersion = (baseCard4.card4_version || 1) + 1;
   const nextHash = computeCard4Hash(normalized);
+  const finalCandidates = normalizeCard4PointCandidates(
+    updateData.card4?.pointCandidates !== undefined
+      ? updateData.card4.pointCandidates
+      : normalized.pointCandidates,
+  );
+  const { pointCandidates: _rawStandCandidates, ...restNormalized } = normalized;
+  void _rawStandCandidates;
   const nextCard4: Card4Data = {
-    ...normalized,
+    ...restNormalized,
+    ...(finalCandidates && finalCandidates.length > 0 ? { pointCandidates: finalCandidates } : {}),
     ...(updateData.card4?.pointTones ? { pointTones: updateData.card4.pointTones } : {}),
     ...(updateData.card4?.pointBriefs ? { pointBriefs: updateData.card4.pointBriefs } : {}),
     card4_version: nextVersion,
@@ -766,6 +796,7 @@ function validateDealCardPatchInput(
       updateData.card4.headline || '',
       updateData.card4.area || '',
       ...updateData.card4.points,
+      ...(updateData.card4.pointCandidates ?? []).map((c) => (typeof c === 'string' ? c : c.text)),
       // WP-7.3C P1-5: pointBriefs flow into the published snapshot too.
       ...(updateData.card4.pointBriefs ?? [])
     );
@@ -1080,10 +1111,18 @@ export async function PATCH(
             { status: 409 }
           );
         }
+        const normalizedUuidCandidates = normalizeCard4PointCandidates(
+          updateData.card4.pointCandidates !== undefined
+            ? updateData.card4.pointCandidates
+            : prevDraftCard4.pointCandidates
+        );
+        const { pointCandidates: _rawPubInputCand, ...restUuidUpdateCard4 } = updateData.card4;
+        void _rawPubInputCand;
         const normalizedDraft = normalizeDealCardCopy(
           {
             ...prevDraftCard4,
-            ...updateData.card4,
+            ...restUuidUpdateCard4,
+            pointCandidates: normalizedUuidCandidates,
             provenance:
               updateData.card4.provenance ||
               prevDraftCard4.provenance || { points: ['broker', 'broker', 'broker'] },
@@ -1092,16 +1131,30 @@ export async function PATCH(
         );
         nextVersionOut = (currentVer || 1) + 1;
         nextHashOut = computeCard4Hash(normalizedDraft);
+        const { pointCandidates: _rawPubCand, ...restDraft } = normalizedDraft;
+        void _rawPubCand;
         mergedCard4 = {
-          ...normalizedDraft,
+          ...restDraft,
+          ...(normalizedUuidCandidates && normalizedUuidCandidates.length > 0
+            ? { pointCandidates: normalizedUuidCandidates }
+            : {}),
           ...(updateData.card4.pointTones ? { pointTones: updateData.card4.pointTones } : {}),
           ...(updateData.card4.pointBriefs ? { pointBriefs: updateData.card4.pointBriefs } : {}),
           card4_version: nextVersionOut,
           card4_hash: nextHashOut,
         };
       } else {
+        const normalizedUuidCandidates =
+          updateData.card4.pointCandidates !== undefined
+            ? normalizeCard4PointCandidates(updateData.card4.pointCandidates)
+            : undefined;
         const card4Result = await updateDealCard4(serviceClient, targetBuildingId, {
-          card4: updateData.card4,
+          card4: {
+            ...updateData.card4,
+            ...(normalizedUuidCandidates !== undefined
+              ? { pointCandidates: normalizedUuidCandidates }
+              : { pointCandidates: undefined }),
+          },
           expectedVersion: updateData.expectedVersion,
           userId: guard.user!.id,
         });
@@ -1123,9 +1176,13 @@ export async function PATCH(
 
         nextVersionOut = card4Result.version;
         nextHashOut = card4Result.hash;
+        const preservedCandidates = card4Result.card4?.pointCandidates ?? normalizedUuidCandidates;
         mergedCard4 = card4Result.card4
           ? {
               ...card4Result.card4,
+              ...(preservedCandidates && preservedCandidates.length > 0
+                ? { pointCandidates: preservedCandidates }
+                : {}),
               ...(updateData.card4.pointTones ? { pointTones: updateData.card4.pointTones } : {}),
               ...(updateData.card4.pointBriefs ? { pointBriefs: updateData.card4.pointBriefs } : {}),
             }

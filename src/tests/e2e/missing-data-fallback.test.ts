@@ -435,7 +435,8 @@ describe('R4: Programmatic Missing-Data Fallback Test Suite (Rule 7 Positive/Neg
       expect(output.slideCount).toBe(9);
 
       const slideTexts = await extractSlideTexts(output.buffer);
-      expect(slideTexts[6].text).toContain('공시지가');
+      expect(slideTexts[6].text).toMatch(/한국부동산원|R-ONE/);
+      expect(slideTexts[6].text).toContain('지가변동률');
     });
 
     it('[Negative] Missing land price history (hasLandHistory=false) -> zero G54 excuses, safe bottom height <= 6.75"', async () => {

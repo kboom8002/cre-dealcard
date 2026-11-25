@@ -150,10 +150,10 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
       expect(primaryTabs).not.toBeNull();
       const tabButtons = primaryTabs!.querySelectorAll('button');
       expect(tabButtons.length).toBe(4);
-      expect(primaryTabs?.textContent).toContain('① 표지·기본정보');
-      expect(primaryTabs?.textContent).toContain('② 층별 임대현황');
-      expect(primaryTabs?.textContent).toContain('③ 장점 3가지');
-      expect(primaryTabs?.textContent).toContain('④ 사진·위치·만들기');
+      expect(primaryTabs?.textContent).toContain('1단계 표지·기본정보');
+      expect(primaryTabs?.textContent).toContain('2단계 층별 임대현황');
+      expect(primaryTabs?.textContent).toContain('3단계 장점 3가지');
+      expect(primaryTabs?.textContent).toContain('4단계 사진·위치·만들기');
 
       // Single-line IM cover title input exists
       const titleInput = container.querySelector(
@@ -217,31 +217,16 @@ describe('Workspace Trio Advancement (DealCard · IM · Client Inbox)', () => {
 
       // Column 1: Todo summary card + 3-way filter tabs
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
-      expect(listSlot?.textContent).toContain('지금 할 일 1건');
+      expect(listSlot?.textContent).toContain('IM 승인 대기 1건');
 
       const filterTabs = container.querySelector('[data-testid="inbox-filter-tabs"]');
       expect(filterTabs).not.toBeNull();
-      expect(filterTabs?.textContent).toContain('할 일');
-      expect(filterTabs?.textContent).toContain('열람');
-      expect(filterTabs?.textContent).toContain('전체 고객');
+      expect(filterTabs?.textContent).toContain('전체 (1)');
+      expect(filterTabs?.textContent).toContain('연락처 고객 (1)');
+      expect(filterTabs?.textContent).toContain('익명 열람 (0)');
 
-      // Column 2: 3 Primary Top Tabs (할 일 · 메시지 · 기록)
-      const primaryTabs = container.querySelector('[data-testid="inbox-editor-primary-tabs"]');
-      expect(primaryTabs).not.toBeNull();
-      const tabButtons = primaryTabs!.querySelectorAll('button');
-      expect(tabButtons.length).toBe(3);
-      expect(primaryTabs?.textContent).toContain('할 일');
-      expect(primaryTabs?.textContent).toContain('메시지');
-      expect(primaryTabs?.textContent).toContain('기록');
-
-      // Switch to Tab 2 (메시지) and verify Kakao message inputs
-      const messageTabBtn = container.querySelector(
-        '[data-testid="inbox-editor-tab-message"]'
-      ) as HTMLButtonElement;
-      await act(async () => {
-        messageTabBtn.click();
-      });
-
+      // Column 2: Single-canvas editor with outbound message panel & Kakao message inputs
+      expect(container.querySelector('[data-testid="inbox-tab-panel-message"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="inbox-kakao-headline-input"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="inbox-kakao-brief-input"]')).not.toBeNull();
 

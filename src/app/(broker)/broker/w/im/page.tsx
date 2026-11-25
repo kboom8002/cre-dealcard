@@ -52,6 +52,7 @@ import {
   buildAddedPhotoEntries,
   buildBasicImSlides,
   buildFallbackImHighlights,
+  buildImPostitStyles,
   buildImSyncUnits,
   buildPhotosPayloadFromEntries,
   cleanBrokerPlaceholder,
@@ -65,8 +66,10 @@ import {
   parseKrwInputToManwon,
   processAndUploadPhotoFile,
   reorderPhotoEntryList,
+  resolveImCadastralImageUrl,
   resolveKnownTestAssetUrl,
   sanitizePhotosForSync,
+  sumRentRollMetric,
   type ImAxiosHighlight,
   type ImEditorTabKey,
   type ImListItem,
@@ -80,6 +83,7 @@ import { ImPreviewPane, ImPreviewTabSwitcher, type ImPostitStyle } from "./_comp
 import { ImSlideVisualCard } from "./_components/ImSlideVisualCard";
 import { ImBottomActionBar } from "./_components/ImBottomActionBar";
 import {
+  ImEditorHeaderActions,
   buildDuplicatedImItem,
 } from "./_components/ImEditorHeaderActions";
 import { ImWorkspaceModals } from "./_components/ImWorkspaceModals";
@@ -127,33 +131,15 @@ export function mintDuplicateImIds(sourceBuildingId?: string | null): {
   };
 }
 
-function sumRentRollMetric(
-  rows: RentRollRowItem[],
-  field: "monthlyRentManwon" | "depositManwon",
-  legacyField: "rent_manwon" | "deposit_manwon"
-): number {
-  return (
-    Math.round(
-      rows.reduce(
-        (s, r) =>
-          s +
-          (r.status !== "vacant" && r.status !== "owner"
-            ? Number(r[field] ?? (r as unknown as Record<string, unknown>)[legacyField] ?? 0)
-            : 0),
-        0
-      ) * 10
-    ) / 10
-  );
-}
-
 function ImWorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showUndoToast } = useUndoToast();
 
   const buildingIdParam = searchParams.get("buildingId") || searchParams.get("id");
+  const newParam = searchParams.get("new");
   const isFreshParam =
-    searchParams.get("fresh") === "1" || searchParams.get("new") === "1";
+    searchParams.get("fresh") === "1" || newParam === "1" || newParam === "true";
   const currentUserIdRef = useRef<string | null>(getLastActiveBrokerUserId());
   const hydratedUserIdRef = useRef<string | null>(currentUserIdRef.current);
   // Deterministic SSR/CSR initial state: fresh draft creation runs post-mount in useImServerHydration
@@ -182,6 +168,7 @@ function ImWorkspaceInner() {
   const inFlightSelfUrlIdsRef = useRef<Set<string>>(new Set());
   const initialHydrationDoneRef = useRef<boolean>(false);
   const storageQuotaNotifiedRef = useRef<boolean>(false);
+  const photosClearedIdsRef = useRef<Set<string>>(new Set());
 
   const [previewTab, setPreviewTab] = useState<"mobile" | "pptx">("mobile");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -708,6 +695,9 @@ function ImWorkspaceInner() {
         sanitizedDraft.hasUnpublishedEdits === true
           ? { ...sanitizedDraft, status: "draft" as const }
           : sanitizedDraft;
+      const photosExplicitlyCleared =
+        photosClearedIdsRef.current.has(draftItem.id) &&
+        (!Array.isArray(sanitizedDraft.photos) || sanitizedDraft.photos.length === 0);
       const res = await fetch("/api/broker/workspace/summary", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -716,6 +706,7 @@ function ImWorkspaceInner() {
           buildingId: targetBid,
           imId: draftItem.id,
           imItem: imPayloadForSync,
+          ...(photosExplicitlyCleared ? { photosExplicitlyCleared: true } : {}),
         }),
       });
       if (!res.ok) {
@@ -1482,6 +1473,7 @@ function ImWorkspaceInner() {
   ) => {
     if (files.length === 0) return;
     const targetId = currentItem?.id || selectedIdRef.current;
+    photosClearedIdsRef.current.delete(targetId);
     const baseEntries = latestPhotoEntriesRef.current;
     const addedEntries = buildAddedPhotoEntries(files, baseEntries, forcedCategory);
     const mergedEntries = [...baseEntries, ...addedEntries];
@@ -1606,10 +1598,14 @@ function ImWorkspaceInner() {
     latestPhotoEntriesRef.current = nextEntries;
     setPhotoNames(nextNames);
     setPhotoEntries(nextEntries);
+    const sanitizedNext = sanitizePhotosForSync(nextEntries);
+    if (nextEntries.length === 0) {
+      photosClearedIdsRef.current.add(targetId);
+    }
     syncCurrentItemPatch(
       {
         photoNames: nextNames,
-        photos: sanitizePhotosForSync(nextEntries),
+        photos: sanitizedNext,
       },
       targetId
     );
@@ -2277,7 +2273,7 @@ function ImWorkspaceInner() {
   const executeDeleteIm = (target: ImListItem) => {
     const prevItems = [...items];
     const prevSelectedId = selectedId;
-    const remaining = items.filter((it) => it.id !== target.id);
+    const remaining = sortImWorkspaceItems(items.filter((it) => it.id !== target.id));
     const fallbackFreshIds = remaining.length === 0 ? mintUniqueFreshImIds() : null;
     const next =
       remaining.length > 0
@@ -2544,38 +2540,7 @@ function ImWorkspaceInner() {
     },
   });
 
-  const highlight2CategoryLabel =
-    normalizedPosture === "owner_occupied"
-      ? "장점 02 · 사옥 활용·입주"
-      : normalizedPosture === "development" ||
-        normalizedPosture === "trading" ||
-        normalizedPosture === "operating"
-      ? "장점 02 · 개발·토지 가치"
-      : "장점 02 · 수익률";
-
-  const postitStyles: Record<"amber" | "sky" | "mint", ImPostitStyle> = {
-    amber: {
-      bg: "rgba(255, 149, 0, 0.085)",
-      border: "rgba(255, 149, 0, 0.28)",
-      badgeBg: "rgba(255, 149, 0, 0.14)",
-      badgeText: "#8A4B00",
-      label: "장점 01 · 입지·임차",
-    },
-    sky: {
-      bg: "rgba(0, 122, 255, 0.08)",
-      border: "rgba(0, 122, 255, 0.25)",
-      badgeBg: "rgba(0, 122, 255, 0.14)",
-      badgeText: "#0040DD",
-      label: highlight2CategoryLabel,
-    },
-    mint: {
-      bg: "rgba(40, 205, 65, 0.085)",
-      border: "rgba(40, 205, 65, 0.28)",
-      badgeBg: "rgba(40, 205, 65, 0.14)",
-      badgeText: "#116B22",
-      label: "장점 03 · 건물·토지 가치",
-    },
-  };
+  const postitStyles = buildImPostitStyles(normalizedPosture);
 
   const cleanCoverTitle =
     (imTitle.trim() && imTitle.trim() !== "새 IM" ? imTitle.trim() : "") ||
@@ -2637,6 +2602,13 @@ function ImWorkspaceInner() {
         listTitle="매물 선택"
         editorTitle="내용 입력"
         previewTitle="미리보기 · 발행"
+        editorHeaderActions={
+          <ImEditorHeaderActions
+            currentItem={currentItem}
+            onDuplicate={handleDuplicateIm}
+            onDelete={handleDeleteIm}
+          />
+        }
         listSlot={
           <ImListSidebar
             filteredItems={filteredItems}
@@ -2881,10 +2853,8 @@ function ImWorkspaceInner() {
             compRows={brokerExtrasForm.compRows || []}
             lat={currentItem?.lat}
             lng={currentItem?.lng}
-            cadastralImageUrl={
-              (currentItem?.brokerExtras?.enrichment?.cadastralMapImage as string | undefined) ||
-              undefined
-            }
+            parcels={parcels ?? currentItem?.parcels}
+            cadastralImageUrl={resolveImCadastralImageUrl(currentItem, parcels)}
             brokerageName={brokerageName}
             brokerName={brokerName}
             brokerPhone={brokerPhone}

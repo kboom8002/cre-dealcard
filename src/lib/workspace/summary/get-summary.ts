@@ -4,6 +4,7 @@ import { isRealProductionRuntime } from "@/lib/env";
 import {
   computeCard4Hash,
   generateAiOgHeadline,
+  normalizeCard4PointCandidates,
   resolveCard4AreaLabel,
   type Card4Data,
   type DealCardGenerationSource,
@@ -285,6 +286,8 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
         : "") ||
       generateAiOgHeadline({ posture, points });
 
+    const hydratedCandidates = normalizeCard4PointCandidates(bodyCard4?.pointCandidates);
+
     const card4: Card4Data = {
       headline,
       posture,
@@ -295,6 +298,9 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
       landAreaPyung,
       priceBand,
       points,
+      ...(hydratedCandidates && hydratedCandidates.length > 0
+        ? { pointCandidates: hydratedCandidates }
+        : {}),
       ...(bodyCard4?.pointTones ? { pointTones: bodyCard4.pointTones } : {}),
       ...(bodyCard4?.pointBriefs ? { pointBriefs: bodyCard4.pointBriefs } : {}),
       provenance: bodyCard4?.provenance || { points: ["public", "broker", "ai"] },
@@ -610,6 +616,10 @@ export async function handleGetWorkspaceSummary(ctx: GetSummaryContext) {
     if (wsItem.status === "archived" || wsItem.deletedAt) continue;
     if (wsItem.kind === "dealcard") {
       mergeWorkspaceDealCard(wsItem, dealcards);
+      if (!wsItem.buildingId && wsItem.legacyId) {
+        const merged = dealcards.find((dc) => dc.canonicalId === wsItem.id);
+        if (merged) merged.id = wsItem.legacyId;
+      }
     }
   }
 

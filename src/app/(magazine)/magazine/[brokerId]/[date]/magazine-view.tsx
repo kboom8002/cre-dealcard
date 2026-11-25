@@ -109,6 +109,15 @@ export function MagazineView({
   const brokerPhone =
     sanitizeStatutoryField(broker.phone, "phone") ||
     sanitizeStatutoryField(brokerVibe?.phone, "phone");
+  const rawMarketTemp =
+    typeof data.market_temp === "string"
+      ? data.market_temp.trim()
+      : typeof data.marketTemp === "string"
+        ? data.marketTemp.trim()
+        : "";
+  const showMarketTempBadge =
+    (data.show_market_temp_badge === true || data.showMarketTempBadge === true) &&
+    rawMarketTemp.length > 0;
   const dateLabel =
     dateLabelProp ??
     resolveEditionPublicDateAndHeader({
@@ -582,6 +591,18 @@ export function MagazineView({
               }
             >
               <time dateTime={date}>{dateLabel}</time>
+              {showMarketTempBadge && (
+                <span
+                  data-testid="viewer-market-temp-badge"
+                  className={
+                    coverImageUrl
+                      ? "inline-flex items-center rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-sm font-bold text-white"
+                      : "inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-sm font-bold text-slate-800"
+                  }
+                >
+                  시장 분위기: {rawMarketTemp}
+                </span>
+              )}
             </p>
             <h1
               data-single-line-title="true"

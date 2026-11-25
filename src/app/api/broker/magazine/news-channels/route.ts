@@ -367,6 +367,7 @@ export async function GET(req: NextRequest) {
     const unitIssues = clusterArticlesIntoFiveIssues(merged, {
       preferredRegions: normalizePreferredRegions(regionsParam),
       preferredChannels: channelsParam.length > 0 ? channelsParam : undefined,
+      toneStance,
     });
 
     return NextResponse.json({
@@ -402,7 +403,14 @@ export async function POST(req: NextRequest) {
     if (action === "refresh") {
       const channel = (typeof body.channel === "string" ? body.channel : "all") as NewsChannelId;
       const query = typeof body.query === "string" ? body.query.trim() : "";
-      const liveItems = await fetchLiveChannelNews({ channel, query });
+      const rawTone =
+        typeof body.tone === "string"
+          ? body.tone
+          : typeof body.toneStance === "string"
+            ? body.toneStance
+            : undefined;
+      const toneStance = rawTone ? normalizeNewsletterToneStance(rawTone) : undefined;
+      const liveItems = await fetchLiveChannelNews({ channel, query, toneStance });
       const merged = enrichNewsPoolWithChannels(liveItems, true);
       return NextResponse.json({
         ok: true,

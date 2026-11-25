@@ -401,7 +401,7 @@ export async function getInboxPendingCount(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let q: any = supabase
             .from("activity_events")
-            .select("id, entity_id, metadata, created_at")
+            .select("id, event_type, entity_id, metadata, created_at")
             .in("event_type", ["gate_request_created", "intent.pro_im_request"]);
           if (typeof q?.or === "function") q = q.or(scopedOrExpr);
           return safeResolveList<ActivityEventRow>(q, 100);
@@ -458,6 +458,9 @@ export async function getInboxPendingCount(
       continue;
     }
     const gateId = String(meta.gate_request_id || ev.entity_id || `gr-act-${ev.id}`);
+    const evType = String(ev.event_type || "gate_request_created");
+    if (isUuid(bId) && (!meta.gate_request_id || isUuid(gateId))) continue;
+    if (evType === "gate_request_created" && isUuid(bId) && isUuid(gateId)) continue;
     if (isUndecided(gateId)) pendingIdSet.add(gateId);
   }
 

@@ -6,13 +6,11 @@ import { ArrowRight } from "lucide-react";
 import { Card4ConfirmCard } from "@/components/broker/deal-card/Card4ConfirmCard";
 import { PairedMemoTopCard } from "@/components/broker/deal-card/PairedMemoTopCard";
 import type { PreviewLifecycleState } from "@/components/workspace/preview-sync/useEditorPreviewSync";
-import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import type { Card4Data, DealCardGenerationSource } from "@/lib/deal-card/card4-schema";
 import type { UnconvertedMemoItem } from "@/lib/deal-card/memo-pairing";
 import type { BuildingListItem } from "./dealcards-types";
 
 export interface DealCardEditorColumnProps {
-  viewMode?: ListViewMode;
   selectedMemoOnly: UnconvertedMemoItem | null;
   activeItem: BuildingListItem | null;
   isSampleCard: boolean;
@@ -39,11 +37,7 @@ export interface DealCardEditorColumnProps {
   onOpenMemoImportModal: () => void;
   onCardChange: (targetId: string, next: Card4Data) => void;
   onFocusEditorUnit: (unitId: string) => void;
-  onDuplicateItem?: (item: BuildingListItem, e: React.MouseEvent) => void;
-  onDeleteItem?: (item: BuildingListItem, e: React.MouseEvent) => void;
-  onDeleteUnconvertedMemo?: (memo: UnconvertedMemoItem, e: React.MouseEvent) => void;
   onOpenImForBuilding: (buildingId: string) => void;
-  isSingleUntouchedStarter?: boolean;
   justRefilledTick?: number;
 }
 

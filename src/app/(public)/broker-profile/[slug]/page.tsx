@@ -13,6 +13,7 @@ import {
 } from "@/domain/public-projection/visibility";
 import { loadPublicBrokerProfile } from "./load-broker-profile";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -196,12 +197,34 @@ export default async function BrokerProfilePage({ params }: PageProps) {
       ? broker.specialtyAssets
       : dealAssetTypes;
   const canonicalSlug = (broker.slug && broker.slug.trim()) || slug;
+  let contactPhone: string | null =
+    typeof (broker as { phone?: unknown }).phone === "string" &&
+    (broker as { phone?: string }).phone!.trim()
+      ? (broker as { phone?: string }).phone!.trim()
+      : null;
+  if (!contactPhone) {
+    try {
+      const { data: phoneRow } = await supabase
+        .from("profiles")
+        .select("phone")
+        .eq("id", profile.id)
+        .limit(1)
+        .maybeSingle();
+      const rawPhone = (phoneRow as { phone?: unknown } | null)?.phone;
+      if (typeof rawPhone === "string" && rawPhone.trim()) {
+        contactPhone = rawPhone.trim();
+      }
+    } catch {
+      // non-blocking when lightweight test mocks omit phone lookup
+    }
+  }
 
   const schemaData = realEstateAgent({
     id: profile.id,
     slug: canonicalSlug,
     display_name: profile.display_name,
     company: broker.company,
+    phone: contactPhone,
     specialty_regions: effectiveRegions,
     bio: broker.bio,
   });
@@ -345,6 +368,17 @@ export default async function BrokerProfilePage({ params }: PageProps) {
         {/* Contact CTA */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 text-center shadow-sm space-y-3">
           <p className="text-sm text-slate-700">이 공인중개사에게 문의하시겠습니까?</p>
+          {contactPhone && (
+            <PhoneActionButton
+              phone={contactPhone}
+              variant="inline"
+              callLabel="📞 전화 문의"
+              copyLabel="번호 복사"
+              cardTestId="broker-profile-phone-cta"
+              callTestId="broker-profile-call-btn"
+              copyTestId="broker-profile-copy-phone-btn"
+            />
+          )}
           <Link
             href={`/expert-note/request?broker=${encodeURIComponent(canonicalSlug)}`}
             className="inline-flex min-h-[48px] items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-6 py-3 text-sm transition-colors active:scale-[0.98]"

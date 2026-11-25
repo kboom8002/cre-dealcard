@@ -32,9 +32,9 @@ describe("SeniorTermTooltip", () => {
   });
 
   describe("Built-in Terms Dictionary Integrity", () => {
-    it("contains all 38 built-in terms with high-quality title, easyMeaning, and tip", () => {
+    it("contains all 39 built-in terms with high-quality title, easyMeaning, and tip", () => {
       const keys = Object.keys(BUILTIN_TERMS);
-      expect(keys.length).toBe(38);
+      expect(keys.length).toBe(39);
 
       for (const [key, entry] of Object.entries(BUILTIN_TERMS)) {
         expect(entry.title, `Term [${key}] must have non-empty title`).toBeTruthy();

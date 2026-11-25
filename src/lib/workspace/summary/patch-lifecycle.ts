@@ -6,6 +6,7 @@ import { assertPublishable } from "@/lib/legal/publish-gate";
 import { evaluateDealCardPublishContent } from "@/lib/deal-card/publish-content-gate";
 import { syncLegacyBuildingPublishedStatus } from "@/lib/deal-card/publish-sync";
 import {
+  normalizeCard4PointCandidates,
   updateDealCard4,
   type Card4Data,
   type DealCardGenerationSource,
@@ -537,8 +538,14 @@ export async function handlePatchWorkspaceLifecycle(
     }
     if (card4) {
       const normalizedSent = normalizeDealCardCopy(card4, { fillHeadline: true });
+      const normalizedSentCandidates = normalizeCard4PointCandidates(card4.pointCandidates);
+      const { pointCandidates: _rawSentCandidates, ...restNormalizedSent } = normalizedSent;
+      void _rawSentCandidates;
       persistedSentCard4 = {
-        ...normalizedSent,
+        ...restNormalizedSent,
+        ...(normalizedSentCandidates && normalizedSentCandidates.length > 0
+          ? { pointCandidates: normalizedSentCandidates }
+          : {}),
         ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
         ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
       };
@@ -555,13 +562,22 @@ export async function handlePatchWorkspaceLifecycle(
               landAreaPyung: persistedSentCard4.landAreaPyung,
               priceBand: persistedSentCard4.priceBand,
               points: persistedSentCard4.points,
+              ...(normalizedSentCandidates !== undefined
+                ? { pointCandidates: normalizedSentCandidates }
+                : {}),
+              ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
+              ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
               provenance: persistedSentCard4.provenance,
             },
             userId,
           });
           if (updRes.card4) {
+            const preservedCandidates = updRes.card4.pointCandidates ?? normalizedSentCandidates;
             persistedSentCard4 = {
               ...updRes.card4,
+              ...(preservedCandidates && preservedCandidates.length > 0
+                ? { pointCandidates: preservedCandidates }
+                : {}),
               ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
               ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
             };

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod/v4';
 import { COMPANY_LEGAL_CONFIG } from '@/config/company-legal';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { PURGE_STORAGE_COOKIE_NAME } from '@/lib/workspace/storage-namespace';
 
@@ -98,12 +99,17 @@ export async function signup(
 
   const { displayName, email, password, role } = parsed.data;
   const nowIso = new Date().toISOString();
+  const safeRedirect = resolveSafeRedirectTarget(
+    formData.get('redirectTo') ?? formData.get('next'),
+    '/broker',
+  );
 
   const supabase = await createServerSupabaseClient();
   const { data: signUpData, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      emailRedirectTo: `${getCanonicalSiteUrl()}/auth/callback?next=${encodeURIComponent(safeRedirect)}`,
       data: {
         display_name: displayName,
         name: displayName,

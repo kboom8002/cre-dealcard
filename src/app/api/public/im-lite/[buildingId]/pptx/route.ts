@@ -630,19 +630,30 @@ export async function GET(
   const broker = quickBrokerContact
     ? {
         display_name: cleanBrokerStr(quickBrokerContact.name ?? quickBrokerContact.brokerName) || cleanBrokerStr(rawDbBroker?.display_name),
+        representative_name:
+          cleanBrokerStr(
+            quickBrokerContact.representative_name ??
+              quickBrokerContact.representativeName ??
+              quickBrokerContact.representative,
+          ) || cleanBrokerStr(rawDbBroker?.representative_name),
         company_name: cleanBrokerStr(quickBrokerContact.company ?? quickBrokerContact.brokerageName) || cleanBrokerStr(rawDbBroker?.company_name),
         phone: cleanBrokerStr(quickBrokerContact.phone ?? quickBrokerContact.brokerPhone) || cleanBrokerStr(rawDbBroker?.phone),
         email: cleanBrokerStr(rawDbBroker?.email),
         registration_no: cleanBrokerStr(quickBrokerContact.registration_no ?? quickBrokerContact.registrationNo) || cleanBrokerStr(rawDbBroker?.registration_no),
+        office_address:
+          cleanBrokerStr(quickBrokerContact.office_address ?? quickBrokerContact.officeAddress) ||
+          cleanBrokerStr(rawDbBroker?.office_address),
         specialty: cleanBrokerStr(rawDbBroker?.specialty),
       }
     : rawDbBroker
     ? {
         display_name: cleanBrokerStr(rawDbBroker.display_name),
+        representative_name: cleanBrokerStr(rawDbBroker.representative_name),
         company_name: cleanBrokerStr(rawDbBroker.company_name),
         phone: cleanBrokerStr(rawDbBroker.phone),
         email: cleanBrokerStr(rawDbBroker.email),
         registration_no: cleanBrokerStr(rawDbBroker.registration_no),
+        office_address: cleanBrokerStr(rawDbBroker.office_address),
         specialty: cleanBrokerStr(rawDbBroker.specialty),
       }
     : null;
@@ -737,8 +748,11 @@ export async function GET(
     if (bodyBroker) {
       const bName =
         cleanBrokerStr(bodyBroker.brokerName) ||
-        cleanBrokerStr(bodyBroker.representative) ||
         (bodyBroker.company ? cleanBrokerStr(bodyBroker.name) : undefined);
+      const bRepName =
+        cleanBrokerStr(bodyBroker.representative_name) ||
+        cleanBrokerStr(bodyBroker.representativeName) ||
+        cleanBrokerStr(bodyBroker.representative);
       const bCompany =
         cleanBrokerStr(bodyBroker.brokerageName) ||
         cleanBrokerStr(bodyBroker.company) ||
@@ -746,13 +760,19 @@ export async function GET(
       const bPhone = cleanBrokerStr(bodyBroker.brokerPhone) || cleanBrokerStr(bodyBroker.phone);
       const bEmail = cleanBrokerStr(bodyBroker.email);
       const bRegNo = cleanBrokerStr(bodyBroker.registrationNo) || cleanBrokerStr(bodyBroker.registration_no);
-      if (bName || bCompany || bPhone || bEmail || bRegNo) {
+      const bOfficeAddress =
+        cleanBrokerStr(bodyBroker.office_address) ||
+        cleanBrokerStr(bodyBroker.officeAddress) ||
+        (body.basicImDocument?.facts?.brokerOffice === bodyBroker ? cleanBrokerStr(bodyBroker.address) : undefined);
+      if (bName || bRepName || bCompany || bPhone || bEmail || bRegNo || bOfficeAddress) {
         effectiveBroker = {
           display_name: bName || effectiveBroker?.display_name,
+          representative_name: bRepName || effectiveBroker?.representative_name,
           company_name: bCompany || effectiveBroker?.company_name,
           phone: bPhone || effectiveBroker?.phone,
           email: bEmail || effectiveBroker?.email,
           registration_no: bRegNo || effectiveBroker?.registration_no,
+          office_address: bOfficeAddress || effectiveBroker?.office_address,
           specialty: effectiveBroker?.specialty,
         };
       }
@@ -766,10 +786,12 @@ export async function GET(
       if (brand?.companyName && (!effectiveBroker || !effectiveBroker.company_name)) {
         effectiveBroker = {
           display_name: effectiveBroker?.display_name,
+          representative_name: effectiveBroker?.representative_name,
           company_name: brand.companyName,
           phone: effectiveBroker?.phone,
           email: effectiveBroker?.email,
           registration_no: effectiveBroker?.registration_no,
+          office_address: effectiveBroker?.office_address,
           specialty: effectiveBroker?.specialty,
         };
       }

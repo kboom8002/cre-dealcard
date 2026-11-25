@@ -267,6 +267,7 @@ export function buildKakaoOutreachPreset(
     buildingTitle?: string;
     shareUrl: string;
     headline?: string;
+    brief?: string;
   }
 ): string {
   const rawName = String(params.clientName ?? "")
@@ -276,6 +277,25 @@ export function buildKakaoOutreachPreset(
   const buildingLabel = String(params.buildingTitle ?? "").trim() || "검토 매물";
   const urlLine = String(params.shareUrl ?? "").trim();
   const headlineLine = String(params.headline ?? "").trim();
+  const briefLine = String(params.brief ?? "").trim();
+
+  if (briefLine) {
+    const hasGreeting =
+      briefLine.includes("안녕하세요") ||
+      (Boolean(rawName) && briefLine.includes(rawName));
+    const urlHeading =
+      kind === "followup_meeting"
+        ? "▼ 자료 다시 보기"
+        : kind === "tour_guide"
+          ? "▼ 위치·제원 요약 보기"
+          : "▼ 자료 바로 보기";
+    return [
+      ...(hasGreeting ? [] : [`${nameLabel}, 안녕하세요. [${buildingLabel}] 안내드립니다.`]),
+      ...(headlineLine ? [headlineLine] : []),
+      briefLine,
+      `${urlHeading}\n${urlLine}`,
+    ].join("\n\n");
+  }
 
   if (kind === "followup_meeting") {
     return [

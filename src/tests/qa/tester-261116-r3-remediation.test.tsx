@@ -40,7 +40,7 @@ import { MonthlyGlassStatCard } from "@/components/magazine/MonthlyGlassStatCard
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
 import { SubscribeFormClient } from "@/app/(magazine)/magazine/[brokerId]/subscribe/SubscribeFormClient";
 import { ContactGateModal } from "@/components/teaser/ContactGateModal";
-import { InboxPreviewColumn } from "@/app/(broker)/broker/w/inbox/_components/InboxPreviewColumn";
+import { InboxEditorColumn } from "@/app/(broker)/broker/w/inbox/_components/InboxEditorColumn";
 import { InboxListColumn } from "@/app/(broker)/broker/w/inbox/_components/InboxListColumn";
 import type { InboxThreadItem } from "@/app/(broker)/broker/w/inbox/_components/inbox-types";
 import { QaFeedbackPinWidget } from "@/components/workspace/QaFeedbackPinWidget";
@@ -338,22 +338,23 @@ describe("Round-3 Tester Feedback Remediation (26-11-16)", () => {
 
     await act(async () => {
       root.render(
-        <InboxPreviewColumn
+        <InboxEditorColumn
           activeThread={thread}
-          activeInboxUnitId={null}
+          inlineActionError={null}
           busyAction={null}
-          showShareSheet={false}
+          kakaoHeadline=""
+          kakaoBrief=""
           subscriptionTier="free"
           outboundEmail=""
           outboundBasis=""
           alimtalkTemplateId="TPL_INBOX_IM_APPROVED"
           copiedBundlePreview={null}
           showAlimtalkUpgradeSheet={false}
-          confirmLockOpen={false}
-          lockEntireBuilding={false}
-          correctionNoticeOpen={false}
-          correctionNoticeText=""
-          onFocusEditorUnit={vi.fn()}
+          onKakaoHeadlineChange={vi.fn()}
+          onKakaoBriefChange={vi.fn()}
+          onApproveAndSendIm={vi.fn()}
+          onRejectRequest={vi.fn()}
+          onArchiveThread={vi.fn()}
           onCopyActiveShareLink={vi.fn()}
           onSendMaterial={vi.fn()}
           onOutboundEmailChange={vi.fn()}
@@ -363,24 +364,11 @@ describe("Round-3 Tester Feedback Remediation (26-11-16)", () => {
           onSendInboxEmail={vi.fn()}
           onSendInboxAlimtalk={vi.fn()}
           onCloseAlimtalkUpgradeSheet={vi.fn()}
-          onToggleNewsletter={vi.fn()}
-          onOpenEditCustomClient={vi.fn()}
-          onRequestDeleteCustomClient={vi.fn()}
-          onOpenConfirmLock={vi.fn()}
-          onCancelConfirmLock={vi.fn()}
-          onLockEntireBuildingChange={vi.fn()}
-          onConfirmLockLink={vi.fn()}
-          onUnlockLink={vi.fn()}
-          onOpenCorrectionNotice={vi.fn()}
-          onCancelCorrectionNotice={vi.fn()}
-          onCorrectionNoticeTextChange={vi.fn()}
-          onPublishCorrectionNotice={vi.fn()}
-          onClearCorrectionNotice={vi.fn()}
         />
       );
     });
 
-    expect(container.textContent).toContain("자료 전달 방법");
+    expect(container.textContent).toContain("1. 보낼 자료 선택");
     expect(
       container.querySelector('[data-testid="inbox-copy-bundle-btn"]')
     ).not.toBeNull();

@@ -463,6 +463,52 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
   }
 }
 
+function buildCadastralMapApiUrl(opts: {
+  pnu?: unknown;
+  pnus?: unknown;
+  parcels?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+}): string | undefined {
+  const directPnu = typeof opts.pnu === "string" ? opts.pnu.replace(/\D/g, "") : "";
+  const parcelFirstPnu =
+    Array.isArray(opts.parcels) && typeof opts.parcels[0]?.pnu === "string"
+      ? String(opts.parcels[0].pnu).replace(/\D/g, "")
+      : "";
+  const pnuList: string[] = [];
+  if (Array.isArray(opts.pnus)) {
+    for (const p of opts.pnus) {
+      const d = typeof p === "string" ? p.replace(/\D/g, "") : "";
+      if (/^\d{19}$/.test(d) && !pnuList.includes(d)) pnuList.push(d);
+    }
+  }
+  if (Array.isArray(opts.parcels)) {
+    for (const pc of opts.parcels) {
+      const d = typeof pc?.pnu === "string" ? String(pc.pnu).replace(/\D/g, "") : "";
+      if (/^\d{19}$/.test(d) && !pnuList.includes(d)) pnuList.push(d);
+    }
+  }
+  const primaryPnu = /^\d{19}$/.test(directPnu)
+    ? directPnu
+    : /^\d{19}$/.test(parcelFirstPnu)
+    ? parcelFirstPnu
+    : pnuList[0] || "";
+  if (!/^\d{19}$/.test(primaryPnu)) return undefined;
+
+  const qs = new URLSearchParams({ pnu: primaryPnu });
+  const extraPnus = pnuList.filter((d) => d !== primaryPnu).slice(0, 9);
+  if (extraPnus.length > 0) {
+    qs.set("pnus", [primaryPnu, ...extraPnus].join(","));
+  }
+  const latNum = Number(opts.lat);
+  const lngNum = Number(opts.lng);
+  if (isValidKoreanCoord(latNum, lngNum)) {
+    qs.set("lat", String(latNum));
+    qs.set("lng", String(lngNum));
+  }
+  return `/api/public/map/cadastral?${qs.toString()}`;
+}
+
 function hydrateQuickRecordToMobileIM(
   buildingIdOrRec: string | StoredQuickImRecord,
   recOrGovernance?: StoredQuickImRecord | DbGovernanceOverlay,
@@ -667,6 +713,40 @@ function hydrateQuickRecordToMobileIM(
     quickRec.fullDocBody?.pnu ||
     quickRec.fullDocBody?.ssot_summary?.pnu ||
     undefined;
+  const resolvedQuickExpectedRentRoll =
+    (quickRec as any).expected_rent_roll ??
+    (quickRec as any).expectedRentRoll ??
+    quickRec.fullDocBody?.expected_rent_roll ??
+    quickRec.fullDocBody?.expectedRentRoll;
+  if (Array.isArray(resolvedQuickExpectedRentRoll) && resolvedQuickExpectedRentRoll.length > 0) {
+    (doc as any).expected_rent_roll = resolvedQuickExpectedRentRoll;
+    (doc as any).expectedRentRoll = resolvedQuickExpectedRentRoll;
+  }
+  const resolvedQuickExpectedRentRollMeta =
+    (quickRec as any).expectedRentRollMeta ??
+    (quickRec as any).expected_rent_roll_meta ??
+    quickRec.fullDocBody?.expected_rent_roll_meta ??
+    quickRec.fullDocBody?.expectedRentRollMeta;
+  if (resolvedQuickExpectedRentRollMeta) {
+    (doc as any).expectedRentRollMeta = resolvedQuickExpectedRentRollMeta;
+    (doc as any).expected_rent_roll_meta = resolvedQuickExpectedRentRollMeta;
+  }
+  const quickCadastralMapImage =
+    quickRec.fullDocBody?.enrichment?.cadastralMapImage ||
+    buildCadastralMapApiUrl({
+      pnu: (doc as any).pnu,
+      pnus: (quickRec as any).pnus ?? quickRec.fullDocBody?.pnus ?? quickRec.fullDocBody?.ssot_summary?.pnus,
+      parcels: (doc as any).parcels,
+      lat: resolvedCoords?.lat,
+      lng: resolvedCoords?.lng,
+    });
+  if (quickCadastralMapImage) {
+    (doc as any).enrichment = {
+      ...((doc as any).enrichment || quickRec.fullDocBody?.enrichment || {}),
+      cadastralMapImage: quickCadastralMapImage,
+    };
+    (doc as any).cadastralMapImage = quickCadastralMapImage;
+  }
   return attachInboxGovernanceOverlay(doc, targetBuildingId, quickRec, dbGovernance, isOwner);
 }
 
@@ -1006,8 +1086,38 @@ export async function fetchIMData(
       wsSnapObj.sections.length > 0 &&
       Boolean(wsSnapObj.blindName);
     if (hasMobileDoc) {
+      const mobileSnapDoc: Record<string, any> = {
+        ...(wsSnapObj as MobileIMDocument),
+        buildingId: wsSnapObj.buildingId || buildingId,
+      };
+      const snapExp = wsSnapObj.expected_rent_roll ?? wsSnapObj.expectedRentRoll;
+      if (Array.isArray(snapExp) && snapExp.length > 0) {
+        mobileSnapDoc.expected_rent_roll = snapExp;
+        mobileSnapDoc.expectedRentRoll = snapExp;
+      }
+      const snapExpMeta = wsSnapObj.expected_rent_roll_meta ?? wsSnapObj.expectedRentRollMeta;
+      if (snapExpMeta) {
+        mobileSnapDoc.expected_rent_roll_meta = snapExpMeta;
+        mobileSnapDoc.expectedRentRollMeta = snapExpMeta;
+      }
+      if (!mobileSnapDoc.enrichment?.cadastralMapImage) {
+        const snapCadastral = buildCadastralMapApiUrl({
+          pnu: mobileSnapDoc.pnu ?? mobileSnapDoc.ssot_summary?.pnu,
+          pnus: mobileSnapDoc.pnus ?? mobileSnapDoc.ssot_summary?.pnus,
+          parcels: mobileSnapDoc.parcels ?? mobileSnapDoc.ssot_summary?.parcels,
+          lat: mobileSnapDoc.coordinates?.lat ?? mobileSnapDoc.lat,
+          lng: mobileSnapDoc.coordinates?.lng ?? mobileSnapDoc.lng,
+        });
+        if (snapCadastral) {
+          mobileSnapDoc.enrichment = {
+            ...(mobileSnapDoc.enrichment || {}),
+            cadastralMapImage: snapCadastral,
+          };
+          mobileSnapDoc.cadastralMapImage = snapCadastral;
+        }
+      }
       return attachInboxGovernanceOverlay(
-        { ...(wsSnapObj as MobileIMDocument), buildingId: wsSnapObj.buildingId || buildingId },
+        mobileSnapDoc as MobileIMDocument,
         buildingId,
         wsSnapObj,
         dbGovernance,
@@ -1058,6 +1168,22 @@ export async function fetchIMData(
         wsItemSource,
         wsSnapObj.brokerProfile || wsItemSource.brokerProfile
       );
+      const wsExp =
+        wsItemSource.expected_rent_roll ??
+        wsItemSource.expectedRentRoll ??
+        wsItemSource.fullDocBody?.expected_rent_roll;
+      if (Array.isArray(wsExp) && wsExp.length > 0) {
+        (synthWs as any).expectedRentRoll = wsExp;
+        (synthWs.fullDocBody as any).expected_rent_roll = wsExp;
+      }
+      const wsExpMeta =
+        wsItemSource.expected_rent_roll_meta ??
+        wsItemSource.expectedRentRollMeta ??
+        wsItemSource.fullDocBody?.expected_rent_roll_meta;
+      if (wsExpMeta) {
+        (synthWs as any).expectedRentRollMeta = wsExpMeta;
+        (synthWs.fullDocBody as any).expected_rent_roll_meta = wsExpMeta;
+      }
       return hydrateQuickRecordToMobileIM(buildingId, synthWs, dbGovernance, wsPriv);
     }
     return null;
@@ -1315,6 +1441,24 @@ export async function fetchIMData(
     ).filter((p: any) => p?.url && p.excluded !== true // 중개인 'IM 제외' 지정 자산 제거 (PPTX resolvePhotos와 동일)
         && isValidPhotoUrl(p.url));
 
+    const resolvedDocPnu = String(
+      document.body.pnu ||
+        ssotSummary.pnu ||
+        (Array.isArray(document.body.parcels) ? document.body.parcels[0]?.pnu : "") ||
+        (Array.isArray(ssotSummary.parcels) ? ssotSummary.parcels[0]?.pnu : "") ||
+        ""
+    ).trim();
+    const resolvedCadastralMapImage =
+      document.body.enrichment?.cadastralMapImage ||
+      (enriched as any)?.cadastralMapImage ||
+      buildCadastralMapApiUrl({
+        pnu: resolvedDocPnu,
+        pnus: document.body.pnus || ssotSummary.pnus,
+        parcels: document.body.parcels || ssotSummary.parcels,
+        lat: finalCoordinates?.lat,
+        lng: finalCoordinates?.lng,
+      });
+
     if (finalCoordinates) {
       const kakaoMapUrl = buildKakaoStaticMapUrl({
         lat: finalCoordinates.lat,
@@ -1326,7 +1470,6 @@ export async function fetchIMData(
       });
       
       const locationMapImage = document.body.enrichment?.locationMapImage;
-      const cadastralMapImage = document.body.enrichment?.cadastralMapImage;
       
       rawPhotos.unshift({
         url: locationMapImage || kakaoMapUrl,
@@ -1335,16 +1478,16 @@ export async function fetchIMData(
         order: -1,
         kakaoMapUrl: locationMapImage ? kakaoMapUrl : undefined,
       });
+    }
 
-      // 지적도는 사진 갤러리 후순위(또는 토지현황 섹션용)로 추가
-      if (cadastralMapImage) {
-        rawPhotos.push({
-          url: cadastralMapImage,
-          type: 'cadastral',
-          label: '지적도',
-          order: 999
-        });
-      }
+    // 지적도는 사진 갤러리 후순위(또는 토지현황 섹션용)로 추가
+    if (resolvedCadastralMapImage) {
+      rawPhotos.push({
+        url: resolvedCadastralMapImage,
+        type: 'cadastral',
+        label: '지적도',
+        order: 999
+      });
     }
 
     const hiddenSectionSet = normalizeHiddenSectionSet(document.body as Record<string, unknown>);
@@ -1592,6 +1735,21 @@ export async function fetchIMData(
       (mappedResult as any).rentRoll = resolvedRentRoll;
       (mappedResult as any).floor_leases = document.body?.floor_leases || resolvedRentRoll;
     }
+    const resolvedDocExpectedRentRoll =
+      document.body?.expected_rent_roll ??
+      document.body?.expectedRentRoll ??
+      ssotSummary?.expected_rent_roll;
+    if (Array.isArray(resolvedDocExpectedRentRoll) && resolvedDocExpectedRentRoll.length > 0) {
+      (mappedResult as any).expected_rent_roll = resolvedDocExpectedRentRoll;
+      (mappedResult as any).expectedRentRoll = resolvedDocExpectedRentRoll;
+    }
+    const resolvedDocExpectedRentRollMeta =
+      document.body?.expected_rent_roll_meta ??
+      document.body?.expectedRentRollMeta;
+    if (resolvedDocExpectedRentRollMeta) {
+      (mappedResult as any).expected_rent_roll_meta = resolvedDocExpectedRentRollMeta;
+      (mappedResult as any).expectedRentRollMeta = resolvedDocExpectedRentRollMeta;
+    }
     if (document.body?.broker_contact) {
       const bc = document.body.broker_contact;
       const prevBroker = (mappedResult.broker || {}) as any;
@@ -1624,7 +1782,13 @@ export async function fetchIMData(
       } as any;
     }
     (mappedResult as any).ssotSummary = ssotSummary;
-    (mappedResult as any).enrichment = document.body.enrichment || enriched || null;
+    const baseEnrichment = document.body.enrichment || enriched || null;
+    (mappedResult as any).enrichment = resolvedCadastralMapImage
+      ? { ...(baseEnrichment || {}), cadastralMapImage: resolvedCadastralMapImage }
+      : baseEnrichment;
+    if (resolvedCadastralMapImage) {
+      (mappedResult as any).cadastralMapImage = resolvedCadastralMapImage;
+    }
 
     const isDocPrivileged = isOwnerOrAdmin(viewer, buildingOwnerId, document?.owner_id);
     const resolvedOverlayUpsert = pickEffectiveImUpsert(isDocPrivileged);
@@ -1654,6 +1818,20 @@ export async function fetchIMData(
         (mappedResult as any).rentRoll = itRentRoll;
         (mappedResult as any).floor_leases =
           Array.isArray(it.floor_leases) && it.floor_leases.length > 0 ? it.floor_leases : itRentRoll;
+      }
+      const itExpectedRentRoll =
+        (Array.isArray(it.expectedRentRoll) && it.expectedRentRoll.length > 0 && it.expectedRentRoll) ||
+        (Array.isArray(it.expected_rent_roll) && it.expected_rent_roll.length > 0 && it.expected_rent_roll) ||
+        null;
+      if (itExpectedRentRoll) {
+        (mappedResult as any).expected_rent_roll = itExpectedRentRoll;
+        (mappedResult as any).expectedRentRoll = itExpectedRentRoll;
+      }
+      const itExpectedRentRollMeta =
+        it.expectedRentRollMeta ?? it.expected_rent_roll_meta;
+      if (itExpectedRentRollMeta) {
+        (mappedResult as any).expectedRentRollMeta = itExpectedRentRollMeta;
+        (mappedResult as any).expected_rent_roll_meta = itExpectedRentRollMeta;
       }
       const resolvedLat = Number(it.coordinates?.lat ?? it.lat) || undefined;
       const resolvedLng = Number(it.coordinates?.lng ?? it.lng) || undefined;
@@ -1705,6 +1883,25 @@ export async function fetchIMData(
       }
       if (Array.isArray(it.parcels) && it.parcels.length > 0) {
         (mappedResult as any).parcels = it.parcels;
+      }
+      const existingCadastral = String(
+        (mappedResult as any).enrichment?.cadastralMapImage || (mappedResult as any).cadastralMapImage || ""
+      );
+      if (!existingCadastral || existingCadastral.startsWith("/api/public/map/cadastral")) {
+        const overlayCadastralUrl = buildCadastralMapApiUrl({
+          pnu: (mappedResult as any).pnu ?? nextSsot.pnu,
+          pnus: it.pnus ?? nextSsot.pnus,
+          parcels: (mappedResult as any).parcels ?? nextSsot.parcels,
+          lat: mappedResult.coordinates?.lat ?? resolvedLat,
+          lng: mappedResult.coordinates?.lng ?? resolvedLng,
+        });
+        if (overlayCadastralUrl) {
+          (mappedResult as any).enrichment = {
+            ...((mappedResult as any).enrichment || {}),
+            cadastralMapImage: overlayCadastralUrl,
+          };
+          (mappedResult as any).cadastralMapImage = overlayCadastralUrl;
+        }
       }
       const itPhotos =
         Array.isArray(it.photos_v2) && it.photos_v2.length > 0
@@ -1853,6 +2050,22 @@ export async function fetchIMData(
       fallbackUpsert.imItem,
       fallbackUpsert.brokerProfile
     );
+    const fbExp =
+      fallbackUpsert.imItem.expected_rent_roll ??
+      fallbackUpsert.imItem.expectedRentRoll ??
+      fallbackUpsert.imItem.fullDocBody?.expected_rent_roll;
+    if (Array.isArray(fbExp) && fbExp.length > 0) {
+      (synthRec as any).expectedRentRoll = fbExp;
+      (synthRec.fullDocBody as any).expected_rent_roll = fbExp;
+    }
+    const fbExpMeta =
+      fallbackUpsert.imItem.expected_rent_roll_meta ??
+      fallbackUpsert.imItem.expectedRentRollMeta ??
+      fallbackUpsert.imItem.fullDocBody?.expected_rent_roll_meta;
+    if (fbExpMeta) {
+      (synthRec as any).expectedRentRollMeta = fbExpMeta;
+      (synthRec.fullDocBody as any).expected_rent_roll_meta = fbExpMeta;
+    }
     return hydrateQuickRecordToMobileIM(
       buildingId,
       synthRec,

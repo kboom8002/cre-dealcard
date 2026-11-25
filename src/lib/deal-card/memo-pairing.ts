@@ -397,7 +397,7 @@ export function parseMemoIntoCard4(
 
   // 2. 지역(region) 추출 (번지 제외 + 동/구 안전 마스킹)
   let region = baseCard4.region || "";
-  const guDongMatch = text.match(/([가-힣]{2,6}(?:구|군))\s+([가-힣0-9]{2,8}(?:동|읍|면))/);
+  const guDongMatch = text.match(/([가-힣]{2,6}(?:구|군))\s+([가-힣]{1,8}(?:동\d+가|\d+가|(?:\d+)?(?:동|읍|면)))/);
   const cityGuMatch = text.match(/([가-힣]{2,6}시)\s+([가-힣]{2,6}(?:구|동|읍|면))/);
   const stationMatch = text.match(/([가-힣0-9]{2,8}역)\s*(?:인근|부근|역세권|도보\s*\d+분)?/);
   const singleGuOrDongMatch = text.match(
@@ -422,9 +422,8 @@ export function parseMemoIntoCard4(
     "본동",
   ]);
 
-  if (guDongMatch) {
-    // '양평동4가' / '역삼1동' 등 세부 가/동 숫자는 행정동 대표명으로 정돈
-    const cleanDong = guDongMatch[2].replace(/\d+가$/, "동").replace(/동동$/, "동");
+  if (guDongMatch && !falsePositiveDong.has(guDongMatch[2])) {
+    const cleanDong = guDongMatch[2].replace(/동동$/, "동");
     region = `${guDongMatch[1]} ${cleanDong}`;
   } else if (cityGuMatch && !cityGuMatch[1].startsWith("서울")) {
     region = `${cityGuMatch[1]} ${cityGuMatch[2]}`;

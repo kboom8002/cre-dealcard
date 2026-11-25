@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { ScrollRevealList, ScrollRevealItem } from "@/components/motion/ScrollReveal";
 import { serializeJsonLd } from "@/lib/schema-org";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
@@ -104,7 +105,7 @@ export default async function ServicesPage() {
             "@type": "CollectionPage",
             name: "CRE 전문 서비스 파트너",
             description: "상업용 부동산 인테리어, 법률, 관리, 금융 전문 서비스",
-            url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net"}/services`,
+            url: `${getCanonicalSiteUrl()}/services`,
           }),
         }}
       />

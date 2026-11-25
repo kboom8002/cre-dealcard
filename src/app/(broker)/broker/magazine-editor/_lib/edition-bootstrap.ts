@@ -46,6 +46,7 @@ import {
   isBrokerMismatch,
   isValidIsoDate,
   makeSlotStorageKey,
+  mapMarketTempToToneStance,
   normalizeEditorSections,
   normalizeMonthlyPairId,
   normalizeMonthlyRegion,
@@ -72,6 +73,7 @@ export interface ParsedHydratedDraftResult {
   hasMarketTemp: boolean;
   marketTemp: MarketTemperature | null;
   toneStance: "positive" | "neutral" | "negative";
+  showMarketTempBadge: boolean;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
   monthlyCharts: MonthlyRegionalChart[];
@@ -132,6 +134,7 @@ export function parseHydratedDraftData(
       hasMarketTemp: true,
       marketTemp: null,
       toneStance: "positive",
+      showMarketTempBadge: false,
       monthlyRegion: "gbd",
       monthlyPairId: "molit_bok",
       monthlyCharts: buildDefaultMonthlyGraphicPair("gbd", "molit_bok"),
@@ -141,6 +144,7 @@ export function parseHydratedDraftData(
           cadence: nextCadence,
           preferredRegions: parsedPrefs.preferredRegions,
           preferredChannels: parsedPrefs.preferredChannels,
+          toneStance: "positive",
         }),
         markRestored: false,
       },
@@ -153,6 +157,13 @@ export function parseHydratedDraftData(
   const restoredCharts = normalizeSavedMonthlyCharts(parsed.monthlyCharts);
   const normSections = normalizeEditorSections(parsed.sections, nextCadence);
   const effectiveSections = normSections ?? buildDefaultEditorSections(nextCadence);
+  const resolvedToneStance: "positive" | "neutral" | "negative" =
+    parsed.toneStance === "positive" ||
+    parsed.toneStance === "neutral" ||
+    parsed.toneStance === "negative"
+      ? parsed.toneStance
+      : mapMarketTempToToneStance((parsed.marketTemp as MarketTemperature | null) ?? null) ??
+        "positive";
 
   let restoredComments: Record<string, string> | undefined;
   if (parsed.dealComments && typeof parsed.dealComments === "object") {
@@ -184,6 +195,7 @@ export function parseHydratedDraftData(
           cadence: nextCadence,
           preferredRegions: parsedPrefs.preferredRegions,
           preferredChannels: parsedPrefs.preferredChannels,
+          toneStance: resolvedToneStance,
         }),
         markRestored: true,
       };
@@ -231,12 +243,9 @@ export function parseHydratedDraftData(
     briefingBody: typeof parsed.briefingBody === "string" ? parsed.briefingBody : undefined,
     hasMarketTemp: typeof parsed.marketTemp === "string" || parsed.marketTemp === null,
     marketTemp: (parsed.marketTemp as MarketTemperature | null) ?? null,
-    toneStance:
-      parsed.toneStance === "positive" ||
-      parsed.toneStance === "neutral" ||
-      parsed.toneStance === "negative"
-        ? parsed.toneStance
-        : "positive",
+    toneStance: resolvedToneStance,
+    showMarketTempBadge:
+      parsed.showMarketTempBadge === true || parsed.show_market_temp_badge === true,
     monthlyRegion: normMonthly,
     monthlyPairId: normPair,
     monthlyCharts: restoredCharts ?? buildDefaultMonthlyGraphicPair(normMonthly, normPair),
@@ -405,6 +414,8 @@ export function resolveAppliedEditionFields(
     briefingTitle: typeof ed.briefingTitle === "string" ? ed.briefingTitle : "",
     briefingBody: typeof ed.briefingBody === "string" ? ed.briefingBody : "",
     marketTemp: ed.marketTemp ?? null,
+    toneStance: ed.toneStance ?? mapMarketTempToToneStance(ed.marketTemp) ?? "positive",
+    showMarketTempBadge: ed.showMarketTempBadge === true,
     nextRegion,
     nextPair,
     monthlyCharts:

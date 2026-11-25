@@ -157,6 +157,7 @@ export interface MobileImPptxInput {
   };
   broker?: {
     display_name?: string;
+    representative_name?: string;
     company_name?: string;
     phone?: string;
     specialty?: string;
@@ -456,7 +457,12 @@ export class MobileImPptxRenderer {
         priceBand: input.building?.price_band ?? '',
         areaSignal: input.building?.area_signal ?? '',
         brokerName: input.broker?.display_name ?? '',
+        representativeName: input.broker?.representative_name ?? '',
         companyName,
+        brokerPhone: input.broker?.phone ?? '',
+        brokerEmail: input.broker?.email ?? '',
+        registrationNo: input.broker?.registration_no ?? '',
+        officeAddress: input.broker?.office_address ?? '',
         tags: [normalizedCoverAssetType, input.building?.price_band].filter(Boolean) as string[],
         docno,
         logoUrl: input.logoUrl,
@@ -523,6 +529,7 @@ export class MobileImPptxRenderer {
         (dataMap['cover'] as any).brokerEmail = input.broker?.email ?? '';
         (dataMap['cover'] as any).registrationNo = input.broker?.registration_no ?? '';
         (dataMap['cover'] as any).officeAddress = input.broker?.office_address ?? '';
+        (dataMap['cover'] as any).representativeName = input.broker?.representative_name ?? '';
       }
 
       // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보강 ──
@@ -1223,13 +1230,28 @@ export class MobileImPptxRenderer {
         ],
       };
 
+      // 실제 DB 값만 사용 — 부재 필드는 '' → A10이 해당 행 생략 (Rule 34/37: 더미 플레이스홀더 금지)
+      if (input.broker) {
+        dataMap['closing'].brokerContact = {
+          name: input.broker?.display_name?.trim() || '',
+          representativeName: input.broker?.representative_name?.trim() || '',
+          phone: input.broker?.phone?.trim() || '',
+          email: input.broker?.email?.trim() || '',
+          company: input.broker?.company_name?.trim() || '',
+          registrationNo: input.broker?.registration_no?.trim() || '',
+          officeAddress: input.broker?.office_address?.trim() || '',
+        };
+      }
+
       // Basic IM: 클로징 타이틀 및 브로커 연락처 (basic-im-guide §2 #9) + D2: closing_line 보존
       if (isBasicPreset) {
         dataMap['closing'].title = '문의 및 유의사항';
+        (dataMap['closing'] as any).isBasicIm = true;
         (dataMap['closing'] as any).closingLine = readBrokerExtras(input.doc.body)?.closing_line ?? '';
         // 실제 DB 값만 사용 — 부재 필드는 '' → A10이 해당 행 생략 (Rule 34/37: 더미 플레이스홀더 금지)
         dataMap['closing'].brokerContact = {
           name: input.broker?.display_name?.trim() || '',
+          representativeName: input.broker?.representative_name?.trim() || '',
           phone: input.broker?.phone?.trim() || '',
           email: input.broker?.email?.trim() || '',
           company: input.broker?.company_name?.trim() || '',

@@ -206,7 +206,9 @@ export function buildThreadShareUrl(
 ): string {
   if (!buildingId) return '';
   if (!hasIm) {
-    return `/dc/${encodeURIComponent(buildingId)}`;
+    return shareToken
+      ? `/dc/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`
+      : `/dc/${encodeURIComponent(buildingId)}`;
   }
   if (shareToken) {
     return `/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(shareToken)}`;

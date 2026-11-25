@@ -101,7 +101,7 @@ export function SimpleNewsPicker({
             className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/15 px-3 py-1.5 text-sm font-extrabold text-indigo-900 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-amber-300" aria-hidden="true" />
-            <span>✨ 부동산·경제·문화 황금배합 3선 자동 맞춤</span>
+            <span>부동산·경제·문화 황금배합 3선 자동 맞춤</span>
           </button>
           <button
             type="button"

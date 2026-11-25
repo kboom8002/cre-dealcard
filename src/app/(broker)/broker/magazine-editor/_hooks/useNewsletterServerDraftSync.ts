@@ -6,7 +6,10 @@ import type { EditionPatchPayload } from "@/lib/magazine/edition-save";
 import type { NewsletterTargetSegment } from "@/components/broker/studio/SendListSummaryBar";
 import type { MonthlyRegionKey } from "@/domain/magazine/monthly-stats-charts";
 import type { MonthlyChartPairId } from "@/domain/magazine/monthly-stats-hydration";
-import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import type {
+  NewsletterToneStance,
+  SpecificNewsChannelId,
+} from "@/domain/magazine/news-channels";
 import type {
   AxiosUnitIssue,
   MarketTemperature,
@@ -32,6 +35,8 @@ export interface UseNewsletterServerDraftSyncOptions {
   briefingTitle: string;
   briefingBody: string;
   marketTemp: MarketTemperature | null;
+  toneStance?: NewsletterToneStance;
+  showMarketTempBadge?: boolean;
   coverImageUrl?: string | null;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
@@ -70,6 +75,8 @@ export function useNewsletterServerDraftSync(
     briefingTitle,
     briefingBody,
     marketTemp,
+    toneStance = "positive",
+    showMarketTempBadge = false,
     coverImageUrl,
     monthlyRegion,
     monthlyPairId,
@@ -130,6 +137,8 @@ export function useNewsletterServerDraftSync(
       briefing_title: briefingTitle.trim(),
       briefing_body_md: briefingBody.trim(),
       market_temp: marketTemp,
+      tone_stance: toneStance,
+      show_market_temp_badge: showMarketTempBadge,
       featured_deal_ids: [...selectedDealIds],
       deal_comments: { ...dealComments },
       monthlyRegion,
@@ -175,6 +184,8 @@ export function useNewsletterServerDraftSync(
     briefingTitle,
     briefingBody,
     marketTemp,
+    toneStance,
+    showMarketTempBadge,
     coverImageUrl,
     monthlyRegion,
     monthlyPairId,
@@ -198,6 +209,8 @@ export function useNewsletterServerDraftSync(
         briefingTitle,
         briefingBody,
         marketTemp,
+        toneStance,
+        showMarketTempBadge,
         monthlyRegion,
         monthlyPairId,
         monthlyCharts,
@@ -215,6 +228,8 @@ export function useNewsletterServerDraftSync(
       briefingTitle,
       briefingBody,
       marketTemp,
+      toneStance,
+      showMarketTempBadge,
       monthlyRegion,
       monthlyPairId,
       monthlyCharts,

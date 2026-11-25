@@ -866,6 +866,7 @@ export async function restoreShareLinkToken(input: {
   threadId?: string | null;
   scope?: 'thread' | 'building';
   isAdmin?: boolean;
+  preserveRevokedTokens?: boolean;
 }): Promise<{ ok: boolean; status: number; buildingId?: string; scope?: 'thread' | 'building'; error?: string }> {
   const rawToken = input.token ? String(input.token).trim() : '';
   const rawBuildingId = input.buildingId ? String(input.buildingId).trim() : '';
@@ -993,7 +994,7 @@ export async function restoreShareLinkToken(input: {
 
   if (scope !== 'thread' && resolvedBuildingId) {
     delete store.revokedBuildings[resolvedBuildingId];
-    if (!rawToken) {
+    if (!rawToken && !input.preserveRevokedTokens) {
       for (const entry of Object.values(store.tokens)) {
         if (entry.buildingId === resolvedBuildingId) {
           entry.status = 'active';
@@ -1032,7 +1033,13 @@ export async function restoreShareLinkToken(input: {
         }
         const res = updQ ? await updQ : null;
         if (!res?.error) durablePersisted = true;
-      } else if (scope !== 'thread' && resolvedBuildingId && table && typeof table.update === 'function') {
+      } else if (
+        scope !== 'thread' &&
+        !input.preserveRevokedTokens &&
+        resolvedBuildingId &&
+        table &&
+        typeof table.update === 'function'
+      ) {
         let updQ: ShareDbQueryLike | undefined = table
           .update({
             status: 'active',
@@ -1274,12 +1281,14 @@ export async function verifyShareLinkToken(
 
       for (const ev of events) {
         const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<string, unknown>;
-        if (meta.scope === 'recipient_approval') continue;
         const evToken = String(meta.share_token || meta.token || '').trim();
         const evBId = String(meta.building_id || ev?.entity_id || '').trim();
         const matchesToken = Boolean(evToken && evToken === token);
         const matchesBuilding = Boolean(targetBuildingId && evBId === targetBuildingId);
         if (!matchesToken && !matchesBuilding) continue;
+
+        const isRecipientOrThreadScope =
+          meta.scope === 'thread' || meta.scope === 'recipient_approval';
 
         if (ev.event_type === 'thread_link_revoked') {
           if (matchesToken && tokenLockState === null) {
@@ -1288,7 +1297,7 @@ export async function verifyShareLinkToken(
           continue;
         }
         if (ev.event_type === 'link_revoked') {
-          if (meta.scope === 'thread') {
+          if (isRecipientOrThreadScope) {
             if (matchesToken && tokenLockState === null) {
               tokenLockState = true;
             }
@@ -1298,7 +1307,7 @@ export async function verifyShareLinkToken(
           continue;
         }
         if (ev.event_type === 'link_restored') {
-          if (meta.scope === 'thread') {
+          if (isRecipientOrThreadScope) {
             if (matchesToken && tokenLockState === null) {
               tokenLockState = false;
             }

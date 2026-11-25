@@ -7,7 +7,7 @@ import {
 } from "@/domain/magazine/monthly-stats-charts";
 import type { MonthlyChartPairId } from "@/domain/magazine/monthly-stats-hydration";
 import { resolveUnitIssuesFromData } from "@/domain/magazine/issue-clustering";
-import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import type { NewsletterToneStance, SpecificNewsChannelId } from "@/domain/magazine/news-channels";
 import type {
   AxiosUnitIssue,
   EditionType,
@@ -55,28 +55,45 @@ export interface EditorPrimaryTabDef {
 export function getPrimaryTabsForCadence(cadence: EditionType): EditorPrimaryTabDef[] {
   if (cadence === "daily") {
     return [
-      { key: "cover", label: "① 제목" },
-      { key: "news", label: "② 내용" },
-      { key: "theme_deals", label: "③ 보내기" },
+      { key: "cover", label: "1. 제목" },
+      { key: "news", label: "2. 내용" },
+      { key: "theme_deals", label: "3. 보내기" },
     ];
   }
   if (cadence === "monthly") {
     return [
-      { key: "cover", label: "① 제목" },
-      { key: "monthly_stats", label: "② 통계" },
-      { key: "news", label: "③ 내용" },
-      { key: "theme_deals", label: "④ 보내기" },
+      { key: "cover", label: "1. 제목" },
+      { key: "monthly_stats", label: "2. 통계" },
+      { key: "news", label: "3. 내용" },
+      { key: "theme_deals", label: "4. 보내기" },
     ];
   }
   return [
-    { key: "cover", label: "① 제목" },
-    { key: "field_note", label: "② 브리핑" },
-    { key: "news", label: "③ 내용" },
-    { key: "theme_deals", label: "④ 보내기" },
+    { key: "cover", label: "1. 제목" },
+    { key: "field_note", label: "2. 브리핑" },
+    { key: "news", label: "3. 내용" },
+    { key: "theme_deals", label: "4. 보내기" },
   ];
 }
 
 export type NewsletterStepKey = "title" | "content" | "send" | "history";
+
+export function mapToneStanceToMarketTemp(
+  tone: NewsletterToneStance,
+): MarketTemperature {
+  if (tone === "positive") return "적극 매수";
+  if (tone === "negative") return "조정 대기";
+  return "선별 매수";
+}
+
+export function mapMarketTempToToneStance(
+  temp: MarketTemperature | null | undefined,
+): NewsletterToneStance | null {
+  if (temp === "적극 매수") return "positive";
+  if (temp === "선별 매수" || temp === "관망") return "neutral";
+  if (temp === "조정 대기" || temp === "위기 경계") return "negative";
+  return null;
+}
 
 export interface SavedEditionSummary {
   id: string;
@@ -91,6 +108,8 @@ export interface SavedEditionSummary {
   briefingTitle?: string;
   briefingBody?: string;
   marketTemp?: MarketTemperature | null;
+  toneStance?: NewsletterToneStance;
+  showMarketTempBadge?: boolean;
   monthlyRegion?: MonthlyRegionKey;
   monthlyPairId?: MonthlyChartPairId;
   monthlyCharts?: MonthlyRegionalChart[];
@@ -119,7 +138,8 @@ export interface LocalNewsletterDraft {
   cadence: NewsletterCadence;
   issueDateStr: string;
   marketTemp: MarketTemperature | null;
-  toneStance?: "positive" | "neutral" | "negative";
+  toneStance?: NewsletterToneStance;
+  showMarketTempBadge?: boolean;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId?: MonthlyChartPairId;
   monthlyCharts?: MonthlyRegionalChart[];
@@ -610,6 +630,21 @@ export function mapServerEditionRowToSummary(
   const extractedUnitIssues = resolveUnitIssuesFromData(content, {
     fallbackFromTopNews: true,
   });
+  const restoredMarketTemp =
+    typeof row.market_temp === "string"
+      ? (row.market_temp as MarketTemperature)
+      : typeof content.market_temp === "string"
+        ? (content.market_temp as MarketTemperature)
+        : null;
+  const rawToneStance = content.tone_stance ?? content.toneStance;
+  const extractedToneStance: NewsletterToneStance =
+    rawToneStance === "positive" ||
+    rawToneStance === "neutral" ||
+    rawToneStance === "negative"
+      ? rawToneStance
+      : mapMarketTempToToneStance(restoredMarketTemp) ?? "positive";
+  const extractedShowMarketTempBadge =
+    content.show_market_temp_badge === true || content.showMarketTempBadge === true;
 
   return {
     id: rowId,
@@ -623,12 +658,9 @@ export function mapServerEditionRowToSummary(
     summary: extractedSummary,
     briefingTitle: extractedThemeTitle,
     briefingBody: extractedBriefing,
-    marketTemp:
-      typeof row.market_temp === "string"
-        ? (row.market_temp as MarketTemperature)
-        : typeof content.market_temp === "string"
-          ? (content.market_temp as MarketTemperature)
-          : null,
+    marketTemp: restoredMarketTemp,
+    toneStance: extractedToneStance,
+    showMarketTempBadge: extractedShowMarketTempBadge,
     monthlyRegion: extractedMonthlyRegion,
     monthlyPairId: extractedMonthlyPairId,
     monthlyCharts: extractedMonthlyCharts,

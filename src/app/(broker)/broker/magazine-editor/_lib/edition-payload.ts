@@ -5,7 +5,7 @@ import {
   buildDefaultMonthlyGraphicPair,
   type MonthlyChartPairId,
 } from "@/domain/magazine/monthly-stats-hydration";
-import type { SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import type { NewsletterToneStance, SpecificNewsChannelId } from "@/domain/magazine/news-channels";
 import type {
   AxiosUnitIssue,
   MarketTemperature,
@@ -167,6 +167,8 @@ export interface LocalDraftRecordInput {
   cadence: NewsletterCadence;
   issueDateStr: string;
   marketTemp: MarketTemperature | null;
+  toneStance?: NewsletterToneStance;
+  showMarketTempBadge?: boolean;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
   monthlyCharts: MonthlyRegionalChart[];
@@ -210,6 +212,8 @@ export function buildLocalDraftStorageRecord(
     cadence: input.cadence,
     issueDateStr: input.issueDateStr,
     marketTemp: input.marketTemp,
+    toneStance: input.toneStance ?? "positive",
+    showMarketTempBadge: input.showMarketTempBadge === true,
     monthlyRegion: input.monthlyRegion,
     monthlyPairId: input.monthlyPairId,
     monthlyCharts: input.monthlyCharts,
@@ -266,6 +270,8 @@ export interface ServerSavePayloadInput {
   briefingTitle: string;
   briefingBody: string;
   marketTemp: MarketTemperature | null;
+  toneStance?: NewsletterToneStance;
+  showMarketTempBadge?: boolean;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
   populatedMonthlyCharts: MonthlyRegionalChart[];
@@ -300,6 +306,8 @@ export function buildIssueRequestBody(input: ServerSavePayloadInput): Record<str
     briefingTitle: input.briefingTitle.trim(),
     briefingBody: input.briefingBody.trim(),
     marketTemp: input.marketTemp,
+    toneStance: input.toneStance ?? "positive",
+    showMarketTempBadge: input.showMarketTempBadge === true,
     monthlyRegion: input.monthlyRegion,
     monthlyPairId: input.monthlyPairId,
     monthlyCharts: input.populatedMonthlyCharts,
@@ -347,6 +355,8 @@ export function buildPublishPatchBody(
         summary: input.summary.trim(),
         briefing_title: input.briefingTitle.trim(),
         briefing_body_md: input.briefingBody.trim(),
+        tone_stance: input.toneStance ?? "positive",
+        show_market_temp_badge: input.showMarketTempBadge === true,
         deal_comments: input.dealComments,
         unitIssues: input.unitIssues,
         monthlyRegion: input.monthlyRegion,
@@ -378,6 +388,8 @@ export function parseServerSaveSuccess(params: {
   briefingTitle: string;
   briefingBody: string;
   marketTemp: MarketTemperature | null;
+  toneStance?: NewsletterToneStance;
+  showMarketTempBadge?: boolean;
   monthlyRegion: MonthlyRegionKey;
   monthlyPairId: MonthlyChartPairId;
   populatedMonthlyCharts: MonthlyRegionalChart[];
@@ -445,6 +457,8 @@ export function parseServerSaveSuccess(params: {
     briefingTitle: params.briefingTitle.trim(),
     briefingBody: params.briefingBody.trim(),
     marketTemp: params.marketTemp,
+    toneStance: params.toneStance ?? "positive",
+    showMarketTempBadge: params.showMarketTempBadge === true,
     monthlyRegion: params.monthlyRegion,
     monthlyPairId: params.monthlyPairId,
     monthlyCharts: [...params.populatedMonthlyCharts],
@@ -474,6 +488,8 @@ export function parseServerSaveSuccess(params: {
         cadence: params.cadence,
         issueDateStr: savedIssueDate,
         marketTemp: params.marketTemp,
+        toneStance: params.toneStance ?? "positive",
+        showMarketTempBadge: params.showMarketTempBadge === true,
         monthlyRegion: params.monthlyRegion,
         monthlyPairId: params.monthlyPairId,
         monthlyCharts: params.populatedMonthlyCharts,
@@ -594,6 +610,8 @@ export function upsertBootstrappedDraftSummary(
     briefingTitle: string;
     briefingBody: string;
     marketTemp: MarketTemperature | null;
+    toneStance?: NewsletterToneStance;
+    showMarketTempBadge?: boolean;
     monthlyRegion: MonthlyRegionKey;
     monthlyPairId: MonthlyChartPairId;
     monthlyCharts: MonthlyRegionalChart[];
@@ -619,6 +637,8 @@ export function upsertBootstrappedDraftSummary(
     briefingTitle: params.briefingTitle.trim(),
     briefingBody: params.briefingBody.trim(),
     marketTemp: params.marketTemp,
+    toneStance: params.toneStance ?? "positive",
+    showMarketTempBadge: params.showMarketTempBadge === true,
     monthlyRegion: params.monthlyRegion,
     monthlyPairId: params.monthlyPairId,
     monthlyCharts: [...params.monthlyCharts],
@@ -649,6 +669,8 @@ export function applyServerDraftSyncedUpdate(
     briefingTitle: string;
     briefingBody: string;
     marketTemp: MarketTemperature | null;
+    toneStance?: NewsletterToneStance;
+    showMarketTempBadge?: boolean;
     selectedDealIds: string[];
     dealComments: Record<string, string>;
     unitIssues: AxiosUnitIssue[];
@@ -668,6 +690,10 @@ export function applyServerDraftSyncedUpdate(
           briefingTitle: params.briefingTitle.trim(),
           briefingBody: params.briefingBody.trim(),
           marketTemp: params.marketTemp,
+          ...(params.toneStance ? { toneStance: params.toneStance } : {}),
+          ...(params.showMarketTempBadge !== undefined
+            ? { showMarketTempBadge: params.showMarketTempBadge }
+            : {}),
           selectedDealIds: [...params.selectedDealIds],
           dealComments: { ...params.dealComments },
           unitIssues: [...params.unitIssues],

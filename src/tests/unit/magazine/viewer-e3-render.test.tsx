@@ -98,9 +98,9 @@ describe('MagazineView 렌더 스모크', () => {
     expect(ids).toContain('ai_briefing');
   });
 
-  it('금액은 65억 형식, 푸터에 추적 고지가 있다', () => {
+  it('금액은 블라인드 가격대(60~70억) 형식, 푸터에 추적 고지가 있다', () => {
     const html = render(FULL);
-    expect(html).toContain('65억');
+    expect(html).toContain('60~70억');
     expect(html).toContain('data-testid="tracking-notice"');
   });
 
@@ -110,11 +110,11 @@ describe('MagazineView 렌더 스모크', () => {
     expect(html).toContain('aria-hidden="true"');
   });
 
-  it('U-06: 매물/세무 링크는 onClick 대신 data-track 속성으로 추적을 위임한다', () => {
+  it('U-06: 매물/연락처 링크는 onClick 대신 data-track 속성으로 추적을 위임한다', () => {
     const html = render({ ...FULL, tax_clinic: { question: '양도세는?', answer: '일반 정보입니다.' } });
     expect(html).toContain('data-track="listing_click"');
     expect(html).toContain('data-track-listing-id="deal-1"');
-    expect(html).toContain('data-track="im_request"');
+    expect(html).toContain('data-track="cta_click"');
     expect(html).toContain('data-track-click="featured_deal"');
   });
 

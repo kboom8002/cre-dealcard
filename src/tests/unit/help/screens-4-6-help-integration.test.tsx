@@ -320,12 +320,12 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
 
   describe("4. QuickFeedbackReportModal Screen Detection & Formatting", () => {
     it("resolves accurate Korean screen names from pathname", () => {
-      expect(resolveScreenNameFromPathname("/broker/clients")).toBe("👥 고객 명단 · 구독 관리 (VIP/일반/잠재)");
-      expect(resolveScreenNameFromPathname("/broker/inbox")).toBe("🔔 소통 관리함 (열람 알림 · G1~G3 게이트 요청)");
-      expect(resolveScreenNameFromPathname("/broker/profile")).toBe("👤 중개사 프로필 · 디지털 명함 설정");
-      expect(resolveScreenNameFromPathname("/broker")).toBe("🏠 홈 화면 (대시보드 · 퀵액션 · 알림)");
-      expect(resolveScreenNameFromPathname("/broker/buildings")).toBe("🏢 내 물건 보관함 · IM 목록 (딜카드 vs 모바일 IM)");
-      expect(resolveScreenNameFromPathname("/broker/basic-im-studio/123")).toBe("🎨 Basic IM 슬라이드 편집 스튜디오 (16:9 프리뷰 · 테마)");
+      expect(resolveScreenNameFromPathname("/broker/clients")).toBe("💬 고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/inbox")).toBe("💬 고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/profile")).toBe("👤 중개사무소 프로필");
+      expect(resolveScreenNameFromPathname("/broker")).toBe("🏠 홈 화면");
+      expect(resolveScreenNameFromPathname("/broker/buildings")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/basic-im-studio/123")).toBe("📊 IM");
     });
 
     it("pre-fills screen context and copies formatted report template to clipboard", async () => {
@@ -361,7 +361,7 @@ describe("Milestone 3: Screens 4-6 Contextual Help & Global Layout Integration",
       const callArg = mockWriteText.mock.calls[0][0];
       expect(callArg).toContain("[크리딜(CRE DealCard) 중개인 현장 피드백 / 개선 요청]");
       expect(callArg).toContain("서울 강남구 테헤란로 123");
-      expect(callArg).toContain("👥 고객 명단 · 구독 관리 (VIP/일반/잠재)");
+      expect(callArg).toContain("💬 고객 소통");
     });
   });
 

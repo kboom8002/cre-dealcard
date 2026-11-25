@@ -50,7 +50,7 @@ export const MINIMAL_SPACE_GUIDES: readonly MinimalSpaceGuide[] = [
     pillBg: "#FFFBEB",
     pillText: "#92400E",
     steps: [
-      "가운데 메모 칸에 거친 현장 메모를 붙여넣고 [AI로 4항목 정리]를 누릅니다.",
+      "가운데 메모 칸에 거친 현장 메모를 붙여넣고 [메모로 딜카드 생성하기]를 누릅니다.",
       "블라인드 4항목(권역·용도·규모·가격대)과 핵심 장점 3가지를 확인하고 필요하면 한 줄만 다듬습니다.",
       "오른쪽 카톡 말풍선을 확인한 뒤 노란색 [카톡 문구·링크 복사]로 고객에게 바로 전달합니다.",
     ],
@@ -71,8 +71,8 @@ export const MINIMAL_SPACE_GUIDES: readonly MinimalSpaceGuide[] = [
     pillBg: "#EFF6FF",
     pillText: "#1E40AF",
     steps: [
-      "1단계에서 지번·도로명 주소를 입력해 건축물대장·토지대장 정보를 자동으로 불러옵니다.",
-      "2~4단계에서 매매가, 층별 임대현황(엑셀 렌트롤 지원), 핵심 장점 3가지와 외관·내부 사진을 채웁니다.",
+      "1단계(표지·기본정보)에서 지번·도로명 주소를 입력해 건축물대장·토지대장을 자동으로 불러오고 희망 매매가를 적습니다.",
+      "2단계(층별 임대현황)에서 엑셀·직접 입력으로 렌트롤을 채우고, 3단계(장점 3가지)·4단계(사진·위치·만들기)에서 핵심 장점과 사진을 넣습니다.",
       "오른쪽 미리보기 아래에서 [IM 링크 복사]로 모바일 제안서를 공유하거나 [PPTX 받기]·[PDF 저장]을 누릅니다.",
     ],
     keyTip:
@@ -126,6 +126,63 @@ export const MINIMAL_ESSENTIAL_FAQS: readonly MinimalEssentialFaq[] = [
   {
     q: "화면 글씨가 작아 보일 때는 어떻게 키우나요?",
     a: "화면 오른쪽 위 상단 바의 [가-] [현재 크기] [가+] 버튼을 누르시면 모든 작업 공간의 글자 크기가 즉시 커지며, 다음 접속 때도 설정이 그대로 유지됩니다.",
+  },
+] as const;
+
+export interface MinimalEssentialGlossaryItem {
+  term: string;
+  easyMeaning: string;
+  whereUsed: string;
+}
+
+export const MINIMAL_ESSENTIAL_GLOSSARY: readonly MinimalEssentialGlossaryItem[] = [
+  {
+    term: "부동산뉴스",
+    easyMeaning:
+      "매수자·건물주에게 일간·주간·월간 시장 브리핑과 출처가 붙은 핵심 이슈 5선, 추천 매물을 묶어 보내며 자연스럽게 안부를 잇는 공간입니다.",
+    whereUsed: "상단 탭 [부동산뉴스]",
+  },
+  {
+    term: "딜카드",
+    easyMeaning:
+      "정확한 번지수와 건물명을 가린 채 권역·용도·규모·가격대와 핵심 장점 3가지만 1장으로 요약해 카카오톡으로 공유하는 블라인드 매물 카드입니다.",
+    whereUsed: "상단 탭 [딜카드]",
+  },
+  {
+    term: "IM",
+    easyMeaning:
+      "관심을 보인 진성 매수자에게 건축물·토지 공적장부, 층별 임대현황(렌트롤), 수익 분석을 담아 전달하는 정식 투자설명서(웹 링크·PPTX·PDF)입니다.",
+    whereUsed: "상단 탭 [IM]",
+  },
+  {
+    term: "고객 소통",
+    easyMeaning:
+      "내가 보낸 딜카드·IM·부동산뉴스를 어떤 고객이 몇 번 열어봤는지 확인하고, AI 답장 초안과 전용 열람 링크로 후속 상담을 이어가는 공간입니다.",
+    whereUsed: "상단 탭 [고객 소통]",
+  },
+  {
+    term: "블라인드 매물",
+    easyMeaning:
+      "초기 문의 단계에서 중개권을 보호하기 위해 정확한 지번·건물명을 숨기고 역세권·가격 구간 등 핵심 조건만 보여주는 매물 공개 방식입니다.",
+    whereUsed: "딜카드 미리보기 · 공개 딜카드 화면",
+  },
+  {
+    term: "기대수익률",
+    easyMeaning:
+      "현재 받고 있는 임대료 기준의 현행 수익률에 공실·자가사용 층 임대 전환 예상 수익까지 더해 계산한 매입 후 예상 연간 수익률입니다.",
+    whereUsed: "IM 2단계(층별 임대현황) · IM 제안서 수익 분석",
+  },
+  {
+    term: "5년 지가 변동률(한국부동산원)",
+    easyMeaning:
+      "한국부동산원 공식 통계를 바탕으로 해당 시·군·구의 최근 5년간 평균 땅값 상승 흐름을 참고 지표로 보여주는 수치입니다.",
+    whereUsed: "IM 제안서 수익·시장 분석",
+  },
+  {
+    term: "전용 열람 링크",
+    easyMeaning:
+      "고객별로 따로 발급되는 고유 주소(/dc/…, /im/…)로, 누가 언제 몇 번 열람했는지 [고객 소통] 화면에서 정확히 파악할 수 있습니다.",
+    whereUsed: "딜카드 · IM · 고객 소통 공유 버튼",
   },
 ] as const;
 

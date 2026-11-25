@@ -16,6 +16,7 @@ import {
   PUBLIC_IM_DOC_STATUSES,
 } from "@/domain/public-projection/visibility";
 import { loadOgFonts } from "@/lib/magazine/og-fonts";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 const PUBLIC_OG_DOC_STATUSES = new Set<string>(["published", ...PUBLIC_IM_DOC_STATUSES]);
 
@@ -30,7 +31,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+  const siteUrl = getCanonicalSiteUrl();
   const landingUrl = `${siteUrl}/dc/${id}`;
 
   let building: Record<string, unknown> | null = null;

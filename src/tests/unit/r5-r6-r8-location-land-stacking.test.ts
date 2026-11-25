@@ -110,10 +110,10 @@ describe('R6: A27_LAND_USE_PLAN 토지이용계획확인원 슬라이드 렌더�
     expect(joined).toContain('■ 토지개요');
     expect(joined).toContain('■ 토지이용계획');
     expect(joined).toContain('506.8㎡ (153.3평)');
-    expect(joined).toContain("7,480,000원/㎡ ('26년 1월 기준)");
+    expect(joined).toContain("7,480,000원/㎡ (약 2,473만원/평 · '26.01)");
     expect(joined).toContain('도시지역, 준공업지역, 도로(접합)');
     expect(joined).toContain('교육환경보호구역<교육환경 보호에 관한 법률>(저촉)');
-    expect(joined).toContain('출처: 토지이음 · V-World 국토교통부');
+    expect(joined).toContain('출처: 토지이음(eum.go.kr) · V-World 공적장부');
     expect(texts.some((t) => t.includes('…'))).toBe(false);
 
     // 단일 용도지역(준공업지역 100%)일 때는 용도지역 비율 콜아웃 박스를 렌더링하지 않는다

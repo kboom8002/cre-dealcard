@@ -39,6 +39,7 @@ export interface NewsletterPreviewBodyProps {
   onFocusEditorUnit: (unitId: string) => void;
   yearMonthLabel: string;
   marketTemp: MarketTemperature | null;
+  showMarketTempBadge?: boolean;
   headline: string;
   brokerName: string;
   brokerOffice: string;
@@ -66,6 +67,7 @@ export function NewsletterPreviewBody({
   onFocusEditorUnit,
   yearMonthLabel,
   marketTemp,
+  showMarketTempBadge = false,
   headline,
   brokerName,
   brokerOffice,
@@ -91,6 +93,7 @@ export function NewsletterPreviewBody({
         onFocusEditorUnit={onFocusEditorUnit}
         yearMonthLabel={yearMonthLabel}
         marketTemp={marketTemp}
+        showMarketTempBadge={showMarketTempBadge}
         headline={headline}
         brokerName={brokerName}
         brokerOffice={brokerOffice}
@@ -204,7 +207,7 @@ export interface NewsletterPrimaryActionButtonProps {
   sendMode?: SendDeliveryMode;
   onDraftSaveClick: () => void;
   onSelectSendStep: () => void;
-  onSendSelected: () => void;
+  onSendSelected: (opts?: { scheduleMorning?: boolean }) => void;
   onPublishWebOnly?: (opts?: { scheduleMorning?: boolean }) => void;
 }
 
@@ -233,11 +236,7 @@ export function NewsletterPrimaryActionButton({
       return;
     }
     if (sendMode === "schedule_0830") {
-      if (onPublishWebOnly) {
-        onPublishWebOnly({ scheduleMorning: true });
-      } else {
-        onSendSelected();
-      }
+      onSendSelected({ scheduleMorning: true });
       return;
     }
     onSendSelected();

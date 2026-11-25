@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import AgoraAiAnswer from "@/components/agora/AgoraAiAnswer";
 import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { CATEGORY_META } from "@/domain/agora/qis-seed-generator";
 import type { AgoraCategory } from "@/domain/agora/qis-seed-generator";
 
@@ -104,7 +105,7 @@ export default async function AgoraThreadPage({ params }: { params: Params }) {
   const meta = CATEGORY_META[category as AgoraCategory];
   const regionLabel = thread.region ? REGION_LABELS[thread.region] : null;
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+  const BASE_URL = getCanonicalSiteUrl();
 
   // Schema.org QAPage + FAQPage 이중 마크업
   const schemaData = {

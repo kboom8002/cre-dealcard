@@ -66,22 +66,26 @@ describe("QuickFeedbackReportModal", () => {
   describe("resolveScreenNameFromPathname", () => {
     it("maps all 12+ broker routes accurately with /im-lite precedence over /broker/buildings", () => {
       expect(resolveScreenNameFromPathname("")).toBe("기타 화면");
-      expect(resolveScreenNameFromPathname("/broker")).toBe("🏠 홈 화면 (대시보드 · 퀵액션 · 알림)");
-      expect(resolveScreenNameFromPathname("/broker/deal-card/new")).toBe("➕ 1분 딜카드 신규 등록 (카톡 메모 입력)");
-      expect(resolveScreenNameFromPathname("/broker/deal-card/dc-sample-1")).toBe("📱 1분 딜카드 상세 · 수신자 블라인드 화면 · 카톡 공유");
-      
+      expect(resolveScreenNameFromPathname("/broker")).toBe("🏠 홈 화면");
+      expect(resolveScreenNameFromPathname("/broker/deal-card/new")).toBe("📄 딜카드");
+      expect(resolveScreenNameFromPathname("/broker/deal-card/dc-sample-1")).toBe("📄 딜카드");
+      expect(resolveScreenNameFromPathname("/broker/w/dealcards")).toBe("📄 딜카드");
+
       // Crucial precedence test: /im-lite inside /broker/buildings/[id]/im-lite
-      expect(resolveScreenNameFromPathname("/broker/buildings/bldg-99/im-lite")).toBe("📊 IM 완성 검수 · 웹 뷰어 (완성도 80점 점검)");
-      
-      expect(resolveScreenNameFromPathname("/broker/buildings")).toBe("🏢 내 물건 보관함 · IM 목록 (딜카드 vs 모바일 IM)");
-      expect(resolveScreenNameFromPathname("/broker/buildings/bldg-99")).toBe("🏢 내 물건 보관함 · IM 목록 (딜카드 vs 모바일 IM)");
-      expect(resolveScreenNameFromPathname("/broker/basic-im-studio/bldg-99")).toBe("🎨 Basic IM 슬라이드 편집 스튜디오 (16:9 프리뷰 · 테마)");
-      expect(resolveScreenNameFromPathname("/broker/im-approval/bldg-99")).toBe("✏️ IM 검토 · 공개 승인 · 사진 역할 큐레이션");
-      expect(resolveScreenNameFromPathname("/broker/clients")).toBe("👥 고객 명단 · 구독 관리 (VIP/일반/잠재)");
-      expect(resolveScreenNameFromPathname("/broker/inbox")).toBe("🔔 소통 관리함 (열람 알림 · G1~G3 게이트 요청)");
-      expect(resolveScreenNameFromPathname("/broker/profile")).toBe("👤 중개사 프로필 · 디지털 명함 설정");
-      expect(resolveScreenNameFromPathname("/broker/magazine-editor")).toBe("📰 주간 고객 소식지 간편 발행");
-      expect(resolveScreenNameFromPathname("/broker/tutorial")).toBe("📖 60대 중개인 큰글씨 사용 설명서");
+      expect(resolveScreenNameFromPathname("/broker/buildings/bldg-99/im-lite")).toBe("📊 IM");
+
+      expect(resolveScreenNameFromPathname("/broker/buildings")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/buildings/bldg-99")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/basic-im-studio/bldg-99")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/im-approval/bldg-99")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/w/im")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/clients")).toBe("💬 고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/inbox")).toBe("💬 고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/w/inbox")).toBe("💬 고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/profile")).toBe("👤 중개사무소 프로필");
+      expect(resolveScreenNameFromPathname("/broker/magazine-editor")).toBe("📰 부동산뉴스");
+      expect(resolveScreenNameFromPathname("/broker/w/newsletter")).toBe("📰 부동산뉴스");
+      expect(resolveScreenNameFromPathname("/broker/tutorial")).toBe("📖 크리딜 사용법");
       expect(resolveScreenNameFromPathname("/other/random")).toBe("기타 화면");
     });
   });
@@ -180,7 +184,7 @@ describe("QuickFeedbackReportModal", () => {
 
       const inputs = Array.from(document.querySelectorAll("input")) as HTMLInputElement[];
       const screenInput = inputs.find((i) =>
-        i.value.includes("IM 완성 검수 · 웹 뷰어")
+        i.value.includes("IM")
       );
       const addressInput = inputs.find((i) =>
         i.value.includes("서울 마포구 서교동 395")
@@ -245,7 +249,7 @@ describe("QuickFeedbackReportModal", () => {
       expect(copiedPayload).toContain("[크리딜(CRE DealCard) 중개인 현장 피드백 / 개선 요청]");
       expect(copiedPayload).toContain("1. 작성자(중개사무소 / 성함): 대성공인중개사 박대표");
       expect(copiedPayload).toContain("2. 작업 중이던 매물 주소(지번): 서울 강남구 역삼동 600");
-      expect(copiedPayload).toContain("3. 관련 화면: [O] 🏢 내 물건 보관함 · IM 목록 (딜카드 vs 모바일 IM)");
+      expect(copiedPayload).toContain("3. 관련 화면: [O] 📊 IM");
       expect(copiedPayload).toContain("4. 현장 불편 사항 또는 개선 건의 내용:");
       expect(copiedPayload).toContain("무엇이 불편하셨나요?: 검색 시 역세권 필터 반응이 1초 지연됩니다.");
       expect(copiedPayload).toContain("어떻게 바뀌면 좋겠나요?: 검색 버튼 누르지 않아도 즉시 필터링되면 좋겠습니다.");

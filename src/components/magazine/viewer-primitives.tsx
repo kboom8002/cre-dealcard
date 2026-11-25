@@ -40,7 +40,8 @@ export function briefingParaToSafeHtml(para: string): string {
 export function RichBriefing({ text }: { text: string }) {
   const cleaned = stripUneditedFormatPlaceholders(text);
   const parsedBullets = parseMarketBriefingBullets(cleaned);
-  if (parsedBullets.isBulleted) {
+  const showAsBullets = parsedBullets.isBulleted || parsedBullets.items.length > 1;
+  if (showAsBullets) {
     return (
       <ul
         data-testid="viewer-market-briefing-bullets"

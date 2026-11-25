@@ -14,29 +14,40 @@ export interface QuickFeedbackReportModalProps {
 }
 
 /**
- * URL pathname을 60대 대표중개사가 이해하기 쉬운 한국어 화면 이름으로 변환합니다.
+ * URL pathname을 V2 작업공간 및 메뉴 기준의 한국어 화면 이름으로 변환합니다.
  * 단위 테스트가 가능하도록 단독 export합니다.
  */
 export function resolveScreenNameFromPathname(pathname: string): string {
   if (!pathname) return "기타 화면";
-  if (pathname === "/broker") return "🏠 홈 화면 (대시보드 · 퀵액션 · 알림)";
-  if (pathname.startsWith("/broker/w/dealcards")) return "📄 딜카드 작업공간 (30초 생성 · 카카오톡 전송)";
-  if (pathname.startsWith("/broker/w/im")) return "📊 기본 IM 작업공간 (3분 완성 · 10개 섹션 리포트)";
-  if (pathname.startsWith("/broker/w/newsletter") || pathname.startsWith("/broker/w/magazine")) {
-    return "📰 뉴스레터 작업공간 (주간 매물 소식지 발행)";
+  if (pathname === "/broker") return "🏠 홈 화면";
+  if (
+    pathname.startsWith("/broker/w/newsletter") ||
+    pathname.startsWith("/broker/w/magazine") ||
+    pathname.startsWith("/broker/magazine-editor")
+  ) {
+    return "📰 부동산뉴스";
   }
-  if (pathname.startsWith("/broker/w/inbox")) return "💬 고객 소통함 작업공간 (열람 고객 · 자료 요청 관리)";
-  if (pathname.startsWith("/broker/deal-card/new")) return "➕ 1분 딜카드 신규 등록 (카톡 메모 입력)";
-  if (pathname.startsWith("/broker/deal-card/")) return "📱 1분 딜카드 상세 · 수신자 블라인드 화면 · 카톡 공유";
-  if (pathname.includes("/im-lite")) return "📊 IM 완성 검수 · 웹 뷰어 (완성도 80점 점검)";
-  if (pathname.startsWith("/broker/buildings")) return "🏢 내 물건 보관함 · IM 목록 (딜카드 vs 모바일 IM)";
-  if (pathname.startsWith("/broker/basic-im-studio")) return "🎨 Basic IM 슬라이드 편집 스튜디오 (16:9 프리뷰 · 테마)";
-  if (pathname.startsWith("/broker/im-approval")) return "✏️ IM 검토 · 공개 승인 · 사진 역할 큐레이션";
-  if (pathname.startsWith("/broker/clients")) return "👥 고객 명단 · 구독 관리 (VIP/일반/잠재)";
-  if (pathname.startsWith("/broker/inbox")) return "🔔 소통 관리함 (열람 알림 · G1~G3 게이트 요청)";
-  if (pathname.startsWith("/broker/profile")) return "👤 중개사 프로필 · 디지털 명함 설정";
-  if (pathname.startsWith("/broker/magazine-editor")) return "📰 주간 고객 소식지 간편 발행";
-  if (pathname.startsWith("/broker/tutorial")) return "📖 60대 중개인 큰글씨 사용 설명서";
+  if (pathname.startsWith("/broker/w/dealcards") || pathname.startsWith("/broker/deal-card")) {
+    return "📄 딜카드";
+  }
+  if (
+    pathname.startsWith("/broker/w/im") ||
+    pathname.includes("/im-lite") ||
+    pathname.startsWith("/broker/basic-im-studio") ||
+    pathname.startsWith("/broker/im-approval") ||
+    pathname.startsWith("/broker/buildings")
+  ) {
+    return "📊 IM";
+  }
+  if (
+    pathname.startsWith("/broker/w/inbox") ||
+    pathname.startsWith("/broker/inbox") ||
+    pathname.startsWith("/broker/clients")
+  ) {
+    return "💬 고객 소통";
+  }
+  if (pathname.startsWith("/broker/profile")) return "👤 중개사무소 프로필";
+  if (pathname.startsWith("/broker/tutorial")) return "📖 크리딜 사용법";
   return "기타 화면";
 }
 

@@ -859,7 +859,7 @@ describe('Wave 7.5B IM Multi-Tenant, Blind-Gate & Studio Closure Suite', () => {
       );
       expect(slidePreviewSrc).not.toContain('42, 48, 53');
       expect(slidePreviewSrc).toContain(
-        '개별공시지가 다개년 이력 데이터 미수집 (공공데이터 연동 후 표시)',
+        '한국부동산원 최근 5개년 지가변동률 미연동 (PPTX 다운로드 시 권역 R-ONE 통계 반영)',
       );
       expect(slidePreviewSrc).not.toContain('우상향');
 

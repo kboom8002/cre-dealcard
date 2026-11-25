@@ -275,7 +275,7 @@ describe('P0-3: Subscribe OG URL & Signed ?sid= Verification', () => {
       searchParams: Promise.resolve({}),
     });
     const imgs = meta.openGraph?.images as Array<{ url: string }>;
-    expect(imgs[0].url).toBe('/api/og/magazine?brokerId=broker-a');
+    expect(imgs[0].url.endsWith('/api/og/magazine?brokerId=broker-a')).toBe(true);
     expect(imgs[0].url).not.toContain('/api/public/magazine/og-image');
   });
 

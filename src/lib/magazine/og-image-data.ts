@@ -81,8 +81,10 @@ export interface ImageModel {
   dateLabel: string;
   /** '2026년 10월 5일 (월)' */
   dateKorean: string;
+  cadence?: 'daily' | 'weekly' | 'monthly';
   headline: string;
   marketTemp: MarketTemperature | null;
+  showMarketTempBadge?: boolean;
   keywords: string[];
   themeTitle: string | null;
   briefing: string | null;
@@ -117,9 +119,9 @@ function cleanBriefing(raw: string | null): string | null {
   const text = stripSyntheticScore(raw)
     .replace(/[#*`_~>]/g, '')
     .split('\n')
-    .map((s) => s.trim())
+    .map((s) => s.replace(/^\s*[•·▪▸\-]\s*/, '').trim())
     .filter((s) => s.length > 10)
-    .join(' ')
+    .join(' / ')
     .replace(/\s+/g, ' ')
     .trim();
   return text || null;
@@ -210,7 +212,7 @@ export function buildImageModel(
     str(content.ai_briefing) ?? str(content.briefing) ?? str(content.theme_body_md),
   );
 
-  const { displayDateLabel } = resolveEditionPublicDateAndHeader({
+  const { displayDateLabel, cadence } = resolveEditionPublicDateAndHeader({
     cadence: (content as Record<string, unknown>).cadence,
     editionType: content.edition_type ?? content.kind,
     editionLabel:
@@ -222,12 +224,18 @@ export function buildImageModel(
     urlDate: date,
   });
 
+  const showMarketTempBadge =
+    (content as Record<string, unknown>).show_market_temp_badge === true ||
+    (content as Record<string, unknown>).showMarketTempBadge === true;
+
   return {
     date,
     dateLabel: toDateLabel(date),
     dateKorean: displayDateLabel,
+    cadence,
     headline,
     marketTemp,
+    showMarketTempBadge,
     keywords: strArray(content.cover_keywords ?? content.coverKeywords, 4),
     themeTitle: str(content.theme_title) ?? str(content.themeTitle),
     briefing,
@@ -252,11 +260,12 @@ export async function loadImageModel(
   supabase: Db,
   brokerParam: string,
   date: string,
+  editionId?: string | null,
 ): Promise<ImageModel | null> {
   const broker = await resolvePublicBroker(supabase, brokerParam, 'user_id, slug, name, specialty_regions');
   if (!broker) return null;
 
-  const content = await findIssueForDate(supabase, broker, date);
+  const content = await findIssueForDate(supabase, broker, date, editionId ?? undefined);
   if (!content) return null;
 
   const { data: profile, error } = await supabase

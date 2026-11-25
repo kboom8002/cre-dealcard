@@ -8,6 +8,7 @@ import OiticleCard from "@/components/pulse/OiticleCard";
 import { OITICLE_TYPES } from "@/domain/pulse/oiticle-types";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
 import { serializeJsonLd } from "@/lib/schema-org";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 1800; // 30분
 
@@ -120,7 +121,7 @@ export default async function PulseMainPage({
             "@type": "CollectionPage",
             name: "CRE 시장 인텔리전스",
             description: "상업용 부동산 시장 펄스·인사이트·전문가 기고",
-            url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net"}/pulse`,
+            url: `${getCanonicalSiteUrl()}/pulse`,
           }),
         }}
       />

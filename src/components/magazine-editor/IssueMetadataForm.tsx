@@ -86,6 +86,9 @@ export interface IssueMetadataFormProps {
   onChangeIssueDate?: (next: string) => void;
   /** 거래 온도 프리셋 (전달 시 제목 추천 칩을 온도에 맞춰 반환) */
   toneStance?: NewsletterToneStance;
+  /** 표지에 시장 분위기 배지 표시 여부 */
+  showMarketTempBadge?: boolean;
+  onChangeShowMarketTempBadge?: (next: boolean) => void;
 }
 
 const YEAR_OPTIONS = [2025, 2026, 2027] as const;
@@ -114,6 +117,8 @@ export function IssueMetadataForm({
   issueDate,
   onChangeIssueDate,
   toneStance,
+  showMarketTempBadge = false,
+  onChangeShowMarketTempBadge,
 }: IssueMetadataFormProps) {
   const [isMoodOpen, setIsMoodOpen] = React.useState<boolean>(() => Boolean(marketTemp));
   const [prevMarketTemp, setPrevMarketTemp] = React.useState<MarketTemperature | null>(marketTemp);
@@ -359,6 +364,21 @@ export function IssueMetadataForm({
               </button>
             )}
           </div>
+          <label
+            htmlFor="newsletter-show-market-temp-badge"
+            data-testid="show-market-temp-badge-label"
+            className="inline-flex min-h-[44px] items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-sm font-bold text-slate-800 cursor-pointer select-none hover:bg-slate-100"
+          >
+            <input
+              id="newsletter-show-market-temp-badge"
+              data-testid="show-market-temp-badge-checkbox"
+              type="checkbox"
+              checked={Boolean(showMarketTempBadge)}
+              onChange={(e) => onChangeShowMarketTempBadge?.(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-400 accent-blue-600"
+            />
+            <span>표지에 시장 분위기 배지 표시</span>
+          </label>
           <div className={isMoodOpen ? "pt-1" : "hidden"}>
             <div
               role="group"

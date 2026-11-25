@@ -10,10 +10,12 @@ import {
   maskPublicAddresses,
   publicBrokerDisplayName,
   resolvePublicBroker,
+  resolvePublicBrokerStatutoryProfile,
 } from '@/lib/magazine/public-page-data';
 import { resolveSubscribeSource } from '@/lib/magazine/subscribe-source';
 import { formatKoreanDate } from '@/lib/magazine/kst';
 import { InitialAvatar } from '@/components/magazine/InitialAvatar';
+import { BrokerStatutoryFooter } from '@/components/magazine/viewer-sections';
 import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { SubscribeFormClient } from './SubscribeFormClient';
 
@@ -23,7 +25,8 @@ interface PageProps {
 }
 
 // broker_profiles 에는 company/magazine_title 컬럼이 없다(운영 스키마) → 존재 컬럼만 select (I-01/I-02).
-const BROKER_COLUMNS = 'user_id, slug, name, specialty_regions, specialty_assets, bio, photo_url';
+const BROKER_COLUMNS =
+  'user_id, slug, name, specialty_regions, specialty_assets, bio, photo_url, office_address, office_reg_number, representative_name';
 
 const loadBroker = cache(async (param: string) => {
   const supabase = createServiceClient();
@@ -111,6 +114,7 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
   // 실제 최신 발행본 날짜. 없으면 null → 링크 숨김 (오늘 날짜 폴백 금지, T2-CL-2)
   const supabase = createServiceClient();
   const latestDate = found.latestDate ?? await findLatestIssueDate(supabase, bp);
+  const statutoryProfile = await resolvePublicBrokerStatutoryProfile(supabase, bp);
 
   // 최근 호 미리보기 카드 (구독 전 '무엇을 받는지' 확인). 조회가 실패하면 카드만 생략하고 오류는 기록한다.
   let preview: { headline: string | null; label: string } | null = null;
@@ -207,8 +211,20 @@ export default async function MagazineSubscribePage({ params, searchParams }: Pa
         />
       </main>
 
-      <footer className="text-center text-sm text-slate-700 pb-4">
-        © 크리딜 (CREDEAL) · 상업용 부동산 인텔리전스 네트워크
+      <footer className="max-w-md w-full mx-auto space-y-3 pb-4">
+        <div className="text-left">
+          <BrokerStatutoryFooter
+            company={statutoryProfile.company}
+            officeAddress={statutoryProfile.officeAddress}
+            officeRegNumber={statutoryProfile.officeRegNumber}
+            representativeName={statutoryProfile.representativeName}
+            displayName={brokerName}
+            phone={statutoryProfile.phone}
+          />
+        </div>
+        <p className="text-center text-sm text-slate-700">
+          © 크리딜 (CREDEAL) · 상업용 부동산 인텔리전스 네트워크
+        </p>
       </footer>
     </div>
   );

@@ -232,16 +232,16 @@ export function ImListSidebar({
                     onSelectItem(item.id);
                   }
                 }}
-                className={`w-full min-h-[88px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
+                className={`w-full min-h-[68px] p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
                   isSelected
                     ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
                     : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
                 }`}
               >
                 {isSelected && (
-                  <div className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#007AFF] rounded-r-full" />
+                  <div className="absolute left-0 top-2.5 bottom-2.5 w-1.5 bg-[#007AFF] rounded-r-full" />
                 )}
-                <div className="flex items-start gap-3 pl-2">
+                <div className="flex items-start gap-2.5 pl-2">
                   <ListThumbnail
                     src={
                       resolveRenderablePhotoSrc(item.photos?.[0]) ||
@@ -251,7 +251,7 @@ export function ImListSidebar({
                     alt={`${item.title || "새 IM"} 대표 사진`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {isSample && (
                           <span
@@ -284,7 +284,7 @@ export function ImListSidebar({
                     <p className="text-sm text-[#515154] break-keep">
                       {item.address || "주소 미입력"}
                     </p>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#1D1D1F] mt-2 pt-2 border-t border-slate-900/[0.06]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#1D1D1F] mt-1.5 pt-1.5 border-t border-slate-900/[0.06]">
                       <div className="flex items-center gap-2">
                         <span>
                           {item.askingPriceManwon && item.askingPriceManwon > 0

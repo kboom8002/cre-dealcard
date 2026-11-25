@@ -7,142 +7,298 @@ const SITE_URL = getCanonicalSiteUrl();
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png?v=2`;
 
 export const metadata: Metadata = {
-  title: "상업용 부동산 가이드 & FAQ",
+  title: "크리딜 사용 안내 · 4대 작업공간",
   description:
-    "상업용 부동산 매각·매입·임대의 모든 것. AI 블라인드 딜카드, Gate 시스템, 매칭 엔진까지 전문가 가이드.",
+    "부동산뉴스·딜카드·IM·고객 소통 4대 작업공간과 3단계 업무 흐름으로 상업용 부동산 중개 영업을 한눈에 확인하세요.",
   openGraph: {
-    title: "상업용 부동산 가이드 & FAQ | 크리딜 (CREDEAL)",
+    title: "크리딜 사용 안내 · 4대 작업공간 | 크리딜 (CREDEAL)",
     description:
-      "상업용 부동산 매각·매입·임대의 모든 것. AI 블라인드 딜카드, Gate 시스템, 매칭 엔진까지 전문가 가이드.",
+      "부동산뉴스·딜카드·IM·고객 소통 4대 작업공간과 3단계 업무 흐름으로 상업용 부동산 중개 영업을 한눈에 확인하세요.",
     siteName: "크리딜 (CREDEAL)",
-    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: "크리딜 상업용 부동산 가이드" }],
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: "크리딜 사용 안내" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "상업용 부동산 가이드 & FAQ | 크리딜 (CREDEAL)",
+    title: "크리딜 사용 안내 · 4대 작업공간 | 크리딜 (CREDEAL)",
     description:
-      "상업용 부동산 매각·매입·임대의 모든 것. AI 블라인드 딜카드, Gate 시스템, 매칭 엔진까지 전문가 가이드.",
+      "부동산뉴스·딜카드·IM·고객 소통 4대 작업공간과 3단계 업무 흐름으로 상업용 부동산 중개 영업을 한눈에 확인하세요.",
     images: [DEFAULT_OG_IMAGE],
   },
 };
 
-const GUIDES = [
+const WORKSPACES = [
   {
-    icon: "💰",
-    title: "상업용 부동산 매각 가이드",
-    items: [
-      "매각 준비도 점검으로 건물의 현재 상태를 진단합니다.",
-      "블라인드 딜카드를 생성하여 건물 정보를 보호하면서 매수자를 탐색합니다.",
-      "3단계 Gate 시스템(G1→G2→G3)으로 진지한 매수자만 선별합니다.",
-      "AI 매칭 엔진이 적합한 매수자를 S/A/B/C 등급으로 자동 분류합니다.",
-      "NDA 체결 후 Full IM(Information Memorandum)을 통해 상세 정보를 제공합니다.",
-    ],
+    order: "01",
+    name: "부동산뉴스",
+    role: "접점 유지",
+    accentHex: "#059669",
+    pillBg: "#ECFDF5",
+    pillText: "#065F46",
+    summary:
+      "매수자·건물주에게 일간·주간·월간 시장 브리핑과 출처가 붙은 핵심 이슈 5선, 추천 매물을 보내 안부를 잇습니다.",
   },
   {
-    icon: "🎯",
-    title: "상업용 부동산 매입 가이드",
-    items: [
-      "매수 조건(지역, 자산유형, 예산, 투자 목적)을 등록합니다.",
-      "AI가 등록된 블라인드 딜카드 중 적합한 매물을 자동 추천합니다.",
-      "블라인드 상태에서 기본 정보(권역, 자산유형, 가격대)를 확인합니다.",
-      "Gate 요청을 통해 상세 정보 열람 의사를 표시합니다.",
-      "NDA 체결 후 정확한 주소, 재무 정보, 법률 현황을 확인합니다.",
-    ],
+    order: "02",
+    name: "딜카드",
+    role: "관심 유도",
+    accentHex: "#B45309",
+    pillBg: "#FFFBEB",
+    pillText: "#92400E",
+    summary:
+      "거친 현장 메모를 붙여넣어 정확한 지번은 가린 1장 블라인드 매물 요약을 만들고 카카오톡으로 바로 공유합니다.",
   },
   {
-    icon: "🏢",
-    title: "임대 공간 찾기 가이드",
-    items: [
-      "원하는 용도(오피스, 리테일, F&B, 물류)를 선택합니다.",
-      "권역별 임대 가능 공간을 블라인드 검색합니다.",
-      "예산(보증금/월차임), 면적, 층수 등 필터로 조건에 맞는 공간을 탐색합니다.",
-      "관심 공간에 대해 상세 정보 요청을 합니다.",
-      "담당 공인중개사가 현장 안내 및 계약 조건 조율을 진행합니다.",
-    ],
+    order: "03",
+    name: "IM",
+    role: "신뢰 설득",
+    accentHex: "#1D4ED8",
+    pillBg: "#EFF6FF",
+    pillText: "#1E40AF",
+    summary:
+      "건축물·토지 공적장부와 층별 임대현황(렌트롤), 기대수익률 분석이 담긴 상세 제안서(웹 링크·PPTX·PDF)를 완성합니다.",
   },
-];
+  {
+    order: "04",
+    name: "고객 소통",
+    role: "반응 회수",
+    accentHex: "#BE185D",
+    pillBg: "#FDF2F8",
+    pillText: "#9D174D",
+    summary:
+      "내가 보낸 딜카드·IM·부동산뉴스를 누가 몇 번 열어봤는지 전용 열람 링크로 확인하고 맞춤 후속 안내를 보냅니다.",
+  },
+] as const;
+
+const THREE_STEPS = [
+  {
+    step: "1단계",
+    title: "왼쪽에서 선택",
+    description:
+      "작업할 매물·뉴스·고객을 목록에서 고르거나 [새로 만들기]로 새 작업을 시작합니다.",
+  },
+  {
+    step: "2단계",
+    title: "가운데에서 입력 · AI 정리",
+    description:
+      "현장 메모나 주소, 임대현황을 넣으면 공적장부와 AI 초안이 자동으로 채워집니다.",
+  },
+  {
+    step: "3단계",
+    title: "오른쪽에서 확인 · 전달",
+    description:
+      "고객 휴대폰 화면과 미리보기를 확인한 뒤 카카오톡·전용 열람 링크·PPTX로 바로 보냅니다.",
+  },
+] as const;
 
 const FAQS = [
-  { question: "블라인드 딜카드란 무엇인가요?", answer: "블라인드 딜카드는 건물의 정확한 주소, 소유자 정보 없이 권역, 자산유형, 가격대, 투자 포인트만 공개하는 매물 소개 카드입니다. 매도자의 정보를 보호하면서 매수자의 관심을 확인할 수 있는 크리딜(CREDEAL)의 핵심 기능입니다." },
-  { question: "Gate 시스템은 어떻게 작동하나요?", answer: "Gate 시스템은 3단계(G1→G2→G3)로 구성됩니다. G1은 기본 관심 표시, G2는 NDA 체결 후 상세 정보 열람, G3는 실사(Due Diligence) 단계입니다. 각 단계마다 매도자의 승인이 필요하며, 이를 통해 무분별한 정보 유출을 방지합니다." },
-  { question: "AI 매칭 엔진은 어떤 기준으로 매칭하나요?", answer: "크리딜의 AI 매칭 엔진은 지역 적합도, 자산유형 적합도, 예산 범위, 투자 목적, 시장 타이밍 등 다양한 요소를 종합적으로 분석하여 S(최적합)/A(우수)/B(양호)/C(참고) 등급으로 매칭 결과를 제공합니다." },
-  { question: "매각 준비도 점검은 무료인가요?", answer: "네, AI 기반 매각 준비도 점검은 무료로 제공됩니다. 건물의 기본 정보를 입력하면 18개 항목에 대한 준비 상태를 자동 진단하고, Full IM(Information Memorandum) 작성 가능 여부를 알려드립니다." },
-  { question: "상업용 부동산 중개 수수료는 어떻게 되나요?", answer: "상업용 부동산(주택 외 중개대상물)의 법정 중개보수는 공인중개사법 시행규칙 제20조 제4항에 따라 거래금액의 0.9%(1천분의 9) 이내에서 중개의뢰인과 개업공인중개사가 협의하여 결정합니다." },
-  { question: "크리딜에 매물을 등록하려면 어떻게 하나요?", answer: "크리딜은 검증된 상업용 부동산 공인중개사만 매물을 등록할 수 있습니다. 공인중개사 계정으로 로그인 후 '딜카드 만들기' 기능으로 건물 정보를 입력하면 AI가 블라인드 딜카드를 자동 생성합니다." },
-  { question: "정보 유출 걱정은 없나요?", answer: "크리딜은 Disclosure Guard 기술로 민감 정보를 자동 감지하고 블라인드 처리합니다. 정확한 주소, 소유자 정보, 임차인 상호 등은 NDA 체결 전까지 절대 노출되지 않습니다." },
-  { question: "AI 시세 리포트는 정확한가요?", answer: "AI 시세 리포트는 크리딜에 등록된 블라인드 매물 데이터와 매수 의향 데이터를 기반으로 자동 생성됩니다. 참고용 시장 분석 자료이며, 실제 거래 가격이나 감정평가를 대체하지 않습니다." },
-  { question: "CasePack이란 무엇인가요?", answer: "CasePack은 딜카드의 투자 분석 데이터를 8개 블록으로 구조화한 패키지입니다. 시장 분석, 재무 분석, 리스크 분석 등을 포함하며, 매수자에게 체계적인 투자 검토 자료를 제공합니다." },
-  { question: "해외 투자자도 이용할 수 있나요?", answer: "현재 크리딜은 한국 상업용 부동산 시장에 특화되어 있습니다. 해외 투자자의 경우 한국 내 공인중개사를 통해 서비스를 이용할 수 있으며, 향후 다국어 지원을 계획하고 있습니다." },
+  {
+    question: "딜카드를 보내면 정확한 건물 주소가 노출되지 않나요?",
+    answer:
+      "네. 딜카드는 권역·용도·규모·가격대와 핵심 장점만 담는 블라인드 매물 요약입니다. 정확한 번지와 상세 임대내역은 진성 매수 의사가 확인된 고객에게만 IM으로 전달해 중개권을 안전하게 지킬 수 있습니다.",
+  },
+  {
+    question: "IM 제안서 작성에 필요한 공적장부와 수익 분석은 어떻게 채우나요?",
+    answer:
+      "1단계에서 지번이나 도로명 주소를 입력하면 건축물대장·토지대장 정보를 자동으로 불러옵니다. 2단계 층별 임대현황에 엑셀 렌트롤을 올리거나 입력하면 현행 수익률과 기대수익률이 자동 계산됩니다.",
+  },
+  {
+    question: "고객이 내가 보낸 자료를 열어봤는지 알 수 있나요?",
+    answer:
+      "네. 딜카드·IM·부동산뉴스는 고객별 전용 열람 링크로 전달할 수 있어, [고객 소통] 화면에서 누가 어떤 자료를 몇 번 열람했는지 확인하고 바로 후속 연락을 이어갈 수 있습니다.",
+  },
+  {
+    question: "상업용 부동산 중개보수 기준은 어떻게 되나요?",
+    answer:
+      "상업용 부동산(주택 외 중개대상물)의 법정 중개보수는 공인중개사법 시행규칙 제20조 제4항에 따라 거래금액의 0.9%(1천분의 9) 이내에서 중개의뢰인과 개업공인중개사가 협의하여 결정합니다.",
+  },
 ];
 
 export default function GuidePage() {
   const faqSchema = faqPage(FAQS);
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqSchema) }}
       />
 
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-4">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <h1 className="text-base font-extrabold text-slate-900">📖 상업용 부동산 가이드</h1>
-          <Link href="/hub" className="inline-flex min-h-[44px] items-center px-2 text-sm font-medium text-slate-600 hover:text-slate-900">← Hub</Link>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3.5">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center gap-2 text-base font-extrabold text-[#1D1D1F]"
+          >
+            <span>크리딜 사용 안내</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/broker/tutorial"
+              className="inline-flex min-h-[44px] items-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2 text-sm font-bold text-[#1D1D1F] transition-colors"
+            >
+              회원용 상세 사용법
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex min-h-[44px] items-center rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] px-4 py-2 text-sm font-bold text-white transition-colors"
+            >
+              시작하기
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* Guides */}
-        {GUIDES.map((guide, gi) => (
-          <div key={gi} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span className="text-lg">{guide.icon}</span> {guide.title}
-            </h2>
-            <ol className="space-y-2">
-              {guide.items.map((item, i) => (
-                <li key={i} className="flex gap-2.5 text-sm text-slate-700 leading-relaxed">
-                  <span className="text-blue-700 font-bold shrink-0">{i + 1}.</span>
-                  {item}
-                </li>
-              ))}
-            </ol>
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+        {/* Hero */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xs space-y-4">
+          <p className="text-sm font-bold text-[#1D4ED8]">상업용 부동산 중개 업무 안내</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1D1D1F] leading-snug break-keep">
+            4개 공간과 3단계 흐름으로
+            <br className="hidden sm:inline" /> 영업 준비를 한 번에 끝냅니다
+          </h1>
+          <p className="text-base font-medium text-[#515154] leading-relaxed break-keep">
+            크리딜은{" "}
+            <strong className="font-bold text-[#1D1D1F]">
+              부동산뉴스 → 딜카드 → IM → 고객 소통
+            </strong>
+            의 실제 영업 순서에 맞춘 4대 작업공간으로 구성되어 있습니다.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Link
+              href="/login"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] px-6 py-3 text-base font-bold text-white shadow-xs transition-colors"
+            >
+              시작하기
+            </Link>
+            <Link
+              href="/broker/tutorial"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-5 py-3 text-base font-bold text-[#1D1D1F] transition-colors"
+            >
+              회원용 상세 사용법 보기
+            </Link>
           </div>
-        ))}
+        </section>
+
+        {/* 4 Workspaces */}
+        <section aria-labelledby="guide-workspaces-heading" className="space-y-4">
+          <div className="px-1 space-y-1">
+            <p className="text-sm font-bold text-[#515154]">1. 4대 작업공간</p>
+            <h2 id="guide-workspaces-heading" className="text-xl font-extrabold text-[#1D1D1F]">
+              영업 흐름 그대로 연결되는 4개 공간
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {WORKSPACES.map((space) => (
+              <article
+                key={space.order}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-2.5"
+                style={{ borderLeftWidth: "5px", borderLeftColor: space.accentHex }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-extrabold text-[#515154]">{space.order}</span>
+                    <h3 className="text-lg font-extrabold text-[#1D1D1F]">{space.name}</h3>
+                  </div>
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-sm font-bold"
+                    style={{ backgroundColor: space.pillBg, color: space.pillText }}
+                  >
+                    {space.role}
+                  </span>
+                </div>
+                <p className="text-sm sm:text-base font-medium text-[#3A3A3C] leading-relaxed break-keep">
+                  {space.summary}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* 3-Step Workflow */}
+        <section
+          aria-labelledby="guide-workflow-heading"
+          className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 shadow-2xs space-y-4"
+        >
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-[#515154]">2. 공통 3단계 흐름</p>
+            <h2 id="guide-workflow-heading" className="text-xl font-extrabold text-[#1D1D1F]">
+              어느 공간에 들어가도 같은 3단계로 작업합니다
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {THREE_STEPS.map((item) => (
+              <div
+                key={item.step}
+                className="rounded-2xl border border-slate-200 bg-[#F5F5F7]/70 p-4 space-y-2"
+              >
+                <span className="inline-block rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-sm font-extrabold text-[#1D4ED8]">
+                  {item.step}
+                </span>
+                <p className="text-base font-extrabold text-[#1D1D1F]">{item.title}</p>
+                <p className="text-sm font-medium text-[#3A3A3C] leading-relaxed break-keep">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* FAQ */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider px-1">
-            ❓ 자주 묻는 질문 (FAQ)
-          </h2>
-          {FAQS.map((faq, i) => (
-            <details
-              key={i}
-              className="bg-white border border-slate-200 rounded-xl group shadow-xs"
-            >
-              <summary className="px-4 py-3.5 text-sm font-semibold text-slate-900 cursor-pointer list-none flex justify-between items-center min-h-[48px]">
-                <span>Q: {faq.question}</span>
-                <span className="text-slate-500 group-open:rotate-180 transition-transform ml-2">▾</span>
-              </summary>
-              <div className="px-4 pb-4 text-sm text-slate-700 leading-relaxed border-t border-slate-200 pt-3">
-                A: {faq.answer}
-              </div>
-            </details>
-          ))}
-        </div>
+        <section aria-labelledby="guide-faq-heading" className="space-y-3">
+          <div className="px-1 space-y-1">
+            <p className="text-sm font-bold text-[#515154]">3. 자주 묻는 질문</p>
+            <h2 id="guide-faq-heading" className="text-xl font-extrabold text-[#1D1D1F]">
+              핵심 궁금증 안내
+            </h2>
+          </div>
 
-        {/* CTA */}
-        <div className="text-center space-y-3 pt-4">
-          <Link
-            href="/broker"
-            className="inline-flex min-h-[48px] items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-6 py-3 text-sm shadow-sm transition-all"
-          >
-            🔍 공인중개사 워크스페이스 시작하기
-          </Link>
-          <p className="text-sm text-slate-600">
-            건물 정보를 입력하면 AI가 딜 가능성을 무료로 분석합니다.
+          <div className="space-y-2.5">
+            {FAQS.map((faq, i) => (
+              <details
+                key={i}
+                className="bg-white border border-slate-200 rounded-2xl group shadow-2xs"
+              >
+                <summary className="px-5 py-3.5 text-base font-bold text-[#1D1D1F] cursor-pointer list-none flex justify-between items-center min-h-[52px]">
+                  <span className="break-keep">
+                    Q{i + 1}. {faq.question}
+                  </span>
+                  <span className="text-[#515154] group-open:rotate-180 transition-transform ml-3 shrink-0">
+                    ▾
+                  </span>
+                </summary>
+                <div className="px-5 pb-4 text-sm sm:text-base text-[#3A3A3C] font-medium leading-relaxed border-t border-slate-200 pt-3 break-keep">
+                  {faq.answer}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {/* Bottom CTA */}
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 text-center space-y-4 shadow-2xs">
+          <h2 className="text-xl font-extrabold text-[#1D1D1F]">
+            지금 바로 크리딜을 시작해 보세요
+          </h2>
+          <p className="text-sm sm:text-base text-[#515154] font-medium break-keep">
+            회원용 상세 사용법에서 각 공간의 화면 예시와 3단계 순서를 먼저 살펴보실 수도 있습니다.
           </p>
-        </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/broker/tutorial"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-5 py-3 text-base font-bold text-[#1D1D1F] transition-colors"
+            >
+              회원용 상세 사용법
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] px-6 py-3 text-base font-bold text-white shadow-xs transition-colors"
+            >
+              시작하기
+            </Link>
+          </div>
+        </section>
       </div>
     </main>
   );

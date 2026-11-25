@@ -22,6 +22,7 @@ import {
   formatPhoneHyphen,
   isRealUploadedPhotoUrl,
   resolveKnownTestAssetUrl,
+  sortImWorkspaceItems,
   type ImListItem,
   type ImPhotoEntry,
 } from "../_components/im-workspace-types";
@@ -171,7 +172,8 @@ export function useImServerHydration({
                   (it) =>
                     !(it?.ownerUserId && activeUid && it.ownerUserId !== activeUid)
                 );
-          const rawSourceList = basePrev.length > 0 ? basePrev : INITIAL_IM_LIST;
+          const rawSourceList =
+            basePrev.length > 0 ? sortImWorkspaceItems(basePrev) : INITIAL_IM_LIST;
           const sourceList =
             isFreshParam &&
             initialFreshStarterItem &&
@@ -253,8 +255,9 @@ export function useImServerHydration({
         applyItemToFormState(freshStarterItem);
         onFreshDraftCreated?.(freshStarterItem.buildingId);
       } else if (parsed.length > 0) {
+        const sortedParsed = sortImWorkspaceItems(parsed);
         const explicitMatch = initialQueryId
-          ? parsed.find(
+          ? sortedParsed.find(
               (i: ImListItem) =>
                 i.id === initialQueryId || i.buildingId === initialQueryId
             )
@@ -263,7 +266,7 @@ export function useImServerHydration({
           !explicitMatch && initialQueryId
             ? tryBuildImItemFromDealCardCache(initialQueryId, initialUid)
             : null;
-        const workingList = fromDcCache ? [fromDcCache, ...parsed] : parsed;
+        const workingList = fromDcCache ? [fromDcCache, ...sortedParsed] : sortedParsed;
         itemsRef.current = workingList;
         setItems(workingList);
         const match = fromDcCache || explicitMatch || workingList[0];
@@ -560,7 +563,7 @@ export function useImServerHydration({
             );
             const seenBldIds = new Set<string>();
             const seenAddrTitleKeys = new Set<string>();
-            const merged = prioritizedCandidates.filter((it) => {
+            const mergedDeduped = prioritizedCandidates.filter((it) => {
               const isExplicitTarget = Boolean(
                 initialQueryId && (it.id === initialQueryId || it.buildingId === initialQueryId)
               );
@@ -575,6 +578,7 @@ export function useImServerHydration({
               }
               return true;
             });
+            const merged = sortImWorkspaceItems(mergedDeduped);
 
             const explicitSrvMatch = initialQueryId
               ? merged.find(
@@ -642,10 +646,16 @@ export function useImServerHydration({
 
             const activeResolvedList = itemsRef.current;
             if (!userInteractedRef.current) {
+              const sortedSrvItems = sortImWorkspaceItems(srvItems);
               const isInitialTargetSample = Boolean(
                 initialTargetId && SAMPLE_SEED_IDS.has(initialTargetId)
               );
-              const firstServerUserDraft = srvItems.find(
+              const firstServerUserDraft = sortedSrvItems.find(
+                (i) =>
+                  !SAMPLE_SEED_IDS.has(i.id || "") &&
+                  !SAMPLE_SEED_IDS.has(i.buildingId || "")
+              );
+              const newestActiveUserItem = activeResolvedList.find(
                 (i) =>
                   !SAMPLE_SEED_IDS.has(i.id || "") &&
                   !SAMPLE_SEED_IDS.has(i.buildingId || "")
@@ -660,9 +670,8 @@ export function useImServerHydration({
                 synthesizedSrvItem ||
                 explicitSrvMatch ||
                 freshStarterItem ||
-                (!initialQueryId && isInitialTargetSample ? firstServerUserDraft : undefined) ||
+                (!initialQueryId ? newestActiveUserItem || firstServerUserDraft : undefined) ||
                 initialTargetMatch ||
-                (!initialQueryId ? firstServerUserDraft : undefined) ||
                 activeResolvedList[0];
               if (targetMatch) {
                 if ((synthesizedSrvItem || explicitSrvMatch) && initialQueryId) {
@@ -705,7 +714,7 @@ export function useImServerHydration({
           const nextItemsBase = fromDcCache
             ? [fromDcCache]
             : scopedLocalForResolvedUser.length > 0
-            ? scopedLocalForResolvedUser
+            ? sortImWorkspaceItems(scopedLocalForResolvedUser)
             : INITIAL_IM_LIST;
           const nextItems =
             freshStarterItem && !nextItemsBase.some((i) => i.id === freshStarterItem.id)

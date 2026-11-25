@@ -13,6 +13,7 @@ import { isUuid } from "@/lib/magazine/slug";
 import { kindOfEditionType } from "@/lib/magazine/edition-draft";
 import { parseEditionContentDraft } from "@/domain/magazine/edition-content.schema";
 import { assertPublishable } from "@/lib/legal/publish-gate";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-editions-publish");
@@ -345,7 +346,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .then(() => undefined, () => undefined);
     }
 
-    const origin = request.nextUrl?.origin || "https://credeal.net";
+    const origin = request.nextUrl?.origin || getCanonicalSiteUrl();
     const segList = Array.isArray(payloadColumns.target_segments) ? payloadColumns.target_segments : [];
     const targetParam = segList[0] && segList[0] !== "all" ? `&target=${encodeURIComponent(segList[0])}` : "";
     const publicUrl = `${origin}/magazine/${encodeURIComponent(ctx.slug)}/${encodeURIComponent(issueDate)}?edition=${encodeURIComponent(edition.id)}${targetParam}`;

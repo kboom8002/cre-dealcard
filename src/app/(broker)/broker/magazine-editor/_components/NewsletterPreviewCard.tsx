@@ -28,13 +28,22 @@ import type {
   MonthlyRegionalChart,
 } from "@/domain/magazine/types";
 import type { NewsletterCadence } from "@/lib/magazine/newsletter-cadence";
+import {
+  formatDotDate,
+  resolveEditionPublicDateAndHeader,
+} from "@/lib/magazine/edition-public-date";
+import { resolveCanonicalDealSummary } from "@/lib/deal-card/canonical-summary";
 
 export interface NewsletterPreviewCardProps {
   previewLifecycle: PreviewLifecycleState;
   activeUnitId: string | null;
   onFocusEditorUnit: (unitId: string) => void;
   yearMonthLabel: string;
+  editionLabel?: string | null;
+  issueDate?: string | null;
+  publishedAt?: string | null;
   marketTemp: MarketTemperature | null;
+  showMarketTempBadge?: boolean;
   headline: string;
   brokerName: string;
   brokerOffice: string;
@@ -54,7 +63,11 @@ export function NewsletterPreviewCard({
   activeUnitId,
   onFocusEditorUnit,
   yearMonthLabel,
+  editionLabel,
+  issueDate,
+  publishedAt,
   marketTemp,
+  showMarketTempBadge = false,
   headline,
   brokerName,
   brokerOffice,
@@ -68,6 +81,21 @@ export function NewsletterPreviewCard({
   dealComments,
   isSectionEnabled,
 }: NewsletterPreviewCardProps) {
+  const resolvedDateHeader = resolveEditionPublicDateAndHeader({
+    cadence,
+    editionLabel: editionLabel ?? yearMonthLabel,
+    issueDate,
+    publishedAt,
+  });
+  const dotDate = formatDotDate(
+    resolvedDateHeader.publishedKstDate || resolvedDateHeader.canonicalUrlDate,
+  );
+  const issueBadgeLabel = yearMonthLabel.trim()
+    ? dotDate
+      ? `${yearMonthLabel.trim()} · ${dotDate} 발행`
+      : yearMonthLabel.trim()
+    : resolvedDateHeader.displayDateLabel;
+
   return (
     <article
       aria-label="실시간 뉴스레터 미리보기"
@@ -87,9 +115,9 @@ export function NewsletterPreviewCard({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-900">
-              {yearMonthLabel} 뉴스레터
+              {issueBadgeLabel} 뉴스레터
             </span>
-            {marketTemp && (
+            {showMarketTempBadge && marketTemp && (
               <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-800">
                 시장 분위기: {marketTemp}
               </span>
@@ -273,10 +301,13 @@ export function NewsletterPreviewCard({
                 const quadRegion =
                   (deal.areaSignal && deal.areaSignal.trim()) ||
                   (deal.address && deal.address !== "주소 미입력" ? deal.address : "서울 주요권역");
-                const quadUse =
-                  (deal.assetType && deal.assetType.trim()) || "근린생활시설";
-                const quadArea =
-                  (deal.areaLabel && deal.areaLabel.trim()) || "규모 상세확인";
+                const summary = resolveCanonicalDealSummary({
+                  region: quadRegion,
+                  assetType: deal.assetType,
+                  explicitAreaLabel: deal.areaLabel,
+                });
+                const quadUse = summary.use;
+                const quadArea = summary.areaLabel || "규모 상세확인";
                 const quadPrice =
                   (deal.priceBand && deal.priceBand.trim()) ||
                   (deal.price && deal.price !== "-" ? deal.price : "가격 협의");

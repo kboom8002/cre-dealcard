@@ -299,7 +299,7 @@ export function NewsCurationPanel({
           className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-500/20 px-3.5 py-2 text-sm font-extrabold text-indigo-100 hover:bg-indigo-500/30 transition-colors shadow-xs"
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" aria-hidden="true" />
-          <span>✨ 매수자 관심 황금배합 자동 선별</span>
+          <span>매수자 관심 황금배합 자동 선별</span>
         </button>
       </div>
 

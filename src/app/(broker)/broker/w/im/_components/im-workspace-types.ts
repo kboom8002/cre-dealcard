@@ -1539,3 +1539,110 @@ export function buildImSyncUnits(params: {
     },
   };
 }
+
+export function sumRentRollMetric(
+  rows: RentRollRowItem[],
+  field: "monthlyRentManwon" | "depositManwon",
+  legacyField: "rent_manwon" | "deposit_manwon"
+): number {
+  return (
+    Math.round(
+      rows.reduce(
+        (s, r) =>
+          s +
+          (r.status !== "vacant" && r.status !== "owner"
+            ? Number(r[field] ?? (r as unknown as Record<string, unknown>)[legacyField] ?? 0)
+            : 0),
+        0
+      ) * 10
+    ) / 10
+  );
+}
+
+export function resolveImCadastralImageUrl(
+  currentItem: ImListItem | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parcels?: any[]
+): string | undefined {
+  const explicitUrl = currentItem?.brokerExtras?.enrichment?.cadastralMapImage;
+  if (typeof explicitUrl === "string" && explicitUrl.trim().length > 0) {
+    return explicitUrl.trim();
+  }
+  const effectiveParcels = parcels ?? currentItem?.parcels;
+  const pnuList: string[] = [];
+  const rawPrimaryPnu = String(
+    currentItem?.pnu ||
+      (Array.isArray(effectiveParcels) ? effectiveParcels[0]?.pnu : "") ||
+      ""
+  ).replace(/\D/g, "");
+  if (/^\d{19}$/.test(rawPrimaryPnu)) pnuList.push(rawPrimaryPnu);
+  if (Array.isArray(effectiveParcels)) {
+    for (const pc of effectiveParcels) {
+      const d = String(pc?.pnu || "").replace(/\D/g, "");
+      if (/^\d{19}$/.test(d) && !pnuList.includes(d)) pnuList.push(d);
+    }
+  }
+  if (pnuList.length === 0) return undefined;
+  const qs = new URLSearchParams({ pnu: pnuList[0] });
+  if (pnuList.length > 1) {
+    qs.set("pnus", pnuList.slice(0, 10).join(","));
+  }
+  if (
+    typeof currentItem?.lat === "number" &&
+    typeof currentItem?.lng === "number" &&
+    Number.isFinite(currentItem.lat) &&
+    Number.isFinite(currentItem.lng) &&
+    currentItem.lat >= 33 &&
+    currentItem.lat <= 43 &&
+    currentItem.lng >= 124 &&
+    currentItem.lng <= 132
+  ) {
+    qs.set("lat", String(currentItem.lat));
+    qs.set("lng", String(currentItem.lng));
+  }
+  return `/api/public/map/cadastral?${qs.toString()}`;
+}
+
+export function buildImPostitStyles(normalizedPosture: string): Record<
+  "amber" | "sky" | "mint",
+  {
+    bg: string;
+    border: string;
+    badgeBg: string;
+    badgeText: string;
+    label: string;
+  }
+> {
+  const highlight2CategoryLabel =
+    normalizedPosture === "owner_occupied"
+      ? "장점 02 · 사옥 활용·입주"
+      : normalizedPosture === "development" ||
+        normalizedPosture === "trading" ||
+        normalizedPosture === "operating"
+      ? "장점 02 · 개발·토지 가치"
+      : "장점 02 · 수익률";
+
+  return {
+    amber: {
+      bg: "rgba(255, 149, 0, 0.085)",
+      border: "rgba(255, 149, 0, 0.28)",
+      badgeBg: "rgba(255, 149, 0, 0.14)",
+      badgeText: "#8A4B00",
+      label: "장점 01 · 입지·임차",
+    },
+    sky: {
+      bg: "rgba(0, 122, 255, 0.08)",
+      border: "rgba(0, 122, 255, 0.25)",
+      badgeBg: "rgba(0, 122, 255, 0.14)",
+      badgeText: "#0040DD",
+      label: highlight2CategoryLabel,
+    },
+    mint: {
+      bg: "rgba(40, 205, 65, 0.085)",
+      border: "rgba(40, 205, 65, 0.28)",
+      badgeBg: "rgba(40, 205, 65, 0.14)",
+      badgeText: "#116B22",
+      label: "장점 03 · 건물·토지 가치",
+    },
+  };
+}

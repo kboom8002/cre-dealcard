@@ -97,6 +97,7 @@ export interface InboxCopyBundleInput {
   buildingTitle: string;
   shareUrl: string;
   headline?: string | null;
+  brief?: string | null;
   assetKind?: 'im' | 'dealcard' | 'magazine';
 }
 
@@ -117,12 +118,14 @@ export function buildInboxCopyBundle(input: InboxCopyBundleInput): InboxCopyBund
         ? '빌딩 시장 뉴스레터'
         : '매물 상세 브리핑(IM)';
   const headlineLine = input.headline?.trim() ? `\n핵심 요약: ${input.headline.trim()}` : '';
+  const briefParagraph = input.brief?.trim() ? input.brief.trim() : '';
   const phoneLine = input.brokerPhone?.trim() ? `\n문의 연락처: ${input.brokerPhone.trim()}` : '';
 
   const subject = `[${brokerName} 중개인] ${buildingTitle} ${assetLabel} 전달드립니다`;
   const messageText = [
     `${clientName}님, 안녕하세요. ${brokerName} 중개인입니다.`,
     `요청·상담하신 [${buildingTitle}] ${assetLabel} 자료 링크를 보내드립니다.${headlineLine}`,
+    ...(briefParagraph ? ['', briefParagraph] : []),
     '',
     `▶ 자료 바로 보기: ${input.shareUrl}`,
     '',
@@ -251,6 +254,7 @@ export interface SendInboxClientEmailInput {
   buildingTitle: string;
   shareUrl: string;
   headline?: string | null;
+  brief?: string | null;
   assetKind?: 'im' | 'dealcard' | 'magazine';
   deliveryPurpose?: InboxEmailDeliveryPurpose;
   transactionalBasis?: InboxTransactionalBasis | string | null;
@@ -292,6 +296,7 @@ export async function sendInboxClientEmail(
     buildingTitle: input.buildingTitle,
     shareUrl: input.shareUrl,
     headline: input.headline,
+    brief: input.brief,
     assetKind: input.assetKind,
   });
 
@@ -432,6 +437,9 @@ export async function sendInboxClientEmail(
   const safeSenderIdentity = escapeHtml(senderIdentity);
   const safeTitle = escapeHtml((input.buildingTitle || '추천 매물').trim());
   const safeHeadline = input.headline?.trim() ? escapeHtml(input.headline.trim()) : '';
+  const safeBriefHtml = input.brief?.trim()
+    ? escapeHtml(input.brief.trim()).replace(/\r?\n/g, '<br/>')
+    : '';
   const safePhone = brokerPhoneClean ? escapeHtml(brokerPhoneClean) : '';
   const safeAddress = brokerAddressClean ? escapeHtml(brokerAddressClean) : '';
   const safeBrokerEmail = brokerEmailClean ? escapeHtml(brokerEmailClean) : '';
@@ -465,6 +473,7 @@ export async function sendInboxClientEmail(
     <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#2563eb;">${headerBrandLine}</p>
     <h1 style="margin:0 0 16px;font-size:20px;line-height:1.45;color:#0f172a;">${safeClient}님, [${safeTitle}] 자료를 보내드립니다</h1>
     ${safeHeadline ? `<p style="margin:0 0 16px;padding:12px 14px;background:#f1f5f9;border-radius:10px;font-size:15px;line-height:1.6;color:#1e293b;">${safeHeadline}</p>` : ''}
+    ${safeBriefHtml ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#1e293b;">${safeBriefHtml}</p>` : ''}
     <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">아래 버튼을 누르시면 회원가입이나 별도 앱 설치 없이 모바일·PC에서 바로 확인하실 수 있습니다.</p>
     <div style="margin:0 0 24px;">
       <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:12px;font-size:16px;font-weight:700;">매물 자료 바로 보기 →</a>

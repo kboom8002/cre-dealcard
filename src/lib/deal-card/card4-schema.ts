@@ -16,6 +16,7 @@ import {
   repairDealCardLine,
   repairDealCardPoints,
 } from './copy-limits';
+import { cleanBlindPoints } from './blind-guard';
 
 export type ProvenanceSource = 'public' | 'broker' | 'ai';
 export type DealCardPosture = 'income' | 'owner_occupied' | 'value_add';
@@ -77,7 +78,7 @@ export const Card4Schema = z.object({
     z.string().min(1, '특징 2를 입력해주세요'),
     z.string().min(1, '특징 3를 입력해주세요'),
   ]),
-  pointCandidates: z.array(Card4PointCandidateSchema).max(8).optional(),
+  pointCandidates: z.array(Card4PointCandidateSchema).max(10).optional(),
   pointBriefs: z.tuple([z.string(), z.string(), z.string()]).optional(),
   pointTones: z
     .tuple([
@@ -245,6 +246,39 @@ export function computeCard4Hash(card: Card4HashInput): string {
   return crypto.createHash('sha256').update(canonicalJson).digest('hex');
 }
 
+export function normalizeCard4PointCandidates(
+  raw: unknown,
+): Card4PointCandidate[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: Card4PointCandidate[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    let rawText = '';
+    let rawAxis: unknown;
+    if (typeof entry === 'string') {
+      rawText = entry;
+    } else if (entry && typeof entry === 'object' && typeof (entry as { text?: unknown }).text === 'string') {
+      rawText = (entry as { text: string }).text;
+      rawAxis = (entry as { axis?: unknown }).axis;
+    } else {
+      continue;
+    }
+    const masked = cleanBlindPoints([rawText])[0] ?? rawText;
+    const cleaned = repairDealCardLine(masked);
+    if (!cleaned) continue;
+    const key = cleaned.replace(/\s+/g, '').trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const axisParsed = rawAxis !== undefined ? DealCardPointAxisSchema.safeParse(rawAxis) : null;
+    out.push({
+      text: cleaned,
+      ...(axisParsed?.success ? { axis: axisParsed.data } : {}),
+    });
+    if (out.length >= 10) break;
+  }
+  return out.length > 0 ? out : raw.length === 0 ? [] : undefined;
+}
+
 export interface UpdateDealCard4Input {
   card4: {
     headline?: string;
@@ -256,7 +290,7 @@ export interface UpdateDealCard4Input {
     landAreaPyung?: number;
     priceBand: string;
     points: [string, string, string];
-    pointCandidates?: Card4PointCandidate[];
+    pointCandidates?: Array<Card4PointCandidate | string>;
     pointBriefs?: [string, string, string];
     pointTones?: [DealCardPointTone, DealCardPointTone, DealCardPointTone];
     provenance?: {
@@ -338,7 +372,11 @@ export async function updateDealCard4(
   const newHash = computeCard4Hash({ ...input.card4, headline: resolvedHeadline, points: repairedPoints });
 
   const resolvedPointBriefs = input.card4.pointBriefs ?? currentCard4?.pointBriefs;
-  const resolvedPointCandidates = input.card4.pointCandidates ?? currentCard4?.pointCandidates;
+  const resolvedPointCandidates = normalizeCard4PointCandidates(
+    input.card4.pointCandidates !== undefined
+      ? input.card4.pointCandidates
+      : currentCard4?.pointCandidates,
+  );
   const resolvedPointTones = input.card4.pointTones ?? currentCard4?.pointTones;
   const resolvedPairedMemoId = input.card4.pairedMemoId ?? currentCard4?.pairedMemoId;
   const resolvedGenerationSource =

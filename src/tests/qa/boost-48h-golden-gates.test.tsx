@@ -154,9 +154,10 @@ describe("48h Deep Audit Permanent AI Golden Gates (P0-1..P0-4, P1-1..P1-9, P2)"
     await act(async () => {
       step3Btn!.click();
     });
-    expect(onPublishWebOnly).toHaveBeenCalledWith({ scheduleMorning: true });
-    expect(onSendSelected).not.toHaveBeenCalled();
+    expect(onSendSelected).toHaveBeenCalledWith({ scheduleMorning: true });
+    expect(onPublishWebOnly).not.toHaveBeenCalled();
 
+    onSendSelected.mockClear();
     onPublishWebOnly.mockClear();
     await act(async () => {
       root.render(

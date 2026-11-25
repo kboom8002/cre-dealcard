@@ -19,10 +19,12 @@ import {
   CURATED_CHANNEL_POOL,
   NEWS_CHANNELS,
   NEWS_CHANNEL_MAP,
+  inferCreArticleSentiment,
   isCreRelevantArticle,
   resolveNewsChannel,
   type NewsChannelId,
   type NewsPoolItem,
+  type NewsletterToneStance,
   type SpecificNewsChannelId,
 } from "@/domain/magazine/news-channels";
 
@@ -54,6 +56,7 @@ export interface AxiosIssuesEditorPanelProps {
   preferredRegions?: readonly string[];
   preferredChannels?: readonly SpecificNewsChannelId[];
   dealTitles?: readonly string[];
+  toneStance?: NewsletterToneStance;
   onAiClusterIssues?: () => Promise<void> | void;
   isAiClustering?: boolean;
   onRefreshLiveChannel?: (channel: NewsChannelId) => void;
@@ -70,6 +73,7 @@ export function AxiosIssuesEditorPanel({
   preferredRegions,
   preferredChannels,
   dealTitles,
+  toneStance = "positive",
   onAiClusterIssues,
   isAiClustering = false,
   onRefreshLiveChannel,
@@ -101,6 +105,7 @@ export function AxiosIssuesEditorPanel({
       preferredRegions,
       preferredChannels,
       dealKeywords: dealTitles,
+      toneStance,
     });
     onChangeUnitIssues(clustered);
     editorToast.success("핵심 시장 이슈 5선을 채웠습니다.");
@@ -130,6 +135,7 @@ export function AxiosIssuesEditorPanel({
       preferredRegions,
       preferredChannels,
       dealKeywords: dealTitles,
+      toneStance,
     });
     onChangeUnitIssues(reclustered);
     editorToast.success("AI가 내 권역·관심 분야 기반으로 핵심 시장 이슈 5선을 재구성했습니다.");
@@ -139,6 +145,11 @@ export function AxiosIssuesEditorPanel({
     const ch = resolveNewsChannel(item);
     const currentTone = issues[idx]?.memoTone ?? POST_IT_TONES[idx % POST_IT_TONES.length];
     replaceSeqRef.current += 1;
+    const resolvedSentiment = inferCreArticleSentiment({
+      title: item.title,
+      summary: item.summary,
+      sentiment: item.sentiment,
+    });
     const replacement: AxiosUnitIssue = {
       id: String(item.id ?? `issue-${idx + 1}-${replaceSeqRef.current}`),
       title: formatAxiosCardTitle(item.cardTitle || item.title),
@@ -149,8 +160,7 @@ export function AxiosIssuesEditorPanel({
       memoTone: currentTone,
       channel: ch,
       topic: item.topic || ch,
-      sentiment:
-        item.sentiment === "bullish" || item.sentiment === "bearish" ? item.sentiment : "neutral",
+      sentiment: resolvedSentiment,
       sources: item.source ? [item.source] : [NEWS_CHANNEL_MAP[ch]?.shortLabel ?? "시장 브리핑"],
       ...(item.url ? { url: item.url } : {}),
       articleCount: 1,
@@ -164,11 +174,20 @@ export function AxiosIssuesEditorPanel({
     editorToast.success("이슈 카드를 교체했습니다.");
   };
 
-  const candidatePool = newsPool.filter((n) => {
-    if (!isCreRelevantArticle(n)) return false;
-    if (channelFilter === "all") return true;
-    return resolveNewsChannel(n) === channelFilter;
-  });
+  const toneAffinityScore = (item: NewsPoolItem) => {
+    const s = inferCreArticleSentiment(item);
+    if (toneStance === "negative") return s === "bearish" ? 2 : s === "neutral" ? 1 : 0;
+    if (toneStance === "neutral") return s === "neutral" ? 2 : 1;
+    return s === "bullish" ? 2 : s === "neutral" ? 1 : 0;
+  };
+
+  const candidatePool = newsPool
+    .filter((n) => {
+      if (!isCreRelevantArticle(n)) return false;
+      if (channelFilter === "all") return true;
+      return resolveNewsChannel(n) === channelFilter;
+    })
+    .sort((a, b) => toneAffinityScore(b) - toneAffinityScore(a));
 
   return (
     <div data-testid="axios-issues-editor-panel" className="space-y-4">

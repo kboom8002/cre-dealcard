@@ -318,7 +318,7 @@ describe('Track 3B (E-01 ~ E-05) 회귀 검증', () => {
         onApplyDraft: () => {},
       }),
     );
-    expect(quickHtml).toContain('🤖 AI 초안 참고 지역·주제 (선택 · 비워두면 기본 권역 사용)');
+    expect(quickHtml).toContain('이번 호 중점 지역·주제 (선택)');
     expect(quickHtml).toContain('data-testid="clear-region-focus-btn"');
 
     const contentHtml = renderToStaticMarkup(
@@ -396,13 +396,13 @@ describe('Track 3B (E-01 ~ E-05) 회귀 검증', () => {
         onSendSelected: () => {},
       }),
     );
-    expect(sendHtml).toContain('① 누구에게 보낼까요?');
-    expect(sendHtml).toContain('② 어떻게 보낼까요?');
-    expect(sendHtml).toContain('③ 발송 실행');
+    expect(sendHtml).toContain('1. 받는 대상');
+    expect(sendHtml).toContain('2. 발송 방식 및 공유');
+    expect(sendHtml).toContain('3. 발송 실행');
     expect(sendHtml).toContain('지금 바로 발송');
     expect(sendHtml).toContain('오전 08:30 예약 발송');
     expect(sendHtml).toContain('웹 링크만 먼저 발행·복사');
-    expect(sendHtml).toContain('④ 발송·수신확인 내역 보기');
+    expect(sendHtml).toContain('4. 발송·수신확인 내역 보기');
   });
 
   it('E-05: MagazineView 추천 매물 <li> 가 w-full shrink-0 snap-start 로 뉴스·브로커 카드와 좌우 폭이 일치한다', () => {
@@ -659,7 +659,8 @@ describe('Track 2 회귀 검증 (P0-1, P0-2, P1-5, P1-9)', () => {
 
   it('P0-2: 야간 schedule_0830 가 즉시발송으로 폴스루하지 않고 NewsletterPrimaryActionButton 이 sendMode 별로 분기·라벨링한다', () => {
     const sendPanelSrc = readSrc('app/(broker)/broker/magazine-editor/_components/NewsletterSendStepPanel.tsx');
-    expect(sendPanelSrc).toContain('if (sendMode === "schedule_0830" && onPublishWebOnly)');
+    expect(sendPanelSrc).toContain('if (sendMode === "schedule_0830") {');
+    expect(sendPanelSrc).toContain('onSendSelected({ scheduleMorning: true });');
     expect(sendPanelSrc).not.toContain('sendMode === "schedule_0830" && !isQuietHours');
 
     const quietHtml = renderToStaticMarkup(
@@ -722,12 +723,12 @@ describe('Track 2 회귀 검증 (P0-1, P0-2, P1-5, P1-9)', () => {
       onPublishWebOnly: onWebOnly,
     }) as React.ReactElement<{ onClick?: () => void }>;
     schedBtnEl.props.onClick?.();
-    expect(onWebOnly).toHaveBeenCalledWith({ scheduleMorning: true });
+    expect(onSend).toHaveBeenCalledWith({ scheduleMorning: true });
 
     const webLabelHtml = renderToStaticMarkup(webBtnEl);
     const schedLabelHtml = renderToStaticMarkup(schedBtnEl);
-    expect(webLabelHtml).toContain('🔗 웹 링크만 먼저 발행·복사');
-    expect(schedLabelHtml).toContain('⏰ 오전 08:30 예약 발송 준비');
+    expect(webLabelHtml).toContain('웹 링크만 발행·복사');
+    expect(schedLabelHtml).toContain('오전 08:30 예약 발송 준비');
   });
 
   it('P1-5: magazine-editor/page.tsx 가 ?step= · regionFocus 영속화 및 Step 4 상단 버튼 중복 억제를 적용한다', () => {

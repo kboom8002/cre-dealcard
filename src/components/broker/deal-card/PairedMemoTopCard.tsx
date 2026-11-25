@@ -137,7 +137,7 @@ export function PairedMemoTopCard({
             />
           </div>
 
-          {/* Footer Action Bar */}
+          {/* Footer Action Bar: 2 grouped clusters (primary memo actions vs secondary helper shortcuts) */}
           {isCaptureMode ? (
             <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2.5">
               <div className="flex flex-wrap items-center gap-2">
@@ -146,7 +146,7 @@ export function PairedMemoTopCard({
                   data-testid="dealcard-generate-from-memo-btn"
                   disabled={!hasMemo || isGenerating}
                   onClick={onGenerateFromMemo}
-                  className="min-h-[50px] px-5 py-2.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-45 disabled:cursor-not-allowed text-white text-base font-extrabold shadow-xs transition cursor-pointer inline-flex items-center gap-2"
+                  className="min-h-[48px] px-5 py-2.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1E40AF] disabled:opacity-45 disabled:cursor-not-allowed text-white text-base font-extrabold shadow-xs transition cursor-pointer inline-flex items-center gap-2"
                 >
                   <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>
@@ -169,28 +169,30 @@ export function PairedMemoTopCard({
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {onFillSample && (
-                  <button
-                    type="button"
-                    data-testid="dealcard-fill-sample-btn"
-                    onClick={onFillSample}
-                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#1D1D1F] border border-slate-300 text-sm font-bold transition cursor-pointer whitespace-nowrap"
-                  >
-                    예시 채우기
-                  </button>
-                )}
-                {onSkipMemoManual && (
-                  <button
-                    type="button"
-                    data-testid="dealcard-skip-memo-manual-btn"
-                    onClick={onSkipMemoManual}
-                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#515154] border border-slate-200 text-sm font-bold transition cursor-pointer whitespace-nowrap"
-                  >
-                    메모 없이 직접 입력
-                  </button>
-                )}
-              </div>
+              {(onFillSample || onSkipMemoManual) && (
+                <div className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/80 p-1">
+                  {onFillSample && (
+                    <button
+                      type="button"
+                      data-testid="dealcard-fill-sample-btn"
+                      onClick={onFillSample}
+                      className="min-h-[44px] px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-[#1D1D1F] border border-slate-200 text-sm font-bold transition cursor-pointer whitespace-nowrap"
+                    >
+                      예시 채우기
+                    </button>
+                  )}
+                  {onSkipMemoManual && (
+                    <button
+                      type="button"
+                      data-testid="dealcard-skip-memo-manual-btn"
+                      onClick={onSkipMemoManual}
+                      className="min-h-[44px] px-3 py-1.5 rounded-lg bg-transparent hover:bg-white text-[#515154] text-sm font-bold transition cursor-pointer whitespace-nowrap"
+                    >
+                      메모 없이 직접 입력
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">

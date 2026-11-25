@@ -56,6 +56,7 @@ import {
   sanitizeStatutoryField,
 } from "@/lib/legal/broker-statutory-disclosure";
 import { ReaderFontScaleToggle } from "@/components/ui/ReaderFontScaleToggle";
+import { formatPnuLotShortLabel } from "@/lib/address/multi-parcel-format";
 
 export { isInAppWebView, buildKakaoExternalOpenUrl };
 
@@ -2145,15 +2146,11 @@ export function MobileIMViewer({
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {multiParcels.map((p: any, idx: number) => {
+                    const formattedLot =
+                      typeof p?.pnu === "string" ? formatPnuLotShortLabel(p.pnu) : "";
                     const jibunText =
                       p?.jibun ||
-                      (typeof p?.pnu === "string" && /^\d{19}$/.test(p.pnu)
-                        ? `${parseInt(p.pnu.slice(11, 15), 10)}${
-                            parseInt(p.pnu.slice(15, 19), 10) > 0
-                              ? `-${parseInt(p.pnu.slice(15, 19), 10)}`
-                              : ""
-                          }번지`
-                        : `필지 ${idx + 1}`);
+                      (formattedLot ? `${formattedLot}번지` : `필지 ${idx + 1}`);
                     return (
                       <tr key={p?.pnu || idx}>
                         <td className="py-2 px-3 font-semibold text-[#0F172A]">{jibunText}</td>
@@ -2613,16 +2610,22 @@ export function MobileIMViewer({
                 소재지: {realBrokerOfficeAddress}
               </p>
             )}
-            <p className="text-[#1D4ED8] font-bold">
-              연락처:{" "}
-              {realBrokerPhone ? (
-                <a href={`tel:${realBrokerPhone.replace(/[^0-9+]/g, "")}`} className="hover:underline">
-                  {realBrokerPhone}
-                </a>
-              ) : (
-                <span className="text-[#64748B] font-semibold">문의 시 안내</span>
-              )}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-[#1D4ED8] font-bold">
+              <span>연락처:</span>
+              <PhoneActionButton
+                phone={realBrokerPhone}
+                variant="compact"
+                showFormattedNumber={false}
+                className="inline-flex flex-wrap items-center gap-2"
+                callClassName="inline-flex min-h-[44px] items-center gap-1 text-base font-bold text-[#1D4ED8] hover:underline"
+                copyClassName="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1 text-sm font-bold text-[#0F172A] hover:bg-slate-50 cursor-pointer"
+                renderCallContent={<span>{realBrokerPhone}</span>}
+                fallbackLabel={
+                  <span className="text-[#64748B] font-semibold">문의 시 안내</span>
+                }
+                fallbackClassName="inline-flex items-center text-base font-semibold text-[#64748B]"
+              />
+            </div>
             {isBrokerPreview && isMissingBrokerContact && (
               <div
                 data-testid="mobile-im-broker-profile-nudge"
@@ -2885,7 +2888,7 @@ export function MobileIMViewer({
             variant="compact"
             showFormattedNumber={false}
             className="w-full min-w-0 flex items-stretch gap-1.5"
-            callClassName="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
+            callClassName="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
             copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1 px-2.5 py-2 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm whitespace-nowrap"
             renderCallContent={
               <>
@@ -2900,14 +2903,14 @@ export function MobileIMViewer({
               </>
             }
             fallbackHref="#10_contact"
-            fallbackClassName="w-full min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
+            fallbackClassName="w-full min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
           />
           {realKakaoChannelUrl ? (
             <a
               href={realKakaoChannelUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
+              className="w-full min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#FDD835] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
             >
               <span aria-hidden="true" className="shrink-0">💬</span>
               <span>카톡 상담</span>
@@ -2916,7 +2919,7 @@ export function MobileIMViewer({
             <button
               type="button"
               onClick={() => setShowInquiry(true)}
-              className="w-full min-w-0 min-h-[48px] px-2 sm:px-3 py-2 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#1E40AF] transition-colors cursor-pointer text-[13px] sm:text-base whitespace-nowrap"
+              className="w-full min-w-0 min-h-[48px] px-2 sm:px-3 py-2 bg-[#1D4ED8] text-white font-bold rounded-xl flex items-center justify-center gap-1 hover:bg-[#1E40AF] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
             >
               <span aria-hidden="true" className="shrink-0">📩</span>
               <span>간편 문의 · 자료 요청</span>

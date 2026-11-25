@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { VENDOR_CATEGORY_META } from "@/domain/vendor/vendor-tier";
 import type { VendorCategory, VendorTier } from "@/domain/vendor/vendor-tier";
 import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
@@ -82,7 +83,7 @@ export default async function ServiceCardDetailPage({ params }: { params: Params
   const vendor = card.vendor_profiles;
   const tierLabel = vendor.vendor_tier === "premium" ? "Premium" : vendor.vendor_tier === "pro" ? "Pro" : null;
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+  const BASE_URL = getCanonicalSiteUrl();
 
   function renderStars(rating: number | null) {
     if (!rating) return "평점 없음";

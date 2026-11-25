@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BROKER_GLOSSARY_LIST } from "@/lib/tutorial/broker-tutorial-data";
 import {
   MINIMAL_ESSENTIAL_FAQS,
+  MINIMAL_ESSENTIAL_GLOSSARY,
   MINIMAL_SPACE_GUIDES,
   resolveMinimalSpaceGuide,
 } from "@/lib/tutorial/minimal-guide-data";
@@ -188,9 +188,9 @@ export function ContextualHelpDrawer() {
           {activeTab === "glossary" && (
             <div className="space-y-3">
               <p className="text-sm font-bold text-[#515154]">
-                어려운 영어·부동산 용어를 쉽게 풀었습니다.
+                크리딜 핵심 용어 8가지를 쉬운 우리말로 풀었습니다.
               </p>
-              {BROKER_GLOSSARY_LIST.map((item) => (
+              {MINIMAL_ESSENTIAL_GLOSSARY.map((item) => (
                 <div
                   key={item.term}
                   className="rounded-2xl border border-slate-200 bg-white p-4 space-y-1.5 shadow-2xs"

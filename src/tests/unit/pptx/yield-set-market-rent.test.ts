@@ -49,7 +49,7 @@ describe('market_rent 안정화 수익률', () => {
     const expected = Math.round(((60_000_000 + addedMonthly * 12) / 9_900_000_000) * 10_000) / 100;
     expect(ys.stabilized?.kind).toBe('market_rent');
     expect(ys.stabilized?.value).toBe(expected);
-    expect(ys.stabilized?.label).toBe('안정화 수익률 (시장 임대료 가정)');
+    expect(ys.stabilized?.label).toBe('기대수익률 (시장 임대료 가정)');
     expect(ys.stabilized?.appliedExclusivePyeong).toBe(Number(((60 + 80) / PY).toFixed(1)));
     expect(ys.stabilized?.addedRentKrw).toBe(Math.round(addedMonthly * 12));
   });
@@ -66,7 +66,7 @@ describe('market_rent 안정화 수익률', () => {
     expect(cap).toContain('지상층 90만원');
     expect(cap).not.toContain('1층 130만원'); // 1층 공실이 없으므로 인용하지 않는다
     expect(cap).toContain('/전용평·월');
-    expect(cap).toContain('출처: 지상층 호가 2025-05; 지하층 감정 참고');
+    expect(cap).toContain('(지상층 호가 2025-05; 지하층 감정 참고)');
     expect(buildYieldSet(params()).stabilized!.marketRentSources).toEqual(['호가 2025-05', '감정 참고']); // 1층·지상층·지하층 순
   });
 

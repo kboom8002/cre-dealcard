@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod/v4";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBrokerContext, assertOwnsRow, jsonError } from "@/lib/magazine/authz";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { resolveBroker } from "@/lib/magazine/resolve-broker";
 import { assertPublishable } from "@/lib/legal/publish-gate";
 import { toKstDate, todayKst } from "@/lib/magazine/kst";
@@ -72,6 +73,9 @@ const IssueBodySchema = z.object({
   briefingTitle: z.string().max(300).optional(),
   briefingBody: z.string().max(30000).optional(),
   marketTemp: z.string().max(30).nullable().optional(),
+  toneStance: z.enum(["positive", "neutral", "negative"]).optional(),
+  showMarketTempBadge: z.boolean().optional(),
+  regionFocus: z.string().max(120).optional(),
   featuredDealIds: z.array(z.string().max(100)).max(50).optional(),
   featuredDeals: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
   dealComments: z.record(z.string(), z.string().max(1000)).optional(),
@@ -673,6 +677,29 @@ export async function POST(request: NextRequest) {
 
     const preferredRegions = normalizePreferredRegions(data.preferredRegions);
     const preferredChannels = normalizePreferredChannels(data.preferredChannels);
+    const resolvedToneStance: "positive" | "neutral" | "negative" =
+      data.toneStance ??
+      (existingContent.tone_stance === "positive" ||
+      existingContent.tone_stance === "neutral" ||
+      existingContent.tone_stance === "negative"
+        ? existingContent.tone_stance
+        : existingContent.toneStance === "positive" ||
+            existingContent.toneStance === "neutral" ||
+            existingContent.toneStance === "negative"
+          ? existingContent.toneStance
+          : "positive");
+    const resolvedShowMarketTempBadge =
+      typeof data.showMarketTempBadge === "boolean"
+        ? data.showMarketTempBadge
+        : existingContent.show_market_temp_badge === true;
+    const resolvedRegionFocus =
+      typeof data.regionFocus === "string"
+        ? data.regionFocus.trim()
+        : typeof existingContent.regionFocus === "string"
+          ? existingContent.regionFocus.trim()
+          : typeof existingContent.region_focus === "string"
+            ? existingContent.region_focus.trim()
+            : "";
 
     const sanitizedExistingContent: Record<string, unknown> = { ...existingContent };
     let resolvedUnitIssues = resolveUnitIssuesFromData(
@@ -690,6 +717,7 @@ export async function POST(request: NextRequest) {
         preferredRegions,
         preferredChannels,
         dealKeywords: hydratedDeals.map((d) => `${d.title ?? ""} ${d.address ?? ""}`),
+        toneStance: resolvedToneStance,
       });
     }
 
@@ -773,6 +801,11 @@ export async function POST(request: NextRequest) {
       briefing: primaryBriefingText,
       ai_briefing: primaryBriefingText,
       market_temp: data.marketTemp ?? null,
+      tone_stance: resolvedToneStance,
+      show_market_temp_badge: resolvedShowMarketTempBadge,
+      ...(resolvedRegionFocus
+        ? { regionFocus: resolvedRegionFocus, region_focus: resolvedRegionFocus }
+        : {}),
       field_note: fieldNote,
       theme_title: "",
       theme_body_md: "",
@@ -940,6 +973,11 @@ export async function POST(request: NextRequest) {
       summary: cleanedSummary,
       briefing_title: cleanedBriefingTitle,
       briefing_body_md: cleanedBriefingBody,
+      tone_stance: resolvedToneStance,
+      show_market_temp_badge: resolvedShowMarketTempBadge,
+      ...(resolvedRegionFocus
+        ? { regionFocus: resolvedRegionFocus, region_focus: resolvedRegionFocus }
+        : {}),
       featured_deal_ids: dealIds,
       featured_deals: hydratedDeals,
       featuredDeals: hydratedDeals,
@@ -1094,7 +1132,7 @@ export async function POST(request: NextRequest) {
         .then(() => undefined, () => undefined);
     }
 
-    const origin = request.nextUrl.origin || "https://credeal.net";
+    const origin = request.nextUrl.origin || getCanonicalSiteUrl();
     const targetSuffix =
       data.targetSegment && data.targetSegment !== "all"
         ? `&target=${encodeURIComponent(data.targetSegment)}`

@@ -7,6 +7,7 @@ import { validateBlindPriceBand } from "@/lib/deal-card/price-band";
 import { evaluateDealCardPublishContent } from "@/lib/deal-card/publish-content-gate";
 import {
   computeCard4Hash,
+  normalizeCard4PointCandidates,
   updateDealCard4,
   type Card4Data,
   type DealCardGenerationSource,
@@ -119,9 +120,18 @@ export async function handlePatchWorkspaceUpsert(
   }
 
   const normalizedCard4 = normalizeDealCardCopy(card4, { fillHeadline: true });
+  const normalizedPointCandidates =
+    card4.pointCandidates !== undefined
+      ? normalizeCard4PointCandidates(card4.pointCandidates)
+      : undefined;
+  const { pointCandidates: _rawCandidates, ...restNormalizedCard4 } = normalizedCard4;
+  void _rawCandidates;
   const incomingSigHash = computeCard4Hash(normalizedCard4);
   let outCard4: Card4Data = {
-    ...normalizedCard4,
+    ...restNormalizedCard4,
+    ...(normalizedPointCandidates && normalizedPointCandidates.length > 0
+      ? { pointCandidates: normalizedPointCandidates }
+      : {}),
     ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
     ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
     ...(incomingPairedMemoId ? { pairedMemoId: incomingPairedMemoId } : {}),
@@ -217,6 +227,7 @@ export async function handlePatchWorkspaceUpsert(
   const memRecentUpserts = getUserMap(memoMem.recentUpsertByUserBuilding, userId);
   const upsertSignature = JSON.stringify({
     h: incomingSigHash,
+    c: normalizedPointCandidates ?? card4.pointCandidates ?? null,
     t: card4.pointTones ?? null,
     b: card4.pointBriefs ?? null,
     m: incomingPrivateMemo ?? "",
@@ -276,7 +287,10 @@ export async function handlePatchWorkspaceUpsert(
 
   const nextVersion = Math.max(existingWs?.version ?? 0, card4.card4_version ?? 1) + 1;
   outCard4 = {
-    ...normalizedCard4,
+    ...restNormalizedCard4,
+    ...(normalizedPointCandidates && normalizedPointCandidates.length > 0
+      ? { pointCandidates: normalizedPointCandidates }
+      : {}),
     ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
     ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
     ...(syncedPairedMemoId ? { pairedMemoId: syncedPairedMemoId } : {}),
@@ -308,6 +322,9 @@ export async function handlePatchWorkspaceUpsert(
         landAreaPyung: card4.landAreaPyung,
         priceBand: card4.priceBand,
         points: card4.points,
+        ...(normalizedPointCandidates !== undefined ? { pointCandidates: normalizedPointCandidates } : {}),
+        ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
+        ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
         provenance: card4.provenance,
         ...(syncedPairedMemoId ? { pairedMemoId: syncedPairedMemoId } : {}),
         ...(incomingGenSource ? { generationSource: incomingGenSource } : {}),
@@ -348,8 +365,12 @@ export async function handlePatchWorkspaceUpsert(
     version = Math.max(nextVersion, result.version ?? 0);
     hash = result.hash ?? hash;
     if (result.card4) {
+      const preservedCandidates = result.card4.pointCandidates ?? normalizedPointCandidates;
       outCard4 = {
         ...result.card4,
+        ...(preservedCandidates && preservedCandidates.length > 0
+          ? { pointCandidates: preservedCandidates }
+          : {}),
         ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
         ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
         ...(syncedPairedMemoId ? { pairedMemoId: syncedPairedMemoId } : {}),

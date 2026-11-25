@@ -546,6 +546,26 @@ export async function verifyBrokerOwnership(params: {
       /^view_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_/i
     );
     const viewEntityId = viewUuidMatch ? viewUuidMatch[1] : '';
+    const viewNonUuidMatch = !viewEntityId
+      ? threadId.match(/^view_(.+?)_anon_[A-Za-z0-9_-]+$/i) || threadId.match(/^view_([^_]+)_/)
+      : null;
+    const rawViewEntityId = viewEntityId || (viewNonUuidMatch ? viewNonUuidMatch[1] : '');
+
+    let ownSlug = '';
+    const resolveOwnSlug = async () => {
+      if (ownSlug) return ownSlug;
+      try {
+        const { data: bp } = await supabase
+          .from('broker_profiles')
+          .select('slug')
+          .eq('user_id', userId)
+          .maybeSingle();
+        ownSlug = bp?.slug ? String(bp.slug).trim() : '';
+      } catch {
+        // ignore if broker_profiles unavailable
+      }
+      return ownSlug;
+    };
 
     if (viewEntityId) {
       if (viewEntityId === userId) {
@@ -572,13 +592,8 @@ export async function verifyBrokerOwnership(params: {
             if (edBroker && edBroker === userId) {
               verifiedViaTarget = true;
             } else {
-              const { data: bp } = await supabase
-                .from('broker_profiles')
-                .select('slug')
-                .eq('user_id', userId)
-                .maybeSingle();
-              const ownSlug = bp?.slug ? String(bp.slug).trim() : '';
-              if (ownSlug && edBroker === ownSlug) {
+              const slug = await resolveOwnSlug();
+              if (slug && edBroker === slug) {
                 verifiedViaTarget = true;
               } else {
                 return {
@@ -660,47 +675,81 @@ export async function verifyBrokerOwnership(params: {
       }
     }
 
-    // Fallback check against activity_events scoped to broker_id
+    // Fallback check against activity_events scoped to broker_id (userId or ownSlug)
     if (!verifiedViaTarget && !verifiedBuildingOwnership) {
       try {
-        let viewEvQ: any = supabase
-          .from('activity_events')
-          .select('id, actor_id, entity_id, event_type, metadata')
-          .in('event_type', [
-            'magazine_view',
-            'magazine_section_view',
-            'vibe_card_view',
-            'blind_teaser_view',
-            'deal_card_view',
-            'mobile_im_view',
-            'im_lite_view',
-          ]);
-        if (typeof viewEvQ.eq === 'function') {
-          viewEvQ = viewEvQ.eq('metadata->>broker_id', userId);
+        const slug = await resolveOwnSlug();
+        const allowedBrokerKeys = Array.from(new Set([userId, slug].filter(Boolean)));
+        const allowedBrokerSet = new Set(allowedBrokerKeys);
+        const safeBrokerKeys = allowedBrokerKeys.filter((k) => /^[A-Za-z0-9_.:-]+$/.test(k));
+
+        const buildViewEvQ = (applyFilters: boolean) => {
+          let viewEvQ: any = supabase
+            .from('activity_events')
+            .select('id, actor_id, entity_id, event_type, metadata')
+            .in('event_type', [
+              'magazine_view',
+              'magazine_section_view',
+              'vibe_card_view',
+              'blind_teaser_view',
+              'deal_card_view',
+              'mobile_im_view',
+              'im_lite_view',
+            ]);
+          if (applyFilters) {
+            if (safeBrokerKeys.length === 1 && typeof viewEvQ.eq === 'function') {
+              viewEvQ = viewEvQ.eq('metadata->>broker_id', safeBrokerKeys[0]);
+            } else if (safeBrokerKeys.length > 1 && typeof viewEvQ.or === 'function') {
+              viewEvQ = viewEvQ.or(
+                safeBrokerKeys.map((k) => `metadata->>broker_id.eq.${k}`).join(',')
+              );
+            }
+            if (viewEntityId && typeof viewEvQ.or === 'function') {
+              viewEvQ = viewEvQ.or(
+                `entity_id.eq.${viewEntityId},metadata->>edition_id.eq.${viewEntityId},metadata->>building_id.eq.${viewEntityId}`
+              );
+            } else if (
+              !viewEntityId &&
+              rawViewEntityId &&
+              rawViewEntityId !== 'b' &&
+              /^[A-Za-z0-9_.:-]{1,200}$/.test(rawViewEntityId) &&
+              typeof viewEvQ.or === 'function'
+            ) {
+              viewEvQ = viewEvQ.or(
+                `metadata->>building_id.eq.${rawViewEntityId},metadata->>edition_id.eq.${rawViewEntityId},metadata->>broker_id.eq.${rawViewEntityId}`
+              );
+            }
+            if (typeof viewEvQ.limit === 'function') {
+              viewEvQ = viewEvQ.limit(50);
+            }
+          } else if (typeof viewEvQ.limit === 'function') {
+            viewEvQ = viewEvQ.limit(200);
+          }
+          return viewEvQ;
+        };
+
+        let viewEvRes = await buildViewEvQ(true);
+        if (viewEvRes?.error) {
+          viewEvRes = await buildViewEvQ(false);
         }
-        if (viewEntityId && typeof viewEvQ.or === 'function') {
-          viewEvQ = viewEvQ.or(
-            `entity_id.eq.${viewEntityId},metadata->>edition_id.eq.${viewEntityId},metadata->>building_id.eq.${viewEntityId}`
-          );
-        }
-        if (typeof viewEvQ.limit === 'function') {
-          viewEvQ = viewEvQ.limit(10);
-        }
-        const viewEvRes = await viewEvQ;
         const rows = Array.isArray(viewEvRes?.data) ? viewEvRes.data : [];
         const matchedOwned = rows.some((ev: any) => {
           const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<
             string,
             unknown
           >;
-          const metaBroker = String(meta.broker_id ?? '');
-          if (metaBroker && metaBroker !== userId) return false;
-          if (!metaBroker && String(ev?.actor_id ?? '') !== userId) return false;
-          if (!viewEntityId) return true;
+          const metaBroker = String(meta.broker_id ?? '').trim();
+          const actorId = String(ev?.actor_id ?? '').trim();
+          const ownerMatches = metaBroker
+            ? allowedBrokerSet.has(metaBroker)
+            : Boolean(actorId && actorId === userId);
+          if (!ownerMatches) return false;
+          if (!rawViewEntityId || rawViewEntityId === 'b') return true;
           return (
-            String(ev?.entity_id ?? '') === viewEntityId ||
-            String(meta.edition_id ?? '') === viewEntityId ||
-            String(meta.building_id ?? '') === viewEntityId
+            String(ev?.entity_id ?? '') === rawViewEntityId ||
+            String(meta.edition_id ?? '') === rawViewEntityId ||
+            String(meta.building_id ?? '') === rawViewEntityId ||
+            String(meta.broker_id ?? '') === rawViewEntityId
           );
         });
         if (matchedOwned) {

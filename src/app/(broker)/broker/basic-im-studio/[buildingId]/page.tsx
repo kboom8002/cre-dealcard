@@ -611,7 +611,7 @@ function BasicImStudioInner({
   const passedCount = qualityChecks.filter(c => c.passed).length;
 
   return (
-    <div className="flex flex-col h-screen bg-[#F1F5F9] text-[#0F172A]">
+    <div className="flex flex-col h-[calc(100vh-56px)] bg-[#F1F5F9] text-[#0F172A]">
       {/* Top Studio Header Bar */}
       <header className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-[#CBD5E1] bg-white shrink-0 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2.5 min-w-0 max-w-full">

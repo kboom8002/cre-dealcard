@@ -19,7 +19,7 @@ export const DEFAULT_NEWSLETTER_BLOCKS: readonly Omit<NewsletterBlockItem, "enab
   {
     id: "field_note",
     label: "시장 브리핑",
-    description: "5줄 이내(500자)로 핵심 시장 흐름을 전합니다",
+    description: "핵심 시장 흐름을 3줄 개조식으로 전합니다",
   },
   {
     id: "news_curation",

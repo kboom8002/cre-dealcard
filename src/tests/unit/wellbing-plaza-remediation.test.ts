@@ -144,13 +144,13 @@ describe('Wellbing Plaza Forensic Audit Remediation (Waves 1-5)', () => {
       const specs = planGallerySlides(photos, 'income', 'credeal_basic');
       expect(specs).toHaveLength(2);
       expect(specs[0].dataKey).toBe('gallery_0');
-      expect(specs[0].title).toBe('현장 사진 (1/2)');
-      expect(specs[0].photos).toHaveLength(5);
+      expect(specs[0].title).toBe('외부·전경 및 주요 공간 (1/2)');
+      expect(specs[0].photos).toHaveLength(4);
       // Hero photo (p5) must be placed first
       expect(specs[0].photos[0].url).toBe('https://example.com/p5.jpg');
       expect(specs[1].dataKey).toBe('gallery_1');
-      expect(specs[1].title).toBe('현장 사진 (2/2)');
-      expect(specs[1].photos).toHaveLength(5);
+      expect(specs[1].title).toBe('내부·층별 사진 (2/2)');
+      expect(specs[1].photos).toHaveLength(6);
     });
 
     it('expands Basic IM sequence with rentRoll + rentRoll_1 and gallery_0 + gallery_1', () => {
@@ -317,11 +317,13 @@ describe('Wellbing Plaza Forensic Audit Remediation (Waves 1-5)', () => {
         expect(rr1!.text).toContain('소계');
         expect(rr2!.text).toContain('합계');
         expect(rr2!.text).toContain('15개 호실');
-        // First 8 tenants go to slide 1, remaining 7 tenants go to slide 2 (balanced split)
-        expect(rr1!.text).toContain('임차인_8');
-        expect(rr1!.text).not.toContain('임차인_9');
+        // Top-down sorted (5F..1F): first 8 rows (5F 501~503, 4F 401~403, 3F 301~302) go to slide 1, remaining 7 rows (3F 303, 2F 201~203, 1F 101~103) go to slide 2
+        expect(rr1!.text).toContain('임차인_15');
+        expect(rr1!.text).toContain('임차인_7');
+        expect(rr1!.text).not.toContain('1F 101호 임차인_1');
         expect(rr2!.text).toContain('임차인_9');
-        expect(rr2!.text).toContain('임차인_15');
+        expect(rr2!.text).toContain('1F 101호 임차인_1');
+        expect(rr2!.text).not.toContain('임차인_15');
       } finally {
         fetchSpy.mockRestore();
       }

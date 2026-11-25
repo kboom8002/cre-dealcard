@@ -13,9 +13,12 @@
  *  - 전송자 명칭이 없으면 throw(MISSING_SENDER) → 호출측(sendGate)이 발송을 차단한다.
  */
 import { MARKET_TEMP_CONFIG, type MarketTemperature } from './types';
+import { formatShortIssueSource, parseMarketBriefingBullets } from './issue-clustering';
 import { decodeEntities, escapeHtml, safePersonName, safeTemplateVar, stripTags } from '@/lib/magazine/escape';
 import { sanitizeStatutoryField } from '@/lib/legal/broker-statutory-disclosure';
 import { maskAddress } from '@/lib/magazine/pii';
+import { parseIssueDate } from '@/lib/magazine/kst';
+import { resolveEditionPublicDateAndHeader } from '@/lib/magazine/edition-public-date';
 import { clip, formatDateDots, formatDateKo, formatKrwAmount } from './templates/format';
 import { renderMagazineKakaoText } from './templates/kakao-text';
 import {
@@ -30,10 +33,35 @@ import { assertAbsoluteHttpsUrl, toTelHref } from './templates/url-guard';
 
 export type MagazineCadenceKind = 'daily' | 'weekly' | 'monthly' | 'special';
 
+export interface MagazineEmailDealInput extends MagazineDealInput {
+  areaLabel?: string;
+  investmentPoint?: string;
+  dealUrl?: string;
+}
+
+export interface MagazineEmailNewsInput {
+  title?: string;
+  source?: string;
+  sources?: string[];
+  brief?: string;
+  url?: string;
+}
+
+export interface MagazineEmailMonthlyChartInput {
+  title: string;
+  value?: string;
+  label?: string;
+  deltaText?: string;
+}
+
 export interface MagazineEmailInput extends Omit<BaseMagazineEmailInput, 'edition'> {
-  edition: BaseMagazineEmailInput['edition'] & {
+  edition: Omit<BaseMagazineEmailInput['edition'], 'deals' | 'topNews'> & {
     /** 발행 주기 ('daily' | 'weekly' | 'monthly' | 'special') */
     cadence?: MagazineCadenceKind | string;
+    showMarketTempBadge?: boolean;
+    monthlyCharts?: MagazineEmailMonthlyChartInput[];
+    deals?: MagazineEmailDealInput[];
+    topNews?: MagazineEmailNewsInput[];
   };
   /** 공인중개사법 제18조의2 법정 표시사항: 중개사무소 등록번호 */
   officeRegNumber?: string | null;
@@ -133,7 +161,22 @@ function sectionTitle(label: string): string {
   return `<tr><td class="mag-pad" style="padding:20px 28px 8px;font-family:${FONT};font-size:18px;font-weight:bold;line-height:1.5;color:${COLORS.text};word-break:keep-all;">${escapeHtml(label)}</td></tr>`;
 }
 
-function dealsHtml(deals: MagazineDealInput[] | undefined): { html: string; lines: string[] } {
+function resolveDealHref(rawUrl: unknown, viewOrigin: string): string | null {
+  if (typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  try {
+    const candidate = trimmed.startsWith('/') ? `${viewOrigin}${trimmed}` : trimmed;
+    return assertAbsoluteHttpsUrl(candidate, 'dealUrl');
+  } catch {
+    return null;
+  }
+}
+
+function dealsHtml(
+  deals: MagazineEmailDealInput[] | undefined,
+  viewOrigin: string,
+): { html: string; lines: string[] } {
   const rows: string[] = [];
   const lines: string[] = [];
   for (const d of (deals ?? []).slice(0, 3)) {
@@ -141,23 +184,71 @@ function dealsHtml(deals: MagazineDealInput[] | undefined): { html: string; line
     if (!title) continue;
     // 공개 지번은 동 단위까지만(maskAddress) — 정확 지번 노출 금지
     const addr = d.address ? pt(maskAddress(d.address), 60) : '';
+    const areaLabel = d.areaLabel ? pt(d.areaLabel, 40) : '';
     const price = formatKrwAmount(d.price);
     const date = formatDateDots(d.date);
     const kindBadge = date ? '최근 실거래 사례' : '이번 호 추천 매물';
-    const meta = [kindBadge, addr, price, date ? `거래일 ${date}` : ''].filter(Boolean);
+    const meta = [kindBadge, addr, areaLabel, price, date ? `거래일 ${date}` : ''].filter(Boolean);
+    const investmentPoint = d.investmentPoint
+      ? expandCreTermsFirstOccurrence(pt(d.investmentPoint, 160))
+      : '';
+    const dealHref = resolveDealHref(d.dealUrl, viewOrigin);
     rows.push(
       `<tr><td style="padding:12px 16px;border-bottom:1px solid ${COLORS.border};font-family:${FONT};word-break:keep-all;overflow-wrap:break-word;">` +
         `<div style="font-size:16px;font-weight:bold;line-height:1.55;color:${COLORS.text};">${escapeHtml(title)}</div>` +
         (meta.length
           ? `<div style="font-size:14px;line-height:1.65;color:${COLORS.muted};">${meta.map((m) => escapeHtml(m)).join(' · ')}</div>`
           : '') +
+        (investmentPoint
+          ? `<div style="font-size:14px;line-height:1.65;color:${COLORS.text};padding-top:4px;">${escapeHtml(investmentPoint)}</div>`
+          : '') +
+        (dealHref
+          ? `<div style="padding-top:6px;"><a href="${escapeHtml(dealHref)}" target="_blank" style="font-size:14px;font-weight:bold;color:${COLORS.link};text-decoration:underline;">매물 상세(딜카드) 보기 →</a></div>`
+          : '') +
         `</td></tr>`,
     );
-    lines.push(`- ${title}${meta.length ? ` (${meta.join(' · ')})` : ''}`);
+    lines.push(
+      `- ${title}${meta.length ? ` (${meta.join(' · ')})` : ''}${investmentPoint ? ` — ${investmentPoint}` : ''}${dealHref ? ` [${dealHref}]` : ''}`,
+    );
   }
   if (!rows.length) return { html: '', lines: [] };
   const html =
     sectionTitle('이번 호 주목 매물 · 최근 실거래 사례') +
+    `<tr><td class="mag-pad" style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};">${rows.join('')}</table></td></tr>`;
+  return { html, lines };
+}
+
+function monthlyChartsHtml(
+  charts: MagazineEmailMonthlyChartInput[] | undefined,
+): { html: string; lines: string[] } {
+  const valid = (charts ?? [])
+    .slice(0, 2)
+    .map((c) => ({
+      title: pt(c?.title, 80),
+      value: pt(c?.value, 40),
+      label: pt(c?.label, 40),
+      deltaText: pt(c?.deltaText, 60),
+    }))
+    .filter((c) => c.title);
+  if (!valid.length) return { html: '', lines: [] };
+
+  const rows = valid.map(
+    (c) =>
+      `<tr><td style="padding:12px 16px;border-bottom:1px solid ${COLORS.border};font-family:${FONT};word-break:keep-all;">` +
+      `<div style="font-size:14px;font-weight:bold;color:${COLORS.muted};">${escapeHtml(c.title)}</div>` +
+      (c.value
+        ? `<div style="font-size:18px;font-weight:bold;line-height:1.5;color:${COLORS.link};padding-top:2px;">${c.label ? `${escapeHtml(c.label)}: ` : ''}${escapeHtml(c.value)}</div>`
+        : '') +
+      (c.deltaText
+        ? `<div style="font-size:14px;line-height:1.55;color:${COLORS.muted};">${escapeHtml(c.deltaText)}</div>`
+        : '') +
+      `</td></tr>`,
+  );
+  const lines = valid.map(
+    (c) => `- ${c.title}${c.value ? `: ${c.value}` : ''}${c.deltaText ? ` (${c.deltaText})` : ''}`,
+  );
+  const html =
+    sectionTitle('이달의 주요 시장 지표') +
     `<tr><td class="mag-pad" style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};">${rows.join('')}</table></td></tr>`;
   return { html, lines };
 }
@@ -235,23 +326,56 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
 
   const title = pt(input.edition.title, 80);
   const headlineText = expandCreTermsFirstOccurrence(body(input.edition.headline, 600));
+  const parsedBriefing = parseMarketBriefingBullets(headlineText);
+  const showAsBullets = parsedBriefing.isBulleted && parsedBriefing.items.length > 0;
   const dateKo = formatDateKo(input.edition.date);
+  const rawIssueDate = typeof input.edition.date === 'string' ? input.edition.date.trim() : '';
+  const resolvedDateHeader = parseIssueDate(rawIssueDate)
+    ? resolveEditionPublicDateAndHeader({
+        cadence: input.edition.cadence,
+        issueDate: rawIssueDate,
+      })
+    : null;
+  const headerDateLine = resolvedDateHeader
+    ? resolvedDateHeader.cadence === 'daily'
+      ? `${resolvedDateHeader.displayDateLabel} 발행`
+      : resolvedDateHeader.displayDateLabel
+    : dateKo
+      ? `${dateKo} 발행`
+      : '';
   const temp = typeof input.edition.marketTemp === 'string' ? input.edition.marketTemp.trim() : '';
   const tempKey: MarketTemperature | null = isSupportedTemp(temp) ? temp : null; // 미지원 라벨은 숨김
+  const showTempBadge = Boolean(tempKey) && input.edition.showMarketTempBadge !== false;
 
   // 제목: (광고) 접두 + [전송자] + 제목. 광고 표기는 반드시 맨 앞.
   const subject = `(광고) [${broker}] ${title || cadenceSubtitle}`;
-  const preheaderRaw = pt(headlineText || title, 90);
+  const preheaderSource = (headlineText || title)
+    .replace(/^\s*[•·▪▸\-*]\s+/gm, '')
+    .replace(/\n+/g, ' ')
+    .trim();
+  const preheaderRaw = pt(preheaderSource, 90);
   const preheader = `(광고) ${preheaderRaw}`.trim();
 
-  const deals = dealsHtml(input.edition.deals);
+  const viewOrigin = new URL(viewUrl).origin;
+  const deals = dealsHtml(input.edition.deals, viewOrigin);
+  const charts = monthlyChartsHtml(input.edition.monthlyCharts);
   const tax = taxClinicHtml(input.edition.taxClinic);
 
   const fieldComment = expandCreTermsFirstOccurrence(pt(input.edition.fieldNote?.comment, 300));
   const fieldQ = pt(input.edition.fieldNote?.question, 120);
   const news = (input.edition.topNews ?? [])
-    .slice(0, 3)
-    .map((n) => ({ title: pt(n?.title, 100), source: pt(n?.source, 30) }))
+    .slice(0, 5)
+    .map((n) => {
+      const titleText = pt(n?.title, 100);
+      const resolvedSource = formatShortIssueSource({
+        sources: Array.isArray(n?.sources) ? n.sources : undefined,
+        source: n?.source,
+        url: n?.url,
+      });
+      const sourceText = pt(resolvedSource || n?.source, 30);
+      const briefText = n?.brief ? expandCreTermsFirstOccurrence(pt(n.brief, 180)) : '';
+      return { title: titleText, source: sourceText, brief: briefText };
+    })
     .filter((n) => n.title);
 
   // ── 본문 HTML 조립 ──
@@ -262,18 +386,28 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
     `<tr><td class="mag-pad" style="padding:24px 28px 8px;font-family:${FONT};word-break:keep-all;">` +
       `<div style="font-size:14px;font-weight:bold;line-height:1.5;color:${COLORS.muted};letter-spacing:0.5px;">(광고) ${escapeHtml(broker)} ${escapeHtml(cadenceSubtitle)}</div>` +
       `<h1 style="margin:8px 0 6px;font-size:23px;line-height:1.4;color:${COLORS.text};font-weight:bold;word-break:keep-all;">${escapeHtml(title || cadenceSubtitle)}</h1>` +
-      (dateKo ? `<div style="font-size:14px;line-height:1.5;color:${COLORS.muted};">${escapeHtml(dateKo)} 발행</div>` : '') +
-      (tempKey
+      (headerDateLine ? `<div style="font-size:14px;line-height:1.5;color:${COLORS.muted};">${escapeHtml(headerDateLine)}</div>` : '') +
+      (showTempBadge && tempKey
         ? `<div style="padding-top:10px;"><span style="display:inline-block;padding:5px 14px;border:1px solid ${TEMP_COLOR[tempKey]};font-size:14px;font-weight:bold;line-height:1.4;color:${TEMP_COLOR[tempKey]};background-color:${COLORS.cardBg};">시장 상태: ${escapeHtml(tempKey)}</span></div>`
         : '') +
       `</td></tr>`,
   );
 
   // 인사 + 브리핑
+  const briefingHtml = showAsBullets
+    ? `<ul style="margin:6px 0 0;padding-left:20px;list-style-type:disc;">${parsedBriefing.items
+        .map(
+          (item) =>
+            `<li style="margin-bottom:6px;line-height:1.75;color:${COLORS.text};">${escapeHtml(item)}</li>`,
+        )
+        .join('')}</ul>`
+    : headlineText
+      ? `<div>${hp(headlineText)}</div>`
+      : '';
   blocks.push(
     `<tr><td class="mag-pad" style="padding:12px 28px 4px;font-family:${FONT};font-size:16px;line-height:1.85;color:${COLORS.text};word-break:keep-all;overflow-wrap:break-word;">` +
       (who ? `<div style="padding-bottom:6px;font-weight:bold;">${escapeHtml(who)}님, 안녕하세요.</div>` : '') +
-      (headlineText ? `<div>${hp(headlineText)}</div>` : '') +
+      briefingHtml +
       `</td></tr>`,
   );
 
@@ -284,6 +418,8 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
       (telHref ? button(telHref, `전화 상담 ${contact}`, COLORS.cardBg, COLORS.link, COLORS.link) : '') +
       `</td></tr>`,
   );
+
+  if (charts.html) blocks.push(charts.html);
 
   if (fieldComment) {
     blocks.push(
@@ -299,11 +435,19 @@ export function renderMagazineEmail(input: MagazineEmailInput): MagazineEmailRen
   if (news.length) {
     blocks.push(
       sectionTitle('주요 뉴스') +
-        `<tr><td class="mag-pad" style="padding:0 28px 8px;font-family:${FONT};font-size:16px;line-height:1.8;color:${COLORS.text};word-break:keep-all;overflow-wrap:break-word;">` +
+        `<tr><td class="mag-pad" style="padding:0 28px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.panelBg}" style="background-color:${COLORS.panelBg};border:1px solid ${COLORS.border};">` +
         news
-          .map((n) => `<div style="padding:4px 0;">• ${escapeHtml(n.title)}${n.source ? ` <span style="font-size:14px;color:${COLORS.muted};">(${escapeHtml(n.source)})</span>` : ''}</div>`)
+          .map(
+            (n) =>
+              `<tr><td style="padding:10px 14px;border-bottom:1px solid ${COLORS.border};font-family:${FONT};word-break:keep-all;overflow-wrap:break-word;">` +
+              `<div style="font-size:15px;font-weight:bold;line-height:1.55;color:${COLORS.text};">• ${escapeHtml(n.title)}${n.source ? ` <span style="display:inline-block;padding:1px 6px;border:1px solid ${COLORS.border};background-color:${COLORS.cardBg};font-size:14px;font-weight:bold;color:${COLORS.muted};">${escapeHtml(n.source)}</span>` : ''}</div>` +
+              (n.brief
+                ? `<div style="font-size:14px;line-height:1.65;color:${COLORS.muted};padding-top:3px;">${escapeHtml(n.brief)}</div>`
+                : '') +
+              `</td></tr>`,
+          )
           .join('') +
-        `</td></tr>`,
+        `</table></td></tr>`,
     );
   }
 
@@ -367,16 +511,27 @@ ${blocks.join('\n')}
   const textParts: string[] = [];
   textParts.push(`(광고) ${broker} ${cadenceSubtitle}`);
   textParts.push(title || cadenceSubtitle);
-  if (dateKo) textParts.push(`${dateKo} 발행`);
-  if (tempKey) textParts.push(`시장 상태: ${tempKey}`);
+  if (headerDateLine) textParts.push(headerDateLine);
+  if (showTempBadge && tempKey) textParts.push(`시장 상태: ${tempKey}`);
   textParts.push('');
   if (who) textParts.push(`${who}님, 안녕하세요.`);
-  if (headlineText) textParts.push(headlineText);
+  if (showAsBullets) {
+    textParts.push(...parsedBriefing.items.map((item) => `- ${item}`));
+  } else if (headlineText) {
+    textParts.push(headlineText);
+  }
   textParts.push('', `▶ 매거진 전체 보기: ${viewUrl}`);
   if (telHref && contact) textParts.push(`▶ 전화 상담: ${contact}`);
+  if (charts.lines.length) textParts.push('', '[이달의 주요 시장 지표]', ...charts.lines);
   if (fieldComment) textParts.push('', '[현장 노트]', ...(fieldQ ? [`Q. ${fieldQ}`] : []), fieldComment);
   if (deals.lines.length) textParts.push('', '[이번 호 주목 매물]', ...deals.lines);
-  if (news.length) textParts.push('', '[주요 뉴스]', ...news.map((n) => `- ${n.title}${n.source ? ` (${n.source})` : ''}`));
+  if (news.length) {
+    textParts.push(
+      '',
+      '[주요 뉴스]',
+      ...news.map((n) => `- ${n.title}${n.source ? ` (${n.source})` : ''}${n.brief ? `\n  ${n.brief}` : ''}`),
+    );
+  }
   if (tax.lines.length) textParts.push('', ...tax.lines);
   textParts.push(
     '',

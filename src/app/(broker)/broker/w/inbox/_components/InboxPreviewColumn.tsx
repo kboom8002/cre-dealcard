@@ -99,6 +99,10 @@ export function InboxPreviewColumn({
     setGovOpen(false);
   }, [activeThread?.id]);
 
+  const hasLinkTarget = Boolean(
+    activeThread?.buildingId?.trim() || activeThread?.shareToken?.trim()
+  );
+
   const effectiveGovOpen =
     govOpen ||
     activeThread?.status === "revoked" ||
@@ -324,7 +328,7 @@ export function InboxPreviewColumn({
             {!activeThread.id.startsWith("view_") && (
               <div
                 className={`grid gap-2 border-t border-slate-200 pt-3 ${
-                  activeThread.id.startsWith("custom_") || activeThread.id.startsWith("cli-")
+                  activeThread.id.startsWith("custom_")
                     ? "grid-cols-2"
                     : "grid-cols-1"
                 }`}
@@ -338,7 +342,7 @@ export function InboxPreviewColumn({
                 >
                   정보 수정
                 </button>
-                {(activeThread.id.startsWith("custom_") || activeThread.id.startsWith("cli-")) && (
+                {activeThread.id.startsWith("custom_") && (
                   <button
                     type="button"
                     data-testid="delete-custom-client-btn"
@@ -377,6 +381,8 @@ export function InboxPreviewColumn({
                     ? "bg-rose-100 text-rose-800"
                     : activeThread.hasCorrectionNotice
                     ? "bg-amber-100 text-amber-900"
+                    : !hasLinkTarget
+                    ? "bg-slate-100 text-slate-500"
                     : "bg-slate-100 text-[#059669]"
                 }`}
               >
@@ -384,11 +390,21 @@ export function InboxPreviewColumn({
                   ? "링크 잠김"
                   : activeThread.hasCorrectionNotice
                   ? "정정 게시 중"
+                  : !hasLinkTarget
+                  ? "매물 미연결 ▾"
                   : "열람 가능 ▾"}
               </span>
             </summary>
 
             <div data-testid="inbox-link-governance-card" className="pb-2 pt-3 border-t border-slate-100 mt-1">
+              {!hasLinkTarget && (
+                <p
+                  data-testid="inbox-link-governance-disabled-hint"
+                  className="mb-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600"
+                >
+                  연결된 매물이 없어 링크 관리가 비활성화됩니다
+                </p>
+              )}
               {activeThread.status === "revoked" ? (
                 <div className="space-y-2">
                   <p className="text-sm text-rose-700">
@@ -409,9 +425,9 @@ export function InboxPreviewColumn({
                   <button
                     type="button"
                     data-testid="lock-share-link-trigger-btn"
-                    disabled={Boolean(busyAction)}
+                    disabled={Boolean(busyAction) || !hasLinkTarget}
                     onClick={onOpenConfirmLock}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-[#1D1D1F] transition hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50/40 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-[#1D1D1F] transition hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50/40 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     보낸 링크 잠그기
                   </button>
@@ -505,9 +521,9 @@ export function InboxPreviewColumn({
                   <button
                     type="button"
                     data-testid="open-correction-notice-btn"
-                    disabled={Boolean(busyAction)}
+                    disabled={Boolean(busyAction) || !hasLinkTarget}
                     onClick={onOpenCorrectionNotice}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     수치 정정 안내 띄우기
                   </button>

@@ -241,10 +241,10 @@ describe("Newsletter Service Advancement (7 Broker Requirements Verification)", 
           .split(/(?<=[.!?。])\s+/)
           .map((s) => s.trim())
           .filter(Boolean);
-        // 2026-11 Overhaul: 제목 44자 이내(2줄 권장), 상세 해설 74자 이내(3줄 분량)
+        // 2026-11 Overhaul: 제목 44자 이내(2줄 권장), 상세 해설 96자 이내(AXIOS_BRIEF_MAX_CHARS)
         expect(sentences.length).toBeGreaterThanOrEqual(1);
         expect(sentences.length).toBeLessThanOrEqual(2);
-        expect(Array.from(issue.brief).length).toBeLessThanOrEqual(74);
+        expect(Array.from(issue.brief).length).toBeLessThanOrEqual(96);
         expect(Array.from(issue.title).length).toBeLessThanOrEqual(44);
       }
 

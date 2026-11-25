@@ -304,7 +304,7 @@ describe('FieldNoteSection & MagazineView — 중개사의 한마디 인용 카�
     );
     expect(html).not.toContain('data-testid="field-note-quote-card"');
     expect(html).toContain('김영수의 현장 노트');
-    expect(html).toContain('이번 주 시장');
+    expect(html).toContain('이번 호 시장');
     expect(html).toContain('매수 반응');
     expect(html).toContain('중개인 한마디');
   });

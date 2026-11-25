@@ -158,72 +158,72 @@ describe("M1 Empirical Verifier: 60s Broker Help & Micro-Coaching", () => {
     const TEST_CASES: Array<{ path: string; expectedName: string; description: string }> = [
       {
         path: "/broker",
-        expectedName: "🏠 홈 화면 (대시보드 · 퀵액션 · 알림)",
+        expectedName: "🏠 홈 화면",
         description: "Broker dashboard home",
       },
       {
         path: "/broker/buildings",
-        expectedName: "🏢 내 물건 보관함 · IM 목록 (딜카드 vs 모바일 IM)",
+        expectedName: "📊 IM",
         description: "Buildings list & IM vault",
       },
       {
         path: "/broker/buildings/[id]/im-lite",
-        expectedName: "📊 IM 완성 검수 · 웹 뷰어 (완성도 80점 점검)",
+        expectedName: "📊 IM",
         description: "IM inspection literal pattern",
       },
       {
         path: "/broker/buildings/bld-gangnam-101/im-lite",
-        expectedName: "📊 IM 완성 검수 · 웹 뷰어 (완성도 80점 점검)",
+        expectedName: "📊 IM",
         description: "IM inspection dynamic building id",
       },
       {
         path: "/broker/clients",
-        expectedName: "👥 고객 명단 · 구독 관리 (VIP/일반/잠재)",
+        expectedName: "💬 고객 소통",
         description: "Clients & subscribers directory",
       },
       {
         path: "/broker/inbox",
-        expectedName: "🔔 소통 관리함 (열람 알림 · G1~G3 게이트 요청)",
+        expectedName: "💬 고객 소통",
         description: "Broker communication inbox & alerts",
       },
       {
         path: "/broker/profile",
-        expectedName: "👤 중개사 프로필 · 디지털 명함 설정",
+        expectedName: "👤 중개사무소 프로필",
         description: "Broker profile & credentials",
       },
       {
         path: "/broker/deal-card/new",
-        expectedName: "➕ 1분 딜카드 신규 등록 (카톡 메모 입력)",
+        expectedName: "📄 딜카드",
         description: "New dealcard registration",
       },
       {
         path: "/broker/deal-card/dc-987",
-        expectedName: "📱 1분 딜카드 상세 · 수신자 블라인드 화면 · 카톡 공유",
+        expectedName: "📄 딜카드",
         description: "Dealcard detail / receiver blind view",
       },
       {
         path: "/broker/basic-im-studio",
-        expectedName: "🎨 Basic IM 슬라이드 편집 스튜디오 (16:9 프리뷰 · 테마)",
+        expectedName: "📊 IM",
         description: "Basic IM slide studio root",
       },
       {
         path: "/broker/basic-im-studio/b-555",
-        expectedName: "🎨 Basic IM 슬라이드 편집 스튜디오 (16:9 프리뷰 · 테마)",
+        expectedName: "📊 IM",
         description: "Basic IM slide studio specific building",
       },
       {
         path: "/broker/im-approval/appr-2026",
-        expectedName: "✏️ IM 검토 · 공개 승인 · 사진 역할 큐레이션",
+        expectedName: "📊 IM",
         description: "IM approval & photo curation",
       },
       {
         path: "/broker/magazine-editor",
-        expectedName: "📰 주간 고객 소식지 간편 발행",
+        expectedName: "📰 부동산뉴스",
         description: "Weekly newsletter magazine editor",
       },
       {
         path: "/broker/tutorial",
-        expectedName: "📖 60대 중개인 큰글씨 사용 설명서",
+        expectedName: "📖 크리딜 사용법",
         description: "Senior broker visual guide",
       },
     ];

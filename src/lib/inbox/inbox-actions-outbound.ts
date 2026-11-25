@@ -673,6 +673,7 @@ export async function handleOutboundChannelAction(params: {
   const clientName = String(body?.clientName || '고객').trim();
   const buildingTitle = String(body?.buildingTitle || '추천 빌딩').trim();
   const headline = typeof body?.headline === 'string' ? body.headline.trim() : '';
+  const brief = typeof body?.brief === 'string' ? body.brief.trim().slice(0, 1000) : '';
 
   const rawEmailCandidate = body?.clientEmail ?? body?.toEmail ?? body?.email;
   const precheckedEmail = isEmailAction
@@ -792,6 +793,7 @@ export async function handleOutboundChannelAction(params: {
       buildingTitle,
       shareUrl: fullShareUrl,
       headline,
+      brief,
       assetKind,
     });
     await logOutboundEvent('inbox_outbound_copied', {
@@ -859,6 +861,7 @@ export async function handleOutboundChannelAction(params: {
       buildingTitle,
       shareUrl: fullShareUrl,
       headline,
+      brief,
       assetKind,
       deliveryPurpose,
       transactionalBasis: transactionalAllowed ? rawEmailBasis : null,

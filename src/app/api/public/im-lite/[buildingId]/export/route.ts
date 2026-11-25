@@ -9,6 +9,7 @@ import { buildSlidesHtmlExport } from '@/lib/im-lite/slides-html-builder';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { getServerViewer } from '@/lib/server-viewer';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { isOwnerOrAdmin } from '@/domain/public-projection/access';
 import { isImDocStatusPublic, PUBLIC_IM_DOC_STATUSES, NON_PUBLIC_DOCUMENT_STATUSES } from '@/domain/public-projection/visibility';
 import { getInboxState, isUuid, resolveOrSynthesizeQuickImRecord } from '@/lib/im-lite/quick-generate-store';
@@ -1094,9 +1095,14 @@ export async function GET(
         qrToken = null;
       }
     }
+    const reqOrigin = req.nextUrl?.origin;
+    const siteUrl =
+      reqOrigin && !/localhost|127\.0\.0\.1/i.test(reqOrigin)
+        ? reqOrigin.replace(/\/+$/, '')
+        : getCanonicalSiteUrl();
     const viewerUrl = qrToken
-      ? `https://credeal.net/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(qrToken)}`
-      : `https://credeal.net/im-lite/${encodeURIComponent(buildingId)}`;
+      ? `${siteUrl}/im-lite/${encodeURIComponent(buildingId)}?token=${encodeURIComponent(qrToken)}`
+      : `${siteUrl}/im-lite/${encodeURIComponent(buildingId)}`;
     qrDataUri = await QRCode.toDataURL(viewerUrl, { width: 120, margin: 1 });
   } catch {
     qrDataUri = undefined;

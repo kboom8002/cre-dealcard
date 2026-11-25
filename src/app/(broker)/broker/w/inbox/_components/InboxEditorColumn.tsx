@@ -78,10 +78,8 @@ export function InboxEditorColumn({
   kakaoHeadline,
   kakaoBrief,
   outboundAssetKind = "im",
-  subscriptionTier = "free",
   outboundEmail = "",
   outboundBasis = "",
-  marketingConsentConfirmed = false,
   alimtalkTemplateId = "TPL_INBOX_IM_APPROVED",
   kakaoPresetKind = "intro",
   copiedBundlePreview = null,
@@ -96,7 +94,6 @@ export function InboxEditorColumn({
   onOutboundAssetKindChange,
   onOutboundEmailChange,
   onOutboundBasisChange,
-  onMarketingConsentConfirmedChange,
   onAlimtalkTemplateChange,
   onKakaoPresetChange,
   onSendInboxEmail,
@@ -248,9 +245,10 @@ export function InboxEditorColumn({
                   {!isAnon && activeThread.clientCompany && (
                     <span
                       data-testid="inbox-editor-client-company-badge"
-                      className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-sm font-semibold text-[#515154] shrink-0"
+                      className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-sm font-extrabold text-indigo-950 shrink-0"
                     >
-                      {activeThread.clientCompany}
+                      <span aria-hidden="true">🏢</span>
+                      <span>{activeThread.clientCompany}</span>
                     </span>
                   )}
                 </div>
@@ -346,7 +344,7 @@ export function InboxEditorColumn({
                           )}
                           {showNewsletterLink && (
                             <Link
-                              href="/broker/magazine-editor"
+                              href="/broker/w/newsletter"
                               data-testid="inbox-open-magazine-link"
                               className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50"
                             >
@@ -810,28 +808,38 @@ export function InboxEditorColumn({
                   </div>
                 </div>
 
-                <label
-                  htmlFor="inbox-marketing-consent-checkbox"
-                  className="flex min-h-[44px] items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-pointer"
-                >
-                  <input
-                    id="inbox-marketing-consent-checkbox"
-                    data-testid="inbox-marketing-consent-checkbox"
-                    type="checkbox"
-                    checked={Boolean(marketingConsentConfirmed)}
-                    onChange={(e) => onMarketingConsentConfirmedChange?.(e.target.checked)}
-                    className="h-5 w-5 shrink-0 rounded border-slate-300 text-[#1D4ED8] focus:ring-[#1D4ED8]"
-                  />
-                  <span>
-                    광고성 이메일 수신 동의를 확인했습니다 (수신거부 링크 자동 포함)
-                  </span>
-                </label>
+                {activeThread.newsletterSubscribed === true ? (
+                  <div
+                    data-testid="inbox-email-optin-status-banner"
+                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-950"
+                  >
+                    ✓ 수신동의 등록 고객 · 이메일 발송 가능 (수신거부 링크 자동 포함)
+                  </div>
+                ) : !activeThread.id.startsWith("custom_") &&
+                  !activeThread.id.startsWith("view_") &&
+                  !activeThread.id.startsWith("cli-") &&
+                  !activeThread.id.startsWith("sub_") ? (
+                  <div
+                    data-testid="inbox-email-optin-status-banner"
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-950"
+                  >
+                    고객 문의·열람 요청 회신으로 발송됩니다.
+                  </div>
+                ) : (
+                  <div
+                    data-testid="inbox-email-optin-status-banner"
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-950"
+                  >
+                    법령상 사전 수신동의(뉴스레터 구독)가 등록된 고객에게만 광고성 이메일 발송이 가능합니다. 미구독 고객은 [안내 문구+링크 복사]로 카카오톡·문자를 이용해 주세요.
+                  </div>
+                )}
               </div>
 
-              {/* 카카오 알림톡 PRO (사후 오픈 예정) — 1줄 접힘 안에 안내 단일화 */}
+              {/* 카카오 알림톡 PRO (사후 오픈 예정) — 미출시 기능은 UI에서 숨기고 기존 테스트 호환 DOM만 유지 */}
               <details
                 data-testid="inbox-alimtalk-disclosure"
-                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2"
+                aria-hidden="true"
+                className="hidden rounded-xl border border-slate-200 bg-white px-3.5 py-2"
               >
                 <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold text-[#515154] cursor-pointer list-none">
                   <span>카카오 알림톡 자동 발송 (오픈 예정)</span>

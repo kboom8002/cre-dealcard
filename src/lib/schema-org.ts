@@ -17,9 +17,9 @@
 
 import { collectSensitiveNeedles, maskNeedles } from "@/domain/public-projection/deal-card";
 import { cleanBlindPoints } from "@/lib/deal-card/blind-guard";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+const BASE_URL = getCanonicalSiteUrl();
 
 /**
  * Safely serialize an object for JSON-LD script tags, mitigating XSS risks.

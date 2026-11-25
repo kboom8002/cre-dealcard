@@ -152,9 +152,24 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     urlDate: date,
   });
   const cadenceKo = cadence === "daily" ? "일간" : cadence === "weekly" ? "주간" : "월간";
-  const marketTempLabel = typeof data.market_temp === "string" && data.market_temp.trim() ? ` · 시장 온도: ${data.market_temp.trim()}` : "";
+  const showBadge =
+    (data as Record<string, unknown>).show_market_temp_badge === true ||
+    (data as Record<string, unknown>).showMarketTempBadge === true;
+  const rawTemp =
+    typeof data.market_temp === "string" && data.market_temp.trim()
+      ? data.market_temp.trim()
+      : typeof (data as Record<string, unknown>).marketTemp === "string" &&
+          ((data as Record<string, unknown>).marketTemp as string).trim()
+        ? ((data as Record<string, unknown>).marketTemp as string).trim()
+        : "";
+  const marketTempLabel = showBadge && rawTemp ? ` · 시장 분위기: ${rawTemp}` : "";
   const description = `${broker.name ?? "중개사"} 중개사의 ${displayDateLabel} ${cadenceKo} 빌딩·상업용 부동산 브리핑${marketTempLabel}`;
-  const ogImageUrl = `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`;
+  const resolvedEditionId =
+    edition ??
+    (typeof data.id === "string" && data.id.trim() ? data.id.trim() : null);
+  const ogImageUrl = resolvedEditionId
+    ? `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}&edition=${encodeURIComponent(resolvedEditionId)}`
+    : `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(date)}`;
   const canonical = `${getCanonicalSiteUrl()}/magazine/${slug}/${date}`;
 
   return {

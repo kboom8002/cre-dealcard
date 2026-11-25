@@ -101,6 +101,30 @@ export default async function MagazineArchivePage({ params }: PageProps) {
 
   // 발행된 에디션 목록 — 조회수는 독자에게 노출하지 않으므로 조회하지도 않는다 (U2-30)
   const entries = (await loadEntries(brokerId)) ?? [];
+  const badgeVisibilityMap = new Map<string, boolean>();
+  const editionIds = entries.filter((e) => e.source !== "legacy" && isUuid(e.id)).map((e) => e.id);
+  if (editionIds.length > 0) {
+    try {
+      const svc = createServiceClient();
+      const { data: badgeRows } = await svc
+        .from("magazine_editions")
+        .select("id, content")
+        .in("id", editionIds);
+      if (Array.isArray(badgeRows)) {
+        for (const r of badgeRows as Array<{ id?: unknown; content?: unknown }>) {
+          if (typeof r?.id === "string" && r.content && typeof r.content === "object") {
+            const c = r.content as Record<string, unknown>;
+            badgeVisibilityMap.set(
+              r.id,
+              c.show_market_temp_badge === true || c.showMarketTempBadge === true,
+            );
+          }
+        }
+      }
+    } catch {
+      // non-blocking fallback: default false
+    }
+  }
   const dateCounts = new Map<string, number>();
   for (const e of entries) {
     dateCounts.set(e.date, (dateCounts.get(e.date) ?? 0) + 1);
@@ -181,7 +205,10 @@ export default async function MagazineArchivePage({ params }: PageProps) {
                           </div>
                         )}
                       </div>
-                      {tempConfig && entry.marketTemp && (
+                      {tempConfig &&
+                        entry.marketTemp &&
+                        ((entry as { showMarketTempBadge?: boolean }).showMarketTempBadge === true ||
+                          badgeVisibilityMap.get(entry.id) === true) && (
                         <span
                           className="shrink-0 rounded-full border bg-white px-2.5 py-1 text-sm font-bold text-slate-900"
                           style={{
@@ -189,7 +216,7 @@ export default async function MagazineArchivePage({ params }: PageProps) {
                             background: `${tempConfig.color}1f`,
                           }}
                         >
-                          {tempConfig.emoji} {entry.marketTemp}
+                          {tempConfig.emoji} 시장 분위기: {entry.marketTemp}
                         </span>
                       )}
                     </div>

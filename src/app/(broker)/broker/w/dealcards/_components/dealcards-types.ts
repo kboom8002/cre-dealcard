@@ -5,6 +5,7 @@ import {
   type Card4Data,
   type DealCardGenerationSource,
 } from "@/lib/deal-card/card4-schema";
+import { resolveCanonicalDealSummary } from "@/lib/deal-card/canonical-summary";
 import {
   extractMemoStructuredFacts,
   parseMemoIntoCard4,
@@ -216,11 +217,26 @@ export const DEALCARD_PREVIEW_UNITS: Record<string, EditorUnitTarget> = {
 
 export function hydrateCard4(card4: Card4Data): Card4Data {
   const normalized = normalizeDealCardCopy(card4, { fillHeadline: true });
-  if (normalized.area === undefined) {
-    const initialArea = resolveCard4AreaLabel(normalized);
-    if (initialArea) {
-      return { ...normalized, area: initialArea };
-    }
+  const summary = resolveCanonicalDealSummary({
+    posture: normalized.posture,
+    region: normalized.region,
+    existingUse: normalized.use,
+    explicitAreaLabel: normalized.area,
+    gfaPyeong: normalized.gfaPyung,
+    landPyeong: normalized.landAreaPyung,
+    brokerHeadline: normalized.headline,
+  });
+  const nextArea =
+    normalized.area === undefined
+      ? summary.areaLabel || resolveCard4AreaLabel(normalized)
+      : normalized.area;
+  const nextUse = normalized.use?.trim() ? summary.use : normalized.use;
+  if (nextArea !== normalized.area || nextUse !== normalized.use) {
+    return {
+      ...normalized,
+      ...(nextArea ? { area: nextArea } : {}),
+      use: nextUse,
+    };
   }
   return normalized;
 }
@@ -229,7 +245,17 @@ export function hydrateItem<T extends { card4: Card4Data; memoText?: string | nu
   let card4 = hydrateCard4(item.card4);
   if (!(card4.area || "").trim() && item.memoText?.trim()) {
     const parsedFromMemo = parseMemoIntoCard4(item.memoText, card4);
-    const recoveredArea = (parsedFromMemo.area || "").trim();
+    const summary = resolveCanonicalDealSummary({
+      posture: card4.posture ?? parsedFromMemo.posture,
+      region: card4.region || parsedFromMemo.region,
+      mainPurpose: parsedFromMemo.use,
+      existingUse: card4.use,
+      explicitAreaLabel: parsedFromMemo.area,
+      gfaPyeong: card4.gfaPyung ?? parsedFromMemo.gfaPyung,
+      landPyeong: card4.landAreaPyung ?? parsedFromMemo.landAreaPyung,
+      brokerHeadline: card4.headline || parsedFromMemo.headline,
+    });
+    const recoveredArea = summary.areaLabel || (parsedFromMemo.area || "").trim();
     if (
       recoveredArea ||
       parsedFromMemo.gfaPyung !== undefined ||
@@ -238,6 +264,7 @@ export function hydrateItem<T extends { card4: Card4Data; memoText?: string | nu
       card4 = {
         ...card4,
         ...(recoveredArea ? { area: recoveredArea } : {}),
+        ...(card4.use?.trim() ? {} : { use: summary.use }),
         ...(card4.gfaPyung === undefined && parsedFromMemo.gfaPyung !== undefined
           ? { gfaPyung: parsedFromMemo.gfaPyung }
           : {}),

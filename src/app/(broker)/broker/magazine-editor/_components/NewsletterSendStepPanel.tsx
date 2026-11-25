@@ -43,6 +43,9 @@ export interface NewsletterSendStepPanelProps {
   highInterestCount: number;
   sending: boolean;
   isPublished?: boolean;
+  isPastPublished?: boolean;
+  republishAsToday?: boolean;
+  onChangeRepublishAsToday?: (next: boolean) => void;
   publicUrl?: string | null;
   distributeOutcome?: DistributeOutcomeCardData | null;
   quietHoursNow?: boolean;
@@ -56,7 +59,7 @@ export interface NewsletterSendStepPanelProps {
   onCopyKakaoGreeting?: () => void;
   onPublishWebOnly?: (opts?: { scheduleMorning?: boolean }) => void;
   onBackToContent: () => void;
-  onSendSelected: () => void;
+  onSendSelected: (opts?: { scheduleMorning?: boolean }) => void;
 }
 
 const SEND_MODE_OPTIONS: readonly {
@@ -95,6 +98,9 @@ export function NewsletterSendStepPanel({
   highInterestCount,
   sending,
   isPublished = false,
+  isPastPublished = false,
+  republishAsToday = false,
+  onChangeRepublishAsToday,
   publicUrl = null,
   distributeOutcome = null,
   quietHoursNow,
@@ -105,7 +111,7 @@ export function NewsletterSendStepPanel({
   onBulkSubscribersImported,
   onKakaoShare,
   onCopyLink,
-  onCopyKakaoGreeting: _onCopyKakaoGreeting,
+  onCopyKakaoGreeting,
   onPublishWebOnly,
   onBackToContent,
   onSendSelected,
@@ -129,8 +135,8 @@ export function NewsletterSendStepPanel({
       }
       return;
     }
-    if (sendMode === "schedule_0830" && onPublishWebOnly) {
-      onPublishWebOnly({ scheduleMorning: true });
+    if (sendMode === "schedule_0830") {
+      onSendSelected({ scheduleMorning: true });
       return;
     }
     onSendSelected();
@@ -156,7 +162,7 @@ export function NewsletterSendStepPanel({
             야간 발송 제한 시간대입니다 (21:00 ~ 08:00 KST)
           </p>
           <p className="text-sm font-medium leading-relaxed text-amber-900">
-            정보통신망법에 따라 야간 별도 동의가 없는 구독자에게는 광고성 이메일·알림톡이 발송 차단됩니다.
+            정보통신망법에 따라 야간 별도 동의가 없는 구독자에게는 광고성 이메일이 발송 차단됩니다.
             지금 웹 발행만 완료하거나 <strong>예약 발송(익일 오전 08:30)</strong>으로 전달하는 것을 권장합니다.
           </p>
           <button
@@ -178,8 +184,8 @@ export function NewsletterSendStepPanel({
         </section>
       )}
 
-      {/* ① 누구에게 보낼까요? */}
-      <div aria-label="① 받는 대상" className="space-y-3">
+      {/* 1. 누구에게 보낼까요? */}
+      <div aria-label="1. 받는 대상" className="space-y-3">
         <h3 className="text-base font-extrabold text-[#1D1D1F]">
           1. 받는 대상
         </h3>
@@ -240,9 +246,9 @@ export function NewsletterSendStepPanel({
         />
       </div>
 
-      {/* ② 어떻게 보낼까요? */}
+      {/* 2. 어떻게 보낼까요? */}
       <section
-        aria-label="② 발송 방식"
+        aria-label="2. 발송 방식"
         className="rounded-2xl border border-slate-200 bg-white p-5 text-[#1D1D1F] shadow-2xs space-y-4"
       >
         <h3 className="text-base font-extrabold text-[#1D1D1F]">
@@ -301,8 +307,51 @@ export function NewsletterSendStepPanel({
         )}
         {sendMode === "web_only" && (
           <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-semibold text-slate-800">
-            웹 링크만 발행 선택됨: 구독자에게 자동 이메일·알림톡을 보내지 않고, 공개 독자 링크만 생성해 바로 복사·공유할 수 있습니다.
+            웹 링크만 발행 선택됨: 구독자에게 자동 이메일을 보내지 않고, 공개 독자 링크만 생성해 바로 복사·공유할 수 있습니다.
           </p>
+        )}
+
+        {isPastPublished && onChangeRepublishAsToday && (
+          <div
+            role="radiogroup"
+            aria-label="과거 발행본 수정·재발행 기준 선택"
+            data-testid="past-published-date-mode-selector"
+            className="rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 space-y-2"
+          >
+            <p className="text-sm font-extrabold text-slate-900">
+              과거 발행본 수정 · 재발행 방식
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!republishAsToday}
+                data-testid="past-published-keep-date-btn"
+                onClick={() => onChangeRepublishAsToday(false)}
+                className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-sm font-bold transition cursor-pointer ${
+                  !republishAsToday
+                    ? "border-blue-600 bg-white text-blue-950 shadow-2xs"
+                    : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white"
+                }`}
+              >
+                기존 발행일 유지하며 수정 반영
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={republishAsToday}
+                data-testid="past-published-republish-today-btn"
+                onClick={() => onChangeRepublishAsToday(true)}
+                className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-sm font-bold transition cursor-pointer ${
+                  republishAsToday
+                    ? "border-blue-600 bg-white text-blue-950 shadow-2xs"
+                    : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white"
+                }`}
+              >
+                오늘 날짜로 재발행
+              </button>
+            </div>
+          </div>
         )}
 
         {isPublished && publicUrl && (
@@ -336,7 +385,7 @@ export function NewsletterSendStepPanel({
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className={`grid grid-cols-1 ${onCopyKakaoGreeting ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3`}>
           <button
             type="button"
             data-testid="kakao-share-btn"
@@ -346,6 +395,18 @@ export function NewsletterSendStepPanel({
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
             <span>카톡으로 공유</span>
           </button>
+
+          {onCopyKakaoGreeting && (
+            <button
+              type="button"
+              data-testid="copy-kakao-greeting-btn"
+              onClick={onCopyKakaoGreeting}
+              className="min-h-[48px] rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-bold text-[#1D1D1F] hover:bg-slate-50 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Copy className="h-5 w-5" aria-hidden="true" />
+              <span>카카오톡 인사말 + 링크 복사</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -359,8 +420,8 @@ export function NewsletterSendStepPanel({
         </div>
       </section>
 
-      {/* ③ 발송 실행 */}
-      <section aria-label="③ 발송 실행" className="space-y-4">
+      {/* 3. 발송 실행 */}
+      <section aria-label="3. 발송 실행" className="space-y-4">
         <h3 className="text-base font-extrabold text-[#1D1D1F]">
           3. 발송 실행
         </h3>
@@ -419,7 +480,7 @@ export function NewsletterSendStepPanel({
               className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
             >
               <History className="h-4 w-4 text-blue-700" aria-hidden="true" />
-              <span>④ 발송·수신확인 내역 보기 →</span>
+              <span>4. 발송·수신확인 내역 보기 →</span>
             </button>
           </div>
 

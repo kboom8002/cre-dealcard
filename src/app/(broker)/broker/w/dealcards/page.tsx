@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Copy, Trash2 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import {
   useEditorPreviewSync,
   type PreviewLifecycleState,
@@ -2958,6 +2960,36 @@ function DealCardsWorkspaceInner() {
       ? pendingDeleteModal.target.title.trim()
       : undefined;
 
+  const editorHeaderActions =
+    !selectedMemoOnly && activeItem ? (
+      <>
+        <EditorHeaderActionButton
+          testId="dealcard-header-duplicate-btn"
+          label="복제"
+          title={`${activeItem.title?.trim() || "새 딜카드"} 복제`}
+          icon={<Copy className="h-4 w-4" aria-hidden="true" />}
+          onClick={(e) => handleDuplicateItem(activeItem, e)}
+        />
+        <EditorHeaderActionButton
+          testId="dealcard-header-delete-btn"
+          label={isSingleUntouchedStarter ? "입력 비우기" : "삭제"}
+          title={`${activeItem.title?.trim() || "새 딜카드"} ${isSingleUntouchedStarter ? "입력 비우기" : "삭제"}`}
+          tone="danger"
+          icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+          onClick={(e) => handleDeleteItem(activeItem, e)}
+        />
+      </>
+    ) : selectedMemoOnly ? (
+      <EditorHeaderActionButton
+        testId="dealcard-header-delete-btn"
+        label="삭제"
+        title="미생성 매물 메모 삭제"
+        tone="danger"
+        icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
+        onClick={(e) => handleDeleteUnconvertedMemo(selectedMemoOnly, e)}
+      />
+    ) : undefined;
+
   return (
     <>
       <WorkspaceShell
@@ -2967,6 +2999,7 @@ function DealCardsWorkspaceInner() {
         previewTitle="미리보기 · 보내기"
         listSlot={listSlot}
         editorSlot={editorSlot}
+        editorHeaderActions={editorHeaderActions}
         previewSlot={previewSlot}
         primaryActionSlot={primaryActionSlot}
         saveState={autosave.status}

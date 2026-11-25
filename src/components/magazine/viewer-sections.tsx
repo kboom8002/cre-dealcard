@@ -12,6 +12,7 @@ import { GlossaryText } from "@/components/magazine/GlossaryText";
 import { DataBadge, SectionCard } from "@/components/magazine/viewer-primitives";
 import { AxiosGlassIssueCard } from "@/components/magazine/AxiosGlassIssueCard";
 import { MonthlyGlassStatCard } from "@/components/magazine/MonthlyGlassStatCard";
+import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 import { isSingleCommentFieldNote } from "@/lib/magazine/simple-format";
 import {
   cleanNewsSummaryText,
@@ -19,7 +20,6 @@ import {
   formatPhoneDisplay,
   formatPriceKo,
   sanitizeDealAddress,
-  sanitizeTelHref,
   sentimentMeta,
   topicLabelKo,
   type NewsItemView,
@@ -664,25 +664,34 @@ export function BrokerProfileSection({
 }) {
   const safePhone = sanitizeStatutoryField(phone, "phone");
   const formattedPhone = formatPhoneDisplay(safePhone);
-  const telDigits = sanitizeTelHref(safePhone);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm" style={{ wordBreak: "keep-all" }}>
       <h2 className="sr-only">담당 중개사</h2>
       <p className="text-body font-bold text-slate-900">{name}</p>
-      {formattedPhone && telDigits ? (
-        <a
-          href={`tel:${telDigits}`}
-          data-track="cta_click"
-          className="inline-flex min-h-12 items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums hover:bg-indigo-50 transition-colors"
-        >
-          <span aria-hidden="true">📞</span>
-          <span>{formattedPhone}</span>
-        </a>
-      ) : formattedPhone ? (
-        <p className="font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums">
-          📞 {formattedPhone}
-        </p>
+      {safePhone && formattedPhone ? (
+        <div data-track="cta_click" className="inline-flex items-center">
+          <PhoneActionButton
+            phone={safePhone}
+            variant="compact"
+            showFormattedNumber={false}
+            desktopCopyOnly={true}
+            callClassName="inline-flex min-h-12 items-center gap-1.5 rounded-xl px-2.5 py-1.5 font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums hover:bg-indigo-50 transition-colors"
+            renderCallContent={
+              <>
+                <span aria-hidden="true">📞</span>
+                <span>{formattedPhone}</span>
+              </>
+            }
+            fallbackLabel={
+              <>
+                <span aria-hidden="true">📞</span>
+                <span>{formattedPhone}</span>
+              </>
+            }
+            fallbackClassName="font-mono text-[17px] font-extrabold text-indigo-800 tabular-nums"
+          />
+        </div>
       ) : null}
     </div>
   );

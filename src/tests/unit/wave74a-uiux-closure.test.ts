@@ -251,21 +251,21 @@ describe("Wave 7.4A — Global UI/UX & Public Link Hygiene Closure", () => {
       expect(dealcardsLabel).toContain("딜카드");
 
       expect(imLabel).not.toBe("기타 화면");
-      expect(imLabel).toContain("기본 IM");
+      expect(imLabel).toContain("IM");
 
       expect(newsletterLabel).not.toBe("기타 화면");
-      expect(newsletterLabel).toContain("뉴스레터");
+      expect(newsletterLabel).toContain("부동산뉴스");
 
       expect(inboxLabel).not.toBe("기타 화면");
-      expect(inboxLabel).toContain("고객 소통함");
+      expect(inboxLabel).toContain("고객 소통");
 
       // Subpath / legacy compatibility preserved
       expect(resolveScreenNameFromPathname("/broker/w/dealcards/sub")).toBe(dealcardsLabel);
       expect(resolveScreenNameFromPathname("/broker/deal-card/new")).toContain(
-        "1분 딜카드 신규 등록",
+        "딜카드",
       );
       expect(resolveScreenNameFromPathname("/broker/magazine-editor")).toContain(
-        "주간 고객 소식지",
+        "부동산뉴스",
       );
     });
 

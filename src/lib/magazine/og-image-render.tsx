@@ -47,9 +47,9 @@ function BrandMark({ size }: { size: number }) {
 }
 
 function TempBadge({ m, t, size }: { m: ImageModel; t: Translate; size: number }) {
-  if (!m.marketTemp) return null;
+  if (!m.marketTemp || m.showMarketTempBadge !== true) return null;
   const cfg = MARKET_TEMP_CONFIG[m.marketTemp];
-  const label = t(`시장 온도: ${m.marketTemp}`, 'Market');
+  const label = t(`시장 분위기: ${m.marketTemp}`, 'Market');
   return (
     <div
       style={{
@@ -204,6 +204,12 @@ function DealList({ m, t, size }: { m: ImageModel; t: Translate; size: number })
     .map((d) => ({ title: t(d.title), address: t(d.address) }))
     .filter((d) => d.title || d.address);
   if (!rows.length) return null;
+  const dealSectionTitle =
+    m.cadence === 'daily'
+      ? '오늘의 추천 매물 (동 단위)'
+      : m.cadence === 'monthly'
+        ? '이달의 추천 매물 (동 단위)'
+        : '이번 주 추천 매물 (동 단위)';
   return (
     <div
       style={{
@@ -216,7 +222,7 @@ function DealList({ m, t, size }: { m: ImageModel; t: Translate; size: number })
         padding: '28px 34px',
       }}
     >
-      <span style={{ color: '#a5b4fc', fontSize: `${size - 4}px`, fontWeight: 800 }}>{t('이번 주 매물 (동 단위)', 'Featured deals')}</span>
+      <span style={{ color: '#a5b4fc', fontSize: `${size - 4}px`, fontWeight: 800 }}>{t(dealSectionTitle, 'Featured deals')}</span>
       {rows.map((d, i) => (
         <span key={i} style={{ color: '#e2e8f0', fontSize: `${size}px`, fontWeight: 600 }}>
           {clip(dealRowText(d.title, d.address), 40)}
@@ -377,7 +383,7 @@ export function StoryImage({ m, t, width, height }: { m: ImageModel; t: Translat
               color: '#e2e8f0',
             }}
           >
-            {m.dateLabel}
+            {t(m.dateKorean || m.dateLabel, m.dateLabel)}
           </div>
         </div>
 
@@ -434,7 +440,7 @@ export function CardImage({ m, t, width, height }: { m: ImageModel; t: Translate
           <span style={{ color: '#c7d2fe', fontSize: '24px', fontWeight: 800, letterSpacing: '2px' }}>
             {t('CRE 매거진', 'CRE MAGAZINE')}
           </span>
-          <span style={{ color: '#cbd5e1', fontSize: '24px' }}>{m.dateLabel}</span>
+          <span style={{ color: '#cbd5e1', fontSize: '24px' }}>{t(m.dateKorean || m.dateLabel, m.dateLabel)}</span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center', gap: '26px' }}>

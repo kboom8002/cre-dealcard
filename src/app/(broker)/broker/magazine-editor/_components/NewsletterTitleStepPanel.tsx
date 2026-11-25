@@ -30,6 +30,8 @@ export interface NewsletterTitleStepPanelProps {
   briefingTitle: string;
   briefingBody: string;
   marketTemp: MarketTemperature | null;
+  showMarketTempBadge?: boolean;
+  onChangeShowMarketTempBadge?: (next: boolean) => void;
   toneStance?: NewsletterToneStance;
   onChangeToneStance?: (next: NewsletterToneStance) => void;
   onReclusterWithTone?: (next: NewsletterToneStance) => void;
@@ -73,6 +75,8 @@ export function NewsletterTitleStepPanel({
   briefingTitle,
   briefingBody,
   marketTemp,
+  showMarketTempBadge = false,
+  onChangeShowMarketTempBadge,
   toneStance = "positive",
   onChangeToneStance,
   onReclusterWithTone,
@@ -133,6 +137,8 @@ export function NewsletterTitleStepPanel({
           onChangeHeadline={onChangeHeadline}
           marketTemp={marketTemp}
           onChangeMarketTemp={onChangeMarketTemp}
+          showMarketTempBadge={showMarketTempBadge}
+          onChangeShowMarketTempBadge={onChangeShowMarketTempBadge}
           toneStance={toneStance}
         />
       </div>

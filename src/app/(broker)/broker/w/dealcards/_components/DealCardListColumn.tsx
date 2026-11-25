@@ -224,7 +224,7 @@ export function DealCardListColumn({
             onSelectDealCard(item.id);
           }
         }}
-        className={`relative min-h-[88px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
+        className={`relative min-h-[68px] p-2.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
           isSelected
             ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
             : "bg-white/82 border-slate-900/[0.075] hover:bg-white/95"
@@ -297,13 +297,13 @@ export function DealCardListColumn({
             {memoPreview && (
               <p
                 data-testid={`dealcard-paired-memo-preview-${item.id}`}
-                className="pl-2 mt-1.5 text-sm text-[#515154] bg-slate-100/85 px-2.5 py-1 rounded-lg border border-slate-200/80 break-keep"
+                className="pl-2 mt-1 text-sm text-[#515154] bg-slate-100/85 px-2.5 py-0.5 rounded-lg border border-slate-200/80 break-keep"
               >
                 📝 {memoPreview}
               </p>
             )}
 
-            <div className="mt-2 pt-1.5 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-2 pl-2">
+            <div className="mt-1.5 pt-1 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-2 pl-2">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap text-sm text-[#515154] font-medium">
                 <span className="font-bold text-[#1D1D1F]">
                   {item.priceBand || "가격 미입력"}
@@ -356,7 +356,7 @@ export function DealCardListColumn({
             onSelectUnconvertedMemo(memo);
           }
         }}
-        className={`relative min-h-[88px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
+        className={`relative min-h-[68px] p-2.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-center ios-glass-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] ${
           isSelected
             ? "ios-glass-card-active bg-white/95 border-[#007AFF] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_20px_-4px_rgba(0,122,255,0.14)] ring-2 ring-[#007AFF]/20"
             : "bg-amber-50/45 border-amber-300/70 hover:bg-white/95"
@@ -375,7 +375,7 @@ export function DealCardListColumn({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 pl-2 mt-1.5">
           <span className="text-sm text-[#515154] font-medium">{badgeLabel}</span>
           <div className="flex items-center gap-1 shrink-0">
             <button

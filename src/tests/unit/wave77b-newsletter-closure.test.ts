@@ -523,8 +523,8 @@ describe('WP-7.7B — Newsletter SQL Lockdown, Cron Reconfirm, Daylight Paper & 
         }),
       );
       expect(htmlPaper).toContain('bg-[#FAF9F5]');
-      expect(htmlPaper).toContain('#3730A3');
-      expect(htmlPaper).toContain('#EEF2FF');
+      expect(htmlPaper).toContain('text-indigo-700');
+      expect(htmlPaper).toContain('border-indigo-300');
 
       const htmlCover = renderToStaticMarkup(
         React.createElement(MagazineView, {

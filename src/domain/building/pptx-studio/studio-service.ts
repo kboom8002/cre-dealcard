@@ -65,6 +65,29 @@ export interface CreateProjectOptions {
   customSlides?: Partial<PptxSlide>[];
 }
 
+export function buildCadastralMapUrl(docBody: Record<string, any> = {}): string {
+  const ssot = docBody.ssot_summary ?? {};
+  const enrichment = docBody.enrichment ?? {};
+  const rawPnuCandidates = [
+    ssot.pnu,
+    docBody.pnu,
+    enrichment.landUsePlan?.pnu,
+    enrichment.buildingRegister?.mainPnu,
+  ];
+  const extraPnus = [
+    ...(Array.isArray(docBody.pnus) ? docBody.pnus : []),
+    ...(Array.isArray(ssot.pnus) ? ssot.pnus : []),
+    ...(Array.isArray(docBody.parcels) ? docBody.parcels.map((p: any) => p?.pnu) : []),
+  ];
+  const normalizePnu = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+  const primaryPnu = rawPnuCandidates.map(normalizePnu).find((s) => /^\d{19}$/.test(s)) || '';
+  const validExtras = extraPnus.map(normalizePnu).filter((s) => /^\d{19}$/.test(s));
+  const uniquePnus = Array.from(new Set([primaryPnu, ...validExtras].filter(Boolean)));
+  const effectivePrimary = primaryPnu || uniquePnus[0] || '';
+  if (!effectivePrimary) return '';
+  return `/api/public/map/cadastral?pnu=${encodeURIComponent(effectivePrimary)}&pnus=${encodeURIComponent(uniquePnus.join(','))}`;
+}
+
 export function buildBasicImSlideDefaults(
   buildingNameOrDocBody: string | Record<string, any>,
   docBodyArg: Record<string, any> = {},
@@ -97,7 +120,15 @@ export function buildBasicImSlideDefaults(
     ? `${Number((askManwon / 10000).toFixed(2)).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}억 원`
     : (hero.askingPriceBil || ssot.price_band || '');
 
-  const landSqm = Math.round(Number(br.platArea || ssot.land_area_sqm || hero.landAreaM2 || 0) * 100) / 100;
+  const isMultiParcel =
+    Number(ssot.parcel_count ?? 0) > 1 ||
+    (Array.isArray(docBody.parcels) && docBody.parcels.length > 1) ||
+    (Array.isArray(docBody.pnus) && docBody.pnus.length > 1) ||
+    (Array.isArray(ssot.pnus) && ssot.pnus.length > 1);
+  const rawLandSqm = isMultiParcel
+    ? Math.max(Number(ssot.land_area_sqm || 0), Number(br.platArea || 0)) || Number(hero.landAreaM2 || 0)
+    : Number(br.platArea || ssot.land_area_sqm || hero.landAreaM2 || 0);
+  const landSqm = Math.round(rawLandSqm * 100) / 100;
   const landPy = landSqm > 0 ? Number(sqmToPyeong(landSqm).toFixed(1)) : 0;
   const grossSqm = Math.round(Number(br.totalArea || br.totArea || ssot.total_gross_area_sqm || hero.totalGrossAreaSqm || 0) * 100) / 100;
   const grossPy = grossSqm > 0 ? Number(sqmToPyeong(grossSqm).toFixed(1)) : 0;
@@ -256,6 +287,36 @@ export function buildBasicImSlideDefaults(
     docBody.broker_contact?.registration_no ||
     (typeof factsBrokerOffice === 'object' ? factsBrokerOffice?.registrationNo : '') ||
     '';
+  const representativeName =
+    brokerInfo?.representative_name ||
+    brokerInfo?.representativeName ||
+    docBody.representativeName ||
+    docBody.brokerRepresentativeName ||
+    docBody.broker_contact?.representative_name ||
+    docBody.broker_contact?.representativeName ||
+    docBody.broker_contact?.representative ||
+    (typeof factsBrokerOffice === 'object'
+      ? factsBrokerOffice?.representativeName ||
+        factsBrokerOffice?.representative_name ||
+        factsBrokerOffice?.representative
+      : '') ||
+    '';
+  const officeAddress =
+    brokerInfo?.office_address ||
+    brokerInfo?.officeAddress ||
+    docBody.officeAddress ||
+    docBody.brokerOfficeAddress ||
+    docBody.broker_contact?.office_address ||
+    docBody.broker_contact?.officeAddress ||
+    (typeof factsBrokerOffice === 'object'
+      ? factsBrokerOffice?.officeAddress ||
+        factsBrokerOffice?.office_address ||
+        factsBrokerOffice?.address
+      : '') ||
+    docBody.broker?.office_address ||
+    docBody.broker?.officeAddress ||
+    '';
+  const cadastralMapUrl = enrichment.cadastralMapUrl || buildCadastralMapUrl(docBody);
 
   return {
     cover: {
@@ -265,8 +326,11 @@ export function buildBasicImSlideDefaults(
       address: addressStr,
       date: new Date().toISOString().slice(0, 10),
       brokerCompany,
+      representativeName,
       brokerName,
       brokerPhone,
+      brokerRegNo,
+      officeAddress,
     },
     highlights: {
       leadSentence: hero.hookText || invPoints[0] || handoverNoteStr || `${addressStr || buildingName} 핵심 수익형 빌딩 매각 요약`,
@@ -334,6 +398,7 @@ export function buildBasicImSlideDefaults(
       cadastralMapImage: typeof enrichment.cadastralMapImage === 'object'
         ? enrichment.cadastralMapImage?.base64 || ''
         : (enrichment.cadastralMapImage || ''),
+      cadastralMapUrl,
     },
     rentroll: {
       monthlyRentTotal: monthlyRentManwon > 0 ? `${monthlyRentManwon.toLocaleString()}만 원/월` : '',
@@ -379,10 +444,12 @@ export function buildBasicImSlideDefaults(
         docBody.broker_contact?.closingLine ||
         `${buildingName} 매입 검토 및 현장 실사 일정은 아래 담당 중개법인에 문의해 주시기 바랍니다.`,
       brokerCompany,
+      representativeName,
       brokerName,
       brokerPhone,
       brokerEmail,
       brokerRegNo,
+      officeAddress,
       disclaimer: docBody.disclaimer || '본 자료는 매수인의 투자 판단을 돕기 위한 참고자료로서 법적 효력이 없으며, 최종 계약 전 공적장부 및 현장 실사를 통해 제반 사항을 직접 확인하시기 바랍니다.',
     },
   };
@@ -559,6 +626,7 @@ export class PptxStudioService {
           cadastralMapImage: typeof docBody?.enrichment?.cadastralMapImage === 'object'
             ? docBody?.enrichment?.cadastralMapImage?.base64 ?? null
             : (docBody?.enrichment?.cadastralMapImage ?? null),
+          cadastralMapUrl: docBody?.enrichment?.cadastralMapUrl ?? (buildCadastralMapUrl(docBody) || null),
         },
         broker: brokerInfo ?? null,
       },
@@ -676,6 +744,10 @@ export class PptxStudioService {
         cadastralMapImage: typeof docBody?.enrichment?.cadastralMapImage === 'object'
           ? docBody?.enrichment?.cadastralMapImage?.base64 ?? null
           : (docBody?.enrichment?.cadastralMapImage ?? project.buildingContext?.enrichment?.cadastralMapImage ?? null),
+        cadastralMapUrl:
+          docBody?.enrichment?.cadastralMapUrl ??
+          project.buildingContext?.enrichment?.cadastralMapUrl ??
+          (buildCadastralMapUrl(docBody) || null),
       },
       broker: brokerInfo ?? project.buildingContext?.broker ?? null,
     };
@@ -1031,6 +1103,87 @@ export class PptxStudioService {
         console.warn('[studio-service] saveProject upsert to DB failed, maintaining in-memory project:', error.message);
       }
 
+      const studioOverridesByKey: Record<string, Record<string, unknown>> = {};
+      for (const sl of project.slides || []) {
+        if (sl.dataKey && sl.slideOverrides && Object.keys(sl.slideOverrides).length > 0) {
+          studioOverridesByKey[sl.dataKey] = { ...sl.slideOverrides };
+        }
+      }
+      const coverOv = studioOverridesByKey.cover || {};
+      const overviewOv = studioOverridesByKey.overview || {};
+      const rrOv = studioOverridesByKey.rentroll || studioOverridesByKey.rentRoll || {};
+      const syncedTitle = String(
+        coverOv.title ||
+          overviewOv.buildingName ||
+          project.title?.replace(/\s*Basic\s*IM$/i, '') ||
+          project.buildingContext?.buildingName ||
+          '매물 IM'
+      ).trim();
+      const syncedAddress = String(
+        coverOv.address ||
+          overviewOv.address ||
+          project.buildingContext?.ssot_summary?.address ||
+          ''
+      ).trim();
+
+      // Sync updated title, address, and rentRoll back to latest document_objects (mobile_im) for building_id
+      if (isStudioUuid(project.dealId)) {
+        try {
+          const { data: latestMobileIm } = await supabase
+            .from('document_objects')
+            .select('id, title, body, owner_id, broker_id')
+            .eq('building_id', project.dealId)
+            .eq('document_type', 'mobile_im')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const canSyncMobileIm =
+            latestMobileIm &&
+            (!effectiveOwnerId ||
+              !latestMobileIm.owner_id ||
+              String(latestMobileIm.owner_id) === effectiveOwnerId ||
+              String(latestMobileIm.broker_id || '') === effectiveOwnerId);
+
+          if (canSyncMobileIm) {
+            const prevBody =
+              latestMobileIm.body && typeof latestMobileIm.body === 'object'
+                ? (latestMobileIm.body as Record<string, unknown>)
+                : {};
+            const prevSsot =
+              prevBody.ssot_summary && typeof prevBody.ssot_summary === 'object'
+                ? (prevBody.ssot_summary as Record<string, unknown>)
+                : {};
+            const nextMobileBody: Record<string, unknown> = {
+              ...prevBody,
+              ...(syncedTitle ? { title: syncedTitle } : {}),
+              ...(syncedAddress
+                ? {
+                    address: syncedAddress,
+                    resolved_address: syncedAddress,
+                    ssot_summary: {
+                      ...prevSsot,
+                      address: syncedAddress,
+                    },
+                  }
+                : {}),
+              ...(Array.isArray(rrOv.tenantData) && rrOv.tenantData.length > 0
+                ? { rentRoll: rrOv.tenantData, floor_leases: rrOv.tenantData }
+                : {}),
+            };
+            await supabase
+              .from('document_objects')
+              .update({
+                ...(syncedTitle ? { title: syncedTitle } : {}),
+                body: stripHeavyBase64ForDb(nextMobileBody) as any,
+              })
+              .eq('id', latestMobileIm.id);
+          }
+        } catch (mobErr: any) {
+          console.warn('[studio-service] mobile_im document_objects sync skipped:', mobErr?.message || mobErr);
+        }
+      }
+
       if (effectiveOwnerId && isStudioUuid(effectiveOwnerId) && project.dealId) {
         try {
           const existingWs = await getWorkspaceItemByAnyId(
@@ -1040,23 +1193,14 @@ export class PptxStudioService {
             effectiveOwnerId
           ).catch(() => null);
 
-          const studioOverridesByKey: Record<string, Record<string, unknown>> = {};
-          for (const sl of project.slides || []) {
-            if (sl.dataKey && sl.slideOverrides && Object.keys(sl.slideOverrides).length > 0) {
-              studioOverridesByKey[sl.dataKey] = { ...sl.slideOverrides };
-            }
-          }
-          const coverOv = studioOverridesByKey.cover || {};
-          const overviewOv = studioOverridesByKey.overview || {};
-          const rrOv = studioOverridesByKey.rentroll || studioOverridesByKey.rentRoll || {};
-          const syncedTitle = String(
+          const wsSyncedTitle = String(
             coverOv.title ||
               overviewOv.buildingName ||
               project.title?.replace(/\s*Basic\s*IM$/i, '') ||
               existingWs?.title ||
               '매물 IM'
           ).trim();
-          const syncedAddress = String(
+          const wsSyncedAddress = String(
             coverOv.address ||
               overviewOv.address ||
               existingWs?.address ||
@@ -1070,8 +1214,8 @@ export class PptxStudioService {
               : (stripHeavyBase64ForDb(project.buildingContext || {}) as Record<string, unknown>);
           const nextDraftPayload: Record<string, unknown> = {
             ...baseDraft,
-            title: syncedTitle,
-            ...(syncedAddress ? { address: syncedAddress } : {}),
+            title: wsSyncedTitle,
+            ...(wsSyncedAddress ? { address: wsSyncedAddress } : {}),
             ...(Array.isArray(rrOv.tenantData) && rrOv.tenantData.length > 0
               ? { rentRoll: rrOv.tenantData, floor_leases: rrOv.tenantData }
               : {}),
@@ -1105,8 +1249,8 @@ export class PptxStudioService {
             ownerId: effectiveOwnerId,
             kind: 'im',
             status: existingWs?.status ?? 'draft',
-            title: syncedTitle,
-            address: syncedAddress,
+            title: wsSyncedTitle,
+            address: wsSyncedAddress,
             priceBand: existingWs?.priceBand ?? null,
             draftPayload: nextDraftPayload,
             publishedSnapshot: existingWs ? existingWs.publishedSnapshot : null,

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   NO_STORE_CACHE_CONTROL,
+  loadImageModel,
   parseImageFormat,
   validateImageParams,
 } from "@/lib/magazine/og-image-data";
@@ -11,7 +12,7 @@ import { findLatestIssueDate, resolvePublicBroker } from "@/lib/magazine/public-
 export const runtime = "nodejs";
 
 /**
- * GET /api/og/magazine?brokerId=<slug|uuid>&date=YYYY-MM-DD[&format=og|story|card]
+ * GET /api/og/magazine?brokerId=<slug|uuid>&date=YYYY-MM-DD[&format=og|story|card][&edition=<id>]
  *
  * C-04 (M2-09, M2-25, S2-15, S2-24, T3-18):
  *  - 내부 HTTP 자기호출(`/api/magazine/{brokerId}`) 제거 → 크롤러 요청이 LLM 생성·DB 쓰기를 유발하지 않는다.
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
   }
 
   const rawBrokerId = searchParams.get("brokerId") ?? searchParams.get("id");
+  const rawEditionId = searchParams.get("edition")?.trim() || null;
   let rawDate = searchParams.get("date");
 
   if ((!rawDate || !rawDate.trim()) && rawBrokerId && rawBrokerId.trim()) {
@@ -50,5 +52,15 @@ export async function GET(request: NextRequest) {
     return renderNeutralImage(format, { status: 400, cacheControl: NO_STORE_CACHE_CONTROL });
   }
 
-  return renderMagazineImage({ format, brokerId: params.brokerId, date: params.date });
+  return renderMagazineImage({
+    format,
+    brokerId: params.brokerId,
+    date: params.date,
+    ...(rawEditionId
+      ? {
+          loadModel: async (bId, d) =>
+            loadImageModel(createServiceClient(), bId, d, rawEditionId),
+        }
+      : {}),
+  });
 }

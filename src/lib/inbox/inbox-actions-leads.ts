@@ -8,7 +8,13 @@ import {
   setBuildingRevokedState,
 } from '@/lib/im-lite/quick-generate-store';
 import { assertPublishable, type PublishAssetKind } from '@/lib/legal/publish-gate';
-import { issueShareLinkToken, type ShareLinkChannel } from '@/lib/security/share-link-tokens';
+import {
+  isBuildingShareLinkRevoked,
+  isBuildingShareLinkRevokedAsync,
+  issueShareLinkToken,
+  restoreShareLinkToken,
+  type ShareLinkChannel,
+} from '@/lib/security/share-link-tokens';
 import { parseGateRequestReason, toSafeEpochMs } from './inbox-helpers';
 import { isIgnorableSchemaError } from './inbox-schema-caps';
 import { upsertBrokerClientFromInbound } from './upsert-broker-client';
@@ -187,6 +193,29 @@ export async function handleGateDecisionAction(params: {
   if (decision === 'approved') {
     const gateErr = await enforceLeadStatutoryPublishGate(supabaseClient, userId, 'im');
     if (gateErr) return gateErr;
+
+    const wasBuildingRevoked =
+      isBuildingShareLinkRevoked(buildingId) ||
+      (await isBuildingShareLinkRevokedAsync(buildingId, supabaseClient).catch(() => false));
+    if (wasBuildingRevoked) {
+      const restoreRes = await restoreShareLinkToken({
+        buildingId,
+        brokerId: userId,
+        threadId: threadId || undefined,
+        scope: 'building',
+        preserveRevokedTokens: true,
+      });
+      if (!restoreRes.ok && restoreRes.status >= 500) {
+        return NextResponse.json(
+          {
+            ok: false,
+            persisted: false,
+            error: restoreRes.error || '매물 링크 잠금 해제 상태를 저장하지 못했습니다.',
+          },
+          { status: restoreRes.status }
+        );
+      }
+    }
 
     setBuildingRevokedState(buildingId, false);
     const issued = await issueShareLinkToken({

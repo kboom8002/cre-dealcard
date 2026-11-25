@@ -4,12 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
-import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { FieldCoachBanner } from '@/components/help/FieldCoachBanner';
 import { SeniorTermTooltip } from '@/components/help/SeniorTermTooltip';
 import { validateBrokerStatutoryFields } from '@/lib/legal/broker-statutory-disclosure';
 import { formatKrPhoneInput } from '@/lib/format/phone';
-import { FontScaleToggle } from '@/components/workspace/FontScaleToggle';
 
 /* ─── Tag option constants ─── */
 
@@ -154,7 +152,7 @@ export default function BrokerProfilePage() {
   const [brokerSlug, setBrokerSlug] = useState('');
   const [togglingPublic, setTogglingPublic] = useState(false);
   const [vibeStatus, setVibeStatus] = useState<'uploading' | 'done' | null>(null);
-  const [showOptionalSections, setShowOptionalSections] = useState(true);
+  const [showOptionalSections, setShowOptionalSections] = useState(false);
   const [isSelfRepresentative, setIsSelfRepresentative] = useState(false);
 
   /* ─── 공인중개사법 제18조의2 필수 5항목 점검 ─── */
@@ -235,11 +233,12 @@ export default function BrokerProfilePage() {
       setProfile(data);
 
       // Section 1
-      setDisplayName(data.display_name ?? '');
-      setRepresentativeName(data.broker?.representative_name ?? '');
       const cleanDisp = String(data.display_name ?? '').trim();
       const cleanRep = String(data.broker?.representative_name ?? '').trim();
-      setIsSelfRepresentative(Boolean(cleanDisp && (!cleanRep || cleanRep === cleanDisp)));
+      const selfRep = Boolean(cleanDisp && (!cleanRep || cleanRep === cleanDisp));
+      setDisplayName(data.display_name ?? '');
+      setRepresentativeName(cleanRep || (selfRep ? cleanDisp : ''));
+      setIsSelfRepresentative(selfRep);
       setPhone(data.phone ?? '');
       setCompany(data.company ?? '');
       setOfficeAddress(data.broker?.office_address ?? '');
@@ -570,7 +569,7 @@ export default function BrokerProfilePage() {
   const previewSlug = (brokerSlug && brokerSlug.trim()) || profile?.id || '';
 
   return (<>
-    <main className="flex flex-col items-center min-h-screen bg-[#FAF9F5] text-slate-900 px-4 py-8 pb-24">
+    <main className="flex flex-col items-center min-h-screen bg-[#F5F5F7] text-slate-900 px-4 py-8 pb-24">
       <div className="w-full max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -590,7 +589,6 @@ export default function BrokerProfilePage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
-            <FontScaleToggle />
             <button
               type="button"
               onClick={handleSave}
@@ -709,7 +707,7 @@ export default function BrokerProfilePage() {
               <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-sm font-extrabold">
                 가장 중요 · 법정 필수 5항목
               </span>
-              <h2 className={sectionTitleClass}>① 기본 명함 및 중개사무소 필수 정보</h2>
+              <h2 className={sectionTitleClass}>기본 명함 및 중개사무소 필수 정보</h2>
             </div>
             <p className="text-sm text-muted-foreground">
               딜카드, PPTX 제안서(IM) 표지, 고객 소식지에 대표님의 명함 및 법정 표시사항으로 바로 인쇄되는 항목입니다.
@@ -1088,7 +1086,7 @@ export default function BrokerProfilePage() {
         {/* ─── Section 2: 자격/등록 정보 ─── */}
         <section className={sectionClass}>
           <div className="space-y-1">
-            <h2 className={sectionTitleClass}>② 공인중개사 자격 및 개업 경력 (선택)</h2>
+            <h2 className={sectionTitleClass}>공인중개사 자격 및 개업 경력 (선택)</h2>
             <p className="text-sm text-muted-foreground">
               자격증 번호와 경력을 입력해 두시면 법인·자산가 고객이 제안서를 열람할 때 신뢰도가 더욱 높아집니다.
             </p>
@@ -1160,7 +1158,7 @@ export default function BrokerProfilePage() {
         {/* ─── Existing: 전문 지역 ─── */}
         <section className={sectionClass}>
           <div>
-            <h2 className={sectionTitleClass}>③ 주로 활동하시는 전문 지역 (3곳 이상 선택 권장)</h2>
+            <h2 className={sectionTitleClass}>주로 활동하시는 전문 지역 (3곳 이상 선택 권장)</h2>
             <p className="text-sm text-muted-foreground mt-1">
               해당하는 지역 버튼을 마우스로 클릭해 주세요. 한 번 더 누르면 선택이 해제됩니다.
             </p>
@@ -1171,7 +1169,7 @@ export default function BrokerProfilePage() {
         {/* ─── Existing: 전문 자산 유형 ─── */}
         <section className={sectionClass}>
           <div>
-            <h2 className={sectionTitleClass}>④ 주로 취급하시는 건물·자산 종류 (2개 이상 선택 권장)</h2>
+            <h2 className={sectionTitleClass}>주로 취급하시는 건물·자산 종류 (2개 이상 선택 권장)</h2>
             <p className="text-sm text-muted-foreground mt-1">
               꼬마빌딩, 근린상가, 오피스빌딩 등 주로 중개하시는 물건 종류를 눌러 선택해 주세요.
             </p>
@@ -1182,7 +1180,7 @@ export default function BrokerProfilePage() {
         {/* ─── Section 3: 거래 실적 ─── */}
         <section className={sectionClass}>
           <div className="space-y-1">
-            <h2 className={sectionTitleClass}>⑤ 누적 거래 경험 및 주요 고객층</h2>
+            <h2 className={sectionTitleClass}>누적 거래 경험 및 주요 고객층</h2>
             <p className="text-sm text-muted-foreground">
               대략적인 누적 중개 건수와 주요 금액대를 선택해 두시면 AI 자기소개 작성 시 큰 도움이 됩니다.
             </p>
@@ -1245,7 +1243,7 @@ export default function BrokerProfilePage() {
         {/* ─── Section 4: 서비스 정책 ─── */}
         <section className={sectionClass}>
           <div className="space-y-1">
-            <h2 className={sectionTitleClass}>⑥ 고객 상담 방식 및 수수료 안내</h2>
+            <h2 className={sectionTitleClass}>고객 상담 방식 및 수수료 안내</h2>
             <p className="text-sm text-muted-foreground">
               고객이 어떤 방법으로 연락하면 좋은지 안내하는 항목입니다.
             </p>
@@ -1299,7 +1297,7 @@ export default function BrokerProfilePage() {
         {/* ─── Section 5: 소셜 링크 ─── */}
         <section className={sectionClass}>
           <div className="space-y-1">
-            <h2 className={sectionTitleClass}>⑦ 블로그 · 유튜브 · 카카오톡 채널 (선택사항)</h2>
+            <h2 className={sectionTitleClass}>블로그 · 유튜브 · 카카오톡 채널 (선택사항)</h2>
             <p className="text-sm text-muted-foreground">
               운영하시는 네이버 블로그나 유튜브가 있으실 때만 적어주시면 됩니다. 없으시면 비워두셔도 전혀 지장 없습니다.
             </p>
@@ -1357,7 +1355,7 @@ export default function BrokerProfilePage() {
         {/* ─── Section 6: 자기소개 ─── */}
         <section className={sectionClass}>
           <div className="space-y-1">
-            <h2 className={sectionTitleClass}>⑧ 고객에게 전하는 인사말 (자기소개)</h2>
+            <h2 className={sectionTitleClass}>고객에게 전하는 인사말 (자기소개)</h2>
             <p className="text-sm text-muted-foreground">
               직접 쓰기 막막하시다면 위에서 선택하신 지역·경력을 바탕으로 아래 <strong>[✨ AI로 자기소개 자동 작성하기]</strong> 버튼을 눌러보세요!
             </p>
@@ -1417,7 +1415,6 @@ export default function BrokerProfilePage() {
         </form>
       </div>
     </main>
-    <BrokerBottomNav />
   </>);
 }
 

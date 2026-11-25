@@ -7,6 +7,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { OITICLE_TYPES, AUTHOR_TYPE_META } from "@/domain/pulse/oiticle-types";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
 import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
@@ -87,7 +88,7 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
   const typeDef = OITICLE_TYPES[oiticle.oiticle_type as OiticleTypeCode];
   const authorMeta = AUTHOR_TYPE_META[oiticle.author_type as OiticleAuthorType];
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+  const BASE_URL = getCanonicalSiteUrl();
 
   const schemaData = {
     "@context": "https://schema.org",

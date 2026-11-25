@@ -51,7 +51,19 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
   const { doors, resumeItem, statutory } = data;
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState(false);
+  const [todayLabel, setTodayLabel] = useState("");
   const needsStatutorySetup = Boolean(statutory && !statutory.isComplete && !setupCompleted);
+
+  useEffect(() => {
+    setTodayLabel(
+      new Intl.DateTimeFormat("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      }).format(new Date()),
+    );
+  }, []);
 
   // Keyboard shortcuts: 1~4 in confirmed order: 1. 부동산뉴스 → 2. 딜카드 → 3. IM → 4. 고객 소통.
   useEffect(() => {
@@ -148,14 +160,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
               <Building2 className="w-3.5 h-3.5 text-[#60A5FA]" aria-hidden="true" />
               <span>CREDEAL STUDIO</span>
             </span>
-            <span>
-              {new Intl.DateTimeFormat("ko-KR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                weekday: "long",
-              }).format(new Date())}
-            </span>
+            {todayLabel && <span>{todayLabel}</span>}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1D1D1F] tracking-tight pt-1">
             {data.profile.displayName} 대표님, 환영합니다
@@ -167,7 +172,7 @@ export function BrokerHome4Doors({ data }: BrokerHome4DoorsProps) {
         </div>
 
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap sm:items-center gap-2.5 w-full sm:w-auto min-w-0">
-          <FontScaleToggle />
+          <FontScaleToggle variant="stepper" />
           <WorkspaceHelpButton workspace="home" />
           <Link
             href={needsStatutorySetup ? "/broker/profile?focus=statutory" : "/broker/profile"}

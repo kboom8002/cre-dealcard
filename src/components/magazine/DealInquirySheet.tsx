@@ -2,8 +2,11 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
-import { formatPhoneDisplay, sanitizeTelHref } from '@/lib/magazine/view-helpers';
-import { copyText } from '@/lib/ux/clipboard';
+import {
+  PhoneActionButton,
+  formatKrPhoneForDisplay,
+  sanitizePhoneDigits,
+} from '@/components/common/PhoneActionButton';
 
 export interface DealInquiryItem {
   id: string;
@@ -36,11 +39,9 @@ export function DealInquirySheet({
   brokerSlug,
 }: DealInquirySheetProps) {
   const [activeDeal, setActiveDeal] = useState<DealInquiryItem | null>(null);
-  const [phoneCopied, setPhoneCopied] = useState(false);
 
   const closeSheet = useCallback(() => {
     setActiveDeal(null);
-    setPhoneCopied(false);
   }, []);
 
   useEffect(() => {
@@ -187,8 +188,8 @@ export function DealInquirySheet({
     };
   }, []);
 
-  const telDigits = sanitizeTelHref(brokerPhone);
-  const formattedPhone = formatPhoneDisplay(brokerPhone);
+  const telDigits = sanitizePhoneDigits(brokerPhone);
+  const formattedPhone = formatKrPhoneForDisplay(brokerPhone);
   const profileHref = `/broker-profile/${encodeURIComponent(brokerSlug)}?ref=magazine-cta`;
   const expertRequestHref = `/expert-note/request?broker=${encodeURIComponent(brokerSlug)}${
     activeDeal?.id ? `&deal=${encodeURIComponent(activeDeal.id)}` : ''
@@ -198,20 +199,11 @@ export function DealInquirySheet({
         `[${brokerName} 매거진 문의] ${activeDeal.address} (${activeDeal.assetType}, ${activeDeal.price}) 투자설명서(IM) 및 상세자료를 요청합니다.`,
       )
     : '';
-  const smsHref = telDigits ? `sms:${telDigits}?body=${smsBody}` : null;
+  const smsHref = telDigits.length >= 8 ? `sms:${telDigits}?body=${smsBody}` : null;
   const isUuidDeal = activeDeal ? UUID_PREFIX_RE.test(activeDeal.id) : false;
   const hasVerifiedTokenImUrl = Boolean(
     activeDeal?.imUrl && /(?:[?&](?:token|t)=[^&]+)/i.test(activeDeal.imUrl),
   );
-
-  const handleCopyPhone = async () => {
-    if (!formattedPhone) return;
-    const ok = await copyText(formattedPhone);
-    if (ok) {
-      setPhoneCopied(true);
-      window.setTimeout(() => setPhoneCopied(false), 2000);
-    }
-  };
 
   return (
     <Modal
@@ -286,27 +278,25 @@ export function DealInquirySheet({
             )}
 
             {/* #2 중개사 전화 문의 + 번호 복사 */}
-            {telDigits ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-                <a
-                  href={`tel:${telDigits}`}
-                  data-track="cta_click"
-                  className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors hover:bg-emerald-800"
-                >
-                  <span aria-hidden="true">📞</span>
-                  <span>전화 문의 ({formattedPhone})</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={handleCopyPhone}
-                  data-testid="deal-inquiry-copy-phone-btn"
-                  className="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] font-bold text-slate-900 transition-colors hover:bg-slate-50 cursor-pointer"
-                >
-                  <span aria-hidden="true">{phoneCopied ? '✓' : '📋'}</span>
-                  <span>{phoneCopied ? '연락처 복사됨' : '번호 복사'}</span>
-                </button>
-              </div>
-            ) : null}
+            <div data-track="cta_click">
+              <PhoneActionButton
+                phone={brokerPhone}
+                variant="inline"
+                showFormattedNumber={false}
+                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]"
+                callClassName="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-[17px] font-extrabold text-white shadow-sm transition-colors hover:bg-emerald-800"
+                copyClassName="flex min-h-[52px] items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] font-bold text-slate-900 transition-colors hover:bg-slate-50 cursor-pointer"
+                copyLabel="번호 복사"
+                copiedLabel="✓ 연락처 복사됨"
+                copyTestId="deal-inquiry-copy-phone-btn"
+                renderCallContent={
+                  <>
+                    <span aria-hidden="true">📞</span>
+                    <span>전화 문의 ({formattedPhone})</span>
+                  </>
+                }
+              />
+            </div>
 
             {/* #3 문자 요청(전화번호 보유 시) 또는 온라인 상담 요청 */}
             {smsHref ? (

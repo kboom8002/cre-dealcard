@@ -5,6 +5,7 @@ import {
 import { normalizeDealCardCopy } from "@/lib/deal-card/copy-limits";
 import { classifyDealCardOriginGroup } from "@/lib/deal-card/memo-pairing";
 import { isDealCardSent } from "@/lib/im-lite/quick-generate-store";
+import { brokerExtrasToForm } from "@/domain/building/mobile-im/broker-extras";
 import type { WorkspaceItemRecord } from "@/lib/workspace/workspace-repository";
 import {
   cleanBrokerField,
@@ -83,6 +84,28 @@ export function mergeWorkspaceDealCard(wsItem: WorkspaceItemRecord, dealcards: A
   }
 }
 
+function resolveBrokerExtrasForm(
+  rawForm: unknown,
+  rawExtras: unknown,
+  prevForm?: unknown
+) {
+  const extrasObj =
+    rawExtras && typeof rawExtras === "object" ? (rawExtras as Record<string, any>) : null;
+  const reconstructed = extrasObj ? brokerExtrasToForm(extrasObj as any) : undefined;
+  const formObj =
+    rawForm && typeof rawForm === "object" ? (rawForm as Record<string, any>) : null;
+  const prevObj =
+    prevForm && typeof prevForm === "object" ? (prevForm as Record<string, any>) : null;
+  const baseForm = formObj || prevObj;
+  if (!baseForm) return reconstructed;
+  const hasCompRows = Array.isArray(baseForm.compRows) && baseForm.compRows.length > 0;
+  return {
+    ...(reconstructed || {}),
+    ...baseForm,
+    compRows: hasCompRows ? baseForm.compRows : reconstructed?.compRows || [],
+  };
+}
+
 export function mergeWorkspaceIm(
   wsItem: WorkspaceItemRecord,
   imList: ImSummaryItem[],
@@ -126,10 +149,38 @@ export function mergeWorkspaceIm(
   }
   const prevPhotos = prevItem?.photos;
   const photos = normalizeSummaryPhotoList(imObj.photos ?? payload.photos) || prevPhotos;
+  const resolvedExpectedRentRoll =
+    (Array.isArray(imObj.expectedRentRoll) && imObj.expectedRentRoll.length > 0 && imObj.expectedRentRoll) ||
+    (Array.isArray(imObj.expected_rent_roll) && imObj.expected_rent_roll.length > 0 && imObj.expected_rent_roll) ||
+    (Array.isArray(payload.expectedRentRoll) && payload.expectedRentRoll.length > 0 && payload.expectedRentRoll) ||
+    (Array.isArray(payload.expected_rent_roll) && payload.expected_rent_roll.length > 0 && payload.expected_rent_roll) ||
+    (prevItem as any)?.expectedRentRoll;
+  const resolvedExpectedRentRollMeta =
+    imObj.expectedRentRollMeta ??
+    imObj.expected_rent_roll_meta ??
+    payload.expectedRentRollMeta ??
+    payload.expected_rent_roll_meta ??
+    (prevItem as any)?.expectedRentRollMeta;
+  const resolvedPnus =
+    (Array.isArray(imObj.pnus) && imObj.pnus.length > 0 && imObj.pnus) ||
+    (Array.isArray(payload.pnus) && payload.pnus.length > 0 && payload.pnus) ||
+    (prevItem as any)?.pnus;
+  const resolvedBrokerExtras =
+    imObj.broker_extras ?? imObj.brokerExtras ?? payload.broker_extras ?? payload.brokerExtras ?? (prevItem as any)?.brokerExtras;
+  const resolvedExtrasForm = resolveBrokerExtrasForm(
+    imObj.brokerExtrasForm ?? payload.brokerExtrasForm,
+    resolvedBrokerExtras,
+    (prevItem as any)?.brokerExtrasForm
+  );
   const mapped: ImSummaryItem = {
     ...(prevItem || ({} as any)),
     ...imObj,
     ...(photos ? { photos } : {}),
+    ...(resolvedExpectedRentRoll ? { expectedRentRoll: resolvedExpectedRentRoll } : {}),
+    ...(resolvedExpectedRentRollMeta ? { expectedRentRollMeta: resolvedExpectedRentRollMeta } : {}),
+    ...(resolvedPnus ? { pnus: resolvedPnus } : {}),
+    ...(resolvedBrokerExtras ? { brokerExtras: resolvedBrokerExtras } : {}),
+    ...(resolvedExtrasForm ? { brokerExtrasForm: resolvedExtrasForm } : {}),
     id: preferredId,
     canonicalId: wsItem.id,
     legacyId: wsItem.legacyId,
@@ -147,7 +198,7 @@ export function mergeWorkspaceIm(
     brokerName: cleanBrokerField(imObj.brokerName, brokerProfile?.displayName),
     brokerageName: cleanBrokerField(imObj.brokerageName, brokerProfile?.company),
     brokerPhone: cleanBrokerField(imObj.brokerPhone, brokerProfile?.phone),
-  };
+  } as ImSummaryItem;
   if (idx >= 0) imList.splice(Math.min(idx, imList.length), 0, mapped);
   else imList.unshift(mapped);
 }
@@ -194,6 +245,30 @@ export function mergeQuickRecordIntoLists(
       (Array.isArray(qDocBody.photos) && qDocBody.photos.length > 0 && qDocBody.photos) ||
       qRec.basicImDoc?.facts?.photos
   );
+  const resolvedQuickExpectedRentRoll =
+    (Array.isArray(qRec.expectedRentRoll) && qRec.expectedRentRoll.length > 0 && qRec.expectedRentRoll) ||
+    (Array.isArray(qRec.expected_rent_roll) && qRec.expected_rent_roll.length > 0 && qRec.expected_rent_roll) ||
+    (Array.isArray(qDocBody.expected_rent_roll) && qDocBody.expected_rent_roll.length > 0 && qDocBody.expected_rent_roll) ||
+    (Array.isArray(qDocBody.expectedRentRoll) && qDocBody.expectedRentRoll.length > 0 && qDocBody.expectedRentRoll) ||
+    undefined;
+  const resolvedQuickExpectedRentRollMeta =
+    qRec.expectedRentRollMeta ??
+    qRec.expected_rent_roll_meta ??
+    qDocBody.expected_rent_roll_meta ??
+    qDocBody.expectedRentRollMeta ??
+    undefined;
+  const resolvedQuickPnus =
+    (Array.isArray(qRec.pnus) && qRec.pnus.length > 0 && qRec.pnus) ||
+    (Array.isArray(qRec.specs?.pnus) && qRec.specs.pnus.length > 0 && qRec.specs.pnus) ||
+    (Array.isArray(qSsot.pnus) && qSsot.pnus.length > 0 && qSsot.pnus) ||
+    (Array.isArray(qDocBody.pnus) && qDocBody.pnus.length > 0 && qDocBody.pnus) ||
+    undefined;
+  const resolvedQuickBrokerExtras =
+    qRec.broker_extras ?? qRec.brokerExtras ?? qDocBody.broker_extras ?? qDocBody.brokerExtras ?? undefined;
+  const resolvedQuickBrokerExtrasForm = resolveBrokerExtrasForm(
+    qRec.brokerExtrasForm,
+    resolvedQuickBrokerExtras
+  );
   const mappedIm: ImSummaryItem = {
     id: qRec.documentId,
     buildingId: qRec.buildingId,
@@ -207,6 +282,11 @@ export function mergeQuickRecordIntoLists(
     updatedAtIso: typeof qRec.updatedAt === "string" ? qRec.updatedAt : undefined,
     hasUnpublishedEdits: false,
     rentRoll: qRec.rentRoll,
+    ...(resolvedQuickExpectedRentRoll ? { expectedRentRoll: resolvedQuickExpectedRentRoll } : {}),
+    ...(resolvedQuickExpectedRentRollMeta ? { expectedRentRollMeta: resolvedQuickExpectedRentRollMeta } : {}),
+    ...(resolvedQuickPnus ? { pnus: resolvedQuickPnus } : {}),
+    ...(resolvedQuickBrokerExtras ? { brokerExtras: resolvedQuickBrokerExtras } : {}),
+    ...(resolvedQuickBrokerExtrasForm ? { brokerExtrasForm: resolvedQuickBrokerExtrasForm } : {}),
     ...(qPhotos ? { photos: qPhotos } : {}),
     investmentPosture: qRec.posture || "core_income",
     gfaSqm: qRec.specs?.gfaSqm ? String(qRec.specs.gfaSqm) : undefined,
@@ -235,7 +315,7 @@ export function mergeQuickRecordIntoLists(
     parcels: qRec.parcels ?? qRec.specs?.parcels ?? qSsot.parcels ?? qDocBody.parcels ?? undefined,
     mainPurpose: qRec.specs?.mainPurpose || qSsot.main_usage || qRec.card4.use || undefined,
     closingLine: qRec.closingLine || qRec.specs?.closingLine || qSsot.closing_line || qDocBody.closingLine || undefined,
-  };
+  } as ImSummaryItem;
   if (existingImIdx >= 0) imList[existingImIdx] = mappedIm;
   else imList.unshift(mappedIm);
 }
@@ -318,6 +398,37 @@ export function mapDocumentRowToImSummary(
   const photos =
     normalizeSummaryPhotoList(d.photos_v2 ?? d.photos ?? d.body?.photos_v2 ?? d.body?.photos) ||
     (d.building_id ? realPhotosByBuildingId.get(d.building_id) : undefined);
+  const rawDocExpectedRentRoll =
+    d.expected_rent_roll ??
+    d.body?.expected_rent_roll ??
+    d.expectedRentRoll ??
+    d.body?.expectedRentRoll ??
+    ssotSummary.expected_rent_roll;
+  const resolvedDocExpectedRentRoll =
+    Array.isArray(rawDocExpectedRentRoll) && rawDocExpectedRentRoll.length > 0
+      ? rawDocExpectedRentRoll
+      : undefined;
+  const resolvedDocExpectedRentRollMeta =
+    d.expected_rent_roll_meta ??
+    d.body?.expected_rent_roll_meta ??
+    d.expectedRentRollMeta ??
+    d.body?.expectedRentRollMeta ??
+    undefined;
+  const resolvedDocPnus =
+    (Array.isArray(d.pnus) && d.pnus.length > 0 && d.pnus) ||
+    (Array.isArray(d.body?.pnus) && d.body.pnus.length > 0 && d.body.pnus) ||
+    (Array.isArray(ssotSummary.pnus) && ssotSummary.pnus.length > 0 && ssotSummary.pnus) ||
+    undefined;
+  const resolvedDocBrokerExtras =
+    d.broker_extras ??
+    d.body?.broker_extras ??
+    d.brokerExtras ??
+    d.body?.brokerExtras ??
+    undefined;
+  const resolvedDocBrokerExtrasForm = resolveBrokerExtrasForm(
+    d.brokerExtrasForm ?? d.body?.brokerExtrasForm,
+    resolvedDocBrokerExtras
+  );
 
   return {
     id: d.id,
@@ -336,6 +447,11 @@ export function mapDocumentRowToImSummary(
         : undefined,
     hasUnpublishedEdits: Boolean(d.body?.hasUnpublishedEdits ?? d.hasUnpublishedEdits),
     rentRoll: normalizedDocRentRoll && normalizedDocRentRoll.length > 0 ? normalizedDocRentRoll : undefined,
+    ...(resolvedDocExpectedRentRoll ? { expectedRentRoll: resolvedDocExpectedRentRoll } : {}),
+    ...(resolvedDocExpectedRentRollMeta ? { expectedRentRollMeta: resolvedDocExpectedRentRollMeta } : {}),
+    ...(resolvedDocPnus ? { pnus: resolvedDocPnus } : {}),
+    ...(resolvedDocBrokerExtras ? { brokerExtras: resolvedDocBrokerExtras } : {}),
+    ...(resolvedDocBrokerExtrasForm ? { brokerExtrasForm: resolvedDocBrokerExtrasForm } : {}),
     ...(photos && photos.length > 0 ? { photos } : {}),
     investmentPosture: rawPosture,
     gfaSqm: ssotSummary.total_gross_area_sqm ? String(ssotSummary.total_gross_area_sqm) : undefined,
@@ -360,5 +476,5 @@ export function mapDocumentRowToImSummary(
     parcels: ssotSummary.parcels ?? d.parcels ?? d.body?.parcels ?? undefined,
     mainPurpose: ssotSummary.main_usage || ssotSummary.asset_type || bld?.asset_type || undefined,
     closingLine: ssotSummary.closing_line || brokerContact?.closingLine || d.body?.closingLine || undefined,
-  };
+  } as ImSummaryItem;
 }

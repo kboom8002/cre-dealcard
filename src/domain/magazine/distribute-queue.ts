@@ -83,6 +83,7 @@ export interface EnqueueDispatchResult {
   queueUnavailable?: boolean;
   blockedReason?: 'SEND_DISABLED' | GateBlockReason;
   message?: string;
+  scheduledForIso?: string;
   dryRun: boolean;
   subscriberCount: number;
   total: number;
@@ -116,7 +117,7 @@ export async function enqueueMagazineDispatch(
   supabase: MagazineDbClient,
   brokerId: string,
   edition: DistributeMagazineEditionInput,
-  deps: { now?: Date; dryRun?: boolean } = {},
+  deps: { now?: Date; dryRun?: boolean; scheduledForIso?: string } = {},
 ): Promise<EnqueueDispatchResult> {
   const dryRun = deps.dryRun ?? isMagazineSendDryRun();
   if (!isMagazineSendEnabled()) {
@@ -189,6 +190,7 @@ export async function enqueueMagazineDispatch(
   // P2-1: 발송 링크가 이 에디션을 가리키도록 ?edition=<uuid> (+ ?target= 보존)
   const editionUrl = buildEditionUrl(baseUrl, broker.slug, issueDate, { editionId: edition.id, target });
   const nowIso = (deps.now ?? new Date()).toISOString();
+  const scheduledForIso = deps.scheduledForIso?.trim() || undefined;
 
   const issueUuid = edition.id && isUuid(edition.id) ? edition.id : null;
   const rowsToQueue = targets.map((t) => {
@@ -217,7 +219,10 @@ export async function enqueueMagazineDispatch(
       subscriber_id: isUuid(t.sub.id) ? t.sub.id : null,
       channel: t.channel,
       kind,
-      status: 'pending_worker',
+      status: scheduledForIso ? 'retryable' : 'pending_worker',
+      ...(scheduledForIso
+        ? { next_attempt_at: scheduledForIso, blocked_reason: 'SCHEDULED_0830' }
+        : {}),
       attempt_count: 0,
       recipient_hash: recipientHash,
       queued_at: nowIso,
@@ -229,10 +234,21 @@ export async function enqueueMagazineDispatch(
   let queued = 0;
   for (let i = 0; i < rowsToQueue.length; i += ENQUEUE_CHUNK_SIZE) {
     const chunk = rowsToQueue.slice(i, i + ENQUEUE_CHUNK_SIZE);
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from(DISPATCH_LEDGER_TABLE)
       .upsert(chunk, { onConflict: 'idempotency_key', ignoreDuplicates: true })
       .select('id');
+    if (error && scheduledForIso && isMissingLedgerColumn(error)) {
+      const strippedChunk = chunk.map(
+        ({ next_attempt_at: _na, blocked_reason: _br, ...rest }) => rest,
+      );
+      const retryRes = await supabase
+        .from(DISPATCH_LEDGER_TABLE)
+        .upsert(strippedChunk, { onConflict: 'idempotency_key', ignoreDuplicates: true })
+        .select('id');
+      data = retryRes.data;
+      error = retryRes.error;
+    }
     if (error) {
       // D2 사전 컷오버: 000003(payload/attempt_count/queued_at/updated_at·pending_worker 상태) 미적용이면
       // 첫 청크부터 실패한다 → 대기열 불가를 알려 호출부가 기존 동기 발송 경로로 폴백하게 한다.
@@ -274,6 +290,7 @@ export async function enqueueMagazineDispatch(
           issue_date: issueDate,
           dry_run: dryRun,
           async_queued: true,
+          ...(scheduledForIso ? { scheduled_for_iso: scheduledForIso } : {}),
           total: targets.length,
           total_count: targets.length,
           subscriber_count: subscribers.length,
@@ -290,6 +307,7 @@ export async function enqueueMagazineDispatch(
   return {
     ok: true,
     asyncQueued: true,
+    ...(scheduledForIso ? { scheduledForIso } : {}),
     dryRun,
     subscriberCount: subscribers.length,
     total: targets.length,
@@ -323,6 +341,15 @@ export function computeNextKst0800Iso(now: Date = new Date()): string {
   const kstDay = toKstDate(now);
   const targetDay = parts.hour < 8 ? kstDay : addDays(kstDay, 1);
   return new Date(`${targetDay}T08:00:00+09:00`).toISOString();
+}
+
+/** 다음 KST 오전 08:30 시각을 UTC ISO 문자열로 반환 (08:30 예약 발송 시각) */
+export function computeNextKst0830Iso(now: Date = new Date()): string {
+  const parts = kstParts(now);
+  const kstDay = toKstDate(now);
+  const before0830 = parts.hour < 8 || (parts.hour === 8 && parts.minute < 30);
+  const targetDay = before0830 ? kstDay : addDays(kstDay, 1);
+  return new Date(`${targetDay}T08:30:00+09:00`).toISOString();
 }
 
 export async function processMagazineDispatchQueueBatch(

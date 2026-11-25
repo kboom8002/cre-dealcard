@@ -1,6 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { m2ToPyeong, pyeongToM2 } from "@/domain/building/im-core/facts/area";
+import {
+  brokerExtrasFormToInput,
+  parseBrokerExtras,
+} from "@/domain/building/mobile-im/broker-extras";
 import { isRealProductionRuntime } from "@/lib/env";
 import { assertPublishable } from "@/lib/legal/publish-gate";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
@@ -132,6 +136,11 @@ export async function handlePatchWorkspaceImUpsert(
         })
         .filter(Boolean)
     : [];
+  const photosTouched = Array.isArray(imItem.photos);
+  const photosExplicitlyCleared =
+    body?.photosExplicitlyCleared === true ||
+    imItem.photosExplicitlyCleared === true ||
+    (photosTouched && incomingRealPhotos.length === 0);
 
   const rawRentRoll = Array.isArray(imItem.rentRoll) ? imItem.rentRoll : [];
   let monthlyRentTotalManwon = 0;
@@ -235,12 +244,14 @@ export async function handlePatchWorkspaceImUpsert(
         imId,
         imItem,
         incomingRealPhotos,
+        photosExplicitlyCleared,
         brokerProfileMeta,
         askingPriceManwonNum,
         monthlyRentTotalManwon,
         totalDepositManwon,
         vacancyPct,
         isPublishAction: shouldPublishSnapshot,
+        rawRequestBody: body,
       });
     } catch (err) {
       if (strictDbMode()) {
@@ -256,7 +267,11 @@ export async function handlePatchWorkspaceImUpsert(
     ...imItem,
     id: imId,
     buildingId,
-    ...(incomingRealPhotos.length > 0 ? { photos: incomingRealPhotos } : {}),
+    ...(incomingRealPhotos.length > 0
+      ? { photos: incomingRealPhotos }
+      : photosExplicitlyCleared
+      ? { photos: [], photoNames: [] }
+      : {}),
     status: shouldPublishSnapshot ? "published" : isDraftEdit ? "draft" : imItem.status || nextWsStatus,
     hasUnpublishedEdits: shouldPublishSnapshot ? false : Boolean(imItem.hasUnpublishedEdits),
     monthlyRentTotalManwon,
@@ -352,12 +367,14 @@ async function updateLegacyImDocumentAndBuilding(params: {
   imId: string;
   imItem: Record<string, any>;
   incomingRealPhotos: any[];
+  photosExplicitlyCleared?: boolean;
   brokerProfileMeta: any;
   askingPriceManwonNum: number;
   monthlyRentTotalManwon: number;
   totalDepositManwon: number;
   vacancyPct: number;
   isPublishAction: boolean;
+  rawRequestBody?: Record<string, any>;
 }) {
   const {
     supabase,
@@ -365,6 +382,7 @@ async function updateLegacyImDocumentAndBuilding(params: {
     imId,
     imItem,
     incomingRealPhotos,
+    photosExplicitlyCleared = false,
     brokerProfileMeta,
     askingPriceManwonNum,
     monthlyRentTotalManwon,
@@ -424,6 +442,8 @@ async function updateLegacyImDocumentAndBuilding(params: {
             role: p?.role || (idx === 0 && p?.isHero ? "cover" : undefined),
             isHero: Boolean(p?.isHero ?? idx === 0),
           }))
+        : photosExplicitlyCleared
+        ? []
         : prevRealPhotos;
 
     const cleanHighlights = Array.isArray(imItem.axiosHighlights)
@@ -540,10 +560,43 @@ async function updateLegacyImDocumentAndBuilding(params: {
       prevBody.closingLine ??
       prevBrokerContact.closingLine;
 
+    const incomingExpectedRentRoll = Array.isArray(imItem.expectedRentRoll)
+      ? imItem.expectedRentRoll
+      : Array.isArray(imItem.expected_rent_roll)
+      ? imItem.expected_rent_roll
+      : undefined;
+    const incomingPnus =
+      Array.isArray(imItem.pnus) && imItem.pnus.length > 0
+        ? imItem.pnus
+        : Array.isArray(imItem.parcels) && imItem.parcels.length > 0
+        ? imItem.parcels
+            .map((p: any) => p?.pnu)
+            .filter((v: unknown): v is string => typeof v === "string" && /^\d{19}$/.test(v))
+        : undefined;
+    const resolvedBrokerExtras = (() => {
+      if (imItem.broker_extras && typeof imItem.broker_extras === "object") {
+        return imItem.broker_extras;
+      }
+      if (imItem.brokerExtras && typeof imItem.brokerExtras === "object") {
+        const parsed = parseBrokerExtras(imItem.brokerExtras);
+        return parsed.ok ? parsed.value : imItem.brokerExtras;
+      }
+      if (imItem.brokerExtrasForm && typeof imItem.brokerExtrasForm === "object") {
+        const parsed = parseBrokerExtras(brokerExtrasFormToInput(imItem.brokerExtrasForm));
+        return parsed.ok ? parsed.value : undefined;
+      }
+      return prevBody.broker_extras;
+    })();
+
     const nextBody = {
       ...prevBody,
       heroTitle: imItem.title || prevBody.heroTitle,
       ...(resolvedPnu ? { pnu: resolvedPnu } : {}),
+      ...(incomingPnus && incomingPnus.length > 0
+        ? { pnus: incomingPnus }
+        : prevBody.pnus !== undefined
+        ? { pnus: prevBody.pnus }
+        : {}),
       ...(resolvedCoordinates
         ? {
             coordinates: resolvedCoordinates,
@@ -565,6 +618,11 @@ async function updateLegacyImDocumentAndBuilding(params: {
       handover_note: imItem.handoverNote ?? prevBody.handover_note,
       axios_highlights: cleanHighlights && cleanHighlights.length > 0 ? cleanHighlights : prevBody.axios_highlights,
       rent_roll: Array.isArray(imItem.rentRoll) ? imItem.rentRoll : prevBody.rent_roll,
+      ...(incomingExpectedRentRoll !== undefined
+        ? { expected_rent_roll: incomingExpectedRentRoll }
+        : prevBody.expected_rent_roll !== undefined
+        ? { expected_rent_roll: prevBody.expected_rent_roll }
+        : {}),
       ...(imItem.rentRollMeta ?? imItem.rent_roll_meta ?? prevBody.rent_roll_meta
         ? { rent_roll_meta: imItem.rentRollMeta ?? imItem.rent_roll_meta ?? prevBody.rent_roll_meta }
         : {}),
@@ -576,6 +634,7 @@ async function updateLegacyImDocumentAndBuilding(params: {
               prevBody.expected_rent_roll_meta,
           }
         : {}),
+      ...(resolvedBrokerExtras !== undefined ? { broker_extras: resolvedBrokerExtras } : {}),
       floor_leases: normalizedFloorLeases,
       photos: preservedPhotos,
       photos_v2: preservedPhotos,
@@ -642,6 +701,7 @@ async function updateLegacyImDocumentAndBuilding(params: {
             }
           : {}),
         ...(imItem.parcels !== undefined ? { parcels: imItem.parcels } : {}),
+        ...(incomingPnus && incomingPnus.length > 0 ? { pnus: incomingPnus } : {}),
         ...(imItem.mainPurpose !== undefined ? { main_usage: imItem.mainPurpose } : {}),
         ...(resolvedClosingLine !== undefined ? { closing_line: resolvedClosingLine } : {}),
       },

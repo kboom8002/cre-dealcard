@@ -173,7 +173,7 @@ describe('④ 중첩 button 없음 (경매 픽 헤더)', () => {
     );
     // 어떤 <button> 도 닫히기 전에 또 다른 <button> 을 열지 않는다
     expect(/<button\b(?:(?!<\/button>)[\s\S])*<button\b/.test(html)).toBe(false);
-    expect(html).toContain('NPL 소싱');
+    expect(html).toContain('경매·부실채권(NPL) 발굴');
     expect(html).toContain('NPL 설명 보기'); // 용어 버튼은 헤더 밖(패널 본문)
   });
 });

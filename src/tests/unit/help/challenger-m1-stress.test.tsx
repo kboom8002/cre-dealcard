@@ -341,19 +341,19 @@ describe("Empirical Challenger 2: Milestone 1 Boundary & Stress Testing", () => 
       expect(resolveScreenNameFromPathname("/broker")).toContain("홈 화면");
 
       // Precedence: /im-lite must precede /broker/buildings
-      expect(resolveScreenNameFromPathname("/broker/buildings/bld-999/im-lite")).toContain("IM 완성 검수");
-      expect(resolveScreenNameFromPathname("/broker/buildings")).toContain("내 물건 보관함");
+      expect(resolveScreenNameFromPathname("/broker/buildings/bld-999/im-lite")).toBe("📊 IM");
+      expect(resolveScreenNameFromPathname("/broker/buildings")).toBe("📊 IM");
 
-      // Other routes
-      expect(resolveScreenNameFromPathname("/broker/deal-card/new")).toContain("1분 딜카드 신규 등록");
-      expect(resolveScreenNameFromPathname("/broker/deal-card/bld-100")).toContain("1분 딜카드 상세");
-      expect(resolveScreenNameFromPathname("/broker/basic-im-studio")).toContain("Basic IM");
-      expect(resolveScreenNameFromPathname("/broker/im-approval/bld-2")).toContain("IM 검토");
-      expect(resolveScreenNameFromPathname("/broker/clients")).toContain("고객 명단");
-      expect(resolveScreenNameFromPathname("/broker/inbox")).toContain("소통 관리함");
-      expect(resolveScreenNameFromPathname("/broker/profile")).toContain("중개사 프로필");
-      expect(resolveScreenNameFromPathname("/broker/magazine-editor")).toContain("주간 고객 소식지");
-      expect(resolveScreenNameFromPathname("/broker/tutorial")).toContain("사용 설명서");
+      // Other routes (V2 workspace labels)
+      expect(resolveScreenNameFromPathname("/broker/deal-card/new")).toContain("딜카드");
+      expect(resolveScreenNameFromPathname("/broker/deal-card/bld-100")).toContain("딜카드");
+      expect(resolveScreenNameFromPathname("/broker/basic-im-studio")).toContain("IM");
+      expect(resolveScreenNameFromPathname("/broker/im-approval/bld-2")).toContain("IM");
+      expect(resolveScreenNameFromPathname("/broker/clients")).toContain("고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/inbox")).toContain("고객 소통");
+      expect(resolveScreenNameFromPathname("/broker/profile")).toContain("중개사무소 프로필");
+      expect(resolveScreenNameFromPathname("/broker/magazine-editor")).toContain("부동산뉴스");
+      expect(resolveScreenNameFromPathname("/broker/tutorial")).toContain("크리딜 사용법");
     });
 
     it("2.2 Returns null when isOpen=false and leaves zero DOM footprint", async () => {
@@ -483,7 +483,7 @@ describe("Empirical Challenger 2: Milestone 1 Boundary & Stress Testing", () => 
       expect(successfulClipboard.writeText).toHaveBeenCalledTimes(1);
       expect(copiedText).toContain("[크리딜(CRE DealCard) 중개인 현장 피드백 / 개선 요청]");
       expect(copiedText).toContain("2. 작업 중이던 매물 주소(지번): 서울시 강남구 역삼동 700");
-      expect(copiedText).toContain("3. 관련 화면: [O] 📊 IM 완성 검수 · 웹 뷰어 (완성도 80점 점검)");
+      expect(copiedText).toContain("3. 관련 화면: [O] 📊 IM");
       expect(mockToast.success).toHaveBeenCalledWith(expect.stringContaining("✅ 제보 양식이 복사되었습니다!"));
     });
 

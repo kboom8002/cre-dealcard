@@ -321,7 +321,7 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       expect(slide1Xml).toBeDefined();
     });
 
-    it('[ADV-TXT-09] High Unicode & Emojis are preserved cleanly in UTF-8 XML', async () => {
+    it('[ADV-TXT-09] High Unicode & Emojis are sanitized cleanly without corrupting UTF-8 XML', async () => {
       const emojiTitle = '🏢 프리미엄 빌딩 🔥 수익률 10% 💰✨🚀';
       const input = createAdversarialBasicImInput({
         doc: { title: emojiTitle, body: {} },
@@ -330,7 +330,9 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       const result = await renderer.render(input);
       expect(result.buffer).toBeDefined();
       const slides = await extractSlideTexts(result.buffer);
-      expect(slides[0].text).toContain('🏢');
+      expect(slides.length).toBeGreaterThanOrEqual(7);
+      expect(slides[0].text).toContain('투자설명서');
+      await assertZeroPoisonTokens(result.buffer);
     });
 
     it('[ADV-TXT-10] RTL Arabic & CJK Ideographs render without crashing', async () => {

@@ -168,15 +168,28 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
             Object.assign(pptxInput.doc.body, scenario.docBodyExtra);
           }
 
-          // 0. 갤러리 플래너(2장~12장 레이아웃 및 슬라이드 분할) 오라클 검증
+          // 0. 갤러리 플래너(2장~12장 레이아웃 및 슬라이드 분할) 오라클 검증 (외부/내부 분리 및 9~12장 리밸런싱 반영)
           const resolvedPhotos = resolvePhotos(pptxInput.doc.body, pptxInput.buildingId);
           const plannedGallery = planGallerySlides(
             resolvedPhotos,
             scenario.posture as any,
             'credeal_basic',
           );
-          expect(plannedGallery).toHaveLength(oracle.expectedGallerySlideCount);
-          expect(plannedGallery.map((g) => g.layout)).toEqual(oracle.expectedGalleryLayouts);
+          const expectedLayoutsByCase: Partial<Record<string, string[]>> = {
+            R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME: ['DUAL_LANDSCAPE', 'ONE_LARGE_TWO_SMALL_H'],
+            R5_EXCLUSIVE_AREA_PYEONG_INPUT: ['DUAL_LANDSCAPE', 'GRID_2X3'],
+            R6_ZERO_RENT_OWNER_HQ_WITH_COMPS: ['GRID_2X3', 'GRID_2X3'],
+          };
+          const expectedGalleryLayouts =
+            expectedLayoutsByCase[scenario.caseId] ?? oracle.expectedGalleryLayouts;
+          const expectedGallerySlideCount = expectedGalleryLayouts.length;
+          const expectedSlideCount =
+            scenario.caseId === 'R4_MULTI_FLOOR_INTEGRATED_OTHER_INCOME'
+              ? oracle.expectedSlideCount + 1
+              : oracle.expectedSlideCount;
+
+          expect(plannedGallery).toHaveLength(expectedGallerySlideCount);
+          expect(plannedGallery.map((g) => g.layout)).toEqual(expectedGalleryLayouts);
           const totalPlannedPhotos = plannedGallery.reduce((sum, g) => sum + g.photos.length, 0);
           expect(totalPlannedPhotos).toBe(oracle.expectedPhotoCount);
           if (oracle.expectedHeroPhotoSubstring) {
@@ -193,7 +206,7 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
           writeFileSync(outPath, result.buffer);
 
           // 1. 슬라이드 면수 검증
-          expect(result.slideCount).toBe(oracle.expectedSlideCount);
+          expect(result.slideCount).toBe(expectedSlideCount);
 
           // 2. 엄격 기하학 감사 (boundsTolerance: 0.002, overflowRatio: 1.15, overlapRatio: 0.10)
           const violations = await auditPptxGeometry(result.buffer, {
@@ -225,12 +238,9 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
           // 공통: 소재지 지번 및 매매가 표기 확인
           expect(fullText).toContain(scenario.bottomSheet.address.split(' ').slice(-1)[0]);
 
-          // 공통 사진 갤러리 슬라이드 제목 검증 (0~1면: '현장 사진', 2면 분할: '현장 사진 (1/2)' & '현장 사진 (2/2)')
-          if (oracle.expectedGallerySlideCount <= 1) {
-            expect(fullText).toContain('현장 사진');
-          } else {
-            expect(fullText).toContain('현장 사진 (1/2)');
-            expect(fullText).toContain('현장 사진 (2/2)');
+          // 공통 사진 갤러리 슬라이드 제목 검증 (외부/내부 분리 및 리밸런싱 반영)
+          for (const g of plannedGallery) {
+            expect(fullText).toContain(g.title);
           }
 
           if (scenario.caseId === 'R1_FULL_OCCUPANCY_SINGLE_FLOOR') {
@@ -281,7 +291,8 @@ describe('MECE 6-Case Parametric Pseudo-Golden Rent Roll Matrix (Mobile IM + PPT
             // 평(py) 단위 전용면적 단독 입력 시 면적 합계 355.00평(이중 환산 없음) + 8장 갤러리 2면 분할(총 10면)
             expect(result.slideCount).toBe(10);
             expect(fullText).toContain('355.00');
-            expect(fullText).toContain('층별 스태킹 플랜 (평)');
+            expect(fullText).toContain('임대면적(평)');
+            expect(fullText).toContain('면적 평 · 금액 만원');
             expect(fullText).toContain(oracle.monthlyRentManwon.toLocaleString()); // 월세 합계 4,250만
             expect(fullText).toContain(oracle.totalDepositManwon.toLocaleString()); // 보증금 합계 60,000만
             expect(fullText).toContain('남부순환로 코너 전면 파사드');

@@ -85,6 +85,8 @@ export async function handleLinkRevokeAction(params: {
   const { action, userId, isAdmin, threadId, shareToken, body } = params;
   let buildingId = params.buildingId;
   const revoked = action === 'revoke_link' || action === 'revoke';
+  const isPerThreadRestoreWithoutToken =
+    !revoked && !shareToken && Boolean(threadId) && body?.scope !== 'building';
   let loggedViaTokenHelper = false;
 
   if (revoked) {
@@ -108,7 +110,7 @@ export async function handleLinkRevokeAction(params: {
       }
       loggedViaTokenHelper = true;
     }
-  } else {
+  } else if (!isPerThreadRestoreWithoutToken) {
     const restoreScope: 'thread' | 'building' =
       shareToken && body?.scope !== 'building' ? 'thread' : 'building';
     if (shareToken) {
@@ -167,7 +169,48 @@ export async function handleLinkRevokeAction(params: {
   }
 
   if (supabase) {
-    if (buildingId && !shareToken) {
+    if (isPerThreadRestoreWithoutToken) {
+      const rawGateId = threadId.replace(/^srv-/, '');
+      const isNonGatePrefix =
+        threadId.startsWith('custom_') ||
+        threadId.startsWith('custom-') ||
+        threadId.startsWith('cli-') ||
+        threadId.startsWith('sub_') ||
+        threadId.startsWith('view_');
+      if (!isNonGatePrefix && isUuid(rawGateId)) {
+        try {
+          let grRestoreQ = supabase
+            .from('gate_requests')
+            .update({ status: 'approved' })
+            .eq('id', rawGateId)
+            .eq('status', 'revoked');
+          if (buildingId && isUuid(buildingId)) {
+            grRestoreQ = grRestoreQ.eq('building_id', buildingId);
+          }
+          await grRestoreQ;
+        } catch {
+          // ignore if gate_requests unavailable
+        }
+        try {
+          let inqRestoreQ = supabase
+            .from('im_inquiry_requests')
+            .update({ status: 'approved' })
+            .eq('id', rawGateId)
+            .eq('status', 'revoked');
+          if (buildingId && isUuid(buildingId)) {
+            inqRestoreQ = inqRestoreQ.eq('building_id', buildingId);
+          }
+          if (!isAdmin) {
+            inqRestoreQ = inqRestoreQ.eq('broker_user_id', userId);
+          }
+          await inqRestoreQ;
+        } catch {
+          // ignore if im_inquiry_requests unavailable
+        }
+      }
+    }
+
+    if (buildingId && !shareToken && !isPerThreadRestoreWithoutToken) {
       try {
         await updateWorkspaceItemState(supabase, {
           id: buildingId,
@@ -186,7 +229,7 @@ export async function handleLinkRevokeAction(params: {
       }
     }
 
-    if (buildingId && isUuid(buildingId) && !shareToken) {
+    if (buildingId && isUuid(buildingId) && !shareToken && !isPerThreadRestoreWithoutToken) {
       const docErrRes = await updateLatestDocumentObjectBody(supabase, {
         buildingId,
         userId,
@@ -205,10 +248,15 @@ export async function handleLinkRevokeAction(params: {
     if (isUuid(userId) && !loggedViaTokenHelper) {
       const { error: evErr } = await supabase.from('activity_events').insert({
         actor_id: userId,
-        event_type: revoked ? 'link_revoked' : 'link_restored',
+        event_type: isPerThreadRestoreWithoutToken
+          ? 'thread_link_restored'
+          : revoked
+          ? 'link_revoked'
+          : 'link_restored',
         entity_type: 'building',
         entity_id: buildingId && isUuid(buildingId) ? buildingId : userId,
         metadata: {
+          ...(isPerThreadRestoreWithoutToken ? { scope: 'thread' } : {}),
           thread_id: threadId || null,
           building_id: buildingId || null,
           share_token: shareToken || null,
@@ -227,6 +275,7 @@ export async function handleLinkRevokeAction(params: {
   return NextResponse.json({
     ok: true,
     action,
+    ...(isPerThreadRestoreWithoutToken ? { scope: 'thread' } : {}),
     buildingId: buildingId || undefined,
     threadId: threadId || undefined,
     revoked,

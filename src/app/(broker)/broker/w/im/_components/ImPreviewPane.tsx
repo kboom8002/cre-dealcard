@@ -112,6 +112,8 @@ export interface ImPreviewPaneProps {
   lat?: number;
   lng?: number;
   cadastralImageUrl?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parcels?: any[];
   brokerageName: string;
   brokerName: string;
   brokerPhone: string;
@@ -155,6 +157,7 @@ export function ImPreviewPane({
   lat,
   lng,
   cadastralImageUrl,
+  parcels = [],
   brokerageName,
   brokerName,
   brokerPhone,
@@ -254,7 +257,7 @@ export function ImPreviewPane({
               onClick: () => onFocusEditorUnit("im-unit-price"),
             },
           ]}
-          primaryActionLabel="① 주소·가격 입력하러 가기"
+          primaryActionLabel="주소·가격 입력하러 가기"
           onPrimaryAction={() => onFocusEditorUnit("im-unit-address")}
         />
       ) : previewTab === "mobile" ? (
@@ -436,9 +439,19 @@ export function ImPreviewPane({
               onActivate={onFocusEditorUnit}
               className="bg-white rounded-xl p-3.5 border border-[#CBD5E1] space-y-2"
             >
-              <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
-                {secNo("05")} 토지 및 도시계획
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-[#515154] bg-slate-100 px-2.5 py-0.5 rounded inline-block">
+                  {secNo("05")} 토지 및 도시계획
+                </span>
+                {Array.isArray(parcels) && parcels.length > 1 && (
+                  <span
+                    data-testid="im-preview-multi-parcel-badge"
+                    className="text-sm font-semibold text-[#1D4ED8] bg-[#EFF6FF] border border-[#BFDBFE] px-2 py-0.5 rounded-full"
+                  >
+                    총 {parcels.length}필지
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="p-2.5 bg-[#FAF9F5] rounded-lg border border-slate-200/70">
                   <span className="text-sm text-slate-500 block">대지면적</span>
