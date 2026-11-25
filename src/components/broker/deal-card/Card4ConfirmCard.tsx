@@ -1183,7 +1183,7 @@ export function Card4ConfirmCard({
                       className="rounded-xl border border-purple-200 bg-white p-3 space-y-2 shadow-2xs"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-0.5 text-xs font-extrabold text-purple-900 shrink-0">
+                        <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-0.5 text-sm font-extrabold text-purple-900 shrink-0">
                           {axisLabel}
                         </span>
                       </div>

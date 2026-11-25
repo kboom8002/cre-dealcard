@@ -312,9 +312,9 @@ describe('Wave 1 Step 1.2: Inbox P0 (A3-01, A3-02, A3-03, A5-01, A5-06)', () => 
     // A3-03: <1280px drawer & mobile tab labels
     expect(
       container.querySelector('[data-testid="workspace-editor-preview-drawer-btn"]')?.textContent
-    ).toContain('자료 전달 · 링크 관리 열기');
+    ).toContain('고객 정보 · 상담 기록 열기');
     expect(container.querySelector('[data-testid="mobile-tab-preview"]')?.textContent).toBe(
-      '자료 전달·관리'
+      '기록·고객정보'
     );
 
     // A5-06: Email chip visible + NO tel: link for @ email
@@ -333,7 +333,7 @@ describe('Wave 1 Step 1.2: Inbox P0 (A3-01, A3-02, A3-03, A5-01, A5-06)', () => 
       container.querySelector('[data-testid="inbox-summary-clean-message"]')?.textContent
     ).toContain('투자심의위원회 제출용으로 IM 전문을 요청드립니다.');
 
-    // A3-01 & A5-01: Approve -> persistent issued link card + dispatchHistory preview + "승인됨 · 미열람"
+    // A3-01 & A5-01: Approve -> persistent issued link card in Col 2 + dispatchHistory in Col 3 + "승인됨 · 미열람"
     await act(async () => {
       approveBtn!.click();
     });
@@ -347,22 +347,22 @@ describe('Wave 1 Step 1.2: Inbox P0 (A3-01, A3-02, A3-03, A5-01, A5-06)', () => 
     expect(
       container.querySelector('[data-testid="inbox-approved-share-url"]')?.textContent
     ).toContain(`/im-lite/${BLD_ID}?token=slk.new.issued99`);
-    expect(container.querySelector('[data-testid="inbox-todo-copy-link-btn"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="inbox-copy-share-link-btn"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="inbox-todo-open-link-btn"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="inbox-todo-copy-bundle-btn"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="inbox-todo-lock-link-btn"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="inbox-copy-bundle-btn"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="lock-share-link-trigger-btn"]')).not.toBeNull();
 
-    const recentPreview = container.querySelector(
-      '[data-testid="inbox-todo-recent-dispatch-preview"]'
+    expect(container.querySelector('[data-testid="inbox-tab-panel-history"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="inbox-dispatch-history-list"]')?.textContent).toContain(
+      'IM 승인 · 전용 링크 발급'
     );
-    expect(recentPreview?.textContent).toContain('IM 승인 · 전용 링크 발급');
 
-    // Lock inline from Column 2 -> revoked card with unlock button
+    // Lock inline from Column 3 governance disclosure -> Col 2 revoked card with unlock button
     await act(async () => {
-      (container.querySelector('[data-testid="inbox-todo-lock-link-btn"]') as HTMLButtonElement).click();
+      (container.querySelector('[data-testid="lock-share-link-trigger-btn"]') as HTMLButtonElement).click();
     });
     await act(async () => {
-      (container.querySelector('[data-testid="inbox-todo-confirm-lock-btn"]') as HTMLButtonElement).click();
+      (container.querySelector('[data-testid="confirm-lock-link-btn"]') as HTMLButtonElement).click();
     });
     expect(container.querySelector('[data-testid="inbox-revoked-card"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="inbox-todo-unlock-link-btn"]')).not.toBeNull();
@@ -371,15 +371,6 @@ describe('Wave 1 Step 1.2: Inbox P0 (A3-01, A3-02, A3-03, A5-01, A5-06)', () => 
       (container.querySelector('[data-testid="inbox-todo-unlock-link-btn"]') as HTMLButtonElement).click();
     });
     expect(container.querySelector('[data-testid="inbox-approved-link-card"]')).not.toBeNull();
-
-    // Jump to 기록 tab from 최근 발송·처리 기록 preview
-    await act(async () => {
-      (container.querySelector('[data-testid="inbox-todo-jump-history-btn"]') as HTMLButtonElement).click();
-    });
-    expect(container.querySelector('[data-testid="inbox-tab-panel-history"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="inbox-dispatch-history-list"]')?.textContent).toContain(
-      'IM 승인 · 전용 링크 발급'
-    );
   });
 
   it('A5-01: renders rejected notice card with re-approve CTA in 할 일 tab', async () => {

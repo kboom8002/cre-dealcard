@@ -16,6 +16,8 @@ export interface InboxDispatchTimelineProps {
   onSaveCallNote: () => void;
 }
 
+type ActivityFilterKind = "all" | "send" | "view" | "memo";
+
 export function InboxDispatchTimeline({
   thread,
   callNote,
@@ -23,15 +25,35 @@ export function InboxDispatchTimeline({
   onCallNoteChange,
   onSaveCallNote,
 }: InboxDispatchTimelineProps) {
+  const [activityFilter, setActivityFilter] = React.useState<ActivityFilterKind>("all");
+
+  React.useEffect(() => {
+    setActivityFilter("all");
+  }, [thread.id]);
+
   const dispatchHistory = Array.isArray(thread.dispatchHistory)
     ? thread.dispatchHistory
     : [];
   const isBounced = thread.emailDeliveryStatus === "bounced";
   const isComplained = thread.emailDeliveryStatus === "complained";
 
+  const filteredEvents = thread.events.filter((ev) => {
+    if (activityFilter === "all") return true;
+    const isMemo =
+      ev.description.startsWith("통화 기록:") ||
+      ev.description.includes("고객 직접 등록") ||
+      (ev.eventType === "dwell" && !ev.sectionName);
+    if (activityFilter === "memo") return isMemo;
+    if (activityFilter === "view") return !isMemo;
+    return false;
+  });
+
+  const showDispatch = activityFilter === "all" || activityFilter === "send";
+  const showEvents = activityFilter !== "send";
+
   return (
     <div
-      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
       data-testid="inbox-tab-panel-history"
     >
       {(isBounced || isComplained) && (
@@ -59,9 +81,9 @@ export function InboxDispatchTimeline({
       <div>
         <label
           htmlFor="inbox-call-note-input"
-          className="mb-1.5 block text-sm font-bold text-slate-800"
+          className="mb-1.5 block text-sm font-extrabold text-slate-900"
         >
-          통화 및 상담 메모 남기기
+          ✍️ 통화 · 상담 메모 남기기
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
@@ -70,29 +92,32 @@ export function InboxDispatchTimeline({
             type="text"
             value={callNote}
             onChange={(e) => onCallNoteChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                onSaveCallNote();
+              }
+            }}
             placeholder="예: 금주 금요일 오후 현장 답사 희망"
-            className="min-h-[48px] flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+            className="min-h-[48px] flex-1 min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
           />
           <button
             type="button"
             data-testid="save-call-note-btn"
             disabled={Boolean(busyAction)}
             onClick={onSaveCallNote}
-            className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-base font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+            className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50 cursor-pointer whitespace-nowrap"
           >
             메모 저장
           </button>
         </div>
       </div>
 
-      {/* 발송 감사 타임라인 (이메일 · 카톡 복사 · 뉴스레터 · 반송/수신차단 상태) */}
-      <div
-        className="border-t border-slate-200 pt-4"
-        data-testid="inbox-dispatch-audit-timeline"
-      >
+      {/* 통합 활동 타임라인 필터 */}
+      <div className="border-t border-slate-200 pt-3 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-bold text-slate-900">
-            자료 발송 내역
+          <h3 className="text-base font-extrabold text-slate-900">
+            🕒 통합 활동 기록
           </h3>
           {(isBounced || isComplained) && (
             <span
@@ -108,120 +133,147 @@ export function InboxDispatchTimeline({
           )}
         </div>
 
-        {dispatchHistory.length === 0 ? (
-          <p className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-600">
-            아직 발송·복사 내역이 없습니다. 이메일 발송이나 카톡 문구·링크 복사 시 이곳에 기록됩니다.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-2.5" data-testid="inbox-dispatch-history-list">
-            {dispatchHistory.map((item) => {
-              const channelLabel = formatDispatchChannelLabel(item.channel);
-              const statusBadge = formatDispatchStatusBadge(item.status);
-              const channelCls =
-                item.channel === "email"
-                  ? "border border-blue-200 bg-blue-50 text-blue-900"
-                  : item.channel === "newsletter"
-                  ? "border border-purple-200 bg-purple-50 text-purple-900"
-                  : item.channel === "import"
-                  ? "border border-teal-200 bg-teal-50 text-teal-900"
-                  : "border border-slate-300 bg-white text-slate-800";
-
-              return (
-                <li
-                  key={item.id}
-                  data-testid={`inbox-dispatch-item-${item.id}`}
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5"
-                >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span
-                        data-testid={`dispatch-channel-badge-${item.id}`}
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${channelCls}`}
-                      >
-                        {channelLabel}
-                      </span>
-                      <span
-                        data-testid={`dispatch-status-badge-${item.id}`}
-                        data-dispatch-status={item.status}
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${statusBadge.cls}`}
-                      >
-                        {statusBadge.label}
-                      </span>
-                    </div>
-                    <p className="text-base font-semibold text-slate-900 break-words">
-                      {item.title}
-                    </p>
-                    {item.bounceReason && (
-                      <p className="text-sm font-medium text-rose-700">
-                        사유: {item.bounceReason}
-                      </p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
-                    {formatListDate(item.createdAt)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      {/* 열람 및 상담 기록 */}
-      <div className="border-t border-slate-200 pt-4">
-        <h3 className="text-base font-bold text-slate-900">
-          열람 및 상담 기록
-        </h3>
-        <ul className="mt-3 space-y-2.5">
-          {thread.events.length === 0 ? (
-            <li
-              data-testid="inbox-events-empty"
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm text-slate-600 space-y-1"
-            >
-              <p className="font-semibold text-slate-700">
-                아직 열람 및 상담 기록이 없습니다.
-              </p>
-              {dispatchHistory.length === 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-slate-500">
-                    자료 전달 화면에서 딜카드·IM·뉴스레터를 보내면 기록이 자동으로 쌓입니다.
-                  </p>
-                  <button
-                    type="button"
-                    data-testid="inbox-timeline-open-preview-btn"
-                    onClick={() =>
-                      window.dispatchEvent(new CustomEvent("workspace:open-preview"))
-                    }
-                    className="xl:hidden min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
-                  >
-                    자료 전달·관리 열기
-                  </button>
-                </div>
-              )}
-            </li>
-          ) : (
-            thread.events.map((ev) => (
-              <li
-                key={ev.id}
-                className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5"
+        <div
+          role="group"
+          aria-label="활동 기록 필터"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {(
+            [
+              { key: "all", label: "전체" },
+              { key: "send", label: "📤 발송" },
+              { key: "view", label: "👀 열람" },
+              { key: "memo", label: "📝 메모" },
+            ] as const
+          ).map((flt) => {
+            const active = activityFilter === flt.key;
+            return (
+              <button
+                key={flt.key}
+                type="button"
+                aria-pressed={active}
+                data-testid={`inbox-timeline-filter-${flt.key}`}
+                onClick={() => setActivityFilter(flt.key)}
+                className={`inline-flex min-h-[44px] items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer ${
+                  active
+                    ? "border-blue-600 bg-blue-50 text-blue-900"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
               >
-                <div className="space-y-0.5">
-                  <p className="text-base font-medium text-slate-900">
-                    {ev.description}
+                {flt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 발송 감사 타임라인 */}
+        {showDispatch && (
+          <div className="space-y-2" data-testid="inbox-dispatch-audit-timeline">
+            <h4 className="text-sm font-bold text-slate-700">자료 발송 내역</h4>
+            {dispatchHistory.length === 0 ? (
+              <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                아직 발송·복사 내역이 없습니다. 이메일 발송이나 카톡 문구·링크 복사 시 이곳에 기록됩니다.
+              </p>
+            ) : (
+              <ul className="space-y-2" data-testid="inbox-dispatch-history-list">
+                {dispatchHistory.map((item) => {
+                  const channelLabel = formatDispatchChannelLabel(item.channel);
+                  const statusBadge = formatDispatchStatusBadge(item.status);
+                  const channelCls =
+                    item.channel === "email"
+                      ? "border border-blue-200 bg-blue-50 text-blue-900"
+                      : item.channel === "newsletter"
+                      ? "border border-purple-200 bg-purple-50 text-purple-900"
+                      : item.channel === "import"
+                      ? "border border-teal-200 bg-teal-50 text-teal-900"
+                      : "border border-slate-300 bg-white text-slate-800";
+
+                  return (
+                    <li
+                      key={item.id}
+                      data-testid={`inbox-dispatch-item-${item.id}`}
+                      className="flex flex-wrap items-start justify-between gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            data-testid={`dispatch-channel-badge-${item.id}`}
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${channelCls}`}
+                          >
+                            {channelLabel}
+                          </span>
+                          <span
+                            data-testid={`dispatch-status-badge-${item.id}`}
+                            data-dispatch-status={item.status}
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${statusBadge.cls}`}
+                          >
+                            {statusBadge.label}
+                          </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900 break-words">
+                          {item.title}
+                        </p>
+                        {item.bounceReason && (
+                          <p className="text-sm font-medium text-rose-700">
+                            사유: {item.bounceReason}
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
+                        {formatListDate(item.createdAt)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* 열람 및 상담 기록 */}
+        {showEvents && (
+          <div className="space-y-2 border-t border-slate-100 pt-3">
+            <h4 className="text-sm font-bold text-slate-700">열람 및 상담 기록</h4>
+            <ul className="space-y-2">
+              {filteredEvents.length === 0 ? (
+                <li
+                  data-testid="inbox-events-empty"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600"
+                >
+                  <p className="font-semibold text-slate-700">
+                    {activityFilter === "memo"
+                      ? "아직 저장된 통화·상담 메모가 없습니다."
+                      : "아직 열람 및 상담 기록이 없습니다."}
                   </p>
-                  {ev.sectionName && (
-                    <p className="text-sm text-slate-600">
-                      열람 섹션: {ev.sectionName}
-                    </p>
-                  )}
-                </div>
-                <span className="shrink-0 text-sm text-slate-500">
-                  {ev.timestamp}
-                </span>
-              </li>
-            ))
-          )}
-        </ul>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    자료 발송이나 통화 메모를 남기면 시간순으로 기록됩니다.
+                  </p>
+                </li>
+              ) : (
+                filteredEvents.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className="flex items-start justify-between gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="text-sm font-medium text-slate-900 break-words">
+                        {ev.description}
+                      </p>
+                      {ev.sectionName && (
+                        <p className="text-sm text-slate-600">
+                          열람 섹션: {ev.sectionName}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
+                      {ev.timestamp}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

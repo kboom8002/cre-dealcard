@@ -155,16 +155,16 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
       expect(listSlot).not.toBeNull();
 
-      expect(listSlot?.textContent).toContain('할 일');
-      expect(listSlot?.textContent).toContain('열람');
-      expect(listSlot?.textContent).toContain('전체 고객');
+      expect(listSlot?.textContent).toContain('전체');
+      expect(listSlot?.textContent).toContain('연락처 고객');
+      expect(listSlot?.textContent).toContain('익명 열람');
 
       expect(listSlot?.textContent).toContain('박동원 회장');
       const summaryCard = container.querySelector('[data-testid="inbox-client-summary-card"]');
       expect(summaryCard?.textContent).toContain('VIP');
     });
 
-    it('filters threads according to active filter tab selection', async () => {
+    it('filters threads according to active filter tab and hot-only chip selection', async () => {
       await act(async () => {
         root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
@@ -172,24 +172,34 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
       const listSlot = container.querySelector('[data-testid="inbox-list-slot"]');
       expect(listSlot).not.toBeNull();
 
-      // Initially in "할 일" mode: thread-01 (openCount=4 >= 3) & thread-02 (pending_gate) are visible,
-      // while thread-03 (active, 1 open) is filtered out
-      expect(listSlot?.textContent).toContain('박동원 회장');
-      expect(listSlot?.textContent).toContain('최영진 원장');
-      expect(listSlot?.textContent).not.toContain('김민수 대표');
-
-      const viewsTab = container.querySelector(
-        '[data-testid="inbox-filter-chip-views"]'
-      ) as HTMLButtonElement;
-      expect(viewsTab).not.toBeNull();
-
-      await act(async () => {
-        viewsTab.click();
-      });
-
+      // Default "전체" tab displays all 3 threads initially
       expect(listSlot?.textContent).toContain('김민수 대표');
       expect(listSlot?.textContent).toContain('박동원 회장');
       expect(listSlot?.textContent).toContain('최영진 원장');
+
+      // Clicking 🔥 관심 높음만 보기 filters to 2-open / 60s+ / high_interest threads consistently
+      const hotChip = container.querySelector(
+        '[data-testid="inbox-hot-only-chip"]'
+      ) as HTMLButtonElement;
+      expect(hotChip).not.toBeNull();
+      await act(async () => {
+        hotChip.click();
+      });
+      expect(listSlot?.textContent).toContain('박동원 회장');
+      expect(listSlot?.textContent).not.toContain('김민수 대표');
+
+      // Reset hotOnly & check 연락처 고객 tab
+      await act(async () => {
+        hotChip.click();
+      });
+      const regTab = container.querySelector(
+        '[data-testid="inbox-filter-chip-registered"]'
+      ) as HTMLButtonElement;
+      await act(async () => {
+        regTab.click();
+      });
+      expect(listSlot?.textContent).toContain('김민수 대표');
+      expect(listSlot?.textContent).toContain('박동원 회장');
     });
 
     it('switches active thread and updates read status upon thread click', async () => {
@@ -308,13 +318,7 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
         root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const historyTab = container.querySelector(
-        '[data-testid="inbox-editor-tab-history"]'
-      ) as HTMLButtonElement;
-      await act(async () => {
-        historyTab.click();
-      });
-
+      // Column 3 timeline is always visible alongside Column 2 without switching tabs
       const input = container.querySelector(
         '[data-testid="inbox-call-note-input"]'
       ) as HTMLInputElement;
@@ -347,12 +351,9 @@ describe('M5 Workspaces: Broker Inbox & Weekly Magazine (WP-P5-01 ~ WP-P5-05)', 
         root.render(<InboxWorkspacePage initialThreads={SAMPLE_THREADS} />);
       });
 
-      const todoPanel = container.querySelector('[data-testid="inbox-tab-panel-todo"]');
-      expect(todoPanel).not.toBeNull();
-      expect(todoPanel?.textContent).toContain('집중 열람 항목: 06 렌트롤 · 04 수익률');
-
       const summaryCard = container.querySelector('[data-testid="inbox-client-summary-card"]');
       expect(summaryCard).not.toBeNull();
+      expect(summaryCard?.textContent).toContain('집중 열람 항목: 06 렌트롤 · 04 수익률');
       expect(summaryCard?.textContent).toContain('100억');
       expect(summaryCard?.textContent).toContain('영등포구 양평동');
     });

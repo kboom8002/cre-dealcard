@@ -149,16 +149,25 @@ describe("Wave 6 — WP-20A: Inbox & DealCards Modularization + CRM/Audit/Profil
     });
     await flushMicrotasks();
 
-    const headerBulkBtn = container.querySelector(
-      '[data-testid="inbox-open-bulk-import-btn"]'
+    const openClientModalBtn = container.querySelector(
+      '[data-testid="open-new-client-modal-btn"]'
     ) as HTMLButtonElement;
     const emptyBulkBtn = container.querySelector(
       '[data-testid="inbox-empty-bulk-import-btn"]'
     ) as HTMLButtonElement;
+    expect(openClientModalBtn).not.toBeNull();
+    expect(emptyBulkBtn).not.toBeNull();
+
+    await act(async () => {
+      openClientModalBtn.click();
+    });
+
+    const headerBulkBtn = document.body.querySelector(
+      '[data-testid="inbox-open-bulk-import-btn"]'
+    ) as HTMLButtonElement;
     expect(headerBulkBtn).not.toBeNull();
     expect(headerBulkBtn.textContent).toContain("엑셀·명단 대량 등록");
     expect(headerBulkBtn.className).toContain("min-h-[44px]");
-    expect(emptyBulkBtn).not.toBeNull();
 
     await act(async () => {
       headerBulkBtn.click();
@@ -515,14 +524,7 @@ describe("Wave 6 — WP-20A: Inbox & DealCards Modularization + CRM/Audit/Profil
     });
     await flushMicrotasks();
 
-    // Switch to Tab 3 (기록)
-    const historyTabBtn = container.querySelector(
-      '[data-testid="inbox-editor-tab-history"]'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      historyTabBtn.click();
-    });
-
+    // Column 3 renders history & audit timeline directly without tab switching
     const historyPanel = container.querySelector(
       '[data-testid="inbox-tab-panel-history"]'
     ) as HTMLElement;

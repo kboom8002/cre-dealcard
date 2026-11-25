@@ -6,73 +6,113 @@ import { Sparkles } from "lucide-react";
 import { copyText } from "@/lib/ux/clipboard";
 import { formatListDate } from "@/lib/workspace/list-date";
 import {
+  ALIMTALK_EARLY_ACCESS_NOTICE,
+  type InboxAlimtalkTemplateId,
   type InboxEditorTabType,
   type InboxThreadItem,
+  type InboxTransactionalBasis,
+  type KakaoOutreachPresetKind,
+  KAKAO_OUTREACH_PRESET_OPTIONS,
   formatClientRoleLabel,
-  formatDispatchChannelLabel,
-  formatDispatchStatusBadge,
   formatPhoneKo,
   getInboxStatusBadge,
+  getInboxThreadDisplayTitle,
+  isAnonymousViewerThread,
   isValidCallPhone,
 } from "./inbox-types";
-import { InboxDispatchTimeline } from "./InboxDispatchTimeline";
+
+export type { InboxAlimtalkTemplateId };
 
 export interface InboxEditorColumnProps {
   activeThread: InboxThreadItem | null;
-  activeEditorTab: InboxEditorTabType;
+  activeEditorTab?: InboxEditorTabType;
   inlineActionError: string | null;
   busyAction: string | null;
   lastIssuedUrl?: string;
   kakaoHeadline: string;
   kakaoBrief: string;
-  callNote: string;
-  onSelectEditorTab: (tab: InboxEditorTabType) => void;
+  callNote?: string;
+  outboundAssetKind?: "im" | "dealcard" | "magazine";
+  subscriptionTier?: "free" | "pro" | "premium";
+  outboundEmail?: string;
+  outboundBasis?: "" | InboxTransactionalBasis;
+  marketingConsentConfirmed?: boolean;
+  alimtalkTemplateId?: InboxAlimtalkTemplateId;
+  kakaoPresetKind?: KakaoOutreachPresetKind;
+  copiedBundlePreview?: string | null;
+  showAlimtalkUpgradeSheet?: boolean;
+  onSelectEditorTab?: (tab: InboxEditorTabType) => void;
   onKakaoHeadlineChange: (next: string) => void;
   onKakaoBriefChange: (next: string) => void;
-  onCallNoteChange: (next: string) => void;
-  onSaveCallNote: () => void;
+  onCallNoteChange?: (next: string) => void;
+  onSaveCallNote?: () => void;
   onApproveAndSendIm: (thread: InboxThreadItem) => void;
   onRejectRequest: (thread: InboxThreadItem) => void;
   onSendMaterial?: (kind: "im" | "dealcard" | "newsletter" | "magazine") => void;
   onArchiveThread: (thread: InboxThreadItem) => void;
   onCopyActiveShareLink?: () => void;
   onPrepareCopyBundle?: () => void;
+  onOutboundAssetKindChange?: (next: "im" | "dealcard" | "magazine") => void;
+  onOutboundEmailChange?: (next: string) => void;
+  onOutboundBasisChange?: (next: "" | InboxTransactionalBasis) => void;
+  onMarketingConsentConfirmedChange?: (checked: boolean) => void;
+  onAlimtalkTemplateChange?: (next: InboxAlimtalkTemplateId) => void;
+  onKakaoPresetChange?: (kind: KakaoOutreachPresetKind) => void;
+  onSendInboxEmail?: () => void;
+  onSendInboxAlimtalk?: () => void;
+  onCloseAlimtalkUpgradeSheet?: () => void;
   onConfirmLockLink?: () => void;
   onUnlockLink?: () => void;
   onCopyClientEmail?: (email: string) => void;
   onGenerateAiReply?: (thread: InboxThreadItem) => Promise<void> | void;
+  onConvertAnonToClient?: (thread: InboxThreadItem) => void;
   aiReplyLoading?: boolean;
   aiReplyCount?: number;
 }
 
 export function InboxEditorColumn({
   activeThread,
-  activeEditorTab,
   inlineActionError,
   busyAction,
   lastIssuedUrl = "",
   kakaoHeadline,
   kakaoBrief,
-  callNote,
-  onSelectEditorTab,
+  outboundAssetKind = "im",
+  subscriptionTier = "free",
+  outboundEmail = "",
+  outboundBasis = "",
+  marketingConsentConfirmed = false,
+  alimtalkTemplateId = "TPL_INBOX_IM_APPROVED",
+  kakaoPresetKind = "intro",
+  copiedBundlePreview = null,
+  showAlimtalkUpgradeSheet = false,
   onKakaoHeadlineChange,
   onKakaoBriefChange,
-  onCallNoteChange,
-  onSaveCallNote,
   onApproveAndSendIm,
   onRejectRequest,
   onArchiveThread,
   onCopyActiveShareLink,
   onPrepareCopyBundle,
-  onConfirmLockLink,
+  onOutboundAssetKindChange,
+  onOutboundEmailChange,
+  onOutboundBasisChange,
+  onMarketingConsentConfirmedChange,
+  onAlimtalkTemplateChange,
+  onKakaoPresetChange,
+  onSendInboxEmail,
+  onSendInboxAlimtalk,
+  onCloseAlimtalkUpgradeSheet,
   onUnlockLink,
   onCopyClientEmail,
   onGenerateAiReply,
+  onConvertAnonToClient,
   aiReplyLoading = false,
   aiReplyCount = 0,
 }: InboxEditorColumnProps) {
   const [clientOrigin, setClientOrigin] = React.useState("");
-  const [todoLockConfirmOpen, setTodoLockConfirmOpen] = React.useState(false);
+  const [localAssetKind, setLocalAssetKind] = React.useState<"im" | "dealcard" | "magazine">(
+    outboundAssetKind
+  );
 
   React.useEffect(() => {
     if (
@@ -85,10 +125,18 @@ export function InboxEditorColumn({
   }, []);
 
   React.useEffect(() => {
-    setTodoLockConfirmOpen(false);
-  }, [activeThread?.id]);
+    setLocalAssetKind(outboundAssetKind);
+  }, [outboundAssetKind, activeThread?.id]);
+
+  const effectiveAssetKind = onOutboundAssetKindChange ? outboundAssetKind : localAssetKind;
+  const selectAssetKind = (next: "im" | "dealcard" | "magazine") => {
+    setLocalAssetKind(next);
+    onOutboundAssetKindChange?.(next);
+  };
 
   const statusBadge = activeThread ? getInboxStatusBadge(activeThread) : null;
+  const isAnon = isAnonymousViewerThread(activeThread);
+  const displayTitle = activeThread ? getInboxThreadDisplayTitle(activeThread) : "";
   const effectiveSharePath = activeThread
     ? (activeThread.shareUrl || lastIssuedUrl || "").trim()
     : "";
@@ -97,16 +145,15 @@ export function InboxEditorColumn({
       ? `${clientOrigin}${effectiveSharePath}`
       : effectiveSharePath
     : "";
-  const dispatchHistory = Array.isArray(activeThread?.dispatchHistory)
-    ? activeThread.dispatchHistory
-    : [];
-  const recentDispatches = dispatchHistory.slice(0, 2);
   const validCallPhone = activeThread ? isValidCallPhone(activeThread.clientPhone) : false;
   const cleanEmail = activeThread?.clientEmail?.trim() || "";
+  const hasBuildingAttached = Boolean(activeThread?.buildingId?.trim());
+  const imNotGenerated =
+    Boolean(activeThread?.buildingId?.trim()) && activeThread?.hasIm === false;
 
   return (
     <div
-      className="mx-auto max-w-3xl space-y-5 p-4 md:p-6"
+      className="mx-auto max-w-3xl space-y-4 p-4 md:p-6"
       data-testid="inbox-editor-slot"
     >
       {!activeThread ? (
@@ -115,7 +162,7 @@ export function InboxEditorColumn({
             선택된 고객이 없습니다
           </h2>
           <p className="mt-2 text-base text-slate-600">
-            고객 목록에서 대상을 선택하거나 [+ 고객 직접 등록] 버튼을 눌러 새 고객을 추가해 보세요.
+            고객 목록에서 대상을 선택하거나 [+ 고객 등록] 버튼을 눌러 새 고객을 추가해 보세요.
           </p>
           <button
             type="button"
@@ -147,11 +194,45 @@ export function InboxEditorColumn({
             </div>
           )}
 
-          {/* 선택된 고객 상단 헤더 + 딜카드/IM 편집 딥링크 (INBOX-04) */}
+          {/* 익명 열람자 전환 안내 배너 */}
+          {isAnon && (
+            <div
+              data-testid="inbox-anon-convert-card"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-3.5"
+            >
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="text-sm font-extrabold text-amber-950">
+                  연락처가 아직 없는 익명 열람자입니다 (총 {activeThread.openCount}회 열람)
+                </p>
+                <p className="text-sm text-amber-900 break-keep">
+                  누구인지 파악되셨다면 정식 고객으로 등록해 전화·카톡 상담 이력을 이어갈 수 있습니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="inbox-convert-anon-btn"
+                onClick={() => onConvertAnonToClient?.(activeThread)}
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-2xs transition hover:bg-blue-700 cursor-pointer whitespace-nowrap"
+              >
+                + 정식 고객으로 등록
+              </button>
+            </div>
+          )}
+
+          {/* 선택된 고객 상단 프로필 및 연락 · 연결 문서 바 */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-bold ${
+                      isAnon
+                        ? "border border-slate-300 bg-slate-100 text-slate-700"
+                        : "border border-blue-200 bg-blue-50 text-blue-800"
+                    }`}
+                  >
+                    {isAnon ? "익명 열람" : "연락처 고객"}
+                  </span>
                   {statusBadge && (
                     <span
                       data-testid="inbox-editor-status-badge"
@@ -171,9 +252,9 @@ export function InboxEditorColumn({
                     </span>
                   )}
                   <h2 className="text-lg font-extrabold text-slate-900">
-                    {activeThread.clientName}
+                    {displayTitle}
                   </h2>
-                  {activeThread.clientCompany && (
+                  {!isAnon && activeThread.clientCompany && (
                     <span
                       data-testid="inbox-editor-client-company-badge"
                       className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-sm font-extrabold text-indigo-950 shrink-0"
@@ -182,6 +263,7 @@ export function InboxEditorColumn({
                     </span>
                   )}
                 </div>
+
                 {(() => {
                   const UUID_LIKE_RE =
                     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -199,7 +281,7 @@ export function InboxEditorColumn({
                     activeThread.newsletterSubscribed ||
                     activeThread.id.startsWith("sub_") ||
                     isNewsletterThread;
-                  const displayTitle = isRawUuidTitle
+                  const buildingDisplay = isRawUuidTitle
                     ? isNewsletterThread
                       ? "부동산뉴스"
                       : ""
@@ -207,14 +289,14 @@ export function InboxEditorColumn({
 
                   return (
                     <>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-800">
                         <span>{isNewsletterThread ? "열람 자료:" : "관심 매물:"}</span>
-                        {!displayTitle || displayTitle === "관심 매물 미지정" ? (
+                        {!buildingDisplay || buildingDisplay === "관심 매물 미지정" ? (
                           <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-sm font-semibold text-slate-600">
                             관심 매물 연결 전
                           </span>
                         ) : (
-                          <span>{displayTitle}</span>
+                          <span>{buildingDisplay}</span>
                         )}
                       </div>
 
@@ -286,19 +368,6 @@ export function InboxEditorColumn({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {!activeThread.id.startsWith("custom_") &&
-                  !activeThread.id.startsWith("cli-") &&
-                  !activeThread.id.startsWith("sub_") && (
-                    <button
-                      type="button"
-                      data-testid="inbox-archive-thread-btn"
-                      disabled={Boolean(busyAction)}
-                      onClick={() => onArchiveThread(activeThread)}
-                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-                    >
-                      보관(숨김)
-                    </button>
-                  )}
                 {validCallPhone ? (
                   <a
                     href={`tel:${activeThread.clientPhone.trim()}`}
@@ -317,48 +386,28 @@ export function InboxEditorColumn({
                     전화번호 없음
                   </button>
                 )}
+                {!activeThread.id.startsWith("custom_") &&
+                  !activeThread.id.startsWith("cli-") &&
+                  !activeThread.id.startsWith("sub_") && (
+                    <button
+                      type="button"
+                      data-testid="inbox-archive-thread-btn"
+                      disabled={Boolean(busyAction)}
+                      onClick={() => onArchiveThread(activeThread)}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+                    >
+                      보관(숨김)
+                    </button>
+                  )}
               </div>
             </div>
           </div>
 
-          {/* 2열 상단 탭 3개: 할 일 · 메시지 · 기록 (IB-13) */}
-          <div
-            role="tablist"
-            aria-label="고객 상담 및 관리 탭"
-            data-testid="inbox-editor-primary-tabs"
-            className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-200/70 p-1.5"
-          >
-            {(
-              [
-                { id: "todo", label: "할 일" },
-                { id: "message", label: "메시지" },
-                { id: "history", label: "기록" },
-              ] as const
-            ).map((tab) => {
-              const isSelected = activeEditorTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  data-testid={`inbox-editor-tab-${tab.id}`}
-                  onClick={() => onSelectEditorTab(tab.id)}
-                  className={`min-h-[48px] rounded-lg px-2 py-2.5 text-base font-bold leading-snug break-keep transition cursor-pointer ${
-                    isSelected
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-700 hover:bg-white/60 hover:text-slate-900"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 탭 1: 할 일 (승인/발급 링크 카드/잠금·거절 복구/최근 처리 기록 — IB-14, A3-01, A5-01) */}
-          {activeEditorTab === "todo" && (
-            <div className="space-y-4" data-testid="inbox-tab-panel-todo">
+          {/* 조건부 긴급 액션 카드 (승인 대기 / 링크 잠김 / 요청 거절됨) */}
+          {(activeThread.status === "pending_gate" ||
+            activeThread.status === "revoked" ||
+            activeThread.gateStatus === "rejected") && (
+            <div data-testid="inbox-tab-panel-todo" className="space-y-3">
               {activeThread.status === "pending_gate" ? (
                 <div
                   data-testid="inbox-pending-gate-card"
@@ -440,7 +489,7 @@ export function InboxEditorColumn({
                     🔓 링크 다시 열기
                   </button>
                 </div>
-              ) : activeThread.gateStatus === "rejected" ? (
+              ) : (
                 <div
                   data-testid="inbox-rejected-card"
                   className="space-y-3 rounded-2xl border border-slate-300 bg-slate-50 p-5 shadow-xs"
@@ -470,235 +519,160 @@ export function InboxEditorColumn({
                       : "다시 승인·발급"}
                   </button>
                 </div>
-              ) : (
-                <>
-                  {(activeThread.gateStatus === "approved" || Boolean(effectiveSharePath)) && (
-                    <div
-                      data-testid="inbox-approved-link-card"
-                      className="space-y-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50/60 p-5 shadow-xs"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="inline-flex items-center rounded-md bg-emerald-200/80 px-2.5 py-1 text-sm font-extrabold text-emerald-950">
-                          {activeThread.gateStatus === "approved"
-                            ? "✓ 승인 및 전용 링크 발급 완료"
-                            : "✓ 발급된 전용 전달 링크"}
-                        </span>
-                        <span className="text-sm font-semibold text-emerald-900">
-                          {activeThread.openCount > 0
-                            ? `${activeThread.openCount}회 열람`
-                            : "열람 대기 중"}
-                        </span>
-                      </div>
-
-                      {fullShareUrl ? (
-                        <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                          <p className="mb-1 text-sm font-bold text-slate-600">
-                            고객 전용 열람 주소 (클릭해 전체 선택)
-                          </p>
-                          <div
-                            data-testid="inbox-approved-share-url"
-                            className="select-all break-all font-mono text-sm font-semibold text-slate-900"
-                          >
-                            {fullShareUrl}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-white p-3 text-sm text-slate-700">
-                          <span>전용 링크가 발급되었습니다. 자료 전달 영역에서도 채널별로 재발송할 수 있습니다.</span>
-                          <button
-                            type="button"
-                            data-testid="inbox-open-preview-from-approved-btn"
-                            onClick={() =>
-                              window.dispatchEvent(new CustomEvent("workspace:open-preview"))
-                            }
-                            className="xl:hidden min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
-                          >
-                            자료 전달·관리 열기
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {fullShareUrl && (
-                          <>
-                            <button
-                              type="button"
-                              data-testid="inbox-todo-copy-link-btn"
-                              disabled={Boolean(busyAction)}
-                              onClick={() => {
-                                if (onCopyActiveShareLink) onCopyActiveShareLink();
-                                else void copyText(fullShareUrl);
-                              }}
-                              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-extrabold text-emerald-950 transition hover:bg-emerald-100/70 disabled:opacity-50 cursor-pointer"
-                            >
-                              🔗 전용 링크 복사
-                            </button>
-                            <a
-                              href={fullShareUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              data-testid="inbox-todo-open-link-btn"
-                              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-900 transition hover:bg-slate-50"
-                            >
-                              새 창 열기 ↗
-                            </a>
-                          </>
-                        )}
-                        <button
-                          type="button"
-                          data-testid="inbox-todo-copy-bundle-btn"
-                          disabled={Boolean(busyAction)}
-                          onClick={() => onPrepareCopyBundle?.()}
-                          className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-                        >
-                          💬 카톡 안내문+링크 복사
-                        </button>
-                        <button
-                          type="button"
-                          data-testid="inbox-todo-lock-link-btn"
-                          disabled={Boolean(busyAction)}
-                          onClick={() => setTodoLockConfirmOpen(true)}
-                          className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-extrabold text-rose-800 transition hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
-                        >
-                          🔒 보낸 링크 잠그기
-                        </button>
-                      </div>
-
-                      {todoLockConfirmOpen && (
-                        <div
-                          data-testid="inbox-todo-lock-confirm"
-                          className="space-y-2.5 rounded-xl border border-rose-300 bg-rose-50 p-3.5"
-                        >
-                          <p className="text-sm font-bold text-rose-900">
-                            이 고객의 전용 열람 링크를 잠글까요?
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              data-testid="inbox-todo-confirm-lock-btn"
-                              disabled={Boolean(busyAction)}
-                              onClick={() => {
-                                setTodoLockConfirmOpen(false);
-                                onConfirmLockLink?.();
-                              }}
-                              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
-                            >
-                              잠그기
-                            </button>
-                            <button
-                              type="button"
-                              data-testid="inbox-todo-cancel-lock-btn"
-                              onClick={() => setTodoLockConfirmOpen(false)}
-                              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                            >
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-                    <h3 className="text-base font-bold text-slate-900">
-                      현재 열람 및 진행 상태
-                    </h3>
-                    <p className="mt-1.5 text-base text-slate-700">
-                      {activeThread.focusedSections &&
-                      activeThread.focusedSections.length > 0
-                        ? `집중 열람 항목: ${activeThread.focusedSections.join(" · ")}`
-                        : activeThread.openCount > 0
-                        ? `발송한 자료를 총 ${activeThread.openCount}회 열람했습니다.`
-                        : activeThread.gateStatus === "approved"
-                        ? "승인 및 전용 링크 발급이 완료되어 고객 열람을 기다리고 있습니다."
-                        : effectiveSharePath
-                        ? "전용 링크가 준비되어 있습니다. 위 버튼이나 [자료 전달·관리]에서 바로 보낼 수 있습니다."
-                        : "아직 자료를 열람하지 않았습니다. [자료 전달·관리]에서 IM·딜카드·뉴스레터를 선택해 바로 보낼 수 있습니다."}
-                    </p>
-                    {activeThread.openCount === 0 && activeThread.gateStatus !== "approved" && (
-                      <button
-                        type="button"
-                        data-testid="inbox-open-preview-from-dwell-btn"
-                        onClick={() =>
-                          window.dispatchEvent(new CustomEvent("workspace:open-preview"))
-                        }
-                        className="mt-2 inline-flex xl:hidden min-h-[44px] items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
-                      >
-                        자료 전달·관리 열기
-                      </button>
-                    )}
-                  </div>
-                </>
               )}
-
-              {/* 최근 발송·처리 기록 (최신 1~2건 요약 + 기록 탭 이동) */}
-              <div
-                data-testid="inbox-todo-recent-dispatch-preview"
-                className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-bold text-slate-900">
-                    최근 발송·처리 기록
-                  </h3>
-                  <button
-                    type="button"
-                    data-testid="inbox-todo-jump-history-btn"
-                    onClick={() => onSelectEditorTab("history")}
-                    className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-1 text-sm font-bold text-blue-700 hover:bg-blue-50 cursor-pointer"
-                  >
-                    전체 기록 보기 ({dispatchHistory.length}) ›
-                  </button>
-                </div>
-                {recentDispatches.length === 0 ? (
-                  <p className="text-sm text-slate-600">
-                    아직 발송·처리 기록이 없습니다.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {recentDispatches.map((item) => {
-                      const chLabel = formatDispatchChannelLabel(item.channel);
-                      const stBadge = formatDispatchStatusBadge(item.status);
-                      return (
-                        <li
-                          key={item.id}
-                          data-testid={`inbox-todo-dispatch-item-${item.id}`}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm"
-                        >
-                          <div className="min-w-0 flex-1 flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-0.5 text-sm font-bold text-slate-800">
-                              {chLabel}
-                            </span>
-                            <span
-                              className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-bold ${stBadge.cls}`}
-                            >
-                              {stBadge.label}
-                            </span>
-                            <span className="truncate font-semibold text-slate-900">
-                              {item.title}
-                            </span>
-                          </div>
-                          <span className="shrink-0 whitespace-nowrap text-sm text-slate-500">
-                            {formatListDate(item.createdAt)}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
             </div>
           )}
 
-          {/* 탭 2: 메시지 (카톡 안내 문구 편집) */}
-          {activeEditorTab === "message" && (
+          {/* 원스톱 자료 선택 · 메시지 작성 · 바로 발송 워크스테이션 */}
+          <div
+            data-testid="inbox-outbound-channel-bar"
+            className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
+          >
+            {/* STEP 1. 보낼 자료 고르기 & 전용 링크 확인 */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-sm font-extrabold text-white">
+                    1
+                  </span>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    보낼 자료 선택 및 전용 링크 확인
+                  </h3>
+                </div>
+                <span
+                  className={`rounded-md px-2.5 py-1 text-sm font-bold ${
+                    subscriptionTier === "free"
+                      ? "border border-slate-200 bg-slate-100 text-slate-700"
+                      : "border border-blue-200 bg-blue-50 text-blue-800"
+                  }`}
+                >
+                  {subscriptionTier === "free" ? "무료 플랜 · 바로 이용" : "PRO 플랜"}
+                </span>
+              </div>
+
+              <div
+                role="tablist"
+                aria-label="보낼 자료 선택"
+                data-testid="inbox-outbound-asset-tabs"
+                className="grid grid-cols-3 gap-2"
+              >
+                {(
+                  [
+                    { key: "dealcard", label: "📄 딜카드" },
+                    { key: "im", label: "📊 제안서(IM)" },
+                    { key: "magazine", label: "📰 부동산뉴스" },
+                  ] as const
+                ).map((opt) => {
+                  const isSelected = effectiveAssetKind === opt.key;
+                  const disabledNoBuilding = !hasBuildingAttached && opt.key !== "magazine";
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      disabled={disabledNoBuilding}
+                      data-testid={`inbox-asset-tab-${opt.key}`}
+                      onClick={() => selectAssetKind(opt.key)}
+                      className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-bold transition cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-50 text-blue-950 shadow-2xs"
+                          : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {effectiveAssetKind === "im" && imNotGenerated && (
+                <div
+                  data-testid="inbox-im-not-generated-notice"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-950"
+                >
+                  <span className="font-bold">
+                    IM 미생성 · 먼저 작성하기 (딜카드 바로 보내기 가능)
+                  </span>
+                  <Link
+                    href={`/broker/w/im?buildingId=${encodeURIComponent(activeThread.buildingId)}`}
+                    className="inline-flex min-h-[44px] items-center font-extrabold text-amber-900 underline"
+                  >
+                    IM 만들기 →
+                  </Link>
+                </div>
+              )}
+
+              {(activeThread.gateStatus === "approved" || Boolean(fullShareUrl)) &&
+                activeThread.status !== "revoked" && (
+                  <div
+                    data-testid="inbox-approved-link-card"
+                    className="space-y-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="inline-flex items-center rounded-md bg-emerald-200/80 px-2.5 py-0.5 text-sm font-extrabold text-emerald-950">
+                        {activeThread.gateStatus === "approved"
+                          ? "✓ 승인 및 전용 링크 발급 완료"
+                          : "✓ 발급된 전용 열람 링크"}
+                      </span>
+                      <span className="text-sm font-bold text-emerald-900">
+                        {activeThread.openCount > 0
+                          ? `● ${activeThread.openCount}회 열람`
+                          : "● 열람 대기 중"}
+                      </span>
+                    </div>
+
+                    {fullShareUrl && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2">
+                        <div
+                          data-testid="inbox-approved-share-url"
+                          className="min-w-0 flex-1 select-all break-all font-mono text-sm font-semibold text-emerald-950"
+                        >
+                          {fullShareUrl}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            type="button"
+                            data-testid="inbox-copy-share-link-btn"
+                            disabled={Boolean(busyAction)}
+                            onClick={() => {
+                              if (onCopyActiveShareLink) onCopyActiveShareLink();
+                              else void copyText(fullShareUrl);
+                            }}
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-extrabold text-emerald-950 transition hover:bg-emerald-100 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                          >
+                            🔗 링크만 복사
+                          </button>
+                          <a
+                            href={fullShareUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid="inbox-todo-open-link-btn"
+                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-900 transition hover:bg-slate-50 whitespace-nowrap"
+                          >
+                            새 창 열기 ↗
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+            </div>
+
+            {/* STEP 2. 안내 문구 작성 (상황별 프리셋 + AI 맞춤 답장) */}
             <div
-              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
+              className="space-y-3 border-t border-slate-200 pt-4"
               data-testid="inbox-tab-panel-message"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-base font-bold text-slate-900">
-                  카카오톡 자료 발송 메시지
-                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-sm font-extrabold text-white">
+                    2
+                  </span>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    안내 문구 작성 후 바로 발송
+                  </h3>
+                </div>
                 {onGenerateAiReply && (
                   <button
                     type="button"
@@ -713,11 +687,41 @@ export function InboxEditorColumn({
                         ? "AI 문구 작성 중..."
                         : aiReplyCount > 0
                         ? "다른 표현으로 다시 쓰기"
-                        : "AI 맞춤 답장 작성"}
+                        : "✨ AI 맞춤 답장 작성"}
                     </span>
                   </button>
                 )}
               </div>
+
+              {/* 상황별 3종 인사말 선택 (무토큰 즉시 전환) */}
+              <div
+                role="tablist"
+                aria-label="카톡 인사말 상황 선택"
+                data-testid="inbox-kakao-preset-tabs"
+                className="ios-segmented-track grid grid-cols-3 gap-1 rounded-[12px] border border-white/60 bg-[#767680]/[0.11] p-[3px] overflow-hidden"
+              >
+                {KAKAO_OUTREACH_PRESET_OPTIONS.map((opt) => {
+                  const isSelected = kakaoPresetKind === opt.kind;
+                  return (
+                    <button
+                      key={opt.kind}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      data-testid={`inbox-kakao-preset-${opt.kind}`}
+                      onClick={() => onKakaoPresetChange?.(opt.kind)}
+                      className={`min-h-[44px] rounded-[9px] px-2 py-1.5 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? "ios-segmented-pill bg-white text-[#007AFF]"
+                          : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
+                      }`}
+                    >
+                      {opt.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div>
                 <label
                   htmlFor="inbox-kakao-headline-input"
@@ -734,12 +738,13 @@ export function InboxEditorColumn({
                   className="min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
               </div>
+
               <div>
                 <label
                   htmlFor="inbox-kakao-brief-input"
                   className="mb-1 block text-sm font-bold text-slate-700"
                 >
-                  안내 본문
+                  안내 본문 (카카오톡 · 이메일 공통 사용)
                 </label>
                 <textarea
                   id="inbox-kakao-brief-input"
@@ -750,35 +755,199 @@ export function InboxEditorColumn({
                   className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600">
-                <span>
-                  자료 종류 선택 및 카톡 복사·이메일 발송은{" "}
-                  <strong className="font-bold text-slate-800">[자료 전달·관리]</strong>에서 한 번에 진행할 수 있습니다.
-                </span>
+            </div>
+
+            {/* STEP 3. 원클릭 발송 바 (카톡 복사 + 이메일 바로 보내기) */}
+            <div className="space-y-3 border-t border-slate-200 pt-4">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <button
                   type="button"
-                  data-testid="inbox-open-preview-from-tip-btn"
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("workspace:open-preview"))
-                  }
-                  className="xl:hidden min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100 cursor-pointer"
+                  data-testid="inbox-copy-bundle-btn"
+                  disabled={Boolean(busyAction)}
+                  onClick={() => onPrepareCopyBundle?.()}
+                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#FEE500] border border-[#F5DC00] px-4 py-3 text-center text-base font-extrabold text-[#191919] shadow-2xs transition hover:bg-[#F7DE00] disabled:opacity-50 cursor-pointer"
                 >
-                  자료 전달·관리 열기
+                  💬 카톡 안내문 + 링크 한 번에 복사
+                </button>
+                <button
+                  type="button"
+                  data-testid="inbox-send-email-btn"
+                  disabled={Boolean(busyAction)}
+                  onClick={() => onSendInboxEmail?.()}
+                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-center text-base font-extrabold text-white shadow-2xs transition hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                >
+                  ✉️ 이메일로 자료 바로 보내기
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* 탭 3: 기록 (통화 메모 + 발송 감사 타임라인 + 열람 타임라인) */}
-          {activeEditorTab === "history" && (
-            <InboxDispatchTimeline
-              thread={activeThread}
-              callNote={callNote}
-              busyAction={busyAction}
-              onCallNoteChange={onCallNoteChange}
-              onSaveCallNote={onSaveCallNote}
-            />
-          )}
+              {copiedBundlePreview && (
+                <div
+                  data-testid="inbox-copied-bundle-preview"
+                  className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-sm text-slate-800 whitespace-pre-line break-words"
+                >
+                  {copiedBundlePreview}
+                </div>
+              )}
+
+              {/* 이메일 발송 조건 (2열 그리드로 압축 배치) */}
+              <div className="space-y-2.5 rounded-xl border border-blue-100 bg-blue-50/40 p-3.5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="inbox-client-email-input"
+                      className="mb-1 block text-sm font-bold text-slate-800"
+                    >
+                      받을 이메일 주소
+                    </label>
+                    <input
+                      id="inbox-client-email-input"
+                      data-testid="inbox-client-email-input"
+                      type="email"
+                      value={outboundEmail}
+                      onChange={(e) => onOutboundEmailChange?.(e.target.value)}
+                      placeholder="예: buyer@company.co.kr"
+                      className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="inbox-client-basis-select"
+                      className="mb-1 block text-sm font-bold text-slate-800"
+                    >
+                      발송 근거 (1:1 안내 근거)
+                    </label>
+                    <select
+                      id="inbox-client-basis-select"
+                      data-testid="inbox-client-basis-select"
+                      value={outboundBasis}
+                      onChange={(e) =>
+                        onOutboundBasisChange?.(
+                          e.target.value as "" | InboxTransactionalBasis
+                        )
+                      }
+                      className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                    >
+                      <option value="">고객 요청·상담 근거 선택</option>
+                      <option value="im_request">고객 IM 열람 요청</option>
+                      <option value="property_inquiry">고객 매물 문의 접수</option>
+                      <option value="tour_booking">현장 임장·미팅 예약</option>
+                      <option value="broker_manual">기존 상담 고객 1:1 안내</option>
+                    </select>
+                  </div>
+                </div>
+
+                <label
+                  htmlFor="inbox-marketing-consent-checkbox"
+                  className="flex min-h-[44px] items-center gap-2.5 rounded-lg border border-blue-200/80 bg-white px-3 py-2 text-sm font-semibold text-slate-800 cursor-pointer"
+                >
+                  <input
+                    id="inbox-marketing-consent-checkbox"
+                    data-testid="inbox-marketing-consent-checkbox"
+                    type="checkbox"
+                    checked={Boolean(marketingConsentConfirmed)}
+                    onChange={(e) => onMarketingConsentConfirmedChange?.(e.target.checked)}
+                    className="h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    광고성 이메일 수신 동의를 확인했습니다 (수신거부 링크 자동 포함)
+                  </span>
+                </label>
+              </div>
+
+              {/* 카카오 알림톡 PRO (사후 오픈 예정) — 1줄 컴팩트 접힘 안내 */}
+              <details
+                data-testid="inbox-alimtalk-disclosure"
+                className="rounded-xl border border-amber-200 bg-amber-50/40 px-3.5 py-2"
+              >
+                <summary className="flex min-h-[44px] items-center justify-between gap-2 text-sm font-bold text-amber-950 cursor-pointer list-none">
+                  <span>💬 카카오 알림톡 자동 발송 · PRO (오픈 예정)</span>
+                  <span className="text-sm font-semibold text-amber-800">자세히 ▾</span>
+                </summary>
+                <div className="mt-2.5 space-y-2.5 border-t border-amber-200/70 pt-2.5">
+                  <div>
+                    <label
+                      htmlFor="inbox-alimtalk-template-select"
+                      className="mb-1 block text-sm font-bold text-slate-700"
+                    >
+                      알림톡 양식 선택
+                    </label>
+                    <select
+                      id="inbox-alimtalk-template-select"
+                      data-testid="inbox-alimtalk-template-select"
+                      value={alimtalkTemplateId}
+                      onChange={(e) =>
+                        onAlimtalkTemplateChange?.(
+                          e.target.value as InboxAlimtalkTemplateId
+                        )
+                      }
+                      className="min-h-[48px] w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-blue-600 focus:outline-none"
+                    >
+                      <option value="TPL_INBOX_IM_APPROVED">IM 열람 승인 안내</option>
+                      <option value="TPL_INBOX_INQUIRY_REPLY">매물 문의 답변 안내</option>
+                      <option value="TPL_INBOX_TOUR_CONFIRMED">임장·미팅 일정 안내</option>
+                      <option value="TPL_INBOX_CORRECTION_NOTICE">수정 정정 안내</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-testid="inbox-send-alimtalk-btn"
+                    disabled={Boolean(busyAction)}
+                    onClick={() => onSendInboxAlimtalk?.()}
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-center text-sm font-extrabold text-amber-950 whitespace-normal transition hover:bg-amber-100 disabled:opacity-50 cursor-pointer"
+                  >
+                    💬 카카오 알림톡 자동 발송 · PRO (사후 오픈 예정)
+                  </button>
+                </div>
+              </details>
+
+              <p
+                data-testid="inbox-alimtalk-early-access-hint"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700"
+              >
+                {ALIMTALK_EARLY_ACCESS_NOTICE}
+              </p>
+
+              {showAlimtalkUpgradeSheet && (
+                <div
+                  data-testid="inbox-alimtalk-upgrade-sheet"
+                  className="space-y-2.5 rounded-xl border-2 border-amber-300 bg-amber-50/80 p-3.5"
+                >
+                  <p className="text-sm font-extrabold text-amber-950">
+                    카카오 알림톡 발송은 Pro 플랜 기능입니다
+                  </p>
+                  <p className="text-sm leading-relaxed text-amber-900">
+                    {ALIMTALK_EARLY_ACCESS_NOTICE}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(busyAction)}
+                      onClick={() => onPrepareCopyBundle?.()}
+                      className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-white border border-slate-300 px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-50 cursor-pointer"
+                    >
+                      카톡 인사말·링크 1초 복사로 보내기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(busyAction)}
+                      onClick={() => onSendInboxEmail?.()}
+                      className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 cursor-pointer"
+                    >
+                      등록 이메일로 무료 발송하기
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onCloseAlimtalkUpgradeSheet?.()}
+                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-amber-200 bg-transparent px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                  >
+                    안내 닫기
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>

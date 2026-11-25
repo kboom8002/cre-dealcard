@@ -1,14 +1,12 @@
 "use client";
 
 import React from "react";
-import { Archive, Pencil, Trash2 } from "lucide-react";
 import {
   WorkspaceListPanel,
   ListToolbar,
   SimpleListRow,
   DateGroupedList,
   ListThumbnail,
-  RowIconActionButton,
 } from "@/components/workspace/list/WorkspaceList";
 import type { ListViewMode } from "@/components/workspace/list/useListViewMode";
 import { formatListDate } from "@/lib/workspace/list-date";
@@ -19,7 +17,11 @@ import {
   formatClientRoleLabel,
   formatPhoneKo,
   getInboxStatusBadge,
+  getInboxThreadDisplayTitle,
+  isAnonymousViewerThread,
+  isPriorityHotThread,
   isValidCallPhone,
+  matchesInboxThreadFilter,
 } from "./inbox-types";
 
 export interface InboxListColumnProps {
@@ -32,6 +34,8 @@ export interface InboxListColumnProps {
   searchQuery: string;
   viewMode: ListViewMode;
   busyAction: string | null;
+  hotOnly?: boolean;
+  onToggleHotOnly?: () => void;
   onFilterChange: (next: InboxFilterType) => void;
   onSearchChange: (nextQuery: string) => void;
   onViewModeChange: (nextMode: ListViewMode) => void;
@@ -70,7 +74,8 @@ export function InboxListColumn({
   activeFilter,
   searchQuery,
   viewMode,
-  busyAction,
+  hotOnly = false,
+  onToggleHotOnly,
   onFilterChange,
   onSearchChange,
   onViewModeChange,
@@ -80,11 +85,17 @@ export function InboxListColumn({
   hasMoreClients = false,
   loadingMoreClients = false,
   onLoadMoreClients,
-  onQuickEditClient,
-  onQuickDeleteClient,
-  onQuickArchiveThread,
 }: InboxListColumnProps) {
   const [mobileExtraOpen, setMobileExtraOpen] = React.useState(false);
+
+  const allCount = threads.length;
+  const registeredCount = threads.filter((t) => !isAnonymousViewerThread(t)).length;
+  const anonymousCount = threads.filter((t) => isAnonymousViewerThread(t)).length;
+
+  const baseTabThreads = threads.filter((t) =>
+    matchesInboxThreadFilter(t, activeFilter, searchQuery)
+  );
+  const hotCount = baseTabThreads.filter((t) => isPriorityHotThread(t)).length;
 
   const activeCrmChip = CRM_FILTER_CHIPS.find(
     (c) => c.key !== "all" && c.key === activeFilter
@@ -99,57 +110,23 @@ export function InboxListColumn({
       ]
     : [];
 
-  const renderInlineActions = (item: InboxThreadItem) => {
-    if (item.status === "pending_gate") {
-      return undefined;
-    }
-    if (item.id.startsWith("custom_") && (onQuickEditClient || onQuickDeleteClient)) {
-      return (
-        <>
-          {onQuickEditClient && (
-            <RowIconActionButton
-              testId={`inbox-row-edit-${item.id}`}
-              label={`${item.clientName} 수정`}
-              icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
-              disabled={Boolean(busyAction)}
-              onClick={() => onQuickEditClient(item)}
-            />
-          )}
-          {onQuickDeleteClient && (
-            <RowIconActionButton
-              testId={`inbox-row-delete-${item.id}`}
-              label={`${item.clientName} 삭제`}
-              tone="danger"
-              icon={<Trash2 className="h-4 w-4" aria-hidden="true" />}
-              disabled={Boolean(busyAction)}
-              onClick={() => onQuickDeleteClient(item)}
-            />
-          )}
-        </>
-      );
-    }
-    if (
-      onQuickArchiveThread &&
-      !item.id.startsWith("custom_") &&
-      !item.id.startsWith("cli-") &&
-      !item.id.startsWith("sub_")
-    ) {
-      return (
-        <RowIconActionButton
-          testId={`inbox-row-archive-${item.id}`}
-          label={`${item.clientName} 보관`}
-          icon={<Archive className="h-4 w-4" aria-hidden="true" />}
-          disabled={Boolean(busyAction)}
-          onClick={() => onQuickArchiveThread(item)}
-        />
-      );
-    }
-    return undefined;
-  };
-
   const listControls = (
     <>
-      {/* 한 줄 할 일 막대: 누르면 '할 일' 필터 적용 */}
+      {/* 1열 최상단 제목 + 단일 [+ 고객 등록] 버튼 (모달에서 직접/엑셀 통합) */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-base font-extrabold text-slate-900">고객 목록</span>
+        <button
+          type="button"
+          onClick={onOpenNewClientModal}
+          data-testid="open-new-client-modal-btn"
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full bg-blue-600 px-3.5 py-2 text-sm font-bold text-white shadow-2xs transition-colors hover:bg-blue-700 cursor-pointer whitespace-nowrap"
+        >
+          + 고객 등록
+        </button>
+      </div>
+
+      {/* IM 승인 대기 알림 바 — 실제 승인 대기(pending_gate > 0)가 있을 때만 표시 (0건 모순 제거) */}
+      {pendingCount > 0 && (
         <div
           data-testid="inbox-todo-summary-card"
           className="flex min-h-[48px] flex-col gap-1.5 rounded-xl border border-[#FF9500]/35 bg-[#FFF4E5] px-2.5 py-2"
@@ -162,7 +139,7 @@ export function InboxListColumn({
           >
             <span className="inline-flex items-center gap-1 min-w-0 truncate">
               <span aria-hidden="true">🔔</span>
-              <span>지금 할 일 {pendingCount}건</span>
+              <span>IM 승인 대기 {pendingCount}건</span>
             </span>
             <span aria-hidden="true">›</span>
           </button>
@@ -199,35 +176,37 @@ export function InboxListColumn({
               <button
                 type="button"
                 data-testid={`quick-review-btn-${firstPendingThread.id}`}
-                disabled={Boolean(busyAction)}
                 onClick={() => onSelectThread(firstPendingThread.id)}
-                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-bold text-amber-950 shadow-2xs transition hover:bg-amber-50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-bold text-amber-950 shadow-2xs transition hover:bg-amber-50 cursor-pointer whitespace-nowrap"
               >
                 확인·승인하기 ›
               </button>
             </div>
           )}
-      </div>
+        </div>
+      )}
 
-      {/* 1열 기본 필터 탭 3개: 할 일 · 열람 · 전체 고객 (IB-12 — iOS Segmented Control, 동심원 12px/9px) */}
+      {/* 1열 기본 3분할 탭: 전체 · 연락처 고객 · 익명 열람 */}
       <div
         role="tablist"
-        aria-label="고객 소통함 필터"
+        aria-label="고객 소통함 분류"
         data-testid="inbox-filter-tabs"
         className="ios-segmented-track flex flex-wrap gap-1 rounded-[12px] border border-white/60 bg-[#767680]/[0.11] p-[3px] overflow-hidden"
       >
         {(
           [
-            { key: "todo", label: "할 일" },
-            { key: "views", label: "열람" },
-            { key: "all", label: "전체 고객" },
+            { key: "all", label: `전체 (${allCount})` },
+            { key: "registered", label: `연락처 고객 (${registeredCount})` },
+            { key: "anonymous", label: `익명 열람 (${anonymousCount})` },
           ] as const
         ).map((flt) => {
           const isSelected =
             activeFilter === flt.key ||
-            (flt.key === "views" && activeFilter === "viewed") ||
+            (flt.key === "anonymous" &&
+              (activeFilter === "views" || activeFilter === "viewed")) ||
             (flt.key === "all" &&
-              (activeFilter === "vip" ||
+              (activeFilter === "todo" ||
+                activeFilter === "vip" ||
                 activeFilter === "buyer" ||
                 activeFilter === "seller" ||
                 activeFilter === "newsletter" ||
@@ -263,12 +242,36 @@ export function InboxListColumn({
           type="search"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="고객명, 연락처, 회사명, 매물 검색"
+          placeholder="이름, 회사명, 연락처, 매물 검색"
           className="min-h-[48px] w-full rounded-2xl border border-slate-900/[0.12] bg-white px-3.5 py-2.5 text-base text-[#1D1D1F] focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/18 focus:outline-none transition-all"
         />
       </div>
 
-      {/* 모바일(1024px 미만)에서 상단 높이 절약용 접이식 토글 — DOM은 유지하고 CSS로만 접음 */}
+      {/* 숫자 정합성 보장: 관심 높음 토글 칩 + 표시 건수 */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          data-testid="inbox-hot-only-chip"
+          aria-pressed={hotOnly}
+          onClick={() => onToggleHotOnly?.()}
+          className={`inline-flex min-h-[44px] items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer whitespace-nowrap ${
+            hotOnly
+              ? "border-amber-600 bg-amber-500 text-white shadow-2xs"
+              : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+          }`}
+        >
+          <span aria-hidden="true">🔥</span>
+          <span>관심 높음만 보기 ({hotCount})</span>
+        </button>
+        <span
+          data-testid="inbox-list-visible-count"
+          className="text-sm font-semibold text-slate-600 whitespace-nowrap"
+        >
+          표시 {filteredThreads.length}건
+        </span>
+      </div>
+
+      {/* 모바일(1024px 미만) 세부 필터 · 보기 전환 접이식 토글 */}
       <button
         type="button"
         data-testid="inbox-mobile-controls-toggle"
@@ -277,34 +280,14 @@ export function InboxListColumn({
         className="flex lg:hidden min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
       >
         <span className="min-w-0 text-left leading-snug break-keep">
-          고객 등록 · 세부 필터 · 보기 전환
+          세부 필터 · 보기 방식
         </span>
         <span aria-hidden="true" className="shrink-0 whitespace-nowrap">
           {mobileExtraOpen ? "접기 ▲" : "열기 ▼"}
         </span>
       </button>
 
-      {/* 상단 고객 등록 액션 바 (직접 등록 + 3-Way 엑셀·명단 대량 등록) */}
-      <div className={`${mobileExtraOpen ? "flex" : "hidden lg:flex"} flex-wrap items-center gap-2`}>
-        <button
-          type="button"
-          onClick={onOpenBulkImportModal}
-          data-testid="inbox-open-bulk-import-btn"
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-950 whitespace-nowrap transition-colors hover:bg-blue-100 cursor-pointer"
-        >
-          📋 엑셀·명단 대량 등록
-        </button>
-        <button
-          type="button"
-          onClick={onOpenNewClientModal}
-          data-testid="open-new-client-modal-btn"
-          className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-[#1D1D1F] whitespace-nowrap transition-colors hover:bg-slate-50 cursor-pointer"
-        >
-          + 고객 직접 등록
-        </button>
-      </div>
-
-      {/* SOTA 접이식 필터(필터 ▾) + 간단히/자세히 보기 통일 */}
+      {/* 접이식 필터(필터 ▾) + 간단히/자세히 보기 통일 */}
       <div className={mobileExtraOpen ? "block" : "hidden lg:block"}>
         <ListToolbar
           viewMode={viewMode}
@@ -386,14 +369,17 @@ export function InboxListColumn({
         ) : filteredThreads.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-5 text-center">
             <p className="text-base font-semibold text-slate-800">
-              {activeFilter === "todo"
-                ? "현재 대기 중인 할 일이 없습니다."
+              {hotOnly
+                ? "선택한 조건에서 관심 높음 고객이 없습니다."
+                : activeFilter === "todo"
+                ? "현재 승인 대기 중인 요청이 없습니다."
                 : "선택한 조건에 맞는 고객이 없습니다."}
             </p>
             <button
               type="button"
               onClick={() => {
                 onSearchChange("");
+                if (hotOnly && onToggleHotOnly) onToggleHotOnly();
                 onFilterChange("all");
               }}
               className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
@@ -409,37 +395,44 @@ export function InboxListColumn({
             ariaLabel="고객 목록"
             renderRow={(item) => {
               const statusBadge = getInboxStatusBadge(item);
+              const isAnon = isAnonymousViewerThread(item);
+              const displayTitle = getInboxThreadDisplayTitle(item);
               const prioritySignal =
                 item.gateStatus !== "pending" ? computePriorityContactSignal(item) : null;
               const cleanCompany = item.clientCompany?.trim() || "";
               const cleanEmail = !cleanCompany ? item.clientEmail?.trim() || "" : "";
-              const trailingParts = [
-                item.buildingTitle,
-                cleanEmail,
-                prioritySignal?.isPriority ? "🔥 먼저 연락" : "",
-              ].filter(Boolean);
+              const trailingParts = isAnon
+                ? [
+                    "미등록 열람자",
+                    item.openCount > 0 ? `${item.openCount}회 열람` : "",
+                    prioritySignal?.isPriority ? "🔥 먼저 연락" : "",
+                  ].filter(Boolean)
+                : [
+                    displayTitle !== item.buildingTitle ? item.buildingTitle : "",
+                    cleanEmail,
+                    prioritySignal?.isPriority ? "🔥 먼저 연락" : "",
+                  ].filter(Boolean);
               const metaNode =
                 cleanCompany || trailingParts.length > 0 ? (
                   <>
-                    {cleanCompany ? (
+                    {!isAnon && cleanCompany ? (
                       <span className="font-bold text-indigo-900">
                         🏢 {cleanCompany}
                       </span>
                     ) : null}
-                    {cleanCompany && trailingParts.length > 0 ? " · " : null}
+                    {!isAnon && cleanCompany && trailingParts.length > 0 ? " · " : null}
                     {trailingParts.join(" · ")}
                   </>
                 ) : undefined;
               return (
                 <SimpleListRow
                   testId={`inbox-thread-row-${item.id}`}
-                  title={item.clientName}
+                  title={displayTitle}
                   date={item.lastActivityAt || item.updatedAt}
                   status={{ label: statusBadge.text, tone: statusBadge.tone }}
                   meta={metaNode}
                   selected={activeThread?.id === item.id}
                   onSelect={() => onSelectThread(item.id)}
-                  actions={renderInlineActions(item)}
                   dataAttrs={{ "data-unread": item.isRead ? "false" : "true" }}
                 />
               );
@@ -448,6 +441,8 @@ export function InboxListColumn({
         ) : (
           filteredThreads.map((item) => {
             const isSelected = activeThread?.id === item.id;
+            const isAnon = isAnonymousViewerThread(item);
+            const displayTitle = getInboxThreadDisplayTitle(item);
             const statusBadge = getInboxStatusBadge(item);
             const prioritySignal =
               item.gateStatus !== "pending" ? computePriorityContactSignal(item) : null;
@@ -482,8 +477,8 @@ export function InboxListColumn({
               >
                 <div className="flex items-start gap-3">
                   <ListThumbnail
-                    fallbackText={item.clientName.slice(0, 2)}
-                    alt={`${item.clientName} 고객`}
+                    fallbackText={displayTitle.slice(0, 2)}
+                    alt={`${displayTitle} 항목`}
                   />
                   <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -519,15 +514,17 @@ export function InboxListColumn({
                           </span>
                         )}
                         <span className="truncate text-base font-bold text-slate-900">
-                          {item.clientName}
+                          {displayTitle}
                         </span>
                       </div>
                       <p className="mt-1 truncate text-sm font-semibold text-slate-700">
-                        {item.id.startsWith("sub_") && isValidCallPhone(item.clientPhone)
+                        {isAnon
+                          ? `미등록 열람자 · ${item.latestEvent}`
+                          : item.id.startsWith("sub_") && isValidCallPhone(item.clientPhone)
                           ? `${formatPhoneKo(item.clientPhone)} · ${item.buildingTitle}`
                           : item.buildingTitle}
                       </p>
-                      {(item.clientCompany?.trim() || item.clientEmail?.trim()) && (
+                      {!isAnon && (item.clientCompany?.trim() || item.clientEmail?.trim()) && (
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
                           {item.clientCompany?.trim() && (
                             <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-sm font-bold text-indigo-950">
@@ -549,12 +546,6 @@ export function InboxListColumn({
                       <span className="shrink-0 text-sm text-slate-500 whitespace-nowrap">
                         {formatListDate(item.lastActivityAt || item.updatedAt)}
                       </span>
-                      {(() => {
-                        const cardActions = renderInlineActions(item);
-                        return cardActions ? (
-                          <div className="flex items-center gap-1">{cardActions}</div>
-                        ) : null;
-                      })()}
                     </div>
                   </div>
                 </div>

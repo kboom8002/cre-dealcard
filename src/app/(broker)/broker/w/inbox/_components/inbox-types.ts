@@ -1,6 +1,9 @@
 import type { ListStatusTone } from "@/components/workspace/list/WorkspaceList";
 
 export type InboxFilterType =
+  | "all"
+  | "registered"
+  | "anonymous"
   | "todo"
   | "views"
   | "viewed"
@@ -9,14 +12,19 @@ export type InboxFilterType =
   | "seller"
   | "newsletter"
   | "emailable"
-  | "clients"
-  | "all";
+  | "clients";
 
 export type InboxEditorTabType = "todo" | "message" | "history";
 
 export type InboxClientRole = "buyer" | "seller" | "tenant" | "partner";
 
 export type InboxEmailDeliveryStatus = "ok" | "bounced" | "complained";
+
+export type InboxAlimtalkTemplateId =
+  | "TPL_INBOX_IM_APPROVED"
+  | "TPL_INBOX_INQUIRY_REPLY"
+  | "TPL_INBOX_TOUR_CONFIRMED"
+  | "TPL_INBOX_CORRECTION_NOTICE";
 
 export type InboxTransactionalBasis =
   | "im_request"
@@ -139,6 +147,86 @@ export interface PriorityContactSignal {
   isPriority: boolean;
   badgeLabel: string;
   detailLabel: string;
+}
+
+/**
+ * 연락처(전화/이메일)가 없는 미등록 열람 스레드(`view_*`)인지 판별한다.
+ */
+export function isAnonymousViewerThread(
+  thread: InboxThreadItem | null | undefined
+): boolean {
+  if (!thread) return false;
+  return (
+    thread.id.startsWith("view_") &&
+    !isValidCallPhone(thread.clientPhone) &&
+    !(thread.clientEmail || "").trim()
+  );
+}
+
+/**
+ * '🔥 관심 높음만 보기' 토글과 목록 필터가 동일하게 사용하는 SSOT.
+ */
+export function isPriorityHotThread(
+  thread: InboxThreadItem | null | undefined
+): boolean {
+  if (!thread || thread.status === "revoked") return false;
+  return (
+    thread.status === "high_interest" ||
+    thread.openCount >= 2 ||
+    (thread.dwellSeconds ?? 0) >= 60
+  );
+}
+
+const RAW_UUID_TITLE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 익명/미입력 열람자는 매물·자료명을 1순위 제목으로 노출해 목록 구분성을 높인다.
+ */
+export function getInboxThreadDisplayTitle(thread: InboxThreadItem): string {
+  const cleanBuilding = (thread.buildingTitle || "").trim();
+  const hasMeaningfulBuilding =
+    Boolean(cleanBuilding) &&
+    !RAW_UUID_TITLE_RE.test(cleanBuilding) &&
+    cleanBuilding !== "관심 매물 미지정" &&
+    cleanBuilding !== "관심 매물";
+
+  if (
+    isAnonymousViewerThread(thread) ||
+    thread.clientName === "익명 열람객" ||
+    thread.clientName === "이름 미입력 고객"
+  ) {
+    if (hasMeaningfulBuilding) return cleanBuilding;
+    if (thread.latestEvent?.includes("뉴스레터")) return "부동산뉴스";
+    return thread.clientName;
+  }
+  return thread.clientName;
+}
+
+/**
+ * 카톡 프리셋 전환 시 2열 본문 입력창에 즉시 반영할 깔끔한 2문장 초안을 생성한다.
+ */
+export function buildKakaoPresetDraftBody(
+  kind: KakaoOutreachPresetKind,
+  params: { clientName?: string; buildingTitle?: string }
+): string {
+  const rawName = String(params.clientName ?? "")
+    .trim()
+    .replace(/님$/, "");
+  const nameLabel =
+    !rawName || rawName === "익명 열람객" || rawName === "이름 미입력 고객"
+      ? "고객님"
+      : `${rawName}님`;
+  const buildingLabel =
+    String(params.buildingTitle ?? "").trim() || "검토 매물";
+
+  if (kind === "followup_meeting") {
+    return `${nameLabel}, 안녕하세요. 보내드린 [${buildingLabel}] 자료는 잘 살펴보셨는지요.\n궁금하실 만한 임대현황과 수익 세부 내역을 정리해 두었으니, 편하신 시간에 차 한잔 나누며 직접 브리핑해 드리겠습니다.`;
+  }
+  if (kind === "tour_guide") {
+    return `${nameLabel}, 안녕하세요. [${buildingLabel}] 현장 동선과 층별 구성을 직접 보실 수 있도록 방문 일정을 안내드립니다.\n원하시는 요일과 시간대를 알려주시면 건물 내·외부를 편히 보실 수 있게 미리 준비하겠습니다.`;
+  }
+  return `${nameLabel}, 안녕하세요. 관심 가져주신 [${buildingLabel}] 상세 자료와 임대 현황을 보내드립니다.\n살펴보시면서 궁금하신 점이나 현장 확인이 필요하시면 편하게 말씀해 주세요.`;
 }
 
 /**
@@ -468,6 +556,8 @@ export function parseRawGateReason(raw: unknown): {
 export function parseFilterParam(raw: string | null): InboxFilterType | null {
   if (!raw) return null;
   const normalized = raw.trim().toLowerCase();
+  if (normalized === "registered") return "registered";
+  if (normalized === "anonymous" || normalized === "anon") return "anonymous";
   if (normalized === "todo") return "todo";
   if (normalized === "viewing" || normalized === "views") return "views";
   if (normalized === "viewed") return "viewed";
@@ -518,6 +608,12 @@ export function matchesInboxThreadFilter(
     if (!matched) return false;
   }
 
+  if (filter === "registered") {
+    return !isAnonymousViewerThread(thread);
+  }
+  if (filter === "anonymous") {
+    return isAnonymousViewerThread(thread);
+  }
   if (filter === "todo") {
     return (
       thread.status === "pending_gate" ||

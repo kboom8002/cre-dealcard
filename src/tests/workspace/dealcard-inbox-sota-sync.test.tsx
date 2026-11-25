@@ -315,11 +315,18 @@ describe("DealCard & Inbox SOTA Bidirectional Sync & Senior Physics (Wave 1)", (
     });
     await flushMicrotasks();
 
+    // Both Column 2 one-stop dispatch hub and Column 3 call-note/timeline are mounted simultaneously
     expect(
-      container.querySelector('[data-testid="inbox-causality-bar"]')
+      container.querySelector('[data-testid="inbox-outbound-channel-bar"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="inbox-tab-panel-history"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector("#inbox-kakao-headline-input")
     ).not.toBeNull();
 
-    // Click Column 3 '열람 횟수' editable unit -> jumps to '기록' tab & focuses #inbox-call-note-input
+    // Click Column 3 '열람 횟수' editable unit -> focuses #inbox-call-note-input directly
     const historyUnit = container.querySelector(
       '[data-testid="preview-unit-inbox-history"]'
     ) as HTMLElement;
@@ -330,35 +337,8 @@ describe("DealCard & Inbox SOTA Bidirectional Sync & Senior Physics (Wave 1)", (
     });
     await flushMicrotasks();
 
-    expect(
-      container.querySelector('[data-testid="inbox-tab-panel-history"]')
-    ).not.toBeNull();
     expect(document.activeElement).toBe(
       container.querySelector("#inbox-call-note-input")
-    );
-
-    // Click Column 3 causality bar '할 일에서 승인/거절 ›' -> returns to '할 일' tab
-    const todoJump = container.querySelector(
-      '[data-testid="inbox-causality-jump-todo"]'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      todoJump.click();
-    });
-    await flushMicrotasks();
-    expect(
-      container.querySelector('[data-testid="inbox-tab-panel-todo"]')
-    ).not.toBeNull();
-
-    // Click Column 3 causality bar '안내 메시지 ›' -> switches to '메시지' tab & focuses #inbox-kakao-headline-input
-    const msgJump = container.querySelector(
-      '[data-testid="inbox-causality-jump-message"]'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      msgJump.click();
-    });
-    await flushMicrotasks();
-    expect(document.activeElement).toBe(
-      container.querySelector("#inbox-kakao-headline-input")
     );
   });
 

@@ -30,6 +30,8 @@ export interface InboxNewClientModalProps {
   inventory: BrokerInventoryDeal[];
   existingThreads?: InboxThreadItem[];
   busyAction: string | null;
+  dialogTitle?: string;
+  onSwitchToBulkImport?: () => void;
   onChange: (patch: Partial<InboxClientFormValues>) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -41,6 +43,8 @@ export function InboxNewClientModal({
   inventory,
   existingThreads = [],
   busyAction,
+  dialogTitle = "신규 고객 등록",
+  onSwitchToBulkImport,
   onChange,
   onClose,
   onSubmit,
@@ -75,7 +79,7 @@ export function InboxNewClientModal({
             id="inbox-new-client-dialog-title"
             className="text-lg font-extrabold text-slate-900"
           >
-            고객 직접 등록
+            {dialogTitle}
           </h2>
           <button
             type="button"
@@ -85,6 +89,36 @@ export function InboxNewClientModal({
             닫기
           </button>
         </div>
+
+        {onSwitchToBulkImport && (
+          <div
+            role="tablist"
+            aria-label="고객 등록 방식 선택"
+            className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-slate-100 p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={true}
+              className="min-h-[44px] rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-blue-700 shadow-2xs cursor-pointer"
+            >
+              직접 등록
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={false}
+              data-testid="inbox-open-bulk-import-btn"
+              onClick={() => {
+                onClose();
+                onSwitchToBulkImport();
+              }}
+              className="min-h-[44px] rounded-lg px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-white/70 cursor-pointer"
+            >
+              📋 엑셀·명단 대량 등록
+            </button>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
           <div>

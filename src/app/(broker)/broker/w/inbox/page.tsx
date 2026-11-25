@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Archive, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import {
@@ -37,6 +37,8 @@ import {
   type KakaoOutreachPresetKind,
   type RecipientEvent,
   buildKakaoOutreachPreset,
+  buildKakaoPresetDraftBody,
+  isPriorityHotThread,
   matchesInboxThreadFilter,
   normalizeServerThread,
   parseBudgetManwonValue,
@@ -111,21 +113,11 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     initialThreads.map(normalizeServerThread)
   );
   const [inventory, setInventory] = useState<BrokerInventoryDeal[]>([]);
-  const [activeFilter, setActiveFilter] = useState<InboxFilterType>(() => {
-    const fromQuery = parseFilterParam(searchParams.get("filter"));
-    if (fromQuery) return fromQuery;
-    if (initialThreads.length > 0) {
-      const normalized = initialThreads.map(normalizeServerThread);
-      const hasTodo = normalized.some(
-        (t) =>
-          t.status === "pending_gate" ||
-          t.status === "high_interest" ||
-          t.openCount >= 3
-      );
-      return hasTodo ? "todo" : "all";
-    }
-    return "todo";
-  });
+  const [activeFilter, setActiveFilter] = useState<InboxFilterType>(
+    () => parseFilterParam(searchParams.get("filter")) ?? "all"
+  );
+  const [hotOnly, setHotOnly] = useState<boolean>(false);
+  const [newClientDialogTitle, setNewClientDialogTitle] = useState<string>("신규 고객 등록");
   const [activeEditorTab, setActiveEditorTab] = useState<InboxEditorTabType>("todo");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(initialThreads[0]?.id || "");
@@ -264,8 +256,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   const handleSearchChange = (nextQuery: string) => {
     setSearchQuery(nextQuery);
-    const nextFiltered = threads.filter((t) =>
-      matchesInboxThreadFilter(t, activeFilter, nextQuery)
+    const nextFiltered = threads.filter(
+      (t) =>
+        matchesInboxThreadFilter(t, activeFilter, nextQuery) &&
+        (!hotOnly || isPriorityHotThread(t))
     );
     if (!nextFiltered.some((t) => t.id === selectedId)) {
       setSelectedId(nextFiltered[0]?.id || "");
@@ -274,12 +268,29 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   const handleFilterChange = (nextFilter: InboxFilterType) => {
     setActiveFilter(nextFilter);
-    const nextFiltered = threads.filter((t) =>
-      matchesInboxThreadFilter(t, nextFilter, searchQuery)
+    const nextFiltered = threads.filter(
+      (t) =>
+        matchesInboxThreadFilter(t, nextFilter, searchQuery) &&
+        (!hotOnly || isPriorityHotThread(t))
     );
     if (!nextFiltered.some((t) => t.id === selectedId)) {
       setSelectedId(nextFiltered[0]?.id || "");
     }
+  };
+
+  const handleToggleHotOnly = () => {
+    setHotOnly((prev) => {
+      const nextHot = !prev;
+      const nextFiltered = threads.filter(
+        (t) =>
+          matchesInboxThreadFilter(t, activeFilter, searchQuery) &&
+          (!nextHot || isPriorityHotThread(t))
+      );
+      if (!nextFiltered.some((t) => t.id === selectedId)) {
+        setSelectedId(nextFiltered[0]?.id || "");
+      }
+      return nextHot;
+    });
   };
 
   const persistThreadsRef = useRef(persistThreads);
@@ -515,8 +526,13 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [viewMode, setViewMode] = useListViewMode();
 
   const filteredThreads = useMemo(
-    () => threads.filter((t) => matchesInboxThreadFilter(t, activeFilter, searchQuery)),
-    [threads, activeFilter, searchQuery]
+    () =>
+      threads.filter(
+        (t) =>
+          matchesInboxThreadFilter(t, activeFilter, searchQuery) &&
+          (!hotOnly || isPriorityHotThread(t))
+      ),
+    [threads, activeFilter, searchQuery, hotOnly]
   );
 
   const activeThread = useMemo(() => {
@@ -536,10 +552,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     () => ({
       "ib-unit-todo": {
         unitId: "ib-unit-todo",
-        label: "할 일",
+        label: "자료 발송",
         tab: "todo",
-        editorSelector: '[data-testid="inbox-tab-panel-todo"]',
-        focusSelector: '[data-testid="inbox-tab-panel-todo"]',
+        editorSelector: '[data-testid="inbox-outbound-channel-bar"]',
+        focusSelector: '[data-testid="inbox-outbound-channel-bar"]',
       },
       "ib-unit-message": {
         unitId: "ib-unit-message",
@@ -554,6 +570,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         tab: "history",
         editorSelector: '[data-testid="inbox-tab-panel-history"]',
         focusSelector: "#inbox-call-note-input",
+        onCustomActivate: () => {
+          if (typeof document === "undefined") return;
+          const el = document.querySelector<HTMLElement>("#inbox-call-note-input");
+          if (el && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          el?.focus?.({ preventScroll: true });
+        },
       },
     }),
     []
@@ -866,7 +890,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   const handleKakaoPresetChange = (nextKind: KakaoOutreachPresetKind) => {
     setKakaoPresetKind(nextKind);
-    if (!activeThread || !copiedBundlePreview) return;
+    if (!activeThread) return;
+    setKakaoBrief(
+      buildKakaoPresetDraftBody(nextKind, {
+        clientName: activeThread.clientName,
+        buildingTitle: activeThread.buildingTitle,
+      })
+    );
+    if (!copiedBundlePreview) return;
     const effectiveUrl = lastBundleShareUrl || activeThread.shareUrl || "";
     if (!effectiveUrl) return;
     setCopiedBundlePreview(
@@ -877,6 +908,28 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         headline: kakaoHeadline,
       })
     );
+  };
+
+  const handleConvertAnonToClient = (target: InboxThreadItem) => {
+    const rawBuilding = (target.buildingTitle || "").trim();
+    const isMeaningfulBuilding =
+      Boolean(rawBuilding) &&
+      rawBuilding !== "관심 매물 미지정" &&
+      rawBuilding !== "관심 매물" &&
+      !rawBuilding.includes("뉴스레터") &&
+      !rawBuilding.includes("부동산뉴스");
+    setNewClientForm({
+      ...INITIAL_CLIENT_FORM,
+      role: "buyer",
+      grade: "일반",
+      buildingTitle: isMeaningfulBuilding ? rawBuilding : "",
+      freeMemo:
+        target.openCount > 0
+          ? `익명 열람 ${target.openCount}회 전환 (${rawBuilding || "자료"})`
+          : "",
+    });
+    setNewClientDialogTitle("익명 열람자를 정식 고객으로 등록");
+    setShowNewClientModal(true);
   };
 
   const handlePrepareCopyBundle = async () => {
@@ -1911,29 +1964,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
-  const primaryActionSlot =
-    activeThread && activeThread.status !== "pending_gate" ? (
-      <button
-        type="button"
-        data-testid="primary-cta-kakao-send"
-        disabled={Boolean(busyAction)}
-        onClick={() => {
-          if (typeof document !== "undefined") {
-            const hub = document.querySelector('[data-testid="inbox-outbound-channel-bar"]');
-            if (hub && typeof hub.scrollIntoView === "function") {
-              hub.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            }
-          }
-          void handlePrepareCopyBundle();
-        }}
-        className="min-h-[48px] w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-      >
-        카톡으로 자료 보내기
-      </button>
-    ) : null;
-
-  const editorHeaderActions = activeThread ? (
-    activeThread.id.startsWith("custom_") ? (
+  const editorHeaderActions =
+    activeThread && activeThread.id.startsWith("custom_") ? (
       <>
         <EditorHeaderActionButton
           testId="inbox-header-edit-btn"
@@ -1953,22 +1985,15 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           onClick={() => setPendingDeleteClient(activeThread)}
         />
       </>
-    ) : !activeThread.id.startsWith("cli-") && !activeThread.id.startsWith("sub_") ? (
-      <EditorHeaderActionButton
-        testId="inbox-header-archive-btn"
-        label="보관"
-        title={`${activeThread.clientName} 스레드 보관`}
-        icon={<Archive className="h-4 w-4" aria-hidden="true" />}
-        disabled={Boolean(busyAction)}
-        onClick={() => void handleArchiveThread(activeThread)}
-      />
-    ) : undefined
-  ) : undefined;
+    ) : undefined;
 
   return (
     <>
       <WorkspaceShell
         workspace="inbox"
+        listTitle="① 고객 목록"
+        editorTitle="② 고객 응대 · 자료 발송"
+        previewTitle="③ 고객 정보 · 상담 기록"
         editorHeaderActions={editorHeaderActions}
         listSlot={
           <InboxListColumn
@@ -1981,25 +2006,22 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             searchQuery={searchQuery}
             viewMode={viewMode}
             busyAction={busyAction}
+            hotOnly={hotOnly}
+            onToggleHotOnly={handleToggleHotOnly}
             onFilterChange={handleFilterChange}
             onSearchChange={handleSearchChange}
             onViewModeChange={setViewMode}
             onSelectThread={(id) => selectThread(id)}
-            onOpenNewClientModal={() => setShowNewClientModal(true)}
+            onOpenNewClientModal={() => {
+              setNewClientForm(INITIAL_CLIENT_FORM);
+              setNewClientDialogTitle("신규 고객 등록");
+              setShowNewClientModal(true);
+            }}
             onOpenBulkImportModal={() => setBulkImportOpen(true)}
             hasMoreClients={hasMoreClients}
             loadingMoreClients={loadingMoreClients}
             totalClientsCount={totalClientsCount}
             onLoadMoreClients={handleLoadMoreClients}
-            onQuickEditClient={(target) => {
-              selectThread(target.id);
-              openEditCustomClientModal(target);
-            }}
-            onQuickDeleteClient={(target) => {
-              selectThread(target.id);
-              setPendingDeleteClient(target);
-            }}
-            onQuickArchiveThread={(target) => void handleArchiveThread(target)}
           />
         }
         editorSlot={
@@ -2014,6 +2036,15 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             kakaoHeadline={kakaoHeadline}
             kakaoBrief={kakaoBrief}
             callNote={callNote}
+            outboundAssetKind={outboundAssetKind}
+            subscriptionTier={subscriptionTier}
+            outboundEmail={outboundEmail}
+            outboundBasis={outboundBasis}
+            marketingConsentConfirmed={outboundMarketingConsentConfirmed}
+            alimtalkTemplateId={alimtalkTemplateId}
+            kakaoPresetKind={kakaoPresetKind}
+            copiedBundlePreview={copiedBundlePreview}
+            showAlimtalkUpgradeSheet={showAlimtalkUpgradeSheet}
             onSelectEditorTab={handleSelectInboxEditorTab}
             onKakaoHeadlineChange={setKakaoHeadline}
             onKakaoBriefChange={setKakaoBrief}
@@ -2027,10 +2058,20 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onArchiveThread={handleArchiveThread}
             onCopyActiveShareLink={handleCopyActiveShareLink}
             onPrepareCopyBundle={handlePrepareCopyBundle}
+            onOutboundAssetKindChange={setOutboundAssetKind}
+            onOutboundEmailChange={setOutboundEmail}
+            onOutboundBasisChange={setOutboundBasis}
+            onMarketingConsentConfirmedChange={setOutboundMarketingConsentConfirmed}
+            onAlimtalkTemplateChange={setAlimtalkTemplateId}
+            onKakaoPresetChange={handleKakaoPresetChange}
+            onSendInboxEmail={handleSendInboxEmail}
+            onSendInboxAlimtalk={handleSendInboxAlimtalk}
+            onCloseAlimtalkUpgradeSheet={() => setShowAlimtalkUpgradeSheet(false)}
             onConfirmLockLink={handleConfirmLockLink}
             onUnlockLink={handleUnlockLink}
             onCopyClientEmail={handleCopyClientEmail}
             onGenerateAiReply={handleGenerateAiReply}
+            onConvertAnonToClient={handleConvertAnonToClient}
             aiReplyLoading={aiReplyLoading}
             aiReplyCount={aiReplyHistory.length}
           />
@@ -2040,34 +2081,14 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             activeThread={activeThread}
             activeInboxUnitId={activeInboxUnitId}
             busyAction={busyAction}
-            outboundAssetKind={outboundAssetKind}
-            subscriptionTier={subscriptionTier}
-            outboundEmail={outboundEmail}
-            outboundBasis={outboundBasis}
-            marketingConsentConfirmed={outboundMarketingConsentConfirmed}
-            alimtalkTemplateId={alimtalkTemplateId}
-            kakaoPresetKind={kakaoPresetKind}
-            copiedBundlePreview={copiedBundlePreview}
-            showAlimtalkUpgradeSheet={showAlimtalkUpgradeSheet}
+            callNote={callNote}
+            onCallNoteChange={setCallNote}
+            onSaveCallNote={handleAddCallNote}
             confirmLockOpen={confirmLockOpen}
             lockEntireBuilding={lockEntireBuilding}
             correctionNoticeOpen={correctionNoticeOpen}
             correctionNoticeText={correctionNoticeText}
             onFocusEditorUnit={focusInboxEditorUnit}
-            onCopyActiveShareLink={handleCopyActiveShareLink}
-            onSendMaterial={() => {
-              void handlePrepareCopyBundle();
-            }}
-            onOutboundAssetKindChange={setOutboundAssetKind}
-            onOutboundEmailChange={setOutboundEmail}
-            onOutboundBasisChange={setOutboundBasis}
-            onMarketingConsentConfirmedChange={setOutboundMarketingConsentConfirmed}
-            onAlimtalkTemplateChange={setAlimtalkTemplateId}
-            onKakaoPresetChange={handleKakaoPresetChange}
-            onPrepareCopyBundle={handlePrepareCopyBundle}
-            onSendInboxEmail={handleSendInboxEmail}
-            onSendInboxAlimtalk={handleSendInboxAlimtalk}
-            onCloseAlimtalkUpgradeSheet={() => setShowAlimtalkUpgradeSheet(false)}
             onToggleNewsletter={handleToggleNewsletter}
             onOpenEditCustomClient={handleOpenEditCustomClient}
             onRequestDeleteCustomClient={() => {
@@ -2090,12 +2111,12 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onClearCorrectionNotice={() => handleClearCorrectionNotice()}
           />
         }
-        primaryActionSlot={primaryActionSlot}
+        primaryActionSlot={null}
         selectedBuildingId={selectedId || activeThread?.id || null}
         selectedLabel={activeThread?.clientName}
         navBadges={{ inbox: pendingCount }}
-        previewDrawerLabel="자료 전달 · 링크 관리"
-        mobileTabLabels={{ editor: "상담", preview: "자료 전달·관리" }}
+        previewDrawerLabel="고객 정보 · 상담 기록"
+        mobileTabLabels={{ editor: "자료·메시지", preview: "기록·고객정보" }}
         mobileStartOnList={mobileStayOnList}
       />
 
@@ -2155,10 +2176,15 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         inventory={inventory}
         existingThreads={threads}
         busyAction={busyAction}
+        dialogTitle={newClientDialogTitle}
+        onSwitchToBulkImport={() => setBulkImportOpen(true)}
         onChange={(patch) =>
           setNewClientForm((prev) => ({ ...prev, ...patch }))
         }
-        onClose={() => setShowNewClientModal(false)}
+        onClose={() => {
+          setShowNewClientModal(false);
+          setNewClientDialogTitle("신규 고객 등록");
+        }}
         onSubmit={handleCreateCustomClient}
       />
     </>

@@ -284,17 +284,8 @@ describe('Wave 3 Agent 2: WorkspaceShell, Inbox, DealCards & Magazine Split-Scre
       });
 
       expect(container.textContent).not.toMatch(/왼쪽|오른쪽|좌측|우측/);
-      const previewTipBtn = container.querySelector(
-        '[data-testid="inbox-open-preview-from-tip-btn"]'
-      ) as HTMLButtonElement;
-      const timelinePreviewBtn = container.querySelector(
-        '[data-testid="inbox-timeline-open-preview-btn"]'
-      ) as HTMLButtonElement;
-      expect(previewTipBtn).not.toBeNull();
-      expect(timelinePreviewBtn).not.toBeNull();
-      fireEvent.click(previewTipBtn);
-      fireEvent.click(timelinePreviewBtn);
-      expect(openPreviewSpy).toHaveBeenCalledTimes(2);
+      expect(container.querySelector('[data-testid="inbox-outbound-channel-bar"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="inbox-tab-panel-history"]')).not.toBeNull();
     } finally {
       window.removeEventListener('workspace:open-preview', openPreviewSpy);
       window.removeEventListener('workspace:open-list', openListSpy);

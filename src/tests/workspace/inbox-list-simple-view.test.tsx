@@ -126,7 +126,7 @@ describe('Inbox left list — simple / detailed view', () => {
 
     const bar = q(container, 'inbox-todo-summary-card');
     expect(bar).not.toBeNull();
-    expect(bar!.textContent).toContain('지금 할 일 1건');
+    expect(bar!.textContent).toContain('IM 승인 대기 1건');
     expect(bar!.textContent).toContain('확인·승인하기 ›');
     expect(q(container, 'quick-todo-card-thr-pending-1')).not.toBeNull();
     expect(q(container, 'quick-review-btn-thr-pending-1')).not.toBeNull();
@@ -134,31 +134,32 @@ describe('Inbox left list — simple / detailed view', () => {
     expect(bar!.textContent).not.toContain('승인을 기다리는 IM 열람 요청');
     expect(bar!.textContent).not.toMatch(/외 \d+건/);
 
-    // Clicking 확인·승인하기 › focuses the pending thread on the 할 일 tab without calling approve_gate
+    // Clicking 확인·승인하기 › focuses the pending thread directly in Col 2 without calling approve_gate
     await click(q(container, 'quick-review-btn-thr-pending-1'));
     expect(q(container, 'inbox-pending-gate-card')).not.toBeNull();
     expect(
       fetchSpy.mock.calls.some((c) => String(c[1]?.body || '').includes('approve_gate'))
     ).toBe(false);
 
-    // + 고객 직접 등록 is a secondary control outside the todo bar
+    // + 고객 등록 is a single unified control outside the todo bar
     const addBtn = q(container, 'open-new-client-modal-btn');
     expect(addBtn).not.toBeNull();
-    expect(addBtn!.textContent).toContain('+ 고객 직접 등록');
+    expect(addBtn!.textContent).toContain('+ 고객 등록');
     expect(bar!.contains(addBtn)).toBe(false);
   });
 
-  it('always shows "지금 할 일 0건" when nothing is pending', async () => {
+  it('hides the pending gate bar when pendingCount === 0 and shows matching 관심 높음만 보기 counter', async () => {
     await act(async () => {
       root.render(<InboxWorkspacePage initialThreads={[THREADS[1]]} />);
     });
-    const bar = q(container, 'inbox-todo-summary-card');
-    expect(bar).not.toBeNull();
-    expect(bar!.textContent).toContain('지금 할 일 0건');
-    expect(bar!.querySelector('[data-testid^="quick-todo-card-"]')).toBeNull();
+    expect(q(container, 'inbox-todo-summary-card')).toBeNull();
+    const hotChip = q(container, 'inbox-hot-only-chip');
+    expect(hotChip).not.toBeNull();
+    expect(hotChip!.textContent).toContain('관심 높음만 보기 (0)');
+    expect(q(container, 'inbox-list-visible-count')?.textContent).toContain('표시 1건');
   });
 
-  it('defaults to 간단히 rows with inline quick actions while keeping top-3 filter tabs visible and CRM chips in folded filter panel', async () => {
+  it('defaults to 간단히 rows with zero inline delete/archive misclick icons while keeping 3 segment tabs visible', async () => {
     await renderPage();
 
     // Primary 3 filter tabs stay visible; secondary CRM chips (incl. newsletter) live inside folded filter panel
@@ -197,10 +198,10 @@ describe('Inbox left list — simple / detailed view', () => {
       /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
     );
 
-    // Rich detail is NOT in simple rows; pending rows no longer render duplicate inline approve buttons
+    // Rich detail and inline approve/archive/delete buttons are omitted from list rows to prevent misclicks
     expect(pendingRow!.textContent).not.toContain('IM 열람 요청:');
     expect(q(pendingRow!, 'inbox-row-approve-thr-pending-1')).toBeNull();
-    expect(q(activeRow!, 'inbox-row-archive-thr-active-2')).not.toBeNull();
+    expect(q(activeRow!, 'inbox-row-archive-thr-active-2')).toBeNull();
     expect(pendingRow!.querySelector('[data-testid="ws-list-thumbnail"]')).toBeNull();
 
     // Date groups (오늘 / 어제)
@@ -217,7 +218,7 @@ describe('Inbox left list — simple / detailed view', () => {
     ).toBe('false');
   });
 
-  it('tapping "지금 할 일" applies the todo filter', async () => {
+  it('tapping "IM 승인 대기" applies the pending todo filter', async () => {
     await renderPage();
     await click(q(container, 'inbox-filter-chip-all'));
     expect(q(container, 'inbox-filter-chip-all')!.getAttribute('aria-selected')).toBe('true');
@@ -225,7 +226,6 @@ describe('Inbox left list — simple / detailed view', () => {
 
     await click(q(container, 'inbox-todo-summary-filter-btn'));
 
-    expect(q(container, 'inbox-filter-chip-todo')!.getAttribute('aria-selected')).toBe('true');
     expect(q(container, 'inbox-thread-row-thr-pending-1')).not.toBeNull();
     expect(q(container, 'inbox-thread-row-thr-active-2')).toBeNull();
   });

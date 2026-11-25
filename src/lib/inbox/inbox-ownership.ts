@@ -540,6 +540,178 @@ export async function verifyBrokerOwnership(params: {
     }
   }
 
+  // Handle anonymous / identified viewer threads (`view_<entityId>_...`)
+  if (threadId.startsWith('view_') && !verifiedBuildingOwnership && !verifiedViaTarget) {
+    const viewUuidMatch = threadId.match(
+      /^view_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_/i
+    );
+    const viewEntityId = viewUuidMatch ? viewUuidMatch[1] : '';
+
+    if (viewEntityId) {
+      if (viewEntityId === userId) {
+        verifiedViaTarget = true;
+      } else {
+        // Check magazine_editions ownership
+        try {
+          const { data: edRow, error: edErr } = await supabase
+            .from('magazine_editions')
+            .select('id, broker_id')
+            .eq('id', viewEntityId)
+            .maybeSingle();
+
+          if (edErr && !isIgnorableSchemaError(edErr)) {
+            return {
+              allowed: false,
+              status: 500,
+              reason: '뉴스레터 열람 소유권 확인 중 오류가 발생했습니다.',
+            };
+          }
+
+          if (edRow) {
+            const edBroker = String((edRow as Record<string, unknown>).broker_id ?? '');
+            if (edBroker && edBroker === userId) {
+              verifiedViaTarget = true;
+            } else {
+              const { data: bp } = await supabase
+                .from('broker_profiles')
+                .select('slug')
+                .eq('user_id', userId)
+                .maybeSingle();
+              const ownSlug = bp?.slug ? String(bp.slug).trim() : '';
+              if (ownSlug && edBroker === ownSlug) {
+                verifiedViaTarget = true;
+              } else {
+                return {
+                  allowed: false,
+                  status: 403,
+                  reason: '다른 중개인의 뉴스레터 열람 기록에는 접근할 수 없습니다.',
+                };
+              }
+            }
+          }
+        } catch {
+          // ignore if magazine_editions table unavailable in minimal mock
+        }
+
+        // Check building / workspace_items ownership if not matched via magazine_editions
+        if (!verifiedViaTarget) {
+          const wsViewBld = await getWorkspaceItemByAnyId(supabase, viewEntityId);
+          if (wsViewBld) {
+            if (wsViewBld.ownerId !== userId) {
+              return {
+                allowed: false,
+                status: 403,
+                reason: '다른 중개인의 매물 열람 기록에는 접근할 수 없습니다.',
+              };
+            }
+            verifiedBuildingOwnership = true;
+          } else {
+            const [{ data: vSsot, error: vSsotErr }, { data: vBld, error: vBldErr }] =
+              await Promise.all([
+                supabase
+                  .from('building_ssot_lite')
+                  .select('owner_id')
+                  .eq('id', viewEntityId)
+                  .maybeSingle(),
+                supabase.from('buildings').select('*').eq('id', viewEntityId).maybeSingle(),
+              ]);
+
+            if (vSsotErr && !isIgnorableSchemaError(vSsotErr)) {
+              return {
+                allowed: false,
+                status: 500,
+                reason: '열람 매물 소유권 확인 중 오류가 발생했습니다.',
+              };
+            }
+            if (vSsot) {
+              if (!vSsot.owner_id || String(vSsot.owner_id) !== userId) {
+                return {
+                  allowed: false,
+                  status: 403,
+                  reason: '다른 중개인의 매물 열람 기록에는 접근할 수 없습니다.',
+                };
+              }
+              verifiedBuildingOwnership = true;
+            }
+
+            if (vBldErr && !isIgnorableSchemaError(vBldErr)) {
+              return {
+                allowed: false,
+                status: 500,
+                reason: '열람 매물 소유권 확인 중 오류가 발생했습니다.',
+              };
+            }
+            if (vBld) {
+              const vBldRec = vBld as Record<string, unknown>;
+              const vOwner = String(vBldRec.owner_id ?? vBldRec.created_by ?? '');
+              if (vOwner && vOwner !== userId) {
+                return {
+                  allowed: false,
+                  status: 403,
+                  reason: '다른 중개인의 매물 열람 기록에는 접근할 수 없습니다.',
+                };
+              }
+              if (vOwner === userId) {
+                verifiedBuildingOwnership = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback check against activity_events scoped to broker_id
+    if (!verifiedViaTarget && !verifiedBuildingOwnership) {
+      try {
+        let viewEvQ: any = supabase
+          .from('activity_events')
+          .select('id, actor_id, entity_id, event_type, metadata')
+          .in('event_type', [
+            'magazine_view',
+            'magazine_section_view',
+            'vibe_card_view',
+            'blind_teaser_view',
+            'deal_card_view',
+            'mobile_im_view',
+            'im_lite_view',
+          ]);
+        if (typeof viewEvQ.eq === 'function') {
+          viewEvQ = viewEvQ.eq('metadata->>broker_id', userId);
+        }
+        if (viewEntityId && typeof viewEvQ.or === 'function') {
+          viewEvQ = viewEvQ.or(
+            `entity_id.eq.${viewEntityId},metadata->>edition_id.eq.${viewEntityId},metadata->>building_id.eq.${viewEntityId}`
+          );
+        }
+        if (typeof viewEvQ.limit === 'function') {
+          viewEvQ = viewEvQ.limit(10);
+        }
+        const viewEvRes = await viewEvQ;
+        const rows = Array.isArray(viewEvRes?.data) ? viewEvRes.data : [];
+        const matchedOwned = rows.some((ev: any) => {
+          const meta = (ev?.metadata && typeof ev.metadata === 'object' ? ev.metadata : {}) as Record<
+            string,
+            unknown
+          >;
+          const metaBroker = String(meta.broker_id ?? '');
+          if (metaBroker && metaBroker !== userId) return false;
+          if (!metaBroker && String(ev?.actor_id ?? '') !== userId) return false;
+          if (!viewEntityId) return true;
+          return (
+            String(ev?.entity_id ?? '') === viewEntityId ||
+            String(meta.edition_id ?? '') === viewEntityId ||
+            String(meta.building_id ?? '') === viewEntityId
+          );
+        });
+        if (matchedOwned) {
+          verifiedViaTarget = true;
+        }
+      } catch {
+        // non-blocking; fail-closed 404 still applies below
+      }
+    }
+  }
+
   if (
     strictUuidMode &&
     action !== 'upsert_client' &&

@@ -411,33 +411,30 @@ describe('Client Inbox Security & UX Overhaul (IB-01 ~ IB-28)', () => {
         root.render(<InboxWorkspacePage initialThreads={sampleThreads} />);
       });
 
-      // Column 1: "지금 할 일 1건" summary card with thread-focus [확인·승인하기 ›]
+      // Column 1: "IM 승인 대기 1건" summary card with thread-focus [확인·승인하기 ›]
       const todoSummary = container.querySelector(
         '[data-testid="inbox-todo-summary-card"]'
       );
       expect(todoSummary).not.toBeNull();
-      expect(todoSummary?.textContent).toContain('지금 할 일 1건');
+      expect(todoSummary?.textContent).toContain('IM 승인 대기 1건');
       expect(todoSummary?.textContent).toContain('확인·승인하기 ›');
 
-      // Column 1: 3 filter chips (할 일 · 열람 · 전체 고객)
+      // Column 1: 3 segment filter tabs (전체 · 연락처 고객 · 익명 열람)
       const filterTabs = container.querySelector('[data-testid="inbox-filter-tabs"]');
       expect(filterTabs?.getAttribute('role')).toBe('tablist');
       const filterButtons = filterTabs?.querySelectorAll('[role="tab"]');
       expect(filterButtons?.length).toBe(3);
-      expect(filterTabs?.textContent).toContain('할 일');
-      expect(filterTabs?.textContent).toContain('열람');
-      expect(filterTabs?.textContent).toContain('전체 고객');
+      expect(filterTabs?.textContent).toContain('전체');
+      expect(filterTabs?.textContent).toContain('연락처 고객');
+      expect(filterTabs?.textContent).toContain('익명 열람');
 
-      // Column 2: 3 editor tabs (할 일 · 메시지 · 기록)
-      const editorTabs = container.querySelector(
-        '[data-testid="inbox-editor-primary-tabs"]'
-      );
-      expect(editorTabs?.getAttribute('role')).toBe('tablist');
-      const editorTabButtons = editorTabs?.querySelectorAll('[role="tab"]');
-      expect(editorTabButtons?.length).toBe(3);
-      expect(editorTabs?.textContent).toContain('할 일');
-      expect(editorTabs?.textContent).toContain('메시지');
-      expect(editorTabs?.textContent).toContain('기록');
+      // Column 2 directly renders pending gate card + unified outbound dispatch hub (no tab switching)
+      expect(
+        container.querySelector('[data-testid="inbox-outbound-channel-bar"]')
+      ).not.toBeNull();
+      expect(
+        container.querySelector('[data-testid="inbox-tab-panel-history"]')
+      ).not.toBeNull();
 
       // Pending request defaults to "할 일" tab showing reason + [자료 보내기(승인)] + [거절]
       const pendingCard = container.querySelector(
