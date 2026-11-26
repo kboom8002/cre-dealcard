@@ -19,56 +19,60 @@ import {
    ────────────────────────────────────────────────── */
 const WORKSPACE_DOORS = [
   {
+    id: "newsletter",
+    icon: Newspaper,
+    emoji: "📰",
+    title: "주간/월간 빌딩 뉴스레터",
+    tabLabel: "부동산뉴스",
+    subtitle: "중개사 실명 브랜드로 정기 시장 브리핑 발송",
+    description:
+      "권역 실거래 동향과 추천 매물을 엮어\n이메일 웹 매거진으로 전달합니다.",
+    gradient: "from-emerald-500 via-teal-500 to-cyan-500",
+    glowColor: "rgba(16,185,129,0.16)",
+    accentText: "text-emerald-800",
+    tag: "DOOR 1 · 부동산뉴스",
+  },
+  {
     id: "dealcards",
     icon: Zap,
     emoji: "⚡",
     title: "매물 딜카드",
+    tabLabel: "딜카드",
     subtitle: "현장 메모 한 줄 → 블라인드 딜카드 즉시 발행",
     description:
       "주소와 현장 메모만 입력하면 공적장부 규격과\n핵심 투자 포인트를 정리한 공유 링크를 만듭니다.",
     gradient: "from-amber-400 via-orange-400 to-rose-400",
     glowColor: "rgba(245,158,11,0.16)",
     accentText: "text-amber-800",
-    tag: "DOOR 1 · 딜카드",
+    tag: "DOOR 2 · 딜카드",
   },
   {
     id: "im",
     icon: FileSpreadsheet,
     emoji: "📄",
     title: "10섹션 모바일/PPTX IM",
-    subtitle: "Basic IM · Pro IM 투자설명서 원클릭 제작",
+    tabLabel: "IM",
+    subtitle: "Basic IM 투자설명서 원클릭 제작",
     description:
       "투자 포스처에 맞춘 10섹션 모바일 웹 IM과\n고품격 PPTX 투자설명서를 빠르게 완성합니다.",
-    gradient: "from-emerald-500 via-teal-500 to-cyan-500",
-    glowColor: "rgba(16,185,129,0.16)",
-    accentText: "text-emerald-800",
-    tag: "DOOR 2 · IM 제작",
-  },
-  {
-    id: "newsletter",
-    icon: Newspaper,
-    emoji: "📰",
-    title: "주간/월간 빌딩 뉴스레터",
-    subtitle: "중개사 실명 브랜드로 정기 시장 브리핑 발송",
-    description:
-      "권역 실거래 동향과 추천 매물을 엮어\n이메일·카카오 알림톡 매거진으로 전달합니다.",
     gradient: "from-blue-500 via-indigo-500 to-violet-500",
     glowColor: "rgba(99,102,241,0.16)",
     accentText: "text-blue-800",
-    tag: "DOOR 3 · 뉴스레터",
+    tag: "DOOR 3 · IM",
   },
   {
     id: "inbox",
     icon: Inbox,
     emoji: "📬",
     title: "고객 소통함",
+    tabLabel: "고객 소통",
     subtitle: "열람 요청 · NDA 승인 · 구독 고객 통합 관리",
     description:
       "블라인드 딜카드·IM 문의와 열람 승인 요청,\n매거진 구독 고객을 한 화면에서 응대합니다.",
     gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
     glowColor: "rgba(139,92,246,0.16)",
     accentText: "text-violet-800",
-    tag: "DOOR 4 · 소통함",
+    tag: "DOOR 4 · 고객 소통",
   },
 ] as const;
 
@@ -165,7 +169,7 @@ export function LandingPageClient() {
           transition={{ delay: 0.2, duration: 0.5 }}
           className="text-sm text-slate-700 text-center font-medium mb-6 leading-relaxed break-keep"
         >
-          매물 딜카드 · 10섹션 모바일/PPTX IM · 주간/월간 빌딩 뉴스레터 · 고객 소통함
+          주간/월간 빌딩 뉴스레터 · 매물 딜카드 · 10섹션 모바일/PPTX IM · 고객 소통함
         </motion.p>
 
         {/* ── 4-Door Feature Carousel ── */}
@@ -303,7 +307,7 @@ export function LandingPageClient() {
                     currentIndex === idx ? "text-slate-950" : "text-slate-600"
                   }`}
                 >
-                  {f.title.split(" ")[0]}
+                  {f.tabLabel}
                 </span>
               </button>
             );
@@ -346,7 +350,7 @@ export function LandingPageClient() {
             <Link
               href="/terms"
               onClick={() => haptic.light()}
-              className="hover:text-slate-950 underline underline-offset-4 transition-colors py-1"
+              className="min-h-[44px] inline-flex items-center hover:text-slate-950 underline underline-offset-4 transition-colors py-1"
             >
               서비스 이용약관
             </Link>
@@ -356,7 +360,7 @@ export function LandingPageClient() {
             <Link
               href="/privacy"
               onClick={() => haptic.light()}
-              className="font-bold text-slate-900 hover:text-slate-950 underline underline-offset-4 transition-colors py-1"
+              className="min-h-[44px] inline-flex items-center font-bold text-slate-900 hover:text-slate-950 underline underline-offset-4 transition-colors py-1"
             >
               개인정보처리방침
             </Link>
@@ -364,11 +368,11 @@ export function LandingPageClient() {
               ·
             </span>
             <Link
-              href="/magazine"
+              href="/guide"
               onClick={() => haptic.light()}
-              className="hover:text-slate-950 underline underline-offset-4 transition-colors py-1"
+              className="min-h-[44px] inline-flex items-center hover:text-slate-950 underline underline-offset-4 transition-colors py-1"
             >
-              빌딩 매거진
+              서비스 안내
             </Link>
           </div>
 

@@ -142,9 +142,9 @@ function sanitizePhotoUrls(urls?: string[]): string[] | undefined {
 }
 
 const BrokerDealCardFromMemoRequest = z.object({
-  memo: z.string().min(5),
+  memo: z.string().trim().min(5).max(6000),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
-  photoUrls: z.array(z.string()).optional(),
+  photoUrls: z.array(z.string().max(2000)).max(20).optional(),
   /** 중복 감지 무시하고 새 물건으로 강제 생성 */
   forceNew: z.boolean().optional(),
   /** 기존 물건 업데이트 시 해당 building ID */

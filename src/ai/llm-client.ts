@@ -140,7 +140,7 @@ export async function callLLM(
       throw new LLMMockNotAllowedError(`provider '${providerName}' 가 Mock 입니다 (${reason})`);
     }
     
-    const maxAttempts = 5; // 1 initial + 4 retries (exponential backoff: 1s, 2s, 4s, 8s)
+    const maxAttempts = 3; // 1 initial + 2 retries (exponential backoff: 1s, 2s)
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (options.signal?.aborted) {
         throw new Error(`[callLLM] Provider '${providerName}' call aborted by signal`);

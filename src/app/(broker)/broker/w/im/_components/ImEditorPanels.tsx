@@ -885,7 +885,7 @@ export function ImEditorPanels({
                   setSubLotHintError(null);
                   setIsAddSubLotOpen((prev) => !prev);
                 }}
-                className="min-h-[40px] shrink-0 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800 transition cursor-pointer"
+                className="min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800 transition cursor-pointer"
               >
                 {isAddSubLotOpen ? "닫기" : "+ 부속 번지 추가"}
               </button>
@@ -948,7 +948,7 @@ export function ImEditorPanels({
                         type="button"
                         onClick={() => handleRemoveSecondaryLot({ lotLabel: lot.label })}
                         aria-label={`${lot.label} 번지 제외`}
-                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
+                        className="ml-0.5 inline-flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
                       >
                         ×
                       </button>
@@ -1007,7 +1007,7 @@ export function ImEditorPanels({
                               })
                             }
                             aria-label={`${jibunLabel} 번지 제외`}
-                            className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-blue-100 hover:text-[#991B1B] cursor-pointer"
+                            className="ml-0.5 inline-flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded text-slate-500 hover:bg-blue-100 hover:text-[#991B1B] cursor-pointer"
                           >
                             ×
                           </button>
@@ -1533,7 +1533,7 @@ export function ImEditorPanels({
                       <label
                         key={cand.id}
                         data-testid={`im-nearby-comp-checkbox-${cIdx}`}
-                        className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-white border border-slate-200 hover:border-blue-400 cursor-pointer text-sm"
+                        className="flex min-h-[44px] items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-white border border-slate-200 hover:border-blue-400 cursor-pointer text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <input
@@ -1596,7 +1596,7 @@ export function ImEditorPanels({
                   {compRows.map((row, idx) => (
                     <div
                       key={idx}
-                      className="grid grid-cols-12 gap-1.5 items-center rounded-xl border border-slate-200 bg-slate-50/70 p-2 text-sm"
+                      className="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:gap-1.5 items-center rounded-xl border border-slate-200 bg-slate-50/70 p-2 text-sm"
                     >
                       <input
                         type="text"
@@ -1608,7 +1608,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-4 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white font-semibold"
+                        className="col-span-2 sm:col-span-4 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white font-semibold"
                       />
                       <input
                         type="text"
@@ -1620,7 +1620,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-2 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white text-right font-bold"
+                        className="col-span-1 sm:col-span-2 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white text-right font-bold"
                       />
                       <input
                         type="text"
@@ -1634,7 +1634,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-2 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white text-right font-semibold"
+                        className="col-span-1 sm:col-span-2 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white text-right font-semibold"
                       />
                       <input
                         type="text"
@@ -1646,7 +1646,7 @@ export function ImEditorPanels({
                           );
                           onChangeCompRows?.(next);
                         }}
-                        className="col-span-3 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white"
+                        className="col-span-2 sm:col-span-3 min-h-[44px] px-2 rounded-lg border border-slate-300 bg-white"
                       />
                       <button
                         type="button"
@@ -1654,7 +1654,7 @@ export function ImEditorPanels({
                           onChangeCompRows?.(compRows.filter((_, i) => i !== idx))
                         }
                         aria-label="비교 사례 삭제"
-                        className="col-span-1 min-h-[44px] rounded-lg text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
+                        className="col-span-2 sm:col-span-1 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
                       >
                         ✕
                       </button>

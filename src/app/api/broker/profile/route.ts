@@ -25,6 +25,24 @@ import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
 
+function isSafeHttpUrl(val: string): boolean {
+  const trimmed = val.trim();
+  if (!trimmed) return true;
+  if (!/^https?:\/\//i.test(trimmed)) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+const safeHttpUrl = (maxLen: number) =>
+  z
+    .string()
+    .max(maxLen)
+    .refine(isSafeHttpUrl, { message: 'URL은 http:// 또는 https:// 로 시작하는 올바른 주소여야 합니다.' });
+
 const ProfileUpdateSchema = z.object({
   display_name: z.string().min(1).max(50).optional(),
   representative_name: z.string().max(50).nullable().optional(),
@@ -56,10 +74,10 @@ const ProfileUpdateSchema = z.object({
   response_time_hours: z.number().min(1).max(168).nullable().optional(),
 
   // 소셜
-  kakao_channel: z.string().max(200).optional(),
-  naver_blog_url: z.string().max(300).optional(),
-  youtube_url: z.string().max(300).optional(),
-  linkedin_url: z.string().max(300).optional(),
+  kakao_channel: safeHttpUrl(200).optional(),
+  naver_blog_url: safeHttpUrl(300).optional(),
+  youtube_url: safeHttpUrl(300).optional(),
+  linkedin_url: safeHttpUrl(300).optional(),
 
   // SEO / 공개
   seo_summary: z.string().max(1000).optional(),
@@ -70,7 +88,7 @@ const ProfileUpdateSchema = z.object({
   office_district: z.string().max(50).optional(),
 
   // Avatar / Photo
-  avatar_url: z.string().max(2000).nullable().optional(),
+  avatar_url: safeHttpUrl(2000).nullable().optional(),
 
   // 매거진 설정 → magazine_settings 테이블 (broker_profiles 컬럼 아님)
   magazine_title: z.string().trim().max(60).nullable().optional(),

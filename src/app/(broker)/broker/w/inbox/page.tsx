@@ -125,6 +125,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
   const [kakaoHeadline, setKakaoHeadline] = useState("");
   const [kakaoBrief, setKakaoBrief] = useState("");
   const [inlineActionError, setInlineActionError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [aiReplyLoading, setAiReplyLoading] = useState(false);
   const [aiReplyHistory, setAiReplyHistory] = useState<string[]>([]);
 
@@ -309,6 +310,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           `/api/broker/inbox?workspace=1&clientOffset=${reqOffset}&clientPageSize=50`
         );
         if (res.status === 401 || res.status === 403) {
+          setLoadError(null);
           purgeInboxLocalStorage();
           setCurrentBrokerId("");
           setThreads([]);
@@ -316,9 +318,16 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           setHasMoreClients(false);
           return;
         }
-        if (!res.ok) return;
+        if (!res.ok) {
+          setLoadError("고객 소통함 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+          return;
+        }
         const data = await res.json().catch(() => null);
-        if (!data) return;
+        if (!data) {
+          setLoadError("고객 소통함 응답을 처리하지 못했습니다. 다시 시도해 주세요.");
+          return;
+        }
+        setLoadError(null);
 
         if (data.pagination && typeof data.pagination === "object") {
           setHasMoreClients(Boolean(data.pagination.hasMoreClients));
@@ -410,7 +419,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           });
         }
       } catch {
-        // Offline / test environment
+        setLoadError("서버에 연결할 수 없어 고객 소통함을 불러오지 못했습니다. 다시 시도해 주세요.");
       }
     },
     [purgeInboxLocalStorage]
@@ -630,8 +639,13 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
           : "im"
       );
       setKakaoHeadline(`[${current.buildingTitle}] 상세 자료 안내`);
+      const safeClientGreetingName =
+        !current.clientName?.trim() ||
+        /^(?:익명\s*열람객|미확인\s*열람객|열람객)$/i.test(current.clientName.trim())
+          ? "고객"
+          : current.clientName.trim();
       setKakaoBrief(
-        `${current.clientName}님, 관심 가져주신 [${current.buildingTitle}] 자료와 임대 현황을 보내드립니다. 살펴보시면서 궁금하신 점은 편하게 말씀해 주세요.`
+        `${safeClientGreetingName}님, 관심 가져주신 [${current.buildingTitle}] 자료와 임대 현황을 보내드립니다. 살펴보시면서 궁금하신 점은 편하게 말씀해 주세요.`
       );
     });
     return () => {
@@ -961,7 +975,7 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       id: `disp-copy-${Date.now()}`,
       eventType: "inbox_outbound_copied",
       channel: resolvedAssetKind === "magazine" ? "newsletter" : "kakao_copy",
-      title: kakaoHeadline || activeThread.buildingTitle,
+      title: kakaoHeadline.trim() || activeThread.buildingTitle,
       status: "copied",
       createdAt: new Date().toISOString(),
     };
@@ -1049,12 +1063,13 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     const nextShareToken =
       typeof apiRes.data.shareToken === "string" ? apiRes.data.shareToken : "";
 
+    const isSimulated = Boolean(apiRes.data.simulated);
     const dispatchEntry: InboxDispatchHistoryItem = {
       id: `disp-email-${Date.now()}`,
       eventType: "inbox_email_sent",
       channel: "email",
-      title: kakaoHeadline || activeThread.buildingTitle,
-      status: "sent",
+      title: kakaoHeadline.trim() || activeThread.buildingTitle,
+      status: isSimulated ? "simulated" : "sent",
       createdAt: new Date().toISOString(),
     };
 
@@ -1089,10 +1104,10 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       setLastBundleShareUrl(nextShareUrl);
     }
 
-    const msg = apiRes.data.simulated
-      ? `${targetEmail}로 이메일 발송을 접수했습니다(테스트 시뮬레이션).`
+    const msg = isSimulated
+      ? `${targetEmail}로 이메일 발송 시뮬레이션이 기록되었습니다 (실제 이메일은 발송되지 않음).`
       : `${targetEmail}로 매물 자료 이메일을 발송했습니다.`;
-    showUndoToast({ message: msg, variant: "success" });
+    showUndoToast({ message: msg, variant: isSimulated ? "warning" : "success" });
   };
 
   const handleSendInboxAlimtalk = async () => {
@@ -1581,20 +1596,46 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
       : Boolean(jsonClient?.newsletterSubscribed);
 
     if (conversionSource?.threadId) {
+      const archiveTargetBuildingId = resolvedBuildingId || conversionSource.buildingId;
+      let archiveOk = false;
       try {
-        await fetch("/api/broker/inbox/actions", {
+        let archiveRes = await fetch("/api/broker/inbox/actions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "archive_thread",
             threadId: conversionSource.threadId,
-            buildingId: resolvedBuildingId || conversionSource.buildingId,
+            buildingId: archiveTargetBuildingId,
           }),
         });
+        const isNonUuidBld =
+          Boolean(archiveTargetBuildingId) &&
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            archiveTargetBuildingId
+          );
+        if (!archiveRes.ok && isNonUuidBld) {
+          archiveRes = await fetch("/api/broker/inbox/actions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "archive_thread",
+              threadId: conversionSource.threadId,
+            }),
+          });
+        }
+        archiveOk = archiveRes.ok;
       } catch {
-        // non-blocking archive fallback; local state still removes converted anon row
+        archiveOk = false;
       }
-      anonConversionSourceRef.current = null;
+      if (archiveOk) {
+        anonConversionSourceRef.current = null;
+      } else {
+        showUndoToast({
+          message:
+            "고객 등록은 완료되었으나 기존 익명 열람 스레드 보관 처리에 실패했습니다. 잠시 후 수동으로 보관해 주세요.",
+          variant: "warning",
+        });
+      }
     }
 
     const resolvedInvItem = resolvedBuildingId
@@ -2029,6 +2070,23 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   return (
     <>
+      {loadError && (
+        <div
+          role="alert"
+          data-testid="inbox-load-error-banner"
+          className="mx-auto my-2 flex max-w-6xl flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-950"
+        >
+          <span className="font-semibold">{loadError}</span>
+          <button
+            type="button"
+            data-testid="inbox-load-retry-btn"
+            onClick={() => void refreshInboxFromServer()}
+            className="min-h-[36px] rounded-lg border border-amber-400 bg-white px-3 py-1 text-sm font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+          >
+            다시 시도
+          </button>
+        </div>
+      )}
       <WorkspaceShell
         workspace="inbox"
         listTitle="고객 목록"

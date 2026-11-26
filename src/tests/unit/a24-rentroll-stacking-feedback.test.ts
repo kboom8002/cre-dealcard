@@ -116,11 +116,11 @@ describe('bindRentRollTable — 면적·용도·관리비/만기일 매핑 (p5 �
     }
     // 오너 결정(2026-10): IM 은 실제 임차인명 — 상호==업종 동일 문자열도 임차인 칸에 그대로, 용도 칸은 중복 방지 '-'
     expect(byFloor('2F').slice(1, 3)).toEqual(['디자인 스튜디오', '-']);
-    // 상호 미입력 폴백 → 임차인은 마스킹 라벨, 용도는 업종 그대로 표시
+    // 상호 미입력 폴백 → 업종을 임차인 칸에 표기, 용도 칸은 중복 방지 '-' (임차인 A~Z 마스킹 금지)
     expect(resolveTenantAndUse({ tenant_type: '디자인 스튜디오' }, { maskSeq: 0 })).toMatchObject({
-      tenant: '임차인 A',
-      use: '디자인 스튜디오',
-      isMasked: true,
+      tenant: '디자인 스튜디오',
+      use: '-',
+      isMasked: false,
     });
     const same = resolveTenantAndUse({ tenant_name: '세무사', tenant_type: '세무사' }, { maskSeq: 2 });
     expect(same.use).toBe('-');

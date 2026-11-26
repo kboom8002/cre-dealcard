@@ -244,11 +244,11 @@ describe('GET /api/public/im-lite/[buildingId]/pptx — 공개 상태·워터마
 
   beforeEach(() => { mockRender.mockClear(); });
 
-  it('익명 + 초안만 존재 → 404 (렌더 안 함)', async () => {
+  it('익명 + 초안만 존재 (token 없음) → 403 SHARE_TOKEN_REQUIRED (존재 오라클·렌더 차단)', async () => {
     seed(false);
     mockViewer.mockResolvedValue({ userId: null, isAdmin: false });
     const res = await get();
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
     expect(mockRender).not.toHaveBeenCalled();
   });
 

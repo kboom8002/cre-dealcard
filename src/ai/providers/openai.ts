@@ -19,20 +19,21 @@ export class OpenAIProvider implements LLMProvider {
 
   async chat(params: LLMChatParams): Promise<LLMChatResult> {
     const startTime = Date.now();
-    const model = params.model || "gpt-5.6-terra";
+    const model = params.model || "gpt-6.1-terra";
 
     const isReasoningModel =
       model.includes("o1") ||
       model.includes("terra") ||
       model.includes("sol") ||
       model.includes("luna") ||
+      model.includes("gpt-6.1") ||
       model.includes("gpt-5.6");
     const firstTokenBudget = isReasoningModel
-      ? Math.max(params.maxTokens ?? 4096, 2048)
-      : (params.maxTokens ?? 4096);
+      ? Math.min(Math.max(params.maxTokens ?? 2048, 1024), 4096)
+      : (params.maxTokens ?? 2048);
     const retryTokenBudget = isReasoningModel
-      ? Math.max((params.maxTokens ?? 4096) * 4, 4096)
-      : (params.maxTokens ?? 4096);
+      ? Math.min(firstTokenBudget * 2, 4096)
+      : (params.maxTokens ?? 2048);
 
     const attemptChat = async (tokenBudget: number) => {
       const requestBody: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {

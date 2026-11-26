@@ -190,7 +190,6 @@ function normalizeSnapshotBrokerProfile(raw: Record<string, unknown>): PublicDea
     raw.officeRegNumber ??
     raw.registrationNo ??
     raw.registration_no ??
-    raw.license_number ??
     null;
   const cleanReg =
     typeof rawReg === "string" && rawReg.trim() && rawReg.trim() !== "-" && !/미입력|미등록/.test(rawReg)
@@ -312,11 +311,7 @@ async function fetchPublicBrokerProfile(
     company,
     office_address: strOrNull(bProfile?.office_address),
     office_reg_number: strOrNull(bProfile?.office_reg_number),
-    representative_name:
-      strOrNull(bProfile?.representative_name) ??
-      strOrNull(baseProfile?.display_name) ??
-      strOrNull(bProfile?.card_name) ??
-      null,
+    representative_name: strOrNull(bProfile?.representative_name) ?? null,
     avatar_url: avatarUrl,
     is_licensed: Boolean(bProfile?.license_number || cleanReg),
     response_guarantee_hours: numOrNull(bProfile?.response_time_hours),
@@ -454,7 +449,7 @@ function buildDealCardDataFromQuickRecord(
               strOrNull(bp.representativeName) ||
               strOrNull(bp.representative_name) ||
               strOrNull(bo.representative) ||
-              strOrNull(bp.displayName),
+              null,
             avatar_url: strOrNull(live?.avatar_url) || strOrNull(bp.photoUrl),
             is_licensed: Boolean(
               live?.is_licensed || bp.registrationNo || bp.office_reg_number || bo.registrationNo

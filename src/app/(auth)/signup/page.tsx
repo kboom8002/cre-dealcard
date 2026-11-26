@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useActionState } from 'react';
+import { Suspense, useState, useActionState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { signup } from '@/app/actions/auth';
@@ -14,15 +14,18 @@ function SignupFormContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [windowRedirectTo, setWindowRedirectTo] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setWindowRedirectTo(params.get('redirectTo') || params.get('next') || '');
+  }, []);
 
   const redirectTo =
     searchParams?.get('redirectTo') ||
     searchParams?.get('next') ||
-    (typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('redirectTo') ||
-        new URLSearchParams(window.location.search).get('next') ||
-        ''
-      : '');
+    windowRedirectTo;
 
   // PIPA 분리 동의 상태 (초기값은 반드시 미체크 false)
   const [agreeTerms, setAgreeTerms] = useState(false);

@@ -530,7 +530,11 @@ export async function verifyBrokerOwnership(params: {
           break;
         }
       }
-      if (strictMode && !claimedOwner) {
+      if (
+        strictMode &&
+        !claimedOwner &&
+        !(action === 'archive_thread' && threadId.startsWith('view_'))
+      ) {
         return {
           allowed: false,
           status: 404,
@@ -697,12 +701,14 @@ export async function verifyBrokerOwnership(params: {
               'im_lite_view',
             ]);
           if (applyFilters) {
-            if (safeBrokerKeys.length === 1 && typeof viewEvQ.eq === 'function') {
+            const brokerOrParts = [
+              ...safeBrokerKeys.map((k) => `metadata->>broker_id.eq.${k}`),
+              ...(userId && /^[A-Za-z0-9_.:-]+$/.test(userId) ? [`actor_id.eq.${userId}`] : []),
+            ];
+            if (brokerOrParts.length > 0 && typeof viewEvQ.or === 'function') {
+              viewEvQ = viewEvQ.or(brokerOrParts.join(','));
+            } else if (safeBrokerKeys.length === 1 && typeof viewEvQ.eq === 'function') {
               viewEvQ = viewEvQ.eq('metadata->>broker_id', safeBrokerKeys[0]);
-            } else if (safeBrokerKeys.length > 1 && typeof viewEvQ.or === 'function') {
-              viewEvQ = viewEvQ.or(
-                safeBrokerKeys.map((k) => `metadata->>broker_id.eq.${k}`).join(',')
-              );
             }
             if (viewEntityId && typeof viewEvQ.or === 'function') {
               viewEvQ = viewEvQ.or(

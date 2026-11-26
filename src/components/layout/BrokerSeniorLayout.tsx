@@ -26,6 +26,7 @@ import {
   WORKSPACE_IDENTITY,
   WORKSPACE_IDENTITY_ORDER,
 } from "@/lib/ux/workspace-identity";
+import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 const FONT_SCALE_ORDER: readonly UiFontScale[] = [
   "compact",
@@ -220,7 +221,9 @@ function BrokerSeniorLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
       )}
 
-      {children}
+      <div className={showTopbar ? "pb-20 sm:pb-0" : undefined}>{children}</div>
+
+      {showTopbar && <BrokerBottomNav />}
 
       {/* 화면 이동 없이 바로 열리는 빠른 안내 서랍 */}
       <ContextualHelpDrawer />

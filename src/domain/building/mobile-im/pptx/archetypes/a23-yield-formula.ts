@@ -625,13 +625,16 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     if (roneSeries) {
       const bandLast5 = roneSeries.points.slice(-5);
       const bandLast5Stats = computeLandPriceRateStats(bandLast5);
+      const periodRange = bandLast5.length >= 2
+        ? `${bandLast5[0].year}~${bandLast5[bandLast5.length - 1].year}`
+        : `${bandLast5.length}개년`;
       slide.addText(`${roneSeries.regionName} 최근 ${bandLast5.length}년 연평균 지가변동률 (한국부동산원 R-ONE)`, {
         x: rightBoxX, y: bandY + 0.08, w: rightBoxW, h: 0.26,
         fontFace: KR, fontSize: 10.5, bold: true, color: C.navy || C.ink2, valign: 'middle', shrinkText: true, margin: 0,
       });
-      slide.addText(`+${bandLast5Stats.geometricMeanPct.toFixed(2)}% (${bandLast5.length}년 누적 +${bandLast5Stats.cumulativePct.toFixed(1)}%)`, {
+      slide.addText(`연평균 +${bandLast5Stats.geometricMeanPct.toFixed(2)}% (${periodRange} 누적 +${bandLast5Stats.cumulativePct.toFixed(1)}%)`, {
         x: rightBoxX, y: bandY + 0.36, w: rightBoxW, h: 0.48,
-        fontFace: KR, fontSize: 14.5, bold: true, color: C.ink, valign: 'middle', margin: 0,
+        fontFace: KR, fontSize: 14.5, bold: true, color: C.ink, valign: 'middle', shrinkText: true, margin: 0,
       });
     } else if (hasStabilized) {
       slide.addText(stabLabel || YIELD_LABELS.stabilizedBrokerPlan, {

@@ -42,6 +42,7 @@ export interface RecipientEvent {
 
 export type InboxDispatchStatus =
   | "sent"
+  | "simulated"
   | "delivered"
   | "bounced"
   | "complained"
@@ -270,9 +271,14 @@ export function buildKakaoOutreachPreset(
     brief?: string;
   }
 ): string {
-  const rawName = String(params.clientName ?? "")
+  const cleanedRaw = String(params.clientName ?? "")
     .trim()
     .replace(/님$/, "");
+  const rawName = /^(?:익명\s*열람객|미확인\s*열람객|열람객|이름\s*미입력\s*고객)$/i.test(
+    cleanedRaw
+  )
+    ? ""
+    : cleanedRaw;
   const nameLabel = rawName ? `${rawName}님` : "고객님";
   const buildingLabel = String(params.buildingTitle ?? "").trim() || "검토 매물";
   const urlLine = String(params.shareUrl ?? "").trim();
@@ -281,6 +287,7 @@ export function buildKakaoOutreachPreset(
 
   if (briefLine) {
     const hasGreeting =
+      /^(?:안녕하세요|고객님\s*[,!.]?)/.test(briefLine) ||
       briefLine.includes("안녕하세요") ||
       (Boolean(rawName) && briefLine.includes(rawName));
     const urlHeading =

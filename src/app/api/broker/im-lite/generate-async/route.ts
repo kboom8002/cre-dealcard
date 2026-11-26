@@ -174,13 +174,16 @@ export async function POST(req: NextRequest) {
 
           const { data: existing } = await bgSupabase
             .from("building_ssot_lite")
-            .select("layers, lease_summary")
+            .select("layers")
             .eq("id", buildingId)
             .single();
 
           if (existing) {
             const existingLayers = (existing.layers ?? {}) as Record<string, unknown>;
-            const existingLease = (existing.lease_summary ?? {}) as Record<string, unknown>;
+            const existingLease =
+              existingLayers.lease_summary && typeof existingLayers.lease_summary === 'object'
+                ? (existingLayers.lease_summary as Record<string, unknown>)
+                : {};
 
             // layers 패치: 물류/운영/개발/사옥/주거/구분소유 팩슬롯, 사진, 브로커 하이라이트
             const layersPatch: Record<string, unknown> = { ...existingLayers };
@@ -267,9 +270,10 @@ export async function POST(req: NextRequest) {
             if (supplemental.vacancy_pct != null) leasePatch.vacancy_pct = supplemental.vacancy_pct;
             if (loanStatusInput) leasePatch.loan_status = loanStatusInput;
 
+            layersPatch.lease_summary = leasePatch;
+
             const updatePayload: Record<string, unknown> = {
               layers: layersPatch,
-              lease_summary: leasePatch,
               updated_at: new Date().toISOString(),
             };
             if (investmentPostureInput) {
@@ -307,7 +311,13 @@ export async function POST(req: NextRequest) {
               updatePayload.raw_address = supplemental.resolved_address;
             }
 
-            await bgSupabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);
+            const writebackRes = await bgSupabase
+              .from("building_ssot_lite")
+              .update(updatePayload)
+              .eq("id", buildingId);
+            if (writebackRes?.error) {
+              log.warn("[im-generate-async] SSoT writeback update failed (non-blocking):", writebackRes.error.message);
+            }
           }
         } catch (writebackErr: unknown) {
           const msg = writebackErr instanceof Error ? writebackErr.message : String(writebackErr);

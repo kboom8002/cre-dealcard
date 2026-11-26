@@ -633,11 +633,11 @@ export async function GET(
   const docBroker = (bodyContent?.broker_contact || bodyContent?.basicImDocument?.facts?.brokerOffice || {}) as Record<string, any>;
   const ownerId = doc?.broker_id ?? doc?.owner_id;
   let brokerInfo: ProExportBrokerInfo = {
-    displayName: String(docBroker.brokerName || docBroker.representative || docBroker.name || '').trim() || '담당 공인중개사',
-    representativeName: String(docBroker.representative || docBroker.representativeName || docBroker.brokerName || '').trim(),
+    displayName: String(docBroker.brokerName || docBroker.name || '').trim() || '담당 공인중개사',
+    representativeName: String(docBroker.representativeName || docBroker.representative_name || docBroker.representative || '').trim(),
     company: String(docBroker.brokerageName || docBroker.company || '').trim(),
     phone: String(docBroker.brokerPhone || docBroker.phone || '').trim(),
-    registrationNo: String(docBroker.registrationNo || docBroker.registration_no || '').trim(),
+    registrationNo: String(docBroker.registrationNo || docBroker.registration_no || docBroker.office_reg_number || '').trim(),
     officeAddress: String(docBroker.officeAddress || docBroker.office_address || docBroker.address || '').trim(),
   };
   if (ownerId) {
@@ -669,15 +669,15 @@ export async function GET(
 
     if (bp || brokerMeta) {
       const repName = String(
-        brokerMeta?.representative_name || bp?.display_name || brokerInfo.representativeName || ''
+        brokerMeta?.representative_name || brokerInfo.representativeName || ''
       ).trim();
       brokerInfo = {
-        displayName: bp?.display_name || repName || brokerInfo.displayName || '담당 공인중개사',
-        representativeName: repName || (bp?.display_name || brokerInfo.representativeName),
+        displayName: bp?.display_name || brokerInfo.displayName || '담당 공인중개사',
+        representativeName: repName,
         company: bp?.company || brokerInfo.company,
         phone: bp?.phone || brokerInfo.phone,
         registrationNo:
-          brokerMeta?.office_reg_number || brokerMeta?.license_number || brokerInfo.registrationNo,
+          brokerMeta?.office_reg_number || brokerInfo.registrationNo,
         officeAddress: brokerMeta?.office_address || brokerInfo.officeAddress,
       };
     }

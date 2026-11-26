@@ -117,9 +117,9 @@ describe('D5 resolveOverviewSpecs / buildOverviewSpecRows', () => {
 
 // ───────────────────────── D6 ─────────────────────────
 describe('D6 resolveTenantAndUse / 비고 / 임대면적 평 병기', () => {
-  it('POSITIVE: 업종(용도)은 항상 표시, 상호 없으면 마스킹 임차인 A/B (업종을 임차인 칸에 복사 금지)', () => {
-    expect(resolveTenantAndUse({ tenant_type: '디자인 스튜디오' }, { maskSeq: 0 })).toMatchObject({ tenant: '임차인 A', use: '디자인 스튜디오', isMasked: true });
-    expect(resolveTenantAndUse({ tenant_type: '세무사' }, { maskSeq: 1 })).toMatchObject({ tenant: '임차인 B', use: '세무사' });
+  it('POSITIVE: 업종(용도)은 항상 표시, 상호 없으면 업종을 임차인 칸에 표기하고 용도는 "-" (임차인 A~Z 마스킹 금지)', () => {
+    expect(resolveTenantAndUse({ tenant_type: '디자인 스튜디오' }, { maskSeq: 0 })).toMatchObject({ tenant: '디자인 스튜디오', use: '-', isMasked: false });
+    expect(resolveTenantAndUse({ tenant_type: '세무사' }, { maskSeq: 1 })).toMatchObject({ tenant: '세무사', use: '-' });
     expect(resolveTenantAndUse({ tenant_name: '스타벅스', tenant_type: '카페' })).toMatchObject({ tenant: '스타벅스', use: '카페', isMasked: false });
   });
 

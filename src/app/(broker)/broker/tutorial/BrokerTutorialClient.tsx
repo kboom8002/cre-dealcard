@@ -16,7 +16,6 @@ import {
   Sparkles,
   UserCircle2,
 } from "lucide-react";
-import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import {
   MINIMAL_ESSENTIAL_FAQS,
   MINIMAL_SPACE_GUIDES,
@@ -60,7 +59,6 @@ export default function BrokerTutorialClient({ isPrintMode }: { isPrintMode: boo
   };
 
   return (
-    <>
       <main
         data-testid="broker-tutorial-page"
         className="w-full min-h-screen bg-[#F5F5F7] text-[#1D1D1F] px-4 py-8 pb-28 text-base leading-relaxed"
@@ -351,8 +349,5 @@ export default function BrokerTutorialClient({ isPrintMode }: { isPrintMode: boo
           </section>
         </div>
       </main>
-
-      <BrokerBottomNav />
-    </>
   );
 }

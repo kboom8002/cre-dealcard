@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
@@ -39,11 +40,15 @@ export async function GET(request: NextRequest) {
     const { district, areaSignals, pnu, districtCode } = regionInfo;
 
     // ── 인증 ─────────────────────────────────────────────────────────────────
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const guard = await requireBroker(request);
+    if (guard.error) return guard.error;
+    const user = guard.user;
+    if (!user?.id) {
       return NextResponse.json({ error: "인증되지 않은 사용자입니다." }, { status: 401 });
     }
+
+    const quotaErr = await enforceBrokerAiQuota(request, user.id, "morning_intelligence");
+    if (quotaErr) return quotaErr;
     const serviceClient = createServiceClient();
 
     // ── 날짜 범위 (복합 심리 지수 거래량 계산용) ──────────────────────────────

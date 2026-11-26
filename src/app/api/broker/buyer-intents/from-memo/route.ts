@@ -2,42 +2,47 @@
  * POST /api/broker/buyer-intents/from-memo
  *
  * Normalize buyer memo into structured Buyer Intent Lite.
- * Auth: Optional (demo mode falls back to null userId).
+ * Auth: Required (broker or admin).
  *
  * Source: docs/08-api-contracts.md section 9
  */
 import { z } from "zod/v4";
 import { createBuyerIntentFromMemo } from "@/domain/buyer/buyer-intent";
 import { toApiError } from "@/lib/api-error";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireBroker } from '@/lib/auth-guard';
-import { after } from "next/server";
+import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
 
 const BuyerIntentFromMemoRequest = z.object({
-  memo: z.string().min(5),
+  memo: z.string().trim().min(5).max(4000),
   isAsync: z.boolean().optional(),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  if (!guard.user?.id) {
+    return NextResponse.json(
+      { ok: false, error: { code: "UNAUTHORIZED", message: "인증이 필요합니다." } },
+      { status: 401 },
+    );
+  }
+  const actorId = guard.user.id;
+
   try {
     const json = await req.json();
     const input = BuyerIntentFromMemoRequest.parse(json);
 
-    // Try to get authenticated user — fall back to null for demo usage
-    let actorId: string | null = null;
-    try {
-      const supabase = await createServerSupabaseClient();
-      const { data: userAuth } = await supabase.auth.getUser();
-      actorId = userAuth?.user?.id ?? null;
-    } catch {
-      // createClient may fail if cookies unavailable — keep null
-    }
+    const quotaErr = await enforceBrokerAiQuota(req, actorId, "buyer_intent_from_memo", {
+      perMinute: 15,
+    });
+    if (quotaErr) return quotaErr;
 
-    if (input.isAsync && actorId) {
+    if (input.isAsync) {
       const jobId = crypto.randomUUID();
       const { createServiceClient } = await import("@/lib/supabase/service");
       const supabaseAdmin = createServiceClient();
@@ -63,7 +68,7 @@ export async function POST(req: Request) {
           }).eq("id", jobId);
 
           const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
-          await runAutoMatchForBuyer(result.buyerIntentId, actorId ?? "system");
+          await runAutoMatchForBuyer(result.buyerIntentId, actorId);
         } catch (err: any) {
           log.error("Async buyer intent creation failed:", err);
           await supabaseAdmin.from("ai_runs").update({
@@ -85,7 +90,7 @@ export async function POST(req: Request) {
     after(async () => {
       try {
         const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
-        await runAutoMatchForBuyer(result.buyerIntentId, actorId ?? "system");
+        await runAutoMatchForBuyer(result.buyerIntentId, actorId);
       } catch (err) {
         log.error("Background auto-match for buyer failed:", err);
       }

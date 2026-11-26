@@ -7,6 +7,7 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'gpt-4o-mini': { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },
   // OpenAI GPT-5.6 계열
   'gpt-5.6-terra': { input: 3.0 / 1_000_000, output: 12.0 / 1_000_000 },
+  'gpt-6.1-terra': { input: 3.0 / 1_000_000, output: 12.0 / 1_000_000 },
   'gpt-5.6-sol': { input: 5.0 / 1_000_000, output: 20.0 / 1_000_000 },
   'gpt-5.6-luna': { input: 1.0 / 1_000_000, output: 4.0 / 1_000_000 },
   // Google Gemini 계열

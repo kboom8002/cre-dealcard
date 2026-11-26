@@ -25,15 +25,17 @@ export function buildA08DualTable(input: ArchetypeInput): ArchetypeOutput {
   
   const t1 = input.data.table1 || {};
   if (t1.sub) L.sub(slide, M, 1.60, 7.30, t1.sub);
+  const effectiveRowH = 0.49; // rh=0.46 + [3.5,6,3.5,6] padding 확장 반영
   let table1End = 1.90;
   if (t1.rows && t1.rows.length > 0) {
     const colCount = t1.rows[0].length || 1;
     const colW = colCount === 2 ? [2.30, 5.00] : Array(colCount).fill(7.30 / colCount);
     const headRow = t1.rows[0].map((c: any) => String(c?.text ?? c ?? ''));
     let bodyRows = t1.rows.slice(1);
-    const maxT1Rows = Math.floor((6.8 - 1.90) / 0.46) - 1;
+    const maxT1Rows = Math.floor((6.8 - 1.90) / effectiveRowH) - 1;
     if (bodyRows.length > maxT1Rows) bodyRows = bodyRows.slice(0, Math.max(0, maxT1Rows));
-    table1End = L.table(slide, M, 1.90, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13 });
+    table1End = L.table(slide, M, 1.90, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13, autoPage: false });
+    table1End = Math.max(table1End, 1.90 + (bodyRows.length + 1) * effectiveRowH);
   }
   
   const t2 = input.data.table2 || {};
@@ -44,10 +46,10 @@ export function buildA08DualTable(input: ArchetypeInput): ArchetypeOutput {
     const headRow = t2.rows[0].map((c: any) => String(c?.text ?? c ?? ''));
     let bodyRows = t2.rows.slice(1);
     const t2StartY = table1End + 0.15 + 0.35;
-    const maxT2Rows = Math.floor((6.8 - t2StartY) / 0.46) - 1;
+    const maxT2Rows = Math.floor((6.8 - t2StartY) / effectiveRowH) - 1;
     if (bodyRows.length > maxT2Rows) bodyRows = bodyRows.slice(0, Math.max(0, maxT2Rows));
     if (bodyRows.length > 0 || maxT2Rows >= 0) {
-      L.table(slide, M, t2StartY, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13 });
+      L.table(slide, M, t2StartY, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13, autoPage: false });
     }
   }
   

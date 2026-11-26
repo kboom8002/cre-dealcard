@@ -7,7 +7,7 @@
  *   2. 중개사무소 소재지 (office_address / officeAddress)
  *   3. 연락처(전화번호) (phone)
  *   4. 중개사무소 등록번호 (office_reg_number / registrationNo)
- *   5. 개업공인중개사(대표자) 성명 (representative_name || display_name)
+ *   5. 개업공인중개사(대표자) 성명 (representative_name)
  */
 
 export const SAMPLE_REGISTRATION_NUMBERS = [
@@ -220,8 +220,6 @@ export function computeBrokerStatutoryCompleteness(
     'name',
     input.representative_name,
     input.representativeName,
-    input.display_name,
-    input.displayName,
   );
 
   const items: StatutoryCompletenessItem[] = [
@@ -343,8 +341,6 @@ export function extractSanitizedStatutoryItems(
     'name',
     input.representative_name,
     input.representativeName,
-    input.display_name,
-    input.displayName,
   );
   const officeRegNumber = pickSanitized(
     'regNo',

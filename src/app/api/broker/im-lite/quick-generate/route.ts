@@ -69,7 +69,7 @@ import { indexIMSections } from '@/domain/building/mobile-im/im-embedding-indexe
 import { polishImCopyWithLexiconSync } from '@/domain/building/mobile-im/workspace-ai-enhancer';
 import { padNumber, splitMultiParcelAddress } from '@/lib/external/address-resolver';
 import { assertPublishable } from '@/lib/legal/publish-gate';
-import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
+import { enforceBrokerAiQuota, enforceFeatureQuota } from '@/lib/ai-quota-guard';
 
 // In-memory idempotency cache for quick-generate calls (scoped per user, bounded to prevent OOM)
 export const maxDuration = 120;
@@ -765,6 +765,11 @@ export async function POST(req: NextRequest) {
   const buildingId = resolvedExistingBuildingId || crypto.randomUUID();
   const documentId = crypto.randomUUID();
 
+  if (!resolvedExistingBuildingId) {
+    const featureQuotaErr = await enforceFeatureQuota(userId, 'im_generation');
+    if (featureQuotaErr) return featureQuotaErr;
+  }
+
   if (resolvedExistingBuildingId && shouldPersistDb && !preResolvedDealCardWs) {
     try {
       if (!preLookupSupabase) {
@@ -1214,7 +1219,6 @@ export async function POST(req: NextRequest) {
       cleanBrokerVal(body.brokerOffice?.representative_name) ||
       cleanBrokerVal(dbBrokerProfile?.representativeName) ||
       cleanBrokerVal(body.brokerOffice?.representative) ||
-      resolvedDisplayNameVal ||
       '',
     registrationNo:
       cleanBrokerVal(body.brokerRegNo) ||
@@ -2367,6 +2371,61 @@ export async function POST(req: NextRequest) {
         }
       : undefined;
 
+  const normalizedExpectedRentRoll = (() => {
+    const expSrc =
+      Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
+        ? rawExpectedRentRoll
+        : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
+          ? rawExpectedRentRollSnake
+          : [];
+    if (expSrc.length === 0) return [];
+    return expSrc.map((er: any, idx: number) => {
+      if (!er || typeof er !== 'object') return er;
+      const fl = String(er.floor ?? '').trim();
+      const un = String(er.unit ?? er.unit_label ?? '').trim();
+      const baseMatch =
+        safeRentRollWithAreas.find(
+          (br: any) =>
+            String(br.floor ?? '').trim() === fl &&
+            (!un || String(br.unit ?? br.unit_label ?? '').trim() === un),
+        ) ||
+        safeRentRollWithAreas.find((br: any) => String(br.floor ?? '').trim() === fl) ||
+        (expSrc.length === safeRentRollWithAreas.length ? safeRentRollWithAreas[idx] : undefined);
+      const explicitErSqm = Number(er.areaSqm ?? er.area_sqm ?? er.area_m2 ?? 0);
+      const areaSqm =
+        explicitErSqm > 0
+          ? explicitErSqm
+          : Number(baseMatch?.areaSqm ?? baseMatch?.area_sqm ?? 0) || undefined;
+      const exclSqm =
+        Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm ?? 0) > 0
+          ? Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm)
+          : Number(baseMatch?.exclusiveAreaSqm ?? baseMatch?.exclusive_area_sqm ?? 0) || undefined;
+      const areaPy =
+        explicitErSqm > 0
+          ? Math.round(m2ToPyeong(explicitErSqm) * 10) / 10
+          : Number(er.areaPyeong ?? er.area_pyeong ?? 0) > 0
+          ? Number(er.areaPyeong ?? er.area_pyeong)
+          : areaSqm && areaSqm > 0
+          ? Math.round(m2ToPyeong(areaSqm) * 10) / 10
+          : Number(baseMatch?.areaPyeong ?? baseMatch?.area_pyeong ?? 0) || undefined;
+      const depM = Number(er.depositManwon ?? er.deposit_manwon ?? 0) || 0;
+      const rentM = Number(er.monthlyRentManwon ?? er.rent_manwon ?? er.monthlyRent ?? 0) || 0;
+      const normalizedStatus =
+        er.status === 'vacant' && (depM > 0 || rentM > 0) ? 'occupied' : er.status;
+      const erContractGroup = String(er.contract_group ?? er.contractGroup ?? '').trim() || undefined;
+      const erIsProxy = Boolean(er.area_sqm_is_proxy ?? er.areaSqmIsProxy);
+      return {
+        ...er,
+        ...(normalizedStatus ? { status: normalizedStatus } : {}),
+        ...(areaSqm ? { area_m2: areaSqm, area_sqm: areaSqm, areaSqm } : {}),
+        ...(exclSqm ? { exclusive_area_sqm: exclSqm, exclusiveAreaSqm: exclSqm } : {}),
+        ...(areaPy ? { area_pyeong: areaPy, areaPyeong: areaPy } : {}),
+        ...(erIsProxy ? { area_sqm_is_proxy: true, areaSqmIsProxy: true } : {}),
+        ...(erContractGroup ? { contract_group: erContractGroup, contractGroup: erContractGroup } : {}),
+      };
+    });
+  })();
+
   const fullDocBody = {
     schemaVersion: '3.0',
     tier: 'basic',
@@ -2388,60 +2447,9 @@ export async function POST(req: NextRequest) {
     ...(resolvedExpectedRentRollMeta
       ? { expected_rent_roll_meta: resolvedExpectedRentRollMeta }
       : {}),
-    ...(() => {
-      const expSrc = Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
-        ? rawExpectedRentRoll
-        : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
-          ? rawExpectedRentRollSnake
-          : [];
-      if (expSrc.length === 0) return {};
-      const normalizedExp = expSrc.map((er: any, idx: number) => {
-        if (!er || typeof er !== 'object') return er;
-        const fl = String(er.floor ?? '').trim();
-        const un = String(er.unit ?? er.unit_label ?? '').trim();
-        const baseMatch =
-          safeRentRollWithAreas.find(
-            (br: any) =>
-              String(br.floor ?? '').trim() === fl &&
-              (!un || String(br.unit ?? br.unit_label ?? '').trim() === un),
-          ) ||
-          safeRentRollWithAreas.find((br: any) => String(br.floor ?? '').trim() === fl) ||
-          (expSrc.length === safeRentRollWithAreas.length ? safeRentRollWithAreas[idx] : undefined);
-        const explicitErSqm = Number(er.areaSqm ?? er.area_sqm ?? er.area_m2 ?? 0);
-        const areaSqm =
-          explicitErSqm > 0
-            ? explicitErSqm
-            : Number(baseMatch?.areaSqm ?? baseMatch?.area_sqm ?? 0) || undefined;
-        const exclSqm =
-          Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm ?? 0) > 0
-            ? Number(er.exclusiveAreaSqm ?? er.exclusive_area_sqm)
-            : Number(baseMatch?.exclusiveAreaSqm ?? baseMatch?.exclusive_area_sqm ?? 0) || undefined;
-        const areaPy =
-          explicitErSqm > 0
-            ? Math.round(m2ToPyeong(explicitErSqm) * 10) / 10
-            : Number(er.areaPyeong ?? er.area_pyeong ?? 0) > 0
-            ? Number(er.areaPyeong ?? er.area_pyeong)
-            : areaSqm && areaSqm > 0
-            ? Math.round(m2ToPyeong(areaSqm) * 10) / 10
-            : Number(baseMatch?.areaPyeong ?? baseMatch?.area_pyeong ?? 0) || undefined;
-        const depM = Number(er.depositManwon ?? er.deposit_manwon ?? 0) || 0;
-        const rentM = Number(er.monthlyRentManwon ?? er.rent_manwon ?? er.monthlyRent ?? 0) || 0;
-        const normalizedStatus =
-          er.status === 'vacant' && (depM > 0 || rentM > 0) ? 'occupied' : er.status;
-        const erContractGroup = String(er.contract_group ?? er.contractGroup ?? '').trim() || undefined;
-        const erIsProxy = Boolean(er.area_sqm_is_proxy ?? er.areaSqmIsProxy);
-        return {
-          ...er,
-          ...(normalizedStatus ? { status: normalizedStatus } : {}),
-          ...(areaSqm ? { area_m2: areaSqm, area_sqm: areaSqm, areaSqm } : {}),
-          ...(exclSqm ? { exclusive_area_sqm: exclSqm, exclusiveAreaSqm: exclSqm } : {}),
-          ...(areaPy ? { area_pyeong: areaPy, areaPyeong: areaPy } : {}),
-          ...(erIsProxy ? { area_sqm_is_proxy: true, areaSqmIsProxy: true } : {}),
-          ...(erContractGroup ? { contract_group: erContractGroup, contractGroup: erContractGroup } : {}),
-        };
-      });
-      return { expected_rent_roll: normalizedExp };
-    })(),
+    ...(normalizedExpectedRentRoll.length > 0
+      ? { expected_rent_roll: normalizedExpectedRentRoll }
+      : {}),
     ssot_summary: ssotSummary,
     ...(mergedEnrichment ? { enrichment: mergedEnrichment } : {}),
     ...(normalizedAxiosHighlights ? { axios_highlights: normalizedAxiosHighlights } : {}),
@@ -3034,11 +3042,9 @@ export async function POST(req: NextRequest) {
           ...(resolvedExpectedRentRollMeta
             ? { expected_rent_roll_meta: resolvedExpectedRentRollMeta }
             : {}),
-          ...(Array.isArray(rawExpectedRentRoll) && rawExpectedRentRoll.length > 0
-            ? { expectedRentRoll: rawExpectedRentRoll }
-            : Array.isArray(rawExpectedRentRollSnake) && rawExpectedRentRollSnake.length > 0
-              ? { expectedRentRoll: rawExpectedRentRollSnake }
-              : {}),
+          ...(normalizedExpectedRentRoll.length > 0
+            ? { expectedRentRoll: normalizedExpectedRentRoll }
+            : {}),
           ...(parsedExtras ? { broker_extras: parsedExtras } : {}),
           ...(resolvedBrokerExtrasForm ? { brokerExtrasForm: resolvedBrokerExtrasForm } : {}),
           sections: pptxSections,

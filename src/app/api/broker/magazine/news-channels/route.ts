@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBrokerContext, jsonError } from "@/lib/magazine/authz";
+import { checkRateLimit } from "@/lib/rate-limiter";
 import { decodeEntities, safeHttpUrl } from "@/lib/magazine/escape";
 import { cleanNewsText, computeNewsImportance, detectRegions } from "@/domain/external/naver-search";
 import { parseRSSItems } from "@/domain/external/market-crawlers";
@@ -286,6 +287,12 @@ export async function GET(req: NextRequest) {
     const channelParam = (searchParams.get("channel") ?? "all") as NewsChannelId;
     const query = (searchParams.get("q") ?? "").trim();
     const live = searchParams.get("live") === "1" || query.length > 0;
+    if (live) {
+      const allowed = await checkRateLimit(ctx.userId, "magazine_news_live_refresh", 10, 60_000);
+      if (!allowed) {
+        return jsonError("RATE_LIMITED", "뉴스 새로고침 요청이 너무 많습니다. 1분 후 다시 시도해 주세요.", 429);
+      }
+    }
     const regionsParam = (searchParams.get("regions") ?? "")
       .split(",")
       .map((r) => r.trim())
@@ -401,6 +408,10 @@ export async function POST(req: NextRequest) {
     const action = typeof body.action === "string" ? body.action : "custom";
 
     if (action === "refresh") {
+      const allowed = await checkRateLimit(ctx.userId, "magazine_news_live_refresh", 10, 60_000);
+      if (!allowed) {
+        return jsonError("RATE_LIMITED", "뉴스 새로고침 요청이 너무 많습니다. 1분 후 다시 시도해 주세요.", 429);
+      }
       const channel = (typeof body.channel === "string" ? body.channel : "all") as NewsChannelId;
       const query = typeof body.query === "string" ? body.query.trim() : "";
       const rawTone =
@@ -456,37 +467,6 @@ export async function POST(req: NextRequest) {
       topic,
       channel,
     };
-
-    if (rawUrl) {
-      try {
-        const supabase = createServiceClient();
-        const { data } = await supabase
-          .from("external_news")
-          .upsert(
-            [
-              {
-                url: rawUrl,
-                title: item.title,
-                source: item.source,
-                summary: item.summary,
-                content: item.summary,
-                sentiment: item.sentiment,
-                importance_score: item.importance_score,
-                regions: detectRegions(`${item.title} ${item.summary}`),
-                topic: item.topic,
-              },
-            ],
-            { onConflict: "url" },
-          )
-          .select("id")
-          .maybeSingle();
-        if (data?.id) {
-          item.id = String(data.id);
-        }
-      } catch {
-        // DB 적재 실패 시에도 에디터 세션에서 즉시 사용 가능하도록 반환
-      }
-    }
 
     return NextResponse.json({ ok: true, item });
   } catch (err) {

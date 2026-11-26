@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole, requireBroker } from "@/lib/auth-guard";
+import { verifyCronRequest } from "@/lib/security/cron-auth";
 import {
   generateOiticle,
   generateMonthlyMarketOiticles,
@@ -31,11 +32,8 @@ export async function POST(req: NextRequest) {
   try {
     // 월간 일괄 생성 (CRON)
     if (mode === "monthly_batch") {
-      const cronSecret = process.env.CRON_SECRET;
-      const authHeader = req.headers.get("authorization");
-      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+      const cronErr = verifyCronRequest(req);
+      if (cronErr) return cronErr;
 
       const results = await generateMonthlyMarketOiticles(supabase);
       return NextResponse.json({

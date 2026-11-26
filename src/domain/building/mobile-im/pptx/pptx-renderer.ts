@@ -583,9 +583,9 @@ export class MobileImPptxRenderer {
             const park = resolvedSpecs.parkingCount;
             const elev = resolvedSpecs.elevatorCount;
             if (!park && !elev) return ['주차 / 승강기', '-'] as [string, string]; // 둘 다 부재 → 행 제거 ('-대 / -대' 방지, Rule 37)
-            if (park && elev) return ['주차 / 승강기', `${park}대 / 승용 ${elev}대`] as [string, string];
+            if (park && elev) return ['주차 / 승강기', `${park}대 / ${elev}대`] as [string, string];
             if (park) return ['주차', `총 ${park}대`] as [string, string];
-            return ['승강기', `승용 ${elev}대`] as [string, string];
+            return ['승강기', `${elev}대`] as [string, string];
           })(),
           ...specTailRows, // 주용도 / 주구조 (알 수 없으면 행 생략)
         ].filter(([, v]) => !isMissingSpecValue(v)) as [string, string][]; // 값이 없는 행 제거 ('-' / '확인 필요' 행은 출력하지 않음)

@@ -8,7 +8,7 @@ import {
 import { toast } from 'sonner';
 import { PhoneActionButton } from '@/components/common/PhoneActionButton';
 import {
-  ConsentCheckboxes, EMPTY_CONSENT, PRIVACY_POLICY_HREF, allConsented, toConsentPayload, type ConsentState,
+  ConsentCheckboxes, EMPTY_CONSENT, PRIVACY_POLICY_HREF, TERMS_OF_SERVICE_HREF, allConsented, toConsentPayload, type ConsentState,
 } from '@/components/magazine/ConsentCheckboxes';
 import { TrackingNotice } from '@/components/magazine/TrackingNotice';
 import { postSubscribe } from '@/components/magazine/subscribe-api';
@@ -43,6 +43,8 @@ type FormResult = {
   message?: string;
   notice?: string;
   pendingReason?: 'NO_EMAIL_CONFIRM_CHANNEL';
+  confirmSent?: boolean;
+  confirmBlockReason?: string;
   submittedEmail?: string;
   submittedPhone?: string;
 };
@@ -130,6 +132,8 @@ export function SubscribeFormClient({
       message: outcome.message,
       notice: outcome.notice,
       pendingReason: outcome.pendingReason,
+      confirmSent: outcome.confirmSent,
+      confirmBlockReason: outcome.confirmBlockReason,
       submittedEmail: submittedEmailTrim,
       submittedPhone: submittedPhoneRaw,
     });
@@ -176,15 +180,22 @@ export function SubscribeFormClient({
       message: outcome.message,
       notice: outcome.notice,
       pendingReason: outcome.pendingReason,
+      confirmSent: outcome.confirmSent,
+      confirmBlockReason: outcome.confirmBlockReason,
       submittedEmail: trimmedEmail,
       submittedPhone: isPlausiblePhoneDigits(phone) ? phone.trim() : undefined,
     });
-    toast.success('확인용 이메일이 등록되었습니다. 이메일함을 확인해 주세요.');
+    toast.success(
+      outcome.confirmSent === false
+        ? '구독 신청이 접수되었습니다. (현재 발송 테스트/점검 모드로 확인 메일은 보류되었습니다)'
+        : '확인용 이메일이 등록되었습니다. 이메일함을 확인해 주세요.',
+    );
   }
 
   if (result) {
     const pending = result.status === 'pending';
     const isNoEmailConfirm = result.pendingReason === 'NO_EMAIL_CONFIRM_CHANNEL';
+    const showConfirmNotSentNotice = !isNoEmailConfirm && result.confirmSent === false;
     const targetAddr = [result.submittedEmail, result.submittedPhone]
       .filter(Boolean)
       .join(' · ');
@@ -215,6 +226,15 @@ export function SubscribeFormClient({
           {/* 서버가 내려준 안내는 가공 없이 그대로 표시 (B2 계약: message / pendingReason) */}
           {result.message && <p className="text-label text-slate-700 leading-relaxed break-keep">{result.message}</p>}
           {result.notice && <p className="text-label font-bold text-amber-800 leading-relaxed break-keep">{result.notice}</p>}
+          {showConfirmNotSentNotice && (
+            <div
+              data-testid="subscribe-confirm-not-sent-banner"
+              role="alert"
+              className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-left text-label font-bold text-amber-950 leading-relaxed break-keep"
+            >
+              구독 신청은 접수되었으나 현재 발송 테스트/점검 모드로 확인 메일이 발송되지 않았습니다.
+            </div>
+          )}
           <div className="pt-1">
             <button
               type="button"
@@ -419,6 +439,15 @@ export function SubscribeFormClient({
           className="underline text-indigo-700 hover:text-indigo-900 font-semibold"
         >
           개인정보 처리방침 보기 (새 창)
+        </a>
+        {' · '}
+        <a
+          href={TERMS_OF_SERVICE_HREF}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-indigo-700 hover:text-indigo-900 font-semibold"
+        >
+          이용약관 보기 (새 창)
         </a>
         에서 확인하실 수 있습니다.
       </p>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import { z } from "zod/v4";
@@ -176,6 +177,12 @@ export async function POST(req: NextRequest) {
     }
 
     const trimmedText = text.trim();
+    if (trimmedText.length > 30000) {
+      return NextResponse.json(
+        { error: "렌트롤 텍스트는 30,000자 이내로 입력해 주세요." },
+        { status: 400 }
+      );
+    }
 
     if (isStructuredTableInput(trimmedText)) {
       const tsvParsed = parseTsvRentRoll(trimmedText);
@@ -196,6 +203,9 @@ export async function POST(req: NextRequest) {
         })
       );
     }
+
+    const quotaErr = await enforceBrokerAiQuota(req, guard.user?.id ?? "", "rent_roll_parse_text");
+    if (quotaErr) return quotaErr;
 
     const result = await callLLM({
       systemPrompt: SYSTEM_PROMPT,

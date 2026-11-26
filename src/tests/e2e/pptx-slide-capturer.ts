@@ -41,7 +41,7 @@ export async function convertPptxToSlideImages(
   const normalizedOutputDir = outputDir.replace(/\\/g, '/');
 
   const pythonScript = `
-import subprocess, os, sys, fitz
+import subprocess, os, sys, fitz, tempfile, shutil
 
 pptx_path = os.path.normpath("${normalizedPptxPath}")
 output_dir = os.path.normpath("${normalizedOutputDir}")
@@ -63,9 +63,23 @@ if os.path.exists(old_pdf):
     except:
         pass
 
-# 2. Convert PPTX to PDF via LibreOffice
-cmd = [soffice_path, "--headless", "--convert-to", "pdf", pptx_path, "--outdir", output_dir]
-res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+# 2. Convert PPTX to PDF via LibreOffice using isolated profile
+lo_profile_dir = tempfile.mkdtemp(prefix="cre_lo_profile_")
+try:
+    lo_profile_uri = f"file:///{lo_profile_dir.replace(os.sep, '/').lstrip('/')}"
+    cmd = [
+        soffice_path,
+        "--headless",
+        f"-env:UserInstallation={lo_profile_uri}",
+        "--convert-to",
+        "pdf",
+        pptx_path,
+        "--outdir",
+        output_dir,
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+finally:
+    shutil.rmtree(lo_profile_dir, ignore_errors=True)
 if res.returncode != 0:
     print(f"ERROR: LibreOffice conversion failed: {res.stderr or res.stdout}", file=sys.stderr)
     sys.exit(1)

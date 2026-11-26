@@ -6,7 +6,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/magazine/user-message";
 import { isUuid } from "@/lib/magazine/slug";
 import { toKstDate } from "@/lib/magazine/kst";
 import { VISITOR_HASH_LIKE } from "@/lib/magazine/visitor-hash";
-import { isMagazineTrackingEnabled } from '@/lib/magazine/send-flags';
+import { isMagazineSendDryRun, isMagazineSendEnabled, isMagazineTrackingEnabled } from '@/lib/magazine/send-flags';
 import { isMissingColumnError } from "@/lib/magazine/subscriber-view";
 import { computeTemperatures, loadSubscriberEvents, TEMPERATURE_LOOKBACK_DAYS } from "@/lib/magazine/subscriber-temperature";
 import { computeBuyerTemperature, emptyTemperatureDistribution, type TemperatureEvent } from "@/domain/magazine/buyer-temperature";
@@ -203,9 +203,26 @@ export async function GET(req: NextRequest) {
     );
 
     const distList = Array.isArray(distEvents) ? distEvents : [];
-    const recentDistributions = distList.map((ev) => {
+    let recentDistributions: Array<{
+      createdAt: string | null;
+      date: string | null;
+      issueDate: string | null;
+      sentCount: number;
+      failedCount: number;
+      recordedCount: number;
+      queuedCount: number;
+      scheduledCount: number;
+      scheduledForIso: string | null;
+      totalCount: number;
+      dryRun: boolean;
+      asyncQueued?: boolean;
+    }> = distList.map((ev) => {
       const meta = (ev?.metadata ?? {}) as Record<string, unknown>;
       const createdAt = ev?.created_at ? String(ev.created_at) : null;
+      const scheduledForIso =
+        typeof meta.scheduled_for_iso === "string" && meta.scheduled_for_iso
+          ? meta.scheduled_for_iso
+          : null;
       return {
         createdAt,
         date: createdAt
@@ -215,12 +232,22 @@ export async function GET(req: NextRequest) {
         sentCount: (meta.sent_count as number | undefined) ?? 0,
         failedCount: (meta.failed_count as number | undefined) ?? 0,
         recordedCount: (meta.recorded_count as number | undefined) ?? 0,
+        queuedCount:
+          meta.async_queued === true && !scheduledForIso
+            ? ((meta.queued_count as number | undefined) ?? 0)
+            : 0,
+        scheduledCount:
+          meta.async_queued === true && scheduledForIso
+            ? ((meta.queued_count as number | undefined) ?? 0)
+            : 0,
+        scheduledForIso,
         totalCount:
           (meta.total_count as number | undefined) ??
           (meta.subscriber_count as number | undefined) ??
           (meta.total as number | undefined) ??
           0,
         dryRun: meta.dry_run === true,
+        ...(meta.async_queued === true ? { asyncQueued: true } : {}),
       };
     });
 
@@ -425,7 +452,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 9. 수신자별 발송·수신확인(열람) 내역 (best-effort; 모의/미마이그레이션 환경에서도 안전 폴백)
-    type DeliveryReceiptStatus = "opened" | "sent" | "queued" | "failed";
+    type DeliveryReceiptStatus = "opened" | "sent" | "queued" | "scheduled" | "failed";
     type DeliveryReceipt = {
       id: string;
       recipientLabel: string;
@@ -433,6 +460,8 @@ export async function GET(req: NextRequest) {
       channel?: string | null;
       sentAt: string | null;
       openedAt: string | null;
+      scheduledFor?: string | null;
+      editionId?: string | null;
       status: DeliveryReceiptStatus;
     };
     let deliveryReceipts: DeliveryReceipt[] = [];
@@ -446,6 +475,7 @@ export async function GET(req: NextRequest) {
         }
       }
       const edMap = new Map<string, string>();
+      const edDateMap = new Map<string, string>();
       for (const ed of scopeEditions) {
         if (ed && typeof ed.id === "string") {
           const label =
@@ -453,25 +483,50 @@ export async function GET(req: NextRequest) {
             (typeof ed.edition_label === "string" && ed.edition_label.trim()) ||
             "뉴스레터";
           edMap.set(ed.id, label);
+          const rawEdDate =
+            (typeof ed.published_at === "string" && ed.published_at) ||
+            (typeof ed.created_at === "string" && ed.created_at) ||
+            null;
+          if (rawEdDate) {
+            edDateMap.set(ed.id, toKstDate(new Date(rawEdDate)));
+          }
         }
       }
 
-      const [dispRes, viewActRes] = await Promise.all([
+      const DISPATCH_COLS_EXT =
+        "id, edition_id, subscriber_id, channel, status, created_at, blocked_reason, next_attempt_at";
+      const DISPATCH_COLS_BASE =
+        "id, edition_id, subscriber_id, channel, status, created_at";
+
+      const runDispQuery = async (cols: string) =>
         supabase
           .from("magazine_dispatch_logs")
-          .select("id, edition_id, subscriber_id, channel, status, created_at")
+          .select(cols)
           .in("broker_id", brokerIds)
           .neq("status", "dry_run")
           .order("created_at", { ascending: false })
-          .limit(50),
-        supabase
-          .from("activity_events")
-          .select("created_at, metadata")
-          .eq("actor_id", ctx.userId)
-          .eq("event_type", "magazine_view")
-          .order("created_at", { ascending: false })
-          .limit(100),
-      ]);
+          .limit(500);
+
+      let dispRes: {
+        data: unknown;
+        error: { code?: string; message?: string } | null;
+      } = await runDispQuery(DISPATCH_COLS_EXT);
+      if (
+        dispRes?.error &&
+        (dispRes.error.code === "42703" ||
+          dispRes.error.code === "PGRST204" ||
+          isMissingColumnError(dispRes.error))
+      ) {
+        dispRes = await runDispQuery(DISPATCH_COLS_BASE);
+      }
+
+      const viewActRes = await supabase
+        .from("activity_events")
+        .select("created_at, metadata")
+        .eq("actor_id", ctx.userId)
+        .eq("event_type", "magazine_view")
+        .order("created_at", { ascending: false })
+        .limit(100);
 
       const openBySubAndEd = new Map<string, string>();
       const sidViews: Array<{ subscriberId: string; editionId: string | null; issueDate: string | null; openedAt: string }> = [];
@@ -500,13 +555,16 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const dispQueryOk = !dispRes?.error;
       const rawDispRows =
-        !dispRes?.error && Array.isArray(dispRes?.data)
+        dispQueryOk && Array.isArray(dispRes?.data)
           ? (dispRes.data as Array<Record<string, unknown>>)
           : [];
-      const dispRows = rawDispRows.filter(
-        (row) => String(row?.status ?? "").trim().toLowerCase() !== "dry_run",
-      );
+      const dispRows = rawDispRows.filter((row) => {
+        const st = String(row?.status ?? "").trim().toLowerCase();
+        const br = String(row?.blocked_reason ?? "").trim().toUpperCase();
+        return st !== "dry_run" && br !== "CANCELLED";
+      });
 
       // 해지·일시정지된 과거 수신자도 이름·연락처가 보존되도록 status 필터 없이 보충 조회
       const targetSubIds =
@@ -537,6 +595,65 @@ export async function GET(req: NextRequest) {
       const FAILED_STATUSES = new Set(["failed", "blocked", "bounced"]);
       const SENT_STATUSES = new Set(["sent", "delivered", "succeeded", "ok"]);
 
+      const classifyDispRow = (row: Record<string, unknown>) => {
+        const rawStatus = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+        const blockedReason =
+          typeof row.blocked_reason === "string" ? row.blocked_reason.trim().toUpperCase() : "";
+        const nextAttemptAt =
+          typeof row.next_attempt_at === "string" && row.next_attempt_at
+            ? row.next_attempt_at
+            : null;
+        const isScheduled =
+          rawStatus === "retryable" && (blockedReason === "SCHEDULED_0830" || Boolean(nextAttemptAt));
+        return { rawStatus, nextAttemptAt, isScheduled };
+      };
+
+      if (dispQueryOk && recentDistributions.length > 0) {
+        recentDistributions = recentDistributions.map((dist) => {
+          if (!dist.asyncQueued || dist.sentCount > 0) return dist;
+          const matching = dispRows.filter((row) => {
+            const edId = typeof row.edition_id === "string" ? row.edition_id : "";
+            const rowEdDate = edId ? edDateMap.get(edId) : undefined;
+            if (dist.issueDate && rowEdDate) {
+              return rowEdDate === dist.issueDate;
+            }
+            if (dist.scheduledForIso && typeof row.next_attempt_at === "string") {
+              return row.next_attempt_at === dist.scheduledForIso;
+            }
+            if (dist.issueDate && typeof row.created_at === "string" && row.created_at) {
+              return toKstDate(new Date(row.created_at)) === dist.issueDate;
+            }
+            return true;
+          });
+          let sentAgg = 0;
+          let queuedAgg = 0;
+          let scheduledAgg = 0;
+          let failedAgg = 0;
+          let resolvedScheduledIso = dist.scheduledForIso;
+          for (const row of matching) {
+            const { rawStatus, nextAttemptAt, isScheduled } = classifyDispRow(row);
+            if (isScheduled) {
+              scheduledAgg += 1;
+              if (!resolvedScheduledIso && nextAttemptAt) resolvedScheduledIso = nextAttemptAt;
+            } else if (QUEUED_STATUSES.has(rawStatus)) {
+              queuedAgg += 1;
+            } else if (FAILED_STATUSES.has(rawStatus)) {
+              failedAgg += 1;
+            } else if (SENT_STATUSES.has(rawStatus)) {
+              sentAgg += 1;
+            }
+          }
+          return {
+            ...dist,
+            sentCount: sentAgg,
+            queuedCount: queuedAgg,
+            scheduledCount: scheduledAgg,
+            failedCount: failedAgg,
+            scheduledForIso: resolvedScheduledIso,
+          };
+        });
+      }
+
       if (dispRows.length > 0) {
         deliveryReceipts = dispRows.slice(0, 30).map((row, idx) => {
           const subId = typeof row.subscriber_id === "string" ? row.subscriber_id : "";
@@ -556,18 +673,20 @@ export async function GET(req: NextRequest) {
                 : null;
           const openedAt =
             subId && edId ? (openBySubAndEd.get(`${subId}:${edId}`) ?? null) : null;
-          const rawStatus = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
-          const status: DeliveryReceiptStatus = QUEUED_STATUSES.has(rawStatus)
-            ? "queued"
-            : FAILED_STATUSES.has(rawStatus)
-              ? "failed"
-              : SENT_STATUSES.has(rawStatus)
-                ? openedAt
-                  ? "opened"
-                  : "sent"
-                : openedAt
-                  ? "opened"
-                  : "sent";
+          const { rawStatus, nextAttemptAt, isScheduled } = classifyDispRow(row);
+          const status: DeliveryReceiptStatus = isScheduled
+            ? "scheduled"
+            : QUEUED_STATUSES.has(rawStatus)
+              ? "queued"
+              : FAILED_STATUSES.has(rawStatus)
+                ? "failed"
+                : SENT_STATUSES.has(rawStatus)
+                  ? openedAt
+                    ? "opened"
+                    : "sent"
+                  : openedAt
+                    ? "opened"
+                    : "sent";
           return {
             id: typeof row.id === "string" && row.id ? row.id : `disp-${idx}`,
             recipientLabel,
@@ -575,6 +694,8 @@ export async function GET(req: NextRequest) {
             channel: typeof row.channel === "string" ? row.channel : null,
             sentAt,
             openedAt,
+            scheduledFor: isScheduled ? nextAttemptAt : null,
+            editionId: edId || null,
             status,
           };
         });
@@ -596,6 +717,8 @@ export async function GET(req: NextRequest) {
             channel: null,
             sentAt: null,
             openedAt: v.openedAt,
+            scheduledFor: null,
+            editionId: v.editionId,
             status: "opened",
           };
         });
@@ -610,6 +733,11 @@ export async function GET(req: NextRequest) {
       lastDistribution,
       recentDistributions,
       deliveryReceipts,
+      sendRuntimeStatus: {
+        sendEnabled: isMagazineSendEnabled(),
+        dryRun: isMagazineSendDryRun(),
+        hasResendKey: Boolean(process.env.RESEND_API_KEY?.trim()),
+      },
       viewStats: {
         totalViews,
         uniqueVisitors,

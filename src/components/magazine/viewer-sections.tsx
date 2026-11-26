@@ -697,7 +697,7 @@ export function BrokerProfileSection({
   );
 }
 
-// ── 뉴스레터 하단 법정 표시의무 안내 (공인중개사법 제18조의2 — 접힘 기본으로 시각 부담 최소화, text-sm 준수) ──
+// ── 뉴스레터 하단 법정 표시의무 안내 (공인중개사법 제18조의2 — 상시 가시 노출, text-sm 준수) ──
 export function BrokerStatutoryFooter({
   company,
   officeAddress,
@@ -714,13 +714,17 @@ export function BrokerStatutoryFooter({
   phone?: string | null;
 }) {
   const trimmedDisplay = typeof displayName === "string" ? displayName.trim() : "";
+  const cleanDisplayName = sanitizeStatutoryField(
+    trimmedDisplay && trimmedDisplay !== "중개사" ? trimmedDisplay : undefined,
+    "name",
+  );
   const hasBrokerMeta = Boolean(
     (typeof company === "string" && company.trim()) ||
       (typeof officeAddress === "string" && officeAddress.trim()) ||
       (typeof officeRegNumber === "string" && officeRegNumber.trim()) ||
       (typeof representativeName === "string" && representativeName.trim()) ||
       (typeof phone === "string" && phone.trim()) ||
-      (trimmedDisplay && trimmedDisplay !== "중개사"),
+      cleanDisplayName,
   );
   if (!hasBrokerMeta) return null;
 
@@ -730,22 +734,19 @@ export function BrokerStatutoryFooter({
     officeAddress,
     officeRegNumber,
     representativeName,
-    displayName: displayName && displayName !== "중개사" ? displayName : undefined,
     phone: formattedPhone || phone,
   });
 
   return (
-    <details
+    <section
       data-testid="magazine-broker-statutory-disclosure"
-      className="rounded-xl border border-slate-200/80 bg-transparent px-3 py-2 text-sm text-slate-600"
+      aria-label="중개사무소 법정 표시사항"
+      className="rounded-xl border border-slate-200/80 bg-white/70 px-3.5 py-3 text-sm text-slate-600"
       style={{ wordBreak: "keep-all" }}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-slate-500 select-none">
-        <span>중개사무소 법정 표시사항</span>
-        <span aria-hidden="true" className="text-slate-400">▾</span>
-      </summary>
+      <p className="text-sm font-semibold text-slate-700">중개사무소 법정 표시사항</p>
       <div className="mt-2 border-t border-slate-200/70 pt-2">
-        {statutory.hasAny ? (
+        {statutory.hasAny || cleanDisplayName ? (
           <dl className="space-y-1 text-sm">
             {statutory.items.map((item) => (
               <div key={item.key} className="flex flex-wrap items-baseline gap-x-2">
@@ -753,6 +754,12 @@ export function BrokerStatutoryFooter({
                 <dd className="text-slate-800">{item.value}</dd>
               </div>
             ))}
+            {cleanDisplayName && cleanDisplayName !== statutory.representativeName && (
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <dt className="shrink-0 font-semibold text-slate-600">담당</dt>
+                <dd className="text-slate-800">{cleanDisplayName}</dd>
+              </div>
+            )}
           </dl>
         ) : (
           <p className="text-sm text-slate-600">
@@ -760,7 +767,7 @@ export function BrokerStatutoryFooter({
           </p>
         )}
       </div>
-    </details>
+    </section>
   );
 }
 

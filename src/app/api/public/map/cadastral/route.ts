@@ -5,8 +5,14 @@ import {
   getVWorldDomain,
   getVWorldReferer,
 } from '@/lib/external/vworld-config';
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { clientIp, isFirstPartyMapRequest } from '@/lib/security/public-map-guard';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
+
+const MAP_RATE_LIMIT_PER_MINUTE = 60;
 
 const PNU_RE = /^\d{19}$/;
 
@@ -94,12 +100,32 @@ async function resolveCentroidByPnu(
 
 export async function GET(request: NextRequest) {
   try {
+    if (!isFirstPartyMapRequest(request)) {
+      return NextResponse.json(
+        { ok: false, error: '지도 표시 권한이 없습니다.' },
+        { status: 403 },
+      );
+    }
+
+    const allowed = await checkRateLimit(
+      clientIp(request),
+      'public_map_cadastral',
+      MAP_RATE_LIMIT_PER_MINUTE,
+      60_000,
+    );
+    if (!allowed) {
+      return NextResponse.json(
+        { ok: false, error: '잠시 후 다시 시도해 주세요.' },
+        { status: 429 },
+      );
+    }
+
     const sp = request.nextUrl.searchParams;
     const rawPnu = (sp.get('pnu') || '').trim();
     if (!PNU_RE.test(rawPnu)) {
       return NextResponse.json(
         { ok: false, error: '유효하지 않은 PNU입니다 (19자리 숫자 필요).' },
-        { status: 404 },
+        { status: 400 },
       );
     }
 
@@ -110,11 +136,9 @@ export async function GET(request: NextRequest) {
             rawPnusParam
               .split(',')
               .map((s) => s.trim())
-              .filter((s) => PNU_RE.test(s)),
+              .filter((s) => PNU_RE.test(s) && s !== rawPnu),
           ),
-        )
-          .slice(0, 10)
-          .filter((s) => s !== rawPnu)
+        ).slice(0, 5)
       : [];
 
     const rawLat = sp.get('lat');
@@ -180,7 +204,7 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { ok: false, error: '지적도 요청 처리 중 오류가 발생했습니다.' },
-      { status: 404 },
+      { status: 500 },
     );
   }
 }

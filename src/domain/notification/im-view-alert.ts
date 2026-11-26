@@ -89,7 +89,7 @@ export async function checkAndSendIMViewAlert(
         '#{brokerName}': profile.display_name || '브로커',
         '#{buildingName}': safeBlindName,
         '#{dwellTime}': dwellLabel,
-        '#{viewUrl}': `https://www.credeal.net/broker/buildings`,
+        '#{viewUrl}': `https://www.credeal.net/broker/w/inbox`,
       },
       fallbackSms: smsMessage,
     });

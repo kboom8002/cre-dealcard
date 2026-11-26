@@ -19,15 +19,18 @@ function LoginFormContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [loggedOutNotice, setLoggedOutNotice] = useState(false);
+  const [windowRedirectTo, setWindowRedirectTo] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setWindowRedirectTo(params.get('redirectTo') || params.get('next') || '');
+  }, []);
 
   const redirectToParam =
     searchParams?.get('redirectTo') ||
     searchParams?.get('next') ||
-    (typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('redirectTo') ||
-        new URLSearchParams(window.location.search).get('next') ||
-        ''
-      : '');
+    windowRedirectTo;
 
   const callbackError = searchParams?.get('error');
   const resetSuccess = searchParams?.get('reset') === 'success';

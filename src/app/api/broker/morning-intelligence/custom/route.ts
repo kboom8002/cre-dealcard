@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
+
+const CustomIntelRequestSchema = z.object({
+  region: z.string().trim().max(40).optional().default("gbd"),
+  rawInputs: z
+    .array(z.string().max(4_000))
+    .min(1, "자료를 1건 이상 입력해주세요.")
+    .max(10, "최대 10건까지 입력 가능합니다."),
+});
 
 
 /**
@@ -19,27 +29,38 @@ const log = createModuleLogger('route');
 // ── POST: 마이 인텔리전스 생성 ──────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const guard = await requireBroker(request);
+    if (guard.error) return guard.error;
+    const user = guard.user;
+    if (!user?.id) {
       return NextResponse.json({ error: "인증되지 않은 사용자입니다." }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { region = "gbd", rawInputs } = body as { region: string; rawInputs: string[] };
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
+    }
 
-    if (!rawInputs || !Array.isArray(rawInputs) || rawInputs.length === 0) {
-      return NextResponse.json({ error: "자료를 1건 이상 입력해주세요." }, { status: 400 });
+    const parsed = CustomIntelRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "입력값이 올바르지 않습니다." },
+        { status: 400 },
+      );
     }
-    if (rawInputs.length > 10) {
-      return NextResponse.json({ error: "최대 10건까지 입력 가능합니다." }, { status: 400 });
-    }
+
+    const { region, rawInputs } = parsed.data;
 
     // 빈 항목 필터링
     const cleanInputs = rawInputs.map(s => s.trim()).filter(s => s.length > 0);
     if (cleanInputs.length === 0) {
       return NextResponse.json({ error: "유효한 자료가 없습니다." }, { status: 400 });
     }
+
+    const quotaErr = await enforceBrokerAiQuota(request, user.id, "morning_intelligence_custom");
+    if (quotaErr) return quotaErr;
 
     // ── AI 정리 ──────────────────────────────────────────────────────────────
     const inputText = cleanInputs.map((text, i) => `[자료 ${i + 1}]\n${text}`).join("\n\n");
@@ -125,11 +146,12 @@ JSON 형식으로 정확히 출력:
 }
 
 // ── GET: 최근 마이 인텔리전스 목록 ──────────────────────────────────────────────
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const guard = await requireBroker(request);
+    if (guard.error) return guard.error;
+    const user = guard.user;
+    if (!user?.id) {
       return NextResponse.json({ error: "인증되지 않은 사용자입니다." }, { status: 401 });
     }
 

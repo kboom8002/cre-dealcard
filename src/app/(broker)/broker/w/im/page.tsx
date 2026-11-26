@@ -587,6 +587,9 @@ function ImWorkspaceInner() {
       pendingUrlBuildingIdRef.current = freshBldId;
       replaceBuildingQueryUrl(freshBldId, false);
     },
+    onLoadError: (message) => {
+      showUndoToast({ message, variant: "destructive" });
+    },
   });
 
   const totalRentManwon = useMemo(
@@ -898,9 +901,26 @@ function ImWorkspaceInner() {
         const res = await fetch("/api/broker/workspace/summary", {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (res.status === 401 || res.status === 403) return;
+        if (!res.ok) {
+          if (!opts?.silent) {
+            showUndoToast({
+              message: "서버 동기화에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
         const data = await res.json().catch(() => null);
-        if (!data?.ok) return;
+        if (!data?.ok) {
+          if (!opts?.silent) {
+            showUndoToast({
+              message: "서버 동기화 응답을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
         const serverList =
           Array.isArray(data.ims) && data.ims.length > 0
             ? (data.ims as ImListItem[])
@@ -980,13 +1000,18 @@ function ImWorkspaceInner() {
           }
         }
       } catch {
-        // ignore manual sync network fallback
+        if (!opts?.silent) {
+          showUndoToast({
+            message: "네트워크 오류로 서버 동기화에 실패했습니다. 연결을 확인해 주세요.",
+            variant: "destructive",
+          });
+        }
       } finally {
         manualSyncBusyRef.current = false;
         setIsManualSyncing(false);
       }
     },
-    [applyItemToFormState, persistImItems]
+    [applyItemToFormState, persistImItems, showUndoToast]
   );
 
   useEffect(() => {
@@ -1947,6 +1972,11 @@ function ImWorkspaceInner() {
           message: `📄 16:9 가로형 PDF(${res.pageCount}면) 저장을 완료했습니다.`,
           variant: "success",
         });
+      } else {
+        showUndoToast({
+          message: "PDF 내보내기에 실패했거나 팝업이 차단되었습니다.",
+          variant: "destructive",
+        });
       }
     } catch {
       setActionAlert("PDF 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
@@ -2295,6 +2325,15 @@ function ImWorkspaceInner() {
       selectImItem(next[0].id, { listSnapshot: next });
       applyItemToFormState(next[0]);
     }
+    const rollbackDeleteIm = () => {
+      itemsRef.current = prevItems;
+      setItems(prevItems);
+      persistImItems(prevItems);
+      selectImItem(prevSelectedId, { listSnapshot: prevItems });
+      const restored = prevItems.find((i) => i.id === prevSelectedId);
+      if (restored) applyItemToFormState(restored);
+    };
+
     void fetch("/api/broker/workspace/summary", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -2303,29 +2342,46 @@ function ImWorkspaceInner() {
         buildingId: target.buildingId || target.id,
         imId: target.id,
       }),
-    }).catch(() => {});
-
-    showUndoToast({
-      message: `'${target.title || "새 IM"}' IM을 삭제했습니다`,
-      undoAction: () => {
-        itemsRef.current = prevItems;
-        setItems(prevItems);
-        persistImItems(prevItems);
-        selectImItem(prevSelectedId, { listSnapshot: prevItems });
-        const restored = prevItems.find((i) => i.id === prevSelectedId);
-        if (restored) applyItemToFormState(restored);
-        void fetch("/api/broker/workspace/summary", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "restore_im",
-            buildingId: target.buildingId || target.id,
-            imId: target.id,
-            imItem: target,
-          }),
-        }).catch(() => {});
-      },
-    });
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Delete IM failed (${res.status})`);
+        }
+        showUndoToast({
+          message: `'${target.title || "새 IM"}' IM을 삭제했습니다`,
+          undoAction: () => {
+            rollbackDeleteIm();
+            void fetch("/api/broker/workspace/summary", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "restore_im",
+                buildingId: target.buildingId || target.id,
+                imId: target.id,
+                imItem: target,
+              }),
+            })
+              .then((restoreRes) => {
+                if (!restoreRes.ok) {
+                  throw new Error(`Restore IM failed (${restoreRes.status})`);
+                }
+              })
+              .catch(() => {
+                showUndoToast({
+                  message: "서버 반영에 실패했습니다. 복원 상태를 확인한 뒤 동기화해 주세요.",
+                  variant: "destructive",
+                });
+              });
+          },
+        });
+      })
+      .catch(() => {
+        rollbackDeleteIm();
+        showUndoToast({
+          message: "서버 반영에 실패했습니다. 삭제를 취소하고 이전 IM을 복구했어요.",
+          variant: "destructive",
+        });
+      });
   };
 
   const handleDeleteIm = (target: ImListItem, e: React.MouseEvent) => {

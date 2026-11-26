@@ -151,4 +151,120 @@ describe('WP-P1-02: Blind-Guard & k-Anonymity Validation', () => {
       expect(cleaned[2]).not.toContain('소유주');
     });
   });
+
+  describe('H-13 Hardening: Phone, Email, Full-Name Titles, Compact Road/Parcel, N-ga & Spaced Building Names', () => {
+    it('detects and masks phone numbers and emails before hyphenated parcel numbers', () => {
+      const raw = [
+        '직통 문의 010-1234-5678 또는 02-555-7890 연락 요망',
+        '담당자 메일 broker.kim@credeal.co.kr 로 자료 요청',
+        '국제전화 +82-10-9876-5432 가능',
+      ];
+      const validation = validateBlindPoints(raw);
+      expect(validation.isValid).toBe(false);
+      expect(validation.violations.some((v) => v.keyword === '010-1234-5678')).toBe(true);
+      expect(validation.violations.some((v) => v.keyword === 'broker.kim@credeal.co.kr')).toBe(true);
+
+      const cleaned = cleanBlindPoints(raw);
+      expect(cleaned[0]).toContain('[연락처 비공개]');
+      expect(cleaned[0]).not.toContain('010-1234-5678');
+      expect(cleaned[0]).not.toContain('02-555-7890');
+      expect(cleaned[0]).not.toContain('OO-OO');
+      expect(cleaned[1]).toContain('[이메일 비공개]');
+      expect(cleaned[1]).not.toContain('broker.kim@credeal.co.kr');
+      expect(cleaned[2]).toContain('[연락처 비공개]');
+      expect(cleaned[2]).not.toContain('9876-5432');
+    });
+
+    it('catches 2-4 char Korean full names + title without false positives on generic phrases', () => {
+      const leaks = [
+        '홍길동 대표 직접 보유 매물',
+        '김철수 사장님 사옥 매각',
+        '박영희 원장님 메디컬 운영',
+        '이민수 건물주 급매',
+        '최진호 임대인 조건 협의',
+      ];
+      const res = validateBlindPoints(leaks);
+      expect(res.isValid).toBe(false);
+      expect(res.violations.length).toBeGreaterThanOrEqual(5);
+
+      const cleaned = cleanBlindPoints(leaks);
+      for (const line of cleaned) {
+        expect(line).toContain('관계자');
+      }
+      expect(cleaned[0]).not.toContain('홍길동');
+      expect(cleaned[1]).not.toContain('김철수');
+      expect(cleaned[2]).not.toContain('박영희');
+      expect(cleaned[3]).not.toContain('이민수');
+      expect(cleaned[4]).not.toContain('최진호');
+
+      const safe = [
+        '대표 매물 추천 수익형 자산',
+        '임대인 협의 후 명도 가능',
+        '기존 임대인 조건 승계 가능',
+      ];
+      const safeRes = validateBlindPoints(safe);
+      expect(safeRes.isValid).toBe(true);
+      expect(safeRes.violations).toHaveLength(0);
+    });
+
+    it('masks compact road/dong numbers and N-ga parcels properly', () => {
+      const raw = [
+        '테헤란로87길36 코너 위치',
+        '역삼동823 대로변 상권',
+        '성수동 1가 656 인근 코너',
+      ];
+      const res = validateBlindPoints(raw);
+      expect(res.isValid).toBe(false);
+      expect(res.violations).toHaveLength(3);
+
+      const cleaned = cleanBlindPoints(raw);
+      expect(cleaned[0]).toBe('테헤란로87길 인근 코너 위치');
+      expect(cleaned[1]).toBe('역삼동 인근 대로변 상권');
+      expect(cleaned[2]).toBe('성수동 1가 인근 코너');
+      expect(cleaned[2]).not.toContain('인근가');
+    });
+
+    it('catches spaced proper building names, 1-char Latin prefixes, and expanded suffixes while allowing generic phrases', () => {
+      const leaks = [
+        '더 레드 빌딩 통매각',
+        '호산당 빌딩 1층 상가',
+        '삼원 타워 역세권 오피스',
+        'W타워 인근 코너 매물',
+        'K빌딩 급매 추천',
+        '아크로 빌라 신축',
+        '래미안 오피스텔 임대',
+        '센트럴 파크 인접',
+        '코엑스 몰 배후 상권',
+        '세이브존 회관 앞',
+        '대성 사옥 통임대',
+      ];
+      const res = validateBlindPoints(leaks);
+      expect(res.isValid).toBe(false);
+      expect(res.violations.length).toBeGreaterThanOrEqual(leaks.length);
+
+      const cleaned = cleanBlindPoints(leaks);
+      expect(cleaned[0]).toBe('OO빌딩 통매각');
+      expect(cleaned[1]).toBe('OO빌딩 1층 상가');
+      expect(cleaned[2]).toBe('OO타워 역세권 오피스');
+      expect(cleaned[3]).toBe('OO타워 인근 코너 매물');
+      expect(cleaned[4]).toBe('OO빌딩 급매 추천');
+      expect(cleaned[5]).toBe('OO빌라 신축');
+      expect(cleaned[6]).toBe('OO오피스텔 임대');
+      expect(cleaned[7]).toBe('OO파크 인접');
+      expect(cleaned[8]).toBe('OO몰 배후 상권');
+      expect(cleaned[9]).toBe('OO회관 앞');
+      expect(cleaned[10]).toBe('OO사옥 통임대');
+
+      const safe = [
+        '신축 빌딩 통임대 매매',
+        '꼬마 빌딩 급매 추천',
+        '근생 빌딩 수익형 매물',
+        '수익형 오피스텔 만실 운영',
+        '단독 사옥 활용 최적 입지',
+      ];
+      const safeRes = validateBlindPoints(safe);
+      expect(safeRes.isValid).toBe(true);
+      expect(safeRes.violations).toHaveLength(0);
+    });
+  });
 });

@@ -327,9 +327,21 @@ export function fitTableCell(
     return { text: text ?? '', fontSize: baseFontSize };
   }
 
-  // Standard DrawingML table cell margins: 4pt left + 4pt right = 8pt = 0.111"
-  const usableW = Math.max(0.05, colW - 0.11);
-  const usableH = Math.max(0.05, rowH - 0.06);
+  // Mirror getDynamicTableMargin(rowH) breakpoints in imlib.ts (pt -> inches)
+  let hPadPt = 8;
+  let vPadPt = 4;
+  if (rowH < 0.16) {
+    hPadPt = 4;
+    vPadPt = 2;
+  } else if (rowH < 0.22) {
+    hPadPt = 6;
+    vPadPt = 3;
+  } else if (rowH >= 0.34) {
+    hPadPt = 12;
+    vPadPt = 7;
+  }
+  const usableW = Math.max(0.05, colW - hPadPt / 72);
+  const usableH = Math.max(0.05, rowH - vPadPt / 72);
   const minFontSize = 7.0;
   const maxFontSize = baseFontSize;
 

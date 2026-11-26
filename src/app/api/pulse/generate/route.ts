@@ -8,14 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateAllWeeklyPulses } from "@/domain/pulse/pulse-generator";
 import { getWeekLabel } from "@/domain/pulse/cre-signal-aggregator";
+import { verifyCronRequest } from "@/lib/security/cron-auth";
 
 export async function POST(req: NextRequest) {
   // 간단한 admin/cron 인증
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const cronErr = verifyCronRequest(req);
+  if (cronErr) return cronErr;
 
   try {
     const supabase = createServiceClient();
@@ -35,8 +33,7 @@ export async function GET(req: NextRequest) {
   // Vercel Cron(E5/B3b)은 GET + `Authorization: Bearer CRON_SECRET` 으로만 호출한다.
   // 인증된 GET 은 주간 펄스를 생성(POST 위임)하고, 인증 없는 GET 은 기존처럼 공개 목록을 반환한다.
   // 생성기는 INSERT 이므로 같은 주 라벨 펄스가 이미 있으면 재생성하지 않는다(중복 방지).
-  const cronSecretForGet = process.env.CRON_SECRET;
-  if (cronSecretForGet && req.headers.get("authorization") === `Bearer ${cronSecretForGet}`) {
+  if (verifyCronRequest(req) === null) {
     const guardClient = createServiceClient();
     const weekLabel = getWeekLabel();
     const { count, error: guardError } = await guardClient

@@ -233,6 +233,7 @@ export async function POST(req: NextRequest) {
         userPrompt: userPromptWithAvoid,
         model: getModel("terra"),
         temperature,
+        maxTokens: 1200,
         responseFormat: "json_object",
       },
       { allowMock: false },

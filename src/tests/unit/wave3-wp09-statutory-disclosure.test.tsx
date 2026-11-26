@@ -224,15 +224,19 @@ describe('Wave 3 — WP-09: 공인중개사법 제18조의2 5대 법정 표시�
     });
     expect(partial.ok).toBe(true);
     expect(partial.completeness.isComplete).toBe(false);
-    expect(partial.completeness.missingFields).toEqual(['office_address', 'office_reg_number']);
-    expect(partial.completeness.filledCount).toBe(3);
+    expect(partial.completeness.missingFields).toEqual([
+      'office_address',
+      'office_reg_number',
+      'representative_name',
+    ]);
+    expect(partial.completeness.filledCount).toBe(2);
 
     const full = validateBrokerStatutoryFields({
       company: '크리딜 부동산중개법인',
       office_address: '서울특별시 강남구 테헤란로 152, 8층',
       phone: '02-555-9876',
       office_reg_number: '11680-2025-09876',
-      display_name: '박성훈',
+      representative_name: '박성훈',
     });
     expect(full.ok).toBe(true);
     expect(full.completeness.isComplete).toBe(true);
@@ -244,11 +248,24 @@ describe('Wave 3 — WP-09: 공인중개사법 제18조의2 5대 법정 표시�
       phone: '02-555-9876',
       office_reg_number: '11680-2024-00123', // sample -> must be omitted
       representative_name: '홍길동', // sample -> must be omitted
-      display_name: '박성훈', // real fallback -> used for 대표자
+      display_name: '박성훈', // display_name must NOT substitute for statutory representative_name
     });
     expect(lines).toEqual([
       '상호: 크리딜 부동산중개법인',
-      '대표자: 박성훈',
+      '소재지: 서울특별시 강남구 테헤란로 152',
+      '연락처: 02-555-9876',
+    ]);
+    expect(lines).not.toContain('대표자: 박성훈');
+
+    const linesWithValidRep = formatBrokerStatutoryDisclosureLines({
+      company: '크리딜 부동산중개법인',
+      office_address: '서울특별시 강남구 테헤란로 152',
+      phone: '02-555-9876',
+      representative_name: '이대표',
+    });
+    expect(linesWithValidRep).toEqual([
+      '상호: 크리딜 부동산중개법인',
+      '대표자: 이대표',
       '소재지: 서울특별시 강남구 테헤란로 152',
       '연락처: 02-555-9876',
     ]);

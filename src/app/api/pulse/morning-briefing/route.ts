@@ -4,8 +4,10 @@ import { callLLM } from "@/ai/llm-client";
 import { searchNaverNews } from "@/lib/external/naver-search";
 import { getModel } from "@/ai/model-selector";
 import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { getClientIp } from "@/lib/magazine/public-guard";
+import { verifyCronRequest } from "@/lib/security/cron-auth";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("morning-briefing-route");
@@ -77,9 +79,7 @@ export async function GET(request: NextRequest) {
     const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
 
     // Check authorization for live crawler + LLM synthesis
-    const cronSecret = (process.env.CRON_SECRET || "").trim();
-    const authHeader = (request.headers.get("authorization") || "").trim();
-    const isCronAuthorized = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
+    const isCronAuthorized = verifyCronRequest(request) === null;
 
     let isBrokerAuthorized = false;
     let brokerActorKey = ip;
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 3. Authorized broker/admin must pass AI synthesis rate limit (5 req / 10 min)
+    // 3. Authorized broker/admin must pass AI synthesis rate limit (5 req / 10 min) & daily quota
     if (!isCronAuthorized && isBrokerAuthorized) {
       const aiAllowed = await checkRateLimit(
         brokerActorKey,
@@ -196,6 +196,13 @@ export async function GET(request: NextRequest) {
           timestamp: new Date().toISOString(),
         });
       }
+      const quotaErr = await enforceBrokerAiQuota(
+        request,
+        brokerActorKey,
+        "pulse_morning_briefing",
+        { perMinute: 5 },
+      );
+      if (quotaErr) return quotaErr;
     }
 
     // 4. Authorized live Naver News + LLM synthesis

@@ -498,11 +498,21 @@ function DealCardsWorkspaceInner() {
           if (res.status === 401 || res.status === 403) {
             return { __unauthorized: true } as const;
           }
-          return res.ok ? await res.json() : null;
+          if (!res.ok) {
+            return { __httpError: res.status } as const;
+          }
+          return await res.json();
         })
-        .catch(() => null),
+        .catch(() => ({ __networkError: true } as const)),
     ])
       .then(([authUid, data]) => {
+        if (data && ("__httpError" in data || "__networkError" in data)) {
+          showUndoToast({
+            message: "서버에서 딜카드 목록을 불러오지 못했습니다. 잠시 후 동기화를 눌러 주세요.",
+            variant: "destructive",
+          });
+          return;
+        }
         if (data && "__unauthorized" in data && data.__unauthorized) {
           purgeWorkspaceClientStorage();
           currentUserIdRef.current = null;
@@ -1209,9 +1219,26 @@ function DealCardsWorkspaceInner() {
         const res = await fetch("/api/broker/workspace/summary", {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (res.status === 401 || res.status === 403) return;
+        if (!res.ok) {
+          if (!opts?.silent) {
+            showUndoToast({
+              message: "서버 동기화에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
         const data = await res.json().catch(() => null);
-        if (!data?.ok || !Array.isArray(data.dealcards)) return;
+        if (!data?.ok || !Array.isArray(data.dealcards)) {
+          if (!opts?.silent) {
+            showUndoToast({
+              message: "서버 동기화 응답을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
 
         const uid = currentUserIdRef.current;
         const serverAliasIds = new Set<string>();
@@ -1336,13 +1363,18 @@ function DealCardsWorkspaceInner() {
           }
         }
       } catch {
-        // ignore manual sync fallback
+        if (!opts?.silent) {
+          showUndoToast({
+            message: "네트워크 오류로 서버 동기화에 실패했습니다. 연결을 확인해 주세요.",
+            variant: "destructive",
+          });
+        }
       } finally {
         manualSyncBusyRef.current = false;
         setIsManualSyncing(false);
       }
     },
-    [persistItems]
+    [persistItems, showUndoToast]
   );
 
   useEffect(() => {
@@ -2445,18 +2477,11 @@ function DealCardsWorkspaceInner() {
               awaitingMemoGeneration: true,
             } as HydratedDealCardItem,
           ];
+    const prevSelectedId = resolvedActiveId;
     userInteractedRef.current = true;
     itemsRef.current = nextList;
     setItems(nextList);
     persistItems(nextList);
-    void fetch("/api/broker/workspace/summary", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "delete",
-        buildingId: target.id,
-      }),
-    }).catch(() => {});
 
     const nextActive =
       target.id === resolvedActiveId ? pickNewestDealCard(nextList) ?? nextList[0] : null;
@@ -2470,37 +2495,81 @@ function DealCardsWorkspaceInner() {
       );
     }
 
-    showUndoToast({
-      message: isDeletingOnlyPopulated
-        ? `'${target.title || "새 딜카드"}' 삭제 완료 — 새 딜카드 입력 화면으로 초기화되었습니다.`
-        : `'${target.title}' 딜카드를 삭제했어요`,
-      undoAction: () => {
-        userInteractedRef.current = true;
-        itemsRef.current = prevSnapshot;
-        setItems(prevSnapshot);
-        persistItems(prevSnapshot);
-        setSelectedMemoOnlyId(null);
-        setSelectedId(target.id);
-        setCurrentCard4(target.card4);
-        setSyncedBuildingId(target.id);
-        router.replace(
-          `/broker/w/dealcards?buildingId=${encodeURIComponent(target.id)}&tab=editor`
-        );
-        void fetch("/api/broker/workspace/summary", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "restore",
-            buildingId: target.id,
-            card4: target.card4,
-          }),
-        })
-          .then((res) => {
-            if (res.ok) markServerSynced(target.id);
-          })
-          .catch(() => {});
-      },
-    });
+    const rollbackDelete = () => {
+      userInteractedRef.current = true;
+      itemsRef.current = prevSnapshot;
+      setItems(prevSnapshot);
+      persistItems(prevSnapshot);
+      const restoreTargetId = prevSelectedId || target.id;
+      const restoreTarget = prevSnapshot.find((it) => it.id === restoreTargetId) || target;
+      resolvedActiveIdRef.current = restoreTarget.id;
+      setSelectedId(restoreTarget.id);
+      setCurrentCard4(restoreTarget.card4);
+      setSyncedBuildingId(restoreTarget.id);
+      router.replace(
+        `/broker/w/dealcards?buildingId=${encodeURIComponent(restoreTarget.id)}&tab=editor`
+      );
+    };
+
+    void fetch("/api/broker/workspace/summary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete",
+        buildingId: target.id,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Delete failed (${res.status})`);
+        }
+        showUndoToast({
+          message: isDeletingOnlyPopulated
+            ? `'${target.title || "새 딜카드"}' 삭제 완료 — 새 딜카드 입력 화면으로 초기화되었습니다.`
+            : `'${target.title}' 딜카드를 삭제했어요`,
+          undoAction: () => {
+            userInteractedRef.current = true;
+            itemsRef.current = prevSnapshot;
+            setItems(prevSnapshot);
+            persistItems(prevSnapshot);
+            setSelectedMemoOnlyId(null);
+            setSelectedId(target.id);
+            setCurrentCard4(target.card4);
+            setSyncedBuildingId(target.id);
+            router.replace(
+              `/broker/w/dealcards?buildingId=${encodeURIComponent(target.id)}&tab=editor`
+            );
+            void fetch("/api/broker/workspace/summary", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "restore",
+                buildingId: target.id,
+                card4: target.card4,
+              }),
+            })
+              .then((restoreRes) => {
+                if (!restoreRes.ok) {
+                  throw new Error(`Restore failed (${restoreRes.status})`);
+                }
+                markServerSynced(target.id);
+              })
+              .catch(() => {
+                showUndoToast({
+                  message: "서버 반영에 실패했습니다. 복원 상태를 확인한 뒤 동기화해 주세요.",
+                  variant: "destructive",
+                });
+              });
+          },
+        });
+      })
+      .catch(() => {
+        rollbackDelete();
+        showUndoToast({
+          message: "서버 반영에 실패했습니다. 삭제를 취소하고 이전 딜카드를 복구했어요.",
+          variant: "destructive",
+        });
+      });
   };
 
   const handleDeleteItem = (target: BuildingListItem, e: React.MouseEvent) => {
@@ -2515,6 +2584,7 @@ function DealCardsWorkspaceInner() {
   const executeDeleteUnconvertedMemo = (memo: UnconvertedMemoItem) => {
     const prevSnapshot = [...unconvertedMemos];
     const remaining = unconvertedMemos.filter((m) => m.id !== memo.id);
+    const prevMemoOnlyId = selectedMemoOnlyId;
     setUnconvertedMemos(remaining);
     persistUnconvertedMemos(remaining);
     if (selectedMemoOnlyId === memo.id) {
@@ -2528,26 +2598,52 @@ function DealCardsWorkspaceInner() {
         action: "delete_memo",
         memoId: memo.id,
       }),
-    }).catch(() => {});
-
-    showUndoToast({
-      message: "미생성 메모를 목록에서 숨겼어요",
-      undoAction: () => {
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Delete memo failed (${res.status})`);
+        }
+        showUndoToast({
+          message: "미생성 메모를 목록에서 숨겼어요",
+          undoAction: () => {
+            setUnconvertedMemos(prevSnapshot);
+            persistUnconvertedMemos(prevSnapshot);
+            setSelectedMemoOnlyId(memo.id);
+            void fetch("/api/broker/workspace/summary", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "restore_memo",
+                memoId: memo.id,
+                memoText: memo.memoText,
+                routingType: memo.routingType,
+              }),
+            })
+              .then((restoreRes) => {
+                if (!restoreRes.ok) {
+                  throw new Error(`Restore memo failed (${restoreRes.status})`);
+                }
+              })
+              .catch(() => {
+                showUndoToast({
+                  message: "서버 반영에 실패했습니다. 메모 복원을 다시 시도해 주세요.",
+                  variant: "destructive",
+                });
+              });
+          },
+        });
+      })
+      .catch(() => {
         setUnconvertedMemos(prevSnapshot);
         persistUnconvertedMemos(prevSnapshot);
-        setSelectedMemoOnlyId(memo.id);
-        void fetch("/api/broker/workspace/summary", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "restore_memo",
-            memoId: memo.id,
-            memoText: memo.memoText,
-            routingType: memo.routingType,
-          }),
-        }).catch(() => {});
-      },
-    });
+        if (prevMemoOnlyId === memo.id) {
+          setSelectedMemoOnlyId(memo.id);
+        }
+        showUndoToast({
+          message: "서버 반영에 실패했습니다. 메모 삭제를 취소했어요.",
+          variant: "destructive",
+        });
+      });
   };
 
   const handleDeleteUnconvertedMemo = (memo: UnconvertedMemoItem, e: React.MouseEvent) => {

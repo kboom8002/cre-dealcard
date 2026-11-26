@@ -277,19 +277,29 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Canonical newsletter & inbox workspace redirects (308 permanent, after auth gate):
+  // Canonical newsletter & V1->V2 workspace redirects (308 permanent, after auth gate):
   if (
     pathname === '/broker/w/magazine' ||
     pathname === '/broker/magazine-editor' ||
-    pathname === '/broker/campaign'
+    pathname === '/broker/campaign' ||
+    pathname === '/broker/studio'
   ) {
     const targetUrl = request.nextUrl.clone();
     targetUrl.pathname = '/broker/w/newsletter';
     return NextResponse.redirect(targetUrl, 308);
   }
-  if (pathname === '/broker/inbox') {
+  const V1_WORKSPACE_REDIRECTS: Record<string, string> = {
+    '/broker/inbox': '/broker/w/inbox',
+    '/broker/clients': '/broker/w/inbox',
+    '/broker/matching': '/broker/w/inbox',
+    '/broker/pipeline': '/broker/w/inbox',
+    '/broker/buildings': '/broker/w/im',
+    '/broker/deal-card/new': '/broker/w/dealcards',
+  };
+  const v1RedirectTarget = V1_WORKSPACE_REDIRECTS[pathname];
+  if (v1RedirectTarget) {
     const targetUrl = request.nextUrl.clone();
-    targetUrl.pathname = '/broker/w/inbox';
+    targetUrl.pathname = v1RedirectTarget;
     return NextResponse.redirect(targetUrl, 308);
   }
 

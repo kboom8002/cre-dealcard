@@ -139,8 +139,13 @@ function markdownToHtml(md: string): string {
   return out.join('\n');
 }
 
+function isBuildingWideRevocationEvent(meta: Record<string, unknown>): boolean {
+  return meta.scope !== 'thread' && meta.scope !== 'recipient_approval';
+}
+
 interface BrokerInfo {
   displayName: string;
+  representativeName: string;
   company: string;
   officeAddress: string;
   phone: string;
@@ -310,6 +315,7 @@ function buildHtmlExport({
 
   const brokerMetaParts = [
     brokerInfo.company,
+    brokerInfo.representativeName ? `대표자: ${brokerInfo.representativeName}` : '',
     brokerInfo.officeAddress,
     brokerInfo.phone,
     brokerInfo.licenseNumber,
@@ -694,7 +700,7 @@ function buildHtmlExport({
     <div style="flex: 1;">
       <div class="broker-card">
         <div class="broker-title">담당 공인중개사</div>
-        <strong>${escapeHtml(brokerInfo.displayName)}</strong>
+        <strong>${escapeHtml(brokerInfo.displayName || brokerInfo.representativeName || '담당 공인중개사')}</strong>
         ${brokerMetaParts.length > 0 ? `<div class="broker-meta">
           ${brokerMetaParts.map(escapeHtml).join(' &nbsp;·&nbsp; ')}
         </div>` : ''}
@@ -775,6 +781,10 @@ export async function GET(
     viewer = null;
   }
 
+  if (!token && !viewer && !isAllowedPublicDemoIm(buildingId)) {
+    return buildShareTokenRequiredResponse();
+  }
+
   const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
   if (wsGuard.governanceUnavailable) {
     return buildGovernanceUnavailableResponse();
@@ -782,7 +792,7 @@ export async function GET(
   if (wsGuard.isDeleted) {
     return NextResponse.json({ error: 'IM document has been deleted' }, { status: 404 });
   }
-  if (wsGuard.itemRevoked && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+  if (Boolean(wsGuard.isRevoked || wsGuard.itemRevoked) && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
     return buildLinkRevokedResponse(403);
   }
   if (wsGuard.isDraft && !wsGuard.snapshot && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
@@ -838,6 +848,7 @@ export async function GET(
         const meta = (row?.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<string, any>;
         const evBldId = String(row?.building_id || meta.building_id || row?.entity_id || '').trim();
         if (evBldId !== buildingId) continue;
+        if (!isBuildingWideRevocationEvent(meta)) continue;
         if (row.event_type === 'link_revoked') {
           dbRevoked = true;
           dbRevokeTime = Date.parse(String(meta.revoked_at || row.created_at || '')) || 0;
@@ -997,9 +1008,16 @@ export async function GET(
     displayName:
       quickRec?.brokerProfile?.displayName ||
       docBroker.brokerName ||
-      docBroker.representative ||
       docBroker.name ||
       '담당 공인중개사',
+    representativeName: String(
+      (quickRec?.brokerProfile as Record<string, any> | undefined)?.representativeName ||
+        (quickRec?.brokerProfile as Record<string, any> | undefined)?.representative_name ||
+        docBroker.representativeName ||
+        docBroker.representative_name ||
+        docBroker.representative ||
+        ''
+    ).trim(),
     company:
       quickRec?.brokerProfile?.company ||
       docBroker.brokerageName ||
@@ -1020,8 +1038,8 @@ export async function GET(
       '',
     licenseNumber: quickRec?.brokerProfile?.registrationNo
       ? `등록번호: ${quickRec.brokerProfile.registrationNo}`
-      : docBroker.registrationNo || docBroker.registration_no
-      ? `등록번호: ${docBroker.registrationNo || docBroker.registration_no}`
+      : docBroker.registrationNo || docBroker.registration_no || docBroker.office_reg_number
+      ? `등록번호: ${docBroker.registrationNo || docBroker.registration_no || docBroker.office_reg_number}`
       : '',
     specialty: '',
   };
@@ -1056,19 +1074,18 @@ export async function GET(
 
     if (profRes.data?.display_name && profRes.data.display_name !== '.') {
       brokerInfo.displayName = profRes.data.display_name;
-    } else if (brokerProfData?.representative_name) {
-      brokerInfo.displayName = brokerProfData.representative_name;
+    }
+    if (brokerProfData?.representative_name) {
+      brokerInfo.representativeName = String(brokerProfData.representative_name).trim();
     }
     if (profRes.data?.company) brokerInfo.company = profRes.data.company;
     if (profRes.data?.phone) brokerInfo.phone = profRes.data.phone;
     if (brokerProfData?.office_address) {
       brokerInfo.officeAddress = brokerProfData.office_address;
     }
-    // 등록번호 = 중개사무소 등록번호(office_reg_number), 없으면 공인중개사 자격번호(license_number)
+    // 등록번호는 중개사무소 개설등록번호(office_reg_number)만 사용 (license_number 혼용 금지)
     if (brokerProfData?.office_reg_number) {
       brokerInfo.licenseNumber = `등록번호: ${brokerProfData.office_reg_number}`;
-    } else if (brokerProfData?.license_number) {
-      brokerInfo.licenseNumber = `자격번호: ${brokerProfData.license_number}`;
     }
     if (
       brokerProfData?.specialty_assets &&

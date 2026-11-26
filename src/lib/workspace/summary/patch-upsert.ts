@@ -285,11 +285,18 @@ export async function handlePatchWorkspaceUpsert(
     );
   }
 
+  const existingPointCandidates =
+    normalizedPointCandidates === undefined
+      ? normalizeCard4PointCandidates(
+          (existingWs?.draftPayload?.card4 as Partial<Card4Data> | undefined)?.pointCandidates
+        )
+      : undefined;
+  const resolvedPointCandidates = normalizedPointCandidates ?? existingPointCandidates;
   const nextVersion = Math.max(existingWs?.version ?? 0, card4.card4_version ?? 1) + 1;
   outCard4 = {
     ...restNormalizedCard4,
-    ...(normalizedPointCandidates && normalizedPointCandidates.length > 0
-      ? { pointCandidates: normalizedPointCandidates }
+    ...(resolvedPointCandidates && resolvedPointCandidates.length > 0
+      ? { pointCandidates: resolvedPointCandidates }
       : {}),
     ...(card4.pointTones ? { pointTones: card4.pointTones } : {}),
     ...(card4.pointBriefs ? { pointBriefs: card4.pointBriefs } : {}),
@@ -365,7 +372,7 @@ export async function handlePatchWorkspaceUpsert(
     version = Math.max(nextVersion, result.version ?? 0);
     hash = result.hash ?? hash;
     if (result.card4) {
-      const preservedCandidates = result.card4.pointCandidates ?? normalizedPointCandidates;
+      const preservedCandidates = result.card4.pointCandidates ?? resolvedPointCandidates;
       outCard4 = {
         ...result.card4,
         ...(preservedCandidates && preservedCandidates.length > 0

@@ -105,7 +105,14 @@ async function requestCopy(
   let prompt = userPrompt;
   for (let attempt = 0; attempt < 2; attempt++) {
     const llmResult = await callLLM(
-      { systemPrompt, userPrompt: prompt, model: getModel('terra'), temperature, responseFormat: 'json_object' },
+      {
+        systemPrompt,
+        userPrompt: prompt,
+        model: getModel('terra'),
+        temperature,
+        maxTokens: 1024,
+        responseFormat: 'json_object',
+      },
       { allowMock: false },
     );
     if ((llmResult as { isMock?: boolean }).isMock) return null;

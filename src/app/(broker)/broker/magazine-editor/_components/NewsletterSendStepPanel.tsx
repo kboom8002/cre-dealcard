@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarClock,
@@ -49,6 +49,11 @@ export interface NewsletterSendStepPanelProps {
   publicUrl?: string | null;
   distributeOutcome?: DistributeOutcomeCardData | null;
   quietHoursNow?: boolean;
+  sendRuntimeStatus?: {
+    sendEnabled: boolean;
+    dryRun: boolean;
+    hasResendKey: boolean;
+  } | null;
   sendMode?: SendDeliveryMode;
   onChangeSendMode?: (nextMode: SendDeliveryMode) => void;
   onJumpToStep: (step: NewsletterStepKey) => void;
@@ -104,6 +109,7 @@ export function NewsletterSendStepPanel({
   publicUrl = null,
   distributeOutcome = null,
   quietHoursNow,
+  sendRuntimeStatus = null,
   sendMode: controlledSendMode,
   onChangeSendMode,
   onJumpToStep,
@@ -119,12 +125,22 @@ export function NewsletterSendStepPanel({
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [scheduleRecommendedToast, setScheduleRecommendedToast] = useState(false);
   const [localSendMode, setLocalSendMode] = useState<SendDeliveryMode>("now");
+  const [clientQuietHours, setClientQuietHours] = useState(false);
+  useEffect(() => {
+    setClientQuietHours(isQuietHoursKst(new Date()));
+  }, []);
   const sendMode = controlledSendMode ?? localSendMode;
   const updateSendMode = (nextMode: SendDeliveryMode) => {
     setLocalSendMode(nextMode);
     onChangeSendMode?.(nextMode);
   };
-  const isQuietHours = quietHoursNow ?? isQuietHoursKst(new Date());
+  const isQuietHours = quietHoursNow ?? clientQuietHours;
+  const hasRuntimeSendWarning = Boolean(
+    sendRuntimeStatus &&
+      (!sendRuntimeStatus.sendEnabled ||
+        sendRuntimeStatus.dryRun ||
+        !sendRuntimeStatus.hasResendKey),
+  );
 
   const handlePrimaryStep3Execute = () => {
     if (sendMode === "web_only") {
@@ -152,6 +168,28 @@ export function NewsletterSendStepPanel({
       aria-labelledby="newsletter-tab-send"
       className="space-y-5"
     >
+      {hasRuntimeSendWarning && sendRuntimeStatus && (
+        <section
+          data-testid="send-runtime-warning"
+          role="alert"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 space-y-1.5"
+        >
+          <p className="text-base font-extrabold">
+            {!sendRuntimeStatus.sendEnabled
+              ? "자동 이메일 발송이 일시 중지된 상태입니다"
+              : sendRuntimeStatus.dryRun
+                ? "현재 시험 발송(드라이런) 모드입니다"
+                : "이메일 발송 API 키가 설정되지 않았습니다"}
+          </p>
+          <p className="text-sm font-medium leading-relaxed text-amber-900">
+            {!sendRuntimeStatus.sendEnabled
+              ? "발송을 실행하시면 웹 발행만 완료되며 실제 이메일은 발송되지 않습니다. 카톡 공유나 링크 복사를 함께 이용해 주세요."
+              : sendRuntimeStatus.dryRun
+                ? "드라이런 모드에서는 발송 시뮬레이션만 원장에 기록되며 실제 구독자 메일함으로 발송되지 않습니다."
+                : "발송 공급자(RESEND_API_KEY)가 설정되지 않아 실제 이메일이 전달되지 않습니다."}
+          </p>
+        </section>
+      )}
       {isQuietHours && (
         <section
           data-testid="quiet-hours-warning"

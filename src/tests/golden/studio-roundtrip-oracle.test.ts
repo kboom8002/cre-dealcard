@@ -155,10 +155,10 @@ describe('Basic IM Studio Round-Trip Fact Oracle & Universal Invariants (U1-U6)'
 
     // Verify 2 rent roll slides + 2 gallery slides
     expect(pptxText).toContain('소계\n 11개 호실');
-    expect(pptxText).toContain('렌트롤 (2/2)');
+    expect(pptxText).toContain('층별 임대차 현황 (2/2)');
     expect(pptxText).toContain('합계\n 20개 호실');
-    expect(pptxText).toContain('현장 사진 (1/2)');
-    expect(pptxText).toContain('현장 사진 (2/2)');
+    expect(pptxText).toMatch(/현장 사진 \(1\/2\)|외부·전경 및 주요 공간 \(1\/2\)/);
+    expect(pptxText).toMatch(/현장 사진 \(2\/2\)|내부·층별 사진 \(2\/2\)/);
     expect(pptxText).toContain('B1 B101호');
     expect(pptxText).toContain('10F 1002호');
 

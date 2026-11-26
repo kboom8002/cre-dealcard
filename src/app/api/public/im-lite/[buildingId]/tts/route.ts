@@ -25,6 +25,7 @@ import {
   buildGovernanceUnavailableResponse,
   buildShareTokenRequiredResponse,
   isAllowedPublicDemoIm,
+  isBuildingWideRevocationEvent,
   isDemoSeedDisabledForProd,
   isPreCutoverSchemaError,
   resolveWorkspaceImGuard,
@@ -363,6 +364,7 @@ export async function GET(
               : {};
           const evBldId = String((row as any)?.building_id || meta.building_id || row?.entity_id || "").trim();
           if (evBldId !== buildingId) continue;
+          if (!isBuildingWideRevocationEvent(meta)) continue;
           if (row.event_type === "link_revoked") {
             return NextResponse.json(
               { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
@@ -391,7 +393,7 @@ export async function GET(
         { status: 404 }
       );
     }
-    if (wsGuard.itemRevoked) {
+    if (wsGuard.isRevoked || wsGuard.itemRevoked) {
       return NextResponse.json(
         { ok: false, error: "담당 중개인에 의해 회수된 공유 링크입니다." },
         { status: 410 }

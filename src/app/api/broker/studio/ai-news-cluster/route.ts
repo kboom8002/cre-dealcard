@@ -29,7 +29,7 @@ export const maxDuration = 60;
 const log = createModuleLogger("ai-news-cluster");
 
 const articleItemSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().max(100).optional(),
   title: z.string().trim().min(1).max(300),
   summary: z.string().trim().max(2000).optional(),
   source: z.string().trim().max(120).optional(),
@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
         userPrompt,
         model: getModel("terra"),
         temperature: 0.35,
+        maxTokens: 2048,
         responseFormat: "json_object",
       },
       { allowMock: false, timeoutMs: 25_000 },

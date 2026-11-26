@@ -84,6 +84,15 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  if (memo_text.length > 15000) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: { code: "INVALID_INPUT", message: "memo_text는 15,000자 이내여야 합니다." },
+      },
+      { status: 400 }
+    );
+  }
 
   const model = getModel("luna");
 

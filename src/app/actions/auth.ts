@@ -104,24 +104,35 @@ export async function signup(
     '/broker',
   );
 
-  const supabase = await createServerSupabaseClient();
-  const { data: signUpData, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${getCanonicalSiteUrl()}/auth/callback?next=${encodeURIComponent(safeRedirect)}`,
-      data: {
-        display_name: displayName,
-        name: displayName,
-        full_name: displayName,
-        requested_role: role,
-        terms_agreed_at: nowIso,
-        privacy_agreed_at: nowIso,
-        marketing_opt_in: agreeMarketing,
-        consent_version: COMPANY_LEGAL_CONFIG.consentVersion,
+  let signUpData: Awaited<ReturnType<Awaited<ReturnType<typeof createServerSupabaseClient>>['auth']['signUp']>>['data'] | null = null;
+  let error: Awaited<ReturnType<Awaited<ReturnType<typeof createServerSupabaseClient>>['auth']['signUp']>>['error'] | null = null;
+  try {
+    const supabase = await createServerSupabaseClient();
+    const res = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${getCanonicalSiteUrl()}/auth/callback?next=${encodeURIComponent(safeRedirect)}`,
+        data: {
+          display_name: displayName,
+          name: displayName,
+          full_name: displayName,
+          requested_role: role,
+          terms_agreed_at: nowIso,
+          privacy_agreed_at: nowIso,
+          marketing_opt_in: agreeMarketing,
+          consent_version: COMPANY_LEGAL_CONFIG.consentVersion,
+        },
       },
-    },
-  });
+    });
+    signUpData = res.data;
+    error = res.error;
+  } catch (err) {
+    console.error('[Signup] Unexpected auth error:', err);
+    return {
+      message: '회원가입 처리 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+    };
+  }
 
   if (error) {
     const rawMsg = (error.message || '').toLowerCase();
@@ -218,8 +229,17 @@ export async function login(
 
   const { email, password } = parsed.data;
 
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let error: Awaited<ReturnType<Awaited<ReturnType<typeof createServerSupabaseClient>>['auth']['signInWithPassword']>>['error'] | null = null;
+  try {
+    const supabase = await createServerSupabaseClient();
+    const res = await supabase.auth.signInWithPassword({ email, password });
+    error = res.error;
+  } catch (err) {
+    console.error('[Login] Unexpected auth error:', err);
+    return {
+      message: '로그인 처리 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+    };
+  }
 
   if (error) {
     const rawMsg = (error.message || '').toLowerCase();

@@ -20,6 +20,7 @@ import { parseEditionContentDraft } from "@/domain/magazine/edition-content.sche
 import { loadBrokerNewsletterPreferences } from "@/app/api/broker/magazine/preferences/route";
 import { getInboxState } from "@/lib/im-lite/quick-generate-store";
 import { hashEmailForSuppression } from "@/lib/legal/email-suppression";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -836,6 +837,9 @@ export async function POST(request: NextRequest) {
     if ((existing ?? []).some((r: { status?: string | null }) => r.status === "published")) {
       return jsonError("PUBLISHED_LOCKED", "이미 발행된 호수입니다. 정정이 필요하면 정정 발행을 이용해 주세요.", 409);
     }
+
+    const quotaErr = await enforceBrokerAiQuota(request, ctx.userId, "magazine_editions_generate");
+    if (quotaErr) return quotaErr;
 
     // Generate magazine content via domain generator
     const edition = await generateWeeklyMagazine({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { checkFeatureAccess } from "@/domain/subscription/tier-gate";
 import { incrementUsage } from "@/domain/subscription/usage-tracker";
+import { isRealProductionRuntime } from "@/lib/env";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("ai-quota-guard");
@@ -97,12 +98,30 @@ export async function enforceBrokerAiQuota(
       );
     }
 
-    // Fire-and-forget safe increment (incrementUsage catches internal errors)
-    incrementUsage(supabase, userId, "ai_generation_daily").then(undefined, (err) => {
-      log.warn({ err }, "[ai-quota-guard] Failed to increment ai_generation_daily");
-    });
+    const incremented = await incrementUsage(supabase, userId, "ai_generation_daily");
+    if (!incremented) {
+      log.warn("[ai-quota-guard] Failed to increment ai_generation_daily");
+    }
   } catch (err) {
-    log.warn({ err }, "[ai-quota-guard] Quota check skipped due to service client error");
+    if (isRealProductionRuntime()) {
+      log.error(
+        { err, userId, actionKey },
+        "[ai-quota-guard] Quota check failed in production; enforcing fallback rate limit",
+      );
+      const fallbackAllowed = await checkRateLimit(userId, "ai_quota_fallback", 10, 3_600_000);
+      if (!fallbackAllowed) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "AI_RATE_LIMITED",
+            error: "AI 요청이 일시적으로 많습니다. 잠시 후 다시 시도해주세요.",
+          },
+          { status: 429 },
+        );
+      }
+    } else {
+      log.warn({ err }, "[ai-quota-guard] Quota check skipped due to service client error");
+    }
   }
 
   return null;
@@ -146,11 +165,31 @@ export async function enforceFeatureQuota(
       );
     }
 
-    incrementUsage(supabase, userId, feature).then(undefined, (err) => {
-      log.warn({ err, feature }, "[ai-quota-guard] Failed to increment feature usage");
-    });
+    const incremented = await incrementUsage(supabase, userId, feature);
+    if (!incremented) {
+      log.warn({ feature }, "[ai-quota-guard] Failed to increment feature usage");
+    }
   } catch (err) {
-    log.warn({ err, feature }, "[ai-quota-guard] Feature quota check skipped due to service client error");
+    if (isRealProductionRuntime()) {
+      log.error(
+        { err, userId, feature },
+        "[ai-quota-guard] Feature quota check failed in production; enforcing fallback rate limit",
+      );
+      const fallbackAllowed = await checkRateLimit(userId, "ai_quota_fallback", 10, 3_600_000);
+      if (!fallbackAllowed) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "FEATURE_QUOTA_EXCEEDED",
+            error: "AI 요청 한도를 확인하는 중 일시적인 제한이 적용되었습니다. 잠시 후 다시 시도해주세요.",
+            feature,
+          },
+          { status: 429 },
+        );
+      }
+    } else {
+      log.warn({ err, feature }, "[ai-quota-guard] Feature quota check skipped due to service client error");
+    }
   }
 
   return null;

@@ -1,34 +1,48 @@
-import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import OpenAI from "openai";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 
-// Edge runtime is not fully supported for node's FormData with fetch to OpenAI in some older setups,
-// but for standard App Router API, we can use nodejs runtime.
-// If needed, export const runtime = "edge";
+export async function POST(req: NextRequest) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const userId = guard.user?.id ?? "";
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export async function POST(req: Request) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const formData = await req.formData();
     const audioFile = formData.get("audio");
 
     if (!audioFile || !(audioFile instanceof Blob)) {
       return NextResponse.json({ ok: false, error: "Audio file is required" }, { status: 400 });
     }
+
+    if (audioFile.size > MAX_AUDIO_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "Audio file exceeds 10MB limit" },
+        { status: 413 },
+      );
+    }
+
+    const quotaErr = await enforceBrokerAiQuota(req, userId, "memo_voice");
+    if (quotaErr) return quotaErr;
+
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey || apiKey === "mock_key" || apiKey === "not-configured") {
+      return NextResponse.json(
+        { ok: false, error: "AI 음성 인식 서비스가 설정되어 있지 않습니다." },
+        { status: 503 },
+      );
+    }
+
+    const openai = new OpenAI({ apiKey });
 
     // Blob -> File 변환 (OpenAI 라이브러리가 요구하는 형태)
     // Next.js App Router의 Request는 웹 표준 File 객체를 지원함

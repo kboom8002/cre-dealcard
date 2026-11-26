@@ -184,10 +184,12 @@ describe('Adversarial Stress Harness: Milestone M3 StyledTable Physics', () => {
       // Exactly at 0.22 -> [2, 4, 2, 4]
       expect(getDynamicTableMargin(0.22)).toEqual([2, 4, 2, 4]);
       expect(getDynamicTableMargin(0.220001)).toEqual([2, 4, 2, 4]);
+      expect(getDynamicTableMargin(0.339)).toEqual([2, 4, 2, 4]);
 
-      // Well above 0.22 -> [2, 4, 2, 4]
-      expect(getDynamicTableMargin(0.500)).toEqual([2, 4, 2, 4]);
-      expect(getDynamicTableMargin(1.000)).toEqual([2, 4, 2, 4]);
+      // At or above 0.34 -> [3.5, 6, 3.5, 6]
+      expect(getDynamicTableMargin(0.34)).toEqual([3.5, 6, 3.5, 6]);
+      expect(getDynamicTableMargin(0.500)).toEqual([3.5, 6, 3.5, 6]);
+      expect(getDynamicTableMargin(1.000)).toEqual([3.5, 6, 3.5, 6]);
     });
 
     it('[Positive Pair] Boundary Monotonicity Sweep: Margin values are non-decreasing across all step intervals', () => {

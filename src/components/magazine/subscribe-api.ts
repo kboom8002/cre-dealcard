@@ -26,6 +26,8 @@ export type SubscribeOutcome =
       message?: string;
       notice?: string;
       pendingReason?: 'NO_EMAIL_CONFIRM_CHANNEL';
+      confirmSent?: boolean;
+      confirmBlockReason?: string;
     }
   | { ok: false; message: string };
 
@@ -47,6 +49,8 @@ export function interpretSubscribeResponse(
     status?: unknown;
     message?: unknown;
     pendingReason?: unknown;
+    confirmSent?: unknown;
+    confirmBlockReason?: unknown;
     error?: unknown;
   };
   if (res.ok && body.ok === true) {
@@ -57,6 +61,10 @@ export function interpretSubscribeResponse(
       message: userFacingText(body.message) ?? undefined,
       notice: isNoEmailConfirm ? NO_EMAIL_CONFIRM_NOTICE : undefined,
       ...(isNoEmailConfirm ? { pendingReason: 'NO_EMAIL_CONFIRM_CHANNEL' as const } : {}),
+      ...(typeof body.confirmSent === 'boolean' ? { confirmSent: body.confirmSent } : {}),
+      ...(typeof body.confirmBlockReason === 'string' && body.confirmBlockReason
+        ? { confirmBlockReason: body.confirmBlockReason }
+        : {}),
     };
   }
   const err = body.error;

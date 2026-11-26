@@ -256,25 +256,28 @@ export async function PUT(
     if (prev && typeof prev.markdown === 'string' && typeof section.markdown === 'string' && prev.markdown !== section.markdown) {
       const prevLen = prev.markdown.length;
       const currLen = section.markdown.length;
-      const maxLen = Math.max(prevLen, currLen);
-      let diffRatio = 0;
-      if (maxLen > 0) {
-        let diffCount = Math.abs(prevLen - currLen);
-        const minLen = Math.min(prevLen, currLen);
-        for (let i = 0; i < minLen; i++) {
-          if (prev.markdown[i] !== section.markdown[i]) diffCount++;
-        }
-        diffRatio = Math.min(diffCount / maxLen, 1);
+      let diffCount = Math.abs(prevLen - currLen);
+      const minLen = Math.min(prevLen, currLen);
+      for (let i = 0; i < minLen; i++) {
+        if (prev.markdown[i] !== section.markdown[i]) diffCount++;
       }
-      
-      await supabase.from('im_edit_diffs').insert({
-        document_id: id,
+
+      const diffRes = await supabase.from('im_edit_diffs').insert({
+        doc_id: id,
+        section_key: String(section.section_type).slice(0, 50),
         section_type: section.section_type,
-        original_markdown: prev.markdown,
-        edited_markdown: section.markdown,
+        original_ai_content: prev.markdown,
+        edited_broker_content: section.markdown,
         broker_id: guard.user!.id,
-        diff_ratio: diffRatio,
+        char_diff_count: diffCount,
       });
+      if (diffRes?.error) {
+        log.warn('[save-sections] im_edit_diffs insert failed (non-blocking):', {
+          code: diffRes.error.code,
+          message: diffRes.error.message,
+          id,
+        });
+      }
     }
   }
 

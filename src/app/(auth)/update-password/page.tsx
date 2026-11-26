@@ -3,12 +3,15 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 import { COMPANY_LEGAL_CONFIG } from '@/config/company-legal';
 import { createClient } from '@/lib/supabase/client';
 
 function UpdatePasswordContent() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [linkExpired, setLinkExpired] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
@@ -79,15 +82,20 @@ function UpdatePasswordContent() {
     setLoading(true);
     setError('');
 
-    const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    try {
+      const supabase = createClient();
+      const { error: updateError } = await supabase.auth.updateUser({ password });
 
-    if (updateError) {
-      setLinkExpired(true);
-      setError('비밀번호를 변경할 수 없습니다. 재설정 링크가 만료되었거나 이미 사용되었을 수 있습니다.');
+      if (updateError) {
+        setLinkExpired(true);
+        setError('비밀번호를 변경할 수 없습니다. 재설정 링크가 만료되었거나 이미 사용되었을 수 있습니다.');
+      } else {
+        router.push('/broker');
+      }
+    } catch {
+      setError('비밀번호 변경 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
       setLoading(false);
-    } else {
-      router.push('/broker');
     }
   };
 
@@ -129,34 +137,54 @@ function UpdatePasswordContent() {
           <label htmlFor="password" className="block text-[15px] font-semibold text-slate-800">
             새 비밀번호
           </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            placeholder="8자 이상 입력"
-            className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              placeholder="8자 이상 입력"
+              className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg pl-4 pr-12 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+            >
+              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="confirm" className="block text-[15px] font-semibold text-slate-800">
             새 비밀번호 확인
           </label>
-          <input
-            id="confirm"
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            minLength={8}
-            placeholder="비밀번호 다시 입력"
-            className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
-          />
+          <div className="relative">
+            <input
+              id="confirm"
+              type={showConfirm ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              minLength={8}
+              placeholder="비밀번호 다시 입력"
+              className="w-full min-h-[48px] bg-slate-50 border border-slate-300 rounded-lg pl-4 pr-12 py-3 text-[16px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((prev) => !prev)}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              aria-label={showConfirm ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'}
+            >
+              {showConfirm ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
 
         <button

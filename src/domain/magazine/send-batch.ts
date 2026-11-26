@@ -384,28 +384,58 @@ export async function hydrateEditionForOutboundEmail(
 export function mergeHydratedEdition(
   edition: MagazineEmailInput['edition'],
   hydrated: HydratedOutboundEdition,
+  opts?: { preferHydrated?: boolean },
 ): MagazineEmailInput['edition'] {
   const edHeadline = (edition.headline ?? '').trim();
   const dbHeadline = (hydrated.headline ?? '').trim();
-  const mergedHeadline =
-    dbHeadline &&
-    (!edHeadline ||
-      (dbHeadline.includes('\n') && !edHeadline.includes('\n')) ||
-      dbHeadline.length > edHeadline.length)
+  const preferHydrated = opts?.preferHydrated === true;
+  const mergedHeadline = preferHydrated
+    ? dbHeadline || edHeadline
+    : dbHeadline &&
+      (!edHeadline ||
+        (dbHeadline.includes('\n') && !edHeadline.includes('\n')) ||
+        dbHeadline.length > edHeadline.length)
       ? dbHeadline
       : edHeadline || dbHeadline;
   return {
     ...edition,
-    title: edition.title || hydrated.title || '',
+    title: preferHydrated
+      ? hydrated.title || edition.title || ''
+      : edition.title || hydrated.title || '',
     headline: mergedHeadline,
-    marketTemp: edition.marketTemp || hydrated.marketTemp || '',
-    showMarketTempBadge: edition.showMarketTempBadge ?? hydrated.showMarketTempBadge ?? false,
-    cadence: edition.cadence || hydrated.cadence,
-    fieldNote: edition.fieldNote ?? hydrated.fieldNote ?? undefined,
-    deals: edition.deals && edition.deals.length > 0 ? edition.deals : hydrated.deals,
-    topNews: edition.topNews && edition.topNews.length > 0 ? edition.topNews : hydrated.topNews,
-    monthlyCharts:
-      edition.monthlyCharts && edition.monthlyCharts.length > 0
+    marketTemp: preferHydrated
+      ? hydrated.marketTemp !== undefined
+        ? hydrated.marketTemp
+        : (edition.marketTemp || '')
+      : edition.marketTemp || hydrated.marketTemp || '',
+    showMarketTempBadge: preferHydrated
+      ? (hydrated.showMarketTempBadge ?? edition.showMarketTempBadge ?? false)
+      : (edition.showMarketTempBadge ?? hydrated.showMarketTempBadge ?? false),
+    cadence: preferHydrated
+      ? hydrated.cadence || edition.cadence
+      : edition.cadence || hydrated.cadence,
+    fieldNote: preferHydrated
+      ? (hydrated.fieldNote ?? edition.fieldNote ?? undefined)
+      : (edition.fieldNote ?? hydrated.fieldNote ?? undefined),
+    deals: preferHydrated
+      ? hydrated.deals && hydrated.deals.length > 0
+        ? hydrated.deals
+        : edition.deals
+      : edition.deals && edition.deals.length > 0
+        ? edition.deals
+        : hydrated.deals,
+    topNews: preferHydrated
+      ? hydrated.topNews && hydrated.topNews.length > 0
+        ? hydrated.topNews
+        : edition.topNews
+      : edition.topNews && edition.topNews.length > 0
+        ? edition.topNews
+        : hydrated.topNews,
+    monthlyCharts: preferHydrated
+      ? hydrated.monthlyCharts && hydrated.monthlyCharts.length > 0
+        ? hydrated.monthlyCharts
+        : edition.monthlyCharts
+      : edition.monthlyCharts && edition.monthlyCharts.length > 0
         ? edition.monthlyCharts
         : hydrated.monthlyCharts,
   };

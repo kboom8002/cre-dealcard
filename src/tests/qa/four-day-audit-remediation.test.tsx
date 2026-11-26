@@ -343,9 +343,17 @@ describe('Four-Day Audit Remediation Regression Suite (Waves 1–3)', () => {
     });
 
     it('validates PNU in /api/public/map/cadastral GET and serves PNG when valid', async () => {
-      const badReq = new NextRequest('http://localhost/api/public/map/cadastral?pnu=12345');
+      const noContextReq = new NextRequest(
+        'http://localhost/api/public/map/cadastral?pnu=1168010100200120003&lat=37.501&lng=127.039',
+      );
+      const noContextRes = await getCadastralMapRoute(noContextReq);
+      expect(noContextRes.status).toBe(403);
+
+      const badReq = new NextRequest('http://localhost/api/public/map/cadastral?pnu=12345', {
+        headers: { referer: 'http://localhost/im-lite/b-1' },
+      });
       const badRes = await getCadastralMapRoute(badReq);
-      expect(badRes.status).toBe(404);
+      expect(badRes.status).toBe(400);
       const badJson = (await badRes.json()) as { ok: boolean; error: string };
       expect(badJson.ok).toBe(false);
 
@@ -354,6 +362,7 @@ describe('Four-Day Audit Remediation Regression Suite (Waves 1–3)', () => {
       });
       const okReq = new NextRequest(
         'http://localhost/api/public/map/cadastral?pnu=1168010100200120003&lat=37.501&lng=127.039',
+        { headers: { referer: 'http://localhost/im-lite/b-1' } },
       );
       const okRes = await getCadastralMapRoute(okReq);
       expect(okRes.status).toBe(200);

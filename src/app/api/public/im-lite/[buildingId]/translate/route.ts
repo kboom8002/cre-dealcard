@@ -23,6 +23,7 @@ import {
   buildGovernanceUnavailableResponse,
   buildShareTokenRequiredResponse,
   isAllowedPublicDemoIm,
+  isBuildingWideRevocationEvent,
   isDemoSeedDisabledForProd,
   isPreCutoverSchemaError,
   resolveWorkspaceImGuard,
@@ -176,6 +177,7 @@ export async function POST(
               : {};
           const evBldId = String((row as any)?.building_id || meta.building_id || row?.entity_id || '').trim();
           if (evBldId !== buildingId) continue;
+          if (!isBuildingWideRevocationEvent(meta)) continue;
           if (row.event_type === 'link_revoked') {
             return NextResponse.json(
               { ok: false, error: '담당 중개인에 의해 회수된 공유 링크입니다.' },
@@ -201,7 +203,7 @@ export async function POST(
     if (wsGuard.isDeleted) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
-    if (wsGuard.itemRevoked) {
+    if (wsGuard.isRevoked || wsGuard.itemRevoked) {
       return NextResponse.json(
         { ok: false, error: '담당 중개인에 의해 회수된 공유 링크입니다.' },
         { status: 410 }
@@ -214,7 +216,7 @@ export async function POST(
     // 2. Load existing document scoped strictly to buildingId, active public status & owner_id
     let docLookup: any = supabase
       .from('document_objects')
-      .select('id, owner_id, building_id, body, metadata, status, document_type')
+      .select('id, owner_id, building_id, body, status, document_type')
       .eq('id', docId)
       .eq('building_id', buildingId)
       .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft'])
@@ -326,10 +328,14 @@ export async function POST(
         .filter(Boolean)
     );
 
-    const meta = (doc.metadata ?? {}) as Record<string, unknown>;
+    const bodyObj = (doc.body && typeof doc.body === 'object' ? doc.body : {}) as Record<string, any>;
     const cachedKey = `translated_${language}`;
-    if (Array.isArray(meta[cachedKey])) {
-      const filteredCached = (meta[cachedKey] as Array<Record<string, unknown>>).filter((cs) => {
+    const cachedTranslations =
+      (bodyObj._translations && typeof bodyObj._translations === 'object'
+        ? (bodyObj._translations as Record<string, unknown>)[cachedKey]
+        : undefined) ?? (doc as any).metadata?.[cachedKey];
+    if (Array.isArray(cachedTranslations)) {
+      const filteredCached = (cachedTranslations as Array<Record<string, unknown>>).filter((cs) => {
         const cid = String(cs?.sectionId || cs?.section_type || cs?.id || '');
         if (!cid) return true;
         return allowedIds.has(cid) && !hiddenSet.has(cid);
@@ -349,21 +355,37 @@ export async function POST(
 
     const translated = await translateIMSections({ sections, language });
 
-    // Cache back to document_objects.metadata (scoped by building_id & owner_id when present)
+    // Cache back to document_objects.body._translations (scoped by building_id & owner_id when present)
     try {
-      const updatedMeta = { ...meta, [cachedKey]: translated };
+      const prevTranslations =
+        bodyObj._translations && typeof bodyObj._translations === 'object'
+          ? (bodyObj._translations as Record<string, unknown>)
+          : {};
+      const updatedBody = {
+        ...bodyObj,
+        _translations: { ...prevTranslations, [cachedKey]: translated },
+      };
       let cacheUpdate: any = supabase
         .from('document_objects')
-        .update({ metadata: updatedMeta, updated_at: new Date().toISOString() })
+        .update({ body: updatedBody, updated_at: new Date().toISOString() })
         .eq('id', docId)
         .eq('building_id', buildingId);
       const docOwner = (dbDoc as any)?.owner_id || wsGuard.ownerId;
       if (docOwner && typeof cacheUpdate?.eq === 'function') {
         cacheUpdate = cacheUpdate.eq('owner_id', docOwner);
       }
-      await cacheUpdate;
-    } catch {
-      // Non-blocking cache write failure
+      const cacheRes = await cacheUpdate;
+      if (cacheRes?.error) {
+        log.warn(
+          { code: cacheRes.error.code, message: cacheRes.error.message, docId, buildingId },
+          '[translate] Non-fatal cache write error'
+        );
+      }
+    } catch (cacheErr) {
+      log.warn(
+        { message: cacheErr instanceof Error ? cacheErr.message : String(cacheErr), docId, buildingId },
+        '[translate] Non-fatal cache write exception'
+      );
     }
 
     return NextResponse.json({ ok: true, sections: translated, cached: false });

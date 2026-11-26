@@ -21,6 +21,7 @@ import {
   buildLinkRevokedResponse,
   buildShareTokenRequiredResponse,
   isAllowedPublicDemoIm,
+  isBuildingWideRevocationEvent,
   isDemoSeedDisabledForProd,
   isPreCutoverSchemaError,
   resolveWorkspaceImGuard,
@@ -72,9 +73,9 @@ export async function GET(
   { params }: { params: Promise<{ buildingId: string }> }
 ) {
   const startedAt = Date.now();
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const rateLimit = process.env.NODE_ENV === 'development' ? 1000 : 60;
-  const isAllowed = await checkRateLimit(ip, 'rate_limit', rateLimit, 3600 * 1000);
+  const isAllowed = await checkRateLimit(ip, 'public_im_pptx', rateLimit, 3600 * 1000);
   if (!isAllowed) {
     return NextResponse.json({
       error: 'Rate limit exceeded',
@@ -126,6 +127,11 @@ export async function GET(
     viewer = null;
   }
 
+  const hasAuthenticatedViewer = Boolean(viewer?.userId || viewer?.id);
+  if (!token && !hasAuthenticatedViewer && !isAllowedPublicDemoIm(buildingId)) {
+    return buildShareTokenRequiredResponse();
+  }
+
   const wsGuard = await resolveWorkspaceImGuard(supabase, buildingId);
   if (wsGuard.governanceUnavailable) {
     return buildGovernanceUnavailableResponse();
@@ -133,7 +139,7 @@ export async function GET(
   if (wsGuard.isDeleted) {
     return NextResponse.json({ error: 'IM document has been deleted' }, { status: 404 });
   }
-  if (wsGuard.itemRevoked && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+  if ((wsGuard.isRevoked || wsGuard.itemRevoked) && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
     return buildLinkRevokedResponse(403);
   }
   if (wsGuard.isDraft && !wsGuard.snapshot && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
@@ -237,6 +243,7 @@ export async function GET(
         const meta = (row?.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<string, any>;
         const evBldId = String(row?.building_id || meta.building_id || row?.entity_id || '').trim();
         if (evBldId !== buildingId) continue;
+        if (!isBuildingWideRevocationEvent(meta)) continue;
         if (row.event_type === 'link_revoked') {
           dbRevoked = true;
           dbRevokeTime = Date.parse(String(meta.revoked_at || row.created_at || '')) || 0;

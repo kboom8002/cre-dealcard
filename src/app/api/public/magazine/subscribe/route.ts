@@ -20,6 +20,7 @@ import { resolveBroker, type ResolvedBroker } from '@/lib/magazine/resolve-broke
 import { validateTagList } from '@/lib/magazine/tags';
 import { hashIp, normalizeKrPhone } from '@/lib/magazine/pii';
 import { recordOptIn, sendOptInConfirmation } from '@/domain/magazine/consent-service';
+import { isMagazineSendDryRun, isMagazineSendEnabled } from '@/lib/magazine/send-flags';
 import {
   normalizeEmail,
   subscribeRequestSchema,
@@ -98,6 +99,7 @@ export const POST = withPublicGuard<SubscribeRequest>({
 
   // 4) 확인 메시지: 발송 활성 + dry-run 해제일 때만 실제 발송. 아니면 보내지 않고 pending 유지(정직).
   let sent = false;
+  let confirmBlockReason: string | undefined;
   if (result.confirmToken) {
     let brokerContact: string | null = broker.company ?? null;
     if (input.email && (input.channel === 'email' || input.channel === 'both')) {
@@ -128,7 +130,20 @@ export const POST = withPublicGuard<SubscribeRequest>({
       token: result.confirmToken,
     });
     sent = s.sent;
-    if (!s.sent) log.info('[subscribe] 확인 메시지 미발송', { reason: s.reason, outcome: result.outcome });
+    if (!s.sent) {
+      confirmBlockReason = s.reason;
+      log.info('[subscribe] 확인 메시지 미발송', { reason: s.reason, outcome: result.outcome });
+    }
+  } else if (!result.pendingReason) {
+    if (!isMagazineSendEnabled()) {
+      confirmBlockReason = 'SEND_DISABLED';
+    } else if (isMagazineSendDryRun()) {
+      confirmBlockReason = 'DRY_RUN';
+    } else if (!process.env.RESEND_API_KEY?.trim()) {
+      confirmBlockReason = 'NO_PROVIDER';
+    } else {
+      sent = true;
+    }
   }
 
   // 5) 구독 이벤트(PII 없음). 실패해도 구독 처리는 유지하되 경고 로그를 남긴다.
@@ -145,6 +160,12 @@ export const POST = withPublicGuard<SubscribeRequest>({
     ok: true,
     status: result.status,
     ...(pendingReason ? { pendingReason } : {}),
+    ...(!pendingReason
+      ? {
+          confirmSent: sent,
+          ...(confirmBlockReason ? { confirmBlockReason } : {}),
+        }
+      : {}),
     message: pendingReason ? MSG_NO_CONFIRM_CHANNEL : sent ? MSG_ACCEPTED_SENT : MSG_ACCEPTED,
   });
 });

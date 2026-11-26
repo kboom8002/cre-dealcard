@@ -23,6 +23,8 @@ export const EMPTY_CONSENT: ConsentState = { privacy: false, marketing: false, a
 
 /** 개인정보 처리방침 경로. */
 export const PRIVACY_POLICY_HREF = '/privacy';
+/** 이용약관 경로. */
+export const TERMS_OF_SERVICE_HREF = '/terms';
 
 export function allConsented(c: ConsentState): boolean {
   return c.privacy && c.marketing && c.age14;
@@ -80,6 +82,10 @@ export function ConsentCheckboxes({ value, onChange, idPrefix }: Props) {
           <b className="text-slate-900">[필수]</b> 개인정보 수집·이용에 동의합니다. (수집 항목: 연락처·이름, 목적: 매거진 발송, 보유: {SUBSCRIBER_RETENTION_NOTICE} — {SUBSCRIBER_RETENTION_LEGAL_NOTE}){' '}
           <a href={PRIVACY_POLICY_HREF} target="_blank" rel="noopener noreferrer" className="underline text-indigo-700 hover:text-indigo-900 font-semibold">
             처리방침 보기
+          </a>
+          {' · '}
+          <a href={TERMS_OF_SERVICE_HREF} target="_blank" rel="noopener noreferrer" className="underline text-indigo-700 hover:text-indigo-900 font-semibold">
+            이용약관 보기
           </a>
         </span>
       </label>

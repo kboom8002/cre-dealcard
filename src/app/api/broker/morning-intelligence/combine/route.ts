@@ -1,11 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
+
+const CombineIntelRequestSchema = z.object({
+  region: z.string().trim().max(40).optional().default("gbd"),
+  hqBriefingText: z.string().max(10_000).optional().default(""),
+  hqSelectedSections: z.array(z.string().max(100)).max(20).optional().default([]),
+  myIntelItems: z
+    .array(
+      z.object({
+        summary: z.string().max(1_000),
+        implication: z.string().max(1_000),
+      }),
+    )
+    .max(20)
+    .optional()
+    .default([]),
+  myIntelContext: z
+    .object({
+      overallInsight: z.string().max(4_000).optional().default(""),
+      actionItems: z.array(z.string().max(500)).max(20).optional().default([]),
+    })
+    .optional()
+    .default({ overallInsight: "", actionItems: [] }),
+});
 
 
 /**
@@ -14,32 +39,44 @@ const log = createModuleLogger('route');
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const guard = await requireBroker(request);
+    if (guard.error) return guard.error;
+    const user = guard.user;
+    if (!user?.id) {
       return NextResponse.json({ error: "인증되지 않은 사용자입니다." }, { status: 401 });
     }
 
-    const body = await request.json();
-    const {
-      region = "gbd",
-      hqBriefingText = "",
-      hqSelectedSections = [],
-      myIntelItems = [],
-      myIntelContext = { overallInsight: "", actionItems: [] },
-    } = body as {
-      region: string;
-      hqBriefingText: string;
-      hqSelectedSections: string[];
-      myIntelItems: { summary: string; implication: string }[];
-      myIntelContext?: { overallInsight: string; actionItems: string[] };
-    };
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
+    }
 
-    const safeMyIntelItems = Array.isArray(myIntelItems) ? myIntelItems : [];
+    const parsed = CombineIntelRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "입력값이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    }
+
+    const {
+      region,
+      hqBriefingText,
+      hqSelectedSections,
+      myIntelItems,
+      myIntelContext,
+    } = parsed.data;
+
+    const safeMyIntelItems = myIntelItems;
 
     if (!hqBriefingText && safeMyIntelItems.length === 0) {
       return NextResponse.json({ error: "결합할 항목을 선택해주세요." }, { status: 400 });
     }
+
+    const quotaErr = await enforceBrokerAiQuota(request, user.id, "morning_intelligence_combine");
+    if (quotaErr) return quotaErr;
 
     // ── 결합 프롬프트 ──────────────────────────────────────────────────────
     let combinedInput = "";

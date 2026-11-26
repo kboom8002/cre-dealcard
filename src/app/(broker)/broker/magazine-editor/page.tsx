@@ -4,15 +4,9 @@ import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } fr
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BarChart3,
-  CheckCircle2,
-  Clock,
   Copy,
-  ExternalLink,
-  Mail,
-  RefreshCw,
   Save,
   Trash2,
-  XCircle,
 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
@@ -102,6 +96,11 @@ import {
   NewsletterSendStepPanel,
   type SendDeliveryMode,
 } from "./_components/NewsletterSendStepPanel";
+import {
+  NewsletterDeliveryReceiptsPanel,
+  type DeliveryReceiptRowItem,
+  type DistributionSummaryRowItem,
+} from "./_components/NewsletterDeliveryReceiptsPanel";
 import { type DistributeOutcomeCardData } from "./_components/distribute-result-helper";
 import {
   MagazineStatusBanner,
@@ -132,12 +131,9 @@ import {
 } from "./_lib/edition-helpers";
 import {
   executeSendSelectedEdition,
-  formatReceiptTimeKo,
   patchEditionRegionFocusRequest,
   scheduleRegionFocusPatch,
   syncServerRegionFocusMap,
-  type HistoryDistributionItem,
-  type HistoryReceiptItem,
 } from "./_lib/edition-dispatch";
 import {
   findScopedInitialDraftRecord,
@@ -274,10 +270,20 @@ function MagazineEditorWorkspace() {
   const [sendMode, setSendMode] = useState<SendDeliveryMode>("now");
   const [isPrefsOpen, setIsPrefsOpen] = useState<boolean>(false);
   const [insightsTab, setInsightsTab] = useState<"subscribers" | "analytics">("subscribers");
-  const [historyReceipts, setHistoryReceipts] = useState<HistoryReceiptItem[]>([]);
-  const [historyDistributions, setHistoryDistributions] = useState<HistoryDistributionItem[]>([]);
+  const [todayStr, setTodayStr] = useState<string>("");
+  useEffect(() => {
+    setTodayStr(todayKst());
+  }, []);
+  const [historyReceipts, setHistoryReceipts] = useState<DeliveryReceiptRowItem[]>([]);
+  const [historyDistributions, setHistoryDistributions] = useState<DistributionSummaryRowItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [cancellingSchedule, setCancellingSchedule] = useState<boolean>(false);
+  const [sendRuntimeStatus, setSendRuntimeStatus] = useState<{
+    sendEnabled: boolean;
+    dryRun: boolean;
+    hasResendKey: boolean;
+  } | null>(null);
   const [sendDisabled, setSendDisabled] = useState<boolean>(false);
   const [statusBanner, setStatusBanner] = useState<StatusBannerState | null>(null);
   const [distributeOutcome, setDistributeOutcome] = useState<DistributeOutcomeCardData | null>(null);
@@ -1077,6 +1083,13 @@ function MagazineEditorWorkspace() {
           return;
         }
 
+        if (editionsRes && !editionsRes.ok && editionsRes.status !== 404) {
+          setStatusBanner({
+            tone: "error",
+            message: "뉴스레터 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+          });
+        }
+
         if (editionsRes && editionsRes.ok) {
           const edJson = (await editionsRes.json().then(
             (v) => v,
@@ -1428,9 +1441,27 @@ function MagazineEditorWorkspace() {
               ? bJson.items
               : [];
           setDeals(mapBuildingRowsToAssignableDeals(list));
+        } else if (
+          buildingsRes &&
+          !buildingsRes.ok &&
+          buildingsRes.status !== 401 &&
+          buildingsRes.status !== 403 &&
+          buildingsRes.status !== 404
+        ) {
+          setStatusBanner((prev) =>
+            prev ?? {
+              tone: "error",
+              message: "매물 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+            },
+          );
         }
       } catch {
-        // 초기 로드 실패 시에도 로컬 작성은 가능하도록 유지
+        if (mounted) {
+          setStatusBanner({
+            tone: "error",
+            message: "초기 데이터를 불러오는 중 오류가 발생했어요. 로컬 작성 내용은 안전하게 유지됩니다.",
+          });
+        }
       } finally {
         if (mounted) {
           hydratedRef.current = true;
@@ -1507,43 +1538,113 @@ function MagazineEditorWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNewParam, isWorkspaceHydrated]);
 
-  const fetchHistoryAnalytics = useCallback(async () => {
+  const fetchHistoryAnalytics = useCallback(async (opts?: { silent?: boolean }) => {
     if (typeof fetch === "undefined") return;
-    setHistoryLoading(true);
-    setHistoryError(null);
+    if (!opts?.silent) {
+      setHistoryLoading(true);
+      setHistoryError(null);
+    }
     try {
       const res = await fetch("/api/broker/magazine/analytics?tier=warm", {
         cache: "no-store",
       });
       if (!res.ok) {
-        setHistoryError("발송·수신확인 내역을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+        if (!opts?.silent) {
+          setHistoryError("발송·수신확인 내역을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+        }
         return;
       }
       const json = (await res.json().catch(() => null)) as {
         deliveryReceipts?: unknown;
         recentDistributions?: unknown;
+        sendRuntimeStatus?: {
+          sendEnabled?: unknown;
+          dryRun?: unknown;
+          hasResendKey?: unknown;
+        } | null;
       } | null;
+      if (
+        json?.sendRuntimeStatus &&
+        typeof json.sendRuntimeStatus === "object" &&
+        typeof json.sendRuntimeStatus.sendEnabled === "boolean" &&
+        typeof json.sendRuntimeStatus.dryRun === "boolean" &&
+        typeof json.sendRuntimeStatus.hasResendKey === "boolean"
+      ) {
+        setSendRuntimeStatus({
+          sendEnabled: json.sendRuntimeStatus.sendEnabled,
+          dryRun: json.sendRuntimeStatus.dryRun,
+          hasResendKey: json.sendRuntimeStatus.hasResendKey,
+        });
+      }
       setHistoryReceipts(
         Array.isArray(json?.deliveryReceipts)
-          ? (json.deliveryReceipts as HistoryReceiptItem[])
+          ? (json.deliveryReceipts as DeliveryReceiptRowItem[])
           : [],
       );
       setHistoryDistributions(
         Array.isArray(json?.recentDistributions)
-          ? (json.recentDistributions as HistoryDistributionItem[])
+          ? (json.recentDistributions as DistributionSummaryRowItem[])
           : [],
       );
     } catch {
-      setHistoryError("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
+      if (!opts?.silent) {
+        setHistoryError("네트워크 연결을 확인한 뒤 다시 시도해 주세요.");
+      }
     } finally {
-      setHistoryLoading(false);
+      if (!opts?.silent) {
+        setHistoryLoading(false);
+      }
     }
   }, []);
 
+  const handleCancelSchedule = useCallback(async () => {
+    if (cancellingSchedule) return;
+    setCancellingSchedule(true);
+    try {
+      const res = await fetch("/api/broker/magazine/distribute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel_schedule" }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        message?: string;
+        error?: { message?: string };
+      } | null;
+      if (!res.ok || json?.ok === false) {
+        setStatusBanner({
+          tone: "error",
+          message:
+            json?.error?.message ||
+            json?.message ||
+            "예약 발송을 취소하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        });
+        return;
+      }
+      setStatusBanner({
+        tone: "success",
+        message: json?.message || "오전 08:30 예약 발송을 취소했어요.",
+      });
+      await fetchHistoryAnalytics();
+    } catch {
+      setStatusBanner({
+        tone: "error",
+        message: "네트워크 오류로 예약 발송을 취소하지 못했어요.",
+      });
+    } finally {
+      setCancellingSchedule(false);
+    }
+  }, [cancellingSchedule, fetchHistoryAnalytics]);
+
   useEffect(() => {
-    if (activeStep !== "history") return;
-    void fetchHistoryAnalytics();
-  }, [activeStep, fetchHistoryAnalytics]);
+    if (activeStep === "history") {
+      void fetchHistoryAnalytics();
+      return;
+    }
+    if (activeStep === "send" && sendRuntimeStatus === null) {
+      void fetchHistoryAnalytics({ silent: true });
+    }
+  }, [activeStep, fetchHistoryAnalytics, sendRuntimeStatus]);
 
   // 월간 상단 통계 그래픽 2선 — 공공 DB 적재 행 자동 승격
   useEffect(() => {
@@ -2522,7 +2623,18 @@ function MagazineEditorWorkspace() {
         tone: toneStance,
       });
       const res = await fetch(`/api/broker/magazine/news-channels?${qs.toString()}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status !== 401 && res.status !== 404) {
+          setStatusBanner({
+            tone: "error",
+            message:
+              res.status === 429
+                ? "뉴스 새로고침 요청이 너무 많습니다. 1분 후 다시 시도해 주세요."
+                : "최신 뉴스를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+          });
+        }
+        return;
+      }
       const json = (await res.json().then(
         (v) => v,
         () => null,
@@ -2531,7 +2643,10 @@ function MagazineEditorWorkspace() {
         setNewsPool((prev) => mergeIncomingNewsPool(prev, json.items ?? [], channel));
       }
     } catch {
-      // ignore network error
+      setStatusBanner({
+        tone: "error",
+        message: "네트워크 오류로 최신 뉴스를 불러오지 못했어요.",
+      });
     }
   };
 
@@ -3350,11 +3465,12 @@ function MagazineEditorWorkspace() {
             highInterestCount={highInterestCount}
             sending={sending}
             isPublished={isPublished}
-            isPastPublished={isPublished && issueDateStr < todayKst()}
+            isPastPublished={Boolean(todayStr) && isPublished && issueDateStr < todayStr}
             republishAsToday={republishAsToday}
             onChangeRepublishAsToday={setRepublishAsToday}
             publicUrl={activeReaderPreviewUrl}
             distributeOutcome={distributeOutcome}
+            sendRuntimeStatus={sendRuntimeStatus}
             onJumpToStep={(step) => handleSelectStep(step)}
             onNotifyEditorFocus={sync.notifyEditorFocus}
             onBulkSubscribersImported={handleBulkSubscribersImported}
@@ -3375,137 +3491,16 @@ function MagazineEditorWorkspace() {
             className="space-y-5"
           >
             {/* 1. 이메일 수신확인형 발송·열람 내역 */}
-            <section
-              data-testid="newsletter-delivery-receipts-section"
-              aria-label="발송 및 수신확인 내역"
-              className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xs space-y-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-5 w-5 text-blue-700" aria-hidden="true" />
-                    <h3 className="text-base font-extrabold text-slate-900">
-                      발송 · 수신확인 내역
-                    </h3>
-                  </div>
-                  <p className="text-sm font-medium text-slate-600">
-                    구독자별 발송 시각과 개인 링크 열람(수신확인) 여부를 바로 확인합니다.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-bold text-slate-800">
-                    전체 {historyReceipts.length}건
-                  </span>
-                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-extrabold text-emerald-900">
-                    열람 {historyReceipts.filter((r) => r.status === "opened").length}건
-                  </span>
-                  <button
-                    type="button"
-                    data-testid="history-receipts-refresh-btn"
-                    onClick={() => void fetchHistoryAnalytics()}
-                    disabled={historyLoading}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-                  >
-                    <RefreshCw
-                      className={`h-4 w-4 ${historyLoading ? "animate-spin text-blue-700" : ""}`}
-                      aria-hidden="true"
-                    />
-                    <span>새로고침</span>
-                  </button>
-                </div>
-              </div>
-
-              {historyDistributions.length > 0 && (
-                <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  {historyDistributions.slice(0, 3).map((d, idx) => (
-                    <span
-                      key={`${d.createdAt ?? d.date ?? idx}-${idx}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold text-slate-800"
-                    >
-                      <span>{d.issueDate || d.date || "최근 발송"}</span>
-                      <span className="text-blue-800">발송 {d.sentCount}건</span>
-                      {d.failedCount > 0 && (
-                        <span className="text-rose-700">· 실패 {d.failedCount}건</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {historyError ? (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-900"
-                >
-                  {historyError}
-                </div>
-              ) : historyLoading && historyReceipts.length === 0 ? (
-                <p className="py-4 text-sm font-medium text-slate-600">
-                  발송 및 수신확인 기록을 불러오는 중입니다…
-                </p>
-              ) : historyReceipts.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center space-y-2">
-                  <p className="text-base font-bold text-slate-800">
-                    아직 기록된 발송 · 수신확인 내역이 없습니다
-                  </p>
-                  <p className="text-sm font-medium text-slate-600">
-                    3. 보내기 단계에서 구독자에게 발송하면 수신자별 발송 상태와 열람 시간이 이곳에 표시됩니다.
-                  </p>
-                </div>
-              ) : (
-                <ul
-                  aria-label="수신자별 발송 및 열람 내역"
-                  className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white"
-                >
-                  {historyReceipts.map((item) => {
-                    const sentLabel = formatReceiptTimeKo(item.sentAt);
-                    const openedLabel = formatReceiptTimeKo(item.openedAt);
-                    return (
-                      <li
-                        key={item.id}
-                        data-testid={`delivery-receipt-row-${item.id}`}
-                        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <p className="truncate text-base font-extrabold text-slate-900">
-                            {item.recipientLabel}
-                          </p>
-                          <p className="truncate text-sm font-medium text-slate-600">
-                            {item.editionLabel}
-                            {sentLabel ? ` · ${item.status === "queued" ? "대기 등록" : "발송"} ${sentLabel}` : ""}
-                          </p>
-                        </div>
-
-                        {item.status === "opened" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-extrabold text-emerald-900 shrink-0">
-                            <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-                            <span>
-                              ✓ 열람 완료{openedLabel ? ` (${openedLabel})` : ""}
-                            </span>
-                          </span>
-                        ) : item.status === "failed" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm font-extrabold text-rose-900 shrink-0">
-                            <XCircle className="h-4 w-4 text-rose-700" aria-hidden="true" />
-                            <span>발송 실패</span>
-                          </span>
-                        ) : item.status === "queued" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-extrabold text-amber-900 shrink-0">
-                            <Clock className="h-4 w-4 text-amber-700" aria-hidden="true" />
-                            <span>⏳ 발송 대기</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700 shrink-0">
-                            <Clock className="h-4 w-4 text-slate-600" aria-hidden="true" />
-                            <span>발송됨 (미열람)</span>
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+            <NewsletterDeliveryReceiptsPanel
+              receipts={historyReceipts}
+              distributions={historyDistributions}
+              loading={historyLoading}
+              error={historyError}
+              cancellingSchedule={cancellingSchedule}
+              queuedBadgeLabel="⏳ 발송 대기"
+              onRefresh={() => void fetchHistoryAnalytics()}
+              onCancelSchedule={() => void handleCancelSchedule()}
+            />
 
             {/* 2. 구독자 관리 · 발행 성과 요약 인라인 탭 */}
             <section
@@ -3657,7 +3652,15 @@ function MagazineEditorWorkspace() {
         const res = await fetch("/api/magazine/editions?broker_id=me&type=all&limit=50", {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!opts?.silent && res.status !== 401 && res.status !== 404) {
+            setStatusBanner({
+              tone: "error",
+              message: "최신 뉴스레터 상태를 동기화하지 못했어요. 잠시 후 다시 시도해 주세요.",
+            });
+          }
+          return;
+        }
         const edJson = (await res.json().then((v) => v, () => null)) as Record<string, unknown> | null;
         if (!edJson) return;
         if (typeof edJson.subscriberCount === "number") {
@@ -3679,7 +3682,12 @@ function MagazineEditorWorkspace() {
           setEditions(mapped);
         }
       } catch {
-        // ignore manual sync error
+        if (!opts?.silent) {
+          setStatusBanner({
+            tone: "error",
+            message: "네트워크 오류로 동기화에 실패했어요. 연결 상태를 확인해 주세요.",
+          });
+        }
       } finally {
         manualSyncBusyRef.current = false;
         setIsManualSyncing(false);

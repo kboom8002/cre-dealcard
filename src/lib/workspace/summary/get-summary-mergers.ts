@@ -53,6 +53,15 @@ export function mergeWorkspaceDealCard(wsItem: WorkspaceItemRecord, dealcards: A
       dealcards.splice(i, 1);
     }
   }
+  const fallbackPointCandidates =
+    !c4.pointCandidates || c4.pointCandidates.length === 0
+      ? matchedEntries.find(
+          (m) => Array.isArray(m?.card4?.pointCandidates) && m.card4.pointCandidates.length > 0
+        )?.card4?.pointCandidates
+      : undefined;
+  const mergedCard4: Card4Data = fallbackPointCandidates
+    ? { ...c4, pointCandidates: fallbackPointCandidates }
+    : c4;
   const fallbackMemoText =
     typeof payload.memoText === "string"
       ? payload.memoText
@@ -64,18 +73,18 @@ export function mergeWorkspaceDealCard(wsItem: WorkspaceItemRecord, dealcards: A
     canonicalId: wsItem.id,
     buildingId: wsItem.buildingId,
     legacyId: wsItem.legacyId,
-    title: wsItem.title || `${c4.region} ${c4.use}`.trim(),
-    region: c4.region,
-    use: c4.use,
-    priceBand: wsItem.priceBand || c4.priceBand,
+    title: wsItem.title || `${mergedCard4.region} ${mergedCard4.use}`.trim(),
+    region: mergedCard4.region,
+    use: mergedCard4.use,
+    priceBand: wsItem.priceBand || mergedCard4.priceBand,
     status: wsItem.status === "sent" || wsItem.status === "published" ? ("sent" as const) : ("draft" as const),
     updatedAt: formatRelativeTime(wsItem.updatedAt),
     updatedAtIso: wsItem.updatedAt,
     hasUnpublishedEdits: Boolean(payload.hasUnpublishedEdits),
-    card4: c4,
+    card4: mergedCard4,
     ...(typeof fallbackMemoText === "string" ? { memoText: fallbackMemoText } : {}),
     ...(fallbackPairedMemoId ? { pairedMemoId: fallbackPairedMemoId } : {}),
-    generationSource: (payload.generationSource || c4.generationSource || "manual") as DealCardGenerationSource,
+    generationSource: (payload.generationSource || mergedCard4.generationSource || "manual") as DealCardGenerationSource,
   };
   if (firstMatchIdx >= 0) {
     dealcards.splice(Math.min(firstMatchIdx, dealcards.length), 0, mapped);
@@ -212,8 +221,15 @@ export function mergeQuickRecordIntoLists(
   brokerProfile: BrokerProfileMeta | null
 ) {
   const existingDcIdx = dealcards.findIndex((dc) => dc.id === qRec.buildingId);
+  const existingDc = existingDcIdx >= 0 ? dealcards[existingDcIdx] : undefined;
   const isSent = sentBuildingIds.has(qRec.buildingId) || isDealCardSent(qRec.buildingId);
   const normalizedQuickCard4 = normalizeDealCardCopy(qRec.card4, { fillHeadline: true });
+  const fallbackQuickCandidates =
+    (!normalizedQuickCard4.pointCandidates || normalizedQuickCard4.pointCandidates.length === 0) &&
+    Array.isArray(existingDc?.card4?.pointCandidates) &&
+    existingDc.card4.pointCandidates.length > 0
+      ? existingDc.card4.pointCandidates
+      : undefined;
   const quickGenSource = classifyDealCardOriginGroup({ card4: normalizedQuickCard4 });
   const mappedDc = {
     id: qRec.buildingId,
@@ -225,7 +241,11 @@ export function mergeQuickRecordIntoLists(
     updatedAt: formatRelativeTime(qRec.updatedAt),
     updatedAtIso: typeof qRec.updatedAt === "string" ? qRec.updatedAt : undefined,
     hasUnpublishedEdits: false,
-    card4: { ...normalizedQuickCard4, generationSource: quickGenSource as DealCardGenerationSource },
+    card4: {
+      ...normalizedQuickCard4,
+      ...(fallbackQuickCandidates ? { pointCandidates: fallbackQuickCandidates } : {}),
+      generationSource: quickGenSource as DealCardGenerationSource,
+    },
     ...(normalizedQuickCard4.pairedMemoId ? { pairedMemoId: normalizedQuickCard4.pairedMemoId } : {}),
     generationSource: quickGenSource as DealCardGenerationSource,
   };

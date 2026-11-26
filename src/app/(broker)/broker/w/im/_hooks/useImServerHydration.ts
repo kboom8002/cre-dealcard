@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { generateFloorScaffolding } from "@/components/workspace/RentRollGrid";
 import {
   extractWorkspaceResponseUserId,
@@ -85,6 +85,7 @@ export interface UseImServerHydrationOptions {
   applyItemToFormState: (item: ImListItem) => void;
   persistImItems: (next: ImListItem[], explicitUserId?: string | null) => void;
   onFreshDraftCreated?: (buildingId: string) => void;
+  onLoadError?: (message: string) => void;
 }
 
 export function useImServerHydration({
@@ -111,7 +112,10 @@ export function useImServerHydration({
   applyItemToFormState,
   persistImItems,
   onFreshDraftCreated,
+  onLoadError,
 }: UseImServerHydrationOptions) {
+  const onLoadErrorRef = useRef(onLoadError);
+  onLoadErrorRef.current = onLoadError;
   useEffect(() => {
     fetch("/api/broker/profile")
       .then((res) => {
@@ -308,11 +312,20 @@ export function useImServerHydration({
           if (res.status === 401 || res.status === 403) {
             return { __unauthorized: true } as const;
           }
-          return res.ok ? await res.json() : null;
+          if (!res.ok) {
+            return { __httpError: res.status } as const;
+          }
+          return await res.json();
         })
-        .catch(() => null),
+        .catch(() => ({ __networkError: true } as const)),
     ])
       .then(([authUid, data]) => {
+        if (data && ("__httpError" in data || "__networkError" in data)) {
+          onLoadErrorRef.current?.(
+            "서버에서 IM 목록을 불러오지 못했습니다. 잠시 후 동기화를 눌러 주세요."
+          );
+          return;
+        }
         if (data && "__unauthorized" in data && data.__unauthorized) {
           purgeWorkspaceClientStorage();
           currentUserIdRef.current = null;

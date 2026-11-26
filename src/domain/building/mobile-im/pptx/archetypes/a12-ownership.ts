@@ -58,9 +58,10 @@ export function buildA12Ownership(input: ArchetypeInput): ArchetypeOutput {
       : Array(colCount).fill(left.w / colCount);
 
     tableEnd = L.table(slide, left.x, 1.98, left.w, headRow, bodyRows, colW, {
-      rh: 0.35,
+      rh: 0.33,
       bfs: 10,
       hfs: 10,
+      autoPage: false,
     });
   }
 

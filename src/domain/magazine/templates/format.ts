@@ -26,6 +26,9 @@ export function formatKrwAmount(value: unknown): string | null {
   // 이미 '12억 5천만원' 같은 표기: 제어문자·꺾쇠 제거, 길이 제한
   // eslint-disable-next-line no-control-regex
   const cleaned = s.replace(/[\u0000-\u001f\u007f<>]/g, '').slice(0, 30);
+  if (cleaned === '가격 협의' || cleaned === '협의' || cleaned.replace(/\s+/g, '') === '가격협의') {
+    return '가격 협의';
+  }
   return /[\d]/.test(cleaned) ? cleaned : null;
 }
 

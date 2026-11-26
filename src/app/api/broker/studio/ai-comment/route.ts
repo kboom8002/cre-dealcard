@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
         userPrompt: userPromptWithAvoid,
         model: getModel("terra"),
         temperature,
+        maxTokens: 1024,
       },
       { allowMock: false },
     );

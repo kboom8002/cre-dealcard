@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker } from '@/lib/auth-guard';
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
 import {
   extractRentRollWithOpenAiVision,
   isVisionOcrApiKeyConfigured,
@@ -25,12 +25,11 @@ export async function POST(req: NextRequest) {
     return guard.error;
   }
 
-  const allowed = await checkRateLimit(guard.user!.id, 'vision_ocr', 10, 60_000);
-  if (!allowed) {
-    return NextResponse.json(
-      { ok: false, error: '요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.' },
-      { status: 429 }
-    );
+  const quotaErr = await enforceBrokerAiQuota(req, guard.user!.id, 'rent_roll_vision_ocr', {
+    perMinute: 10,
+  });
+  if (quotaErr) {
+    return quotaErr;
   }
 
   let body: Record<string, unknown>;

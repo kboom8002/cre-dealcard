@@ -137,22 +137,27 @@ describe('Milestone M3: Data Visualization & Table Styling Upgrade (R3)', () => 
       expect(getDynamicTableMargin(0.18)).toEqual([1.5, 3, 1.5, 3]);
       expect(getDynamicTableMargin(0.21)).toEqual([1.5, 3, 1.5, 3]);
 
-      // Row height >= 0.22" -> [2, 4, 2, 4]
+      // Row height 0.22" ~ < 0.34" -> [2, 4, 2, 4]
       expect(getDynamicTableMargin(0.22)).toEqual([2, 4, 2, 4]);
       expect(getDynamicTableMargin(0.28)).toEqual([2, 4, 2, 4]);
-      expect(getDynamicTableMargin(0.48)).toEqual([2, 4, 2, 4]);
+      expect(getDynamicTableMargin(0.33)).toEqual([2, 4, 2, 4]);
+
+      // Row height >= 0.34" -> [3.5, 6, 3.5, 6]
+      expect(getDynamicTableMargin(0.34)).toEqual([3.5, 6, 3.5, 6]);
+      expect(getDynamicTableMargin(0.48)).toEqual([3.5, 6, 3.5, 6]);
     });
 
     it('[Negative Pair] Compact row heights do NOT retain large 4pt vertical padding, and standard row heights do NOT collapse', () => {
       const compactMargin = getDynamicTableMargin(0.11);
       const standardMargin = getDynamicTableMargin(0.35);
 
-      // Compact row vertical padding (1pt + 1pt = 2pt) is strictly smaller than standard (2pt + 2pt = 4pt)
+      // Compact row vertical padding (1pt + 1pt = 2pt) is strictly smaller than standard (3.5pt + 3.5pt = 7pt)
       expect(compactMargin[0] + compactMargin[2]).toBe(2);
       expect(compactMargin).not.toEqual([2, 4, 2, 4]);
 
-      // Standard row vertical padding remains comfortable
-      expect(standardMargin[0] + standardMargin[2]).toBe(4);
+      // Standard row vertical padding (>= 0.34") scales to 3.5pt + 3.5pt = 7pt
+      expect(standardMargin).toEqual([3.5, 6, 3.5, 6]);
+      expect(standardMargin[0] + standardMargin[2]).toBe(7);
       expect(standardMargin).not.toEqual([1, 2, 1, 2]);
     });
 

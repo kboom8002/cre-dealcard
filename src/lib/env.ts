@@ -26,9 +26,9 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
   SHARE_LINK_SECRET: z.string().min(32).optional(),
-  AI_DEFAULT_MODEL: z.string().default("gpt-5.6-terra"),
+  AI_DEFAULT_MODEL: z.string().default("gpt-6.1-terra"),
   AI_MODEL_SOL: z.string().default("gpt-5.6-sol"),
-  AI_MODEL_TERRA: z.string().default("gpt-5.6-terra"),
+  AI_MODEL_TERRA: z.string().default("gpt-6.1-terra"),
   AI_MODEL_LUNA: z.string().default("gpt-5.6-luna"),
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
   // 공공데이터 API — optional (미설정 시 mock 폴백)
@@ -79,9 +79,53 @@ function validatePublicEnv() {
 
 export const env = validatePublicEnv();
 
+let loggedProdWarnings = false;
+
+export function getProductionReadinessWarnings(): string[] {
+  const warnings: string[] = [];
+  if (!cleanEnvValue(process.env.RESEND_API_KEY)) {
+    warnings.push("RESEND_API_KEY is not configured (outbound emails cannot be sent)");
+  }
+  if (cleanEnvValue(process.env.MAGAZINE_SEND_ENABLED) !== "true") {
+    warnings.push('MAGAZINE_SEND_ENABLED is not "true" (magazine sending is disabled)');
+  }
+  if (cleanEnvValue(process.env.MAGAZINE_SEND_DRY_RUN) !== "false") {
+    warnings.push('MAGAZINE_SEND_DRY_RUN is not "false" (magazine sending is in dry-run mode)');
+  }
+  if (!cleanEnvValue(process.env.UNSUBSCRIBE_SECRET)) {
+    warnings.push("UNSUBSCRIBE_SECRET is not configured");
+  }
+  if (!cleanEnvValue(process.env.CRON_SECRET)) {
+    warnings.push("CRON_SECRET is not configured");
+  }
+  const baseUrl = cleanEnvValue(
+    process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_BASE_URL,
+  );
+  if (!baseUrl || /localhost/i.test(baseUrl)) {
+    warnings.push("APP_BASE_URL is missing or points to localhost");
+  }
+  if (!cleanEnvValue(process.env.VWORLD_API_KEY)) {
+    warnings.push("VWORLD_API_KEY is not configured");
+  }
+  const openaiKey =
+    cleanEnvValue(process.env.OPENAI_API_KEY) || cleanEnvValue(process.env.GEMINI_API_KEY);
+  if (!openaiKey || openaiKey === "not-configured") {
+    warnings.push("OPENAI_API_KEY is not configured");
+  }
+  return warnings;
+}
+
 export function getServerEnv() {
   if (typeof window !== "undefined") {
     throw new Error("getServerEnv must not be called on the client.");
+  }
+
+  if (isRealProductionRuntime() && !loggedProdWarnings) {
+    loggedProdWarnings = true;
+    const warnings = getProductionReadinessWarnings();
+    if (warnings.length > 0) {
+      console.warn("⚠️ Production readiness warnings:", warnings.join("; "));
+    }
   }
 
   const payload = {
@@ -93,9 +137,9 @@ export function getServerEnv() {
       cleanEnvValue(process.env.GEMINI_API_KEY) ||
       "not-configured",
     SHARE_LINK_SECRET: cleanEnvValue(process.env.SHARE_LINK_SECRET),
-    AI_DEFAULT_MODEL: cleanEnvValue(process.env.AI_DEFAULT_MODEL) || "gpt-5.6-terra",
+    AI_DEFAULT_MODEL: cleanEnvValue(process.env.AI_DEFAULT_MODEL) || "gpt-6.1-terra",
     AI_MODEL_SOL: cleanEnvValue(process.env.AI_MODEL_SOL) || "gpt-5.6-sol",
-    AI_MODEL_TERRA: cleanEnvValue(process.env.AI_MODEL_TERRA) || "gpt-5.6-terra",
+    AI_MODEL_TERRA: cleanEnvValue(process.env.AI_MODEL_TERRA) || "gpt-6.1-terra",
     AI_MODEL_LUNA: cleanEnvValue(process.env.AI_MODEL_LUNA) || "gpt-5.6-luna",
     APP_BASE_URL: cleanUrlEnvValue(
       process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_BASE_URL,

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod/v4';
 import { callLLM } from '@/ai/llm-client';
 import { requireBroker } from '@/lib/auth-guard';
+import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
 import { getModel } from '@/ai/model-selector';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -18,13 +19,13 @@ const log = createModuleLogger('route');
 const GenerateBioRequest = z.object({
   name: z.string().min(1).max(30),
   company: z.string().max(50).optional(),
-  regions: z.array(z.string()).max(10).optional(),
-  assets: z.array(z.string()).max(10).optional(),
+  regions: z.array(z.string().max(50)).max(10).optional(),
+  assets: z.array(z.string().max(50)).max(10).optional(),
   careerStartYear: z.number().min(1980).max(2026).optional(),
   dealCount: z.number().min(0).optional(),
-  dealSizeRange: z.string().optional(),
-  dealSpecialty: z.array(z.string()).max(5).optional(),
-  buyerTypes: z.array(z.string()).max(5).optional(),
+  dealSizeRange: z.string().max(50).optional(),
+  dealSpecialty: z.array(z.string().max(50)).max(5).optional(),
+  buyerTypes: z.array(z.string().max(50)).max(5).optional(),
   licenseNumber: z.string().max(30).optional(),
 });
 
@@ -74,6 +75,9 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
+
+    const quotaErr = await enforceBrokerAiQuota(req, guard.user?.id ?? '', 'profile_generate_bio');
+    if (quotaErr) return quotaErr;
 
     const userPrompt = buildPrompt(parsed.data);
 

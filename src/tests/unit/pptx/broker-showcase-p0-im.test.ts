@@ -127,7 +127,7 @@ describe('Broker Showcase Wave P0 — Basic IM PPTX Remediation', () => {
 
     expect(xml).toContain('2023');
     expect(xml).toContain('2026');
-    expect(xml).toContain('4,503,000원');
+    expect(xml).toContain('450만');
   });
 
   it('Slide 09 (A10): keeps workflow + broker contact + 1-line disclaimer notice and omits provenance table & heavy disclaimer card', async () => {

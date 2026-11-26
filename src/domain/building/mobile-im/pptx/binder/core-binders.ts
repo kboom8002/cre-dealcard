@@ -150,13 +150,13 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     const rentRollHeaders = isBasicPresetForRentRoll 
             ? ['층', '임차인', '용도', leaseAreaHeader('lease', coreAreaUnit), leaseAreaHeader('exclusive', coreAreaUnit), '보증금', '월임대료', '관리비', '월합계', '만기일', ...(coreHasNoteCol ? ['비고'] : [])]
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
-    // 임차인/용도 해석 (Rule 4, D6) — rent-roll-table-builder 와 동일 규칙 (상호 없으면 '임차인 A/B…' 마스킹)
-    let coreMaskSeq = 0;
-    const coreParty = (l: any) => {
-      const src = { tenant_name: l.tenantName, tenant_type: l.tenantBusiness, is_vacant: l.leaseState === '공실' };
-      const probe = resolveTenantAndUse(src);
-      return probe.isMasked ? resolveTenantAndUse(src, { maskSeq: coreMaskSeq++ }) : probe;
-    };
+    // 임차인/용도 해석 (Rule 4, D6) — rent-roll-table-builder 와 동일 규칙 (상호 없으면 업종을 임차인 칸에 표기, '임차인 A~Z' 마스킹 금지)
+    const coreParty = (l: any) => resolveTenantAndUse({
+      tenant_name: l.tenantName,
+      tenant_type: l.tenantBusiness,
+      is_vacant: l.leaseState === '공실',
+      lease_state: l.leaseState,
+    });
     const rentRollRows = core.leases.map((l, coreIdx) => isBasicPresetForRentRoll ? ((party) => [
             l.unitLabel ?? '-',
             party.tenant,

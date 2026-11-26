@@ -25,6 +25,7 @@ import {
   buildShareTokenRequiredResponse,
   filterHiddenImSections,
   isAllowedPublicDemoIm,
+  isBuildingWideRevocationEvent,
   isDemoSeedDisabledForProd,
   isPreCutoverSchemaError,
   normalizeHiddenSectionSet,
@@ -182,6 +183,7 @@ export async function GET(
               : {};
           const evBldId = String(row?.building_id || meta.building_id || row?.entity_id || "").trim();
           if (evBldId !== buildingId) continue;
+          if (!isBuildingWideRevocationEvent(meta)) continue;
           if (row.event_type === "link_revoked") {
             dbRevoked = true;
             dbDecidedAt = String(meta.revoked_at || row.created_at || "");
@@ -244,7 +246,7 @@ export async function GET(
         { status: 404 },
       );
     }
-    if (wsGuard.itemRevoked && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
+    if ((wsGuard.isRevoked || wsGuard.itemRevoked) && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
       return buildLinkRevokedResponse(403);
     }
     if (wsGuard.isDraft && !wsGuard.snapshot && !isOwnerOrAdmin(viewer, wsGuard.ownerId)) {
@@ -583,7 +585,7 @@ export async function GET(
       .from("building_ssot_lite")
       .select(
         `id, owner_id, area_signal, asset_type, price_band, size_signal,
-         vacancy_signal, lease_summary, fit_summary, caution_summary, completeness_score,
+         vacancy_signal, fit_summary, caution_summary,
          layers, disclosure, status, confidence`,
       )
       .eq("id", buildingId)
@@ -609,7 +611,13 @@ export async function GET(
       );
     }
 
-    const score = ssot.completeness_score ?? 0;
+    const ssotLayers = (ssot.layers as Record<string, any> | null) ?? {};
+    const leaseSummary = ssotLayers.lease_summary ?? (ssot as any).lease_summary;
+    const score =
+      ssotLayers.completeness_score ??
+      (typeof ssot.confidence === "number"
+        ? Math.round(ssot.confidence * 100)
+        : (ssot as any).completeness_score ?? 50);
     if (score < 30) {
       const lowScoreResp = await serveWorkspaceImFallback(ssot.owner_id);
       if (lowScoreResp) return lowScoreResp;
@@ -685,10 +693,10 @@ export async function GET(
         sectionId: "03_lease",
         title: "임대 현황",
         icon: "👥",
-        content: ssot.lease_summary || ssot.vacancy_signal ? `| 항목 | 내용 |\n|---|---|\n| 공실 | ${ssot.vacancy_signal || '확인 필요'} |\n\n${ssot.lease_summary || '세부 임대차 정보는 중개인에게 문의하세요.'}` : "임대 현황 데이터가 부족합니다.",
+        content: leaseSummary || ssot.vacancy_signal ? `| 항목 | 내용 |\n|---|---|\n| 공실 | ${ssot.vacancy_signal || '확인 필요'} |\n\n${leaseSummary || '세부 임대차 정보는 중개인에게 문의하세요.'}` : "임대 현황 데이터가 부족합니다.",
         dataSource: "SSoT - rent_roll",
         aiRole: "auto" as const,
-        locked: !ssot.lease_summary && !ssot.vacancy_signal,
+        locked: !leaseSummary && !ssot.vacancy_signal,
         lockedReason: "렌트롤 데이터 필요",
       },
       {

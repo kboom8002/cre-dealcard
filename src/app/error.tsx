@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import {
   generateErrorReferenceCode,
@@ -15,6 +16,9 @@ export default function RootError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const pathname = usePathname() ?? '';
+  const homeHref = pathname.startsWith('/broker') ? '/broker' : '/';
+  const homeLabel = pathname.startsWith('/broker') ? '중개사 홈으로 이동' : '홈으로 이동';
   const refCode = generateErrorReferenceCode(error);
 
   useEffect(() => {
@@ -49,11 +53,11 @@ export default function RootError({
             다시 시도하기
           </button>
           <Link
-            href="/"
+            href={homeHref}
             className="inline-flex min-h-[48px] items-center justify-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-800 border border-slate-300 rounded-xl font-medium text-sm hover:bg-slate-200 transition-colors"
           >
             <Home className="w-4 h-4" aria-hidden="true" />
-            홈으로 이동
+            {homeLabel}
           </Link>
         </div>
       </div>

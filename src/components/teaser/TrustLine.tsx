@@ -46,7 +46,6 @@ function TrustLineBase({
     officeAddress,
     officeRegNumber,
     representativeName,
-    displayName: hasExplicitStatutoryTrigger ? brokerName : undefined,
     phone: brokerPhone,
   });
 

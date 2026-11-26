@@ -168,6 +168,10 @@ export function ImPreviewPane({
   renderSlideCard,
 }: ImPreviewPaneProps) {
   const hasExpectedRentRoll = hasExistingRentRollData(expectedRentRoll);
+  const [failedCadastralUrl, setFailedCadastralUrl] = React.useState<string | null>(null);
+  const hasVisibleCadastralImage = Boolean(
+    cadastralImageUrl && failedCadastralUrl !== cadastralImageUrl
+  );
   const hasComps = compRows.length > 0;
 
   // 순차 번호 동적 할당 (표지 미번호 -> 본문 01, 02, ...)
@@ -472,12 +476,19 @@ export function ImPreviewPane({
               </div>
               {cadastralImageUrl && (
                 <div className="pt-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={cadastralImageUrl}
-                    alt="지적도 미리보기"
-                    className="w-full h-36 object-contain bg-[#F8F5EB] rounded-lg border border-slate-200"
-                  />
+                  {failedCadastralUrl === cadastralImageUrl ? (
+                    <div className="w-full rounded-lg border border-slate-200 bg-[#F8F5EB] px-3 py-4 text-center text-xs text-slate-500">
+                      지적도 미리보기를 불러올 수 없습니다.
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={cadastralImageUrl}
+                      alt="지적도 미리보기"
+                      onError={() => setFailedCadastralUrl(cadastralImageUrl)}
+                      className="w-full h-36 object-contain bg-[#F8F5EB] rounded-lg border border-slate-200"
+                    />
+                  )}
                 </div>
               )}
             </PreviewEditableUnit>
@@ -678,7 +689,7 @@ export function ImPreviewPane({
               </span>
               <p className="text-sm text-slate-700">
                 {photoEntries.length > 0
-                  ? `첨부 사진 ${photoEntries.length}장${cadastralImageUrl ? " · 지적도 포함" : ""}`
+                  ? `첨부 사진 ${photoEntries.length}장${hasVisibleCadastralImage ? " · 지적도 포함" : ""}`
                   : "외관 사진 및 지적도 자동 배치"}
               </p>
               {photoEntries.length > 0 && (

@@ -9,6 +9,7 @@
 import { z } from "zod/v4";
 import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { assertBuildingOwner } from "@/lib/authz/assert-owner";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateBuyerMemo } from "@/domain/buyer/buyer-memo";
@@ -18,10 +19,10 @@ const log = createModuleLogger("buyer-memo-generate");
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 const BuyerMemoGenerateRequest = z.object({
-  buildingId:     z.string().optional(),
-  buyerIntentId:  z.string().optional(),
-  buyerId:        z.string().optional(),
-  dealId:         z.string().optional(),
+  buildingId:     z.string().max(64).optional(),
+  buyerIntentId:  z.string().max(64).optional(),
+  buyerId:        z.string().max(64).optional(),
+  dealId:         z.string().max(64).optional(),
   tone:           z.enum(["kakao", "professional", "brief"]).default("kakao"),
 });
 
@@ -109,6 +110,9 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+
+    const quotaErr = await enforceBrokerAiQuota(req, userId, "buyer_memo_generate");
+    if (quotaErr) return quotaErr;
 
     let result: any = null;
     try {

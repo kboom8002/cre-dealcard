@@ -665,6 +665,15 @@ export default function BrokerProfilePage() {
           )}
         </section>
 
+        <div className="flex justify-start">
+          <Link
+            href="/broker"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-800 transition-colors"
+          >
+            4대 업무 홈으로 →
+          </Link>
+        </div>
+
         <fieldset disabled={loading} className="w-full min-w-0 border-0 p-0 m-0 space-y-6 disabled:opacity-75 transition-opacity">
 
         {/* 60대 중개인 친화 안내 배너: 어디에 인쇄/표시되는지 명확히 설명 */}
@@ -955,13 +964,7 @@ export default function BrokerProfilePage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border">
-            <Link
-              href="/broker"
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-800 transition-colors"
-            >
-              4대 업무 홈으로 →
-            </Link>
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-border">
             <button
               type="button"
               onClick={handleSave}

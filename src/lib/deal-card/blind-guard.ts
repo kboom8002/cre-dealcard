@@ -140,7 +140,7 @@ export function isRareAssetType(assetType?: string | null): boolean {
   return RARE_ASSET_SUBSTRINGS.some((kw) => normalized.includes(kw));
 }
 
-// Generic terms that are SAFE even if they end in 빌딩/타워
+// Generic terms that are SAFE even if they end in 빌딩/타워/빌라/오피스텔/파크/몰/회관/사옥
 const GENERIC_BUILDING_TERMS = new Set([
   '올근생',
   '근생',
@@ -151,13 +151,25 @@ const GENERIC_BUILDING_TERMS = new Set([
   '리모델링',
   '상업용',
   '업무용',
+  '주거용',
+  '복층',
+  '원룸',
+  '투룸',
+  '소형',
+  '대형',
+  '고급',
+  '다세대',
+  '연립',
   '통',
+  '통임대',
   '역세권',
   '초역세권',
   '코너',
   '대로변',
   '상가',
   '사옥',
+  '사옥형',
+  '사옥용',
   '코너사옥',
   '단독사옥',
   '오피스',
@@ -171,14 +183,60 @@ const GENERIC_BUILDING_TERMS = new Set([
   '지식산업',
   '데이터',
   '비즈니스',
+  '테크노',
+  '산업',
   '복합',
   '유통',
   '쇼핑',
+  '아울렛',
+  '스트리트',
   '상업',
   '업무',
   '주민',
+  '구민',
+  '시민',
+  '복지',
+  '노인',
+  '청소년',
+  '예술',
+  '여성',
+  '근로자',
+  '체육',
   '문화',
   '고객',
+  '관계자',
+  '본사',
+  '법인',
+  '기업',
+  '자가',
+  '준공',
+  '규모',
+  '소재',
+  '위치',
+  '인접',
+  '우수한',
+  '우량',
+  '추천',
+  '매매',
+  '분양',
+  '전세',
+  '실수요',
+  '도심',
+  '프라임',
+  '프리미엄',
+  '메인',
+  '핵심',
+  '모던',
+  '클린',
+  '오픈',
+  '전층',
+  '중대형',
+  '준신축',
+  '올수리',
+  '풀옵션',
+  '초소형',
+  'A급',
+  'B급',
   'OO',
   '○○',
   'XX',
@@ -304,8 +362,86 @@ const GENERIC_CLINIC_PHARMACY_PREFIXES = new Set([
 const NAMED_CLINIC_PHARMACY_RE =
   /([가-힣A-Za-z0-9]{2,10}?)(약국|한의원|이비인후과|정형외과|성형외과|산부인과|소아과|피부과|치과|안과|내과|외과)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만·,/])|[^\w가-힣]|$)/g;
 
+const PHONE_PII_RE =
+  /(?:\+?82[-\s.]?0?|0)(?:1[016789]|2|[3-6]\d|70)[-\s.]?\d{3,4}[-\s.]?\d{4}\b/g;
+
+const EMAIL_PII_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+
 const EXECUTIVE_TITLE_PII_RE =
-  /(?<![가-힣])([김이박최정강조윤장임한오서신권황안송류전홍고문양손배조백허유남심노하곽성차주우구신임전민유류]\s*(?:대표님?|사장님?|전무님?|상무님?|원장님?|이사님?|회장님?|부장님?))(?![가-힣])/g;
+  /(?<![가-힣])([김이박최정강조윤장임한오서신권황안송류전홍고문양손배조백허유남심노하곽성차주우구신민](?:[가-힣]{1,3})?\s*(?:대표님?|사장님?|전무님?|상무님?|원장님?|이사님?|회장님?|부장님?)|[김이박최정강조윤장임한오서신권황안송류전홍고문양손배조백허유남심노하곽성차주우구신민][가-힣]{1,3}\s*(?:건물주(?:님)?|임대인(?:님)?))(?![가-힣])/g;
+
+const NON_PERSON_NAME_PREFIXES = new Set([
+  '신축',
+  '신규',
+  '기존',
+  '이전',
+  '현재',
+  '실제',
+  '전체',
+  '전속',
+  '공동',
+  '법인',
+  '개인',
+  '우량',
+  '안정',
+  '강남',
+  '서초',
+  '성수',
+  '한남',
+  '유명',
+  '한식',
+  '양식',
+  '일식',
+  '중식',
+  '고급',
+  '주변',
+  '인근',
+  '오피스',
+  '임차',
+  '임대',
+  '구축',
+  '정비',
+  '장기',
+  '임시',
+  '최고',
+  '최신',
+  '최초',
+  '고수익',
+  '장기임차',
+]);
+
+function isExecutiveTitlePiiMatch(matchText: string): boolean {
+  const namePart = matchText
+    .replace(/\s*(?:대표님?|사장님?|전무님?|상무님?|원장님?|이사님?|회장님?|부장님?|건물주(?:님)?|임대인(?:님)?)$/u, '')
+    .trim();
+  if (!namePart || NON_PERSON_NAME_PREFIXES.has(namePart)) return false;
+  return true;
+}
+
+const ROAD_ADDRESS_RE =
+  /([가-힣]{2,10}(?:(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?|\s*\d{1,4}(?:번)?길))\s*(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:가|(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣])))/g;
+
+const DONG_PARCEL_RE =
+  /([가-힣]{1,10}(?:동|읍|면|리)(?:\s*\d+가)?|[가-힣]{1,10}\s*\d+가)\s*(?:산\s*)?(\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?)*)(?:\s*외\s*\d*\s*필지(?:\s*\((?:\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?\s*[,/·]?\s*)+\))?)?(?![0-9-]|\s*(?:가|(?:층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣])))/g;
+
+const BUILDING_NAME_RE =
+  /(?:([가-힣A-Za-z0-9]{1,8})\s+)?([A-Za-z]|[가-힣A-Za-z0-9]{2,15})(\s*)(빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션|빌라|오피스텔|파크|몰|회관|사옥)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만·,/])|[^\w가-힣]|$)/g;
+
+const COMPOUND_FIRST_TOKEN_RE = /^(?:더|뉴|라|르|그)$/;
+
+function isSafeBuildingPrefix(token2: string, hasSpace: boolean): boolean {
+  if (GENERIC_BUILDING_TERMS.has(token2)) return true;
+  if (/^\d+(?:층|F|평|㎡|m|억|만|원|년|개월|개|호|실|분|초|%|대|종|차선|동)?$/i.test(token2)) {
+    return true;
+  }
+  if (
+    hasSpace &&
+    /(?:역|권|구|동|읍|면|리|대로|번길|층|평|억|만|년|형|용)$/.test(token2)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 // PII and ownership keywords
 const PII_KEYWORDS = [
@@ -350,6 +486,33 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
   const violations: BlindViolation[] = [];
   if (!text || typeof text !== 'string') return violations;
 
+  // 0. Phone numbers and emails BEFORE hyphenated parcel checks
+  const phoneSpans: Array<[number, number]> = [];
+  PHONE_PII_RE.lastIndex = 0;
+  let phoneMatch: RegExpExecArray | null;
+  while ((phoneMatch = PHONE_PII_RE.exec(text)) !== null) {
+    phoneSpans.push([phoneMatch.index, phoneMatch.index + phoneMatch[0].length]);
+    violations.push({
+      pointIndex,
+      pointText: text,
+      reason: '연락처(전화번호)는 개인정보 보호를 위해 적을 수 없어요.',
+      keyword: phoneMatch[0],
+      severity: 'error',
+    });
+  }
+
+  EMAIL_PII_RE.lastIndex = 0;
+  let emailMatch: RegExpExecArray | null;
+  while ((emailMatch = EMAIL_PII_RE.exec(text)) !== null) {
+    violations.push({
+      pointIndex,
+      pointText: text,
+      reason: '이메일 주소는 개인정보 보호를 위해 적을 수 없어요.',
+      keyword: emailMatch[0],
+      severity: 'error',
+    });
+  }
+
   // 1. Explicit parcel numbers: e.g. "117-3번지", "산 12-3", "45번지", "117-3번지의"
   const jibunMatch = text.match(
     /(?:산\s*)?(?:\b|^)\d{1,5}(?:-\d{1,5})?\s*번지(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/,
@@ -365,27 +528,30 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
   }
 
   // 2. Standalone hyphenated parcel: e.g. "11-47 (호산당빌딩)", "지하 1-2층, 역삼동 147-8"
-  const hyphenNumbers = text.match(/\b\d{1,5}-\d{1,5}\b/g);
-  if (hyphenNumbers) {
-    for (const num of hyphenNumbers) {
-      const alreadyInJibun = jibunMatch ? jibunMatch[0].includes(num) : false;
-      if (isForbiddenParcelNumber(num, text) && !alreadyInJibun) {
-        violations.push({
-          pointIndex,
-          pointText: text,
-          reason: '지번 형식의 숫자는 건물 위치가 드러날 수 있어 적을 수 없어요.',
-          keyword: num,
-          severity: 'error',
-        });
-      }
+  const hyphenRe = /\b\d{1,5}-\d{1,5}\b/g;
+  let hMatch: RegExpExecArray | null;
+  while ((hMatch = hyphenRe.exec(text)) !== null) {
+    const num = hMatch[0];
+    const start = hMatch.index;
+    const end = start + num.length;
+    const insidePhone = phoneSpans.some(([ps, pe]) => start >= ps && end <= pe);
+    if (insidePhone) continue;
+    const alreadyInJibun = jibunMatch ? jibunMatch[0].includes(num) : false;
+    if (isForbiddenParcelNumber(num, text) && !alreadyInJibun) {
+      violations.push({
+        pointIndex,
+        pointText: text,
+        reason: '지번 형식의 숫자는 건물 위치가 드러날 수 있어 적을 수 없어요.',
+        keyword: num,
+        severity: 'error',
+      });
     }
   }
 
-  // 2b. Road-name addresses with specific building numbers: e.g. "테헤란로 152", "양화로 161", "도산대로45길 18", "연무장7길 11"
-  const roadAddressRegex =
-    /([가-힣]{2,10}(?:(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?|\s*\d{1,4}(?:번)?길))\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))/g;
+  // 2b. Road-name addresses with specific building numbers: e.g. "테헤란로 152", "테헤란로87길36", "연무장7길 11"
+  ROAD_ADDRESS_RE.lastIndex = 0;
   let rMatch: RegExpExecArray | null;
-  while ((rMatch = roadAddressRegex.exec(text)) !== null) {
+  while ((rMatch = ROAD_ADDRESS_RE.exec(text)) !== null) {
     const roadPart = rMatch[1].trim();
     const baseRoad = roadPart.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
     if (!GENERIC_ROAD_TERMS.has(baseRoad) && !GENERIC_ROAD_TERMS.has(roadPart)) {
@@ -399,11 +565,10 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     }
   }
 
-  // 2c. Dong + single or multi-parcel numbers: e.g. "역삼동 823", "성수동2가 315-4, 315-3, 315-7", "양평동4가 117, 134 외 1필지"
-  const dongParcelRegex =
-    /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?)*)(?:\s*외\s*\d*\s*필지(?:\s*\((?:\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?\s*[,/·]?\s*)+\))?)?(?![0-9-]|\s*(?:층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))/g;
+  // 2c. Dong + single or multi-parcel numbers: e.g. "역삼동823", "성수동 1가 656", "양평동4가 117, 134 외 1필지"
+  DONG_PARCEL_RE.lastIndex = 0;
   let dMatch: RegExpExecArray | null;
-  while ((dMatch = dongParcelRegex.exec(text)) !== null) {
+  while ((dMatch = DONG_PARCEL_RE.exec(text)) !== null) {
     const parcelNum = dMatch[2];
     const hasSecondaryLots = /[,/·]|\s외\s*\d*\s*필지/.test(dMatch[0]);
     const alreadyCaught =
@@ -422,17 +587,19 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
     }
   }
 
-  // 3. Building names: e.g. "호산당빌딩", "삼원타워", "대성스퀘어", "파이낸스센터"
-  // Look for words ending in 빌딩, 타워, 스퀘어, 펠리스, 팰리스, 프라자, 플라자, 센터, 캐슬, 하우스, 맨션
-  const buildingNameRegex =
-    /([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g;
+  // 3. Building names: e.g. "호산당빌딩", "더 레드 빌딩", "W타워", "삼원 타워", "대성스퀘어"
+  BUILDING_NAME_RE.lastIndex = 0;
   let bMatch: RegExpExecArray | null;
-  while ((bMatch = buildingNameRegex.exec(text)) !== null) {
-    const prefix = bMatch[1];
-    const fullWord = bMatch[0];
-
-    // Check if the prefix is generic (e.g. "올근생", "꼬마", "신축", "근생")
-    if (!GENERIC_BUILDING_TERMS.has(prefix)) {
+  while ((bMatch = BUILDING_NAME_RE.exec(text)) !== null) {
+    const token1 = bMatch[1] || '';
+    const token2 = bMatch[2];
+    const hasSpace = Boolean(bMatch[3]);
+    const suffix = bMatch[4];
+    if (!isSafeBuildingPrefix(token2, hasSpace)) {
+      const fullWord =
+        token1 && COMPOUND_FIRST_TOKEN_RE.test(token1)
+          ? `${token1} ${token2}${bMatch[3]}${suffix}`
+          : `${token2}${bMatch[3]}${suffix}`;
       violations.push({
         pointIndex,
         pointText: text,
@@ -487,6 +654,7 @@ export function checkSensitivePoint(text: string, pointIndex: number): BlindViol
   EXECUTIVE_TITLE_PII_RE.lastIndex = 0;
   let exMatch: RegExpExecArray | null;
   while ((exMatch = EXECUTIVE_TITLE_PII_RE.exec(text)) !== null) {
+    if (!isExecutiveTitlePiiMatch(exMatch[1])) continue;
     violations.push({
       pointIndex,
       pointText: text,
@@ -652,11 +820,18 @@ export function cleanBlindPoints(points: string[]): string[] {
   return points.map((text) => {
     let cleaned = text;
 
+    // Mask phone numbers and emails BEFORE hyphenated parcel checks
+    PHONE_PII_RE.lastIndex = 0;
+    cleaned = cleaned.replace(PHONE_PII_RE, '[연락처 비공개]');
+    EMAIL_PII_RE.lastIndex = 0;
+    cleaned = cleaned.replace(EMAIL_PII_RE, '[이메일 비공개]');
+
     // Mask dong + single or multi-parcel numbers FIRST so secondary comma-separated jibuns
-    // (including integer-only jibuns like "양평동4가 117, 134 외 1필지" or "성수동2가 315-4, 315-3, 315-7")
+    // (including integer-only jibuns like "양평동4가 117, 134 외 1필지" or "성수동 1가 656")
     // collapse cleanly into "${dong} 인근" without leaving dangling OO-OO or unmasked secondary lots
+    const dongParcelCleanRe = new RegExp(`${DONG_PARCEL_RE.source}(\\s*인근)?`, 'g');
     cleaned = cleaned.replace(
-      /([가-힣]{1,10}(?:\d+가)?(?:동|읍|면|리)|[가-힣]{1,10}\d+가)\s+(?:산\s*)?(\d{1,5}(?:-\d{1,5})?(?:\s*번지)?(?:\s*[,/·]\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?(?:\s*번지)?)*)(?:\s*외\s*\d*\s*필지(?:\s*\((?:\s*(?:산\s*)?\d{1,5}(?:-\d{1,5})?\s*[,/·]?\s*)+\))?)?(?![0-9-]|\s*(?:층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|호|실|번\s*출구|출구|차선|차로|인|개|곳|건)(?![가-힣]))(\s*인근)?/g,
+      dongParcelCleanRe,
       (_match, dongPart: string) => `${dongPart.trim()} 인근`,
     );
 
@@ -666,9 +841,10 @@ export function cleanBlindPoints(points: string[]): string[] {
       'OO번지',
     );
 
-    // Mask road-name addresses with building numbers: e.g. "테헤란로 152", "연무장7길 11" -> "테헤란로 인근", "연무장7길 인근"
+    // Mask road-name addresses with building numbers: e.g. "테헤란로 152", "테헤란로87길36", "연무장7길 11"
+    const roadAddressCleanRe = new RegExp(`${ROAD_ADDRESS_RE.source}(\\s*인근)?`, 'g');
     cleaned = cleaned.replace(
-      /([가-힣]{2,10}(?:(?:대로|로|길)(?:\s*\d{1,4}(?:번)?길)?|\s*\d{1,4}(?:번)?길))\s+(\d{1,5}(?:-\d{1,5})?)(?![0-9-]|\s*(?:(?:번)?길|층|F|호선|분|초|평|㎡|m|km|억|만|원|%|대|년|개월|일|차선|차로|인|개|호|실)(?![가-힣]))(\s*인근)?/g,
+      roadAddressCleanRe,
       (match, roadPart: string) => {
         const trimmedRoad = roadPart.trim();
         const baseRoad = trimmedRoad.replace(/\s*\d{1,4}(?:번)?길$/, '').trim();
@@ -688,11 +864,25 @@ export function cleanBlindPoints(points: string[]): string[] {
       '다필지',
     );
 
-    // Mask building names
+    // Mask PII and executive titles BEFORE building names so "김철수 사장님 사옥" -> "관계자 사옥"
+    EXECUTIVE_TITLE_PII_RE.lastIndex = 0;
+    cleaned = cleaned.replace(EXECUTIVE_TITLE_PII_RE, (match) =>
+      isExecutiveTitlePiiMatch(match) ? '관계자' : match,
+    );
+    for (const pii of PII_KEYWORDS) {
+      cleaned = cleaned.replace(new RegExp(pii, 'g'), '관계자');
+    }
+
+    // Mask building names (preserving generic phrases and preceding non-compound tokens)
+    BUILDING_NAME_RE.lastIndex = 0;
     cleaned = cleaned.replace(
-      /([가-힣A-Za-z0-9]{2,15})(빌딩|타워|스퀘어|펠리스|팰리스|프라자|플라자|센터|캐슬|하우스|맨션)(?=(?:에서|으로|부터|까지|[은는이가을를의에로과와도만])|[^\w가-힣]|$)/g,
-      (match, prefix, suffix) => {
-        return GENERIC_BUILDING_TERMS.has(prefix) ? match : `OO${suffix}`;
+      BUILDING_NAME_RE,
+      (match, token1: string | undefined, token2: string, space: string, suffix: string) => {
+        if (isSafeBuildingPrefix(token2, Boolean(space))) return match;
+        if (token1 && COMPOUND_FIRST_TOKEN_RE.test(token1)) {
+          return `OO${suffix}`;
+        }
+        return token1 ? `${token1} OO${suffix}` : `OO${suffix}`;
       },
     );
 
@@ -716,12 +906,6 @@ export function cleanBlindPoints(points: string[]): string[] {
       } else {
         cleaned = cleaned.replace(new RegExp(brand, 'g'), '대형 프랜차이즈');
       }
-    }
-
-    // Mask PII and executive titles
-    cleaned = cleaned.replace(EXECUTIVE_TITLE_PII_RE, '관계자');
-    for (const pii of PII_KEYWORDS) {
-      cleaned = cleaned.replace(new RegExp(pii, 'g'), '관계자');
     }
 
     return cleaned;

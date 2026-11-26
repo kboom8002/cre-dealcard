@@ -510,9 +510,9 @@ describe('[P1-1] /magazine root page cross-tenant isolation & /hub CTA', () => {
     expect(unfilteredIssueCalls).toHaveLength(0);
     expect(h.db.calls).toHaveLength(0);
 
-    // Neutral landing rendered with /hub CTA (no /pulse)
+    // Neutral landing rendered with /guide CTA (no /pulse)
     expect(html).toContain('CREDEAL MAGAZINE');
-    expect(html).toContain('href="/hub"');
+    expect(html).toContain('href="/guide"');
     expect(html).not.toContain('href="/pulse"');
     expect(html).not.toContain('other-tenant-slug');
   });
@@ -533,7 +533,7 @@ describe('[P1-1] /magazine root page cross-tenant isolation & /hub CTA', () => {
 
     const tree = await MagazineRootPage({ searchParams: Promise.resolve({}) });
     const html = renderToStaticMarkup(tree);
-    expect(html).toContain('href="/hub"');
+    expect(html).toContain('href="/guide"');
 
     const unfilteredIssueCalls = h.db.calls.filter(
       (c) =>

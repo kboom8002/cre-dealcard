@@ -178,6 +178,7 @@ export function MobileIMViewer({
   const [inAppWebView, setInAppWebView] = useState<boolean>(false);
   const [dismissedWebViewBanner, setDismissedWebViewBanner] = useState<boolean>(false);
   const [queryShareToken, setQueryShareToken] = useState<string | null>(null);
+  const [cadastralImgFailed, setCadastralImgFailed] = useState<boolean>(false);
   const mountedAtRef = useRef<number>(Date.now());
   const activeSectionRef = useRef<string>("01_cover");
   const dwellSentRef = useRef<boolean>(false);
@@ -1276,6 +1277,9 @@ export function MobileIMViewer({
       (initialDoc as any)?.cadastralMapImage;
     return typeof url === "string" && url.trim().length > 0 ? url.trim() : "";
   }, [initialDoc, ssotData]);
+  useEffect(() => {
+    setCadastralImgFailed(false);
+  }, [cadastralImageUrl]);
   const visibleChips = useMemo(() => {
     let bodyIdx = 0;
     return CANONICAL_SECTION_CHIPS.filter((c) => c.id !== "08_comps" || compsList.length > 0).map(
@@ -1303,8 +1307,28 @@ export function MobileIMViewer({
     let depMan = 0;
     let rentMan = 0;
     for (const r of expectedRentRows) {
+      const statusRaw = String(r?.status ?? r?.lease_state ?? r?.leaseState ?? "")
+        .trim()
+        .toLowerCase();
+      if (
+        r?.isVacant ||
+        r?.is_vacant ||
+        statusRaw === "vacant" ||
+        statusRaw === "owner" ||
+        statusRaw === "공실" ||
+        statusRaw === "자가사용" ||
+        statusRaw === "자가"
+      ) {
+        continue;
+      }
       const d = Number(r?.depositManwon ?? r?.deposit_manwon ?? (Number(r?.depositKrw ?? r?.deposit_krw) || 0) / 10000);
-      const m = Number(r?.monthlyRentManwon ?? r?.monthly_rent_manwon ?? (Number(r?.rentKrw ?? r?.monthly_rent_krw) || 0) / 10000);
+      const m = Number(
+        r?.monthlyRentManwon ??
+          r?.monthly_rent_manwon ??
+          r?.rent_manwon ??
+          r?.monthlyRent ??
+          (Number(r?.rentKrw ?? r?.monthly_rent_krw ?? r?.rent_krw) || 0) / 10000
+      );
       if (Number.isFinite(d) && d > 0) depMan += d;
       if (Number.isFinite(m) && m > 0) rentMan += m;
     }
@@ -1434,7 +1458,7 @@ export function MobileIMViewer({
   const brokerOfficeName = realBrokerOfficeName || "전담 중개사무소";
 
   const realBrokerRepresentative =
-    // Explicit statutory representativeName / representative_name across ALL live & contact objects
+    // Explicit statutory representativeName / representative_name / representative (never fall back to displayName)
     cleanViewerBrokerField(topBrokerObj?.representativeName, "name") ||
     cleanViewerBrokerField(topBrokerObj?.representative_name, "name") ||
     cleanViewerBrokerField(initialBrokerProfile?.representativeName, "name") ||
@@ -1448,18 +1472,8 @@ export function MobileIMViewer({
     cleanViewerBrokerField(legacyBrokerContact?.representativeName, "name") ||
     cleanViewerBrokerField(legacyBrokerContact?.representative_name, "name") ||
     cleanViewerBrokerField((ssotData as any)?.representative_name, "name") ||
-    // Fallback to generic representative / displayName / brokerName
     cleanViewerBrokerField(contactBrokerObj?.representative, "name") ||
-    cleanViewerBrokerField(contactBrokerObj?.displayName, "name") ||
-    cleanViewerBrokerField(factsBrokerObj?.representative, "name") ||
-    cleanViewerBrokerField(initialBrokerProfile?.displayName, "name") ||
-    cleanViewerBrokerField(initialBrokerProfile?.display_name, "name") ||
-    cleanViewerBrokerField(legacyBrokerContact?.brokerName, "name") ||
-    cleanViewerBrokerField(topBrokerObj?.displayName, "name") ||
-    cleanViewerBrokerField(topBrokerObj?.name, "name") ||
-    cleanViewerBrokerField(ssotBrokerProfileObj?.displayName, "name") ||
-    cleanViewerBrokerField(ssotBrokerProfileObj?.display_name, "name");
-  const brokerRepresentative = realBrokerRepresentative || "담당 공인중개사";
+    cleanViewerBrokerField(factsBrokerObj?.representative, "name");
   const realBrokerAssignee =
     cleanViewerBrokerField(topBrokerObj?.displayName, "name") ||
     cleanViewerBrokerField(topBrokerObj?.name, "name") ||
@@ -1524,6 +1538,7 @@ export function MobileIMViewer({
   const brokerPhone = realBrokerPhone || "-";
   const isMissingBrokerContact =
     !realBrokerOfficeName ||
+    !realBrokerRepresentative ||
     !realBrokerPhone ||
     !realBrokerRegistrationNo ||
     !realBrokerOfficeAddress;
@@ -1591,7 +1606,7 @@ export function MobileIMViewer({
           </p>
           <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#E2E8F0] text-left space-y-1 text-sm">
             <p className="font-bold text-[#0F172A]">
-              담당: {brokerRepresentative} ({brokerOfficeName})
+              담당: {realBrokerRepresentative || realBrokerAssignee || "담당 공인중개사"} ({brokerOfficeName})
             </p>
             {brokerPhone && brokerPhone !== "-" && (
               <p className="text-[#475569]">연락처: {brokerPhone}</p>
@@ -1853,6 +1868,7 @@ export function MobileIMViewer({
           </div>
           {(realBrokerOfficeName ||
             realBrokerRepresentative ||
+            realBrokerAssignee ||
             realBrokerRegistrationNo ||
             realBrokerOfficeAddress ||
             realBrokerPhone) && (
@@ -1862,9 +1878,8 @@ export function MobileIMViewer({
             >
               {[
                 realBrokerOfficeName,
-                realBrokerRepresentative ? `대표 ${brokerRepresentative}` : "",
-                realBrokerAssignee &&
-                realBrokerAssignee !== (realBrokerRepresentative || brokerRepresentative)
+                realBrokerRepresentative ? `대표 ${realBrokerRepresentative}` : "",
+                realBrokerAssignee && realBrokerAssignee !== realBrokerRepresentative
                   ? `담당 ${realBrokerAssignee}`
                   : "",
                 realBrokerRegistrationNo ? `등록번호 ${realBrokerRegistrationNo}` : "",
@@ -2182,11 +2197,21 @@ export function MobileIMViewer({
                 <span>지적도 · 토지이용계획</span>
                 <span>토지이음 · V-World</span>
               </div>
-              <img
-                src={cadastralImageUrl}
-                alt="본건 지적도 및 토지이용계획"
-                className="w-full max-h-[320px] object-contain rounded border border-[#E2E8F0] bg-white"
-              />
+              {cadastralImgFailed ? (
+                <div
+                  data-testid="mobile-im-cadastral-fallback"
+                  className="rounded border border-[#E2E8F0] bg-white px-4 py-6 text-center text-sm text-[#64748B]"
+                >
+                  지적도 이미지를 불러올 수 없습니다. 토지이음 또는 등기·건축물대장으로 필지 경계를 확인해 주세요.
+                </div>
+              ) : (
+                <img
+                  src={cadastralImageUrl}
+                  alt="본건 지적도 및 토지이용계획"
+                  onError={() => setCadastralImgFailed(true)}
+                  className="w-full max-h-[320px] object-contain rounded border border-[#E2E8F0] bg-white"
+                />
+              )}
             </div>
           )}
         </section>
@@ -2347,11 +2372,56 @@ export function MobileIMViewer({
                           ? `${cleanTenant} (${rawUse})`
                           : rawUse || cleanTenant || "-";
                       const baseUseLabel = base ? String(base?.use ?? base?.tenantName ?? "").trim() : "";
-                      const depMan = Number(er?.depositManwon ?? er?.deposit_manwon ?? (Number(er?.depositKrw ?? er?.deposit_krw) || 0) / 10000) || 0;
-                      const baseDep = base ? Number(base?.depositManwon ?? (Number(base?.depositKrw) || 0) / 10000) || 0 : depMan;
-                      const rentMan = Number(er?.monthlyRentManwon ?? er?.monthly_rent_manwon ?? (Number(er?.rentKrw ?? er?.monthly_rent_krw) || 0) / 10000) || 0;
-                      const baseRent = base ? Number(base?.monthlyRentManwon ?? (Number(base?.rentKrw) || 0) / 10000) || 0 : rentMan;
-                      const noteLabel = String(er?.note ?? er?.status ?? "").trim() || "-";
+                      const depMan =
+                        Number(
+                          er?.depositManwon ??
+                            er?.deposit_manwon ??
+                            (Number(er?.depositKrw ?? er?.deposit_krw) || 0) / 10000
+                        ) || 0;
+                      const baseDep = base
+                        ? Number(
+                            base?.depositManwon ??
+                              base?.deposit_manwon ??
+                              (Number(base?.depositKrw ?? base?.deposit_krw) || 0) / 10000
+                          ) || 0
+                        : depMan;
+                      const rentMan =
+                        Number(
+                          er?.monthlyRentManwon ??
+                            er?.monthly_rent_manwon ??
+                            er?.rent_manwon ??
+                            er?.monthlyRent ??
+                            (Number(er?.rentKrw ?? er?.monthly_rent_krw ?? er?.rent_krw) || 0) /
+                              10000
+                        ) || 0;
+                      const baseRent = base
+                        ? Number(
+                            base?.monthlyRentManwon ??
+                              base?.monthly_rent_manwon ??
+                              base?.rent_manwon ??
+                              (Number(base?.rentKrw ?? base?.monthly_rent_krw ?? base?.rent_krw) ||
+                                0) / 10000
+                          ) || 0
+                        : rentMan;
+                      const rawStatus = String(er?.status ?? "").trim();
+                      const statusLabelKo =
+                        rawStatus === "occupied"
+                          ? "임대"
+                          : rawStatus === "vacant"
+                          ? "공실"
+                          : rawStatus === "owner"
+                          ? "자가사용"
+                          : rawStatus;
+                      const rawNote = String(er?.note ?? "").trim();
+                      const translatedNote =
+                        rawNote === "occupied"
+                          ? "임대"
+                          : rawNote === "vacant"
+                          ? "공실"
+                          : rawNote === "owner"
+                          ? "자가사용"
+                          : rawNote;
+                      const noteLabel = translatedNote || statusLabelKo || "-";
                       const depChanged = Boolean(base) && Math.round(depMan) !== Math.round(baseDep);
                       const rentChanged = Boolean(base) && Math.round(rentMan) !== Math.round(baseRent);
                       const useChanged = Boolean(base) && useLabel !== baseUseLabel && rawUse !== baseUseLabel;
@@ -2593,18 +2663,21 @@ export function MobileIMViewer({
           <h2 className="text-xl font-extrabold text-[#0F172A]">담당 중개사무소</h2>
           <div className="p-4 bg-[#FAF9F5] rounded-md border border-[#E2E8F0] space-y-1.5 text-base">
             <p className="font-extrabold text-[#0F172A]">{brokerOfficeName}</p>
-            <p className="text-[#475569]">
-              {realBrokerAssignee && realBrokerAssignee !== brokerRepresentative ? (
-                <>
-                  개업공인중개사(대표): {brokerRepresentative}
-                  {" · "}
-                  담당 중개사: {realBrokerAssignee}
-                </>
-              ) : (
-                <>대표 공인중개사: {brokerRepresentative}</>
-              )}
-              {realBrokerRegistrationNo ? ` · 등록번호: ${realBrokerRegistrationNo}` : ""}
-            </p>
+            {(realBrokerRepresentative || realBrokerAssignee || realBrokerRegistrationNo) && (
+              <p className="text-[#475569]">
+                {[
+                  realBrokerRepresentative
+                    ? `대표 공인중개사: ${realBrokerRepresentative}`
+                    : "",
+                  realBrokerAssignee && realBrokerAssignee !== realBrokerRepresentative
+                    ? `담당: ${realBrokerAssignee}`
+                    : "",
+                  realBrokerRegistrationNo ? `등록번호: ${realBrokerRegistrationNo}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
             {realBrokerOfficeAddress && (
               <p className="text-[#475569]" data-testid="mobile-im-broker-office-address">
                 소재지: {realBrokerOfficeAddress}
@@ -2817,7 +2890,7 @@ export function MobileIMViewer({
           buildingId={buildingId}
           docId={docId}
           brokerUserId={initialDoc?.broker?.userId || "system"}
-          brokerName={brokerRepresentative}
+          brokerName={realBrokerAssignee || realBrokerRepresentative || "담당 공인중개사"}
           blindName={(basicDoc.facts as any).buildingName || basicDoc.metadata.title}
           onClose={() => setShowInquiry(false)}
           {...({

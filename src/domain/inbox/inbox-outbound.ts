@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
+import { isRealProductionRuntime } from '@/lib/env';
 import { createModuleLogger } from '@/lib/logger';
 import { isQuietHoursKst } from '@/lib/magazine/kst';
 import { maskEmail, maskPhone } from '@/lib/magazine/pii';
@@ -107,8 +108,23 @@ export interface InboxCopyBundleResult {
   shareUrl: string;
 }
 
+function sanitizeInboxClientName(raw?: string | null): string {
+  const trimmed = (raw || '').trim();
+  if (!trimmed || /^(?:익명\s*열람객|미확인\s*열람객|열람객)$/i.test(trimmed)) {
+    return '고객';
+  }
+  return trimmed;
+}
+
+function hasGreetingInBrief(brief: string, clientName: string): boolean {
+  if (!brief) return false;
+  if (/^(?:안녕하세요|고객님\s*[,!.]?)/.test(brief)) return true;
+  const escaped = clientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}님(?:\\s*[,!.]|\\s+)`).test(brief);
+}
+
 export function buildInboxCopyBundle(input: InboxCopyBundleInput): InboxCopyBundleResult {
-  const clientName = (input.clientName || '고객').trim();
+  const clientName = sanitizeInboxClientName(input.clientName);
   const brokerName = (input.brokerName || '담당 중개인').trim();
   const buildingTitle = (input.buildingTitle || '추천 빌딩').trim();
   const assetLabel =
@@ -117,20 +133,31 @@ export function buildInboxCopyBundle(input: InboxCopyBundleInput): InboxCopyBund
       : input.assetKind === 'magazine'
         ? '빌딩 시장 뉴스레터'
         : '매물 상세 브리핑(IM)';
-  const headlineLine = input.headline?.trim() ? `\n핵심 요약: ${input.headline.trim()}` : '';
+  const headlineTrimmed = input.headline?.trim() || '';
+  const headlineLine = headlineTrimmed ? `\n핵심 요약: ${headlineTrimmed}` : '';
   const briefParagraph = input.brief?.trim() ? input.brief.trim() : '';
   const phoneLine = input.brokerPhone?.trim() ? `\n문의 연락처: ${input.brokerPhone.trim()}` : '';
 
   const subject = `[${brokerName} 중개인] ${buildingTitle} ${assetLabel} 전달드립니다`;
-  const messageText = [
-    `${clientName}님, 안녕하세요. ${brokerName} 중개인입니다.`,
-    `요청·상담하신 [${buildingTitle}] ${assetLabel} 자료 링크를 보내드립니다.${headlineLine}`,
-    ...(briefParagraph ? ['', briefParagraph] : []),
-    '',
-    `▶ 자료 바로 보기: ${input.shareUrl}`,
-    '',
-    `모바일에서도 로그인 없이 바로 열람 가능하며, 궁금하신 점은 편하게 회신해 주세요.${phoneLine}`,
-  ].join('\n');
+  const alreadyGreeted = hasGreetingInBrief(briefParagraph, clientName);
+  const messageText = alreadyGreeted
+    ? [
+        ...(headlineTrimmed ? [`핵심 요약: ${headlineTrimmed}`] : []),
+        briefParagraph,
+        '',
+        `▶ 자료 바로 보기: ${input.shareUrl}`,
+        '',
+        `모바일에서도 로그인 없이 바로 열람 가능하며, 궁금하신 점은 편하게 회신해 주세요.${phoneLine}`,
+      ].join('\n')
+    : [
+        `${clientName}님, 안녕하세요. ${brokerName} 중개인입니다.`,
+        `요청·상담하신 [${buildingTitle}] ${assetLabel} 자료 링크를 보내드립니다.${headlineLine}`,
+        ...(briefParagraph ? ['', briefParagraph] : []),
+        '',
+        `▶ 자료 바로 보기: ${input.shareUrl}`,
+        '',
+        `모바일에서도 로그인 없이 바로 열람 가능하며, 궁금하신 점은 편하게 회신해 주세요.${phoneLine}`,
+      ].join('\n');
 
   return {
     subject,
@@ -270,6 +297,7 @@ export interface SendInboxClientEmailResult {
   simulated?: boolean;
   messageId?: string | null;
   blockedReason?: InboxEmailBlockedReason;
+  errorCode?: string;
   deliveryPurpose?: InboxEmailDeliveryPurpose;
   headers?: Record<string, string>;
   html?: string;
@@ -283,6 +311,7 @@ export async function sendInboxClientEmail(
   input: SendInboxClientEmailInput
 ): Promise<SendInboxClientEmailResult> {
   const normalizedEmail = normalizeClientEmail(input.toEmail);
+  const cleanClientName = sanitizeInboxClientName(input.clientName);
   const deliveryPurpose = resolveInboxEmailDeliveryPurpose({
     deliveryPurpose: input.deliveryPurpose,
     transactionalBasis: input.transactionalBasis,
@@ -292,7 +321,7 @@ export async function sendInboxClientEmail(
   const bundle = buildInboxCopyBundle({
     brokerName: input.brokerName,
     brokerPhone: input.brokerPhone,
-    clientName: input.clientName,
+    clientName: cleanClientName,
     buildingTitle: input.buildingTitle,
     shareUrl: input.shareUrl,
     headline: input.headline,
@@ -431,15 +460,19 @@ export async function sendInboxClientEmail(
       ? buildListUnsubscribeHeaders(resolvedUnsubscribeUrl)
       : undefined;
 
-  const safeClient = escapeHtml((input.clientName || '고객').trim());
+  const safeClient = escapeHtml(cleanClientName);
   const safeBroker = escapeHtml(brokerNameClean);
   const safeCompany = brokerCompanyClean ? escapeHtml(brokerCompanyClean) : '';
   const safeSenderIdentity = escapeHtml(senderIdentity);
   const safeTitle = escapeHtml((input.buildingTitle || '추천 매물').trim());
   const safeHeadline = input.headline?.trim() ? escapeHtml(input.headline.trim()) : '';
-  const safeBriefHtml = input.brief?.trim()
-    ? escapeHtml(input.brief.trim()).replace(/\r?\n/g, '<br/>')
+  const briefTrimmed = input.brief?.trim() || '';
+  const safeBriefHtml = briefTrimmed
+    ? escapeHtml(briefTrimmed).replace(/\r?\n/g, '<br/>')
     : '';
+  const emailHeadingText = hasGreetingInBrief(briefTrimmed, cleanClientName)
+    ? `[${safeTitle}] 자료를 보내드립니다`
+    : `${safeClient}님, [${safeTitle}] 자료를 보내드립니다`;
   const safePhone = brokerPhoneClean ? escapeHtml(brokerPhoneClean) : '';
   const safeAddress = brokerAddressClean ? escapeHtml(brokerAddressClean) : '';
   const safeBrokerEmail = brokerEmailClean ? escapeHtml(brokerEmailClean) : '';
@@ -471,7 +504,7 @@ export async function sendInboxClientEmail(
 <body style="margin:0;padding:24px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;color:#0f172a;">
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;">
     <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#2563eb;">${headerBrandLine}</p>
-    <h1 style="margin:0 0 16px;font-size:20px;line-height:1.45;color:#0f172a;">${safeClient}님, [${safeTitle}] 자료를 보내드립니다</h1>
+    <h1 style="margin:0 0 16px;font-size:20px;line-height:1.45;color:#0f172a;">${emailHeadingText}</h1>
     ${safeHeadline ? `<p style="margin:0 0 16px;padding:12px 14px;background:#f1f5f9;border-radius:10px;font-size:15px;line-height:1.6;color:#1e293b;">${safeHeadline}</p>` : ''}
     ${safeBriefHtml ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#1e293b;">${safeBriefHtml}</p>` : ''}
     <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">아래 버튼을 누르시면 회원가입이나 별도 앱 설치 없이 모바일·PC에서 바로 확인하실 수 있습니다.</p>
@@ -485,6 +518,24 @@ export async function sendInboxClientEmail(
 
   const key = process.env.RESEND_API_KEY;
   if (!key) {
+    if (isRealProductionRuntime()) {
+      log.error('Blocking inbox email in production: RESEND_API_KEY is missing', {
+        to: maskEmail(normalizedEmail),
+        deliveryPurpose,
+      });
+      return {
+        ok: false,
+        simulated: false,
+        errorCode: 'EMAIL_PROVIDER_NOT_CONFIGURED',
+        error: '이메일 발송 설정(RESEND_API_KEY)이 누락되어 발송할 수 없습니다.',
+        deliveryPurpose,
+        headers,
+        html,
+        unsubscribeUrl: resolvedUnsubscribeUrl,
+        subject,
+        text,
+      };
+    }
     log.info('[Email STUB] Simulated inbox email', {
       to: maskEmail(normalizedEmail),
       subject,

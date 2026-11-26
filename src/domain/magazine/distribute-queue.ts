@@ -81,7 +81,8 @@ export interface EnqueueDispatchResult {
   asyncQueued: boolean;
   /** D2: 대기열 스키마(000003) 미적용 — 호출부는 동기 발송(distributeMagazine)으로 폴백해야 한다 */
   queueUnavailable?: boolean;
-  blockedReason?: 'SEND_DISABLED' | GateBlockReason;
+  scheduleUnsupported?: boolean;
+  blockedReason?: 'SEND_DISABLED' | 'SCHEDULE_UNAVAILABLE' | GateBlockReason;
   message?: string;
   scheduledForIso?: string;
   dryRun: boolean;
@@ -234,22 +235,35 @@ export async function enqueueMagazineDispatch(
   let queued = 0;
   for (let i = 0; i < rowsToQueue.length; i += ENQUEUE_CHUNK_SIZE) {
     const chunk = rowsToQueue.slice(i, i + ENQUEUE_CHUNK_SIZE);
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from(DISPATCH_LEDGER_TABLE)
       .upsert(chunk, { onConflict: 'idempotency_key', ignoreDuplicates: true })
       .select('id');
-    if (error && scheduledForIso && isMissingLedgerColumn(error)) {
-      const strippedChunk = chunk.map(
-        ({ next_attempt_at: _na, blocked_reason: _br, ...rest }) => rest,
-      );
-      const retryRes = await supabase
-        .from(DISPATCH_LEDGER_TABLE)
-        .upsert(strippedChunk, { onConflict: 'idempotency_key', ignoreDuplicates: true })
-        .select('id');
-      data = retryRes.data;
-      error = retryRes.error;
-    }
     if (error) {
+      if (scheduledForIso && (isMissingLedgerColumn(error) || isQueueSchemaMissing(error))) {
+        log.warn('[Queue] scheduled dispatch queue schema unavailable — failing closed', {
+          code: (error as { code?: string }).code,
+        });
+        return {
+          ok: false,
+          asyncQueued: false,
+          queueUnavailable: true,
+          scheduleUnsupported: true,
+          blockedReason: 'SCHEDULE_UNAVAILABLE',
+          message:
+            '오전 08:30 예약 발송 대기열 스키마가 준비되지 않아 예약을 등록할 수 없습니다. 잠시 후 다시 시도하거나 즉시 발송을 이용해 주세요.',
+          dryRun,
+          subscriberCount: subscribers.length,
+          total: targets.length,
+          queued: 0,
+          sent: 0,
+          recorded: 0,
+          failed: 0,
+          blocked: tally.blocked,
+          isPaidTier: isPaid,
+          tier,
+        };
+      }
       // D2 사전 컷오버: 000003(payload/attempt_count/queued_at/updated_at·pending_worker 상태) 미적용이면
       // 첫 청크부터 실패한다 → 대기열 불가를 알려 호출부가 기존 동기 발송 경로로 폴백하게 한다.
       if (queued === 0 && i === 0 && isQueueSchemaMissing(error)) {
@@ -735,6 +749,7 @@ export async function processMagazineDispatchQueueBatch(
           url: row.payload.editionUrl,
         },
         hydratedEdition,
+        { preferHydrated: true },
       ),
       kakaoTemplateId: row.payload.kakaoTemplateId || KAKAO_TEMPLATE_WEEKLY_ISSUE,
     };

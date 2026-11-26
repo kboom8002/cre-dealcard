@@ -490,12 +490,43 @@ export async function POST(request: NextRequest) {
             : typeof snap.price === "number" && snap.price > 0
             ? snap.price
             : null;
+        const snapPriceBand =
+          typeof snap.priceBand === "string" &&
+          snap.priceBand.trim() &&
+          snap.priceBand.trim() !== "-" &&
+          snap.priceBand.trim() !== "가격 문의" &&
+          snap.priceBand.trim() !== "가격 협의"
+            ? snap.priceBand.trim()
+            : null;
+        const card4PriceBand =
+          typeof qRec?.card4?.priceBand === "string" &&
+          qRec.card4.priceBand.trim() &&
+          qRec.card4.priceBand.trim() !== "-" &&
+          qRec.card4.priceBand.trim() !== "가격 문의" &&
+          qRec.card4.priceBand.trim() !== "가격 협의"
+            ? qRec.card4.priceBand.trim()
+            : null;
+        const dbPriceBand =
+          typeof dbRow?.price_band === "string" &&
+          dbRow.price_band.trim() &&
+          dbRow.price_band.trim() !== "-" &&
+          dbRow.price_band.trim() !== "가격 문의" &&
+          dbRow.price_band.trim() !== "가격 협의"
+            ? dbRow.price_band.trim()
+            : null;
 
         const priceVal =
+          card4PriceBand ??
+          snapPriceBand ??
           validSnapPrice ??
+          dbPriceBand ??
           formattedAskingEok ??
-          qRec?.card4?.priceBand ??
-          (typeof dbRow?.price_band === "string" && dbRow.price_band !== "가격 협의" ? dbRow.price_band : null) ??
+          "가격 협의";
+        const explicitPriceBand =
+          card4PriceBand ??
+          snapPriceBand ??
+          dbPriceBand ??
+          (typeof validSnapPrice === "string" ? validSnapPrice : formattedAskingEok) ??
           "가격 협의";
 
         const yieldNum =
@@ -648,6 +679,7 @@ export async function POST(request: NextRequest) {
           areaSignal: safeAreaSignal,
           address: safeAddr,
           price: priceVal,
+          priceBand: explicitPriceBand,
           ...(resolvedPosture ? { posture: resolvedPosture } : {}),
           ...(canonicalAreaLabel ? { areaLabel: canonicalAreaLabel } : {}),
           ...(askingManwon > 0 ? { priceWon: askingManwon * 10_000 } : {}),

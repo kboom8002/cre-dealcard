@@ -4,8 +4,8 @@ import { callLLM } from '@/ai/llm-client';
 import { getModel } from '@/ai/model-selector';
 import { humanizeBuyerCopy } from '@/domain/magazine/issue-clustering';
 import { requireBroker } from '@/lib/auth-guard';
+import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
 import { createModuleLogger } from '@/lib/logger';
-import { checkRateLimit } from '@/lib/rate-limiter';
 
 export const maxDuration = 60;
 
@@ -175,18 +175,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const allowed = await checkRateLimit(
-      guard.user.id,
-      'broker_inbox_ai_reply',
-      AI_REPLY_RATE_LIMIT.max,
-      AI_REPLY_RATE_LIMIT.windowMs,
-    );
-    if (!allowed) {
-      return NextResponse.json(
-        { ok: false, code: 'RATE_LIMITED', error: '요청이 너무 많습니다. 1분 후 다시 시도해 주세요.' },
-        { status: 429, headers: { 'Retry-After': '60' } },
-      );
-    }
+    const quotaErr = await enforceBrokerAiQuota(req, guard.user.id, 'inbox_ai_reply', {
+      perMinute: AI_REPLY_RATE_LIMIT.max,
+    });
+    if (quotaErr) return quotaErr;
 
     let raw: unknown;
     try {
@@ -241,6 +233,7 @@ export async function POST(req: NextRequest) {
           userPrompt,
           model: getModel('luna'),
           temperature,
+          maxTokens: 1024,
           responseFormat: 'json_object',
         },
         { allowMock: false },

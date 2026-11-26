@@ -31,9 +31,13 @@ export function deriveAutoIssueMeta(
   month: number,
   baseYear = 2024,
 ): AutoIssueMetadata {
-  const nowKst = kstParts();
-  const safeYear = Number.isFinite(year) && year >= 2020 ? Math.floor(year) : nowKst.year;
-  const safeMonth = Number.isFinite(month) ? Math.max(1, Math.min(12, Math.floor(month))) : nowKst.month;
+  const needsNow = !Number.isFinite(year) || year < 2020 || !Number.isFinite(month);
+  const nowKst = needsNow ? kstParts() : null;
+  const safeYear =
+    Number.isFinite(year) && year >= 2020 ? Math.floor(year) : (nowKst?.year ?? 2026);
+  const safeMonth = Number.isFinite(month)
+    ? Math.max(1, Math.min(12, Math.floor(month)))
+    : (nowKst?.month ?? 1);
   const mm = String(safeMonth).padStart(2, "0");
   const slug = `${safeYear}-${mm}`;
   const yearMonthLabel = `${safeYear}년 ${safeMonth}월호`;
@@ -129,11 +133,32 @@ export function IssueMetadataForm({
     }
   }
   const [isScheduleOpen, setIsScheduleOpen] = React.useState<boolean>(false);
-  const nowKst = kstParts();
-  const safeYear = typeof year === "number" ? year : nowKst.year;
-  const safeMonth = typeof month === "number" ? month : nowKst.month;
+  const [clientNowKst, setClientNowKst] = React.useState<{
+    year: number;
+    month: number;
+    dateStr: string;
+  } | null>(null);
+  React.useEffect(() => {
+    const p = kstParts();
+    const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
+    setClientNowKst({
+      year: p.year,
+      month: p.month,
+      dateStr: `${p.year}-${pad(p.month)}-${pad(p.day)}`,
+    });
+  }, []);
+  const safeYear = typeof year === "number" ? year : (clientNowKst?.year ?? 2026);
+  const safeMonth = typeof month === "number" ? month : (clientNowKst?.month ?? 1);
+  const safeDateStr =
+    issueDate ??
+    clientNowKst?.dateStr ??
+    `${safeYear}-${String(safeMonth).padStart(2, "0")}-01`;
   const autoMeta = deriveAutoIssueMeta(safeYear, safeMonth);
-  const cadenceMeta = deriveCadenceIssueMeta(cadence, { year: safeYear, month: safeMonth, dateStr: issueDate });
+  const cadenceMeta = deriveCadenceIssueMeta(cadence, {
+    year: safeYear,
+    month: safeMonth,
+    dateStr: safeDateStr,
+  });
   const headlineTooLong = headline.trim().length > 45;
   const titlePresets = React.useMemo(
     () => buildNewsletterTitlePresets(brokerName, cadence, safeMonth, toneStance),

@@ -109,7 +109,7 @@ export function WorkspaceHelpButton({
           role="menu"
           data-testid="workspace-help-menu"
           aria-label="사용법 및 도움말 메뉴"
-          className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg z-50 space-y-0.5 text-[#1D1D1F]"
+          className="absolute right-0 top-full mt-2 w-60 max-w-[calc(100vw-24px)] sm:w-60 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg z-50 space-y-0.5 text-[#1D1D1F]"
         >
           <button
             type="button"

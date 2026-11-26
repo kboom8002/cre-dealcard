@@ -9,6 +9,7 @@
  * - DB 기반 CRE 용어사전(`normalizeTerminologyAsync`) 정규화 + 무중단 결정론적 SSOT 폴백 보장
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { callLLM, LLMMockNotAllowedError } from '@/ai/llm-client';
 import { isDeterministicLLMMode } from '@/ai/llm-determinism';
 import { getModel } from '@/ai/model-selector';
@@ -38,6 +39,17 @@ import { toApiError } from '@/lib/api-error';
 const log = createModuleLogger('basic-im-studio-ai-text');
 
 type ToneOption = 'conservative' | 'balanced' | 'aggressive';
+
+const basicImAiTextRequestSchema = z
+  .object({
+    slideId: z.string().max(100).optional(),
+    dataKey: z.string().max(60).optional().default('highlights'),
+    fieldKey: z.string().max(80).optional().default('keyInvestmentPoint'),
+    currentText: z.string().max(4000, '입력 문구는 4000자 이내로 입력해 주세요.').optional().default(''),
+    tone: z.enum(['conservative', 'balanced', 'aggressive']).optional().default('balanced'),
+    overrides: z.record(z.string(), z.unknown()).nullish(),
+  })
+  .passthrough();
 
 function sanitizeRefinedText(raw: string): string {
   return raw
@@ -417,6 +429,7 @@ async function tryRefineWithSotaLlm(params: {
         userPrompt,
         model: getModel('terra'),
         temperature: 0.3,
+        maxTokens: 1024,
         responseFormat: 'json_object',
       },
       { allowMock: false },
@@ -491,20 +504,38 @@ export async function POST(
 
   const { id } = await params;
   try {
-    const body = await req.json();
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: { code: 'BAD_REQUEST', message: '요청 형식이 올바르지 않습니다.' } },
+        { status: 400 },
+      );
+    }
+
+    const parsedBody = basicImAiTextRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'BAD_REQUEST',
+            message: parsedBody.error.issues[0]?.message ?? '입력 항목을 확인해 주세요.',
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    const body = parsedBody.data;
     const {
       slideId,
-      dataKey = 'highlights',
-      fieldKey = 'keyInvestmentPoint',
-      currentText = '',
-      tone = 'balanced',
-    } = body as {
-      slideId?: string;
-      dataKey?: string;
-      fieldKey?: string;
-      currentText?: string;
-      tone?: ToneOption;
-    };
+      dataKey,
+      fieldKey,
+      currentText,
+      tone,
+    } = body;
 
     let project;
     try {

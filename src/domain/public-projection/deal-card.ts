@@ -491,8 +491,6 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     'name',
     brokerProfile?.representative_name,
     brokerProfile?.representativeName,
-    brokerProfile?.display_name,
-    brokerProfile?.displayName,
   );
   const sanitizedPhone = pickBrokerStatutory('phone', brokerProfile?.phone);
 

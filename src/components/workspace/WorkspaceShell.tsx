@@ -1003,7 +1003,7 @@ export function WorkspaceShell({
                       saveState === "conflict" ? "flex-wrap rounded-2xl" : "rounded-full whitespace-nowrap"
                     } ${saveTone}`}
                   >
-                    <span>{renderedSaveStatus}</span>
+                    <span className="truncate max-w-[140px] sm:max-w-none">{renderedSaveStatus}</span>
                   </div>
                 ) : (
                   saveState !== undefined &&

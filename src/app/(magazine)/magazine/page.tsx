@@ -140,7 +140,7 @@ export default async function MagazineRootPage({
             뉴스레터 작성하기
           </Link>
           <Link
-            href="/hub"
+            href="/guide"
             className="min-h-[48px] px-5 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-base font-bold flex items-center justify-center transition"
           >
             시장 동향 보러가기

@@ -1458,7 +1458,6 @@ export async function PATCH(
       if (updateData.title !== undefined) signalCardUpdate.title = updateData.title;
       if (updateData.dealPoints !== undefined) signalCardUpdate.deal_points = updateData.dealPoints;
       if (updateData.curiosityScore !== undefined) signalCardUpdate.deal_curiosity_score = updateData.curiosityScore;
-      if (updateData.hookCopy !== undefined) signalCardUpdate.hook_copy = updateData.hookCopy;
       if (isPublishingUuid) {
         signalCardUpdate.status = 'shared_external';
         signalCardUpdate.visibility = 'public_blind';
@@ -1466,10 +1465,13 @@ export async function PATCH(
       }
 
       if (Object.keys(signalCardUpdate).length > 0) {
-        await serviceClient
+        const signalCardRes = await serviceClient
           .from("building_signal_cards")
           .update(signalCardUpdate)
           .eq("building_id", targetBuildingId);
+        if (signalCardRes?.error) {
+          log.warn("[deal-card PATCH] building_signal_cards update failed (non-blocking):", signalCardRes.error);
+        }
       }
 
       // SSoT 건물 신호 필드 인라인 편집 반영

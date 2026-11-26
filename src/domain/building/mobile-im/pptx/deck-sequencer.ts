@@ -144,12 +144,12 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     // 렌트롤: M4 — Basic IM 정규 9면 보장을 위해 hasRentRoll=false라도 드롭하지 않고 실사 대체 카드 유지
     // (slot.dataKey === 'rentRoll' retains A24 in canonical sequence)
 
-    // 갤러리: gallerySlides가 있으면 그것을 사용 (Basic IM은 최대 2장 캡, 사진 없어도 실사 카드로 정규 9면 보장)
+    // 갤러리: gallerySlides가 있으면 그것을 사용 (Basic IM은 최대 2장 캡, 사진 없어도 실사 카드로 전 포스처 최소 면수 보장)
     if (slot.dataKey === 'gallery') {
       if (gallerySlides.length > 0) {
         const cappedGallery = gallerySlides.slice(0, 2);
         sequence.push(...cappedGallery);
-      } else if (posture === 'income' || input.hasPhotos || da.hasPhotos) {
+      } else {
         sequence.push({ archetype: slot.archetype, kicker: 'Gallery', title: slot.label, dataKey: slot.dataKey });
       }
       continue;

@@ -16,17 +16,22 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setError('');
 
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
-    });
+    try {
+      const supabase = createClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      });
 
-    if (resetError) {
-      setError('이메일 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-    } else {
-      setSent(true);
+      if (resetError) {
+        setError('이메일 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        setSent(true);
+      }
+    } catch {
+      setError('이메일 발송 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (sent) {

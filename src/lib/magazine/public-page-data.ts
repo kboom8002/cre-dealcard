@@ -687,10 +687,7 @@ export async function resolvePublicBrokerStatutoryProfile(
     sanitizeStatutoryField(broker.office_name, 'officeName');
   const officeAddress = sanitizeStatutoryField(broker.office_address, 'address');
   const officeRegNumber = sanitizeStatutoryField(broker.office_reg_number, 'regNo');
-  const representativeName =
-    sanitizeStatutoryField(broker.representative_name, 'name') ||
-    sanitizeStatutoryField(broker.name, 'name') ||
-    sanitizeStatutoryField(profileRow?.display_name, 'name');
+  const representativeName = sanitizeStatutoryField(broker.representative_name, 'name');
   const phone =
     sanitizeStatutoryField(profileRow?.phone, 'phone') ||
     sanitizeStatutoryField(broker.phone, 'phone');

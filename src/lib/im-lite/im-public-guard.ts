@@ -19,6 +19,13 @@ export type PublicImDenyReason = 'token_required' | 'revoked' | 'not_found';
 
 type ImSnapshotRecord = Record<string, unknown>;
 
+export function isBuildingWideRevocationEvent(
+  meta: Record<string, unknown> | null | undefined
+): boolean {
+  if (!meta || typeof meta !== 'object') return true;
+  return meta.scope !== 'thread' && meta.scope !== 'recipient_approval';
+}
+
 export function isPreCutoverSchemaError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const code = String((err as { code?: unknown }).code || '').trim();

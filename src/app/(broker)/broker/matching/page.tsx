@@ -38,105 +38,6 @@ const GRADE_STYLES: Record<string, { bg: string; text: string; label: string; bo
   C: { bg: 'bg-rose-50 dark:bg-rose-950/20', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-900/50', label: 'C — 매칭 미흡' },
 };
 
-// 데모 폴백 데이터
-const DEMO_MATCHES: MatchResult[] = [
-  {
-    id: 'demo-s-001',
-    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
-    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000001',
-    grade: 'S',
-    score: 89,
-    stage1_passed: true,
-    stage2_similarity: 0.91,
-    stage3_score: 87,
-    reasoning: '예산(70~85억)·지역(성동구)·자산유형(꼬마빌딩/근생) 3개 조건 완벽 일치. 1층 카페 임차 선호 조건까지 충족. 엘리베이터 없음도 무관하다고 명시. 시맨틱 유사도 0.91로 최고 수준. 즉시 연락 권장.',
-    purpose_weight_profile: '투자',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    building_area: '성수동',
-    building_asset_type: '꼬마빌딩(근생+사무)',
-    building_price: '70억~78억',
-    buyer_type: '개인 투자자 (홍○○)',
-    buyer_budget: '70억~85억',
-    buyer_purpose: '임대수익 투자',
-  },
-  {
-    id: 'demo-a-002',
-    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
-    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000002',
-    grade: 'A',
-    score: 76,
-    stage1_passed: true,
-    stage2_similarity: 0.74,
-    stage3_score: 78,
-    reasoning: '예산(65~75억) 하단 — 매물 가격(70~78억)과 부분 겹침. 성동구 포함으로 지역 일치. 사옥 목적이라 엘리베이터 없음이 약점이나 주차 3대 확보로 보완. 대지 150평으로 120평 이상 조건 충족.',
-    purpose_weight_profile: '사옥',
-    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    building_area: '성수동',
-    building_asset_type: '꼬마빌딩(근생+사무)',
-    building_price: '70억~78억',
-    buyer_type: '법인 (김○○ 대표)',
-    buyer_budget: '65억~75억',
-    buyer_purpose: '사옥 + 일부 임대',
-  },
-  {
-    id: 'demo-b-003',
-    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
-    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000003',
-    grade: 'B',
-    score: 54,
-    stage1_passed: true,
-    stage2_similarity: 0.58,
-    stage3_score: 51,
-    reasoning: '예산(75~80억) 범위 내에 있으나 완전 임차 상태 필수 조건에서 2~4층 공실로 인해 감점. 지역도 마포/은평/서대문으로 성동구와 다소 거리 있음. 추가 상담 후 지역 범위 조정 가능성 있음.',
-    purpose_weight_profile: '투자',
-    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    building_area: '성수동',
-    building_asset_type: '꼬마빌딩(근생+사무)',
-    building_price: '70억~78억',
-    buyer_type: '개인 투자자 (이○○)',
-    buyer_budget: '75억~80억',
-    buyer_purpose: '임대수익',
-  },
-  {
-    id: 'demo-c-004',
-    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
-    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000004',
-    grade: 'C',
-    score: 32,
-    stage1_passed: false,
-    stage2_similarity: 0.31,
-    stage3_score: 32,
-    reasoning: 'Stage 1 탈락: 예산(55~65억)이 매물 호가(70억~78억)보다 5~15억 부족. 지역도 성동구와 불일치. 현재 조건으로는 매칭 성사 어려움. 예산 재조정 상담 필요.',
-    purpose_weight_profile: '투자',
-    created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    building_area: '성수동',
-    building_asset_type: '꼬마빌딩(근생+사무)',
-    building_price: '70억~78억',
-    buyer_type: '개인 (박○○)',
-    buyer_budget: '55억~65억',
-    buyer_purpose: '임대수익',
-  },
-  {
-    id: 'demo-a-005',
-    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000002',
-    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000001',
-    grade: 'A',
-    score: 82,
-    stage1_passed: true,
-    stage2_similarity: 0.85,
-    stage3_score: 80,
-    reasoning: '강남 역세권 빌딩으로 매수자의 임대수익 목적에 매우 부합합니다. 다만 예산 한도(85억)에 근접해 추가 협의가 필요합니다.',
-    purpose_weight_profile: '투자',
-    created_at: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-    building_area: '역삼동',
-    building_asset_type: '근생빌딩',
-    building_price: '85억',
-    buyer_type: '개인 투자자 (홍○○)',
-    buyer_budget: '70억~85억',
-    buyer_purpose: '임대수익 투자',
-  },
-];
-
 type ViewMode = 'deal-centric' | 'buyer-centric' | 'team-circle';
 
 interface DealGroup {
@@ -160,7 +61,6 @@ function MatchingBoardContent() {
   const buildingIdParam = searchParams?.get('buildingId');
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('deal-centric');
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 
@@ -172,13 +72,13 @@ function MatchingBoardContent() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        setIsDemo(true);
-        setMatches(DEMO_MATCHES);
+        setMatches([]);
+        setExpandedGroupId(null);
         return;
       }
 
       // 본인 소유 데이터 조회
-      const { data: matchData, error } = await supabase
+      const { data: matchData } = await supabase
         .from('match_results')
         .select(`
           id, building_ssot_lite_id, buyer_intent_lite_id, 
@@ -224,11 +124,12 @@ function MatchingBoardContent() {
         setMatches(enriched);
         setExpandedGroupId(buildingIdParam || enriched[0]?.building_ssot_lite_id);
       } else {
-        // 최종 폴백: 데모 데이터 사용
-        setMatches(DEMO_MATCHES);
-        setIsDemo(true);
-        setExpandedGroupId(buildingIdParam || DEMO_MATCHES[0].building_ssot_lite_id);
+        setMatches([]);
+        setExpandedGroupId(null);
       }
+    } catch {
+      setMatches([]);
+      setExpandedGroupId(null);
     } finally {
       setLoading(false);
     }
@@ -321,16 +222,6 @@ function MatchingBoardContent() {
           </div>
         )}
 
-        {/* 데모 배너 */}
-        {isDemo && (
-          <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-            <span className="text-sm">🎬</span>
-            <p className="text-[11px] text-amber-500 dark:text-amber-400 font-medium tracking-tight">
-              데모 모드: 시연을 위한 매칭 데이터가 표시됩니다.
-            </p>
-          </div>
-        )}
-
         {/* View Mode Toggle */}
         <div className="bg-muted/50 p-1 rounded-xl flex gap-1">
           <button
@@ -395,6 +286,28 @@ function MatchingBoardContent() {
             </div>
           </div>
         ) : viewMode === 'deal-centric' ? (
+          dealGroups.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
+              <p className="text-base font-bold text-foreground">아직 매칭 결과가 없습니다</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                매물 딜카드를 등록하거나 고객 소통함에서 매수 문의를 확인해 보세요.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <Link
+                  href="/broker/w/inbox"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+                >
+                  고객 소통함으로 이동 →
+                </Link>
+                <Link
+                  href="/broker/w/dealcards"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground"
+                >
+                  딜카드 작업공간
+                </Link>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-4 pt-2">
             {dealGroups.map((group) => {
               const isExpanded = expandedGroupId === group.buildingId;
@@ -464,7 +377,24 @@ function MatchingBoardContent() {
               );
             })}
           </div>
+          )
         ) : (
+          buyerGroups.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
+              <p className="text-base font-bold text-foreground">등록된 매칭 고객이 없습니다</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                고객 소통함에서 접수된 매수 문의를 확인하고 후속 상담을 이어가 보세요.
+              </p>
+              <div className="pt-1">
+                <Link
+                  href="/broker/w/inbox"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+                >
+                  고객 소통함으로 이동 →
+                </Link>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-4 pt-2">
             {buyerGroups.map((group) => {
               const isExpanded = expandedGroupId === group.buyerId;
@@ -529,6 +459,7 @@ function MatchingBoardContent() {
               );
             })}
           </div>
+          )
         )}
       </div>
 

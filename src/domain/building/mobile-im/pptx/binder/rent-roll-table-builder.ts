@@ -121,13 +121,16 @@ export function resolveTenantAndUse(
   const useCandidate = explicitUse || biz;
   const use = useCandidate && !VACANT_MARK.test(useCandidate) ? useCandidate : '-';
   if (name) return { tenant: name, use, isVacant: false, isMasked: false };
-  // 자가사용 호실은 임차인이 없으므로 마스킹 라벨 대신 '자가사용' 표기 (용도 칸 중복 방지로 '-')
+  // 자가사용 호실은 임차인이 없으므로 '자가사용' 표기 (용도 칸 중복 방지로 '-')
   if (/^자가\s*사용?$/.test(useCandidate) || resolveLeaseOccupancy(l as Record<string, any>) === '자가사용') {
     const ownerUse = /^자가\s*사용?$/.test(useCandidate) ? '-' : use;
     return { tenant: '자가사용', use: ownerUse, isVacant: false, isMasked: false };
   }
-  const tenant = opts.maskSeq != null ? `임차인 ${maskLetter(opts.maskSeq)}` : '임차인';
-  return { tenant, use, isVacant: false, isMasked: true };
+  // 상호가 비어 있고 공실·자가사용이 아닌 경우: 업종(useCandidate)을 임차인 칸에 표기하고 용도 칸은 '-' (임차인 A~Z 마스킹 금지)
+  if (useCandidate && !VACANT_MARK.test(useCandidate) && useCandidate !== '-') {
+    return { tenant: useCandidate, use: '-', isVacant: false, isMasked: false };
+  }
+  return { tenant: '-', use: '-', isVacant: false, isMasked: false };
 }
 
 /**

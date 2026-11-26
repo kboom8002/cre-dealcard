@@ -69,6 +69,11 @@ export function QuickStatutorySetupCard({
     e.preventDefault();
     setErrorMessage(null);
 
+    if (!isSelfRepresentative && !displayName.trim()) {
+      setErrorMessage("담당자 성함을 입력해 주세요.");
+      return;
+    }
+
     let formattedPhone = phone;
     if (phone) {
       const digits = phone.replace(/[^\d]/g, "");
