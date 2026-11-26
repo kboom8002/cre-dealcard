@@ -203,8 +203,73 @@ export interface MobileImPptxOutput {
   };
 }
 
+const MAX_CONCURRENT_PPTX_RENDERS =
+  process.env.NODE_ENV === 'test'
+    ? 8
+    : Number(process.env.PPTX_MAX_CONCURRENT_RENDERS || 2);
+
+let activePptxRenders = 0;
+const pptxRenderWaitQueue: Array<() => void> = [];
+
+function resolveMaxConcurrentPptxRenders(): number {
+  const envOverride = process.env.PPTX_MAX_CONCURRENT_RENDERS;
+  if (envOverride !== undefined && envOverride !== '') {
+    const parsed = Number(envOverride);
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      return Math.floor(parsed);
+    }
+  }
+  return Number.isFinite(MAX_CONCURRENT_PPTX_RENDERS) && MAX_CONCURRENT_PPTX_RENDERS >= 1
+    ? Math.floor(MAX_CONCURRENT_PPTX_RENDERS)
+    : 2;
+}
+
+export function getPptxRenderSemaphoreStats(): {
+  active: number;
+  queued: number;
+  maxConcurrency: number;
+} {
+  return {
+    active: activePptxRenders,
+    queued: pptxRenderWaitQueue.length,
+    maxConcurrency: resolveMaxConcurrentPptxRenders(),
+  };
+}
+
+async function acquirePptxRenderSlot(): Promise<() => void> {
+  const maxConcurrency = resolveMaxConcurrentPptxRenders();
+  if (activePptxRenders < maxConcurrency) {
+    activePptxRenders += 1;
+  } else {
+    await new Promise<void>((resolve) => {
+      pptxRenderWaitQueue.push(resolve);
+    });
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const currentLimit = resolveMaxConcurrentPptxRenders();
+    if (activePptxRenders <= currentLimit && pptxRenderWaitQueue.length > 0) {
+      const next = pptxRenderWaitQueue.shift()!;
+      next();
+    } else {
+      activePptxRenders = Math.max(0, activePptxRenders - 1);
+    }
+  };
+}
+
 export class MobileImPptxRenderer {
   async render(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
+    const releaseSlot = await acquirePptxRenderSlot();
+    try {
+      return await this._renderInternal(input);
+    } finally {
+      releaseSlot();
+    }
+  }
+
+  async _renderInternal(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
     // D-03: 구형 PPTX 렌더러 직접 호출 차단 가드 (PPTX Studio 전환 시 활성화)
     if (process.env.DEPRECATE_LEGACY_WRITES === 'true') {
       throw new Error(
@@ -620,24 +685,24 @@ export class MobileImPptxRenderer {
           };
           // D5: LLM 표의 '-' / 공란 / '확인 필요' 행은 값이 없는 행이므로 제거 (실값 병합을 막거나 '-' 행으로 남지 않도록)
           dataMap['building'].left.rows = dataMap['building'].left.rows.filter(
-            (r: [string, string]) => !isMissingSpecValue(r?.[1]),
+            (r: string[]) => !isMissingSpecValue(r?.[1]),
           );
           // Rule 4: 제원 표에는 제원만 — LLM 이 '**자산 하이라이트**: • …' 같은 서술형 항목을 key-value 로 써서
           // 좌측 표에 하이라이트가 한 번 더(말줄임 포함) 렌더되던 문제 제거. 하이라이트는 우측 박스가 정본.
           // 그룹 병합 '이전'에 실행해야 서술형 행이 제원 그룹(예: #준공)을 선점해 공부 값을 막는 일이 없다.
           {
-            const isNarrativeSpecRow = ([k, v]: [string, string]) => {
+            const isNarrativeSpecRow = ([k, v]: string[]) => {
               const key = String(k ?? '').replace(/\s+/g, '');
               if (/하이라이트|투자포인트|핵심포인트|요약|특장점|강점|투자매력/.test(key)) return true;
               const val = String(v ?? '').trim();
               return val.startsWith('•') || (val.match(/•/g) ?? []).length >= 2;
             };
-            dataMap['building'].left.rows = dataMap['building'].left.rows.filter((r: [string, string]) => !isNarrativeSpecRow(r));
+            dataMap['building'].left.rows = dataMap['building'].left.rows.filter((r: string[]) => !isNarrativeSpecRow(r));
           }
           // Rule 4: 같은 제원이 다른 라벨(예: 건축연도(사용승인일) vs 준공시점)로 이중 렌더되지 않도록 그룹 단위로 중복 제거
           // D5: 기존 값이 유효하면 LLM 값 유지, 없으면 공부(리졸버) 값 추가. 건폐율/용적률은 현황치 2개가 모두 있는 경우에만 LLM 행을 유지.
           const existingGroupRows = (g: string) =>
-            (dataMap['building'].left.rows as [string, string][]).filter(([k]) => specGroup(k) === g);
+            ((dataMap['building'].left?.rows ?? []) as [string, string][]).filter(([k]) => specGroup(k) === g);
           for (const [key, val] of enrichedRows) {
             const g = specGroup(key);
             const existing = existingGroupRows(g);
@@ -699,7 +764,7 @@ export class MobileImPptxRenderer {
         // Phase 2: 포스처별 표준 제원 보강 — 누락 필드 자동 추가
         if (dataMap['building'].left && Array.isArray(dataMap['building'].left.rows)) {
           const bldgRows = dataMap['building'].left.rows;
-          const existingLabels = new Set(bldgRows.map((r: [string, string]) => r[0]));
+          const existingLabels = new Set(bldgRows.map((r: string[]) => r[0]));
           const ssotEx = input.doc.body?.ssot_summary ?? {};
           const bldg = input.building ?? {};
 
@@ -1415,7 +1480,7 @@ export class MobileImPptxRenderer {
           posture,
           body: input.doc.body ?? {},
           building: input.building ?? {},
-          enrichment: enrichment ?? {}, core: (input as any).core ?? null, specRows: dataMap['building']?.left?.rows ?? [],
+          enrichment: enrichment ?? {}, core: (input as any).core ?? null, specRows: (dataMap['building']?.left?.rows ?? []) as Array<[string, string]>,
         });
         const priorPoints: string[] = [
           ...(Array.isArray(dataMap['summary'].keyPoints) ? dataMap['summary'].keyPoints : []),

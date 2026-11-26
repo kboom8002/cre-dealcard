@@ -21,14 +21,19 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // 1. Inter-service key validation
-    if (!validateInterServiceRequest(_req)) {
-      if (process.env.NODE_ENV === "production") {
-        return Response.json(
-          { ok: false, error: { code: "UNAUTHORIZED", message: "API 키가 유효하지 않습니다." } },
-          { status: 401 }
-        );
-      }
+    // 1. Inter-service key validation (enforced across all environments; x-test-bypass allowed ONLY in NODE_ENV==='test')
+    const bypassRaw = (_req.headers.get("x-test-bypass") ?? "").trim().toLowerCase();
+    const hasTestBypass =
+      process.env.NODE_ENV === "test" &&
+      bypassRaw.length > 0 &&
+      bypassRaw !== "0" &&
+      bypassRaw !== "false";
+
+    if (!validateInterServiceRequest(_req) && !hasTestBypass) {
+      return Response.json(
+        { ok: false, error: { code: "UNAUTHORIZED", message: "API 키가 유효하지 않습니다." } },
+        { status: 401 },
+      );
     }
 
     if (!id || typeof id !== "string") {

@@ -16,6 +16,8 @@ import { generateBuyerMemo } from "@/domain/buyer/buyer-memo";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("buyer-memo-generate");
+
+export const maxDuration = 60;
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 const BuyerMemoGenerateRequest = z.object({

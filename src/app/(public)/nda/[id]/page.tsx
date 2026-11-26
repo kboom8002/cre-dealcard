@@ -78,14 +78,18 @@ export default async function NDAPage({ params, searchParams }: PageProps) {
   if (buildingId) {
     const { data: bldgInfo } = await supabase
       .from("building_ssot_lite")
-      .select("address, asset_type, area_signal")
+      .select("raw_address, asset_type, area_signal")
       .eq("id", buildingId)
       .maybeSingle();
 
     if (bldgInfo) {
+      const rawAddress =
+        (bldgInfo as { raw_address?: string | null; address?: string | null }).raw_address ??
+        (bldgInfo as { address?: string | null }).address ??
+        null;
       buildingTitle = resolveNdaPublicBuildingTitle({
         areaSignal: bldgInfo.area_signal,
-        address: bldgInfo.address,
+        address: rawAddress,
         assetType: bldgInfo.asset_type || "상업용 부동산",
       });
     } else {

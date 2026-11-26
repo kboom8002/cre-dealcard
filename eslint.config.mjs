@@ -116,6 +116,17 @@ export const SUB14_LOCKED_FILES = [
   "src/app/global-error.tsx",
   "src/app/(public)/error.tsx",
   "src/app/(broker)/error.tsx",
+  // Wave 4C: active public, landing & shared UI 14px minimum readability expansion
+  "src/app/page.tsx",
+  "src/components/landing/**/*.{ts,tsx}",
+  "src/components/common/**/*.{ts,tsx}",
+  "src/components/forms/**/*.{ts,tsx}",
+  "src/components/cards/**/*.{ts,tsx}",
+  "src/app/(public)/privacy/**/*.{ts,tsx}",
+  "src/app/(public)/terms/**/*.{ts,tsx}",
+  "src/app/(public)/owner-readiness/**/*.{ts,tsx}",
+  "src/app/(public)/explore/**/*.{ts,tsx}",
+  "src/app/(public)/insight/**/*.{ts,tsx}",
 ];
 
 /**

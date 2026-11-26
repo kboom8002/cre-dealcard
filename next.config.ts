@@ -29,18 +29,24 @@ const RESOLVED_BUILD_TIMESTAMP =
 // CSP 는 `Content-Security-Policy` 헤더로 **강제(enforce)** 적용된다(Report-Only 아님 — 관찰 기간 종료).
 //  새 외부 출처를 추가할 때는 아래 정책을 함께 갱신해야 한다. 외부 의존은 코드 grep 기준:
 //  Kakao SDK(t1.kakaocdn.net / dapi.kakao.com), Supabase, Pretendard(cdn.jsdelivr.net, globals.css @import),
-//  Google Fonts, 별도 배포 앱(*.vercel.app), 이미지는 data:/blob:/https: 허용.
-const isDev = process.env.NODE_ENV !== "production";
+//  Google Fonts, 현재 배포 호스트(VERCEL_URL 정확 일치만 허용 — *.vercel.app 와일드카드 금지), 이미지는 data:/blob:/https: 허용.
+const VERCEL_DEPLOYMENT_HOST_RE = /^[a-z0-9-]+\.vercel\.app$/i;
 
 function buildCspPolicy(frameAncestors: "'none'" | "'self'"): string {
+  const isDevRuntime = process.env.NODE_ENV !== "production";
+  const rawVercelUrl = (process.env.VERCEL_URL ?? "").trim();
+  const vercelConnectOrigin = VERCEL_DEPLOYMENT_HOST_RE.test(rawVercelUrl)
+    ? ` https://${rawVercelUrl}`
+    : "";
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' " : ""}https://t1.kakaocdn.net https://*.kakaocdn.net https://dapi.kakao.com https://*.daumcdn.net`,
+    `script-src 'self' 'unsafe-inline' ${isDevRuntime ? "'unsafe-eval' " : ""}https://t1.kakaocdn.net https://*.kakaocdn.net https://dapi.kakao.com https://*.daumcdn.net`,
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
     "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "media-src 'self' data: blob: https:",
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.kakao.com https://*.kakaocdn.net https://*.daumcdn.net https://*.vercel.app https://credeal.net https://www.credeal.net${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.kakao.com https://*.kakaocdn.net https://*.daumcdn.net${vercelConnectOrigin} https://credeal.net https://www.credeal.net${isDevRuntime ? " ws://localhost:* http://localhost:*" : ""}`,
     "frame-src 'self' https://*.kakao.com",
     `frame-ancestors ${frameAncestors}`,
     "worker-src 'self' blob:",
@@ -50,18 +56,8 @@ function buildCspPolicy(frameAncestors: "'none'" | "'self'"): string {
   ].join("; ");
 }
 
-const CSP_STRICT = buildCspPolicy("'none'");
-const CSP_SAMEORIGIN_IFRAME = buildCspPolicy("'self'");
-
 // 카메라/마이크(사진 OCR capture, 음성 메모)는 same-origin 허용, 결제·USB 등은 차단
 const PERMISSIONS_POLICY = "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=()";
-const COMMON_SECURITY_HEADERS = [
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
-  { key: "Content-Security-Policy", value: CSP_STRICT },
-];
 
 const nextConfig: NextConfig = {
   // E2E 격리: 별도 포트 dev 서버가 사용자 dev 서버와 .next 를 공유하지 않도록 (미설정 시 기본 .next)
@@ -139,6 +135,15 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     const isDevRuntime = process.env.NODE_ENV !== "production";
+    const cspStrict = buildCspPolicy("'none'");
+    const cspSameoriginIframe = buildCspPolicy("'self'");
+    const commonSecurityHeaders = [
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
+      { key: "Content-Security-Policy", value: cspStrict },
+    ];
     const allowedOriginPattern = isDevRuntime
       ? '(?<origin>https://(?:www\\.)?credeal\\.net|http://localhost:\\d+)'
       : '(?<origin>https://(?:www\\.)?credeal\\.net)';
@@ -148,6 +153,7 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         headers: [
           { key: 'Access-Control-Allow-Origin', value: 'https://credeal.net' },
+          { key: 'Vary', value: 'Origin' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
           { key: 'Access-Control-Expose-Headers', value: 'Content-Disposition, Content-Length, X-Slide-Count, X-File-Size, X-Audit-Violations, X-Audit-Layout, X-Audit-Standard, X-Warnings, X-TTS-Source, X-Project-Stage' },
@@ -166,6 +172,7 @@ const nextConfig: NextConfig = {
         ],
         headers: [
           { key: 'Access-Control-Allow-Origin', value: ':origin' },
+          { key: 'Vary', value: 'Origin' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
           { key: 'Access-Control-Expose-Headers', value: 'Content-Disposition, Content-Length, X-Slide-Count, X-File-Size, X-Audit-Violations, X-Audit-Layout, X-Audit-Standard, X-Warnings, X-TTS-Source, X-Project-Stage' },
@@ -177,7 +184,7 @@ const nextConfig: NextConfig = {
       // 같은 오리진 iframe 미리보기 경로(/magazine/*, /dc/*, /im-lite/*)만 뒤에 배치해 SAMEORIGIN/'self' 로 재정의.
       {
         source: '/:path*',
-        headers: COMMON_SECURITY_HEADERS,
+        headers: commonSecurityHeaders,
       },
       {
         source: '/((?!magazine(?:/|$)|dc(?:/|$)|im-lite(?:/|$)).*)',
@@ -187,21 +194,21 @@ const nextConfig: NextConfig = {
         source: '/magazine/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Content-Security-Policy', value: CSP_SAMEORIGIN_IFRAME },
+          { key: 'Content-Security-Policy', value: cspSameoriginIframe },
         ],
       },
       {
         source: '/dc/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Content-Security-Policy', value: CSP_SAMEORIGIN_IFRAME },
+          { key: 'Content-Security-Policy', value: cspSameoriginIframe },
         ],
       },
       {
         source: '/im-lite/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Content-Security-Policy', value: CSP_SAMEORIGIN_IFRAME },
+          { key: 'Content-Security-Policy', value: cspSameoriginIframe },
         ],
       },
     ];

@@ -250,7 +250,7 @@ export async function triggerReMatching(buyerIntentId: string) {
         .from("deal_casepacks")
         .select("id")
         .eq("building_ssot_lite_id", building.id)
-        .eq("match_grade", matchResult.grade)
+        .eq("source_event_type", "match_computed")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

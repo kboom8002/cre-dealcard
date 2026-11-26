@@ -8,6 +8,7 @@ import { poiMarkerFill } from '../utils/location-map-overlay';
 import { readMapMarkerMeta, centerCropToAspect, normToSlot } from '@/lib/external/map-overlay-meta';
 import { addImageFit } from '../utils/image-fit';
 import { fitSingleLine } from './a24-rentroll-stacking';
+import type { MacroTransitLabel } from '@/services/macro-transit-engine';
 import sharp from 'sharp';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -178,6 +179,55 @@ function addPoiLegend(
   });
 }
 
+/** [Rule 66] Macro Transit 벡터 다이어그램 위 네이티브 PptxGenJS 한글 라벨 오버레이 */
+function addMacroTransitLabels(
+  slide: ReturnType<PptxGenJS['addSlide']>,
+  labels: MacroTransitLabel[],
+  slot: { x: number; y: number; w: number; h: number },
+): void {
+  if (!Array.isArray(labels) || labels.length === 0) return;
+  for (const lbl of labels) {
+    if (!lbl?.text) continue;
+    const fs = lbl.fontSizePt || 7.5;
+    const minSingleLineW = (lbl.text.length * fs * 0.62) / 72 + 0.14;
+    const w = Math.min(
+      slot.w - 0.08,
+      Math.max(lbl.wPct ? lbl.wPct * slot.w : 0.72, minSingleLineW),
+    );
+    const charsPerLine = Math.max(1, Math.floor((w * 72) / (fs * 0.6)));
+    const estLines = Math.max(1, Math.ceil(lbl.text.length / charsPerLine));
+    const h = Math.min(0.46, Math.max(0.18, estLines * (fs / 72) * 1.35 + 0.02));
+
+    const anchorX = slot.x + lbl.xPct * slot.w;
+    const rawX =
+      lbl.align === 'center'
+        ? anchorX - w / 2
+        : lbl.align === 'right'
+        ? anchorX - w
+        : anchorX;
+    const x = Math.max(slot.x + 0.02, Math.min(slot.x + slot.w - w - 0.02, rawX));
+
+    const anchorY = slot.y + lbl.yPct * slot.h;
+    const rawY = anchorY - h * 0.65;
+    const y = Math.max(slot.y + 0.02, Math.min(slot.y + slot.h - h - 0.02, rawY));
+
+    slide.addText(lbl.text, {
+      x,
+      y,
+      w,
+      h,
+      fontSize: fs,
+      color: String(lbl.color || 'FFFFFF').replace(/^#/, ''),
+      bold: Boolean(lbl.bold),
+      align: lbl.align || 'left',
+      valign: 'middle',
+      fontFace: KR,
+      margin: 0,
+      shrinkText: true,
+    });
+  }
+}
+
 export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.light(input.pres);
   const warnings: string[] = [];
@@ -200,6 +250,12 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const macroTransitImg = typeof macroTransitRaw === 'object' && macroTransitRaw !== null
     ? (macroTransitRaw.base64 ?? macroTransitRaw.data ?? (Buffer.isBuffer(macroTransitRaw) ? `image/png;base64,${macroTransitRaw.toString('base64')}` : null))
     : (typeof macroTransitRaw === 'string' ? macroTransitRaw : null);
+  const explicitMacroLabels: MacroTransitLabel[] | null =
+    Array.isArray(input.data?.macroTransitLabels)
+      ? input.data.macroTransitLabels
+      : (typeof macroTransitRaw === 'object' && macroTransitRaw !== null && Array.isArray(macroTransitRaw.labels)
+        ? macroTransitRaw.labels
+        : null);
 
   // D4: 중개인 제공 위치도(location_map) — 있으면 자동 생성 지도 대신 좌측 슬롯에 비율 보존 배치 (로딩 실패 시 기존 자동 지도로 폴백)
   let brokerMapDrawn = false;
@@ -228,7 +284,25 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       optimizedMacro?.base64 ||
       (/^(?:data:)?image\/(?:png|jpeg|jpg);base64,/i.test(macroTransitImg) ? macroTransitImg : null);
     if (safeMacroData) {
-      slide.addImage({ data: safeMacroData, x: M, y: MAP_Y, w: mapW, h: MAP_H });
+      const slot = { x: M, y: MAP_Y, w: mapW, h: MAP_H };
+      slide.addImage({ data: safeMacroData, ...slot });
+      let labelsToDraw = explicitMacroLabels;
+      if (!labelsToDraw) {
+        try {
+          const { generateMacroTransitSvg } = await import('@/services/macro-transit-engine');
+          labelsToDraw = generateMacroTransitSvg({
+            address: input.data?.address || input.data?.resolved_address || areaOrAddress,
+            propertyName: input.data?.propertyName || input.data?.title || input.data?.left?.sub || '대상 자산',
+            district: input.data?.district,
+            subDistrict: input.data?.subDistrict,
+          }).labels;
+        } catch {
+          labelsToDraw = null;
+        }
+      }
+      if (labelsToDraw && labelsToDraw.length > 0) {
+        addMacroTransitLabels(slide, labelsToDraw, slot);
+      }
     }
   } else if (input.data?.cadastralImage) {
     // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
@@ -279,6 +353,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     // 2차: 고해상도(1600x1200, 266 DPI) 인메모리 Macro Transit Engine 벡터 다이어그램 자동 합성
     const targetAddress = input.data?.address || input.data?.resolved_address || areaOrAddress;
     const hasLocationSignal = Boolean(coords || (targetAddress && targetAddress !== '서울'));
+    let autoTransitLabels: MacroTransitLabel[] | null = null;
     if (!mapImg && hasLocationSignal) {
       try {
         const { generateMacroTransitDiagram } = await import('@/services/macro-transit-engine');
@@ -288,6 +363,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
           coordinates: coords,
         });
         if (transitResult?.base64) {
+          autoTransitLabels = transitResult.labels ?? null;
           const opt = await optimizeImageForPptx(transitResult.base64, 1200, 80);
           mapImg =
             opt ||
@@ -301,7 +377,8 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     }
 
     if (mapImg) {
-      slide.addImage({ data: mapImg.base64, x: M, y: MAP_Y, w: mapW, h: MAP_H });
+      const slot = { x: M, y: MAP_Y, w: mapW, h: MAP_H };
+      slide.addImage({ data: mapImg.base64, ...slot });
 
       // [Rule 66 준수] 입지 지도 한글 오버레이 및 범례 (PptxGenJS 네이티브 셰이프로 서버리스 CJK 폰트 두부 원천 방지)
       const isLocationSlide = Boolean(
@@ -311,9 +388,10 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         input.data.kicker?.includes('SECTION')
       );
       const overlayMeta = mapImg.overlayMeta;
-      if (isLocationSlide && overlayMeta) {
+      if (autoTransitLabels && autoTransitLabels.length > 0) {
+        addMacroTransitLabels(slide, autoTransitLabels, slot);
+      } else if (isLocationSlide && overlayMeta) {
         // [Rule 66] 핀 위 네이티브 '본건' 라벨 (이미지 내 TARGET 텍스트 제거, 단일 표시)
-        const slot = { x: M, y: MAP_Y, w: mapW, h: MAP_H };
         const tx = M + overlayMeta.target.x * mapW;
         const ty = MAP_Y + overlayMeta.target.y * MAP_H;
         const topY = MAP_Y + overlayMeta.targetTopY * MAP_H;

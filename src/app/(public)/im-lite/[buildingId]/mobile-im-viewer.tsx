@@ -1697,7 +1697,7 @@ export function MobileIMViewer({
             className="bg-[#F8FAFC] border-t border-[#E2E8F0] px-3 sm:px-4 py-1.5 no-print"
           >
             <div className="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-extrabold text-[#1E293B] flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-sm font-extrabold text-[#1E293B] flex items-center gap-1.5 whitespace-nowrap">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#1D4ED8]" aria-hidden="true" />
                 중개사 미리보기 도구
               </span>
@@ -2962,7 +2962,7 @@ export function MobileIMViewer({
             showFormattedNumber={false}
             className="w-full min-w-0 flex items-stretch gap-1.5"
             callClassName="flex-1 min-w-0 min-h-[48px] px-2.5 sm:px-3 py-2 bg-[#0F172A] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-[#1E293B] transition-colors cursor-pointer text-sm sm:text-base whitespace-nowrap"
-            copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1 px-2.5 py-2 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] font-bold rounded-xl transition-colors cursor-pointer text-xs sm:text-sm whitespace-nowrap"
+            copyClassName="hidden sm:inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1 px-2.5 py-2 bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#0F172A] font-bold rounded-xl transition-colors cursor-pointer text-sm whitespace-nowrap"
             renderCallContent={
               <>
                 <span aria-hidden="true" className="shrink-0">📞</span>

@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
     const { data: fetchedCardRow } = await supabase
       .from('building_signal_cards')
       .select('deal_curiosity_score')
-      .eq('building_ssot_lite_id', buildingId)
+      .eq('building_id', buildingId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();

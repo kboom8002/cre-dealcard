@@ -56,9 +56,11 @@ export interface ConvertedDepositResult {
 export function calculateConvertedDeposit(input: ConvertedDepositInput): ConvertedDepositResult {
   const { deposit, monthlyRent, region } = input;
 
-  // 환산보증금 = 보증금 + (월 차임 / 월 환산율)
-  // 월 환산율 = 연 환산율 / 12 = 0.12 / 12 = 0.01
-  const convertedDeposit = deposit + (monthlyRent / (CONVERTED_DEPOSIT_RATE / 12));
+  // 환산보증금 = 보증금 + (월 차임 × 100) [연 환산율 12% → 12 / 0.12 = 100, IEEE-754 부동소수 오차 원천 차단]
+  const multiplier = Math.round(12 / CONVERTED_DEPOSIT_RATE); // 100 for 12%
+  const convertedDeposit = Math.round(
+    deposit + (CONVERTED_DEPOSIT_RATE === 0.12 ? monthlyRent * 100 : (monthlyRent * 12) / CONVERTED_DEPOSIT_RATE)
+  );
 
   const protectionThreshold = COMMERCIAL_LEASE_ACT_THRESHOLDS[region] ?? COMMERCIAL_LEASE_ACT_THRESHOLDS['기타'];
   const isProtected = convertedDeposit <= protectionThreshold;
@@ -67,7 +69,7 @@ export function calculateConvertedDeposit(input: ConvertedDepositInput): Convert
     convertedDeposit,
     protectionThreshold,
     isProtected,
-    formula: `${deposit.toLocaleString('ko-KR')} + (${monthlyRent.toLocaleString('ko-KR')} / ${(CONVERTED_DEPOSIT_RATE / 12).toFixed(4)}) = ${convertedDeposit.toLocaleString('ko-KR')}원`,
+    formula: `${deposit.toLocaleString('ko-KR')} + (${monthlyRent.toLocaleString('ko-KR')} × ${multiplier}) = ${convertedDeposit.toLocaleString('ko-KR')}원`,
   };
 }
 

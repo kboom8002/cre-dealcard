@@ -38,6 +38,8 @@ import { toApiError } from '@/lib/api-error';
 
 const log = createModuleLogger('basic-im-studio-ai-text');
 
+export const maxDuration = 60;
+
 type ToneOption = 'conservative' | 'balanced' | 'aggressive';
 
 const basicImAiTextRequestSchema = z

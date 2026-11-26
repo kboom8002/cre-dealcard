@@ -13,6 +13,8 @@ import { parseTsvRentRoll, type RentRollRowItem } from "@/lib/rent-roll/tsv-pars
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+export const maxDuration = 60;
+
 
 const FloorLeaseSchema = z.object({
   floor: z.string(),

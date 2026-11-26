@@ -103,22 +103,22 @@ describe("WP-7.3A P1-1: error-reporter DB payload", () => {
     expect((row.metadata as Record<string, unknown>).ref_code).toBe("ERR-1A2B-abc123");
   });
 
-  it("reportClientOrServerError (server) writes ONE schema-valid activity_events row and never touches ai_anomalies", async () => {
+  it("reportClientOrServerError (server) writes ONE schema-valid system_error_logs row and never touches ai_anomalies", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { reportClientOrServerError } = await import("@/lib/observability/error-reporter");
     const err = Object.assign(new Error("db timeout for user@example.com"), { digest: "d1g3st" });
     const ref = await reportClientOrServerError(err, { boundary: "root", url: "/broker?token=secret" });
 
     expect(ref).toMatch(/^ERR-[0-9A-F]{4}-d1g3st$/);
-    expect(inserts.map((i) => i.table)).toEqual(["activity_events"]);
+    expect(inserts.map((i) => i.table)).toEqual(["system_error_logs"]);
     const payload = inserts[0].payload;
-    assertActivityEventsSchema(payload);
-    expect(payload.entity_id).toBeNull();
-    expect(payload.event_type).toBe("system_error");
-    const meta = payload.metadata as Record<string, unknown>;
-    expect(meta.ref_code).toBe(ref);
-    expect(meta.url).toBe("/broker");
+    expect(payload.ref_code).toBe(ref);
+    expect(payload.boundary).toBe("root");
+    expect(payload.digest).toBe("d1g3st");
+    expect(payload.url).toBe("/broker");
+    expect(typeof payload.error_stack).toBe("string");
     expect(JSON.stringify(payload)).not.toContain("user@example.com");
+    expect(JSON.stringify(payload)).not.toContain("token=secret");
   });
 
   it("client telemetry payload no longer sends the ERR code as entityId", async () => {

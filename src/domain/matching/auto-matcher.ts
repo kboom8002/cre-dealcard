@@ -27,7 +27,7 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
   const { data: cardRow } = await supabase
     .from("building_signal_cards")
     .select("deal_curiosity_score")
-    .eq("building_ssot_lite_id", buildingId)
+    .eq("building_id", buildingId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -208,14 +208,14 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
   const buildingIds = buildings.map(b => b.id);
   const [{ data: existingMatches }, { data: cards }] = await Promise.all([
     supabase.from("match_results").select("building_ssot_lite_id").eq("buyer_intent_lite_id", intent.id).in("building_ssot_lite_id", buildingIds),
-    supabase.from("building_signal_cards").select("building_ssot_lite_id, deal_curiosity_score").in("building_ssot_lite_id", buildingIds).order("created_at", { ascending: false })
+    supabase.from("building_signal_cards").select("building_id, deal_curiosity_score").in("building_id", buildingIds).order("created_at", { ascending: false })
   ]);
   
   const existingMatchedBuildingIds = new Set((existingMatches || []).map(m => m.building_ssot_lite_id));
   const cardMap = new Map();
   if (cards) {
     for (const card of cards.reverse()) {
-      cardMap.set(card.building_ssot_lite_id, card);
+      cardMap.set(card.building_id, card);
     }
   }
 

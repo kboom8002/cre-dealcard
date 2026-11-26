@@ -7,6 +7,7 @@
  *
  * Implementation will be completed in Slice 2 (Public Building Radar).
  */
+import { createHash } from "node:crypto";
 import { z } from "zod/v4";
 
 export interface AiRunResult<T> {
@@ -26,6 +27,9 @@ export interface AiModelClient {
 }
 
 import { callLLM } from "./llm-client";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("ai-runner");
 
 // 실재하는 AI 클라이언트 구현
 export const aiClient: AiModelClient = {
@@ -36,7 +40,7 @@ export const aiClient: AiModelClient = {
     schema: z.ZodType<T>;
   }): Promise<AiRunResult<T>> {
     const { schemaName, promptVersion, input, schema } = args;
-    const model = process.env.AI_DEFAULT_MODEL || "gpt-5.6-terra";
+    const model = process.env.AI_DEFAULT_MODEL || "gpt-6.1-terra";
 
     // input 타입에 따라 프롬프트 추출
     let systemPrompt = "You are a helpful CRE assistant. Respond only in valid JSON.";
@@ -58,7 +62,9 @@ export const aiClient: AiModelClient = {
         responseFormat: "json_object",
         temperature: 0.7,
       }, {
-        cacheKey: `${schemaName}_${promptVersion}_${Buffer.from(userPrompt).toString("base64").substring(0, 32)}`,
+        cacheKey: createHash("sha256")
+          .update(`${model}\0${schemaName}\0${promptVersion}\0${systemPrompt}\0${userPrompt}`)
+          .digest("hex"),
       });
 
       const parsedJson = JSON.parse(response.content);
@@ -70,8 +76,12 @@ export const aiClient: AiModelClient = {
         model: response.model,
         promptVersion,
       };
-    } catch (error: any) {
-      console.error(`[aiClient.generateObject] Failure in schema '${schemaName}':`, error);
+    } catch (error: unknown) {
+      log.error(
+        error instanceof Error ? error : new Error(String(error)),
+        `[aiClient.generateObject] Failure in schema '${schemaName}'`,
+        { schemaName, promptVersion, model },
+      );
       throw error;
     }
   },

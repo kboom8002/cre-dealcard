@@ -1,19 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { runInvestorProfileNormalizer } from "@/ai/agents/investor-profile-normalizer";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+const log = createModuleLogger("route");
 
+export async function GET(request: NextRequest) {
+  const guard = await requireBroker(request);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
-export async function GET() {
+  const ip = getClientIp(request) ?? user.id;
+  const allowed = await checkRateLimit(ip, "funding_investor_profile_get", 30, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429 },
+    );
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const { data: profile, error } = await supabase
       .from("investor_profiles")
@@ -27,29 +37,45 @@ export async function GET() {
       ok: true,
       data: profile || null,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[GET /api/funding/investor/profile]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "투자자 프로필 조회에 실패했습니다." },
+      { status: 500 },
+    );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const guard = await requireBroker(request);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
+
+  const ip = getClientIp(request) ?? user.id;
+  const allowed = await checkRateLimit(ip, "funding_investor_profile_post", 15, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429 },
+    );
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { rawMemo, investorType, kycVerified } = await request.json();
+    const body = await request.json();
+    const { rawMemo, investorType, kycVerified, kyc_verified } = body ?? {};
 
     let structuredProfile: any = {};
-    if (rawMemo) {
+    if (rawMemo && typeof rawMemo === "string") {
       // Parse using AI normalizer agent
-      const aiResult = await runInvestorProfileNormalizer(rawMemo);
+      const aiResult = await runInvestorProfileNormalizer(rawMemo.slice(0, 4000));
       structuredProfile = aiResult.profile;
     }
+
+    // Never trust client kycVerified / kyc_verified: true unless caller is admin
+    const resolvedKycVerified =
+      isAdmin && (kycVerified === true || kyc_verified === true);
 
     const upsertData = {
       user_id: user.id,
@@ -63,8 +89,8 @@ export async function POST(request: Request) {
       investment_horizon_months: structuredProfile.investmentHorizonMonths || 12,
       must_have_criteria: structuredProfile.mustHaveCriteria || [],
       nice_to_have_criteria: structuredProfile.niceToHaveCriteria || [],
-      kyc_verified: kycVerified !== undefined ? kycVerified : false,
-      kyc_verified_at: kycVerified ? new Date().toISOString() : null,
+      kyc_verified: resolvedKycVerified,
+      kyc_verified_at: resolvedKycVerified ? new Date().toISOString() : null,
     };
 
     const { data: profile, error } = await supabase
@@ -80,8 +106,11 @@ export async function POST(request: Request) {
       data: profile,
       aiParsed: !!rawMemo,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[POST /api/funding/investor/profile]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "투자자 프로필 저장에 실패했습니다." },
+      { status: 500 },
+    );
   }
 }

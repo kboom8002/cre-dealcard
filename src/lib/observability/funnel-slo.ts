@@ -1,4 +1,5 @@
 import { createModuleLogger } from '@/lib/logger';
+import { runAfterResponse } from '@/lib/server/after-safe';
 
 const log = createModuleLogger('funnel-slo');
 
@@ -128,13 +129,15 @@ export function recordFunnelEvent(input: FunnelEventInput): {
     }
 
     if (input.outcome === 'failed' && sanitizedCode && CRITICAL_SLO_CODES.has(sanitizedCode)) {
-      void notifySloAlert({
-        funnel: input.funnel,
-        code: sanitizedCode,
-        message: `Critical SLO failure in ${input.funnel} (${sanitizedCode})`,
-        entityId,
-        meta: sanitizedMeta,
-      }).catch(() => undefined);
+      runAfterResponse('funnel-slo-alert', () =>
+        notifySloAlert({
+          funnel: input.funnel,
+          code: sanitizedCode,
+          message: `Critical SLO failure in ${input.funnel} (${sanitizedCode})`,
+          entityId,
+          meta: sanitizedMeta,
+        })
+      );
     }
   } catch {
     // Telemetry must never break the request path

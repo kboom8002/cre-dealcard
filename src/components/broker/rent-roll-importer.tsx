@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-// SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
-import * as XLSX from "xlsx";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
 import { calculateEfficiencyRatio } from "@/types/im";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
@@ -251,17 +249,32 @@ export function RentRollImporter({
     setIsError(false);
 
     try {
-      // SheetJS(xlsx 0.20.x) — readAsBinaryString + type:'binary'가 .xlsx 파싱에 가장 안정적
-      const binaryStr = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("파일을 읽을 수 없습니다."));
-        reader.readAsBinaryString(file);
-      });
-
-      const workbook = /\.(csv|txt)$/i.test(file.name)
-        ? XLSX.read((await file.text()).replace(/^\uFEFF/, ""), { type: "string" })
-        : XLSX.read(binaryStr, { type: "binary" });
+      // SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
+      const XLSX = await import("xlsx");
+      const isTextSheet = /\.(csv|txt)$/i.test(file.name);
+      const workbook = isTextSheet
+        ? XLSX.read((await file.text()).replace(/^\uFEFF/, ""), {
+            type: "string",
+            sheetRows: 2000,
+            cellFormula: false,
+            cellHTML: false,
+            bookVBA: false,
+          })
+        : XLSX.read(
+            await new Promise<ArrayBuffer>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as ArrayBuffer);
+              reader.onerror = () => reject(new Error("파일을 읽을 수 없습니다."));
+              reader.readAsArrayBuffer(file);
+            }),
+            {
+              type: "array",
+              sheetRows: 2000,
+              cellFormula: false,
+              cellHTML: false,
+              bookVBA: false,
+            },
+          );
       
       if (!workbook.SheetNames.length) {
         throw new Error("시트를 찾을 수 없습니다. 파일이 비어있는지 확인해주세요.");

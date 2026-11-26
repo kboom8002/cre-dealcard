@@ -447,14 +447,18 @@ async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof bui
   try {
     const [{ count: totalCount }, { count: activeCount }] = await Promise.all([
       supabase
-        .from("deal_cards")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", brokerObj.userId),
-      supabase
-        .from("deal_cards")
+        .from("workspace_items")
         .select("id", { count: "exact", head: true })
         .eq("owner_id", brokerObj.userId)
-        .in("status", ["active", "published"]),
+        .eq("kind", "dealcard")
+        .is("deleted_at", null),
+      supabase
+        .from("workspace_items")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", brokerObj.userId)
+        .eq("kind", "dealcard")
+        .is("deleted_at", null)
+        .in("status", ["published", "sent"]),
     ]);
     (brokerObj as any).dealCount = totalCount ?? 0;
     (brokerObj as any).activeCount = activeCount ?? 0;
@@ -1593,8 +1597,8 @@ export async function fetchIMData(
           hasAskingPrice: !!(document.body.heroCard?.askingPriceBil || ssotSummary.asking_price_manwon),
           hasLoanAmount: !!(document.body.financials?.loanAmountBil || ssotSummary.loan_amount_manwon),
           hasFloorLeases: !!(document.body.heroCard?.waleTotalYears),
-          hasLandArea: !!(ssotSummary.land_area_m2 || enriched.landUsePlan),
-          hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || enriched.buildingRegister),
+          hasLandArea: !!((ssotSummary.land_area_sqm ?? ssotSummary.land_area_m2) || enriched.landUsePlan),
+          hasTotalGrossArea: !!((ssotSummary.total_gross_area_sqm ?? ssotSummary.total_gross_area_m2) || enriched.buildingRegister),
         }, (ssotSummary.investment_posture || document.body.identity?.investmentPosture || 'income') as any),
         // [C1] Hero Card — 기존 IM의 heroCard 보강 또는 SSoT에서 동적 합성
         heroCard: (() => {
@@ -1668,8 +1672,8 @@ export async function fetchIMData(
             readinessScore: document.body.readiness_score ?? 0,
             dcf10YearNpvBil: null,
             posture: s.investment_posture || document.body.identity?.investmentPosture || 'income',
-            landArea: s.land_area_m2 ?? enriched.landUsePlan?.landArea ?? null,
-            totalArea: s.total_gross_area_m2 ?? enriched.buildingRegister?.totalArea ?? null,
+            landArea: (s.land_area_sqm ?? s.land_area_m2) ?? enriched.landUsePlan?.landArea ?? null,
+            totalArea: (s.total_gross_area_sqm ?? s.total_gross_area_m2) ?? enriched.buildingRegister?.totalArea ?? null,
             zoningDistrict: s.zoning ?? enriched.landUsePlan?.zoningDistrict ?? null,
             landPricePerPyeong: s.land_price_per_pyeong ?? null,
             farHeadroom: s.far_headroom ?? null,
@@ -1687,14 +1691,26 @@ export async function fetchIMData(
         })(),
         // [C2] DCF 10년 민감도
         dcf10Year: (() => {
-          const docTier = (document.body.releaseTier || document.body.release_tier || document.tier) as ReleaseTier | undefined;
-          const allowed = docTier ? (TIER_CONFIG[docTier] ?? TIER_CONFIG.pro) : TIER_CONFIG.pro;
-          return allowed.allowFinancials ? (document.body.dcf10Year ?? undefined) : undefined;
+          const effectiveTier = (
+            document.body.releaseTier ||
+            document.body.release_tier ||
+            document.body.tier ||
+            document.tier ||
+            'fact_om'
+          ) as ReleaseTier;
+          const allowed = TIER_CONFIG[effectiveTier] ?? TIER_CONFIG.fact_om;
+          return allowed.allowScenario ? (document.body.dcf10Year ?? undefined) : undefined;
         })(),
         // [C4] 레버리지 자금 구조
         financials: (() => {
-          const docTier = (document.body.releaseTier || document.body.release_tier || document.tier) as ReleaseTier | undefined;
-          const allowed = docTier ? (TIER_CONFIG[docTier] ?? TIER_CONFIG.pro) : TIER_CONFIG.pro;
+          const effectiveTier = (
+            document.body.releaseTier ||
+            document.body.release_tier ||
+            document.body.tier ||
+            document.tier ||
+            'fact_om'
+          ) as ReleaseTier;
+          const allowed = TIER_CONFIG[effectiveTier] ?? TIER_CONFIG.fact_om;
           if (!allowed.allowFinancials || !document.body.financials) return undefined;
           return {
             equityRequiredBil: document.body.financials.equityRequired ?? null,
@@ -1705,7 +1721,7 @@ export async function fetchIMData(
           };
         })(),
         tier: document.body.tier || 'basic',
-        releaseTier: document.body.releaseTier ?? 'fact_om',
+        releaseTier: document.body.releaseTier || document.body.release_tier || 'fact_om',
       };
 
     if (document.body?.basicImDocument?.facts) {

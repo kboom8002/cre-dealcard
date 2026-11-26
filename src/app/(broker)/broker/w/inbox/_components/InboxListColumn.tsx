@@ -143,10 +143,6 @@ export function InboxListColumn({
             <div
               key={`todo-quick-${firstPendingThread.id}`}
               data-testid={`quick-todo-card-${firstPendingThread.id}`}
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest("button")) return;
-                onSelectThread(firstPendingThread.id);
-              }}
               className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg pt-1 border-t border-[#FF9500]/20"
             >
               <button
@@ -330,7 +326,23 @@ export function InboxListColumn({
       bodyLabel={<>목록 {filteredThreads.length}건</>}
       controls={listControls}
     >
-      <div className="space-y-2">
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- delegates Enter/Space keyboard activation for semantic <button data-list-row="simple"> items in JSDOM & browsers */}
+      <div
+        className="space-y-2"
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+          const targetEl = e.target as HTMLElement | null;
+          const simpleRow = targetEl?.closest<HTMLElement>(
+            '[data-testid^="inbox-thread-row-"][data-list-row="simple"]'
+          );
+          if (!simpleRow) return;
+          const testId = simpleRow.getAttribute("data-testid") || "";
+          const threadId = testId.replace(/^inbox-thread-row-/, "");
+          if (!threadId) return;
+          e.preventDefault();
+          onSelectThread(threadId);
+        }}
+      >
         {threads.length === 0 ? (
           <div
             data-testid="inbox-empty-state"
@@ -458,8 +470,14 @@ export function InboxListColumn({
                 data-testid={`inbox-thread-row-${item.id}`}
                 onClick={() => onSelectThread(item.id)}
                 onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === "Enter" || e.key === " ") {
+                  if (
+                    (e.target as HTMLElement).closest(
+                      "button, a, input, select, textarea"
+                    )
+                  ) {
+                    return;
+                  }
+                  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
                     e.preventDefault();
                     onSelectThread(item.id);
                   }

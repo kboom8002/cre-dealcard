@@ -33,6 +33,8 @@ import {
 
 const log = createModuleLogger("im-lite-tts-route");
 
+export const maxDuration = 120;
+
 const ALLOWED_LANGUAGES = new Set(["ko", "en", "ja", "zh"]);
 const SAFE_BUILDING_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 

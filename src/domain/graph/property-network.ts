@@ -42,12 +42,12 @@ export async function getRelatedBuildingsByBuyerOverlap(
     .select(`
       building_ssot_lite_id,
       grade,
-      building_ssot_lite!inner(id, area_signal, asset_type, price_band, is_active)
+      building_ssot_lite!inner(id, area_signal, asset_type, price_band, status)
     `)
     .in('buyer_intent_lite_id', buyerIds)
     .neq('building_ssot_lite_id', buildingId)
     .in('grade', ['S', 'A', 'B'])
-    .eq('building_ssot_lite.is_active', true);
+    .neq('building_ssot_lite.status', 'archived');
 
   if (!otherMatches?.length) return [];
 
@@ -132,7 +132,7 @@ export async function getNetworkRecommendations(
       .from('building_ssot_lite')
       .select('id, area_signal, asset_type, price_band')
       .in('id', comparableIds)
-      .eq('is_active', true);
+      .neq('status', 'archived');
 
     for (const b of compBuildings ?? []) {
       const edge = (comparableEdges.data ?? []).find((e) => e.to_id === b.id);

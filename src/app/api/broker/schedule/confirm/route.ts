@@ -45,7 +45,19 @@ export async function POST(request: Request) {
     }
 
     // 보안: 슬롯의 소유자(owner_id)가 로그인한 중개인(user.id)이어야 확정 가능
-    if (booking.availability_slots.owner_id !== user.id) {
+    let slotRow = Array.isArray(booking.availability_slots)
+      ? booking.availability_slots[0]
+      : booking.availability_slots;
+    if (!slotRow && booking.slot_id) {
+      const { data: fetchedSlot } = await supabase
+        .from("availability_slots")
+        .select("id, owner_id, status")
+        .eq("id", booking.slot_id)
+        .maybeSingle();
+      slotRow = fetchedSlot;
+    }
+
+    if (!slotRow || slotRow.owner_id !== user.id) {
       return NextResponse.json({ error: "이 예약을 확정할 권한이 없습니다." }, { status: 403 });
     }
 
@@ -80,19 +92,37 @@ export async function POST(request: Request) {
     // 3. (Phase 2 연동) 예약 확정 안내 알림 발송 시도
     try {
       const { sendKakaoAlimtalk } = await import("@/lib/notification/notification-service");
-      const { data: brokerProfile } = await supabase
-        .from("broker_profiles")
-        .select("name, phone")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data: profileRow }, { data: brokerProfile }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("display_name, phone")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("broker_profiles")
+          .select("name, representative_name, card_name, contact_email, kakao_channel")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
 
-      if (brokerProfile?.phone) {
+      const recipientPhone =
+        (typeof profileRow?.phone === "string" && profileRow.phone.trim()) ||
+        (typeof user.phone === "string" && user.phone.trim()) ||
+        "";
+      const brokerDisplayName =
+        brokerProfile?.name ||
+        brokerProfile?.representative_name ||
+        brokerProfile?.card_name ||
+        profileRow?.display_name ||
+        "중개인";
+
+      if (recipientPhone) {
         // 중개인에게 확정 사실 알림
         await sendKakaoAlimtalk({
-          recipientPhone: brokerProfile.phone,
+          recipientPhone,
           templateId: "TPL_IM_VIEW_ALERT", // 임시로 알림톡 인프라 재활용 또는 SMS 전송
           variables: {
-            "#{brokerName}": brokerProfile.name || "중개인",
+            "#{brokerName}": brokerDisplayName,
             "#{buildingName}": "매물 임장 일정 확정",
             "#{dwellTime}": "최종 예약 승인",
             "#{viewUrl}": "https://www.credeal.net/broker/schedule",

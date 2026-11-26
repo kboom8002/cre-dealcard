@@ -2,12 +2,22 @@
  * Supabase server client — used in Server Components, Route Handlers, Server Actions.
  * Uses the anon key — queries go through RLS with the user's session.
  */
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/lib/env";
 import { createModuleLogger } from "@/lib/logger";
+import type { Database } from "@/types/supabase.generated";
 
 const logger = createModuleLogger("supabase-server");
+
+function timingSafeEqualSecret(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const digestA = createHash("sha256").update(a).digest();
+  const digestB = createHash("sha256").update(b).digest();
+  return timingSafeEqual(digestA, digestB);
+}
 
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
@@ -52,7 +62,7 @@ export async function createServerSupabaseClient() {
   const verifiedUserRaw = headerStore.get("x-cre-verified-user");
   const expectedSecret = (globalThis as Record<string, unknown>).__creProxySecret as string | undefined;
 
-  if (!token && proxySecret && expectedSecret && proxySecret === expectedSecret && verifiedUserRaw) {
+  if (!token && proxySecret && expectedSecret && timingSafeEqualSecret(proxySecret, expectedSecret) && verifiedUserRaw) {
     try {
       const verifiedUser = JSON.parse(decodeURIComponent(verifiedUserRaw));
       const origGetUser = client.auth.getUser.bind(client.auth);
@@ -66,4 +76,9 @@ export async function createServerSupabaseClient() {
   }
 
   return client;
+}
+
+export async function createTypedServerSupabaseClient(): Promise<SupabaseClient<Database>> {
+  const client = await createServerSupabaseClient();
+  return client as unknown as SupabaseClient<Database>;
 }

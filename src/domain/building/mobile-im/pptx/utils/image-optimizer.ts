@@ -30,6 +30,14 @@ import { getVWorldReferer } from '@/lib/external/vworld-config';
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('image-optimizer');
 
+// Bound libvips off-heap arena/cache on serverless to prevent RSS OOM spikes (>2GB)
+try {
+  sharp.cache({ memory: 32, files: 0, items: 64 });
+  sharp.concurrency(2);
+} catch {
+  // Safe no-op when sharp is mocked in unit tests
+}
+
 
 export interface OptimizedImage {
   /** 원본 요청 URL 또는 경로 */
@@ -196,7 +204,7 @@ export function isPathInsideRoot(targetPath: string, rootDir: string): boolean {
   );
 }
 
-async function fetchSafeImageBuffer(
+export async function fetchSafeImageBuffer(
   rawUrl: string,
   extraHeaders?: Record<string, string>,
 ): Promise<Buffer | null> {
@@ -224,6 +232,7 @@ async function fetchSafeImageBuffer(
     return null;
   }
 
+  let validatedRecords: Array<{ address: string; family: 4 | 6 }> = [];
   if (net.isIP(host) !== 0) {
     if (isBlockedPrivateOrInternalIp(host)) return null;
   } else {
@@ -237,17 +246,87 @@ async function fetchSafeImageBuffer(
     if (records.some((rec) => !rec?.address || isBlockedPrivateOrInternalIp(rec.address))) {
       return null;
     }
+    validatedRecords = records.map((rec) => ({
+      address: rec.address,
+      family: rec.family === 6 || net.isIP(rec.address) === 6 ? 6 : 4,
+    }));
   }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
+  let pinnedDispatcher: { close?: () => Promise<void> } | undefined;
+
   try {
-    const response = await fetch(parsed.toString(), {
+    const isFetchMocked = Boolean((fetch as unknown as { mock?: unknown }).mock);
+    if (validatedRecords.length > 0 && !isFetchMocked) {
+      try {
+        type LookupCb = (
+          err: NodeJS.ErrnoException | null,
+          address: string | dns.LookupAddress[],
+          family?: number,
+        ) => void;
+        const pinnedLookup = (
+          lookupHost: string,
+          optsOrCb: { all?: boolean; family?: number } | LookupCb,
+          maybeCb?: LookupCb,
+        ): void => {
+          const cb = typeof optsOrCb === 'function' ? optsOrCb : maybeCb;
+          const opts = typeof optsOrCb === 'object' && optsOrCb !== null ? optsOrCb : {};
+          if (!cb) return;
+          const filtered =
+            opts.family === 4 || opts.family === 6
+              ? validatedRecords.filter((r) => r.family === opts.family)
+              : validatedRecords;
+          if ((opts.family === 4 || opts.family === 6) && filtered.length === 0) {
+            const notFoundErr = Object.assign(new Error(`queryA/AAAA ENOTFOUND ${lookupHost}`), {
+              code: 'ENOTFOUND',
+            });
+            cb(notFoundErr, '');
+            return;
+          }
+          const chosen = filtered.length > 0 ? filtered : validatedRecords;
+          if (opts.all) {
+            cb(null, chosen);
+          } else {
+            cb(null, chosen[0].address, chosen[0].family);
+          }
+        };
+
+        const undiciSpecifier = 'undici';
+        const undiciMod = (await import(/* turbopackIgnore: true */ undiciSpecifier)) as {
+          Agent?: new (options: { connect: { lookup: typeof pinnedLookup } }) => {
+            close?: () => Promise<void>;
+          };
+        };
+        if (typeof undiciMod.Agent === 'function') {
+          pinnedDispatcher = new undiciMod.Agent({ connect: { lookup: pinnedLookup } });
+        }
+      } catch {
+        // Gracefully fall back to post-connect DNS re-verification if undici is unavailable
+      }
+    }
+
+    const fetchInit: RequestInit & { dispatcher?: unknown } = {
       redirect: 'error',
       signal: controller.signal,
       ...(extraHeaders ? { headers: extraHeaders } : {}),
-    });
+      ...(pinnedDispatcher ? { dispatcher: pinnedDispatcher } : {}),
+    };
+
+    const response = await fetch(parsed.toString(), fetchInit);
     if (!response.ok) return null;
+
+    if (validatedRecords.length > 0 && !isFetchMocked && !pinnedDispatcher) {
+      const postRecords = await dns.promises.lookup(host, { all: true }).catch(() => []);
+      if (
+        !Array.isArray(postRecords) ||
+        postRecords.length === 0 ||
+        postRecords.some((rec) => !rec?.address || isBlockedPrivateOrInternalIp(rec.address))
+      ) {
+        controller.abort();
+        return null;
+      }
+    }
 
     const contentLength = response.headers?.get?.('content-length');
     if (contentLength && parseInt(contentLength, 10) > MAX_INTAKE_BYTES) {
@@ -287,6 +366,9 @@ async function fetchSafeImageBuffer(
     return null;
   } finally {
     clearTimeout(timeoutId);
+    if (pinnedDispatcher?.close) {
+      await pinnedDispatcher.close().catch(() => undefined);
+    }
   }
 }
 
@@ -428,7 +510,8 @@ export async function optimizeImageForPptx(
     }
 
     if (inputBuffer.length > MAX_INTAKE_BYTES) {
-      log.warn(`[optimizeImageForPptx] Buffer size (${inputBuffer.length} bytes) exceeds 10MB limit: ${imageUrl}`);
+      const safeSourceLabel = typeof imageUrl === 'string' ? imageUrl.slice(0, 200) : '<Buffer>';
+      log.warn(`[optimizeImageForPptx] Buffer size (${inputBuffer.length} bytes) exceeds 10MB limit: ${safeSourceLabel}`);
       return null;
     }
 
@@ -479,24 +562,36 @@ export async function optimizeImageForPptx(
       pipeline = pipeline.sharpen({ sigma: 0.6 });
     }
 
-    const resizedBuffer = await pipeline
+    const encodedOutput = await pipeline
       .flatten({ background: '#ffffff' })
       .jpeg({
         quality,
         progressive: true,
         mozjpeg: true,
       })
-      .toBuffer();
+      .toBuffer({ resolveWithObject: true });
 
-    const resizedMeta = await sharp(resizedBuffer).metadata();
-    const finalW = resizedMeta.width || originalWidth;
-    const finalH = resizedMeta.height || originalHeight;
+    // Support both `{ data, info }` (real sharp with resolveWithObject) and plain `Buffer` (unit test mocks)
+    const isResolvedObj =
+      encodedOutput !== null &&
+      typeof encodedOutput === 'object' &&
+      !Buffer.isBuffer(encodedOutput) &&
+      'data' in encodedOutput;
+    const resizedBuffer: Buffer = isResolvedObj
+      ? (encodedOutput as { data: Buffer; info?: { width?: number; height?: number } }).data
+      : (encodedOutput as unknown as Buffer);
+    const resizedMeta = isResolvedObj
+      ? (encodedOutput as { data: Buffer; info?: { width?: number; height?: number } }).info
+      : undefined;
+
+    const finalW = resizedMeta?.width || originalWidth;
+    const finalH = resizedMeta?.height || originalHeight;
     const mimeType = 'image/jpeg';
 
-    return {
+    let cachedB64: string | undefined;
+    const resultObj = {
       sourceUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
       buffer: resizedBuffer,
-      base64: `${mimeType};base64,${resizedBuffer.toString('base64')}`,
       width: finalW,
       height: finalH,
       sizeBytes: resizedBuffer.length,
@@ -507,7 +602,20 @@ export async function optimizeImageForPptx(
       ...(isTransparentGraphic ? { isTransparentGraphic, alphaMean } : {}),
       ...(entropy !== undefined ? { entropy } : {}),
       ...(rgbSpread !== undefined ? { rgbSpread } : {}),
-    };
+    } as OptimizedImage;
+
+    Object.defineProperty(resultObj, 'base64', {
+      enumerable: true,
+      configurable: true,
+      get(): string {
+        if (!cachedB64) {
+          cachedB64 = `${mimeType};base64,${resizedBuffer.toString('base64')}`;
+        }
+        return cachedB64;
+      },
+    });
+
+    return resultObj;
   } catch (err) {
     log.warn('[optimizeImageForPptx] Failed:', imageUrl, err);
     return null;

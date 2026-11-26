@@ -77,7 +77,7 @@ export function extractValuationFacts(
   // Cap Rate (자본환원율) = NOI / 매매가 (FinancialCalculator / YieldSet SSoT 우선)
   const computedCapRatePct = askingPriceKrw > 0 && netAnnualOperatingIncomeKrw > 0
     ? Math.round(((netAnnualOperatingIncomeKrw / askingPriceKrw) * 100) * 100) / 100
-    : grossYieldPct;
+    : 0;
   const overrideCapRatePct = finiteValOrNull(ssotOverrides?.capRatePct);
   const capRatePct =
     overrideCapRatePct != null && overrideCapRatePct >= 0
@@ -87,7 +87,7 @@ export function extractValuationFacts(
   // 순수익률 (Net Yield) = NOI / 실투자금
   const computedNetYieldPct = netInvestmentKrw > 0 && netAnnualOperatingIncomeKrw > 0
     ? Math.round(((netAnnualOperatingIncomeKrw / netInvestmentKrw) * 100) * 100) / 100
-    : grossYieldPct;
+    : 0;
   const overrideNetYieldPct = finiteValOrNull(ssotOverrides?.netYieldPct);
   const netYieldPct =
     overrideNetYieldPct != null && overrideNetYieldPct >= 0

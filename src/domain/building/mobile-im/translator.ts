@@ -1,5 +1,6 @@
 // src/domain/building/mobile-im/translator.ts
 // 다국어 IM 자동 번역 — GPT-4o 기반 (영어, 중국어 간체, 일본어)
+import { createHash } from 'node:crypto';
 import { callLLM } from '@/ai/llm-client';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -61,7 +62,7 @@ export async function translateIMSections(
     },
     {
       timeoutMs: 60000,
-      cacheKey: `translate-${input.language}-${JSON.stringify(input.sections.map((s) => s.title)).slice(0, 80)}`,
+      cacheKey: `translate-${input.language}-${createHash('sha256').update(JSON.stringify({ posture: input.posture, sections: input.sections })).digest('hex')}`,
     }
   );
 

@@ -38,12 +38,13 @@ export async function GET(
     if (data.user_id !== user.id && !data.is_public) {
       // 같은 법인인지 확인
       const { data: myProfile } = await supabase
-        .from('broker_profiles')
-        .select('company_id')
-        .eq('user_id', user.id)
+        .from('profiles')
+        .select('organization_id, company')
+        .eq('id', user.id)
         .maybeSingle();
 
-      const isSameCompany = myProfile?.company_id && myProfile.company_id === data.company_id;
+      const myCompanyKey = myProfile?.organization_id ?? myProfile?.company ?? null;
+      const isSameCompany = Boolean(myCompanyKey && myCompanyKey === data.company_id);
       if (!isSameCompany) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

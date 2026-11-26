@@ -1,14 +1,51 @@
 /**
- * 매거진 단위테스트 전용 env 가드 (F-05, 함정 #16)
+ * 매거진 단위테스트 전용 env 가드 (F-05, 함정 #16) + 전역 Hermetic Supabase 네트워크 가드
  *
- * vitest.config.ts 는 `.env.local` 을 process.env 로 로드한다. 매거진 단위테스트가 실수로 운영
- * Supabase / OpenAI / 카카오 키로 실제 호출하지 않도록, `src/tests/unit/magazine/` 아래 테스트 파일에서만
- * 더미 값으로 덮어쓴다. 그 외 테스트(IM 등)에는 영향이 없다(no-op).
- *
- * 사용법 (선택): vitest.config.ts 의 `test.setupFiles` 에 `'src/tests/setup/magazine-env-guard.ts'` 추가.
- * 또는 매거진 테스트 상단에서 `import '../../setup/magazine-env-guard';` 로 직접 import.
- * IM 테스트가 실제 env 를 읽으므로 전역 적용(경로 무시)은 금지 — `applyMagazineEnvGuard(force)` 는 테스트용.
+ * 1) 기본(Hermetic) 모드(`VITEST_USE_LIVE_ENV !== '1'`)에서는 `NEXT_PUBLIC_SUPABASE_URL` 이
+ *    허용된 모의 호스트(`mock.supabase.co`, `example.supabase.co`, `test.supabase.co`) 외의
+ *    실제 `*.supabase.co` 호스트(특히 운영 `vwbmaulavgjwezffbxgi.supabase.co`)를 가리키면
+ *    즉시 `https://mock.supabase.co` 로 스크러빙하여 운영 DB 오접속을 원천 차단한다.
+ * 2) 매거진/워크스페이스 단위테스트 경로에서는 기존과 동일하게 `MAGAZINE_TEST_ENV` 더미 값을 적용한다.
  */
+
+export const ALLOWED_MOCK_SUPABASE_HOSTS = new Set([
+  'mock.supabase.co',
+  'example.supabase.co',
+  'test.supabase.co',
+]);
+
+export const BLOCKED_PROD_SUPABASE_HOST = 'vwbmaulavgjwezffbxgi.supabase.co';
+
+export function isLiveSupabaseUrl(rawUrl: string | undefined | null): boolean {
+  if (!rawUrl) return false;
+  let hostname = '';
+  try {
+    hostname = new URL(rawUrl.trim()).hostname.toLowerCase();
+  } catch {
+    const match = rawUrl.match(/([a-z0-9.-]*supabase\.co)/i);
+    hostname = match ? match[1].toLowerCase() : '';
+  }
+  if (!hostname) return false;
+  if (hostname === BLOCKED_PROD_SUPABASE_HOST) return true;
+  if (hostname === 'supabase.co' || hostname.endsWith('.supabase.co')) {
+    return !ALLOWED_MOCK_SUPABASE_HOSTS.has(hostname);
+  }
+  return false;
+}
+
+/**
+ * Hermetic 모드(`VITEST_USE_LIVE_ENV !== '1'`)에서 실서버 `*.supabase.co` URL 을
+ * `https://mock.supabase.co` 로 강제 스크러빙한다.
+ */
+export function applyHermeticSupabaseGuard(): boolean {
+  if (process.env.VITEST_USE_LIVE_ENV === '1') return false;
+  const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (isLiveSupabaseUrl(currentUrl)) {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://mock.supabase.co';
+    return true;
+  }
+  return false;
+}
 
 export const MAGAZINE_TEST_ENV: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
@@ -40,7 +77,10 @@ export function applyMagazineEnvGuard(testPath?: string | null, force = false): 
   return applied;
 }
 
-// setupFiles 로 로드될 때 현재 테스트 파일 경로로 자동 적용
+// 1) 전역 Hermetic 가드: 실서버 *.supabase.co 오접속 원천 차단
+applyHermeticSupabaseGuard();
+
+// 2) setupFiles 로 로드될 때 현재 테스트 파일 경로로 매거진 env 가드 자동 적용
 try {
   const jestMatchers = (globalThis as Record<symbol, any>)[
     Symbol.for('$$jest-matchers-object')

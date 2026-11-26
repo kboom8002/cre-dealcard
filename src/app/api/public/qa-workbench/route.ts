@@ -1251,6 +1251,7 @@ export async function POST(req: NextRequest) {
     // ════════════════════════════════════════════════════════════════════════
     if (mode === "probe") {
       const brokerUser = await resolveOptionalBrokerUser(req);
+      const qaRole = resolveQaKeyRole(req);
       if (isEnforcedWithoutKey) {
         return brokerUser?.id
           ? createQaForbiddenResponse("프로브 점검은 QA 액세스 키가 필요합니다.")
@@ -1651,6 +1652,17 @@ export async function POST(req: NextRequest) {
                     (editionOwnerBrokerId &&
                       callerBrokerKeys.includes(editionOwnerBrokerId)))
               );
+
+              if (!existsAndPublished && !ownsNewsletterEdition && qaRole !== "master") {
+                return NextResponse.json(
+                  {
+                    ok: false,
+                    code: "FORBIDDEN_DRAFT_PROBE",
+                    error: "미발행 초안 뉴스레터는 소유자 또는 마스터 검수 키로만 점검할 수 있습니다.",
+                  },
+                  { status: 403, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+                );
+              }
 
               newsletterCheck = {
                 validUrl: true,
@@ -2417,6 +2429,8 @@ export async function POST(req: NextRequest) {
             let addressBlindPass = true;
             let brokerPhonePass = true;
             let dealCardOwnerId: string | null = null;
+            let dealCardIsUnpublishedDraft = false;
+            let hasWorkspaceDealCard = false;
             const offendingTexts: string[] = [];
 
             if (supabase) {
@@ -2441,6 +2455,13 @@ export async function POST(req: NextRequest) {
                 );
                 if (wsCard && !wsCard.deletedAt) {
                   exists = true;
+                  hasWorkspaceDealCard = true;
+                  const wsIsPublished =
+                    (wsCard.status === "published" || wsCard.status === "sent") &&
+                    Boolean(wsCard.publishedSnapshot);
+                  if (!wsIsPublished) {
+                    dealCardIsUnpublishedDraft = true;
+                  }
                   if (wsCard.ownerId) dealCardOwnerId = wsCard.ownerId;
                   if (wsCard.buildingId && isUuid(wsCard.buildingId)) {
                     wsCardBuildingUuid = wsCard.buildingId;
@@ -2491,7 +2512,7 @@ export async function POST(req: NextRequest) {
                   const [ssotRes, cardRes] = await Promise.all([
                     supabase
                       .from("building_ssot_lite")
-                      .select("id, area_signal, asset_type, price_band, owner_id")
+                      .select("id, area_signal, asset_type, price_band, owner_id, status")
                       .eq("id", ssotLookupDealId)
                       .maybeSingle(),
                     supabase
@@ -2504,6 +2525,9 @@ export async function POST(req: NextRequest) {
                   const card = cardRes.data as Record<string, unknown> | null;
                   if (ssot || card) {
                     exists = true;
+                    if (!hasWorkspaceDealCard && ssot?.status === "draft") {
+                      dealCardIsUnpublishedDraft = true;
+                    }
                     const dealPts = Array.isArray(card?.deal_points)
                       ? (card.deal_points as unknown[])
                       : [];
@@ -2610,6 +2634,17 @@ export async function POST(req: NextRequest) {
                 (brokerUser.role === "admin" ||
                   (dealCardOwnerId && dealCardOwnerId === brokerUser.id))
             );
+
+            if (exists && dealCardIsUnpublishedDraft && !ownsDealCard && qaRole !== "master") {
+              return NextResponse.json(
+                {
+                  ok: false,
+                  code: "FORBIDDEN_DRAFT_PROBE",
+                  error: "미발행 초안 딜카드는 소유자 또는 마스터 검수 키로만 점검할 수 있습니다.",
+                },
+                { status: 403, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+              );
+            }
 
             dealCardCheck = {
               validUrl: true,

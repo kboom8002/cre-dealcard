@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
       status?: string | null;
       area_signal?: string | null;
       asset_type?: string | null;
+      raw_address?: string | null;
       address?: string | null;
     } | null = null;
     let resolvedOwnerId = "";
@@ -158,11 +159,19 @@ export async function POST(req: NextRequest) {
     const buildingLookupUuid = isUuid(rawBuildingId) ? rawBuildingId : linkedBuildingUuid;
 
     if (buildingLookupUuid) {
-      const { data: bldRow } = await supabase
+      const { data: bldRow, error: bldErr } = await supabase
         .from("building_ssot_lite")
-        .select("id, owner_id, status, area_signal, asset_type, address")
+        .select("id, owner_id, status, area_signal, asset_type, raw_address")
         .eq("id", buildingLookupUuid)
         .maybeSingle();
+
+      if (bldErr) {
+        log.warn("[im-inquiry] building_ssot_lite lookup error:", {
+          building_id: buildingLookupUuid,
+          code: (bldErr as { code?: string })?.code || "UNKNOWN",
+          message: (bldErr as { message?: string })?.message || String(bldErr),
+        });
+      }
 
       if (bldRow?.status === "archived") {
         return NextResponse.json(
@@ -171,7 +180,15 @@ export async function POST(req: NextRequest) {
         );
       }
       if (bldRow) {
-        buildingInfo = bldRow;
+        const rawAddr =
+          (bldRow as { raw_address?: string | null; address?: string | null }).raw_address ??
+          (bldRow as { address?: string | null }).address ??
+          null;
+        buildingInfo = {
+          ...bldRow,
+          raw_address: rawAddr,
+          address: rawAddr,
+        };
         if (bldRow.owner_id) {
           resolvedOwnerId = String(bldRow.owner_id);
         }

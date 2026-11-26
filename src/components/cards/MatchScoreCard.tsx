@@ -102,8 +102,8 @@ function CircularProgress({ percentage, colorClass }: { percentage: number; colo
           fill="transparent"
         />
       </svg>
-      <span className="absolute text-[10px] font-bold tracking-tight">
-        {percentage}<span className="text-[7px] font-medium">%</span>
+      <span className="absolute text-sm font-bold tracking-tight">
+        {percentage}<span className="text-sm font-medium">%</span>
       </span>
     </div>
   );
@@ -155,11 +155,11 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-sm select-none">{cfg.emoji}</span>
             <span
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-shadow duration-300 ${cfg.badgeBg} ${cfg.badgeGlow}`}
+              className={`text-sm font-bold px-1.5 py-0.5 rounded border transition-shadow duration-300 ${cfg.badgeBg} ${cfg.badgeGlow}`}
             >
               {cfg.badgeLabel}
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               매칭률 {scorePercent}%
             </span>
           </div>
@@ -177,7 +177,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
       </div>
 
       {/* Constraints Summary Grid */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] bg-muted/60 dark:bg-muted/40 rounded-lg p-2.5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm bg-muted/60 dark:bg-muted/40 rounded-lg p-2.5">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">예산</span>
           <span className="font-semibold text-foreground">
@@ -202,7 +202,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
       <div className="flex items-center justify-between pt-1">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
           type="button"
         >
           <span>{isExpanded ? "📂 매칭 분석 상세 접기" : "📁 매칭 분석 상세 보기"}</span>
@@ -219,7 +219,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
         </button>
 
         {!match.stage1_passed && (
-          <span className="text-[10px] font-bold text-destructive bg-destructive/10 border border-destructive/20 px-1.5 py-0.5 rounded animate-pulse">
+          <span className="text-sm font-bold text-destructive bg-destructive/10 border border-destructive/20 px-1.5 py-0.5 rounded animate-pulse">
             Stage 1 탈락
           </span>
         )}
@@ -239,7 +239,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
           {/* Reasoning Bubble */}
           {match.reasoning && match.stage1_passed && (
             <div className="mt-3 rounded-lg bg-muted/60 dark:bg-muted/40 p-2.5">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 💬 <b>분석 요약:</b> {match.reasoning}
               </p>
             </div>
@@ -252,14 +252,15 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
         {(match.grade === "S" || match.grade === "A") && (
           <div className="grid grid-cols-2 gap-2 pb-1">
             <button
+              type="button"
               onClick={() => toast.success(`📅 [${intent?.buyer_type || '매수자'}] 임장 잡기 요청이 접수되었습니다.`)}
-              className="inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 py-1.5 px-2 text-[11px] font-bold hover:bg-primary/20 transition-all"
+              className="inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 py-1.5 px-2 text-sm font-bold hover:bg-primary/20 transition-all"
             >
               📅 임장 잡기
             </button>
             <Link
               href={`/broker/buildings/${buildingId}/owner-report`}
-              className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 py-1.5 px-2 text-[11px] font-bold hover:bg-emerald-500/20 transition-all"
+              className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 py-1.5 px-2 text-sm font-bold hover:bg-emerald-500/20 transition-all"
             >
               📋 맞춤 보고서
             </Link>
@@ -268,7 +269,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
         <div className="flex gap-2">
           <Link
             href={`/broker/buyer-intents/${intent?.id}`}
-            className="flex-1 inline-flex items-center justify-center rounded-lg bg-card border border-border px-3 py-2 text-xs font-semibold text-foreground transition-all hover:bg-muted"
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-card border border-border px-3 py-2 text-sm font-semibold text-foreground transition-all hover:bg-muted"
             id={`cta-buyer-detail-${match.id}`}
           >
             매수자 상세 보기
@@ -277,7 +278,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
             href={`${kakaoShareUrl}?q=${shareText}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] transition-all shadow-sm active:scale-[0.98]"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] transition-all shadow-sm active:scale-[0.98]"
             id={`cta-notify-broker-${match.id}`}
           >
             <span>💬 카톡 공유</span>

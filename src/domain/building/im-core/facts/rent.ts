@@ -76,6 +76,39 @@ export function parseFlexibleAreaNumber(val: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const NON_LEASABLE_UNIT_RE =
+  /^(기계실|전기실|발전기실|보일러실|주차장|주차|계단실|관리실|경비실|방재실|물탱크실|공용|공용부|화장실)$/;
+
+function cleanRentStr(val: unknown): string {
+  return val == null ? '' : String(val).trim();
+}
+
+function cleanContractToken(val: unknown): string {
+  const s = cleanRentStr(val);
+  return s && s !== '-' ? s : '';
+}
+
+/**
+ * Rule 76 (lease-vacancy.ts isNonLeasableLeaseRow 동기화):
+ * 명칭이 공용·설비 공간과 완전 일치하고 보증금·임대료·계약일이 없으며 명시 '공실'이 아닌 행은
+ * 표에는 유지하되 임대 대상 호실 분모(unitCount / occupiedCount / vacantCount)에서 제외한다.
+ */
+function isNonLeasableUnitRow(u: Record<string, any>, rentKrw: number, depositKrw: number): boolean {
+  if (cleanRentStr(u.lease_state ?? u.leaseState) === '공실' || u.status === 'vacant') return false;
+  const names = [u.tenant_name, u.tenantName, u.tenant_type, u.tenantType, u.use, u.usage]
+    .map((v) => cleanRentStr(v).replace(/[()（）\s]/g, ''))
+    .filter(Boolean);
+  if (names.length === 0 || !names.some((n) => NON_LEASABLE_UNIT_RE.test(n))) return false;
+  if (rentKrw > 0 || depositKrw > 0) return false;
+  if (
+    cleanContractToken(u.lease_start ?? u.first_contract_date ?? u.firstContractDate) ||
+    cleanContractToken(u.lease_end ?? u.contract_end ?? u.lease_expiry ?? u.expiry_date ?? u.leaseExpiry ?? u.expiryDate)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
   const rawBody = raw?.body || raw || {};
   const ssot = raw?.ssot_summary || rawBody?.ssot_summary || raw?.layers?.lease_summary || raw || {};
@@ -98,6 +131,7 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
   let calcDepositKrw = 0;
   let calcMonthlyRentKrw = 0;
   let calcMaintKrw = 0;
+  let leasableUnitCount = 0;
   let occupiedCount = 0;
   let ownerOccupiedCount = 0;
   let vacantCount = 0;
@@ -131,20 +165,39 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
         : parseFlexibleManwon(rawMaint) * 10000
     );
 
-    const isVacantRaw =
-      u.status === 'vacant' ||
-      u.is_vacant === true ||
-      u.lease_state === '공실' ||
+    const isNonLeasable = isNonLeasableUnitRow(u, rentKrw, depositKrw);
+    const leaseState = cleanRentStr(u.lease_state ?? u.leaseState);
+    const tenantNameClean = cleanRentStr(u.tenant_name ?? u.tenantName);
+    const explicitVacantText =
       u.tenant_type === '공실' ||
+      u.tenantType === '공실' ||
       u.tenant_name === '공실' ||
+      u.tenantName === '공실' ||
       u.use === '공실';
+    const hasContractTrace = Boolean(
+      (tenantNameClean && tenantNameClean !== '공실' && tenantNameClean !== '-') ||
+        cleanContractToken(u.contract_group ?? u.contractGroup) ||
+        cleanContractToken(u.lease_start ?? u.first_contract_date ?? u.firstContractDate) ||
+        cleanContractToken(u.lease_end ?? u.contract_end ?? u.lease_expiry ?? u.expiry_date ?? u.leaseExpiry ?? u.expiryDate)
+    );
+    const isFlaggedVacant = u.is_vacant === true || u.isVacant === true;
+
+    const isVacantRaw =
+      !isNonLeasable &&
+      leaseState !== '임대중' &&
+      leaseState !== '자가사용' &&
+      leaseState !== '자가' &&
+      (u.status === 'vacant' ||
+        leaseState === '공실' ||
+        explicitVacantText ||
+        (isFlaggedVacant && (Boolean(leaseState) || !hasContractTrace)));
     const isOwnerRaw =
       !isVacantRaw &&
       (u.status === 'owner' ||
         u.is_owner === true ||
         u.occupancy_status === 'owner_occupied' ||
-        u.lease_state === '자가사용' ||
-        u.lease_state === '자가' ||
+        leaseState === '자가사용' ||
+        leaseState === '자가' ||
         u.tenant_type === '자가' ||
         u.tenant_type === '자가사용' ||
         u.tenant_name === '자가' ||
@@ -158,17 +211,20 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       : 'occupied';
     const isVacant = status === 'vacant';
 
-    if (status === 'occupied') {
-      occupiedCount++;
-      calcDepositKrw += depositKrw;
-      calcMonthlyRentKrw += rentKrw;
-      calcMaintKrw += maintKrw;
-    } else if (status === 'owner') {
-      // Rule 75: 자가사용은 공실(vacant)이 아닌 실점유(occupied)에 포함하되 임대료 합산에서는 0원 처리
-      occupiedCount++;
-      ownerOccupiedCount++;
-    } else {
-      vacantCount++;
+    if (!isNonLeasable) {
+      leasableUnitCount++;
+      if (status === 'occupied') {
+        occupiedCount++;
+        calcDepositKrw += depositKrw;
+        calcMonthlyRentKrw += rentKrw;
+        calcMaintKrw += maintKrw;
+      } else if (status === 'owner') {
+        // Rule 75/76: 자가사용은 공실(vacant)이 아닌 실점유(occupied)에 포함하되 임대료 합산에서는 0원 처리
+        occupiedCount++;
+        ownerOccupiedCount++;
+      } else {
+        vacantCount++;
+      }
     }
 
     const explicitSqm = parseFlexibleAreaNumber(u.area_sqm ?? u.area_m2 ?? u.areaSqm ?? 0);
@@ -240,7 +296,7 @@ export function extractRentFacts(raw: Record<string, any>): PureRentFacts {
       );
 
   const annualRentKrw = monthlyRentTotalKrw * 12;
-  const unitCount = units.length > 0 ? units.length : Number(ssot?.unit_count ?? 1);
+  const unitCount = units.length > 0 ? leasableUnitCount : Number(ssot?.unit_count ?? 1);
   const finalOccupiedCount = units.length > 0 ? occupiedCount : Number(ssot?.occupied_units ?? (monthlyRentTotalKrw > 0 ? 1 : 0));
   const finalVacantCount = units.length > 0 ? vacantCount : Math.max(0, unitCount - finalOccupiedCount);
   const occupancyRatePct = unitCount > 0

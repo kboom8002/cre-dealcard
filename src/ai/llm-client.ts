@@ -2,6 +2,7 @@ import type { LLMProvider, LLMChatParams, LLMChatResult } from "./providers/type
 import { OpenAIProvider } from "./providers/openai";
 import { MockOpenAIProvider } from "./providers/mock-openai";
 import { RecordReplayProvider, resolveLLMMode } from "./providers/record-replay";
+import { trackLLMCallCostNonBlocking } from "./cost-tracker";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('llm-client');
@@ -93,6 +94,23 @@ export function hasLlmCacheKey(key: string): boolean {
 
 export function clearLlmCache(): void {
   inMemoryLlmCache.clear();
+  inFlightDeterministicCalls.clear();
+}
+
+const inFlightDeterministicCalls = new Map<string, Promise<CallLLMResult>>();
+
+function extractNumericRetryAfterMs(err: any): number | null {
+  const headers = err?.headers;
+  if (!headers) return null;
+  const raw =
+    typeof headers.get === "function"
+      ? (headers.get("retry-after") ?? headers.get("Retry-After"))
+      : (headers["retry-after"] ?? headers["Retry-After"]);
+  if (raw === undefined || raw === null) return null;
+  const trimmed = String(raw).trim();
+  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return null;
+  const seconds = Number(trimmed);
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.round(seconds * 1000) : null;
 }
 
 export interface CallLLMOptions {
@@ -116,9 +134,41 @@ export class LLMMockNotAllowedError extends Error {
   }
 }
 
-export type CallLLMResult = LLMChatResult & { isFromCache?: boolean; isMock?: boolean };
+export type CallLLMResult = LLMChatResult & {
+  promptTokens?: number;
+  completionTokens?: number;
+  isFromCache?: boolean;
+  isMock?: boolean;
+};
 
 export async function callLLM(
+  params: LLMChatParams,
+  options: CallLLMOptions = {},
+): Promise<CallLLMResult> {
+  const canSingleflight = Boolean(
+    options.cacheKey &&
+      params.temperature !== undefined &&
+      params.temperature <= 0.2 &&
+      !options.signal,
+  );
+
+  if (canSingleflight && options.cacheKey) {
+    const cacheKey = options.cacheKey;
+    const existing = inFlightDeterministicCalls.get(cacheKey);
+    if (existing) {
+      return existing.then((res) => ({ ...res }));
+    }
+    const flightPromise = executeCallLLM(params, options).finally(() => {
+      inFlightDeterministicCalls.delete(cacheKey);
+    });
+    inFlightDeterministicCalls.set(cacheKey, flightPromise);
+    return flightPromise;
+  }
+
+  return executeCallLLM(params, options);
+}
+
+async function executeCallLLM(
   params: LLMChatParams,
   options: CallLLMOptions = {},
 ): Promise<CallLLMResult> {
@@ -176,8 +226,19 @@ export async function callLLM(
         if (options.cacheKey) {
           setLlmCacheEntry(options.cacheKey, result);
         }
-        
-        return provider instanceof MockOpenAIProvider ? { ...result, isMock: true } : result;
+
+        const isMockProvider = provider instanceof MockOpenAIProvider;
+        const typedResult = result as CallLLMResult;
+        trackLLMCallCostNonBlocking({
+          model: typedResult.model || params.model,
+          tokens: typedResult.tokens,
+          promptTokens: typedResult.promptTokens,
+          completionTokens: typedResult.completionTokens,
+          latencyMs: typedResult.latencyMs,
+          isMock: isMockProvider,
+        });
+
+        return isMockProvider ? { ...typedResult, isMock: true } : typedResult;
       } catch (err: any) {
         lastError = err;
 
@@ -188,6 +249,18 @@ export async function callLLM(
 
         if (options.signal?.aborted) {
           log.warn(`[callLLM] Provider '${providerName}' retry aborted by external signal`);
+          break;
+        }
+
+        // 결정론적 클라이언트 오류 (400/401/403/404/422, model_not_found, invalid_api_key)는 재시도 없이 즉시 탈출
+        const status = Number(err?.status ?? err?.statusCode ?? 0);
+        if (
+          [400, 401, 403, 404, 422].includes(status) ||
+          /model_not_found|invalid_api_key/i.test(String(err?.message || ""))
+        ) {
+          log.warn(
+            `[callLLM] Provider '${providerName}' deterministic client error (status=${status || "n/a"}): ${err?.message ?? err}. Aborting retries.`,
+          );
           break;
         }
 
@@ -205,7 +278,12 @@ export async function callLLM(
         if (attempt < maxAttempts - 1) {
           const baseDelay = isTestEnv ? 50 : 1000;
           const maxDelay = isTestEnv ? 200 : 16000;
-          const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+          const rawDelay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+          const jitteredDelay = isTestEnv
+            ? rawDelay
+            : Math.max(100, Math.round(rawDelay * (0.5 + Math.random() * 0.5)));
+          const retryAfterMs = extractNumericRetryAfterMs(err);
+          const delay = retryAfterMs !== null ? retryAfterMs : jitteredDelay;
 
           const now = Date.now();
           if (now + delay >= deadline) {

@@ -416,65 +416,104 @@ export async function processMagazineDispatchQueueBatch(
     limit: (n: number) => QueueQueryChain;
   }
 
-  // 1) pending_worker 우선 디큐 — 야간 보류된 retryable 행이 신규/야간동의 발송을 굶기지 않도록 분리
-  const fetchPendingWorker = async (cols: string) =>
-    (supabase.from(DISPATCH_LEDGER_TABLE) as unknown as QueueQueryChain)
-      .select(cols)
-      .eq('status', 'pending_worker')
-      .order('created_at', { ascending: true })
-      .limit(batchSize);
+  // 0) Wave 2A: `claim_magazine_dispatch_batch` (FOR UPDATE SKIP LOCKED) 원자적 일괄 점유 우선 시도.
+  //    rpc 미구현(단위 테스트 FakeDb)·미적용(PGRST202/42883)·에러 시 기존 조회 + 행별 CAS 경로로 100% 폴백한다.
+  let claimedViaRpc = false;
+  let fetchErr: { code?: string; message?: string } | null = null;
+  const combinedRows: unknown[] = [];
 
-  let pwRes = await fetchPendingWorker(COLS_WITH_BLOCKED);
-  if (pwRes.error && isBlockedReasonMissingErr(pwRes.error)) {
-    hasBlockedReasonCol = false;
-    pwRes = await fetchPendingWorker(COLS_BASE);
+  const rpcClient = supabase as unknown as {
+    rpc?: (
+      fn: string,
+      args?: Record<string, unknown>,
+    ) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
+  };
+
+  if (typeof rpcClient.rpc === 'function') {
+    try {
+      const rpcRes = await rpcClient.rpc('claim_magazine_dispatch_batch', {
+        p_limit: batchSize,
+        p_now: nowIso,
+      });
+      if (!rpcRes.error && Array.isArray(rpcRes.data)) {
+        claimedViaRpc = true;
+        combinedRows.push(...rpcRes.data);
+      } else if (rpcRes.error) {
+        log.debug('[Worker] claim_magazine_dispatch_batch unavailable, falling back to CAS query', {
+          code: rpcRes.error.code,
+          message: rpcRes.error.message,
+        });
+      }
+    } catch (rpcErr) {
+      log.debug('[Worker] claim_magazine_dispatch_batch threw, falling back to CAS query', {
+        error: rpcErr instanceof Error ? rpcErr.message : String(rpcErr),
+      });
+    }
   }
 
-  let fetchErr = pwRes.error;
-  const combinedRows: unknown[] = Array.isArray(pwRes.data) ? [...pwRes.data] : [];
-
-  // 2) 남은 배치 여유분만큼 next_attempt_at 이 도래(또는 null)한 retryable 행 조회
-  const remainingSlots = batchSize - combinedRows.length;
-  if (!fetchErr && remainingSlots > 0) {
-    const fetchDueRetryable = async (cols: string, withNextAttemptFilter: boolean) => {
-      let q = (supabase.from(DISPATCH_LEDGER_TABLE) as unknown as QueueQueryChain)
+  if (!claimedViaRpc) {
+    // 1) pending_worker 우선 디큐 — 야간 보류된 retryable 행이 신규/야간동의 발송을 굶기지 않도록 분리
+    const fetchPendingWorker = async (cols: string) =>
+      (supabase.from(DISPATCH_LEDGER_TABLE) as unknown as QueueQueryChain)
         .select(cols)
-        .eq('status', 'retryable');
-      if (withNextAttemptFilter && typeof q.or === 'function') {
-        q = q.or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso}`);
-      }
-      return q.order('created_at', { ascending: true }).limit(remainingSlots);
-    };
+        .eq('status', 'pending_worker')
+        .order('created_at', { ascending: true })
+        .limit(batchSize);
 
-    const cols = hasBlockedReasonCol ? COLS_WITH_BLOCKED : COLS_BASE;
-    let rRes = await fetchDueRetryable(cols, true);
-    if (rRes.error && isBlockedReasonMissingErr(rRes.error)) {
+    let pwRes = await fetchPendingWorker(COLS_WITH_BLOCKED);
+    if (pwRes.error && isBlockedReasonMissingErr(pwRes.error)) {
       hasBlockedReasonCol = false;
-      rRes = await fetchDueRetryable(COLS_BASE, true);
+      pwRes = await fetchPendingWorker(COLS_BASE);
     }
-    if (
-      rRes.error &&
-      ((rRes.error as { code?: string }).code === '42703' ||
-        /next_attempt_at/i.test(rRes.error.message ?? ''))
-    ) {
-      rRes = await fetchDueRetryable(hasBlockedReasonCol ? COLS_WITH_BLOCKED : COLS_BASE, false);
+
+    fetchErr = pwRes.error;
+    if (Array.isArray(pwRes.data)) {
+      combinedRows.push(...pwRes.data);
     }
-    if (rRes.error) {
-      fetchErr = rRes.error;
-    } else if (Array.isArray(rRes.data)) {
-      const seenIds = new Set(
-        combinedRows
-          .map((item) => (item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined))
-          .filter((v): v is string => typeof v === 'string' && v.length > 0),
-      );
-      for (const item of rRes.data) {
-        const itemId =
-          item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined;
-        if (typeof itemId === 'string' && itemId.length > 0) {
-          if (seenIds.has(itemId)) continue;
-          seenIds.add(itemId);
+
+    // 2) 남은 배치 여유분만큼 next_attempt_at 이 도래(또는 null)한 retryable 행 조회
+    const remainingSlots = batchSize - combinedRows.length;
+    if (!fetchErr && remainingSlots > 0) {
+      const fetchDueRetryable = async (cols: string, withNextAttemptFilter: boolean) => {
+        let q = (supabase.from(DISPATCH_LEDGER_TABLE) as unknown as QueueQueryChain)
+          .select(cols)
+          .eq('status', 'retryable');
+        if (withNextAttemptFilter && typeof q.or === 'function') {
+          q = q.or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso}`);
         }
-        combinedRows.push(item);
+        return q.order('created_at', { ascending: true }).limit(remainingSlots);
+      };
+
+      const cols = hasBlockedReasonCol ? COLS_WITH_BLOCKED : COLS_BASE;
+      let rRes = await fetchDueRetryable(cols, true);
+      if (rRes.error && isBlockedReasonMissingErr(rRes.error)) {
+        hasBlockedReasonCol = false;
+        rRes = await fetchDueRetryable(COLS_BASE, true);
+      }
+      if (
+        rRes.error &&
+        ((rRes.error as { code?: string }).code === '42703' ||
+          /next_attempt_at/i.test(rRes.error.message ?? ''))
+      ) {
+        rRes = await fetchDueRetryable(hasBlockedReasonCol ? COLS_WITH_BLOCKED : COLS_BASE, false);
+      }
+      if (rRes.error) {
+        fetchErr = rRes.error;
+      } else if (Array.isArray(rRes.data)) {
+        const seenIds = new Set(
+          combinedRows
+            .map((item) => (item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined))
+            .filter((v): v is string => typeof v === 'string' && v.length > 0),
+        );
+        for (const item of rRes.data) {
+          const itemId =
+            item && typeof item === 'object' ? (item as { id?: unknown }).id : undefined;
+          if (typeof itemId === 'string' && itemId.length > 0) {
+            if (seenIds.has(itemId)) continue;
+            seenIds.add(itemId);
+          }
+          combinedRows.push(item);
+        }
       }
     }
   }
@@ -581,6 +620,31 @@ export async function processMagazineDispatchQueueBatch(
     }
   };
 
+  /** RPC 일괄 점유 후 시간 예산·429 조기 중단으로 미처리된 행을 즉시 반환해 15분 고착을 방지한다. */
+  const releaseUnprocessedClaimed = async (unprocessed: typeof rows) => {
+    if (!claimedViaRpc || unprocessed.length === 0) return;
+    const pendingIds = unprocessed
+      .filter((r) => (r.attempt_count ?? 0) === 0 && !r.blocked_reason)
+      .map((r) => r.id);
+    const retryableIds = unprocessed
+      .filter((r) => !((r.attempt_count ?? 0) === 0 && !r.blocked_reason))
+      .map((r) => r.id);
+    if (pendingIds.length > 0) {
+      await supabase
+        .from(DISPATCH_LEDGER_TABLE)
+        .update({ status: 'pending_worker', updated_at: nowIso })
+        .in('id', pendingIds)
+        .eq('status', 'queued');
+    }
+    if (retryableIds.length > 0) {
+      await supabase
+        .from(DISPATCH_LEDGER_TABLE)
+        .update({ status: 'retryable', updated_at: nowIso })
+        .in('id', retryableIds)
+        .eq('status', 'queued');
+    }
+  };
+
   for (let idx = 0; idx < rows.length; idx++) {
     const row = rows[idx];
 
@@ -591,10 +655,16 @@ export async function processMagazineDispatchQueueBatch(
     }
     // P1-2 시간 예산: maxDuration(60s) 전에 새 점유를 멈춘다. 남은 행은 상태 그대로 다음 tick 이 처리.
     if (clock() - startedAt >= timeBudgetMs) {
+      await releaseUnprocessedClaimed(rows.slice(idx));
       deferred += rows.length - idx;
       log.info('[Worker] time budget reached — deferring remaining rows to next tick', { remaining: rows.length - idx });
       break;
     }
+
+    const prevAttempts =
+      typeof row.attempt_count === 'number' && Number.isFinite(row.attempt_count) && row.attempt_count >= 0
+        ? row.attempt_count
+        : 0;
 
     // 야간 발송 제한 시간대(21:00~08:00 KST)에는 이미 보류된 행(retryable / QUIET_HOURS)을 재평가하지 않고 건너뛰어
     // 재시도 예산을 소모하지 않는다.
@@ -602,14 +672,20 @@ export async function processMagazineDispatchQueueBatch(
       quietHoursActive &&
       (row.status === 'retryable' || row.blocked_reason === 'QUIET_HOURS')
     ) {
+      if (claimedViaRpc) {
+        await settleClaimed(row.id, {
+          status: 'retryable',
+          error: 'quiet_hours_deferred',
+          attempt_count: prevAttempts,
+          updated_at: nowIso,
+          blocked_reason: 'QUIET_HOURS',
+          next_attempt_at: computeNextKst0800Iso(now),
+        });
+      }
       blocked += 1;
       continue;
     }
 
-    const prevAttempts =
-      typeof row.attempt_count === 'number' && Number.isFinite(row.attempt_count) && row.attempt_count >= 0
-        ? row.attempt_count
-        : 0;
     if (prevAttempts >= MAX_DISPATCH_ATTEMPTS) {
       await supabase
         .from(DISPATCH_LEDGER_TABLE)
@@ -620,32 +696,33 @@ export async function processMagazineDispatchQueueBatch(
           updated_at: nowIso,
         })
         .eq('id', row.id)
-        .in('status', ['pending_worker', 'retryable']);
+        .in('status', claimedViaRpc ? ['queued', 'pending_worker', 'retryable'] : ['pending_worker', 'retryable']);
       failed += 1;
       continue;
     }
 
     const nextAttemptCount = prevAttempts + 1;
 
-    // P1-1 원자적 점유(CAS): 조회 시점의 status(+attempt_count)가 그대로일 때만 'queued' 로 전이하고
-    // updated_at 에 점유 시각을 기록한다. 겹친 tick 이 같은 행을 집어도 한쪽만 점유에 성공한다.
-    // stale 회수(reclaimStaleQueuedDispatches)는 이 점유 시각 기준 15분이다.
-    let claimQ = supabase
-      .from(DISPATCH_LEDGER_TABLE)
-      .update({ status: 'queued', attempt_count: nextAttemptCount, updated_at: nowIso })
-      .eq('id', row.id);
-    claimQ = row.status ? claimQ.eq('status', row.status) : claimQ.in('status', ['pending_worker', 'retryable']);
-    if (typeof row.attempt_count === 'number') claimQ = claimQ.eq('attempt_count', row.attempt_count);
-    const claim = await claimQ.select('id').maybeSingle();
-    if (claim.error) {
-      log.warn('[Worker] claim failed — leaving row for next tick', { id: row.id, code: (claim.error as { code?: string }).code });
-      deferred += 1;
-      continue;
-    }
-    if (!claim.data) {
-      // 다른 tick 이 먼저 점유(또는 상태 변경) — 이 tick 은 손대지 않는다.
-      deferred += 1;
-      continue;
+    // P1-1 원자적 점유(CAS): RPC(`claim_magazine_dispatch_batch`)로 이미 점유된 경우에는 중복 왕복을 생략하고,
+    // 폴백 경로에서만 행별 CAS 를 수행한다.
+    if (!claimedViaRpc) {
+      let claimQ = supabase
+        .from(DISPATCH_LEDGER_TABLE)
+        .update({ status: 'queued', attempt_count: nextAttemptCount, updated_at: nowIso })
+        .eq('id', row.id);
+      claimQ = row.status ? claimQ.eq('status', row.status) : claimQ.in('status', ['pending_worker', 'retryable']);
+      if (typeof row.attempt_count === 'number') claimQ = claimQ.eq('attempt_count', row.attempt_count);
+      const claim = await claimQ.select('id').maybeSingle();
+      if (claim.error) {
+        log.warn('[Worker] claim failed — leaving row for next tick', { id: row.id, code: (claim.error as { code?: string }).code });
+        deferred += 1;
+        continue;
+      }
+      if (!claim.data) {
+        // 다른 tick 이 먼저 점유(또는 상태 변경) — 이 tick 은 손대지 않는다.
+        deferred += 1;
+        continue;
+      }
     }
 
     if ((row.kind || 'weekly') === 'flash') {
@@ -790,10 +867,20 @@ export async function processMagazineDispatchQueueBatch(
 
     if (res.ok) {
       rateLimitStrikes = 0;
-      await supabase
+      let okQ = supabase
         .from(DISPATCH_LEDGER_TABLE)
-        .update({ attempt_count: nextAttemptCount, updated_at: nowIso })
+        .update({
+          status: res.dryRun ? 'dry_run' : 'sent',
+          attempt_count: nextAttemptCount,
+          updated_at: nowIso,
+        })
         .eq('id', row.id);
+      if (typeof (okQ as { in?: unknown }).in === 'function') {
+        okQ = okQ.in('status', res.dryRun ? ['queued', 'dry_run'] : ['queued', 'sent']);
+      } else if (typeof (okQ as { eq?: unknown }).eq === 'function') {
+        okQ = okQ.eq('status', 'queued');
+      }
+      await okQ;
       if (res.dryRun) recorded += 1;
       else sent += 1;
     } else if (res.blocked === 'QUIET_HOURS') {
@@ -830,6 +917,7 @@ export async function processMagazineDispatchQueueBatch(
       deferred += 1;
       rateLimitStrikes += 1;
       if (rateLimitStrikes > BATCH_429_MAX_RETRIES) {
+        await releaseUnprocessedClaimed(rows.slice(idx + 1));
         deferred += rows.length - idx - 1;
         log.warn('[Worker] provider rate limit persists — halting this tick', { strikes: rateLimitStrikes });
         break;
@@ -837,7 +925,7 @@ export async function processMagazineDispatchQueueBatch(
       const backoffMs = rateLimitBaseDelayMs * Math.pow(2, rateLimitStrikes - 1);
       if (clock() - startedAt + backoffMs < timeBudgetMs) await sleep(backoffMs);
     } else if (res.failed || res.blocked === 'PROVIDER_FAILED') {
-      await supabase
+      let failQ = supabase
         .from(DISPATCH_LEDGER_TABLE)
         .update({
           status: nextAttemptCount >= MAX_DISPATCH_ATTEMPTS ? 'failed' : 'retryable',
@@ -846,6 +934,10 @@ export async function processMagazineDispatchQueueBatch(
           updated_at: nowIso,
         })
         .eq('id', row.id);
+      if (typeof (failQ as { eq?: unknown }).eq === 'function') {
+        failQ = failQ.eq('status', 'queued');
+      }
+      await failQ;
       failed += 1;
     } else if (res.blocked === 'DUPLICATE') {
       // 점유를 잃음(stale 회수 후 다른 tick 이 재점유) — 그 행은 다른 tick 소유이므로 건드리지 않는다.

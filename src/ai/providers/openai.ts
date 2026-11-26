@@ -1,5 +1,8 @@
 import OpenAI from "openai";
+import { createModuleLogger } from "@/lib/logger";
 import type { LLMProvider, LLMChatParams, LLMChatResult } from "./types";
+
+const log = createModuleLogger("ai-openai");
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai";
@@ -14,10 +17,12 @@ export class OpenAIProvider implements LLMProvider {
     if (!apiKey || apiKey === "mock_key" || apiKey === "not-configured") {
       throw new Error("[OpenAIProvider] process.env.OPENAI_API_KEY is not defined or invalid");
     }
-    this.openai = new OpenAI({ apiKey });
+    this.openai = new OpenAI({ apiKey, maxRetries: 0, timeout: 60_000 });
   }
 
-  async chat(params: LLMChatParams): Promise<LLMChatResult> {
+  async chat(
+    params: LLMChatParams,
+  ): Promise<LLMChatResult & { promptTokens?: number; completionTokens?: number }> {
     const startTime = Date.now();
     const model = params.model || "gpt-6.1-terra";
 
@@ -61,7 +66,7 @@ export class OpenAIProvider implements LLMProvider {
 
       // D12 + B-5: 빈 응답 시 추론 토큰 고갈 방지를 위해 상향된 예산으로 1회 재시도
       if (!content) {
-        console.warn("[OpenAIProvider] Empty response, retrying once...");
+        log.warn({ model, retryTokenBudget }, "[OpenAIProvider] Empty response, retrying once...");
         response = await attemptChat(retryTokenBudget);
         content = response.choices[0]?.message?.content;
       }
@@ -73,29 +78,43 @@ export class OpenAIProvider implements LLMProvider {
       return {
         content,
         tokens: response.usage?.total_tokens ?? 0,
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens,
         model: response.model || model,
         provider: this.name,
         latencyMs: Date.now() - startTime,
       };
-    } catch (error: any) {
-      console.error("[OpenAIProvider] Chat completion error:", error);
+    } catch (error: unknown) {
+      log.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "[OpenAIProvider] Chat completion error",
+        { model },
+      );
       throw error;
     }
   }
 
   async embed(text: string): Promise<number[]> {
     try {
-      const response = await this.openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: text.slice(0, 8000),
-      });
+      const response = await this.openai.embeddings.create(
+        {
+          model: "text-embedding-3-small",
+          input: text.slice(0, 8000),
+        },
+        {
+          signal: AbortSignal.timeout(30_000),
+        },
+      );
       const embedding = response.data[0]?.embedding;
       if (!embedding) {
         throw new Error("OpenAI returned an empty embedding response");
       }
       return embedding;
-    } catch (error: any) {
-      console.error("[OpenAIProvider] Embedding error:", error);
+    } catch (error: unknown) {
+      log.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "[OpenAIProvider] Embedding error",
+      );
       throw error;
     }
   }

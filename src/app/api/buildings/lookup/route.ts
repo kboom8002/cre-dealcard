@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireBroker } from "@/lib/auth-guard";
+import { getServerViewer } from "@/lib/server-viewer";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import { padNumber, resolveAddress, splitMultiParcelAddress } from "@/lib/external/address-resolver";
 import { fetchBuildingAttachedLots, fetchBuildingRegister } from "@/lib/external/building-register-api";
 import {
@@ -12,6 +16,38 @@ import { summarizeParcels, type BrokerParcel } from "@/domain/building/mobile-im
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("buildings-lookup");
+
+export const maxDuration = 60;
+
+async function resolveOptionalCaller(
+  req: NextRequest,
+): Promise<{ userId: string | null; isAdmin: boolean }> {
+  try {
+    const guard = await requireBroker(req);
+    if (guard && !guard.error && guard.user?.id) {
+      return {
+        userId: guard.user.id,
+        isAdmin: guard.role === "admin",
+      };
+    }
+  } catch {
+    // Fall through to cookie viewer check or anonymous
+  }
+
+  try {
+    const viewer = await getServerViewer();
+    if (viewer?.userId) {
+      return {
+        userId: viewer.userId,
+        isAdmin: Boolean(viewer.isAdmin),
+      };
+    }
+  } catch {
+    // Anonymous caller
+  }
+
+  return { userId: null, isAdmin: false };
+}
 
 const VERIFIED_PUBLIC_REGISTER_BY_PNU: Record<
   string,
@@ -168,6 +204,19 @@ function formatUseAprDay(raw?: string | number | null): string | null {
 
 export async function GET(req: NextRequest) {
   try {
+    const clientIp = getClientIp(req) ?? "unknown";
+    const allowed = await checkRateLimit(clientIp, "buildings_lookup", 30, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "RATE_LIMITED",
+          message: "조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+        },
+        { status: 429 },
+      );
+    }
+
     const rawAddress = req.nextUrl.searchParams.get("address")?.trim() || "";
     if (!rawAddress) {
       return NextResponse.json(
@@ -181,35 +230,56 @@ export async function GET(req: NextRequest) {
     const searchTarget = primaryAddress || rawAddress;
     const safeSearch = searchTarget.replace(/[,()]/g, ' ').trim();
 
-    // 1. Resolve address & check Supabase building_ssot_lite in parallel
-    const supabase = createServiceClient();
+    // 1. Resolve address & (only when authenticated owner/admin) check building_ssot_lite
+    const caller = await resolveOptionalCaller(req);
+    const supabase = caller.userId ? createServiceClient() : null;
+
+    const canReadSsotRow = (row: Record<string, any> | null | undefined): boolean => {
+      if (!row || !caller.userId) return false;
+      if (caller.isAdmin) return true;
+      return Boolean(row.owner_id && String(row.owner_id) === caller.userId);
+    };
+
+    const queryOwnedSsotByAddress = async () => {
+      if (!supabase || !caller.userId) return { data: null, error: null };
+      let q: any = supabase
+        .from("building_ssot_lite")
+        .select("id, owner_id, pnu, raw_address, raw_input, layers")
+        .or(`raw_address.ilike.%${safeSearch}%,raw_input.ilike.%${safeSearch}%`);
+      if (!caller.isAdmin && typeof q?.eq === "function") {
+        q = q.eq("owner_id", caller.userId);
+      }
+      return q.order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    };
+
     const [resolvedResult, ssotResult] = await Promise.allSettled([
       resolveAddress(rawAddress),
-      supabase
-        .from("building_ssot_lite")
-        .select("id, pnu, raw_address, raw_input, layers")
-        .or(`raw_address.ilike.%${safeSearch}%,raw_input.ilike.%${safeSearch}%`)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      queryOwnedSsotByAddress(),
     ]);
 
     const resolved = resolvedResult.status === "fulfilled" ? resolvedResult.value : null;
-    let ssotRow: Record<string, any> | null =
+    const rawSsotCandidate: Record<string, any> | null =
       ssotResult.status === "fulfilled" && ssotResult.value?.data
         ? ssotResult.value.data
         : null;
+    let ssotRow: Record<string, any> | null = canReadSsotRow(rawSsotCandidate)
+      ? rawSsotCandidate
+      : null;
 
-    if (!ssotRow && resolved?.pnu && resolved.pnu.length === 19) {
+    if (!ssotRow && supabase && caller.userId && resolved?.pnu && resolved.pnu.length === 19) {
       try {
-        const { data: pnuRow } = await supabase
+        let pnuQuery: any = supabase
           .from("building_ssot_lite")
-          .select("id, pnu, raw_address, raw_input, layers")
-          .eq("pnu", resolved.pnu)
+          .select("id, owner_id, pnu, raw_address, raw_input, layers")
+          .eq("pnu", resolved.pnu);
+        if (!caller.isAdmin && typeof pnuQuery?.eq === "function") {
+          pnuQuery = pnuQuery.eq("owner_id", caller.userId);
+        }
+        const { data: pnuRow } = await pnuQuery
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (pnuRow) ssotRow = pnuRow;
+        if (canReadSsotRow(pnuRow)) ssotRow = pnuRow;
       } catch {
         // ignore
       }

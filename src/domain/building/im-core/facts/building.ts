@@ -4,6 +4,8 @@
  * ZERO imports of sharp, pptxgenjs, or fs.
  */
 
+import { m2ToPyeong } from './area';
+
 export interface PureBuildingSpecs {
   totalGrossAreaSqm: number;
   totalGrossAreaPyeong: number;
@@ -76,12 +78,12 @@ export function extractBuildingSpecs(raw: Record<string, any>): PureBuildingSpec
   );
 
   const totalGrossAreaPyeong = totalGrossAreaSqm > 0
-    ? Math.round((totalGrossAreaSqm / 3.305785) * 100) / 100
+    ? Math.round(m2ToPyeong(totalGrossAreaSqm) * 100) / 100
     : 0;
 
   const exclusiveAreaSqm = raw?.exclusive_area_sqm ?? ssot?.exclusive_area_sqm;
   const exclusiveAreaPyeong = exclusiveAreaSqm
-    ? Math.round((Number(exclusiveAreaSqm) / 3.305785) * 100) / 100
+    ? Math.round(m2ToPyeong(Number(exclusiveAreaSqm)) * 100) / 100
     : undefined;
 
   const buildingCoverageRatioPct = Number(

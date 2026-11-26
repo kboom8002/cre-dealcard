@@ -4,8 +4,10 @@ import type { MatchInput, MatchGrade } from "@/domain/matching/matching-types";
 import { notifyMatchParties } from "./circle-notification-service";
 import { notifyCircleMatchBulletin } from "./circle-match-notifier";
 import { createCoBrokerageDeal } from "./co-brokerage-service";
+import { assertActiveCircleMember, sanitizeInviteeIdentifier } from "./circle-service";
 
 import { createModuleLogger } from '@/lib/logger';
+import { runAfterResponse } from '@/lib/server/after-safe';
 const log = createModuleLogger('circle-matching-service');
 
 
@@ -81,7 +83,7 @@ export async function runCircleAutoMatch(
     const { data: cardRow } = await supabase
       .from("building_signal_cards")
       .select("deal_curiosity_score")
-      .eq("building_ssot_lite_id", triggerAssetId)
+      .eq("building_id", triggerAssetId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -192,25 +194,29 @@ export async function runCircleAutoMatch(
 
         for (const match of savedMatches) {
           if (match.grade === "S" || match.grade === "A") {
-            notifyMatchParties({
-              circleMatchId: match.id,
-              type: "circle_match",
-              title: `⚡ 서클 ${match.grade}등급 팀 매칭 발견!`,
-              body: `${match.grade}등급 매칭 (${match.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
-              link: `/broker/circles/${circleId}`,
-              metadata: { circle_id: circleId, grade: match.grade, score: match.score },
-            }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
+            runAfterResponse("circle-match-notify-parties", () =>
+              notifyMatchParties({
+                circleMatchId: match.id,
+                type: "circle_match",
+                title: `⚡ 서클 ${match.grade}등급 팀 매칭 발견!`,
+                body: `${match.grade}등급 매칭 (${match.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
+                link: `/broker/circles/${circleId}`,
+                metadata: { circle_id: circleId, grade: match.grade, score: match.score },
+              })
+            );
 
-            notifyCircleMatchBulletin({
-              circleId,
-              circleMatchId: match.id,
-              grade: match.grade,
-              score: match.score,
-              buildingId: match.building_id,
-              buyerIntentId: match.buyer_intent_id,
-              buildingBrokerId: match.building_broker_id,
-              buyerBrokerId: match.buyer_broker_id,
-            }).catch((e) => log.warn("[circle-matching] Bulletin notify failed:", e));
+            runAfterResponse("circle-match-notify-bulletin", () =>
+              notifyCircleMatchBulletin({
+                circleId,
+                circleMatchId: match.id,
+                grade: match.grade,
+                score: match.score,
+                buildingId: match.building_id,
+                buyerIntentId: match.buyer_intent_id,
+                buildingBrokerId: match.building_broker_id,
+                buyerBrokerId: match.buyer_broker_id,
+              })
+            );
           }
         }
       }
@@ -240,7 +246,7 @@ export async function runCircleAutoMatch(
     const buildingIds = sharedBuildings.map(i => i.asset_id);
     const [{ data: buildings }, { data: cards }] = await Promise.all([
       supabase.from("building_ssot_lite").select("id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary").in("id", buildingIds),
-      supabase.from("building_signal_cards").select("building_ssot_lite_id, deal_curiosity_score").in("building_ssot_lite_id", buildingIds).order("created_at", { ascending: false })
+      supabase.from("building_signal_cards").select("building_id, deal_curiosity_score").in("building_id", buildingIds).order("created_at", { ascending: false })
     ]);
     
     const buildingMap = new Map((buildings || []).map(b => [b.id, b]));
@@ -248,7 +254,7 @@ export async function runCircleAutoMatch(
     // Cards are ordered by created_at desc, so the first one we set in the map is the latest
     if (cards) {
       for (const card of cards.reverse()) { // reverse to let the newest overwrite the oldest, or just find the first since we already fetched it
-        cardMap.set(card.building_ssot_lite_id, card);
+        cardMap.set(card.building_id, card);
       }
     }
 
@@ -339,25 +345,29 @@ export async function runCircleAutoMatch(
 
         for (const match of savedMatches) {
           if (match.grade === "S" || match.grade === "A") {
-            notifyMatchParties({
-              circleMatchId: match.id,
-              type: "circle_match",
-              title: `⚡ 서클 ${match.grade}등급 팀 매칭 발견!`,
-              body: `${match.grade}등급 매칭 (${match.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
-              link: `/broker/circles/${circleId}`,
-              metadata: { circle_id: circleId, grade: match.grade, score: match.score },
-            }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
+            runAfterResponse("circle-match-notify-parties", () =>
+              notifyMatchParties({
+                circleMatchId: match.id,
+                type: "circle_match",
+                title: `⚡ 서클 ${match.grade}등급 팀 매칭 발견!`,
+                body: `${match.grade}등급 매칭 (${match.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
+                link: `/broker/circles/${circleId}`,
+                metadata: { circle_id: circleId, grade: match.grade, score: match.score },
+              })
+            );
 
-            notifyCircleMatchBulletin({
-              circleId,
-              circleMatchId: match.id,
-              grade: match.grade,
-              score: match.score,
-              buildingId: match.building_id,
-              buyerIntentId: match.buyer_intent_id,
-              buildingBrokerId: match.building_broker_id,
-              buyerBrokerId: match.buyer_broker_id,
-            }).catch((e) => log.warn("[circle-matching] Bulletin notify failed:", e));
+            runAfterResponse("circle-match-notify-bulletin", () =>
+              notifyCircleMatchBulletin({
+                circleId,
+                circleMatchId: match.id,
+                grade: match.grade,
+                score: match.score,
+                buildingId: match.building_id,
+                buyerIntentId: match.buyer_intent_id,
+                buildingBrokerId: match.building_broker_id,
+                buyerBrokerId: match.buyer_broker_id,
+              })
+            );
           }
         }
       }
@@ -367,8 +377,14 @@ export async function runCircleAutoMatch(
   return { totalMatched, sCount, aCount };
 }
 
-export async function runFullCircleMatch(circleId: string): Promise<CircleMatchSummary> {
+export async function runFullCircleMatch(
+  circleId: string,
+  brokerId?: string,
+  opts?: { isAdmin?: boolean }
+): Promise<CircleMatchSummary> {
   const supabase = createServiceClient();
+
+  await assertActiveCircleMember(supabase, circleId, brokerId ?? "", opts?.isAdmin);
 
   const [{ data: sharedBuildings }, { data: sharedIntents }] = await Promise.all([
     supabase.from("circle_shared_assets").select("asset_id").eq("circle_id", circleId).eq("asset_type", "building"),
@@ -446,29 +462,31 @@ export async function approveIdentityReveal(input: {
 
   if (bothApproved) {
     // Create Auto Co-brokerage deal pipeline (Phase 2 feature)
-    createCoBrokerageDeal({
-      circleMatchId: input.circleMatchId,
-      buildingId: match.building_id,
-      buildingBrokerId: match.building_broker_id,
-      buyerIntentId: match.buyer_intent_id,
-      buyerBrokerId: match.buyer_broker_id,
-      grade: match.grade,
-      score: match.score,
-    }).catch((e) => log.warn("[approveIdentityReveal] Auto co-brokerage deal creation failed:", e));
+    runAfterResponse("circle-create-cobrokerage-deal", () =>
+      createCoBrokerageDeal({
+        circleMatchId: input.circleMatchId,
+        buildingId: match.building_id,
+        buildingBrokerId: match.building_broker_id,
+        buyerIntentId: match.buyer_intent_id,
+        buyerBrokerId: match.buyer_broker_id,
+        grade: match.grade,
+        score: match.score,
+      })
+    );
 
     return { bothApproved: true };
   } else {
     // Notify counterparty
-    const targetBrokerId = isBuildingBroker ? match.buyer_broker_id : match.building_broker_id;
-
-    notifyMatchParties({
-      circleMatchId: input.circleMatchId,
-      type: "circle_approval",
-      title: "🔒 매칭 승인 요청",
-      body: "상대 중개사가 신원 공개를 승인했습니다. 확인 후 승인해 주세요.",
-      link: `/broker/circles/${match.circle_id}`,
-      metadata: { match_id: input.circleMatchId },
-    }).catch((e) => log.warn("[approveIdentityReveal] Notify counterparty failed:", e));
+    runAfterResponse("circle-approve-notify-parties", () =>
+      notifyMatchParties({
+        circleMatchId: input.circleMatchId,
+        type: "circle_approval",
+        title: "🔒 매칭 승인 요청",
+        body: "상대 중개사가 신원 공개를 승인했습니다. 확인 후 승인해 주세요.",
+        link: `/broker/circles/${match.circle_id}`,
+        metadata: { match_id: input.circleMatchId },
+      })
+    );
 
     return { bothApproved: false };
   }
@@ -477,8 +495,11 @@ export async function approveIdentityReveal(input: {
 export async function getCircleMatches(circleId: string, brokerId: string, filter?: {
   gradeFilter?: MatchGrade[];
   onlyMine?: boolean;
+  isAdmin?: boolean;
 }): Promise<CircleMatchWithDetail[]> {
   const supabase = createServiceClient();
+
+  await assertActiveCircleMember(supabase, circleId, brokerId, filter?.isAdmin);
 
   let query = supabase
     .from("circle_match_results")
@@ -495,7 +516,8 @@ export async function getCircleMatches(circleId: string, brokerId: string, filte
   }
 
   if (filter?.onlyMine) {
-    query = query.or(`building_broker_id.eq.${brokerId},buyer_broker_id.eq.${brokerId}`);
+    const safeBrokerId = sanitizeInviteeIdentifier(brokerId);
+    query = query.or(`building_broker_id.eq.${safeBrokerId},buyer_broker_id.eq.${safeBrokerId}`);
   }
 
   const { data: matches, error } = await query;
@@ -533,6 +555,7 @@ export async function expireStaleApprovals(): Promise<number> {
     .from("circle_match_results")
     .update({ expired_at: new Date().toISOString() })
     .is("identity_revealed_at", null)
+    .is("expired_at", null)
     .lt("created_at", sevenDaysAgo)
     .select("id");
 

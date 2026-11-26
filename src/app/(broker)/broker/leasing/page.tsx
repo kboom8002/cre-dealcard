@@ -20,7 +20,7 @@ interface SpaceRow {
   blind_name?: string;
   floor?: string;
   area_private_py?: number;
-  asset_type?: string;
+  space_type?: string;
   status?: string;
   created_at?: string;
 }
@@ -64,7 +64,7 @@ export default async function LeasingStudioPage() {
 
   let spacesQuery = supabase
     .from("spaces")
-    .select("id, display_name, blind_name, floor, area_private_py, asset_type, status, created_at");
+    .select("id, display_name, blind_name, floor, area_private_py, space_type, status, created_at");
   if (!viewer.isAdmin) {
     spacesQuery = spacesQuery.eq("created_by", viewer.userId);
   }
@@ -157,7 +157,7 @@ export default async function LeasingStudioPage() {
                       {lp && <StatusBadge status={lp.status} />}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {[floor, area, space.asset_type].filter(Boolean).join(" · ")}
+                      {[floor, area, space.space_type].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   {lp?.slug && (

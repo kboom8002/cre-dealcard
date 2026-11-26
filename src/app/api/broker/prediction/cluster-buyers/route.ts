@@ -3,12 +3,11 @@
  * Runs K-Means clustering on all buyer_intent_lite records
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { runBuyerClustering } from '@/domain/prediction/buyer-clustering';
-import { requireBroker } from '@/lib/auth-guard';
+import { requireAdmin } from '@/lib/auth-guard';
 
 export async function POST(req: NextRequest) {
-  const guard = await requireBroker(req);
+  const guard = await requireAdmin(req);
   if (guard.error) return guard.error;
 
   try {
@@ -26,8 +25,7 @@ export async function POST(req: NextRequest) {
     const clusters = result?.clusters;
 
     return NextResponse.json({ ok: true, result, clusters });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : '클러스터링 실패';
-    return NextResponse.json({ error: msg }, { status: 422 });
+  } catch {
+    return NextResponse.json({ error: '클러스터링 실패' }, { status: 422 });
   }
 }

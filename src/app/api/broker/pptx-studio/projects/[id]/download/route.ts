@@ -3,12 +3,23 @@ import { requireBroker, type AuthGuardResult } from '@/lib/auth-guard';
 import { assertStudioDealOwner } from '@/lib/authz/studio-owner';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createServiceClient } from '@/lib/supabase/service';
+import { createModuleLogger } from '@/lib/logger';
 import type { ReleaseTier } from '@/domain/building/im-core/release-tier';
 
 export const maxDuration = 300;
 
+const log = createModuleLogger('pptx-studio-download');
+
 const isUuid = (v: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+const PREFERRED_DOC_TYPES = new Set([
+  'mobile_im',
+  'im_lite',
+  'im_pro',
+  'im_lite_draft',
+  'blind_teaser',
+]);
 
 export async function GET(
   req: NextRequest,
@@ -22,6 +33,21 @@ export async function GET(
   }
 
   const { id: projectId } = await params;
+  const searchParams = req.nextUrl.searchParams;
+  const queryVisualPreset = searchParams.get('visualPreset') || searchParams.get('preset') || undefined;
+  const queryBrandAccent = searchParams.get('brandAccent') || undefined;
+  const queryCoverStyle = searchParams.get('coverStyle') || undefined;
+  const queryLayoutStyle = searchParams.get('layoutStyle') || undefined;
+  const queryHeaderFooterRaw = searchParams.get('headerFooter') || undefined;
+  let queryHeaderFooter: Record<string, any> | undefined;
+  if (queryHeaderFooterRaw) {
+    try {
+      const parsed = JSON.parse(queryHeaderFooterRaw);
+      if (parsed && typeof parsed === 'object') queryHeaderFooter = parsed;
+    } catch {
+      // ignore invalid query JSON
+    }
+  }
 
   try {
     let project;
@@ -42,17 +68,52 @@ export async function GET(
     const denied = await assertStudioDealOwner(studioGuard, project.dealId);
     if (denied) return denied;
 
-    // ── Build merged doc body from slide overrides (deep merge) ──
+    // ── Collect Studio Slide Overrides, Hidden Slides, Slide Order, and Theme/HeaderFooter ──
     const mergedBody: Record<string, any> = {
       preset: 'credeal_basic',
     };
-    for (const slide of (project.slides || []).filter(s => !s?.hidden)) {
-      if (slide.dataKey && slide.slideOverrides && Object.keys(slide.slideOverrides).length > 0) {
-        mergedBody[slide.dataKey] = {
-          ...(mergedBody[slide.dataKey] ?? {}),
+    const studioSlideOverrides: Record<string, Record<string, any>> = {};
+    const studioInitialOverrides: Record<string, Record<string, any>> = {};
+    const studioSlideTitles: Record<string, { title?: string; kicker?: string; layoutType?: string }> = {};
+    const studioHiddenDataKeys: string[] = [];
+    const studioSlideOrder: string[] = [];
+
+    for (const slide of project.slides || []) {
+      if (!slide) continue;
+      const dk = slide.dataKey || '';
+      if (!dk) continue;
+
+      if (slide.hidden && dk !== 'cover' && dk !== 'closing') {
+        studioHiddenDataKeys.push(dk);
+      } else {
+        studioSlideOrder.push(dk);
+      }
+
+      if (slide.slideOverrides && Object.keys(slide.slideOverrides).length > 0) {
+        studioSlideOverrides[dk] = {
+          ...(studioSlideOverrides[dk] ?? {}),
           ...slide.slideOverrides,
         };
+        if (!slide.hidden) {
+          mergedBody[dk] = {
+            ...(mergedBody[dk] ?? {}),
+            ...slide.slideOverrides,
+          };
+        }
       }
+
+      if (slide.initialOverrides && Object.keys(slide.initialOverrides).length > 0) {
+        studioInitialOverrides[dk] = {
+          ...(studioInitialOverrides[dk] ?? {}),
+          ...slide.initialOverrides,
+        };
+      }
+
+      studioSlideTitles[dk] = {
+        title: slide.title,
+        kicker: slide.kicker,
+        layoutType: slide.layoutType,
+      };
     }
 
     // ── Fetch building data from Supabase for enrichment ──
@@ -62,14 +123,34 @@ export async function GET(
     let broker: Record<string, any> | null = null;
 
     try {
-      const { data: docRow } = await supabase
+      const docQuery = supabase
         .from('document_objects')
-        .select('id, title, body, building_id, broker_id, owner_id')
+        .select('id, title, body, building_id, broker_id, owner_id, document_type')
         .or(`building_id.eq.${project.dealId},id.eq.${project.dealId}`)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      doc = docRow;
+        .limit(10);
+
+      let docCandidates: Array<Record<string, any>> = [];
+      if (docQuery && typeof (docQuery as any).then === 'function') {
+        const { data: docRows } = await (docQuery as any);
+        if (Array.isArray(docRows)) {
+          docCandidates = docRows;
+        } else if (docRows && typeof docRows === 'object') {
+          docCandidates = [docRows];
+        }
+      } else if (docQuery && typeof (docQuery as any).maybeSingle === 'function') {
+        const { data: docRow } = await docQuery.maybeSingle();
+        if (docRow) docCandidates = [docRow];
+      }
+
+      // Exclude Studio project rows (which have body.slides array) and prefer real IM document types
+      const nonStudioRows = docCandidates.filter(
+        (r) => r && !Array.isArray(r.body?.slides)
+      );
+      doc =
+        nonStudioRows.find((r) => PREFERRED_DOC_TYPES.has(String(r.document_type || ''))) ??
+        nonStudioRows[0] ??
+        null;
 
       const targetBuildingId = doc?.building_id || (isUuid(project.dealId) ? project.dealId : null);
       if (targetBuildingId) {
@@ -82,15 +163,13 @@ export async function GET(
       }
 
       const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
-      // 브로커 연락처 SSoT resolver — 실제 DB 값만, 부재 시 생략
       const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
       broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId)) ?? null;
     } catch (err) {
-      console.warn('[pptx-studio/download] DB lookup failed, proceeding with overrides only:', err);
+      log.warn({ err, dealId: project.dealId }, '[pptx-studio/download] DB lookup failed, proceeding with overrides only');
     }
 
-    const body = doc?.body ?? {};
-    const fullBody: Record<string, any> = { ...body, ...mergedBody };
+    const body = doc?.body ?? project.buildingContext ?? {};
 
     // ── Determine posture & grade ──
     const posture = body.investment_posture
@@ -101,7 +180,53 @@ export async function GET(
       ?? building?.investment_posture
       ?? 'income';
 
-    let grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.grade ?? 'B';
+    const grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.grade ?? 'B';
+
+    if (grade === 'D') {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'INSUFFICIENT_DATA_GRADE_D',
+          error: '데이터 등급 D 매물은 PPTX 생성이 제한됩니다.',
+        },
+        { status: 422 }
+      );
+    }
+
+    const effectiveVisualPreset = queryVisualPreset || project.visualPreset || (body.preset as string) || 'credeal_basic';
+    const effectiveBrandAccent = queryBrandAccent || project.brandAccent || undefined;
+    const coverLayoutType = studioSlideTitles['cover']?.layoutType;
+    const rawCoverStyle = (queryCoverStyle || project.coverStyle) as any;
+    const effectiveCoverStyle =
+      (!rawCoverStyle || rawCoverStyle === 'institutional_masses') && coverLayoutType === 'A01_SPLIT'
+        ? 'split'
+        : (!rawCoverStyle || rawCoverStyle === 'institutional_masses') && coverLayoutType === 'A01_HERO'
+        ? 'hero_dark'
+        : rawCoverStyle;
+    const effectiveLayoutStyle = (queryLayoutStyle || project.layoutStyle) as any;
+    const effectiveHeaderFooter = queryHeaderFooter
+      ? { ...(project.headerFooter ?? {}), ...queryHeaderFooter }
+      : (project.headerFooter ?? null);
+
+    const fullBody: Record<string, any> = {
+      ...body,
+      ...mergedBody,
+      preset: (body.preset as string) || 'credeal_basic',
+      _studioSlideOverrides: studioSlideOverrides,
+      ...(Object.keys(studioInitialOverrides).length > 0
+        ? { _studioInitialOverrides: studioInitialOverrides }
+        : {}),
+      _studioSlideTitles: studioSlideTitles,
+      _studioHiddenDataKeys: studioHiddenDataKeys,
+      _studioSlideOrder: studioSlideOrder,
+      ...(effectiveHeaderFooter ? { _studioHeaderFooter: effectiveHeaderFooter } : {}),
+      _studioThemeOverrides: {
+        visualPreset: effectiveVisualPreset,
+        brandAccent: effectiveBrandAccent,
+        coverStyle: effectiveCoverStyle,
+        layoutStyle: effectiveLayoutStyle,
+      },
+    };
 
     // ── Rule 44 Compliance: Delegate to MobileImPptxRenderer ──
     const { MobileImPptxRenderer } = await import(
@@ -109,18 +234,24 @@ export async function GET(
     );
     const renderer = new MobileImPptxRenderer();
 
+    const coverOv = studioSlideOverrides['cover'] || {};
+    const coverTitle = String(coverOv.title || project.title || doc?.title || 'Basic IM');
+
     const result = await renderer.render({
       buildingId: project.dealId,
       preset: (body.preset as any) || 'credeal_basic',
+      visualPreset: effectiveVisualPreset,
+      brandAccent: effectiveBrandAccent,
+      logoUrl: effectiveHeaderFooter?.logoUrl || undefined,
       posture,
       grade,
       incomeArchetype: body.incomeArchetype ?? undefined,
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
       hasJointCollateral: body.hasJointCollateral ?? false,
-      releaseTier: 'basic' as ReleaseTier,
+      releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im',
       docno: body.docno ?? `IM-${(project.dealId || 'UNKNOWN').substring(0, 6).toUpperCase()}`,
       doc: {
-        title: project.title || doc?.title || 'Basic IM',
+        title: coverTitle,
         body: fullBody,
         sections: body.sections,
       },
@@ -145,10 +276,10 @@ export async function GET(
         'X-File-Size': String(result.fileSizeBytes),
       },
     });
-  } catch (err: any) {
-    console.error('[pptx-studio/download] Generation failed:', err);
+  } catch (err: unknown) {
+    log.error({ err, projectId }, '[pptx-studio/download] Generation failed');
     return NextResponse.json(
-      { ok: false, error: err.message || 'Failed to generate PPTX download' },
+      { ok: false, error: 'PPTX 파일 생성에 실패했습니다.' },
       { status: 500 }
     );
   }

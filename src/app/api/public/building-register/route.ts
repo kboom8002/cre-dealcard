@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchBuildingRegister } from "@/domain/verification/govt-api-client";
 import { resolveAddressToComponents } from "@/domain/verification/address-resolver";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -19,8 +21,23 @@ const log = createModuleLogger('route');
  */
 export async function GET(request: NextRequest) {
   try {
+    const clientIp = getClientIp(request) ?? "unknown";
+    const allowed = await checkRateLimit(clientIp, "public_building_register_get", 60, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 },
+      );
+    }
+
     const params = request.nextUrl.searchParams;
     const address = params.get("address");
+    if (address && address.length > 200) {
+      return NextResponse.json(
+        { error: "주소 파라미터가 너무 깁니다." },
+        { status: 400 },
+      );
+    }
 
     let sigunguCd = params.get("sigunguCd");
     let bjdongCd = params.get("bjdongCd");
@@ -61,7 +78,7 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     log.error("[api/public/building-register] Error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 내부 오류" },
+      { error: "건축물대장 조회 중 서버 오류가 발생했습니다." },
       { status: 500 },
     );
   }

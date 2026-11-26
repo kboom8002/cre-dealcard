@@ -627,12 +627,18 @@ export function RentRollGrid({
       ) / 10;
     const annualRent = Math.round(totalRent * 12 * 10) / 10;
 
-    let capRate: number | null = null;
+    let grossYieldPct: number | null = null;
+    let noiCapRatePct: number | null = null;
     if (askingPriceManwon && askingPriceManwon > 0) {
-      const netInvestment = askingPriceManwon - totalDeposit;
+      const netInvestment =
+        totalDeposit > 0 && askingPriceManwon > totalDeposit
+          ? askingPriceManwon - totalDeposit
+          : askingPriceManwon;
       if (netInvestment > 0) {
-        capRate = (annualRent / netInvestment) * 100;
+        grossYieldPct = (annualRent / netInvestment) * 100;
       }
+      const annualNoi = annualRent * 0.95; // 표준 운영비(OPEX) 5% 차감 기준
+      noiCapRatePct = (annualNoi / askingPriceManwon) * 100;
     }
 
     return {
@@ -640,7 +646,9 @@ export function RentRollGrid({
       totalRent,
       totalMaintenance,
       annualRent,
-      capRate,
+      capRate: grossYieldPct,
+      grossYieldPct,
+      noiCapRatePct,
     };
   }, [rows, askingPriceManwon]);
 
@@ -1339,9 +1347,20 @@ export function RentRollGrid({
               <span className="text-sm sm:text-base font-extrabold text-[#0F172A]">
                 합계 ({rows.length}개 호실)
               </span>
-              {totals.capRate !== null && (
-                <span className="text-sm sm:text-sm font-bold text-[#065F46] bg-[#D1FAE5] px-2.5 py-0.5 rounded-full">
-                  임대수익률 {totals.capRate.toFixed(2)}%
+              {totals.grossYieldPct !== null && (
+                <span
+                  title="임대수익률(Gross Yield, 실투자금 기준) = 연간 임대료 ÷ (매매가 − 보증금), 운영비 차감 전"
+                  className="text-sm sm:text-sm font-bold text-[#065F46] bg-[#D1FAE5] px-2.5 py-0.5 rounded-full"
+                >
+                  임대수익률(실투자금 기준) {totals.grossYieldPct.toFixed(2)}%
+                </span>
+              )}
+              {totals.noiCapRatePct !== null && (
+                <span
+                  title="NOI Cap Rate(자본환원율, 매매가 기준) = 연간 순영업소득(표준 운영비 5% 차감) ÷ 매매가"
+                  className="text-sm sm:text-sm font-bold text-[#1E40AF] bg-[#DBEAFE] px-2.5 py-0.5 rounded-full"
+                >
+                  NOI Cap Rate {totals.noiCapRatePct.toFixed(2)}%
                 </span>
               )}
             </div>

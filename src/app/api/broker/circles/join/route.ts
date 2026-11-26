@@ -4,22 +4,19 @@
  * DELETE /api/broker/circles/join — 서클 탈퇴
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
 import { joinByInviteCode, acceptInvitation, declineInvitation, leaveCircle } from "@/domain/team/circle-service";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const body = await req.json();
     const { code } = body;
 
-    if (!code) {
+    if (!code || typeof code !== "string") {
       return NextResponse.json({ error: "초대 코드를 입력하세요." }, { status: 400 });
     }
 
@@ -48,12 +45,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const body = await req.json();
@@ -79,12 +73,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const body = await req.json();

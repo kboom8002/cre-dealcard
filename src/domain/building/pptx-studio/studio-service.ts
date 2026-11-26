@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service';
+import { isRealProductionRuntime } from '@/lib/env';
 import { stripHeavyBase64ForDb } from '@/lib/supabase/jsonb-diet';
 import { m2ToPyeong as sqmToPyeong, pyeongToM2 } from '@/domain/building/im-core/facts/area';
 import {
@@ -14,6 +15,33 @@ import { parseStationName, formatStationLabel } from '../mobile-im/pptx/binder/s
 const STUDIO_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isStudioUuid = (val: unknown): val is string =>
   typeof val === 'string' && STUDIO_UUID_REGEX.test(val.trim());
+
+export interface SaveProjectOptions {
+  ownerId?: string;
+  expectedLockVersion?: number;
+  lockVersion?: number;
+  expectedUpdatedAt?: string;
+}
+
+function isDbBackedStudioRuntime(): boolean {
+  if (isRealProductionRuntime()) return true;
+  if (process.env.DISABLE_MEMORY_STORE === '1') return true;
+  if (process.env.REQUIRE_WORKSPACE_ITEMS_TABLE === '1') return true;
+  if (Boolean((createServiceClient as unknown as { mock?: unknown })?.mock)) return true;
+  const supaUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  if (
+    supaUrl &&
+    supaUrl !== 'https://mock.supabase.co' &&
+    (process.env.NODE_ENV !== 'test' || process.env.VITEST_USE_LIVE_ENV === '1')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function allowStudioMemoryFallback(): boolean {
+  return !isRealProductionRuntime() && process.env.DISABLE_MEMORY_STORE !== '1';
+}
 
 export interface PptxSlide {
   id: string;
@@ -457,6 +485,12 @@ export function buildBasicImSlideDefaults(
 
 export class PptxStudioService {
   private projects = new Map<string, PptxProject>();
+  private inFlightWrites = new Set<string>();
+
+  clearMemoryCache(): void {
+    this.projects.clear();
+    this.inFlightWrites.clear();
+  }
 
   async createProject(
     dealId: string,
@@ -765,71 +799,129 @@ export class PptxStudioService {
 
   async getProject(projectId: string): Promise<PptxProject> {
     const memoryProject = this.projects.get(projectId);
-    if (memoryProject) {
+    if (!isDbBackedStudioRuntime() && memoryProject) {
       return memoryProject;
     }
-    const supabase = createServiceClient();
-    const { data } = await supabase
-      .from('document_objects')
-      .select('body')
-      .eq('id', projectId)
-      .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
-      .maybeSingle();
-
-    if (!data?.body || !Array.isArray((data.body as any)?.slides)) {
-      throw new Error(`PPTX_PROJECT_NOT_FOUND: Project ${projectId} does not exist`);
+    if (this.inFlightWrites.has(projectId) && memoryProject) {
+      return memoryProject;
     }
-    const project = data.body as unknown as PptxProject;
-    this.projects.set(projectId, project);
-    return project;
+
+    try {
+      const supabase = createServiceClient();
+      const { data } = await supabase
+        .from('document_objects')
+        .select('body')
+        .eq('id', projectId)
+        .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
+        .maybeSingle();
+
+      if (data?.body && Array.isArray((data.body as any)?.slides)) {
+        const dbProject = data.body as unknown as PptxProject;
+        if (
+          this.inFlightWrites.has(projectId) &&
+          memoryProject &&
+          (memoryProject.lockVersion ?? 0) > (dbProject.lockVersion ?? 0)
+        ) {
+          return memoryProject;
+        }
+        if (allowStudioMemoryFallback()) {
+          if (memoryProject) {
+            Object.assign(memoryProject, dbProject);
+            return memoryProject;
+          }
+          this.projects.set(projectId, dbProject);
+        }
+        return dbProject;
+      }
+    } catch {
+      if (allowStudioMemoryFallback() && memoryProject) {
+        return memoryProject;
+      }
+    }
+
+    if (allowStudioMemoryFallback() && memoryProject) {
+      return memoryProject;
+    }
+    throw new Error(`PPTX_PROJECT_NOT_FOUND: Project ${projectId} does not exist`);
   }
 
   async findProjectByDealId(dealId: string, ownerId?: string): Promise<PptxProject | undefined> {
-    for (const project of this.projects.values()) {
-      if (
-        project.dealId === dealId &&
-        (!ownerId || !project.ownerId || project.ownerId === ownerId)
-      ) {
-        return project;
+    const findInMemory = (): PptxProject | undefined => {
+      for (const project of this.projects.values()) {
+        if (
+          project.dealId === dealId &&
+          (!ownerId || !project.ownerId || project.ownerId === ownerId)
+        ) {
+          return project;
+        }
       }
-    }
-    const supabase = createServiceClient();
-    if (isStudioUuid(dealId)) {
-      const { data: rows } = await supabase
-        .from('document_objects')
-        .select('body, owner_id')
-        .eq('building_id', dealId)
-        .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
-        .order('created_at', { ascending: false })
-        .limit(10);
+      return undefined;
+    };
 
-      const match = (rows || []).find(
-        r =>
-          r?.body &&
-          Array.isArray((r.body as any).slides) &&
-          (!ownerId || !(r as any).owner_id || String((r as any).owner_id) === ownerId)
-      );
-      if (match?.body) {
-        const proj = match.body as unknown as PptxProject;
-        if (ownerId && !proj.ownerId) proj.ownerId = ownerId;
-        this.projects.set(proj.id, proj);
-        return proj;
-      }
+    if (!isDbBackedStudioRuntime()) {
+      const mem = findInMemory();
+      if (mem) return mem;
     }
+
     try {
-      const wsItem = await getWorkspaceItemByAnyId(supabase, dealId, 'im', ownerId);
-      const snapProj = wsItem?.draftPayload?.studioProjectSnapshot as PptxProject | undefined;
-      if (snapProj && Array.isArray(snapProj.slides) && snapProj.id) {
-        const restored: PptxProject = {
-          ...snapProj,
-          dealId: snapProj.dealId || dealId,
-          ownerId: snapProj.ownerId || wsItem?.ownerId || ownerId,
-        };
-        this.projects.set(restored.id, restored);
-        return restored;
+      const supabase = createServiceClient();
+      if (isStudioUuid(dealId)) {
+        const { data: rows } = await supabase
+          .from('document_objects')
+          .select('body, owner_id')
+          .eq('building_id', dealId)
+          .in('document_type', ['snapshot', 'owner_prep_memo', 'building_snapshot_draft', 'im_lite_draft', 'mobile_im'])
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        const match = (rows || []).find(
+          r =>
+            r?.body &&
+            Array.isArray((r.body as any).slides) &&
+            (!ownerId || !(r as any).owner_id || String((r as any).owner_id) === ownerId)
+        );
+        if (match?.body) {
+          const proj = match.body as unknown as PptxProject;
+          if (ownerId && !proj.ownerId) proj.ownerId = ownerId;
+          if (allowStudioMemoryFallback()) {
+            const existingMem = this.projects.get(proj.id);
+            if (existingMem) {
+              Object.assign(existingMem, proj);
+              return existingMem;
+            }
+            this.projects.set(proj.id, proj);
+          }
+          return proj;
+        }
+      }
+      try {
+        const wsItem = await getWorkspaceItemByAnyId(supabase, dealId, 'im', ownerId);
+        const snapProj = wsItem?.draftPayload?.studioProjectSnapshot as PptxProject | undefined;
+        if (snapProj && Array.isArray(snapProj.slides) && snapProj.id) {
+          const restored: PptxProject = {
+            ...snapProj,
+            dealId: snapProj.dealId || dealId,
+            ownerId: snapProj.ownerId || wsItem?.ownerId || ownerId,
+          };
+          if (allowStudioMemoryFallback()) {
+            const existingMem = this.projects.get(restored.id);
+            if (existingMem) {
+              Object.assign(existingMem, restored);
+              return existingMem;
+            }
+            this.projects.set(restored.id, restored);
+          }
+          return restored;
+        }
+      } catch {
+        // Ignore workspace_items lookup fallback error
       }
     } catch {
-      // Ignore workspace_items lookup fallback error
+      // Ignore DB client fallback error in offline mode
+    }
+
+    if (allowStudioMemoryFallback()) {
+      return findInMemory();
     }
     return undefined;
   }
@@ -871,7 +963,12 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
@@ -899,7 +996,12 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
@@ -928,7 +1030,12 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
@@ -970,7 +1077,12 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
@@ -1005,7 +1117,12 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
@@ -1051,7 +1168,12 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
@@ -1073,17 +1195,96 @@ export class PptxStudioService {
     project.lockVersion += 1;
     project.updatedAt = new Date().toISOString();
 
-    await this.saveProject(project, ownerId);
+    this.inFlightWrites.add(project.id);
+    try {
+      await this.saveProject(project, { ownerId, expectedLockVersion });
+    } finally {
+      this.inFlightWrites.delete(project.id);
+    }
     return project;
   }
 
-  async saveProject(project: PptxProject, ownerId?: string): Promise<void> {
+  async saveProject(
+    project: PptxProject,
+    ownerIdOrOptions?: string | SaveProjectOptions,
+    maybeOptions?: SaveProjectOptions
+  ): Promise<void> {
+    const opts: SaveProjectOptions =
+      typeof ownerIdOrOptions === 'string'
+        ? { ...(maybeOptions || {}), ownerId: ownerIdOrOptions }
+        : ownerIdOrOptions ?? maybeOptions ?? {};
+    const expectedLock = opts.expectedLockVersion ?? opts.lockVersion;
+    const expectedUpdatedAt = opts.expectedUpdatedAt;
+
+    const existingMem = this.projects.get(project.id);
+    if (existingMem && existingMem !== project) {
+      if (expectedLock !== undefined && existingMem.lockVersion !== expectedLock) {
+        throw new Error(
+          `STALE_LOCK_ERROR: Concurrent edit detected on project ${project.id} (expected ${expectedLock}, actual ${existingMem.lockVersion})`
+        );
+      }
+      if (expectedUpdatedAt !== undefined && existingMem.updatedAt !== expectedUpdatedAt) {
+        throw new Error(
+          `STALE_LOCK_ERROR: Concurrent edit detected on project ${project.id} (expected updatedAt ${expectedUpdatedAt}, actual ${existingMem.updatedAt})`
+        );
+      }
+    }
+
+    if (isDbBackedStudioRuntime() && (expectedLock !== undefined || expectedUpdatedAt !== undefined)) {
+      let supabaseForOcc: ReturnType<typeof createServiceClient> | null = null;
+      try {
+        supabaseForOcc = createServiceClient();
+      } catch {
+        supabaseForOcc = null;
+      }
+      if (supabaseForOcc) {
+        const { data: currentDoc } = await supabaseForOcc
+          .from('document_objects')
+          .select('body, updated_at')
+          .eq('id', project.id)
+          .maybeSingle();
+
+        if (currentDoc?.body && typeof currentDoc.body === 'object') {
+          const dbLock = Number((currentDoc.body as any).lockVersion ?? 0);
+          const dbBodyUpdatedAt =
+            typeof (currentDoc.body as any).updatedAt === 'string'
+              ? (currentDoc.body as any).updatedAt
+              : undefined;
+          const dbRowUpdatedAt =
+            typeof (currentDoc as any).updated_at === 'string'
+              ? (currentDoc as any).updated_at
+              : undefined;
+
+          if (expectedLock !== undefined && dbLock > 0 && dbLock !== expectedLock) {
+            throw new Error(
+              `STALE_LOCK_ERROR: Concurrent edit detected on project ${project.id} (expected ${expectedLock}, actual ${dbLock})`
+            );
+          }
+          if (
+            expectedUpdatedAt !== undefined &&
+            ((dbBodyUpdatedAt &&
+              dbBodyUpdatedAt !== expectedUpdatedAt &&
+              dbRowUpdatedAt !== expectedUpdatedAt) ||
+              (!dbBodyUpdatedAt && dbRowUpdatedAt && dbRowUpdatedAt !== expectedUpdatedAt))
+          ) {
+            throw new Error(
+              `STALE_LOCK_ERROR: Concurrent edit detected on project ${project.id} (expected updatedAt ${expectedUpdatedAt}, actual ${dbBodyUpdatedAt || dbRowUpdatedAt})`
+            );
+          }
+        }
+      }
+    }
+
     project.updatedAt = new Date().toISOString();
-    const effectiveOwnerId = ownerId || project.ownerId;
+    const effectiveOwnerId = opts.ownerId || project.ownerId;
     if (effectiveOwnerId) {
       project.ownerId = effectiveOwnerId;
     }
-    this.projects.set(project.id, project);
+    if (allowStudioMemoryFallback()) {
+      this.projects.set(project.id, project);
+    } else {
+      this.projects.delete(project.id);
+    }
     try {
       const supabase = createServiceClient();
       const { error } = await supabase.from('document_objects').upsert({

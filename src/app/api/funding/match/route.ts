@@ -1,20 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { runFundingMatchingEngine } from "@/domain/matching/funding-matching-engine";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+const log = createModuleLogger("route");
 
+export async function POST(request: NextRequest) {
+  const guard = await requireBroker(request);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
-export async function POST(request: Request) {
+  const ip = getClientIp(request) ?? user.id;
+  const allowed = await checkRateLimit(ip, "funding_match_post", 10, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429 },
+    );
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { projectId, investorProfileId } = await request.json();
 
     if (projectId) {
@@ -27,6 +37,10 @@ export async function POST(request: Request) {
 
       if (pErr || !project) {
         return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
+
+      if (!isAdmin && project.operator_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
       const { data: profiles, error: prErr } = await supabase
@@ -96,6 +110,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Investor profile not found" }, { status: 404 });
       }
 
+      if (!isAdmin && profile.user_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       const { data: projects, error: pErr } = await supabase
         .from("funding_projects")
         .select("*")
@@ -153,8 +171,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: "Missing projectId or investorProfileId" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[POST /api/funding/match]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "펀딩 매칭 실행 중 오류가 발생했습니다." },
+      { status: 500 },
+    );
   }
 }

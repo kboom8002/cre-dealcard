@@ -43,6 +43,17 @@ export interface MacroTransitOptions {
   format?: 'png' | 'jpeg';
 }
 
+export interface MacroTransitLabel {
+  text: string;
+  xPct: number;
+  yPct: number;
+  wPct?: number;
+  fontSizePt: number;
+  color: string;
+  bold?: boolean;
+  align?: 'left' | 'center' | 'right';
+}
+
 export interface MacroTransitResult {
   /** 바이너리 버퍼 */
   buffer: Buffer;
@@ -50,6 +61,10 @@ export interface MacroTransitResult {
   base64: string;
   /** 생성된 원본 SVG 문자열 */
   svg: string;
+  /** Sharp 래스터화에 전달되는 순수 벡터/ASCII SVG 문자열 (Rule 66: 한글 0자) */
+  rasterSvg: string;
+  /** PptxGenJS 네이티브 텍스트 레이어용 위치 지정 한글/어노테이션 라벨 목록 */
+  labels: MacroTransitLabel[];
   /** 이미지 픽셀 폭 */
   width: number;
   /** 이미지 픽셀 높이 */
@@ -133,6 +148,154 @@ export function detectSubDistrict(address?: string, propertyName?: string): GbdS
  * 권역별 대중교통 SVG 다이어그램 마크업 생성
  */
 export function generateMacroTransitSvg(options?: MacroTransitOptions): {
+  svg: string;
+  rasterSvg: string;
+  labels: MacroTransitLabel[];
+  district: TransitDistrict;
+  subDistrict?: GbdSubDistrict;
+  futureLines: string[];
+  coreDistrictArrows: string[];
+  stations: string[];
+} {
+  const core = buildMacroTransitSvgCore(options);
+  const { rasterSvg, labels } = prepareMacroTransitRasterSvgAndLabels(core.svg);
+  return {
+    ...core,
+    rasterSvg,
+    labels,
+  };
+}
+
+function unescapeXmlEntities(input: string): string {
+  return input
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * [Rule 66] SVG 마크업에서 한글/비-ASCII 텍스트를 PptxGenJS 네이티브 라벨 배열로 분리하고,
+ * Sharp로 전달할 순수 벡터(한글 0자, 순수 ASCII 전용) SVG를 생성합니다.
+ */
+export function prepareMacroTransitRasterSvgAndLabels(rawSvg: string): {
+  rasterSvg: string;
+  labels: MacroTransitLabel[];
+} {
+  const VIEW_W = 800;
+  const VIEW_H = 600;
+  const labels: MacroTransitLabel[] = [];
+
+  const extractTextNode = (
+    attrs: string,
+    innerXml: string,
+    tx: number,
+    ty: number
+  ): { keepInRaster: boolean; replacementAscii: string } => {
+    const plain = unescapeXmlEntities(innerXml.replace(/<[^>]+>/g, ''))
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!plain) {
+      return { keepInRaster: false, replacementAscii: '' };
+    }
+
+    const xMatch = attrs.match(/\bx=["'](-?\d+(?:\.\d+)?)["']/);
+    const yMatch = attrs.match(/\by=["'](-?\d+(?:\.\d+)?)["']/);
+    const fsMatch = attrs.match(/\bfont-size=["'](\d+(?:\.\d+)?)["']/);
+    const fillMatch = attrs.match(/\bfill=["']([^"']+)["']/);
+    const anchorMatch = attrs.match(/\btext-anchor=["']([^"']+)["']/);
+    const isBold = /\bfont-weight=["']bold["']/i.test(attrs);
+
+    const absX = (xMatch ? parseFloat(xMatch[1]) : 0) + tx;
+    const absY = (yMatch ? parseFloat(yMatch[1]) : 0) + ty;
+    const svgFs = fsMatch ? parseFloat(fsMatch[1]) : 10;
+    const align: 'left' | 'center' | 'right' =
+      anchorMatch?.[1] === 'middle'
+        ? 'center'
+        : anchorMatch?.[1] === 'end'
+        ? 'right'
+        : 'left';
+
+    const hasHangulOrNonAscii = /[^\x20-\x7E]/.test(plain);
+    const isAssetPinText = plain.startsWith('[ ASSET ]');
+
+    if (hasHangulOrNonAscii || isAssetPinText) {
+      const estViewWidth = Math.min(360, Math.max(64, plain.length * svgFs * 0.85));
+      labels.push({
+        text: plain,
+        xPct: Math.max(0, Math.min(1, Number((absX / VIEW_W).toFixed(4)))),
+        yPct: Math.max(0, Math.min(1, Number((absY / VIEW_H).toFixed(4)))),
+        wPct: Number((estViewWidth / VIEW_W).toFixed(4)),
+        fontSizePt: Math.max(6.5, Math.min(9.0, Math.round(svgFs * 0.65 * 10) / 10)),
+        color: (fillMatch?.[1] || '#FFFFFF').replace(/^#/, ''),
+        bold: isBold,
+        align,
+      });
+      return { keepInRaster: false, replacementAscii: '' };
+    }
+
+    const cleanAttrs = attrs.replace(
+      /\bfont-family=(?:"[^"]*"|'[^']*')/g,
+      'font-family="Arial, Helvetica, sans-serif"'
+    );
+    return {
+      keepInRaster: true,
+      replacementAscii: `<text${cleanAttrs}>${escapeXml(plain)}</text>`,
+    };
+  };
+
+  // 1. Remove XML comments (which contain Korean comments)
+  let cleaned = rawSvg.replace(/<!--[\s\S]*?-->/g, '');
+
+  // 2. Process <g transform="translate(tx, ty)">...</g> blocks first so relative coordinates are resolved
+  cleaned = cleaned.replace(
+    /<g\s+transform=["']translate\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)["']\s*>([\s\S]*?)<\/g>/g,
+    (_full, txStr, tyStr, groupBody: string) => {
+      const tx = parseFloat(txStr) || 0;
+      const ty = parseFloat(tyStr) || 0;
+      const sanitizedGroupBody = groupBody.replace(
+        /<text\b([^>]*)>([\s\S]*?)<\/text>/g,
+        (_tFull, attrs: string, inner: string) => {
+          const res = extractTextNode(attrs, inner, tx, ty);
+          return res.keepInRaster ? res.replacementAscii : '';
+        }
+      );
+      return `<g transform="translate(${tx}, ${ty})">${sanitizedGroupBody}</g>`;
+    }
+  );
+
+  // 3. Process remaining top-level <text> elements
+  cleaned = cleaned.replace(
+    /<text\b([^>]*)>([\s\S]*?)<\/text>/g,
+    (_tFull, attrs: string, inner: string) => {
+      const res = extractTextNode(attrs, inner, 0, 0);
+      return res.keepInRaster ? res.replacementAscii : '';
+    }
+  );
+
+  // 4. Normalize any remaining font-family attributes and append pure vector North Arrow + ASCII scale bar
+  cleaned = cleaned.replace(
+    /\bfont-family=(?:"[^"]*"|'[^']*')/g,
+    'font-family="Arial, Helvetica, sans-serif"'
+  );
+  const northAndScaleOverlay = `
+    <g transform="translate(748, 22)">
+      <polygon points="12,0 20,18 12,14 4,18" fill="#E8DEC8" opacity="0.85"/>
+      <text x="12" y="29" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="bold" fill="#E8DEC8" text-anchor="middle">N</text>
+      <line x1="-18" y1="36" x2="26" y2="36" stroke="#94A3B8" stroke-width="1.5"/>
+      <line x1="-18" y1="33" x2="-18" y2="39" stroke="#94A3B8" stroke-width="1.5"/>
+      <line x1="26" y1="33" x2="26" y2="39" stroke="#94A3B8" stroke-width="1.5"/>
+      <text x="4" y="46" font-family="Arial, Helvetica, sans-serif" font-size="7.5" fill="#94A3B8" text-anchor="middle">0.5km</text>
+    </g>`;
+  cleaned = cleaned.replace(/<\/svg>\s*$/, `${northAndScaleOverlay}\n  </svg>`);
+
+  // Safety belt: strip any residual Hangul codepoints if ever present
+  const rasterSvg = cleaned.replace(/[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3]+/g, '');
+  return { rasterSvg, labels };
+}
+
+function buildMacroTransitSvgCore(options?: MacroTransitOptions): {
   svg: string;
   district: TransitDistrict;
   subDistrict?: GbdSubDistrict;
@@ -816,9 +979,9 @@ export async function generateMacroTransitDiagram(
     throw new Error(`Unsupported output format: only 'png' and 'jpeg' are supported, received '${format}'`);
   }
 
-  const { svg, district, subDistrict, futureLines, coreDistrictArrows, stations } = generateMacroTransitSvg(options);
+  const { svg, rasterSvg, labels, district, subDistrict, futureLines, coreDistrictArrows, stations } = generateMacroTransitSvg(options);
 
-  let sharpInstance = sharp(Buffer.from(svg));
+  let sharpInstance = sharp(Buffer.from(rasterSvg));
   if (format === 'jpeg') {
     sharpInstance = sharpInstance.jpeg({ quality: 90 });
   } else {
@@ -834,6 +997,8 @@ export async function generateMacroTransitDiagram(
     buffer,
     base64,
     svg,
+    rasterSvg,
+    labels,
     width,
     height,
     effectiveDpi,
@@ -843,4 +1008,17 @@ export async function generateMacroTransitDiagram(
     coreDistrictArrows,
     stations,
   };
+}
+
+export async function generateMacroTransitDiagramWithLabels(
+  options?: MacroTransitOptions,
+): Promise<MacroTransitResult> {
+  return generateMacroTransitDiagram(options);
+}
+
+export async function generateMacroTransitMap(
+  options?: MacroTransitOptions,
+): Promise<Buffer> {
+  const res = await generateMacroTransitDiagram(options);
+  return res.buffer;
 }

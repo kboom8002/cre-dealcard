@@ -400,16 +400,27 @@ export function mapDocumentRowToImSummary(
 
   let grossYieldPct = 0;
   if (rawPosture !== "owner_occupied" && rawPosture !== "development") {
-    const explicitYield = Number(ssotSummary.cap_rate_pct || ssotSummary.gross_yield_pct || 0);
+    const explicitGross = Number(ssotSummary.gross_yield_pct);
+    const explicitCap = Number(ssotSummary.cap_rate_pct);
+    const explicitYield =
+      Number.isFinite(explicitGross) && explicitGross > 0
+        ? explicitGross
+        : Number.isFinite(explicitCap) && explicitCap > 0
+        ? explicitCap
+        : 0;
     if (explicitYield > 0) {
-      grossYieldPct = Math.round(explicitYield * 10) / 10;
+      grossYieldPct = Math.round(explicitYield * 100) / 100;
     } else if (normalizedDocRentRoll && normalizedDocRentRoll.length > 0 && askingPriceManwon > 0) {
       const totals = normalizedDocRentRoll.reduce(
         (acc, r) => (r.status === "occupied" ? { dep: acc.dep + r.depositManwon, mon: acc.mon + r.monthlyRentManwon } : acc),
         { dep: 0, mon: 0 }
       );
       if (totals.mon > 0) {
-        grossYieldPct = Math.round(((totals.mon * 12) / Math.max(askingPriceManwon - totals.dep, 1)) * 1000) / 10;
+        const netInvestment =
+          totals.dep > 0 && askingPriceManwon > totals.dep
+            ? askingPriceManwon - totals.dep
+            : askingPriceManwon;
+        grossYieldPct = Math.round((((totals.mon * 12) / Math.max(netInvestment, 1)) * 100) * 100) / 100;
       }
     }
   }

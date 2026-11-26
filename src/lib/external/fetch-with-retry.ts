@@ -50,6 +50,16 @@ export function parseRetryAfterMs(retryAfterHeader: string | null, nowMs = Date.
 }
 
 /**
+ * 비-테스트 환경에서만 0.75x ~ 1.25x 유계 지터를 적용하여 동시 재시도 폭풍을 완화합니다.
+ */
+export function applyRetryJitter(delayMs: number): number {
+  if (process.env.NODE_ENV === "test" || delayMs <= 0) {
+    return delayMs;
+  }
+  return Math.round(delayMs * (0.75 + Math.random() * 0.5));
+}
+
+/**
  * 재시도 대기 중 외부 `AbortSignal`이 취소되면 타이머를 즉시 해제하고 reject합니다.
  */
 export function sleepWithAbort(delayMs: number, signal?: AbortSignal): Promise<void> {
@@ -148,7 +158,7 @@ export async function fetchWithRetry(
           return res;
         }
         const retryAfterMs = parseRetryAfterMs(res.headers.get("Retry-After"));
-        const rawDelay = retryAfterMs ?? baseDelayMs * Math.pow(2, attempt);
+        const rawDelay = retryAfterMs ?? applyRetryJitter(baseDelayMs * Math.pow(2, attempt));
         const cappedDelay = Math.max(0, Math.min(rawDelay, remainingMs));
         logger.warn(
           `${res.status} response, retrying in ${cappedDelay}ms (${attempt + 1}/${maxRetries})`,
@@ -168,7 +178,8 @@ export async function fetchWithRetry(
         if (remainingMs <= 0) {
           return res;
         }
-        const delay = Math.max(0, Math.min(baseDelayMs * Math.pow(2, attempt), remainingMs));
+        const jitteredBackoff = applyRetryJitter(baseDelayMs * Math.pow(2, attempt));
+        const delay = Math.max(0, Math.min(jitteredBackoff, remainingMs));
         logger.warn(`${res.status} error, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
         await sleepWithAbort(delay, signal);
         continue;
@@ -187,7 +198,8 @@ export async function fetchWithRetry(
         if (remainingMs <= 0) {
           break;
         }
-        const delay = Math.max(0, Math.min(baseDelayMs * Math.pow(2, attempt), remainingMs));
+        const jitteredBackoff = applyRetryJitter(baseDelayMs * Math.pow(2, attempt));
+        const delay = Math.max(0, Math.min(jitteredBackoff, remainingMs));
         await sleepWithAbort(delay, signal);
       }
     }

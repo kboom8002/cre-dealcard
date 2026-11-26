@@ -27,7 +27,7 @@ export async function enrichFromVacancyData(
   // 1. Find space_ai_handoff for this building
   const { data: handoffs } = await supabase
     .from('space_ai_handoffs')
-    .select('id, space_drafts')
+    .select('id, space_ai_space_id, space_basics')
     .eq('building_ssot_lite_id', buildingId)
     .order('created_at', { ascending: false })
     .limit(1);
@@ -36,8 +36,10 @@ export async function enrichFromVacancyData(
   let avgFitScore: number | null = null;
 
   if (handoffs && handoffs.length > 0) {
-    const drafts = handoffs[0].space_drafts as Array<{ space_id?: string }> | null;
-    const spaceIds = (drafts ?? []).map((d) => d.space_id).filter(Boolean) as string[];
+    const basics = handoffs[0].space_basics as { space_drafts?: Array<{ space_id?: string }> } | null;
+    const draftIds = (basics?.space_drafts ?? []).map((d) => d.space_id).filter(Boolean) as string[];
+    const directId = handoffs[0].space_ai_space_id ? [handoffs[0].space_ai_space_id as string] : [];
+    const spaceIds = [...new Set([...directId, ...draftIds])];
 
     if (spaceIds.length > 0) {
       // 2. Count leasing inquiries
@@ -107,8 +109,8 @@ export async function batchEnrichBrokerBuildings(
   const { data: buildings } = await supabase
     .from('building_ssot_lite')
     .select('id')
-    .eq('broker_id', brokerId)
-    .eq('is_active', true);
+    .eq('owner_id', brokerId)
+    .neq('status', 'archived');
 
   if (!buildings?.length) return [];
 

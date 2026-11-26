@@ -191,7 +191,7 @@ export class CRESignalAggregator {
       .from("market_leading_indicators")
       .select("price_resistance_band, demand_score, supply_score")
       .eq("region", region)
-      .order("created_at", { ascending: false })
+      .order("computed_at", { ascending: false })
       .limit(2);
     assertOk("market_leading_indicators select", error);
 

@@ -113,16 +113,17 @@ export async function POST(req: NextRequest) {
     const { data: buyerIntent, error: intentError } = await supabase
       .from("buyer_intent_lite")
       .insert({
-        broker_id: brokerId,
+        owner_id: brokerId,
+        raw_input: message ? String(message) : `역방향 매수의향 (${budget})`,
         buyer_type: "외부가망고객",
         budget_min: budgetMin,
         budget_max: budgetMax,
         budget_display: budget,
         preferred_regions: [building.area_signal || "서울"],
         purchase_purpose: "임대수익형",
-        preferred_asset_types: [building.asset_type || "오피스빌딩"],
-        status: "active",
-        metadata: {
+        asset_types: [building.asset_type || "오피스빌딩"],
+        visibility: "broker_only",
+        normalized: {
           is_reverse_onboarded: true,
           external_name: name,
           external_phone: phone,
@@ -140,8 +141,8 @@ export async function POST(req: NextRequest) {
 
     // 4. E2E 매칭 결과 강제 생성 (A등급으로 바인딩)
     await supabase.from("match_results").insert({
-      building_id: buildingId,
-      buyer_intent_id: buyerIntent.id,
+      building_ssot_lite_id: buildingId,
+      buyer_intent_lite_id: buyerIntent.id,
       broker_id: brokerId,
       grade: "A",
       score: 85,

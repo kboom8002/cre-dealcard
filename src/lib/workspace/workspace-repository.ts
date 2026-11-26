@@ -478,23 +478,28 @@ export async function assertLegacyOrDbOwnership(
   return { existingItem: null, ownerId: null };
 }
 
-async function executeMutationSingle(query: DbQueryLike | null | undefined): Promise<DbResult> {
-  if (!query) return { data: null, error: null };
+async function executeMutationSingle(
+  query: DbQueryLike | null | undefined
+): Promise<DbResult & { hadSelectChain?: boolean }> {
+  if (!query) return { data: null, error: null, hadSelectChain: false };
   let q = query;
-  if (typeof q.select === 'function') {
+  const hadSelectChain = typeof q.select === 'function';
+  if (hadSelectChain && q.select) {
     q = q.select('*');
   }
   if (typeof q.single === 'function') {
-    return await q.single();
+    const out = await q.single();
+    return { ...(out || { data: null, error: null }), hadSelectChain };
   }
   if (typeof q.maybeSingle === 'function') {
-    return await q.maybeSingle();
+    const out = await q.maybeSingle();
+    return { ...(out || { data: null, error: null }), hadSelectChain };
   }
   if (typeof q.then === 'function') {
     const out = await q;
-    return out || { data: null, error: null };
+    return { ...(out || { data: null, error: null }), hadSelectChain };
   }
-  return { data: null, error: null };
+  return { data: null, error: null, hadSelectChain };
 }
 
 export async function upsertWorkspaceItem(
@@ -662,6 +667,14 @@ export async function upsertWorkspaceItem(
       return typeof tbl.insert === 'function' ? tbl.insert(payload) : null;
     }
     let q = typeof tbl.update === 'function' ? tbl.update(payload)?.eq?.('id', existing.id) : null;
+    if (
+      q &&
+      typeof input.expectedVersion === 'number' &&
+      typeof existing.version === 'number' &&
+      typeof q.eq === 'function'
+    ) {
+      q = q.eq('version', existing.version);
+    }
     if (q && isNonPublishUpdate && !existingIsPublished && typeof q.neq === 'function') {
       const q1 = q.neq('status', 'sent');
       if (q1 && typeof q1.neq === 'function') {
@@ -688,16 +701,42 @@ export async function upsertWorkspaceItem(
     }
   }
 
+  const isZeroRowError = Boolean(
+    res?.error &&
+      ((res.error as { code?: string }).code === 'PGRST116' ||
+        /0 rows|no rows|coerce the result/i.test(String(res.error.message || '')))
+  );
+  const isExplicitEmptyArray = !res?.error && Array.isArray(res?.data) && res.data.length === 0;
+  const isEmptySelectedRow =
+    !res?.error && Boolean(res?.hadSelectChain) && !toSingleRow(res?.data);
+
+  if (
+    existing &&
+    typeof input.expectedVersion === 'number' &&
+    (isZeroRowError || isExplicitEmptyArray || isEmptySelectedRow)
+  ) {
+    const latest = await getWorkspaceItemByAnyId(db, existing.id, input.kind, scopeOwner).catch(
+      () => null
+    );
+    const versionChanged = Boolean(latest && latest.version !== existing.version);
+    const statusChanged = Boolean(latest && latest.status !== existing.status);
+    if (isZeroRowError || isExplicitEmptyArray || versionChanged || statusChanged || !latest) {
+      throw new WorkspaceRepositoryError(
+        409,
+        'VERSION_CONFLICT',
+        '동시 편집 충돌이 감지되었습니다. 새로고침 후 다시 시도해주세요.',
+        res?.error?.code ? String(res.error.code) : undefined,
+        latest?.version
+      );
+    }
+  }
+
   const zeroRowsMatched =
     existing &&
+    typeof input.expectedVersion !== 'number' &&
     isNonPublishUpdate &&
     !existingIsPublished &&
-    (Boolean(
-      res?.error &&
-        ((res.error as { code?: string }).code === 'PGRST116' ||
-          /0 rows|no rows|coerce the result/i.test(String(res.error.message || '')))
-    ) ||
-      (!res?.error && !toSingleRow(res?.data)));
+    (isZeroRowError || (!res?.error && !toSingleRow(res?.data)));
 
   if (zeroRowsMatched) {
     const safeDraftOnlyPayload: DbRow = {

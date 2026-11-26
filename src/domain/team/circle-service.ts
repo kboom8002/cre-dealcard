@@ -5,6 +5,62 @@ import { createNotification } from "@/lib/notifications/in-app";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('circle-service');
 
+export class CircleAccessError extends Error {
+  public readonly status: number;
+  constructor(message = "서클 접근 권한이 없습니다.", status = 403) {
+    super(message);
+    this.name = "CircleAccessError";
+    this.status = status;
+  }
+}
+
+/**
+ * Strip PostgREST filter metacharacters (commas, parentheses, spaces, quotes, etc.)
+ * before interpolating into `.or(...)` expressions.
+ */
+export function sanitizeInviteeIdentifier(raw: string): string {
+  return String(raw || "").replace(/[^0-9+\-@.a-zA-Z_]/g, "");
+}
+
+export async function assertActiveCircleMember(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  circleId: string,
+  brokerId: string,
+  isAdmin = false
+): Promise<{ role: string; status: string }> {
+  if (!circleId || (!brokerId && !isAdmin)) {
+    throw new CircleAccessError("서클 멤버만 접근할 수 있습니다.", 403);
+  }
+  if (isAdmin) {
+    return { role: "admin", status: "active" };
+  }
+
+  const { data: member } = await supabase
+    .from("broker_circle_members")
+    .select("role, status")
+    .eq("circle_id", circleId)
+    .eq("broker_id", brokerId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (member) {
+    return member as { role: string; status: string };
+  }
+
+  const { data: circleRow } = await supabase
+    .from("broker_circles")
+    .select("id, created_by")
+    .eq("id", circleId)
+    .maybeSingle();
+
+  if (circleRow && circleRow.created_by === brokerId) {
+    return { role: "owner", status: "active" };
+  }
+
+  throw new CircleAccessError("서클 활성 멤버만 접근할 수 있습니다.", 403);
+}
+
 
 export interface Circle {
   id: string;
@@ -109,21 +165,40 @@ export async function inviteMember(input: {
   circleId: string;
   inviterBrokerId: string;
   inviteeIdentifier: string; // phone or profile_id
+  isAdmin?: boolean;
 }): Promise<{ status: 'invited' | 'already_member' | 'not_found' }> {
   const supabase = createServiceClient();
+
+  // Verify caller is an active member/owner of circleId
+  await assertActiveCircleMember(
+    supabase,
+    input.circleId,
+    input.inviterBrokerId,
+    input.isAdmin
+  );
+
+  // Sanitize identifier against PostgREST .or() filter injection
+  const sanitizedIdentifier = sanitizeInviteeIdentifier(input.inviteeIdentifier);
+  if (!sanitizedIdentifier) {
+    return { status: 'not_found' };
+  }
 
   // Find user by phone or id
   let targetUserId: string | null = null;
 
-  if (/^[0-9a-f-]{36}$/i.test(input.inviteeIdentifier)) {
-    targetUserId = input.inviteeIdentifier;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedIdentifier)) {
+    targetUserId = sanitizedIdentifier;
   } else {
-    // Search profile by phone
-    const cleaned = input.inviteeIdentifier.replace(/[^0-9]/g, "");
+    // Search profile by phone (strictly sanitized)
+    const cleaned = sanitizedIdentifier.replace(/[^0-9]/g, "");
+    const orExpr =
+      cleaned && cleaned !== sanitizedIdentifier
+        ? `phone.eq.${sanitizedIdentifier},phone.eq.${cleaned}`
+        : `phone.eq.${sanitizedIdentifier}`;
     const { data: profile } = await supabase
       .from("profiles")
       .select("id")
-      .or(`phone.eq.${input.inviteeIdentifier},phone.eq.${cleaned}`)
+      .or(orExpr)
       .limit(1)
       .maybeSingle();
 
@@ -273,14 +348,20 @@ export async function joinByInviteCode(input: {
 
 export async function acceptInvitation(circleId: string, brokerId: string): Promise<void> {
   const supabase = createServiceClient();
-  await supabase
+  const { data: updatedRows } = await supabase
     .from("broker_circle_members")
     .update({
       status: "active",
       joined_at: new Date().toISOString(),
     })
     .eq("circle_id", circleId)
-    .eq("broker_id", brokerId);
+    .eq("broker_id", brokerId)
+    .eq("status", "pending")
+    .select("id");
+
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new CircleAccessError("수락 대기 중인 서클 초대가 없습니다.", 403);
+  }
 
   const { data: circle } = await supabase
     .from("broker_circles")
@@ -419,8 +500,14 @@ export async function getMyCircles(brokerId: string): Promise<CircleWithStats[]>
   return result;
 }
 
-export async function getCircleDetail(circleId: string, brokerId: string) {
+export async function getCircleDetail(
+  circleId: string,
+  brokerId: string,
+  opts?: { isAdmin?: boolean }
+) {
   const supabase = createServiceClient();
+
+  await assertActiveCircleMember(supabase, circleId, brokerId, opts?.isAdmin);
 
   const { data: circle } = await supabase
     .from("broker_circles")
@@ -428,7 +515,7 @@ export async function getCircleDetail(circleId: string, brokerId: string) {
     .eq("id", circleId)
     .single();
 
-  if (!circle) throw new Error("서클을 찾을 수 없습니다.");
+  if (!circle) throw new CircleAccessError("서클을 찾을 수 없습니다.", 404);
 
   const { data: members } = await supabase
     .from("broker_circle_members")
@@ -491,9 +578,21 @@ export async function updateCircle(circleId: string, ownerId: string, updates: {
   avatarEmoji?: string;
 }): Promise<void> {
   const supabase = createServiceClient();
+  const safeUpdates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (typeof updates.name === "string" && updates.name.trim()) {
+    safeUpdates.name = updates.name.trim();
+  }
+  if (updates.description !== undefined) {
+    safeUpdates.description = updates.description;
+  }
+  if (typeof updates.avatarEmoji === "string" && updates.avatarEmoji.trim()) {
+    safeUpdates.avatar_emoji = updates.avatarEmoji.trim();
+  }
   await supabase
     .from("broker_circles")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(safeUpdates)
     .eq("id", circleId)
     .eq("created_by", ownerId);
 }

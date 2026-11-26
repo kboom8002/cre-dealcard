@@ -9,9 +9,29 @@
 
 import { createServiceClient } from '@/lib/supabase/service';
 import type { BuyerCondition } from '../distribution/types';
+import { IdentityForbiddenError, type IdentityOwnerScope } from './party-service';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('condition-engine');
+
+async function assertPartyOwnership(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  partyId: string,
+  scope?: IdentityOwnerScope,
+): Promise<void> {
+  if (!scope || scope.isAdmin || !scope.ownerBrokerId) return;
+  const { data: ownedParty } = await supabase
+    .from('party')
+    .select('id')
+    .eq('id', partyId)
+    .eq('owner_broker_id', scope.ownerBrokerId)
+    .maybeSingle();
+
+  if (!ownedParty) {
+    throw new IdentityForbiddenError('해당 당사자(party)의 조건에 접근할 권한이 없습니다.');
+  }
+}
 
 
 export interface InsertConditionInput {
@@ -36,8 +56,12 @@ export interface InsertConditionInput {
  * 
  * ⚠️ low 단독으로는 매칭에 반영하지 않습니다.
  */
-export async function insertCondition(input: InsertConditionInput): Promise<BuyerCondition | null> {
+export async function insertCondition(
+  input: InsertConditionInput,
+  scope?: IdentityOwnerScope,
+): Promise<BuyerCondition | null> {
   const supabase = createServiceClient();
+  await assertPartyOwnership(supabase, input.partyId, scope);
 
   const { data, error } = await supabase
     .from('buyer_condition')
@@ -83,8 +107,12 @@ const CONFIDENCE_RANK: Readonly<Record<string, number>> = {
  * Party의 최신 조건을 조회합니다.
  * confidence 최고(high > medium > low) + observed_at 최근 조합.
  */
-export async function getLatestCondition(partyId: string): Promise<BuyerCondition | null> {
+export async function getLatestCondition(
+  partyId: string,
+  scope?: IdentityOwnerScope,
+): Promise<BuyerCondition | null> {
   const supabase = createServiceClient();
+  await assertPartyOwnership(supabase, partyId, scope);
 
   const { data, error } = await supabase
     .from('buyer_condition')
@@ -125,8 +153,12 @@ export async function getLatestCondition(partyId: string): Promise<BuyerConditio
  * Party의 전체 조건 이력을 조회합니다.
  * 변화 자체가 매칭 신호입니다.
  */
-export async function getConditionHistory(partyId: string): Promise<BuyerCondition[]> {
+export async function getConditionHistory(
+  partyId: string,
+  scope?: IdentityOwnerScope,
+): Promise<BuyerCondition[]> {
   const supabase = createServiceClient();
+  await assertPartyOwnership(supabase, partyId, scope);
 
   const { data } = await supabase
     .from('buyer_condition')

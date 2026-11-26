@@ -11,6 +11,7 @@ import { isMissingColumnError } from '@/lib/magazine/subscriber-view';
 import { mergeInterestProfile } from '@/lib/magazine/tags';
 import { hashEmailForSuppression, loadSuppressedEmailHashesForBroker } from '@/lib/legal/email-suppression';
 import { issueConfirmToken, sendOptInConfirmation } from '@/domain/magazine/consent-service';
+import { runAfterResponse } from '@/lib/server/after-safe';
 import {
   MAX_BULK_IMPORT_ROWS,
   normalizeContactEmail,
@@ -382,6 +383,15 @@ export async function handleImportContacts(req: NextRequest) {
 
   const newBrokerClientPayloads: Array<Record<string, any>> = [];
   const pendingClientUpdates: PendingClientUpdate[] = [];
+  const pendingSubscriberInserts: Array<{
+    contactName: string;
+    phoneDigits: string;
+    emailLower: string;
+    channel: 'kakao' | 'email' | 'both';
+    confirmToken: string;
+    baseSubscriber: Record<string, any>;
+    consentFields: Record<string, any>;
+  }> = [];
 
   const suppressedHashes = await loadSuppressedEmailHashesForBroker(supabase, userId);
 
@@ -609,39 +619,15 @@ export async function handleImportContacts(req: NextRequest) {
         confirm_token_hash: confirmTokenHash,
         consent_version: 'v1',
       };
-      try {
-        const insQ: any = supabase.from('magazine_subscribers').insert({ ...baseSubscriber, ...consentFields });
-        let insRes = typeof insQ.select === 'function' ? await insQ.select().single() : await insQ;
-        if (insRes?.error && isMissingColumnError(insRes.error)) {
-          const retryQ: any = supabase.from('magazine_subscribers').insert(baseSubscriber);
-          insRes = typeof retryQ.select === 'function' ? await retryQ.select().single() : await retryQ;
-        }
-        if (insRes?.error) {
-          failedCount += 1;
-          errors.push(`구독자 등록 실패 (${contact.name}): ${insRes.error.message || 'DB 오류'}`);
-        } else {
-          subscriberAddedCount += 1;
-          const saved = (insRes?.data as Record<string, any>) || { ...baseSubscriber, ...consentFields };
-          if (phoneDigits) subByPhone.set(phoneDigits, saved);
-          if (emailLower) {
-            subByEmail.set(emailLower, saved);
-            try {
-              await sendOptInConfirmation({
-                channel,
-                email: emailLower,
-                brokerSlug: brokerSlug || userId,
-                subscriberName: contact.name,
-                token: confirmToken,
-              });
-            } catch {
-              // non-blocking (D4 allowlist / dry-run safe)
-            }
-          }
-        }
-      } catch (err: any) {
-        failedCount += 1;
-        errors.push(`구독자 등록 예외 (${contact.name}): ${err?.message || 'DB 오류'}`);
-      }
+      pendingSubscriberInserts.push({
+        contactName: contact.name,
+        phoneDigits,
+        emailLower,
+        channel,
+        confirmToken,
+        baseSubscriber,
+        consentFields,
+      });
     }
   }
 
@@ -737,7 +723,70 @@ export async function handleImportContacts(req: NextRequest) {
         { status: 500 }
       );
     }
+  }
 
+  const queuedOptInConfirmations: Array<Parameters<typeof sendOptInConfirmation>[0]> = [];
+  if (supabase && pendingSubscriberInserts.length > 0) {
+    const activeSupabase = supabase;
+    for (const chunk of chunkArray(pendingSubscriberInserts, 25)) {
+      await Promise.all(
+        chunk.map(async (item) => {
+          try {
+            const insQ: any = activeSupabase
+              .from('magazine_subscribers')
+              .insert({ ...item.baseSubscriber, ...item.consentFields });
+            let insRes = typeof insQ.select === 'function' ? await insQ.select().single() : await insQ;
+            if (insRes?.error && isMissingColumnError(insRes.error)) {
+              const retryQ: any = activeSupabase.from('magazine_subscribers').insert(item.baseSubscriber);
+              insRes = typeof retryQ.select === 'function' ? await retryQ.select().single() : await retryQ;
+            }
+            if (insRes?.error) {
+              failedCount += 1;
+              if (errors.length < 20) {
+                errors.push(`구독자 등록 실패 (${item.contactName}): ${insRes.error.message || 'DB 오류'}`);
+              }
+            } else {
+              subscriberAddedCount += 1;
+              const saved =
+                (insRes?.data as Record<string, any>) || { ...item.baseSubscriber, ...item.consentFields };
+              if (item.phoneDigits) subByPhone.set(item.phoneDigits, saved);
+              if (item.emailLower) {
+                subByEmail.set(item.emailLower, saved);
+                queuedOptInConfirmations.push({
+                  channel: item.channel,
+                  email: item.emailLower,
+                  brokerSlug: brokerSlug || userId,
+                  subscriberName: item.contactName,
+                  token: item.confirmToken,
+                });
+              }
+            }
+          } catch (err: any) {
+            failedCount += 1;
+            if (errors.length < 20) {
+              errors.push(`구독자 등록 예외 (${item.contactName}): ${err?.message || 'DB 오류'}`);
+            }
+          }
+        })
+      );
+    }
+  }
+
+  if (queuedOptInConfirmations.length > 0) {
+    runAfterResponse('inbox-bulk-optin-confirmations', async () => {
+      for (const chunk of chunkArray(queuedOptInConfirmations, 10)) {
+        await Promise.allSettled(
+          chunk.map((params) =>
+            sendOptInConfirmation(params).catch(() => {
+              // non-blocking (D4 allowlist / dry-run safe)
+            })
+          )
+        );
+      }
+    });
+  }
+
+  if (supabase && isUuid(userId)) {
     try {
       await supabase.from('activity_events').insert({
         actor_id: userId,

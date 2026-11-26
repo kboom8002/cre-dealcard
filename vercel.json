@@ -52,6 +52,21 @@
     "src/app/api/cron/subscription-expiry/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/data-hygiene/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/hold-expiry/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/retention-purge/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/circle-approval-timeout/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/consent-reconfirm-2yr/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/cron/magazine-dispatch-worker/route.ts": {
       "maxDuration": 60
     },
@@ -79,6 +94,10 @@
     {
       "path": "/api/cron/retention-purge",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/data-hygiene",
+      "schedule": "30 18 * * *"
     },
     {
       "path": "/api/cron/circle-approval-timeout",

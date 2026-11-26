@@ -5,7 +5,12 @@ import {
   brokerExtrasFormToInput,
   parseBrokerExtras,
 } from "@/domain/building/mobile-im/broker-extras";
+import {
+  isNonLeasableLeaseRow,
+  resolveLeaseOccupancy,
+} from "@/domain/building/mobile-im/lease-vacancy";
 import { isRealProductionRuntime } from "@/lib/env";
+import { stripHeavyBase64ForDb } from "@/lib/supabase/jsonb-diet";
 import { assertPublishable } from "@/lib/legal/publish-gate";
 import { formatPriceRange } from "@/lib/deal-card/price-band";
 import {
@@ -56,15 +61,19 @@ export function buildSanitizedImPublicSnapshot<T extends Record<string, unknown>
   return stripPrivateImFields(payload, 0) as Record<string, unknown>;
 }
 
-/** NOI 기반 자본환원율(Cap Rate %, 표준 OPEX 10% 차감 / 매매가) */
+/** NOI 기반 자본환원율(Cap Rate %, 표준 OPEX 5% 차감 / 매매가 — extractValuationFacts SSoT 정합) */
 export function computeNoiCapRatePct(
   monthlyRentManwon: number,
   askingPriceManwon: number,
-  opexRate = 0.1
+  opexRate = 0.05
 ): number {
   if (!(askingPriceManwon > 0) || !(monthlyRentManwon > 0)) return 0;
-  const annualNoiManwon = monthlyRentManwon * 12 * Math.max(0, 1 - opexRate);
-  return Number(((annualNoiManwon / askingPriceManwon) * 100).toFixed(2));
+  const annualRentKrw = monthlyRentManwon * 10_000 * 12;
+  const annualOpexKrw = Math.round(annualRentKrw * Math.max(0, opexRate));
+  const annualNoiKrw = Math.max(0, annualRentKrw - annualOpexKrw);
+  const askingPriceKrw = askingPriceManwon * 10_000;
+  if (!(annualNoiKrw > 0) || !(askingPriceKrw > 0)) return 0;
+  return Math.round(((annualNoiKrw / askingPriceKrw) * 100) * 100) / 100;
 }
 
 /** V04 임대수익률(%): 연간 임대료 ÷ (매매가 − 보증금) — extractValuationFacts 실투자금 분모와 동일 */
@@ -79,7 +88,33 @@ export function computeGrossYieldPct(
       ? askingPriceManwon - depositTotalManwon
       : askingPriceManwon;
   if (!(effectiveInvestmentManwon > 0)) return 0;
-  return Number((((monthlyRentManwon * 12) / effectiveInvestmentManwon) * 100).toFixed(2));
+  return Math.round((((monthlyRentManwon * 12) / effectiveInvestmentManwon) * 100) * 100) / 100;
+}
+
+function toLeaseVacancyCandidate(r: Record<string, any>): Record<string, any> {
+  const explicitState =
+    r.lease_state ??
+    r.leaseState ??
+    (r.status === "vacant"
+      ? "공실"
+      : r.status === "owner"
+      ? "자가사용"
+      : r.status === "occupied"
+      ? "임대중"
+      : undefined);
+  const rawEnd = String(r.lease_end ?? r.contract_end ?? r.leaseExpiry ?? r.lease_expiry ?? "").trim();
+  const cleanEnd = rawEnd && rawEnd !== "-" ? rawEnd : undefined;
+  const rawStart = String(r.lease_start ?? r.first_contract_date ?? r.firstContractDate ?? "").trim();
+  const cleanStart = rawStart && rawStart !== "-" ? rawStart : undefined;
+  const contractGroup = String(r.contract_group ?? r.contractGroup ?? "").trim();
+  return {
+    ...r,
+    ...(explicitState ? { lease_state: explicitState } : {}),
+    rent_manwon: r.rent_manwon ?? r.monthly_rent_manwon ?? r.monthlyRentManwon ?? r.rent ?? 0,
+    deposit_manwon: r.deposit_manwon ?? r.depositManwon ?? r.deposit ?? 0,
+    lease_start: cleanStart || (contractGroup ? contractGroup : undefined),
+    lease_end: cleanEnd,
+  };
 }
 
 const strictDbMode = () =>
@@ -88,7 +123,13 @@ const strictDbMode = () =>
 function repoErrorResponse(err: unknown) {
   if (err instanceof WorkspaceRepositoryError) {
     return NextResponse.json(
-      { ok: false, error: err.message, code: err.code },
+      {
+        ok: false,
+        error: err.message,
+        code: err.code,
+        ...(err.status === 409 ? { conflict: true } : {}),
+        ...(typeof err.currentVersion === "number" ? { currentVersion: err.currentVersion } : {}),
+      },
       { status: err.status }
     );
   }
@@ -96,6 +137,20 @@ function repoErrorResponse(err: unknown) {
     { ok: false, error: err instanceof Error ? err.message : "요청 처리에 실패했습니다." },
     { status: 500 }
   );
+}
+
+function sanitizeImItemForActivityMetadata(item: Record<string, any>): Record<string, unknown> {
+  const stripped = stripHeavyBase64ForDb(item) as Record<string, any>;
+  if (Array.isArray(stripped.photos)) {
+    const totalPhotoCount = stripped.photos.length;
+    stripped.photos = stripped.photos.filter(
+      (p: any) => p && typeof p.url === "string" && p.url.trim().length > 0
+    );
+    if (typeof stripped.photoCount !== "number") {
+      stripped.photoCount = totalPhotoCount;
+    }
+  }
+  return stripped;
 }
 
 export async function handlePatchWorkspaceImUpsert(
@@ -146,31 +201,27 @@ export async function handlePatchWorkspaceImUpsert(
   let monthlyRentTotalManwon = 0;
   let totalDepositManwon = 0;
   let vacantCount = 0;
+  let leasableCount = 0;
   for (const r of rawRentRoll) {
-    if (!r) continue;
-    const isVac =
-      r?.status === "vacant" ||
-      r?.is_vacant === true ||
-      r?.lease_state === "공실" ||
-      r?.use === "공실";
-    const isOwn =
-      !isVac &&
-      (r?.status === "owner" ||
-        r?.lease_state === "자가사용" ||
-        r?.use === "자가사용" ||
-        r?.use === "자가");
-    if (isVac) {
+    if (!r || typeof r !== "object") continue;
+    const candidate = toLeaseVacancyCandidate(r);
+    if (isNonLeasableLeaseRow(candidate)) continue;
+    const occupancy = resolveLeaseOccupancy(candidate);
+    if (occupancy === "공실") {
+      leasableCount++;
       vacantCount++;
-    } else if (!isOwn) {
+    } else if (occupancy === "임대중") {
+      leasableCount++;
       totalDepositManwon += Number(r?.depositManwon ?? r?.deposit_manwon ?? 0);
       monthlyRentTotalManwon += Number(r?.monthlyRentManwon ?? r?.rent_manwon ?? 0);
     }
+    // Rule 76: 자가사용('자가사용')은 공실 분모(leasableCount) 및 임대료 합계에서 모두 제외
   }
   totalDepositManwon = Math.round(totalDepositManwon * 10) / 10;
   monthlyRentTotalManwon = Math.round(monthlyRentTotalManwon * 10) / 10;
   const vacancyPct =
-    rawRentRoll.length > 0
-      ? Number(((vacantCount / rawRentRoll.length) * 100).toFixed(1))
+    leasableCount > 0
+      ? Number(((vacantCount / leasableCount) * 100).toFixed(1))
       : 0;
   const askingPriceManwonNum = Number(imItem.askingPriceManwon) || 0;
   const grossYieldPct = computeGrossYieldPct(
@@ -236,7 +287,21 @@ export async function handlePatchWorkspaceImUpsert(
     }
   }
 
-  if (isUuid(buildingId) && uuidOwnerVerified) {
+  const effectiveExpectedVersion =
+    body?.strictVersionCheck !== false &&
+    typeof body?.expectedVersion === "number" &&
+    Number.isFinite(body.expectedVersion) &&
+    body.expectedVersion > 0
+      ? body.expectedVersion
+      : undefined;
+
+  const hasPreflightVersionConflict = Boolean(
+    effectiveExpectedVersion !== undefined &&
+      existingWsItem &&
+      existingWsItem.version !== effectiveExpectedVersion
+  );
+
+  if (isUuid(buildingId) && uuidOwnerVerified && !hasPreflightVersionConflict) {
     try {
       await updateLegacyImDocumentAndBuilding({
         supabase,
@@ -283,6 +348,7 @@ export async function handlePatchWorkspaceImUpsert(
   };
 
   let canonicalId = isUuid(imId) ? imId : buildingId;
+  let savedVersion: number | undefined;
   try {
     const draftPayloadData = { ...nextItem, imId, brokerProfile: brokerProfileMeta || null };
     const verifiedSsotBuildingId =
@@ -310,8 +376,12 @@ export async function handlePatchWorkspaceImUpsert(
       publishedSnapshot: shouldPublishSnapshot
         ? buildSanitizedImPublicSnapshot(draftPayloadData)
         : existingWsItem?.publishedSnapshot ?? null,
+      ...(effectiveExpectedVersion !== undefined
+        ? { expectedVersion: effectiveExpectedVersion }
+        : {}),
     });
     if (wsRes.item?.id) canonicalId = wsRes.item.id;
+    if (typeof wsRes.item?.version === "number") savedVersion = wsRes.item.version;
   } catch (err) {
     return repoErrorResponse(err);
   }
@@ -331,8 +401,8 @@ export async function handlePatchWorkspaceImUpsert(
         im_id: imId,
         status: shouldPublishSnapshot ? "published" : "draft",
         hasUnpublishedEdits: !shouldPublishSnapshot && Boolean(isDraftEdit),
-        im_item: nextItem,
-        broker_profile: brokerProfileMeta,
+        im_item: sanitizeImItemForActivityMetadata(nextItem),
+        broker_profile: brokerProfileMeta ? stripHeavyBase64ForDb(brokerProfileMeta) : brokerProfileMeta,
       },
     });
     if (evRes?.error && strictDbMode()) {
@@ -358,6 +428,7 @@ export async function handlePatchWorkspaceImUpsert(
     buildingId,
     imId,
     persisted: true,
+    ...(typeof savedVersion === "number" ? { version: savedVersion } : {}),
   });
 }
 
@@ -467,8 +538,11 @@ async function updateLegacyImDocumentAndBuilding(params: {
     const normalizedFloorLeases = Array.isArray(imItem.rentRoll)
       ? imItem.rentRoll.map((r: any, idx: number) => {
           const prevFl = prevFloorLeases[idx] || {};
-          const isVac = r?.status === "vacant" || r?.is_vacant === true || r?.lease_state === "공실" || r?.use === "공실";
-          const isOwn = !isVac && (r?.status === "owner" || r?.lease_state === "자가사용" || r?.use === "자가사용" || r?.use === "자가");
+          const mergedCandidate = toLeaseVacancyCandidate({ ...prevFl, ...r });
+          const isNonLeasable = isNonLeasableLeaseRow(mergedCandidate);
+          const occupancy = isNonLeasable ? "자가사용" : resolveLeaseOccupancy(mergedCandidate);
+          const isVac = !isNonLeasable && occupancy === "공실";
+          const isOwn = !isVac && (r?.status === "owner" || r?.lease_state === "자가사용" || r?.use === "자가사용" || r?.use === "자가" || occupancy === "자가사용");
           const depMan = Number(r?.depositManwon ?? r?.deposit_manwon ?? prevFl.deposit_manwon ?? 0);
           const rentMan = Number(r?.monthlyRentManwon ?? r?.rent_manwon ?? prevFl.rent_manwon ?? 0);
           const mgmtMan = Number(r?.maintenanceManwon ?? r?.mgmt_fee_manwon ?? prevFl.mgmt_fee_manwon ?? 0);

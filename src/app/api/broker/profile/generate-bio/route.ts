@@ -15,6 +15,8 @@ import { getModel } from '@/ai/model-selector';
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+export const maxDuration = 60;
+
 
 const GenerateBioRequest = z.object({
   name: z.string().min(1).max(30),
@@ -95,8 +97,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, bio: result.content.trim() });
   } catch (error: unknown) {
     log.error('[profile/generate-bio] Error:', error);
-    const message =
-      error instanceof Error ? error.message : 'AI 자기소개 생성 중 오류가 발생했습니다.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'AI 자기소개 생성 중 오류가 발생했습니다.' },
+      { status: 500 },
+    );
   }
 }

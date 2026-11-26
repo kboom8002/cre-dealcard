@@ -18,6 +18,19 @@ import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("api-magazine-editions-publish");
 
+function isMissingRpcError(err: { code?: unknown; message?: unknown } | null | undefined): boolean {
+  if (!err) return true;
+  const code = String(err.code || "");
+  const msg = String(err.message || "");
+  return (
+    code === "PGRST202" ||
+    code === "42883" ||
+    code === "PGRST205" ||
+    code === "42P01" ||
+    /could not find the function|function .* does not exist/i.test(msg)
+  );
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -271,66 +284,122 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     if (!alreadyPublished) editionUpdate.published_at = nowIso;
 
-    let { data: updated, error: upErr } = await supabase
-      .from("magazine_editions")
-      .update(editionUpdate)
-      .eq("id", edition.id)
-      .in("broker_id", ctx.brokerKeys)
-      .select()
-      .maybeSingle();
-    if (
-      upErr &&
-      ((upErr as { code?: string }).code === "42703" || (upErr as { code?: string }).code === "PGRST204") &&
-      "broker_user_id" in editionUpdate
-    ) {
-      const { broker_user_id: _omitted, ...fallbackEditionUpdate } = editionUpdate;
-      const retryRes = await supabase
+    const resolvedTitle =
+      typeof editionUpdate.title === "string"
+        ? editionUpdate.title
+        : typeof edition.title === "string"
+        ? edition.title
+        : typeof content.headline === "string"
+        ? content.headline
+        : "";
+    const resolvedSubtitle =
+      typeof content.subheadline === "string"
+        ? content.subheadline
+        : typeof edition.edition_label === "string"
+        ? edition.edition_label
+        : null;
+    const resolvedSummary =
+      typeof content.briefing === "string"
+        ? content.briefing
+        : typeof content.lead === "string"
+        ? content.lead
+        : null;
+
+    let updated: Record<string, unknown> | null = null;
+    let handledViaRpc = false;
+
+    if (typeof (supabase as { rpc?: unknown }).rpc === "function") {
+      const rpcRes = await supabase.rpc("rpc_publish_magazine_edition", {
+        p_edition_id: edition.id,
+        p_broker_id: ctx.slug,
+        p_broker_user_id: isUuid(ctx.userId) ? ctx.userId : null,
+        p_issue_date: issueDate,
+        p_title: resolvedTitle,
+        p_subtitle: resolvedSubtitle,
+        p_summary: resolvedSummary,
+        p_blocks: content,
+        p_published_at: resolvedPublishedAt,
+        p_edition_patch: Object.keys(payloadColumns).length > 0 ? payloadColumns : null,
+      });
+
+      if (rpcRes && !rpcRes.error && rpcRes.data && typeof rpcRes.data === "object") {
+        const rpcObj = rpcRes.data as Record<string, unknown>;
+        if (rpcObj.ok === true) {
+          updated =
+            rpcObj.edition && typeof rpcObj.edition === "object"
+              ? (rpcObj.edition as Record<string, unknown>)
+              : rpcObj;
+          handledViaRpc = true;
+        }
+      } else if (rpcRes?.error && !isMissingRpcError(rpcRes.error)) {
+        log.error("[publish] rpc_publish_magazine_edition failed", rpcRes.error.message);
+        return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
+      }
+    }
+
+    if (!handledViaRpc) {
+      let { data: seqUpdated, error: upErr } = await supabase
         .from("magazine_editions")
-        .update(fallbackEditionUpdate)
+        .update(editionUpdate)
         .eq("id", edition.id)
         .in("broker_id", ctx.brokerKeys)
         .select()
         .maybeSingle();
-      updated = retryRes.data;
-      upErr = retryRes.error;
-    }
-    if (upErr || !updated) {
-      log.error("[publish] edition update failed", upErr?.message ?? "no row");
-      return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
-    }
+      if (
+        upErr &&
+        ((upErr as { code?: string }).code === "42703" || (upErr as { code?: string }).code === "PGRST204") &&
+        "broker_user_id" in editionUpdate
+      ) {
+        const { broker_user_id: _omitted, ...fallbackEditionUpdate } = editionUpdate;
+        const retryRes = await supabase
+          .from("magazine_editions")
+          .update(fallbackEditionUpdate)
+          .eq("id", edition.id)
+          .in("broker_id", ctx.brokerKeys)
+          .select()
+          .maybeSingle();
+        seqUpdated = retryRes.data;
+        upErr = retryRes.error;
+      }
+      if (upErr || !seqUpdated) {
+        log.error("[publish] edition update failed", upErr?.message ?? "no row");
+        return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
+      }
+      updated = seqUpdated as Record<string, unknown>;
 
-    let { error: issueErr } = await supabase
-      .from("magazine_issues")
-      .upsert(
-        { broker_id: ctx.slug, issue_date: issueDate, content, updated_at: nowIso },
-        { onConflict: "broker_id,issue_date" },
-      );
-    if (
-      issueErr &&
-      ((issueErr as { code?: string }).code === "42703" || (issueErr as { code?: string }).code === "PGRST204")
-    ) {
-      const retryIssue = await supabase
+      let { error: issueErr } = await supabase
         .from("magazine_issues")
-        .upsert({ broker_id: ctx.slug, issue_date: issueDate, content }, { onConflict: "broker_id,issue_date" });
-      issueErr = retryIssue.error;
-    }
-    if (issueErr) {
-      log.error("[publish] magazine_issues upsert failed", issueErr.message);
-      // 되돌리기: 공개되지 않은 채 '발행됨'으로 남지 않게 한다
-      const revert: Record<string, unknown> = {
-        status: edition.status ?? "draft",
-        published_at: edition.published_at,
-        content: edition.content,
-        updated_at: new Date().toISOString(),
-      };
-      for (const key of Object.keys(payloadColumns)) revert[key] = edition[key] ?? null;
-      const { error: revertErr } = await supabase
-        .from("magazine_editions")
-        .update(revert)
-        .eq("id", edition.id)
-        .in("broker_id", ctx.brokerKeys);
-      if (revertErr) log.error("[publish] revert failed", revertErr.message);
-      return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
+        .upsert(
+          { broker_id: ctx.slug, issue_date: issueDate, content, updated_at: nowIso },
+          { onConflict: "broker_id,issue_date" },
+        );
+      if (
+        issueErr &&
+        ((issueErr as { code?: string }).code === "42703" || (issueErr as { code?: string }).code === "PGRST204")
+      ) {
+        const retryIssue = await supabase
+          .from("magazine_issues")
+          .upsert({ broker_id: ctx.slug, issue_date: issueDate, content }, { onConflict: "broker_id,issue_date" });
+        issueErr = retryIssue.error;
+      }
+      if (issueErr) {
+        log.error("[publish] magazine_issues upsert failed", issueErr.message);
+        // 되돌리기: 공개되지 않은 채 '발행됨'으로 남지 않게 한다
+        const revert: Record<string, unknown> = {
+          status: edition.status ?? "draft",
+          published_at: edition.published_at,
+          content: edition.content,
+          updated_at: new Date().toISOString(),
+        };
+        for (const key of Object.keys(payloadColumns)) revert[key] = edition[key] ?? null;
+        const { error: revertErr } = await supabase
+          .from("magazine_editions")
+          .update(revert)
+          .eq("id", edition.id)
+          .in("broker_id", ctx.brokerKeys);
+        if (revertErr) log.error("[publish] revert failed", revertErr.message);
+        return jsonError("PUBLISH_FAILED", "발행 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", 500);
+      }
     }
 
     if (!correction) {

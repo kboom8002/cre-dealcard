@@ -3,7 +3,8 @@
  * POST /api/broker/circles/[id]/match — 수동 전체 재매칭 실행
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { CircleAccessError } from "@/domain/team/circle-service";
 import { getCircleMatches, runFullCircleMatch } from "@/domain/team/circle-matching-service";
 
 export async function GET(
@@ -11,12 +12,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
   try {
     const gradesParam = req.nextUrl.searchParams.get("grades");
@@ -27,11 +26,15 @@ export async function GET(
     const matches = await getCircleMatches(id, user.id, {
       gradeFilter,
       onlyMine,
+      isAdmin,
     });
 
     return NextResponse.json({ matches });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    return NextResponse.json({ error: "매칭 결과 조회에 실패했습니다." }, { status: 500 });
   }
 }
 
@@ -40,26 +43,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '').trim();
-  let user: any = null;
-  if (process.env.NODE_ENV === 'test' && (token === 'dummy-token' || token === 'test-token' || token.startsWith('mock-') || token.startsWith('test-'))) {
-    user = { id: '00000000-0000-0000-0000-000000000001' };
-  } else {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user: u } } = await supabase.auth.getUser();
-    user = u;
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
   try {
-    const res = await runFullCircleMatch(id);
+    const res = await runFullCircleMatch(id, user.id, { isAdmin });
     return NextResponse.json({ ok: true, summary: res, matches: [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ ok: false, error: err.message }, { status: err.status });
+    }
     console.error(`[circle/match] Match failed for ${id}:`, err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "매칭 실행에 실패했습니다." }, { status: 500 });
   }
 }

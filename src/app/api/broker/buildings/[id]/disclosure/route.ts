@@ -10,6 +10,48 @@ import { z } from 'zod';
 import { requireBroker } from '@/lib/auth-guard';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
+const KNOWN_EVIDENCE_CATEGORIES = new Set([
+  'building_register',
+  'registry_docs',
+  'land_use_plan',
+  'rent_roll',
+  'photos',
+  'floor_plan',
+  'repair_history',
+  'vacancy_docs',
+  'asking_price',
+  'disclosure_policy',
+  'other',
+]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractEvidenceCategory(row: Record<string, any> | null | undefined): string | null {
+  if (!row || typeof row !== 'object') return null;
+  if (typeof row.layer_category === 'string' && row.layer_category.trim()) {
+    return row.layer_category.trim();
+  }
+  if (typeof row.file_type === 'string' && row.file_type.trim()) {
+    const raw = row.file_type.trim();
+    if (raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.layer_category === 'string' && parsed.layer_category.trim()) {
+          return parsed.layer_category.trim();
+        }
+      } catch {
+        // ignore malformed json
+      }
+    }
+    if (KNOWN_EVIDENCE_CATEGORIES.has(raw)) return raw;
+  }
+  if (typeof row.storage_path === 'string') {
+    for (const seg of row.storage_path.split('/').filter(Boolean)) {
+      if (KNOWN_EVIDENCE_CATEGORIES.has(seg)) return seg;
+    }
+  }
+  return null;
+}
+
 const postSchema = z.object({
   blind_teaser: z.boolean().optional(),
   disclosurePrefs: z.object({
@@ -63,13 +105,21 @@ export async function POST(
     return NextResponse.json({ error: '잘못된 요청 형식입니다' }, { status: 400 });
   }
 
+  const existingLayers = (
+    building.layers && typeof building.layers === 'object' ? building.layers : {}
+  ) as Record<string, any>;
+  const existingDisclosurePrefs = existingLayers.disclosure_prefs ?? building.disclosure_prefs;
+  const existingLeaseSummary = existingLayers.lease_summary ?? building.lease_summary;
+  const existingFloorPlanUrl = existingLayers.floor_plan_url ?? building.floor_plan_url;
+  const existingRepairHistory = existingLayers.repair_history ?? building.repair_history;
+
   const prefs = body.disclosurePrefs;
   const blindTeaserEnabled =
     prefs.blind_teaser !== undefined
       ? Boolean(prefs.blind_teaser)
       : body.blind_teaser !== undefined
       ? Boolean(body.blind_teaser)
-      : Boolean(building?.disclosure_prefs?.blind_teaser);
+      : Boolean(existingDisclosurePrefs?.blind_teaser);
 
   // Update building_ssot_lite with new prefs (blind_teaser forces server-side PII/address/rent redaction)
   const updatedPrefs = {
@@ -89,19 +139,21 @@ export async function POST(
     hide_unit_rent: blindTeaserEnabled ? true : !!prefs.hide_unit_rent,
   };
 
-  // Re-fetch evidence files to compute completeness score
+  // Re-fetch evidence files using real schema columns to compute completeness score
   const { data: files } = await supabase
     .from('evidence_files')
-    .select('layer_category')
+    .select('id, file_type, storage_path')
     .eq('building_id', id);
 
-  const uploadedCategories = files?.map((f: any) => f.layer_category) || [];
-  
-  const rentRollChecked = uploadedCategories.includes('rent_roll') || 
-    (building.lease_summary && Object.keys(building.lease_summary).length > 0 && Array.isArray((building.lease_summary as any).tenants) && (building.lease_summary as any).tenants.length > 0);
-  const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!building.floor_plan_url;
-  const repairHistoryChecked = uploadedCategories.includes('repair_history') || 
-    (building.repair_history && Object.keys(building.repair_history).length > 0);
+  const uploadedCategories = (files || [])
+    .map((f: any) => extractEvidenceCategory(f))
+    .filter((c): c is string => Boolean(c));
+
+  const rentRollChecked = uploadedCategories.includes('rent_roll') ||
+    (existingLeaseSummary && Object.keys(existingLeaseSummary).length > 0 && Array.isArray((existingLeaseSummary as any).tenants) && (existingLeaseSummary as any).tenants.length > 0);
+  const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!existingFloorPlanUrl;
+  const repairHistoryChecked = uploadedCategories.includes('repair_history') ||
+    (existingRepairHistory && Object.keys(existingRepairHistory).length > 0);
 
   // Since we are setting disclosure preferences, disclosurePolicy is now checked!
   const checklist = {
@@ -119,12 +171,18 @@ export async function POST(
 
   const computedScores = computeLayerScore(checklist);
 
+  const updatedLayers = {
+    ...existingLayers,
+    disclosure_prefs: updatedPrefs,
+    completeness_score: computedScores.total,
+    layer_scores: computedScores,
+  };
+
   const { error: updateErr } = await supabase
     .from('building_ssot_lite')
     .update({
-      disclosure_prefs: updatedPrefs as any,
-      completeness_score: computedScores.total,
-      layer_scores: computedScores as any,
+      layers: updatedLayers,
+      updated_at: new Date().toISOString(),
     })
     .eq('id', id);
 

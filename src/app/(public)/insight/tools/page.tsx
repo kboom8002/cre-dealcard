@@ -50,11 +50,11 @@ export default function InteractiveCurationToolsPage() {
             <h1 className="text-base font-extrabold text-white flex items-center gap-2">
               🛠️ CRE 빌딩 투자 도구 & 큐레이션
             </h1>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-sm text-slate-400">
               세금 시뮬레이터 · 실사 DD 체크리스트 · Agora 세무 팁
             </p>
           </div>
-          <Link href="/insight" className="text-xs text-slate-400 hover:text-white">← Insight</Link>
+          <Link href="/insight" className="text-sm text-slate-400 hover:text-white">← Insight</Link>
         </div>
       </header>
 
@@ -69,7 +69,7 @@ export default function InteractiveCurationToolsPage() {
 
           <div className="space-y-3">
             <div>
-              <label className="flex justify-between text-[10px] text-slate-400 mb-1">
+              <label className="flex justify-between text-sm text-slate-400 mb-1">
                 <span>예상 매입 가격</span>
                 <span className="text-indigo-400 font-bold">{purchasePrice} 억원</span>
               </label>
@@ -85,7 +85,7 @@ export default function InteractiveCurationToolsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="flex justify-between text-[10px] text-slate-400 mb-1">
+                <label className="flex justify-between text-sm text-slate-400 mb-1">
                   <span>연 임대수익률</span>
                   <span className="text-emerald-400 font-bold">{annualRentIncome} %</span>
                 </label>
@@ -94,12 +94,12 @@ export default function InteractiveCurationToolsPage() {
                   step="0.1"
                   value={annualRentIncome}
                   onChange={(e) => setAnnualRentIncome(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                 />
               </div>
 
               <div>
-                <label className="flex justify-between text-[10px] text-slate-400 mb-1">
+                <label className="flex justify-between text-sm text-slate-400 mb-1">
                   <span>보유 기간</span>
                   <span className="text-amber-400 font-bold">{holdingPeriod} 년</span>
                 </label>
@@ -107,26 +107,26 @@ export default function InteractiveCurationToolsPage() {
                   type="number"
                   value={holdingPeriod}
                   onChange={(e) => setHoldingPeriod(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"
                 />
               </div>
             </div>
           </div>
 
           <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-4 space-y-2">
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-sm">
               <span className="text-slate-400">취득세 (지방교육세/농특세 포함 4.6%)</span>
               <span className="font-bold text-white">{acquisitionTax.toFixed(2)} 억원</span>
             </div>
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-sm">
               <span className="text-slate-400">보유기 기간 총 임대수익 (세전)</span>
               <span className="font-bold text-emerald-400">{(annualYield * holdingPeriod).toFixed(2)} 억원</span>
             </div>
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-sm">
               <span className="text-slate-400">매각 시 예상 법인세/양도세 (추정)</span>
               <span className="font-bold text-amber-400">{capitalGainsTax.toFixed(2)} 억원</span>
             </div>
-            <div className="pt-2 border-t border-slate-800 flex justify-between text-xs font-bold">
+            <div className="pt-2 border-t border-slate-800 flex justify-between text-sm font-bold">
               <span className="text-white">실제 소요 자기자본 (세금포함 에쿼티)</span>
               <span className="text-indigo-400">{(purchasePrice * 0.4 + acquisitionTax).toFixed(2)} 억원 (LTV 60% 가정)</span>
             </div>
@@ -140,7 +140,7 @@ export default function InteractiveCurationToolsPage() {
               <span className="text-lg">📋</span>
               <h2 className="text-sm font-bold text-white">건물 매수 실사 DD 체크리스트 (C4)</h2>
             </div>
-            <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded">
+            <span className="text-sm font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded">
               진행률 {ddProgress}%
             </span>
           </div>
@@ -156,21 +156,29 @@ export default function InteractiveCurationToolsPage() {
             ].map((item) => (
               <div
                 key={item.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => toggleCheck(item.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleCheck(item.id);
+                  }
+                }}
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   checkedItems[item.id]
                     ? "bg-indigo-950/20 border-indigo-500/30"
                     : "bg-slate-950 border-slate-800/80 hover:border-slate-700"
                 }`}
               >
-                <div className={`w-4 h-4 rounded border mt-0.5 flex items-center justify-center text-[10px] ${
+                <div className={`w-4 h-4 rounded border mt-0.5 flex items-center justify-center text-sm ${
                   checkedItems[item.id] ? "bg-indigo-500 border-indigo-500 text-white" : "border-slate-600"
                 }`}>
                   {checkedItems[item.id] && "✓"}
                 </div>
                 <div className="flex-1">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{item.category}</span>
-                  <p className="text-xs text-slate-300 mt-0.5">{item.label}</p>
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">{item.category}</span>
+                  <p className="text-sm text-slate-300 mt-0.5">{item.label}</p>
                 </div>
               </div>
             ))}
@@ -191,8 +199,8 @@ export default function InteractiveCurationToolsPage() {
               { title: "밸류애드(리모델링) 공사비 취득세 과세표준 포함 기준", views: 1560, likes: 112, date: "2주 전" },
             ].map((tip, idx) => (
               <div key={idx} className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 hover:border-indigo-500/20 transition-all cursor-pointer">
-                <p className="text-xs font-semibold text-white">{tip.title}</p>
-                <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-2">
+                <p className="text-sm font-semibold text-white">{tip.title}</p>
+                <div className="flex items-center gap-3 text-sm text-slate-500 mt-2">
                   <span>👁️ {tip.views}</span>
                   <span>❤️ {tip.likes}</span>
                   <span>{tip.date}</span>
@@ -209,7 +217,7 @@ export default function InteractiveCurationToolsPage() {
             <h2 className="text-sm font-bold text-white">AI 추천 밸류애드 유망 권역 분석 (C1)</h2>
           </div>
 
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="text-sm text-slate-400 leading-relaxed">
             최근 3개월간 지자체 인허가 대장 및 국토부 용도변경 이력 데이터 수집 결과, <strong>성수동 2가 지식산업센터 인근</strong>과 <strong>용산 한강로 권역</strong>의 2종일반주거지역 필지의 근린생활시설 용도변경 건수가 전년 대비 180% 폭증했습니다. 이 지역의 단독주택을 인수한 후 근생으로 신축/리모델링 시 가장 높은 Cap Rate 마진 확보가 가능할 것으로 분석됩니다.
           </p>
         </section>

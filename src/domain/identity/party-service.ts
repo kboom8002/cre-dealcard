@@ -13,6 +13,18 @@ import { RETENTION } from '../distribution/types';
 const log = createModuleLogger('party-service');
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
+export interface IdentityOwnerScope {
+  ownerBrokerId?: string;
+  isAdmin?: boolean;
+}
+
+export class IdentityForbiddenError extends Error {
+  constructor(message = '해당 당사자 정보에 대한 권한이 없습니다.') {
+    super(message);
+    this.name = 'IdentityForbiddenError';
+  }
+}
+
 export interface CreatePartyInput {
   tenantId: string;
   ownerBrokerId: string;
@@ -26,17 +38,29 @@ export interface CreatePartyInput {
 /**
  * Party를 생성하거나, 같은 tenant+phone의 기존 Party를 반환합니다.
  */
-export async function findOrCreateParty(input: CreatePartyInput): Promise<Party> {
+export async function findOrCreateParty(
+  input: CreatePartyInput,
+  scope?: IdentityOwnerScope,
+): Promise<Party> {
   const supabase = createServiceClient();
   const phoneE164 = toE164(input.phone);
+  const enforceScope = Boolean(scope && !scope.isAdmin && scope.ownerBrokerId);
+  const effectiveOwnerBrokerId =
+    enforceScope && scope?.ownerBrokerId ? scope.ownerBrokerId : input.ownerBrokerId;
+  const effectiveTenantId = input.tenantId || effectiveOwnerBrokerId;
 
   // 기존 Party 조회
-  const { data: existing } = await supabase
+  let existingQuery = supabase
     .from('party')
     .select()
-    .eq('tenant_id', input.tenantId)
-    .eq('phone_e164', phoneE164)
-    .single();
+    .eq('tenant_id', effectiveTenantId)
+    .eq('phone_e164', phoneE164);
+
+  if (enforceScope && scope?.ownerBrokerId) {
+    existingQuery = existingQuery.eq('owner_broker_id', scope.ownerBrokerId);
+  }
+
+  const { data: existing } = await existingQuery.single();
 
   if (existing) return mapParty(existing);
 
@@ -48,8 +72,8 @@ export async function findOrCreateParty(input: CreatePartyInput): Promise<Party>
   const { data, error } = await supabase
     .from('party')
     .insert({
-      tenant_id: input.tenantId,
-      owner_broker_id: input.ownerBrokerId,
+      tenant_id: effectiveTenantId,
+      owner_broker_id: effectiveOwnerBrokerId,
       name: input.name,
       phone_e164: phoneE164,
       email: input.email,
@@ -69,34 +93,52 @@ export async function findOrCreateParty(input: CreatePartyInput): Promise<Party>
  * 매수자 삭제 요청 — 즉시 처리 (§9)
  * party·condition 즉시 파기, 매칭 집계에서도 제거.
  */
-export async function deleteParty(partyId: string): Promise<void> {
+export async function deleteParty(
+  partyId: string,
+  scope?: IdentityOwnerScope,
+): Promise<void> {
   const supabase = createServiceClient();
+  const enforceScope = Boolean(scope && !scope.isAdmin && scope.ownerBrokerId);
 
   let existingTenantId: string | null = null;
   let existingBrokerId: string | null = null;
-  if (isUuid(partyId)) {
+  if (isUuid(partyId) || enforceScope) {
     try {
       const { data: existingRow } = await supabase
         .from('party')
         .select('id, tenant_id, owner_broker_id')
         .eq('id', partyId)
         .maybeSingle();
+      if (
+        enforceScope &&
+        existingRow?.owner_broker_id &&
+        String(existingRow.owner_broker_id) !== scope!.ownerBrokerId
+      ) {
+        throw new IdentityForbiddenError('해당 당사자 정보에 대한 삭제 권한이 없습니다.');
+      }
       if (existingRow?.tenant_id && isUuid(String(existingRow.tenant_id))) {
         existingTenantId = String(existingRow.tenant_id);
       }
       if (existingRow?.owner_broker_id && isUuid(String(existingRow.owner_broker_id))) {
         existingBrokerId = String(existingRow.owner_broker_id);
       }
-    } catch {
+    } catch (preReadErr) {
+      if (preReadErr instanceof IdentityForbiddenError) {
+        throw preReadErr;
+      }
       // Non-blocking pre-read before deletion
     }
   }
 
   // buyer_condition은 ON DELETE CASCADE로 자동 삭제
-  const { error } = await supabase
+  let deleteQuery = supabase
     .from('party')
     .delete()
     .eq('id', partyId);
+  if (enforceScope && scope?.ownerBrokerId) {
+    deleteQuery = deleteQuery.eq('owner_broker_id', scope.ownerBrokerId);
+  }
+  const { error } = await deleteQuery;
 
   if (error) throw new Error(`Party deletion failed: ${error.message}`);
 
@@ -154,8 +196,44 @@ export async function deleteParty(partyId: string): Promise<void> {
 export async function bindRecipientToParty(
   recipientId: string,
   partyId: string,
+  scope?: IdentityOwnerScope,
 ): Promise<void> {
   const supabase = createServiceClient();
+  const enforceScope = Boolean(scope && !scope.isAdmin && scope.ownerBrokerId);
+
+  if (enforceScope && scope?.ownerBrokerId) {
+    const { data: ownedParty } = await supabase
+      .from('party')
+      .select('id')
+      .eq('id', partyId)
+      .eq('owner_broker_id', scope.ownerBrokerId)
+      .maybeSingle();
+
+    if (!ownedParty) {
+      throw new IdentityForbiddenError('해당 당사자(party)에 대한 권한이 없습니다.');
+    }
+
+    const { data: recipientRow } = await supabase
+      .from('recipient')
+      .select('id, broker_id')
+      .eq('id', recipientId)
+      .maybeSingle();
+
+    const recipientOwner =
+      (recipientRow as Record<string, unknown> | null)?.broker_id ??
+      (recipientRow as Record<string, unknown> | null)?.owner_broker_id;
+
+    if (!recipientRow || (recipientOwner && String(recipientOwner) !== scope.ownerBrokerId)) {
+      throw new IdentityForbiddenError('해당 수신자(recipient)에 대한 권한이 없습니다.');
+    }
+
+    await supabase
+      .from('recipient')
+      .update({ party_id: partyId })
+      .eq('id', recipientId)
+      .eq('broker_id', scope.ownerBrokerId);
+    return;
+  }
 
   await supabase
     .from('recipient')

@@ -240,10 +240,15 @@ export async function sweepStaleJobs(
   const nowIso = new Date().toISOString();
 
   // Find active jobs where heartbeat_at is older than threshold OR deadline_at < now
-  const { data: staleJobs, error } = await supabase
+  const activeJobsQuery = supabase
     .from('im_generation_jobs')
-    .select('id, status, attempt, max_attempts, heartbeat_at, deadline_at')
+    .select('id, status, attempt, max_attempts, heartbeat_at, started_at, deadline_at')
     .in('status', ['running', 'processing']);
+
+  const { data: staleJobs, error } = await (typeof (activeJobsQuery as { limit?: unknown }).limit ===
+  'function'
+    ? activeJobsQuery.limit(200)
+    : activeJobsQuery);
 
   if (error || !staleJobs || staleJobs.length === 0) {
     return { sweptCount: 0, timedOutJobIds: [] };
@@ -252,8 +257,10 @@ export async function sweepStaleJobs(
   const timedOutJobIds: string[] = [];
 
   for (const job of staleJobs) {
-    const isHeartbeatStale = job.heartbeat_at && job.heartbeat_at < thresholdIso;
-    const isDeadlinePassed = job.deadline_at && job.deadline_at < nowIso;
+    const heartbeatRef =
+      job.heartbeat_at || (job as { started_at?: string | null }).started_at || null;
+    const isHeartbeatStale = Boolean(heartbeatRef && heartbeatRef < thresholdIso);
+    const isDeadlinePassed = Boolean(job.deadline_at && job.deadline_at < nowIso);
 
     if (isHeartbeatStale || isDeadlinePassed) {
       timedOutJobIds.push(job.id);
@@ -261,7 +268,7 @@ export async function sweepStaleJobs(
 
       if (canRetry) {
         log.warn(`[JobsV2] Sweeping stale job ${job.id}: retrying (attempt ${job.attempt + 1})`);
-        await supabase
+        const retryUpdate = supabase
           .from('im_generation_jobs')
           .update({
             status: 'queued',
@@ -269,9 +276,12 @@ export async function sweepStaleJobs(
             heartbeat_at: nowIso,
           })
           .eq('id', job.id);
+        await (typeof (retryUpdate as { in?: unknown }).in === 'function'
+          ? retryUpdate.in('status', ['running', 'processing'])
+          : retryUpdate);
       } else {
         log.warn(`[JobsV2] Sweeping stale job ${job.id}: marking timed_out`);
-        await supabase
+        const timeoutUpdate = supabase
           .from('im_generation_jobs')
           .update({
             status: 'timed_out',
@@ -280,6 +290,9 @@ export async function sweepStaleJobs(
             completed_at: nowIso,
           })
           .eq('id', job.id);
+        await (typeof (timeoutUpdate as { in?: unknown }).in === 'function'
+          ? timeoutUpdate.in('status', ['running', 'processing'])
+          : timeoutUpdate);
       }
     }
   }

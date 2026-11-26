@@ -113,9 +113,17 @@ export function bindProImChapterData(
     annualRentKrw > 0 && Number.isFinite(askingPriceKrw) && askingPriceKrw > 0 && v04Denominator > 0
       ? Number(((annualRentKrw / v04Denominator) * 100).toFixed(2))
       : 0;
+  const rawBase =
+    typeof doc.body?.cap_rate_base === 'string'
+      ? Number(doc.body.cap_rate_base.replace(/%/g, '').trim())
+      : Number(doc.body?.cap_rate_base);
+  const normalizedCapBase =
+    Number.isFinite(rawBase) && rawBase > 0
+      ? (rawBase > 0 && rawBase < 0.5 ? Number((rawBase * 100).toFixed(2)) : rawBase)
+      : 0;
   const docCapRate = Number(
     doc.body?.cap_rate_percent ||
-    (doc.body?.cap_rate_base ? Number(doc.body.cap_rate_base) * 100 : 0) ||
+    normalizedCapBase ||
     (doc.body?.ssot_summary?.cap_rate ? Number(doc.body.ssot_summary.cap_rate) : 0) ||
     0
   );
@@ -236,6 +244,55 @@ export function bindProImChapterData(
 
   const waleRes = calculateProWALE(rawLeases);
   const waleYears = waleRes.waleByRentYears || 0;
+
+  // Stabilized Cap Rate SSoT: 명시적 안정화 수익률 또는 실제 공실(vacancy > 0) 잠재 임대수익만 반영 (+0.5%p 임의 가산 금지)
+  const normalizePctInput = (val: unknown): number => {
+    const num = typeof val === 'string' ? Number(val.replace(/%/g, '').trim()) : Number(val);
+    if (!Number.isFinite(num) || num <= 0) return 0;
+    return num > 0 && num < 0.5 ? Number((num * 100).toFixed(2)) : Number(num.toFixed(2));
+  };
+  const claimProForma = Array.isArray(doc.body?.claims)
+    ? doc.body.claims.find((c: any) => c?.subject === 'pro_forma_cap_rate')?.value
+    : undefined;
+  const explicitStabilizedPct = normalizePctInput(
+    doc.body?.cap_rate_stabilized ??
+    doc.body?.capRateStabilized ??
+    doc.body?.pro_forma_cap_rate ??
+    doc.body?.stabilized_cap_rate ??
+    doc.body?.ssot_summary?.cap_rate_stabilized ??
+    doc.body?.ssot_summary?.pro_forma_cap_rate ??
+    claimProForma
+  );
+  let realVacancyPct = Number(doc.body?.vacancy_pct ?? doc.body?.ssot_summary?.vacancy_pct ?? 0);
+  if (!(Number.isFinite(realVacancyPct) && realVacancyPct > 0) && rawLeases.length > 0) {
+    const leasableRows = rawLeases.filter((t) => t.occupancyType !== 'owner_occupied');
+    const vacantRows = leasableRows.filter((t) => t.occupancyType === 'vacant');
+    if (vacantRows.length > 0 && leasableRows.length > 0) {
+      const totalArea = leasableRows.reduce((s, t) => s + (t.leasedAreaM2 || 0), 0);
+      const vacantArea = vacantRows.reduce((s, t) => s + (t.leasedAreaM2 || 0), 0);
+      realVacancyPct = totalArea > 0
+        ? (vacantArea / totalArea) * 100
+        : (vacantRows.length / leasableRows.length) * 100;
+    }
+  }
+  const explicitVacantAnnualKrw = Number(
+    doc.body?.vacant_annual_rent_potential_krw ||
+    (doc.body?.vacant_monthly_rent_potential_krw ? Number(doc.body.vacant_monthly_rent_potential_krw) * 12 : 0) ||
+    0
+  );
+  let vacancyStabilizedPct = 0;
+  if (explicitVacantAnnualKrw > 0 && v04Denominator > 0) {
+    vacancyStabilizedPct = Number((((annualRentKrw + explicitVacantAnnualKrw) / v04Denominator) * 100).toFixed(2));
+  } else if (Number.isFinite(realVacancyPct) && realVacancyPct > 0 && realVacancyPct < 100 && capRatePct > 0) {
+    vacancyStabilizedPct = Number((capRatePct / (1 - realVacancyPct / 100)).toFixed(2));
+  }
+  const resolvedStabilizedCapRate =
+    explicitStabilizedPct > 0
+      ? explicitStabilizedPct
+      : vacancyStabilizedPct > 0
+      ? vacancyStabilizedPct
+      : Number(capRatePct.toFixed(2));
+  const hasRealStabilizedUpside = resolvedStabilizedCapRate > Number(capRatePct.toFixed(2));
 
   // ── 3. Quantitative Financial Engine Execution ──
   const dcfModel = generateMultiYearCashFlow({
@@ -446,9 +503,11 @@ export function bindProImChapterData(
       askingPrice: askingPriceKrw, // Raw WON (KRW)
       totalDeposit: totalDepositKrw, // Raw WON (KRW)
       capRateAsIs: capRatePct,
-      capRateStabilized: Number((capRatePct + 0.5).toFixed(2)),
-      stabilizedAssumption: '공실 해소 및 인근 시세 수준 정상화 임대 가정',
-      leadSentence: `현재 연간 총 임대수입은 약 ${(Math.round(annualRentKrw / 100000000)).toLocaleString()}억 원 규모이며, 안정화 Cap Rate는 ${(capRatePct + 0.5).toFixed(2)}%로 추정됩니다.`,
+      capRateStabilized: resolvedStabilizedCapRate,
+      stabilizedAssumption: hasRealStabilizedUpside ? '공실 해소 및 인근 시세 수준 정상화 임대 가정' : undefined,
+      leadSentence: hasRealStabilizedUpside
+        ? `현재 연간 총 임대수입은 약 ${(Math.round(annualRentKrw / 100000000)).toLocaleString()}억 원 규모이며, 공실 해소 기준 안정화 Cap Rate는 ${resolvedStabilizedCapRate.toFixed(2)}%로 추정됩니다.`
+        : `현재 연간 총 임대수입은 약 ${(Math.round(annualRentKrw / 100000000)).toLocaleString()}억 원 규모이며, 기준 Cap Rate는 ${capRatePct.toFixed(2)}%입니다.`,
       _derived: true,
     };
   }
@@ -598,7 +657,7 @@ export function bindProImChapterData(
       askingPrice: askingPriceKrw, // Raw WON (KRW)
       totalDeposit: totalDepositKrw, // Raw WON (KRW)
       capRateAsIs: capRatePct,
-      capRateStabilized: Number((capRatePct + 0.5).toFixed(2)),
+      capRateStabilized: resolvedStabilizedCapRate,
       leadSentence: `10년 보유 후 처분 시점의 예상 매각가치는 약 ${(Math.round(dcfModel.exitAssumptions.grossSalePrice / 100000000)).toLocaleString()}억 원(Exit Cap ${dcfModel.exitAssumptions.exitCapRatePct}%)으로 산정됩니다.`,
       _derived: true,
     };

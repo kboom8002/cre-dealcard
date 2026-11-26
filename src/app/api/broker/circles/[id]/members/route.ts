@@ -3,26 +3,28 @@
  * DELETE /api/broker/circles/[id]/members — 서클 멤버 강퇴/제거
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { inviteMember, removeMember } from "@/domain/team/circle-service";
+import { requireBroker } from "@/lib/auth-guard";
+import {
+  inviteMember,
+  removeMember,
+  CircleAccessError,
+} from "@/domain/team/circle-service";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
   try {
     const body = await req.json();
     const { identifier } = body;
 
-    if (!identifier) {
+    if (!identifier || typeof identifier !== "string") {
       return NextResponse.json({ error: "초대할 대상을 입력하세요." }, { status: 400 });
     }
 
@@ -30,6 +32,7 @@ export async function POST(
       circleId: id,
       inviterBrokerId: user.id,
       inviteeIdentifier: identifier,
+      isAdmin,
     });
 
     if (res.status === "not_found") {
@@ -41,7 +44,10 @@ export async function POST(
     }
 
     return NextResponse.json({ ok: true, status: res.status });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error('[circles] Error:', err);
     return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
@@ -52,18 +58,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const body = await req.json();
     const { targetId } = body;
 
-    if (!targetId) {
+    if (!targetId || typeof targetId !== "string") {
       return NextResponse.json({ error: "대상 ID가 필요합니다." }, { status: 400 });
     }
 
@@ -74,7 +77,10 @@ export async function DELETE(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error('[circles] Error:', err);
     return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }

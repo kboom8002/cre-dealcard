@@ -9,6 +9,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { generateAllWeeklyPulses } from "@/domain/pulse/pulse-generator";
 import { getWeekLabel } from "@/domain/pulse/cre-signal-aggregator";
 import { verifyCronRequest } from "@/lib/security/cron-auth";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("api-pulse-generate");
 
 export async function POST(req: NextRequest) {
   // 간단한 admin/cron 인증
@@ -24,8 +27,9 @@ export async function POST(req: NextRequest) {
       pulses: results,
       message: `${results.length}개 권역 주간 펄스 생성 완료`,
     }, { status: 201 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    log.error(e instanceof Error ? e : new Error(String(e)), "Failed to generate weekly pulses");
+    return NextResponse.json({ error: "펄스 처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 }
 
@@ -42,7 +46,8 @@ export async function GET(req: NextRequest) {
       .eq("period_type", "weekly")
       .eq("period_label", weekLabel);
     if (guardError) {
-      return NextResponse.json({ error: guardError.message }, { status: 500 });
+      log.error({ err: guardError, weekLabel }, "Failed to check existing weekly pulses");
+      return NextResponse.json({ error: "펄스 처리 중 오류가 발생했습니다." }, { status: 500 });
     }
     if ((count ?? 0) > 0) {
       return NextResponse.json({ ok: true, skipped: "ALREADY_GENERATED", weekLabel });
@@ -70,7 +75,8 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    log.error({ err: error, region, periodType }, "Failed to query published pulses");
+    return NextResponse.json({ error: "펄스 처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 
   return NextResponse.json({ pulses: data ?? [] });

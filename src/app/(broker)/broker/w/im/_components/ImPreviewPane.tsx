@@ -477,7 +477,7 @@ export function ImPreviewPane({
               {cadastralImageUrl && (
                 <div className="pt-1">
                   {failedCadastralUrl === cadastralImageUrl ? (
-                    <div className="w-full rounded-lg border border-slate-200 bg-[#F8F5EB] px-3 py-4 text-center text-xs text-slate-500">
+                    <div className="w-full rounded-lg border border-slate-200 bg-[#F8F5EB] px-3 py-4 text-center text-sm text-slate-500">
                       지적도 미리보기를 불러올 수 없습니다.
                     </div>
                   ) : (

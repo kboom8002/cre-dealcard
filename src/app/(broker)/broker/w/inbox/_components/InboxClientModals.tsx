@@ -1,6 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useId, useRef } from "react";
+import {
+  FOCUSABLE_SELECTOR,
+  createModalStack,
+  getFocusableTrapTarget,
+  getModalKeyAction,
+} from "@/components/ui/modal-logic";
 import { formatKrPhoneInput } from "@/lib/format/phone";
 import type {
   BrokerInventoryDeal,
@@ -8,6 +14,89 @@ import type {
   InboxThreadItem,
   InboxTransactionalBasis,
 } from "./inbox-types";
+
+const inboxModalStack = createModalStack();
+
+function useInboxModalA11y(
+  open: boolean,
+  onClose: () => void,
+  dialogRef: React.RefObject<HTMLDivElement | null>,
+  initialFocusRef?: React.RefObject<HTMLElement | null>
+) {
+  const modalId = useId();
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    if (!open || typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    const previousActive = document.activeElement as HTMLElement | null;
+    inboxModalStack.push(modalId);
+
+    const panel = dialogRef.current;
+    if (panel && !panel.contains(document.activeElement)) {
+      const targetFocus =
+        initialFocusRef?.current ??
+        panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      if (targetFocus) {
+        targetFocus.focus();
+      } else {
+        panel.focus();
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!inboxModalStack.isTop(modalId)) return;
+      const action = getModalKeyAction(e.key, { closeOnEscape: true });
+      if (action === "close") {
+        e.preventDefault();
+        e.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (action === "trap") {
+        const currentPanel = dialogRef.current;
+        if (!currentPanel) return;
+        const focusables = Array.from(
+          currentPanel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+        );
+        const activeIndex = focusables.indexOf(
+          document.activeElement as HTMLElement
+        );
+        const target = getFocusableTrapTarget({
+          count: focusables.length,
+          activeIndex,
+          shiftKey: e.shiftKey,
+        });
+        if (target === null) return;
+        e.preventDefault();
+        if (target === "container") {
+          currentPanel.focus();
+        } else {
+          focusables[target]?.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      inboxModalStack.remove(modalId);
+      if (
+        previousActive &&
+        previousActive.isConnected &&
+        typeof previousActive.focus === "function"
+      ) {
+        previousActive.focus();
+      }
+    };
+  }, [open, modalId, dialogRef, initialFocusRef]);
+}
 
 export interface InboxClientFormValues {
   name: string;
@@ -49,6 +138,11 @@ export function InboxNewClientModal({
   onClose,
   onSubmit,
 }: InboxNewClientModalProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useInboxModalA11y(open, onClose, dialogRef, nameInputRef);
+
   if (!open) return null;
 
   const phoneDigits = values.phone.replace(/\D/g, "");
@@ -63,16 +157,20 @@ export function InboxNewClientModal({
 
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 overflow-y-auto"
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="inbox-new-client-dialog-title"
+        tabIndex={-1}
         data-testid="inbox-new-client-dialog"
-        onClick={(e) => e.stopPropagation()}
-        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white text-slate-900 p-6 shadow-xl"
+        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white text-slate-900 p-6 shadow-xl outline-none"
       >
         <div className="flex items-center justify-between gap-2">
           <h2
@@ -129,6 +227,7 @@ export function InboxNewClientModal({
               고객 성함 (필수)
             </label>
             <input
+              ref={nameInputRef}
               id="new-client-name"
               data-testid="new-client-name-input"
               type="text"
@@ -441,20 +540,29 @@ export function InboxEditClientModal({
   onClose,
   onSubmit,
 }: InboxEditClientModalProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useInboxModalA11y(open, onClose, dialogRef, nameInputRef);
+
   if (!open) return null;
 
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 overflow-y-auto"
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="inbox-edit-client-dialog-title"
+        tabIndex={-1}
         data-testid="inbox-edit-client-dialog"
-        onClick={(e) => e.stopPropagation()}
-        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white text-slate-900 p-6 shadow-xl"
+        className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white text-slate-900 p-6 shadow-xl outline-none"
       >
         <div className="flex items-center justify-between gap-2">
           <h2
@@ -481,6 +589,7 @@ export function InboxEditClientModal({
               고객 성함 (필수)
             </label>
             <input
+              ref={nameInputRef}
               id="edit-client-name"
               data-testid="edit-client-name-input"
               type="text"

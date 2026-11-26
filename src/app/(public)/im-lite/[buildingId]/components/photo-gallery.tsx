@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
+import {
+  FOCUSABLE_SELECTOR,
+  getFocusableTrapTarget,
+} from "@/components/ui/modal-logic";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { KakaoStaticMap } from "./kakao-static-map";
 
@@ -17,6 +21,8 @@ export function PhotoGallery({
   blindName,
 }: PhotoGalleryProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState(0);
@@ -61,16 +67,88 @@ export function PhotoGallery({
     setLightboxOpen(true);
   };
 
-  const closeLightbox = () => setLightboxOpen(false);
+  const closeLightbox = useCallback(() => setLightboxOpen(false), []);
 
-  const navigateLightbox = (dir: -1 | 1) => {
-    setLightboxIdx((prev) => {
-      const next = prev + dir;
-      if (next < 0) return sortedItems.length - 1;
-      if (next >= sortedItems.length) return 0;
-      return next;
-    });
-  };
+  const navigateLightbox = useCallback(
+    (dir: -1 | 1) => {
+      if (sortedItems.length <= 1) return;
+      setLightboxIdx((prev) => {
+        const next = prev + dir;
+        if (next < 0) return sortedItems.length - 1;
+        if (next >= sortedItems.length) return 0;
+        return next;
+      });
+    },
+    [sortedItems.length]
+  );
+
+  useEffect(() => {
+    if (!lightboxOpen || typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    const previousActive = document.activeElement as HTMLElement | null;
+    if (!lightboxRef.current?.contains(document.activeElement)) {
+      closeBtnRef.current?.focus();
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Esc") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeLightbox();
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        if (sortedItems.length > 1) {
+          e.preventDefault();
+          navigateLightbox(-1);
+        }
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        if (sortedItems.length > 1) {
+          e.preventDefault();
+          navigateLightbox(1);
+        }
+        return;
+      }
+      if (e.key === "Tab") {
+        const dialogEl = lightboxRef.current;
+        if (!dialogEl) return;
+        const focusables = Array.from(
+          dialogEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+        );
+        const activeIndex = focusables.indexOf(
+          document.activeElement as HTMLElement
+        );
+        const target = getFocusableTrapTarget({
+          count: focusables.length,
+          activeIndex,
+          shiftKey: e.shiftKey,
+        });
+        if (target === null) return;
+        e.preventDefault();
+        if (target === "container") {
+          dialogEl.focus();
+        } else {
+          focusables[target]?.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (
+        previousActive &&
+        previousActive.isConnected &&
+        typeof previousActive.focus === "function"
+      ) {
+        previousActive.focus();
+      }
+    };
+  }, [lightboxOpen, sortedItems.length, closeLightbox, navigateLightbox]);
 
   // Touch swipe handlers for lightbox
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -96,10 +174,24 @@ export function PhotoGallery({
           {sortedItems.map((item, i) => (
             <div
               key={i}
+              role={item.type !== "map" ? "button" : undefined}
+              tabIndex={item.type !== "map" ? 0 : undefined}
+              aria-label={
+                item.type !== "map" ? `${item.label || "매물 사진"} 크게 보기` : undefined
+              }
               className={`relative shrink-0 ${
                 sortedItems.length === 1 ? "w-full" : "w-[88%] sm:w-[78%]"
-              } snap-center rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer shadow-lg`}
+              } snap-center rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 ${
+                item.type !== "map" ? "cursor-pointer" : ""
+              } shadow-lg`}
               onClick={() => item.type !== "map" && openLightbox(i)}
+              onKeyDown={(e) => {
+                if (item.type === "map") return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openLightbox(i);
+                }
+              }}
             >
               {/* Map embed or photo */}
               {item.type === "map" && coordinates ? (
@@ -177,15 +269,28 @@ export function PhotoGallery({
       {/* ── Fullscreen Lightbox ── */}
       {lightboxOpen && (
         <div
-          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
-          onClick={closeLightbox}
+          ref={lightboxRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="매물 사진 크게 보기"
+          tabIndex={-1}
+          data-testid="photo-gallery-lightbox"
+          className="fixed inset-0 z-[100] flex items-center justify-center outline-none"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-black/95"
+            onClick={closeLightbox}
+          />
+
           {/* Close button */}
           <button
+            ref={closeBtnRef}
+            type="button"
             onClick={closeLightbox}
-            className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-xl transition-colors"
+            className="absolute top-4 right-4 z-10 min-h-11 min-w-11 w-11 h-11 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-xl transition-colors"
             aria-label="닫기"
           >
             ✕
@@ -200,21 +305,23 @@ export function PhotoGallery({
           {sortedItems.length > 1 && (
             <>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigateLightbox(-1);
                 }}
-                className="absolute left-2 sm:left-4 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg transition-colors"
+                className="absolute left-2 sm:left-4 z-10 min-h-11 min-w-11 w-11 h-11 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg transition-colors"
                 aria-label="이전 사진"
               >
                 ‹
               </button>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigateLightbox(1);
                 }}
-                className="absolute right-2 sm:right-4 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg transition-colors"
+                className="absolute right-2 sm:right-4 z-10 min-h-11 min-w-11 w-11 h-11 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg transition-colors"
                 aria-label="다음 사진"
               >
                 ›
@@ -223,10 +330,7 @@ export function PhotoGallery({
           )}
 
           {/* Image */}
-          <div
-            className="relative w-full h-full max-w-4xl max-h-[80vh] mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative z-10 w-full h-full max-w-4xl max-h-[80vh] mx-4">
             {sortedItems[lightboxIdx]?.type === "map" && coordinates ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="w-full max-w-2xl aspect-[2/1] rounded-xl overflow-hidden">

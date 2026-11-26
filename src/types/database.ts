@@ -1,10 +1,22 @@
 /**
- * Database types for JS Building SSoT MVP v0.1
- * Generated from docs/07-database-schema.md
+ * Legacy domain & database row interfaces (v0.1 ~ v2).
  *
- * These types mirror the Supabase Postgres schema.
- * In production, use `supabase gen types typescript` to keep in sync.
+ * Canonical generated Supabase schema types now live in `@/types/supabase.generated`
+ * (`Database`, `Tables<T>`, `TablesInsert<T>`, `TablesUpdate<T>`, `RpcName`),
+ * generated deterministically via `npx tsx scripts/generate-supabase-types.ts`.
+ *
+ * Legacy row interfaces below are preserved for backwards-compatibility and aligned
+ * with `Database['public']['Tables']`. Prefer `Tables<'...'>` for new code.
  */
+export type {
+  Database,
+  Json,
+  PublicSchema,
+  RpcName,
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+} from "./supabase.generated";
 
 // ---- Enums / Union Types ----
 
@@ -141,16 +153,21 @@ export interface DisclosurePrefs {
 
 // ---- Row Types ----
 
+/** @deprecated Prefer `Tables<'profiles'>` from `@/types/supabase.generated`. */
 export interface Profile {
   id: string;
   role: UserRole;
   display_name: string | null;
   phone: string | null;
   company: string | null;
+  photo_url?: string | null;
+  tagline?: string | null;
+  organization_id?: string | null;
   created_at: string;
   updated_at: string;
 }
 
+/** @deprecated Prefer `Tables<'broker_profiles'>` from `@/types/supabase.generated`. */
 export interface BrokerProfile {
   id: string;
   user_id: string;
@@ -158,10 +175,16 @@ export interface BrokerProfile {
   specialty_assets: string[];
   bio: string | null;
   is_verified: boolean;
+  slug?: string | null;
+  is_public?: boolean;
+  office_address?: string | null;
+  office_reg_number?: string | null;
+  representative_name?: string | null;
   created_at: string;
   updated_at: string;
 }
 
+/** @deprecated Prefer `Tables<'building_ssot_lite'>` from `@/types/supabase.generated`. */
 export interface BuildingSsotLite {
   id: string;
   owner_id: string | null;
@@ -183,10 +206,22 @@ export interface BuildingSsotLite {
   status: BuildingSsotStatus;
   lease_summary: LeaseSummaryLayer | null;
   floor_plan_url: string | null;
-  repair_history: Record<string, unknown> | null;
+  repair_history?: Record<string, unknown> | null;
   disclosure_prefs: DisclosurePrefs | null;
   layer_scores: LayerScores | null;
   completeness_score: number;
+  deal_points?: string[] | null;
+  caution_points?: string[] | null;
+  verification_status?: string | null;
+  verification_details?: Record<string, unknown> | null;
+  verification_result?: Record<string, unknown> | null;
+  verified_at?: string | null;
+  matched_buyer_count?: number | null;
+  promotion_score?: number | null;
+  promotion_updated_at?: string | null;
+  vacancy_inquiry_count?: number | null;
+  vacancy_avg_fit_score?: number | null;
+  vacancy_demand_verified?: boolean | null;
   /** P1: 정규 건물 레지스트리 FK */
   canonical_property_id: string | null;
   /** 원본 주소 문자열 (layers 내부에서 승격) */
@@ -427,6 +462,7 @@ export type OwnerReadinessCheckInsert = Omit<
 
 // ═══ dev-spec-v2 Entity Types ═══
 
+/** @deprecated Prefer `Tables<'deals'>` from `@/types/supabase.generated`. */
 export interface Deal {
   id: string;
   broker_id: string;
@@ -439,12 +475,15 @@ export interface Deal {
   asking_price_krw?: number;
   outcome_price_krw?: number;
   created_at: string;
+  updated_at?: string;
   closed_at?: string;
 }
 
+/** @deprecated Prefer `Tables<'assets'>` from `@/types/supabase.generated`. */
 export interface Asset {
   id: string;
   asset_type: string;
+  canonical_property_id?: string | null;
   investment_posture?: string;
   pnu?: string;
   region_code?: string;
@@ -456,9 +495,11 @@ export interface Asset {
   updated_at: string;
 }
 
+/** @deprecated Prefer `Tables<'lease_units'>` from `@/types/supabase.generated`. */
 export interface LeaseUnit {
   id: string;
   asset_id: string;
+  unit_number?: string;
   floor?: string;
   tenant_sector?: string;
   area_pyung?: number;
@@ -466,21 +507,32 @@ export interface LeaseUnit {
   monthly_rent_krw?: number;
   mgmt_fee_krw?: number;
   lease_start?: string;
+  /** @deprecated Phantom column — actual `lease_units` DB column is `lease_end_date`. */
   lease_end?: string;
+  lease_end_date?: string;
+  is_vacant?: boolean;
   opposing_power?: boolean;
   source_tier: string;
+  created_at?: string;
 }
 
+/** @deprecated Prefer `Tables<'deal_parties'>` from `@/types/supabase.generated`. */
 export interface DealParty {
   id: string;
   deal_id: string;
   role: string;
+  name?: string;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  nda_signed_at?: string | null;
   profession?: string;
   user_id?: string;
   client_id?: string;
   permissions?: Record<string, boolean>;
+  created_at?: string;
 }
 
+/** @deprecated Prefer `Tables<'zoning_ordinance'>` from `@/types/supabase.generated`. */
 export interface ZoningOrdinance {
   id: string;
   region_code: string;
@@ -490,8 +542,10 @@ export interface ZoningOrdinance {
   max_height_m?: number;
   effective_date?: string;
   source_url?: string;
+  created_at?: string;
 }
 
+/** @deprecated Prefer `Tables<'location_hierarchy'>` from `@/types/supabase.generated`. */
 export interface LocationHierarchy {
   id: string;
   region_code: string;
@@ -501,4 +555,5 @@ export interface LocationHierarchy {
   ri?: string;
   parent_code?: string;
   level: number;
+  created_at?: string;
 }

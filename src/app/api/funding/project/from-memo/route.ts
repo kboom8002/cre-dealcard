@@ -2,16 +2,26 @@ import { NextResponse, NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { runFundingProjectCard } from "@/ai/agents/funding-project-card";
 import { requireBroker } from "@/lib/auth-guard";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
-
+const log = createModuleLogger("route");
 
 export async function POST(request: NextRequest) {
   try {
     const guard = await requireBroker(request);
     if (guard.error) return guard.error;
     const { user } = guard;
+
+    const ip = getClientIp(request) ?? user!.id;
+    const allowed = await checkRateLimit(ip, "funding_project_from_memo", 10, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 },
+      );
+    }
 
     const supabase = createServiceClient();
 
@@ -58,8 +68,11 @@ export async function POST(request: NextRequest) {
         aiResult,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[POST /api/funding/project/from-memo]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "메모 기반 프로젝트 생성 중 오류가 발생했습니다." },
+      { status: 500 },
+    );
   }
 }

@@ -33,6 +33,8 @@ import {
 
 const log = createModuleLogger('im-ai-points');
 
+export const maxDuration = 60;
+
 const imAiPointsRequestSchema = z.object({
   address: z.string().trim().max(200).optional().default(''),
   title: z.string().trim().max(100).optional().default(''),

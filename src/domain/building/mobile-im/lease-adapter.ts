@@ -283,8 +283,10 @@ export function buildLeaseLedgerRows(
   assetId: string,
   units: LeaseUnitPersistInput[],
   buildingId?: string,
+  batchTimestampIso?: string,
 ): Array<Record<string, unknown>> {
   const seen = new Map<string, number>();
+  const stamp = batchTimestampIso || new Date().toISOString();
   return units.map((unit) => {
     const base = String(unit.floor ?? '-').trim() || '-';
     const n = (seen.get(base) ?? 0) + 1;
@@ -320,7 +322,7 @@ export function buildLeaseLedgerRows(
       rent_free_months: nonNegativeInt(unit.rent_free_months),
       payment_status: pickEnum(PAYMENT_STATUSES, unit.payment_status),
       source_tier: unit.source_tier || 'broker_input',
-      updated_at: new Date().toISOString(),
+      updated_at: stamp,
     };
   });
 }
@@ -410,6 +412,227 @@ export interface PersistLeaseOptions {
   sparse?: boolean;
   /** 지정하면 prune 을 이 source_tier 의 행으로 한정한다 (다른 작성자가 만든 행을 지우지 않는다) */
   pruneSourceTier?: string;
+  /** 호출부가 이미 생성한 Supabase 클라이언트를 주입할 때 사용 (미지정 시 createServiceClient 사용) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient?: any;
+}
+
+export interface SyncedLeaseSummary {
+  tenants: Array<{
+    floor: string;
+    area_sqm: number;
+    tenant_type: string;
+    monthly_rent: number | null;
+    deposit: number | null;
+    mgmt_fee_krw: number | null;
+    contract_end: string | null;
+    is_anchor: boolean;
+    tenant_name: string | null;
+    lease_state: '임대중' | '공실' | '자가사용';
+  }>;
+  monthly_rent_total_krw: number;
+  monthly_rent_krw: number;
+  monthly_rent_manwon: number;
+  total_deposit_krw: number;
+  total_deposit_manwon: number;
+  mgmt_fee_total_manwon: number;
+  gross_income_estimate: number;
+  vacancy_rate: number;
+  vacancy_pct: number;
+  walt_months: number;
+  rentRollRows: Array<{
+    id: string;
+    floor: string;
+    unit: string;
+    use: string;
+    tenantName?: string;
+    areaSqm?: number;
+    areaPyeong?: number;
+    depositManwon: number;
+    monthlyRentManwon: number;
+    maintenanceManwon: number;
+    leaseExpiry: string;
+    status: 'occupied' | 'vacant' | 'owner';
+  }>;
+}
+
+/**
+ * Canonical bridge: converts `lease_ledger` rows or studio/importer unit inputs into
+ * synchronized `building_ssot_lite.layers.lease_summary` + `workspace_items` IM `rentRoll` rows.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function syncLeaseLedgerToSummary(units: Array<Record<string, any>>, refDate: Date = new Date()): SyncedLeaseSummary {
+  const safeUnits = Array.isArray(units) ? units.filter(Boolean) : [];
+  const tenants = safeUnits.map((u, idx) => {
+    const floor = String(u.floor ?? u.unit_label ?? `${idx + 1}F`).trim() || `${idx + 1}F`;
+    const areaSqmRaw =
+      u.lease_area_sqm != null
+        ? Number(u.lease_area_sqm)
+        : u.area_sqm != null
+        ? Number(u.area_sqm)
+        : u.area_pyung != null
+        ? pyeongToSqm(Number(u.area_pyung))
+        : u.area_pyeong != null
+        ? pyeongToSqm(Number(u.area_pyeong))
+        : 0;
+    const area_sqm = Number.isFinite(areaSqmRaw) && areaSqmRaw > 0 ? parseFloat(areaSqmRaw.toFixed(2)) : 0;
+
+    const depositVal =
+      u.deposit_krw != null
+        ? Number(u.deposit_krw)
+        : u.deposit != null
+        ? Number(u.deposit)
+        : u.deposit_manwon != null
+        ? Number(u.deposit_manwon) * MANWON_TO_WON
+        : null;
+    const deposit = depositVal != null && Number.isFinite(depositVal) ? depositVal : null;
+
+    const rentVal =
+      u.monthly_rent_krw != null
+        ? Number(u.monthly_rent_krw)
+        : u.monthly_rent != null
+        ? Number(u.monthly_rent)
+        : u.rent_manwon != null
+        ? Number(u.rent_manwon) * MANWON_TO_WON
+        : null;
+    const monthly_rent = rentVal != null && Number.isFinite(rentVal) ? rentVal : null;
+
+    const mgmtVal =
+      u.mgmt_fee_krw != null
+        ? Number(u.mgmt_fee_krw)
+        : u.mgmt_fee_manwon != null
+        ? Number(u.mgmt_fee_manwon) * MANWON_TO_WON
+        : null;
+    const mgmt_fee_krw = mgmtVal != null && Number.isFinite(mgmtVal) ? mgmtVal : null;
+
+    const rawSector = String(u.tenant_type ?? u.tenant_sector ?? u.tenant_business ?? u.sector ?? '').trim();
+    const explicitState = pickEnum(LEASE_STATES, u.lease_state);
+    const lease_state: '임대중' | '공실' | '자가사용' =
+      explicitState ??
+      (u.is_vacant === true || u.status === 'vacant' || rawSector === 'vacant' || rawSector.includes('공실')
+        ? '공실'
+        : u.status === 'owner' || rawSector === '자가사용' || String(u.note ?? '').includes('자가사용')
+        ? '자가사용'
+        : '임대중');
+
+    const tenant_type = rawSector || (lease_state === '공실' ? 'vacant' : 'other');
+    const rawExpiry = String(u.current_expiry_date ?? u.lease_end ?? u.lease_end_date ?? u.contract_end ?? '').trim();
+    const contract_end = rawExpiry || null;
+    const rawTenantName = String(u.tenant_name ?? u.tenantName ?? '').trim();
+
+    return {
+      floor,
+      area_sqm,
+      tenant_type,
+      monthly_rent,
+      deposit,
+      mgmt_fee_krw,
+      contract_end,
+      is_anchor: Boolean(u.is_anchor),
+      tenant_name: rawTenantName || null,
+      lease_state,
+    };
+  });
+
+  const nonOwnerTenants = tenants.filter((t) => t.lease_state !== '자가사용');
+  const totalLeasableArea = nonOwnerTenants.reduce((sum, t) => sum + t.area_sqm, 0);
+  const vacantTenants = nonOwnerTenants.filter((t) => t.lease_state === '공실');
+  const vacantArea = vacantTenants.reduce((sum, t) => sum + t.area_sqm, 0);
+
+  const vacancy_rate =
+    totalLeasableArea > 0
+      ? Number(((vacantArea / totalLeasableArea) * 100).toFixed(1))
+      : nonOwnerTenants.length > 0
+      ? Number(((vacantTenants.length / nonOwnerTenants.length) * 100).toFixed(1))
+      : 0;
+
+  let weightedMonths = 0;
+  let waltWeightTotal = 0;
+  const startMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+  for (const t of tenants) {
+    if (!t.contract_end || t.lease_state === '공실') continue;
+    const parts = t.contract_end.split('-').map(Number);
+    const year = parts[0];
+    const month = parts[1];
+    if (!year || !month) continue;
+    const endMonth = new Date(year, month - 1, 1);
+    const remaining = Math.max(
+      0,
+      (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + (endMonth.getMonth() - startMonth.getMonth()),
+    );
+    const weight = t.area_sqm > 0 ? t.area_sqm : 1;
+    weightedMonths += remaining * weight;
+    waltWeightTotal += weight;
+  }
+  const walt_months = waltWeightTotal > 0 ? Number((weightedMonths / waltWeightTotal).toFixed(1)) : 0;
+
+  const monthly_rent_total_krw = tenants
+    .filter((t) => t.lease_state === '임대중')
+    .reduce((sum, t) => sum + (t.monthly_rent || 0), 0);
+  const total_deposit_krw = tenants
+    .filter((t) => t.lease_state === '임대중')
+    .reduce((sum, t) => sum + (t.deposit || 0), 0);
+  const total_mgmt_krw = tenants
+    .filter((t) => t.lease_state === '임대중')
+    .reduce((sum, t) => sum + (t.mgmt_fee_krw || 0), 0);
+
+  const monthly_rent_manwon = Math.round((monthly_rent_total_krw / MANWON_TO_WON) * 10) / 10;
+  const total_deposit_manwon = Math.round((total_deposit_krw / MANWON_TO_WON) * 10) / 10;
+  const mgmt_fee_total_manwon = Math.round((total_mgmt_krw / MANWON_TO_WON) * 10) / 10;
+
+  const rentRollRows = tenants.map((t, idx) => ({
+    id: `rr-${idx + 1}-${t.floor.replace(/\s+/g, '_')}`,
+    floor: t.floor,
+    unit: t.floor,
+    use: t.lease_state === '공실' ? '공실' : t.lease_state === '자가사용' ? '자가사용' : t.tenant_type,
+    ...(t.tenant_name ? { tenantName: t.tenant_name } : {}),
+    ...(t.area_sqm > 0 ? { areaSqm: t.area_sqm, areaPyeong: sqmToPyeong(t.area_sqm) } : {}),
+    depositManwon: t.deposit ? Math.round((t.deposit / MANWON_TO_WON) * 10) / 10 : 0,
+    monthlyRentManwon: t.monthly_rent ? Math.round((t.monthly_rent / MANWON_TO_WON) * 10) / 10 : 0,
+    maintenanceManwon: t.mgmt_fee_krw ? Math.round((t.mgmt_fee_krw / MANWON_TO_WON) * 10) / 10 : 0,
+    leaseExpiry: t.contract_end ?? '',
+    status: (t.lease_state === '공실' ? 'vacant' : t.lease_state === '자가사용' ? 'owner' : 'occupied') as
+      | 'occupied'
+      | 'vacant'
+      | 'owner',
+  }));
+
+  return {
+    tenants,
+    monthly_rent_total_krw,
+    monthly_rent_krw: monthly_rent_total_krw,
+    monthly_rent_manwon,
+    total_deposit_krw,
+    total_deposit_manwon,
+    mgmt_fee_total_manwon,
+    gross_income_estimate: monthly_rent_total_krw * 12,
+    vacancy_rate,
+    vacancy_pct: vacancy_rate,
+    walt_months,
+    rentRollRows,
+  };
+}
+
+const assetWriteQueues = new Map<string, Promise<void>>();
+
+async function withAssetWriteLock<T>(assetId: string, fn: () => Promise<T>): Promise<T> {
+  const key = String(assetId || '');
+  const prev = assetWriteQueues.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = prev.then(() => gate);
+  assetWriteQueues.set(key, chained);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (assetWriteQueues.get(key) === chained) {
+      assetWriteQueues.delete(key);
+    }
+  }
 }
 
 const NEW_LEDGER_COLUMNS = ['evidence_level', 'rent_free_months', 'payment_status'] as const;
@@ -444,7 +667,8 @@ function toSparseRows(rows: Array<Record<string, unknown>>, units: LeaseUnitPers
  * lease_ledger.building_id(FK → buildings) 는 채우지 않는다. 마이그레이션
  * 20261005000000_lease_ledger_exclusive_area.sql 이 비-부분(unique) 인덱스를 제공해야 upsert 가 동작한다.
  * 이번 제출에 없는 호실은 렌트롤이 교체된 것으로 보고 같은 asset_id 에서 삭제한다
- * (opts.pruneSourceTier 지정 시 해당 source_tier 행만 — 두 작성자 간 prune 충돌 방지).
+ * (opts.pruneSourceTier 지정 시 해당 source_tier 행만 — 두 작성자 간 prune 충돌 방지,
+ * 또한 batchStartedAt 이전 행만 prune 하여 동시 실행 중인 후속 배치의 행을 삭제하지 않는다).
  * opts.meta 가 있으면 물건 단위 메타(lease_ledger_meta: G9 면적 입력 단위·C5·J3~J8·V12 해제 기록)도 upsert 한다.
  * @see SDD S2-T11
  */
@@ -454,97 +678,159 @@ export async function persistLeaseUnits(
   buildingId?: string,
   opts?: PersistLeaseOptions,
 ): Promise<{ inserted: number; errors: string[] }> {
-  const { createServiceClient } = await import('@/lib/supabase/service'); // lazy: 순수 헬퍼만 쓰는 PPTX/오프라인 경로에서 서버 env 검증이 import 시점에 터지지 않도록
-  const supabase = createServiceClient();
-  const errors: string[] = [];
-  let ledgerWritten = 0;
-  let dualInserted = 0;
-  const isDualMode = process.env.LEASE_TABLE === 'legacy_dual';
+  return withAssetWriteLock(assetId, async () => {
+    const supabase =
+      opts?.supabaseClient ?? (await import('@/lib/supabase/service')).createServiceClient(); // lazy: 순수 헬퍼만 쓰는 PPTX/오프라인 경로에서 서버 env 검증이 import 시점에 터지지 않도록
+    const errors: string[] = [];
+    let ledgerWritten = 0;
+    let dualInserted = 0;
+    const isDualMode = process.env.LEASE_TABLE === 'legacy_dual';
+    const batchStartedAt = new Date().toISOString();
 
-  // 1. Primary: lease_ledger 일괄 upsert
-  let rows = buildLeaseLedgerRows(assetId, units, buildingId);
-  if (opts?.sparse) rows = toSparseRows(rows, units);
-  if (rows.length > 0) {
-    try {
-      let { error: ledgerError } = await supabase
-        .from('lease_ledger')
-        .upsert(rows, { onConflict: 'asset_id,unit_label' });
+    // 1. Primary: lease_ledger 일괄 upsert (원자적 RPC 활성 시 우선 시도 후 폴백)
+    let rows = buildLeaseLedgerRows(assetId, units, buildingId, batchStartedAt);
+    if (opts?.sparse) rows = toSparseRows(rows, units);
+    if (rows.length > 0) {
+      try {
+        let handledByRpc = false;
+        if (
+          process.env.USE_ATOMIC_LEASE_RPC === '1' &&
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          typeof (supabase as any).rpc === 'function'
+        ) {
+          const atomicRpcName = process.env.LEASE_ATOMIC_RPC_NAME || 'persist_lease_ledger_atomic';
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: rpcError } = await (supabase as any).rpc(atomicRpcName, {
+            p_asset_id: assetId,
+            p_rows: rows,
+            p_prune_source_tier: opts?.pruneSourceTier ?? null,
+            p_batch_started_at: batchStartedAt,
+          });
+          if (!rpcError) {
+            handledByRpc = true;
+            ledgerWritten = rows.length;
+          } else {
+            log.warn(`[lease-adapter] atomic RPC unavailable, falling back to serialized upsert: ${rpcError.message}`);
+          }
+        }
 
-      // 마이그레이션(20261011000000) 적용 전 DB: 새 컬럼 없이 재시도 (기존 쓰기가 회귀하지 않도록)
-      if (ledgerError && mentionsNewLedgerColumn(ledgerError.message ?? '')) {
-        log.warn(`[lease-adapter] 새 컬럼 미적용 DB — v1.4 컬럼을 빼고 재시도: ${ledgerError.message}`);
-        rows = omitKeys(rows, NEW_LEDGER_COLUMNS);
-        ({ error: ledgerError } = await supabase
-          .from('lease_ledger')
-          .upsert(rows, { onConflict: 'asset_id,unit_label' }));
+        if (!handledByRpc) {
+          let { error: ledgerError } = await supabase
+            .from('lease_ledger')
+            .upsert(rows, { onConflict: 'asset_id,unit_label' });
+
+          // 마이그레이션(20261011000000) 적용 전 DB: 새 컬럼 없이 재시도 (기존 쓰기가 회귀하지 않도록)
+          if (ledgerError && mentionsNewLedgerColumn(ledgerError.message ?? '')) {
+            log.warn(`[lease-adapter] 새 컬럼 미적용 DB — v1.4 컬럼을 빼고 재시도: ${ledgerError.message}`);
+            rows = omitKeys(rows, NEW_LEDGER_COLUMNS);
+            ({ error: ledgerError } = await supabase
+              .from('lease_ledger')
+              .upsert(rows, { onConflict: 'asset_id,unit_label' }));
+          }
+
+          if (ledgerError) {
+            errors.push(`lease_ledger: ${ledgerError.message}`);
+            log.warn(`[lease-adapter] lease_ledger write failed: ${ledgerError.message}`);
+          } else {
+            ledgerWritten = rows.length;
+            const ledgerTable = supabase.from('lease_ledger');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (typeof (ledgerTable as any).delete === 'function') {
+              // 이번 제출에 없는 호실 정리 (PostgREST in-list: 따옴표/백슬래시 이스케이프)
+              const keep = rows
+                .map((r) => `"${String(r.unit_label).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+                .join(',');
+              const runPrune = async (tbl: any, inFilterVal: unknown) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                let prune: any = tbl.delete().eq('asset_id', assetId);
+                if (opts?.pruneSourceTier) prune = prune.eq('source_tier', opts.pruneSourceTier);
+                if (typeof prune.lte === 'function') {
+                  prune = prune.lte('updated_at', batchStartedAt);
+                }
+                return await prune.not('unit_label', 'in', inFilterVal);
+              };
+              try {
+                const { error: pruneError } = await runPrune(ledgerTable, `(${keep})`);
+                if (pruneError) log.warn(`[lease-adapter] lease_ledger prune warning: ${pruneError.message}`);
+              } catch (pruneErr) {
+                try {
+                  const { error: fallbackErr } = await runPrune(
+                    supabase.from('lease_ledger'),
+                    rows.map((r) => String(r.unit_label)),
+                  );
+                  if (fallbackErr) log.warn(`[lease-adapter] lease_ledger prune warning: ${fallbackErr.message}`);
+                } catch {
+                  log.warn(`[lease-adapter] lease_ledger prune warning:`, pruneErr);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        errors.push('lease_ledger: unexpected error');
+        log.warn(`[lease-adapter] lease_ledger upsert warning:`, e);
       }
-
-      if (ledgerError) {
-        errors.push(`lease_ledger: ${ledgerError.message}`);
-        log.warn(`[lease-adapter] lease_ledger write failed: ${ledgerError.message}`);
-      } else {
-        ledgerWritten = rows.length;
-        // 이번 제출에 없는 호실 정리 (PostgREST in-list: 따옴표/백슬래시 이스케이프)
-        const keep = rows
-          .map((r) => `"${String(r.unit_label).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
-          .join(',');
-        let prune = supabase
-          .from('lease_ledger')
-          .delete()
-          .eq('asset_id', assetId);
-        if (opts?.pruneSourceTier) prune = prune.eq('source_tier', opts.pruneSourceTier);
-        const { error: pruneError } = await prune.not('unit_label', 'in', `(${keep})`);
-        if (pruneError) log.warn(`[lease-adapter] lease_ledger prune warning: ${pruneError.message}`);
+    } else if (opts?.pruneSourceTier) {
+      try {
+        const ledgerTable = supabase.from('lease_ledger');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (typeof (ledgerTable as any).delete === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let prune: any = ledgerTable.delete().eq('asset_id', assetId).eq('source_tier', opts.pruneSourceTier);
+          if (typeof prune.lte === 'function') {
+            prune = prune.lte('updated_at', batchStartedAt);
+          }
+          await prune;
+        }
+      } catch (e) {
+        log.warn(`[lease-adapter] lease_ledger empty-prune warning:`, e);
       }
-    } catch (e) {
-      errors.push('lease_ledger: unexpected error');
-      log.warn(`[lease-adapter] lease_ledger upsert warning:`, e);
     }
-  }
 
-  // 1-b. 물건 단위 메타 (G9 면적 입력 단위 등) — 실패해도 호실 저장은 유지 (비차단)
-  if (opts?.meta) {
-    try {
-      const { error: metaError } = await supabase
-        .from('lease_ledger_meta')
-        .upsert(buildLeaseLedgerMetaRow(assetId, opts.meta), { onConflict: 'asset_id' });
-      if (metaError) {
-        errors.push(`lease_ledger_meta: ${metaError.message}`);
-        log.warn(`[lease-adapter] lease_ledger_meta write failed: ${metaError.message}`);
-      }
-    } catch (e) {
-      errors.push('lease_ledger_meta: unexpected error');
-      log.warn(`[lease-adapter] lease_ledger_meta upsert warning:`, e);
-    }
-  }
-
-  // 2. Legacy / Dual mode support — LEASE_TABLE=legacy_dual일 때만 구 테이블 동시 쓰기
-  if (isDualMode) {
-    for (const unit of units) {
-      const { error } = await supabase
-        .from('lease_units')
-        .upsert({
-          asset_id: assetId,
-          floor: unit.floor,
-          tenant_sector: unit.tenant_sector || null,
-          area_pyung: unit.area_pyung || null,
-          deposit_krw: unit.deposit_krw || null,
-          monthly_rent_krw: unit.monthly_rent_krw || null,
-          mgmt_fee_krw: unit.mgmt_fee_krw || 0,
-          lease_start: unit.lease_start || null,
-          lease_end: unit.lease_end || null,
-          source_tier: unit.source_tier || 'broker_input',
-        }, { onConflict: 'asset_id,floor' });
-
-      if (error) {
-        errors.push(`Floor ${unit.floor}: ${error.message}`);
-      } else {
-        dualInserted++;
+    // 1-b. 물건 단위 메타 (G9 면적 입력 단위 등) — 실패해도 호실 저장은 유지 (비차단)
+    if (opts?.meta) {
+      try {
+        const { error: metaError } = await supabase
+          .from('lease_ledger_meta')
+          .upsert(buildLeaseLedgerMetaRow(assetId, opts.meta), { onConflict: 'asset_id' });
+        if (metaError) {
+          errors.push(`lease_ledger_meta: ${metaError.message}`);
+          log.warn(`[lease-adapter] lease_ledger_meta write failed: ${metaError.message}`);
+        }
+      } catch (e) {
+        errors.push('lease_ledger_meta: unexpected error');
+        log.warn(`[lease-adapter] lease_ledger_meta upsert warning:`, e);
       }
     }
-  }
 
-  return { inserted: Math.max(ledgerWritten, dualInserted), errors };
+    // 2. Legacy / Dual mode support — LEASE_TABLE=legacy_dual일 때만 구 테이블 동시 쓰기
+    if (isDualMode) {
+      for (const unit of units) {
+        const { error } = await supabase
+          .from('lease_units')
+          .upsert({
+            asset_id: assetId,
+            floor: unit.floor,
+            tenant_sector: unit.tenant_sector || null,
+            area_pyung: unit.area_pyung || null,
+            deposit_krw: unit.deposit_krw || null,
+            monthly_rent_krw: unit.monthly_rent_krw || null,
+            mgmt_fee_krw: unit.mgmt_fee_krw || 0,
+            lease_start: unit.lease_start && ISO_DATE.test(unit.lease_start) ? unit.lease_start : null,
+            lease_end_date: unit.lease_end && ISO_DATE.test(unit.lease_end) ? unit.lease_end : null,
+            source_tier: unit.source_tier || 'broker_input',
+          }, { onConflict: 'asset_id,floor' });
+
+        if (error) {
+          errors.push(`Floor ${unit.floor}: ${error.message}`);
+        } else {
+          dualInserted++;
+        }
+      }
+    }
+
+    return { inserted: Math.max(ledgerWritten, dualInserted), errors };
+  });
 }
 
 // ── AUTH-04: T-C/T-R 법령 분기 통합 ──────────────────────────────────────

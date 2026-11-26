@@ -91,6 +91,7 @@ export async function sendKakaoAlimtalk(payload: NotificationPayload): Promise<b
         "Authorization": authHeader,
       },
       body: JSON.stringify({ messages: [message] }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {

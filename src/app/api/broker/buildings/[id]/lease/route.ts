@@ -9,7 +9,12 @@ import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-s
 import { recordEvent } from '@/domain/analytics/record-event';
 import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
-import { persistLeaseUnits } from '@/domain/building/mobile-im/lease-adapter';
+import {
+  persistLeaseUnits,
+  syncLeaseLedgerToSummary,
+  type LeaseUnitPersistInput,
+} from '@/domain/building/mobile-im/lease-adapter';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 import { requireBroker } from '@/lib/auth-guard';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
@@ -18,9 +23,61 @@ import { z } from 'zod';
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const KNOWN_EVIDENCE_CATEGORIES = new Set([
+  'building_register',
+  'registry_docs',
+  'land_use_plan',
+  'rent_roll',
+  'photos',
+  'floor_plan',
+  'repair_history',
+  'vacancy_docs',
+  'asking_price',
+  'disclosure_policy',
+  'other',
+]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractEvidenceCategory(row: Record<string, any> | null | undefined): string | null {
+  if (!row || typeof row !== 'object') return null;
+  if (typeof row.layer_category === 'string' && row.layer_category.trim()) {
+    return row.layer_category.trim();
+  }
+  if (typeof row.file_type === 'string' && row.file_type.trim()) {
+    const raw = row.file_type.trim();
+    if (raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.layer_category === 'string' && parsed.layer_category.trim()) {
+          return parsed.layer_category.trim();
+        }
+      } catch {
+        // ignore malformed json
+      }
+    }
+    if (KNOWN_EVIDENCE_CATEGORIES.has(raw)) return raw;
+  }
+  if (typeof row.storage_path === 'string') {
+    for (const seg of row.storage_path.split('/').filter(Boolean)) {
+      if (KNOWN_EVIDENCE_CATEGORIES.has(seg)) return seg;
+    }
+  }
+  return null;
+}
+
+const toIsoDateOrUndefined = (raw: unknown): string | undefined => {
+  if (typeof raw !== 'string') return undefined;
+  const t = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  if (/^\d{4}-\d{2}$/.test(t)) return `${t}-01`;
+  return undefined;
+};
 
 const postSchema = z.object({
-  tenants: z.array(z.any())
+  tenants: z.array(z.any()),
+  meta: z.any().optional(),
+  rentRollMeta: z.any().optional(),
 });
 
 export async function POST(
@@ -63,12 +120,31 @@ export async function POST(
   }
 
   const tenantsInput = body.tenants;
+  const incomingMeta = body.rentRollMeta ?? body.meta ?? undefined;
+  const existingLayers = (
+    building.layers && typeof building.layers === 'object' ? building.layers : {}
+  ) as Record<string, any>;
 
-  // Normalize and calculate vacancy/WALT/income
+  // Normalize and calculate vacancy/WALT/income + canonical ledger summary
   const normalizedSummary = buildLeaseSummaryFromInput(tenantsInput);
+  const syncedSummary = syncLeaseLedgerToSummary(tenantsInput);
+  const mergedPrivateSummary = {
+    ...normalizedSummary.privateLayer,
+    monthly_rent_total_krw: syncedSummary.monthly_rent_total_krw,
+    monthly_rent_krw: syncedSummary.monthly_rent_krw,
+    monthly_rent_manwon: syncedSummary.monthly_rent_manwon,
+    total_deposit_krw: syncedSummary.total_deposit_krw,
+    total_deposit_manwon: syncedSummary.total_deposit_manwon,
+    mgmt_fee_total_manwon: syncedSummary.mgmt_fee_total_manwon,
+    vacancy_pct: syncedSummary.vacancy_pct,
+  };
 
   // ─── v3 Constraint Validation on updated lease data ───
-  const updatedBuilding = { ...building, lease_summary: normalizedSummary.privateLayer };
+  const updatedBuilding = {
+    ...building,
+    lease_summary: mergedPrivateSummary,
+    layers: { ...existingLayers, lease_summary: mergedPrivateSummary },
+  };
   const attrs = buildAttrsFromSsotLite(updatedBuilding);
   const constraintResult = validateAssetConstraints(attrs);
   const criticalViolations = constraintResult.violations?.filter(
@@ -82,27 +158,27 @@ export async function POST(
     }, { status: 422 });
   }
 
-  // Update building_ssot_lite with public and private layers
-  const updatedLayers = {
-    ...(building.layers || {}),
-    lease_summary: normalizedSummary.publicLayer,
-  };
-
-  // Re-fetch evidence files to compute completeness score
+  // Re-fetch evidence files using real schema columns to compute completeness score
   const { data: files } = await supabase
     .from('evidence_files')
-    .select('layer_category')
+    .select('id, file_type, storage_path')
     .eq('building_id', id);
 
-  const uploadedCategories = files?.map((f: any) => f.layer_category) || [];
-  
-  const rentRollChecked = uploadedCategories.includes('rent_roll') || (normalizedSummary?.privateLayer?.tenants?.length ?? 0) > 0;
-  const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!building.floor_plan_url;
-  const repairHistoryChecked = uploadedCategories.includes('repair_history') || 
-    (building.repair_history && Object.keys(building.repair_history).length > 0);
+  const uploadedCategories = (files || [])
+    .map((f: any) => extractEvidenceCategory(f))
+    .filter((c): c is string => Boolean(c));
 
-  const disclosurePolicyChecked = uploadedCategories.includes('disclosure_policy') || 
-    (building.disclosure_prefs && Object.keys(building.disclosure_prefs).length > 0);
+  const floorPlanUrl = existingLayers.floor_plan_url ?? building.floor_plan_url;
+  const repairHistory = existingLayers.repair_history ?? building.repair_history;
+  const disclosurePrefs = existingLayers.disclosure_prefs ?? building.disclosure_prefs;
+
+  const rentRollChecked = uploadedCategories.includes('rent_roll') || (normalizedSummary?.privateLayer?.tenants?.length ?? 0) > 0;
+  const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!floorPlanUrl;
+  const repairHistoryChecked = uploadedCategories.includes('repair_history') ||
+    (repairHistory && Object.keys(repairHistory).length > 0);
+
+  const disclosurePolicyChecked = uploadedCategories.includes('disclosure_policy') ||
+    (disclosurePrefs && Object.keys(disclosurePrefs).length > 0);
 
   const checklist = {
     buildingRegister: uploadedCategories.includes('building_register'),
@@ -119,13 +195,28 @@ export async function POST(
 
   const computedScores = computeLayerScore(checklist);
 
+  // Merge lease_summary, completeness_score, and layer_scores into building_ssot_lite.layers JSONB
+  const updatedLayers = {
+    ...existingLayers,
+    lease_summary: mergedPrivateSummary,
+    lease_summary_public: normalizedSummary.publicLayer,
+    completeness_score: computedScores.total,
+    layer_scores: computedScores,
+    finance: {
+      ...(existingLayers.finance && typeof existingLayers.finance === 'object' ? existingLayers.finance : {}),
+      monthly_rent_krw: syncedSummary.monthly_rent_krw,
+      monthly_rent_manwon: syncedSummary.monthly_rent_manwon,
+      total_deposit_krw: syncedSummary.total_deposit_krw,
+      total_deposit_manwon: syncedSummary.total_deposit_manwon,
+      vacancy_pct: syncedSummary.vacancy_pct,
+    },
+  };
+
   const { error: updateErr } = await supabase
     .from('building_ssot_lite')
     .update({
-      lease_summary: normalizedSummary.privateLayer as any,
       layers: updatedLayers,
-      completeness_score: computedScores.total,
-      layer_scores: computedScores as any,
+      updated_at: new Date().toISOString(),
     })
     .eq('id', id);
 
@@ -137,7 +228,7 @@ export async function POST(
   // Sync to v3 assets table if it exists
   const updatedAttrs = {
     ...attrs,
-    leaseSummary: normalizedSummary.privateLayer,
+    leaseSummary: mergedPrivateSummary,
     layerScores: computedScores,
   };
   await supabase
@@ -145,27 +236,118 @@ export async function POST(
     .update({ attrs: updatedAttrs })
     .eq('id', id);
 
-  // v3: Persist normalized lease units to dedicated table (S2-T11)
-  // 두 작성자(generate-async 바텀시트 / 이 스튜디오 폼)가 같은 asset_id 행을 공유한다. 이 폼은 계약그룹·전용면적·적용법령·
-  // 근거·렌트프리·입금확인 등을 모르므로 (1) sparse: 이 폼이 값을 주지 않은 컬럼은 upsert 에서 빼 다른 작성자의 값을 null 로
-  // 덮어쓰지 않고, (2) pruneSourceTier: 이 폼이 만든 행('studio_input')만 정리해 바텀시트가 만든 행을 지우지 않는다.
+  // Canonical Rent-Roll SSOT: ALWAYS persist normalized lease units to lease_ledger (+ lease_ledger_meta)
   try {
-    const leaseUnits = (normalizedSummary.privateLayer?.tenants || []).map((t: any, idx: number) => ({
-      floor: t.floor || `${idx + 1}F`,
-      tenant_sector: t.sector || t.업종 || '',
-      area_pyung: Number(t.area_pyung || t.면적 || 0),
-      deposit_krw: Number(t.deposit_krw || t.보증금 || 0),
-      monthly_rent_krw: Number(t.monthly_rent_krw || t.월세 || 0),
-      // X4: 빈 관리비를 0원으로 저장하지 않는다 (0 → undefined → null)
-      mgmt_fee_krw: Number(t.mgmt_fee_krw || t.관리비 || 0) || undefined,
-      source_tier: 'studio_input',
-    }));
-    if (leaseUnits.length > 0) {
-      const persistResult = await persistLeaseUnits(id, leaseUnits, undefined, { sparse: true, pruneSourceTier: 'studio_input' });
-      log.info(`[lease] Persisted ${persistResult.inserted} units to lease_units table`);
-    }
+    const leaseUnits: LeaseUnitPersistInput[] = (normalizedSummary.privateLayer?.tenants || []).map((t: any, idx: number) => {
+      const rawRow = tenantsInput[idx] ?? {};
+      const areaSqmNum = Number(t.area_sqm ?? rawRow.area_sqm ?? 0);
+      const areaPyungNum = Number(
+        rawRow.area_pyung ??
+          rawRow.area_pyeong ??
+          rawRow.면적 ??
+          (areaSqmNum > 0 ? sqmToPyeong(areaSqmNum) : 0),
+      );
+      const depositKrw = Number(
+        t.deposit ??
+          rawRow.deposit_krw ??
+          (rawRow.deposit_manwon != null ? Number(rawRow.deposit_manwon) * 10000 : undefined) ??
+          rawRow.보증금 ??
+          0,
+      );
+      const monthlyRentKrw = Number(
+        t.monthly_rent ??
+          rawRow.monthly_rent_krw ??
+          (rawRow.rent_manwon != null ? Number(rawRow.rent_manwon) * 10000 : undefined) ??
+          rawRow.월세 ??
+          0,
+      );
+      const mgmtFeeKrw = Number(
+        rawRow.mgmt_fee_krw ??
+          (rawRow.mgmt_fee_manwon != null ? Number(rawRow.mgmt_fee_manwon) * 10000 : undefined) ??
+          rawRow.관리비 ??
+          0,
+      );
+
+      return {
+        floor: t.floor || rawRow.floor || `${idx + 1}F`,
+        tenant_sector: rawRow.sector || rawRow.업종 || t.tenant_type || undefined,
+        area_pyung: areaPyungNum > 0 ? areaPyungNum : undefined,
+        lease_area_sqm: areaSqmNum > 0 ? areaSqmNum : undefined,
+        exclusive_area_sqm: Number(rawRow.exclusive_area_sqm) > 0 ? Number(rawRow.exclusive_area_sqm) : undefined,
+        deposit_krw: depositKrw > 0 ? depositKrw : undefined,
+        monthly_rent_krw: monthlyRentKrw > 0 ? monthlyRentKrw : undefined,
+        // X4: 빈 관리비를 0원으로 저장하지 않는다 (0 → undefined → null)
+        mgmt_fee_krw: mgmtFeeKrw > 0 ? mgmtFeeKrw : undefined,
+        lease_start: toIsoDateOrUndefined(rawRow.lease_start ?? rawRow.contract_start),
+        lease_end: toIsoDateOrUndefined(t.contract_end ?? rawRow.lease_end ?? rawRow.contract_end),
+        contract_group: typeof rawRow.contract_group === 'string' ? rawRow.contract_group : undefined,
+        legal_basis: rawRow.legal_basis,
+        lease_state: rawRow.lease_state ?? (t.tenant_type === 'vacant' ? '공실' : undefined),
+        evidence_level: rawRow.evidence_level,
+        rent_free_months: rawRow.rent_free_months,
+        payment_status: rawRow.payment_status,
+        note: typeof rawRow.note === 'string' ? rawRow.note : undefined,
+        source_tier: 'studio_input',
+      };
+    });
+
+    const persistResult = await persistLeaseUnits(id, leaseUnits, undefined, {
+      sparse: true,
+      pruneSourceTier: 'studio_input',
+      meta: incomingMeta,
+      supabaseClient: supabase,
+    });
+    log.info(`[lease] Persisted ${persistResult.inserted} units to lease_ledger table`);
   } catch (err) {
     log.warn('[lease] Failed to persist lease units:', err);
+  }
+
+  // Sync matching workspace_items (kind: 'im') draft_payload.rentRoll if present
+  try {
+    let wsMatch: Record<string, any> | null = null;
+    if (UUID_RE.test(id)) {
+      const { data: byBld } = await supabase
+        .from('workspace_items')
+        .select('id, status, draft_payload, version, deleted_at')
+        .eq('building_id', id)
+        .eq('kind', 'im')
+        .limit(1);
+      const bldRows = Array.isArray(byBld) ? byBld : byBld ? [byBld] : [];
+      wsMatch = bldRows.find((r: any) => r && r.id && !r.deleted_at) ?? null;
+    }
+    if (!wsMatch) {
+      const { data: byLegacy } = await supabase
+        .from('workspace_items')
+        .select('id, status, draft_payload, version, deleted_at')
+        .eq('legacy_id', id)
+        .eq('kind', 'im')
+        .limit(1);
+      const legRows = Array.isArray(byLegacy) ? byLegacy : byLegacy ? [byLegacy] : [];
+      wsMatch = legRows.find((r: any) => r && r.id && !r.deleted_at) ?? null;
+    }
+    if (wsMatch?.id) {
+      const prevDraft =
+        wsMatch.draft_payload && typeof wsMatch.draft_payload === 'object'
+          ? (wsMatch.draft_payload as Record<string, unknown>)
+          : {};
+      await supabase
+        .from('workspace_items')
+        .update({
+          draft_payload: {
+            ...prevDraft,
+            rentRoll: syncedSummary.rentRollRows,
+            ...(incomingMeta ? { rentRollMeta: incomingMeta } : {}),
+            monthlyRentTotalManwon: syncedSummary.monthly_rent_manwon,
+            totalDepositManwon: syncedSummary.total_deposit_manwon,
+            vacancyPct: syncedSummary.vacancy_pct,
+          },
+          version: Number(wsMatch.version || 1) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', wsMatch.id);
+    }
+  } catch (wsErr) {
+    log.warn('[lease] Workspace IM rentRoll sync warning:', wsErr);
   }
 
   // Record activity event

@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { isRealProductionRuntime } from '@/lib/env';
 
 interface CronSupabaseLike {
   from: (table: string) => {
@@ -71,10 +72,23 @@ export function verifyCronRequest(req: Request | NextRequest): NextResponse | nu
   return null;
 }
 
+function isMissingCronRunsTableError(
+  err: { code?: string; message?: string } | null | undefined,
+): boolean {
+  if (!err) return false;
+  if (err.code === '42P01' || err.code === 'PGRST205') return true;
+  const msg = err.message ?? '';
+  return /relation .*magazine_cron_runs.* does not exist|could not find the table .*magazine_cron_runs/i.test(
+    msg,
+  );
+}
+
 /**
  * Acquires a best-effort idempotency slot in `magazine_cron_runs` for `(jobKey, bucketKey)`.
- * Gracefully returns `{ acquired: true }` if `magazine_cron_runs` is unavailable in unit test mocks
- * or pre-migration environments so cron jobs never fail due to missing telemetry tables.
+ * In production (`isRealProductionRuntime()`), fails closed (`{ acquired: false }`) on real DB
+ * errors (brownouts / statement timeouts) to prevent duplicate cron storms, while gracefully
+ * returning `{ acquired: true }` if `magazine_cron_runs` is missing (`42P01`/`PGRST205`) or in
+ * unit test / dev mocks.
  */
 export async function acquireCronIdempotencySlot(
   supabase: unknown,
@@ -97,6 +111,9 @@ export async function acquireCronIdempotencySlot(
 
     const { data: existing, error: selectErr } = await selectQuery;
     if (selectErr) {
+      if (isRealProductionRuntime() && !isMissingCronRunsTableError(selectErr)) {
+        return { acquired: false };
+      }
       return { acquired: true };
     }
     if (Array.isArray(existing) && existing.length > 0) {
@@ -115,11 +132,17 @@ export async function acquireCronIdempotencySlot(
       if (insertErr.code === '23505') {
         return { acquired: false };
       }
+      if (isRealProductionRuntime() && !isMissingCronRunsTableError(insertErr)) {
+        return { acquired: false };
+      }
       return { acquired: true };
     }
 
     return { acquired: true };
-  } catch {
+  } catch (err) {
+    if (!(err instanceof TypeError) && isRealProductionRuntime()) {
+      return { acquired: false };
+    }
     return { acquired: true };
   }
 }

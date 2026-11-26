@@ -118,7 +118,7 @@ export async function GET(
     if (client.client_type === 'buyer' || client.client_type === 'both') {
       const { data: leaseProps } = await supabase
         .from('lease_spaces')
-        .select('id, floor, area_sqm, space_type, deposit, monthly_rent, status, area_signal, broker_id')
+        .select('id, floor, area_sqm, space_type, deposit, monthly_rent, status, broker_id')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(10);

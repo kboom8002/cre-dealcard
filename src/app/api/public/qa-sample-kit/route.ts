@@ -1,10 +1,17 @@
-import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 import sharp from "sharp";
 import { requireBroker } from "@/lib/auth-guard";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
+import { isRealProductionRuntime } from "@/lib/env";
+import {
+  getConfiguredQaSecrets,
+  isPublicQaFlagEnabled,
+  resolveQaKeyFromRequest,
+} from "@/lib/security/qa-gate";
 import { TESTGUIDE_DEALS, TESTGUIDE_IMAGE_CDN_MAP } from "@/lib/testguide/testguide-data";
 import { FULL_LOOP_CASES, type FullLoopCaseId } from "@/lib/testguide/full-loop-2cases-data";
 import {
@@ -41,38 +48,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function timingSafeMatchKey(a: string, b: string): boolean {
-  if (!a || !b || a.length !== b.length) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-  } catch {
-    return false;
-  }
-}
-
 function hasValidQaAccessKey(req: NextRequest): boolean {
-  const candidates = [
-    (req.headers.get("x-qa-access-key") || "").trim(),
-    (req.cookies.get("cre_qa_key")?.value || "").trim(),
-    (req.nextUrl.searchParams.get("qaKey") || req.nextUrl.searchParams.get("key") || "").trim(),
-  ].filter(Boolean);
-
-  if (candidates.length === 0) return false;
-
-  const configuredKeys = [
-    process.env.QA_ACCESS_KEY,
-    process.env.QA_TESTER_ACCESS_KEY,
-    process.env.QA_BROKER_ACCESS_KEY,
-  ]
-    .map((v) => (v || "").trim())
-    .filter(Boolean);
-
-  for (const candidate of candidates) {
-    for (const key of configuredKeys) {
-      if (timingSafeMatchKey(key, candidate)) return true;
-    }
-  }
-  return false;
+  return resolveQaKeyFromRequest(req).allowed;
 }
 
 async function resolveOptionalBrokerUser(
@@ -246,12 +223,36 @@ const XLSX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 export async function GET(req: NextRequest) {
-  const enforceGate =
+  const ip = getClientIp(req) ?? "anonymous";
+  const rlAllowed = await checkRateLimit(ip, "public_qa_sample_kit", 60, 60_000);
+  if (!rlAllowed) {
+    return NextResponse.json(
+      { ok: false, error: "요청 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429 }
+    );
+  }
+
+  const hasQaKey = hasValidQaAccessKey(req);
+  if (isPublicQaFlagEnabled()) {
+    if (!getConfiguredQaSecrets().anyConfigured || !hasQaKey) {
+      return NextResponse.json(
+        { ok: false, error: "Not Found" },
+        { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+      );
+    }
+  } else if (isRealProductionRuntime()) {
+    if (!hasQaKey) {
+      return NextResponse.json(
+        { ok: false, error: "Not Found" },
+        { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow" } }
+      );
+    }
+  } else if (
     process.env.NODE_ENV === "production" ||
-    process.env.CRE_ENFORCE_QA_GATE === "1";
-  if (enforceGate) {
-    const brokerUser = await resolveOptionalBrokerUser(req);
-    if (!brokerUser?.id && !hasValidQaAccessKey(req)) {
+    process.env.CRE_ENFORCE_QA_GATE === "1"
+  ) {
+    const brokerUser = hasQaKey ? null : await resolveOptionalBrokerUser(req);
+    if (!brokerUser?.id && !hasQaKey) {
       return NextResponse.json(
         { ok: false, error: "Not Found" },
         { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow" } }

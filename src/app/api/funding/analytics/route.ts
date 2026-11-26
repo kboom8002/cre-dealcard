@@ -1,14 +1,17 @@
-import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth-guard";
+import { createServiceClient } from "@/lib/supabase/service";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+const log = createModuleLogger("route");
 
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin(req);
+  if (guard.error) return guard.error;
 
-export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient();
-    
+    const supabase = createServiceClient();
+
     // Fetch all projects
     const { data: projects, error: pErr } = await supabase
       .from("funding_projects")
@@ -55,8 +58,8 @@ export async function GET() {
         failureLogs: failureLogs || [],
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("[GET /api/funding/analytics]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "펀딩 통계 조회에 실패했습니다." }, { status: 500 });
   }
 }

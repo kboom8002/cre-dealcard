@@ -8,11 +8,30 @@
  * - Schema-drift safe (`42P01`, `42703`, `PGRST204`, `PGRST205`, `23503`) and partial-mock safe.
  */
 import crypto from 'node:crypto';
-import type { NextRequest } from 'next/server';
 import { verifyAuth } from '@/lib/auth-guard';
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('im-pro-grant-service');
+
+/**
+ * Framework-agnostic structural request contract compatible with Web `Request`
+ * and Next.js server request objects without framework-layer coupling.
+ */
+export interface RequestLike {
+  url?: string;
+  nextUrl?: {
+    searchParams?: {
+      get(name: string): string | null;
+    };
+  };
+  headers?: {
+    get(name: string): string | null;
+  };
+  cookies?: {
+    get(name: string): { value?: string } | undefined;
+    getAll?: () => Array<{ name: string; value: string }>;
+  };
+}
 
 export interface ProGrantEntity {
   id: string;
@@ -802,10 +821,17 @@ function isGrantTokenMatch(candidate: string, grant: ProGrantEntity): boolean {
  * or an authenticated session matching requester, broker, or admin. Fail-closed (403).
  */
 export async function verifyProGrantViewerAccess(
-  req: NextRequest,
+  req: RequestLike,
   grant: ProGrantEntity,
 ): Promise<ProGrantViewerAccessResult> {
-  const queryToken = req.nextUrl?.searchParams?.get('token')?.trim() || '';
+  let queryToken = req.nextUrl?.searchParams?.get('token')?.trim() || '';
+  if (!queryToken && typeof req.url === 'string' && req.url) {
+    try {
+      queryToken = new URL(req.url, 'http://localhost').searchParams.get('token')?.trim() || '';
+    } catch {
+      // Ignore malformed URL fallback
+    }
+  }
   const headerToken = req.headers?.get('x-grant-token')?.trim() || '';
   const cookieToken = extractGrantCookieToken(req.cookies?.get('cre_pro_grant')?.value, grant);
 
@@ -817,7 +843,19 @@ export async function verifyProGrantViewerAccess(
   }
 
   try {
-    const authRes = await verifyAuth(req);
+    const authReq =
+      req.headers && req.cookies && typeof req.cookies.getAll === 'function'
+        ? req
+        : {
+            url: req.url,
+            nextUrl: req.nextUrl,
+            headers: req.headers ?? new Headers(),
+            cookies: {
+              get: (name: string) => req.cookies?.get?.(name),
+              getAll: () => (typeof req.cookies?.getAll === 'function' ? req.cookies.getAll() : []),
+            },
+          };
+    const authRes = await verifyAuth(authReq as Parameters<typeof verifyAuth>[0]);
     if (!authRes.error && authRes.user) {
       if (authRes.role === 'admin') {
         return { ok: true, status: 200 };

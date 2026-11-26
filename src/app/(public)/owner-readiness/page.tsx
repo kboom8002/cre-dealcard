@@ -329,7 +329,7 @@ function LargeReadinessGauge({ score }: { score: number }) {
         <span className={`text-4xl font-extrabold tracking-tight ${scoreColor}`}>
           {score}
         </span>
-        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
+        <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
           Readiness
         </span>
       </div>
@@ -356,18 +356,18 @@ function IMSectionAccordionItem({
         className="w-full flex items-center justify-between px-4 py-3.5 text-left font-medium select-none hover:bg-muted/30 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground font-mono">
+          <span className="text-sm text-muted-foreground font-mono">
             {String(section.num).padStart(2, "0")}
           </span>
           <span className="text-sm font-semibold">{section.title}</span>
         </div>
         <div className="flex items-center gap-2">
           {isUnlocked ? (
-            <span className="shrink-0 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-xs font-semibold">
+            <span className="shrink-0 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2.5 py-0.5 text-sm font-semibold">
               ✨ AI 초안 작성됨
             </span>
           ) : (
-            <span className="shrink-0 inline-flex items-center rounded-full bg-warning/10 text-warning border border-warning/20 px-2.5 py-0.5 text-xs font-semibold">
+            <span className="shrink-0 inline-flex items-center rounded-full bg-warning/10 text-warning border border-warning/20 px-2.5 py-0.5 text-sm font-semibold">
               🔒 {section.depLabel} 필요
             </span>
           )}
@@ -393,7 +393,7 @@ function IMSectionAccordionItem({
             <div className="border border-dashed border-border rounded-lg p-4 text-center space-y-2">
               <span className="text-2xl">🔒</span>
               <p className="text-sm font-medium">자료 대입 대기 중</p>
-              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                 이 섹션을 생성하려면 <strong>{section.depLabel}</strong>이(가) 필요합니다.
                 상단 체크리스트에서 해당 항목을 체크하고 다시 확인해주세요.
               </p>
@@ -719,11 +719,15 @@ function OwnerReadinessContent() {
 
           {/* Building Selection Dropdown */}
           <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider block">
+            <label
+              htmlFor="owner-readiness-building-select"
+              className="text-sm text-muted-foreground font-semibold uppercase tracking-wider block"
+            >
               분석 대상 매물 선택 (Select Asset)
             </label>
             {buildings.length > 0 ? (
               <select
+                id="owner-readiness-building-select"
                 value={selectedBuildingId}
                 onChange={(e) => setSelectedBuildingId(e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm transition-all focus:border-primary/50 focus:outline-none"
@@ -735,21 +739,21 @@ function OwnerReadinessContent() {
                 ))}
               </select>
             ) : (
-              <div className="text-xs text-muted-foreground">로딩 중...</div>
+              <div className="text-sm text-muted-foreground">로딩 중...</div>
             )}
           </div>
 
           {/* Live Score Preview */}
           <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between shadow-elevation-1">
             <div>
-              <p className="text-xs text-muted-foreground">실시간 예상 점수</p>
+              <p className="text-sm text-muted-foreground">실시간 예상 점수</p>
               <p className={`text-3xl font-extrabold ${liveScoreColor}`}>
                 {liveScore}
                 <span className="text-base text-muted-foreground font-normal"> / 100</span>
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">선택된 서류</p>
+              <p className="text-sm text-muted-foreground">선택된 서류</p>
               <p className="text-lg font-bold">
                 {checkedCount}
                 <span className="text-muted-foreground text-sm font-normal"> / {CHECKLIST_ITEMS.length}</span>
@@ -759,7 +763,7 @@ function OwnerReadinessContent() {
 
           {/* Checklist Container */}
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">준비된 자료를 선택하세요</p>
+            <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">준비된 자료를 선택하세요</p>
             <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
               {CHECKLIST_ITEMS.map((item) => {
                 const isChecked = checklist[item.key];
@@ -799,9 +803,9 @@ function OwnerReadinessContent() {
                       <p className={`text-sm font-semibold transition-colors ${isChecked ? "text-foreground" : "text-foreground/90"}`}>
                         {item.label}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
+                      <p className="text-sm text-muted-foreground truncate">{item.desc}</p>
                     </div>
-                    <span className="text-xs font-mono font-bold text-muted-foreground shrink-0">
+                    <span className="text-sm font-mono font-bold text-muted-foreground shrink-0">
                       +{item.weight}
                     </span>
                   </button>
@@ -837,7 +841,7 @@ function OwnerReadinessContent() {
                   <LargeReadinessGauge score={result.readinessScore} />
                 </div>
                 <div className="flex-1 text-center md:text-left space-y-2">
-                  <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${stateInfo.color}`}>
+                  <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-sm font-bold ${stateInfo.color}`}>
                     {stateInfo.label}
                   </span>
                   <h2 className="text-xl font-bold">자료 매각 준비 상태</h2>
@@ -848,28 +852,28 @@ function OwnerReadinessContent() {
               {/* 공유 및 링크 복사 액션 */}
               <div className="rounded-xl border border-border bg-card p-4 shadow-elevation-1 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gradient-to-r from-teal-500/5 to-primary/5">
                 <div className="space-y-0.5 text-center sm:text-left">
-                  <h4 className="text-xs font-bold text-foreground">🔗 소유주에게 진단 결과 공유</h4>
-                  <p className="text-[10px] text-muted-foreground font-medium">이 진단 결과를 카카오톡이나 SMS, 링크로 건물주에게 바로 전송할 수 있습니다.</p>
+                  <h4 className="text-sm font-bold text-foreground">🔗 소유주에게 진단 결과 공유</h4>
+                  <p className="text-sm text-muted-foreground font-medium">이 진단 결과를 카카오톡이나 SMS, 링크로 건물주에게 바로 전송할 수 있습니다.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={handleKakaoShare}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#191919] px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98]"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#191919] px-3.5 py-2 text-sm font-bold shadow-sm transition-all active:scale-[0.98]"
                   >
                     💬 카톡 전송
                   </button>
                   <button
                     type="button"
                     onClick={handleCopyLink}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground px-3.5 py-2 text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground px-3.5 py-2 text-sm font-semibold shadow-sm transition-all active:scale-[0.98]"
                   >
                     {copied ? "✅ 복사 완료" : "📋 링크 복사"}
                   </button>
                   <button
                     type="button"
                     onClick={handleSmsShare}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground px-3.5 py-2 text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground px-3.5 py-2 text-sm font-semibold shadow-sm transition-all active:scale-[0.98]"
                   >
                     📱 SMS 전송
                   </button>
@@ -887,14 +891,14 @@ function OwnerReadinessContent() {
                   {result.availableOutputs.length > 0 ? (
                     <div className="space-y-2">
                       {result.availableOutputs.map((output) => (
-                        <div key={output} className="flex items-center gap-2 text-xs font-medium bg-muted/30 border border-border/50 rounded-lg px-2.5 py-1.5">
+                        <div key={output} className="flex items-center gap-2 text-sm font-medium bg-muted/30 border border-border/50 rounded-lg px-2.5 py-1.5">
                           <span className="text-success">•</span>
                           <span>{OUTPUT_LABELS[output] || output}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">현재 점수에서 생성 가능한 출물이 없습니다.</p>
+                    <p className="text-sm text-muted-foreground">현재 점수에서 생성 가능한 출물이 없습니다.</p>
                   )}
                 </div>
 
@@ -907,14 +911,14 @@ function OwnerReadinessContent() {
                   {result.missingData.length > 0 ? (
                     <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
                       {result.missingData.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span className="text-warning font-bold">-</span>
                           <span>{item}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-[100px] text-xs text-success font-semibold">
+                    <div className="flex items-center justify-center h-[100px] text-sm text-success font-semibold">
                       🎉 모든 서류 준비 완료!
                     </div>
                   )}
@@ -925,7 +929,7 @@ function OwnerReadinessContent() {
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
                 <span className="text-lg">💡</span>
                 <div className="space-y-0.5">
-                  <p className="text-xs text-primary font-bold uppercase tracking-wider">추천 액션 가이드</p>
+                  <p className="text-sm text-primary font-bold uppercase tracking-wider">추천 액션 가이드</p>
                   <p className="text-sm font-medium text-foreground/95">{result.nextRecommendedAction}</p>
                 </div>
               </div>
@@ -936,7 +940,7 @@ function OwnerReadinessContent() {
                   <h3 className="text-base font-bold flex items-center gap-2">
                     <span>📁</span> 18개 섹션 정밀 IM 초안 구조
                   </h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     체크리스트 준비 현황에 실시간 연동되어 락이 해제되는 CRE 정밀 투자설명서 모형입니다.
                   </p>
                 </div>
@@ -962,7 +966,7 @@ function OwnerReadinessContent() {
               <div className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-elevation-2">
                 <div className="space-y-1">
                   <h3 className="text-base font-bold">📄 Full IM Studio에서 고품질 투자각서 만들기</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     준비도가 충분히 높은 경우(70점 이상), Full IM Studio로 데이터를 송출해 인쇄용 정식 PDF로 빌드할 수 있습니다.
                   </p>
                 </div>
@@ -989,10 +993,10 @@ function OwnerReadinessContent() {
                   </button>
                 ) : (
                   <div className="rounded-xl bg-muted/50 border border-border p-4 text-center space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground">
+                    <p className="text-sm font-semibold text-muted-foreground">
                       ⚠️ 자금 조달 및 현금흐름 상세 IM 출력을 위한 자료 준비 요함
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       체크리스트 보완으로 매각 준비도 점수 <strong>70점 이상</strong>을 달성 시 원클릭 handoff 링크가 활성화됩니다. (현재 {result.readinessScore}점)
                     </p>
                     <button
@@ -1009,7 +1013,7 @@ function OwnerReadinessContent() {
               {/* Expert Note CTA */}
               <div className="rounded-xl border border-border bg-card p-5 space-y-3 shadow-elevation-1">
                 <h3 className="text-base font-bold">전문가 3줄 코멘트 받기</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   현재 자산의 매각 구조와 공실 상태에서 어떠한 금융 설계와 개별 마케팅이 가장 효과적인지 상용 수준의 전문가 3줄 검토 메모를 무료로 요청할 수 있습니다.
                 </p>
                 <Link
@@ -1023,7 +1027,7 @@ function OwnerReadinessContent() {
 
               {/* Boundary / Safe Advisory Note */}
               <div className="rounded-xl bg-muted/40 border border-border/80 px-4 py-3">
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   [준비도 유의 사항] 본 점검은 사용자가 제출한 기초 서류 구비 현황에 기반하여 투자 자산 적격도(IM)를 사전에 매핑해보는 참고용 리포트입니다. 당사는 실제 거래의 가격 구조, 대출 가용 여부, 법률 및 세무적 채무 발생 가능성 등에 대한 어떠한 금전적 보증도 제공하지 않습니다. 모든 법적·재무적 최종 투자 판단은 전문 대리인과의 상의를 권장합니다.
                 </p>
               </div>
@@ -1035,7 +1039,7 @@ function OwnerReadinessContent() {
               <span className="text-5xl">📊</span>
               <div className="space-y-1">
                 <h3 className="text-base font-bold">실시간 오너 준비도 분석 리포트</h3>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                   왼쪽 양식에서 현재 준비된 서류 항목을 마킹하고 버튼을 클릭하시면 점수와 누락 목록, 18개 섹션 IM 초안 미리보기가 즉시 로드됩니다.
                 </p>
               </div>

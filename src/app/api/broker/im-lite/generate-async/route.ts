@@ -8,7 +8,6 @@
  * - maxDuration=300 (Vercel Pro 플랜)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { assertBuildingOwner } from "@/lib/authz/assert-owner";
@@ -17,6 +16,7 @@ import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/type
 import { persistLeaseUnits, floorLeaseToPersistUnit } from "@/domain/building/mobile-im/lease-adapter";
 import { parseSupplementalFromBody } from "@/domain/building/mobile-im/supplemental-whitelist";
 import { enforceBrokerAiQuota, enforceFeatureQuota } from "@/lib/ai-quota-guard";
+import { runAfterResponse } from "@/lib/server/after-safe";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -112,23 +112,31 @@ export async function POST(req: NextRequest) {
   const jobId = `im_${buildingId}_${Date.now()}_${randomUUID().slice(0, 8)}`;
 
   try {
-    await supabase.from("im_generation_jobs").upsert({
+    const upsertRes = await supabase.from("im_generation_jobs").upsert({
       id: jobId,
       building_id: buildingId,
       user_id: user.id,
+      owner_id: user.id,
       status: "processing",
       input_payload: { supplemental, skipApproval, directData, tier, preset },
       created_at: new Date().toISOString(),
     });
+    if (upsertRes?.error) {
+      log.error(
+        { err: upsertRes.error, jobId, buildingId, ownerId: user.id },
+        "[im-generate-async] Initial job upsert returned error",
+      );
+    }
   } catch (upsertErr) {
     log.warn("[im-generate-async] Initial job upsert failed (non-blocking):", upsertErr);
   }
 
-  // ── after(): 응답 반환 후 백그라운드에서 IM 생성 실행 ──
+  // ── runAfterResponse(): 응답 반환 후 백그라운드에서 IM 생성 실행 ──
   // iOS Safari 60~75s fetch 타임아웃 문제 해결 — 즉시 jobId 반환
-  after(async () => {
-    const bgSupabase = createServiceClient();
+  runAfterResponse("im-generate-async", async () => {
+    let bgSupabase: ReturnType<typeof createServiceClient> | null = null;
     try {
+      bgSupabase = createServiceClient();
       const { generateMobileIMHandler } = await import("../generate/handler");
       const result = await generateMobileIMHandler({
         buildingId,
@@ -145,7 +153,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (result.ok) {
-        await bgSupabase.from("im_generation_jobs").update({
+        const completeRes = await bgSupabase.from("im_generation_jobs").update({
           status: "completed",
           result: {
             im_lite_id: result.im_lite_id,
@@ -158,6 +166,12 @@ export async function POST(req: NextRequest) {
           },
           completed_at: new Date().toISOString(),
         }).eq("id", jobId);
+        if (completeRes?.error) {
+          log.error(
+            { err: completeRes.error, jobId, buildingId },
+            "[im-generate-async] Completed status update returned error",
+          );
+        }
 
         // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
         try {
@@ -324,8 +338,9 @@ export async function POST(req: NextRequest) {
           log.warn("[im-generate-async] SSoT writeback failed (non-blocking):", msg);
         }
       } else {
-        await bgSupabase.from("im_generation_jobs").update({
+        const failRes = await bgSupabase.from("im_generation_jobs").update({
           status: "failed",
+          error: result.error ?? "IM generation failed",
           result: {
             error: result.error,
             score: result.score,
@@ -334,15 +349,30 @@ export async function POST(req: NextRequest) {
           },
           completed_at: new Date().toISOString(),
         }).eq("id", jobId);
+        if (failRes?.error) {
+          log.error(
+            { err: failRes.error, jobId, buildingId },
+            "[im-generate-async] Failed status update returned error",
+          );
+        }
       }
     } catch (err: unknown) {
       log.error("[im-generate-async] Error:", err);
       try {
-        await bgSupabase.from("im_generation_jobs").update({
+        const fallbackSupabase = bgSupabase ?? createServiceClient();
+        const errMessage = err instanceof Error ? err.message : "Unknown error";
+        const catchUpdateRes = await fallbackSupabase.from("im_generation_jobs").update({
           status: "failed",
-          result: { error: err instanceof Error ? err.message : "Unknown error" },
+          error: errMessage,
+          result: { error: errMessage },
           completed_at: new Date().toISOString(),
         }).eq("id", jobId);
+        if (catchUpdateRes?.error) {
+          log.error(
+            { err: catchUpdateRes.error, jobId, buildingId },
+            "[im-generate-async] Unhandled failure status update returned error",
+          );
+        }
       } catch (updateErr) {
         log.warn("[im-generate-async] Failed status update failed:", updateErr);
       }

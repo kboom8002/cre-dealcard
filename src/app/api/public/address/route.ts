@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { searchAddress } from "@/domain/verification/address-resolver";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import { createModuleLogger } from '@/lib/logger';
 
 const log = createModuleLogger('route');
@@ -16,6 +18,15 @@ const AddressSearchQuerySchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
+    const clientIp = getClientIp(request) ?? "unknown";
+    const allowed = await checkRateLimit(clientIp, "public_address_get", 60, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 },
+      );
+    }
+
     const parsed = AddressSearchQuerySchema.safeParse({
       keyword: request.nextUrl.searchParams.get("keyword") ?? "",
     });
@@ -34,7 +45,7 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     log.error("[api/public/address] Error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 내부 오류" },
+      { error: "주소 검색 중 서버 오류가 발생했습니다." },
       { status: 500 },
     );
   }

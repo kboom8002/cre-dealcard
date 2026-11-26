@@ -11,19 +11,95 @@
  * - T-R: 전 호실 보호 / 갱신요구권 1회·2년 (max 4년)
  */
 
-// ── 서울 기준 환산보증금 기준액 (2026년) ──────────────────────────
-const THRESHOLD_SEOUL = 9_0000_0000; // 9억원 (2024 기준, 시행령 갱신 시 업데이트)
-const THRESHOLD_METRO = 6_9000_0000; // 6.9억원
-const THRESHOLD_OTHER = 5_4000_0000; // 5.4억원
+import {
+  COMMERCIAL_LEASE_ACT_THRESHOLDS,
+  CONVERTED_DEPOSIT_RATE,
+} from '@/domain/building/im-core/lease-calc';
 
-export type Region = 'seoul' | 'metro' | 'other';
+// ── 상가건물 임대차보호법 시행령 제2조제1항 4단계 권역 기준액 (SSOT) ──────
+const THRESHOLD_SEOUL = COMMERCIAL_LEASE_ACT_THRESHOLDS['서울']; // 9억원
+const THRESHOLD_METRO = COMMERCIAL_LEASE_ACT_THRESHOLDS['수도권과밀억제']; // 6.9억원
+const THRESHOLD_METRO_CITY = COMMERCIAL_LEASE_ACT_THRESHOLDS['광역시']; // 5.4억원
+const THRESHOLD_NON_METRO = COMMERCIAL_LEASE_ACT_THRESHOLDS['기타']; // 3.7억원
+
+export type Region = 'seoul' | 'metro' | 'metro_city' | 'non_metro' | 'other';
 
 export function getThreshold(region: Region): number {
   switch (region) {
-    case 'seoul': return THRESHOLD_SEOUL;
-    case 'metro': return THRESHOLD_METRO;
-    case 'other': return THRESHOLD_OTHER;
+    case 'seoul':
+      return THRESHOLD_SEOUL;
+    case 'metro':
+      return THRESHOLD_METRO;
+    case 'metro_city':
+      return THRESHOLD_METRO_CITY;
+    case 'non_metro':
+      return THRESHOLD_NON_METRO;
+    case 'other':
+      return THRESHOLD_METRO_CITY;
   }
+}
+
+/** 수도권정비계획법상 경기도 과밀억제권역 시 목록 (시행령 제2조제1항제2호: 6.9억 원) */
+const GYEONGGI_OVERPOPULATION_CITY_RE =
+  /(?:수원|성남|안양|부천|광명|과천|의왕|군포|시흥|고양|의정부|구리|남양주|하남)시?/;
+
+/** 경기도 내 시행령 제2조제1항제3호 지정 시 목록 (5.4억 원) */
+const GYEONGGI_METRO_CITY_TIER_RE = /(?:파주|화성|안산|용인|김포|광주)시/;
+
+/**
+ * 주소 문자열로부터 상가건물 임대차보호법 시행령 제2조제1항 권역(4단계)을 판정합니다.
+ *  - 'seoul'      (9.0억): 서울특별시
+ *  - 'metro'      (6.9억): 수도권 과밀억제권역(서울 제외) 및 부산광역시
+ *  - 'metro_city' (5.4억): 광역시(부산·과밀억제 제외, 군지역 제외), 세종특별자치시, 파주·화성·안산·용인·김포·광주시
+ *  - 'non_metro'  (3.7억): 그 밖의 지방 도·특별자치도 시·군 (전북 전주시, 강원 춘천시, 제주 제주시 등)
+ */
+export function resolveLeaseActRegionFromAddress(address: string): Region {
+  const s = String(address ?? '').trim();
+  if (!s) return 'non_metro';
+
+  if (/^(?:서울특별시|서울시|서울)(?=\s|$)/.test(s)) {
+    return 'seoul';
+  }
+
+  // 부산광역시 (시행령 제2조제1항제2호: 6.9억 원, 단 기장군은 군지역으로 기타 3.7억)
+  if (/^(?:부산광역시|부산시|부산)(?=\s|$)/.test(s)) {
+    if (/(?:^|\s)기장군(?=\s|$)/.test(s)) return 'non_metro';
+    return 'metro';
+  }
+
+  // 인천광역시 (강화군·옹진군은 군지역 제외, 일반 구는 수도권 과밀억제권역 6.9억)
+  if (/^(?:인천광역시|인천시|인천)(?=\s|$)/.test(s)) {
+    if (/(?:^|\s)(?:강화군|옹진군)(?=\s|$)/.test(s)) return 'non_metro';
+    return 'metro';
+  }
+
+  // 세종특별자치시 (시행령 제2조제1항제3호: 5.4억 원)
+  if (/^(?:세종특별자치시|세종시|세종)(?=\s|$)/.test(s)) {
+    return 'metro_city';
+  }
+
+  // 대구·광주·대전·울산 광역시 (군지역인 달성군·울주군은 기타, 일반 구는 5.4억 원)
+  if (/^(?:대구|광주|대전|울산)(?:광역시|시)?(?=\s|$)/.test(s)) {
+    if (/(?:^|\s)(?:달성군|울주군)(?=\s|$)/.test(s)) return 'non_metro';
+    return 'metro_city';
+  }
+
+  // 경기도 (과밀억제권역 6.9억 vs 제3호 특례 6개 시 5.4억 vs 그 외 경기 시·군 3.7억)
+  if (/^(?:경기도|경기)(?=\s|$)/.test(s)) {
+    if (GYEONGGI_OVERPOPULATION_CITY_RE.test(s)) return 'metro';
+    if (GYEONGGI_METRO_CITY_TIER_RE.test(s)) return 'metro_city';
+    return 'non_metro';
+  }
+
+  // 도명 생략 수도권 주요 시 단독 표기 지원 (전북·강원·제주 등 지방 도 표기가 없을 때만)
+  const isExplicitNonMetroProvince =
+    /^(?:강원|충북|충청북도|충남|충청남도|전북|전라북도|전남|전라남도|경북|경상북도|경남|경상남도|제주)/.test(s);
+  if (!isExplicitNonMetroProvince) {
+    if (GYEONGGI_OVERPOPULATION_CITY_RE.test(s)) return 'metro';
+    if (GYEONGGI_METRO_CITY_TIER_RE.test(s)) return 'metro_city';
+  }
+
+  return 'non_metro';
 }
 
 import type { LeaseUnitPrecise } from '../lease-precise';
@@ -87,8 +163,10 @@ export function evaluateTenancy(
   const startDateStr = unitAny.firstContractDate || unitAny.leaseStartDate || unitAny.currentStartDate;
   const startDateObj = unitAny.startDate;
 
-  // T01: 환산보증금
-  const convertedDeposit = deposit + monthlyRent * 100;
+  // T01: 환산보증금 (정수 산술 — IEEE-754 오차 방지)
+  const convertedDeposit = Math.round(
+    deposit + (CONVERTED_DEPOSIT_RATE === 0.12 ? monthlyRent * 100 : (monthlyRent * 12) / CONVERTED_DEPOSIT_RATE)
+  );
   const threshold = getThreshold(region);
   const isProtected = convertedDeposit <= threshold;
 

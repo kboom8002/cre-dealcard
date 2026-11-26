@@ -2,6 +2,7 @@
  * POST /api/broker/buildings/[id]/evidence
  * Uploads evidence file metadata and recalculates completeness score
  */
+import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { computeCompletenessAfterUpload } from '@/domain/building/evidence-upload';
@@ -12,6 +13,55 @@ import { requireBroker } from '@/lib/auth-guard';
 import { assertBuildingOwner } from '@/lib/authz/assert-owner';
 
 import { z } from 'zod';
+
+const KNOWN_EVIDENCE_CATEGORIES = new Set([
+  'building_register',
+  'registry_docs',
+  'land_use_plan',
+  'rent_roll',
+  'photos',
+  'floor_plan',
+  'repair_history',
+  'vacancy_docs',
+  'asking_price',
+  'disclosure_policy',
+  'other',
+]);
+
+const ALLOWED_EVIDENCE_VISIBILITY = new Set([
+  'private',
+  'expert_only',
+  'gate_restricted',
+  'public_redacted',
+]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractEvidenceCategory(row: Record<string, any> | null | undefined): LayerCategory | null {
+  if (!row || typeof row !== 'object') return null;
+  if (typeof row.layer_category === 'string' && KNOWN_EVIDENCE_CATEGORIES.has(row.layer_category.trim())) {
+    return row.layer_category.trim() as LayerCategory;
+  }
+  if (typeof row.file_type === 'string' && row.file_type.trim()) {
+    const raw = row.file_type.trim();
+    if (raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.layer_category === 'string' && KNOWN_EVIDENCE_CATEGORIES.has(parsed.layer_category.trim())) {
+          return parsed.layer_category.trim() as LayerCategory;
+        }
+      } catch {
+        // ignore malformed json
+      }
+    }
+    if (KNOWN_EVIDENCE_CATEGORIES.has(raw)) return raw as LayerCategory;
+  }
+  if (typeof row.storage_path === 'string') {
+    for (const seg of row.storage_path.split('/').filter(Boolean)) {
+      if (KNOWN_EVIDENCE_CATEGORIES.has(seg)) return seg as LayerCategory;
+    }
+  }
+  return null;
+}
 
 const MAX_EVIDENCE_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -342,30 +392,41 @@ export async function POST(
     }
   }
 
-  // 1. Fetch previously uploaded evidence file categories
+  // 1. Fetch previously uploaded evidence file categories using real schema columns
   const { data: existingFiles } = await supabase
     .from('evidence_files')
-    .select('layer_category')
+    .select('id, file_type, storage_path')
     .eq('building_id', id);
 
-  const previouslyUploaded = existingFiles?.map((f: any) => f.layer_category) || [];
+  const previouslyUploaded = (existingFiles || [])
+    .map((f: any) => extractEvidenceCategory(f))
+    .filter((c): c is LayerCategory => Boolean(c));
 
-  // 2. Insert new evidence file details
+  // 2. Insert new evidence file details (extra metadata serialized into real `file_type` column)
+  const generatedEvidenceId = crypto.randomUUID();
+  const encodedFileType = JSON.stringify({
+    layer_category: layerCategory,
+    file_name: fileName || null,
+    file_size_bytes: fileSizeBytes ?? null,
+    mime_type: mimeType || null,
+    is_verified: false,
+  });
+  const safeVisibility = ALLOWED_EVIDENCE_VISIBILITY.has(visibility || '')
+    ? visibility!
+    : 'private';
+
   const { data: insertedFile, error: insErr } = await supabase
     .from('evidence_files')
     .insert({
+      id: generatedEvidenceId,
       building_id: id,
       owner_id: user!.id,
-      file_name: fileName || null,
-      file_size_bytes: fileSizeBytes || null,
-      mime_type: mimeType || null,
-      layer_category: layerCategory,
+      file_type: encodedFileType,
       storage_bucket: storageBucket,
       storage_path: storagePath,
-      visibility: visibility || 'private',
+      visibility: safeVisibility,
       contains_sensitive_data: ['rent_roll', 'repair_history'].includes(layerCategory),
       training_allowed: false,
-      is_verified: false,
     })
     .select()
     .single();
@@ -375,9 +436,19 @@ export async function POST(
     return NextResponse.json({ error: '증빙 파일 등록에 실패했습니다.' }, { status: 500 });
   }
 
+  const evidenceFileId = insertedFile?.id ?? generatedEvidenceId;
+  const existingLayers = (
+    building.layers && typeof building.layers === 'object' ? building.layers : {}
+  ) as Record<string, any>;
+  const prevCompleteness = Number(existingLayers.completeness_score ?? building.completeness_score ?? 0);
+  const existingLeaseSummary = existingLayers.lease_summary ?? building.lease_summary;
+  const existingFloorPlanUrl = existingLayers.floor_plan_url ?? building.floor_plan_url;
+  const existingRepairHistory = existingLayers.repair_history ?? building.repair_history;
+  const existingDisclosurePrefs = existingLayers.disclosure_prefs ?? building.disclosure_prefs;
+
   // 3. Recalculate completeness using computeCompletenessAfterUpload
   const newCompletenessByIncremental = computeCompletenessAfterUpload(
-    building.completeness_score || 0,
+    prevCompleteness,
     layerCategory,
     previouslyUploaded,
   );
@@ -387,20 +458,20 @@ export async function POST(
 
   const rentRollChecked =
     allUploaded.includes('rent_roll') ||
-    (building.lease_summary &&
-      Object.keys(building.lease_summary).length > 0 &&
-      Array.isArray((building.lease_summary as any).tenants) &&
-      (building.lease_summary as any).tenants.length > 0);
+    (existingLeaseSummary &&
+      Object.keys(existingLeaseSummary).length > 0 &&
+      Array.isArray((existingLeaseSummary as any).tenants) &&
+      (existingLeaseSummary as any).tenants.length > 0);
 
-  const floorPlanChecked = allUploaded.includes('floor_plan') || !!building.floor_plan_url;
-  
+  const floorPlanChecked = allUploaded.includes('floor_plan') || !!existingFloorPlanUrl;
+
   const repairHistoryChecked =
     allUploaded.includes('repair_history') ||
-    (building.repair_history && Object.keys(building.repair_history).length > 0);
+    (existingRepairHistory && Object.keys(existingRepairHistory).length > 0);
 
   const disclosurePolicyChecked =
     allUploaded.includes('disclosure_policy') ||
-    (building.disclosure_prefs && Object.keys(building.disclosure_prefs).length > 0);
+    (existingDisclosurePrefs && Object.keys(existingDisclosurePrefs).length > 0);
 
   const checklist = {
     buildingRegister: allUploaded.includes('building_register'),
@@ -417,20 +488,37 @@ export async function POST(
 
   const computedScores = computeLayerScore(checklist);
 
-  // If layerCategory is floor_plan, we can also update the building's floor_plan_url
-  const buildingUpdates: any = {
+  // Merge completeness_score, layer_scores, floor_plan_url, and evidence metadata into building_ssot_lite.layers
+  const existingEvidenceMeta = Array.isArray(existingLayers.evidence_files_meta)
+    ? existingLayers.evidence_files_meta
+    : [];
+  const updatedLayers: Record<string, any> = {
+    ...existingLayers,
     completeness_score: computedScores.total,
-    layer_scores: computedScores as any,
+    layer_scores: computedScores,
+    ...(layerCategory === 'floor_plan' ? { floor_plan_url: storagePath } : {}),
+    evidence_files_meta: [
+      ...existingEvidenceMeta,
+      {
+        id: evidenceFileId,
+        layer_category: layerCategory,
+        file_name: fileName || null,
+        file_size_bytes: fileSizeBytes ?? null,
+        mime_type: mimeType || null,
+        storage_bucket: storageBucket,
+        storage_path: storagePath,
+        is_verified: false,
+      },
+    ],
   };
 
-  if (layerCategory === 'floor_plan') {
-    buildingUpdates.floor_plan_url = storagePath;
-  }
-
-  // 4. Update building_ssot_lite
+  // 4. Update building_ssot_lite using real schema columns
   const { error: updateErr } = await supabase
     .from('building_ssot_lite')
-    .update(buildingUpdates)
+    .update({
+      layers: updatedLayers,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
 
   if (updateErr) {
@@ -447,7 +535,7 @@ export async function POST(
     actorRole: 'broker',
     eventType: 'evidence_file_uploaded' as any,
     entityType: 'evidence_file' as any,
-    entityId: insertedFile.id,
+    entityId: evidenceFileId,
     metadata: {
       building_id: id,
       file_name: fileName || null,
@@ -459,7 +547,7 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    evidenceFileId: insertedFile.id,
+    evidenceFileId,
     newCompletenessScore: computedScores.total,
     layerScores: computedScores,
   });

@@ -14,13 +14,18 @@ import type { Region } from './tenancy';
 // 소액임차인 기준 (2026년)
 const SMALL_TENANT_SEOUL = 5000_0000;   // 5000만원
 const SMALL_TENANT_METRO = 4300_0000;   // 4300만원
+const SMALL_TENANT_METRO_CITY = 2800_0000; // 2800만원 (광역시)
 const SMALL_TENANT_OTHER = 2300_0000;   // 2300만원
 
 export function getSmallTenantThreshold(region: Region): number {
   switch (region) {
     case 'seoul': return SMALL_TENANT_SEOUL;
     case 'metro': return SMALL_TENANT_METRO;
-    case 'other': return SMALL_TENANT_OTHER;
+    case 'metro_city': return SMALL_TENANT_METRO_CITY;
+    case 'non_metro':
+    case 'other':
+    default:
+      return SMALL_TENANT_OTHER;
   }
 }
 

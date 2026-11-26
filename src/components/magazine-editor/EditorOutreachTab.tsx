@@ -3,9 +3,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Users, Send, Plus, Search, RefreshCw, Filter, MessageCircle, Mail, QrCode, ChevronRight, Building2, Link2, Share2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { MagazineQrModal } from './MagazineQrModal';
 import { SpecialEditionModal } from './SpecialEditionModal';
+
+const MagazineQrModal = dynamic(
+  () => import('./MagazineQrModal').then((m) => m.MagazineQrModal),
+  { ssr: false },
+);
 import { ErrorState } from '@/components/ui/error-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonGroup, SkeletonText } from '@/components/ui/Skeleton';

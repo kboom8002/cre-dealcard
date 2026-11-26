@@ -333,6 +333,11 @@ describe("고객 소통함 3열 CRM Cockpit 재균형 & 익명 스레드 소유�
     await act(async () => {
       bulkTabBtn.click();
     });
+    for (let i = 0; i < 20 && !document.body.querySelector('[data-testid="contact-bulk-import-modal"]'); i += 1) {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 25));
+      });
+    }
     expect(document.body.querySelector('[data-testid="contact-bulk-import-modal"]')).not.toBeNull();
   });
 

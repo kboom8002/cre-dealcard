@@ -94,6 +94,12 @@ const NAMED_ENTITY_MAP: Record<string, string> = {
   quot: '"',
   apos: "'",
   nbsp: " ",
+  sol: "/",
+  bsol: "\\",
+  semi: ";",
+  lpar: "(",
+  rpar: ")",
+  num: "#",
 };
 
 function decodeEntitiesForInspection(value: string): string {
@@ -116,58 +122,169 @@ function decodeEntitiesForInspection(value: string): string {
     });
 }
 
-function isSafeHref(raw: string): boolean {
-  const normalized = decodeEntitiesForInspection(raw)
-    .replace(/[\u0000-\u0020\u007f]+/g, "")
+function normalizeUriForSchemeCheck(raw: string): string {
+  return decodeEntitiesForInspection(raw)
+    .replace(/[\u0000-\u0020\u007f-\u00a0\s]+/g, "")
     .trim();
+}
+
+const SAFE_HREF_SCHEME_RE = /^(?:https?:\/\/|mailto:|tel:|\/(?!\/|\\)|#)/i;
+
+function isSafeHref(raw: string): boolean {
+  const normalized = normalizeUriForSchemeCheck(raw);
   if (!normalized) return false;
-  if (
-    normalized.startsWith("#") ||
-    (normalized.startsWith("/") && !normalized.startsWith("//"))
-  ) {
-    return true;
-  }
-  const schemeMatch = normalized.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
-  if (!schemeMatch) {
-    // Relative path without scheme (e.g. "section-1")
-    return !normalized.startsWith("//");
-  }
-  const scheme = schemeMatch[1].toLowerCase();
-  return (
-    scheme === "http" ||
-    scheme === "https" ||
-    scheme === "mailto" ||
-    scheme === "tel"
-  );
+  return SAFE_HREF_SCHEME_RE.test(normalized);
 }
 
 function isSafeSrc(raw: string): boolean {
-  const normalized = decodeEntitiesForInspection(raw)
-    .replace(/[\u0000-\u0020\u007f]+/g, "")
-    .trim();
+  const normalized = normalizeUriForSchemeCheck(raw);
   if (!normalized) return false;
-  if (normalized.startsWith("/") && !normalized.startsWith("//")) {
+  if (/^\/(?!\/|\\)/.test(normalized)) {
     return true;
   }
   if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=]+$/i.test(normalized)) {
     return true;
   }
-  const schemeMatch = normalized.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
-  if (!schemeMatch) return false;
-  const scheme = schemeMatch[1].toLowerCase();
-  return scheme === "http" || scheme === "https";
+  return /^https?:\/\/[^\s/\\]/i.test(normalized);
 }
 
-function sanitizeInlineStyle(raw: string): string {
-  const inspected = decodeEntitiesForInspection(raw).replace(/\/\*[\s\S]*?\*\//g, "");
-  if (
-    /expression\s*\(|url\s*\(|javascript\s*:|vbscript\s*:|behavior\s*:|-moz-binding|@import/i.test(
-      inspected
-    )
-  ) {
+function decodeCssForInspection(value: string): string {
+  return decodeEntitiesForInspection(value)
+    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, "")
+    .replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex: string) => {
+      const cp = Number.parseInt(hex, 16);
+      return Number.isFinite(cp) && cp > 0 && cp <= 0x10ffff
+        ? String.fromCodePoint(cp)
+        : "";
+    })
+    .replace(/\\([^\r\n\f0-9a-fA-F])/g, "$1")
+    .replace(/[\u0000-\u001f\u007f]+/g, "");
+}
+
+function splitCssDeclarations(css: string): string[] {
+  const decls: string[] = [];
+  let current = "";
+  let parenDepth = 0;
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+    if (ch === "\\" && i + 1 < css.length) {
+      current += ch + css[i + 1];
+      i++;
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) quote = null;
+      current += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+    if (ch === "(") {
+      parenDepth++;
+      current += ch;
+      continue;
+    }
+    if (ch === ")" && parenDepth > 0) {
+      parenDepth--;
+      current += ch;
+      continue;
+    }
+    if (ch === ";" && parenDepth === 0) {
+      if (current.trim()) decls.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) decls.push(current.trim());
+  return decls;
+}
+
+const SAFE_INLINE_STYLE_PROP_RE =
+  /^(?:color|background(?:-color)?|font(?:-(?:size|weight|style|family|variant))?|line-height|letter-spacing|word-spacing|text-(?:align|decoration(?:-line|-color|-style)?|transform|indent|overflow)|white-space|word-break|overflow-wrap|vertical-align|padding(?:-(?:top|right|bottom|left|inline(?:-start|-end)?|block(?:-start|-end)?))?|margin(?:-(?:top|right|bottom|left|inline(?:-start|-end)?|block(?:-start|-end)?))?|border(?:-(?:top|right|bottom|left))?(?:-(?:width|style|color))?|border-(?:top-left-|top-right-|bottom-left-|bottom-right-)?radius|border-collapse|border-spacing|display|width|min-width|max-width|height|min-height|max-height|box-sizing|overflow(?:-[xy])?|gap|row-gap|column-gap|flex(?:-(?:direction|wrap|grow|shrink|basis))?|align-(?:items|self|content)|justify-(?:content|items|self)|grid(?:-(?:template-columns|template-rows|column|row|auto-flow))?|list-style(?:-type|-position)?|table-layout|position)$/;
+
+export function sanitizeInlineStyle(rawStyle: string): string {
+  if (!rawStyle || typeof rawStyle !== "string") return "";
+
+  const wholeInspected = decodeCssForInspection(rawStyle);
+  if (/(?:javascript|vbscript)\s*:/i.test(wholeInspected)) {
     return "";
   }
-  return raw.replace(/[<>"'`]/g, "").trim();
+
+  const rawDecls = splitCssDeclarations(rawStyle);
+  const keptDecls: string[] = [];
+
+  for (const rawDecl of rawDecls) {
+    const inspectedDecl = decodeCssForInspection(rawDecl).trim();
+    if (!inspectedDecl) continue;
+
+    if (
+      inspectedDecl.startsWith("@") ||
+      /@import|(?:url|expression|image-set)\s*\(|(?:javascript|vbscript|data)\s*:|behavior\s*:|-moz-binding/i.test(
+        inspectedDecl
+      )
+    ) {
+      continue;
+    }
+
+    const colonIdx = inspectedDecl.indexOf(":");
+    if (colonIdx <= 0) continue;
+
+    const prop = inspectedDecl.slice(0, colonIdx).trim().toLowerCase();
+    const val = inspectedDecl.slice(colonIdx + 1).trim();
+    const valNormalized = val.replace(/!important\s*$/i, "").trim().toLowerCase();
+    if (!prop || !valNormalized) continue;
+
+    // Block CSS phishing overlay & UI redressing declarations
+    if (
+      prop === "z-index" ||
+      prop === "pointer-events" ||
+      prop === "inset" ||
+      prop.startsWith("inset-") ||
+      prop === "top" ||
+      prop === "right" ||
+      prop === "bottom" ||
+      prop === "left"
+    ) {
+      continue;
+    }
+    if (prop === "position" && !/^(?:static|relative)$/.test(valNormalized)) {
+      continue;
+    }
+    if (
+      /^margin(?:-[a-z]+)*$/.test(prop) &&
+      (/^margin[^:]*:\s*-/i.test(inspectedDecl) || /(?:^|[\s,(])-\s*(?:\d|\.)/.test(valNormalized))
+    ) {
+      continue;
+    }
+
+    if (!SAFE_INLINE_STYLE_PROP_RE.test(prop)) {
+      continue;
+    }
+
+    const rawClean = rawDecl
+      .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, "")
+      .replace(/[<>"'`]/g, "")
+      .trim();
+    const rawColonIdx = rawClean.indexOf(":");
+    if (rawColonIdx <= 0) continue;
+    const rawProp = rawClean.slice(0, rawColonIdx).trim().toLowerCase();
+    const rawVal = rawClean.slice(rawColonIdx + 1).trim();
+    if (!/^[a-z-]+$/.test(rawProp) || rawProp !== prop || !rawVal || /\\/.test(rawVal)) {
+      continue;
+    }
+
+    keptDecls.push(`${rawProp}: ${rawVal}`);
+  }
+
+  if (keptDecls.length === 0) return "";
+  const trailingSemi = rawStyle.trim().endsWith(";") ? ";" : "";
+  return `${keptDecls.join("; ")}${trailingSemi}`;
 }
 
 export function escapeHtml(raw: string): string {
@@ -319,3 +436,5 @@ export function sanitizeHtmlAllowlist(
 
   return out.join("");
 }
+
+export const sanitizeHtmlIsomorphic = sanitizeHtmlAllowlist;

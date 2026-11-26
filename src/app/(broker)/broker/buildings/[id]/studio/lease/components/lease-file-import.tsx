@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-// SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
-import * as XLSX from 'xlsx';
 import { isExampleRentRollRow } from '@/lib/rentroll/example-row';
 import { parseRentRollWorkbook } from '@/lib/rentroll/parse-rentroll-workbook';
 
@@ -53,16 +51,30 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
       file.type.includes("csv") ||
       file.type.startsWith("text/");
 
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const result = evt.target?.result;
         if (!result) {
           throw new Error("파일을 읽을 수 없습니다.");
         }
+        // SECURITY: SheetJS(xlsx) 입력은 신뢰할 수 없다 — 파일 크기 제한 + 파서 단의 위치·값 검증으로 방어
+        const XLSX = await import('xlsx');
         const wb =
           typeof result === "string"
-            ? XLSX.read(result.replace(/^\uFEFF/, ""), { type: "string" })
-            : XLSX.read(result, { type: "array" });
+            ? XLSX.read(result.replace(/^\uFEFF/, ""), {
+                type: "string",
+                sheetRows: 2000,
+                cellFormula: false,
+                cellHTML: false,
+                bookVBA: false,
+              })
+            : XLSX.read(result, {
+                type: "array",
+                sheetRows: 2000,
+                cellFormula: false,
+                cellHTML: false,
+                bookVBA: false,
+              });
 
         // 표준양식(v1.3~v1.5) + 비표준 엑셀/CSV 모두 parseRentRollWorkbook 정본 파이프라인으로 통일 ([예시] 13행/합계행 차단 포함)
         const parsed = parseRentRollWorkbook(wb);

@@ -62,6 +62,8 @@ import { toApiError } from '@/lib/api-error';
 
 const log = createModuleLogger('deal-card-ai-copy');
 
+export const maxDuration = 60;
+
 const WARN_NUMBERS = '입력 정보에 없는 숫자는 자동으로 제외했어요.';
 const WARN_FALLBACK = 'AI 연결이 원활하지 않아 입력하신 내용으로 추천 문구를 채웠어요. 확인 후 고쳐 주세요.';
 const WARN_REPAIRED = `${DEAL_CARD_LINE_MAX}자를 넘거나 끝맺음이 어색한 문구는 자동으로 다듬었어요.`;

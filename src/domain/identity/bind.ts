@@ -7,6 +7,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/service';
+import { IdentityForbiddenError, type IdentityOwnerScope } from './party-service';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('bind');
@@ -29,8 +30,22 @@ interface SliderEvent {
 export async function bindViewerHistory(
   viewerId: string,
   partyId: string,
+  scope?: IdentityOwnerScope,
 ): Promise<{ bound: boolean; conditionsCreated: number }> {
   const supabase = createServiceClient();
+
+  if (scope && !scope.isAdmin && scope.ownerBrokerId) {
+    const { data: ownedParty } = await supabase
+      .from('party')
+      .select('id')
+      .eq('id', partyId)
+      .eq('owner_broker_id', scope.ownerBrokerId)
+      .maybeSingle();
+
+    if (!ownedParty) {
+      throw new IdentityForbiddenError('해당 당사자(party)에 바인딩할 권한이 없습니다.');
+    }
+  }
 
   // 30일 이내 슬라이더 이벤트 조회
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();

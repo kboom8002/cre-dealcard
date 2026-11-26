@@ -13,6 +13,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod/v4';
 import { verifyAuth } from '@/lib/auth-guard';
+import { isRealProductionRuntime } from '@/lib/env';
 import { toApiError } from '@/lib/api-error';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -71,6 +72,35 @@ export async function POST(req: NextRequest) {
     const body = SaveProfileRequest.parse(json);
 
     const supabase = createServiceClient();
+
+    // ── 0. Query current profiles.role first (prevent escalation & preserve admin) ──
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const existingRole =
+      (typeof currentProfile?.role === 'string' && currentProfile.role) ||
+      guard.role ||
+      null;
+    const isAdmin = existingRole === 'admin';
+    const alphaRoleUpgradeBlocked =
+      process.env.ALLOW_ALPHA_ROLE_UPGRADE === 'false' ||
+      (isRealProductionRuntime() && process.env.ALLOW_ALPHA_ROLE_UPGRADE !== 'true');
+
+    if (!isAdmin && alphaRoleUpgradeBlocked && existingRole !== 'broker') {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: '승인된 중개사 계정만 온보딩 프로필을 저장할 수 있습니다.',
+          },
+        },
+        { status: 403 },
+      );
+    }
 
     // ── 1. Lookup session by token ──────────────────────────────────────────
     const { data: session, error: sessionErr } = await supabase
@@ -183,7 +213,10 @@ export async function POST(req: NextRequest) {
     // ── 3. Update profiles table ────────────────────────────────────────────
     // NOTE: specialty/region은 profiles 테이블에 컬럼이 없으므로 제외
     // (onboarding_sessions에 이미 저장됨, broker_profiles에는 specialty_regions으로 매핑)
-    const profileUpdates: Record<string, unknown> = { role: 'broker' };
+    const profileUpdates: Record<string, unknown> = {};
+    if (!isAdmin) {
+      profileUpdates['role'] = 'broker';
+    }
     if (body.user_name) profileUpdates['display_name'] = body.user_name;
     if (body.user_phone) profileUpdates['phone'] = body.user_phone;
     // 온보딩 사진이 있으면 profiles.photo_url에도 저장 (영구 URL 사용)

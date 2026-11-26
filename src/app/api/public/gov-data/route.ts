@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
@@ -19,6 +21,15 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
+    const clientIp = getClientIp(request) ?? "unknown";
+    const allowed = await checkRateLimit(clientIp, "public_gov_data_get", 60, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429 },
+      );
+    }
+
     const action = request.nextUrl.searchParams.get("action");
     const region = request.nextUrl.searchParams.get("region") || "seongsu";
     const pnu = request.nextUrl.searchParams.get("pnu") || "1120011400100450012";
@@ -63,7 +74,7 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     log.error("[api/public/gov-data] GET Error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 오류" },
+      { error: "공공데이터 조회 중 서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }

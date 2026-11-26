@@ -13,13 +13,19 @@
  * with a 24h TTL or regular cleanup cron.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { toApiError } from '@/lib/api-error';
 
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
+
+export const maxDuration = 60;
+
+// Vercel Serverless 4.5 MB request gateway safety cap (4.4 MB)
+const MAX_PHOTO_BYTES = Math.floor(4.4 * 1024 * 1024);
+const MULTIPART_ENVELOPE_ALLOWANCE_BYTES = 4096;
 
 
 // ── Rate limiting (simple in-memory, resets on cold start) ───────────────────
@@ -95,6 +101,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const declaredLength = Number(req.headers.get('content-length'));
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_PHOTO_BYTES + MULTIPART_ENVELOPE_ALLOWANCE_BYTES
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: 'PAYLOAD_TOO_LARGE',
+        error: '파일 크기는 4.4MB 이하여야 합니다.',
+      },
+      { status: 413 },
+    );
+  }
+
   try {
     const formData = await req.formData();
     const photoFile = formData.get('photo');
@@ -113,12 +134,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 10 MB limit
-    const MAX_BYTES = 10 * 1024 * 1024;
-    if (photoFile.size > MAX_BYTES) {
-      return Response.json(
-        { ok: false, error: { code: 'VALIDATION_ERROR', message: '파일 크기는 10MB 이하여야 합니다.' } },
-        { status: 400 },
+    // 4.4 MB direct upload cap (Vercel Serverless 4.5 MB gateway limit)
+    if (photoFile.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'PAYLOAD_TOO_LARGE',
+          error: '파일 크기는 4.4MB 이하여야 합니다.',
+        },
+        { status: 413 },
       );
     }
 

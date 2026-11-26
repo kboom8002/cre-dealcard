@@ -10,6 +10,28 @@ export interface ModuleLogger {
   child: (bindings: Record<string, unknown>) => ModuleLogger;
 }
 
+export interface RequestLogContext {
+  requestId?: string;
+  route?: string;
+  userId?: string;
+}
+
+let contextProvider: (() => RequestLogContext | undefined) | undefined;
+
+export function registerRequestContextProvider(
+  fn: () => { requestId?: string; route?: string; userId?: string } | undefined,
+): void {
+  contextProvider = fn;
+}
+
+export function getRegisteredRequestContext(): RequestLogContext | undefined {
+  try {
+    return contextProvider?.();
+  } catch {
+    return undefined;
+  }
+}
+
 const REDACT_PATHS = [
   'password',
   'token',
@@ -214,12 +236,65 @@ function createBrowserLogger(moduleName: string): ModuleLogger {
   };
 }
 
+function injectRequestContext(formatted: any[]): any[] {
+  let ctx: RequestLogContext | undefined;
+  try {
+    ctx = contextProvider?.();
+  } catch {
+    return formatted;
+  }
+
+  if (!ctx || typeof ctx.requestId !== 'string' || ctx.requestId.length === 0) {
+    return formatted;
+  }
+
+  const ctxFields: Record<string, unknown> = {
+    requestId: redactStringPii(ctx.requestId),
+  };
+  if (typeof ctx.route === 'string' && ctx.route.length > 0) {
+    ctxFields.route = redactStringPii(ctx.route);
+  }
+  if (typeof ctx.userId === 'string' && ctx.userId.length > 0) {
+    ctxFields.userId = redactStringPii(ctx.userId);
+  }
+
+  if (formatted.length === 0) {
+    return [ctxFields];
+  }
+
+  const first = formatted[0];
+  if (typeof first === 'string') {
+    return [ctxFields, ...formatted];
+  }
+
+  if (typeof first === 'object' && first !== null && !Array.isArray(first)) {
+    const firstObj = first as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...ctxFields, ...firstObj };
+    if (firstObj.requestId === undefined && ctxFields.requestId !== undefined) {
+      merged.requestId = ctxFields.requestId;
+    }
+    if (firstObj.route === undefined && ctxFields.route !== undefined) {
+      merged.route = ctxFields.route;
+    }
+    if (firstObj.userId === undefined && ctxFields.userId !== undefined) {
+      merged.userId = ctxFields.userId;
+    }
+    return [merged, ...formatted.slice(1)];
+  }
+
+  return [ctxFields, ...formatted];
+}
+
 function wrapPinoChild(pinoChild: PinoLogger): ModuleLogger {
   return {
-    info: (...args: any[]) => (pinoChild.info as any)(...formatArgs(args)),
-    warn: (...args: any[]) => (pinoChild.warn as any)(...formatArgs(args)),
-    error: (...args: any[]) => (pinoChild.error as any)(...formatArgs(args)),
-    debug: (...args: any[]) => (pinoChild.debug as any)(...formatArgs(args)),
+    info: (...args: any[]) =>
+      (pinoChild.info as any)(...injectRequestContext(formatArgs(args))),
+    warn: (...args: any[]) =>
+      (pinoChild.warn as any)(...injectRequestContext(formatArgs(args))),
+    error: (...args: any[]) =>
+      (pinoChild.error as any)(...injectRequestContext(formatArgs(args))),
+    debug: (...args: any[]) =>
+      (pinoChild.debug as any)(...injectRequestContext(formatArgs(args))),
     child: (bindings: Record<string, unknown>) =>
       wrapPinoChild(
         pinoChild.child(redactPiiDeep(bindings) as Record<string, unknown>)

@@ -1,8 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { runCircleAutoMatch } from "./circle-matching-service";
 import { notifyCircleMembers } from "./circle-notification-service";
+import { assertActiveCircleMember, CircleAccessError } from "./circle-service";
 
 import { createModuleLogger } from '@/lib/logger';
+import { runAfterResponse } from '@/lib/server/after-safe';
 const log = createModuleLogger('circle-sharing-service');
 
 
@@ -34,20 +36,53 @@ export async function shareAssetToCircle(input: {
   brokerId: string;
   assetType: 'building' | 'buyer_intent' | 'tenant_intent';
   assetId: string;
+  isAdmin?: boolean;
 }): Promise<{ sharedAssetId: string }> {
   const supabase = createServiceClient();
 
-  // 1. Check membership
-  const { data: member } = await supabase
-    .from("broker_circle_members")
-    .select("status")
-    .eq("circle_id", input.circleId)
-    .eq("broker_id", input.brokerId)
-    .eq("status", "active")
-    .maybeSingle();
+  // 1. Check active circle membership
+  await assertActiveCircleMember(supabase, input.circleId, input.brokerId, input.isAdmin);
 
-  if (!member) {
-    throw new Error("서클 멤버만 자산을 공유할 수 있습니다.");
+  // 1b. Verify caller owns assetId before sharing into circle
+  if (input.assetType === "building") {
+    const { data: building } = await supabase
+      .from("building_ssot_lite")
+      .select("id, owner_id")
+      .eq("id", input.assetId)
+      .maybeSingle();
+
+    if (!building) {
+      throw new CircleAccessError("대상 매물을 찾을 수 없습니다.", 404);
+    }
+    if (!input.isAdmin && building.owner_id !== input.brokerId) {
+      throw new CircleAccessError("본인 소유 매물만 서클에 공유할 수 있습니다.", 403);
+    }
+  } else if (input.assetType === "buyer_intent") {
+    const { data: intent } = await supabase
+      .from("buyer_intent_lite")
+      .select("id, owner_id")
+      .eq("id", input.assetId)
+      .maybeSingle();
+
+    if (!intent) {
+      throw new CircleAccessError("대상 매수의향을 찾을 수 없습니다.", 404);
+    }
+    if (!input.isAdmin && intent.owner_id !== input.brokerId) {
+      throw new CircleAccessError("본인 소유 매수의향만 서클에 공유할 수 있습니다.", 403);
+    }
+  } else if (input.assetType === "tenant_intent") {
+    const { data: tenantIntent } = await supabase
+      .from("tenant_intent")
+      .select("id, broker_id")
+      .eq("id", input.assetId)
+      .maybeSingle();
+
+    if (!tenantIntent) {
+      throw new CircleAccessError("대상 임차의향을 찾을 수 없습니다.", 404);
+    }
+    if (!input.isAdmin && tenantIntent.broker_id !== input.brokerId) {
+      throw new CircleAccessError("본인 소유 임차의향만 서클에 공유할 수 있습니다.", 403);
+    }
   }
 
   // 2. Upsert shared asset
@@ -69,8 +104,9 @@ export async function shareAssetToCircle(input: {
 
   // 3. Always-On Matching trigger (non-blocking)
   if (input.assetType === "building" || input.assetType === "buyer_intent") {
-    runCircleAutoMatch(input.circleId, input.assetType, input.assetId).catch((err) =>
-      log.warn("[circle-matching] Auto match failed:", err)
+    const assetTypeForMatch = input.assetType;
+    runAfterResponse("circle-auto-match", () =>
+      runCircleAutoMatch(input.circleId, assetTypeForMatch, input.assetId)
     );
   }
 
@@ -84,15 +120,17 @@ export async function shareAssetToCircle(input: {
   const brokerName = profile?.display_name || "동료 중개사";
   const assetName = input.assetType === "building" ? "물건" : "매수 의향";
 
-  notifyCircleMembers({
-    circleId: input.circleId,
-    excludeBrokerId: input.brokerId,
-    title: "📦 서클 새 자산 공유",
-    body: `${brokerName} 님이 새 ${assetName}을(를) 서클에 공유했습니다.`,
-    link: `/broker/circles/${input.circleId}`,
-    type: "circle_shared",
-    metadata: { asset_type: input.assetType, asset_id: input.assetId },
-  }).catch((e) => log.warn("[circle-sharing] Notify error:", e));
+  runAfterResponse("circle-share-notify-members", () =>
+    notifyCircleMembers({
+      circleId: input.circleId,
+      excludeBrokerId: input.brokerId,
+      title: "📦 서클 새 자산 공유",
+      body: `${brokerName} 님이 새 ${assetName}을(를) 서클에 공유했습니다.`,
+      link: `/broker/circles/${input.circleId}`,
+      type: "circle_shared",
+      metadata: { asset_type: input.assetType, asset_id: input.assetId },
+    })
+  );
 
   // 5. Activity event
   await supabase.from("activity_events").insert({
@@ -134,11 +172,31 @@ export async function unshareAsset(circleId: string, assetId: string, brokerId: 
     .eq("broker_id", brokerId);
 }
 
-export async function getSharedAssets(circleId: string, filter?: {
-  assetType?: 'building' | 'buyer_intent' | 'tenant_intent';
-  brokerId?: string;
-}): Promise<SharedAssetWithDetail[]> {
+export async function getSharedAssets(
+  circleId: string,
+  callerOrFilter?:
+    | string
+    | {
+        assetType?: 'building' | 'buyer_intent' | 'tenant_intent';
+        brokerId?: string;
+        callerBrokerId?: string;
+        isAdmin?: boolean;
+      },
+  maybeFilter?: {
+    assetType?: 'building' | 'buyer_intent' | 'tenant_intent';
+    brokerId?: string;
+    isAdmin?: boolean;
+  }
+): Promise<SharedAssetWithDetail[]> {
   const supabase = createServiceClient();
+
+  const callerBrokerId =
+    typeof callerOrFilter === "string"
+      ? callerOrFilter
+      : callerOrFilter?.callerBrokerId ?? callerOrFilter?.brokerId ?? "";
+  const filter = typeof callerOrFilter === "string" ? maybeFilter : callerOrFilter;
+
+  await assertActiveCircleMember(supabase, circleId, callerBrokerId, filter?.isAdmin);
 
   let query = supabase
     .from("circle_shared_assets")

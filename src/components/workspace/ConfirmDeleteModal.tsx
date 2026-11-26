@@ -85,14 +85,20 @@ export function ConfirmDeleteModal({
     const trigger = document.activeElement as HTMLElement | null;
     lockScroll();
 
-    const raf = window.requestAnimationFrame(() => {
+    if (!panelRef.current?.contains(document.activeElement)) {
       cancelBtnRef.current?.focus();
+    }
+    const raf = window.requestAnimationFrame(() => {
+      if (!panelRef.current?.contains(document.activeElement)) {
+        cancelBtnRef.current?.focus();
+      }
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
       const action = getModalKeyAction(e.key, { closeOnEscape: true });
       if (action === "close") {
         e.preventDefault();
+        e.stopPropagation();
         onCancelRef.current();
         return;
       }

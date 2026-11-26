@@ -10,9 +10,17 @@ import {
   type EditorUnitTarget,
 } from "@/components/workspace/preview-sync/useEditorPreviewSync";
 import { useListViewMode } from "@/components/workspace/list/useListViewMode";
+import dynamic from "next/dynamic";
 import { UndoToastProvider, useUndoToast } from "@/components/workspace/UndoConfirmToast";
 import { ConfirmDeleteModal } from "@/components/workspace/ConfirmDeleteModal";
-import { ContactBulkImportModal } from "@/components/workspace/inbox/ContactBulkImportModal";
+
+const ContactBulkImportModal = dynamic(
+  () =>
+    import("@/components/workspace/inbox/ContactBulkImportModal").then(
+      (m) => m.ContactBulkImportModal,
+    ),
+  { ssr: false },
+);
 import {
   extractWorkspaceResponseUserId,
   normalizeWorkspaceUserId,
@@ -2214,17 +2222,19 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
         mobileStartOnList={mobileStayOnList}
       />
 
-      <ContactBulkImportModal
-        open={bulkImportOpen}
-        onOpenChange={setBulkImportOpen}
-        onImported={async (res) => {
-          await refreshInboxFromServer({ switchToAllOnImport: true });
-          showUndoToast({
-            message: `명단 ${res.importedCount + res.updatedCount}건을 고객 소통함에 등록했습니다.`,
-            variant: "success",
-          });
-        }}
-      />
+      {bulkImportOpen ? (
+        <ContactBulkImportModal
+          open={bulkImportOpen}
+          onOpenChange={setBulkImportOpen}
+          onImported={async (res) => {
+            await refreshInboxFromServer({ switchToAllOnImport: true });
+            showUndoToast({
+              message: `명단 ${res.importedCount + res.updatedCount}건을 고객 소통함에 등록했습니다.`,
+              variant: "success",
+            });
+          }}
+        />
+      ) : null}
 
       <ConfirmDeleteModal
         isOpen={Boolean(pendingDeleteClient)}

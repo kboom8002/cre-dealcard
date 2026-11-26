@@ -52,12 +52,14 @@ export function computeRoi(i: RoiInputs): RoiResult {
   const loanAmount = purchasePrice * (ltvRatio / 100);
   const annualRent = monthlyRent * 12;
   const annualInterest = loanAmount * (interestRate / 100);
-  const depositReturn = deposit * ROI_ASSUMPTIONS.depositReturnRate; // 보증금 운용이자 (3% 가정)
+  const safeDeposit = Math.max(0, deposit);
+  const depositReturn = safeDeposit * ROI_ASSUMPTIONS.depositReturnRate; // 보증금 운용이자 (3% 가정)
 
-  // 공실 반영
-  const occupancyRate = totalFloors > 0 ? (totalFloors - vacancyFloors) / totalFloors : 1;
+  // 공실 반영 (0~1 범위 고정으로 공실 > 전체층수 시 음수 보증금 스케일링 원천 차단)
+  const rawOccupancy = totalFloors > 0 ? (totalFloors - Math.max(0, vacancyFloors)) / totalFloors : 1;
+  const occupancyRate = Math.min(1, Math.max(0, rawOccupancy));
   const effectiveRent = annualRent * occupancyRate;
-  const effectiveDeposit = deposit * occupancyRate;
+  const effectiveDeposit = safeDeposit * occupancyRate;
 
   // NOI (순영업소득)
   const managementCost = effectiveRent * ROI_ASSUMPTIONS.managementCostRate; // 관리비 10% 가정
@@ -67,7 +69,7 @@ export function computeRoi(i: RoiInputs): RoiResult {
   const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
 
   // 보증금 차감 실질 임대수익률 (Basic IM YieldSet SSOT: 연임대료 ÷ (매매가 − 보증금))
-  const netPurchase = purchasePrice - deposit;
+  const netPurchase = purchasePrice - safeDeposit;
   const netYieldOnDeposit = netPurchase > 0 ? (effectiveRent / netPurchase) * 100 : 0;
 
   // Cash-on-Cash Return (자기자본수익률)

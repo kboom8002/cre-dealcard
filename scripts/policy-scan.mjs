@@ -14,29 +14,62 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const DIR = path.resolve(process.cwd(), 'supabase', 'migrations');
 const ALL = process.argv.includes('--all');
 const AS_JSON = process.argv.includes('--json');
-const NEW_FROM = '20261004000001';
+export const NEW_FROM = '20261004000001';
+export const STRICT_RLS_FROM = '20261126000001';
 const SENSITIVE = /subscriber|poll|referral|analytics|dispatch|settings|cron_runs|rate_limit/i;
 
-if (!fs.existsSync(DIR)) {
-  console.error(`ERROR: ${DIR} 가 없습니다.`);
-  process.exit(2);
-}
+/**
+ * Public reference / market / read-only tables explicitly permitted to carry
+ * `FOR SELECT ... USING (true)` in migrations >= STRICT_RLS_FROM (20261126000001).
+ */
+export const PUBLIC_READ_ALLOWLIST = new Set([
+  'location_hierarchy',
+  'zoning_ordinance',
+  'official_land_prices',
+  'land_use_plans',
+  'commercial_district',
+  'external_transactions',
+  'external_news',
+  'external_reports',
+  'rental_market_data',
+  'rental_trend_data',
+  'auction_listings',
+  'energy_ratings',
+  'retrofit_products',
+  'im_terminology_rules',
+  'market_sentiment_polls',
+  'social_sentiment',
+  'youtube_trends',
+  'poc_surveys',
+  'vendor_reviews',
+  'share_pages',
+  'teaser_configs',
+]);
 
-function stripComments(sql) {
+export function stripComments(sql) {
   return sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '');
 }
 
-function scanFile(file) {
-  const sql = stripComments(fs.readFileSync(path.join(DIR, file), 'utf8'));
+function normalizeTableName(rawTable) {
+  return rawTable.replace(/^"?public"?\./i, '').replace(/"/g, '').trim().toLowerCase();
+}
+
+export function scanSql(rawSql, file) {
+  const sql = stripComments(rawSql);
   const findings = [];
+  const isStrictRls = /^\d{14}_/.test(file) && file.slice(0, 14) >= STRICT_RLS_FROM;
+
+  // 1. Policy scan
   const re = /create\s+policy\s+("[^"]+"|[\w]+)\s+on\s+([\w."]+)([\s\S]*?);/gi;
   let m;
   while ((m = re.exec(sql))) {
     const [, rawName, table, bodyRaw] = m;
+    const cleanTable = normalizeTableName(table);
     const body = bodyRaw.replace(/\s+/g, ' ').toLowerCase();
     const name = rawName.replace(/"/g, '');
     const cmd = (/\bfor\s+(all|insert|update|delete|select)\b/.exec(body)?.[1] ?? 'all');
@@ -48,26 +81,77 @@ function scanFile(file) {
     const isWrite = cmd !== 'select';
     if (isWrite && openToAnon && (usingTrue || checkTrue)) {
       findings.push({ file, policy: name, table, cmd, roles: roles.join(','), level: 'ERROR', reason: 'PUBLIC/anon write 정책이 true 조건' });
-    } else if (cmd === 'select' && openToAnon && usingTrue && SENSITIVE.test(table)) {
+    } else if (isStrictRls && cmd === 'select' && openToAnon && usingTrue && !PUBLIC_READ_ALLOWLIST.has(cleanTable)) {
+      findings.push({
+        file,
+        policy: name,
+        table,
+        cmd,
+        roles: roles.join(','),
+        level: 'ERROR',
+        reason: '비허용(non-allowlisted) 테이블에 PUBLIC/anon USING (true) 정책 금지 (>= 20261126000001)',
+      });
+    } else if (!PUBLIC_READ_ALLOWLIST.has(cleanTable) && cmd === 'select' && openToAnon && usingTrue && SENSITIVE.test(table)) {
       findings.push({ file, policy: name, table, cmd, roles: roles.join(','), level: 'WARN', reason: '민감 테이블에 anon SELECT true' });
     }
   }
+
+  // 2. Strict CREATE TABLE -> ENABLE ROW LEVEL SECURITY gate for migrations >= 20261126000001
+  if (isStrictRls) {
+    const createTableRe = /\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?(?:"?public"?\.)?"?([a-zA-Z_][\w]*)"?\s*(?:\(|partition\s+by\b)/gi;
+    const seenTables = new Set();
+    let tm;
+    while ((tm = createTableRe.exec(sql))) {
+      const tbl = tm[1].toLowerCase();
+      if (seenTables.has(tbl)) continue;
+      seenTables.add(tbl);
+      const escaped = tbl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rlsRe = new RegExp(
+        `\\balter\\s+table\\s+(?:if\\s+exists\\s+)?(?:only\\s+)?(?:"?public"?\\.)?"?${escaped}"?\\s+enable\\s+row\\s+level\\s+security\\b`,
+        'i',
+      );
+      if (!rlsRe.test(sql)) {
+        findings.push({
+          file,
+          policy: '(missing_rls)',
+          table: tbl,
+          cmd: 'create_table',
+          roles: 'public',
+          level: 'ERROR',
+          reason: 'CREATE TABLE 에 ENABLE ROW LEVEL SECURITY 누락 (>= 20261126000001)',
+        });
+      }
+    }
+  }
+
   return findings;
 }
 
-const files = fs.readdirSync(DIR)
-  .filter((f) => f.endsWith('.sql'))
-  .filter((f) => ALL || (/^\d{14}_/.test(f) && f.slice(0, 14) >= NEW_FROM))
-  .sort();
-
-const findings = files.flatMap(scanFile);
-const errors = findings.filter((f) => f.level === 'ERROR');
-
-if (AS_JSON) {
-  console.log(JSON.stringify({ scanned: files.length, scope: ALL ? 'all' : 'new', findings, pass: ALL || errors.length === 0 }, null, 2));
-} else {
-  console.log(`policy-scan: ${files.length}개 파일 (${ALL ? '전체(정보용)' : `신규 prefix >= ${NEW_FROM}`})`);
-  for (const f of findings) console.log(`  [${f.level}] ${f.file} :: ${f.table} "${f.policy}" cmd=${f.cmd} roles=${f.roles} — ${f.reason}`);
-  console.log(ALL ? `INFO: 레거시 포함 ERROR ${errors.length}건` : errors.length ? `RESULT: FAIL (${errors.length})` : 'RESULT: PASS');
+export function scanFile(file) {
+  return scanSql(fs.readFileSync(path.join(DIR, file), 'utf8'), file);
 }
-process.exit(!ALL && errors.length ? 1 : 0);
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  if (!fs.existsSync(DIR)) {
+    console.error(`ERROR: ${DIR} 가 없습니다.`);
+    process.exit(2);
+  }
+
+  const files = fs.readdirSync(DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .filter((f) => ALL || (/^\d{14}_/.test(f) && f.slice(0, 14) >= NEW_FROM))
+    .sort();
+
+  const findings = files.flatMap(scanFile);
+  const errors = findings.filter((f) => f.level === 'ERROR');
+
+  if (AS_JSON) {
+    console.log(JSON.stringify({ scanned: files.length, scope: ALL ? 'all' : 'new', findings, pass: ALL || errors.length === 0 }, null, 2));
+  } else {
+    console.log(`policy-scan: ${files.length}개 파일 (${ALL ? '전체(정보용)' : `신규 prefix >= ${NEW_FROM}`})`);
+    for (const f of findings) console.log(`  [${f.level}] ${f.file} :: ${f.table} "${f.policy}" cmd=${f.cmd} roles=${f.roles} — ${f.reason}`);
+    console.log(ALL ? `INFO: 레거시 포함 ERROR ${errors.length}건` : errors.length ? `RESULT: FAIL (${errors.length})` : 'RESULT: PASS');
+  }
+  process.exit(!ALL && errors.length ? 1 : 0);
+}

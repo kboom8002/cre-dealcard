@@ -39,6 +39,7 @@ export interface EmailSendInput {
   html: string;
   text?: string;
   headers?: Record<string, string>;
+  idempotencyKey?: string;
   senderName?: string | null;
   fromName?: string | null;
 }
@@ -84,6 +85,11 @@ export async function sendEmailProvider(
   const baseDelayMs = opts?.retryBaseDelayMs ?? PROVIDER_429_BASE_DELAY_MS;
   const resend = new Resend(key);
   const from = formatMagazineFromHeader(process.env.EMAIL_FROM, input.senderName ?? input.fromName);
+  const mergedHeaders: Record<string, string> = {
+    ...(input.headers ?? {}),
+    ...(input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : {}),
+  };
+  const hasHeaders = Object.keys(mergedHeaders).length > 0;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -93,11 +99,15 @@ export async function sendEmailProvider(
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
-        ...(input.headers ? { headers: input.headers } : {}),
+        ...(hasHeaders ? { headers: mergedHeaders } : {}),
       });
       if (error) {
         if (attempt < maxRetries && isResendRateLimitError(error)) {
-          const waitMs = baseDelayMs * Math.pow(2, attempt);
+          const rawWaitMs = baseDelayMs * Math.pow(2, attempt);
+          const waitMs =
+            process.env.NODE_ENV === 'test'
+              ? rawWaitMs
+              : Math.round(rawWaitMs * (0.7 + Math.random() * 0.6));
           log.warn('Resend 429 rate-limit encountered, backing off before retry', {
             attempt: attempt + 1,
             waitMs,
@@ -113,7 +123,11 @@ export async function sendEmailProvider(
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (attempt < maxRetries && isResendRateLimitError(e)) {
-        const waitMs = baseDelayMs * Math.pow(2, attempt);
+        const rawWaitMs = baseDelayMs * Math.pow(2, attempt);
+        const waitMs =
+          process.env.NODE_ENV === 'test'
+            ? rawWaitMs
+            : Math.round(rawWaitMs * (0.7 + Math.random() * 0.6));
         log.warn('Resend 429 exception encountered, backing off before retry', {
           attempt: attempt + 1,
           waitMs,

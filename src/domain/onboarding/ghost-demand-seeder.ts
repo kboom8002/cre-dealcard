@@ -79,11 +79,11 @@ export async function seedGhostDemands(
   const seededBuyers: Array<{ id: string; name: string; budget: string }> = [];
 
   for (const template of GHOST_BUYER_TEMPLATES) {
-    // 이미 시딩되었는지 중복 검사 (broker_id + name 기준으로 1회만 시딩)
+    // 이미 시딩되었는지 중복 검사 (owner_id + buyer_type + preferred_regions 기준으로 1회만 시딩)
     const { data: existing } = await supabase
       .from("buyer_intent_lite")
       .select("id")
-      .eq("broker_id", brokerId)
+      .eq("owner_id", brokerId)
       .eq("buyer_type", template.buyer_type)
       .contains("preferred_regions", template.preferred_regions)
       .maybeSingle();
@@ -94,16 +94,17 @@ export async function seedGhostDemands(
     const { data: newBuyer, error: dbError } = await supabase
       .from("buyer_intent_lite")
       .insert({
-        broker_id: brokerId,
+        owner_id: brokerId,
+        raw_input: template.name,
         buyer_type: template.buyer_type,
         budget_min: template.budget_min,
         budget_max: template.budget_max,
         budget_display: template.budget_display,
         preferred_regions: template.preferred_regions,
         purchase_purpose: template.purchase_purpose,
-        preferred_asset_types: template.preferred_asset_types,
-        status: "active",
-        metadata: {
+        asset_types: template.preferred_asset_types,
+        visibility: "broker_only",
+        normalized: {
           is_ghost: true,
           company_name: template.name,
           rejection_tolerance: template.rejection_tolerance,

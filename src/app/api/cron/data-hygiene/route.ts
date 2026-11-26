@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { sweepStaleJobs } from '@/lib/jobs/engine';
 import { createModuleLogger } from '@/lib/logger';
 import { acquireCronIdempotencySlot, verifyCronRequest } from '@/lib/security/cron-auth';
 
@@ -65,8 +66,17 @@ export async function GET(req: NextRequest) {
       results.deletedGoldenSets = 0;
     }
 
+    // 4. Stale / crashed IM generation jobs 회수 (Jobs v2 sweeper)
+    let sweptJobs = { sweptCount: 0, timedOutJobIds: [] as string[] };
+    try {
+      sweptJobs = await sweepStaleJobs(90, { client: supabase });
+    } catch (sweepErr) {
+      log.error('[data-hygiene] Failed to sweep stale jobs:', sweepErr);
+    }
+    results.sweptJobs = sweptJobs;
+
     log.info('[data-hygiene] Completed:', results);
-    return NextResponse.json({ status: 'ok', results });
+    return NextResponse.json({ status: 'ok', sweptJobs, results });
   } catch (err) {
     log.error('[data-hygiene] Unexpected error:', err);
     console.error('[data-hygiene] Internal server error:', err);

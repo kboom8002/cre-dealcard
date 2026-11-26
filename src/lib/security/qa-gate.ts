@@ -1,15 +1,13 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 
 export type QaKeyRole = 'none' | 'master' | 'tester' | 'broker';
 
 export function constantTimeEqualStr(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  const maxLen = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < maxLen; i += 1) {
-    diff |= (a.charCodeAt(i % a.length) || 0) ^ (b.charCodeAt(i % b.length) || 0);
-  }
-  return diff === 0;
+  if (typeof a !== 'string' || typeof b !== 'string' || !a || !b) return false;
+  const digestA = createHash('sha256').update(a).digest();
+  const digestB = createHash('sha256').update(b).digest();
+  return timingSafeEqual(digestA, digestB);
 }
 
 export function isPublicQaFlagEnabled(

@@ -8,6 +8,7 @@ import { verifyCronRequest } from '@/lib/security/cron-auth';
 const log = createModuleLogger('route');
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 // GET /api/cron/hold-expiry - 만료된 Hold 및 열람요청(Gate Request) 자동 회수 Cron
 export async function GET(request: Request) {

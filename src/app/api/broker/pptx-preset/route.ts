@@ -98,13 +98,13 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 서버에서 company_id 조회 (클라이언트 값 무시)
+    // 서버에서 소속 법인/조직 식별자 조회 (클라이언트 값 무시)
     const { data: profile } = await supabase
-      .from('broker_profiles')
-      .select('company_id')
-      .eq('user_id', user.id)
+      .from('profiles')
+      .select('organization_id, company')
+      .eq('id', user.id)
       .maybeSingle();
-    const safeCompanyId = profile?.company_id ?? null;
+    const safeCompanyId = profile?.organization_id ?? profile?.company ?? null;
 
     const { data, error } = await supabase
       .from('pptx_custom_presets')

@@ -1,4 +1,19 @@
-import { createModuleLogger, redactStringPii } from '@/lib/logger';
+import * as loggerModule from '@/lib/logger';
+import { createModuleLogger, redactPiiDeep, redactStringPii } from '@/lib/logger';
+
+function safeGetRequestId(): string | null {
+  try {
+    if (
+      'getRegisteredRequestContext' in loggerModule &&
+      typeof loggerModule.getRegisteredRequestContext === 'function'
+    ) {
+      return loggerModule.getRegisteredRequestContext()?.requestId ?? null;
+    }
+  } catch {
+    // Ignore partial Vitest module mocks of @/lib/logger
+  }
+  return null;
+}
 
 const log = createModuleLogger('error-reporter');
 
@@ -36,14 +51,19 @@ function sanitizeDigest(raw: unknown): string | null {
 function extractErrorDetails(
   error: unknown,
   fallbackDigest?: string,
-): { name: string; message: string; digest: string | null } {
+): { name: string; message: string; digest: string | null; stack: string | null } {
   try {
     if (error instanceof Error) {
       const errWithDigest = error as Error & { digest?: unknown };
+      const stack =
+        error instanceof Error && typeof error.stack === 'string'
+          ? redactStringPii(error.stack).slice(0, 4000)
+          : null;
       return {
         name: redactStringPii(error.name || 'Error'),
         message: redactStringPii(error.message || 'Unhandled error'),
         digest: sanitizeDigest(errWithDigest.digest) ?? sanitizeDigest(fallbackDigest),
+        stack,
       };
     }
     if (typeof error === 'string') {
@@ -51,6 +71,7 @@ function extractErrorDetails(
         name: 'Error',
         message: redactStringPii(error || 'Unhandled error'),
         digest: sanitizeDigest(fallbackDigest),
+        stack: null,
       };
     }
     if (error && typeof error === 'object') {
@@ -67,18 +88,21 @@ function extractErrorDetails(
         name,
         message,
         digest: sanitizeDigest(rec.digest) ?? sanitizeDigest(fallbackDigest),
+        stack: null,
       };
     }
     return {
       name: 'UnknownError',
       message: 'UNKNOWN_ERROR',
       digest: sanitizeDigest(fallbackDigest),
+      stack: null,
     };
   } catch {
     return {
       name: 'UnknownError',
       message: 'UNREADABLE_ERROR',
       digest: sanitizeDigest(fallbackDigest),
+      stack: null,
     };
   }
 }
@@ -160,6 +184,42 @@ export function buildSystemErrorActivityRow(input: {
   };
 }
 
+export interface SystemErrorLogRow {
+  ref_code: string;
+  request_id: string | null;
+  boundary: string;
+  digest: string | null;
+  url: string | null;
+  error_name: string;
+  error_message: string | null;
+  error_stack: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export function buildSystemErrorLogRow(input: {
+  refCode: string;
+  requestId?: string | null;
+  boundary: string;
+  digest: string | null;
+  url: string | null;
+  errorName: string;
+  errorMessage?: string | null;
+  errorStack?: string | null;
+  metadata?: Record<string, unknown>;
+}): SystemErrorLogRow {
+  return {
+    ref_code: input.refCode,
+    request_id: input.requestId ? redactStringPii(input.requestId).slice(0, 128) : null,
+    boundary: redactStringPii(input.boundary),
+    digest: input.digest,
+    url: input.url,
+    error_name: redactStringPii(input.errorName),
+    error_message: input.errorMessage ? redactStringPii(input.errorMessage).slice(0, 500) : null,
+    error_stack: input.errorStack ? redactStringPii(input.errorStack).slice(0, 4000) : null,
+    metadata: (redactPiiDeep(input.metadata ?? {}) as Record<string, unknown>) ?? {},
+  };
+}
+
 /**
  * Browser → `/api/public/events` payload. `entityId` is intentionally omitted (the
  * reference code is not a uuid); the route stores the code in metadata.
@@ -215,14 +275,18 @@ export async function reportClientOrServerError(
 
   try {
     if (typeof window === 'undefined') {
+      const requestId = safeGetRequestId();
+      const sanitizedMessage = redactStringPii(details.message).slice(0, 500);
       const structuredRecord = {
         event: 'system_error',
         refCode,
+        requestId,
         boundary,
         digest: details.digest,
         url: safeUrl,
         errorName: details.name,
-        errorMessage: redactStringPii(details.message).slice(0, 500),
+        errorMessage: sanitizedMessage,
+        errorStack: details.stack,
         timestamp: new Date().toISOString(),
       };
 
@@ -253,6 +317,7 @@ export async function reportClientOrServerError(
                 `[CRE DealCard] 시스템 오류 감지 (${refCode}) — boundary=${boundary}`,
               ),
               refCode,
+              requestId,
               boundary,
               digest: details.digest,
               url: safeUrl,
@@ -269,24 +334,53 @@ export async function reportClientOrServerError(
         const supabase = createServiceClient() as unknown as LooseSupabaseClient | null;
         if (supabase && typeof supabase.from === 'function') {
           try {
-            const row = buildSystemErrorActivityRow({
+            const logRow = buildSystemErrorLogRow({
               refCode,
+              requestId,
               boundary,
               digest: details.digest,
               url: safeUrl,
               errorName: details.name,
+              errorMessage: sanitizedMessage,
+              errorStack: details.stack,
             });
             const result = (await supabase
-              .from('activity_events')
-              .insert(row as unknown as Record<string, unknown>)) as
+              .from('system_error_logs')
+              .insert(logRow as unknown as Record<string, unknown>)) as
               | { error?: { code?: string; message?: string } | null }
               | null
               | undefined;
-            if (result && result.error) {
+
+            const errorCode = result?.error?.code;
+            if (errorCode === 'PGRST205' || errorCode === '42P01') {
+              const fallbackRow = buildSystemErrorActivityRow({
+                refCode,
+                boundary,
+                digest: details.digest,
+                url: safeUrl,
+                errorName: details.name,
+              });
+              const fallbackResult = (await supabase
+                .from('activity_events')
+                .insert(fallbackRow as unknown as Record<string, unknown>)) as
+                | { error?: { code?: string; message?: string } | null }
+                | null
+                | undefined;
+              if (fallbackResult && fallbackResult.error) {
+                try {
+                  log.warn(
+                    { refCode, code: fallbackResult.error.code ?? null },
+                    '[error-reporter] activity_events fallback insert rejected',
+                  );
+                } catch {
+                  // Ignore logger transport issues
+                }
+              }
+            } else if (result && result.error) {
               try {
                 log.warn(
                   { refCode, code: result.error.code ?? null },
-                  '[error-reporter] activity_events insert rejected',
+                  '[error-reporter] system_error_logs insert rejected',
                 );
               } catch {
                 // Ignore logger transport issues

@@ -6,7 +6,11 @@ import OpenAI from "openai";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
-const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
+export const maxDuration = 60;
+
+// Vercel Serverless 4.5 MB request gateway safety cap (4.4 MB)
+const MAX_AUDIO_BYTES = Math.floor(4.4 * 1024 * 1024);
+const MULTIPART_ENVELOPE_ALLOWANCE_BYTES = 4096;
 
 export async function POST(req: NextRequest) {
   const guard = await requireBroker(req);
@@ -14,6 +18,21 @@ export async function POST(req: NextRequest) {
   const userId = guard.user?.id ?? "";
   if (!userId) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const declaredLength = Number(req.headers.get("content-length"));
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_AUDIO_BYTES + MULTIPART_ENVELOPE_ALLOWANCE_BYTES
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "PAYLOAD_TOO_LARGE",
+        error: "음성 파일 크기는 4.4MB 이하여야 합니다.",
+      },
+      { status: 413 },
+    );
   }
 
   try {
@@ -26,7 +45,11 @@ export async function POST(req: NextRequest) {
 
     if (audioFile.size > MAX_AUDIO_BYTES) {
       return NextResponse.json(
-        { ok: false, error: "Audio file exceeds 10MB limit" },
+        {
+          ok: false,
+          code: "PAYLOAD_TOO_LARGE",
+          error: "음성 파일 크기는 4.4MB 이하여야 합니다.",
+        },
         { status: 413 },
       );
     }

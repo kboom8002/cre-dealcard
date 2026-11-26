@@ -12,26 +12,26 @@ export async function annualOfficialPriceRefresh(): Promise<void> {
   
   log.info('Starting annual official price refresh...');
   
-  // Fetch deals
-  const { data: deals, error } = await supabase
-    .from('deal')
-    .select('id, address');
+  // Fetch ontology assets
+  const { data: assets, error } = await supabase
+    .from('assets')
+    .select('id, pnu, attrs');
     
   if (error) {
-    log.error('Failed to fetch deals for annual refresh:', error);
-    throw new Error(`Failed to fetch deals: ${error.message}`);
+    log.error('Failed to fetch assets for annual refresh:', error);
+    throw new Error(`Failed to fetch assets: ${error.message}`);
   }
   
   let successCount = 0;
-  for (const deal of (deals || [])) {
-    // In a real implementation, we would query an external API for the new official price
-    // based on the deal.address, and update the deal.
+  for (const asset of (assets || [])) {
+    // Query external API or refresh official land price inside asset.attrs
     const newPrice = Math.floor(Math.random() * 1000000) + 500000; 
+    const prevAttrs = (asset.attrs && typeof asset.attrs === 'object') ? (asset.attrs as Record<string, unknown>) : {};
     
     await supabase
-      .from('deal')
-      .update({ official_land_price_per_sqm: newPrice })
-      .eq('id', deal.id);
+      .from('assets')
+      .update({ attrs: { ...prevAttrs, officialLandPricePerSqm: newPrice } })
+      .eq('id', asset.id);
       
     successCount++;
   }

@@ -57,11 +57,18 @@ export const DORMANT_PUBLIC_PREFIXES = [
   '/agora',
   '/services',
   '/building-radar',
+  '/api/agora',
+  '/api/vendor',
+  '/api/public/building-radar',
 ] as const;
 
 export const EXPERIMENTAL_VERTICAL_PREFIXES = [
   '/funding',
   '/broker/circles',
+  '/api/funding',
+  '/api/broker/circles',
+  '/api/broker/schedule',
+  '/api/onboarding',
 ] as const;
 
 const EXPERIMENTAL_SCHEDULE_RE = /^\/buildings\/[^/]+\/schedule(\/|$)/;
@@ -149,6 +156,12 @@ export async function proxy(request: NextRequest) {
     (process.env.CRE_ENABLE_EXPERIMENTAL_VERTICALS !== '1' &&
       isExperimentalVerticalPath(pathname))
   ) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { ok: false, error: 'Not Found' },
+        { status: 404, headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+      );
+    }
     return new NextResponse('Not Found', {
       status: 404,
       headers: { 'X-Robots-Tag': 'noindex, nofollow' },
@@ -183,6 +196,12 @@ export async function proxy(request: NextRequest) {
     const res = NextResponse.next({ request: { headers: requestHeaders } });
     res.headers.set('X-Robots-Tag', 'noindex, nofollow');
     return res;
+  }
+
+  // API routes pass through immediately after header stripping & dormant/experimental/QA gates
+  // (zero extra remote auth round-trips in proxy; API handlers enforce their own auth guards)
+  if (pathname === '/api' || pathname.startsWith('/api/')) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Legacy short link redirect: /d/[id] -> /dc/[id]
@@ -317,11 +336,10 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths (including /api/*) except:
      * - _next/static, _next/image (static assets)
-     * - api routes (handled by their own auth guards)
      * - favicon, robots, sitemap
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
   ],
 };

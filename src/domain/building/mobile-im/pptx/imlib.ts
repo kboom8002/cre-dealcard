@@ -245,31 +245,65 @@ function createTypographyProxy(
   key: 'KR' | 'TITLE_KR',
   fallback: string
 ): string {
-  const target = Object.create(String.prototype);
-  target[Symbol.for('nodejs.util.inspect.custom')] = function (
-    _depth: number,
-    opts: any
-  ) {
+  const currentValue = (): string => {
     const store = ActiveThemeStore.getStore();
-    const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
-    return opts && typeof opts.stylize === 'function'
-      ? opts.stylize(current, 'string')
-      : current;
+    return (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
   };
+
+  const target = Object.create(String.prototype);
+  Object.defineProperties(target, {
+    toJSON: {
+      value() {
+        return currentValue();
+      },
+      configurable: true,
+      enumerable: false,
+    },
+    [Symbol.toPrimitive]: {
+      value() {
+        return currentValue();
+      },
+      configurable: true,
+      enumerable: false,
+    },
+    toString: {
+      value() {
+        return currentValue();
+      },
+      configurable: true,
+      enumerable: false,
+    },
+    valueOf: {
+      value() {
+        return currentValue();
+      },
+      configurable: true,
+      enumerable: false,
+    },
+    [Symbol.for('nodejs.util.inspect.custom')]: {
+      value(_depth: number, opts: { stylize?: (v: string, t: string) => string } | undefined) {
+        const current = currentValue();
+        return opts && typeof opts.stylize === 'function'
+          ? opts.stylize(current, 'string')
+          : current;
+      },
+      configurable: true,
+      enumerable: false,
+    },
+  });
 
   return new Proxy(target, {
     get(t, prop, receiver) {
-      const store = ActiveThemeStore.getStore();
-      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+      const current = currentValue();
 
       if (prop === Symbol.toPrimitive) {
-        return (_hint: string) => current;
+        return () => currentValue();
       }
       if (prop === 'toString' || prop === 'valueOf') {
-        return () => current;
+        return () => currentValue();
       }
       if (prop === 'toJSON') {
-        return () => current;
+        return () => currentValue();
       }
       if (prop === 'length') {
         return current.length;
@@ -277,34 +311,31 @@ function createTypographyProxy(
       if (typeof prop === 'string' && !isNaN(Number(prop))) {
         return current[Number(prop)];
       }
-      const val = (current as any)[prop];
+      const val = (current as unknown as Record<PropertyKey, unknown>)[prop];
       if (typeof val === 'function') {
-        return val.bind(current);
+        return (val as (...args: unknown[]) => unknown).bind(current);
       }
       return Reflect.get(t, prop, receiver);
     },
     set(_t, _prop, value) {
       const store = ActiveThemeStore.getStore();
       if (store) {
-        (store as any)[key] = String(value);
+        store[key] = String(value);
         return true;
       }
       rawTypography[key] = String(value);
       return true;
     },
     has(t, prop) {
-      const store = ActiveThemeStore.getStore();
-      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+      const current = currentValue();
       return prop in Object(current) || prop in t;
     },
-    ownKeys(t) {
-      const store = ActiveThemeStore.getStore();
-      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+    ownKeys() {
+      const current = currentValue();
       return Reflect.ownKeys(Object(current));
     },
     getOwnPropertyDescriptor(t, prop) {
-      const store = ActiveThemeStore.getStore();
-      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+      const current = currentValue();
       if (prop === 'length') {
         return {
           configurable: true,

@@ -9,6 +9,7 @@
  *   - Recording full_im_handoff events
  */
 import { createServiceClient } from "@/lib/supabase/service";
+import { getServerEnv } from "@/lib/env";
 import { recordEvent } from "@/domain/analytics/record-event";
 
 export interface CreateHandoffInput {
@@ -22,7 +23,6 @@ export interface CreateHandoffInput {
   actorRole?: "public_user" | "owner" | "broker" | "admin" | "system";
   sourceVisibilityLevel?: string;
   allowedImportScope?: string[];
-  fullImStudioBaseUrl?: string;
 }
 
 export interface CreateHandoffResult {
@@ -64,11 +64,10 @@ export async function createHandoff(
 ): Promise<CreateHandoffResult> {
   const supabase = createServiceClient();
 
-  const fullImBaseUrl = input.fullImStudioBaseUrl ?? (
-    process.env.NODE_ENV === "production"
-      ? "https://cre-fullim.vercel.app"
-      : (process.env.FULL_IM_STUDIO_URL ?? "http://localhost:3001")
-  );
+  const fullImBaseUrl = (
+    process.env.FULL_IM_STUDIO_BASE_URL?.trim() ||
+    getServerEnv().APP_BASE_URL
+  ).replace(/\/+$/, "");
 
   const { data: handoff, error } = await supabase
     .from("full_im_handoffs")

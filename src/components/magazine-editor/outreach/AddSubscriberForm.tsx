@@ -3,8 +3,16 @@
 import React, { useId, useState, useMemo } from 'react';
 import { Mail, MessageCircle, Send, Loader2, Users, UserPlus, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
 import { Modal } from '@/components/ui/modal';
-import { ContactBulkImportModal } from '@/components/workspace/inbox/ContactBulkImportModal';
+
+const ContactBulkImportModal = dynamic(
+  () =>
+    import('@/components/workspace/inbox/ContactBulkImportModal').then(
+      (m) => m.ContactBulkImportModal,
+    ),
+  { ssr: false },
+);
 import { formatKrPhoneInput, isPlausiblePhoneDigits } from '@/lib/magazine/phone-input';
 import {
   CHANNEL_LABEL,
@@ -506,15 +514,17 @@ export function AddSubscriberForm({ open, onClose, onAdded }: AddSubscriberFormP
         )}
       </div>
     </Modal>
-    <ContactBulkImportModal
-      open={bulkWizardOpen}
-      onOpenChange={setBulkWizardOpen}
-      defaultNewsletterSync={true}
-      onImported={() => {
-        setBulkWizardOpen(false);
-        onAdded();
-      }}
-    />
+    {bulkWizardOpen ? (
+      <ContactBulkImportModal
+        open={bulkWizardOpen}
+        onOpenChange={setBulkWizardOpen}
+        defaultNewsletterSync={true}
+        onImported={() => {
+          setBulkWizardOpen(false);
+          onAdded();
+        }}
+      />
+    ) : null}
     </>
   );
 }

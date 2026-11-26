@@ -29,6 +29,8 @@ import {
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+export const maxDuration = 60;
+
 
 const VALID_POSTURES = ['income', 'development', 'operating', 'owner_occupied', 'trading'] as const;
 

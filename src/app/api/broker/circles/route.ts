@@ -3,16 +3,13 @@
  * POST /api/broker/circles — 새 서클 생성
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
 import { createCircle, getMyCircles, getPendingInvitations } from "@/domain/team/circle-service";
 
 export async function GET(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const [circles, pendingInvitations] = await Promise.all([
@@ -31,12 +28,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const body = await req.json();

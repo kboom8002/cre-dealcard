@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { Wand2, Copy, FileInput, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';

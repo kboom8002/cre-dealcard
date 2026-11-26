@@ -31,6 +31,8 @@ import {
 
 const log = createModuleLogger('im-lite-translate-route');
 
+export const maxDuration = 120;
+
 const ALLOWED_LANGUAGES = new Set<IMLanguage>(['ko', 'en', 'ja', 'zh']);
 const MAX_BODY_BYTES = 8 * 1024;
 

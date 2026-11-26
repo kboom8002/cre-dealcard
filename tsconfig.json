@@ -30,5 +30,18 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "scratch", ".next", ".vercel", "vibecard", "CREDEAL_IM_HANDOVER_v0.5"]
+  "exclude": [
+    "node_modules",
+    "scratch",
+    ".next",
+    ".vercel",
+    ".worktrees",
+    "vibecard",
+    "CREDEAL_IM_HANDOVER_v0.5",
+    "CREDEAL_IM_MODERNIZATION",
+    "src/tests",
+    "tests",
+    "e2e",
+    "scripts"
+  ]
 }

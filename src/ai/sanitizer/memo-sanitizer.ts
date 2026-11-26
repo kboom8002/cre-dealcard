@@ -53,9 +53,12 @@ export function sanitizeMemo(memo: string): SanitizationMap {
   const tokens = new Map<string, string>();
   let sanitizedText = safeMemo;
 
-  // WEB_SECURITY_PATTERNS 매칭 시 해당 패턴 제거
+  // WEB_SECURITY_PATTERNS 매칭 시 모든 출현 패턴 제거
   for (const pattern of WEB_SECURITY_PATTERNS) {
-    sanitizedText = sanitizedText.replace(pattern, '[BLOCKED]');
+    const globalRe = pattern.flags.includes('g')
+      ? pattern
+      : new RegExp(pattern.source, pattern.flags + 'g');
+    sanitizedText = sanitizedText.replace(globalRe, '[BLOCKED]');
   }
 
   const counters: Record<string, number> = { PHONE: 0, EMAIL: 0, RRN: 0, ADDR_DETAIL: 0, BLDG_NAME: 0, TENANT: 0, OWNER: 0 };

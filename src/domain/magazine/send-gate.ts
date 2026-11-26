@@ -276,13 +276,33 @@ async function updateLedger(
   supabase: MagazineDbClient,
   id: string,
   patch: Record<string, unknown>,
-): Promise<void> {
-  try {
-    const { error } = await supabase.from(DISPATCH_LEDGER_TABLE).update(patch).eq('id', id);
-    if (error) log.error('ledger update failed', { id, error: error.message });
-  } catch (e) {
-    log.error('ledger update threw', { id, error: e instanceof Error ? e.message : String(e) });
+  opts?: { retryOnce?: boolean },
+): Promise<boolean> {
+  const maxAttempts = opts?.retryOnce ? 2 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { error } = await supabase.from(DISPATCH_LEDGER_TABLE).update(patch).eq('id', id);
+      if (!error) return true;
+      if (attempt < maxAttempts) {
+        log.warn('ledger update failed on first attempt, retrying once', {
+          id,
+          error: error.message,
+        });
+        continue;
+      }
+      log.error('ledger update failed', { id, error: error.message });
+      return false;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (attempt < maxAttempts) {
+        log.warn('ledger update threw on first attempt, retrying once', { id, error: message });
+        continue;
+      }
+      log.error('ledger update threw', { id, error: message });
+      return false;
+    }
   }
+  return false;
 }
 
 export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<GateResult> {
@@ -423,6 +443,7 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
           html: rendered.body,
           text: rendered.text,
           headers: rendered.headers,
+          ...(row.idempotency_key ? { idempotencyKey: row.idempotency_key } : {}),
           fromName: rendered.senderName,
         })
       : await sendKakaoProvider({
@@ -433,10 +454,17 @@ export async function sendGate(input: GateInput, deps: GateDeps = {}): Promise<G
         });
 
   if (!result.ok) {
-    await updateLedger(supabase, dispatchId, { status: 'failed', error: (result.error ?? 'unknown').slice(0, 300) });
+    if (!deps.claimedDispatchId) {
+      await updateLedger(supabase, dispatchId, { status: 'failed', error: (result.error ?? 'unknown').slice(0, 300) });
+    }
     return { ok: false, blocked: 'PROVIDER_FAILED', detail: result.error, failed: true };
   }
-  await updateLedger(supabase, dispatchId, { status: 'sent', provider_msg_id: result.messageId ?? null, error: null });
+  await updateLedger(
+    supabase,
+    dispatchId,
+    { status: 'sent', provider_msg_id: result.messageId ?? null, error: null },
+    { retryOnce: true },
+  );
   return { ok: true, dispatchId, dryRun: false };
 }
 

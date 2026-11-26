@@ -30,7 +30,8 @@ export async function GET(req: Request) {
       .from('im_fewshot_usage_log')
       .select('result_judge_score')
       .gte('created_at', oneWeekAgo)
-      .not('result_judge_score', 'is', null);
+      .not('result_judge_score', 'is', null)
+      .limit(2000);
 
     if (twErr) {
       log.error('[ai-quality-monitor] Failed to query this week scores:', twErr);
@@ -45,7 +46,8 @@ export async function GET(req: Request) {
       .select('result_judge_score')
       .gte('created_at', twoWeeksAgo)
       .lt('created_at', oneWeekAgo)
-      .not('result_judge_score', 'is', null);
+      .not('result_judge_score', 'is', null)
+      .limit(2000);
 
     if (lwErr) {
       log.error('[ai-quality-monitor] Failed to query last week scores:', lwErr);

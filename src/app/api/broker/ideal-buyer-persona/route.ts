@@ -4,15 +4,18 @@
  * 매물 SSoT Lite를 바탕으로 이상적 매수자 페르소나 3명을 AI가 도출합니다.
  * 브로커가 딜카드 생성 후 "이 매물은 누가 사야 할까?"를 즉시 확인할 수 있습니다.
  */
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { runIdealBuyerPersona } from "@/ai/agents/ideal-buyer-persona";
 import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { runAfterResponse } from "@/lib/server/after-safe";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+export const maxDuration = 60;
 
 const RequestSchema = z.object({
   dealId: z.string().optional(),
@@ -37,6 +40,13 @@ export async function POST(request: NextRequest) {
   // Auth guard — 미인증 요청 차단
   const auth = await requireBroker(request);
   if (auth.error) return auth.error;
+
+  const quotaErr = await enforceBrokerAiQuota(
+    request,
+    auth.user?.id ?? "",
+    "ideal_buyer_persona",
+  );
+  if (quotaErr) return quotaErr;
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -64,19 +74,9 @@ export async function POST(request: NextRequest) {
         status: "started",
       });
 
-      after(async () => {
+      runAfterResponse("ideal-buyer-persona-async", async () => {
         try {
-          let asyncResult;
-          try {
-            asyncResult = await runIdealBuyerPersona(input);
-          } catch (err) {
-            console.error('[IdealBuyerPersona] Generation failed:', err);
-            return NextResponse.json(
-              { ok: false, error: '매수자 페르소나 생성에 실패했습니다.' },
-              { status: 500 }
-            );
-          }
-
+          const asyncResult = await runIdealBuyerPersona(input);
           const asyncPersonas = asyncResult.output?.personas;
 
           await supabaseAdmin.from("ai_runs").update({
@@ -86,11 +86,11 @@ export async function POST(request: NextRequest) {
               personas: asyncPersonas,
             },
           }).eq("id", jobId);
-        } catch (asyncErr: any) {
-          log.error("[IdealBuyerPersona] Async generation error:", asyncErr);
+        } catch (asyncErr: unknown) {
+          log.error({ err: asyncErr, jobId }, "[IdealBuyerPersona] Async generation error");
           await supabaseAdmin.from("ai_runs").update({
             status: "failed",
-            error: asyncErr.message || "Unknown error",
+            error: asyncErr instanceof Error ? asyncErr.message : "Unknown error",
           }).eq("id", jobId);
         }
       });
@@ -107,10 +107,10 @@ export async function POST(request: NextRequest) {
     try {
       result = await runIdealBuyerPersona(input);
     } catch (err) {
-      console.error('[IdealBuyerPersona] Generation failed:', err);
+      log.error({ err }, "[IdealBuyerPersona] Generation failed");
       return NextResponse.json(
-        { ok: false, error: '매수자 페르소나 생성에 실패했습니다.' },
-        { status: 500 }
+        { ok: false, error: "매수자 페르소나 생성에 실패했습니다." },
+        { status: 500 },
       );
     }
 
@@ -128,12 +128,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    log.error("[IdealBuyerPersona] Error:", error);
-
-    const message = error instanceof Error ? error.message : "AI 페르소나 생성 중 오류가 발생했습니다.";
+    log.error({ err: error }, "[IdealBuyerPersona] Error");
 
     return NextResponse.json(
-      { success: false, error: `AI 응답 처리 실패: ${message}` },
+      { ok: false, success: false, error: "AI 페르소나 생성 중 오류가 발생했습니다." },
       { status: 500 },
     );
   }

@@ -4,6 +4,7 @@
  */
 import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
+import { enforceBrokerAiQuota } from "@/lib/ai-quota-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { brokerLeaseCardFromMemo } from "@/domain/lease/broker-lease-card";
 import { toApiError } from "@/lib/api-error";
@@ -11,9 +12,10 @@ import { toApiError } from "@/lib/api-error";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
+export const maxDuration = 60;
 
 const LeaseCardFromMemoRequest = z.object({
-  memo: z.string().min(5),
+  memo: z.string().trim().min(5).max(10_000),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,6 +26,9 @@ export async function POST(req: NextRequest) {
   try {
     const json = await req.json();
     const input = LeaseCardFromMemoRequest.parse(json);
+
+    const quotaErr = await enforceBrokerAiQuota(req, user?.id ?? "", "lease_card_from_memo");
+    if (quotaErr) return quotaErr;
 
     const result = await brokerLeaseCardFromMemo(
       { memo: input.memo },

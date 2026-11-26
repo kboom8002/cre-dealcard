@@ -1,0 +1,9 @@
+{
+  "name": "negative_poison_sample",
+  "violations": 3,
+  "categories": [
+    "POISON_TOKEN",
+    "MOCK_DATA_LEAK",
+    "EVASIVE_PHRASE"
+  ]
+}

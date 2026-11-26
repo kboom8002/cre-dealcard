@@ -1088,6 +1088,19 @@ function isMissingIssuesTableError(error: { code?: string; message?: string } | 
   return /Could not find the table/i.test(String(error.message ?? ""));
 }
 
+function isMissingRpcError(error: { code?: unknown; message?: unknown } | null | undefined): boolean {
+  if (!error) return true;
+  const code = String(error.code ?? "");
+  const msg = String(error.message ?? "");
+  return (
+    code === "PGRST202" ||
+    code === "42883" ||
+    code === "PGRST205" ||
+    code === "42P01" ||
+    /could not find the function|function .* does not exist/i.test(msg)
+  );
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const { ctx, error: authError } = await requireBrokerContext(request);
@@ -1126,84 +1139,105 @@ export async function DELETE(request: NextRequest) {
     const wasPublished =
       owned.status === "published" || Boolean(owned.published_at) || owned.status == null;
 
-    const { error: deleteErr } = await supabase
-      .from("magazine_editions")
-      .delete()
-      .eq("id", id)
-      .in("broker_id", ctx.brokerKeys);
+    let handledViaRpc = false;
+    if (typeof (supabase as { rpc?: unknown }).rpc === "function" && isUuid(ctx.userId)) {
+      const rpcRes = await supabase.rpc("rpc_delete_magazine_edition", {
+        p_edition_id: id,
+        p_broker_user_id: ctx.userId,
+        p_is_admin: false,
+      });
 
-    if (deleteErr) {
-      log.error("[api/magazine/editions/DELETE]", deleteErr.message);
-      return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+      if (rpcRes && !rpcRes.error && rpcRes.data && typeof rpcRes.data === "object") {
+        const rpcObj = rpcRes.data as Record<string, unknown>;
+        if (rpcObj.ok === true && rpcObj.deleted === true) {
+          handledViaRpc = true;
+        }
+      } else if (rpcRes?.error && !isMissingRpcError(rpcRes.error)) {
+        log.error("[api/magazine/editions/DELETE] rpc_delete_magazine_edition failed", rpcRes.error.message);
+        return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+      }
     }
 
-    if (wasPublished && issueDate) {
-      const { data: remainingRows, error: remErr } = await supabase
+    if (!handledViaRpc) {
+      const { error: deleteErr } = await supabase
         .from("magazine_editions")
-        .select(
-          "id, broker_id, edition_type, edition_label, status, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at, created_at",
-        )
-        .in("broker_id", ctx.brokerKeys)
-        .eq("status", "published")
-        .neq("id", id)
-        .order("published_at", { ascending: false })
-        .limit(100);
+        .delete()
+        .eq("id", id)
+        .in("broker_id", ctx.brokerKeys);
 
-      if (remErr) {
-        log.error("[api/magazine/editions/DELETE] remaining editions lookup failed", remErr.message);
+      if (deleteErr) {
+        log.error("[api/magazine/editions/DELETE]", deleteErr.message);
         return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
       }
 
-      const sameDaySurvivors = ((remainingRows ?? []) as Array<Record<string, unknown>>).filter(
-        (r) => r.id !== id && r.status === "published" && resolveEditionKstIssueDate(r) === issueDate,
-      );
-      const survivor = sameDaySurvivors[0] ?? null;
-
-      if (!survivor) {
-        const { error: issueDelErr } = await supabase
-          .from("magazine_issues")
-          .delete()
+      if (wasPublished && issueDate) {
+        const { data: remainingRows, error: remErr } = await supabase
+          .from("magazine_editions")
+          .select(
+            "id, broker_id, edition_type, edition_label, status, title, market_temp, cover_keywords, cover_image_url, field_note, theme_title, theme_body_md, theme_asset_types, theme_color, content, published_at, created_at",
+          )
           .in("broker_id", ctx.brokerKeys)
-          .eq("issue_date", issueDate);
-        if (issueDelErr && !isMissingIssuesTableError(issueDelErr)) {
-          log.error("[api/magazine/editions/DELETE] magazine_issues delete failed", issueDelErr.message);
+          .eq("status", "published")
+          .neq("id", id)
+          .order("published_at", { ascending: false })
+          .limit(100);
+
+        if (remErr) {
+          log.error("[api/magazine/editions/DELETE] remaining editions lookup failed", remErr.message);
           return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
         }
-      } else {
-        const survivorContent = mergeEditionContent(survivor);
-        const targetBrokerId = ctx.slug || String(survivor.broker_id || owned.broker_id || ctx.userId);
-        const nowIso = new Date().toISOString();
-        let { error: syncErr } = await supabase
-          .from("magazine_issues")
-          .upsert(
-            {
-              broker_id: targetBrokerId,
-              issue_date: issueDate,
-              content: survivorContent,
-              updated_at: nowIso,
-            },
-            { onConflict: "broker_id,issue_date" },
-          );
-        if (
-          syncErr &&
-          ((syncErr as { code?: string }).code === "42703" ||
-            (syncErr as { code?: string }).code === "PGRST204")
-        ) {
-          const retrySync = await supabase
+
+        const sameDaySurvivors = ((remainingRows ?? []) as Array<Record<string, unknown>>).filter(
+          (r) => r.id !== id && r.status === "published" && resolveEditionKstIssueDate(r) === issueDate,
+        );
+        const survivor = sameDaySurvivors[0] ?? null;
+
+        if (!survivor) {
+          const { error: issueDelErr } = await supabase
+            .from("magazine_issues")
+            .delete()
+            .in("broker_id", ctx.brokerKeys)
+            .eq("issue_date", issueDate);
+          if (issueDelErr && !isMissingIssuesTableError(issueDelErr)) {
+            log.error("[api/magazine/editions/DELETE] magazine_issues delete failed", issueDelErr.message);
+            return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+          }
+        } else {
+          const survivorContent = mergeEditionContent(survivor);
+          const targetBrokerId = ctx.slug || String(survivor.broker_id || owned.broker_id || ctx.userId);
+          const nowIso = new Date().toISOString();
+          let { error: syncErr } = await supabase
             .from("magazine_issues")
             .upsert(
               {
                 broker_id: targetBrokerId,
                 issue_date: issueDate,
                 content: survivorContent,
+                updated_at: nowIso,
               },
               { onConflict: "broker_id,issue_date" },
             );
-          syncErr = retrySync.error;
-        }
-        if (syncErr && !isMissingIssuesTableError(syncErr)) {
-          log.error("[api/magazine/editions/DELETE] magazine_issues sync failed", syncErr.message);
-          return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+          if (
+            syncErr &&
+            ((syncErr as { code?: string }).code === "42703" ||
+              (syncErr as { code?: string }).code === "PGRST204")
+          ) {
+            const retrySync = await supabase
+              .from("magazine_issues")
+              .upsert(
+                {
+                  broker_id: targetBrokerId,
+                  issue_date: issueDate,
+                  content: survivorContent,
+                },
+                { onConflict: "broker_id,issue_date" },
+              );
+            syncErr = retrySync.error;
+          }
+          if (syncErr && !isMissingIssuesTableError(syncErr)) {
+            log.error("[api/magazine/editions/DELETE] magazine_issues sync failed", syncErr.message);
+            return jsonError("INTERNAL_ERROR", GENERIC_ERROR_MESSAGE, 500);
+          }
         }
       }
     }

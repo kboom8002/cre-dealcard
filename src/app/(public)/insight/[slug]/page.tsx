@@ -129,7 +129,7 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
 
       {/* Header */}
       <header className="bg-[#0d1424]/90 backdrop-blur-md border-b border-slate-800 px-4 py-4 sticky top-0 z-40">
-        <div className="max-w-2xl mx-auto flex items-center gap-2 text-xs text-slate-400">
+        <div className="max-w-2xl mx-auto flex items-center gap-2 text-sm text-slate-400">
           <Link href="/insight" className="hover:text-white">📝 인사이트</Link>
           <span className="text-slate-700">›</span>
           <span className="text-purple-400">{typeDef?.emoji} {typeDef?.label}</span>
@@ -140,11 +140,11 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
       <div className="bg-gradient-to-b from-purple-900/20 to-transparent border-b border-slate-800 px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="flex gap-2 mb-4 flex-wrap">
-            <span className="text-[10px] font-bold bg-purple-500/10 border border-purple-500/20 text-purple-400 px-2.5 py-1 rounded-full">
+            <span className="text-sm font-bold bg-purple-500/10 border border-purple-500/20 text-purple-400 px-2.5 py-1 rounded-full">
               {typeDef?.emoji} {typeDef?.label}
             </span>
             {oiticle.regions?.map((r: string) => (
-              <span key={r} className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded-full">
+              <span key={r} className="text-sm bg-slate-800 text-slate-400 px-2 py-1 rounded-full">
                 {REGION_LABELS[r] ?? r}
               </span>
             ))}
@@ -154,13 +154,13 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
             {oiticle.title}
           </h1>
 
-          <div className="flex items-center gap-3 text-[10px] text-slate-500">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
             <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-500/20 flex items-center justify-center font-bold text-purple-400 text-[9px]">
+              <div className="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-500/20 flex items-center justify-center font-bold text-purple-400 text-sm">
                 {oiticle.author_name.charAt(0)}
               </div>
               <span className="font-semibold text-slate-300">{oiticle.author_name}</span>
-              <span className="text-purple-400 text-[9px]">{authorMeta?.badge}</span>
+              <span className="text-purple-400 text-sm">{authorMeta?.badge}</span>
             </div>
             <span>·</span>
             <span>{oiticle.published_at ? new Date(oiticle.published_at).toLocaleDateString("ko-KR") : ""}</span>
@@ -185,7 +185,7 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
               <Link
                 key={tag}
                 href={`/insight?tag=${encodeURIComponent(tag)}`}
-                className="text-[10px] bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full hover:bg-slate-700 transition-colors"
+                className="text-sm bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full hover:bg-slate-700 transition-colors"
               >
                 #{tag}
               </Link>
@@ -196,7 +196,7 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
         {/* Related */}
         {related.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">
               관련 인사이트
             </p>
             <div className="space-y-2">
@@ -206,9 +206,9 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
                   href={`/insight/${r.slug}`}
                   className="flex items-center gap-3 bg-[#131b2e] border border-slate-800 rounded-xl p-3 hover:border-purple-500/30 transition-all"
                 >
-                  <span className="text-[10px] text-purple-400">{OITICLE_TYPES[r.oiticle_type as OiticleTypeCode]?.emoji}</span>
-                  <span className="text-xs text-slate-300 flex-1 line-clamp-1">{r.title}</span>
-                  <span className="text-[9px] text-slate-600">{r.author_name}</span>
+                  <span className="text-sm text-purple-400">{OITICLE_TYPES[r.oiticle_type as OiticleTypeCode]?.emoji}</span>
+                  <span className="text-sm text-slate-300 flex-1 line-clamp-1">{r.title}</span>
+                  <span className="text-sm text-slate-600">{r.author_name}</span>
                 </Link>
               ))}
             </div>

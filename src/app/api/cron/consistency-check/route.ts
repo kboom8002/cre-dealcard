@@ -38,17 +38,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: 'error', error: 'Document query failed' }, { status: 500 });
     }
 
+    // 고유 building_id 배치 조회 (N+1 제거)
+    const uniqueBuildingIds = Array.from(
+      new Set(
+        recentDocs
+          .map((doc) => doc.building_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+      ),
+    );
+
+    const ssotById = new Map<string, { raw_address: unknown; layers: unknown }>();
+    if (uniqueBuildingIds.length > 0) {
+      const { data: ssotRows, error: ssotErr } = await supabase
+        .from('building_ssot_lite')
+        .select('id, raw_address, layers')
+        .in('id', uniqueBuildingIds);
+
+      if (ssotErr) {
+        log.error('[consistency-check] Failed to query building_ssot_lite:', ssotErr);
+      } else if (Array.isArray(ssotRows)) {
+        for (const row of ssotRows) {
+          if (row && typeof row.id === 'string') {
+            ssotById.set(row.id, row);
+          }
+        }
+      }
+    }
+
     // 각 IM 문서에 대해 SSoT 데이터와 핵심 필드 비교
     for (const doc of recentDocs) {
       if (!doc.building_id) continue;
 
-      const { data: row, error: ssotErr } = await supabase
-        .from('building_ssot_lite')
-        .select('raw_address, layers')
-        .eq('id', doc.building_id)
-        .single();
-
-      if (ssotErr || !row) continue;
+      const row = ssotById.get(doc.building_id);
+      if (!row) continue;
 
       const layers =
         row.layers && typeof row.layers === 'object'

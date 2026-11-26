@@ -439,7 +439,7 @@ export async function handlePatchWorkspaceUpsert(
         : {}),
       docHash: hash,
       version,
-      ...(effectiveExpectedVersion !== undefined && existingWs
+      ...(effectiveExpectedVersion !== undefined
         ? { expectedVersion: effectiveExpectedVersion }
         : {}),
     });

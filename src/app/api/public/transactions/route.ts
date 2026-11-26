@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
+import { checkRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/magazine/public-guard";
+import { createModuleLogger } from "@/lib/logger";
+import { fetchMolitTransactions } from "@/domain/prediction/price-prediction";
 
-
-import {
-  fetchMolitTransactions,
-  runMolitETL,
-} from "@/domain/prediction/price-prediction";
+const log = createModuleLogger("route");
 
 /**
  * GET /api/public/transactions?districtCode=11680&yearMonth=202506
  *
  * 국토부 실거래가 API 프록시 — 특정 구/월 상업용 거래내역을 반환합니다.
+ * (관리자 전용 실거래가 ETL 트리거는 /api/admin/etl/molit 에서만 실행됩니다.)
  */
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request) ?? "anonymous";
+  const allowed = await checkRateLimit(ip, "public_transactions_get", 30, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429 },
+    );
+  }
+
   try {
     const params = request.nextUrl.searchParams;
     const districtCode = params.get("districtCode");
@@ -48,45 +56,7 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     log.error("[api/public/transactions] GET Error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 내부 오류" },
-      { status: 500 },
-    );
-  }
-}
-
-/**
- * POST /api/public/transactions
- *
- * 서울 전구 실거래가 ETL 트리거.
- * Body: { months?: number }  (기본 12개월)
- */
-export async function POST(request: NextRequest) {
-  try {
-    let months = 12;
-
-    // POST body 파싱 (빈 body 허용)
-    try {
-      const body = await request.json();
-      if (body.months != null) {
-        months = Number(body.months);
-        if (!Number.isInteger(months) || months < 1 || months > 36) {
-          return NextResponse.json(
-            { error: "months는 1~36 사이의 정수여야 합니다." },
-            { status: 400 },
-          );
-        }
-      }
-    } catch {
-      // JSON 파싱 실패 시 기본값 사용
-    }
-
-    const result = await runMolitETL(months);
-
-    return NextResponse.json(result);
-  } catch (err: unknown) {
-    log.error("[api/public/transactions] POST Error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "서버 내부 오류" },
+      { error: "실거래가 조회 중 서버 오류가 발생했습니다." },
       { status: 500 },
     );
   }

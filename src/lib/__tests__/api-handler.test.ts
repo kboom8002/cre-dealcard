@@ -71,7 +71,7 @@ describe('createApiHandler (P2-4)', () => {
     expect(body.context).toEqual({ grade: 'D' });
   });
 
-  it('catches generic errors and maps to 500', async () => {
+  it('catches generic errors, masks raw err.message, and attaches X-Request-Id', async () => {
     const handler = createApiHandler(schema, async () => {
       throw new Error('Database connection reset');
     });
@@ -83,7 +83,10 @@ describe('createApiHandler (P2-4)', () => {
 
     const res = await handler(req);
     expect(res.status).toBe(500);
+    expect(res.headers.get('X-Request-Id')).toBeTruthy();
     const body = await res.json();
-    expect(body.error).toBe('Database connection reset');
+    expect(body.error).toBe('서버 내부 오류가 발생했습니다.');
+    expect(body.code).toBe('INTERNAL_SERVER_ERROR');
+    expect(body.error).not.toContain('Database connection reset');
   });
 });

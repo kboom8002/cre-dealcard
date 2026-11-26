@@ -101,8 +101,8 @@ export async function buildComparableEdges(brokerId: string): Promise<number> {
   const { data: buildings } = await supabase
     .from('building_ssot_lite')
     .select('id, area_signal, asset_type, price_band')
-    .eq('broker_id', brokerId)
-    .eq('is_active', true);
+    .eq('owner_id', brokerId)
+    .neq('status', 'archived');
 
   if (!buildings?.length) return 0;
 

@@ -145,7 +145,7 @@ export function summarizeParcels(input: unknown): ParcelSummary {
 
   const withArea = parcels.filter(p => p.areaM2 !== undefined);
   if (withArea.length > 0) {
-    summary.partialAreaM2 = round2(withArea.reduce((s, p) => s + (p.areaM2 as number), 0));
+    summary.partialAreaM2 = round2(withArea.reduce((s, p) => s + (p.areaM2 as number) * (p.shareRatio ?? 1), 0));
   }
   if (withArea.length === count) summary.totalAreaM2 = summary.partialAreaM2;
 
@@ -163,8 +163,11 @@ export function summarizeParcels(input: unknown): ParcelSummary {
   }
 
   const allPriced = parcels.every(p => p.areaM2 !== undefined && p.officialPricePerM2 !== undefined);
-  if (allPriced && summary.totalAreaM2) {
-    const total = parcels.reduce((s, p) => s + (p.areaM2 as number) * (p.officialPricePerM2 as number), 0);
+  if (allPriced && summary.totalAreaM2 && summary.totalAreaM2 > 0) {
+    const total = parcels.reduce(
+      (s, p) => s + (p.areaM2 as number) * (p.shareRatio ?? 1) * (p.officialPricePerM2 as number),
+      0
+    );
     summary.weightedOfficialPricePerM2 = Math.round(total / summary.totalAreaM2);
   }
   return summary;

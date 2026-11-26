@@ -7,8 +7,10 @@
  * - 지역·자산 유형·가격대가 자연스럽게 녹아든 표현
  * - "~추정", "~계열" 등 분석적/기계적 어투 지양
  * 
- * Usage:
- *   import { IM_TITLE_GOLDEN_SET, getGoldenExamplesForAssetType } from '@/lib/ai/im-title-golden-set';
+ * Public API:
+ *   - IM_TITLE_GOLDEN_SET
+ *   - getGoldenExamplesForAssetType(assetType, count?)
+ *   - formatGoldenSetForPrompt(examples)
  */
 
 export interface IMTitleExample {

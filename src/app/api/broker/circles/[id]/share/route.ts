@@ -4,7 +4,8 @@
  * DELETE /api/broker/circles/[id]/share — 공유 해제
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { CircleAccessError } from "@/domain/team/circle-service";
 import { shareAssetToCircle, unshareAsset, getSharedAssets } from "@/domain/team/circle-sharing-service";
 
 export async function GET(
@@ -12,18 +13,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
   try {
     const assetType = req.nextUrl.searchParams.get("assetType") as any;
-    const shared = await getSharedAssets(id, { assetType });
+    const shared = await getSharedAssets(id, user.id, { assetType, isAdmin });
     return NextResponse.json({ shared_assets: shared });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error('[circles] Error:', err);
     return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
@@ -34,12 +36,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
   try {
     const body = await req.json();
@@ -54,10 +54,14 @@ export async function POST(
       brokerId: user.id,
       assetType,
       assetId,
+      isAdmin,
     });
 
     return NextResponse.json({ ok: true, sharedAssetId: res.sharedAssetId });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error('[circles] Error:', err);
     return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
@@ -68,12 +72,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
 
   try {
     const body = await req.json();
@@ -85,7 +86,7 @@ export async function DELETE(
 
     await unshareAsset(id, assetId, user.id);
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[circles] Error:', err);
     return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }

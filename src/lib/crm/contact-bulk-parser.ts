@@ -751,12 +751,23 @@ function processMatrix(
   };
 }
 
+export const MAX_EXCEL_FILE_BYTES = 5 * 1024 * 1024;
+
 /**
  * 1. Parse Excel (.xlsx / .xls) ArrayBuffer or Uint8Array (first non-empty worksheet).
  */
 export function parseExcelContactsBuffer(buffer: ArrayBuffer | Uint8Array): BulkParseResult {
+  if (buffer.byteLength > MAX_EXCEL_FILE_BYTES) {
+    throw new Error('파일 크기는 5MB를 초과할 수 없습니다.');
+  }
   const uint8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  const workbook = XLSX.read(uint8, { type: 'array' });
+  const workbook = XLSX.read(uint8, {
+    type: 'array',
+    sheetRows: 2000,
+    cellFormula: false,
+    cellHTML: false,
+    bookVBA: false,
+  });
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];

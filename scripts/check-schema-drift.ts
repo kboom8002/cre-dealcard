@@ -1,11 +1,13 @@
 /**
  * scripts/check-schema-drift.ts — 코드↔운영 스키마 드리프트 체커 (F-01)
  *
- * `src/**` (테스트 제외)의 Supabase 체인 참조를 TypeScript compiler API 로 추출해 `supabase/schema-snapshot.json`
- * (운영 OpenAPI 스냅샷)과 대조한다.
+ * `src/**` (테스트·자동생성 타입 제외)의 Supabase 체인 참조를 TypeScript compiler API 로 추출해
+ * `supabase/schema-snapshot.json` (운영 OpenAPI 스냅샷)과 대조한다.
  *   - `.from('t')` + `.select('a,b')` / `.insert({..})` / `.update({..})` / `.upsert(.., {onConflict})`
  *     / `.eq|neq|gt|gte|lt|lte|like|ilike|is|in|contains|order|not|filter|match('c')` / `.or('c.eq.x,..')`
  *   - `.rpc('fn')`
+ *   - 동일 파일 및 로컬 import(`@/...`, `./...`, `../...`) 문자열 상수(`DISPATCH_LEDGER_TABLE` 등) 정적 해석
+ *   - 임베디드 조인 관계 필터(`.eq('foreign_table.col', ...)`) 베이스 테이블 오탐 제거 및 외래 테이블 검증
  * 검출 종류: TABLE-MISSING(테이블 없음) · COL-MISSING(컬럼 없음) · RPC-MISSING(함수 없음)
  *
  * 미적용 마이그레이션 오버레이: `supabase/migrations/` 의 아직 운영에 적용되지 않은 파일(20261004000001 이상,
@@ -25,11 +27,20 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
-type Kind = 'TABLE-MISSING' | 'COL-MISSING' | 'RPC-MISSING';
-interface Ref { file: string; line: number; table: string | null; col: string | null; op: string; note?: string }
-interface Violation extends Ref { kind: Kind }
+export type Kind = 'TABLE-MISSING' | 'COL-MISSING' | 'RPC-MISSING';
+export interface Ref {
+  file: string;
+  line: number;
+  table: string | null;
+  col: string | null;
+  op: string;
+  note?: string;
+  isForeignFilter?: boolean;
+}
+export interface Violation extends Ref { kind: Kind }
 interface SnapshotJson {
   generatedAt: string;
   appliedMigrations?: string[];
@@ -37,7 +48,7 @@ interface SnapshotJson {
   rpcs: Record<string, string[]>;
 }
 /** columns === null → 컬럼 목록 미상(뷰 등): 컬럼 검사 생략 */
-interface Schema { tables: Map<string, Set<string> | null>; rpcs: Set<string> }
+export interface Schema { tables: Map<string, Set<string> | null>; rpcs: Set<string> }
 
 const ROOT = process.cwd();
 const SNAPSHOT_PATH = path.join(ROOT, 'supabase', 'schema-snapshot.json');
@@ -52,9 +63,10 @@ const STRICT_MAGAZINE = args.has('--strict-magazine');
 const WRITE_REPORT = args.has('--write-magazine-report');
 const NO_OVERLAY = args.has('--no-overlay');
 const AS_JSON = args.has('--json');
+const VERBOSE = args.has('--verbose');
 
 // ── 1. 스키마 로드 ────────────────────────────────────────────────────────────
-function loadSnapshot(): { schema: Schema; snap: SnapshotJson } {
+export function loadSnapshot(): { schema: Schema; snap: SnapshotJson } {
   if (!fs.existsSync(SNAPSHOT_PATH)) {
     console.error(`ERROR: ${path.relative(ROOT, SNAPSHOT_PATH)} 가 없습니다. 먼저 scripts/schema-snapshot.ts 를 실행하세요.`);
     process.exit(2);
@@ -95,6 +107,52 @@ function splitTopLevel(body: string): string[] {
   if (cur.trim()) out.push(cur);
   return out;
 }
+function splitSqlStatementsOutsideDollarQuotes(sql: string): string[] {
+  const stmts: string[] = [];
+  let cur = '';
+  let quote: string | null = null;
+  let dollarTag: string | null = null;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    if (dollarTag) {
+      if (sql.startsWith(dollarTag, i)) {
+        cur += dollarTag;
+        i += dollarTag.length - 1;
+        dollarTag = null;
+        continue;
+      }
+      cur += ch;
+      continue;
+    }
+    if (quote) {
+      cur += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === '$') {
+      const m = /^\$([a-zA-Z0-9_]*)\$/.exec(sql.slice(i));
+      if (m) {
+        dollarTag = m[0];
+        cur += dollarTag;
+        i += dollarTag.length - 1;
+        continue;
+      }
+    }
+    if (ch === ';') {
+      if (cur.trim()) stmts.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) stmts.push(cur);
+  return stmts;
+}
 const IDENT = /^"?([a-z_][a-z0-9_]*)"?$/i;
 export function applyMigrationSql(sqlRaw: string, schema: Schema): void {
   const sql = stripSqlComments(sqlRaw);
@@ -114,8 +172,8 @@ export function applyMigrationSql(sqlRaw: string, schema: Schema): void {
     }
     schema.tables.set(m[1], cols);
   }
-  // alter table ... add column
-  for (const stmt of sql.split(';')) {
+  // alter table ... add column (dollar-quote safe statement splitting)
+  for (const stmt of splitSqlStatementsOutsideDollarQuotes(sql)) {
     const am = /alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/i.exec(stmt);
     if (!am) continue;
     const re = /add\s+column\s+(?:if\s+not\s+exists\s+)?"?([a-z_][a-z0-9_]*)"?/gi;
@@ -133,27 +191,29 @@ export function applyMigrationSql(sqlRaw: string, schema: Schema): void {
   const cf = /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([a-z_][a-z0-9_]*)"?\s*\(/gi;
   while ((m = cf.exec(sql))) schema.rpcs.add(m[1]);
 }
-function pendingMigrations(applied: string[]): string[] {
+export function pendingMigrations(applied: string[]): string[] {
   if (!fs.existsSync(MIGRATIONS_DIR)) return [];
   return fs.readdirSync(MIGRATIONS_DIR)
     .filter((f) => /^\d{14}_.*\.sql$/.test(f))
     .filter((f) => f.slice(0, 14) >= PENDING_FROM && !applied.includes(f.slice(0, 14)))
     .sort();
 }
-function cloneSchema(s: Schema): Schema {
+export function cloneSchema(s: Schema): Schema {
   return {
     tables: new Map([...s.tables].map(([k, v]) => [k, v === null ? null : new Set(v)] as [string, Set<string> | null])),
     rpcs: new Set(s.rpcs),
   };
 }
 
-// ── 3. 소스 참조 추출 (TypeScript compiler API) ───────────────────────────────
+// ── 3. 소스 참조 추출 (TypeScript compiler API + 모듈 상수 해석) ──────────────
 function walk(dir: string, acc: string[] = []): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) {
       if (!/^(node_modules|\.next)$/.test(e.name)) walk(p, acc);
-    } else if (/\.(ts|tsx)$/.test(e.name) && !/\.d\.ts$/.test(e.name)) acc.push(p);
+    } else if (/\.(ts|tsx)$/.test(e.name) && !/\.d\.ts$/.test(e.name) && e.name !== 'supabase.generated.ts') {
+      acc.push(p);
+    }
   }
   return acc;
 }
@@ -164,26 +224,233 @@ const COL_METHODS = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ili
 const WRITE = new Set(['insert', 'update', 'upsert']);
 const COL_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-function strOf(n: ts.Node | undefined): string | null {
-  if (!n) return null;
-  if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return n.text;
-  if (ts.isTemplateExpression(n)) return n.head.text + n.templateSpans.map((s) => '${}' + s.literal.text).join('');
+const sfCache = new Map<string, ts.SourceFile | null>();
+
+function loadSourceFileCached(absPath: string): ts.SourceFile | null {
+  const norm = path.resolve(absPath);
+  if (sfCache.has(norm)) return sfCache.get(norm)!;
+  if (!fs.existsSync(norm) || !fs.statSync(norm).isFile()) {
+    sfCache.set(norm, null);
+    return null;
+  }
+  const src = fs.readFileSync(norm, 'utf8');
+  const sf = ts.createSourceFile(
+    norm,
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    norm.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  sfCache.set(norm, sf);
+  return sf;
+}
+
+function resolveLocalModulePath(specifier: string, fromFilePath: string): string | null {
+  let base: string | null = null;
+  if (specifier.startsWith('@/')) {
+    base = path.join(ROOT, 'src', specifier.slice(2));
+  } else if (specifier.startsWith('./') || specifier.startsWith('../')) {
+    base = path.resolve(path.dirname(fromFilePath), specifier);
+  } else {
+    return null;
+  }
+
+  const candidates = [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    path.join(base, 'index.ts'),
+    path.join(base, 'index.tsx'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c) && fs.statSync(c).isFile()) return path.resolve(c);
+  }
   return null;
 }
-function parseSelect(s: string): string[] {
-  const cols: Array<{ raw: string; rel: boolean }> = [];
+
+function unwrapExpr(n: ts.Node): ts.Node {
+  let cur = n;
+  while (
+    ts.isParenthesizedExpression(cur) ||
+    ts.isAsExpression(cur) ||
+    ts.isSatisfiesExpression(cur) ||
+    ts.isTypeAssertionExpression(cur) ||
+    ts.isNonNullExpression(cur)
+  ) {
+    cur = cur.expression;
+  }
+  return cur;
+}
+
+function findConstInitializerInFile(sf: ts.SourceFile, identName: string, requireExport = false): ts.Expression | null {
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    const isExported = Boolean(stmt.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword));
+    if (requireExport && !isExported) continue;
+    const isConst = Boolean(stmt.declarationList.flags & ts.NodeFlags.Const);
+    if (!isConst) continue;
+    for (const decl of stmt.declarationList.declarations) {
+      if (ts.isIdentifier(decl.name) && decl.name.text === identName && decl.initializer) {
+        return decl.initializer;
+      }
+    }
+  }
+  if (!requireExport) {
+    let found: ts.Expression | null = null;
+    const visit = (node: ts.Node): void => {
+      if (found) return;
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === identName &&
+        node.initializer &&
+        node.parent &&
+        ts.isVariableDeclarationList(node.parent) &&
+        Boolean(node.parent.flags & ts.NodeFlags.Const)
+      ) {
+        found = node.initializer;
+        return;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+    return found;
+  }
+  return null;
+}
+
+function resolveExportedConstString(targetFile: string, exportName: string, depth: number): string | null {
+  if (depth > 6) return null;
+  const targetSf = loadSourceFileCached(targetFile);
+  if (!targetSf) return null;
+
+  const directInit = findConstInitializerInFile(targetSf, exportName, true);
+  if (directInit) {
+    return strOf(directInit, targetSf, targetFile, depth + 1);
+  }
+
+  // Follow re-exports: `export { X } from './foo'` or `export * from './foo'`
+  for (const stmt of targetSf.statements) {
+    if (!ts.isExportDeclaration(stmt) || !stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+    const nextFile = resolveLocalModulePath(stmt.moduleSpecifier.text, targetFile);
+    if (!nextFile) continue;
+
+    if (!stmt.exportClause) {
+      const val = resolveExportedConstString(nextFile, exportName, depth + 1);
+      if (val != null) return val;
+    } else if (ts.isNamedExports(stmt.exportClause)) {
+      for (const el of stmt.exportClause.elements) {
+        if (el.name.text === exportName) {
+          const orig = el.propertyName ? el.propertyName.text : el.name.text;
+          return resolveExportedConstString(nextFile, orig, depth + 1);
+        }
+      }
+    }
+  }
+  return null;
+}
+
+export function strOf(
+  rawNode: ts.Node | undefined,
+  sf?: ts.SourceFile,
+  filePath?: string,
+  depth = 0,
+): string | null {
+  if (!rawNode || depth > 6) return null;
+  const n = unwrapExpr(rawNode);
+
+  if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return n.text;
+
+  if (ts.isTemplateExpression(n)) {
+    let out = n.head.text;
+    for (const span of n.templateSpans) {
+      const sub = strOf(span.expression, sf, filePath, depth + 1);
+      out += (sub != null ? sub : '${}') + span.literal.text;
+    }
+    return out;
+  }
+
+  if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const l = strOf(n.left, sf, filePath, depth + 1);
+    const r = strOf(n.right, sf, filePath, depth + 1);
+    if (l != null && r != null) return l + r;
+    return null;
+  }
+
+  // Support `['col_a', 'col_b'].join(', ')`
+  if (
+    ts.isCallExpression(n) &&
+    ts.isPropertyAccessExpression(n.expression) &&
+    n.expression.name.text === 'join'
+  ) {
+    const recv = unwrapExpr(n.expression.expression);
+    if (ts.isArrayLiteralExpression(recv)) {
+      const sep = n.arguments.length > 0 ? strOf(n.arguments[0], sf, filePath, depth + 1) : ',';
+      if (sep == null) return null;
+      const items: string[] = [];
+      for (const el of recv.elements) {
+        const s = strOf(el, sf, filePath, depth + 1);
+        if (s == null) return null;
+        items.push(s);
+      }
+      return items.join(sep);
+    }
+  }
+
+  if (ts.isIdentifier(n) && sf) {
+    const localInit = findConstInitializerInFile(sf, n.text, false);
+    if (localInit) {
+      return strOf(localInit, sf, filePath, depth + 1);
+    }
+    if (filePath) {
+      for (const stmt of sf.statements) {
+        if (!ts.isImportDeclaration(stmt) || !stmt.importClause || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+        const bindings = stmt.importClause.namedBindings;
+        if (bindings && ts.isNamedImports(bindings)) {
+          for (const el of bindings.elements) {
+            if (el.name.text === n.text) {
+              const targetFile = resolveLocalModulePath(stmt.moduleSpecifier.text, filePath);
+              if (!targetFile) return null;
+              const exportedName = el.propertyName ? el.propertyName.text : el.name.text;
+              return resolveExportedConstString(targetFile, exportedName, depth + 1);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseSelect(s: string): { cols: string[]; relAliases: Map<string, string> } {
+  const parts: Array<{ raw: string; rel: boolean }> = [];
   let depth = 0; let cur = '';
   for (const ch of s) {
-    if (ch === '(') { depth++; if (depth === 1) { cols.push({ raw: cur.trim(), rel: true }); cur = ''; continue; } }
+    if (ch === '(') { depth++; if (depth === 1) { parts.push({ raw: cur.trim(), rel: true }); cur = ''; continue; } }
     if (ch === ')') { depth--; continue; }
     if (depth > 0) continue;
-    if (ch === ',') { if (cur.trim()) cols.push({ raw: cur.trim(), rel: false }); cur = ''; continue; }
+    if (ch === ',') { if (cur.trim()) parts.push({ raw: cur.trim(), rel: false }); cur = ''; continue; }
     cur += ch;
   }
-  if (cur.trim()) cols.push({ raw: cur.trim(), rel: false });
+  if (cur.trim()) parts.push({ raw: cur.trim(), rel: false });
+
   const out: string[] = [];
-  for (const c of cols) {
-    if (c.rel) continue; // 임베디드 관계는 컬럼이 아님
+  const relAliases = new Map<string, string>();
+
+  for (const c of parts) {
+    if (c.rel) {
+      // e.g. `broker_profiles!inner`, `building:building_id!inner`, `party!inner`
+      const cleaned = c.raw.replace(/\s+/g, '');
+      const noHint = cleaned.split('!')[0] ?? '';
+      if (noHint.includes(':')) {
+        const [alias, target] = noHint.split(':');
+        if (alias && target) relAliases.set(alias, target);
+      } else if (noHint) {
+        relAliases.set(noHint, noHint);
+      }
+      continue; // 임베디드 관계는 베이스 테이블 컬럼이 아님
+    }
     let r = c.raw.replace(/\s+/g, '');
     if (!r) continue;
     r = r.split('::')[0];
@@ -193,13 +460,14 @@ function parseSelect(s: string): string[] {
     if (r === '*' || /^count/.test(r)) continue;
     if (COL_RE.test(r)) out.push(r);
   }
-  return out;
+  return { cols: out, relAliases };
 }
-function objKeys(n: ts.Node | undefined, sf: ts.SourceFile): string[] | null {
+
+function objKeys(n: ts.Node | undefined, sf: ts.SourceFile, filePath?: string): string[] | null {
   if (!n) return null;
   if (ts.isArrayLiteralExpression(n)) {
     const ks = new Set<string>(); let ok = false;
-    for (const e of n.elements) { const k = objKeys(e, sf); if (k) { ok = true; k.forEach((x) => ks.add(x)); } }
+    for (const e of n.elements) { const k = objKeys(e, sf, filePath); if (k) { ok = true; k.forEach((x) => ks.add(x)); } }
     return ok ? [...ks] : null;
   }
   if (ts.isObjectLiteralExpression(n)) {
@@ -221,15 +489,17 @@ function objKeys(n: ts.Node | undefined, sf: ts.SourceFile): string[] | null {
     };
     visit(sf);
     if (found) {
-      let init: ts.Expression = found;
-      while (ts.isAsExpression(init) || ts.isParenthesizedExpression(init) || ts.isSatisfiesExpression(init)) init = init.expression;
-      const k = objKeys(init, sf);
+      const init = unwrapExpr(found);
+      const k = objKeys(init, sf, filePath);
       if (k) {
         const extra: string[] = [];
         const v2 = (x: ts.Node): void => {
           if (ts.isBinaryExpression(x) && x.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
             if (ts.isPropertyAccessExpression(x.left) && x.left.expression.getText(sf) === n.text) extra.push(x.left.name.text);
-            else if (ts.isElementAccessExpression(x.left) && x.left.expression.getText(sf) === n.text) { const s = strOf(x.left.argumentExpression); if (s) extra.push(s); }
+            else if (ts.isElementAccessExpression(x.left) && x.left.expression.getText(sf) === n.text) {
+              const s = strOf(x.left.argumentExpression, sf, filePath);
+              if (s) extra.push(s);
+            }
           }
           ts.forEachChild(x, v2);
         };
@@ -240,6 +510,7 @@ function objKeys(n: ts.Node | undefined, sf: ts.SourceFile): string[] | null {
   }
   return null;
 }
+
 function parseOr(s: string): string[] {
   const cols: string[] = [];
   const re = /(?:^|[,(])\s*([a-zA-Z_][a-zA-Z0-9_]*)(?:->>?[a-zA-Z0-9_']+)*\.(eq|neq|gt|gte|lt|lte|like|ilike|is|in|cs|cd|ov|fts|not)\b/g;
@@ -248,10 +519,10 @@ function parseOr(s: string): string[] {
   return cols;
 }
 
-function extractRefs(): { refs: Ref[]; files: number; unresolved: number } {
+export function extractRefs(rootDir = path.join(ROOT, 'src')): { refs: Ref[]; files: number; unresolved: number } {
   const refs: Ref[] = [];
   let unresolved = 0;
-  const all = walk(path.join(ROOT, 'src'));
+  const all = walk(rootDir);
   let scanned = 0;
   for (const f of all) {
     const rel = path.relative(ROOT, f).replace(/\\/g, '/');
@@ -260,52 +531,83 @@ function extractRefs(): { refs: Ref[]; files: number; unresolved: number } {
     if (!src.includes('.from(') && !src.includes('.rpc(')) continue;
     scanned++;
     const sf = ts.createSourceFile(f, src, ts.ScriptTarget.Latest, true, f.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    sfCache.set(path.resolve(f), sf);
     const lineOf = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart()).line + 1;
     const visit = (n: ts.Node): void => {
       if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
         const m = n.expression.name.text;
         if (m === 'rpc') {
-          const fn = strOf(n.arguments[0]);
+          const fn = strOf(n.arguments[0], sf, f);
           if (fn && COL_RE.test(fn)) refs.push({ file: rel, line: lineOf(n), table: null, col: fn, op: 'rpc' });
           else unresolved++;
         }
         if (m === 'from' && n.arguments.length === 1) {
           const objTxt = n.expression.expression.getText(sf);
           if (/storage/.test(objTxt) || /^(Array|Buffer|Object|Uint8Array|Set|Map|Observable)$/.test(objTxt)) { ts.forEachChild(n, visit); return; }
-          const table = strOf(n.arguments[0]);
+          const table = strOf(n.arguments[0], sf, f);
           if (!table || !COL_RE.test(table)) { unresolved++; ts.forEachChild(n, visit); return; }
-          const push = (op: string, col: string | null, line: number, note?: string) => refs.push({ file: rel, line, table, col, op, note });
+          const push = (op: string, col: string | null, line: number, note?: string, overrideTable?: string, isForeignFilter?: boolean) =>
+            refs.push({ file: rel, line, table: overrideTable ?? table, col, op, note, isForeignFilter });
           push('from', null, lineOf(n));
+          const chainRelAliases = new Map<string, string>();
+
           let cur: ts.Node = n;
-          while (cur.parent && ts.isPropertyAccessExpression(cur.parent) && cur.parent.parent && ts.isCallExpression(cur.parent.parent)) {
-            const call: ts.CallExpression = cur.parent.parent;
-            const meth = cur.parent.name.text;
+          // Walk through chained calls (also unwrapping intermediate `as ...` casts like `(supabase.from(T) as X).select(...)`)
+          while (true) {
+            let parent: ts.Node | undefined = cur.parent;
+            while (parent && (ts.isAsExpression(parent) || ts.isParenthesizedExpression(parent) || ts.isSatisfiesExpression(parent))) {
+              parent = parent.parent;
+            }
+            if (!parent || !ts.isPropertyAccessExpression(parent) || !parent.parent || !ts.isCallExpression(parent.parent)) {
+              break;
+            }
+            const call: ts.CallExpression = parent.parent;
+            const meth = parent.name.text;
             const l = lineOf(call);
             const a0 = call.arguments[0];
             if (meth === 'select') {
-              const s = strOf(a0);
-              if (s != null) for (const c of parseSelect(s)) push('select', c, l);
-              else if (a0) unresolved++;
+              const s = strOf(a0, sf, f);
+              if (s != null) {
+                const parsed = parseSelect(s);
+                for (const [al, tg] of parsed.relAliases) chainRelAliases.set(al, tg);
+                for (const c of parsed.cols) push('select', c, l);
+              } else if (a0) unresolved++;
             } else if (WRITE.has(meth)) {
-              const ks = objKeys(a0, sf);
+              const ks = objKeys(a0, sf, f);
               if (ks) for (const k of ks) { if (k !== '...' && COL_RE.test(k)) push(meth, k, l); }
               else unresolved++;
               const opt = call.arguments[1];
               if (opt && ts.isObjectLiteralExpression(opt)) {
                 for (const p of opt.properties) {
                   if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === 'onConflict') {
-                    const s = strOf(p.initializer);
+                    const s = strOf(p.initializer, sf, f);
                     if (s) s.split(',').map((x) => x.trim()).filter((x) => COL_RE.test(x)).forEach((c) => push('onConflict', c, l));
                   }
                 }
               }
             } else if (COL_METHODS.has(meth)) {
-              const s = strOf(a0);
-              if (s != null) { const c = s.split('->')[0].split('.')[0]; if (COL_RE.test(c)) push(meth, c, l); }
+              const s = strOf(a0, sf, f);
+              if (s != null) {
+                const jsonStripped = s.split('->')[0];
+                if (jsonStripped.includes('.')) {
+                  // Embedded foreign relation dot-filter: `foreign_table_or_alias.column`
+                  // Prefix before `.` is NOT a column on the base table!
+                  const dotParts = jsonStripped.split('.');
+                  if (dotParts.length === 2) {
+                    const [relPrefix, relCol] = dotParts;
+                    const mappedTarget = chainRelAliases.get(relPrefix) ?? relPrefix;
+                    if (COL_RE.test(mappedTarget) && COL_RE.test(relCol)) {
+                      push(meth, relCol, l, s, mappedTarget, true);
+                    }
+                  }
+                } else if (COL_RE.test(jsonStripped)) {
+                  push(meth, jsonStripped, l);
+                }
+              }
             } else if (meth === 'match') {
-              (objKeys(a0, sf) ?? []).filter((k) => COL_RE.test(k)).forEach((k) => push('match', k, l));
+              (objKeys(a0, sf, f) ?? []).filter((k) => COL_RE.test(k)).forEach((k) => push('match', k, l));
             } else if (meth === 'or') {
-              const s = strOf(a0);
+              const s = strOf(a0, sf, f);
               if (s) for (const c of parseOr(s)) push('or', c, l, s.slice(0, 80));
               else if (a0) unresolved++;
             }
@@ -321,7 +623,7 @@ function extractRefs(): { refs: Ref[]; files: number; unresolved: number } {
 }
 
 // ── 4. 평가 ──────────────────────────────────────────────────────────────────
-function evaluate(refs: Ref[], schema: Schema): Violation[] {
+export function evaluate(refs: Ref[], schema: Schema): Violation[] {
   const out: Violation[] = [];
   for (const r of refs) {
     if (r.op === 'rpc') {
@@ -329,7 +631,13 @@ function evaluate(refs: Ref[], schema: Schema): Violation[] {
       continue;
     }
     const table = r.table as string;
-    if (!schema.tables.has(table)) { out.push({ ...r, kind: 'TABLE-MISSING' }); continue; }
+    if (!schema.tables.has(table)) {
+      // If `r.isForeignFilter` was an FK column alias (e.g. `building:building_id!inner(area_signal)`),
+      // `building_id` is a column name rather than a table name; skip false TABLE-MISSING on aliases.
+      if (r.isForeignFilter) continue;
+      out.push({ ...r, kind: 'TABLE-MISSING' });
+      continue;
+    }
     const cols = schema.tables.get(table);
     if (r.col != null && cols && !cols.has(r.col)) out.push({ ...r, kind: 'COL-MISSING' });
   }
@@ -437,17 +745,26 @@ function main(): void {
 
   const fail = added.length > 0 || (STRICT_MAGAZINE && magCurrent.length > 0);
   if (AS_JSON) {
-    console.log(JSON.stringify({ filesScanned: files, refs: refs.length, unresolved, overlay: pending, total: current.length, baselineTotal, magazine: magCurrent.length, added, pass: !fail }, null, 2));
+    console.log(JSON.stringify({ filesScanned: files, refs: refs.length, unresolved, overlay: pending, total: current.length, baselineTotal, magazine: magCurrent.length, current, added, pass: !fail }, null, 2));
   } else {
     console.log(`schema drift: files=${files} refs=${refs.length} unresolved(dynamic)=${unresolved} overlay=${pending.length}개 마이그레이션`);
     console.log(`  위반 total=${current.length} (baseline ${baselineTotal}), 매거진=${magCurrent.length}, 신규(증가분)=${added.length} (매거진 ${addedMag.length}), 개선된 키=${fixedKeys}`);
     for (const v of added.slice(0, 60)) console.log(`  NEW ${isMagazine(v) ? '[magazine] ' : ''}${v.file}:${v.line}  ${v.table ?? '(rpc)'}.${v.col ?? ''}  ${v.op}  ${v.kind}`);
     if (added.length > 60) console.log(`  … 외 ${added.length - 60}건`);
     if (STRICT_MAGAZINE && magCurrent.length > 0) for (const v of magCurrent.slice(0, 40)) console.log(`  STRICT ${v.file}:${v.line}  ${v.table ?? '(rpc)'}.${v.col ?? ''}  ${v.op}  ${v.kind}`);
+    if (VERBOSE && current.length > 0) {
+      for (const v of current) console.log(`  VIOL ${v.file}:${v.line}  ${v.table ?? '(rpc)'}.${v.col ?? ''}  ${v.op}  ${v.kind}`);
+    }
     if (fixedKeys > 0 && added.length === 0) console.log('  (위반이 줄었습니다 → --update-baseline 으로 baseline 을 낮추세요)');
     console.log(fail ? 'RESULT: FAIL' : 'RESULT: PASS');
   }
   process.exit(fail ? 1 : 0);
 }
 
-main();
+const isDirectRun =
+  process.argv[1] &&
+  path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
+
+if (isDirectRun) {
+  main();
+}

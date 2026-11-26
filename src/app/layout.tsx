@@ -14,7 +14,7 @@ const notoKr = localFont({
   ],
   variable: "--font-noto-kr",
   display: "swap",
-  preload: true,
+  preload: false,
 });
 
 const geistSans = Geist({

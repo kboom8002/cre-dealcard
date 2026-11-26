@@ -12,6 +12,7 @@ import { PublicInquiryInputSchema } from "@/contracts/inquiry";
 import { runInquiryQualifierAgent } from "@/ai/agents/inquiry-qualifier-agent";
 import { pyeongToSqm } from "@/lib/utils/area-conversion";
 import { createModuleLogger } from "@/lib/logger";
+import { runAfterResponse } from "@/lib/server/after-safe";
 
 const log = createModuleLogger("space-inquiries-route");
 
@@ -281,7 +282,7 @@ export async function POST(
 
     // AI Qualification + CRM auto-linking (non-blocking)
     if (space) {
-      (async () => {
+      runAfterResponse("space-inquiry-qualify", async () => {
         try {
           const qualification = await runInquiryQualifierAgent({
             space_ssot: space,
@@ -331,7 +332,7 @@ export async function POST(
             const email = prospect.contact_internal?.email ?? prospect.email ?? null;
 
             if (brokerId && prospect?.display_name) {
-              const { data: client } = await supabase
+              const { data: upsertedClient } = await supabase
                 .from("broker_clients")
                 .upsert(
                   {
@@ -340,19 +341,30 @@ export async function POST(
                     company: prospect.company_name ?? null,
                     phone,
                     email,
-                    source: "leasing_inquiry",
+                    consent_source: "leasing_inquiry",
                     tier: qualification.output.fit_estimate === "high" ? "A" : "B",
                     tags: [requirement?.tenant_category ?? "미확인"].filter(Boolean),
                   },
                   {
                     onConflict: "broker_id,phone",
-                    ignoreDuplicates: false,
+                    ignoreDuplicates: true,
                   },
                 )
                 .select("id")
-                .single();
+                .maybeSingle();
 
-              if (client?.id) {
+              let clientId: string | null = upsertedClient?.id ?? null;
+              if (!clientId && phone) {
+                const { data: existingClient } = await supabase
+                  .from("broker_clients")
+                  .select("id")
+                  .eq("broker_id", brokerId)
+                  .eq("phone", phone)
+                  .maybeSingle();
+                clientId = existingClient?.id ?? null;
+              }
+
+              if (clientId) {
                 const areaPy = requirement?.desired_area_py_min;
                 const areaSqmMin = areaPy ? pyeongToSqm(areaPy) : null;
                 const areaSqmMax = requirement?.desired_area_py_max
@@ -363,7 +375,7 @@ export async function POST(
                   .from("tenant_intent")
                   .insert({
                     broker_id: brokerId,
-                    client_id: client.id,
+                    client_id: clientId,
                     business_type: requirement?.tenant_category ?? null,
                     area_min: areaSqmMin,
                     area_max: areaSqmMax,
@@ -382,9 +394,12 @@ export async function POST(
                   await supabase
                     .from("leasing_inquiries")
                     .update({
-                      broker_client_id: client.id,
-                      tenant_intent_id: intent.id,
                       status: "qualified",
+                      requirement: {
+                        ...(parsed.data.requirement ?? {}),
+                        broker_client_id: clientId,
+                        tenant_intent_id: intent.id,
+                      },
                     })
                     .eq("id", inquiry.id);
 
@@ -410,7 +425,7 @@ export async function POST(
         } catch (err) {
           log.error("[inquiries] qualification+CRM pipeline error:", err);
         }
-      })();
+      });
     }
 
     return NextResponse.json({

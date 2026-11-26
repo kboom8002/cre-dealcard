@@ -159,7 +159,7 @@ export default function ExploreUnifiedPage() {
           <div className="flex items-center gap-2 mb-3">
             <MapPin className="w-4 h-4 text-amber-400" strokeWidth={2} />
             <h1 className="text-sm font-extrabold text-white">권역 탐색</h1>
-            <span className="text-[10px] text-slate-500 ml-auto">매매 · 임대 · 시세 통합</span>
+            <span className="text-sm text-slate-500 ml-auto">매매 · 임대 · 시세 통합</span>
           </div>
 
           {/* Search bar */}
@@ -171,11 +171,12 @@ export default function ExploreUnifiedPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="w-full bg-[#0b0f19] border border-slate-800 rounded-xl pl-9 pr-20 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-all"
+              className="w-full bg-[#0b0f19] border border-slate-800 rounded-xl pl-9 pr-20 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-all"
             />
             <button
+              type="button"
               onClick={handleSearch}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-primary/90"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground text-sm font-bold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-primary/90"
             >
               검색
             </button>
@@ -192,7 +193,7 @@ export default function ExploreUnifiedPage() {
                   type="button"
                   onClick={() => handleTabChange(t.id)}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold border transition-all",
+                    "flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold border transition-all",
                     active
                       ? "bg-[#131b2e] border-primary/30 text-white"
                       : "bg-transparent border-slate-800 text-slate-500 hover:text-slate-300"
@@ -200,7 +201,7 @@ export default function ExploreUnifiedPage() {
                 >
                   <Icon className={cn("w-3.5 h-3.5", active ? t.color : "")} strokeWidth={active ? 2.2 : 1.8} />
                   {t.label}
-                  {active && <span className={cn("text-[9px] font-normal", t.color)}>{t.desc}</span>}
+                  {active && <span className={cn("text-sm font-normal", t.color)}>{t.desc}</span>}
                 </button>
               );
             })}
@@ -217,7 +218,7 @@ export default function ExploreUnifiedPage() {
               type="button"
               onClick={() => setRegion(r.slug)}
               className={cn(
-                "shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-semibold border transition-all",
+                "shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold border transition-all",
                 region === r.slug
                   ? "bg-primary/15 border-primary/40 text-primary"
                   : "bg-[#131b2e] border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
@@ -244,12 +245,12 @@ export default function ExploreUnifiedPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xl">{r.emoji}</span>
                     <div>
-                      <p className="text-xs font-bold text-white">{r.label}</p>
-                      <p className="text-[9px] text-slate-500">{REGION_MAP[r.slug]}</p>
+                      <p className="text-sm font-bold text-white">{r.label}</p>
+                      <p className="text-sm text-slate-500">{REGION_MAP[r.slug]}</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={cn("text-[10px] font-semibold", color)}>
+                    <span className={cn("text-sm font-semibold", color)}>
                       {TABS.find((t) => t.id === tab)?.desc} →
                     </span>
                     <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-slate-400 transition-colors" />
@@ -269,7 +270,7 @@ export default function ExploreUnifiedPage() {
 
         {!loading && results.length > 0 && (
           <div className="space-y-3">
-            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+            <p className="text-sm text-slate-500 font-semibold uppercase tracking-wider">
               검색 결과 ({results.length}건)
             </p>
             {results.map((r, i) => {
@@ -283,16 +284,16 @@ export default function ExploreUnifiedPage() {
                     <Building2 className={`w-4 h-4 shrink-0 ${r.status === "molit_transaction" ? "text-amber-400" : "text-blue-400"}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-xs font-semibold text-white truncate">
+                        <p className="text-sm font-semibold text-white truncate">
                           {r.area_signal} {r.asset_type}
                         </p>
                         {r.source && (
-                          <span className="shrink-0 text-[8px] px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-400">
+                          <span className="shrink-0 text-sm px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-400">
                             {r.source}
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{r.price_band}</p>
+                      <p className="text-sm text-slate-500 mt-0.5">{r.price_band}</p>
                     </div>
                     {r.status !== "molit_transaction" && <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />}
                   </Link>
@@ -307,8 +308,8 @@ export default function ExploreUnifiedPage() {
                   >
                     <Store className="w-4 h-4 text-emerald-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">{r.title}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className="text-sm font-semibold text-white truncate">{r.title}</p>
+                      <p className="text-sm text-slate-500 mt-0.5">
                         {r.area_sqm ? `${Math.round(sqmToPyeong(r.area_sqm))}평` : ""} · 월 {r.monthly_rent || "?"}만
                       </p>
                     </div>
@@ -325,12 +326,12 @@ export default function ExploreUnifiedPage() {
                   >
                     <BarChart3 className="w-4 h-4 text-purple-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">
+                      <p className="text-sm font-semibold text-white truncate">
                         {r.region.toUpperCase()} 시세 리포트
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{r.summary_ko}</p>
+                      <p className="text-sm text-slate-500 mt-0.5 line-clamp-1">{r.summary_ko}</p>
                     </div>
-                    <span className="text-xs font-bold text-purple-400 shrink-0">{r.pulse_score}</span>
+                    <span className="text-sm font-bold text-purple-400 shrink-0">{r.pulse_score}</span>
                   </Link>
                 );
               }
@@ -344,16 +345,16 @@ export default function ExploreUnifiedPage() {
                     <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-semibold text-white truncate group-hover:text-amber-400 transition-colors">
+                        <p className="text-sm font-semibold text-white truncate group-hover:text-amber-400 transition-colors">
                           {r.displayName} 중개사
                         </p>
                         {r.isVerified && (
-                          <span className="text-[8px] bg-emerald-500/10 text-emerald-400 font-medium px-1 rounded shrink-0">
+                          <span className="text-sm bg-emerald-500/10 text-emerald-400 font-medium px-1 rounded shrink-0">
                             인증됨
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                      <p className="text-sm text-slate-500 mt-0.5 truncate">
                         {r.company || "소속 공인중개사"} · {r.tagline || r.seoSummary || "상업용 부동산 전문"}
                       </p>
                     </div>
@@ -369,7 +370,7 @@ export default function ExploreUnifiedPage() {
         {!loading && results.length === 0 && query.trim() && (
           <div className="text-center py-16 space-y-2">
             <p className="text-slate-500 text-sm">검색 결과가 없습니다.</p>
-            <p className="text-[10px] text-slate-600">권역 칩으로 탐색하거나 다른 키워드를 시도해보세요.</p>
+            <p className="text-sm text-slate-600">권역 칩으로 탐색하거나 다른 키워드를 시도해보세요.</p>
           </div>
         )}
       </div>

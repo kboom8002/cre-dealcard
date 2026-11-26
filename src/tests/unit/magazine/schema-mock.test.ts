@@ -105,10 +105,10 @@ describe('schema-aware supabase mock (F-05)', () => {
     expect(normalizeSchema({ a: { columns: [{ name: 'x' }] } })).toEqual({ a: ['x'] });
   });
 
-  it.runIf(schemaSnapshotAvailable())('실제 스냅샷: magazine_subscribers 에 email/interest_tags 는 없다', () => {
+  it.runIf(schemaSnapshotAvailable())('실제 스냅샷: magazine_subscribers 에 email 컬럼은 없고 interest_tags 는 반영됨', () => {
     const real = loadSchema();
     expect(real.magazine_subscribers).toBeDefined();
-    expect(real.magazine_subscribers).not.toContain('interest_tags');
+    expect(real.magazine_subscribers).toContain('interest_tags');
     expect(real.magazine_subscribers).not.toContain('email');
     const db = createSchemaAwareSupabase({}, { schema: real });
     expect(() => db.from('magazine_subscribers').select('email')).toThrow(SchemaViolationError);

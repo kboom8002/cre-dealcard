@@ -7,29 +7,35 @@ import {
   generateMonthlyMarketOiticles,
 } from "@/domain/pulse/oiticle-generator";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("oiticle-generate-route");
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
-  const body = await req.json() as {
-    // AI 자동 생성
-    mode?: "auto" | "contribute" | "monthly_batch";
-    type?: OiticleTypeCode;
-    topic?: string;
-    region?: string;
-    dataSnapshot?: Record<string, unknown>;
-
-    // 중개인/벤더 기고
-    authorType?: OiticleAuthorType;
-    authorId?: string;
-    authorName?: string;
-    title?: string;
-    bodyMd?: string;
-  };
-
-  const mode = body.mode ?? "auto";
-
   try {
+    const body = (await req.json().catch(() => ({}))) as {
+      // AI 자동 생성
+      mode?: "auto" | "contribute" | "monthly_batch";
+      type?: OiticleTypeCode;
+      topic?: string;
+      region?: string;
+      dataSnapshot?: Record<string, unknown>;
+
+      // 중개인/벤더 기고
+      authorType?: OiticleAuthorType;
+      authorId?: string;
+      authorName?: string;
+      title?: string;
+      bodyMd?: string;
+    };
+
+    const mode = body.mode ?? "auto";
+
     // 월간 일괄 생성 (CRON)
     if (mode === "monthly_batch") {
       const cronErr = verifyCronRequest(req);
@@ -87,8 +93,12 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ oiticle: result }, { status: 201 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    log.error({ err: e }, "[oiticle/generate] POST error");
+    return NextResponse.json(
+      { error: "오이티클 생성 중 오류가 발생했습니다." },
+      { status: 500 },
+    );
   }
 }
 
@@ -120,10 +130,12 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    log.error({ err: error }, "[oiticle/generate] GET error");
+    return NextResponse.json(
+      { error: "오이티클 목록 조회 중 오류가 발생했습니다." },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ oiticles: data ?? [] });
 }
-
-export const runtime = "nodejs";

@@ -88,7 +88,6 @@ export async function crawlYoutubeTrends(supabase: SupabaseClient): Promise<any[
           like_count: stats.likeCount,
           published_at: snippet.publishedAt || new Date().toISOString(),
           summary: (snippet.description || "").slice(0, 200),
-          thumbnail_url: snippet.thumbnails?.medium?.url || "",
         };
 
         const { data, error } = await supabase

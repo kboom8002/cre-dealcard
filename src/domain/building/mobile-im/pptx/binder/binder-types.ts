@@ -2,13 +2,180 @@
  * data-binder 공용 타입 및 매핑 상수 (leaf 모듈 — data-binder.ts를 import하지 않음)
  * data-binder.ts에서 re-export하므로 기존 import 경로는 그대로 유효합니다.
  */
+import type { PhotoMeta, StackingPlanFloor, StackingPlanSummary } from '../../types';
 import type { Yield } from '../yield-object';
+
+export interface SectionMetricItem {
+  label: string;
+  value: string;
+  unit?: string;
+  sub?: string;
+}
+
+export interface SectionMetricsRecord {
+  length?: number;
+  [key: string]: unknown;
+}
+
+export interface SectionMetricsArrayMeta {
+  money?: string;
+  area?: string;
+  ratio?: string;
+  footTraffic?: unknown;
+  catchmentHousehold?: unknown;
+  askingPrice?: unknown;
+  capRate?: unknown;
+  noi?: unknown;
+  waleRent?: unknown;
+  waleArea?: unknown;
+  atRisk12m?: unknown;
+}
+
+export type SectionMetrics =
+  | (Array<SectionMetricItem | null> & SectionMetricsArrayMeta)
+  | SectionMetricsRecord;
+
+export interface SectionCallout {
+  kind?: string;
+  title?: string;
+  body?: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
+export interface SectionLeftPanel {
+  sub?: string;
+  rows?: string[][];
+  source?: string;
+  chartData?: unknown;
+  note?: string;
+  mapImageUrl?: string | null;
+  [key: string]: unknown;
+}
+
+export interface SectionRightPanel {
+  sub?: string;
+  rows?: [string, string][];
+  stats?: SectionMetricItem[];
+  callouts?: Array<SectionCallout | string>;
+  callout?: SectionCallout;
+  locationGrades?: unknown;
+  _hasAutoLocationSummary?: boolean;
+  [key: string]: unknown;
+}
+
+export interface SectionHeroCard {
+  hookText?: string;
+  keyInvestmentPoint?: string;
+  askingPrice?: string | number;
+  askingPriceDisplay?: string;
+  askingPriceKrw?: number;
+  askingPriceManwon?: number;
+  stats?: SectionMetricItem[];
+  keyPoints?: string[];
+  investmentPoints?: string[];
+  [key: string]: unknown;
+}
+
+export interface SectionPriceBadge {
+  label: string;
+  value: string;
+  [key: string]: unknown;
+}
+
+export interface SectionPillar {
+  num?: string;
+  number?: string;
+  title: string;
+  body?: string;
+  summary?: string;
+  [key: string]: unknown;
+}
+
+export interface SectionPoiSpot {
+  name?: string;
+  category?: string;
+  lat?: number;
+  lng?: number;
+  distanceM?: number;
+  walkMinutes?: number;
+  [key: string]: unknown;
+}
+
+export interface SectionStackingFloorItem {
+  floor: string;
+  usage?: string;
+  use?: string;
+  area?: string;
+  tenant?: string;
+  [key: string]: unknown;
+}
+
+export interface SectionBrokerContact {
+  name?: string;
+  representativeName?: string;
+  phone?: string;
+  email?: string;
+  company?: string;
+  registrationNo?: string;
+  officeAddress?: string;
+  [key: string]: unknown;
+}
+
+export interface SectionProcessStep {
+  stepNum?: string;
+  step?: string | number;
+  title: string;
+  description?: string;
+  body?: string;
+  [key: string]: unknown;
+}
+
+export interface SectionEquityBreakdown {
+  price?: number;
+  askingKrw?: number;
+  acquisitionTax?: number;
+  brokerFee?: number;
+  legalFee?: number;
+  otherCost?: number;
+  totalAcquisitionCost?: number;
+  deposit?: number;
+  loan?: number;
+  equity?: number;
+  [key: string]: unknown;
+}
+
+export interface SectionLtvScenario {
+  ltvPct: number;
+  equityBil: string;
+  yieldPct: string | number;
+  note: string;
+  [key: string]: unknown;
+}
+
+export interface SectionWaleSummary {
+  waleByRentYears: number;
+  waleByAreaYears: number;
+  atRiskRentPct12m: number;
+  [key: string]: unknown;
+}
+
+// Transitional non-nullable read compatibility for 5 legacy test fields accessed without `?.` / `!`
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NonNullReadCompat<T> = T & any;
+
+export interface SectionProvenanceBadge {
+  label: string;
+  description?: string;
+  score?: string | number;
+  [key: string]: unknown;
+}
 
 export interface SectionData {
   title: string;
   content: string;
   tables: ParsedTable[];
-  metrics: Record<string, any>;
+  metrics: SectionMetrics;
   confidence?: string;
   boundaryNote?: string;
   kicker?: string;
@@ -17,63 +184,74 @@ export interface SectionData {
   askingPrice?: string | number;
   documentDate?: string;
   areaSignal?: string;
-  assetType?: string;
+  assetType?: string | null;
   priceBand?: string;
   brokerName?: string;
+  representativeName?: string;
   companyName?: string;
+  brokerPhone?: string;
+  brokerEmail?: string;
+  registrationNo?: string;
+  officeAddress?: string;
   tags?: string[];
   docno?: string;
   logoUrl?: string | null;
   coverImageUrl?: string | null;
-  heroCard?: any;
-  left?: any;
-  right?: any;
+  heroCard?: SectionHeroCard;
+  left?: SectionLeftPanel;
+  right?: NonNullReadCompat<SectionRightPanel>;
   table1?: { title?: string; sub?: string; head?: string[]; rows?: string[][] };
   table2?: { title?: string; sub?: string; head?: string[]; rows?: string[][] };
   tableHead?: string[];
-  tableRows?: any;
-  priceTable?: any;
-  priceTable2?: any;
+  tableRows?: NonNullReadCompat<string[][]>;
+  priceTable?: SectionPriceBadge;
+  priceTable2?: SectionPriceBadge;
   blocks?: Array<{ label: string; value: string; description?: string }>;
   checkItems?: string[];
-  pillars?: any[];
-  photoUrl?: string;
-  photos?: import('../../types').PhotoMeta[];
+  pillars?: SectionPillar[];
+  photoUrl?: string | null;
+  photos?: Array<PhotoMeta | string>;
   photoUrls?: string[];
+  candidatePhotoUrls?: string[];
+  allowMapFallbackPhoto?: boolean;
+  photoCaption?: string;
   coordinates?: { lat: number; lng: number } | null;
   mapImageUrl?: string | null;
   cadastralImage?: string | null;
-  macroTransitDiagram?: any;
-  macroTransitImage?: any;
-  poiSpots?: any[];
-  stackingPlan?: any[];
-  summary?: any;
-  stackingSummary?: any;
+  macroTransitDiagram?: Record<string, unknown> | string | null;
+  macroTransitImage?: Record<string, unknown> | string | null;
+  poiSpots?: SectionPoiSpot[];
+  poiCandidates?: unknown[] | null;
+  stackingPlan?: Array<StackingPlanFloor | SectionStackingFloorItem>;
+  summary?: StackingPlanSummary | Record<string, unknown> | string | null;
+  stackingSummary?: StackingPlanSummary | Record<string, unknown> | string | null;
   totalGrossAreaPy?: number;
   totalExclusiveAreaPy?: number;
   exclusiveRatePct?: number;
   waleYears?: number;
   vacancyRatePct?: number;
   anchorTenantName?: string;
-  anchorTenant?: any;
-  brokerContact?: any;
-  capRateAsIs?: any;
-  steps?: any[];
-  kpiRows?: any[];
-  statCards?: any[];
-  equityBreakdown?: any;
-  ltvScenarios?: any[];
-  ownershipRows?: any[];
-  roomTypes?: any[];
+  anchorTenant?: { name?: string; [key: string]: unknown } | string | null;
+  brokerContact?: SectionBrokerContact;
+  capRateAsIs?: number | string | null;
+  steps?: SectionProcessStep[];
+  kpiRows?: Array<[string, string] | string[] | Record<string, unknown>>;
+  statCards?: SectionMetricItem[];
+  equityBreakdown?: NonNullReadCompat<SectionEquityBreakdown>;
+  ltvScenarios?: SectionLtvScenario[];
+  wale?: NonNullReadCompat<SectionWaleSummary>;
+  callout?: NonNullReadCompat<SectionCallout>;
+  ownershipRows?: string[][];
+  roomTypes?: Array<string[] | Record<string, unknown>>;
   markdown?: string;
-  keyPoints?: any[];
+  keyPoints?: string[];
   leadSentence?: string;
-  callouts?: any[];
+  callouts?: Array<SectionCallout | string>;
   disclaimer?: string;
   footerText?: string;
-  badges?: any[];
-  layout?: any;
-  group?: any;
+  badges?: SectionProvenanceBadge[];
+  layout?: string | Record<string, unknown>;
+  group?: string | Record<string, unknown>;
   annualRent?: number;
   totalDeposit?: number;
   vacancyPct?: number;
@@ -82,13 +260,18 @@ export interface SectionData {
   station_name?: string;
   station_walk_min?: number | string;
   asking_price_manwon?: number | string;
-  ssot_summary?: any;
-  enrichment?: any;
+  ssot_summary?: Record<string, unknown> | null;
+  enrichment?: Record<string, unknown> | null;
+  overviewRows?: Array<[string, string] | string[]>;
+  landUseConfirm?: unknown;
+  agendaItems?: unknown[];
+  romanNumeral?: string | number | null;
+  suppressOnEmpty?: boolean;
   _derived?: boolean;
   _source?: string;
-  _yield?: Yield;
-  _deficiencies?: any;
-  [key: string]: any;
+  _yield?: Yield | null;
+  _deficiencies?: string[] | Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface ParsedTable {

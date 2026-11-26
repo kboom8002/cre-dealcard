@@ -4,6 +4,8 @@
  * ZERO imports of sharp, pptxgenjs, or fs.
  */
 
+import { m2ToPyeong } from './area';
+
 export interface PureLandFacts {
   landAreaSqm: number;
   landAreaPyeong: number;
@@ -64,7 +66,7 @@ export function extractLandFacts(raw: Record<string, any>): PureLandFacts {
   );
 
   const landAreaPyeong = landAreaSqm > 0
-    ? Math.round((landAreaSqm / 3.305785) * 100) / 100
+    ? Math.round(m2ToPyeong(landAreaSqm) * 100) / 100
     : 0;
 
   const officialLandPriceWonSqm = Number(

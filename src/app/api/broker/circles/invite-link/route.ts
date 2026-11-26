@@ -2,23 +2,26 @@
  * POST /api/broker/circles/invite-link — 카카오톡 공유용 초대 링크 생성
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { createServiceClient } from "@/lib/supabase/service";
+import { assertActiveCircleMember, CircleAccessError } from "@/domain/team/circle-service";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const user = guard.user!;
+  const isAdmin = guard.role === "admin";
 
   try {
     const body = await req.json();
     const { circleId } = body;
 
-    if (!circleId) {
+    if (!circleId || typeof circleId !== "string") {
       return NextResponse.json({ error: "circleId가 필요합니다." }, { status: 400 });
     }
+
+    const supabase = createServiceClient();
+    await assertActiveCircleMember(supabase, circleId, user.id, isAdmin);
 
     const { data: circle } = await supabase
       .from("broker_circles")
@@ -47,7 +50,10 @@ export async function POST(req: NextRequest) {
       circleName: circle.name,
       brokerName,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    if (err instanceof CircleAccessError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    return NextResponse.json({ error: "초대 링크 생성에 실패했습니다." }, { status: 500 });
   }
 }

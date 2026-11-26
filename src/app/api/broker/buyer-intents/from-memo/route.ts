@@ -11,10 +11,13 @@ import { createBuyerIntentFromMemo } from "@/domain/buyer/buyer-intent";
 import { toApiError } from "@/lib/api-error";
 import { requireBroker } from '@/lib/auth-guard';
 import { enforceBrokerAiQuota } from '@/lib/ai-quota-guard';
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { runAfterResponse } from "@/lib/server/after-safe";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
+
+export const maxDuration = 60;
 
 
 const BuyerIntentFromMemoRequest = z.object({
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
         status: "started"
       });
 
-      after(async () => {
+      runAfterResponse("buyer-intent-from-memo-async", async () => {
         try {
           const result = await createBuyerIntentFromMemo(
             { memo: input.memo },
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
     );
 
     // 이벤트 트리거 매칭: 백그라운드에서 매칭 엔진 실행 (응답 차단 안함)
-    after(async () => {
+    runAfterResponse("buyer-intent-auto-match", async () => {
       try {
         const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
         await runAutoMatchForBuyer(result.buyerIntentId, actorId);

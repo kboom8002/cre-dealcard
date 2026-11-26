@@ -101,9 +101,9 @@ export async function extractDealFeatures(
     supabase.from('deal_pipeline_states').select('stage, entered_at').eq('building_ssot_lite_id', buildingId).order('entered_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('activity_events').select('id', { count: 'exact', head: true }).eq('building_ssot_lite_id', buildingId).gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString()),
     supabase.from('activity_events').select('id', { count: 'exact', head: true }).eq('building_ssot_lite_id', buildingId).gte('created_at', new Date(Date.now() - 30 * 86_400_000).toISOString()),
-    supabase.from('gate_requests').select('id', { count: 'exact', head: true }).eq('building_ssot_lite_id', buildingId),
+    supabase.from('gate_requests').select('id', { count: 'exact', head: true }).eq('building_id', buildingId),
     supabase.from('deal_casepacks').select('warning').eq('building_ssot_lite_id', buildingId),
-    supabase.from('full_im_handoffs').select('im_project_id').eq('building_ssot_lite_id', buildingId).limit(1).maybeSingle(),
+    supabase.from('full_im_handoffs').select('id').eq('source_building_ssot_lite_id', buildingId).limit(1).maybeSingle(),
     supabase.from('space_ai_handoffs').select('id').eq('building_ssot_lite_id', buildingId).limit(1).maybeSingle(),
     supabase.from('building_signal_cards').select('deal_curiosity_score').eq('building_id', buildingId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('match_results').select('buyer_intent_lite_id, grade').eq('building_ssot_lite_id', buildingId).eq('grade', 'S').limit(1).maybeSingle()
@@ -125,8 +125,8 @@ export async function extractDealFeatures(
 
   // 2. Fetch dependent DB queries in parallel
   const [imProjectRes, bIntentRes] = await Promise.all([
-    imHandoff?.im_project_id
-      ? supabase.from('im_projects').select('readiness_score').eq('id', imHandoff.im_project_id).maybeSingle()
+    imHandoff?.id
+      ? supabase.from('im_projects').select('readiness_score').eq('handoff_id', imHandoff.id).maybeSingle()
       : Promise.resolve({ data: null }),
     topBuyerMatch
       ? supabase.from('buyer_intent_lite').select('cluster_id').eq('id', topBuyerMatch.buyer_intent_lite_id).maybeSingle()

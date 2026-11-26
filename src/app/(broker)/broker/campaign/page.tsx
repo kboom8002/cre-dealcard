@@ -59,9 +59,10 @@ export default function CampaignCopyPage() {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             await supabase.from('campaign_copies').insert({
-              broker_id: user.id,
-              channel: format || 'general',
-              content: data.result,
+              created_by: user.id,
+              copy_type: format || 'general',
+              body: data.result,
+              ai_generated: true,
             });
             fetchHistory();
           }
@@ -191,11 +192,11 @@ export default function CampaignCopyPage() {
                 <div key={item.id} className="p-3 border rounded-lg bg-muted/30">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-semibold text-muted-foreground px-2 py-0.5 bg-muted rounded">
-                      {item.channel}
+                      {item.copy_type ?? item.channel}
                     </span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(item.content);
+                        navigator.clipboard.writeText(item.body ?? item.content ?? "");
                         toast.success("복사되었습니다");
                       }}
                       className="text-xs text-primary font-medium flex items-center gap-1"
@@ -204,7 +205,7 @@ export default function CampaignCopyPage() {
                     </button>
                   </div>
                   <div className="text-xs text-foreground line-clamp-3">
-                    {item.content}
+                    {item.body ?? item.content}
                   </div>
                 </div>
               ))}

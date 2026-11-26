@@ -135,22 +135,24 @@ async function hasPublishedWorkspaceIm(
   const uniqueIds = Array.from(
     new Set(candidateIds.map((c) => String(c || "").trim()).filter(Boolean))
   );
-  for (const cid of uniqueIds) {
-    try {
-      const imItem = await getWorkspaceItemByAnyId(supabase, cid, "im");
-      if (
-        imItem &&
-        !imItem.deletedAt &&
-        !imItem.revokedAt &&
-        PUBLIC_IM_WORKSPACE_STATUS_SET.has(imItem.status)
-      ) {
-        return true;
+  if (uniqueIds.length === 0) return false;
+  const matches = await Promise.all(
+    uniqueIds.map(async (cid) => {
+      try {
+        const imItem = await getWorkspaceItemByAnyId(supabase, cid, "im");
+        return Boolean(
+          imItem &&
+            !imItem.deletedAt &&
+            !imItem.revokedAt &&
+            PUBLIC_IM_WORKSPACE_STATUS_SET.has(imItem.status)
+        );
+      } catch {
+        // Pre-cutover or transient lookup fallback
+        return false;
       }
-    } catch {
-      // Pre-cutover or transient lookup fallback
-    }
-  }
-  return false;
+    })
+  );
+  return matches.some(Boolean);
 }
 
 async function hasPublishedImExistence(
@@ -163,25 +165,69 @@ async function hasPublishedImExistence(
   const uuidIds = Array.from(
     new Set(candidateIds.map((c) => String(c || "").trim()).filter((c) => isUuid(c)))
   );
-  for (const cid of uuidIds) {
+  if (uuidIds.length === 0) return false;
+
+  const baseQuery = supabase
+    .from("document_objects")
+    .select("id, status, body, document_type, visibility");
+
+  if (uuidIds.length > 1 && baseQuery && typeof (baseQuery as { in?: unknown }).in === "function") {
     try {
-      const res = await supabase
-        .from("document_objects")
-        .select("id, status, body, document_type, visibility")
-        .eq("building_id", cid)
+      let batched: unknown = baseQuery
+        .in("building_id", uuidIds)
         .in("document_type", PUBLIC_IM_DOC_TYPE_LIST)
-        .in("status", [...PUBLIC_IM_DOC_STATUSES])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (isPublishedImDocRow(res?.data as Record<string, unknown> | null)) {
-        return true;
+        .in("status", [...PUBLIC_IM_DOC_STATUSES]);
+      if (batched && typeof (batched as { order?: unknown }).order === "function") {
+        batched = (batched as { order: (col: string, opts: { ascending: boolean }) => unknown }).order(
+          "created_at",
+          { ascending: false }
+        );
+      }
+      if (batched && typeof (batched as { limit?: unknown }).limit === "function") {
+        batched = (batched as { limit: (n: number) => unknown }).limit(5);
+      }
+      if (batched && typeof (batched as { then?: unknown }).then === "function") {
+        const res = (await (batched as PromiseLike<{ data?: unknown }>)) ?? {};
+        const rows = Array.isArray(res.data)
+          ? (res.data as Array<Record<string, unknown>>)
+          : res.data
+          ? [res.data as Record<string, unknown>]
+          : [];
+        return rows.some((row) => isPublishedImDocRow(row));
+      }
+      if (batched && typeof (batched as { maybeSingle?: unknown }).maybeSingle === "function") {
+        const res = await (batched as { maybeSingle: () => Promise<{ data?: unknown }> }).maybeSingle();
+        const rows = Array.isArray(res?.data)
+          ? (res.data as Array<Record<string, unknown>>)
+          : res?.data
+          ? [res.data as Record<string, unknown>]
+          : [];
+        return rows.some((row) => isPublishedImDocRow(row));
       }
     } catch {
-      // Ignore lookup fallback
+      // Fallback to individual lookups if batched chain fails
     }
   }
-  return false;
+
+  const singleMatches = await Promise.all(
+    uuidIds.map(async (cid) => {
+      try {
+        const res = await supabase
+          .from("document_objects")
+          .select("id, status, body, document_type, visibility")
+          .eq("building_id", cid)
+          .in("document_type", PUBLIC_IM_DOC_TYPE_LIST)
+          .in("status", [...PUBLIC_IM_DOC_STATUSES])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return isPublishedImDocRow(res?.data as Record<string, unknown> | null);
+      } catch {
+        return false;
+      }
+    })
+  );
+  return singleMatches.some(Boolean);
 }
 
 function normalizeSnapshotBrokerProfile(raw: Record<string, unknown>): PublicDealCardBrokerInput {
@@ -746,75 +792,80 @@ const getDealCardData = cache(async (id: string) => {
       rawSnapshotProfile && typeof rawSnapshotProfile === "object"
         ? normalizeSnapshotBrokerProfile(rawSnapshotProfile as Record<string, unknown>)
         : null;
-    if (guard.ownerId) {
-      const dbProfile = await fetchPublicBrokerProfile(supabase, guard.ownerId);
-      if (dbProfile) {
-        const liveDisplayName =
-          dbProfile.display_name && dbProfile.display_name !== "담당 중개사"
-            ? dbProfile.display_name
-            : null;
-        const liveSpecialty =
-          dbProfile.specialty && dbProfile.specialty !== "검증 공인중개사"
-            ? dbProfile.specialty
-            : null;
-        resolvedBrokerProfile = resolvedBrokerProfile
-          ? {
-              ...resolvedBrokerProfile,
-              ...dbProfile,
-              display_name:
-                liveDisplayName ||
-                resolvedBrokerProfile.display_name ||
-                dbProfile.display_name,
-              representative_name:
-                dbProfile.representative_name ||
-                resolvedBrokerProfile.representative_name ||
-                resolvedBrokerProfile.representativeName ||
-                null,
-              office_address:
-                dbProfile.office_address ||
-                resolvedBrokerProfile.office_address ||
-                resolvedBrokerProfile.officeAddress ||
-                null,
-              office_reg_number:
-                dbProfile.office_reg_number ||
-                resolvedBrokerProfile.office_reg_number ||
-                resolvedBrokerProfile.officeRegNumber ||
-                null,
-              company:
-                dbProfile.company ||
-                resolvedBrokerProfile.company ||
-                null,
-              specialty:
-                liveSpecialty ||
-                resolvedBrokerProfile.specialty ||
-                dbProfile.specialty ||
-                null,
-              phone:
-                dbProfile.phone ||
-                resolvedBrokerProfile.phone ||
-                null,
-              avatar_url:
-                dbProfile.avatar_url ||
-                resolvedBrokerProfile.avatar_url ||
-                null,
-              slug:
-                dbProfile.slug ||
-                resolvedBrokerProfile.slug ||
-                null,
-              response_guarantee_hours:
-                dbProfile.response_guarantee_hours ??
-                resolvedBrokerProfile.response_guarantee_hours ??
-                null,
-              closed_deals:
-                dbProfile.closed_deals ??
-                resolvedBrokerProfile.closed_deals ??
-                null,
-              is_licensed: Boolean(
-                dbProfile.is_licensed || resolvedBrokerProfile.is_licensed
-              ),
-            }
-          : dbProfile;
-      }
+    const [dbProfile, hasImDoc] = await Promise.all([
+      guard.ownerId ? fetchPublicBrokerProfile(supabase, guard.ownerId) : Promise.resolve(null),
+      hasPublishedImExistence(supabase, [
+        guard.item.buildingId || "",
+        guard.item.legacyId || "",
+        id,
+      ]),
+    ]);
+    if (dbProfile) {
+      const liveDisplayName =
+        dbProfile.display_name && dbProfile.display_name !== "담당 중개사"
+          ? dbProfile.display_name
+          : null;
+      const liveSpecialty =
+        dbProfile.specialty && dbProfile.specialty !== "검증 공인중개사"
+          ? dbProfile.specialty
+          : null;
+      resolvedBrokerProfile = resolvedBrokerProfile
+        ? {
+            ...resolvedBrokerProfile,
+            ...dbProfile,
+            display_name:
+              liveDisplayName ||
+              resolvedBrokerProfile.display_name ||
+              dbProfile.display_name,
+            representative_name:
+              dbProfile.representative_name ||
+              resolvedBrokerProfile.representative_name ||
+              resolvedBrokerProfile.representativeName ||
+              null,
+            office_address:
+              dbProfile.office_address ||
+              resolvedBrokerProfile.office_address ||
+              resolvedBrokerProfile.officeAddress ||
+              null,
+            office_reg_number:
+              dbProfile.office_reg_number ||
+              resolvedBrokerProfile.office_reg_number ||
+              resolvedBrokerProfile.officeRegNumber ||
+              null,
+            company:
+              dbProfile.company ||
+              resolvedBrokerProfile.company ||
+              null,
+            specialty:
+              liveSpecialty ||
+              resolvedBrokerProfile.specialty ||
+              dbProfile.specialty ||
+              null,
+            phone:
+              dbProfile.phone ||
+              resolvedBrokerProfile.phone ||
+              null,
+            avatar_url:
+              dbProfile.avatar_url ||
+              resolvedBrokerProfile.avatar_url ||
+              null,
+            slug:
+              dbProfile.slug ||
+              resolvedBrokerProfile.slug ||
+              null,
+            response_guarantee_hours:
+              dbProfile.response_guarantee_hours ??
+              resolvedBrokerProfile.response_guarantee_hours ??
+              null,
+            closed_deals:
+              dbProfile.closed_deals ??
+              resolvedBrokerProfile.closed_deals ??
+              null,
+            is_licensed: Boolean(
+              dbProfile.is_licensed || resolvedBrokerProfile.is_licensed
+            ),
+          }
+        : dbProfile;
     }
     return {
       building: {
@@ -844,11 +895,7 @@ const getDealCardData = cache(async (id: string) => {
         },
       } as TeaserDocView,
       brokerProfile: resolvedBrokerProfile,
-      hasImDoc: await hasPublishedImExistence(supabase, [
-        guard.item.buildingId || "",
-        guard.item.legacyId || "",
-        id,
-      ]),
+      hasImDoc,
       isPptxApproved: Boolean(snap.isPptxApproved),
       pptxDownloadUrl: `/api/public/im-lite/${guard.item.buildingId || guard.item.legacyId || id}/pptx`,
       ownerId: guard.ownerId,
@@ -1167,11 +1214,6 @@ const getDealCardData = cache(async (id: string) => {
     ? "archived"
     : (ssotMetaRes.data?.status ?? null);
 
-  let brokerProfile: PublicDealCardBrokerInput | null = null;
-  if (ownerId) {
-    brokerProfile = await fetchPublicBrokerProfile(supabase, ownerId);
-  }
-
   const imDocRow = imDocRes.data as Record<string, unknown> | null;
   const imDocBody = (imDocRow?.body as Record<string, unknown> | undefined) ?? {};
   const imApprovalStage =
@@ -1182,8 +1224,13 @@ const getDealCardData = cache(async (id: string) => {
     (typeof imDocRow?.pptx_download_url === "string" ? imDocRow.pptx_download_url : undefined) ??
     (typeof imDocBody.pptx_download_url === "string" ? imDocBody.pptx_download_url : undefined);
   const hasPublishedImDoc = isPublishedImDocRow(imDocRow);
-  const hasImDoc =
-    hasPublishedImDoc || (await hasPublishedWorkspaceIm(supabase, [targetBuildingId, id]));
+  const [brokerProfile, hasWorkspaceIm] = await Promise.all([
+    ownerId ? fetchPublicBrokerProfile(supabase, ownerId) : Promise.resolve(null),
+    hasPublishedImDoc
+      ? Promise.resolve(true)
+      : hasPublishedWorkspaceIm(supabase, [targetBuildingId, id]),
+  ]);
+  const hasImDoc = hasPublishedImDoc || hasWorkspaceIm;
   const isPptxApproved =
     hasPublishedImDoc &&
     (imApprovalStage === 'S70_FILE_APPROVAL' ||

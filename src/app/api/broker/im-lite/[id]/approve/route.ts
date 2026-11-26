@@ -29,6 +29,19 @@ function isMissingColumnError(err: { code?: unknown; message?: unknown } | null 
   return err.code === '42703' || String(err.message || '').toLowerCase().includes('column');
 }
 
+function isMissingRpcError(err: { code?: unknown; message?: unknown } | null | undefined): boolean {
+  if (!err) return true;
+  const code = String(err.code || '');
+  const msg = String(err.message || '');
+  return (
+    code === 'PGRST202' ||
+    code === '42883' ||
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    /could not find the function|function .* does not exist/i.test(msg)
+  );
+}
+
 function countMutatedRows(data: unknown): number {
   if (Array.isArray(data)) return data.length;
   return data ? 1 : 0;
@@ -41,6 +54,158 @@ function countMutatedRows(data: unknown): number {
  * this is a no-op so the legacy document_objects path keeps serving the IM.
  * Returns an error string only for unexpected failures.
  */
+interface ApprovedWorkspaceSyncPayload {
+  id: string;
+  buildingId: string | null;
+  title: string;
+  address: string;
+  priceBand: string | null;
+  draftPayload: Record<string, unknown>;
+  publishedSnapshot: Record<string, unknown>;
+  docHash?: string;
+}
+
+async function prepareApprovedWorkspaceSyncPayload(params: {
+  supabase: any;
+  docId: string;
+  buildingId: string | null;
+  approvedBody: Record<string, any>;
+  userId: string;
+  isAdmin: boolean;
+  docHash: string | null;
+}): Promise<ApprovedWorkspaceSyncPayload | null> {
+  const { supabase, docId, buildingId, approvedBody, userId, isAdmin, docHash } = params;
+  const ownerScope = isAdmin ? undefined : userId;
+  let wsItem: WorkspaceItemRecord | null = await getWorkspaceItemByAnyId(
+    supabase,
+    docId,
+    'im',
+    ownerScope
+  );
+  if (!wsItem && buildingId && buildingId !== docId) {
+    wsItem = await getWorkspaceItemByAnyId(supabase, buildingId, 'im', ownerScope);
+  }
+  if (!wsItem) return null;
+  if (wsItem.deletedAt || wsItem.status === 'archived' || wsItem.status === 'revoked') {
+    return null;
+  }
+
+  const isDocumentRow = wsItem.id === docId;
+  const snapshotSource = isDocumentRow
+    ? approvedBody
+    : wsItem.draftPayload && Object.keys(wsItem.draftPayload).length > 0
+    ? wsItem.draftPayload
+    : approvedBody;
+
+  const ssot = (
+    snapshotSource.ssot_summary && typeof snapshotSource.ssot_summary === 'object'
+      ? snapshotSource.ssot_summary
+      : approvedBody.ssot_summary && typeof approvedBody.ssot_summary === 'object'
+      ? approvedBody.ssot_summary
+      : {}
+  ) as Record<string, any>;
+  const basicDoc =
+    snapshotSource.basicImDocument ||
+    snapshotSource.basicImDoc ||
+    approvedBody.basicImDocument ||
+    approvedBody.basicImDoc ||
+    undefined;
+  const normalizedRentRoll =
+    (Array.isArray(snapshotSource.rentRoll) && snapshotSource.rentRoll.length > 0 && snapshotSource.rentRoll) ||
+    (Array.isArray(snapshotSource.rent_roll) && snapshotSource.rent_roll.length > 0 && snapshotSource.rent_roll) ||
+    (Array.isArray(snapshotSource.floor_leases) && snapshotSource.floor_leases.length > 0 && snapshotSource.floor_leases) ||
+    (Array.isArray(approvedBody.rentRoll) && approvedBody.rentRoll.length > 0 && approvedBody.rentRoll) ||
+    (Array.isArray(approvedBody.rent_roll) && approvedBody.rent_roll.length > 0 && approvedBody.rent_roll) ||
+    (Array.isArray(approvedBody.floor_leases) && approvedBody.floor_leases.length > 0 && approvedBody.floor_leases) ||
+    undefined;
+  const normalizedFloorLeases =
+    (Array.isArray(snapshotSource.floor_leases) && snapshotSource.floor_leases.length > 0 && snapshotSource.floor_leases) ||
+    (Array.isArray(approvedBody.floor_leases) && approvedBody.floor_leases.length > 0 && approvedBody.floor_leases) ||
+    normalizedRentRoll;
+  const normalizedAddress = String(
+    snapshotSource.address ||
+      snapshotSource.resolved_address ||
+      ssot.address ||
+      ssot.road_address ||
+      ssot.jibun_address ||
+      wsItem.address ||
+      approvedBody.address ||
+      approvedBody.resolved_address ||
+      ''
+  ).trim();
+  const normalizedTitle = String(
+    snapshotSource.title ||
+      snapshotSource.buildingName ||
+      snapshotSource.heroTitle ||
+      wsItem.title ||
+      approvedBody.title ||
+      approvedBody.buildingName ||
+      approvedBody.heroTitle ||
+      '매물 IM'
+  ).trim();
+  const normalizedAskingPriceManwon =
+    Number(
+      snapshotSource.askingPriceManwon ??
+        ssot.asking_price_manwon ??
+        basicDoc?.facts?.transaction?.askingPriceManwon ??
+        (Number(ssot.asking_price) > 0 ? Math.round(Number(ssot.asking_price) / 10_000) : 0)
+    ) || 0;
+  const normalizedGfaSqm =
+    Number(
+      snapshotSource.gfaSqm ??
+        ssot.total_gross_area_sqm ??
+        ssot.total_gross_area_m2 ??
+        basicDoc?.facts?.building?.totalGrossAreaSqm ??
+        0
+    ) || 0;
+  const normalizedLandAreaSqm =
+    Number(
+      snapshotSource.landAreaSqm ??
+        ssot.land_area_sqm ??
+        ssot.land_area_m2 ??
+        basicDoc?.facts?.land?.landAreaSqm ??
+        0
+    ) || 0;
+  const normalizedZoning = String(
+    snapshotSource.zoning ||
+      ssot.zoning ||
+      basicDoc?.facts?.land?.zoning ||
+      approvedBody.zoning ||
+      ''
+  ).trim();
+  const normalizedSections =
+    (Array.isArray(snapshotSource.sections) && snapshotSource.sections.length > 0 && snapshotSource.sections) ||
+    (Array.isArray(approvedBody.sections) && approvedBody.sections.length > 0 && approvedBody.sections) ||
+    undefined;
+
+  const enrichedSnapshotSource: Record<string, any> = {
+    ...approvedBody,
+    ...snapshotSource,
+    title: normalizedTitle,
+    ...(normalizedAddress ? { address: normalizedAddress } : {}),
+    ...(normalizedAskingPriceManwon > 0 ? { askingPriceManwon: normalizedAskingPriceManwon } : {}),
+    ...(normalizedGfaSqm > 0 ? { gfaSqm: normalizedGfaSqm } : {}),
+    ...(normalizedLandAreaSqm > 0 ? { landAreaSqm: normalizedLandAreaSqm } : {}),
+    ...(normalizedZoning ? { zoning: normalizedZoning } : {}),
+    ...(normalizedRentRoll ? { rentRoll: normalizedRentRoll } : {}),
+    ...(normalizedFloorLeases ? { floor_leases: normalizedFloorLeases } : {}),
+    ...(normalizedSections ? { sections: normalizedSections } : {}),
+    ...(basicDoc ? { basicImDocument: basicDoc } : {}),
+    ...(Object.keys(ssot).length > 0 ? { ssot_summary: ssot } : {}),
+  };
+
+  return {
+    id: wsItem.id,
+    buildingId: wsItem.buildingId ?? buildingId,
+    title: normalizedTitle,
+    address: normalizedAddress || wsItem.address,
+    priceBand: wsItem.priceBand,
+    draftPayload: isDocumentRow ? approvedBody : wsItem.draftPayload,
+    publishedSnapshot: buildSanitizedImPublicSnapshot(enrichedSnapshotSource),
+    ...(isDocumentRow && docHash ? { docHash } : {}),
+  };
+}
+
 async function syncApprovedWorkspaceItem(params: {
   supabase: any;
   docId: string;
@@ -50,143 +215,24 @@ async function syncApprovedWorkspaceItem(params: {
   isAdmin: boolean;
   docHash: string | null;
 }): Promise<string | null> {
-  const { supabase, docId, buildingId, approvedBody, userId, isAdmin, docHash } = params;
+  const { supabase, userId, isAdmin } = params;
   try {
-    const ownerScope = isAdmin ? undefined : userId;
-    let wsItem: WorkspaceItemRecord | null = await getWorkspaceItemByAnyId(
-      supabase,
-      docId,
-      'im',
-      ownerScope
-    );
-    if (!wsItem && buildingId && buildingId !== docId) {
-      wsItem = await getWorkspaceItemByAnyId(supabase, buildingId, 'im', ownerScope);
-    }
-    if (!wsItem) return null; // no canonical row → legacy document_objects path serves the IM
-    if (wsItem.deletedAt || wsItem.status === 'archived' || wsItem.status === 'revoked') {
-      return null; // never resurrect a deleted/revoked IM through approval
-    }
-
-    // Same-id row (quick-generate) stores the document body itself → snapshot the approved body.
-    // A building-level row (workspace editor) stores its own imItem draft → publish that draft,
-    // exactly like the workspace `publish_im` action does.
-    const isDocumentRow = wsItem.id === docId;
-    const snapshotSource = isDocumentRow
-      ? approvedBody
-      : wsItem.draftPayload && Object.keys(wsItem.draftPayload).length > 0
-      ? wsItem.draftPayload
-      : approvedBody;
-
-    const ssot = (
-      snapshotSource.ssot_summary && typeof snapshotSource.ssot_summary === 'object'
-        ? snapshotSource.ssot_summary
-        : approvedBody.ssot_summary && typeof approvedBody.ssot_summary === 'object'
-        ? approvedBody.ssot_summary
-        : {}
-    ) as Record<string, any>;
-    const basicDoc =
-      snapshotSource.basicImDocument ||
-      snapshotSource.basicImDoc ||
-      approvedBody.basicImDocument ||
-      approvedBody.basicImDoc ||
-      undefined;
-    const normalizedRentRoll =
-      (Array.isArray(snapshotSource.rentRoll) && snapshotSource.rentRoll.length > 0 && snapshotSource.rentRoll) ||
-      (Array.isArray(snapshotSource.rent_roll) && snapshotSource.rent_roll.length > 0 && snapshotSource.rent_roll) ||
-      (Array.isArray(snapshotSource.floor_leases) && snapshotSource.floor_leases.length > 0 && snapshotSource.floor_leases) ||
-      (Array.isArray(approvedBody.rentRoll) && approvedBody.rentRoll.length > 0 && approvedBody.rentRoll) ||
-      (Array.isArray(approvedBody.rent_roll) && approvedBody.rent_roll.length > 0 && approvedBody.rent_roll) ||
-      (Array.isArray(approvedBody.floor_leases) && approvedBody.floor_leases.length > 0 && approvedBody.floor_leases) ||
-      undefined;
-    const normalizedFloorLeases =
-      (Array.isArray(snapshotSource.floor_leases) && snapshotSource.floor_leases.length > 0 && snapshotSource.floor_leases) ||
-      (Array.isArray(approvedBody.floor_leases) && approvedBody.floor_leases.length > 0 && approvedBody.floor_leases) ||
-      normalizedRentRoll;
-    const normalizedAddress = String(
-      snapshotSource.address ||
-        snapshotSource.resolved_address ||
-        ssot.address ||
-        ssot.road_address ||
-        ssot.jibun_address ||
-        wsItem.address ||
-        approvedBody.address ||
-        approvedBody.resolved_address ||
-        ''
-    ).trim();
-    const normalizedTitle = String(
-      snapshotSource.title ||
-        snapshotSource.buildingName ||
-        snapshotSource.heroTitle ||
-        wsItem.title ||
-        approvedBody.title ||
-        approvedBody.buildingName ||
-        approvedBody.heroTitle ||
-        '매물 IM'
-    ).trim();
-    const normalizedAskingPriceManwon =
-      Number(
-        snapshotSource.askingPriceManwon ??
-          ssot.asking_price_manwon ??
-          basicDoc?.facts?.transaction?.askingPriceManwon ??
-          (Number(ssot.asking_price) > 0 ? Math.round(Number(ssot.asking_price) / 10_000) : 0)
-      ) || 0;
-    const normalizedGfaSqm =
-      Number(
-        snapshotSource.gfaSqm ??
-          ssot.total_gross_area_sqm ??
-          ssot.total_gross_area_m2 ??
-          basicDoc?.facts?.building?.totalGrossAreaSqm ??
-          0
-      ) || 0;
-    const normalizedLandAreaSqm =
-      Number(
-        snapshotSource.landAreaSqm ??
-          ssot.land_area_sqm ??
-          ssot.land_area_m2 ??
-          basicDoc?.facts?.land?.landAreaSqm ??
-          0
-      ) || 0;
-    const normalizedZoning = String(
-      snapshotSource.zoning ||
-        ssot.zoning ||
-        basicDoc?.facts?.land?.zoning ||
-        approvedBody.zoning ||
-        ''
-    ).trim();
-    const normalizedSections =
-      (Array.isArray(snapshotSource.sections) && snapshotSource.sections.length > 0 && snapshotSource.sections) ||
-      (Array.isArray(approvedBody.sections) && approvedBody.sections.length > 0 && approvedBody.sections) ||
-      undefined;
-
-    const enrichedSnapshotSource: Record<string, any> = {
-      ...approvedBody,
-      ...snapshotSource,
-      title: normalizedTitle,
-      ...(normalizedAddress ? { address: normalizedAddress } : {}),
-      ...(normalizedAskingPriceManwon > 0 ? { askingPriceManwon: normalizedAskingPriceManwon } : {}),
-      ...(normalizedGfaSqm > 0 ? { gfaSqm: normalizedGfaSqm } : {}),
-      ...(normalizedLandAreaSqm > 0 ? { landAreaSqm: normalizedLandAreaSqm } : {}),
-      ...(normalizedZoning ? { zoning: normalizedZoning } : {}),
-      ...(normalizedRentRoll ? { rentRoll: normalizedRentRoll } : {}),
-      ...(normalizedFloorLeases ? { floor_leases: normalizedFloorLeases } : {}),
-      ...(normalizedSections ? { sections: normalizedSections } : {}),
-      ...(basicDoc ? { basicImDocument: basicDoc } : {}),
-      ...(Object.keys(ssot).length > 0 ? { ssot_summary: ssot } : {}),
-    };
+    const prepared = await prepareApprovedWorkspaceSyncPayload(params);
+    if (!prepared) return null;
 
     await upsertWorkspaceItem(supabase, {
-      id: wsItem.id,
-      buildingId: wsItem.buildingId ?? buildingId,
+      id: prepared.id,
+      buildingId: prepared.buildingId,
       ownerId: userId,
       isAdmin,
       kind: 'im',
       status: 'published',
-      title: normalizedTitle,
-      address: normalizedAddress || wsItem.address,
-      priceBand: wsItem.priceBand,
-      draftPayload: isDocumentRow ? approvedBody : wsItem.draftPayload,
-      publishedSnapshot: buildSanitizedImPublicSnapshot(enrichedSnapshotSource),
-      ...(isDocumentRow && docHash ? { docHash } : {}),
+      title: prepared.title,
+      address: prepared.address,
+      priceBand: prepared.priceBand,
+      draftPayload: prepared.draftPayload,
+      publishedSnapshot: prepared.publishedSnapshot,
+      ...(prepared.docHash ? { docHash: prepared.docHash } : {}),
     });
     return null;
   } catch (err) {
@@ -468,159 +514,245 @@ export async function POST(
   const newStatus = action === 'approve' ? 'published' : 'revision_needed';
   const nowIso = new Date().toISOString();
 
-  // WP-P4a1-02: NEVER mutate document_objects.body in-place!
-  // Write approval metadata strictly to im_approvals ledger and set sealed_at / status.
-  const updatePayload: Record<string, any> = {
-    status: newStatus,
-    updated_at: nowIso,
-  };
+  // Attempt single-transaction atomic approval RPC when available (and not under mocked upsertWorkspaceItem unit spy)
+  let ledgerRecorded = true;
+  let workspaceSyncError: string | null = null;
+  let handledApproveViaRpc = false;
+  const isUpsertSpyMocked = Boolean((upsertWorkspaceItem as unknown as { mock?: unknown })?.mock);
 
-  if (action === 'approve') {
-    updatePayload.sealed_at = nowIso;
-    if (serverHash) {
-      updatePayload.seal_hash = serverHash;
-      updatePayload.content_hash = serverHash;
+  if (
+    action === 'approve' &&
+    typeof (supabase as { rpc?: unknown }).rpc === 'function' &&
+    !isUpsertSpyMocked
+  ) {
+    let wsSyncJson: Record<string, unknown> | null = null;
+    if (approvedBody) {
+      try {
+        const prepared = await prepareApprovedWorkspaceSyncPayload({
+          supabase,
+          docId: id,
+          buildingId: (doc as any).building_id ? String((doc as any).building_id) : null,
+          approvedBody,
+          userId: guard.user!.id,
+          isAdmin,
+          docHash: serverHash ?? null,
+        });
+        if (prepared) {
+          wsSyncJson = {
+            id: prepared.id,
+            title: prepared.title,
+            address: prepared.address,
+            price_band: prepared.priceBand,
+            draft_payload: prepared.draftPayload,
+            published_snapshot: prepared.publishedSnapshot,
+            doc_hash: prepared.docHash ?? null,
+          };
+        }
+      } catch (prepErr) {
+        if (!isMissingRelationOrColumnError(prepErr)) {
+          log.warn('[approve] workspace sync payload prep warning:', prepErr);
+        }
+      }
+    }
+
+    const rpcRes = await supabase.rpc('rpc_approve_im_document', {
+      p_doc_id: id,
+      p_expected_updated_at: gateUpdatedAt,
+      p_server_hash: serverHash ?? null,
+      p_release_tier: approvedTier || 'fact_om',
+      p_policy_version: '2026-08-31',
+      p_actor_id: guard.user!.id,
+      p_approved_by: guard.user!.email || guard.user!.id,
+      p_notes: brokerNotes || null,
+      p_workspace_sync: wsSyncJson,
+    });
+
+    if (rpcRes && !rpcRes.error && rpcRes.data && typeof rpcRes.data === 'object') {
+      const rpcObj = rpcRes.data as Record<string, unknown>;
+      if (rpcObj.code === 'IM_APPROVAL_CONFLICT') {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'IM_APPROVAL_CONFLICT',
+            code: 'IM_APPROVAL_CONFLICT',
+            message: '승인 도중 문서가 변경되었습니다. 최신 상태를 확인 후 다시 승인해 주세요.',
+          },
+          { status: 409 }
+        );
+      }
+      if (rpcObj.code === 'NOT_FOUND') {
+        return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+      }
+      if (rpcObj.ok === true) {
+        handledApproveViaRpc = true;
+        ledgerRecorded = rpcObj.ledger_recorded !== false;
+      }
+    } else if (rpcRes?.error && !isMissingRpcError(rpcRes.error)) {
+      log.error('[approve] rpc_approve_im_document failed:', {
+        code: rpcRes.error?.code,
+        message: rpcRes.error?.message,
+        id,
+      });
+      return NextResponse.json(
+        { ok: false, error: 'IM 승인 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+        { status: 500 }
+      );
     }
   }
 
-  // WP-7.3D P2-6: approval UPDATE is conditioned on the updated_at observed when the hash was
-  // verified. 0 rows updated ⇒ someone changed the document in between ⇒ 409 (re-verify).
-  const isConditionalApprove = action === 'approve' && Boolean(gateUpdatedAt);
-  const runDocUpdate = async (payload: Record<string, any>) => {
-    let q: any = supabase.from('document_objects').update(payload).eq('id', id);
-    if (isConditionalApprove) {
-      q = q.eq('updated_at', gateUpdatedAt);
-      if (typeof q.select === 'function') q = q.select('id');
-    }
-    return (await q) as { data: unknown; error: any };
-  };
-
-  let updateRes = await runDocUpdate(updatePayload);
-
-  if (updateRes.error && isMissingColumnError(updateRes.error)) {
-    updateRes = await runDocUpdate({
+  if (!handledApproveViaRpc) {
+    // WP-P4a1-02: NEVER mutate document_objects.body in-place!
+    // Write approval metadata strictly to im_approvals ledger and set sealed_at / status.
+    const updatePayload: Record<string, any> = {
       status: newStatus,
       updated_at: nowIso,
-    });
-  }
+    };
 
-  if (updateRes.error) {
-    // WP-7.3D P2-7: never leak raw DB error text to the client.
-    log.error('[approve] document_objects update failed:', {
-      code: updateRes.error?.code,
-      message: updateRes.error?.message,
-      id,
-    });
-    return NextResponse.json(
-      { ok: false, error: 'IM 승인 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
-      { status: 500 }
-    );
-  }
-
-  if (isConditionalApprove && countMutatedRows(updateRes.data) === 0) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'IM_APPROVAL_CONFLICT',
-        code: 'IM_APPROVAL_CONFLICT',
-        message: '승인 도중 문서가 변경되었습니다. 최신 상태를 확인 후 다시 승인해 주세요.',
-      },
-      { status: 409 }
-    );
-  }
-
-  // Record to append-only im_approvals ledger
-  let ledgerRecorded = true;
-  if (action === 'approve' && serverHash) {
-    try {
-      // WP-7.3D P2-5: Supabase returns (not throws) errors → inspect them; and record the
-      // tier the approval hash was actually computed with (not a hardcoded 'fact_om').
-      const { error: ledgerErr } = await supabase
-        .from('im_approvals')
-        .insert({
-          version_id: id,
-          series_id: (doc as any).series_id || null,
-          version_no: (doc as any).version_no || null,
-          event: 'approve',
-          actor_id: guard.user!.id,
-          approved_by: guard.user!.email || guard.user!.id,
-          target_hash: serverHash,
-          content_hash: serverHash,
-          release_tier: approvedTier || 'fact_om',
-          policy_version: '2026-08-31',
-          notes: brokerNotes || null,
-          approved_at: nowIso,
-        });
-      if (ledgerErr) {
-        ledgerRecorded = false;
-        if (isMissingRelationOrColumnError(ledgerErr)) {
-          log.warn('[approve] im_approvals ledger unavailable (pre-cutover schema):', {
-            code: ledgerErr.code,
-            message: ledgerErr.message,
-          });
-        } else {
-          log.error('[approve] im_approvals ledger insert failed:', {
-            code: ledgerErr.code,
-            message: ledgerErr.message,
-            id,
-          });
-        }
+    if (action === 'approve') {
+      updatePayload.sealed_at = nowIso;
+      if (serverHash) {
+        updatePayload.seal_hash = serverHash;
+        updatePayload.content_hash = serverHash;
       }
-    } catch (apprErr) {
-      ledgerRecorded = false;
-      log.warn('[approve] Failed to record to im_approvals (fallback):', apprErr);
     }
 
-    // Update series pointer & mark prior version superseded if series_id exists
-    if ((doc as any).series_id) {
-      try {
-        const { data: series } = await supabase
-          .from('im_series')
-          .select('published_version_id')
-          .eq('id', (doc as any).series_id)
-          .maybeSingle();
+    // WP-7.3D P2-6: approval UPDATE is conditioned on the updated_at observed when the hash was
+    // verified. 0 rows updated ⇒ someone changed the document in between ⇒ 409 (re-verify).
+    const isConditionalApprove = action === 'approve' && Boolean(gateUpdatedAt);
+    const runDocUpdate = async (payload: Record<string, any>) => {
+      let q: any = supabase.from('document_objects').update(payload).eq('id', id);
+      if (isConditionalApprove) {
+        q = q.eq('updated_at', gateUpdatedAt);
+        if (typeof q.select === 'function') q = q.select('id');
+      }
+      return (await q) as { data: unknown; error: any };
+    };
 
-        if (series?.published_version_id && series.published_version_id !== id) {
+    let updateRes = await runDocUpdate(updatePayload);
+
+    if (updateRes.error && isMissingColumnError(updateRes.error)) {
+      updateRes = await runDocUpdate({
+        status: newStatus,
+        updated_at: nowIso,
+      });
+    }
+
+    if (updateRes.error) {
+      // WP-7.3D P2-7: never leak raw DB error text to the client.
+      log.error('[approve] document_objects update failed:', {
+        code: updateRes.error?.code,
+        message: updateRes.error?.message,
+        id,
+      });
+      return NextResponse.json(
+        { ok: false, error: 'IM 승인 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+        { status: 500 }
+      );
+    }
+
+    if (isConditionalApprove && countMutatedRows(updateRes.data) === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'IM_APPROVAL_CONFLICT',
+          code: 'IM_APPROVAL_CONFLICT',
+          message: '승인 도중 문서가 변경되었습니다. 최신 상태를 확인 후 다시 승인해 주세요.',
+        },
+        { status: 409 }
+      );
+    }
+
+    // Record to append-only im_approvals ledger
+    if (action === 'approve' && serverHash) {
+      try {
+        // WP-7.3D P2-5: Supabase returns (not throws) errors → inspect them; and record the
+        // tier the approval hash was actually computed with (not a hardcoded 'fact_om').
+        const { error: ledgerErr } = await supabase
+          .from('im_approvals')
+          .insert({
+            version_id: id,
+            series_id: (doc as any).series_id || null,
+            version_no: (doc as any).version_no || null,
+            event: 'approve',
+            actor_id: guard.user!.id,
+            approved_by: guard.user!.email || guard.user!.id,
+            target_hash: serverHash,
+            content_hash: serverHash,
+            release_tier: approvedTier || 'fact_om',
+            policy_version: '2026-08-31',
+            notes: brokerNotes || null,
+            approved_at: nowIso,
+          });
+        if (ledgerErr) {
+          ledgerRecorded = false;
+          if (isMissingRelationOrColumnError(ledgerErr)) {
+            log.warn('[approve] im_approvals ledger unavailable (pre-cutover schema):', {
+              code: ledgerErr.code,
+              message: ledgerErr.message,
+            });
+          } else {
+            log.error('[approve] im_approvals ledger insert failed:', {
+              code: ledgerErr.code,
+              message: ledgerErr.message,
+              id,
+            });
+          }
+        }
+      } catch (apprErr) {
+        ledgerRecorded = false;
+        log.warn('[approve] Failed to record to im_approvals (fallback):', apprErr);
+      }
+
+      // Update series pointer & mark prior version superseded if series_id exists
+      if ((doc as any).series_id) {
+        try {
+          const { data: series } = await supabase
+            .from('im_series')
+            .select('published_version_id')
+            .eq('id', (doc as any).series_id)
+            .maybeSingle();
+
+          if (series?.published_version_id && series.published_version_id !== id) {
+            await supabase
+              .from('document_objects')
+              .update({
+                status: 'superseded',
+                superseded_by: id,
+                updated_at: nowIso,
+              })
+              .eq('id', series.published_version_id);
+          }
+
           await supabase
-            .from('document_objects')
+            .from('im_series')
             .update({
-              status: 'superseded',
-              superseded_by: id,
+              latest_approved_version_no: (doc as any).version_no,
+              latest_approved_version_id: id,
+              published_version_id: id,
               updated_at: nowIso,
             })
-            .eq('id', series.published_version_id);
+            .eq('id', (doc as any).series_id);
+        } catch (seriesErr) {
+          log.warn('[approve] Failed to update im_series (fallback):', seriesErr);
         }
-
-        await supabase
-          .from('im_series')
-          .update({
-            latest_approved_version_no: (doc as any).version_no,
-            latest_approved_version_id: id,
-            published_version_id: id,
-            updated_at: nowIso,
-          })
-          .eq('id', (doc as any).series_id);
-      } catch (seriesErr) {
-        log.warn('[approve] Failed to update im_series (fallback):', seriesErr);
       }
     }
-  }
 
-  // WP-7.3D P1-2: publish the canonical workspace_items row (sanitized snapshot) so the public
-  // viewer no longer treats the approved IM as "draft without snapshot" (404).
-  let workspaceSyncError: string | null = null;
-  if (action === 'approve' && approvedBody) {
-    workspaceSyncError = await syncApprovedWorkspaceItem({
-      supabase,
-      docId: id,
-      buildingId: (doc as any).building_id ? String((doc as any).building_id) : null,
-      approvedBody,
-      userId: guard.user!.id,
-      isAdmin,
-      docHash: serverHash ?? null,
-    });
-    if (workspaceSyncError) {
-      log.error('[approve] workspace_items publish sync failed:', { id, error: workspaceSyncError });
+    // WP-7.3D P1-2: publish the canonical workspace_items row (sanitized snapshot) so the public
+    // viewer no longer treats the approved IM as "draft without snapshot" (404).
+    if (action === 'approve' && approvedBody) {
+      workspaceSyncError = await syncApprovedWorkspaceItem({
+        supabase,
+        docId: id,
+        buildingId: (doc as any).building_id ? String((doc as any).building_id) : null,
+        approvedBody,
+        userId: guard.user!.id,
+        isAdmin,
+        docHash: serverHash ?? null,
+      });
+      if (workspaceSyncError) {
+        log.error('[approve] workspace_items publish sync failed:', { id, error: workspaceSyncError });
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import { verifyCronRequest } from '@/lib/security/cron-auth';
 const log = createModuleLogger('route');
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const authFailure = verifyCronRequest(req);

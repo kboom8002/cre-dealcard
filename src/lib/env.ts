@@ -1,9 +1,50 @@
 import { z } from "zod/v4";
+import * as loggerModule from "@/lib/logger";
+
+function getEnvLogger() {
+  try {
+    if (typeof loggerModule.createModuleLogger === "function") {
+      return loggerModule.createModuleLogger("env");
+    }
+  } catch {
+    // Fallback if logger module is partially mocked in unit tests
+  }
+  return null;
+}
 
 function cleanEnvValue(raw: string | undefined): string | undefined {
   if (typeof raw !== "string") return undefined;
   const cleaned = raw.trim().replace(/^["']+|["']+$/g, "").trim();
   return cleaned.length > 0 ? cleaned : undefined;
+}
+
+const PLACEHOLDER_SECRETS = new Set([
+  "not-configured",
+  "mock_key",
+  "mock-key",
+  "mock-service-role-key",
+  "mock-anon-key",
+  "your-api-key",
+  "changeme",
+  "placeholder",
+]);
+
+function isRealSecretValue(raw: string | undefined): boolean {
+  const cleaned = cleanEnvValue(raw);
+  if (!cleaned) return false;
+  return !PLACEHOLDER_SECRETS.has(cleaned.toLowerCase());
+}
+
+function isMockSupabaseUrl(raw: string | undefined): boolean {
+  const cleaned = cleanEnvValue(raw);
+  if (!cleaned) return true;
+  if (/mock\.supabase\.co|mock-supabase/i.test(cleaned)) return true;
+  try {
+    const parsed = new URL(cleaned);
+    return parsed.protocol !== "https:" && parsed.protocol !== "http:";
+  } catch {
+    return true;
+  }
 }
 
 function cleanUrlEnvValue(raw: string | undefined, fallback: string): string {
@@ -71,7 +112,10 @@ function validatePublicEnv() {
 
   const parsed = publicEnvSchema.safeParse(payload);
   if (!parsed.success) {
-    console.error("❌ Environment validation failed:", parsed.error.format());
+    getEnvLogger()?.error(
+      { issues: parsed.error.format() },
+      "Environment validation failed",
+    );
     throw new Error(`Environment validation failed: ${parsed.error.message}`);
   }
   return parsed.data;
@@ -80,6 +124,51 @@ function validatePublicEnv() {
 export const env = validatePublicEnv();
 
 let loggedProdWarnings = false;
+
+export function isAiProviderConfigured(): boolean {
+  return (
+    isRealSecretValue(process.env.OPENAI_API_KEY) ||
+    isRealSecretValue(process.env.GEMINI_API_KEY) ||
+    isRealSecretValue(process.env.ANTHROPIC_API_KEY)
+  );
+}
+
+export function assertProductionSecretsReady(): void {
+  const notBuild =
+    process.env.NEXT_PHASE !== "phase-production-build" &&
+    process.env.NEXT_PHASE !== "phase-export";
+  const shouldEnforce =
+    isRealProductionRuntime() || (process.env.VERCEL_ENV === "production" && notBuild);
+
+  if (!shouldEnforce) {
+    return;
+  }
+
+  const missingOrMock: string[] = [];
+
+  if (isMockSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)) {
+    missingOrMock.push("NEXT_PUBLIC_SUPABASE_URL");
+  }
+  if (!isRealSecretValue(process.env.SUPABASE_SERVICE_ROLE_KEY)) {
+    missingOrMock.push("SUPABASE_SERVICE_ROLE_KEY");
+  }
+  if (!isRealSecretValue(process.env.CRON_SECRET)) {
+    missingOrMock.push("CRON_SECRET");
+  }
+  if (!isRealSecretValue(process.env.SHARE_LINK_SECRET)) {
+    missingOrMock.push("SHARE_LINK_SECRET");
+  }
+
+  if (missingOrMock.length > 0) {
+    getEnvLogger()?.error(
+      { missingCount: missingOrMock.length },
+      "Critical production secrets missing or mock-configured",
+    );
+    throw new Error(
+      `Critical production secrets missing or invalid: ${missingOrMock.join(", ")}`,
+    );
+  }
+}
 
 export function getProductionReadinessWarnings(): string[] {
   const warnings: string[] = [];
@@ -107,9 +196,7 @@ export function getProductionReadinessWarnings(): string[] {
   if (!cleanEnvValue(process.env.VWORLD_API_KEY)) {
     warnings.push("VWORLD_API_KEY is not configured");
   }
-  const openaiKey =
-    cleanEnvValue(process.env.OPENAI_API_KEY) || cleanEnvValue(process.env.GEMINI_API_KEY);
-  if (!openaiKey || openaiKey === "not-configured") {
+  if (!isAiProviderConfigured()) {
     warnings.push("OPENAI_API_KEY is not configured");
   }
   return warnings;
@@ -124,7 +211,10 @@ export function getServerEnv() {
     loggedProdWarnings = true;
     const warnings = getProductionReadinessWarnings();
     if (warnings.length > 0) {
-      console.warn("⚠️ Production readiness warnings:", warnings.join("; "));
+      getEnvLogger()?.warn(
+        { warningCount: warnings.length, warnings },
+        "Production readiness warnings detected",
+      );
     }
   }
 
@@ -152,7 +242,10 @@ export function getServerEnv() {
 
   const parsed = serverEnvSchema.safeParse(payload);
   if (!parsed.success) {
-    console.error("❌ Server environment validation failed:", parsed.error.format());
+    getEnvLogger()?.error(
+      { issues: parsed.error.format() },
+      "Server environment validation failed",
+    );
     throw new Error(`Server environment validation failed: ${parsed.error.message}`);
   }
   return parsed.data;

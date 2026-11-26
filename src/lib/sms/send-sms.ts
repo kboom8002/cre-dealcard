@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from "node:crypto";
 import { createModuleLogger } from "@/lib/logger";
 
 const log = createModuleLogger("sms-service");
@@ -13,9 +14,9 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
   // 전화번호 정규화: 하이픈 제거, 010 → +8210
   const normalized = to.replace(/[-\s]/g, "");
 
-  const apiKey = process.env.COOLSMS_API_KEY;
-  const apiSecret = process.env.COOLSMS_API_SECRET;
-  const sender = process.env.COOLSMS_SENDER;
+  const apiKey = process.env.COOLSMS_API_KEY?.trim();
+  const apiSecret = process.env.COOLSMS_API_SECRET?.trim();
+  const sender = process.env.COOLSMS_SENDER?.trim();
 
   if (!apiKey || !apiSecret || !sender) {
     // Phase 1: SMS 인프라 미설정 → 로그만 남김
@@ -23,13 +24,20 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     return true; // DB에는 저장, SMS는 skip
   }
 
-  // Phase 2: CoolSMS API 호출
+  // Phase 2: CoolSMS v4 HMAC-SHA256 인증 및 API 호출
   try {
+    const dateIso = new Date().toISOString();
+    const salt = randomBytes(16).toString("hex");
+    const hmacHex = createHmac("sha256", apiSecret)
+      .update(dateIso + salt)
+      .digest("hex");
+    const authHeader = `HMAC-SHA256 apiKey=${apiKey}, date=${dateIso}, salt=${salt}, signature=${hmacHex}`;
+
     const res = await fetch("https://api.coolsms.co.kr/messages/v4/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: authHeader,
       },
       body: JSON.stringify({
         message: {
@@ -38,6 +46,7 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
           text: message,
         },
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {

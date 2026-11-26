@@ -104,16 +104,19 @@ export class CrossHandoffService {
     }
 
     // Create standard buyer intent lite in CRE system
+    const budgetMin = profile.investment_min || 10000000;
+    const budgetMax = (profile.investment_max || 100000000) * 10; // scaled budget for physical asset matching
+    const budgetDisplay = `${(Number(profile.investment_max || 100000000) / 10000).toLocaleString()}만원 한도`;
+
     const { data: creBuyer, error: bErr } = await this.supabase
       .from("buyer_intent_lite")
       .insert({
-        broker_id: brokerId,
+        owner_id: brokerId,
+        raw_input: `크라우드펀딩 적격투자자 승격 (${budgetDisplay})`,
         buyer_type: profile.investor_type === "professional" ? "기관/전문투자자" : "자산가 개인",
-        budget_range: {
-          min: profile.investment_min || 10000000,
-          max: (profile.investment_max || 100000000) * 10, // scaled budget for physical asset matching
-          display: `${(Number(profile.investment_max || 100000000) / 10000).toLocaleString()}만원 한도`,
-        },
+        budget_min: budgetMin,
+        budget_max: budgetMax,
+        budget_display: budgetDisplay,
         preferred_regions: profile.preferred_sectors,
         asset_types: [profile.preferred_sectors[0] || "office"],
         purchase_purpose: "투자",

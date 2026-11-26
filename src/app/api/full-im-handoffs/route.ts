@@ -4,13 +4,14 @@
  * Auth: required (broker or admin)
  * Source: docs/06-handoff-api-contract.md §4.1
  */
+import { NextRequest } from "next/server";
 import { z } from "zod/v4";
 import { createHandoff } from "@/domain/handoff/handoff";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from "@/lib/auth-guard";
+import { createServiceClient } from "@/lib/supabase/service";
+import { createModuleLogger } from "@/lib/logger";
 
-import { createModuleLogger } from '@/lib/logger';
-const log = createModuleLogger('route');
-
+const log = createModuleLogger("route");
 
 const CreateHandoffSchema = z.object({
   source_building_ssot_lite_id: z.string().uuid(),
@@ -29,30 +30,77 @@ const CreateHandoffSchema = z.object({
     .enum(["ai_self_authoring", "ai_expert_review", "expert_full_build", "dealroom_ready_package", "unknown"])
     .optional()
     .default("unknown"),
-  full_im_studio_base_url: z.string().url().optional(),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const userId = guard.user!.id;
+  const isAdmin = guard.role === "admin";
+
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Fallback to null if not logged in
-    const userId = user?.id || null;
-
     const json = await req.json();
     const input = CreateHandoffSchema.parse(json);
+
+    const supabase = createServiceClient();
+    const { data: building, error: bldErr } = await supabase
+      .from("building_ssot_lite")
+      .select("id, owner_id")
+      .eq("id", input.source_building_ssot_lite_id)
+      .maybeSingle();
+
+    if (bldErr || !building) {
+      return Response.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "대상 매물을 찾을 수 없습니다." } },
+        { status: 404 },
+      );
+    }
+
+    if (!isAdmin && building.owner_id !== userId) {
+      return Response.json(
+        { ok: false, error: { code: "FORBIDDEN", message: "본인 소유 매물에 대해서만 핸드오프를 생성할 수 있습니다." } },
+        { status: 403 },
+      );
+    }
+
+    const uniqueDocIds = Array.from(new Set(input.source_document_ids ?? []));
+    if (uniqueDocIds.length > 0) {
+      const { data: docs, error: docsErr } = await supabase
+        .from("document_objects")
+        .select("id, owner_id, building_id, source_id")
+        .in("id", uniqueDocIds);
+
+      if (docsErr || !docs || docs.length !== uniqueDocIds.length) {
+        return Response.json(
+          { ok: false, error: { code: "FORBIDDEN", message: "유효하지 않거나 접근 권한이 없는 문서가 포함되어 있습니다." } },
+          { status: 403 },
+        );
+      }
+
+      for (const doc of docs) {
+        const matchesBuilding =
+          doc.building_id === input.source_building_ssot_lite_id ||
+          doc.source_id === input.source_building_ssot_lite_id;
+        const matchesOwner = isAdmin || !doc.owner_id || doc.owner_id === userId;
+        if (!matchesBuilding || !matchesOwner) {
+          return Response.json(
+            { ok: false, error: { code: "FORBIDDEN", message: "해당 매물 또는 소유자에 속하지 않는 문서입니다." } },
+            { status: 403 },
+          );
+        }
+      }
+    }
 
     const result = await createHandoff(
       {
         sourceBuildingSsotLiteId: input.source_building_ssot_lite_id,
-        sourceDocumentIds: input.source_document_ids,
+        sourceDocumentIds: uniqueDocIds,
         sourceBuyerIntentId: input.source_buyer_intent_id,
         sourceOwnerReadinessId: input.source_owner_readiness_id,
         sourceExpertNoteRequestId: input.source_expert_note_request_id,
         requestedOutput: input.requested_output,
         packageIntent: input.package_intent,
-        fullImStudioBaseUrl: input.full_im_studio_base_url,
+        actorRole: isAdmin ? "admin" : "broker",
       },
       userId,
     );
