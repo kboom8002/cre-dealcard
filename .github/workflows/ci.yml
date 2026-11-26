@@ -40,6 +40,9 @@ jobs:
     - name: Migration Policy Scan
       run: node scripts/policy-scan.mjs
 
+    - name: Prompt Hash Staleness Gate
+      run: npx tsx scripts/golden-snapshot/prompt-hash-guard.ts --check
+
     - name: Type Check
       run: |
         npx tsc --noEmit
@@ -167,7 +170,7 @@ jobs:
       run: npm ci
 
     - name: Run PGlite integration tests
-      run: npx vitest run --pool=forks --maxWorkers=2 src/tests/foundations/pglite-*.test.ts src/tests/im-versioning/pglite-versioning-migration.test.ts src/tests/adversarial/m1-pglite-migration-stress.test.ts src/tests/security/wave0c-rls-rpc-lockdown.pglite.test.ts
+      run: npx vitest run --pool=forks --maxWorkers=2 src/tests/foundations/pglite-*.test.ts src/tests/im-versioning/pglite-versioning-migration.test.ts src/tests/adversarial/m1-pglite-migration-stress.test.ts src/tests/security/wave0c-rls-rpc-lockdown.pglite.test.ts src/tests/golden/stateful-cross-surface-oracle.test.ts
       env:
         SHARE_LINK_SECRET: "ci-test-share-link-secret-minimum-32-chars-ok"
         UNSUBSCRIBE_SECRET: "ci-test-unsub-secret-minimum-32-chars-ok"

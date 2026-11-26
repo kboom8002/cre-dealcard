@@ -600,7 +600,12 @@ export function toPublicDealCard(input: ToPublicDealCardInput): PublicDealCard {
     if (normalizedCard4Posture === 'value_add' && (!c4Area || (/연면적/.test(c4Area) && rawLandPyung))) {
       if (rawLandPyung) return `토지면적 ${Math.round(rawLandPyung).toLocaleString()}평`;
     }
-    return c4Area || clean(str(teaserView.bandedArea));
+    if (c4Area) return c4Area;
+    const teaserArea = clean(str(teaserView.bandedArea));
+    if (teaserArea && teaserArea !== '면적 미정') return teaserArea;
+    if (gfaAreaDisplay) return `연면적 ${gfaAreaDisplay}`;
+    if (landAreaDisplay) return `대지면적 ${landAreaDisplay}`;
+    return teaserArea || '면적 미정';
   })();
 
   const dto: PublicDealCard = {

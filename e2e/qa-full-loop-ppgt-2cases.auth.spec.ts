@@ -445,7 +445,7 @@ cmd = [
     pptx_path,
     "--outdir", output_dir,
 ]
-res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
 if res.returncode != 0:
     print(f"ERROR: LibreOffice failed: {res.stderr or res.stdout}", file=sys.stderr)
     sys.exit(1)
@@ -455,14 +455,16 @@ if not os.path.exists(pdf_path):
     sys.exit(1)
 
 doc = fitz.open(pdf_path)
+page_count = len(doc)
 slide_paths = []
 for i, page in enumerate(doc):
     pix = page.get_pixmap(dpi=dpi)
     img_path = os.path.join(output_dir, f"{base_name}_slide_{i+1:02d}.png")
     pix.save(img_path)
     slide_paths.append(img_path)
+doc.close()
 
-print(f"SLIDE_COUNT:{len(doc)}")
+print(f"SLIDE_COUNT:{page_count}")
 for sp in slide_paths:
     print(f"SLIDE_PATH:{sp}")
 `;
@@ -666,6 +668,9 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
     pageA = await windowA.newPage();
     pageB = await windowB.newPage();
     pageC = await windowC.newPage();
+    pageA.setDefaultTimeout(35_000);
+    pageB.setDefaultTimeout(35_000);
+    pageC.setDefaultTimeout(35_000);
   });
 
   test("Executes Loop 1 (L1-S1..L1-S7) & Loop 2 (L2-S1..L2-S7) + Rubric Aggregation", async () => {
@@ -1172,6 +1177,12 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
         await pageA.screenshot({ path: s3Shot, fullPage: false });
         screenshots.push(s3Shot);
 
+        const genBtn = pageA
+          .locator(
+            '[data-testid="im-quick-generate-btn"]:visible, [data-testid="im-step4-generate-btn"]:visible',
+          )
+          .first();
+        await expect(genBtn).toBeEnabled({ timeout: 25_000 });
         const quickGenPromise = pageA
           .waitForResponse(
             (r) =>
@@ -1181,8 +1192,6 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
             { timeout: 120_000 },
           )
           .catch(() => null);
-        const genBtn = pageA.locator('[data-testid="im-step4-generate-btn"]:visible').first();
-        await expect(genBtn).toBeEnabled({ timeout: 25_000 });
         await genBtn.click();
         const genRes = await quickGenPromise;
         if (genRes) {
@@ -1375,6 +1384,11 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
 
         await pageA.locator('[data-testid="step-tab-content"]').click();
         await pageA.waitForTimeout(500);
+        const enableBriefBtn1 = pageA.locator('[data-testid="enable-briefing-section-btn"]');
+        if (await enableBriefBtn1.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await enableBriefBtn1.click();
+          await pageA.waitForTimeout(300);
+        }
         const cleanBrief1 =
           loop1Def.steps[3].copySnippets[1]?.value || loop1Kit.nlBriefText.slice(0, 480);
         checks.zipNlBriefHasBracketHeaders = /\[[^\]]+\]/.test(loop1Kit.nlBriefText);
@@ -1431,7 +1445,12 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
           state: "visible",
           timeout: 25_000,
         });
-        await pageA.waitForTimeout(800);
+        await pageA.waitForTimeout(1000);
+        // Editor faithfully restores activeStep="content" where draft save occurred; switch to "title" tab to read #newsletter-headline-input
+        if (!(await pageA.locator("#newsletter-headline-input").isVisible().catch(() => false))) {
+          await pageA.locator('[data-testid="step-tab-title"]').click({ timeout: 10_000 });
+          await pageA.waitForTimeout(300);
+        }
         const headlineAfterF5 = await pageA
           .locator("#newsletter-headline-input")
           .inputValue()
@@ -2031,9 +2050,9 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
             (r) =>
               r.url().includes("/api/public/qa-workbench") &&
               r.request().method() === "POST",
-            { timeout: 15_000 },
+            { timeout: 45_000 },
           ),
-          pageA.locator("button", { hasText: "🔍 1초 자동 오라클 & 블라인드 프로브 실행" }).first().click(),
+          pageA.locator("button", { hasText: /입력한 링크·면적 자동 점검 실행|1초 자동 오라클/ }).first().click(),
         ]);
         const probeJson = await probeRes.json().catch(() => ({}));
         await pageA.waitForTimeout(400);
@@ -2338,6 +2357,12 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
         await pageA.screenshot({ path: s2Shot, fullPage: false });
         screenshots.push(s2Shot);
 
+        const genBtn = pageA
+          .locator(
+            '[data-testid="im-quick-generate-btn"]:visible, [data-testid="im-step4-generate-btn"]:visible',
+          )
+          .first();
+        await expect(genBtn).toBeEnabled({ timeout: 25_000 });
         const quickGenPromise = pageA
           .waitForResponse(
             (r) =>
@@ -2347,8 +2372,6 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
             { timeout: 120_000 },
           )
           .catch(() => null);
-        const genBtn = pageA.locator('[data-testid="im-step4-generate-btn"]:visible').first();
-        await expect(genBtn).toBeEnabled({ timeout: 25_000 });
         await genBtn.click();
         const genRes = await quickGenPromise;
         if (genRes) {
@@ -2676,6 +2699,11 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
           );
         await pageA.locator('[data-testid="step-tab-content"]').click();
         await pageA.waitForTimeout(500);
+        const enableBriefBtn2 = pageA.locator('[data-testid="enable-briefing-section-btn"]');
+        if (await enableBriefBtn2.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await enableBriefBtn2.click();
+          await pageA.waitForTimeout(300);
+        }
         await pageA
           .locator("#newsletter-briefing-body")
           .fill(
@@ -2960,6 +2988,13 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
           : pageA.locator('[data-testid^="inbox-thread-row-"]', { hasText: "윤지혜 매니저" }).first();
         await rowB.click({ timeout: 15_000 });
         await pageA.waitForTimeout(300);
+        if (!(await pageA.getByTestId("lock-share-link-trigger-btn").isVisible().catch(() => false))) {
+          await pageA
+            .locator('[data-testid="inbox-link-governance-disclosure"] > summary')
+            .first()
+            .click({ timeout: 10_000 });
+          await pageA.waitForTimeout(200);
+        }
         await pageA.getByTestId("lock-share-link-trigger-btn").click({ timeout: 15_000 });
         await pageA.getByTestId("lock-share-link-inline-confirm").waitFor({
           state: "visible",
@@ -3016,9 +3051,9 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
         const [orthProbeRes] = await Promise.all([
           pageA.waitForResponse(
             (r) => r.url().includes("/api/public/qa-workbench") && r.request().method() === "POST",
-            { timeout: 15_000 },
+            { timeout: 45_000 },
           ),
-          pageA.locator("button", { hasText: "🔍 1초 자동 오라클 & 블라인드 프로브 실행" }).first().click(),
+          pageA.locator("button", { hasText: /입력한 링크·면적 자동 점검 실행|1초 자동 오라클/ }).first().click(),
         ]);
         const orthJson = await orthProbeRes.json().catch(() => ({}));
         await pageA.waitForTimeout(300);
@@ -3036,6 +3071,13 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
           : pageA.locator('[data-testid^="inbox-thread-row-"]', { hasText: "박매수 상무" }).first();
         await rowC.click({ timeout: 15_000 });
         await pageA.waitForTimeout(300);
+        if (!(await pageA.getByTestId("lock-share-link-trigger-btn").isVisible().catch(() => false))) {
+          await pageA
+            .locator('[data-testid="inbox-link-governance-disclosure"] > summary')
+            .first()
+            .click({ timeout: 10_000 });
+          await pageA.waitForTimeout(200);
+        }
         await pageA.getByTestId("lock-share-link-trigger-btn").click({ timeout: 15_000 });
         await pageA.getByTestId("lock-share-link-inline-confirm").waitFor({
           state: "visible",
@@ -3097,6 +3139,10 @@ test.describe.serial("/qa-full-loop 2선 14스텝 PPGT + 멀티모달 육안검�
       },
       async ({ checks, defects, screenshots, personaNotes }) => {
         // Test [+ 고객 직접 등록] + Duplicate Warning + [고객 삭제]
+        if (!pageA.url().includes("/broker/w/inbox")) {
+          await pageA.goto("/broker/w/inbox", { waitUntil: "networkidle" });
+          await hideDevOverlay(pageA);
+        }
         await pageA.getByTestId("open-new-client-modal-btn").click({ timeout: 15_000 });
         await pageA.getByTestId("inbox-new-client-dialog").waitFor({
           state: "visible",

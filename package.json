@@ -27,7 +27,13 @@
     "test:flaky-report": "node scripts/flaky-report.mjs",
     "test:all": "vitest run && npx playwright test",
     "preflight": "vitest run src/tests/e2e/preflight-pipeline-audit.test.ts src/tests/e2e/copy-cross-compare.test.ts src/tests/unit/a22-stacking-plan.test.ts && npm run check:schema-drift",
-    "check:schema-drift": "npx tsx scripts/check-schema-drift.ts --strict-magazine"
+    "check:schema-drift": "npx tsx scripts/check-schema-drift.ts --strict-magazine",
+    "golden:fast": "npx tsx scripts/golden-snapshot/prompt-hash-guard.ts --check && vitest run src/tests/golden/fact-oracle.test.ts src/tests/golden/studio-roundtrip-oracle.test.ts src/tests/golden/newsletter-content-oracle.test.ts src/tests/golden/stateful-cross-surface-oracle.test.ts src/tests/golden/ring2-and-ring3-harness.test.ts",
+    "golden:prompt-hash:update": "npx tsx scripts/golden-snapshot/prompt-hash-guard.ts --update",
+    "golden:judge": "npx tsx scripts/golden-snapshot/run-ai-judge.ts",
+    "golden:judge:live": "npx tsx scripts/golden-snapshot/run-ai-judge.ts --with-llm-judge",
+    "golden:canary": "node scripts/golden-snapshot/run-canary-prod.mjs",
+    "golden:canary:dry": "node scripts/golden-snapshot/run-canary-prod.mjs --dry-run"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.73",

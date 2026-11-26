@@ -322,7 +322,8 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
 
     await page.getByTestId('im-slide-preview-09').click();
     await expect(page.getByTestId('im-tab-panel-media-publish')).toBeVisible();
-    await expect(page.getByTestId('im-step4-generate-btn')).toBeVisible();
+    const imQuickGenBtn = page.locator('[data-testid="im-quick-generate-btn"]:visible').first();
+    await expect(imQuickGenBtn).toBeVisible();
     await shot(page, ARTIFACT_DIR, 'sota_06_im_tab4_step4_cta_1440', shotCounter);
 
     // Axis B4: Real Production Quick-Generate + PPTX 4-Fold Binary Assertions
@@ -330,7 +331,7 @@ test.describe.serial('MECE Golden E2E & Visual Audit — IM & Newsletter SOTA Op
       (res) => res.url().includes('/api/broker/im-lite/quick-generate') && res.request().method() === 'POST',
       { timeout: 90_000 }
     );
-    await page.getByTestId('im-step4-generate-btn').click();
+    await imQuickGenBtn.click();
     const quickGenResp = await quickGenRespPromise;
     expect(quickGenResp.ok()).toBe(true);
     const quickGenJson = await quickGenResp.json();
