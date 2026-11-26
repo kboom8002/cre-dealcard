@@ -1,6 +1,6 @@
 {
  "$comment": "운영 PostgREST OpenAPI 스키마 스냅샷(F-01). 스키마 메타데이터만 포함(PII 없음). scripts/schema-snapshot.ts 로 재생성.",
- "generatedAt": "2026-10-10T23:04:32.792Z",
+ "generatedAt": "2026-11-26T01:54:45.250Z",
  "source": "PostgREST OpenAPI /rest/v1/ (service role, read-only)",
  "appliedMigrations": [
   "20261004000001",
@@ -23,6 +23,7 @@
     "actor_id": "uuid",
     "actor_role": "text",
     "broker_id": "uuid",
+    "building_id": "text",
     "building_ssot_lite_id": "uuid",
     "created_at": "timestamp with time zone",
     "entity_id": "uuid",
@@ -211,6 +212,69 @@
     "id"
    ]
   },
+  "availability_slots": {
+   "columns": {
+    "building_id": "uuid",
+    "capacity": "integer",
+    "created_at": "timestamp with time zone",
+    "exact_price": "integer",
+    "held_by": "uuid",
+    "held_until": "timestamp with time zone",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "notes": "text",
+    "owner_id": "uuid",
+    "price_band": "text",
+    "recurrence_rule": "text",
+    "slot_date": "date",
+    "slot_end": "timestamp with time zone",
+    "slot_start": "timestamp with time zone",
+    "slot_type": "text",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "owner_id",
+    "slot_date",
+    "slot_end",
+    "slot_start",
+    "slot_type",
+    "status",
+    "updated_at"
+   ]
+  },
+  "bookings": {
+   "columns": {
+    "booked_by": "uuid",
+    "buyer_intent_id": "uuid",
+    "cancellation_reason": "text",
+    "cancelled_at": "timestamp with time zone",
+    "confirmed_at": "timestamp with time zone",
+    "created_at": "timestamp with time zone",
+    "deposit_amount": "integer",
+    "fit_score": "integer",
+    "gate_request_id": "uuid",
+    "hold_expires_at": "timestamp with time zone",
+    "id": "uuid",
+    "match_result_id": "uuid",
+    "metadata": "jsonb",
+    "quoted_price": "integer",
+    "requester_id": "uuid",
+    "slot_id": "uuid",
+    "status": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "requester_id",
+    "slot_id",
+    "status",
+    "updated_at"
+   ]
+  },
   "broker_circle_members": {
    "columns": {
     "broker_id": "uuid",
@@ -256,29 +320,56 @@
   },
   "broker_clients": {
    "columns": {
+    "bounce_reason": "text",
     "broker_id": "uuid",
+    "budget": "text",
+    "budget_manwon": "bigint",
+    "building_id": "text",
+    "building_title": "text",
+    "client_role": "text",
     "client_type": "text",
     "company": "text",
+    "confirm_token_hash": "text",
+    "consent_source": "text",
+    "consent_status": "text",
+    "consented_at": "timestamp with time zone",
     "created_at": "timestamp with time zone",
+    "crm_status": "text",
     "display_name": "text",
     "email": "text",
+    "email_bounce_reason": "text",
+    "email_bounced_at": "timestamp with time zone",
+    "email_delivery_status": "text",
+    "free_memo": "text",
+    "grade": "text",
     "id": "uuid",
+    "is_vip": "boolean",
     "linked_building_ids": "uuid[]",
     "linked_buyer_intent_ids": "uuid[]",
     "notes": "text",
     "phone": "text",
+    "preferred_region": "text",
+    "preferred_regions": "text[]",
+    "reconfirm_notified_at": "timestamp with time zone",
     "tags": "text[]",
     "tier": "text",
+    "transactional_basis": "text",
+    "unsubscribe_at": "timestamp with time zone",
+    "unsubscribed_at": "timestamp with time zone",
     "updated_at": "timestamp with time zone"
    },
    "required": [
     "broker_id",
     "client_type",
+    "consent_status",
     "created_at",
     "display_name",
+    "email_delivery_status",
     "id",
+    "is_vip",
     "linked_building_ids",
     "linked_buyer_intent_ids",
+    "preferred_regions",
     "tags",
     "tier",
     "updated_at"
@@ -342,6 +433,7 @@
     "pending_magazine_deals": "jsonb",
     "photo_url": "text",
     "preferred_price_range": "text",
+    "representative_name": "text",
     "response_time_hours": "integer",
     "seo_summary": "text",
     "slug": "text",
@@ -368,6 +460,53 @@
     "updated_at",
     "user_id"
    ]
+  },
+  "broker_public_profiles": {
+   "columns": {
+    "association": "text",
+    "avatar_url": "text",
+    "bio": "text",
+    "buyer_types": "text[]",
+    "card_name": "text",
+    "card_title": "text",
+    "career_start_year": "integer",
+    "consult_methods": "text[]",
+    "created_at": "timestamp with time zone",
+    "deal_size_range": "text",
+    "deal_specialty": "text[]",
+    "deal_types_ratio": "jsonb",
+    "faq_items": "jsonb",
+    "fee_policy": "text",
+    "id": "uuid",
+    "is_public": "boolean",
+    "is_verified": "boolean",
+    "kakao_channel": "text",
+    "languages": "text[]",
+    "license_number": "text",
+    "linkedin_url": "text",
+    "logo_company_url": "text",
+    "logo_partner_url": "text",
+    "magazine_cover_image": "text",
+    "name": "text",
+    "naver_blog_url": "text",
+    "office_address": "text",
+    "office_district": "text",
+    "office_dong": "text[]",
+    "office_reg_number": "text",
+    "photo_url": "text",
+    "preferred_price_range": "text",
+    "representative_name": "text",
+    "response_time_hours": "integer",
+    "seo_summary": "text",
+    "slug": "text",
+    "specialty_assets": "text[]",
+    "specialty_regions": "text[]",
+    "total_deal_count_self": "integer",
+    "updated_at": "timestamp with time zone",
+    "vibe_template_id": "text",
+    "vibe_vti": "text",
+    "youtube_url": "text"
+   }
   },
   "broker_sentiment_stats": {
    "columns": {
@@ -534,6 +673,7 @@
     "layers": "jsonb",
     "matched_buyer_count": "integer",
     "owner_id": "uuid",
+    "pnu": "text",
     "price_band": "text",
     "promotion_score": "numeric",
     "promotion_updated_at": "timestamp with time zone",
@@ -1117,20 +1257,32 @@
     "broker_id": "uuid",
     "building_id": "uuid",
     "content": "jsonb",
+    "content_hash": "text",
     "created_at": "timestamp with time zone",
+    "doc_hash": "text",
     "document_type": "text",
+    "generation_job_id": "text",
     "id": "uuid",
+    "input_snapshot_id": "uuid",
+    "label": "text",
     "markdown": "text",
     "model_version": "text",
+    "origin": "text",
     "owner_id": "uuid",
+    "parent_version_id": "uuid",
     "prompt_version": "text",
+    "seal_hash": "text",
+    "sealed_at": "timestamp with time zone",
+    "series_id": "uuid",
     "slug": "text",
     "source_id": "uuid",
     "source_refs": "jsonb",
     "source_type": "text",
     "status": "text",
+    "superseded_by": "uuid",
     "title": "text",
     "updated_at": "timestamp with time zone",
+    "version_no": "integer",
     "visibility": "text"
    },
    "required": [
@@ -1143,6 +1295,25 @@
     "status",
     "updated_at",
     "visibility"
+   ]
+  },
+  "email_suppressions": {
+   "columns": {
+    "broker_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "email_hash": "text",
+    "id": "uuid",
+    "reason": "text",
+    "scope": "text",
+    "source": "text"
+   },
+   "required": [
+    "created_at",
+    "email_hash",
+    "id",
+    "reason",
+    "scope",
+    "source"
    ]
   },
   "energy_ratings": {
@@ -1222,6 +1393,8 @@
     "longitude": "double precision",
     "official_land_price": "jsonb",
     "pnu": "text",
+    "registry_data": "jsonb",
+    "registry_fetched_at": "timestamp with time zone",
     "road_address": "text",
     "transactions_fetched_at": "timestamp with time zone",
     "updated_at": "timestamp with time zone"
@@ -1298,6 +1471,22 @@
     "source",
     "transaction_date",
     "transaction_price"
+   ]
+  },
+  "feature_flags": {
+   "columns": {
+    "allow_user_ids": "text[]",
+    "enabled": "boolean",
+    "key": "text",
+    "rollout_pct": "integer",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "allow_user_ids",
+    "enabled",
+    "key",
+    "rollout_pct",
+    "updated_at"
    ]
   },
   "full_im_handoffs": {
@@ -1517,6 +1706,52 @@
     "warnings"
    ]
   },
+  "im_approvals": {
+   "columns": {
+    "actor_id": "uuid",
+    "approved_at": "timestamp with time zone",
+    "approved_by": "text",
+    "content_hash": "text",
+    "created_at": "timestamp with time zone",
+    "doc_hash": "text",
+    "event": "text",
+    "gate_result": "jsonb",
+    "id": "uuid",
+    "notes": "text",
+    "policy_version": "text",
+    "reason": "text",
+    "release_tier": "text",
+    "series_id": "uuid",
+    "target_hash": "text",
+    "version_id": "uuid",
+    "version_no": "integer"
+   },
+   "required": [
+    "approved_at",
+    "created_at",
+    "event",
+    "id",
+    "policy_version",
+    "release_tier",
+    "version_id"
+   ]
+  },
+  "im_documents": {
+   "columns": {
+    "building_id": "text",
+    "content": "text",
+    "created_at": "timestamp with time zone",
+    "embedding": "public.vector(1536)",
+    "id": "uuid",
+    "metadata": "jsonb",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "building_id",
+    "content",
+    "id"
+   ]
+  },
   "im_edit_diffs": {
    "columns": {
     "broker_id": "uuid",
@@ -1559,19 +1794,41 @@
   },
   "im_generation_jobs": {
    "columns": {
+    "attempt": "integer",
     "building_id": "text",
+    "cancel_requested": "boolean",
     "completed_at": "timestamp with time zone",
+    "cost_usd": "numeric",
     "created_at": "timestamp with time zone",
+    "deadline_at": "timestamp with time zone",
+    "error": "text",
+    "error_class": "text",
+    "heartbeat_at": "timestamp with time zone",
     "id": "text",
+    "idempotency_key": "text",
     "input_payload": "jsonb",
+    "llm_calls": "integer",
+    "max_attempts": "integer",
+    "owner_id": "uuid",
+    "progress": "integer",
     "result": "jsonb",
+    "stage": "text",
+    "started_at": "timestamp with time zone",
     "status": "text",
+    "tokens": "integer",
     "user_id": "uuid"
    },
    "required": [
+    "attempt",
     "building_id",
+    "cancel_requested",
     "id",
+    "llm_calls",
+    "max_attempts",
+    "progress",
+    "stage",
     "status",
+    "tokens",
     "user_id"
    ]
   },
@@ -1611,6 +1868,29 @@
     "source_type"
    ]
   },
+  "im_input_snapshots": {
+   "columns": {
+    "building_id": "uuid",
+    "building_state": "jsonb",
+    "code_version": "text",
+    "created_at": "timestamp with time zone",
+    "external_refs": "jsonb",
+    "id": "uuid",
+    "input_hash": "text",
+    "model_version": "text",
+    "policy_version": "text",
+    "prompt_version": "text",
+    "request": "jsonb",
+    "series_id": "uuid",
+    "version_no": "integer"
+   },
+   "required": [
+    "building_state",
+    "created_at",
+    "id",
+    "request"
+   ]
+  },
   "im_inquiry_requests": {
    "columns": {
     "broker_user_id": "text",
@@ -1619,6 +1899,8 @@
     "doc_id": "text",
     "id": "uuid",
     "message": "text",
+    "notification_sent": "boolean",
+    "requester_company": "text",
     "requester_email": "text",
     "requester_name": "text",
     "requester_phone": "text",
@@ -1631,6 +1913,7 @@
     "broker_user_id",
     "building_id",
     "id",
+    "notification_sent",
     "requester_name",
     "requester_phone"
    ]
@@ -1639,18 +1922,23 @@
    "columns": {
     "created_at": "timestamp with time zone",
     "deal_id": "uuid",
+    "download_count": "integer",
     "expires_at": "timestamp with time zone",
     "id": "uuid",
+    "max_downloads": "integer",
     "nda_signed_at": "timestamp with time zone",
     "requester_email": "character varying",
     "requester_name": "character varying",
     "requester_phone": "character varying",
     "status": "character varying",
+    "version_id": "uuid",
     "watermark_seed": "character varying"
    },
    "required": [
     "created_at",
+    "download_count",
     "id",
+    "max_downloads",
     "requester_name",
     "requester_phone",
     "status"
@@ -1688,6 +1976,106 @@
     "updated_at"
    ]
   },
+  "im_renditions": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "file_path": "text",
+    "file_sha256": "text",
+    "format": "text",
+    "id": "uuid",
+    "preset": "text",
+    "renderer_version": "text",
+    "rendition_type": "text",
+    "series_id": "uuid",
+    "storage_path": "text",
+    "theme": "text",
+    "version_id": "uuid",
+    "version_no": "integer"
+   },
+   "required": [
+    "created_at",
+    "file_sha256",
+    "format",
+    "id",
+    "rendition_type",
+    "version_id"
+   ]
+  },
+  "im_series": {
+   "columns": {
+    "archived_at": "timestamp with time zone",
+    "audience_note": "text",
+    "building_id": "uuid",
+    "created_at": "timestamp with time zone",
+    "current_draft_version_id": "uuid",
+    "default_preset": "text",
+    "id": "uuid",
+    "label": "text",
+    "latest_approved_version_id": "uuid",
+    "latest_approved_version_no": "integer",
+    "latest_version_no": "integer",
+    "owner_id": "uuid",
+    "published_version_id": "uuid",
+    "purpose": "text",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "building_id",
+    "created_at",
+    "id",
+    "latest_version_no",
+    "purpose",
+    "updated_at"
+   ]
+  },
+  "im_share_links": {
+   "columns": {
+    "broker_id": "uuid",
+    "building_id": "text",
+    "channel": "text",
+    "created_at": "timestamp with time zone",
+    "created_by": "uuid",
+    "expires_at": "timestamp with time zone",
+    "kind": "text",
+    "mode": "text",
+    "pinned_version_no": "integer",
+    "recipient_id": "text",
+    "revoked_at": "timestamp with time zone",
+    "revoked_reason": "text",
+    "series_id": "uuid",
+    "status": "text",
+    "token": "text",
+    "version_id": "uuid",
+    "watermark_policy": "text",
+    "workspace_item_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "mode",
+    "status",
+    "token"
+   ]
+  },
+  "im_studio_states": {
+   "columns": {
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "lock_version": "integer",
+    "series_id": "uuid",
+    "slides": "jsonb",
+    "state": "jsonb",
+    "updated_at": "timestamp with time zone",
+    "version_id": "uuid"
+   },
+   "required": [
+    "created_at",
+    "id",
+    "lock_version",
+    "state",
+    "updated_at",
+    "version_id"
+   ]
+  },
   "im_terminology_rules": {
    "columns": {
     "category": "text",
@@ -1708,6 +2096,30 @@
     "id",
     "pattern",
     "replacement"
+   ]
+  },
+  "in_app_notifications": {
+   "columns": {
+    "body": "text",
+    "created_at": "timestamp with time zone",
+    "id": "uuid",
+    "is_read": "boolean",
+    "link": "text",
+    "metadata": "jsonb",
+    "read_at": "timestamp with time zone",
+    "title": "text",
+    "type": "text",
+    "user_id": "uuid"
+   },
+   "required": [
+    "body",
+    "created_at",
+    "id",
+    "is_read",
+    "metadata",
+    "title",
+    "type",
+    "user_id"
    ]
   },
   "inquiry_qualifications": {
@@ -1784,6 +2196,50 @@
     "metric_type",
     "recorded_at",
     "value"
+   ]
+  },
+  "jobs_v2": {
+   "columns": {
+    "attempt": "integer",
+    "building_id": "uuid",
+    "cancel_requested": "boolean",
+    "completed_at": "timestamp with time zone",
+    "cost_usd": "numeric",
+    "created_at": "timestamp with time zone",
+    "deadline_at": "timestamp with time zone",
+    "error": "text",
+    "error_class": "text",
+    "heartbeat_at": "timestamp with time zone",
+    "id": "text",
+    "idempotency_key": "text",
+    "input_payload": "jsonb",
+    "job_type": "text",
+    "llm_calls": "integer",
+    "max_attempts": "integer",
+    "output_payload": "jsonb",
+    "owner_id": "uuid",
+    "progress": "integer",
+    "stage": "text",
+    "started_at": "timestamp with time zone",
+    "status": "text",
+    "tokens": "integer",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "attempt",
+    "cancel_requested",
+    "created_at",
+    "id",
+    "input_payload",
+    "job_type",
+    "llm_calls",
+    "max_attempts",
+    "output_payload",
+    "progress",
+    "stage",
+    "status",
+    "tokens",
+    "updated_at"
    ]
   },
   "knowledge_edges": {
@@ -2118,6 +2574,7 @@
   },
   "magazine_dispatch_logs": {
    "columns": {
+    "attempt_count": "integer",
     "blocked_reason": "text",
     "broker_id": "text",
     "broker_user_id": "uuid",
@@ -2125,15 +2582,21 @@
     "created_at": "timestamp with time zone",
     "edition_id": "text",
     "error": "text",
+    "error_reason": "text",
     "id": "uuid",
     "idempotency_key": "text",
     "kind": "text",
+    "next_attempt_at": "timestamp with time zone",
+    "payload": "jsonb",
     "provider_msg_id": "text",
+    "queued_at": "timestamp with time zone",
     "recipient_hash": "text",
     "status": "text",
-    "subscriber_id": "uuid"
+    "subscriber_id": "uuid",
+    "updated_at": "timestamp with time zone"
    },
    "required": [
+    "attempt_count",
     "broker_id",
     "channel",
     "created_at",
@@ -2244,6 +2707,7 @@
     "auto_send": "boolean",
     "broker_slug": "text",
     "broker_user_id": "uuid",
+    "editor_mode": "text",
     "send_day": "text",
     "send_hour_kst": "integer",
     "theme_color": "text",
@@ -2253,6 +2717,7 @@
    "required": [
     "auto_send",
     "broker_user_id",
+    "editor_mode",
     "send_day",
     "send_hour_kst",
     "updated_at"
@@ -2269,16 +2734,24 @@
     "confirm_token_hash": "text",
     "consent_channel": "text",
     "consent_ip_hash": "text",
+    "consent_source": "text",
+    "consent_status": "text",
     "consent_version": "text",
+    "consented_at": "timestamp with time zone",
     "created_at": "timestamp with time zone",
+    "email_bounce_reason": "text",
+    "email_bounced_at": "timestamp with time zone",
+    "email_delivery_status": "text",
     "id": "uuid",
     "interest_profile": "jsonb",
+    "interest_tags": "text[]",
     "marketing_consent_at": "timestamp with time zone",
     "metadata": "jsonb",
     "night_consent": "boolean",
     "phone_e164": "text",
     "privacy_consent_at": "timestamp with time zone",
     "reconfirm_due_at": "timestamp with time zone",
+    "reconfirm_notified_at": "timestamp with time zone",
     "segment": "text",
     "source": "text",
     "status": "text",
@@ -2293,7 +2766,9 @@
     "broker_id",
     "channel",
     "confirm_status",
+    "consent_status",
     "created_at",
+    "email_delivery_status",
     "id",
     "night_consent",
     "status"
@@ -2557,6 +3032,32 @@
     "space_id"
    ]
   },
+  "party": {
+   "columns": {
+    "consent_at": "timestamp with time zone",
+    "consent_version": "text",
+    "created_at": "timestamp with time zone",
+    "email": "text",
+    "entity_type": "text",
+    "id": "uuid",
+    "name": "text",
+    "owner_broker_id": "uuid",
+    "phone_e164": "text",
+    "retention_until": "date",
+    "tenant_id": "uuid"
+   },
+   "required": [
+    "consent_at",
+    "consent_version",
+    "created_at",
+    "id",
+    "name",
+    "owner_broker_id",
+    "phone_e164",
+    "retention_until",
+    "tenant_id"
+   ]
+  },
   "pipeline_stage_transitions": {
    "columns": {
     "broker_id": "uuid",
@@ -2712,6 +3213,20 @@
     "updated_at"
    ]
   },
+  "rate_limit_counters": {
+   "columns": {
+    "bucket_key": "text",
+    "hit_count": "integer",
+    "reset_at": "timestamp with time zone",
+    "updated_at": "timestamp with time zone"
+   },
+   "required": [
+    "bucket_key",
+    "hit_count",
+    "reset_at",
+    "updated_at"
+   ]
+  },
   "rental_market_data": {
    "columns": {
     "building_type": "text",
@@ -2840,6 +3355,33 @@
     "service_card_id",
     "status",
     "updated_at"
+   ]
+  },
+  "share_link": {
+   "columns": {
+    "broker_id": "uuid",
+    "contaminated": "boolean",
+    "created_at": "timestamp with time zone",
+    "deal_id": "uuid",
+    "deal_version": "integer",
+    "distinct_viewers": "integer",
+    "expires_at": "timestamp with time zone",
+    "recipient_id": "uuid",
+    "revoked_at": "timestamp with time zone",
+    "tenant_id": "uuid",
+    "tier": "text",
+    "token": "text"
+   },
+   "required": [
+    "broker_id",
+    "contaminated",
+    "created_at",
+    "deal_id",
+    "deal_version",
+    "distinct_viewers",
+    "tenant_id",
+    "tier",
+    "token"
    ]
   },
   "share_pages": {
@@ -3099,6 +3641,7 @@
     "current_period_end": "timestamp with time zone",
     "current_period_start": "timestamp with time zone",
     "id": "uuid",
+    "monthly_dealcard_limit": "integer",
     "status": "text",
     "tier": "text",
     "updated_at": "timestamp with time zone",
@@ -3316,6 +3859,41 @@
     "storage_path"
    ]
   },
+  "workspace_items": {
+   "columns": {
+    "address": "text",
+    "building_id": "uuid",
+    "correction_notice": "jsonb",
+    "created_at": "timestamp with time zone",
+    "deleted_at": "timestamp with time zone",
+    "doc_hash": "text",
+    "draft_payload": "jsonb",
+    "id": "uuid",
+    "kind": "text",
+    "legacy_id": "text",
+    "owner_id": "uuid",
+    "price_band": "text",
+    "published_at": "timestamp with time zone",
+    "published_snapshot": "jsonb",
+    "revoked_at": "timestamp with time zone",
+    "status": "text",
+    "title": "text",
+    "updated_at": "timestamp with time zone",
+    "version": "integer"
+   },
+   "required": [
+    "address",
+    "created_at",
+    "draft_payload",
+    "id",
+    "kind",
+    "owner_id",
+    "status",
+    "title",
+    "updated_at",
+    "version"
+   ]
+  },
   "youtube_trends": {
    "columns": {
     "channel_title": "text",
@@ -3358,7 +3936,36 @@
    "p_snippet",
    "p_user_id"
   ],
+  "approve_im_version": [
+   "p_actor_id",
+   "p_expected_content_hash",
+   "p_notes",
+   "p_release_tier",
+   "p_version_id"
+  ],
+  "check_distributed_rate_limit": [
+   "p_bucket_key",
+   "p_max_requests",
+   "p_window_seconds"
+  ],
+  "consume_im_pro_grant_download": [
+   "p_default_max",
+   "p_grant_id"
+  ],
+  "create_im_version": [
+   "p_body",
+   "p_broker_id",
+   "p_origin",
+   "p_series_id",
+   "p_title"
+  ],
   "expire_stale_handoffs": [],
+  "get_monthly_regional_tx_stats": [
+   "p_anchor_ym",
+   "p_district_keywords",
+   "p_months",
+   "p_sigungu_codes"
+  ],
   "increment_edition_views": [
    "edition_id"
   ],
@@ -3386,6 +3993,17 @@
    "p_max",
    "p_window_seconds"
   ],
-  "my_active_circle_ids": []
+  "match_im_documents": [
+   "filter_asset_type",
+   "filter_posture",
+   "filter_region",
+   "match_count",
+   "query_embedding",
+   "query_text"
+  ],
+  "my_active_circle_ids": [],
+  "seal_im_version": [
+   "p_version_id"
+  ]
  }
 }
