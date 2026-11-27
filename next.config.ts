@@ -71,6 +71,18 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 3600,
+    localPatterns: [
+      {
+        pathname: "/api/public/map/static",
+      },
+      {
+        pathname: "/api/og/**",
+      },
+      {
+        pathname: "/**",
+        search: "",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",

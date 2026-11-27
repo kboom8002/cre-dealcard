@@ -7,9 +7,11 @@ import {
   getBuildStampInfo,
 } from "@/lib/qa/build-stamp";
 import {
+  QA_SIGNOFF_SESSION_STORAGE_KEY,
   buildQaAuthHeaders,
   getQaSignoffHrefForRole,
   getStoredQaAccessKey,
+  resolveBrokerCohortSessionIds,
   resolveQaPortalRole,
   syncQaKeyFromSearchParams,
   type QaPortalRole,
@@ -30,7 +32,6 @@ export interface QaFeedbackPinWidgetProps {
 export const QA_MODE_SESSION_STORAGE_KEY = "credeal_qa_mode";
 const QA_PIN_ACTIVE_STORAGE_KEY = "credeal-qa-pin-active";
 const QA_PIN_ROLE_STORAGE_KEY = "credeal-qa-pin-role";
-const QA_SIGNOFF_SESSION_STORAGE_KEY = "credeal-qa-signoff-session-v1";
 const MAX_SCREENSHOT_DATA_URL_CHARS = 140_000;
 
 /**
@@ -376,9 +377,20 @@ export function QaFeedbackPinWidget({
       : null;
 
   const [severity, setSeverity] = useState<QaPinSeverity>("major");
-  const [authorRole, setAuthorRole] = useState<QaPinAuthorRole>(
-    lockedRole ?? "tester"
-  );
+  const [authorRole, setAuthorRole] = useState<QaPinAuthorRole>(() => {
+    if (lockedRole) return lockedRole;
+    if (typeof window !== "undefined") {
+      try {
+        const savedRole = window.localStorage.getItem(QA_PIN_ROLE_STORAGE_KEY);
+        if (savedRole === "broker" || savedRole === "tester") {
+          return savedRole;
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+    return "tester";
+  });
   const effectiveAuthorRole: QaPinAuthorRole = lockedRole ?? authorRole;
   const [pinMode, setPinMode] = useState<QaPinMode>("issue");
   const [originalText, setOriginalText] = useState("");
@@ -403,6 +415,7 @@ export function QaFeedbackPinWidget({
     return () => window.removeEventListener("keydown", handleEsc);
   }, [zoomOpen]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     syncQaKeyFromSearchParams(searchParams, resolvedPortalRole);
     const fromHook = searchParams?.get("qa");
@@ -421,15 +434,6 @@ export function QaFeedbackPinWidget({
         return false;
       }
     };
-
-    try {
-      const savedRole = window.localStorage.getItem(QA_PIN_ROLE_STORAGE_KEY);
-      if (savedRole === "broker" || savedRole === "tester") {
-        setAuthorRole(savedRole);
-      }
-    } catch {
-      // ignore storage errors
-    }
 
     if (forceVisible) {
       setEnabled(true);
@@ -594,6 +598,7 @@ export function QaFeedbackPinWidget({
       setDockedOff(false);
     }
   }, [forceVisible, pathname, requireExplicitQueryParam, resolvedPortalRole, searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!isPicking) return;
@@ -713,7 +718,7 @@ export function QaFeedbackPinWidget({
       lockedRole === "tester"
         ? "qa-signoff-tester-r2"
         : lockedRole === "broker"
-        ? "qa-signoff-broker"
+        ? resolveBrokerCohortSessionIds().signoffSessionId
         : "qa-pin-global";
     try {
       const saved = window.localStorage.getItem(QA_SIGNOFF_SESSION_STORAGE_KEY);

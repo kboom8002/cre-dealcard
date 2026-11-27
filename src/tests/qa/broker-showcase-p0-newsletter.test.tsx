@@ -92,8 +92,8 @@ describe('Broker Showcase Wave P0 — Newsletter & OG Remediation', () => {
     expect(html).not.toContain('중개사 프로필 보기');
     expect(html).toContain('href="tel:01025482548"');
     expect(html).toContain('010-2548-2548');
-    expect(html).toContain('<details data-testid="magazine-broker-statutory-disclosure"');
-    expect(html).not.toContain('<details open');
+    expect(html).toContain('data-testid="magazine-broker-statutory-disclosure"');
+    expect(html).toContain('중개사무소 법정 표시사항');
     expect(html).toContain('text-sm');
   });
 

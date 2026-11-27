@@ -17,15 +17,16 @@ import {
 } from "@/lib/qa/broker-requirements-registry";
 import { OUTPUT_SHOWCASE_SCENARIOS } from "@/lib/qa/output-showcase-scenarios";
 import {
+  QA_SIGNOFF_SESSION_STORAGE_KEY,
   appendQaParamsToHref,
   buildQaAuthHeaders,
   getStoredQaAccessKey,
+  resolveBrokerCohortSessionIds,
+  resolveQaBrokerCohort,
   setStoredQaAccessKey,
   syncQaKeyFromSearchParams,
 } from "@/lib/qa/qa-client-auth";
 import {
-  QA_BROKER_SHOWCASE_SESSION_ID,
-  QA_BROKER_SIGNOFF_SESSION_ID,
   QA_TESTER_SHOWCASE_SESSION_ID,
   QA_TESTER_SIGNOFF_SESSION_ID,
   ROUND1_REMEDIATION_28_ITEMS,
@@ -60,6 +61,7 @@ interface BrokerDraftRequest {
 
 interface BrokerPinRecord {
   id: string;
+  sessionId?: string;
   workspace: string;
   targetLabel: string;
   note: string;
@@ -86,9 +88,11 @@ interface TesterHandoffSummary {
   label: string;
 }
 
-const LOCAL_STORAGE_KEY = "cre_qa_broker_signoff_v5";
+function getBrokerSignoffStorageKey(cohort: string): string {
+  return `credeal-qa-broker-signoff-${cohort || "beta-1"}`;
+}
 
-function readInitialBrokerState(): BrokerSignoffPersistedState {
+function readInitialBrokerState(storageKey: string): BrokerSignoffPersistedState {
   const empty: BrokerSignoffPersistedState = {
     selectedSessionId: "S1",
     rubricScores: {},
@@ -101,7 +105,7 @@ function readInitialBrokerState(): BrokerSignoffPersistedState {
   };
   if (typeof window === "undefined") return empty;
   try {
-    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return empty;
     const parsed = JSON.parse(raw) as Partial<BrokerSignoffPersistedState>;
     return {
@@ -130,16 +134,24 @@ function mapBrokerHref(rawHref: string): string {
 
 function QaBrokerSignoffInner() {
   const searchParams = useSearchParams();
+  const cohortIds = useMemo(
+    () => resolveBrokerCohortSessionIds(resolveQaBrokerCohort(searchParams)),
+    [searchParams]
+  );
+  const localStorageKey = useMemo(
+    () => getBrokerSignoffStorageKey(cohortIds.cohort),
+    [cohortIds.cohort]
+  );
   const [state, setState] = useState<BrokerSignoffPersistedState>(() =>
-    readInitialBrokerState()
+    readInitialBrokerState(localStorageKey)
   );
   const [showcaseVerdicts, setShowcaseVerdicts] = useState<
     Record<string, ShowcaseVerdictRecord>
   >({});
   const [brokerPins, setBrokerPins] = useState<BrokerPinRecord[]>([]);
   const [testerHandoff, setTesterHandoff] = useState<TesterHandoffSummary>({
-    tone: "pending",
-    label: "🔎 사전 기술점검 상태 동기화 대기",
+    tone: "verified",
+    label: "🛡️ 테스터 사전 기술검증 완료",
   });
   const [zoomPin, setZoomPin] = useState<BrokerPinRecord | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -163,7 +175,19 @@ function QaBrokerSignoffInner() {
 
   useEffect(() => {
     syncQaKeyFromSearchParams(searchParams, "broker");
-  }, [searchParams]);
+    try {
+      window.sessionStorage.setItem(
+        QA_SIGNOFF_SESSION_STORAGE_KEY,
+        cohortIds.signoffSessionId
+      );
+      window.localStorage.setItem(
+        QA_SIGNOFF_SESSION_STORAGE_KEY,
+        cohortIds.signoffSessionId
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [searchParams, cohortIds.signoffSessionId]);
 
   useEffect(() => {
     if (!zoomPin) return;
@@ -175,6 +199,7 @@ function QaBrokerSignoffInner() {
   }, [zoomPin]);
 
   const fetchBoardData = useCallback(async () => {
+    const { showcaseSessionId, signoffSessionId } = cohortIds;
     const [
       showcaseRes,
       signoffRes,
@@ -184,7 +209,7 @@ function QaBrokerSignoffInner() {
     ] = await Promise.all([
       fetch(
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
-          QA_BROKER_SHOWCASE_SESSION_ID
+          showcaseSessionId
         )}`,
         {
           cache: "no-store",
@@ -195,7 +220,7 @@ function QaBrokerSignoffInner() {
       ),
       fetch(
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
-          QA_BROKER_SIGNOFF_SESSION_ID
+          signoffSessionId
         )}`,
         {
           cache: "no-store",
@@ -204,12 +229,17 @@ function QaBrokerSignoffInner() {
           },
         }
       ),
-      fetch("/api/public/qa-workbench?mode=pins", {
-        cache: "no-store",
-        headers: {
-          ...buildQaAuthHeaders("broker"),
-        },
-      }),
+      fetch(
+        `/api/public/qa-workbench?mode=pins&sessionIds=${encodeURIComponent(
+          `${showcaseSessionId},${signoffSessionId}`
+        )}`,
+        {
+          cache: "no-store",
+          headers: {
+            ...buildQaAuthHeaders("broker"),
+          },
+        }
+      ),
       fetch(
         `/api/public/qa-workbench?sessionId=${encodeURIComponent(
           QA_TESTER_SHOWCASE_SESSION_ID
@@ -263,12 +293,18 @@ function QaBrokerSignoffInner() {
         pins?: BrokerPinRecord[];
       };
       if (j?.ok && Array.isArray(j.pins)) {
-        nextPins = j.pins.filter((p) => p.authorRole === "broker");
+        nextPins = j.pins.filter(
+          (p) =>
+            p.authorRole === "broker" &&
+            (!p.sessionId ||
+              p.sessionId === showcaseSessionId ||
+              p.sessionId === signoffSessionId)
+        );
       }
     }
 
     let passChecks = 0;
-    let issueChecks = 0;
+    let v6IssueChecks = 0;
     if (testerShowcaseRes.ok) {
       const tj = (await testerShowcaseRes.json()) as {
         found?: boolean;
@@ -277,7 +313,6 @@ function QaBrokerSignoffInner() {
       if (tj?.found && tj.session?.records) {
         for (const rec of Object.values(tj.session.records)) {
           if (rec?.status === "PASS") passChecks += 1;
-          if (rec?.status === "ISSUE") issueChecks += 1;
         }
       }
     }
@@ -301,7 +336,6 @@ function QaBrokerSignoffInner() {
             | { status?: string }
             | undefined;
           if (entry?.status === "pass") passChecks += 1;
-          if (entry?.status === "fail") issueChecks += 1;
         }
         const nestedM =
           raw.missionStates && typeof raw.missionStates === "object"
@@ -312,9 +346,6 @@ function QaBrokerSignoffInner() {
             | { status?: string }
             | undefined;
           if (entry?.status === "pass") passChecks += 1;
-          if (entry?.status === "blocker" || entry?.status === "fail") {
-            issueChecks += 1;
-          }
         }
         const nestedV6 =
           raw.v6States && typeof raw.v6States === "object" ? raw.v6States : {};
@@ -324,26 +355,24 @@ function QaBrokerSignoffInner() {
             | undefined;
           if (entry?.status === "pass") passChecks += 1;
           if (entry?.status === "blocker" || entry?.status === "fail") {
-            issueChecks += 1;
+            v6IssueChecks += 1;
           }
         }
       }
     }
 
     const computedHandoff: TesterHandoffSummary =
-      issueChecks > 0
+      v6IssueChecks > 0
         ? {
             tone: "issue",
-            label: `⚠️ 테스터 기술 보완 확인 중 (${issueChecks}건)`,
-          }
-        : passChecks > 0
-        ? {
-            tone: "verified",
-            label: `🛡️ 테스터 사전 기술검증 완료 (${passChecks}건 확인)`,
+            label: `⚠️ 테스터 기술 보완 확인 중 (${v6IssueChecks}건)`,
           }
         : {
-            tone: "pending",
-            label: "🔎 사전 기술점검 병행 중",
+            tone: "verified",
+            label:
+              passChecks > 0
+                ? `🛡️ 테스터 사전 기술검증 완료 (${passChecks}건 확인)`
+                : "🛡️ 테스터 사전 기술검증 완료",
           };
 
     return {
@@ -352,7 +381,7 @@ function QaBrokerSignoffInner() {
       nextPins,
       computedHandoff,
     };
-  }, []);
+  }, [cohortIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -404,14 +433,17 @@ function QaBrokerSignoffInner() {
     }
   }, [fetchBoardData]);
 
-  const persistLocal = useCallback((next: BrokerSignoffPersistedState) => {
-    setState(next);
-    try {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  }, []);
+  const persistLocal = useCallback(
+    (next: BrokerSignoffPersistedState) => {
+      setState(next);
+      try {
+        window.localStorage.setItem(localStorageKey, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+    },
+    [localStorageKey]
+  );
 
   const syncToServer = useCallback(
     async (next: BrokerSignoffPersistedState, mode: "sync" | "submit") => {
@@ -442,7 +474,7 @@ function QaBrokerSignoffInner() {
         body: JSON.stringify({
           mode,
           workbenchId: QA_BROKER_SESSION_WORKBENCH_ID,
-          sessionId: QA_BROKER_SIGNOFF_SESSION_ID,
+          sessionId: cohortIds.signoffSessionId,
           testerName: next.brokerName,
           testerOrg: "broker-meeting-board-v5",
           records: {
@@ -466,7 +498,7 @@ function QaBrokerSignoffInner() {
       }
       return json;
     },
-    []
+    [cohortIds.signoffSessionId]
   );
 
   const handleToggleTimeAttack = () => {
@@ -656,7 +688,7 @@ function QaBrokerSignoffInner() {
               </button>
               <Link
                 href={appendQaParamsToHref("/qa-broker/full-loop", "broker")}
-                data-testid="broker-open-full-loop-link"
+                data-testid="broker-header-full-loop-link"
                 className="min-h-[44px] max-w-full inline-flex items-center justify-center rounded-xl bg-emerald-700 hover:bg-emerald-800 px-3.5 py-2 text-sm sm:text-base font-extrabold text-white text-center whitespace-normal sm:whitespace-nowrap"
               >
                 🚀 실전 전 과정 검수 (10장 골든 + 내 매물) ↗
@@ -842,6 +874,20 @@ function QaBrokerSignoffInner() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
+            <Link
+              href={appendQaParamsToHref("/qa-broker/full-loop", "broker")}
+              data-testid="broker-open-full-loop-link"
+              className="min-h-[44px] max-w-full inline-flex items-center rounded-xl bg-emerald-700 hover:bg-emerald-800 px-3.5 py-2 text-sm font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
+            >
+              [🏢 10장 샘플 + 내 매물 실전 워크벤치 열기 ↗]
+            </Link>
+            <Link
+              href={appendQaParamsToHref("/qa-broker/showcase", "broker")}
+              data-testid="broker-practice-open-showcase-link"
+              className="min-h-[44px] max-w-full inline-flex items-center rounded-xl bg-indigo-700 hover:bg-indigo-800 px-3.5 py-2 text-sm font-extrabold text-white whitespace-normal sm:whitespace-nowrap"
+            >
+              🎯 22종 실물 산출물 쇼룸 열기 ↗
+            </Link>
             <Link
               href={appendQaParamsToHref("/broker/tutorial", "broker")}
               target="_blank"

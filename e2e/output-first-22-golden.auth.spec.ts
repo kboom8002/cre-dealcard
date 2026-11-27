@@ -275,11 +275,13 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
     for (const scenario of DEALCARD_SHOWCASE_8) {
       console.log(`\n📌 [Stage A] ${scenario.id} — ${scenario.title}`);
 
+      const cleanDeliverableTitle =
+        scenario.deliverableTitle?.trim() || scenario.title;
       const genRes = await page.request.post("/api/broker/im-lite/quick-generate", {
         data: {
           buildingId: scenario.buildingId,
-          title: scenario.title,
-          buildingName: scenario.title,
+          title: cleanDeliverableTitle,
+          buildingName: cleanDeliverableTitle,
           address: scenario.address,
           askingPriceManwon: scenario.askingPriceManwon,
           ...(typeof scenario.landAreaSqm === "number"
@@ -346,18 +348,24 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
         `/api/broker/deal-card/${buildingId}`,
         { data: { card4: mergedCard4 } }
       );
+      const patchErrBody = patchRes.ok()
+        ? ""
+        : await patchRes.text().catch(() => "");
       expect(
         patchRes.ok(),
-        `${scenario.id} PATCH deal-card status=${patchRes.status()}`
+        `${scenario.id} PATCH deal-card status=${patchRes.status()} body=${patchErrBody}`
       ).toBe(true);
 
       const pubRes = await page.request.post(
         `/api/broker/dealcards/${buildingId}/publish`,
         { data: {} }
       );
+      const pubErrBody = pubRes.ok()
+        ? ""
+        : await pubRes.text().catch(() => "");
       expect(
         pubRes.ok(),
-        `${scenario.id} publish status=${pubRes.status()}`
+        `${scenario.id} publish status=${pubRes.status()} body=${pubErrBody}`
       ).toBe(true);
 
       // Verify Kakao OG Card PNG
@@ -409,6 +417,9 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
         category: "dealcard",
         title: scenario.title,
         subtitle: scenario.subtitle,
+        deliverableTitle: scenario.deliverableTitle,
+        ogTitle: scenario.deliverableTitle || scenario.title,
+        ogDescription: scenario.ogDescription || scenario.subtitle,
         postureOrCadence: scenario.card4Posture,
         edgeFocus: scenario.edgeFocus,
         liveUrl: `/dc/${buildingId}`,
@@ -465,33 +476,35 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
       expect(editionId).toMatch(/^[0-9a-f-]{36}$/i);
       const wasPublished = edition?.status === "published";
 
-      // Call simple-summary; fall back deterministically to plainBriefingFallback if AI key absent
+      // Call simple-summary unless SHOWCASE_SKIP_PAID_LLM=1 ($0.00 deterministic SOTA 3-bullet mode)
       let briefing = scenario.plainBriefingFallback;
-      let headline = scenario.useBrokerNamePreset
+      const headline = scenario.useBrokerNamePreset
         ? `${brokerName} 중개사의 ${scenario.headlineTemplate}`
         : scenario.headlineTemplate;
 
-      const summaryRes = await page.request.post(
-        `/api/magazine/editions/${editionId}/simple-summary`,
-        {
-          data: {
-            comment: scenario.rawBrokerMemo,
-            marketTemp: scenario.marketTemp,
-          },
-          timeout: 45_000,
-        }
-      );
-      if (summaryRes.ok()) {
-        const sumJson = await summaryRes.json().catch(() => ({}));
-        if (
-          typeof sumJson?.briefing === "string" &&
-          sumJson.briefing.trim().length >= 30 &&
-          sumJson.briefing.trim().length <= 500
-        ) {
-          briefing = sumJson.briefing.trim();
+      if (process.env.SHOWCASE_SKIP_PAID_LLM !== "1") {
+        const summaryRes = await page.request.post(
+          `/api/magazine/editions/${editionId}/simple-summary`,
+          {
+            data: {
+              comment: scenario.rawBrokerMemo,
+              marketTemp: scenario.marketTemp,
+            },
+            timeout: 45_000,
+          }
+        );
+        if (summaryRes.ok()) {
+          const sumJson = await summaryRes.json().catch(() => ({}));
+          if (
+            typeof sumJson?.briefing === "string" &&
+            sumJson.briefing.trim().length >= 30 &&
+            sumJson.briefing.trim().length <= 500
+          ) {
+            briefing = sumJson.briefing.trim();
+          }
         }
       }
-      // Keep NL-D2 deterministic near-500-char boundary test verbatim
+      // Keep NL-D2 deterministic fallback verbatim
       if (scenario.id === "NL-D2") {
         briefing = scenario.plainBriefingFallback;
       }
@@ -641,6 +654,8 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
         category: "newsletter",
         title: scenario.title,
         subtitle: scenario.subtitle,
+        ogTitle: headline,
+        ogDescription: scenario.ogDescription || scenario.subtitle,
         postureOrCadence: scenario.cadenceLabel,
         edgeFocus: scenario.edgeFocus,
         liveUrl,
@@ -708,11 +723,13 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
         }));
       }
 
+      const cleanDeliverableTitle =
+        scenario.deliverableTitle?.trim() || scenario.title;
       const genRes = await page.request.post("/api/broker/im-lite/quick-generate", {
         data: {
           buildingId: scenario.buildingId,
-          title: scenario.title,
-          buildingName: scenario.title,
+          title: cleanDeliverableTitle,
+          buildingName: cleanDeliverableTitle,
           address: scenario.address,
           askingPriceManwon: scenario.askingPriceManwon,
           ...(typeof scenario.landAreaSqm === "number"
@@ -883,6 +900,7 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
         category: "im",
         title: scenario.title,
         subtitle: scenario.subtitle,
+        deliverableTitle: scenario.deliverableTitle,
         postureOrCadence: scenario.postureLabel,
         edgeFocus: scenario.edgeFocus,
         liveUrl: imLiveUrl,
@@ -929,19 +947,31 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
     });
     expect(insErr, `qa_showcase_manifest insert failed: ${insErr?.message}`).toBeNull();
 
+    const qaTesterKeyForManifest =
+      process.env.QA_TESTER_ACCESS_KEY ||
+      process.env.QA_ACCESS_KEY ||
+      "test-qa-tester-key";
     const apiManifestRes = await page.request.get(
-      "/api/public/qa-workbench?mode=showcase"
+      "/api/public/qa-workbench?mode=showcase",
+      { headers: { "x-qa-access-key": qaTesterKeyForManifest } }
     );
-    expect(apiManifestRes.ok()).toBe(true);
+    expect(
+      apiManifestRes.ok(),
+      `GET showcase status=${apiManifestRes.status()}`
+    ).toBe(true);
     const apiManifestJson = await apiManifestRes.json();
     expect(apiManifestJson.ok).toBe(true);
     expect(apiManifestJson.manifest?.totalCount).toBe(22);
+    const im01Returned = apiManifestJson.manifest?.entries?.["IM-01"];
+    expect(im01Returned?.pptxDownloadUrl).toContain("token=slk.");
+    expect(im01Returned?.pdfDownloadUrl).toContain("token=slk.");
 
     console.log("\n🎉 Stage A~C + Manifest Publish Complete (22/22)!");
   });
 
-  test("verifies /qa-showcase Desktop (1440x900) & Mobile (390x844) Senior UX Physics and live Supabase slide PNGs", async ({
+  test("verifies /qa-showcase & /qa-broker/showcase Desktop (1440x900) & Mobile (390x844) Senior UX Physics and live Supabase slide PNGs", async ({
     page,
+    browser,
   }) => {
     const viewports = [
       { label: "1440x900", width: 1440, height: 900 },
@@ -949,6 +979,7 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
     ] as const;
 
     const qaTesterKey = process.env.QA_TESTER_ACCESS_KEY || "test-qa-tester-key";
+    const qaBrokerKey = process.env.QA_BROKER_ACCESS_KEY || qaTesterKey;
     for (const vp of viewports) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await page.goto(`/qa-showcase?qaKey=${encodeURIComponent(qaTesterKey)}`, { waitUntil: "networkidle" });
@@ -998,6 +1029,63 @@ test.describe.serial("Gate 1: Output-First 22종 MECE E2E Golden Suite", () => {
       }
     }
 
-    console.log("\n🎉 Gate 1 Complete: All 22/22 deliverables & /qa-showcase UX Physics verified!");
+    // External unauthenticated Beta Broker context check (zero Supabase auth cookies!)
+    const anonCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const brokerPage = await anonCtx.newPage();
+      await brokerPage.setViewportSize({ width: 1440, height: 900 });
+      await brokerPage.goto(
+        `/qa-broker/showcase?qaKey=${encodeURIComponent(qaBrokerKey)}`,
+        { waitUntil: "networkidle" }
+      );
+      await hideDevOverlay(brokerPage);
+      const brokerText = await brokerPage.evaluate(() => document.body.innerText || "");
+      expect(brokerText).not.toContain("OpenXML");
+      expect(brokerText).not.toContain("서교석");
+      const brokerPhysics = await collectUxPhysics(
+        brokerPage,
+        "qa-broker-showcase-newsletter",
+        "1440x900",
+        "normal"
+      );
+      expect(brokerPhysics.horizontalOverflowPx).toBeLessThanOrEqual(1);
+      expect(brokerPhysics.sub15Texts).toEqual([]);
+      expect(brokerPhysics.sub44Buttons).toEqual([]);
+
+      // Verify unauthenticated .pptx download succeeds (200 OK, not 403!) via token
+      const wbRes = await brokerPage.request.get(
+        "/api/public/qa-workbench?mode=showcase",
+        { headers: { "x-qa-access-key": qaBrokerKey } }
+      );
+      expect(wbRes.ok()).toBe(true);
+      const wbJson = await wbRes.json();
+      expect(wbJson.manifest?.totalCount).toBe(22);
+      const unauthPptxUrl = wbJson.manifest?.entries?.["IM-01"]?.pptxDownloadUrl;
+      const unauthPdfUrl = wbJson.manifest?.entries?.["IM-01"]?.pdfDownloadUrl;
+      const im08LiveUrl = wbJson.manifest?.entries?.["IM-08"]?.liveUrl;
+      expect(unauthPptxUrl).toContain("token=slk.");
+      expect(unauthPdfUrl).toContain("token=slk.");
+      expect(im08LiveUrl).toContain("token=slk.");
+      const unauthPptxRes = await brokerPage.request.get(unauthPptxUrl, {
+        timeout: 120_000,
+      });
+      expect(
+        unauthPptxRes.status(),
+        `Unauthenticated external broker .pptx download status`
+      ).toBe(200);
+
+      // Verify IM-08 (0-photo static map fallback) renders cleanly in Next.js 16 prod without localPatterns crash
+      await brokerPage.setViewportSize({ width: 390, height: 844 });
+      await brokerPage.goto(im08LiveUrl, { waitUntil: "networkidle" });
+      const im08BodyText = await brokerPage.evaluate(
+        () => document.body.innerText || ""
+      );
+      expect(im08BodyText).not.toContain("ERR-");
+      expect(im08BodyText).not.toMatch(RAW_ERROR_REGEX);
+    } finally {
+      await anonCtx.close();
+    }
+
+    console.log("\n🎉 Gate 1 Complete: All 22/22 deliverables, /qa-showcase & /qa-broker/showcase UX Physics verified!");
   });
 });

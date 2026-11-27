@@ -1,6 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ShowcaseDeliverableViewer,
   type ShowcaseActiveContext,
@@ -14,10 +22,12 @@ import {
 import {
   buildQaAuthHeaders,
   getStoredQaAccessKey,
+  resolveBrokerCohortSessionIds,
+  resolveQaBrokerCohort,
   setStoredQaAccessKey,
+  syncQaKeyFromSearchParams,
 } from "@/lib/qa/qa-client-auth";
 import {
-  QA_BROKER_SHOWCASE_SESSION_ID,
   QA_TESTER_SHOWCASE_SESSION_ID,
   QA_TESTER_SIGNOFF_SESSION_ID,
   ROUND1_REMEDIATION_28_ITEMS,
@@ -47,17 +57,158 @@ interface BrokerShowcasePinItem {
   createdAt: string;
 }
 
-const LOCAL_STORAGE_KEY = "cre_qa_output_showcase_v1";
-
-function readInitialVerdicts(): Record<string, ShowcaseVerdictRecord> {
+function readInitialVerdicts(
+  storageKey: string
+): Record<string, ShowcaseVerdictRecord> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, ShowcaseVerdictRecord>;
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
+  }
+}
+
+function formatBrokerVerdictProgressMessage(
+  map: Record<string, ShowcaseVerdictRecord>
+): string {
+  let nextPass = 0;
+  let nextPolish = 0;
+  let nextFail = 0;
+  for (const s of OUTPUT_SHOWCASE_SCENARIOS) {
+    const st = map[s.id]?.status;
+    if (st === "PASS") nextPass += 1;
+    else if (st === "NEEDS_POLISH") nextPolish += 1;
+    else if (st === "FAIL") nextFail += 1;
+  }
+  const nextDecided = nextPass + nextPolish + nextFail;
+  return `저장 완료 · 바로 사용 가능 ${nextPass}건 / 다듬기 ${nextPolish}건 / 보완 요청 ${nextFail}건 (총 ${nextDecided}/22건)`;
+}
+
+async function fetchBrokerAndTesterSnapshot(
+  showcaseSessionId: string,
+  signoffSessionId: string
+): Promise<{
+  brokerRecs: Record<string, ShowcaseVerdictRecord> | null;
+  mergedTesterRecs: Record<string, TesterTechRecord> | null;
+  brokerPins: BrokerShowcasePinItem[] | null;
+} | null> {
+  const authHeaders = buildQaAuthHeaders("broker");
+  const sessionIdsParam = encodeURIComponent(
+    `${showcaseSessionId},${signoffSessionId}`
+  );
+  try {
+    const [brokerRes, testerRes, signoffRes, pinsRes] = await Promise.all([
+      fetch(
+        `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+          showcaseSessionId
+        )}`,
+        { cache: "no-store", headers: authHeaders }
+      ),
+      fetch(
+        `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+          QA_TESTER_SHOWCASE_SESSION_ID
+        )}`,
+        { cache: "no-store", headers: authHeaders }
+      ),
+      fetch(
+        `/api/public/qa-workbench?sessionId=${encodeURIComponent(
+          QA_TESTER_SIGNOFF_SESSION_ID
+        )}`,
+        { cache: "no-store", headers: authHeaders }
+      ),
+      fetch(`/api/public/qa-workbench?mode=pins&sessionIds=${sessionIdsParam}`, {
+        cache: "no-store",
+        headers: authHeaders,
+      }),
+    ]);
+
+    let brokerRecs: Record<string, ShowcaseVerdictRecord> | null = null;
+    if (brokerRes.ok) {
+      const json = (await brokerRes.json()) as {
+        found?: boolean;
+        session?: { records?: Record<string, ShowcaseVerdictRecord> };
+      };
+      const recs = json?.session?.records;
+      if (json?.found && recs && typeof recs === "object") {
+        brokerRecs = recs;
+      }
+    }
+
+    let explicitTesterRecs: Record<string, TesterTechRecord> = {};
+    if (testerRes.ok) {
+      const json = (await testerRes.json()) as {
+        found?: boolean;
+        session?: { records?: Record<string, TesterTechRecord> };
+      };
+      const recs = json?.session?.records;
+      if (json?.found && recs && typeof recs === "object") {
+        explicitTesterRecs = recs;
+      }
+    }
+
+    const derivedFromR2Signoff: Record<string, TesterTechRecord> = {};
+    if (signoffRes.ok) {
+      const signoffJson = (await signoffRes.json()) as {
+        found?: boolean;
+        session?: {
+          records?: Record<string, unknown> & {
+            r1States?: Record<string, { status?: string; updatedAt?: string }>;
+          };
+        };
+      };
+      const rawRecords = signoffJson?.session?.records;
+      if (signoffJson?.found && rawRecords && typeof rawRecords === "object") {
+        const nestedR1 =
+          rawRecords.r1States && typeof rawRecords.r1States === "object"
+            ? rawRecords.r1States
+            : {};
+        for (const item of ROUND1_REMEDIATION_28_ITEMS) {
+          if (item.area !== "showcase" || !item.relatedScenarioIds?.length) {
+            continue;
+          }
+          const entry = (nestedR1[item.id] ?? rawRecords[item.id]) as
+            | { status?: string; updatedAt?: string }
+            | undefined;
+          const rawStatus = entry?.status;
+          if (rawStatus !== "pass" && rawStatus !== "fail") continue;
+          const mappedStatus: "PASS" | "ISSUE" =
+            rawStatus === "fail" ? "ISSUE" : "PASS";
+          for (const scenarioId of item.relatedScenarioIds) {
+            if (explicitTesterRecs[scenarioId]?.status) continue;
+            const prevStatus = derivedFromR2Signoff[scenarioId]?.status;
+            if (prevStatus === "ISSUE") continue;
+            derivedFromR2Signoff[scenarioId] = {
+              status: mappedStatus,
+              updatedAt: entry?.updatedAt,
+            };
+          }
+        }
+      }
+    }
+
+    const mergedTesterRecs =
+      Object.keys(explicitTesterRecs).length > 0 ||
+      Object.keys(derivedFromR2Signoff).length > 0
+        ? { ...derivedFromR2Signoff, ...explicitTesterRecs }
+        : null;
+
+    let brokerPins: BrokerShowcasePinItem[] | null = null;
+    if (pinsRes.ok) {
+      const pinsJson = (await pinsRes.json()) as {
+        ok?: boolean;
+        pins?: BrokerShowcasePinItem[];
+      };
+      if (pinsJson?.ok && Array.isArray(pinsJson.pins)) {
+        brokerPins = pinsJson.pins.filter((p) => p.authorRole === "broker");
+      }
+    }
+
+    return { brokerRecs, mergedTesterRecs, brokerPins };
+  } catch {
+    return null;
   }
 }
 
@@ -86,10 +237,24 @@ function verdictBadgeMeta(status?: BrokerVerdictStatus): ShowcaseScenarioBadge {
   };
 }
 
-export default function QaBrokerShowcasePage() {
+function QaBrokerShowcasePageInner() {
+  const searchParams = useSearchParams();
+  const cohortParam = searchParams.get("cohort") ?? "";
+  const urlQaKeyParam = searchParams.get("qaKey")?.trim() ?? "";
+
+  const cohort = useMemo(
+    () => resolveQaBrokerCohort(undefined, cohortParam || undefined),
+    [cohortParam]
+  );
+  const { showcaseSessionId, questionsSessionId, signoffSessionId } = useMemo(
+    () => resolveBrokerCohortSessionIds(cohort),
+    [cohort]
+  );
+  const localStorageKey = `cre_qa_output_showcase_${cohort}`;
+
   const [verdicts, setVerdicts] = useState<
     Record<string, ShowcaseVerdictRecord>
-  >(() => readInitialVerdicts());
+  >(() => readInitialVerdicts(localStorageKey));
   const [testerTechRecords, setTesterTechRecords] = useState<
     Record<string, TesterTechRecord>
   >({});
@@ -100,8 +265,8 @@ export default function QaBrokerShowcasePage() {
   const [submittingAll, setSubmittingAll] = useState<boolean>(false);
 
   const [showKeyDrawer, setShowKeyDrawer] = useState<boolean>(false);
-  const [keyInput, setKeyInput] = useState<string>(() =>
-    getStoredQaAccessKey("broker")
+  const [keyInput, setKeyInput] = useState<string>(
+    () => urlQaKeyParam || getStoredQaAccessKey("broker")
   );
   const [keyStatusMsg, setKeyStatusMsg] = useState<string>("");
 
@@ -114,137 +279,53 @@ export default function QaBrokerShowcasePage() {
 
   const pinNoteInputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  const applySnapshot = useCallback(
+    (
+      snap: {
+        brokerRecs: Record<string, ShowcaseVerdictRecord> | null;
+        mergedTesterRecs: Record<string, TesterTechRecord> | null;
+        brokerPins: BrokerShowcasePinItem[] | null;
+      } | null
+    ) => {
+      if (!snap) return;
+      if (snap.brokerRecs) {
+        setVerdicts((prev) => ({ ...snap.brokerRecs!, ...prev }));
+      }
+      if (snap.mergedTesterRecs) {
+        setTesterTechRecords(snap.mergedTesterRecs);
+      }
+      if (snap.brokerPins) {
+        setBrokerPins(snap.brokerPins);
+      }
+    },
+    []
+  );
+
+  const reloadBrokerAndTesterStatus = useCallback(async () => {
+    const snap = await fetchBrokerAndTesterSnapshot(
+      showcaseSessionId,
+      signoffSessionId
+    );
+    applySnapshot(snap);
+  }, [applySnapshot, showcaseSessionId, signoffSessionId]);
+
   useEffect(() => {
     let cancelled = false;
-    async function loadBrokerAndTesterStatus() {
-      try {
-        const [brokerRes, testerRes, signoffRes, pinsRes] = await Promise.all([
-          fetch(
-            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
-              QA_BROKER_SHOWCASE_SESSION_ID
-            )}`,
-            { cache: "no-store" }
-          ),
-          fetch(
-            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
-              QA_TESTER_SHOWCASE_SESSION_ID
-            )}`,
-            { cache: "no-store" }
-          ),
-          fetch(
-            `/api/public/qa-workbench?sessionId=${encodeURIComponent(
-              QA_TESTER_SIGNOFF_SESSION_ID
-            )}`,
-            { cache: "no-store" }
-          ),
-          fetch("/api/public/qa-workbench?mode=pins", {
-            cache: "no-store",
-            headers: {
-              ...buildQaAuthHeaders("broker"),
-            },
-          }),
-        ]);
-
-        if (!cancelled && brokerRes.ok) {
-          const json = (await brokerRes.json()) as {
-            found?: boolean;
-            session?: { records?: Record<string, ShowcaseVerdictRecord> };
-          };
-          const recs = json?.session?.records;
-          if (json?.found && recs && typeof recs === "object") {
-            setVerdicts((prev) => ({ ...recs, ...prev }));
-          }
-        }
-
-        let explicitTesterRecs: Record<string, TesterTechRecord> = {};
-        if (!cancelled && testerRes.ok) {
-          const json = (await testerRes.json()) as {
-            found?: boolean;
-            session?: { records?: Record<string, TesterTechRecord> };
-          };
-          const recs = json?.session?.records;
-          if (json?.found && recs && typeof recs === "object") {
-            explicitTesterRecs = recs;
-          }
-        }
-
-        const derivedFromR2Signoff: Record<string, TesterTechRecord> = {};
-        if (!cancelled && signoffRes.ok) {
-          const signoffJson = (await signoffRes.json()) as {
-            found?: boolean;
-            session?: {
-              records?: Record<string, unknown> & {
-                r1States?: Record<
-                  string,
-                  { status?: string; updatedAt?: string }
-                >;
-              };
-            };
-          };
-          const rawRecords = signoffJson?.session?.records;
-          if (signoffJson?.found && rawRecords && typeof rawRecords === "object") {
-            const nestedR1 =
-              rawRecords.r1States && typeof rawRecords.r1States === "object"
-                ? rawRecords.r1States
-                : {};
-            for (const item of ROUND1_REMEDIATION_28_ITEMS) {
-              if (
-                item.area !== "showcase" ||
-                !item.relatedScenarioIds?.length
-              ) {
-                continue;
-              }
-              const entry = (nestedR1[item.id] ?? rawRecords[item.id]) as
-                | { status?: string; updatedAt?: string }
-                | undefined;
-              const rawStatus = entry?.status;
-              if (rawStatus !== "pass" && rawStatus !== "fail") continue;
-              const mappedStatus: "PASS" | "ISSUE" =
-                rawStatus === "fail" ? "ISSUE" : "PASS";
-              for (const scenarioId of item.relatedScenarioIds) {
-                if (explicitTesterRecs[scenarioId]?.status) continue;
-                const prevStatus = derivedFromR2Signoff[scenarioId]?.status;
-                if (prevStatus === "ISSUE") continue;
-                derivedFromR2Signoff[scenarioId] = {
-                  status: mappedStatus,
-                  updatedAt: entry?.updatedAt,
-                };
-              }
-            }
-          }
-        }
-
-        if (
-          !cancelled &&
-          (Object.keys(explicitTesterRecs).length > 0 ||
-            Object.keys(derivedFromR2Signoff).length > 0)
-        ) {
-          setTesterTechRecords({
-            ...derivedFromR2Signoff,
-            ...explicitTesterRecs,
-          });
-        }
-
-        if (!cancelled && pinsRes.ok) {
-          const pinsJson = (await pinsRes.json()) as {
-            ok?: boolean;
-            pins?: BrokerShowcasePinItem[];
-          };
-          if (pinsJson?.ok && Array.isArray(pinsJson.pins)) {
-            setBrokerPins(
-              pinsJson.pins.filter((p) => p.authorRole === "broker")
-            );
-          }
-        }
-      } catch {
-        // non-blocking
-      }
+    if (urlQaKeyParam) {
+      setStoredQaAccessKey(urlQaKeyParam, "broker");
+    } else {
+      syncQaKeyFromSearchParams(undefined, "broker");
     }
-    void loadBrokerAndTesterStatus();
+    void fetchBrokerAndTesterSnapshot(showcaseSessionId, signoffSessionId).then(
+      (snap) => {
+        if (cancelled) return;
+        applySnapshot(snap);
+      }
+    );
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applySnapshot, showcaseSessionId, signoffSessionId, urlQaKeyParam]);
 
   const persistVerdicts = useCallback(
     async (
@@ -253,7 +334,7 @@ export default function QaBrokerShowcasePage() {
     ) => {
       try {
         window.localStorage.setItem(
-          LOCAL_STORAGE_KEY,
+          localStorageKey,
           JSON.stringify(nextVerdicts)
         );
       } catch {
@@ -269,7 +350,7 @@ export default function QaBrokerShowcasePage() {
         body: JSON.stringify({
           mode,
           workbenchId: QA_OUTPUT_SHOWCASE_WORKBENCH_ID,
-          sessionId: QA_BROKER_SHOWCASE_SESSION_ID,
+          sessionId: showcaseSessionId,
           testerName: "중개인 쇼룸 감수",
           testerOrg: "qa-broker-portal-v5",
           records: nextVerdicts,
@@ -286,7 +367,7 @@ export default function QaBrokerShowcasePage() {
         summary?: { verdictLabel?: string; completedCount?: number };
       };
     },
-    []
+    [localStorageKey, showcaseSessionId]
   );
 
   const handleSetVerdict = useCallback(
@@ -303,12 +384,8 @@ export default function QaBrokerShowcasePage() {
       const badgeText = verdictBadgeMeta(status).label;
       setSyncMessage(`${caseId} 판정 '${badgeText}' 저장 중...`);
       try {
-        const res = await persistVerdicts(next, "sync");
-        setSyncMessage(
-          res.summary?.verdictLabel
-            ? `저장 완료 · ${res.summary.verdictLabel}`
-            : `${caseId} 판정 '${badgeText}' 서버 동기화 완료`
-        );
+        await persistVerdicts(next, "sync");
+        setSyncMessage(formatBrokerVerdictProgressMessage(next));
       } catch {
         setSyncMessage(
           `${caseId} 판정 '${badgeText}' 브라우저에 임시 저장되었습니다.`
@@ -322,12 +399,8 @@ export default function QaBrokerShowcasePage() {
     setSubmittingAll(true);
     setSubmitMessage("");
     try {
-      const res = await persistVerdicts(verdicts, "submit");
-      setSubmitMessage(
-        res.summary?.verdictLabel
-          ? `서버 최종 제출 완료: ${res.summary.verdictLabel}`
-          : "현재 22종 판정을 서버에 최종 제출했습니다."
-      );
+      await persistVerdicts(verdicts, "submit");
+      setSubmitMessage(formatBrokerVerdictProgressMessage(verdicts));
     } catch {
       setSubmitMessage(
         "서버 제출 중 오류가 발생했습니다. 브라우저에 임시 보관 중입니다."
@@ -390,7 +463,7 @@ export default function QaBrokerShowcasePage() {
         },
         body: JSON.stringify({
           mode: "pin",
-          sessionId: QA_BROKER_SHOWCASE_SESSION_ID,
+          sessionId: showcaseSessionId,
           authorRole: "broker",
           pinMode: isRedPen ? "redpen" : "issue",
           workspace,
@@ -424,7 +497,7 @@ export default function QaBrokerShowcasePage() {
       setSuggestedText("");
       setPinNote("");
       setPinFeedback(
-        "의견이 중개인 감수 보드에 저장되었습니다. 화·목 미팅 안건에 바로 반영됩니다."
+        "의견이 중개인 감수 보드에 안전하게 저장되었습니다."
       );
     } catch {
       setPinFeedback("네트워크 오류로 의견을 저장하지 못했습니다.");
@@ -470,20 +543,20 @@ export default function QaBrokerShowcasePage() {
       const tech = testerTechRecords[scenario.id]?.status;
       if (tech === "ISSUE") {
         return (
-          <span className="inline-flex items-center self-start rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[12px] font-extrabold text-amber-900">
+          <span className="inline-flex items-center self-start rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[15px] font-extrabold text-amber-900">
             ⚠️ 기술 패치 확인 중
           </span>
         );
       }
       if (tech === "PASS") {
         return (
-          <span className="inline-flex items-center self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[12px] font-bold text-emerald-900">
+          <span className="inline-flex items-center self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[15px] font-bold text-emerald-900">
             🛡️ 테스터 기술검증 완료
           </span>
         );
       }
       return (
-        <span className="inline-flex items-center self-start rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-700">
+        <span className="inline-flex items-center self-start rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[15px] font-semibold text-slate-700">
           🔎 사전 기술점검 대기
         </span>
       );
@@ -497,10 +570,11 @@ export default function QaBrokerShowcasePage() {
       eyebrowLabel="CRE DealCard · 중개인 전문가 감수 쇼룸"
       headingTitle="실제 고객 발송 산출물 22종 품격·신뢰감 감수"
       backHref="/qa-broker/signoff"
-      backLabel="← 중개인 감수 미팅 보드"
+      backLabel="← 중개인 감수 보드"
       summaryBadgeText={`${decidedCount} / 22 판정 (바로사용 ${passCount} · 다듬기 ${polishCount} · 보완필요 ${failCount})`}
       oracleHeadingLabel="중개인 확인 포인트 (고객 신뢰·품격 기준)"
       slideActionLabel="✏️ 이 슬라이드 의견"
+      questionsSessionId={questionsSessionId}
       headerRightSlot={
         <button
           type="button"
@@ -518,6 +592,7 @@ export default function QaBrokerShowcasePage() {
               e.preventDefault();
               setStoredQaAccessKey(keyInput, "broker");
               setKeyStatusMsg("중개인 전용 감수 키가 저장되었습니다.");
+              void reloadBrokerAndTesterStatus();
             }}
             className="rounded-2xl border border-indigo-300 bg-indigo-50 p-4 flex flex-wrap items-center gap-3"
           >
@@ -538,7 +613,7 @@ export default function QaBrokerShowcasePage() {
               저장
             </button>
             {keyStatusMsg ? (
-              <span className="text-[14px] font-bold text-emerald-900">
+              <span className="text-[15px] font-bold text-emerald-900">
                 {keyStatusMsg}
               </span>
             ) : null}
@@ -569,7 +644,7 @@ export default function QaBrokerShowcasePage() {
                 ? "🛡️ 테스터 기술검증 완료 — 깨짐·오탈자·숫자 오류 사전 점검 마침"
                 : "🔎 사전 기술점검 대기 — 테스터 순차 점검 진행 중"}
             </span>
-            <span className="text-[14px] font-semibold">
+            <span className="text-[15px] font-semibold">
               중개인님께서는 70대 매수자 이해도와 표현 품격만 편하게 봐 주시면 됩니다.
             </span>
           </div>
@@ -777,16 +852,16 @@ export default function QaBrokerShowcasePage() {
                       key={pin.id}
                       className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1"
                     >
-                      <p className="text-[14px] font-extrabold text-slate-900">
+                      <p className="text-[15px] font-extrabold text-slate-900">
                         {pin.targetLabel}
                       </p>
                       {pin.originalText || pin.suggestedText ? (
-                        <p className="text-[13px] font-semibold text-indigo-900">
+                        <p className="text-[15px] font-semibold text-indigo-900">
                           “{pin.originalText || "(기존)"}” → “
                           {pin.suggestedText || "(희망 표현)"}”
                         </p>
                       ) : null}
-                      <p className="text-[14px] text-slate-700">{pin.note}</p>
+                      <p className="text-[15px] text-slate-700">{pin.note}</p>
                     </div>
                   ))}
                 </div>
@@ -796,5 +871,19 @@ export default function QaBrokerShowcasePage() {
         );
       }}
     />
+  );
+}
+
+export default function QaBrokerShowcasePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 p-6 text-base font-bold text-slate-800">
+          중개인 전문가 감수 쇼룸을 불러오고 있습니다...
+        </div>
+      }
+    >
+      <QaBrokerShowcasePageInner />
+    </Suspense>
   );
 }

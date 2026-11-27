@@ -338,20 +338,20 @@ export default function QaShowcasePage() {
             <p className="text-[15px] font-extrabold text-indigo-950">
               v5.0 역할별 전용 포털이 오픈되었습니다
             </p>
-            <p className="text-[14px] text-indigo-900">
+            <p className="text-[15px] text-indigo-900">
               일반 테스터(기술·28건 재확인)와 중개인(품격·판정) 화면이 서로 섞이지 않도록 분리되었습니다.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={appendQaParamsToHref("/qa-tester/showcase", "master")}
-              className="min-h-[42px] inline-flex items-center rounded-xl border border-indigo-400 bg-white hover:bg-indigo-100 px-3.5 text-[14px] font-extrabold text-indigo-950"
+              className="min-h-[44px] inline-flex items-center rounded-xl border border-indigo-400 bg-white hover:bg-indigo-100 px-3.5 text-[15px] font-extrabold text-indigo-950"
             >
               🧪 테스터 전용 쇼룸 →
             </Link>
             <Link
               href={appendQaParamsToHref("/qa-broker/showcase", "master")}
-              className="min-h-[42px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 text-[14px] font-extrabold text-white"
+              className="min-h-[44px] inline-flex items-center rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 text-[15px] font-extrabold text-white"
             >
               👔 중개인 전용 쇼룸 →
             </Link>

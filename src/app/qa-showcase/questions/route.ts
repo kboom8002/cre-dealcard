@@ -10,6 +10,7 @@ import {
   resolveQaKeyFromRequest,
 } from "@/lib/security/qa-gate";
 import { renderStandaloneBrokerQuestionsHtml } from "@/lib/qa/broker-followup-questions";
+import { resolveBrokerCohortSessionIds } from "@/lib/qa/qa-client-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,17 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const html = renderStandaloneBrokerQuestionsHtml();
+  const sp = req.nextUrl.searchParams;
+  const isBeta1 =
+    sp.get("edition") === "beta1" || sp.get("role") === "broker";
+  const rawCohort = sp.get("cohort")?.trim() || null;
+  const sessionId = isBeta1
+    ? resolveBrokerCohortSessionIds(rawCohort).questionsSessionId
+    : undefined;
+
+  const html = isBeta1
+    ? renderStandaloneBrokerQuestionsHtml({ edition: "beta1", sessionId })
+    : renderStandaloneBrokerQuestionsHtml();
   const res = new NextResponse(html, {
     status: 200,
     headers: {

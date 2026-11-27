@@ -13,6 +13,11 @@ export const QA_BROKER_FOLLOWUP_WORKBENCH_ID =
 export const QA_BROKER_FOLLOWUP_SESSION_ID =
   "qa-broker-questions-v1" as const;
 
+export const QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID =
+  "qa-broker-beta1-questions-v1" as const;
+export const QA_BROKER_BETA1_FOLLOWUP_SESSION_ID =
+  "qa-broker-questions-beta-1" as const;
+
 export type BrokerQuestionSection = "confirm" | "additional";
 
 export interface BrokerSubQuestionOption {
@@ -256,7 +261,7 @@ function buildFallbackSlideSvg(caseId: string, slideTitle: string, detail: strin
     title: slideTitle,
     leftTitle: "검수 대상 포인트",
     leftTone: "before",
-    leftLines: [detail, "실물 쇼룸 매니페스트 연결 시", "실제 렌더링 슬라이드 이미지가 자동 표시됩니다."],
+    leftLines: [detail, "실물 쇼룸 산출물 연결 시", "실제 렌더링 슬라이드 이미지가 자동 표시됩니다."],
     rightTitle: "확인 방법",
     rightTone: "after",
     rightLines: [
@@ -576,7 +581,7 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
           leftTitle: "뉴스레터 하단 반영 구조",
           leftTone: "after",
           leftLines: [
-            "• 본문 프로필: [이상은 대표중개사 | 📞 010-XXXX-XXXX 전화걸기]",
+            "• 본문 프로필: [김중개 대표공인중개사 | 📞 010-XXXX-XXXX 전화걸기]",
             "• 강남서초 등 지역 배지 및 긴 소개글 제거 완료",
             "• 맨 끝 바닥글: '중개사무소 법정 등록정보 및 유의사항 ▾' (접힘 상태)",
           ],
@@ -1081,7 +1086,7 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
     visuals: [
       {
         id: "AQ2-V1",
-        caption: "대상 산출물 1: 사옥용 빌딩 슬라이드 (IM-04 강남 테헤란로 사옥)",
+        caption: "대상 산출물 1: 사옥용 빌딩 슬라이드 (IM-04 서초동 법인 사옥)",
         badgeLabel: "IM-04 사옥용",
         kind: "im_slide",
         caseId: "IM-04",
@@ -1089,13 +1094,13 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
         liveScenarioId: "IM-04",
         fallbackSvgDataUri: buildFallbackSlideSvg(
           "IM-04",
-          "사옥용 빌딩 (IM-04 강남 테헤란로)",
+          "사옥용 빌딩 (IM-04 서초동 법인 사옥)",
           "직접 입주 가용 면적 · 자주식 주차 대수 · 명도 일정 중심 구성"
         ),
       },
       {
         id: "AQ2-V2",
-        caption: "대상 산출물 2: 신축·개발용 부지 슬라이드 (IM-05 성수동 신축부지)",
+        caption: "대상 산출물 2: 신축·개발용 부지 슬라이드 (IM-05 마포 대흥동 신축부지)",
         badgeLabel: "IM-05 신축·개발용",
         kind: "im_slide",
         caseId: "IM-05",
@@ -1103,7 +1108,7 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
         liveScenarioId: "IM-05",
         fallbackSvgDataUri: buildFallbackSlideSvg(
           "IM-05",
-          "신축·개발용 부지 (IM-05 성수동)",
+          "신축·개발용 부지 (IM-05 마포 대흥동)",
           "대지 평당가 · 건폐율/용적률 법정 한도 · 전면 도로폭 중심 구성"
         ),
       },
@@ -1225,7 +1230,7 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
     section: "additional",
     categoryTag: "IM 7페이지 · 전층 공실",
     title: "전층 공실(100% 명도 완료) 매물의 수익률 페이지 숫자 표현 방식",
-    brokerQuoteTitle: "실무 엣지케이스 확인 (IM-03 역삼동 전층 공실)",
+    brokerQuoteTitle: "실무 엣지케이스 확인 (IM-03 부천 심곡동 전층 공실)",
     brokerQuoteText:
       "전층 명도 완료 매물은 현재 월세가 0원이므로 현황 수익률이 0.00%로 찍힙니다.",
     summaryQuestion:
@@ -1399,7 +1404,7 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
       },
       {
         id: "AQ6-V2",
-        caption: "대상 슬라이드 2: 다층 21행 임대 현황 표 (IM-06 슬라이드 06 종로 관철동)",
+        caption: "대상 슬라이드 2: 다층 21행 임대 현황 표 (IM-06 슬라이드 06 강남 역삼동)",
         badgeLabel: "IM-06 슬라이드 06",
         kind: "im_slide",
         caseId: "IM-06",
@@ -1446,6 +1451,713 @@ export const BROKER_FOLLOWUP_QUESTIONS_14: ReadonlyArray<BrokerFollowupQuestionS
 export const BROKER_FOLLOWUP_QUESTION_IDS: ReadonlyArray<string> =
   BROKER_FOLLOWUP_QUESTIONS_14.map((q) => q.id);
 
+// ════════════════════════════════════════════════════════════════════════════
+// 1호 베타 중개인 전용 실전 영업 의사결정 8문항 (B1_Q1 ~ B1_Q8)
+// ════════════════════════════════════════════════════════════════════════════
+
+export const BROKER_BETA1_QUESTIONS_8: ReadonlyArray<BrokerFollowupQuestionSpec> = [
+  {
+    id: "B1_Q1",
+    numberLabel: "기준 선택 01",
+    section: "confirm",
+    categoryTag: "부동산뉴스 · 시황 문체",
+    title: "부동산뉴스 상단 시황 요약 문체 — '3줄 명사형 핵심 요약' vs '정중한 존댓말 문장형'",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "60~70대 자산가·건물주 고객께 카카오톡으로 부동산뉴스를 보내실 때, 첫 화면의 가독성과 예우감 중 어느 인상이 더 중요한지 기준을 정합니다.",
+    summaryQuestion:
+      "열자마자 10초 만에 숫자가 한눈에 들어오는 '3줄 명사형 핵심 요약(• 개조식)'과, 편지처럼 안부를 건네는 '정중한 존댓말 문장형' 중 실제 영업 발송 시 어느 문체가 더 좋으실까요?",
+    relatedScenarioIds: ["NL-D1", "NL-W1"],
+    visuals: [
+      {
+        id: "B1_Q1-V1",
+        caption: "문체 비교: 3줄 명사형 핵심 요약(개조식) vs 정중한 존댓말 문장형(서술식)",
+        badgeLabel: "문체 비교 시안",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#065F46",
+          eyebrow: "기준 선택 01 · 부동산뉴스 상단 시황 문체 비교",
+          title: "10초 핵심 요약(명사형) vs 다정한 편지체(존댓말 문장형)",
+          leftTitle: "권장 A · 3줄 명사형 핵심 요약 (개조식)",
+          leftTone: "optionA",
+          leftLines: [
+            "• 시중은행 상가담보 금리 연 4.1%대 안착, 상담 증가",
+            "• 강남·홍대 대로변 1층 만실 근생 실거래세 유지",
+            "• 임대 안정된 70억~200억대 우량 매물 거래 강세",
+            "→ 바쁜 건물주 고객이 핵심 수치만 빠르게 파악 가능",
+          ],
+          rightTitle: "선택 B · 정중한 존댓말 문장형 (서술식)",
+          rightTone: "optionB",
+          rightLines: [
+            "“어제오늘 강남과 홍대 코너 빌딩 문의가 늘었습니다.”",
+            "“대출 이자 부담이 진정되며 상담이 활기를 띱니다.”",
+            "“엄선한 소식과 매물을 편히 살펴보시기 바랍니다.”",
+            "→ 예우감은 좋으나 휴대폰 화면에서 글이 길어 보임",
+          ],
+          footerNote: "실물 화면은 상단 [부동산뉴스 6종] 탭의 NL-D1에서 바로 확인하실 수 있습니다.",
+        }),
+      },
+      {
+        id: "B1_Q1-V2",
+        caption: "실물 산출물: 일간 부동산뉴스 카톡 공유 카드 (NL-D1)",
+        badgeLabel: "NL-D1 실물 카드",
+        kind: "og_card",
+        caseId: "NL-D1",
+        liveScenarioId: "NL-D1",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "NL-D1",
+          "일간 부동산뉴스 (NL-D1)",
+          "3줄 명사형 핵심 요약 + 주요 이슈 3선 + 추천 매물 2건 구성"
+        ),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q1_1",
+        prompt: "선택 1. 건물주·자산가 카톡 발송용 시황 브리핑 문체를 선택해 주세요.",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "3줄 명사형 핵심 요약(• 개조식) — 인사말 군더더기 없이 금리·실거래 핵심 숫자만 간결하게 전달",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "정중한 존댓말 문장형(~습니다/~바랍니다) — 시니어 고객께 보내는 안부 편지 느낌으로 다정하게 전달",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "발송 시점마다 선택 — 일간·주간은 3줄 명사형 요약, 월간 리포트는 정중한 문장형으로 이원화",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "선호하시는 인사말이나 자주 쓰시는 시황 문투가 있으시면 편하게 적어 주세요.",
+  },
+
+  {
+    id: "B1_Q2",
+    numberLabel: "기준 선택 02",
+    section: "confirm",
+    categoryTag: "부동산뉴스 · 관망장 프레이밍",
+    title: "거래 소강기·관망장에서의 시황 온도 설정 및 '만실 방어형 매물' 추천 흐름",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "거래 온도 3단계(긍정 / 중립 / 관망) 중 시장이 조용한 관망기일 때, 억지 매수 권유 느낌 없이 신뢰를 얻는 흐름을 확인합니다.",
+    summaryQuestion:
+      "시장이 관망세일 때 솔직하게 보수적 시각(공실·금리 점검)을 먼저 짚어드리고, 이어서 '전층 만실 방어형 매물'을 추천하는 구성이 현장 고객 설득에 효과적이실까요?",
+    relatedScenarioIds: ["NL-D2", "NL-M2"],
+    visuals: [
+      {
+        id: "B1_Q2-V1",
+        caption: "구성 비교: 관망·보수적 진단 + 만실 방어형 매물 연결 vs 매물 없는 순수 정보지",
+        badgeLabel: "관망장 구성 비교",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#0F766E",
+          eyebrow: "기준 선택 02 · 거래 온도(긍정 / 중립 / 관망) 중 관망기 설득 전략",
+          title: "보수적 시황 진단 후 방어형 매물 연결 vs 순수 정보 발송",
+          leftTitle: "권장 A · 보수적 진단 + 만실 방어형 매물 추천",
+          leftTone: "optionA",
+          leftLines: [
+            "1단계: 이면 상가 공실·만기 금리 점검 등 솔직한 진단",
+            "2단계: “이럴 때일수록 병의원·약국 만실 건물이 안전”",
+            "3단계: 하단에 전층 만실 임대수익용 매물 1~2건 연결",
+            "→ 광고 거부감은 줄이면서 자연스럽게 알짜 매물 소개",
+          ],
+          rightTitle: "선택 B · 관망기엔 매물 추천 없이 순수 정보만",
+          rightTone: "optionB",
+          rightLines: [
+            "1단계: 금리·세무·관리비 제도 변화 핵심 정리",
+            "2단계: 추천 매물 영역을 아예 비워 영업 색채 배제",
+            "3단계: 하단에 '보유 건물 시세 상담' 안내만 유지",
+            "→ 장기 인맥 관리 및 매도 물건 접수 유도에 집중",
+          ],
+        }),
+      },
+      {
+        id: "B1_Q2-V2",
+        caption: "실물 산출물: 관망기 금리·공실 핵심 동향 부동산뉴스 (NL-D2)",
+        badgeLabel: "NL-D2 실물 카드",
+        kind: "og_card",
+        caseId: "NL-D2",
+        liveScenarioId: "NL-D2",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "NL-D2",
+          "관망기 순수 시황 브리핑 (NL-D2)",
+          "금리·공실·세무 점검 포인트 중심 안부형 부동산뉴스"
+        ),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q2_1",
+        prompt: "선택 2. 거래가 조용한 관망장에서 고객 설득력이 가장 높은 뉴스 구성은 무엇인가요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "관망·보수적 시각으로 시장 주의를 솔직히 짚고, 하단에 '전층 만실 방어형 매물'을 자연스럽게 추천",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "관망기에는 매물 추천을 빼고 세무·금리·건물 관리 정보만 보내 고객 부담을 완전히 낮춤",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "거래 온도(긍정·중립·관망)와 별개로 발송할 때마다 추천 매물 포함 여부를 스위치로 직접 선택",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "관망장에서 손님들께 가장 반응이 좋았던 인사말이나 주제가 있다면 적어 주세요.",
+  },
+
+  {
+    id: "B1_Q3",
+    numberLabel: "기준 선택 03",
+    section: "confirm",
+    categoryTag: "딜카드 · 블라인드 수위",
+    title: "딜카드 공개 수위 — '타 중개사 물건 따기 방지' vs '진성 매수자 문의 유도' 최적 균형",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "상세 지번과 건물명·점포 상호는 기본으로 숨겨집니다. 여기에 '지하철역 도보 분수'와 '대략적 수익률'을 어디까지 노출할지 결정합니다.",
+    summaryQuestion:
+      "동업 중개사가 주소를 역추적해 물건을 따가는 일은 막으면서도, 진성 매수자가 매력을 느끼고 전화하게 만들 최적의 공개 범위는 어디까지인가요?",
+    relatedScenarioIds: ["DC-01", "DC-07"],
+    visuals: [
+      {
+        id: "B1_Q3-V1",
+        caption: "실물 산출물: 블라인드 딜카드 카톡 공유 카드 (DC-01 마포 동교동)",
+        badgeLabel: "DC-01 카톡 카드",
+        kind: "og_card",
+        caseId: "DC-01",
+        staticUrl: "/api/og/deal/5c0ca5e0-0001-4000-8000-000000000001/kakao-v2",
+        liveScenarioId: "DC-01",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "DC-01",
+          "블라인드 딜카드 (DC-01 마포 동교동)",
+          "상세 지번·상호 비공개 + 핵심 4항목(지역·용도·면적·70~80억대) 표시"
+        ),
+      },
+      {
+        id: "B1_Q3-V2",
+        caption: "공개 범위 비교: 도보권·수익률 대역 공개(문의 유도형) vs 구·동·금액대만 공개(철통 보안형)",
+        badgeLabel: "블라인드 수위 비교",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#B45309",
+          eyebrow: "기준 선택 03 · 딜카드 블라인드 공개 수위 결정",
+          title: "물건 추적 방지 vs 매수 문의 전환율 균형점",
+          leftTitle: "권장 A · 구간형 공개 (도보권 + 수익률 대역)",
+          leftTone: "optionA",
+          leftLines: [
+            "• 위치: 마포구 동교동 · 홍대입구역 도보 5분권",
+            "• 규모·가격: 연면적 130평대 · 70~80억대",
+            "• 수익: 전층 만실 · 연 4%대 임대수익용",
+            "→ 지번·외관 특정은 막고 매수 핵심 매력은 전달",
+          ],
+          rightTitle: "선택 B · 철통 보안형 (역·수익률도 비공개)",
+          rightTone: "optionB",
+          rightLines: [
+            "• 위치: 마포구 동교동 일대 (역명·도보 분수 숨김)",
+            "• 규모·가격: 근린생활시설 · 70~80억대",
+            "• 수익: 전화 및 상세 제안서(IM) 요청 시 개별 공개",
+            "→ 전속 아닌 공동중개·극비 매물 보호에 유리",
+          ],
+        }),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q3_1",
+        prompt: "선택 3. 카톡 딜카드에서 가장 선호하시는 기본 블라인드 공개 범위는 어느 쪽인가요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "지번·건물명·상호는 철저히 가리되, '역 도보 5분권'과 '연 4%대'처럼 구간 단위로 보여줘 문의 유도",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "로드뷰 역추적 위험을 막기 위해 지하철역 도보 분수와 수익률도 숨기고 구·동과 금액대만 표시",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "전속 매물용 '매력 강조형'과 일반·극비 매물용 '철통 보안형' 두 가지 모드를 매물마다 선택",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "타 중개사에게 물건 위치를 들키게 되는 가장 위험한 단서(외관 사진 등)가 있다면 알려주세요.",
+  },
+
+  {
+    id: "B1_Q4",
+    numberLabel: "기준 선택 04",
+    section: "confirm",
+    categoryTag: "딜카드 · 18자 장점 태그",
+    title: "딜카드 '장점 3줄(18자 이내)' 입력 시 가장 자주 쓰실 원클릭 현장 장점 태그",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "공부 서류에는 안 나오지만 매수자가 가장 솔깃해하는 현장 장점을 버튼 클릭 한 번으로 넣을 수 있도록 우선순위를 정합니다.",
+    summaryQuestion:
+      "바쁜 현장에서 직접 타이핑하지 않고 톡톡 눌러 딜카드 장점 3줄을 채울 때, 화면 맨 위에 가장 먼저 배치해 드릴 태그 묶음은 무엇인가요?",
+    relatedScenarioIds: ["DC-01", "DC-04", "DC-05"],
+    visuals: [
+      {
+        id: "B1_Q4-V1",
+        caption: "원클릭 태그 예시: 임대수익·명도 조건 태그 vs 코너 가시성·신축 용적률 태그",
+        badgeLabel: "18자 장점 태그 시안",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#92400E",
+          eyebrow: "기준 선택 04 · 원클릭 현장 장점 태그 우선순위",
+          title: "클릭 한 번으로 완성하는 18자 이내 실전 장점 태그",
+          leftTitle: "묶음 ① 임대 안정성 · 명도 · 사옥 조건",
+          leftTone: "optionA",
+          leftLines: [
+            "[+ 병의원·약국 장기임차]  [+ 전층 우량임차 만실]",
+            "[+ 잔금시 전층 명도완료]  [+ 자주식 주차 여유]",
+            "[+ 승강기 신설·완비]     [+ 임대료 인상 여력 큼]",
+          ],
+          rightTitle: "묶음 ② 입지 가시성 · 리모델링 · 신축 이득",
+          rightTone: "optionB",
+          rightLines: [
+            "[+ 대로변 코너 가시성]   [+ 최근 내외관 올수리]",
+            "[+ 정방형 반듯한 대지]   [+ 신축 용적률 이득 큼]",
+            "[+ 역 출구 평지 도보권]  [+ 공원·숲길 전면 접함]",
+          ],
+          footerNote: "선택한 태그는 18자 이내 깔끔한 문구로 들어가며 중개사님이 직접 고쳐 쓰실 수도 있습니다.",
+        }),
+      },
+      {
+        id: "B1_Q4-V2",
+        caption: "실물 산출물: 신축·개발용 딜카드 장점 3줄 화면 (DC-05 마포 대흥동)",
+        badgeLabel: "DC-05 카톡 카드",
+        kind: "og_card",
+        caseId: "DC-05",
+        staticUrl: "/api/og/deal/5c0ca5e0-0001-4000-8000-000000000005/kakao-v2",
+        liveScenarioId: "DC-05",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "DC-05",
+          "신축·개발용 딜카드 (DC-05 마포 대흥동)",
+          "정방형 코너 대지 · 단기 명도 협의 등 핵심 장점 3줄 표시"
+        ),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q4_1",
+        prompt: "선택 4. 딜카드 작성 화면에서 어떤 방식으로 현장 장점 태그를 보여드리면 가장 편하실까요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "매물 유형별 맞춤 추천 — 임대수익용은 '병의원 장기임차·코너 가시성', 사옥·신축·개발용은 '전층 명도·주차·용적률 이득' 자동 우선 노출",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "유형 구분 없이 현장에서 가장 많이 쓰는 핵심 태그(명도·코너·올수리·만실·주차 등) 8개를 한눈에 고정 배치",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "기본 추천 태그와 함께 '내가 자주 쓰는 단골 문구'를 저장해 두고 원클릭으로 불러오는 기능 우선",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "평소 매물 브리핑에서 가장 자주 쓰시는 1줄 매력 문구가 있다면 적어 주세요.",
+  },
+
+  {
+    id: "B1_Q5",
+    numberLabel: "기준 선택 05",
+    section: "additional",
+    categoryTag: "IM · 현장 사진 보호",
+    title: "직접 촬영한 현장 사진(9장+) 업로드 시 간판·차량 번호판 모자이크 및 세로 사진 보정",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "휴대폰으로 현장에서 찍은 외관·실내·주차장 사진 여러 장을 IM에 올릴 때, 민감 정보 가리기와 구도 보정 필요도를 확인합니다.",
+    summaryQuestion:
+      "현장 사진을 올리실 때 1층 임차인 상호 간판·차량 번호판을 터치로 흐리게 가리는 기능(모자이크)과 휴대폰 세로 사진 잘림 미세조정 기능이 꼭 필요하신가요?",
+    relatedScenarioIds: ["IM-01", "IM-04"],
+    visuals: [
+      {
+        id: "B1_Q5-V1",
+        caption: "실물 슬라이드: IM 현장 사진 갤러리 페이지 (IM-01 슬라이드 08)",
+        badgeLabel: "IM-01 슬라이드 08",
+        kind: "im_slide",
+        caseId: "IM-01",
+        slideIndex: 7,
+        liveScenarioId: "IM-01",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "IM-01",
+          "IM 현장 사진 갤러리 (IM-01 슬라이드 08)",
+          "외관·출입구·실내·루프탑 다중 현장 사진 배치 화면"
+        ),
+      },
+      {
+        id: "B1_Q5-V2",
+        caption: "편집 편의 기능 비교: 간판·차량 번호판 원클릭 흐림 처리 vs 세로 사진 크롭·순서 조정",
+        badgeLabel: "사진 보정 기능 시안",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#1E3A8A",
+          eyebrow: "기준 선택 05 · 현장 촬영 사진(9장+) 실무 편집 도구",
+          title: "민감 정보 흐림 처리(모자이크) & 세로 사진 구도 보정",
+          leftTitle: "기능 ① 간판·번호판 원클릭 모자이크",
+          leftTone: "optionA",
+          leftLines: [
+            "• 1층 점포 상호 간판 터치 시 자연스러운 흐림 처리",
+            "• 주차된 차량 번호판·행인 얼굴 간편 가리기",
+            "• 별도 사진 앱 없이 업로드 화면에서 바로 손질",
+          ],
+          rightTitle: "기능 ② 세로 사진 잘림 조정 & 다량 정렬",
+          rightTone: "optionB",
+          rightLines: [
+            "• 휴대폰 세로 사진이 가로 칸에 들어갈 때 상·하 위치 조절",
+            "• 9장 이상 대량 업로드 시 2~3페이지 갤러리 자동 분할",
+            "• 대표 표지 사진 지정 및 드래그 순서 변경",
+          ],
+        }),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q5_1",
+        prompt: "선택 5. 현장 사진 업로드 화면에서 가장 먼저 지원해야 할 기능은 무엇인가요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "두 기능 모두 필수 — 간판·차량 번호판 원클릭 모자이크(흐림 처리)와 세로 사진 잘림 위치 미세조정 함께 제공",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "IM은 검증된 매수자에게만 보내므로 간판 모자이크보다 '세로 사진 안 잘리게 맞추기·9장 이상 깔끔한 배치'가 우선",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "차량 번호판과 행인 얼굴만 자동으로 흐리게 가려주면 충분하고 세밀한 사진 편집은 불필요",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "현장 사진을 IM에 넣을 때 가장 불편하셨던 점(어두운 역광, 전선 등)이 있으시면 적어 주세요.",
+  },
+
+  {
+    id: "B1_Q6",
+    numberLabel: "기준 선택 06",
+    section: "additional",
+    categoryTag: "IM · 장부 vs 현장 괴리",
+    title: "장부와 현장이 다를 때(렌트프리·부가세·복수층 통합임차·위반건축물)의 IM 표기 방식",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "실무에서는 복수층 묶음 계약, 무상임대(렌트프리), 부가세 별도 여부, 위반건축물·무허가 옥탑, 공부 용도와 실제 업종 차이 등 예외가 자주 발생합니다.",
+    summaryQuestion:
+      "이런 현업 예외 조건을 IM 임대 현황표와 물건 개요에 어떻게 적어 두는 것이 매도인·매수인 모두에게 깔끔하고 분쟁도 예방할 수 있을까요?",
+    relatedScenarioIds: ["IM-01", "IM-06", "IM-07"],
+    visuals: [
+      {
+        id: "B1_Q6-V1",
+        caption: "실물 슬라이드: 복수층(B1~B2) 통합 임차가 반영된 임대 현황표 (IM-01 슬라이드 06)",
+        badgeLabel: "IM-01 슬라이드 06",
+        kind: "im_slide",
+        caseId: "IM-01",
+        slideIndex: 5,
+        liveScenarioId: "IM-01",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "IM-01",
+          "IM 임대 현황표 (IM-01 슬라이드 06)",
+          "B1~B2 통합임차 비고 표기 및 층별 보증금·임대료·관리비 정리"
+        ),
+      },
+      {
+        id: "B1_Q6-V2",
+        caption: "표기 방식 비교: 표 우측 비고 + 선택형 현장 특기사항 vs 공부 위반사항 상시 자동 표기",
+        badgeLabel: "예외 조건 표기 비교",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#312E81",
+          eyebrow: "기준 선택 06 · 공부상 장부 vs 실제 현장 조건 괴리 처리",
+          title: "통합임차·렌트프리·위반건축물 등 실무 예외 표기 기준",
+          leftTitle: "권장 A · 호실 비고란 + 중개사 선택형 특기사항",
+          leftTone: "optionA",
+          leftLines: [
+            "• 복수층 통합·렌트프리·부가세: 렌트롤 우측 '비고' 칸에 간결 표기",
+            "• 공부 용도 vs 실업종 차이: '2종근생(실사용: 스튜디오)' 병기",
+            "• 위반건축물·무허가 옥탑: 중개사가 공개 체크 시 특기사항에 명시",
+          ],
+          rightTitle: "선택 B · 대장상 위반·특이사항 상시 자동 노출",
+          rightTone: "optionB",
+          rightLines: [
+            "• 건축물대장 위반건축물 여부를 3페이지 개요표에 항상 자동 표시",
+            "• 초기 검토 단계부터 실사 리스크를 100% 투명 공개",
+            "• 단점: 경미한 가설건축물도 매수 허들로 보일 우려",
+          ],
+        }),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q6_1",
+        prompt: "선택 6. 현장 예외 조건(렌트프리·통합임차·위반건축물 등) 표기 방식을 골라 주세요.",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "통합임차·렌트프리·실업종은 임대 현황표 '비고'에 적고, 위반건축물·명도 조건은 중개사가 선택해 하단 특기사항에 표기",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "향후 중개 사고 예방을 위해 건축물대장상 위반건축물·용도 차이를 항상 물건 개요표에 자동으로 명시",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "IM 문서에는 기본 보증금·월세 숫자만 담백하게 싣고, 세부 특약·예외 사항은 대면 미팅 시 구두로만 설명",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "임대 현황표에서 가장 골치 아팠던 특이 계약 형태(매출 연동 수수료 매장 등)가 있다면 적어 주세요.",
+  },
+
+  {
+    id: "B1_Q7",
+    numberLabel: "기준 선택 07",
+    section: "additional",
+    categoryTag: "IM · 수익률·지가 설득 구조",
+    title: "IM 7페이지 수익성 구성 — '무대출 수익률 + 평당가 + 5년 지가변동률' vs '대출이자 비교 1줄'",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "매수자 신용도와 시기마다 대출 금리가 달라 잘못된 대출 수익률 표기는 분쟁 원인이 됩니다. 현재는 무대출 수익률과 지가 추이로 구성되어 있습니다.",
+    summaryQuestion:
+      "금리 분쟁 방지를 위한 현행 '무대출(현행/만실 기대) 수익률 + 대지 평당가 + 5년 지가변동률' 구성만으로 충분하실지, 아니면 대출이자 비교 1줄 참고치가 있는 편이 좋으실지 선택해 주세요.",
+    relatedScenarioIds: ["IM-01", "IM-02", "IM-03"],
+    visuals: [
+      {
+        id: "B1_Q7-V1",
+        caption: "실물 슬라이드: 무대출 기대수익률 및 한국부동산원 지가변동률 차트 (IM-01 슬라이드 07)",
+        badgeLabel: "IM-01 슬라이드 07",
+        kind: "im_slide",
+        caseId: "IM-01",
+        slideIndex: 6,
+        liveScenarioId: "IM-01",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "IM-01",
+          "IM 수익률 및 지가변동률 분석 (IM-01 슬라이드 07)",
+          "무대출 기준 현행·기대 수익률 + 대지 평당가 + 5개년 지가변동률"
+        ),
+      },
+      {
+        id: "B1_Q7-V2",
+        caption: "설득 구조 비교: 무대출 수익률·지가변동률 정석 구성 vs 대출 활용 시 참고치 1줄 병기",
+        badgeLabel: "수익률 구성 비교",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#1D4ED8",
+          eyebrow: "기준 선택 07 · 금리 분쟁 예방 vs 매수 설득력 균형",
+          title: "무대출 수익률 + 지가변동률 정석안 vs 대출이자 참고치 병기안",
+          leftTitle: "권장 A · 무대출 수익률 + 평당가 + 5년 지가변동률",
+          leftTone: "optionA",
+          leftLines: [
+            "• 현행 임대수익률 & 만실 기준 기대수익률 (무대출 기준)",
+            "• 대지 평당 매매가 & 연면적 평당 매매가 명확 제시",
+            "• 한국부동산원 최근 5년 해당 구 지가변동률 차트",
+            "→ 개인별 금리 오해·분쟁 없이 객관적 가치 설득",
+          ],
+          rightTitle: "선택 B · 선택형 '대출이자 비교 1줄 참고치' 추가",
+          rightTone: "optionB",
+          rightLines: [
+            "• 기본 구성(권장 A)은 그대로 유지",
+            "• 중개사가 원할 때만 하단에 1줄 참고 문구 ON/OFF:",
+            "  “시중 담보금리(연 4.2% 가정, LTV 50%) 감안 시",
+            "   실투자금 대비 연 순수익 참고치 별도 산출 가능”",
+          ],
+        }),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q7_1",
+        prompt: "선택 7. 매수 고객 브리핑용 수익성 페이지 구성을 어떻게 확정할까요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "현행 구성 확정 — 무대출(현행/기대) 수익률 + 대지 평당가 + 5년 지가변동률만으로 깔끔하고 분쟁 없게 제시",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "기본은 무대출로 두되, 중개사가 원할 때만 '담보대출 금리 비교 1줄 참고치'를 켜고 끌 수 있게 지원",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "지가변동률 차트 대신 인근 유사 빌딩 최근 실거래 사례(평당가 비교표)를 수기 입력해 보여주는 방식 선호",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "수익률이 3%대로 낮은 우량지 빌딩을 브리핑하실 때 주로 쓰시는 설득 논리가 있다면 알려주세요.",
+  },
+
+  {
+    id: "B1_Q8",
+    numberLabel: "기준 선택 08",
+    section: "additional",
+    categoryTag: "고객 소통 · 발송 방식 & 유료 가치",
+    title: "VIP 영업 시 주력 자료 전달 방식(단계별 승인 vs 직통 전달) 및 유료 구독 핵심 기능",
+    brokerQuoteTitle: "현장 검토 포인트",
+    brokerQuoteText:
+      "① 블라인드 딜카드 발송 후 요청 고객에게만 IM을 승인해 여는 방식과 ② VIP께 직통 링크·파일을 보내고 열람 횟수·잠금을 관리하는 방식을 비교합니다.",
+    summaryQuestion:
+      "실제 영업 현장에서 가장 주력으로 쓰실 고객 전달 흐름(8-1)과, 중개사무소에서 월 구독료를 내고서라도 꼭 쓰고 싶은 1순위 기능(8-2)을 골라 주세요.",
+    relatedScenarioIds: ["DC-01", "IM-01"],
+    visuals: [
+      {
+        id: "B1_Q8-V1",
+        caption: "영업 동선 비교: ① 딜카드 승인 후 IM 공개 vs ② 직통 링크 전달 + 열람 확인·링크 잠금",
+        badgeLabel: "VIP 발송 동선 비교",
+        kind: "diagram_svg",
+        fallbackSvgDataUri: buildCardDiagramSvg({
+          headerBg: "#0F172A",
+          eyebrow: "기준 선택 08 · 고객 소통 동선 & 유료 구독 핵심 가치",
+          title: "신규 매수자 보안 승인제 vs 단골 VIP 직통 전달·열람 관리",
+          leftTitle: "방식 ① 딜카드 먼저 → 요청 승인 후 IM 공개",
+          leftTone: "optionA",
+          leftLines: [
+            "• 다수 고객·단톡방에 지번 가린 딜카드 먼저 발송",
+            "• 관심 고객이 [상세 제안서 요청] 터치 시 알림 수신",
+            "• 중개사가 승인한 진성 고객에게만 상세 IM 열림",
+          ],
+          rightTitle: "방식 ② VIP 직통 링크 전달 + 열람 확인·잠금",
+          rightTone: "optionB",
+          rightLines: [
+            "• 단골 건물주·VIP께 모바일 IM 링크·16:9 PDF 바로 카톡 전달",
+            "• 고객이 몇 번 열어봤는지 실시간 열람 횟수 확인",
+            "• 거래 완료·보안 필요 시 원클릭 [링크 닫기]로 유출 차단",
+          ],
+          footerNote: "크리딜은 두 가지 방식을 모두 지원하며, 주력으로 쓰실 기본 화면 구성을 맞추려 합니다.",
+        }),
+      },
+      {
+        id: "B1_Q8-V2",
+        caption: "실물 슬라이드: 승인 고객 및 VIP 직통 전달용 IM 표지 (IM-01 슬라이드 01)",
+        badgeLabel: "IM-01 슬라이드 01",
+        kind: "im_slide",
+        caseId: "IM-01",
+        slideIndex: 0,
+        liveScenarioId: "IM-01",
+        fallbackSvgDataUri: buildFallbackSlideSvg(
+          "IM-01",
+          "IM 표지 (동교동 THE PARK 빌딩)",
+          "모바일 웹 IM 링크 · 16:9 PDF · 편집 가능한 PPTX 동시 제공"
+        ),
+      },
+    ],
+    subQuestions: [
+      {
+        id: "B1_Q8_1",
+        prompt: "선택 8-1. 실제 영업에서 매수 고객께 자료를 보내실 때 어느 방식을 주력으로 쓰실까요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "고객별 병행 — 초기 문의·단체 안내엔 '딜카드 승인 후 IM 공개', 검증된 VIP엔 '직통 링크 + 열람 확인·링크 잠금'",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "대부분 1:1 카톡으로 바로 모바일 IM 링크나 PDF/PPTX를 직통 전달하고 열람 횟수 확인·링크 잠금만 활용",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "물건 유출 방지가 최우선이므로 모든 고객에게 반드시 블라인드 딜카드부터 보내고 승인 절차를 거침",
+          },
+        ],
+      },
+      {
+        id: "B1_Q8_2",
+        prompt: "선택 8-2. 월 구독료를 내고 쓰실 때 가장 돈값을 한다고 느끼실 핵심 기능 1순위는 무엇인가요?",
+        options: [
+          {
+            id: "A",
+            badge: "권장 A",
+            label:
+              "주소와 임대내역만 넣으면 3분 만에 완성되는 '고품격 모바일·PPTX·16:9 PDF 제안서(IM) 자동 제작'",
+            recommended: true,
+          },
+          {
+            id: "B",
+            badge: "선택 B",
+            label:
+              "고객이 자료를 열어본 순간 알려주는 '실시간 열람 횟수 확인 및 유출 방지용 링크 즉시 잠금'",
+          },
+          {
+            id: "C",
+            badge: "선택 C",
+            label:
+              "건물주·자산가 단골 관리를 위한 '주간·월간 부동산뉴스 자동 발행 및 추천 매물 연결'",
+          },
+        ],
+      },
+    ],
+    notePlaceholder: "월 구독 서비스로 도입하실 때 적당하다고 느끼시는 월 요금대나 바라는 점을 자유롭게 적어 주세요.",
+  },
+];
+
+export const BROKER_BETA1_QUESTION_IDS: ReadonlyArray<string> =
+  BROKER_BETA1_QUESTIONS_8.map((q) => q.id);
+
 export function resolveQuestionVisualUrl(
   visual: BrokerQuestionVisualSpec,
   manifest?: ShowcaseManifest | null
@@ -1476,10 +2188,15 @@ export function resolveQuestionVisualUrl(
         manifest.brokerSlug
       )}&date=2026-10-21`;
     }
+    if (manifest?.brokerSlug && visual.caseId === "NL-D2") {
+      return `/api/og/magazine?brokerId=${encodeURIComponent(
+        manifest.brokerSlug
+      )}&date=2026-10-22`;
+    }
     if (manifest?.brokerSlug && visual.caseId === "NL-M1") {
       return `/api/og/magazine?brokerId=${encodeURIComponent(
         manifest.brokerSlug
-      )}&date=2026-10-25`;
+      )}&date=2026-10-01`;
     }
   }
 
@@ -1581,15 +2298,42 @@ function escapeHtml(raw: string): string {
  * 대상 이미지(실물 슬라이드 PNG + 카톡 공유 카드 + 시안 다이어그램)를 포함하며
  * 선택 즉시 /api/public/qa-workbench 로 실시간 동기화·제출됩니다.
  */
-export function renderStandaloneBrokerQuestionsHtml(): string {
+export function renderStandaloneBrokerQuestionsHtml(opts?: {
+  edition?: "legacy14" | "beta1";
+  sessionId?: string;
+}): string {
+  const isBeta1 = opts?.edition === "beta1";
+  const activeQuestions = isBeta1
+    ? BROKER_BETA1_QUESTIONS_8
+    : BROKER_FOLLOWUP_QUESTIONS_14;
+  const activeWorkbenchId = isBeta1
+    ? QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID
+    : QA_BROKER_FOLLOWUP_WORKBENCH_ID;
+  const activeSessionId =
+    opts?.sessionId?.trim() ||
+    (isBeta1
+      ? QA_BROKER_BETA1_FOLLOWUP_SESSION_ID
+      : QA_BROKER_FOLLOWUP_SESSION_ID);
+
+  const confirmCount = activeQuestions.filter(
+    (q) => q.section === "confirm"
+  ).length;
+  const additionalCount = activeQuestions.filter(
+    (q) => q.section === "additional"
+  ).length;
+
   const serializedSpecs = JSON.stringify({
-    workbenchId: QA_BROKER_FOLLOWUP_WORKBENCH_ID,
-    sessionId: QA_BROKER_FOLLOWUP_SESSION_ID,
-    questions: BROKER_FOLLOWUP_QUESTIONS_14,
+    isBeta1,
+    workbenchId: activeWorkbenchId,
+    sessionId: activeSessionId,
+    questions: activeQuestions,
   }).replace(/</g, "\\u003c");
 
+  const defaultShowcaseBase = isBeta1 ? "/qa-broker/showcase" : "/qa-showcase";
+
   const renderSectionCards = (section: BrokerQuestionSection) =>
-    BROKER_FOLLOWUP_QUESTIONS_14.filter((q) => q.section === section)
+    activeQuestions
+      .filter((q) => q.section === section)
       .map((q) => {
         const visualsHtml = q.visuals
           .map((v) => {
@@ -1660,7 +2404,7 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
             (sid) =>
               `<a class="scenario-pill" data-showcase-link="${escapeHtml(
                 sid
-              )}" href="/qa-showcase?case=${encodeURIComponent(
+              )}" href="${defaultShowcaseBase}?case=${encodeURIComponent(
                 sid
               )}" target="_blank" rel="noopener noreferrer">${escapeHtml(
                 sid
@@ -1722,7 +2466,11 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>CRE DealCard · 중개인 확인 및 추가 질문지 (14문항 · 대상 이미지 포함)</title>
+  <title>${
+    isBeta1
+      ? "CRE DealCard · 실전 영업 기준 선택 (8문항 · 약 5분)"
+      : "CRE DealCard · 중개인 확인 및 추가 질문지 (14문항 · 대상 이미지 포함)"
+  }</title>
   <style>
     :root {
       color-scheme: light;
@@ -1828,8 +2576,8 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       gap: 6px;
     }
     .filter-btn {
-      min-height: 38px;
-      padding: 0 13px;
+      min-height: 44px;
+      padding: 0 14px;
       border-radius: 10px;
       border: 1px solid #CBD5E1;
       background: #FFFFFF;
@@ -1921,7 +2669,7 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       background: #F8FAFC;
       border: 1px solid #CBD5E1;
       color: #475569;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 800;
     }
     .q-status.done {
@@ -1930,12 +2678,15 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       color: #065F46;
     }
     .scenario-pill {
-      padding: 6px 11px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 6px 12px;
       border-radius: 9px;
       border: 1px solid #C7D2FE;
       background: #EEF2FF;
       color: #312E81;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 800;
       text-decoration: none;
     }
@@ -1985,11 +2736,11 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       border-radius: 7px;
       background: #1E293B;
       color: #FFFFFF;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 800;
     }
     .visual-zoom-hint {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 700;
       color: #475569;
     }
@@ -2066,7 +2817,7 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       border-radius: 8px;
       background: #E2E8F0;
       color: #1E293B;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 800;
     }
     .opt-badge-rec {
@@ -2159,21 +2910,37 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
     <div class="container">
       <div class="top-row">
         <div>
-          <p class="brand-eyebrow">CRE DealCard · 중개인 1차 감수 의견 후속 확인</p>
-          <h1 class="page-title">확인 질문 8문항 &amp; 추가 질문 6문항 (대상 이미지 대조)</h1>
+          <p class="brand-eyebrow">${
+            isBeta1
+              ? "CRE DealCard · 중개인 전문가 감수 쇼룸"
+              : "CRE DealCard · 중개인 1차 감수 의견 후속 확인"
+          }</p>
+          <h1 class="page-title">${
+            isBeta1
+              ? "실전 영업 기준 선택 (8문항 · 약 5분)"
+              : "확인 질문 8문항 &amp; 추가 질문 6문항 (대상 이미지 대조)"
+          }</h1>
         </div>
         <div class="action-row">
-          <span class="progress-pill" id="progress-pill">응답 현황: 0 / 14 완료</span>
+          <span class="progress-pill" id="progress-pill">응답 현황: 0 / ${
+            activeQuestions.length
+          } 완료</span>
           <button type="button" class="btn-secondary" id="copy-summary-btn">📋 응답 요약 복사</button>
-          <a class="btn-secondary" id="back-showcase-link" href="/qa-showcase">← 산출물 쇼룸으로</a>
+          <a class="btn-secondary" id="back-showcase-link" href="${defaultShowcaseBase}">← 산출물 쇼룸으로</a>
           <button type="button" class="btn-primary" id="submit-all-btn">🚀 답변 서버 최종 제출</button>
         </div>
       </div>
       <div class="filter-row">
         <div class="filter-group" role="group" aria-label="문항 필터">
-          <button type="button" class="filter-btn" data-filter="all" aria-pressed="true">전체 보기 (14)</button>
-          <button type="button" class="filter-btn" data-filter="confirm" aria-pressed="false">확인 질문 (8)</button>
-          <button type="button" class="filter-btn" data-filter="additional" aria-pressed="false">추가 질문 (6)</button>
+          <button type="button" class="filter-btn" data-filter="all" aria-pressed="true">${
+            isBeta1 ? `전체 (${activeQuestions.length})` : `전체 보기 (${activeQuestions.length})`
+          }</button>
+          <button type="button" class="filter-btn" data-filter="confirm" aria-pressed="false">${
+            isBeta1 ? `문체·블라인드 (${confirmCount})` : `확인 질문 (${confirmCount})`
+          }</button>
+          <button type="button" class="filter-btn" data-filter="additional" aria-pressed="false">${
+            isBeta1 ? `사진·수익률·소통 (${additionalCount})` : `추가 질문 (${additionalCount})`
+          }</button>
           <button type="button" class="filter-btn" data-filter="unanswered" aria-pressed="false">미응답만 보기</button>
         </div>
         <span class="sync-banner" id="sync-status">선택하시는 즉시 자동 저장됩니다.</span>
@@ -2184,22 +2951,46 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
   <main class="container">
     <section class="intro-card">
       <p style="margin:0 0 8px;font-size:16px;font-weight:800;color:#0F172A;">
-        안녕하세요! 쇼룸에 남겨주신 소중한 실무 의견 중 명확한 항목(AI 문구·배지 제거, 구독자 신청창 숨김, IM 3p 하이라이트 박스 삭제, 7p 막대 간격 교정, 9p 출처·대형 면책 박스 정리 등)은 즉시 시스템에 반영했습니다.
+        ${
+          isBeta1
+            ? "실제 건물주·매수 고객께 보내실 문체, 블라인드 수위, 현장 사진 및 수익률 표기 기준을 골라 주세요."
+            : "안녕하세요! 쇼룸에 남겨주신 소중한 실무 의견 중 명확한 항목(AI 문구·배지 제거, 구독자 신청창 숨김, IM 3p 하이라이트 박스 삭제, 7p 막대 간격 교정, 9p 출처·대형 면책 박스 정리 등)은 즉시 시스템에 반영했습니다."
+        }
       </p>
       <p style="margin:0;font-size:15px;color:#334155;">
-        아래 <strong>확인 질문 8문항</strong>(세부 디자인·기준 확정용)과 <strong>추가 질문 6문항</strong>(미감수 월간호 및 공실·무사진 매물 기준 확인용)은 대상 이미지를 보시면서 편하게 버튼을 눌러 선택해 주시면 서버에 즉시 반영됩니다.
+        ${
+          isBeta1
+            ? "실물 산출물 이미지와 비교 시안을 보시면서 현장에서 가장 편하신 보기를 눌러 주시면 서버에 즉시 자동 저장됩니다."
+            : "아래 <strong>확인 질문 8문항</strong>(세부 디자인·기준 확정용)과 <strong>추가 질문 6문항</strong>(미감수 월간호 및 공실·무사진 매물 기준 확인용)은 대상 이미지를 보시면서 편하게 버튼을 눌러 선택해 주시면 서버에 즉시 반영됩니다."
+        }
       </p>
     </section>
 
     <div class="section-heading" id="heading-confirm">
-      <h2>5.1 [확인 질문] 남겨주신 의견의 세부 기준 확정용 (8문항)</h2>
-      <p>각 항목의 실물 슬라이드·카드 이미지와 개편 시안을 비교하신 뒤 선호하시는 보기를 눌러 주세요.</p>
+      <h2>${
+        isBeta1
+          ? "부동산뉴스 문체 · 관망장 구성 · 딜카드 블라인드 및 장점 태그 (4문항)"
+          : "5.1 [확인 질문] 남겨주신 의견의 세부 기준 확정용 (8문항)"
+      }</h2>
+      <p>${
+        isBeta1
+          ? "카톡 발송 시 고객 가독성과 매물 보안 수위에 대한 현장 기준을 선택해 주세요."
+          : "각 항목의 실물 슬라이드·카드 이미지와 개편 시안을 비교하신 뒤 선호하시는 보기를 눌러 주세요."
+      }</p>
     </div>
     ${renderSectionCards("confirm")}
 
     <div class="section-heading" id="heading-additional">
-      <h2>5.2 [추가 질문] 미감수 영역 및 실무 엣지케이스 선제 확인용 (6문항)</h2>
-      <p>월간 그래프, 사옥·개발 매물, 전층 공실, 무사진 긴급 매물에 대한 현장 기준을 알려주세요.</p>
+      <h2>${
+        isBeta1
+          ? "IM 현장 사진 보호 · 임대 예외 표기 · 수익률 설득 · 고객 소통 (4문항)"
+          : "5.2 [추가 질문] 미감수 영역 및 실무 엣지케이스 선제 확인용 (6문항)"
+      }</h2>
+      <p>${
+        isBeta1
+          ? "현장 사진 모자이크, 장부 예외 조건, 수익률 구성 및 VIP 발송 동선 기준을 선택해 주세요."
+          : "월간 그래프, 사옥·개발 매물, 전층 공실, 무사진 긴급 매물에 대한 현장 기준을 알려주세요."
+      }</p>
     </div>
     ${renderSectionCards("additional")}
 
@@ -2207,12 +2998,22 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       <h2 style="margin:0 0 12px;font-size:19px;font-weight:800;">최종 의견 제출</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px;">
         <label style="display:block;">
-          <span style="display:block;font-size:14px;font-weight:800;margin-bottom:4px;">성함 / 직함 (선택)</span>
-          <input id="responder-name" type="text" value="감수 중개인" style="width:100%;min-height:44px;border-radius:10px;border:1px solid #CBD5E1;padding:0 12px;font-size:15px;" />
+          <span style="display:block;font-size:14px;font-weight:800;margin-bottom:4px;">${
+            isBeta1 ? "성함 또는 중개사무소명 (선택)" : "성함 / 직함 (선택)"
+          }</span>
+          <input id="responder-name" type="text" value="${
+            isBeta1 ? "" : "감수 중개인"
+          }" placeholder="${
+            isBeta1 ? "성함 또는 중개사무소명 (선택)" : "성함 / 직함"
+          }" style="width:100%;min-height:44px;border-radius:10px;border:1px solid #CBD5E1;padding:0 12px;font-size:15px;" />
         </label>
         <label style="display:block;">
           <span style="display:block;font-size:14px;font-weight:800;margin-bottom:4px;">전체 추가 코멘트 (선택)</span>
-          <input id="overall-comment" type="text" placeholder="미팅 시 함께 논의하고 싶은 사항을 편하게 적어 주세요." style="width:100%;min-height:44px;border-radius:10px;border:1px solid #CBD5E1;padding:0 12px;font-size:15px;" />
+          <input id="overall-comment" type="text" placeholder="${
+            isBeta1
+              ? "실무에서 꼭 필요하거나 불편했던 점이 있으시면 편하게 적어 주세요."
+              : "미팅 시 함께 논의하고 싶은 사항을 편하게 적어 주세요."
+          }" style="width:100%;min-height:44px;border-radius:10px;border:1px solid #CBD5E1;padding:0 12px;font-size:15px;" />
         </label>
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
@@ -2236,16 +3037,20 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
   <script>
     (function () {
       var SPEC = ${serializedSpecs};
-      var LOCAL_KEY = "cre_broker_followup_questions_v1";
+      var LOCAL_KEY = SPEC.isBeta1
+        ? "cre_broker_beta1_questions_" + SPEC.sessionId
+        : "cre_broker_followup_questions_v1";
       var params = new URLSearchParams(window.location.search);
       var urlQaKey = (params.get("qaKey") || "").trim();
       var storedKey = "";
       try {
         if (urlQaKey) {
           localStorage.setItem("credeal-qa-broker-key-v1", urlQaKey);
+          sessionStorage.setItem("credeal-qa-broker-key-v1", urlQaKey);
         }
         storedKey =
           urlQaKey ||
+          sessionStorage.getItem("credeal-qa-broker-key-v1") ||
           localStorage.getItem("credeal-qa-broker-key-v1") ||
           localStorage.getItem("credeal-qa-access-key-v1") ||
           "";
@@ -2258,31 +3063,33 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
       }
 
       function decorateHref(baseHref) {
-        if (!storedKey && params.get("qa") !== "1") return baseHref;
+        if (!storedKey && params.get("qa") !== "1" && !SPEC.isBeta1) return baseHref;
         var u = new URL(baseHref, window.location.origin);
         u.searchParams.set("qa", "1");
-        if (storedKey) u.searchParams.set("qaKey", storedKey);
+        u.searchParams.set("qaRole", "broker");
+        u.searchParams.delete("qaKey");
+        u.searchParams.delete("key");
         return u.pathname + u.search;
       }
 
       var backLink = document.getElementById("back-showcase-link");
       if (backLink) {
-        var returnTo = params.get("from") === "broker" ? "/qa-broker/showcase" : "/qa-showcase";
+        var returnTo = (SPEC.isBeta1 || params.get("from") === "broker") ? "/qa-broker/showcase" : "/qa-showcase";
         backLink.setAttribute("href", decorateHref(returnTo));
       }
       document.querySelectorAll("[data-showcase-link]").forEach(function (a) {
         var sid = a.getAttribute("data-showcase-link") || "";
-        var targetBase = params.get("from") === "broker" ? "/qa-broker/showcase" : "/qa-showcase";
+        var targetBase = (SPEC.isBeta1 || params.get("from") === "broker") ? "/qa-broker/showcase" : "/qa-showcase";
         a.setAttribute("href", decorateHref(targetBase + "?case=" + encodeURIComponent(sid)));
       });
 
-      var state = { records: {}, responderName: "감수 중개인", overallComment: "", filter: "all" };
+      var state = { records: {}, responderName: SPEC.isBeta1 ? "" : "감수 중개인", overallComment: "", filter: "all" };
       try {
         var raw = localStorage.getItem(LOCAL_KEY);
         if (raw) {
           var parsed = JSON.parse(raw);
           if (parsed && typeof parsed.records === "object") state.records = parsed.records;
-          if (parsed && parsed.responderName) state.responderName = parsed.responderName;
+          if (parsed && typeof parsed.responderName === "string") state.responderName = parsed.responderName;
           if (parsed && parsed.overallComment) state.overallComment = parsed.overallComment;
         }
       } catch (e) {}
@@ -2368,7 +3175,9 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
         var pill = document.getElementById("progress-pill");
         if (pill) pill.textContent = "응답 현황: " + doneCount + " / " + SPEC.questions.length + " 완료";
         var rName = document.getElementById("responder-name");
-        if (rName && document.activeElement !== rName) rName.value = state.responderName || "감수 중개인";
+        if (rName && document.activeElement !== rName) {
+          rName.value = SPEC.isBeta1 ? (state.responderName || "") : (state.responderName || "감수 중개인");
+        }
         var oComm = document.getElementById("overall-comment");
         if (oComm && document.activeElement !== oComm) oComm.value = state.overallComment || "";
       }
@@ -2389,6 +3198,7 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
         state.overallComment = oCommEl ? oCommEl.value.trim() : state.overallComment;
         saveLocal();
         setSyncBanner(mode === "submit" ? "서버에 최종 제출 중..." : "자동 저장 중...", false);
+        var defaultTesterName = SPEC.isBeta1 ? "1호 베타 중개인" : "감수 중개인";
 
         return fetch("/api/public/qa-workbench", {
           method: "POST",
@@ -2397,8 +3207,8 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
             mode: mode,
             workbenchId: SPEC.workbenchId,
             sessionId: SPEC.sessionId,
-            testerName: state.responderName || "감수 중개인",
-            testerOrg: "중개인 질문지",
+            testerName: state.responderName || defaultTesterName,
+            testerOrg: SPEC.isBeta1 ? "1호 베타 중개인 기준 선택" : "중개인 질문지",
             overallComment: state.overallComment || "",
             records: normalized
           })
@@ -2409,10 +3219,15 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
               setSyncBanner((res.json && res.json.error) || "브라우저에 임시 저장됨 (키 확인 필요)", true);
               return false;
             }
-            var done = (res.json.summary && res.json.summary.completedCount) || Object.keys(normalized).length;
+            var localDone = Object.keys(normalized).length;
+            var serverDone = res.json.summary && typeof res.json.summary.completedCount === "number"
+              ? res.json.summary.completedCount
+              : null;
+            var done = serverDone !== null && (serverDone > 0 || localDone === 0) ? serverDone : localDone;
+            var totalQ = SPEC.questions.length;
             var msg = mode === "submit"
-              ? "✅ 서버 최종 제출 완료 (" + done + "/14 문항 저장됨)"
-              : "✓ 서버 자동 저장 완료 (" + done + "/14)";
+              ? "✅ 서버 최종 제출 완료 (" + done + "/" + totalQ + " 문항 저장됨)"
+              : "✓ 서버 자동 저장 완료 (" + done + "/" + totalQ + ")";
             setSyncBanner(msg, false);
             var bMsg = document.getElementById("bottom-submit-msg");
             if (bMsg && mode === "submit") bMsg.textContent = msg;
@@ -2560,8 +3375,10 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
                 img.setAttribute("src", entries[cid].ogImageUrl);
               } else if (slug && cid === "NL-D1") {
                 img.setAttribute("src", "/api/og/magazine?brokerId=" + encodeURIComponent(slug) + "&date=2026-10-21");
+              } else if (slug && cid === "NL-D2") {
+                img.setAttribute("src", "/api/og/magazine?brokerId=" + encodeURIComponent(slug) + "&date=2026-10-22");
               } else if (slug && cid === "NL-M1") {
-                img.setAttribute("src", "/api/og/magazine?brokerId=" + encodeURIComponent(slug) + "&date=2026-10-25");
+                img.setAttribute("src", "/api/og/magazine?brokerId=" + encodeURIComponent(slug) + "&date=2026-10-01");
               }
             }
           });
@@ -2574,7 +3391,9 @@ export function renderStandaloneBrokerQuestionsHtml(): string {
         .then(function (data) {
           if (!data || !data.found || !data.session || !data.session.records) return;
           state.records = Object.assign({}, state.records, data.session.records);
-          if (data.session.testerName) state.responderName = data.session.testerName;
+          if (data.session.testerName && (!SPEC.isBeta1 || data.session.testerName !== "1호 베타 중개인")) {
+            state.responderName = data.session.testerName;
+          }
           if (data.session.overallComment) state.overallComment = data.session.overallComment;
           saveLocal();
           renderUI();

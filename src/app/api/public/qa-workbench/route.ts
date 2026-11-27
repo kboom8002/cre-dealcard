@@ -109,11 +109,30 @@ export const dynamic = "force-dynamic";
 const log = createModuleLogger("qa-workbench-route");
 
 const DEFAULT_WORKBENCH_ID = "newsletter-inbox-mece-v1";
+const QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID_CONST =
+  "qa-broker-beta1-questions-v1";
+const BETA1_QUESTION_IDS_CONST = [
+  "B1_Q1",
+  "B1_Q2",
+  "B1_Q3",
+  "B1_Q4",
+  "B1_Q5",
+  "B1_Q6",
+  "B1_Q7",
+  "B1_Q8",
+] as const;
 const SESSION_ID_RE = /^[a-zA-Z0-9_-]{6,128}$/;
 const RAW_UUID_SUBSTR_RE =
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const UNMASKED_LOT_RE = /\d+-\d+(?!\s*(?:층|F|f))/;
 const UNMASKED_ROAD_BLDG_RE = /(?:로|길)\s+\d+(?!\d|\s*(?:길|번길|일대|인근|권역))/;
+const BYOD_PHONE_SCRUB_RE = /\d{3}[-\s]?\d{3,4}[-\s]?\d{4}/;
+const ALLOWED_BYOD_POSTURES = new Set([
+  "임대수익용",
+  "사옥용",
+  "신축·개발용",
+  "unspecified",
+] as const);
 
 const ALLOWED_PROBE_HOSTS = new Set([
   "credeal.net",
@@ -196,7 +215,7 @@ function saveMemoryPin(pin: QaFeedbackPin): void {
 async function loadMergedQaPins(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any | null,
-  filterSessionId?: string
+  filterSessionIds?: string | string[]
 ): Promise<QaFeedbackPin[]> {
   const byId = new Map<string, QaFeedbackPin>();
   for (const p of getMemoryPinStore()) {
@@ -215,7 +234,7 @@ async function loadMergedQaPins(
         q = q.order("created_at", { ascending: false });
       }
       if (typeof q.limit === "function") {
-        q = q.limit(50);
+        q = q.limit(100);
       }
       const res = await q;
       if (Array.isArray(res?.data)) {
@@ -286,8 +305,20 @@ async function loadMergedQaPins(
   }
 
   let list = Array.from(byId.values());
-  if (filterSessionId && filterSessionId !== "all") {
-    list = list.filter((p) => p.sessionId === filterSessionId);
+  if (Array.isArray(filterSessionIds)) {
+    const validSet = new Set(
+      filterSessionIds
+        .map((s) => s.trim())
+        .filter((s) => s !== "all" && SESSION_ID_RE.test(s))
+    );
+    if (validSet.size > 0) {
+      list = list.filter((p) => validSet.has(p.sessionId));
+    }
+  } else if (typeof filterSessionIds === "string") {
+    const trimmed = filterSessionIds.trim();
+    if (trimmed && trimmed !== "all") {
+      list = list.filter((p) => p.sessionId === trimmed);
+    }
   }
   list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   return list.slice(0, 100);
@@ -547,6 +578,11 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
           key: id,
           severity: "S1",
         }))
+      : workbenchId === QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID_CONST
+      ? BETA1_QUESTION_IDS_CONST.map((id) => ({
+          key: id,
+          severity: "S1",
+        }))
       : workbenchId === QA_ROUND2_WORKBENCH_ID
       ? [
           ...ROUND1_REMEDIATION_28_ITEMS.map((r) => ({
@@ -626,14 +662,16 @@ function computeWorkbenchSummary(rawRecords: unknown, workbenchId = "") {
 
   const totalCount = steps.length;
   const completedCount = passCount + polishCount + failCount;
+  const isFollowupQuestionsWorkbench =
+    workbenchId === QA_BROKER_FOLLOWUP_WORKBENCH_ID ||
+    workbenchId === QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID_CONST;
 
-  let verdictLabel =
-    workbenchId === QA_BROKER_FOLLOWUP_WORKBENCH_ID
-      ? completedCount === totalCount
-        ? `중개인 질문지 응답 완료 (${completedCount}/${totalCount})`
-        : `질문지 응답 진행 중 (${completedCount}/${totalCount})`
-      : `점검 진행 중 (${completedCount}/${totalCount})`;
-  if (workbenchId !== QA_BROKER_FOLLOWUP_WORKBENCH_ID) {
+  let verdictLabel = isFollowupQuestionsWorkbench
+    ? completedCount === totalCount
+      ? `중개인 질문지 응답 완료 (${completedCount}/${totalCount})`
+      : `질문지 응답 진행 중 (${completedCount}/${totalCount})`
+    : `점검 진행 중 (${completedCount}/${totalCount})`;
+  if (!isFollowupQuestionsWorkbench) {
     if (s0FailCount > 0) {
       verdictLabel = `즉시 출시 중단 (S0 치명 ${s0FailCount}건)`;
     } else if (s1FailCount > 0) {
@@ -703,18 +741,26 @@ async function attachShowcaseImShareTokens(
       const category = String(entry.category || "");
       const buildingId = typeof entry.buildingId === "string" ? entry.buildingId.trim() : "";
       const liveUrl = typeof entry.liveUrl === "string" ? entry.liveUrl.trim() : "";
-      if (
-        category !== "im" ||
-        !buildingId ||
-        !liveUrl.startsWith("/im-lite/") ||
-        liveUrl.includes("token=")
-      ) {
+      if (category !== "im" || !buildingId) {
         return;
       }
 
       try {
         let token: string | null = null;
-        if (supabase && typeof supabase.from === "function") {
+
+        if (liveUrl.includes("token=")) {
+          try {
+            const parsedLive = new URL(liveUrl, "https://credeal.net");
+            const existingToken = parsedLive.searchParams.get("token")?.trim() || "";
+            if (existingToken) {
+              token = existingToken;
+            }
+          } catch {
+            // ignore URL parse error and fall through to DB / issue
+          }
+        }
+
+        if (!token && supabase && typeof supabase.from === "function") {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let q: any = supabase.from("im_share_links");
           if (typeof q?.select === "function") q = q.select("token, status, expires_at");
@@ -748,7 +794,27 @@ async function attachShowcaseImShareTokens(
         }
 
         if (token) {
-          entry.liveUrl = `${liveUrl}${liveUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+          const encodedToken = encodeURIComponent(token);
+          if (liveUrl.startsWith("/im-lite/") && !liveUrl.includes("token=")) {
+            entry.liveUrl = `${liveUrl}${liveUrl.includes("?") ? "&" : "?"}token=${encodedToken}`;
+          }
+          if (
+            typeof entry.pptxDownloadUrl === "string" &&
+            entry.pptxDownloadUrl.trim() &&
+            !entry.pptxDownloadUrl.includes("token=")
+          ) {
+            const trimmedPptx = entry.pptxDownloadUrl.trim();
+            entry.pptxDownloadUrl = `${trimmedPptx}${trimmedPptx.includes("?") ? "&" : "?"}token=${encodedToken}`;
+          }
+          const rawPdfUrl =
+            typeof entry.pdfDownloadUrl === "string"
+              ? entry.pdfDownloadUrl.trim()
+              : "";
+          if (!rawPdfUrl) {
+            entry.pdfDownloadUrl = `/api/public/im-lite/${encodeURIComponent(buildingId)}/export?format=pdf&token=${encodedToken}`;
+          } else if (!rawPdfUrl.includes("token=")) {
+            entry.pdfDownloadUrl = `${rawPdfUrl}${rawPdfUrl.includes("?") ? "&" : "?"}token=${encodedToken}`;
+          }
           clonedEntries[caseId] = entry;
         }
       } catch {
@@ -800,12 +866,30 @@ export async function GET(req: NextRequest) {
 
   const queryMode = (req.nextUrl.searchParams.get("mode") || "").trim();
   const sessionId = (req.nextUrl.searchParams.get("sessionId") || "").trim();
+  const rawSessionIdsParam = (
+    req.nextUrl.searchParams.get("sessionIds") || ""
+  ).trim();
 
   if (queryMode === "pins") {
     const isAuthenticated = Boolean(brokerUser?.id) || hasQaKey;
     const supabase = tryCreateServiceClient();
-    const filterSid =
+    const multiSids = rawSessionIdsParam
+      ? rawSessionIdsParam
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => SESSION_ID_RE.test(s))
+      : [];
+    const singleSid =
       sessionId && SESSION_ID_RE.test(sessionId) ? sessionId : undefined;
+    if (singleSid && !multiSids.includes(singleSid)) {
+      multiSids.push(singleSid);
+    }
+    const filterSid: string | string[] | undefined =
+      multiSids.length > 1
+        ? multiSids
+        : multiSids.length === 1
+        ? multiSids[0]
+        : undefined;
     let rawPins = await loadMergedQaPins(supabase, filterSid);
     if (isEnforcedWithoutKey) {
       if (!brokerUser?.id) {
@@ -1048,7 +1132,12 @@ export async function POST(req: NextRequest) {
       if (!getConfiguredQaSecrets().anyConfigured) {
         return createQaGateDeniedResponse();
       }
-      if (mode === "sync" || mode === "submit" || mode === "pin") {
+      if (
+        mode === "sync" ||
+        mode === "submit" ||
+        mode === "pin" ||
+        mode === "byod_anonymized_snapshot"
+      ) {
         return NextResponse.json(
           {
             ok: false,
@@ -1441,7 +1530,7 @@ export async function POST(req: NextRequest) {
               if (editionId) {
                 try {
                   const lookupCol = isUuid(editionId) ? "id" : "edition_label";
-                  let edQ: any = supabase
+                  let edQ = supabase
                     .from("magazine_editions")
                     .select(editionSelect);
                   if (keys.length > 0 && !(nlMatch && editionId === brokerSlug)) {
@@ -2023,7 +2112,7 @@ export async function POST(req: NextRequest) {
                 let cliRows: Array<Record<string, unknown>> | null = null;
                 let cliErr: { code?: string; message?: string } | null = null;
                 {
-                  let cliQ: any = supabase
+                  let cliQ = supabase
                     .from("broker_clients")
                     .select("phone, email, notes")
                     .eq("broker_id", brokerUser.id);
@@ -2040,7 +2129,7 @@ export async function POST(req: NextRequest) {
                     String(cliErr.code || "") === "PGRST204" ||
                     /column .* does not exist/i.test(String(cliErr.message || "")))
                 ) {
-                  let fbQ: any = supabase
+                  let fbQ = supabase
                     .from("broker_clients")
                     .select("phone, notes")
                     .eq("broker_id", brokerUser.id);
@@ -2144,7 +2233,7 @@ export async function POST(req: NextRequest) {
               // 1) im_inquiry_requests scoped to broker_user_id or owned buildings
               try {
                 const inqRows: Array<Record<string, unknown>> = [];
-                let q1: any = supabase
+                let q1 = supabase
                   .from("im_inquiry_requests")
                   .select("id, building_id, status, broker_user_id, requester_phone, requester_email, created_at")
                   .eq("broker_user_id", brokerUser.id);
@@ -2153,7 +2242,7 @@ export async function POST(req: NextRequest) {
                 if (Array.isArray(r1?.data)) inqRows.push(...r1.data);
 
                 if (ownedUuidBlds.length > 0) {
-                  let q2: any = supabase
+                  let q2 = supabase
                     .from("im_inquiry_requests")
                     .select("id, building_id, status, broker_user_id, requester_phone, requester_email, created_at")
                     .in("building_id", ownedUuidBlds.slice(0, 50));
@@ -2187,7 +2276,7 @@ export async function POST(req: NextRequest) {
               // 2) gate_requests scoped to target_broker_id or owned buildings
               try {
                 const grRows: Array<Record<string, unknown>> = [];
-                let g1: any = supabase
+                let g1 = supabase
                   .from("gate_requests")
                   .select("id, building_id, status, target_broker_id, reason, created_at")
                   .eq("target_broker_id", brokerUser.id);
@@ -2196,7 +2285,7 @@ export async function POST(req: NextRequest) {
                 if (Array.isArray(g1Res?.data)) grRows.push(...g1Res.data);
 
                 if (ownedUuidBlds.length > 0) {
-                  let g2: any = supabase
+                  let g2 = supabase
                     .from("gate_requests")
                     .select("id, building_id, status, reason, created_at")
                     .in("building_id", ownedUuidBlds.slice(0, 50));
@@ -2231,7 +2320,7 @@ export async function POST(req: NextRequest) {
 
               // 3) activity_events(gate_request_created) scoped to broker_id or owned buildings
               try {
-                let evQ: any = supabase
+                let evQ = supabase
                   .from("activity_events")
                   .select("entity_id, metadata, created_at")
                   .eq("event_type", "gate_request_created");
@@ -2283,12 +2372,13 @@ export async function POST(req: NextRequest) {
               );
 
               const runSubQuery = async (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 applyContact: (q: any) => any,
                 scopeMode: "broker_id" | "broker_user_id",
               ) => {
                 const selectCols = ["status, confirm_status, unsubscribed_at", "status, unsubscribed_at"];
                 for (const cols of selectCols) {
-                  let q: any = supabase.from("magazine_subscribers").select(cols);
+                  let q = supabase.from("magazine_subscribers").select(cols);
                   q = applyContact(q);
                   q =
                     scopeMode === "broker_id"
@@ -3759,11 +3849,138 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // MODE 6: "byod_anonymized_snapshot" (Zero-PII BYOD Learning Telemetry)
+    // ════════════════════════════════════════════════════════════════════════
+    if (mode === "byod_anonymized_snapshot") {
+      const brokerUser = await resolveOptionalBrokerUser(req);
+      if (isEnforcedWithoutKey) {
+        return brokerUser?.id
+          ? createQaForbiddenResponse("BYOD 익명 통계 저장은 QA 액세스 키가 필요합니다.")
+          : createQaGateDeniedResponse();
+      }
+      if (!hasQaApiAccess(req, brokerUser) || !hasQaWriteAuthorization(req, brokerUser)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "QA 액세스 키 또는 중개사 로그인이 필요합니다.",
+          },
+          { status: 401 }
+        );
+      }
+
+      const rawSessionId =
+        typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+      const sessionId = SESSION_ID_RE.test(rawSessionId)
+        ? rawSessionId
+        : "qa-byod-anon-beta-1";
+
+      const keyRole = resolveQaKeyRole(req);
+      const forbiddenReason = checkRoleSessionForbidden(keyRole, sessionId);
+      if (forbiddenReason) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "FORBIDDEN_QA_ROLE",
+            error: forbiddenReason,
+          },
+          { status: 403 }
+        );
+      }
+
+      const cohort =
+        (typeof body.cohort === "string" ? body.cohort : "")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 32) || "beta-1";
+
+      const rawPosture =
+        typeof body.posture === "string" ? body.posture.trim() : "";
+      const posture: "임대수익용" | "사옥용" | "신축·개발용" | "unspecified" =
+        ALLOWED_BYOD_POSTURES.has(
+          rawPosture as "임대수익용" | "사옥용" | "신축·개발용" | "unspecified"
+        )
+          ? (rawPosture as "임대수익용" | "사옥용" | "신축·개발용" | "unspecified")
+          : "unspecified";
+
+      const clampInt = (val: unknown, min: number, max: number): number => {
+        const num = Number(val);
+        if (!Number.isFinite(num)) return min;
+        return Math.min(max, Math.max(min, Math.floor(num)));
+      };
+
+      const selectedQuickTags: string[] = Array.isArray(body.selectedQuickTags)
+        ? body.selectedQuickTags
+            .slice(0, 50)
+            .filter((item: unknown): item is string => typeof item === "string")
+            .map((s: string) => s.trim())
+            .filter(
+              (s: string) =>
+                s.length > 0 &&
+                s.length <= 40 &&
+                !UNMASKED_LOT_RE.test(s) &&
+                !UNMASKED_ROAD_BLDG_RE.test(s) &&
+                !RAW_UUID_SUBSTR_RE.test(s) &&
+                !BYOD_PHONE_SCRUB_RE.test(s)
+            )
+            .slice(0, 20)
+        : [];
+
+      const sanitizedSnapshot = {
+        sessionId,
+        cohort,
+        posture,
+        photoCount: clampInt(body.photoCount, 0, 50),
+        heroChanged: Boolean(body.heroChanged),
+        editedFieldCount: clampInt(body.editedFieldCount, 0, 50),
+        stepPassCount: clampInt(body.stepPassCount, 0, 1000),
+        stepPolishCount: clampInt(body.stepPolishCount, 0, 1000),
+        stepFailCount: clampInt(body.stepFailCount, 0, 1000),
+        elapsedSeconds: clampInt(body.elapsedSeconds, 0, 864_000),
+        hesitations: clampInt(body.hesitations, 0, 10_000),
+        selectedQuickTags,
+      };
+
+      const supabase = tryCreateServiceClient();
+      let saved = false;
+      if (supabase) {
+        try {
+          const insRes = await supabase.from("activity_events").insert({
+            actor_id: null,
+            actor_role:
+              keyRole === "broker"
+                ? "qa_broker"
+                : keyRole === "master"
+                ? "qa_master"
+                : brokerUser
+                ? "broker"
+                : "qa_anonymous",
+            entity_type: "qa_byod_learning",
+            event_type: "qa_byod_anonymized_snapshot",
+            entity_id: null,
+            metadata: sanitizedSnapshot,
+          });
+          saved = !insRes?.error;
+        } catch {
+          saved = false;
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        saved,
+        snapshot: sanitizedSnapshot,
+      });
+    }
+
     return NextResponse.json(
       {
         ok: false,
         error:
-          "지원하지 않는 mode입니다. ('sync' | 'submit' | 'probe' | 'seed_axis456' | 'pin' | 'auto_probe_all')",
+          "지원하지 않는 mode입니다. ('sync' | 'submit' | 'probe' | 'seed_axis456' | 'pin' | 'auto_probe_all' | 'byod_anonymized_snapshot')",
       },
       { status: 400 }
     );

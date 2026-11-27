@@ -3,7 +3,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BROKER_BETA1_QUESTIONS_8,
   BROKER_FOLLOWUP_QUESTIONS_14,
+  QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID,
   QA_BROKER_FOLLOWUP_SESSION_ID,
   QA_BROKER_FOLLOWUP_WORKBENCH_ID,
   buildBrokerQuestionsSummaryText,
@@ -17,11 +19,12 @@ import type { ShowcaseManifest } from "@/lib/qa/output-showcase-scenarios";
 import {
   appendQaParamsToHref,
   buildQaAuthHeaders,
+  resolveBrokerCohortSessionIds,
   type QaPortalRole,
 } from "@/lib/qa/qa-client-auth";
 import { COPY_FAILED_MESSAGE, copyText } from "@/lib/ux/clipboard";
 
-const LOCAL_STORAGE_KEY = "cre_broker_followup_questions_v1";
+const LEGACY_LOCAL_STORAGE_KEY = "cre_broker_followup_questions_v1";
 
 type QuestionFilterMode = "all" | "confirm" | "additional" | "unanswered";
 
@@ -33,19 +36,24 @@ interface PersistedQuestionsLocalState {
 
 export interface BrokerFollowupQuestionsPanelProps {
   manifest: ShowcaseManifest | null;
-  portalRole: QaPortalRole;
+  portalRole?: QaPortalRole;
+  sessionIdOverride?: string;
   onJumpToScenario?: (scenarioId: string) => void;
 }
 
-function readInitialLocalState(): PersistedQuestionsLocalState {
+function readInitialLocalState(
+  storageKey: string,
+  isBrokerBeta1: boolean
+): PersistedQuestionsLocalState {
+  const defaultName = isBrokerBeta1 ? "" : "감수 중개인";
   const fallback: PersistedQuestionsLocalState = {
     records: {},
-    responderName: "감수 중개인",
+    responderName: defaultName,
     overallComment: "",
   };
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<PersistedQuestionsLocalState>;
     return {
@@ -54,9 +62,11 @@ function readInitialLocalState(): PersistedQuestionsLocalState {
           ? parsed.records
           : {},
       responderName:
-        typeof parsed?.responderName === "string" && parsed.responderName.trim()
-          ? parsed.responderName
-          : "감수 중개인",
+        typeof parsed?.responderName === "string"
+          ? isBrokerBeta1
+            ? parsed.responderName
+            : parsed.responderName.trim() || defaultName
+          : defaultName,
       overallComment:
         typeof parsed?.overallComment === "string" ? parsed.overallComment : "",
     };
@@ -67,17 +77,37 @@ function readInitialLocalState(): PersistedQuestionsLocalState {
 
 export function BrokerFollowupQuestionsPanel({
   manifest,
-  portalRole,
+  portalRole = "master",
+  sessionIdOverride,
   onJumpToScenario,
 }: BrokerFollowupQuestionsPanelProps) {
+  const isBrokerBeta1 = portalRole === "broker";
+  const activeQuestions = isBrokerBeta1
+    ? BROKER_BETA1_QUESTIONS_8
+    : BROKER_FOLLOWUP_QUESTIONS_14;
+  const activeWorkbenchId = isBrokerBeta1
+    ? QA_BROKER_BETA1_FOLLOWUP_WORKBENCH_ID
+    : QA_BROKER_FOLLOWUP_WORKBENCH_ID;
+  const effectiveSessionId = useMemo(() => {
+    if (sessionIdOverride?.trim()) return sessionIdOverride.trim();
+    if (isBrokerBeta1) {
+      return resolveBrokerCohortSessionIds().questionsSessionId;
+    }
+    return QA_BROKER_FOLLOWUP_SESSION_ID;
+  }, [isBrokerBeta1, sessionIdOverride]);
+
+  const localStorageKey = isBrokerBeta1
+    ? `cre_broker_beta1_questions_${effectiveSessionId}`
+    : LEGACY_LOCAL_STORAGE_KEY;
+
   const [records, setRecords] = useState<
     Record<string, BrokerQuestionAnswerRecord>
-  >(() => readInitialLocalState().records);
+  >(() => readInitialLocalState(localStorageKey, isBrokerBeta1).records);
   const [responderName, setResponderName] = useState<string>(
-    () => readInitialLocalState().responderName
+    () => readInitialLocalState(localStorageKey, isBrokerBeta1).responderName
   );
   const [overallComment, setOverallComment] = useState<string>(
-    () => readInitialLocalState().overallComment
+    () => readInitialLocalState(localStorageKey, isBrokerBeta1).overallComment
   );
   const [filterMode, setFilterMode] = useState<QuestionFilterMode>("all");
   const [syncBanner, setSyncBanner] = useState<string>(
@@ -97,7 +127,7 @@ export function BrokerFollowupQuestionsPanel({
   useEffect(() => {
     try {
       window.localStorage.setItem(
-        LOCAL_STORAGE_KEY,
+        localStorageKey,
         JSON.stringify({
           records,
           responderName,
@@ -107,7 +137,7 @@ export function BrokerFollowupQuestionsPanel({
     } catch {
       // ignore storage quota errors
     }
-  }, [records, responderName, overallComment]);
+  }, [localStorageKey, records, responderName, overallComment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +145,7 @@ export function BrokerFollowupQuestionsPanel({
       try {
         const res = await fetch(
           `/api/public/qa-workbench?sessionId=${encodeURIComponent(
-            QA_BROKER_FOLLOWUP_SESSION_ID
+            effectiveSessionId
           )}`,
           {
             cache: "no-store",
@@ -143,10 +173,14 @@ export function BrokerFollowupQuestionsPanel({
             ...json.session!.records,
           }));
         }
-        if (json.session.testerName?.trim()) {
-          setResponderName(json.session.testerName.trim());
+        const loadedName = json.session.testerName?.trim() || "";
+        if (loadedName && (!isBrokerBeta1 || loadedName !== "1호 베타 중개인")) {
+          setResponderName(loadedName);
         }
-        if (typeof json.session.overallComment === "string" && json.session.overallComment) {
+        if (
+          typeof json.session.overallComment === "string" &&
+          json.session.overallComment
+        ) {
           setOverallComment(json.session.overallComment);
         }
       } catch {
@@ -157,7 +191,7 @@ export function BrokerFollowupQuestionsPanel({
     return () => {
       cancelled = true;
     };
-  }, [portalRole]);
+  }, [effectiveSessionId, isBrokerBeta1, portalRole]);
 
   useEffect(() => {
     if (!lightboxState) return;
@@ -172,13 +206,19 @@ export function BrokerFollowupQuestionsPanel({
 
   const answeredCount = useMemo(
     () =>
-      BROKER_FOLLOWUP_QUESTIONS_14.filter((q) =>
-        isQuestionAnswered(q, records[q.id])
-      ).length,
-    [records]
+      activeQuestions.filter((q) => isQuestionAnswered(q, records[q.id])).length,
+    [activeQuestions, records]
   );
 
-  const unansweredCount = BROKER_FOLLOWUP_QUESTIONS_14.length - answeredCount;
+  const unansweredCount = activeQuestions.length - answeredCount;
+  const totalConfirmCount = useMemo(
+    () => activeQuestions.filter((q) => q.section === "confirm").length,
+    [activeQuestions]
+  );
+  const totalAdditionalCount = useMemo(
+    () => activeQuestions.filter((q) => q.section === "additional").length,
+    [activeQuestions]
+  );
 
   const persistToServer = useCallback(
     async (
@@ -189,7 +229,7 @@ export function BrokerFollowupQuestionsPanel({
     ) => {
       const normalizedPayloadRecords: Record<string, BrokerQuestionAnswerRecord> =
         {};
-      for (const q of BROKER_FOLLOWUP_QUESTIONS_14) {
+      for (const q of activeQuestions) {
         const draft = nextRecords[q.id];
         if (!draft) continue;
         const normalized = normalizeQuestionRecordForSave(q, draft);
@@ -207,6 +247,10 @@ export function BrokerFollowupQuestionsPanel({
         mode === "submit" ? "서버에 최종 제출하는 중입니다..." : "서버 자동 저장 중..."
       );
 
+      const fallbackTesterName = isBrokerBeta1
+        ? "1호 베타 중개인"
+        : "감수 중개인";
+
       try {
         const res = await fetch("/api/public/qa-workbench", {
           method: "POST",
@@ -216,10 +260,12 @@ export function BrokerFollowupQuestionsPanel({
           },
           body: JSON.stringify({
             mode,
-            workbenchId: QA_BROKER_FOLLOWUP_WORKBENCH_ID,
-            sessionId: QA_BROKER_FOLLOWUP_SESSION_ID,
-            testerName: nextName.trim() || "감수 중개인",
-            testerOrg: "중개인 질문지",
+            workbenchId: activeWorkbenchId,
+            sessionId: effectiveSessionId,
+            testerName: nextName.trim() || fallbackTesterName,
+            testerOrg: isBrokerBeta1
+              ? "1호 베타 중개인 기준 선택"
+              : "중개인 질문지",
             overallComment: nextOverall.trim(),
             records: normalizedPayloadRecords,
           }),
@@ -239,16 +285,23 @@ export function BrokerFollowupQuestionsPanel({
           return;
         }
 
+        const localDone = Object.keys(normalizedPayloadRecords).length;
+        const serverDone =
+          typeof json.summary?.completedCount === "number"
+            ? json.summary.completedCount
+            : null;
         const done =
-          json.summary?.completedCount ??
-          Object.keys(normalizedPayloadRecords).length;
+          serverDone !== null && (serverDone > 0 || localDone === 0)
+            ? serverDone
+            : localDone;
+
         if (mode === "submit") {
-          const msg = `✅ 서버 최종 제출 완료 (${done} / ${BROKER_FOLLOWUP_QUESTIONS_14.length} 문항 저장됨)`;
+          const msg = `✅ 서버 최종 제출 완료 (${done} / ${activeQuestions.length} 문항 저장됨)`;
           setSyncBanner(msg);
           setSubmitDoneMessage(msg);
         } else {
           setSyncBanner(
-            `✓ 서버 자동 저장됨 (${done} / ${BROKER_FOLLOWUP_QUESTIONS_14.length} 완료)`
+            `✓ 서버 자동 저장됨 (${done} / ${activeQuestions.length} 완료)`
           );
         }
       } catch {
@@ -260,7 +313,15 @@ export function BrokerFollowupQuestionsPanel({
         }
       }
     },
-    [overallComment, portalRole, responderName]
+    [
+      activeQuestions,
+      activeWorkbenchId,
+      effectiveSessionId,
+      isBrokerBeta1,
+      overallComment,
+      portalRole,
+      responderName,
+    ]
   );
 
   const handleSelectOption = useCallback(
@@ -318,9 +379,9 @@ export function BrokerFollowupQuestionsPanel({
 
   const handleCopySummary = useCallback(async () => {
     const summaryText = buildBrokerQuestionsSummaryText(
-      BROKER_FOLLOWUP_QUESTIONS_14,
+      activeQuestions,
       records,
-      responderName,
+      responderName.trim() || (isBrokerBeta1 ? "1호 베타 중개인" : "감수 중개인"),
       overallComment
     );
     const ok = await copyText(summaryText);
@@ -331,18 +392,17 @@ export function BrokerFollowupQuestionsPanel({
       setSyncError(true);
       setSyncBanner(COPY_FAILED_MESSAGE);
     }
-  }, [overallComment, records, responderName]);
+  }, [activeQuestions, isBrokerBeta1, overallComment, records, responderName]);
 
   const standaloneHtmlHref = useMemo(() => {
-    const base =
-      portalRole === "broker"
-        ? "/qa-showcase/questions?from=broker"
-        : "/qa-showcase/questions";
+    const base = isBrokerBeta1
+      ? "/qa-showcase/questions?edition=beta1&role=broker&from=broker"
+      : "/qa-showcase/questions";
     return appendQaParamsToHref(base, portalRole);
-  }, [portalRole]);
+  }, [isBrokerBeta1, portalRole]);
 
   const visibleQuestions = useMemo(() => {
-    return BROKER_FOLLOWUP_QUESTIONS_14.filter((q) => {
+    return activeQuestions.filter((q) => {
       if (filterMode === "confirm") return q.section === "confirm";
       if (filterMode === "additional") return q.section === "additional";
       if (filterMode === "unanswered") {
@@ -350,7 +410,7 @@ export function BrokerFollowupQuestionsPanel({
       }
       return true;
     });
-  }, [filterMode, records]);
+  }, [activeQuestions, filterMode, records]);
 
   const confirmQuestions = visibleQuestions.filter(
     (q) => q.section === "confirm"
@@ -376,7 +436,7 @@ export function BrokerFollowupQuestionsPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center rounded-lg px-3 py-1 text-[14px] font-extrabold text-white ${
+              className={`inline-flex items-center rounded-lg px-3 py-1 text-[15px] font-extrabold text-white ${
                 question.section === "confirm"
                   ? "bg-indigo-800"
                   : "bg-teal-700"
@@ -384,12 +444,12 @@ export function BrokerFollowupQuestionsPanel({
             >
               {question.numberLabel}
             </span>
-            <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-[14px] font-bold text-slate-800">
+            <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-[15px] font-bold text-slate-800">
               {question.categoryTag}
             </span>
             <span
               data-testid={`broker-question-status-${question.id}`}
-              className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[13px] font-extrabold ${
+              className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[15px] font-extrabold ${
                 done
                   ? "border-emerald-300 bg-emerald-50 text-emerald-900"
                   : "border-slate-300 bg-slate-50 text-slate-600"
@@ -407,7 +467,7 @@ export function BrokerFollowupQuestionsPanel({
                   type="button"
                   data-testid={`broker-question-jump-${question.id}-${sid}`}
                   onClick={() => onJumpToScenario(sid)}
-                  className="min-h-[38px] rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3 text-[13px] font-extrabold text-indigo-900 cursor-pointer"
+                  className="min-h-[44px] rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3 text-[15px] font-extrabold text-indigo-900 cursor-pointer"
                 >
                   {sid} 실화면 보기 →
                 </button>
@@ -442,10 +502,10 @@ export function BrokerFollowupQuestionsPanel({
                 className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-0.5 text-[13px] font-extrabold text-white">
+                  <span className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-0.5 text-[15px] font-extrabold text-white">
                     {visual.badgeLabel}
                   </span>
-                  <span className="text-[13px] font-bold text-slate-600">
+                  <span className="text-[15px] font-bold text-slate-600">
                     🔍 클릭하면 크게 보기
                   </span>
                 </div>
@@ -472,7 +532,7 @@ export function BrokerFollowupQuestionsPanel({
                     className="block w-full aspect-[16/9] object-contain bg-white transition-transform group-hover:scale-[1.01]"
                   />
                 </button>
-                <figcaption className="text-[14px] font-bold text-slate-700 leading-snug">
+                <figcaption className="text-[15px] font-bold text-slate-700 leading-snug">
                   {visual.caption}
                 </figcaption>
               </figure>
@@ -511,7 +571,7 @@ export function BrokerFollowupQuestionsPanel({
                         }`}
                       >
                         <span
-                          className={`shrink-0 rounded-lg px-2.5 py-1 text-[13px] font-extrabold ${
+                          className={`shrink-0 rounded-lg px-2.5 py-1 text-[15px] font-extrabold ${
                             isSelected
                               ? "bg-emerald-600 text-white"
                               : opt.recommended
@@ -537,7 +597,7 @@ export function BrokerFollowupQuestionsPanel({
         <div className="space-y-1.5 pt-1">
           <label
             htmlFor={`question-note-${question.id}`}
-            className="block text-[14px] font-extrabold text-slate-800"
+            className="block text-[15px] font-extrabold text-slate-800"
           >
             ✏️ 추가 의견 / 직접 문구 지정 (선택)
           </label>
@@ -556,7 +616,7 @@ export function BrokerFollowupQuestionsPanel({
               type="button"
               data-testid={`broker-question-note-save-${question.id}`}
               onClick={() => handleSaveQuestionNote(question)}
-              className="min-h-[44px] shrink-0 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 px-4 text-[14px] font-extrabold text-indigo-900 cursor-pointer"
+              className="min-h-[44px] shrink-0 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 px-4 text-[15px] font-extrabold text-indigo-900 cursor-pointer"
             >
               의견 저장
             </button>
@@ -580,14 +640,14 @@ export function BrokerFollowupQuestionsPanel({
               data-testid="broker-questions-progress-badge"
               className="inline-flex items-center min-h-[44px] rounded-xl border border-indigo-300 bg-indigo-50 px-3.5 text-[15px] font-extrabold text-indigo-950"
             >
-              응답 현황: {answeredCount} / {BROKER_FOLLOWUP_QUESTIONS_14.length} 완료
+              응답 현황: {answeredCount} / {activeQuestions.length} 완료
             </span>
             <a
               href={standaloneHtmlHref}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="broker-questions-open-html-link"
-              className="inline-flex items-center min-h-[44px] rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3.5 text-[14px] font-extrabold text-slate-900"
+              className="inline-flex items-center min-h-[44px] rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3.5 text-[15px] font-extrabold text-slate-900"
             >
               📄 단독 HTML 창으로 열기 ↗
             </a>
@@ -598,7 +658,7 @@ export function BrokerFollowupQuestionsPanel({
               type="button"
               data-testid="broker-questions-copy-btn"
               onClick={() => void handleCopySummary()}
-              className="min-h-[44px] rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3.5 text-[14px] font-extrabold text-slate-900 cursor-pointer"
+              className="min-h-[44px] rounded-xl border border-slate-300 bg-white hover:bg-slate-100 px-3.5 text-[15px] font-extrabold text-slate-900 cursor-pointer"
             >
               📋 응답 요약 복사
             </button>
@@ -621,12 +681,31 @@ export function BrokerFollowupQuestionsPanel({
             className="flex flex-wrap items-center gap-1.5"
           >
             {(
-              [
-                { id: "all", label: "전체 보기 (14)" },
-                { id: "confirm", label: "확인 질문 (8)" },
-                { id: "additional", label: "추가 질문 (6)" },
-                { id: "unanswered", label: `미응답만 (${unansweredCount})` },
-              ] as const
+              isBrokerBeta1
+                ? ([
+                    { id: "all", label: `전체 (${activeQuestions.length})` },
+                    {
+                      id: "confirm",
+                      label: `문체·블라인드 (${totalConfirmCount})`,
+                    },
+                    {
+                      id: "additional",
+                      label: `사진·수익률·소통 (${totalAdditionalCount})`,
+                    },
+                    { id: "unanswered", label: "미응답만 보기" },
+                  ] as const)
+                : ([
+                    {
+                      id: "all",
+                      label: `전체 보기 (${activeQuestions.length})`,
+                    },
+                    { id: "confirm", label: `확인 질문 (${totalConfirmCount})` },
+                    {
+                      id: "additional",
+                      label: `추가 질문 (${totalAdditionalCount})`,
+                    },
+                    { id: "unanswered", label: `미응답만 (${unansweredCount})` },
+                  ] as const)
             ).map((f) => {
               const active = filterMode === f.id;
               return (
@@ -636,7 +715,7 @@ export function BrokerFollowupQuestionsPanel({
                   data-testid={`broker-questions-filter-${f.id}`}
                   aria-pressed={active}
                   onClick={() => setFilterMode(f.id)}
-                  className={`min-h-[38px] rounded-xl border px-3 text-[14px] font-extrabold cursor-pointer ${
+                  className={`min-h-[44px] rounded-xl border px-3.5 text-[15px] font-extrabold cursor-pointer ${
                     active
                       ? "border-indigo-700 bg-indigo-700 text-white"
                       : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
@@ -650,7 +729,7 @@ export function BrokerFollowupQuestionsPanel({
 
           <span
             data-testid="broker-questions-sync-status"
-            className={`text-[14px] font-extrabold ${
+            className={`text-[15px] font-extrabold ${
               syncError ? "text-rose-700" : "text-emerald-800"
             }`}
           >
@@ -661,38 +740,59 @@ export function BrokerFollowupQuestionsPanel({
 
       {/* 안내 배너 */}
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-1.5">
-        <p className="text-[16px] font-extrabold text-emerald-950">
-          ✅ 1차 감수 의견 중 명확한 항목(AI 문구·배지 제거, 구독자 신청창 숨김, IM 3p 하이라이트 박스 삭제, 7p 막대 간격 교정, 9p 출처·대형 면책 정리 등)은 즉시 수정 반영했습니다.
-        </p>
-        <p className="text-[15px] text-emerald-900">
-          아래 <strong>확인 질문 8문항</strong>과 <strong>추가 질문 6문항</strong>은 각 대상 이미지를 확인하시며 원하시는 보기를 눌러 주시면 서버에 즉시 저장됩니다.
-        </p>
+        {isBrokerBeta1 ? (
+          <>
+            <h2 className="text-lg font-extrabold text-emerald-950">
+              실전 영업 기준 선택 (8문항 · 약 5분)
+            </h2>
+            <p className="text-[15px] text-emerald-900">
+              실제 건물주·매수 고객께 보내실 문체, 블라인드 수위, 현장 사진 보호 및 수익률 표기 방식을 편하게 골라 주시면 즉시 자동 저장됩니다.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[16px] font-extrabold text-emerald-950">
+              ✅ 1차 감수 의견 중 명확한 항목(AI 문구·배지 제거, 구독자 신청창 숨김, IM 3p 하이라이트 박스 삭제, 7p 막대 간격 교정, 9p 출처·대형 면책 정리 등)은 즉시 수정 반영했습니다.
+            </p>
+            <p className="text-[15px] text-emerald-900">
+              아래 <strong>확인 질문 8문항</strong>과 <strong>추가 질문 6문항</strong>은 각 대상 이미지를 확인하시며 원하시는 보기를 눌러 주시면 서버에 즉시 저장됩니다.
+            </p>
+          </>
+        )}
       </div>
 
-      {/* 5.1 확인 질문 8문항 */}
+      {/* 섹션 1 */}
       {confirmQuestions.length > 0 ? (
         <div className="space-y-4">
           <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white">
             <h2 className="text-lg sm:text-xl font-extrabold">
-              5.1 [확인 질문] 남겨주신 의견의 세부 기준 확정용 (8문항)
+              {isBrokerBeta1
+                ? `부동산뉴스 문체 · 관망장 구성 · 딜카드 블라인드 및 장점 태그 (${totalConfirmCount}문항)`
+                : "5.1 [확인 질문] 남겨주신 의견의 세부 기준 확정용 (8문항)"}
             </h2>
-            <p className="text-[14px] sm:text-[15px] text-slate-300 mt-0.5">
-              각 산출물 슬라이드·카드 이미지와 개편 시안을 비교하신 뒤 선호하시는 방향을 선택해 주세요.
+            <p className="text-[15px] text-slate-300 mt-0.5">
+              {isBrokerBeta1
+                ? "카톡 발송 시 고객 가독성과 매물 보안 수위에 대한 현장 선호 기준을 선택해 주세요."
+                : "각 산출물 슬라이드·카드 이미지와 개편 시안을 비교하신 뒤 선호하시는 방향을 선택해 주세요."}
             </p>
           </div>
           {confirmQuestions.map(renderQuestionCard)}
         </div>
       ) : null}
 
-      {/* 5.2 추가 질문 6문항 */}
+      {/* 섹션 2 */}
       {additionalQuestions.length > 0 ? (
         <div className="space-y-4">
           <div className="rounded-2xl bg-teal-900 px-5 py-4 text-white">
             <h2 className="text-lg sm:text-xl font-extrabold">
-              5.2 [추가 질문] 미감수 영역 및 실무 엣지케이스 선제 확인용 (6문항)
+              {isBrokerBeta1
+                ? `IM 현장 사진 보호 · 임대 예외 표기 · 수익률 설득 · 고객 소통 (${totalAdditionalCount}문항)`
+                : "5.2 [추가 질문] 미감수 영역 및 실무 엣지케이스 선제 확인용 (6문항)"}
             </h2>
-            <p className="text-[14px] sm:text-[15px] text-teal-100 mt-0.5">
-              월간 뉴스레터 그래프, 사옥·개발 매물, 전층 공실, 무사진 긴급 매물에 대한 실무 기준을 알려주세요.
+            <p className="text-[15px] text-teal-100 mt-0.5">
+              {isBrokerBeta1
+                ? "현장 촬영 사진 손질, 장부 예외 조건, 수익률 구성 및 VIP 발송 동선 기준을 선택해 주세요."
+                : "월간 뉴스레터 그래프, 사옥·개발 매물, 전층 공실, 무사진 긴급 매물에 대한 실무 기준을 알려주세요."}
             </p>
           </div>
           {additionalQuestions.map(renderQuestionCard)}
@@ -702,12 +802,12 @@ export function BrokerFollowupQuestionsPanel({
       {visibleQuestions.length === 0 ? (
         <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-6 text-center space-y-2">
           <p className="text-lg font-extrabold text-emerald-950">
-            🎉 모든 문항(14/14)에 응답을 완료하셨습니다!
+            🎉 모든 문항({activeQuestions.length}/{activeQuestions.length})에 응답을 완료하셨습니다!
           </p>
           <button
             type="button"
             onClick={() => setFilterMode("all")}
-            className="min-h-[42px] rounded-xl bg-emerald-700 px-4 text-[15px] font-extrabold text-white cursor-pointer"
+            className="min-h-[44px] rounded-xl bg-emerald-700 px-4 text-[15px] font-extrabold text-white cursor-pointer"
           >
             전체 응답 다시 보기
           </button>
@@ -717,23 +817,32 @@ export function BrokerFollowupQuestionsPanel({
       {/* 하단 종합 제출 카드 */}
       <div className="rounded-2xl border-2 border-indigo-600 bg-white p-5 space-y-4">
         <h3 className="text-lg font-extrabold text-slate-900">
-          중개인 질문지 최종 제출
+          {isBrokerBeta1
+            ? "실전 영업 기준 선택 최종 제출"
+            : "중개인 질문지 최종 제출"}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block space-y-1">
-            <span className="block text-[14px] font-extrabold text-slate-800">
-              성함 / 직함 (선택)
+            <span className="block text-[15px] font-extrabold text-slate-800">
+              {isBrokerBeta1
+                ? "성함 또는 중개사무소명 (선택)"
+                : "성함 / 직함 (선택)"}
             </span>
             <input
               type="text"
               data-testid="broker-questions-responder-input"
               value={responderName}
               onChange={(e) => setResponderName(e.target.value)}
+              placeholder={
+                isBrokerBeta1
+                  ? "성함 또는 중개사무소명 (선택)"
+                  : "성함 / 직함 (선택)"
+              }
               className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-[15px] text-slate-900"
             />
           </label>
           <label className="block space-y-1">
-            <span className="block text-[14px] font-extrabold text-slate-800">
+            <span className="block text-[15px] font-extrabold text-slate-800">
               전체 추가 코멘트 (선택)
             </span>
             <input
@@ -741,7 +850,11 @@ export function BrokerFollowupQuestionsPanel({
               data-testid="broker-questions-overall-input"
               value={overallComment}
               onChange={(e) => setOverallComment(e.target.value)}
-              placeholder="화·목 미팅에서 추가로 논의하고 싶은 내용을 적어 주세요."
+              placeholder={
+                isBrokerBeta1
+                  ? "실무에서 꼭 필요하거나 불편했던 점이 있으시면 편하게 적어 주세요."
+                  : "화·목 미팅에서 추가로 논의하고 싶은 내용을 적어 주세요."
+              }
               className="w-full min-h-[44px] rounded-xl border border-slate-300 bg-white px-3 text-[15px] text-slate-900"
             />
           </label>
@@ -782,12 +895,15 @@ export function BrokerFollowupQuestionsPanel({
           role="dialog"
           aria-modal="true"
           aria-label="대상 이미지 확대 보기"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setLightboxState(null);
-          }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-3 sm:p-6"
         >
-          <div className="w-full max-w-5xl rounded-2xl bg-white p-4 space-y-3 shadow-2xl">
+          <button
+            type="button"
+            aria-label="확대 창 배경 닫기"
+            onClick={() => setLightboxState(null)}
+            className="fixed inset-0 h-full w-full bg-transparent cursor-default"
+          />
+          <div className="relative z-10 w-full max-w-5xl rounded-2xl bg-white p-4 space-y-3 shadow-2xl">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[16px] font-extrabold text-slate-900">
                 {lightboxState.caption}
@@ -796,7 +912,7 @@ export function BrokerFollowupQuestionsPanel({
                 type="button"
                 data-testid="broker-questions-lightbox-close"
                 onClick={() => setLightboxState(null)}
-                className="min-h-[40px] rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 px-3.5 text-[14px] font-extrabold text-slate-900 cursor-pointer"
+                className="min-h-[44px] rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 px-3.5 text-[15px] font-extrabold text-slate-900 cursor-pointer"
               >
                 ✕ 닫기
               </button>

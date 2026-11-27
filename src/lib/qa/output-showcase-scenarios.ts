@@ -147,6 +147,7 @@ export interface ShowcaseLiveEntry {
   liveUrl: string;
   ogImageUrl: string | null;
   pptxDownloadUrl?: string | null;
+  pdfDownloadUrl?: string | null;
   pptxSlideUrls?: string[];
   slideCount?: number;
   buildingId?: string;
@@ -249,6 +250,32 @@ export const SHOWCASE_PHOTO_SETS = {
       category: "parking",
     },
   ],
+  seocho4: [
+    {
+      url: `${SUPABASE_CDN_BASE}/broker-case02/01_exterior_corner_main.jpeg`,
+      caption: "서초동 사옥 코너 전면 외관",
+      role: "cover",
+      category: "exterior",
+    },
+    {
+      url: `${SUPABASE_CDN_BASE}/broker-case02/02_exterior_front_facade.jpeg`,
+      caption: "사옥 정면 파사드 및 출입구",
+      role: "entrance",
+      category: "exterior",
+    },
+    {
+      url: `${SUPABASE_CDN_BASE}/broker-case02/06_interior_6f_hq_hall.jpeg`,
+      caption: "본사 업무홀 및 회의 공간",
+      role: "interior",
+      category: "interior",
+    },
+    {
+      url: `${SUPABASE_CDN_BASE}/broker-case02/03_exterior_side_parking.jpeg`,
+      caption: "측면 자주식 주차 공간",
+      role: "parking",
+      category: "parking",
+    },
+  ],
 } satisfies Record<string, ShowcasePhotoInput[]>;
 
 const CSV_01_TSV = [
@@ -322,7 +349,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     id: "NL-D1",
     category: "newsletter",
     title: "일간 · 표준형 (강남·서초 핵심 시황 + 추천 매물 2건)",
-    subtitle: "5줄 500자 평문 브리핑 + 70대 눈높이 이슈 3선 + 옵트인 단독 푸터",
+    subtitle: "3줄 명사형 시황 요약 + 핵심 이슈 3선 + 옵트인 단독 푸터",
     ogDescription: "강남·마포 코너 꼬마빌딩 시황 브리핑과 추천 매물 2건을 정리해 보내드립니다.",
     edgeFocus: "일간 표준 5단(제목-브리핑-이슈-매물-연락처+구독) 정합성",
     editionType: "daily",
@@ -334,7 +361,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     rawBrokerMemo:
       "강남과 마포 코너 건물 위주로 매수 문의가 다시 늘고 있습니다. 공실이 적고 1층 임차인이 탄탄한 물건은 매수자가 가격을 크게 깎으려 하지 않는 분위기입니다.",
     plainBriefingFallback:
-      "어제 오늘 강남과 홍대 경의선숲길 일대 코너 빌딩 매수 문의가 눈에 띄게 늘었습니다.\n실제 답사 오시는 건물주분들은 1층 임차인이 안정적인지부터 가장 먼저 살피십니다.\n대출 이자 부담이 서서히 진정되면서 70억~200억대 우량 매물 거래 상담이 활기를 띱니다.\n반면 공실이 오래 비어 있는 안쪽 골목 건물은 가격 조정이 더 필요한 상황입니다.\n오늘 정리한 핵심 소식과 엄선 매물 2건을 편하게 살펴보시고 궁금한 점은 바로 연락 주십시오.",
+      "• 시중은행 상가담보 금리 연 4.1%대 안착, 우량 코너 매수 상담 증가\n• 강남·홍대 대로변 1층 만실 근생빌딩, 호가 조정 없는 실거래세 유지\n• 이면 노후 공실 건물은 선별 관망세, 임대 안정된 70억~200억대 강세",
     unitIssues: [
       {
         id: "nl-d1-issue-1",
@@ -369,9 +396,9 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     ],
     dealRefs: ["DC-01", "DC-04"],
     defaultFontScale: "normal",
-    inputSummary: "강남·마포 2줄 메모 + 이슈 3건 + 딜카드 2건(DC-01, DC-04)",
+    inputSummary: "강남·마포 3줄 핵심 요약 + 이슈 3건 + 딜카드 2건(DC-01, DC-04)",
     oracleCriteria: [
-      "별도 '브리핑 소제목' 미노출 및 본문 5줄·500자 이내",
+      "별도 '브리핑 소제목' 미노출 및 3줄 명사형 핵심 요약 유지",
       "이슈 카드에 '이슈 1' 번호 없이 분야 배지(대출·금리 등)만 깔끔히 표시",
       "하단 유틸리티 메뉴 없이 뉴스레터 신청 옵트인만 노출",
     ],
@@ -379,10 +406,10 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
   {
     id: "NL-D2",
     category: "newsletter",
-    title: "일간 · 엣지 (매물 0건 순수 브리핑 + 500자 상한 경계)",
-    subtitle: "추천 매물 0건일 때 빈 박스 제거 + 480자 장문 브리핑·3줄 이슈 경계",
+    title: "일간 · 엣지 (매물 0건 순수 브리핑 + 3줄 핵심 요약)",
+    subtitle: "추천 매물 0건일 때 빈 박스 제거 + 3줄 명사형 시황 요약·이슈 2선",
     ogDescription: "오늘의 금리·상가 공실 동향과 건물 관리 체크포인트를 정리해 보내드립니다.",
-    edgeFocus: "매물 0건 조건부 미노출 & 500자·2줄제목·3줄해설 텍스트 예산 경계",
+    edgeFocus: "매물 0건 조건부 미노출 & 3줄 핵심 요약·이슈 텍스트 예산 경계",
     editionType: "daily",
     cadenceLabel: "일간 뉴스레터 · 엣지",
     editionLabel: "qa-nl-d2-2026-10-22",
@@ -392,7 +419,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     rawBrokerMemo:
       "오늘은 특별히 급하게 추천할 매물은 빼고, 서울 시내 상가 공실률 변화와 올해 말 재산세·임대소득 점검 포인트만 고객님들께 조용히 정리해서 전해드리려 합니다.",
     plainBriefingFallback:
-      "오늘 브리핑에서는 새 매물 소개를 잠시 쉬고, 건물 보유자분들이 4분기에 꼭 챙기실 세 가지 숫자를 짚어드립니다.\n첫째, 서울 주요 상권 중대형 상가 공실이 소폭 늘었지만 대로변 1층과 병의원·약국 입점은 여전히 빈자리가 귀합니다.\n둘째, 내년도 은행 만기 연장을 앞두셨다면 두 달 전부터 다른 은행 금리 조건을 미리 받아 두셔야 연 0.3%라도 유리합니다.\n셋째, 올해 임대료 인상이나 무상임대(렌트프리)를 조정하신 층이 있다면 세금계산서 합계와 임대차계약서를 꼭 대조하시기 바랍니다.\n보유 건물의 적정 시세나 임대 재구성 상담은 언제든 편하게 회신 주십시오.",
+      "• 서울 중대형 상가 공실률 8.6% 보합, 대로변 병의원·약국 임차 강세\n• 연말 담보대출 만기 2개월 전 타행 대환 비교 시 연 0.3%p 절감\n• 4분기 부가세·재산세 신고 전 무상임대 약정 및 관리비 내역 대조 필수",
     unitIssues: [
       {
         id: "nl-d2-issue-1",
@@ -417,10 +444,10 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     ],
     dealRefs: [],
     defaultFontScale: "normal",
-    inputSummary: "465자(5줄) 브리핑 + 이슈 2건(긴 제목·3줄 해설) + 추천 매물 0건([])",
+    inputSummary: "3줄 명사형 시황 요약 + 이슈 2건 + 추천 매물 0건([])",
     oracleCriteria: [
       "매물 0건일 때 빈 회색 추천 매물 박스 미노출",
-      "450~495자 장문 브리핑이 잘리지 않고 5줄 이내 유지",
+      "3줄 명사형 시황 요약 및 이슈 카드 줄바꿈 정상 유지",
       "모바일 390px 가로 넘침 0px",
     ],
   },
@@ -428,7 +455,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     id: "NL-W1",
     category: "newsletter",
     title: "주간 · 표준형 (5대 관심 채널 황금배합 + 매물 3건)",
-    subtitle: "성수·마포·부천 다권역 주간 요약 + 5개 분야 4선 + 추천 매물 3건",
+    subtitle: "성수·마포·부천 다권역 3줄 핵심 요약 + 분야별 이슈 4선 + 추천 매물 3건",
     ogDescription: "금주 주요 상권 매수 흐름과 리모델링·수익형 추천 매물 3건을 안내드립니다.",
     edgeFocus: "표준 주간호 캐러셀(3매물) + 5대 분야 배지 + 지번 마스킹",
     editionType: "weekly",
@@ -440,7 +467,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     rawBrokerMemo:
       "이번 주에는 마포 동교동과 부천 심곡동 밸류애드 빌딩 문의가 동시에 많았습니다. 실수요 사옥과 수익형 리모델링 매물 3건을 엄선했습니다.",
     plainBriefingFallback:
-      "이번 주 서울과 수도권 상업용 빌딩 시장은 '검증된 입지 수익형'과 '리모델링 밸류애드' 두 축으로 움직였습니다.\n마포 동교동과 대흥동 일대는 70억~80억대 소형 빌딩을 찾는 개인 자산가 문의가 꾸준합니다.\n부천 심곡동처럼 역세권 상업지역이면서 일부 공실을 손보면 수익률이 5%대로 올라가는 매물도 주목받고 있습니다.\n반면 금리가 내려가더라도 임대 수익이 너무 낮은 물건은 매수 심사가 까다로워진 점은 유의하셔야 합니다.\n금주 가장 주목할 소식 4가지와 추천 매물 3건을 아래에서 바로 비교해 보십시오.",
+      "• 서울 중소형 빌딩 거래 중 70억~100억대 비중 48%로 매수세 집중\n• 마포 만실 근생 연 4.1%대, 부천 역세권 리모델링 연 5.2%대 형성\n• 금융권 임대수입 심사 강화로 연체 없는 우량 임차 건물 담보한도 우위",
     unitIssues: [
       {
         id: "nl-w1-issue-1",
@@ -485,7 +512,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     ],
     dealRefs: ["DC-01", "DC-02", "DC-05"],
     defaultFontScale: "normal",
-    inputSummary: "주간 2줄 메모 + 4개 분야 이슈 + 매물 3건(DC-01, DC-02, DC-05)",
+    inputSummary: "주간 3줄 핵심 요약 + 4개 분야 이슈 + 매물 3건(DC-01, DC-02, DC-05)",
     oracleCriteria: [
       "3건 매물 캐러셀(1/3 카운터 + 좌우 스크롤 + 모바일 IM 열람 CTA)",
       "모든 매물 지번(189-6, 395-166, 12-41) 일대/인근으로 마스킹",
@@ -496,7 +523,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     id: "NL-W2",
     category: "newsletter",
     title: "주간 · 엣지 (중개인명 결합 제목 프리셋 + 단일 급매 1건)",
-    subtitle: "제목 짓기 부담 해소 프리셋 '[중개인명]의 이번 주 빌딩 시장 브리핑' + 매물 1건",
+    subtitle: "제목 짓기 부담 해소 프리셋 '[중개인명]의 이번 주 빌딩 시장 브리핑' + 3줄 요약 + 매물 1건",
     ogDescription: "서교동 역세권 급매물 1건과 만실 기준 수익성 검토 포인트를 전해드립니다.",
     edgeFocus: "중개인명 자동 결합 제목 프리셋 & 1건 매물 카드(카운터 미노출)",
     editionType: "weekly",
@@ -509,7 +536,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     rawBrokerMemo:
       "제목 고민 없이 매주 드리는 현장 브리핑입니다. 서교동 대로 이면 2층 공실 1칸만 채우면 바로 수익률이 뛰는 매물 1건만 콕 집어 드립니다.",
     plainBriefingFallback:
-      "이번 주는 여러 물건을 나열하기보다 당장 현장 답사를 가실 만한 가치 있는 급매물 1건에 집중해 말씀드립니다.\n서교동 일대에서 60억대 예산으로 대지와 건물을 함께 확보할 수 있는 매물이 귀해졌습니다.\n현재 2층 일부가 비어 있어 겉보기 수익률은 낮아 보이지만, 공실을 채웠을 때의 예상 수익률을 따져보면 가격 메리트가 분명합니다.\n매도인의 일정상 이번 달 안으로 조건 조율이 가능해 빠른 검토가 유리합니다.\n자세한 내역은 아래 매물 카드와 모바일 IM에서 바로 확인하실 수 있습니다.",
+      "• 마포 서교동 역세권 60억대 급매 희소, 대지·건물 동시 확보 적기\n• 2층 공실 1개 층 신규 임차 시 만실 기대수익률 연 4.3% 확보\n• 매도인 연내 잔금 일정 협의 가능, 답사 및 임대 재구성 검토 우위",
     unitIssues: [
       {
         id: "nl-w2-issue-1",
@@ -534,7 +561,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     ],
     dealRefs: ["DC-02"],
     defaultFontScale: "normal",
-    inputSummary: "중개인명 프리셋 제목 + 단일 밸류애드 급매 1건(DC-02)",
+    inputSummary: "중개인명 프리셋 제목 + 3줄 핵심 요약 + 단일 급매 1건(DC-02)",
     oracleCriteria: [
       "헤드라인에 브로커 성함 포함('[중개인명]의 이번 주 빌딩 시장 브리핑')",
       "단일 매물(1건)일 때 '1 / 1' 캐러셀 카운터 불필요 노출 없음",
@@ -544,7 +571,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     id: "NL-M1",
     category: "newsletter",
     title: "월간 · 표준형 옵션 A (강남·서초 실거래 + 한은 대출금리 비교 그래프 2선)",
-    subtitle: "월간 최상단 공공 통계 그래픽 2선(국토부 실거래 + 한국은행 금리) + 매물 3건",
+    subtitle: "월간 최상단 공공 통계 그래픽 2선(국토부 실거래 + 한국은행 금리) + 3줄 핵심 요약",
     ogDescription: "강남·서초 통건물 실거래 흐름과 상업대출 금리 비교 리포트를 보내드립니다.",
     edgeFocus: "월간 옵션 A(molit_bok) 상단 그래프 2건 + 출처 투명성 표기 검증",
     editionType: "monthly",
@@ -556,7 +583,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     rawBrokerMemo:
       "이번 달 월간호는 국토부 통건물 실거래 추이와 한국은행 상업대출 금리를 한눈에 비교해 드립니다. 강남·서초 사옥 수요와 동교동 리테일 매물을 함께 짚었습니다.",
     plainBriefingFallback:
-      "이번 달 월간 브리핑에서는 강남·서초 권역의 실제 통건물 거래 흐름과 한국은행 기준 상업용 대출금리 추이를 최상단에 정리했습니다.\n그래프를 보시면 대출금리가 안정되면서 기대수익률과의 격차가 점차 줄어드는 모습을 확인하실 수 있습니다.\n사옥용 230억대 서초 매물부터 리테일 수익형 동교동·역삼 프라임 매물까지 예산별 비교가 가능하도록 구성했습니다.\n월말 결산과 연내 자금 집행을 검토하시는 대표님들께 실무 판단의 기준이 되길 바랍니다.\n개별 건물의 정밀 수지분석표(모바일 IM · PPTX)가 필요하시면 편하게 요청해 주십시오.",
+      "• 강남·서초 통건물 실거래 전월 대비 14% 증가, 법인 매수세 견조\n• 한은 상업담보 금리 연 4.2%대 안정, 보유 이자 부담 점진 완화\n• 즉시 입주 사옥용 200억대·만실 근생 70억대 우량 매물 거래 집중",
     unitIssues: [
       {
         id: "nl-m1-issue-1",
@@ -593,7 +620,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     monthlyRegion: "gbd",
     monthlyPair: "molit_bok",
     defaultFontScale: "normal",
-    inputSummary: "월간 옵션 A(gbd · molit_bok) 상단 그래프 2건 + 매물 3건(DC-01, DC-04, DC-06)",
+    inputSummary: "월간 옵션 A(gbd · molit_bok) 상단 그래프 2건 + 3줄 요약 + 매물 3건(DC-01, DC-04, DC-06)",
     oracleCriteria: [
       "월간 상단 통계 그래픽 2선(실거래 추이 + 대출금리·수익률 비교) 정상 렌더링",
       "각 그래프 출처(국토교통부/한국은행 또는 시장 기준 참고치) 투명 표기",
@@ -604,7 +631,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     id: "NL-M2",
     category: "newsletter",
     title: "월간 · 엣지 (영등포·여의도 옵션 B 금액대 그래프 + 초고령 21px 모드)",
-    subtitle: "비강남(YBD) 금액대별 거래 비중 + 다필지·무사진 매물 + 아주 크게(21px) 줄바꿈",
+    subtitle: "비강남(YBD) 금액대별 거래 비중 + 3줄 핵심 요약 + 아주 크게(21px) 줄바꿈",
     ogDescription: "여의도·영등포 권역 금액대별 거래 비중과 핵심 추천 매물을 확인해 보세요.",
     edgeFocus: "옵션 B(molit_band) 그래프 + 70대 아주 크게(xlarge) 모드 레이아웃 무결성",
     editionType: "monthly",
@@ -616,7 +643,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     rawBrokerMemo:
       "강남 외 권역인 영등포·여의도와 용인 보정동 일대를 보시는 시니어 건물주분들을 위해 글씨를 크게 보셔도 시원한 구성과 금액대별 거래 비중 그래프를 담았습니다.",
     plainBriefingFallback:
-      "강남권 가격이 부담스러워진 요즘, 영등포·당산과 분당선 보정동 역세권처럼 수익률과 생활 수요가 탄탄한 비강남권 매물 문의가 꾸준히 늘고 있습니다.\n상단 두 번째 그래프를 보시면 영등포 권역에서 어느 가격대의 건물이 가장 활발히 거래되는지 바로 확인하실 수 있습니다.\n특히 100억 안팎 구간에서 매매가 활발해, 향후 되팔기 좋은 크기와 가격대를 고르시는 데 참고가 됩니다.\n글씨가 작아 불편하셨던 분들을 위해 큰글씨 화면에서도 줄이 겹치지 않도록 여유 있게 편집했습니다.\n다필지 코너 매물과 신규 접수된 용인 역세권 매물을 편히 살펴보시기 바랍니다.",
+      "• 영등포·당산 빌딩 거래 중 80억~150억대 비중 52%로 거래 최다\n• 2·9호선 환승권 공실률 3.4% 유지, 여의도 배후 임차 수요 탄탄\n• 대단지 배후 역세권 병의원·학원 장기임차 근생빌딩 가격 방어 우위",
     unitIssues: [
       {
         id: "nl-m2-issue-1",
@@ -643,7 +670,7 @@ export const NEWSLETTER_SHOWCASE_6: readonly ShowcaseNewsletterScenario[] = [
     monthlyRegion: "ybd",
     monthlyPair: "molit_band",
     defaultFontScale: "xlarge",
-    inputSummary: "월간 옵션 B(ybd · molit_band) + 아주 크게(xlarge) 21px + 다필지(DC-07)·가격협의(DC-08)",
+    inputSummary: "월간 옵션 B(ybd · molit_band) + 3줄 핵심 요약 + 아주 크게(xlarge) 21px + 다필지(DC-07)·가격협의(DC-08)",
     oracleCriteria: [
       "옵션 B '금액대별 거래 비중' 막대 그래프 2선 정상 표시",
       "아주 크게(xlarge 21px) 상태에서 버튼·그래프·카드 겹침 및 가로 스크롤 0px",
@@ -718,9 +745,9 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
       { floor: "2F", unit: "201호", use: "공실 (예정 오피스)", area_sqm: 140, depositManwon: 0, monthlyRentManwon: 0, maintenanceManwon: 0, status: "vacant" },
       { floor: "3F", unit: "301호", use: "디자인사무소", area_sqm: 140, depositManwon: 4000, monthlyRentManwon: 320, maintenanceManwon: 25, status: "occupied" },
     ],
-    photos: SHOWCASE_PHOTO_SETS.bucheon4,
+    photos: SHOWCASE_PHOTO_SETS.bucheon4.slice(0, 3),
     forbiddenPublicTokens: ["395-166"],
-    inputSummary: "서교동 395-166 · 68억 · 2F 공실 포함 밸류애드 · 실사진 4장",
+    inputSummary: "서교동 395-166 · 68억 · 2F 공실 포함 밸류애드 · 실사진 3장",
     oracleCriteria: [
       "지번(395-166) 미노출 및 마포구 서교동 일대 마스킹",
       "공실·밸류애드 맥락이 포스처에 맞게 정직하게 노출",
@@ -787,7 +814,7 @@ export const DEALCARD_SHOWCASE_8: readonly ShowcaseDealCardScenario[] = [
       { floor: "3F", unit: "3층", use: "본사 업무공간", area_sqm: 310, depositManwon: 0, monthlyRentManwon: 0, maintenanceManwon: 0, status: "owner" },
       { floor: "4F", unit: "4층", use: "본사 R&D·라운지", area_sqm: 310, depositManwon: 0, monthlyRentManwon: 0, maintenanceManwon: 0, status: "owner" },
     ],
-    photos: SHOWCASE_PHOTO_SETS.yeoksam4,
+    photos: SHOWCASE_PHOTO_SETS.seocho4,
     forbiddenPublicTokens: ["1364-28"],
     inputSummary: "서초동 1364-28 · 230억 · 사옥형 자가사용(owner_occupier) · 실사진 4장",
     oracleCriteria: [
@@ -1072,7 +1099,7 @@ export const IM_SHOWCASE_8: readonly ShowcaseImScenario[] = [
       { floor: "3F", unit: "3층", use: "사업부 오피스", area_sqm: 310, depositManwon: 0, monthlyRentManwon: 0, maintenanceManwon: 0, status: "owner" },
       { floor: "4F", unit: "4층", use: "임원실·라운지", area_sqm: 310, depositManwon: 0, monthlyRentManwon: 0, maintenanceManwon: 0, status: "owner" },
     ],
-    photos: SHOWCASE_PHOTO_SETS.yeoksam4,
+    photos: SHOWCASE_PHOTO_SETS.seocho4,
     inputSummary: "서초동 1364-28 · 230억 · posture=owner_occupier · 자가 4개 층",
     oracleCriteria: [
       "OpenXML 5대 단언 통과 & 230억 정확 표기",
@@ -1213,4 +1240,335 @@ export function getShowcaseScenarioById(
   caseId: string,
 ): ShowcaseScenarioUnion | undefined {
   return OUTPUT_SHOWCASE_SCENARIOS.find((s) => s.id === caseId);
+}
+
+export interface BrokerFacingScenarioMeta {
+  title: string;
+  subtitle: string;
+  postureOrCadenceBadge: string;
+  inputSummary: string;
+  edgeFocus: string;
+  checkpoints: string[];
+}
+
+const BROKER_FACING_SCENARIO_META_MAP: Readonly<
+  Record<ShowcaseScenarioUnion["id"], BrokerFacingScenarioMeta>
+> = {
+  "NL-D1": {
+    title: "일간 부동산뉴스 · 강남·마포 핵심 시황 + 추천 매물 2건",
+    subtitle: "3줄 명사형 시황 요약 · 주요 이슈 3선 · 추천 매물 2건 구성",
+    postureOrCadenceBadge: "일간 부동산뉴스 · 기본형",
+    inputSummary:
+      "강남·마포 현장 메모 2줄 + 주요 이슈 3건 + 추천 매물 2건(동교동·서초동)",
+    edgeFocus:
+      "바쁜 건물주 고객이 카톡에서 10초 만에 읽는 3줄 핵심 요약과 매물 연결 동선",
+    checkpoints: [
+      "상단 시황 요약이 장황한 인사말 없이 3줄 핵심 수치·흐름으로 한눈에 들어오는지 확인",
+      "이슈 카드에 불필요한 번호표 없이 분야 태그와 언론·기관 출처만 깔끔히 보이는지 확인",
+      "하단에 중개사 성함·바로 전화걸기 버튼과 뉴스 구독 신청란이 단정하게 배치되었는지 확인",
+    ],
+  },
+  "NL-D2": {
+    title: "일간 부동산뉴스 · 추천 매물 없이 보내는 순수 시황 브리핑",
+    subtitle: "매물 소개 없이 금리·공실·세무 점검 포인트만 전하는 안부형 소식지",
+    postureOrCadenceBadge: "일간 부동산뉴스 · 시황 전용",
+    inputSummary: "4분기 금리·공실·관리비 점검 메모 + 주요 이슈 2건 + 추천 매물 없음",
+    edgeFocus:
+      "추천 매물을 넣지 않은 날에도 빈 칸 없이 자연스러운 시황 소식지로 완성",
+    checkpoints: [
+      "추천 매물이 없을 때 빈 회색 상자가 남지 않고 기사에서 중개사 연락처로 자연스럽게 이어지는지 확인",
+      "보유 건물주께 드리는 금리·관리비 점검 문구가 부담스럽지 않고 품격 있는지 확인",
+      "휴대폰 작은 화면에서도 글자 잘림이나 가로 밀림 없이 편안하게 읽히는지 확인",
+    ],
+  },
+  "NL-W1": {
+    title: "주간 부동산뉴스 · 주요 상권 주간 흐름 + 추천 매물 3건",
+    subtitle: "마포·부천 등 다권역 주간 시황 3줄 요약 · 분야별 이슈 4선 · 매물 3건",
+    postureOrCadenceBadge: "주간 부동산뉴스 · 기본형",
+    inputSummary:
+      "주간 시황 메모 + 4개 분야 핵심 이슈 + 추천 매물 3건(임대수익용·신축·개발용)",
+    edgeFocus:
+      "추천 매물 3건을 좌우로 넘겨 보며 상세 안내서로 연결하는 주간 브리핑 구성",
+    checkpoints: [
+      "추천 매물 3건 카드에 상세 지번 없이 동 단위 위치와 핵심 제원만 안전하게 표시되는지 확인",
+      "금리·세무·상권 등 다양한 분야 소식이 한쪽으로 치우치지 않고 균형 있게 읽히는지 확인",
+      "각 매물 카드를 눌렀을 때 딜카드 상세 화면으로 자연스럽게 연결되는지 확인",
+    ],
+  },
+  "NL-W2": {
+    title: "주간 부동산뉴스 · 중개사 성함 자동 제목 + 급매물 1건 집중 소개",
+    subtitle:
+      "제목 작성 부담을 덜어주는 '[중개사명]의 이번 주 빌딩 시장 브리핑' + 단일 매물",
+    postureOrCadenceBadge: "주간 부동산뉴스 · 단일 매물 집중",
+    inputSummary:
+      "중개사 성함 결합 기본 제목 + 서교동 역세권 급매물 1건 집중 브리핑",
+    edgeFocus:
+      "매주 제목 고민 없이 바로 쓸 수 있는 성함 결합 제목과 단일 급매물 강조 구성",
+    checkpoints: [
+      "상단 제목에 중개사 성함이 자연스럽게 결합되어 단골 고객에게 친근감과 신뢰를 주는지 확인",
+      "추천 매물이 1건일 때 불필요한 '1 / 1' 페이지 표시 없이 깔끔하게 단독 카드로 보이는지 확인",
+      "부분 공실 건물의 만실 전환 시 기대수익률 포인트가 설득력 있게 전달되는지 확인",
+    ],
+  },
+  "NL-M1": {
+    title: "월간 부동산뉴스 · 강남·서초 실거래 추이 & 대출금리 비교 리포트",
+    subtitle:
+      "국토교통부 실거래 통계 · 한국은행 금리 비교 그래프 2선 + 추천 매물 3건",
+    postureOrCadenceBadge: "월간 리포트 · 실거래·금리 차트",
+    inputSummary:
+      "강남·서초 월간 실거래·금리 통계 차트 2종 + 추천 매물 3건(임대수익용·사옥용)",
+    edgeFocus:
+      "한 달에 한 번 자산가 고객께 보내는 공공 통계 기반 심층 시장 리포트",
+    checkpoints: [
+      "최상단 실거래 추이와 대출금리 비교 그래프 2종이 숫자 겹침 없이 선명하게 읽히는지 확인",
+      "그래프 하단에 국토교통부·한국은행 등 공공 통계 출처가 투명하게 표기되었는지 확인",
+      "2,000억대 대형 오피스 매물 가격 표기가 줄바꿈 깨짐 없이 단정하게 나오는지도 함께 확인",
+    ],
+  },
+  "NL-M2": {
+    title: "월간 부동산뉴스 · 여의도·영등포 금액대별 거래 비중 & 큰 글씨(21px)",
+    subtitle:
+      "비강남 핵심 권역 금액대별 거래 비중 차트 + 시니어 고객용 아주 큰 글씨 화면",
+    postureOrCadenceBadge: "월간 리포트 · 금액대 차트 · 큰글씨",
+    inputSummary:
+      "영등포·여의도 금액대별 거래 비중 차트 + 아주 크게(21px) 글자 설정 + 추천 매물 2건",
+    edgeFocus:
+      "고연령 건물주 고객이 '아주 크게(21px)'로 보셔도 표와 카드가 겹치지 않는 가독성",
+    checkpoints: [
+      "어느 금액대 건물이 가장 활발히 거래되는지 막대그래프로 한눈에 파악되는지 확인",
+      "글자 크기를 '아주 크게(21px)'로 키웠을 때도 제목·그래프·매물 카드가 깨지지 않는지 확인",
+      "다필지 건물 지번 숨김과 '가격 협의' 매물 표기가 자연스럽게 처리되었는지 확인",
+    ],
+  },
+  "DC-01": {
+    title: "임대수익용 · 마포 동교동 경의선숲길 코너 근생 (77억)",
+    subtitle: "전층 만실 우량 근생빌딩 + 현장 사진 4장 + 상세 지번·상호 자동 숨김",
+    postureOrCadenceBadge: "임대수익용 · 만실 운영",
+    inputSummary:
+      "마포구 동교동 코너 근생 · 매매가 77억 · 전층 만실(5개 층) · 현장 사진 4장",
+    edgeFocus:
+      "타 중개사 물건 추적은 막으면서 진성 매수자 문의를 이끄는 블라인드 요약 구성",
+    checkpoints: [
+      "상세 지번과 유명 점포 상호명이 완전히 가려지고 '마포구 동교동 일대'로 안전하게 표시되는지 확인",
+      "카톡 공유 화면에 핵심 4가지(지역 · 용도 · 연면적 · 70억대)가 한눈에 들어오는지 확인",
+      "장점 3줄에 단순 면적 반복 없이 코너 가시성과 만실 임대 매력만 간결히 담겼는지 확인",
+    ],
+  },
+  "DC-02": {
+    title: "임대수익용(부분 공실) · 마포 서교동 합정역세권 근생 (68억)",
+    subtitle: "1·3층 임대 중 + 2층 공실 신규 임차 또는 직접 사용 가능 매물",
+    postureOrCadenceBadge: "임대수익용 · 임대 재구성",
+    inputSummary:
+      "마포구 서교동 역세권 근생 · 매매가 68억 · 2층 공실 포함 3개 층 · 현장 사진 3장",
+    edgeFocus:
+      "일부 공실이 있는 매물을 숨기지 않고 신규 임차·수익 개선 기회로 솔직하게 안내",
+    checkpoints: [
+      "상세 지번 노출 없이 '마포구 서교동' 역세권 입지와 60~70억대 금액대가 깔끔히 표시되는지 확인",
+      "2층 공실 현황과 신규 임차 세팅 시 기대 포인트가 과장 없이 신뢰감 있게 적혔는지 확인",
+      "저층 근생 건물 성격에 맞는 외관·실내 사진 3장이 자연스럽게 배치되었는지 확인",
+    ],
+  },
+  "DC-03": {
+    title: "임대수익용(전층 명도) · 부천 심곡동 역세권 빌딩 (52억)",
+    subtitle:
+      "전층 명도 완료(보증금 0 · 월세 0) 상태에서도 즉시 입주·통임대 강점으로 안내",
+    postureOrCadenceBadge: "임대수익용 · 전층 명도 완료",
+    inputSummary:
+      "부천시 심곡동 역세권 상업빌딩 · 매매가 52억 · 전층 명도 완료(현행 임대차 없음)",
+    edgeFocus:
+      "현재 월세가 0원인 명도 완료 건물도 어색한 0% 표기 없이 매수 장점으로 깔끔히 소개",
+    checkpoints: [
+      "보증금·월세가 0원인 전층 공실 상태에서도 숫자 표시 오류 없이 깔끔하게 안내되는지 확인",
+      "명도 부담 없이 매수 즉시 리모델링이나 통임대를 진행할 수 있는 실무 장점이 잘 드러나는지 확인",
+    ],
+  },
+  "DC-04": {
+    title: "사옥용 · 서초구 서초동 즉시 입주 법인 사옥 (230억)",
+    subtitle:
+      "전층 직접 사용 사옥 기준 — 임대료 대신 실사용 면적·자주식 주차·접근성 강조",
+    postureOrCadenceBadge: "사옥용 · 즉시 입주",
+    inputSummary:
+      "서초구 서초동 사옥 빌딩 · 매매가 230억 · 연면적 560평 · 자주식 주차 14대 · 사진 4장",
+    edgeFocus:
+      "사옥 매수 법인이 가장 먼저 보는 가용 면적·주차 대수·즉시 입주 조건 중심 요약",
+    checkpoints: [
+      "불필요한 임대수익률 강조 대신 전층 사옥 입주 가능 면적(연면적 560평)과 주차 14대가 부각되는지 확인",
+      "서초동 법인 사옥 외관·업무홀·자주식 주차장 현장 사진이 매물 성격과 잘 어울리는지 확인",
+    ],
+  },
+  "DC-05": {
+    title: "신축·개발용 · 마포 대흥동 역세권 코너 신축부지 (78억)",
+    subtitle:
+      "노후 건물 철거·신축 목적 — 노후 연면적 대신 대지면적(110평)·용도지역 중심 표기",
+    postureOrCadenceBadge: "신축·개발용 · 신축부지",
+    inputSummary:
+      "마포구 대흥동 코너 부지 · 매매가 78억 · 대지 110평(제2종일반주거) · 단기 명도 협의",
+    edgeFocus:
+      "신축·개발용 매물에서 낡은 건물 연면적 대신 대지 평수와 코너 토지 가치를 최우선 표시",
+    checkpoints: [
+      "대표 면적 칸에 기존 건물 연면적 대신 '토지(대지) 110평'이 우선 표시되는지 확인",
+      "상세 지번 숨김 유지 및 단기 임대 후 신축 가능 조건이 명확히 전달되는지 확인",
+    ],
+  },
+  "DC-06": {
+    title: "임대수익용(대형 오피스) · 강남 역삼동 테헤란로 빌딩 (2,000억)",
+    subtitle:
+      "연면적 4,313평 프라임 대형 빌딩 — 큰 금액·넓은 면적 숫자 줄바꿈 안정성",
+    postureOrCadenceBadge: "임대수익용 · 대형 오피스",
+    inputSummary:
+      "강남구 역삼동 테헤란로 대형 오피스 · 매매가 2,000억 · 대지 439평 · 연면적 4,313평",
+    edgeFocus:
+      "천억 단위 대형 매물에서도 금액과 평수 숫자가 잘리거나 칸을 넘치지 않는 단정한 표기",
+    checkpoints: [
+      "'2,000억대' 금액과 '연면적 4,313평' 숫자가 말줄임 없이 한눈에 읽히는지 확인",
+      "상세 지번과 금융기관·입주 법인 실명이 공개 티저에서 안전하게 가려졌는지 확인",
+    ],
+  },
+  "DC-07": {
+    title: "임대수익용(다필지·블라인드 보호) · 영등포 당산동 코너 빌딩 (115억)",
+    subtitle:
+      "메모에 섞인 상세 지번·프랜차이즈 상호·직통 번호를 자동으로 가려주는 안전장치",
+    postureOrCadenceBadge: "임대수익용 · 블라인드 보호",
+    inputSummary:
+      "영등포구 당산동 외 2필지 코너 · 115억 · 지번·유명 카페 상호·전화번호가 섞인 현장 메모",
+    edgeFocus:
+      "급히 붙여넣은 현장 메모 속 민감 정보(지번·상호·연락처) 자동 숨김 작동 확인",
+    checkpoints: [
+      "원본 메모에 적힌 상세 지번, 유명 프랜차이즈 상호, 현장 전화번호가 공개 카드에서 모두 제거되었는지 확인",
+      "다필지 코너 입지 장점과 110~120억대 규모감은 매수자에게 매력적으로 전달되는지 확인",
+    ],
+  },
+  "DC-08": {
+    title: "임대수익용(가격 협의·무사진) · 용인 보정동 역세권 근생 (비공개 매각)",
+    subtitle:
+      "매도인 요청으로 가격 비공개('가격 협의') 및 사진 촬영 전 긴급 발송용 딜카드",
+    postureOrCadenceBadge: "임대수익용 · 가격 협의",
+    inputSummary:
+      "용인시 보정동 역세권 근생 · 매매가 비공개(가격 협의) · 1줄 간단 메모 · 현장 사진 없음",
+    edgeFocus:
+      "가격 비공개 매물이나 사진 확보 전 긴급 접수 물건도 품격 있게 첫 안내 가능",
+    checkpoints: [
+      "매매가를 비워 두었을 때 0원 대신 '가격 협의'로 자연스럽게 표시되는지 확인",
+      "현장 사진이 아직 없는 상태에서도 카톡 공유 카드와 상세 제원표가 어색함 없이 정돈되어 보이는지 확인",
+    ],
+  },
+  "IM-01": {
+    title: "임대수익용 표준 · 마포 동교동 THE PARK 빌딩 (77억)",
+    subtitle:
+      "전층 만실 근생 · 복수층(B1~B2) 통합 임차 표기 및 현장 사진 4장 수록",
+    postureOrCadenceBadge: "임대수익용 · 만실 근생",
+    inputSummary:
+      "마포구 동교동 189-6 · 매매가 77억 · 6개 층 전층 만실(B1~B2 통합 계약 포함) · 사진 4장",
+    edgeFocus:
+      "한 임차인이 두 개 층을 묶어 쓰는 통합 계약도 공실로 오해하지 않고 정확히 표기",
+    checkpoints: [
+      "표지 제목, 물건 개요, 층별 임대 현황(지상 최고층→지하 순서), 수익률·지가 차트까지 9장 흐름이 자연스러운지 확인",
+      "B1~B2 통합 임차 중 금액이 합산된 B2층이 '공실'이 아닌 '임대중(B1 합산)' 맥락으로 정확히 보이는지 확인",
+      "외관·출입구·실내·루프탑 현장 사진 4장이 깨짐 없이 선명하게 배치되었는지 확인",
+    ],
+  },
+  "IM-02": {
+    title: "임대수익용(부분 공실) · 부천 심곡동 동아빌딩 (58억)",
+    subtitle:
+      "16개 호실 임대 중 + 2층 공실 1실 기대수익 분리 및 주차타워 고정수익 반영",
+    postureOrCadenceBadge: "임대수익용 · 부분 공실",
+    inputSummary:
+      "부천시 심곡동 382-2 · 매매가 58억 · 총 17개 호실(201호 공실) + 월 고정 주차수익 198만원",
+    edgeFocus:
+      "현재 나오는 임대수익과 공실 1칸을 채웠을 때의 만실 기대수익을 한눈에 비교",
+    checkpoints: [
+      "임대 현황표에서 현재 임대 중인 호실과 2층 공실(201호), 주차장 부대수익이 명확히 구분되는지 확인",
+      "현행 수익률과 공실 해소 시 기대수익률이 함께 제시되어 매수 설득력이 충분한지 확인",
+    ],
+  },
+  "IM-03": {
+    title: "임대수익용(전층 공실) · 부천 심곡동 명도완료 빌딩 (52억)",
+    subtitle:
+      "지하1층~지상4층 전층 명도 완료 — 즉시 리모델링·통임대 착수 가능 매물",
+    postureOrCadenceBadge: "임대수익용 · 전층 명도 완료",
+    inputSummary:
+      "부천시 심곡동 385 · 매매가 52억 · B1~4F 전층 공실(보증금 0 · 월세 0)",
+    edgeFocus:
+      "전층 공실(보증금 0 · 월세 0) 상태에서도 오류 없이 예상 임대료 기준 기대수익률과 즉시 입주 강점으로 안내",
+    checkpoints: [
+      "현재 임대료가 0원인 건물에서도 전 페이지 숫자·수익률 표기가 깨지거나 어색하지 않은지 확인",
+      "명도 협의 부담 없이 매수 직후 리모델링이나 신규 우량 임차인 세팅이 가능하다는 점이 잘 전달되는지 확인",
+    ],
+  },
+  "IM-04": {
+    title: "사옥용 · 서초구 서초동 법인 사옥 빌딩 (230억)",
+    subtitle:
+      "잔금 즉시 전층 입주 가능한 본사 사옥 — 층별 활용 계획·주차·접근성 중심 구성",
+    postureOrCadenceBadge: "사옥용 · 전층 직접 사용",
+    inputSummary:
+      "서초구 서초동 1364-28 · 매매가 230억 · 대지 155평 · 연면적 560평 · 전층 사옥 명도 완료",
+    edgeFocus:
+      "사옥 매수 기업 대표님께 맞춘 실사용 면적·자주식 주차·강남권 접근성 중심 제안서",
+    checkpoints: [
+      "임대수익용 문구 대신 법인 본사 입주 시 층별 공간 구성과 교통·주차 여건이 중심으로 다뤄지는지 확인",
+      "서초동 사옥 외관과 업무홀·주차 공간 사진이 230억대 사옥 품격에 맞게 수록되었는지 확인",
+    ],
+  },
+  "IM-05": {
+    title: "신축·개발용 · 마포 대흥동 역세권 코너 신축부지 (78억)",
+    subtitle:
+      "대지 110평 정방형 코너 — 토지 제원·지적도·법정 건폐율 및 용적률 중심 제안서",
+    postureOrCadenceBadge: "신축·개발용 · 신축부지",
+    inputSummary:
+      "마포구 대흥동 12-41 · 매매가 78억 · 대지 110평(제2종일반주거) · 잔금 후 6개월 명도 협의",
+    edgeFocus:
+      "철거·신축 검토 고객이 가장 중요하게 보는 대지 평당가·용도지역·지적도 중심 구성",
+    checkpoints: [
+      "노후 현 건물 수익률 대신 대지 면적(110평), 법정 건폐율·용적률, 토지·지적도 페이지가 선명하게 구성되었는지 확인",
+      "기존 단기 임차인 6개월 내 명도 협의 조건이 인수 안내란에 명확히 기재되었는지 확인",
+    ],
+  },
+  "IM-06": {
+    title: "임대수익용(대형 21호실) · 강남 역삼동 여삼빌딩 (2,000억)",
+    subtitle:
+      "지하1층~15층 21개 호실 대형 오피스 — 다층 임대 현황표 가독성 및 합산 계약 표기",
+    postureOrCadenceBadge: "임대수익용 · 대형 21호실",
+    inputSummary:
+      "강남구 역삼동 648-23 · 매매가 2,000억 · 총 21개 호실(금융기관·회계법인·공유오피스 등)",
+    edgeFocus:
+      "임차 호실이 20개가 넘는 대형 빌딩도 임대 현황표가 글자 겹침 없이 깔끔하게 정렬",
+    checkpoints: [
+      "21개 호실 임대 현황표가 슬라이드 밖으로 넘치거나 글씨가 겹치지 않고 단정하게 분할·정렬되었는지 확인",
+      "2,000억 매매가와 복수층 통합 임차·소유자 직접 사용 호실(303호) 구분이 정확한지 확인",
+    ],
+  },
+  "IM-07": {
+    title: "임대수익용(입력 자동 보정) · 영등포 당산동5가 근생 빌딩 (95억)",
+    subtitle:
+      "엑셀 원 단위 오입력 자동 보정 및 빠진 공실 층(3·4층) 자동 채움 실무 편의 검증",
+    postureOrCadenceBadge: "임대수익용 · 임대장부 자동 정돈",
+    inputSummary:
+      "영등포구 당산동5가 11-47 · 매매가 95억 · 원 단위로 적힌 임대 내역 및 3·4층 누락 장부",
+    edgeFocus:
+      "엑셀에서 원 단위로 잘못 입력된 보증금·임대료를 만원 단위로 자동 보정하고 빈 층도 정돈",
+    checkpoints: [
+      "엑셀 복사 시 흔히 발생하는 원 단위 숫자(예: 50,000,000)가 5,000만원으로 정확히 자동 변환되었는지 확인",
+      "임대장부에서 빠져 있던 3층·4층이 누락되지 않고 '공실' 행으로 자연스럽게 채워져 층 순서가 맞는지 확인",
+    ],
+  },
+  "IM-08": {
+    title: "임대수익용(무사진·상세 메모) · 용인 보정동 역세권 근생 (77억)",
+    subtitle:
+      "실사진 0장인 긴급 접수 매물도 위치도·지적도와 상세 특기사항 중심으로 깔끔히 완성",
+    postureOrCadenceBadge: "임대수익용 · 무사진 긴급 브리핑",
+    inputSummary:
+      "용인시 보정동 1208-4 · 매매가 77억 · 현장 사진 촬영 전(0장) + 280자 상세 인수 특기사항",
+    edgeFocus:
+      "실사진 0장인 긴급 접수 매물도 위성·지적 위치도와 제원표 중심으로 어색함 없이 완성",
+    checkpoints: [
+      "현장 사진이 아직 0장일 때도 깨진 이미지 표시 없이 표지·물건 개요·위치도·지적도가 깔끔히 구성되는지 확인",
+      "중개사님이 길게 작성한 특기사항(임차 구성·주차·잔금 협의 조건)이 표 테두리를 침범하지 않고 정돈되는지 확인",
+    ],
+  },
+};
+
+export function getBrokerFacingScenarioMeta(
+  scenario: ShowcaseScenarioUnion,
+): BrokerFacingScenarioMeta {
+  return BROKER_FACING_SCENARIO_META_MAP[scenario.id];
 }

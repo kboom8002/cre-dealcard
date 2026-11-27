@@ -1,6 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  QA_SIGNOFF_SESSION_STORAGE_KEY,
+  appendQaParamsToHref,
+  getStoredQaAccessKey,
+  resolveBrokerCohortSessionIds,
+  resolveQaBrokerCohort,
+  resolveQaPortalRole,
+  setStoredQaAccessKey,
+  type QaPortalRole,
+} from "@/lib/qa/qa-client-auth";
 import type {
   FullLoopCaseDefinition,
   FullLoopCaseId,
@@ -122,6 +132,11 @@ function formatSubsystemLabel(subsystem: FullLoopStepItem["subsystem"]): string 
   return subsystem;
 }
 
+function isRedPenLaunchableUrl(raw?: string): boolean {
+  const trimmed = (raw || "").trim();
+  return trimmed.startsWith("/") || /^https?:\/\//i.test(trimmed);
+}
+
 export function QaFullLoopWorkbenchClient({
   config,
 }: {
@@ -195,6 +210,9 @@ export function QaFullLoopWorkbenchClient({
     useState<StorageHygieneResult | null>(null);
   const [confirmingByodCleanup, setConfirmingByodCleanup] =
     useState<boolean>(false);
+  const [saveAnonymizedByodStats, setSaveAnonymizedByodStats] =
+    useState<boolean>(true);
+  const [activeCohort, setActiveCohort] = useState<string>("beta-1");
   const [cleanupLoading, setCleanupLoading] = useState<boolean>(false);
   const [cleanupReceipt, setCleanupReceipt] = useState<string[] | null>(null);
 
@@ -210,6 +228,13 @@ export function QaFullLoopWorkbenchClient({
     return () => window.clearTimeout(t);
   }, [toastMessage]);
 
+  const inferredPortalRole = useMemo<QaPortalRole>(() => {
+    const wb = config.workbenchId.toLowerCase();
+    if (wb.includes("broker")) return "broker";
+    if (wb.includes("tester")) return "tester";
+    return resolveQaPortalRole();
+  }, [config.workbenchId]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
@@ -220,7 +245,43 @@ export function QaFullLoopWorkbenchClient({
           sp.get("passcode") ||
           ""
         ).trim();
-        if (qk) setQaQueryKey(qk);
+        if (qk) {
+          setStoredQaAccessKey(qk, inferredPortalRole);
+          setQaQueryKey(qk);
+        } else {
+          const stored = getStoredQaAccessKey(inferredPortalRole);
+          if (stored) setQaQueryKey(stored);
+        }
+
+        if (inferredPortalRole === "broker") {
+          const cohort = resolveQaBrokerCohort(sp);
+          const cohortIds = resolveBrokerCohortSessionIds(cohort);
+          setActiveCohort(cohortIds.cohort);
+          try {
+            const explicitCohort = (sp.get("cohort") || "").trim();
+            const existingSignoffSession = (
+              window.sessionStorage.getItem(QA_SIGNOFF_SESSION_STORAGE_KEY) ||
+              window.localStorage.getItem(QA_SIGNOFF_SESSION_STORAGE_KEY) ||
+              ""
+            ).trim();
+            if (
+              explicitCohort ||
+              !existingSignoffSession ||
+              !existingSignoffSession.startsWith("qa-signoff-broker-")
+            ) {
+              window.sessionStorage.setItem(
+                QA_SIGNOFF_SESSION_STORAGE_KEY,
+                cohortIds.signoffSessionId,
+              );
+              window.localStorage.setItem(
+                QA_SIGNOFF_SESSION_STORAGE_KEY,
+                cohortIds.signoffSessionId,
+              );
+            }
+          } catch {
+            // ignore storage errors
+          }
+        }
 
         const raw = window.localStorage.getItem(config.localStorageKey);
         let restoredSessionId = "";
@@ -267,7 +328,7 @@ export function QaFullLoopWorkbenchClient({
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [config.localStorageKey, config.sessionPrefix]);
+  }, [config.localStorageKey, config.sessionPrefix, inferredPortalRole]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
@@ -328,6 +389,36 @@ export function QaFullLoopWorkbenchClient({
       return `${baseUrl}${sep}qaKey=${encodeURIComponent(qaQueryKey)}`;
     },
     [qaQueryKey],
+  );
+
+  const buildQaWorkspaceHref = useCallback(
+    (rawHref: string): string => {
+      if (!rawHref) return rawHref;
+      const withQa = appendQaParamsToHref(rawHref, inferredPortalRole);
+      try {
+        const isAbsolute = /^https?:\/\//i.test(withQa);
+        const parsed = new URL(withQa, "http://placeholder.local");
+        if (!parsed.searchParams.has("qa")) {
+          parsed.searchParams.set("qa", "1");
+        }
+        if (
+          (inferredPortalRole === "broker" || inferredPortalRole === "tester") &&
+          !parsed.pathname.startsWith("/qa-broker") &&
+          !parsed.pathname.startsWith("/qa-tester") &&
+          !parsed.searchParams.has("qaRole")
+        ) {
+          parsed.searchParams.set("qaRole", inferredPortalRole);
+        }
+        parsed.searchParams.delete("qaKey");
+        parsed.searchParams.delete("key");
+        return isAbsolute
+          ? parsed.toString()
+          : `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch {
+        return withQa;
+      }
+    },
+    [inferredPortalRole],
   );
 
   const buildQaHeaders = useCallback((): Record<string, string> => {
@@ -573,6 +664,49 @@ export function QaFullLoopWorkbenchClient({
     setCleanupLoading(true);
     const logs: string[] = [];
     try {
+      if (saveAnonymizedByodStats) {
+        const byodLoop =
+          config.cases.find((c) => c.isByodMode) ||
+          config.cases.find((c) => c.id === "loop2") ||
+          currentLoop;
+        let stepPassCount = 0;
+        let stepPolishCount = 0;
+        let stepFailCount = 0;
+        const matchedTags = new Set<string>();
+        for (const st of byodLoop.steps) {
+          const rec = records[st.id];
+          if (rec?.status === "PASS") stepPassCount += 1;
+          else if (rec?.status === "NEEDS_POLISH") stepPolishCount += 1;
+          else if (rec?.status === "FAIL") stepFailCount += 1;
+          const noteText = rec?.note || "";
+          if (noteText && Array.isArray(st.brokerQuickTags)) {
+            for (const tag of st.brokerQuickTags) {
+              if (noteText.includes(`[${tag}]`)) {
+                matchedTags.add(tag);
+              }
+            }
+          }
+        }
+        void fetch("/api/public/qa-workbench", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(qaQueryKey ? { "x-qa-access-key": qaQueryKey } : {}),
+          },
+          body: JSON.stringify({
+            mode: "byod_anonymized_snapshot",
+            sessionId,
+            cohort: activeCohort || "beta-1",
+            stepPassCount,
+            stepPolishCount,
+            stepFailCount,
+            elapsedSeconds: telemetry.loop2.seconds,
+            hesitations: telemetry.loop2.hesitations,
+            selectedQuickTags: Array.from(matchedTags),
+          }),
+        }).catch(() => null);
+      }
+
       for (const imTargetId of uniqueImIds) {
         try {
           const listRes = await fetch(
@@ -639,7 +773,20 @@ export function QaFullLoopWorkbenchClient({
     } finally {
       setCleanupLoading(false);
     }
-  }, [scratchByLoop, currentLoopId, showToast]);
+  }, [
+    scratchByLoop,
+    currentLoopId,
+    showToast,
+    saveAnonymizedByodStats,
+    config.cases,
+    currentLoop,
+    records,
+    qaQueryKey,
+    sessionId,
+    activeCohort,
+    telemetry.loop2.seconds,
+    telemetry.loop2.hesitations,
+  ]);
 
   const runStorageHygieneCheck = useCallback(() => {
     const found: string[] = [];
@@ -833,6 +980,17 @@ export function QaFullLoopWorkbenchClient({
                   ? "🎯 한 단계씩 집중 보기"
                   : "📑 7단계 전체 펼쳐 보기"}
               </button>
+              {inferredPortalRole === "broker" && (
+                <a
+                  href={appendQaKeyIfPresent(
+                    appendQaParamsToHref("/qa-broker/showcase", "broker"),
+                  )}
+                  data-testid="broker-full-loop-open-showcase-pill"
+                  className="min-h-[40px] inline-flex items-center px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border border-indigo-300 text-sm font-bold"
+                >
+                  [📊 22종 산출물 쇼룸 ↗]
+                </a>
+              )}
               <a
                 href={appendQaKeyIfPresent(config.crossEditionLink.href)}
                 className="min-h-[40px] inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-sm font-bold"
@@ -1386,9 +1544,10 @@ export function QaFullLoopWorkbenchClient({
 
                         {step.workspaceHref && (
                           <a
-                            href={step.workspaceHref}
+                            href={buildQaWorkspaceHref(step.workspaceHref)}
                             target="_blank"
                             rel="noopener noreferrer"
+                            data-testid={`step-workspace-launch-${step.id}`}
                             className="min-h-[42px] shrink-0 inline-flex items-center px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-extrabold shadow-xs"
                           >
                             🚀 {step.workspaceLabel || "작업 화면 새 탭 열기"}
@@ -1480,6 +1639,23 @@ export function QaFullLoopWorkbenchClient({
                                     placeholder={spec.placeholder}
                                     className="flex-1 min-h-[42px] rounded-xl border border-emerald-400 bg-white px-3 py-1.5 text-sm font-medium text-slate-900"
                                   />
+                                  {spec.field !== "byodForbiddenKeywords" &&
+                                    spec.field !== "subscriberContact" &&
+                                    isRedPenLaunchableUrl(
+                                      activeScratch[spec.field],
+                                    ) && (
+                                      <a
+                                        href={buildQaWorkspaceHref(
+                                          (activeScratch[spec.field] || "").trim(),
+                                        )}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        data-testid={`open-redpen-${spec.field}`}
+                                        className="min-h-[40px] px-3 py-1.5 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 text-sm font-extrabold whitespace-nowrap shrink-0"
+                                      >
+                                        [✏️ 빨간펜 켜고 열기 ↗]
+                                      </a>
+                                    )}
                                   <button
                                     type="button"
                                     disabled={probeLoading}
@@ -1528,10 +1704,24 @@ export function QaFullLoopWorkbenchClient({
                                 🧹 내 테스트 매물·딜카드·IM 즉시 삭제
                               </button>
                             ) : (
-                              <div className="rounded-xl bg-rose-50 border border-rose-300 p-3 space-y-2">
+                              <div className="rounded-xl bg-rose-50 border border-rose-300 p-3 space-y-2.5">
                                 <p className="text-sm font-bold text-rose-950">
                                   입력해 두신 테스트 딜카드와 IM을 지금 바로 서버에서 폐기할까요?
                                 </p>
+                                <label className="flex items-start gap-2 rounded-lg bg-white/90 border border-rose-200 p-2.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    data-testid="step-inline-byod-anonymized-snapshot-checkbox"
+                                    checked={saveAnonymizedByodStats}
+                                    onChange={(e) =>
+                                      setSaveAnonymizedByodStats(e.target.checked)
+                                    }
+                                    className="mt-1 h-4 w-4 shrink-0"
+                                  />
+                                  <span className="text-sm font-semibold text-slate-800 leading-snug">
+                                    📊 매물 원문·번지·연락처는 100% 영구 삭제하되, 비식별 통계(완주 시간·단계별 판정·빠른 태그 선택)만 서비스 개선용으로 남기기 (권장)
+                                  </span>
+                                </label>
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
@@ -1699,20 +1889,35 @@ export function QaFullLoopWorkbenchClient({
                     >
                       ① 공개 딜카드 링크 (/dc/…)
                     </label>
-                    <input
-                      id="fl-dc-url"
-                      type="text"
-                      value={activeScratch.dealCardUrl}
-                      onChange={(e) =>
-                        handleUpdateScratch(
-                          currentLoopId,
-                          "dealCardUrl",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="https://www.credeal.net/dc/..."
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
-                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <input
+                        id="fl-dc-url"
+                        type="text"
+                        value={activeScratch.dealCardUrl}
+                        onChange={(e) =>
+                          handleUpdateScratch(
+                            currentLoopId,
+                            "dealCardUrl",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="https://www.credeal.net/dc/..."
+                        className="flex-1 min-w-[180px] min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
+                      />
+                      {isRedPenLaunchableUrl(activeScratch.dealCardUrl) && (
+                        <a
+                          href={buildQaWorkspaceHref(
+                            activeScratch.dealCardUrl.trim(),
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="open-redpen-dealCardUrl"
+                          className="min-h-[40px] px-3 py-1.5 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 text-sm font-extrabold whitespace-nowrap"
+                        >
+                          [✏️ 빨간펜 켜고 열기 ↗]
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   {currentLoop.isByodMode && (
@@ -1748,20 +1953,35 @@ export function QaFullLoopWorkbenchClient({
                     >
                       ② 매수자 1 IM 열람 링크 (/im-lite/…?)
                     </label>
-                    <input
-                      id="fl-im1-url"
-                      type="text"
-                      value={activeScratch.imShareUrl}
-                      onChange={(e) =>
-                        handleUpdateScratch(
-                          currentLoopId,
-                          "imShareUrl",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="/im-lite/...?"
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
-                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <input
+                        id="fl-im1-url"
+                        type="text"
+                        value={activeScratch.imShareUrl}
+                        onChange={(e) =>
+                          handleUpdateScratch(
+                            currentLoopId,
+                            "imShareUrl",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="/im-lite/...?"
+                        className="flex-1 min-w-[180px] min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
+                      />
+                      {isRedPenLaunchableUrl(activeScratch.imShareUrl) && (
+                        <a
+                          href={buildQaWorkspaceHref(
+                            activeScratch.imShareUrl.trim(),
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="open-redpen-imShareUrl"
+                          className="min-h-[40px] px-3 py-1.5 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 text-sm font-extrabold whitespace-nowrap"
+                        >
+                          [✏️ 빨간펜 켜고 열기 ↗]
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   {currentLoopId === "loop2" && (
@@ -1772,20 +1992,37 @@ export function QaFullLoopWorkbenchClient({
                       >
                         ③ 매수자 2 IM 열람 링크 (창 C 직교 분리 비교용)
                       </label>
-                      <input
-                        id="fl-im2-url"
-                        type="text"
-                        value={activeScratch.secondaryImShareUrl}
-                        onChange={(e) =>
-                          handleUpdateScratch(
-                            "loop2",
-                            "secondaryImShareUrl",
-                            e.target.value,
-                          )
-                        }
-                        placeholder={config.secondaryBuyerPlaceholder}
-                        className="w-full min-h-[42px] rounded-xl border border-amber-300 bg-amber-50/40 px-3 py-1.5 text-sm"
-                      />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <input
+                          id="fl-im2-url"
+                          type="text"
+                          value={activeScratch.secondaryImShareUrl}
+                          onChange={(e) =>
+                            handleUpdateScratch(
+                              "loop2",
+                              "secondaryImShareUrl",
+                              e.target.value,
+                            )
+                          }
+                          placeholder={config.secondaryBuyerPlaceholder}
+                          className="flex-1 min-w-[180px] min-h-[42px] rounded-xl border border-amber-300 bg-amber-50/40 px-3 py-1.5 text-sm"
+                        />
+                        {isRedPenLaunchableUrl(
+                          activeScratch.secondaryImShareUrl,
+                        ) && (
+                          <a
+                            href={buildQaWorkspaceHref(
+                              activeScratch.secondaryImShareUrl.trim(),
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid="open-redpen-secondaryImShareUrl"
+                            className="min-h-[40px] px-3 py-1.5 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 text-sm font-extrabold whitespace-nowrap"
+                          >
+                            [✏️ 빨간펜 켜고 열기 ↗]
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1796,20 +2033,35 @@ export function QaFullLoopWorkbenchClient({
                     >
                       ④ 발행된 공개 뉴스레터 링크 (/magazine/…)
                     </label>
-                    <input
-                      id="fl-nl-url"
-                      type="text"
-                      value={activeScratch.newsletterUrl}
-                      onChange={(e) =>
-                        handleUpdateScratch(
-                          currentLoopId,
-                          "newsletterUrl",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="/magazine/.../2026-11-..."
-                      className="w-full min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
-                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <input
+                        id="fl-nl-url"
+                        type="text"
+                        value={activeScratch.newsletterUrl}
+                        onChange={(e) =>
+                          handleUpdateScratch(
+                            currentLoopId,
+                            "newsletterUrl",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="/magazine/.../2026-11-..."
+                        className="flex-1 min-w-[180px] min-h-[42px] rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
+                      />
+                      {isRedPenLaunchableUrl(activeScratch.newsletterUrl) && (
+                        <a
+                          href={buildQaWorkspaceHref(
+                            activeScratch.newsletterUrl.trim(),
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="open-redpen-newsletterUrl"
+                          className="min-h-[40px] px-3 py-1.5 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 text-sm font-extrabold whitespace-nowrap"
+                        >
+                          [✏️ 빨간펜 켜고 열기 ↗]
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -2026,6 +2278,20 @@ export function QaFullLoopWorkbenchClient({
                       <p className="text-sm font-bold text-rose-950">
                         위 ①·②번 링크에 해당하는 테스트 딜카드와 IM을 지금 바로 폐기할까요?
                       </p>
+                      <label className="flex items-start gap-2 rounded-lg bg-white/90 border border-rose-200 p-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          data-testid="byod-anonymized-snapshot-checkbox"
+                          checked={saveAnonymizedByodStats}
+                          onChange={(e) =>
+                            setSaveAnonymizedByodStats(e.target.checked)
+                          }
+                          className="mt-1 h-4 w-4 shrink-0"
+                        />
+                        <span className="text-sm font-semibold text-slate-800 leading-snug">
+                          📊 매물 원문·번지·연락처는 100% 영구 삭제하되, 비식별 통계(완주 시간·단계별 판정·빠른 태그 선택)만 서비스 개선용으로 남기기 (권장)
+                        </span>
+                      </label>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -2061,7 +2327,7 @@ export function QaFullLoopWorkbenchClient({
 
                   <div className="flex flex-wrap gap-2 pt-1">
                     <a
-                      href="/broker/w/dealcards"
+                      href={buildQaWorkspaceHref("/broker/w/dealcards")}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="min-h-[38px] inline-flex items-center px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold"
@@ -2069,7 +2335,7 @@ export function QaFullLoopWorkbenchClient({
                       딜카드 목록 직접 확인 ↗
                     </a>
                     <a
-                      href="/broker/w/im"
+                      href={buildQaWorkspaceHref("/broker/w/im")}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="min-h-[38px] inline-flex items-center px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold"

@@ -1,10 +1,10 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { setStoredQaAccessKey } from "@/lib/qa/qa-client-auth";
 import {
   TESTGUIDE_DEALS,
-  WAVE_C_MISSIONS,
-  PPTX_10_AUDIT_ITEMS,
   NEWSLETTER_COPY_PRESETS,
   INBOX_COPY_PRESETS,
   NL_INBOX_GOLDEN_30_ITEMS,
@@ -104,6 +104,58 @@ function formatTime(sec: number): string {
   return `${String(m).padStart(2, "0")}분 ${String(s).padStart(2, "0")}초`;
 }
 
+function CopyFieldRow({
+  label,
+  value,
+  subNote,
+  keyId,
+  highlight = false,
+  copiedKey,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  subNote?: string;
+  keyId: string;
+  highlight?: boolean;
+  copiedKey: string | null;
+  onCopy: (text: string, label: string, keyId: string) => void;
+}) {
+  const isCopied = copiedKey === keyId;
+  return (
+    <div
+      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border transition ${
+        highlight
+          ? "bg-blue-50/70 border-blue-300"
+          : "bg-white border-slate-200 hover:border-slate-300"
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+            {label}
+          </span>
+          {subNote && <span className="text-sm text-slate-500 font-medium">{subNote}</span>}
+        </div>
+        <div className="mt-1 font-mono text-sm sm:text-base font-bold text-slate-900 break-all select-all">
+          {value}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onCopy(value, label, keyId)}
+        className={`shrink-0 min-h-[40px] px-3.5 py-1.5 rounded-lg text-sm font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+          isCopied
+            ? "bg-emerald-600 text-white shadow-xs"
+            : "bg-slate-900 hover:bg-slate-800 text-white"
+        }`}
+      >
+        <span>{isCopied ? "✅ 복사됨!" : "📋 클릭 복사"}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function TestGuidePage() {
   const [activeTab, setActiveTab] = useState<ActiveTabId>("overview");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -128,6 +180,13 @@ export default function TestGuidePage() {
     { id: 3, dealCode: "Mission H-3", location: "", description: "", severity: "S2" },
   ]);
 
+  const handleSelectTab = useCallback((nextTab: ActiveTabId) => {
+    setActiveTab(nextTab);
+    if (nextTab === "deal1" || nextTab === "deal2" || nextTab === "deal3") {
+      setTimerDealId(nextTab);
+    }
+  }, []);
+
   // Load state from localStorage + preserve qaKey query param for sub-links
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -140,26 +199,27 @@ export default function TestGuidePage() {
           ""
         ).trim();
         if (qk) {
+          setStoredQaAccessKey(qk, "master");
           setQaQuerySuffix(`?qaKey=${encodeURIComponent(qk)}`);
         }
       } catch {
         // ignore URL parse error
       }
-    }, 0);
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.testerName) setTesterName(parsed.testerName);
-        if (parsed.metrics) setMetrics((prev) => ({ ...prev, ...parsed.metrics }));
-        if (parsed.checkMap) setCheckMap(parsed.checkMap);
-        if (Array.isArray(parsed.defects) && parsed.defects.length > 0) {
-          setDefects(parsed.defects);
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.testerName) setTesterName(parsed.testerName);
+          if (parsed.metrics) setMetrics((prev) => ({ ...prev, ...parsed.metrics }));
+          if (parsed.checkMap) setCheckMap(parsed.checkMap);
+          if (Array.isArray(parsed.defects) && parsed.defects.length > 0) {
+            setDefects(parsed.defects);
+          }
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -174,13 +234,6 @@ export default function TestGuidePage() {
       // ignore
     }
   }, [testerName, metrics, checkMap, defects]);
-
-  // Sync timerDealId when switching deal tabs
-  useEffect(() => {
-    if (activeTab === "deal1" || activeTab === "deal2" || activeTab === "deal3") {
-      setTimerDealId(activeTab);
-    }
-  }, [activeTab]);
 
   // Stopwatch interval
   useEffect(() => {
@@ -449,54 +502,6 @@ export default function TestGuidePage() {
     showToast("⬇️ 뉴스레터·소통함 30문항 채점 결과(.md) 파일이 다운로드되었습니다!");
   }, [generateNlInboxReportMarkdown, showToast]);
 
-  const CopyFieldRow = ({
-    label,
-    value,
-    subNote,
-    keyId,
-    highlight = false,
-  }: {
-    label: string;
-    value: string;
-    subNote?: string;
-    keyId: string;
-    highlight?: boolean;
-  }) => {
-    const isCopied = copiedKey === keyId;
-    return (
-      <div
-        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border transition ${
-          highlight
-            ? "bg-blue-50/70 border-blue-300"
-            : "bg-white border-slate-200 hover:border-slate-300"
-        }`}
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-              {label}
-            </span>
-            {subNote && <span className="text-xs text-slate-500 font-medium">{subNote}</span>}
-          </div>
-          <div className="mt-1 font-mono text-sm sm:text-base font-bold text-slate-900 break-all select-all">
-            {value}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => handleCopy(value, label, keyId)}
-          className={`shrink-0 min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-            isCopied
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "bg-slate-900 hover:bg-slate-800 text-white"
-          }`}
-        >
-          <span>{isCopied ? "✅ 복사됨!" : "📋 클릭 복사"}</span>
-        </button>
-      </div>
-    );
-  };
-
   const activeDeal: TestGuideDeal | null = useMemo(() => {
     if (activeTab === "deal1") return TESTGUIDE_DEALS[0];
     if (activeTab === "deal2") return TESTGUIDE_DEALS[1];
@@ -534,12 +539,12 @@ export default function TestGuidePage() {
                   <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                     CRE DealCard [AI 1st — 인간 2nd] 상용화 검수 워크벤치
                   </h1>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold">
-                    v4.0 최신판 · PG-01~12 자동 방역 완료
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-sm font-extrabold">
+                    v6.0 통합 허브 · 3-Ring & PG-01~12 자동 방역 완료
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
-                  기계적 수치·콜드스타트·누락층 합성 등 12종 슈도 골든 검증은 AI가 100% 선행 완료했습니다. 인간 테스터는 15분 핵심 UX·품격 검수만 수행하세요.
+                <p className="text-sm text-slate-500">
+                  역할별 검수 포털(1호 중개인 베타 · 내부 테스터 전수 · 3-Ring Hybrid AI 골든 스위트)로 즉시 진입하거나 15분 핵심 UX·품격 검수를 수행하세요.
                 </p>
               </div>
             </div>
@@ -547,36 +552,36 @@ export default function TestGuidePage() {
             {/* Direct Workspace Launchers */}
             <div className="flex flex-wrap items-center gap-1.5">
               <a
-                href="/broker/w/im"
+                href="/broker/w/im?qa=1"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold transition flex items-center gap-1 shadow-xs"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold transition flex items-center gap-1 shadow-xs"
               >
                 <span>🚀 ② IM 스튜디오 열기</span>
               </a>
               <a
-                href="/broker/w/dealcards"
+                href="/broker/w/dealcards?qa=1"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
+                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold transition"
               >
                 🃏 ① 딜카드
               </a>
               <a
-                href="/broker/magazine-editor"
+                href="/broker/w/newsletter?qa=1"
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="launcher-newsletter-studio"
-                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-extrabold transition"
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-sm font-extrabold transition"
               >
                 📰 ③ 뉴스레터 스튜디오
               </a>
               <a
-                href="/broker/w/inbox"
+                href="/broker/w/inbox?qa=1"
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="launcher-inbox-workspace"
-                className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-extrabold transition"
+                className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-sm font-extrabold transition"
               >
                 💬 ④ 소통 관리함
               </a>
@@ -609,9 +614,23 @@ export default function TestGuidePage() {
                 🏢 중개인 실전 풀루프 (10장 + 내 매물) ↗
               </a>
               <a
-                href="/qa-signoff"
+                href={`/qa-broker/showcase${qaQuerySuffix}`}
+                data-testid="open-qa-broker-showcase-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-extrabold transition inline-flex items-center"
+              >
+                📊 중개인 22종 산출물 쇼룸 ↗
+              </a>
+              <a
+                href={`/qa-broker/signoff${qaQuerySuffix}`}
+                data-testid="open-qa-broker-signoff-hub"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-sm font-extrabold transition inline-flex items-center"
+              >
+                👔 중개인 감수 보드 ↗
+              </a>
+              <a
+                href={`/qa-signoff${qaQuerySuffix}`}
                 data-testid="open-qa-signoff-hub"
-                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition inline-flex items-center"
+                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold transition inline-flex items-center"
               >
                 ⚡ 20분 고속 검수 허브 ↗
               </a>
@@ -619,7 +638,7 @@ export default function TestGuidePage() {
           </div>
 
           {/* Built-in Stopwatch & Hesitation/Misclick Counter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 text-white px-3.5 py-2 rounded-xl text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-extrabold text-amber-400">⏱️ 3분 무막힘 타이머:</span>
               <select
@@ -635,7 +654,7 @@ export default function TestGuidePage() {
                     setActiveTab("nlinbox");
                   }
                 }}
-                className="bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-xs sm:text-sm outline-none cursor-pointer"
+                className="bg-slate-800 text-white font-bold px-2.5 py-1 rounded-lg border border-slate-700 text-sm outline-none cursor-pointer"
               >
                 <option value="deal1">매물 #1 (동교동 77억 · 목표 ≤3분)</option>
                 <option value="deal2">매물 #2 (부천 58억 · 목표 ≤3분)</option>
@@ -689,7 +708,7 @@ export default function TestGuidePage() {
                       },
                     }))
                   }
-                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sm font-bold cursor-pointer"
                 >
                   +1
                 </button>
@@ -710,7 +729,7 @@ export default function TestGuidePage() {
                       },
                     }))
                   }
-                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sm font-bold cursor-pointer"
                 >
                   +1
                 </button>
@@ -718,7 +737,7 @@ export default function TestGuidePage() {
             </div>
           </div>
 
-          {/* Navigation Tabs (v4.0 Latest Structure) */}
+          {/* Navigation Tabs (v6.0 Latest Structure) */}
           <nav
             aria-label="골든테스트 단계 탭"
             className="flex items-center gap-1.5 overflow-x-auto pb-1"
@@ -738,8 +757,8 @@ export default function TestGuidePage() {
                   key={tab.id}
                   type="button"
                   data-testid={`tab-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id as ActiveTabId)}
-                  className={`shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
+                  onClick={() => handleSelectTab(tab.id as ActiveTabId)}
+                  className={`shrink-0 px-3.5 py-2 rounded-xl text-sm font-extrabold transition cursor-pointer ${
                     isSelected
                       ? "bg-[#0F172A] text-white shadow-xs"
                       : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -758,6 +777,110 @@ export default function TestGuidePage() {
         {/* ──────── TAB 0: OVERVIEW & HUMAN 2ND 15-MIN FAST-TRACK ──────── */}
         {activeTab === "overview" && (
           <div className="space-y-6">
+            {/* v6.0 Role-Based Entry Hub */}
+            <section
+              data-testid="testguide-role-entry-hub"
+              className="bg-white rounded-2xl border-2 border-slate-900 p-5 shadow-xs space-y-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                <div>
+                  <span className="inline-block px-2.5 py-0.5 rounded-md bg-slate-900 text-amber-300 text-sm font-extrabold">
+                    v6.0 역할별 검수 진입 허브 (Role-Based Entry Hub)
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-950 mt-1">
+                    검수 목적에 맞는 전용 포털을 선택해 바로 시작하세요
+                  </h2>
+                </div>
+                <span className="text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                  전 포털 QA 키 · 작업실(?qa=1) 자동 연동
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50/50 p-4 flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-extrabold text-slate-950">
+                      👔 1호 중개인 베타 실전 포털
+                    </h3>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      서초 10장 샘플 + 내 매물 실전 완주, 22종 실물 산출물 & 8문항 기준 선택 쇼룸, 전문가 감수 미팅 보드(Beta-1 전용 격리 세션)를 제공합니다.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <a
+                      href={`/qa-broker/full-loop${qaQuerySuffix}`}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold inline-flex items-center"
+                    >
+                      실전 풀루프 ↗
+                    </a>
+                    <a
+                      href={`/qa-broker/showcase${qaQuerySuffix}`}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-extrabold inline-flex items-center"
+                    >
+                      22종 쇼룸 · 8문항 ↗
+                    </a>
+                    <a
+                      href={`/qa-broker/signoff${qaQuerySuffix}`}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 text-sm font-extrabold inline-flex items-center"
+                    >
+                      감수 보드 ↗
+                    </a>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border-2 border-indigo-300 bg-indigo-50/50 p-4 flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-extrabold text-slate-950">
+                      🧪 내부 테스터 전수·실기기 검수
+                    </h3>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      양평 250억·잠원 242억 V3 Hold-out 전 과정 관통 검수, 테스터 기술 쇼룸, 20분 고속 검수·실기기 미션 허브로 이동합니다.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <a
+                      href={`/qa-full-loop-v3${qaQuerySuffix}`}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-extrabold inline-flex items-center"
+                    >
+                      V3 풀루프 ↗
+                    </a>
+                    <a
+                      href={`/qa-tester/showcase${qaQuerySuffix}`}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold inline-flex items-center"
+                    >
+                      테스터 쇼룸 ↗
+                    </a>
+                    <a
+                      href={`/qa-signoff${qaQuerySuffix}`}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 text-sm font-extrabold inline-flex items-center"
+                    >
+                      통합 검수 허브 ↗
+                    </a>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border-2 border-slate-300 bg-slate-50 p-4 flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-extrabold text-slate-950">
+                      🛡️ 3-Ring Hybrid AI 골든 스위트
+                    </h3>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      Ring 1 (<code className="font-mono font-bold">golden:fast</code> 57건 불변식) · Ring 2 (<code className="font-mono font-bold">golden:judge</code> 교차 모델 검증) · Ring 3 (<code className="font-mono font-bold">golden:canary</code> 프로덕션 98.66점) 자동 방역 체계를 운영합니다.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("pseudogolden")}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold cursor-pointer"
+                    >
+                      PG-01~12 실험실 보기 →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* AI 1st (12 Pseudo-Golden Gate) + Human 2nd (15-Min Fast-Track) Collaboration Banner */}
             <div
               data-testid="ai1st-human2nd-fasttrack-panel"
@@ -765,26 +888,26 @@ export default function TestGuidePage() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-4">
                 <div className="space-y-1">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-extrabold">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-sm font-extrabold">
                     🤖 AI 1st 사전 방역 완료 · 12종 슈도 골든 데이터셋 (PG-01 ~ PG-12) 100% PASS
                   </div>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1">
                     인간 테스터 2nd 15분 고부가가치 UX·품격 검수 (Fast-Track)
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-300">
-                    과거처럼 인간이 80개 항목의 숫자를 일일이 대조할 필요가 없습니다. 주소 역변환 휘발 방어(E-02), 무버튼 즉시 열람(E-01), 음수층(-1) 정규화 및 누락 공실층 자동 합성(PG-05), 원 단위 오타 보정(PG-06) 등 <strong>12종 기계적 변이 검증은 AI가 100% 선행 완료</strong>했습니다.
+                  <p className="text-sm text-slate-300">
+                    과거처럼 인간이 80개 항목의 숫자를 일일이 대조할 필요가 없습니다. 주소 역변환 휘발 방어(E-02), 하단 액션바 즉시 열람(E-01), 음수층(-1) 정규화 및 누락 공실층 자동 합성(PG-05), 원 단위 오타 보정(PG-06) 등 <strong>12종 기계적 변이 검증은 AI가 100% 선행 완료</strong>했습니다.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setActiveTab("pseudogolden")}
-                    className="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-sm font-extrabold transition cursor-pointer"
                   >
                     🧪 AI 12종 슈도 골든 데이터 보기
                   </button>
                   <a
-                    href="/broker/w/im"
+                    href="/broker/w/im?qa=1"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold transition"
@@ -800,21 +923,21 @@ export default function TestGuidePage() {
                   className="p-4 rounded-xl bg-white/10 border border-white/15 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-blue-500/30 text-blue-200">
+                    <span className="text-sm font-extrabold px-2.5 py-0.5 rounded bg-blue-500/30 text-blue-200">
                       Mission H-1 · 5분
                     </span>
-                    <span className="text-xs text-slate-300 font-semibold">작성 속도 & 직관성</span>
+                    <span className="text-sm text-slate-300 font-semibold">작성 속도 & 직관성</span>
                   </div>
                   <h3 className="text-base font-extrabold text-white">
                     1. 매물 1건 3분 내 무막힘 작성 체감
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                  <p className="text-sm text-slate-200 leading-relaxed">
                     매물 #1(동교동) 워크벤치의 1클릭 복붙과 CSV·사진 4장 마우스 드래그앤드롭만으로 망설임 없이 3분 안에 IM이 완성되는지 확인합니다.
                   </p>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("deal1")}
-                    className="w-full mt-1 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-extrabold transition cursor-pointer"
+                    onClick={() => handleSelectTab("deal1")}
+                    className="w-full mt-1 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-sm font-extrabold transition cursor-pointer"
                   >
                     👉 매물 #1 워크벤치로 바로 이동 →
                   </button>
@@ -825,16 +948,16 @@ export default function TestGuidePage() {
                   className="p-4 rounded-xl bg-white/10 border border-white/15 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-amber-500/30 text-amber-200">
+                    <span className="text-sm font-extrabold px-2.5 py-0.5 rounded bg-amber-500/30 text-amber-200">
                       Mission H-2 · 5분
                     </span>
-                    <span className="text-xs text-slate-300 font-semibold">즉흥 변경 반응성</span>
+                    <span className="text-sm text-slate-300 font-semibold">즉흥 변경 반응성</span>
                   </div>
                   <h3 className="text-base font-extrabold text-white">
-                    2. 가격·공실 변경 및 무버튼 즉시 열람
+                    2. 가격·공실 변경 및 하단 액션바 즉시 반영
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                    희망 매매가를 낮추거나(77억→72억) 공실을 임대중으로 바꾼 뒤, <strong>[IM 완성하기]를 누르지 않고</strong> 바로 우측 [모바일 IM 열기]·[PPTX 받기]를 눌러 즉시 반영되는지 확인합니다.
+                  <p className="text-sm text-slate-200 leading-relaxed">
+                    희망 매매가를 낮추거나(77억→72억) 공실을 임대중으로 바꾼 뒤, 화면 하단 고정 바의 <strong>[IM 만들기] / [변경 내용 반영]</strong>과 <strong>[IM 링크 복사] · [PPTX 받기] · [PDF 저장]</strong>으로 즉시 반영되는지 확인합니다.
                   </p>
                 </div>
 
@@ -843,16 +966,16 @@ export default function TestGuidePage() {
                   className="p-4 rounded-xl bg-white/10 border border-white/15 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-purple-500/30 text-purple-200">
+                    <span className="text-sm font-extrabold px-2.5 py-0.5 rounded bg-purple-500/30 text-purple-200">
                       Mission H-3 · 5분
                     </span>
-                    <span className="text-xs text-slate-300 font-semibold">VIP 고객 설득력</span>
+                    <span className="text-sm text-slate-300 font-semibold">VIP 고객 설득력</span>
                   </div>
                   <h3 className="text-base font-extrabold text-white">
-                    3. 스마트폰 열람 & 10면 PPTX 품격 승인
+                    3. 스마트폰 열람 & 9~10면 PPTX 품격 승인
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                    생성된 모바일 IM과 10장짜리 PPTX의 표지 실사진·지도/지적도·AI 장점 3가지 문구가 실제 VIP 매수 고객에게 바로 발송할 수준인지 최종 판정합니다.
+                  <p className="text-sm text-slate-200 leading-relaxed">
+                    <strong>[IM 링크 복사]</strong>로 연 모바일 IM과 <strong>[PPTX 받기] · [PDF 저장]</strong>으로 받은 9~10면 PPTX의 표지 실사진·지도/지적도·AI 장점 3가지 문구가 실제 VIP 매수 고객에게 바로 발송할 수준인지 최종 판정합니다.
                   </p>
                 </div>
               </div>
@@ -865,13 +988,13 @@ export default function TestGuidePage() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
-                  <span className="text-xs font-extrabold text-white bg-slate-900 px-2.5 py-1 rounded-md">
+                  <span className="text-sm font-extrabold text-white bg-slate-900 px-2.5 py-1 rounded-md">
                     👤 인간 2nd 전용 — 9대 고부가가치 체감·품격 체크리스트 (총 15분)
                   </span>
                   <h2 className="text-xl font-extrabold text-slate-900 mt-1.5">
                     기계적 계산 대신 아래 9가지 체감·품격 항목만 PASS / FAIL로 판정해 주세요
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                  <p className="text-sm text-slate-600 mt-0.5">
                     현황: 총 9문항 중 <strong className="text-emerald-700">PASS {humanFastTrackPassCount}건</strong> /{" "}
                     <strong className="text-rose-700">FAIL {humanFastTrackFailCount}건</strong>
                   </p>
@@ -884,7 +1007,7 @@ export default function TestGuidePage() {
                     onClick={() =>
                       markAllChecksPass(HUMAN_2ND_FASTTRACK_9_CHECKS.map((c) => c.id))
                     }
-                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                   >
                     ✅ 9문항 전체 PASS 일괄 승인
                   </button>
@@ -893,11 +1016,11 @@ export default function TestGuidePage() {
                     onClick={() =>
                       handleCopy(
                         generateScorecardMarkdown(),
-                        "v4.0 최종 검수 리포트",
+                        "v6.0 최종 검수 리포트",
                         "overview-report-copy"
                       )
                     }
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                   >
                     📋 최종 검수 리포트 복사
                   </button>
@@ -921,20 +1044,20 @@ export default function TestGuidePage() {
                     >
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-extrabold">
+                          <span className="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-sm font-extrabold">
                             {item.id}
                           </span>
-                          <span className="px-2.5 py-0.5 rounded bg-indigo-100 text-indigo-900 text-xs font-extrabold">
+                          <span className="px-2.5 py-0.5 rounded bg-indigo-100 text-indigo-900 text-sm font-extrabold">
                             {item.mission}
                           </span>
                           <span className="text-sm sm:text-base font-extrabold text-slate-900">
                             {item.title}
                           </span>
                         </div>
-                        <p className="text-xs sm:text-sm text-slate-700">
+                        <p className="text-sm text-slate-700">
                           <strong>체감 방법:</strong> {item.guide}
                         </p>
-                        <p className="text-xs sm:text-sm text-emerald-800 font-bold">
+                        <p className="text-sm text-emerald-800 font-bold">
                           ⭕ 품격 합격 기준: {item.passCriteria}
                         </p>
                       </div>
@@ -943,7 +1066,7 @@ export default function TestGuidePage() {
                         <button
                           type="button"
                           onClick={() => toggleCheck(item.id, "PASS")}
-                          className={`min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                          className={`min-h-[40px] px-4 py-1.5 rounded-lg text-sm font-extrabold cursor-pointer transition ${
                             st === "PASS"
                               ? "bg-emerald-600 text-white shadow-xs"
                               : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
@@ -954,7 +1077,7 @@ export default function TestGuidePage() {
                         <button
                           type="button"
                           onClick={() => toggleCheck(item.id, "FAIL")}
-                          className={`min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                          className={`min-h-[40px] px-4 py-1.5 rounded-lg text-sm font-extrabold cursor-pointer transition ${
                             st === "FAIL"
                               ? "bg-rose-600 text-white shadow-xs"
                               : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
@@ -978,18 +1101,18 @@ export default function TestGuidePage() {
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-xs font-extrabold">
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-sm font-extrabold">
                         매물 #{d.number} ({d.code})
                       </span>
-                      <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
+                      <span className="text-sm font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
                         {d.badge}
                       </span>
                     </div>
                     <h3 className="text-lg font-extrabold text-slate-900">{d.name}</h3>
-                    <p className="text-xs sm:text-sm text-slate-600 font-medium">
+                    <p className="text-sm text-slate-600 font-medium">
                       📍 {d.jibunAddress} ({d.roadAddress})
                     </p>
-                    <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div className="text-sm text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
                       <div>
                         • <strong>매매가</strong>: {d.askingPriceEok}억 원 (즉흥 변경 테스트: {d.waveBPriceEok}억)
                       </div>
@@ -1010,7 +1133,7 @@ export default function TestGuidePage() {
                   <div className="pt-2 flex flex-col gap-2">
                     <button
                       type="button"
-                      onClick={() => setActiveTab(d.id)}
+                      onClick={() => handleSelectTab(d.id)}
                       className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold transition cursor-pointer"
                     >
                       👉 매물 #{d.number} 복붙 워크벤치 열기 →
@@ -1028,21 +1151,21 @@ export default function TestGuidePage() {
             <section className="bg-white rounded-2xl border-2 border-emerald-600 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
-                  <span className="text-xs font-extrabold text-white bg-emerald-600 px-2.5 py-1 rounded-md">
+                  <span className="text-sm font-extrabold text-white bg-emerald-600 px-2.5 py-1 rounded-md">
                     🧪 AI 1st 사전 방역 완료 — 12종 슈도 골든 데이터셋 (PG-01 ~ PG-12)
                   </span>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1.5">
                     실전 주소 5종 × 변이 렌트롤 7종 × 멀티포맷 사진 12종 교차 합성 워크벤치
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                  <p className="text-sm text-slate-600 mt-1">
                     아래 12개 시나리오는 Vitest 자동화 스위트(<code>pseudo-golden-12-suite.test.tsx</code>)에서 매 배포마다 100% 자동 검증됩니다. 원하는 변이 시나리오의 주소나 렌트롤 TSV를 클릭 한 번으로 복사해 IM 스튜디오에서 직접 체험해 볼 수도 있습니다.
                   </p>
                 </div>
                 <a
-                  href="/broker/w/im"
+                  href="/broker/w/im?qa=1"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition shrink-0"
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold transition shrink-0"
                 >
                   🚀 IM 스튜디오에 붙여넣어 보기 ↗
                 </a>
@@ -1058,21 +1181,21 @@ export default function TestGuidePage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-extrabold">
+                          <span className="px-2.5 py-0.5 rounded bg-slate-900 text-white font-mono text-sm font-extrabold">
                             {pg.id}
                           </span>
-                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-900 text-xs font-extrabold">
+                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-900 text-sm font-extrabold">
                             {pg.category}
                           </span>
                         </div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-sm font-extrabold">
                           🤖 AI 1st PASS
                         </span>
                       </div>
 
                       <h3 className="text-base font-extrabold text-slate-900">{pg.title}</h3>
 
-                      <div className="text-xs text-slate-700 space-y-1 bg-white p-3 rounded-xl border border-slate-200">
+                      <div className="text-sm text-slate-700 space-y-1 bg-white p-3 rounded-xl border border-slate-200">
                         <div>
                           • <strong>합성 주소</strong>: <code>{pg.address}</code>
                         </div>
@@ -1100,7 +1223,7 @@ export default function TestGuidePage() {
                         onClick={() =>
                           handleCopy(pg.address, `${pg.id} 주소`, `pg-addr-${pg.id}`)
                         }
-                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-extrabold text-slate-800 cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-sm font-extrabold text-slate-800 cursor-pointer"
                       >
                         {copiedKey === `pg-addr-${pg.id}` ? "✅ 주소 복사됨" : "📋 주소 복사"}
                       </button>
@@ -1109,7 +1232,7 @@ export default function TestGuidePage() {
                         onClick={() =>
                           handleCopy(pg.askingPriceWon, `${pg.id} 매매가(원)`, `pg-price-${pg.id}`)
                         }
-                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-extrabold text-slate-800 cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-sm font-extrabold text-slate-800 cursor-pointer"
                       >
                         {copiedKey === `pg-price-${pg.id}`
                           ? "✅ 매매가 복사됨"
@@ -1120,7 +1243,7 @@ export default function TestGuidePage() {
                         onClick={() =>
                           handleCopy(pg.sampleTsv, `${pg.id} 변이 렌트롤 TSV`, `pg-tsv-${pg.id}`)
                         }
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold cursor-pointer"
                       >
                         {copiedKey === `pg-tsv-${pg.id}`
                           ? "✅ 변이 렌트롤 TSV 복사됨!"
@@ -1142,13 +1265,13 @@ export default function TestGuidePage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded bg-amber-400 text-slate-950 text-xs font-extrabold">
+                    <span className="px-2.5 py-0.5 rounded bg-amber-400 text-slate-950 text-sm font-extrabold">
                       매물 #{activeDeal.number} ({activeDeal.code})
                     </span>
-                    <span className="text-xs font-bold text-slate-300">{activeDeal.badge}</span>
+                    <span className="text-sm font-bold text-slate-300">{activeDeal.badge}</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-extrabold">{activeDeal.name}</h2>
-                  <p className="text-xs sm:text-sm text-slate-300">
+                  <p className="text-sm text-slate-300">
                     지번: {activeDeal.jibunAddress} | 도로명: {activeDeal.roadAddress}
                   </p>
                 </div>
@@ -1157,14 +1280,14 @@ export default function TestGuidePage() {
                   <a
                     href={activeDeal.csvDownloadUrl}
                     download={activeDeal.csvFilename}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-extrabold transition flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold transition flex items-center gap-1.5"
                   >
                     <span>⬇️ 렌트롤 CSV 다운로드 ({activeDeal.csvFilename})</span>
                   </a>
                   <button
                     type="button"
                     onClick={() => handleDownloadAllDealImages(activeDeal)}
-                    className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs sm:text-sm font-extrabold transition cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm font-extrabold transition cursor-pointer flex items-center gap-1.5"
                   >
                     <span>📦 사진 4장 한 번에 다운로드 (JPG·PNG·WebP)</span>
                   </button>
@@ -1176,14 +1299,14 @@ export default function TestGuidePage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                 <div>
-                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
+                  <span className="text-sm font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
                     IM 스튜디오 — ① 건물 기본 정보 탭 (화면 위→아래 순서 1:1 일치)
                   </span>
                   <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
                     Step {activeDeal.number}-1. 기본 정보 입력값 원클릭 복사
                   </h3>
                 </div>
-                <span className="text-xs text-slate-500 font-semibold">
+                <span className="text-sm text-slate-500 font-semibold">
                   💡 상단 [🔄 빈 양식으로 새로 입력] 클릭 후 ①→②→③ 순서대로 복사해 붙여넣으세요
                 </span>
               </div>
@@ -1195,6 +1318,8 @@ export default function TestGuidePage() {
                   subNote="IM 스튜디오 맨 위 '표지 제목 (건물명)' 칸에 붙여넣기"
                   keyId={`${activeDeal.id}-title`}
                   highlight
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="② 1. 건물 주소 (지번 · 두 번째 입력칸)"
@@ -1202,6 +1327,8 @@ export default function TestGuidePage() {
                   subNote="주소 입력 후 [주소로 건물 정보 자동 채우기] 클릭! (제목·가격 안 지워짐)"
                   keyId={`${activeDeal.id}-jibun`}
                   highlight
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="③ 2. 희망 매매가 ('원' 단위 · 세 번째 입력칸)"
@@ -1209,34 +1336,46 @@ export default function TestGuidePage() {
                   subNote={`= ${activeDeal.askingPriceEok}억 원 (${(Number(activeDeal.askingPriceManwon) * 10000).toLocaleString()}원)`}
                   keyId={`${activeDeal.id}-price`}
                   highlight
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="즉흥 변경 테스트용 매매가 (Mission H-2 · '원' 단위)"
                   value={(Number(activeDeal.waveBPriceManwon) * 10000).toLocaleString()}
                   subNote={`= ${activeDeal.waveBPriceEok}억 원 (가격 변경 즉시 수익률·미리보기 연동 확인)`}
                   keyId={`${activeDeal.id}-waveb-price-won`}
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="④ 연면적 (㎡) [왼쪽 입력칸]"
                   value={activeDeal.specs.gfaSqm}
                   subNote={`= ${activeDeal.specs.gfaPyeong}평 (대장 자동채움 · 왼쪽 칸 확인)`}
                   keyId={`${activeDeal.id}-gfa`}
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="⑤ 대지면적 (㎡) [오른쪽 입력칸]"
                   value={activeDeal.specs.landAreaSqm}
                   subNote={`= ${activeDeal.specs.landAreaPyeong}평 (대장 자동채움 · 오른쪽 칸 확인)`}
                   keyId={`${activeDeal.id}-land`}
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="⑥ 용도지역 [왼쪽 입력칸]"
                   value={activeDeal.specs.zoning}
                   keyId={`${activeDeal.id}-zoning`}
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
                 <CopyFieldRow
                   label="⑦ 준공일 (사용승인일) [오른쪽 입력칸]"
                   value={activeDeal.specs.completionDate}
                   keyId={`${activeDeal.id}-completion`}
+                  copiedKey={copiedKey}
+                  onCopy={handleCopy}
                 />
               </div>
             </section>
@@ -1245,7 +1384,7 @@ export default function TestGuidePage() {
             <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div>
-                  <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">
+                  <span className="text-sm font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">
                     IM 스튜디오 — ② 층별 임대 현황 탭
                   </span>
                   <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
@@ -1263,7 +1402,7 @@ export default function TestGuidePage() {
                         `${activeDeal.id}-tsv`
                       )
                     }
-                    className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
+                    className={`px-4 py-2.5 rounded-xl text-sm font-extrabold transition cursor-pointer ${
                       copiedKey === `${activeDeal.id}-tsv`
                         ? "bg-emerald-600 text-white"
                         : "bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
@@ -1277,21 +1416,21 @@ export default function TestGuidePage() {
                   <button
                     type="button"
                     onClick={() => handleDownloadCsv(activeDeal)}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>⬇️ 방법 B: {activeDeal.csvFilename} 다운로드</span>
                   </button>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs sm:text-sm text-emerald-950 flex flex-wrap items-center justify-between gap-2">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-950 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   🤖 <strong>AI 1st 사전 검증 완료</strong>: 총 보증금{" "}
                   <strong>{activeDeal.rentSummary.totalDepositManwon}</strong> / 월 임대료{" "}
                   <strong>{activeDeal.rentSummary.totalMonthlyRentManwon}</strong> / 점유율{" "}
                   <strong>{activeDeal.rentSummary.occupancyPct}</strong>
                 </div>
-                <span className="px-2.5 py-0.5 rounded bg-emerald-600 text-white text-xs font-extrabold">
+                <span className="px-2.5 py-0.5 rounded bg-emerald-600 text-white text-sm font-extrabold">
                   수치 오차 0건 검증됨
                 </span>
               </div>
@@ -1301,13 +1440,13 @@ export default function TestGuidePage() {
             <section className="bg-white rounded-2xl border-2 border-blue-200 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div>
-                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
+                  <span className="text-sm font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">
                     IM 스튜디오 — ③ AI 장점 자동 생성 & ④ 사진 4장 드래그앤드롭
                   </span>
                   <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
                     Step {activeDeal.number}-3. [✨ AI로 3가지 장점 자동 채우기] 클릭 후 사진 4장 한 번에 드롭
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                  <p className="text-sm text-slate-600 mt-0.5">
                     ③ 탭에서는 타이핑 없이 <strong>[✨ AI로 3가지 장점 자동 채우기]</strong> 버튼만 누르세요(300자 제한 & 중개사 프로필 자동 입력 완료). 이어서 ④ 탭에 아래 사진 4장(JPG·PNG·WebP)을 내려받아 한꺼번에 끌어다 놓으세요.
                   </p>
                 </div>
@@ -1335,7 +1474,7 @@ export default function TestGuidePage() {
                           className="w-full h-full object-cover"
                         />
                         <span
-                          className={`absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-extrabold text-white ${
+                          className={`absolute top-2 left-2 px-2 py-0.5 rounded text-sm font-extrabold text-white ${
                             img.format === "JPG"
                               ? "bg-blue-600"
                               : img.format === "PNG"
@@ -1347,9 +1486,9 @@ export default function TestGuidePage() {
                         </span>
                       </div>
                       <div className="p-3 space-y-1">
-                        <div className="text-xs font-extrabold text-blue-700">{img.roleLabel}</div>
+                        <div className="text-sm font-extrabold text-blue-700">{img.roleLabel}</div>
                         <div
-                          className="text-xs font-mono font-bold text-slate-900 truncate"
+                          className="text-sm font-mono font-bold text-slate-900 truncate"
                           title={img.filename}
                         >
                           {img.filename}
@@ -1360,7 +1499,7 @@ export default function TestGuidePage() {
                       <button
                         type="button"
                         onClick={() => handleDownloadSingleImage(img)}
-                        className="w-full py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-extrabold flex items-center justify-center gap-1 transition cursor-pointer"
+                        className="w-full py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-sm font-extrabold flex items-center justify-center gap-1 transition cursor-pointer"
                       >
                         <span>⬇️ 개별 다운로드 ({img.format})</span>
                       </button>
@@ -1373,13 +1512,13 @@ export default function TestGuidePage() {
             {/* Collapsible AI 1st Pre-Verified Mechanical Oracle Details */}
             <section className="bg-slate-100 rounded-2xl border border-slate-300 p-4">
               <div className="flex items-center justify-between">
-                <div className="text-xs sm:text-sm font-extrabold text-slate-700">
+                <div className="text-sm font-extrabold text-slate-700">
                   🤖 AI 1st 자동 검증 완료된 세부 수치 오라클 ({activeDeal.waveAChecks.length + activeDeal.waveBChecks.length}개 항목 · 인간 수동 대조 불필요)
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowLegacyAiChecks((prev) => !prev)}
-                  className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-extrabold text-slate-700 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-extrabold text-slate-700 cursor-pointer"
                 >
                   {showLegacyAiChecks ? "▲ AI 검증 상세 접기" : "▼ AI 검증 상세 펼쳐보기"}
                 </button>
@@ -1389,7 +1528,7 @@ export default function TestGuidePage() {
                   {[...activeDeal.waveAChecks, ...activeDeal.waveBChecks].map((chk) => (
                     <div
                       key={chk.id}
-                      className="p-3 rounded-xl bg-white border border-emerald-200 text-xs space-y-1"
+                      className="p-3 rounded-xl bg-white border border-emerald-200 text-sm space-y-1"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-extrabold text-slate-900">
@@ -1414,8 +1553,8 @@ export default function TestGuidePage() {
             <section className="bg-white rounded-2xl border-2 border-indigo-600 p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
-                  <span className="text-xs font-extrabold text-white bg-indigo-600 px-2.5 py-1 rounded-md">
-                    📰 뉴스레터 스튜디오 & 💬 소통 관리함 — 30문항 골든테스트 (AI Dry-Run 100% PASS)
+                  <span className="text-sm font-extrabold text-white bg-indigo-600 px-2.5 py-1 rounded-md">
+                    📰 뉴스레터 스튜디오 & 💬 소통 관리함 — 30문항 골든테스트 (AI 자동 검증 100% PASS)
                   </span>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1.5">
                     1클릭 복붙 프리셋 & 30개 골든 시나리오 실시간 채점 워크벤치
@@ -1429,7 +1568,7 @@ export default function TestGuidePage() {
                     onClick={() =>
                       markAllChecksPass(NL_INBOX_GOLDEN_30_ITEMS.map((it) => it.id))
                     }
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                   >
                     ✅ 30문항 전체 PASS 일괄 체크
                   </button>
@@ -1443,7 +1582,7 @@ export default function TestGuidePage() {
                         "nlinbox-md-copy"
                       )
                     }
-                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                   >
                     📋 30문항 결과서 전체 복사
                   </button>
@@ -1451,7 +1590,7 @@ export default function TestGuidePage() {
                     type="button"
                     data-testid="nlinbox-download-md-btn"
                     onClick={handleDownloadNlInboxMd}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold cursor-pointer"
                   >
                     ⬇️ 결과서(.md) 다운로드
                   </button>
@@ -1460,13 +1599,13 @@ export default function TestGuidePage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-xs font-bold text-slate-500">총 골든 시나리오</div>
+                  <div className="text-sm font-bold text-slate-500">총 골든 시나리오</div>
                   <div className="text-xl font-black text-slate-900 mt-0.5">
                     {NL_INBOX_GOLDEN_30_ITEMS.length}문항
                   </div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <div className="text-xs font-bold text-emerald-700">PASS 통과</div>
+                  <div className="text-sm font-bold text-emerald-700">PASS 통과</div>
                   <div
                     className="text-xl font-black text-emerald-700 mt-0.5"
                     data-testid="nlinbox-pass-count"
@@ -1479,7 +1618,7 @@ export default function TestGuidePage() {
                   </div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
-                  <div className="text-xs font-bold text-rose-700">FAIL 결함</div>
+                  <div className="text-sm font-bold text-rose-700">FAIL 결함</div>
                   <div
                     className="text-xl font-black text-rose-700 mt-0.5"
                     data-testid="nlinbox-fail-count"
@@ -1492,7 +1631,7 @@ export default function TestGuidePage() {
                   </div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
-                  <div className="text-xs font-bold text-amber-800">미점검 (PENDING)</div>
+                  <div className="text-sm font-bold text-amber-800">미점검 (PENDING)</div>
                   <div className="text-xl font-black text-amber-800 mt-0.5">
                     {
                       NL_INBOX_GOLDEN_30_ITEMS.filter(
@@ -1515,10 +1654,10 @@ export default function TestGuidePage() {
                     📰 뉴스레터 스튜디오 1클릭 입력값 (7종)
                   </h3>
                   <a
-                    href="/broker/magazine-editor"
+                    href="/broker/w/newsletter?qa=1"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold transition shrink-0"
+                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-extrabold transition shrink-0"
                   >
                     📰 뉴스레터 열기 ↗
                   </a>
@@ -1532,6 +1671,8 @@ export default function TestGuidePage() {
                       subNote={`${preset.targetField}${preset.note ? ` · ${preset.note}` : ""}`}
                       keyId={preset.id}
                       highlight={preset.id === "nl-headline" || preset.id === "nl-briefing-body"}
+                      copiedKey={copiedKey}
+                      onCopy={handleCopy}
                     />
                   ))}
                 </div>
@@ -1546,10 +1687,10 @@ export default function TestGuidePage() {
                     💬 소통 관리함 & 매수고객 신청 1클릭 입력값 (13종)
                   </h3>
                   <a
-                    href="/broker/w/inbox"
+                    href="/broker/w/inbox?qa=1"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition shrink-0"
+                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-extrabold transition shrink-0"
                   >
                     💬 소통 관리함 열기 ↗
                   </a>
@@ -1562,6 +1703,8 @@ export default function TestGuidePage() {
                       value={preset.value}
                       subNote={`${preset.targetField}${preset.note ? ` · ${preset.note}` : ""}`}
                       keyId={preset.id}
+                      copiedKey={copiedKey}
+                      onCopy={handleCopy}
                     />
                   ))}
                 </div>
@@ -1576,7 +1719,7 @@ export default function TestGuidePage() {
             <section className="bg-white rounded-2xl border-2 border-slate-900 p-6 shadow-sm space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
-                  <span className="text-xs font-extrabold text-white bg-slate-900 px-2.5 py-1 rounded-md">
+                  <span className="text-sm font-extrabold text-white bg-slate-900 px-2.5 py-1 rounded-md">
                     최종 상용 배포 승인서 (AI 1st 12종 PASS + 인간 2nd 9문항 판정)
                   </span>
                   <h2 className="text-xl font-extrabold text-slate-900 mt-1">
@@ -1594,14 +1737,14 @@ export default function TestGuidePage() {
                         "scorecard-md-copy"
                       )
                     }
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-xs"
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold cursor-pointer shadow-xs"
                   >
                     📋 채점 결과 리포트 전체 복사 (채팅창 붙여넣기용)
                   </button>
                   <button
                     type="button"
                     onClick={handleDownloadScorecardMd}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold cursor-pointer"
                   >
                     ⬇️ 채점 결과(.md) 파일 다운로드
                   </button>
@@ -1610,10 +1753,14 @@ export default function TestGuidePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  <label
+                    htmlFor="testguide-tester-name-input"
+                    className="block text-sm font-extrabold text-slate-700 mb-1"
+                  >
                     검수자 성명 / 직함
                   </label>
                   <input
+                    id="testguide-tester-name-input"
                     type="text"
                     value={testerName}
                     onChange={(e) => setTesterName(e.target.value)}
@@ -1643,7 +1790,7 @@ export default function TestGuidePage() {
                           );
                         }}
                         placeholder="미션 (H-1/H-2/H-3)"
-                        className="sm:col-span-2 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold"
+                        className="sm:col-span-2 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-sm font-bold"
                       />
                       <input
                         type="text"
@@ -1655,7 +1802,7 @@ export default function TestGuidePage() {
                           );
                         }}
                         placeholder="발생 화면 / 슬라이드 번호"
-                        className="sm:col-span-3 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
+                        className="sm:col-span-3 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-sm"
                       />
                       <input
                         type="text"
@@ -1667,7 +1814,7 @@ export default function TestGuidePage() {
                           );
                         }}
                         placeholder="어느 부분이 불편하거나 어색했나요?"
-                        className="sm:col-span-5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
+                        className="sm:col-span-5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-sm"
                       />
                       <select
                         aria-label={`결함 ${idx + 1} 심각도`}
@@ -1678,7 +1825,7 @@ export default function TestGuidePage() {
                             prev.map((it, i) => (i === idx ? { ...it, severity: val } : it))
                           );
                         }}
-                        className="sm:col-span-2 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-extrabold"
+                        className="sm:col-span-2 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-sm font-extrabold"
                       >
                         <option value="S0">S0 (치명적)</option>
                         <option value="S1">S1 (중대함)</option>
@@ -1692,21 +1839,21 @@ export default function TestGuidePage() {
 
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs font-extrabold text-slate-700">
-                    📄 자동 생성된 v4.0 최종 검수 리포트 미리보기:
+                  <div className="text-sm font-extrabold text-slate-700">
+                    📄 자동 생성된 v6.0 최종 검수 리포트 미리보기:
                   </div>
                   <button
                     type="button"
                     data-testid="open-scorecard-modal-btn"
                     onClick={() => setShowScorecardModal(true)}
-                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
                   >
                     <span>🔍 리포트 전문 팝업으로 크게 보기</span>
                   </button>
                 </div>
                 <pre
                   data-testid="scorecard-markdown-preview"
-                  className="dark-scrollbar p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono whitespace-pre-wrap max-h-72 overflow-y-auto select-all border border-slate-700"
+                  className="dark-scrollbar p-4 rounded-xl bg-slate-900 text-slate-100 text-sm font-mono whitespace-pre-wrap max-h-72 overflow-y-auto select-all border border-slate-700"
                 >
                   {generateScorecardMarkdown()}
                 </pre>
@@ -1722,18 +1869,22 @@ export default function TestGuidePage() {
           aria-modal="true"
           aria-label="검수 리포트 전문 보기"
           data-testid="scorecard-full-modal"
-          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowScorecardModal(false);
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
         >
-          <div className="bg-white rounded-2xl border border-slate-300 shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="리포트 전문 팝업 배경 닫기"
+            onClick={() => setShowScorecardModal(false)}
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs cursor-default"
+          />
+          <div className="relative z-10 bg-white rounded-2xl border border-slate-300 shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                  📄 v4.0 최종 검수 리포트 전문
+                  📄 v6.0 최종 검수 리포트 전문
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm text-slate-500">
                   전체 내용을 넓은 화면에서 확인하고 바로 클립보드 복사 또는 마크다운(.md) 파일로 저장할 수 있습니다.
                 </p>
               </div>
@@ -1748,7 +1899,7 @@ export default function TestGuidePage() {
                       "scorecard-modal-copy"
                     )
                   }
-                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-extrabold transition cursor-pointer"
                 >
                   {copiedKey === "scorecard-modal-copy" ? "✅ 복사됨!" : "📋 전문 복사"}
                 </button>
@@ -1756,7 +1907,7 @@ export default function TestGuidePage() {
                   type="button"
                   data-testid="scorecard-modal-download-btn"
                   onClick={handleDownloadScorecardMd}
-                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-extrabold transition cursor-pointer"
                 >
                   ⬇️ .md 저장
                 </button>
@@ -1764,14 +1915,14 @@ export default function TestGuidePage() {
                   type="button"
                   data-testid="close-scorecard-modal-btn"
                   onClick={() => setShowScorecardModal(false)}
-                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm font-extrabold transition cursor-pointer"
                 >
                   닫기
                 </button>
               </div>
             </div>
             <div className="p-5 flex-1 overflow-hidden flex flex-col bg-slate-950">
-              <pre className="dark-scrollbar flex-1 p-5 rounded-xl bg-slate-900 text-slate-100 text-xs sm:text-sm font-mono whitespace-pre-wrap overflow-y-auto select-all border border-slate-700 leading-relaxed">
+              <pre className="dark-scrollbar flex-1 p-5 rounded-xl bg-slate-900 text-slate-100 text-sm font-mono whitespace-pre-wrap overflow-y-auto select-all border border-slate-700 leading-relaxed">
                 {generateScorecardMarkdown()}
               </pre>
             </div>

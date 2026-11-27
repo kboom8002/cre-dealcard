@@ -125,7 +125,10 @@ export const ROUND1_REMEDIATION_28_ITEMS: readonly Round1RemediationItem[] = [
     relatedScenarioIds: [
       "DC-01",
       "DC-02",
+      "DC-04",
+      "DC-05",
       "DC-06",
+      "DC-07",
       "DC-08",
       "IM-01",
       "IM-06",
@@ -139,7 +142,7 @@ export const ROUND1_REMEDIATION_28_ITEMS: readonly Round1RemediationItem[] = [
     issueSummary: "공개 뷰어(/dc, /im-lite, /magazine) 내 무반응 다크모드(🌙) 버튼 잔존",
     fixApplied: "매수 고객 공개 화면에서 무반응 다크모드 버튼 제거 및 라이트 톤 고정",
     verifyHref: "/qa-tester/showcase?tab=dealcard&case=DC-01",
-    relatedScenarioIds: ["NL-M1", "DC-01", "DC-02", "IM-01"],
+    relatedScenarioIds: ["NL-M1", "DC-01", "DC-02", "DC-04", "DC-05", "IM-01"],
   },
   {
     id: "R1-10",
@@ -148,7 +151,7 @@ export const ROUND1_REMEDIATION_28_ITEMS: readonly Round1RemediationItem[] = [
     issueSummary: "DC-03 공실 포함 다층 임차 구성에서 공실 임대료 문구 및 블라인드 누출 우려",
     fixApplied: "공실 호실 0원 깔끔 표기 및 민감 상호·지번 블라인드 자동 마스킹 강화",
     verifyHref: "/qa-tester/showcase?tab=dealcard&case=DC-03",
-    relatedScenarioIds: ["DC-03"],
+    relatedScenarioIds: ["DC-03", "DC-07"],
   },
   {
     id: "R1-11",

@@ -19,6 +19,7 @@ import {
 } from "@/lib/qa/build-stamp";
 import {
   OUTPUT_SHOWCASE_SCENARIOS,
+  getBrokerFacingScenarioMeta,
   getShowcaseScenariosByCategory,
   type ShowcaseCategory,
   type ShowcaseFontScale,
@@ -63,6 +64,7 @@ export interface ShowcaseDeliverableViewerProps {
   summaryBadgeText: string;
   oracleHeadingLabel?: string;
   slideActionLabel?: string;
+  questionsSessionId?: string;
   headerRightSlot?: React.ReactNode;
   renderTopBanner?: (ctx: ShowcaseActiveContext) => React.ReactNode;
   getScenarioBadge?: (scenario: ShowcaseScenarioUnion) => ShowcaseScenarioBadge;
@@ -79,24 +81,28 @@ export interface ShowcaseDeliverableViewerProps {
 const CATEGORY_TABS: ReadonlyArray<{
   id: ShowcaseCategory;
   label: string;
+  brokerLabel: string;
   shortLabel: string;
   count: number;
 }> = [
   {
     id: "newsletter",
     label: "뉴스레터 6종 (일간·주간·월간)",
+    brokerLabel: "부동산뉴스 6종 (일간·주간·월간)",
     shortLabel: "뉴스레터 6종",
     count: 6,
   },
   {
     id: "dealcard",
     label: "딜카드 8종 (3포스처·블라인드)",
+    brokerLabel: "딜카드 8종 (3대 매물유형·블라인드)",
     shortLabel: "딜카드 8종",
     count: 8,
   },
   {
     id: "im",
     label: "모바일·PPTX IM 8종 (전 슬라이드)",
+    brokerLabel: "모바일·PPTX IM 8종 (전 슬라이드)",
     shortLabel: "모바일·PPTX IM 8종",
     count: 8,
   },
@@ -105,11 +111,18 @@ const CATEGORY_TABS: ReadonlyArray<{
 const FONT_SCALE_OPTIONS: ReadonlyArray<{
   id: ShowcaseFontScale;
   label: string;
+  bezelLabel: string;
 }> = [
-  { id: "normal", label: "표준 글씨 (15px)" },
-  { id: "large", label: "큰 글씨 (18px)" },
-  { id: "xlarge", label: "아주 크게 (21px)" },
+  { id: "normal", label: "표준 글씨 (15px)", bezelLabel: "표준 15px" },
+  { id: "large", label: "큰 글씨 (18px)", bezelLabel: "큰 글씨 18px" },
+  { id: "xlarge", label: "아주 크게 (21px)", bezelLabel: "아주 크게 21px" },
 ];
+
+function formatFontScaleBezelLabel(scale: ShowcaseFontScale): string {
+  return (
+    FONT_SCALE_OPTIONS.find((o) => o.id === scale)?.bezelLabel ?? "표준 15px"
+  );
+}
 
 function isValidCategory(v: string | null): v is ShowcaseCategory {
   return v === "newsletter" || v === "dealcard" || v === "im";
@@ -171,14 +184,13 @@ export function buildShowcaseFallbackEntry(
       generatedAt: "",
     };
   }
-  const liveUrl = slug
-    ? `/magazine/${encodeURIComponent(slug)}/${encodeURIComponent(scenario.issueDate)}`
-    : "/broker/magazine-editor?qa=1";
-  const ogImageUrl = slug
-    ? `/api/og/magazine?brokerId=${encodeURIComponent(slug)}&date=${encodeURIComponent(
-        scenario.issueDate
-      )}`
-    : null;
+  const effectiveSlug = slug || "test-broker-kim";
+  const liveUrl = `/magazine/${encodeURIComponent(
+    effectiveSlug
+  )}/${encodeURIComponent(scenario.issueDate)}`;
+  const ogImageUrl = `/api/og/magazine?brokerId=${encodeURIComponent(
+    effectiveSlug
+  )}&date=${encodeURIComponent(scenario.issueDate)}`;
   return {
     caseId: scenario.id,
     category: "newsletter",
@@ -206,6 +218,7 @@ function ShowcaseDeliverableViewerInner({
   summaryBadgeText,
   oracleHeadingLabel = "확인 포인트 (Oracle Checkpoints)",
   slideActionLabel = "✏️ 이 슬라이드 의견",
+  questionsSessionId,
   headerRightSlot,
   renderTopBanner,
   getScenarioBadge,
@@ -218,10 +231,21 @@ function ShowcaseDeliverableViewerInner({
   const searchParams = useSearchParams();
   const initialTabParam = searchParams.get("tab");
   const initialCaseParam = searchParams.get("case");
+  const urlQaKeyParam = searchParams.get("qaKey") ?? "";
+  const urlQaRoleParam = searchParams.get("qaRole") ?? "";
 
   useEffect(() => {
-    syncQaKeyFromSearchParams(searchParams, portalRole);
-  }, [portalRole, searchParams]);
+    syncQaKeyFromSearchParams(
+      {
+        get: (name: string) => {
+          if (name === "qaKey") return urlQaKeyParam || null;
+          if (name === "qaRole") return urlQaRoleParam || null;
+          return null;
+        },
+      },
+      portalRole
+    );
+  }, [portalRole, urlQaKeyParam, urlQaRoleParam]);
 
   const resolvedInitialCategory: ShowcaseCategory = useMemo(() => {
     if (initialCaseParam) {
@@ -301,6 +325,14 @@ function ShowcaseDeliverableViewerInner({
       ? Math.min(Math.max(selectedSlideIdx, 0), slideUrls.length - 1)
       : 0;
 
+  const activeBrokerMeta = useMemo(
+    () =>
+      portalRole === "broker"
+        ? getBrokerFacingScenarioMeta(activeScenario)
+        : null,
+    [activeScenario, portalRole]
+  );
+
   // Keep parent window text size standard while applying font scale strictly inside preview iframe.
   useEffect(() => {
     try {
@@ -317,10 +349,6 @@ function ShowcaseDeliverableViewerInner({
       if (iframeDoc?.documentElement) {
         iframeDoc.documentElement.setAttribute("data-font-scale", scale);
       }
-      iframeRef.current?.contentWindow?.localStorage?.setItem(
-        "cre-font-scale",
-        scale
-      );
     } catch {
       // ignore cross-origin/sandbox access in test environments
     }
@@ -581,7 +609,7 @@ function ShowcaseDeliverableViewerInner({
                       : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
                   }`}
                 >
-                  {tab.label}
+                  {portalRole === "broker" ? tab.brokerLabel : tab.label}
                 </button>
               );
             })}
@@ -597,7 +625,9 @@ function ShowcaseDeliverableViewerInner({
                     : "border-emerald-400 bg-emerald-50 text-emerald-950 hover:bg-emerald-100"
                 }`}
               >
-                📋 확인·추가 질문지 (14문항 · 답변)
+                {portalRole === "broker"
+                  ? "💬 실전 기준 선택 (8문항)"
+                  : "💬 확인·추가 질문 (14문항)"}
               </button>
             ) : null}
           </nav>
@@ -611,6 +641,7 @@ function ShowcaseDeliverableViewerInner({
           <BrokerFollowupQuestionsPanel
             manifest={manifest}
             portalRole={portalRole}
+            sessionIdOverride={questionsSessionId}
             onJumpToScenario={handleJumpFromQuestion}
           />
         ) : (
@@ -622,9 +653,11 @@ function ShowcaseDeliverableViewerInner({
               >
                 <div className="space-y-0.5">
                   <p className="text-[15px] font-extrabold text-emerald-950">
-                    📋 중개인 1차 의견 반영 완료 · 확인 질문(8문항) &amp; 추가 질문(6문항) 답변 요청
+                    {portalRole === "broker"
+                      ? "💬 실전 영업 기준 선택 (8문항 · 약 5분) — 현장 선호 방식만 편하게 골라 주세요"
+                      : "📋 중개인 1차 의견 반영 완료 · 확인 질문(8문항) & 추가 질문(6문항) 답변 요청"}
                   </p>
-                  <p className="text-[14px] text-emerald-900">
+                  <p className="text-[15px] text-emerald-900">
                     대상 슬라이드·카드 이미지를 보시면서 보기를 클릭하면 즉시 서버에 저장됩니다.
                   </p>
                 </div>
@@ -633,20 +666,22 @@ function ShowcaseDeliverableViewerInner({
                     type="button"
                     data-testid="showcase-open-questions-btn"
                     onClick={() => setIsQuestionsMode(true)}
-                    className="min-h-[42px] rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 text-[14px] font-extrabold text-white cursor-pointer"
+                    className="min-h-[44px] rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 text-[15px] font-extrabold text-white cursor-pointer"
                   >
-                    질문지(14문항) 바로 열기 →
+                    {portalRole === "broker"
+                      ? "실전 기준 선택(8문항) 열기 →"
+                      : "질문지(14문항) 바로 열기 →"}
                   </button>
                   <a
                     href={appendQaParamsToHref(
                       portalRole === "broker"
-                        ? "/qa-showcase/questions?from=broker"
+                        ? "/qa-showcase/questions?edition=beta1&role=broker&from=broker"
                         : "/qa-showcase/questions",
                       portalRole
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-h-[42px] inline-flex items-center rounded-xl border border-emerald-400 bg-white hover:bg-emerald-100 px-3.5 text-[14px] font-extrabold text-emerald-950"
+                    className="min-h-[44px] inline-flex items-center rounded-xl border border-emerald-400 bg-white hover:bg-emerald-100 px-3.5 text-[15px] font-extrabold text-emerald-950"
                   >
                     📄 단독 HTML 창 열기 ↗
                   </a>
@@ -661,14 +696,26 @@ function ShowcaseDeliverableViewerInner({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-extrabold text-slate-900">
-              {activeCategory === "newsletter"
+              {portalRole === "broker"
+                ? activeCategory === "newsletter"
+                  ? "부동산뉴스 6종 (일간 · 주간 · 월간)"
+                  : activeCategory === "dealcard"
+                  ? "딜카드 8종 (임대수익용 · 사옥용 · 신축·개발용)"
+                  : "모바일 · PPTX IM 8종 (전 슬라이드)"
+                : activeCategory === "newsletter"
                 ? "뉴스레터 6종 (표준 3 + 엣지 3)"
                 : activeCategory === "dealcard"
                 ? "딜카드 8종 (3포스처 + 엣지 5)"
                 : "모바일 · PPTX IM 8종 (3포스처 + 엣지 5)"}
             </h2>
             <span className="text-[15px] font-semibold text-slate-600">
-              {manifestLoading
+              {portalRole === "broker"
+                ? manifestLoading
+                  ? "산출물 화면 불러오는 중..."
+                  : manifest
+                  ? `실물 산출물 (${manifest.totalCount}종 준비됨)`
+                  : "실시간 미리보기 모드"
+                : manifestLoading
                 ? "실물 매니페스트 불러오는 중..."
                 : manifest
                 ? `실물 생성 기준 (${manifest.totalCount}종 연결됨)`
@@ -679,6 +726,10 @@ function ShowcaseDeliverableViewerInner({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {categoryScenarios.map((scenario) => {
               const isSelected = scenario.id === activeScenario.id;
+              const brokerScenarioMeta =
+                portalRole === "broker"
+                  ? getBrokerFacingScenarioMeta(scenario)
+                  : null;
               const badge = getScenarioBadge?.(scenario) ?? {
                 label: "미확인",
                 chipClass: "bg-slate-100 text-slate-700 border-slate-300",
@@ -701,16 +752,20 @@ function ShowcaseDeliverableViewerInner({
                       {scenario.id}
                     </span>
                     <span
-                      className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[14px] font-bold ${badge.chipClass}`}
+                      className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[15px] font-bold ${badge.chipClass}`}
                     >
                       {badge.label}
                     </span>
                   </div>
                   <p className="text-[15px] font-bold text-slate-900 leading-snug">
-                    {scenario.title}
+                    {brokerScenarioMeta
+                      ? brokerScenarioMeta.title
+                      : scenario.title}
                   </p>
                   <p className="text-[15px] text-slate-700 leading-snug">
-                    {scenario.edgeFocus}
+                    {brokerScenarioMeta
+                      ? brokerScenarioMeta.edgeFocus
+                      : scenario.edgeFocus}
                   </p>
                   {renderScenarioSubBadge
                     ? renderScenarioSubBadge(scenario)
@@ -733,14 +788,20 @@ function ShowcaseDeliverableViewerInner({
                   {activeScenario.id}
                 </span>
                 <span className="text-[15px] font-bold text-indigo-700">
-                  {activeLiveEntry.postureOrCadence}
+                  {activeBrokerMeta
+                    ? activeBrokerMeta.postureOrCadenceBadge
+                    : activeLiveEntry.postureOrCadence}
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
-                {activeScenario.title}
+                {activeBrokerMeta
+                  ? activeBrokerMeta.title
+                  : activeScenario.title}
               </h2>
               <p className="text-[15px] text-slate-700">
-                {activeScenario.subtitle}
+                {activeBrokerMeta
+                  ? activeBrokerMeta.subtitle
+                  : activeScenario.subtitle}
               </p>
             </div>
 
@@ -761,13 +822,20 @@ function ShowcaseDeliverableViewerInner({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5">
               <h3 className="text-[15px] font-extrabold text-slate-900">
-                투입 원재료 (Input)
+                {portalRole === "broker"
+                  ? "매물 · 발송 기본 조건"
+                  : "투입 원재료 (Input)"}
               </h3>
               <p className="text-[15px] text-slate-800 leading-relaxed">
-                {activeScenario.inputSummary}
+                {activeBrokerMeta
+                  ? activeBrokerMeta.inputSummary
+                  : activeScenario.inputSummary}
               </p>
               <p className="text-[15px] font-semibold text-indigo-800">
-                핵심 확인 사항: {activeScenario.edgeFocus}
+                핵심 확인 사항:{" "}
+                {activeBrokerMeta
+                  ? activeBrokerMeta.edgeFocus
+                  : activeScenario.edgeFocus}
               </p>
             </div>
 
@@ -776,7 +844,10 @@ function ShowcaseDeliverableViewerInner({
                 {oracleHeadingLabel}
               </h3>
               <ul className="space-y-1 text-[15px] text-emerald-950 list-disc pl-5">
-                {activeScenario.oracleCriteria.map((criterion, idx) => (
+                {(activeBrokerMeta
+                  ? activeBrokerMeta.checkpoints
+                  : activeScenario.oracleCriteria
+                ).map((criterion, idx) => (
                   <li key={idx}>{criterion}</li>
                 ))}
               </ul>
@@ -801,7 +872,7 @@ function ShowcaseDeliverableViewerInner({
                     data-testid={`showcase-font-${opt.id}`}
                     onClick={() => applyFontScale(opt.id)}
                     aria-pressed={active}
-                    className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-bold transition-colors cursor-pointer ${
+                    className={`ios-segmented-pill min-h-[44px] px-3.5 text-[15px] font-bold transition-colors cursor-pointer ${
                       active
                         ? "bg-slate-900 text-white shadow-2xs"
                         : "bg-transparent text-slate-800 hover:bg-white/80"
@@ -818,7 +889,7 @@ function ShowcaseDeliverableViewerInner({
         {/* 실물 산출물 뷰어 영역 */}
         {activeCategory !== "im" ? (
           <section
-            aria-label="모바일 및 카카오톡 OG 미리보기"
+            aria-label="모바일 및 카카오톡 공유 미리보기"
             className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -832,7 +903,7 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-view-mobile"
                   onClick={() => setMobileOrOgMode("mobile")}
                   aria-pressed={mobileOrOgMode === "mobile"}
-                  className={`ios-segmented-pill min-h-[40px] px-4 text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[44px] px-4 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     mobileOrOgMode === "mobile"
                       ? "bg-indigo-700 text-white shadow-2xs"
                       : "bg-transparent text-slate-800 hover:bg-white/80"
@@ -845,17 +916,21 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-view-og"
                   onClick={() => setMobileOrOgMode("og")}
                   aria-pressed={mobileOrOgMode === "og"}
-                  className={`ios-segmented-pill min-h-[40px] px-4 text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[44px] px-4 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     mobileOrOgMode === "og"
                       ? "bg-indigo-700 text-white shadow-2xs"
                       : "bg-transparent text-slate-800 hover:bg-white/80"
                   }`}
                 >
-                  💬 카톡 공유 OG 카드
+                  {portalRole === "broker"
+                    ? "💬 카톡 공유 카드"
+                    : "💬 카톡 공유 OG 카드"}
                 </button>
               </div>
               <span className="text-[15px] text-slate-600 break-all">
-                {activeLiveEntry.liveUrl}
+                {portalRole === "broker"
+                  ? activeLiveEntry.liveUrl.split("?")[0]
+                  : activeLiveEntry.liveUrl}
               </span>
             </div>
 
@@ -863,7 +938,7 @@ function ShowcaseDeliverableViewerInner({
               <div className="w-full sm:w-[398px] max-w-full mx-auto rounded-[28px] border-4 border-slate-800 bg-white overflow-hidden shadow-md">
                 <div className="bg-slate-800 text-white px-4 py-2 text-[15px] font-bold flex items-center justify-between">
                   <span>모바일 실화면 390px</span>
-                  <span>{fontScale}</span>
+                  <span>{formatFontScaleBezelLabel(fontScale)}</span>
                 </div>
                 <iframe
                   ref={iframeRef}
@@ -884,7 +959,7 @@ function ShowcaseDeliverableViewerInner({
                     <img
                       data-testid="showcase-og-image"
                       src={activeLiveEntry.ogImageUrl}
-                      alt={`${activeScenario.id} 카카오톡 OG 카드 이미지`}
+                      alt={`${activeScenario.id} 카카오톡 공유 카드 이미지`}
                       className="block w-full aspect-[1200/630] object-cover bg-slate-100"
                     />
                   ) : (
@@ -892,7 +967,9 @@ function ShowcaseDeliverableViewerInner({
                       data-testid="showcase-og-image-empty"
                       className="p-6 text-[15px] font-semibold text-slate-700 bg-slate-100"
                     >
-                      OG 이미지를 준비 중이거나 발행 후 확인할 수 있습니다.
+                      {portalRole === "broker"
+                        ? "카톡 공유 미리보기 카드를 준비 중이거나 발행 후 확인할 수 있습니다."
+                        : "OG 이미지를 준비 중이거나 발행 후 확인할 수 있습니다."}
                     </div>
                   )}
                   <div className="p-4 space-y-1">
@@ -913,6 +990,8 @@ function ShowcaseDeliverableViewerInner({
                         ("ogDescription" in activeScenario &&
                         activeScenario.ogDescription
                           ? activeScenario.ogDescription
+                          : activeBrokerMeta
+                          ? activeBrokerMeta.subtitle
                           : activeScenario.subtitle)}
                     </p>
                     <p className="text-[15px] font-bold text-indigo-700">
@@ -939,7 +1018,7 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-grid"
                   onClick={() => setImViewMode("grid")}
                   aria-pressed={imViewMode === "grid"}
-                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[44px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "grid"
                       ? "bg-indigo-700 text-white shadow-2xs"
                       : "bg-transparent text-slate-800 hover:bg-white/80"
@@ -952,7 +1031,7 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-single"
                   onClick={() => setImViewMode("single")}
                   aria-pressed={imViewMode === "single"}
-                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[44px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "single"
                       ? "bg-indigo-700 text-white shadow-2xs"
                       : "bg-transparent text-slate-800 hover:bg-white/80"
@@ -965,7 +1044,7 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-mobile"
                   onClick={() => setImViewMode("mobile")}
                   aria-pressed={imViewMode === "mobile"}
-                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[44px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "mobile"
                       ? "bg-indigo-700 text-white shadow-2xs"
                       : "bg-transparent text-slate-800 hover:bg-white/80"
@@ -978,7 +1057,7 @@ function ShowcaseDeliverableViewerInner({
                   data-testid="showcase-im-mode-split"
                   onClick={() => setImViewMode("split")}
                   aria-pressed={imViewMode === "split"}
-                  className={`ios-segmented-pill min-h-[40px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
+                  className={`ios-segmented-pill min-h-[44px] px-3.5 text-[15px] font-extrabold transition-colors cursor-pointer ${
                     imViewMode === "split"
                       ? "bg-indigo-700 text-white shadow-2xs"
                       : "bg-transparent text-slate-800 hover:bg-white/80"
@@ -988,19 +1067,32 @@ function ShowcaseDeliverableViewerInner({
                 </button>
               </div>
 
-              {activeLiveEntry.pptxDownloadUrl ? (
-                <button
-                  type="button"
-                  data-testid="showcase-pptx-download-btn"
-                  disabled={pptxDownloading}
-                  onClick={handleDownloadPptx}
-                  className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-70 px-4 text-[15px] font-extrabold text-white cursor-pointer transition active:scale-[0.98]"
-                >
-                  {pptxDownloading
-                    ? "⏳ 다운로드 중입니다..."
-                    : "⬇ 실물 .pptx 다운로드"}
-                </button>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                {activeLiveEntry.pptxDownloadUrl ? (
+                  <button
+                    type="button"
+                    data-testid="showcase-pptx-download-btn"
+                    disabled={pptxDownloading}
+                    onClick={handleDownloadPptx}
+                    className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-70 px-4 text-[15px] font-extrabold text-white cursor-pointer transition active:scale-[0.98]"
+                  >
+                    {pptxDownloading
+                      ? "⏳ 다운로드 중입니다..."
+                      : "⬇ 실물 .pptx 다운로드"}
+                  </button>
+                ) : null}
+                {activeLiveEntry.pdfDownloadUrl?.trim() ? (
+                  <a
+                    href={activeLiveEntry.pdfDownloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="showcase-download-pdf-btn"
+                    className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-700 bg-white hover:bg-indigo-50 px-4 text-[15px] font-extrabold text-indigo-900 cursor-pointer transition active:scale-[0.98]"
+                  >
+                    📄 16:9 PDF 다운로드
+                  </a>
+                ) : null}
+              </div>
             </div>
 
             {pptxDownloadStatus ? (
@@ -1047,7 +1139,7 @@ function ShowcaseDeliverableViewerInner({
                           alt={`${activeScenario.id} 슬라이드 ${idx + 1}`}
                           className="block w-full aspect-[16/9] object-contain transition-transform group-hover:scale-[1.01]"
                         />
-                        <span className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-slate-900/80 px-2 py-0.5 text-xs font-bold text-white opacity-90 group-hover:opacity-100">
+                        <span className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-slate-900/80 px-2 py-0.5 text-[15px] font-bold text-white opacity-90 group-hover:opacity-100">
                           🔍 클릭해 확대
                         </span>
                       </button>
@@ -1076,7 +1168,9 @@ function ShowcaseDeliverableViewerInner({
               ) : (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[15px] text-amber-950 space-y-2">
                   <p className="font-bold">
-                    렌더링된 PPTX 슬라이드 PNG가 아직 매니페스트에 연결되지 않았습니다.
+                    {portalRole === "broker"
+                      ? "PPTX 슬라이드 미리보기 이미지를 준비하고 있습니다."
+                      : "렌더링된 PPTX 슬라이드 PNG가 아직 매니페스트에 연결되지 않았습니다."}
                   </p>
                   <p>
                     상단의 ‘실물 .pptx 다운로드’ 버튼으로 바로 열거나 슬라이드 이미지를 발행한 뒤 확인할 수 있습니다.
@@ -1156,7 +1250,7 @@ function ShowcaseDeliverableViewerInner({
               <div className="w-full sm:w-[398px] max-w-full mx-auto rounded-[28px] border-4 border-slate-800 bg-white overflow-hidden shadow-md">
                 <div className="bg-slate-800 text-white px-4 py-2 text-[15px] font-bold flex items-center justify-between">
                   <span>모바일 IM 390px</span>
-                  <span>{fontScale}</span>
+                  <span>{formatFontScaleBezelLabel(fontScale)}</span>
                 </div>
                 <iframe
                   ref={iframeRef}
