@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { hasExistingRentRollData } from "@/components/workspace/RentRollGrid";
 import type { RentRollRowItem } from "@/lib/rent-roll/tsv-parser";
 import { formatKoreanCurrencyReadout } from "@/lib/rent-roll/tsv-parser";
@@ -56,7 +57,7 @@ export function ImPreviewTabSwitcher({
         onClick={() => onChangePreviewTab("mobile")}
         className={`min-h-[44px] px-3.5 py-1 text-sm font-semibold rounded-[9px] transition-all cursor-pointer shrink-0 ${
           previewTab === "mobile"
-            ? "ios-segmented-pill bg-white text-[#007AFF]"
+            ? "ios-segmented-pill bg-white text-[#0055D4]"
             : "text-[#3A3A3C] hover:text-[#1D1D1F]"
         }`}
       >
@@ -69,7 +70,7 @@ export function ImPreviewTabSwitcher({
         onClick={() => onChangePreviewTab("pptx")}
         className={`min-h-[44px] px-3.5 py-1 text-sm font-semibold rounded-[9px] transition-all cursor-pointer shrink-0 ${
           previewTab === "pptx"
-            ? "ios-segmented-pill bg-white text-[#007AFF]"
+            ? "ios-segmented-pill bg-white text-[#0055D4]"
             : "text-[#3A3A3C] hover:text-[#1D1D1F]"
         }`}
       >
@@ -173,6 +174,7 @@ export function ImPreviewPane({
     cadastralImageUrl && failedCadastralUrl !== cadastralImageUrl
   );
   const hasComps = compRows.length > 0;
+  const handoffBuildingId = currentItem?.buildingId?.trim() || "";
 
   // 순차 번호 동적 할당 (표지 미번호 -> 본문 01, 02, ...)
   const visibleSectionOrder: string[] = [
@@ -226,6 +228,28 @@ export function ImPreviewPane({
           }
         />
       </div>
+
+      {previewLifecycle === "published_clean" && handoffBuildingId && (
+        <div
+          data-testid="im-cross-door-handoff"
+          className="flex flex-wrap items-center gap-2"
+        >
+          <Link
+            href={`/broker/w/dealcards?buildingId=${encodeURIComponent(handoffBuildingId)}`}
+            data-testid="im-handoff-dealcard-link"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white/90 px-3 py-2 text-sm font-bold text-[#1D1D1F] hover:bg-slate-50 transition whitespace-nowrap"
+          >
+            📄 공개 블라인드 딜카드 확인·편집 →
+          </Link>
+          <Link
+            href={`/broker/w/inbox?buildingId=${encodeURIComponent(handoffBuildingId)}`}
+            data-testid="im-handoff-inbox-link"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white/90 px-3 py-2 text-sm font-bold text-[#1D1D1F] hover:bg-slate-50 transition whitespace-nowrap"
+          >
+            💬 이 매물 문의 고객 확인 →
+          </Link>
+        </div>
+      )}
 
       <ImDeckReadinessBar
         address={address}

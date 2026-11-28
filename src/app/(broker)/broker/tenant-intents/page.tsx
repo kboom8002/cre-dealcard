@@ -49,17 +49,17 @@ function TenantIntentsListContent() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen bg-[#0b0f19] text-slate-200 px-4 py-8 pb-24">
+    <main className="flex flex-col items-center min-h-screen bg-[#F5F5F7] text-[#1D1D1F] px-4 py-8 pb-24">
       <div className="w-full max-w-md mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pt-4">
           <div>
-            <h1 className="text-xl font-bold text-white">임차인 의향서 관리</h1>
-            <p className="text-xs text-slate-400">등록된 고객들의 임차 조건을 관리합니다</p>
+            <h1 className="text-xl font-bold text-[#1D1D1F]">임차인 의향서 관리</h1>
+            <p className="text-sm text-[#515154]">등록된 고객들의 임차 조건을 관리합니다</p>
           </div>
           <Link
             href="/broker/tenant-intents/new"
-            className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold rounded-xl px-4 py-2 text-xs transition-colors"
+            className="bg-[#0055D4] hover:bg-[#0040DD] text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors"
           >
             + 새 의향서
           </Link>
@@ -67,11 +67,11 @@ function TenantIntentsListContent() {
 
         {/* Building ID link banner if present */}
         {buildingId && (
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center justify-between">
-            <span className="text-xs text-primary font-medium">🏢 매물 연동 임차의향서 매칭</span>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-sm text-[#0055D4] font-medium">🏢 매물 연동 임차의향서 매칭</span>
             <Link
               href={`/broker/deal-card/${buildingId}`}
-              className="text-xs text-primary underline hover:text-primary/80"
+              className="text-sm text-[#0055D4] font-semibold underline hover:text-[#0040DD]"
             >
               ← 딜카드로 이동
             </Link>
@@ -85,20 +85,20 @@ function TenantIntentsListContent() {
             placeholder="업종으로 의향서 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#111726] border border-slate-800 rounded-xl pl-9 pr-4 py-3 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-all"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm text-[#1D1D1F] placeholder:text-[#6E6E73] focus:outline-none focus:border-[#0055D4] transition-all"
           />
-          <span className="absolute left-3 top-3.5 text-slate-600 text-xs">🔍</span>
+          <span className="absolute left-3 top-3.5 text-[#515154] text-sm">🔍</span>
         </div>
 
         {/* List Content */}
         {loading ? (
-          <div className="flex justify-center py-12 text-primary">
+          <div className="flex justify-center py-12 text-[#0055D4]">
             <div className="relative w-6 h-6">
-              <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+              <div className="absolute inset-0 rounded-full border-2 border-[#0055D4]/20 border-t-[#0055D4] animate-spin" />
             </div>
           </div>
         ) : error ? (
-          <div className="text-center py-12 text-red-400 text-xs">⚠️ {error}</div>
+          <div className="text-center py-12 text-[#C8102E] text-sm font-medium">⚠️ {error}</div>
         ) : intents.length > 0 ? (
           <div className="space-y-3">
             {intents.map((intent) => {
@@ -107,34 +107,34 @@ function TenantIntentsListContent() {
                 <div
                   key={intent.id}
                   onClick={() => router.push(`/broker/tenant-intents/${intent.id}`)}
-                  className="bg-[#151c2c] border border-slate-800 hover:border-primary/30 rounded-2xl p-4 transition-all cursor-pointer space-y-2.5 active:scale-[0.99]"
+                  className="ios-glass-card hover:border-[#0055D4]/40 rounded-2xl p-4 transition-all cursor-pointer space-y-2.5 active:scale-[0.99]"
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h2 className="text-sm font-semibold text-white">
+                      <h2 className="text-base font-semibold text-[#1D1D1F]">
                         {intent.client?.display_name || "익명 임차고객"}
                         {intent.client?.company ? ` (${intent.client.company})` : ""}
                       </h2>
-                      <p className="text-[10px] text-primary font-semibold mt-0.5">업종: {intent.business_type}</p>
+                      <p className="text-sm text-[#0055D4] font-semibold mt-0.5">업종: {intent.business_type}</p>
                     </div>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-sm text-[#515154]">
                       {new Date(intent.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                  <div className="grid grid-cols-2 gap-2 text-sm text-[#515154]">
                     <div>
-                      <span className="text-slate-600 font-medium">선호 권역:</span> {regions}
+                      <span className="text-[#515154] font-medium">선호 권역:</span> {regions}
                     </div>
                     <div>
-                      <span className="text-slate-600 font-medium">희망 면적:</span>{" "}
+                      <span className="text-[#515154] font-medium">희망 면적:</span>{" "}
                       {intent.area_min || intent.area_max
                         ? `${intent.area_min ? `${Math.round(sqmToPyeong(intent.area_min))}평` : ""} ~ ${intent.area_max ? `${Math.round(sqmToPyeong(intent.area_max))}평` : ""}`
                         : "미정"}
                     </div>
                     <div className="col-span-2">
-                      <span className="text-slate-600 font-medium">월세 상한:</span>{" "}
-                      <span className="text-white font-semibold">
+                      <span className="text-[#515154] font-medium">월세 상한:</span>{" "}
+                      <span className="text-[#1D1D1F] font-semibold">
                         {intent.budget_monthly_max ? `${intent.budget_monthly_max}만원 이하` : "예산 협의"}
                       </span>
                     </div>
@@ -144,9 +144,9 @@ function TenantIntentsListContent() {
             })}
           </div>
         ) : (
-          <div className="bg-[#121824] border border-slate-800 rounded-2xl p-8 text-center text-slate-500 space-y-2">
-            <p className="text-xs">등록된 임차인 의향서 조건이 없습니다.</p>
-            <p className="text-[10px]">새 의향서를 등록해 AI 자동 추천 매칭을 시작해보세요!</p>
+          <div className="ios-glass-card rounded-2xl p-8 text-center text-[#515154] space-y-2">
+            <p className="text-sm font-medium text-[#1D1D1F]">등록된 임차인 의향서 조건이 없습니다.</p>
+            <p className="text-sm">새 의향서를 등록해 AI 자동 추천 매칭을 시작해보세요!</p>
           </div>
         )}
       </div>
@@ -158,7 +158,7 @@ function TenantIntentsListContent() {
 
 export default function TenantIntentsListPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0b0f19] flex items-center justify-center text-slate-400 text-xs">로딩 중...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F5F7] flex items-center justify-center text-[#515154] text-sm">로딩 중...</div>}>
       <TenantIntentsListContent />
     </Suspense>
   );

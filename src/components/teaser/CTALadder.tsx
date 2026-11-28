@@ -13,6 +13,7 @@ import {
   isValidKrPhone,
   sanitizePhoneDigits,
 } from "@/components/common/PhoneActionButton";
+import { useMobileKeyboardSafeZone } from "@/lib/ux/use-mobile-keyboard-safe-zone";
 
 interface CTALadderProps {
   buildingId: string;
@@ -42,6 +43,7 @@ export function CTALadder({
   const [showContactModal, setShowContactModal] = useState(false);
   const [requestConfirmed, setRequestConfirmed] = useState(false);
   const [serverCookieVerified, setServerCookieVerified] = useState(false);
+  const { isKeyboardOpen } = useMobileKeyboardSafeZone();
   useBottomSlot(`cta-ladder-${buildingId}`);
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export function CTALadder({
   const cleanPhone = sanitizePhoneDigits(brokerPhone);
   const hasValidPhone = isValidKrPhone(brokerPhone);
   const isVerified = requestConfirmed || serverCookieVerified;
+  const isCtaHidden = showContactModal || isKeyboardOpen;
 
   const handleCallPhoneUnavailable = () => {
     trackTeaserCta(teaserConfigId, fp, "cta_click", { action: "phone_call" });
@@ -92,7 +95,10 @@ export function CTALadder({
       {/* Strictly Two Fixed Primary Buttons: [전화하기] [IM 요청하기 / 상세 자료 요청] */}
       <div
         data-testid="public-dealcard-sticky-cta"
-        className="grid grid-cols-2 gap-3 pt-2"
+        data-keyboard-hidden={isCtaHidden ? "true" : "false"}
+        className={`grid grid-cols-2 gap-3 pt-2 transition-all duration-200 ${
+          isCtaHidden ? "opacity-0 pointer-events-none translate-y-full" : ""
+        }`}
       >
         {hasValidPhone ? (
           <PhoneActionButton

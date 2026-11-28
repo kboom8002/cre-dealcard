@@ -53,18 +53,18 @@ export const WORKSPACE_IDENTITY: Readonly<
     accentHex: "#059669",
     softHex: "#ECFDF5",
     borderHex: "#A7F3D0",
-    bgClass: "bg-emerald-600",
+    bgClass: "bg-emerald-700",
     softBgClass: "bg-emerald-50",
     textClass: "text-emerald-700",
     borderClass: "border-emerald-300",
     activePillClass:
-      "bg-[#059669] text-white shadow-xs",
+      "bg-[#047857] text-white shadow-xs",
     bottomTabActiveClass:
       "bg-emerald-600/12 text-[#047857] font-semibold",
-    bottomTabBarClass: "bg-[#059669]",
+    bottomTabBarClass: "bg-[#047857]",
     doorGlowClass: "from-[#10B981]/[0.09] via-transparent to-transparent",
     doorAccentBgClass:
-      "bg-[#059669] text-white shadow-xs",
+      "bg-[#047857] text-white shadow-xs",
     doorBadgeHighlightClass:
       "bg-[#10B981]/12 text-[#065F46] border-[#10B981]/28 hover:bg-[#10B981]/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
   },

@@ -46,12 +46,14 @@ import {
   type RecipientEvent,
   buildKakaoOutreachPreset,
   buildKakaoPresetDraftBody,
+  buildRecommendedDealOutreach,
   isPriorityHotThread,
   matchesInboxThreadFilter,
   normalizeServerThread,
   parseBudgetManwonValue,
   parseFilterParam,
   parsePreferredRegionsList,
+  rankMatchingInventoryDeals,
   sanitizeClientPhone,
 } from "./_components/inbox-types";
 import { InboxListColumn } from "./_components/InboxListColumn";
@@ -566,6 +568,32 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
 
   const inboxPreviewUnits = useMemo<Record<string, EditorUnitTarget<InboxEditorTabType>>>(
     () => ({
+      "ib-unit-client": {
+        unitId: "ib-unit-client",
+        label: "고객 요약 정보",
+        tab: "todo",
+        editorSelector: '[data-testid="inbox-editor-client-header"]',
+        focusSelector: '[data-testid="inbox-editor-client-header"]',
+        onCustomActivate: () => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("workspace:focus-editor", {
+                detail: { unitId: "ib-unit-client", label: "고객 요약 정보" },
+              })
+            );
+          }
+          if (typeof document === "undefined") return;
+          const el = document.querySelector<HTMLElement>(
+            '[data-testid="inbox-editor-client-header"]'
+          );
+          if (el) {
+            if (typeof el.scrollIntoView === "function") {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            el.focus?.({ preventScroll: true });
+          }
+        },
+      },
       "ib-unit-todo": {
         unitId: "ib-unit-todo",
         label: "자료 발송",
@@ -2043,6 +2071,34 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
     }
   };
 
+  const recommendedDeals = useMemo(
+    () => (activeThread ? rankMatchingInventoryDeals(activeThread, inventory, 3) : []),
+    [activeThread, inventory]
+  );
+
+  const handleApplyRecommendedDeal = useCallback(
+    (deal: BrokerInventoryDeal) => {
+      const origin =
+        typeof window !== "undefined" &&
+        window.location?.origin &&
+        window.location.origin !== "null"
+          ? window.location.origin
+          : "";
+      const draft = buildRecommendedDealOutreach(
+        deal,
+        activeThread?.clientName,
+        origin
+      );
+      setKakaoHeadline(draft.headline);
+      setKakaoBrief(draft.brief);
+      showUndoToast({
+        message: `[${deal.title}] 추천 문구와 링크를 안내 칸에 채웠습니다.`,
+        variant: "success",
+      });
+    },
+    [activeThread?.clientName, showUndoToast]
+  );
+
   const editorHeaderActions = activeThread ? (
     activeThread.id.startsWith("custom_") ? (
       <>
@@ -2174,6 +2230,8 @@ function InboxWorkspaceInner({ initialThreads = [] }: InboxWorkspacePageProps) {
             onCopyClientEmail={handleCopyClientEmail}
             onGenerateAiReply={handleGenerateAiReply}
             onConvertAnonToClient={handleConvertAnonToClient}
+            recommendedDeals={recommendedDeals}
+            onApplyRecommendedDeal={handleApplyRecommendedDeal}
             aiReplyLoading={aiReplyLoading}
             aiReplyCount={aiReplyHistory.length}
           />

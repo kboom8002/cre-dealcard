@@ -1,5 +1,7 @@
 export {
   useEditorPreviewSync,
+  validateEditorUnitTargets,
+  type EditorUnitValidationResult,
   type PreviewLifecycleState,
   type EditorUnitTarget,
   type UseEditorPreviewSyncOptions,

@@ -581,11 +581,8 @@
 /* L0. 전체 앱 캔버스 바탕 (Cupertino Cool Alabaster + Ambient Aurora Mesh) */
 .broker-paper-theme :is(
   .bg-neutral-950,
-  .bg-gray-950,
   .bg-slate-950,
   .bg-zinc-950,
-  .bg-\[\#090D16\],
-  .bg-\[\#0A0A0A\],
   .bg-\[\#0B0F19\],
   .bg-\[\#F3F2EE\],
   [class*="bg-[#0B1120]"]
@@ -597,7 +594,6 @@
 
 /* L1. 워크스페이스 사이드바 및 크롬 패널 (Frosted Translucent Chrome) */
 .broker-paper-theme :is(
-  [class*="bg-[#111827]"],
   .bg-\[\#FAF9F5\]
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *):not([data-modal-backdrop="true"]):not([role="dialog"] > .fixed):not(.fixed.inset-0[role="dialog"]):not([class*="bg-slate-900/"]):not([class*="bg-black/"]) {
   background-color: var(--ios-glass-chrome) !important;
@@ -610,20 +606,13 @@
  * 주의: 모달/드로어 반투명 백드롭([data-modal-backdrop="true"], [class*="bg-slate-900/"], [class*="bg-black/"], [role="dialog"] > .fixed)은 절대 흰색으로 덮어쓰지 않음 */
 .broker-paper-theme :is(
   .bg-neutral-900,
-  .bg-gray-900,
   .bg-slate-900,
   .bg-zinc-900,
   .bg-zinc-900\/80,
-  .bg-zinc-900\/60,
   .bg-zinc-900\/50,
-  .bg-zinc-900\/40,
-  .bg-zinc-950\/50,
   [class*="bg-neutral-900/"],
-  [class*="bg-gray-900/"],
   [class*="bg-zinc-900/"],
   [class*="bg-neutral-950/"],
-  [class*="bg-gray-950/"],
-  [class*="bg-zinc-950/"],
   .bg-\[\#0f172a\],
   .bg-\[\#0f172a\]\/95,
   .bg-\[\#0f1523\],
@@ -637,41 +626,21 @@
   box-shadow: var(--ios-shadow-card);
 }
 
-/* L2-1. 어두운 그라데이션 시작/중간/꼬리(from/via/to-slate-900·950 등)를 반투명 유리 표면으로 전환 */
+/* L2-1. 어두운 그라데이션 시작/꼬리(from/to-slate-900·950 등)를 반투명 유리 표면으로 전환 */
 .broker-paper-theme :is(
   .from-slate-900,
-  [class*="from-slate-900/"],
   .from-slate-800,
   [class*="from-slate-800/"],
-  .from-neutral-900,
-  [class*="from-neutral-900/"]
+  .from-neutral-900
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *):not([data-modal-backdrop="true"]):not([role="dialog"] > .fixed) {
   --tw-gradient-from: rgba(255, 255, 255, 0.88) var(--tw-gradient-from-position) !important;
   background-color: rgba(255, 255, 255, 0.84) !important;
 }
 
 .broker-paper-theme :is(
-  .via-slate-900,
-  [class*="via-slate-900/"],
-  .via-slate-800,
-  [class*="via-slate-800/"],
-  .via-neutral-900
-):not([data-theme-lock="dark"], [data-theme-lock="dark"] *):not([data-modal-backdrop="true"]):not([role="dialog"] > .fixed) {
-  --tw-gradient-via: rgba(248, 250, 252, 0.82) var(--tw-gradient-via-position) !important;
-}
-
-.broker-paper-theme :is(
   .to-slate-900,
-  .to-slate-950,
   [class*="to-slate-900/"],
-  [class*="to-slate-950/"],
-  .to-slate-800,
-  [class*="to-slate-800/"],
-  .to-neutral-900,
-  .to-neutral-950,
-  [class*="to-neutral-950/"],
-  .to-gray-900,
-  .to-gray-950
+  .to-neutral-950
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *):not([data-modal-backdrop="true"]):not([role="dialog"] > .fixed) {
   --tw-gradient-to: rgba(255, 255, 255, 0.78) var(--tw-gradient-to-position) !important;
   background-color: rgba(255, 255, 255, 0.84) !important;
@@ -680,18 +649,15 @@
 /* L3. 보조 칩/버튼/세그먼트 트랙 (iOS Tertiary Translucent Fill) */
 .broker-paper-theme :is(
   .bg-neutral-800,
-  .bg-gray-800,
   .bg-slate-800,
   .bg-zinc-800,
   [class*="bg-neutral-800/"],
-  [class*="bg-gray-800/"],
   [class*="bg-slate-800/"],
   [class*="bg-zinc-800/"],
   [class*="bg-white/5"],
   [class*="bg-white/10"],
   [class*="bg-white/12"],
-  .bg-white\/\[0\.03\],
-  .bg-white\/\[0\.04\]
+  .bg-white\/\[0\.03\]
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *):not([data-modal-backdrop="true"]):not([role="dialog"] > .fixed):not([class*="bg-slate-900/"]):not([class*="bg-black/"]) {
   background-color: var(--ios-fill-tertiary) !important;
   backdrop-filter: blur(12px);
@@ -702,11 +668,9 @@
 
 /* 4. 카드 및 구획 테두리 정밀화 (투박한 색연필 테두리 #CBD5E1 대신 Apple 광학 헤어라인 적용) */
 .broker-paper-theme .border-neutral-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme .border-gray-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-zinc-800:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-neutral-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme .border-gray-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-zinc-700:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-300:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -715,7 +679,6 @@
 .broker-paper-theme [class*="border-zinc-700/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-slate-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-neutral-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="border-gray-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-zinc-800/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme .border-slate-600:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="border-white/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
@@ -732,8 +695,6 @@
 .broker-paper-theme .text-white:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-neutral-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-neutral-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-gray-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-gray-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-zinc-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -743,14 +704,12 @@
 }
 
 .broker-paper-theme [class*="text-neutral-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-gray-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-zinc-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   color: var(--ios-label-secondary) !important;
 }
 
 .broker-paper-theme [class*="text-neutral-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-gray-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-slate-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-zinc-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-neutral-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -780,8 +739,6 @@
 .broker-paper-theme [class*="bg-yellow-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-yellow-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-orange-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-orange-400/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-orange-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-amber-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-amber-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-amber-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
@@ -800,10 +757,7 @@
 .broker-paper-theme [class*="text-amber-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-amber-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-amber-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-yellow-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-yellow-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-yellow-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-orange-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-orange-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-orange-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   color: var(--ios-amber-ink) !important;
@@ -822,15 +776,12 @@
 .broker-paper-theme [class*="bg-blue-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-blue-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-sky-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-sky-400/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-cyan-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-blue-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-blue-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-indigo-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-indigo-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-indigo-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-indigo-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-cyan-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+.broker-paper-theme [class*="from-indigo-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   background-color: rgba(0, 122, 255, 0.085) !important;
   --tw-gradient-from: rgba(0, 122, 255, 0.10) !important;
   --tw-gradient-to: rgba(88, 86, 214, 0.05) !important;
@@ -845,9 +796,7 @@
 .broker-paper-theme [class*="text-blue-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-blue-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-sky-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-sky-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-sky-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-cyan-200"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-cyan-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-cyan-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-indigo-100"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -859,10 +808,8 @@
 
 /* 6-C. System Green 콜아웃 및 배지 (Tinted Emerald Glass + #116B22) */
 .broker-paper-theme [class*="bg-emerald-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-emerald-400/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-emerald-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-emerald-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-green-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-teal-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-teal-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="from-emerald-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
@@ -882,7 +829,6 @@
 .broker-paper-theme [class*="text-emerald-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-emerald-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-emerald-500"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="text-green-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-green-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-teal-300"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="text-teal-400"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
@@ -891,15 +837,11 @@
 
 /* 6-D. System Rose 콜아웃 및 배지 (Tinted Rose Glass + #C8102E) */
 .broker-paper-theme [class*="bg-rose-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-rose-600/2"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-rose-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-pink-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-red-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-red-900"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="bg-red-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-rose-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-rose-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-rose-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+.broker-paper-theme [class*="bg-red-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   background-color: rgba(255, 45, 85, 0.085) !important;
   --tw-gradient-from: rgba(255, 45, 85, 0.10) !important;
   --tw-gradient-to: rgba(255, 45, 85, 0.04) !important;
@@ -928,8 +870,7 @@
 .broker-paper-theme [class*="bg-purple-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-violet-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme [class*="bg-violet-950"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-purple-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
-.broker-paper-theme [class*="from-purple-600/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
+.broker-paper-theme [class*="from-purple-500/"]:not([data-theme-lock="dark"], [data-theme-lock="dark"] *) {
   background-color: rgba(88, 86, 214, 0.085) !important;
   --tw-gradient-from: rgba(88, 86, 214, 0.10) !important;
   --tw-gradient-to: rgba(88, 86, 214, 0.04) !important;
@@ -981,72 +922,66 @@
   .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800,
   .bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-800, .bg-indigo-600\/90,
   .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-emerald-800, .bg-emerald-600\/90,
-  .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800,
+  .bg-green-500,
   .bg-teal-600, .bg-teal-700, .bg-teal-800,
-  .bg-violet-500, .bg-violet-600, .bg-violet-700, .bg-violet-800,
+  .bg-violet-500, .bg-violet-600,
   .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800,
   .bg-rose-500, .bg-rose-600, .bg-rose-700, .bg-rose-800,
   .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800, .bg-red-600\/80,
-  .bg-pink-500, .bg-pink-600, .bg-pink-700,
+  .bg-pink-500,
   .bg-amber-600, .bg-amber-700, .bg-amber-800,
-  .bg-orange-500, .bg-orange-600, .bg-orange-700,
-  .bg-cyan-600, .bg-cyan-700, .bg-sky-600, .bg-sky-700,
+  .bg-orange-500,
+  .bg-sky-700,
   .bg-primary, .bg-grade-s, .bg-grade-a,
   .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
-  .bg-\[\#1D1D1F\], .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
-  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\], .bg-\[\#0062CC\],
-  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\], .bg-\[\#1D9E34\],
-  .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\], .bg-\[\#5856D6\],
+  .bg-\[\#1D1D1F\], .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\],
+  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#007AFF\], .bg-\[\#0062CC\],
+  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\],
+  .bg-\[\#B91C1C\],
   .from-\[\#1A88FF\], .to-\[\#007AFF\],
-  .from-\[\#24B63E\], .to-\[\#188C2C\],
-  .from-\[\#6B69E6\], .to-\[\#4A48C4\],
-  .from-\[\#FFAA00\], .to-\[\#E68600\], .to-\[\#FF9500\],
   .from-\[\#FF3B5C\], .to-\[\#FF2D55\],
-  .from-blue-500, .from-blue-600, .from-blue-700,
-  .from-indigo-500, .from-indigo-600, .from-indigo-700,
-  .from-emerald-500, .from-emerald-600, .from-emerald-700,
-  .from-teal-500, .from-teal-600, .from-cyan-600,
-  .from-violet-500, .from-violet-600, .from-violet-600\/80,
+  .from-blue-500, .from-blue-600,
+  .from-indigo-500, .from-indigo-600,
+  .from-emerald-500, .from-emerald-600,
+  .from-teal-500, .from-cyan-600,
+  .from-violet-500,
   .from-purple-500, .from-purple-600, .from-purple-700,
-  .from-rose-500, .from-rose-600, .from-red-500, .from-red-600,
-  .from-amber-600, .from-orange-600,
-  .bg-black\/60, .bg-black\/65, .bg-black\/70, .bg-black\/80, .bg-black\/90,
+  .from-rose-500, .from-rose-600, .from-red-500,
+  .from-amber-600,
+  .bg-black\/60, .bg-black\/70, .bg-black\/80, .bg-black\/90,
   [data-active-pill="true"]
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *),
 .broker-paper-theme.broker-paper-theme :is(
   .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800,
   .bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-800, .bg-indigo-600\/90,
   .bg-emerald-500, .bg-emerald-600, .bg-emerald-700, .bg-emerald-800, .bg-emerald-600\/90,
-  .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800,
+  .bg-green-500,
   .bg-teal-600, .bg-teal-700, .bg-teal-800,
-  .bg-violet-500, .bg-violet-600, .bg-violet-700, .bg-violet-800,
+  .bg-violet-500, .bg-violet-600,
   .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800,
   .bg-rose-500, .bg-rose-600, .bg-rose-700, .bg-rose-800,
   .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800, .bg-red-600\/80,
-  .bg-pink-500, .bg-pink-600, .bg-pink-700,
+  .bg-pink-500,
   .bg-amber-600, .bg-amber-700, .bg-amber-800,
-  .bg-orange-500, .bg-orange-600, .bg-orange-700,
-  .bg-cyan-600, .bg-cyan-700, .bg-sky-600, .bg-sky-700,
+  .bg-orange-500,
+  .bg-sky-700,
   .bg-primary, .bg-grade-s, .bg-grade-a,
   .bg-zinc-700, .bg-slate-700, .bg-neutral-700, .bg-black,
-  .bg-\[\#1D1D1F\], .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\], .bg-\[\#991B1B\],
-  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#1E3A8A\], .bg-\[\#2563EB\], .bg-\[\#007AFF\], .bg-\[\#0062CC\],
-  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\], .bg-\[\#1D9E34\],
-  .bg-\[\#B91C1C\], .bg-\[\#DC2626\], .bg-\[\#7C3AED\], .bg-\[\#5856D6\],
+  .bg-\[\#1D1D1F\], .bg-\[\#0F172A\], .bg-\[\#1E293B\], .bg-\[\#334155\],
+  .bg-\[\#1D4ED8\], .bg-\[\#1E40AF\], .bg-\[\#007AFF\], .bg-\[\#0062CC\],
+  .bg-\[\#047857\], .bg-\[\#059669\], .bg-\[\#065F46\],
+  .bg-\[\#B91C1C\],
   .from-\[\#1A88FF\], .to-\[\#007AFF\],
-  .from-\[\#24B63E\], .to-\[\#188C2C\],
-  .from-\[\#6B69E6\], .to-\[\#4A48C4\],
-  .from-\[\#FFAA00\], .to-\[\#E68600\], .to-\[\#FF9500\],
   .from-\[\#FF3B5C\], .to-\[\#FF2D55\],
-  .from-blue-500, .from-blue-600, .from-blue-700,
-  .from-indigo-500, .from-indigo-600, .from-indigo-700,
-  .from-emerald-500, .from-emerald-600, .from-emerald-700,
-  .from-teal-500, .from-teal-600, .from-cyan-600,
-  .from-violet-500, .from-violet-600, .from-violet-600\/80,
+  .from-blue-500, .from-blue-600,
+  .from-indigo-500, .from-indigo-600,
+  .from-emerald-500, .from-emerald-600,
+  .from-teal-500, .from-cyan-600,
+  .from-violet-500,
   .from-purple-500, .from-purple-600, .from-purple-700,
-  .from-rose-500, .from-rose-600, .from-red-500, .from-red-600,
-  .from-amber-600, .from-orange-600,
-  .bg-black\/60, .bg-black\/65, .bg-black\/70, .bg-black\/80, .bg-black\/90,
+  .from-rose-500, .from-rose-600, .from-red-500,
+  .from-amber-600,
+  .bg-black\/60, .bg-black\/70, .bg-black\/80, .bg-black\/90,
   [data-active-pill="true"]
 ):not([data-theme-lock="dark"], [data-theme-lock="dark"] *) *:not(.bg-white, .bg-white *, .bg-slate-50, .bg-slate-50 *, .bg-slate-100, .bg-slate-100 *, .bg-amber-400, .bg-amber-400 *, .bg-amber-500, .bg-amber-500 *) {
   color: #FFFFFF !important;
@@ -1082,7 +1017,6 @@
 }
 
 /* Dark-locked preview canvas ([data-theme-lock="dark"]) light text preservation */
-.broker-paper-theme .bg-sky-950\/80.text-sky-400,
 .broker-paper-theme [data-theme-lock="dark"] .text-sky-400 {
   color: #38BDF8 !important;
 }

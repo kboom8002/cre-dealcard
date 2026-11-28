@@ -903,7 +903,7 @@ export function WorkspaceShell({
           }`}
         >
           {/* List Header — mobile (<1024px) always renders listTitle regardless of isRailCollapsed */}
-          <div className="h-14 border-b border-slate-900/[0.06] px-4 flex items-center justify-between gap-2 shrink-0 bg-white/72 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+          <div className="min-h-[56px] border-b border-slate-900/[0.06] px-4 flex items-center justify-between gap-2 shrink-0 bg-white/72 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
             <h2
               className={`text-lg font-bold text-[#1D1D1F] tracking-tight whitespace-nowrap truncate ${
                 isRailCollapsed ? "lg:hidden" : ""
@@ -916,7 +916,7 @@ export function WorkspaceShell({
               onClick={() => setIsRailCollapsed(!isRailCollapsed)}
               data-testid="workspace-rail-toggle"
               aria-label={isRailCollapsed ? "목록 펼치기" : "목록 접기 (레일)"}
-              className="hidden lg:flex items-center justify-center w-11 h-11 rounded-xl hover:bg-black/[0.05] text-[#3A3A3C] text-base font-semibold transition-colors cursor-pointer ml-auto"
+              className="hidden lg:flex items-center justify-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-black/[0.05] text-[#3A3A3C] text-base font-semibold transition-colors cursor-pointer ml-auto"
               title={isRailCollapsed ? "목록 펼치기" : "목록 접기"}
             >
               {isRailCollapsed ? "▶" : "◀"}
@@ -932,7 +932,7 @@ export function WorkspaceShell({
               <button
                 type="button"
                 onClick={() => setIsRailCollapsed(false)}
-                className="w-12 h-12 rounded-xl ios-glass-pill bg-white/85 border border-slate-900/[0.08] text-[#1D1D1F] font-semibold text-base flex items-center justify-center hover:bg-white transition-all cursor-pointer"
+                className="min-w-[48px] min-h-[48px] rounded-xl ios-glass-pill bg-white/85 border border-slate-900/[0.08] text-[#1D1D1F] font-semibold text-base flex items-center justify-center hover:bg-white transition-all cursor-pointer"
                 title="목록 펼치기"
                 aria-label="목록 펼치기"
               >
@@ -1062,7 +1062,7 @@ export function WorkspaceShell({
                       data-testid="mobile-tab-editor"
                       onClick={() => handleSelectTab("editor")}
                       aria-pressed={true}
-                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                      className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all ios-segmented-pill bg-white text-[#0055D4]"
                     >
                       {mobileTabLabels.editor}
                     </button>
@@ -1183,7 +1183,7 @@ export function WorkspaceShell({
                     data-testid="mobile-tab-preview"
                     onClick={() => handleSelectTab("preview")}
                     aria-pressed={true}
-                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all ios-segmented-pill bg-white text-[#007AFF]"
+                    className="px-3 min-h-[44px] text-sm font-semibold rounded-[9px] transition-all ios-segmented-pill bg-white text-[#0055D4]"
                   >
                     {mobileTabLabels.preview}
                   </button>

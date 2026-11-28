@@ -78,7 +78,7 @@ export function PreviewEditableUnit({
           badgePosition === "inside" ? "right-1.5 top-1.5" : "right-3 -top-3"
         } ${
           isActive
-            ? "opacity-100 bg-[#007AFF] text-white border border-[#005FCC]"
+            ? "opacity-100 bg-[#0055D4] text-white border border-[#0040AA]"
             : "opacity-0 group-hover/unit:opacity-100 group-focus-within/unit:opacity-100 bg-white text-[#0040DD] border border-[#007AFF]/45"
         }`}
       >

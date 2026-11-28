@@ -116,6 +116,9 @@ export interface BrokerInventoryDeal {
   capRatePct: number;
   hasIm?: boolean;
   hasDealCard?: boolean;
+  address?: string;
+  status?: string;
+  isDeleted?: boolean;
 }
 
 export interface InboxWorkspacePageProps {
@@ -1022,4 +1025,140 @@ export function getInboxStatusBadge(item: InboxThreadItem): {
     cls: "bg-slate-100 text-slate-700 border border-slate-200",
     tone: "draft",
   };
+}
+
+function extractRegionTokens(raw: string): string[] {
+  const tokens: string[] = [];
+  const parts = raw
+    .split(/[\s,/·]+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 2);
+  for (const part of parts) {
+    tokens.push(part);
+    const stem = part.replace(/(?:특별시|광역시|특별자치시|구|시|동|역)$/, "");
+    if (stem.length >= 2 && stem !== part) {
+      tokens.push(stem);
+    }
+  }
+  return Array.from(new Set(tokens));
+}
+
+function extractMessageBudgetManwon(raw: string): number | null {
+  const match = raw.match(/(\d+(?:\.\d+)?(?:\s*[~\-]\s*\d+(?:\.\d+)?)?\s*억(?:\s*\d+(?:\.\d+)?\s*만?)?)/);
+  if (!match) return null;
+  return parseBudgetManwonValue(match[1]);
+}
+
+export function rankMatchingInventoryDeals(
+  thread: Pick<
+    InboxThreadItem,
+    "buildingId" | "preferredRegion" | "preferredRegions" | "budget" | "cleanMessage" | "detail"
+  >,
+  inventory: BrokerInventoryDeal[],
+  limit = 3
+): BrokerInventoryDeal[] {
+  if (!Array.isArray(inventory) || inventory.length === 0 || limit <= 0) return [];
+  const attachedBuildingId = (thread.buildingId || "").trim();
+  const explicitRegions = Array.from(
+    new Set([
+      ...parsePreferredRegionsList(thread.preferredRegions),
+      ...parsePreferredRegionsList(thread.preferredRegion),
+    ])
+  ).flatMap(extractRegionTokens);
+
+  const messageText = `${thread.cleanMessage || ""} ${thread.detail || ""}`.trim();
+  const messageRegionMatches = messageText.match(/[가-힣]{2,}(?:구|동|역|시)/g) || [];
+  const messageRegions = Array.from(new Set(messageRegionMatches.flatMap(extractRegionTokens)));
+
+  const targetBudgetManwon =
+    parseBudgetManwonValue(thread.budget) ?? extractMessageBudgetManwon(messageText);
+  const budgetTokens = (thread.budget || "")
+    .split(/[\s,~-]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+
+  return inventory
+    .map((deal, idx) => ({ deal, idx }))
+    .filter(({ deal }) => {
+      const bid = (deal?.buildingId || "").trim();
+      const title = (deal?.title || "").trim();
+      if (!bid || (attachedBuildingId && bid === attachedBuildingId)) return false;
+      if (!title || RAW_UUID_TITLE_RE.test(title) || title.includes("삭제")) return false;
+      if (deal.isDeleted === true || deal.status === "deleted") return false;
+      return true;
+    })
+    .map(({ deal, idx }) => {
+      let score = 0;
+      const haystack = `${deal.region || ""} ${deal.address || ""} ${deal.title || ""}`.toLowerCase();
+
+      for (const token of explicitRegions) {
+        if (token && haystack.includes(token.toLowerCase())) {
+          score += 30;
+        }
+      }
+      for (const token of messageRegions) {
+        if (token && haystack.includes(token.toLowerCase())) {
+          score += 15;
+        }
+      }
+
+      const dealPriceManwon =
+        deal.askingPriceManwon > 0
+          ? deal.askingPriceManwon
+          : parseBudgetManwonValue(deal.priceBand) ?? 0;
+
+      if (targetBudgetManwon && targetBudgetManwon > 0 && dealPriceManwon > 0) {
+        const ratio = Math.abs(dealPriceManwon - targetBudgetManwon) / targetBudgetManwon;
+        if (ratio <= 0.25) score += 25;
+        else if (ratio <= 0.5) score += 12;
+        else if (dealPriceManwon > targetBudgetManwon * 1.8) score -= 10;
+      }
+
+      for (const bTok of budgetTokens) {
+        if ((deal.priceBand || "").includes(bTok) || (deal.title || "").includes(bTok)) {
+          score += 10;
+        }
+      }
+
+      if (deal.hasIm) score += 8;
+      if (deal.hasDealCard) score += 6;
+      if (deal.status === "published" || deal.status === "sent") score += 6;
+      if (deal.capRatePct > 0) score += 2;
+
+      return { deal, idx, score };
+    })
+    .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.idx - b.idx))
+    .slice(0, limit)
+    .map((entry) => entry.deal);
+}
+
+export function buildRecommendedDealOutreach(
+  deal: BrokerInventoryDeal,
+  clientName?: string,
+  origin?: string
+): { headline: string; brief: string; url: string } {
+  const cleanedRaw = String(clientName ?? "")
+    .trim()
+    .replace(/님$/, "");
+  const isAnonName =
+    !cleanedRaw ||
+    /^(?:익명\s*열람객|미확인\s*열람객|열람객|이름\s*미입력\s*고객)$/i.test(cleanedRaw);
+  const greetingName = isAnonName ? "고객님" : `${cleanedRaw}님`;
+  const path = deal.hasIm
+    ? `/im-lite/${encodeURIComponent(deal.buildingId)}`
+    : `/dc/${encodeURIComponent(deal.buildingId)}`;
+  const url = origin && /^https?:\/\//i.test(origin) ? `${origin}${path}` : path;
+  const priceText = (deal.priceBand || "").trim();
+  const headline = `[추천 매물] ${deal.title}${priceText ? ` · ${priceText}` : ""}`;
+  const metaParts = [
+    (deal.region || "").trim(),
+    priceText,
+    deal.capRatePct > 0 ? `연 ${deal.capRatePct.toFixed(1)}%` : "",
+  ].filter(Boolean);
+  const brief = [
+    `${greetingName}, 말씀하신 조건에 맞는 [${deal.title}] 자료를 함께 안내드립니다.`,
+    ...(metaParts.length > 0 ? [`요약: ${metaParts.join(" · ")}`] : []),
+    `▼ 자료 바로 보기\n${url}`,
+  ].join("\n");
+  return { headline, brief, url };
 }

@@ -98,7 +98,7 @@ export function ImFullscreenModal({
                 onClick={() => onChangePreviewTab("mobile")}
                 className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
                   previewTab === "mobile"
-                    ? "bg-white text-[#007AFF] shadow-2xs"
+                    ? "bg-white text-[#0055D4] shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -109,7 +109,7 @@ export function ImFullscreenModal({
                 onClick={() => onChangePreviewTab("pptx")}
                 className={`min-h-[44px] px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer ${
                   previewTab === "pptx"
-                    ? "bg-white text-[#007AFF] shadow-2xs"
+                    ? "bg-white text-[#0055D4] shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >

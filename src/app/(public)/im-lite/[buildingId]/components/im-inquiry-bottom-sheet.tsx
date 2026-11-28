@@ -3,6 +3,7 @@
 import React, { useId, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { formatKrPhoneInput } from "@/lib/format/phone";
+import { isTextInputElement } from "@/lib/ux/use-mobile-keyboard-safe-zone";
 
 interface IMInquiryBottomSheetProps {
   buildingId: string;
@@ -83,6 +84,19 @@ export function IMInquiryBottomSheet({
     }
   };
 
+  const handleFormFocus = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (
+      typeof window !== "undefined" &&
+      window.innerWidth < 900 &&
+      isTextInputElement(e.target)
+    ) {
+      (e.target as HTMLElement).scrollIntoView?.({
+        block: "center",
+        behavior: "smooth",
+      });
+    }
+  };
+
   return (
     <Modal
       open={true}
@@ -92,7 +106,7 @@ export function IMInquiryBottomSheet({
       title="📄 프라이빗 IM 신청"
       side="bottom"
       size="md"
-      className="mx-auto sm:my-auto sm:max-w-md sm:rounded-2xl sm:border-b bg-white border-slate-200 text-slate-900"
+      className="mx-auto max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain sm:my-auto sm:max-w-md sm:rounded-2xl sm:border-b bg-white border-slate-200 text-slate-900"
     >
       <div data-testid="im-inquiry-bottom-sheet">
         {submitted ? (
@@ -113,7 +127,7 @@ export function IMInquiryBottomSheet({
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4" onFocus={handleFormFocus}>
             <p className="text-sm text-slate-600">
               상세 재무 분석, 임대차 현황, 공부 서류가 포함된 전체 IM 열람을 요청합니다.
             </p>

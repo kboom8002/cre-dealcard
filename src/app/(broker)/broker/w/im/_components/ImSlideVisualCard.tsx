@@ -82,12 +82,22 @@ export function ImSlideVisualCard({
         }
       }}
       title="클릭하면 해당 편집 칸으로 이동합니다"
-      className={`aspect-video w-full bg-white hover:bg-[#FAF9F5] text-[#0F172A] rounded-xl border overflow-hidden flex flex-col justify-between shadow-sm cursor-pointer transition-all ${
+      className={`group/slide relative aspect-video w-full bg-white hover:bg-[#FAF9F5] text-[#0F172A] rounded-xl border overflow-hidden flex flex-col justify-between shadow-sm cursor-pointer transition-all ${
         isSlideActive
           ? "border-[#007AFF] ring-2 ring-[#007AFF]"
           : "border-slate-300 hover:border-[#007AFF]"
       }`}
     >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute right-2 top-10 z-20 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-bold transition-opacity shadow-sm whitespace-nowrap ${
+          isSlideActive
+            ? "opacity-100 bg-[#0055D4] text-white border border-[#0040AA]"
+            : "opacity-0 group-hover/slide:opacity-100 group-focus-visible/slide:opacity-100 bg-white/95 text-[#0040DD] border border-[#007AFF]/45"
+        }`}
+      >
+        {isSlideActive ? "편집 중" : "✎ 눌러서 수정"}
+      </span>
       <div
         data-theme-lock="dark"
         className="bg-[#0F172A] text-white px-3 py-1.5 flex items-center justify-between shrink-0"

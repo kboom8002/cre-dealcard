@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   RentRollGrid,
   hasExistingRentRollData,
@@ -277,6 +277,17 @@ export function ImEditorPanels({
     }
   };
   const [isCompsSectionOpen, setIsCompsSectionOpen] = useState<boolean>(compRows.length > 0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleFocusEditor = (ev: Event) => {
+      const unitId = (ev as CustomEvent<{ unitId?: string }>).detail?.unitId;
+      if (unitId === "im-unit-comps") {
+        setIsCompsSectionOpen(true);
+      }
+    };
+    window.addEventListener("workspace:focus-editor", handleFocusEditor);
+    return () => window.removeEventListener("workspace:focus-editor", handleFocusEditor);
+  }, []);
   const [isLoadingNearbyComps, setIsLoadingNearbyComps] = useState<boolean>(false);
   const [nearbyCompNotice, setNearbyCompNotice] = useState<string | null>(null);
   const [nearbyCompCandidates, setNearbyCompCandidates] = useState<
@@ -585,10 +596,10 @@ export function ImEditorPanels({
                         : "bg-white text-slate-900 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-1 text-base font-extrabold">
-                      <span>{opt.title}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-base font-extrabold">
+                      <span className="break-keep">{opt.title}</span>
                       {active && (
-                        <span className="text-sm font-extrabold px-1.5 py-0.5 rounded bg-blue-600 text-white">
+                        <span className="shrink-0 whitespace-nowrap text-sm font-extrabold px-1.5 py-0.5 rounded bg-blue-600 text-white">
                           ✓ 선택
                         </span>
                       )}

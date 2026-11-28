@@ -214,7 +214,7 @@ export function InboxListColumn({
               onClick={() => onFilterChange(flt.key)}
               className={`min-h-[44px] flex-1 min-w-[78px] rounded-[9px] px-2 py-2 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
                 isSelected
-                  ? "ios-segmented-pill bg-white text-[#007AFF]"
+                  ? "ios-segmented-pill bg-white text-[#0055D4]"
                   : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
               }`}
             >

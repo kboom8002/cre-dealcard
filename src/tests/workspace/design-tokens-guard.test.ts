@@ -67,6 +67,35 @@ describe('M3 Workspace: Design Tokens & Accessibility Guard (WP-P2-01)', () => {
         `Accessibility violation: Found text classes smaller than 14px in src/components/workspace:\n${JSON.stringify(violations, null, 2)}`
       ).toEqual([]);
     });
+
+    it('scans Wave 4 migrated secondary broker pages and verifies 0 instances of <14px text classes', () => {
+      const wave4Pages = [
+        'src/app/(broker)/broker/map-capture/page.tsx',
+        'src/app/(broker)/broker/circles/page.tsx',
+        'src/app/(broker)/broker/matching/page.tsx',
+        'src/app/(broker)/broker/tenant-intents/page.tsx',
+        'src/app/(broker)/broker/leasing/page.tsx',
+        'src/app/(broker)/broker/lease-card/page.tsx',
+        'src/app/(broker)/broker/pipeline/page.tsx',
+      ];
+      const bannedTextRegex = /\btext-(?:xs|\[(?:[1-9]|1[0-3])px\])\b/g;
+      const violations: Array<{ file: string; match: string }> = [];
+
+      wave4Pages.forEach((relPath) => {
+        const absPath = path.resolve(process.cwd(), relPath);
+        expect(fs.existsSync(absPath)).toBe(true);
+        const content = fs.readFileSync(absPath, 'utf8');
+        let match: RegExpExecArray | null;
+        while ((match = bannedTextRegex.exec(content)) !== null) {
+          violations.push({ file: relPath, match: match[0] });
+        }
+      });
+
+      expect(
+        violations,
+        `Accessibility violation: Found text classes smaller than 14px in Wave 4 broker pages:\n${JSON.stringify(violations, null, 2)}`
+      ).toEqual([]);
+    });
   });
 
   describe('Part 2: Senior Font Scale & Typography Invariants', () => {

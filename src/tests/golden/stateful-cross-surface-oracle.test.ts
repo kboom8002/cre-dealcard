@@ -81,6 +81,10 @@ import {
   type StatutoryBrokerTruth,
   type SevenSurfaceBundle,
 } from '@/lib/qa/unit-denominator-and-surface-oracle';
+import {
+  RUNTIME_TECHNICAL_LEAK_PATTERNS,
+  scanRuntimeSurfaceLexicon,
+} from '@/lib/ux/lexicon';
 
 const BROKER_ID = '11111111-1111-4111-8111-1111111111a1';
 const BROKER_SLUG = 'hanseong-cre';
@@ -1040,6 +1044,50 @@ describe('Ring 1 Golden Fast — Stateful Lifecycle, 7-Surface Cross-Parity & An
           expect(parity.floorRisk).toBe(false);
           expect(parity.effectiveScore100).toBeGreaterThanOrEqual(95);
           expect(networkLog.blocked).toEqual([]);
+
+          // Runtime Surface Lexicon Gate across all 7 rendered surfaces
+          const newsletterVisibleText = bundle.newsletterEmailHtml
+            .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const strictPublicSurfaces: ReadonlyArray<[string, string]> = [
+            ['dealcardPublicText', bundle.dealcardPublicText],
+            ['basicPptxText', bundle.basicPptxText],
+            ['newsletterEmailHtml', newsletterVisibleText],
+            ['kakaoAndOgText', bundle.kakaoAndOgText],
+          ];
+          for (const [surfaceName, surfaceText] of strictPublicSurfaces) {
+            const lexiconHits = scanRuntimeSurfaceLexicon(surfaceText, {
+              surface: surfaceName,
+            });
+            expect(
+              lexiconHits,
+              `${cfg.name} ${surfaceName} runtime lexicon violations`,
+            ).toEqual([]);
+          }
+
+          // IM / Pro / Studio surfaces: enforce zero technical leaks, UUIDs, BANNED_UI_TERMS,
+          // and non-NOI CRE jargon (existing IM financial model snapshots cite NOI basis).
+          const imSurfaces: ReadonlyArray<[string, string]> = [
+            ['mobileImViewerText', bundle.mobileImViewerText],
+            ['proPptxText', bundle.proPptxText],
+            ['studioSlideText', bundle.studioSlideText],
+          ];
+          const techPatternSet = new Set(RUNTIME_TECHNICAL_LEAK_PATTERNS.map((p) => p.pattern));
+          for (const [surfaceName, surfaceText] of imSurfaces) {
+            const lexiconHits = scanRuntimeSurfaceLexicon(surfaceText, {
+              surface: surfaceName,
+            });
+            const nonNoiHits = lexiconHits.filter((h) => h.pattern !== '\\bNOI\\b');
+            const techHits = lexiconHits.filter(
+              (h) => techPatternSet.has(h.pattern) || h.pattern.includes('[0-9a-f]{8}'),
+            );
+            expect(techHits, `${cfg.name} ${surfaceName} technical leaks`).toEqual([]);
+            expect(nonNoiHits, `${cfg.name} ${surfaceName} runtime lexicon violations`).toEqual([]);
+          }
         },
         60_000,
       );

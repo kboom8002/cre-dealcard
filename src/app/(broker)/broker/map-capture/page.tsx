@@ -258,17 +258,17 @@ export default function MapCapturePage() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white pb-24">
+    <main className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] pb-24">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* ── Header ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-blue-400" />
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+              <MapPin className="w-5 h-5 text-[#0055D4]" />
             </div>
-            <h1 className="text-2xl font-black">지도 캡처 도구</h1>
+            <h1 className="text-2xl font-black text-[#1D1D1F]">지도 캡처 도구</h1>
           </div>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-[#515154]">
             2개의 주소를 입력하면 카카오맵에 마커를 표시하고 이미지로 추출합니다.
           </p>
         </div>
@@ -276,11 +276,11 @@ export default function MapCapturePage() {
         {/* ── 설정 패널 ── */}
         <div className="space-y-4 mb-6">
           {/* 주소 A */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-3">
+          <div className="ios-glass-card rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm font-black text-white"
                    style={{ backgroundColor: colorA.hex }}>A</div>
-              <span className="text-sm font-bold">주소 A</span>
+              <span className="text-sm font-bold text-[#1D1D1F]">주소 A</span>
             </div>
             <input
               type="text"
@@ -288,19 +288,19 @@ export default function MapCapturePage() {
               onChange={(e) => setAddressA(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGenerateMap()}
               placeholder="예: 서울 강남구 테헤란로 152"
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-base text-[#1D1D1F] placeholder:text-[#6E6E73] focus:outline-none focus:ring-2 focus:ring-[#0055D4]/30 focus:border-[#0055D4] transition-colors"
             />
             {/* 마커 색상 선택 */}
             <div className="flex items-center gap-2">
-              <Palette className="w-3.5 h-3.5 text-neutral-500" />
-              <span className="text-[11px] text-neutral-500">마커 색상:</span>
+              <Palette className="w-4 h-4 text-[#515154]" />
+              <span className="text-sm text-[#515154]">마커 색상:</span>
               <div className="flex gap-1.5">
                 {MARKER_COLORS.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setColorA(c)}
                     className={`w-6 h-6 rounded-full border-2 transition-all ${
-                      colorA.id === c.id ? 'border-white scale-110' : 'border-transparent opacity-60 hover:opacity-100'
+                      colorA.id === c.id ? 'border-[#1D1D1F] ring-2 ring-[#0055D4]/40 scale-110' : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: c.hex }}
                     title={c.label}
@@ -309,18 +309,18 @@ export default function MapCapturePage() {
               </div>
             </div>
             {geoA && (
-              <p className="text-[11px] text-green-400">
+              <p className="text-sm font-medium text-[#047857]">
                 ✓ {geoA.address} ({geoA.lat.toFixed(6)}, {geoA.lng.toFixed(6)})
               </p>
             )}
           </div>
 
           {/* 주소 B */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-3">
+          <div className="ios-glass-card rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm font-black text-white"
                    style={{ backgroundColor: colorB.hex }}>B</div>
-              <span className="text-sm font-bold">주소 B</span>
+              <span className="text-sm font-bold text-[#1D1D1F]">주소 B</span>
             </div>
             <input
               type="text"
@@ -328,18 +328,18 @@ export default function MapCapturePage() {
               onChange={(e) => setAddressB(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGenerateMap()}
               placeholder="예: 서울 서초구 서초대로 398"
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-base text-[#1D1D1F] placeholder:text-[#6E6E73] focus:outline-none focus:ring-2 focus:ring-[#0055D4]/30 focus:border-[#0055D4] transition-colors"
             />
             <div className="flex items-center gap-2">
-              <Palette className="w-3.5 h-3.5 text-neutral-500" />
-              <span className="text-[11px] text-neutral-500">마커 색상:</span>
+              <Palette className="w-4 h-4 text-[#515154]" />
+              <span className="text-sm text-[#515154]">마커 색상:</span>
               <div className="flex gap-1.5">
                 {MARKER_COLORS.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setColorB(c)}
                     className={`w-6 h-6 rounded-full border-2 transition-all ${
-                      colorB.id === c.id ? 'border-white scale-110' : 'border-transparent opacity-60 hover:opacity-100'
+                      colorB.id === c.id ? 'border-[#1D1D1F] ring-2 ring-[#0055D4]/40 scale-110' : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                     style={{ backgroundColor: c.hex }}
                     title={c.label}
@@ -348,28 +348,28 @@ export default function MapCapturePage() {
               </div>
             </div>
             {geoB && (
-              <p className="text-[11px] text-green-400">
+              <p className="text-sm font-medium text-[#047857]">
                 ✓ {geoB.address} ({geoB.lat.toFixed(6)}, {geoB.lng.toFixed(6)})
               </p>
             )}
           </div>
 
           {/* 이미지 크기 선택 */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-3">
-            <span className="text-sm font-bold">이미지 크기</span>
+          <div className="ios-glass-card rounded-2xl p-5 space-y-3">
+            <span className="text-sm font-bold text-[#1D1D1F]">이미지 크기</span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {SIZE_PRESETS.map((preset) => (
                 <button
                   key={preset.id}
                   onClick={() => setSizePreset(preset)}
-                  className={`rounded-xl px-3 py-2.5 text-xs font-semibold border transition-all ${
+                  className={`rounded-xl px-3 py-2.5 text-sm font-semibold border transition-all ${
                     sizePreset.id === preset.id
-                      ? 'bg-blue-500/15 border-blue-500/50 text-blue-300'
-                      : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-neutral-600'
+                      ? 'bg-blue-50 border-[#0055D4] text-[#0055D4]'
+                      : 'bg-white border-slate-200 text-[#515154] hover:border-slate-300'
                   }`}
                 >
                   <div>{preset.label}</div>
-                  <div className="text-[10px] opacity-60 mt-0.5">{preset.width}×{preset.height}</div>
+                  <div className="text-sm opacity-80 mt-0.5">{preset.width}×{preset.height}</div>
                 </button>
               ))}
             </div>
@@ -381,7 +381,7 @@ export default function MapCapturePage() {
           <button
             onClick={handleGenerateMap}
             disabled={loading || !addressA.trim() || !addressB.trim()}
-            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl px-6 py-3.5 text-sm transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-[#0055D4] hover:bg-[#0040DD] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl px-6 py-3.5 text-sm transition-colors"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             {loading ? '지도 생성 중...' : '지도 생성'}
@@ -391,7 +391,7 @@ export default function MapCapturePage() {
               <button
                 onClick={() => handleCapture(false)}
                 disabled={capturing}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold rounded-xl px-5 py-3.5 text-sm transition-colors"
+                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 text-white font-bold rounded-xl px-5 py-3.5 text-sm transition-colors"
               >
                 {capturing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 이미지 저장
@@ -399,14 +399,14 @@ export default function MapCapturePage() {
               <button
                 onClick={() => handleCapture(true)}
                 disabled={capturing}
-                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold rounded-xl px-5 py-3.5 text-sm transition-colors"
+                className="flex items-center gap-2 bg-purple-700 hover:bg-purple-800 disabled:opacity-40 text-white font-bold rounded-xl px-5 py-3.5 text-sm transition-colors"
               >
                 <Printer className="w-4 h-4" />
                 인쇄
               </button>
               <button
                 onClick={handleReset}
-                className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl px-4 py-3.5 text-sm transition-colors"
+                className="flex items-center gap-2 bg-white hover:bg-slate-100 border border-slate-200 text-[#1D1D1F] font-bold rounded-xl px-4 py-3.5 text-sm transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -416,14 +416,14 @@ export default function MapCapturePage() {
 
         {/* ── 에러 ── */}
         {error && (
-          <div className="mb-6 p-4 bg-red-900/20 border border-red-800/50 rounded-2xl">
-            <p className="text-sm text-red-400">{error}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+            <p className="text-sm font-medium text-[#C8102E]">{error}</p>
           </div>
         )}
 
         {/* ── 지도 미리보기 ── */}
         <div
-          className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden"
+          className="ios-glass-card rounded-2xl overflow-hidden"
           style={{ display: mapReady || loading ? 'block' : 'none' }}
         >
           <div
@@ -436,7 +436,7 @@ export default function MapCapturePage() {
             }}
           />
           {mapReady && geoA && geoB && (
-            <div className="px-4 py-3 border-t border-neutral-800 text-[11px] text-neutral-500 flex justify-between">
+            <div className="px-4 py-3 border-t border-slate-200 text-sm text-[#515154] flex justify-between">
               <span>A: {geoA.address} → B: {geoB.address}</span>
               <span>{sizePreset.label} ({sizePreset.width}×{sizePreset.height})</span>
             </div>
@@ -445,10 +445,10 @@ export default function MapCapturePage() {
 
         {/* ── 빈 상태 ── */}
         {!mapReady && !loading && (
-          <div className="bg-neutral-900/50 border border-dashed border-neutral-800 rounded-2xl p-12 text-center">
-            <MapPin className="w-12 h-12 text-neutral-700 mx-auto mb-4" />
-            <p className="text-neutral-500 text-sm">두 주소를 입력하고 &quot;지도 생성&quot;을 누르세요.</p>
-            <p className="text-neutral-600 text-xs mt-1">마커 색상과 이미지 크기를 선택할 수 있습니다.</p>
+          <div className="ios-glass-card border-dashed border-slate-300 rounded-2xl p-12 text-center">
+            <MapPin className="w-12 h-12 text-[#515154] mx-auto mb-4" />
+            <p className="text-[#1D1D1F] font-medium text-sm">두 주소를 입력하고 &quot;지도 생성&quot;을 누르세요.</p>
+            <p className="text-[#515154] text-sm mt-1">마커 색상과 이미지 크기를 선택할 수 있습니다.</p>
           </div>
         )}
       </div>

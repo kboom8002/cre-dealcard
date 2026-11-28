@@ -16,7 +16,7 @@ export interface DealCardPreviewColumnProps {
   liveUrl: string | null;
   isPreGeneration: boolean;
   effectiveCard4: Card4Data;
-  dealId: string;
+  dealId?: string;
   brokerProfile: BrokerProfileSummary | null;
   activeUnitId: string | null;
   selectedMemoOnly: UnconvertedMemoItem | null;
@@ -59,12 +59,14 @@ export function DealCardPreviewColumn({
     void ensureFn().catch(() => {});
   }, [liveUrl, isPreGeneration, dealId]);
 
+  const normalizedDealId = dealId?.trim() || "";
+
   const handleLivePreviewClickCapture = async (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
     const liveAnchor = target?.closest?.('[data-testid="dealcard-live-link"]') as HTMLAnchorElement | null;
-    if (!liveAnchor || !dealId.startsWith("bld-") || !onEnsureCanonicalId) return;
+    if (!liveAnchor || !normalizedDealId || !normalizedDealId.startsWith("bld-") || !onEnsureCanonicalId) return;
     e.preventDefault();
-    const promotedId = (await onEnsureCanonicalId().catch(() => null)) || dealId;
+    const promotedId = (await onEnsureCanonicalId().catch(() => null)) || normalizedDealId;
     const nextUrl = `/dc/${encodeURIComponent(promotedId)}`;
     if (typeof window !== "undefined") {
       window.open(nextUrl, "_blank", "noopener,noreferrer");
@@ -94,6 +96,33 @@ export function DealCardPreviewColumn({
           liveLinkTestId="dealcard-live-link"
         />
       </div>
+
+      {lifecycle === "published_clean" && normalizedDealId && (
+        <div
+          data-testid="dealcard-cross-door-handoff"
+          className="rounded-2xl border border-slate-200/90 bg-white/80 p-3.5 backdrop-blur-sm space-y-2.5"
+        >
+          <p className="text-sm font-bold text-[#515154]">
+            다음 단계로 바로 이어서 진행할 수 있어요
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/broker/w/newsletter?addDealId=${encodeURIComponent(normalizedDealId)}`}
+              data-testid="dealcard-handoff-newsletter-link"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white/90 px-3 py-2 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50"
+            >
+              📰 이번 호 부동산뉴스 추천 매물에 추가 →
+            </Link>
+            <Link
+              href={`/broker/w/im?buildingId=${encodeURIComponent(normalizedDealId)}`}
+              data-testid="dealcard-handoff-im-link"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white/90 px-3 py-2 text-sm font-bold text-[#1D1D1F] transition hover:bg-slate-50"
+            >
+              📊 이 매물 상세 IM 만들기 →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {publishError && (
         <div

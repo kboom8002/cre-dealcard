@@ -28,12 +28,14 @@
     "test:all": "vitest run && npx playwright test",
     "preflight": "vitest run src/tests/e2e/preflight-pipeline-audit.test.ts src/tests/e2e/copy-cross-compare.test.ts src/tests/unit/a22-stacking-plan.test.ts && npm run check:schema-drift",
     "check:schema-drift": "npx tsx scripts/check-schema-drift.ts --strict-magazine",
-    "golden:fast": "npx tsx scripts/golden-snapshot/prompt-hash-guard.ts --check && vitest run src/tests/golden/fact-oracle.test.ts src/tests/golden/studio-roundtrip-oracle.test.ts src/tests/golden/newsletter-content-oracle.test.ts src/tests/golden/stateful-cross-surface-oracle.test.ts src/tests/golden/ring2-and-ring3-harness.test.ts",
+    "golden:fast": "npx tsx scripts/golden-snapshot/prompt-hash-guard.ts --check && vitest run src/tests/golden/fact-oracle.test.ts src/tests/golden/studio-roundtrip-oracle.test.ts src/tests/golden/newsletter-content-oracle.test.ts src/tests/golden/stateful-cross-surface-oracle.test.ts src/tests/golden/ring2-and-ring3-harness.test.ts src/tests/unit/inapp-keyboard-safe-zone.test.ts src/tests/golden/preview-editor-causality-oracle.test.ts src/tests/golden/four-door-funnel-continuity.test.ts src/tests/golden/runtime-api-error-lexicon.test.ts src/tests/golden/wcag-contrast-and-theme-ratchet.test.ts",
     "golden:prompt-hash:update": "npx tsx scripts/golden-snapshot/prompt-hash-guard.ts --update",
     "golden:judge": "npx tsx scripts/golden-snapshot/run-ai-judge.ts",
     "golden:judge:live": "npx tsx scripts/golden-snapshot/run-ai-judge.ts --with-llm-judge",
     "golden:canary": "node scripts/golden-snapshot/run-canary-prod.mjs",
-    "golden:canary:dry": "node scripts/golden-snapshot/run-canary-prod.mjs --dry-run"
+    "golden:canary:dry": "node scripts/golden-snapshot/run-canary-prod.mjs --dry-run",
+    "qa:redpen-insights": "npx tsx scripts/extract-beta-redpen-insights.ts",
+    "test:ux-golden": "npx playwright test e2e/workspace-ux-physics-and-inapp.auth.spec.ts --workers=1"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.73",

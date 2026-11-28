@@ -7,49 +7,14 @@ import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { PhoneActionButton } from "@/components/common/PhoneActionButton";
+import {
+  isInAppWebView,
+  buildKakaoExternalOpenUrl,
+  isExplicitKakaoChannelUrl,
+} from "@/lib/ux/inapp-webview";
+import { useMobileKeyboardSafeZone } from "@/lib/ux/use-mobile-keyboard-safe-zone";
 
-/**
- * 카카오톡·라인·인스타그램·페이스북 등 인앱 WebView 감지 (순수 함수)
- */
-export function isInAppWebView(ua: string): boolean {
-  if (typeof ua !== "string" || !ua) return false;
-  return /KAKAOTALK|Line|Instagram|FBAN|FBAV/i.test(ua);
-}
-
-/**
- * 인앱 WebView에서 외부 브라우저(Safari/Chrome) 1-클릭 오픈 스킴 생성.
- * - Android: Chrome intent:// 스킴
- * - KakaoTalk iOS (및 기타 KakaoTalk): kakaotalk://web/openExternal?url=...
- * - 그 외(일반 브라우저 또는 전용 스킴 미지원 iOS 인앱): null 반환 (호출부에서 copyText 폴백)
- */
-export function buildKakaoExternalOpenUrl(
-  currentUrl: string,
-  ua: string
-): string | null {
-  if (typeof currentUrl !== "string") return null;
-  const trimmedUrl = currentUrl.trim();
-  if (!/^https?:\/\//i.test(trimmedUrl)) return null;
-  if (!isInAppWebView(ua)) return null;
-
-  if (/Android/i.test(ua)) {
-    const schemeMatch = trimmedUrl.match(/^(https?):\/\//i);
-    const scheme = (schemeMatch?.[1] || "https").toLowerCase();
-    const withoutScheme = trimmedUrl.replace(/^https?:\/\//i, "");
-    return `intent://${withoutScheme}#Intent;scheme=${scheme};package=com.android.chrome;end`;
-  }
-
-  if (/KAKAOTALK/i.test(ua)) {
-    return `kakaotalk://web/openExternal?url=${encodeURIComponent(trimmedUrl)}`;
-  }
-
-  return null;
-}
-
-export function isExplicitKakaoChannelUrl(raw: unknown): raw is string {
-  if (typeof raw !== "string") return false;
-  const trimmed = raw.trim();
-  return /^https?:\/\/(?:open\.kakao\.com|pf\.kakao\.com)\//i.test(trimmed);
-}
+export { isInAppWebView, buildKakaoExternalOpenUrl, isExplicitKakaoChannelUrl };
 
 function attachTokenToUrl(rawUrl: string, token: string): string {
   const cleanToken = token.trim();
@@ -334,6 +299,7 @@ interface FloatingActionBarProps {
   brokerPhone?: string;
   kakaoChannelUrl?: string | null;
   onInquire?: () => void;
+  isInquiryOpen?: boolean;
   isBroker?: boolean;
   doc?: MobileIMDocument | null;
   shareToken?: string;
@@ -347,6 +313,7 @@ export function FloatingActionBar({
   brokerPhone,
   kakaoChannelUrl,
   onInquire,
+  isInquiryOpen = false,
   isBroker = false,
   doc,
   shareToken,
@@ -360,6 +327,9 @@ export function FloatingActionBar({
   const [isPresetMenuOpen, setIsPresetMenuOpen] = useState(false);
   const [pptxLoading, setPptxLoading] = useState(false);
   const [inAppWebView, setInAppWebView] = useState(false);
+  const [showInAppDownloadEscape, setShowInAppDownloadEscape] = useState(false);
+  const { isKeyboardOpen } = useMobileKeyboardSafeZone();
+  const shouldHideBar = isKeyboardOpen || isInquiryOpen;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mintedTokenRef = useRef<string>("");
 
@@ -574,7 +544,24 @@ export function FloatingActionBar({
     }
   };
 
+  const handleCopyCurrentUrl = async () => {
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const ok = await copyText(currentUrl);
+    if (ok) {
+      setCopied(true);
+      toast.success("링크가 클립보드에 복사되었습니다.");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error(COPY_FAILED_MESSAGE);
+    }
+  };
+
   const handlePdf = () => {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    if (isInAppWebView(ua)) {
+      setInAppWebView(true);
+      setShowInAppDownloadEscape(true);
+    }
     const effectiveToken = resolveEffectiveToken();
     const params = new URLSearchParams();
     if (docId) params.set("doc_id", docId);
@@ -607,6 +594,7 @@ export function FloatingActionBar({
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
     if (isInAppWebView(ua)) {
       setInAppWebView(true);
+      setShowInAppDownloadEscape(true);
       toast.info(
         "앱 내 브라우저에서는 파일 다운로드가 제한될 수 있습니다. 외부 브라우저(Safari/Chrome)로 열기를 이용해 주세요."
       );
@@ -650,7 +638,52 @@ export function FloatingActionBar({
     availablePresets.find((p) => p.id === selectedPreset) || availablePresets[0];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-[#CBD5E1] safe-area-bottom pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.08)]">
+    <div
+      data-keyboard-hidden={shouldHideBar ? "true" : "false"}
+      className={`fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-[#CBD5E1] safe-area-bottom pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.08)] transition-all duration-200 ${
+        shouldHideBar ? "translate-y-full opacity-0 pointer-events-none" : ""
+      }`}
+    >
+      {showInAppDownloadEscape && (
+        <div
+          data-testid="inapp-download-escape-banner"
+          role="status"
+          aria-live="polite"
+          className="bg-[#FFFBEB] border-b border-[#F59E0B]/50 px-4 py-2.5 text-sm text-[#78350F] max-w-2xl mx-auto"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold">
+              카카오톡 등 인앱 브라우저에서 파일 저장이 열리지 않으면 외부 브라우저로 열어 저장해 주세요.
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="inapp-download-external-btn"
+                onClick={() => void handleOpenExternalBrowser()}
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#0F172A] text-white text-sm font-extrabold hover:bg-[#1E293B] transition-colors cursor-pointer"
+              >
+                외부 브라우저(Safari/Chrome)에서 저장 ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCopyCurrentUrl()}
+                className="min-h-[44px] px-3 py-2 rounded-xl bg-white border border-[#F59E0B] text-[#92400E] text-sm font-bold hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+              >
+                링크 복사
+              </button>
+              <button
+                type="button"
+                aria-label="다운로드 안내 배너 닫기"
+                onClick={() => setShowInAppDownloadEscape(false)}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-[#92400E] hover:bg-[#FEF3C7] font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {inAppWebView && (
         <div
           data-testid="fab-inapp-webview-banner"

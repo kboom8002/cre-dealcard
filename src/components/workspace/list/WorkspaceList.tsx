@@ -165,7 +165,7 @@ export function ListToolbar({
             >
               <span>{filterLabel}</span>
               {activeCount > 0 ? (
-                <span className="inline-flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#007AFF] px-1.5 text-sm font-bold text-white">
+                <span className="inline-flex min-h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#0055D4] px-1.5 text-sm font-bold text-white">
                   {activeCount}
                 </span>
               ) : null}
@@ -271,7 +271,7 @@ export function SimpleListRow({
   }`;
 
   const primaryContent = (
-    <div className="min-w-0 flex-1 space-y-0.5">
+    <div className="min-w-0 flex-1 space-y-0.5 overflow-hidden">
       <div className="min-w-0 w-full">
         <span
           data-single-line-title="true"
@@ -289,9 +289,9 @@ export function SimpleListRow({
           {title}
         </span>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 w-full min-w-0 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 w-full min-w-0 text-sm">
         {(status || meta) && (
-          <div className="flex min-w-0 items-center gap-x-2 gap-y-0.5 flex-wrap">
+          <div className="flex min-w-0 max-w-full items-center gap-x-2 gap-y-1 flex-wrap">
             {status && tone && (
               <span
                 data-testid={status.testId}
@@ -305,12 +305,12 @@ export function SimpleListRow({
                 </span>
               </span>
             )}
-            {meta ? <span className="min-w-0 truncate text-[#6E6E73]">{meta}</span> : null}
+            {meta ? <span className="min-w-0 max-w-full text-[#6E6E73]">{meta}</span> : null}
           </div>
         )}
         <span
           data-testid={`${testId}-date`}
-          className="ml-auto shrink-0 text-sm font-semibold tabular-nums text-[#6E6E73] whitespace-nowrap"
+          className="ml-auto max-w-full text-sm font-semibold tabular-nums text-[#6E6E73]"
         >
           {dateLabel}
         </span>
@@ -343,7 +343,7 @@ export function SimpleListRow({
               e.stopPropagation();
               onSelect();
             }}
-            className="flex-1 min-w-0 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] rounded-lg"
+            className="flex-1 min-w-0 overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] rounded-lg"
           >
             {primaryContent}
           </button>

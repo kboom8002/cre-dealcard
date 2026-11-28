@@ -112,7 +112,7 @@ describe("Apple iOS SOTA 'Cupertino Daylight & Spatial Liquid Glass' Design Syst
     expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.dealcards.doorAccentBgClass");
     expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.im.doorAccentBgClass");
     expect(brokerHome4Doors).toContain("WORKSPACE_IDENTITY.inbox.doorAccentBgClass");
-    expect(workspaceIdentity).toContain("bg-[#059669]");
+    expect(workspaceIdentity).toContain("bg-[#047857]");
     expect(workspaceIdentity).toContain("bg-[#B45309]");
     expect(workspaceIdentity).toContain("bg-[#1D4ED8]");
     expect(workspaceIdentity).toContain("bg-[#BE185D]");

@@ -458,7 +458,7 @@ export function DealCardListColumn({
                         onClick={() => onOriginGroupFilterChange(tab.id)}
                         className={`min-h-[44px] flex-1 min-w-[68px] px-2 py-1 rounded-xl text-sm font-semibold leading-snug break-keep text-center flex items-center justify-center transition-all cursor-pointer ${
                           active
-                            ? "ios-segmented-pill bg-white text-[#007AFF]"
+                            ? "ios-segmented-pill bg-white text-[#0055D4]"
                             : "text-[#3A3A3C] hover:text-[#1D1D1F]"
                         }`}
                       >
@@ -487,7 +487,7 @@ export function DealCardListColumn({
                         onClick={() => onPostureFilterChange(tab.id)}
                         className={`min-h-[44px] px-2 py-1 rounded-xl text-sm font-semibold leading-snug break-keep text-center flex items-center justify-center transition-all cursor-pointer ${
                           active
-                            ? "ios-segmented-pill bg-white text-[#007AFF]"
+                            ? "ios-segmented-pill bg-white text-[#0055D4]"
                             : "text-[#3A3A3C] hover:text-[#1D1D1F]"
                         }`}
                       >

@@ -1422,8 +1422,9 @@ export function buildAddedPhotoEntries(
 export function buildImSyncUnits(params: {
   askingPriceManwon: number;
   onOpenBrokerSection: () => void;
+  onOpenCompsSection?: () => void;
 }): Record<string, EditorUnitTarget<ImEditorTabKey>> {
-  const { askingPriceManwon, onOpenBrokerSection } = params;
+  const { askingPriceManwon, onOpenBrokerSection, onOpenCompsSection } = params;
   return {
     "im-unit-cover": {
       unitId: "im-unit-cover",
@@ -1499,8 +1500,8 @@ export function buildImSyncUnits(params: {
       unitId: "im-unit-rentroll",
       label: "06 층별 임대차 상세",
       tab: "rentroll",
-      editorSelector: '[data-testid="rent-roll-grid"]',
-      focusSelector: 'input[data-rr-cell="0:floor"]',
+      editorSelector: '[data-testid="rent-roll-grid"], [data-testid="mobile-rent-roll-cards"]',
+      focusSelector: 'input[data-rr-cell="0:floor"], [data-testid="mobile-rr-tenant-input"]',
     },
     "im-unit-yield": {
       unitId: "im-unit-yield",
@@ -1508,19 +1509,20 @@ export function buildImSyncUnits(params: {
       tab: askingPriceManwon > 0 ? "rentroll" : "specs",
       editorSelector:
         askingPriceManwon > 0
-          ? '[data-testid="rent-roll-grid"]'
+          ? '[data-testid="rent-roll-grid"], [data-testid="mobile-rent-roll-cards"]'
           : '[data-testid="im-price-section"]',
       focusSelector:
         askingPriceManwon > 0
-          ? 'input[data-rr-cell="0:monthlyRentManwon"]'
+          ? 'input[data-rr-cell="0:monthlyRentManwon"], [data-testid="mobile-rr-deposit-input"]'
           : "#im-price-won-input",
     },
     "im-unit-comps": {
       unitId: "im-unit-comps",
-      label: "인근 실거래 비교",
+      label: "08 인근 실거래 비교",
       tab: "rentroll",
       editorSelector: '[data-testid="im-comps-selector-section"]',
       focusSelector: '[data-testid="im-comps-toggle-btn"]',
+      onBeforeFocus: onOpenCompsSection,
     },
     "im-unit-photos": {
       unitId: "im-unit-photos",

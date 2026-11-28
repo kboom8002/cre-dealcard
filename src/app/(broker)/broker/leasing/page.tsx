@@ -36,14 +36,14 @@ interface LeasingPageRow {
 
 function StatusBadge({ status }: { status?: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    published:      { label: "공개",    cls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" },
-    generated:      { label: "생성됨",  cls: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30" },
-    review_required:{ label: "검토필요",cls: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
-    draft:          { label: "초안",    cls: "bg-slate-700 text-slate-400 border-slate-600" },
+    published:      { label: "공개",    cls: "bg-emerald-50 text-[#047857] border-emerald-200" },
+    generated:      { label: "생성됨",  cls: "bg-cyan-50 text-cyan-800 border-cyan-200" },
+    review_required:{ label: "검토필요",cls: "bg-amber-50 text-[#8A4B00] border-amber-200" },
+    draft:          { label: "초안",    cls: "bg-slate-100 text-[#515154] border-slate-300" },
   };
   const { label, cls } = map[status ?? "draft"] ?? map.draft;
   return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cls}`}>
+    <span className={`text-sm font-semibold px-2.5 py-0.5 rounded-full border ${cls}`}>
       {label}
     </span>
   );
@@ -92,19 +92,19 @@ export default async function LeasingStudioPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0b0f19] text-slate-100">
+    <main className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F]">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-40 bg-[#0d1424]/90 backdrop-blur-md border-b border-slate-800 px-4 py-4">
+      <header className="sticky top-0 z-40 ios-glass-chrome border-b border-slate-200 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-base font-extrabold text-white flex items-center gap-1.5">
+            <h1 className="text-base font-extrabold text-[#1D1D1F] flex items-center gap-1.5">
               🏪 리싱 관리
             </h1>
-            <p className="text-[10px] text-slate-400">{spaceList.length}개 공간 · AI 파이프라인</p>
+            <p className="text-sm text-[#515154]">{spaceList.length}개 공간 · AI 파이프라인</p>
           </div>
           <Link
             href="/broker"
-            className="text-xs text-slate-400 hover:text-white transition-colors"
+            className="text-sm text-[#515154] hover:text-[#1D1D1F] font-medium transition-colors"
           >
             ← 대시보드
           </Link>
@@ -115,24 +115,24 @@ export default async function LeasingStudioPage() {
         {/* ── Pipeline Stats ── */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "공개 중", count: statusCounts.published, cls: "text-emerald-400" },
-            { label: "생성됨",  count: statusCounts.generated,  cls: "text-cyan-400" },
-            { label: "초안",    count: statusCounts.draft,       cls: "text-slate-400" },
+            { label: "공개 중", count: statusCounts.published, cls: "text-[#047857]" },
+            { label: "생성됨",  count: statusCounts.generated,  cls: "text-cyan-800" },
+            { label: "초안",    count: statusCounts.draft,       cls: "text-[#515154]" },
           ].map(s => (
-            <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+            <div key={s.label} className="ios-glass-card rounded-2xl p-3 text-center">
               <div className={`text-2xl font-extrabold ${s.cls}`}>{s.count}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">{s.label}</div>
+              <div className="text-sm text-[#515154] mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* ── Space Cards ── */}
         {spaceList.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center space-y-3">
-            <p className="text-slate-500 text-sm">등록된 공간이 없습니다.</p>
+          <div className="ios-glass-card rounded-2xl p-12 text-center space-y-3">
+            <p className="text-[#515154] text-sm">등록된 공간이 없습니다.</p>
             <Link
               href="/broker/deal-card/new"
-              className="inline-block text-xs text-emerald-400 hover:underline"
+              className="inline-block text-sm font-semibold text-[#047857] hover:underline"
             >
               첫 공간 등록하기 →
             </Link>
@@ -147,16 +147,16 @@ export default async function LeasingStudioPage() {
             return (
               <div
                 key={space.id}
-                className="bg-[#131b2e] border border-slate-800 hover:border-emerald-500/20 rounded-2xl p-4 transition-all"
+                className="ios-glass-card hover:border-emerald-300 rounded-2xl p-4 transition-all"
               >
                 {/* Top row */}
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white">{name}</span>
+                      <span className="text-sm font-bold text-[#1D1D1F]">{name}</span>
                       {lp && <StatusBadge status={lp.status} />}
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-sm text-[#515154] mt-0.5">
                       {[floor, area, space.space_type].filter(Boolean).join(" · ")}
                     </p>
                   </div>
@@ -164,7 +164,7 @@ export default async function LeasingStudioPage() {
                     <Link
                       href={`/leasing/${lp.slug}`}
                       target="_blank"
-                      className="text-[10px] text-emerald-400 hover:underline shrink-0"
+                      className="text-sm font-medium text-[#047857] hover:underline shrink-0"
                     >
                       공개 페이지 ↗
                     </Link>
@@ -174,10 +174,10 @@ export default async function LeasingStudioPage() {
                 {/* Wizard Link */}
                 <Link
                   href={`/broker/leasing/${space.id}`}
-                  className="flex items-center justify-between w-full mt-1 bg-white/5 hover:bg-white/8 border border-white/10 hover:border-emerald-500/20 rounded-xl px-4 py-2.5 transition-all"
+                  className="flex items-center justify-between w-full mt-1 bg-slate-100/80 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl px-4 py-2.5 transition-all"
                 >
-                  <span className="text-xs text-slate-300 font-medium">🤖 AI 파이프라인 관리</span>
-                  <span className="text-xs text-emerald-400">관리 →</span>
+                  <span className="text-sm text-[#1D1D1F] font-medium">🤖 AI 파이프라인 관리</span>
+                  <span className="text-sm font-semibold text-[#047857]">관리 →</span>
                 </Link>
               </div>
             );

@@ -157,108 +157,154 @@ export function InboxPreviewColumn({
             </div>
 
             <dl className="space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <dt className="font-semibold text-slate-500">고객명</dt>
-                <dd className="font-bold text-slate-900">
-                  {activeThread.clientName}
-                </dd>
-              </div>
-              {activeThread.clientCompany && (
-                <div
-                  data-testid="inbox-summary-client-company"
-                  className="flex items-center justify-between gap-2"
-                >
-                  <dt className="font-semibold text-slate-500">소속·회사</dt>
-                  <dd className="truncate font-bold text-slate-900">
-                    {activeThread.clientCompany}
-                  </dd>
-                </div>
-              )}
-              <div className="flex items-center justify-between gap-2">
-                <dt className="font-semibold text-slate-500">연락처</dt>
-                <dd className="font-bold text-slate-900">
-                  {isValidCallPhone(activeThread.clientPhone) ? (
-                    <a
-                      href={`tel:${activeThread.clientPhone.trim()}`}
-                      data-testid="preview-call-link"
-                      className="text-blue-700 hover:underline font-bold"
-                    >
-                      {formatPhoneKo(activeThread.clientPhone)}
-                    </a>
-                  ) : (
-                    "전화번호 없음"
-                  )}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="shrink-0 font-semibold text-slate-500">이메일</dt>
-                <dd className="min-w-0 text-right font-bold text-slate-900">
-                  <span className="break-all">
-                    {activeThread.clientEmail || "미등록 (발송 시 직접 입력)"}
-                  </span>
-                  {activeThread.emailDeliveryStatus === "bounced" && (
-                    <span
-                      data-testid="inbox-summary-email-bounced-badge"
-                      className="mt-1 inline-flex items-center rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 text-sm font-bold text-rose-900"
-                    >
-                      ⚠️ 이메일 반송됨
-                    </span>
-                  )}
-                  {activeThread.emailDeliveryStatus === "complained" && (
-                    <span
-                      data-testid="inbox-summary-email-complained-badge"
-                      className="mt-1 inline-flex items-center rounded-md border border-amber-300 bg-amber-100 px-2 py-0.5 text-sm font-bold text-amber-950"
-                    >
-                      수신차단
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <dt className="font-semibold text-slate-500">관심 매물</dt>
-                <dd className="truncate font-bold text-slate-900">
-                  {activeThread.buildingTitle}
-                </dd>
-              </div>
-              {activeThread.budget && (
+              <PreviewEditableUnit
+                unitId="ib-unit-client"
+                label="고객 요약 정보"
+                testId="preview-unit-inbox-client"
+                badgePosition="inside"
+                badgeText="✎ 눌러서 수정"
+                activeBadgeText="편집 중"
+                isActive={activeInboxUnitId === "ib-unit-client"}
+                onActivate={onFocusEditorUnit}
+                className="rounded-xl border border-slate-200/80 bg-slate-50/40 px-2.5 py-2 space-y-2"
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="font-semibold text-slate-500">희망 예산</dt>
-                  <dd className="truncate font-bold text-slate-900">
-                    {activeThread.budget}
+                  <dt className="font-semibold text-slate-500">고객명</dt>
+                  <dd className="font-bold text-slate-900">
+                    {activeThread.clientName}
                   </dd>
                 </div>
-              )}
-              {(activeThread.preferredRegion ||
-                (activeThread.preferredRegions &&
-                  activeThread.preferredRegions.length > 0)) && (
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="font-semibold text-slate-500">선호 권역</dt>
-                  <dd className="truncate font-bold text-slate-900">
-                    {activeThread.preferredRegion ||
-                      (activeThread.preferredRegions || []).join(", ")}
-                  </dd>
-                </div>
-              )}
-              {activeThread.cleanMessage?.trim() &&
-                activeThread.cleanMessage.trim() !== (activeThread.freeMemo || "").trim() && (
+                {activeThread.clientCompany && (
                   <div
-                    data-testid="inbox-summary-clean-message"
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                    data-testid="inbox-summary-client-company"
+                    className="flex items-center justify-between gap-2"
                   >
-                    <dt className="font-semibold text-slate-500">요청·문의 내용</dt>
-                    <dd className="mt-0.5 font-medium text-slate-800 whitespace-pre-line break-words">
-                      {activeThread.cleanMessage.trim()}
+                    <dt className="font-semibold text-slate-500">소속·회사</dt>
+                    <dd className="truncate font-bold text-slate-900">
+                      {activeThread.clientCompany}
                     </dd>
                   </div>
                 )}
-              {activeThread.freeMemo && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <dt className="font-semibold text-slate-500">상담 메모</dt>
-                  <dd className="mt-0.5 font-medium text-slate-800 whitespace-pre-line break-words">
-                    {activeThread.freeMemo}
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="font-semibold text-slate-500">연락처</dt>
+                  <dd className="font-bold text-slate-900">
+                    {isValidCallPhone(activeThread.clientPhone) ? (
+                      <a
+                        href={`tel:${activeThread.clientPhone.trim()}`}
+                        data-testid="preview-call-link"
+                        className="text-blue-700 hover:underline font-bold"
+                      >
+                        {formatPhoneKo(activeThread.clientPhone)}
+                      </a>
+                    ) : (
+                      "전화번호 없음"
+                    )}
                   </dd>
                 </div>
-              )}
+                <div className="flex items-start justify-between gap-2">
+                  <dt className="shrink-0 font-semibold text-slate-500">이메일</dt>
+                  <dd className="min-w-0 text-right font-bold text-slate-900">
+                    <span className="break-all">
+                      {activeThread.clientEmail || "미등록 (발송 시 직접 입력)"}
+                    </span>
+                    {activeThread.emailDeliveryStatus === "bounced" && (
+                      <span
+                        data-testid="inbox-summary-email-bounced-badge"
+                        className="mt-1 inline-flex items-center rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 text-sm font-bold text-rose-900"
+                      >
+                        ⚠️ 이메일 반송됨
+                      </span>
+                    )}
+                    {activeThread.emailDeliveryStatus === "complained" && (
+                      <span
+                        data-testid="inbox-summary-email-complained-badge"
+                        className="mt-1 inline-flex items-center rounded-md border border-amber-300 bg-amber-100 px-2 py-0.5 text-sm font-bold text-amber-950"
+                      >
+                        수신차단
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              </PreviewEditableUnit>
+
+              <PreviewEditableUnit
+                unitId="ib-unit-todo"
+                label="관심 매물 · 보낼 자료"
+                testId="preview-unit-inbox-todo"
+                badgePosition="inside"
+                badgeText="자료 보내기 ›"
+                activeBadgeText="자료 선택 중"
+                isActive={activeInboxUnitId === "ib-unit-todo"}
+                onActivate={onFocusEditorUnit}
+                className="rounded-xl border border-slate-200/80 bg-slate-50/40 px-2.5 py-2 space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="font-semibold text-slate-500">관심 매물</dt>
+                  <dd className="truncate font-bold text-slate-900">
+                    {activeThread.buildingTitle}
+                  </dd>
+                </div>
+                {activeThread.budget && (
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="font-semibold text-slate-500">희망 예산</dt>
+                    <dd className="truncate font-bold text-slate-900">
+                      {activeThread.budget}
+                    </dd>
+                  </div>
+                )}
+                {(activeThread.preferredRegion ||
+                  (activeThread.preferredRegions &&
+                    activeThread.preferredRegions.length > 0)) && (
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="font-semibold text-slate-500">선호 권역</dt>
+                    <dd className="truncate font-bold text-slate-900">
+                      {activeThread.preferredRegion ||
+                        (activeThread.preferredRegions || []).join(", ")}
+                    </dd>
+                  </div>
+                )}
+              </PreviewEditableUnit>
+
+              <PreviewEditableUnit
+                unitId="ib-unit-message"
+                label="요청·안내 메시지"
+                testId="preview-unit-inbox-message"
+                badgePosition="inside"
+                badgeText="답장 작성 ›"
+                activeBadgeText="메시지 작성 중"
+                isActive={activeInboxUnitId === "ib-unit-message"}
+                onActivate={onFocusEditorUnit}
+                className="rounded-xl border border-slate-200/80 bg-slate-50/40 px-2.5 py-2 space-y-2"
+              >
+                {activeThread.cleanMessage?.trim() &&
+                  activeThread.cleanMessage.trim() !== (activeThread.freeMemo || "").trim() && (
+                    <div
+                      data-testid="inbox-summary-clean-message"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                    >
+                      <dt className="font-semibold text-slate-500">요청·문의 내용</dt>
+                      <dd className="mt-0.5 font-medium text-slate-800 whitespace-pre-line break-words">
+                        {activeThread.cleanMessage.trim()}
+                      </dd>
+                    </div>
+                  )}
+                {activeThread.freeMemo?.trim() && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <dt className="font-semibold text-slate-500">상담 메모</dt>
+                    <dd className="mt-0.5 font-medium text-slate-800 whitespace-pre-line break-words">
+                      {activeThread.freeMemo}
+                    </dd>
+                  </div>
+                )}
+                {!activeThread.cleanMessage?.trim() && !activeThread.freeMemo?.trim() && (
+                  <div
+                    data-testid="inbox-summary-message-fallback"
+                    className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-500"
+                  >
+                    보낼 안내 메시지를 작성해 보세요
+                  </div>
+                )}
+              </PreviewEditableUnit>
               <PreviewEditableUnit
                 unitId="ib-unit-history"
                 label="열람 횟수 및 상담 기록"

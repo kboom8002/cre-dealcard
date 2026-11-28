@@ -48,7 +48,8 @@ import {
   isInAppWebView,
   buildKakaoExternalOpenUrl,
   isExplicitKakaoChannelUrl,
-} from "./components/floating-action-bar";
+} from "@/lib/ux/inapp-webview";
+import { useMobileKeyboardSafeZone } from "@/lib/ux/use-mobile-keyboard-safe-zone";
 import { copyText, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { toast } from "sonner";
 import {
@@ -177,6 +178,8 @@ export function MobileIMViewer({
   const [isDownloadingPptx, setIsDownloadingPptx] = useState<boolean>(false);
   const [inAppWebView, setInAppWebView] = useState<boolean>(false);
   const [dismissedWebViewBanner, setDismissedWebViewBanner] = useState<boolean>(false);
+  const { isKeyboardOpen } = useMobileKeyboardSafeZone();
+  const shouldHideFooter = showInquiry || isKeyboardOpen;
   const [queryShareToken, setQueryShareToken] = useState<string | null>(null);
   const [cadastralImgFailed, setCadastralImgFailed] = useState<boolean>(false);
   const mountedAtRef = useRef<number>(Date.now());
@@ -2913,7 +2916,10 @@ export function MobileIMViewer({
 
       {/* ── Fixed Bottom Action Bar (Safe-Area Aware) ── */}
       <footer
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#CBD5E1] shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] no-print"
+        data-keyboard-hidden={shouldHideFooter ? "true" : "false"}
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#CBD5E1] shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] transition-all duration-200 no-print ${
+          shouldHideFooter ? "translate-y-full opacity-0 pointer-events-none" : ""
+        }`}
         data-testid="floating-action-bar"
       >
         {inAppWebView && !dismissedWebViewBanner && (

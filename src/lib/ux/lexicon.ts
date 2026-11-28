@@ -160,3 +160,169 @@ export const BANNED_UI_TERMS: ReadonlyArray<{ term: RegExp; use: string }> = [
   { term: /캡레이트/, use: '연 순수익률 (Cap Rate)' },
   { term: /(?:60대 자산가를 위한|법인 대표 맞춤|디벨로퍼 맞춤)/, use: '(Rule 1: 외부 문서에 페르소나 직접 표기 금지)' },
 ];
+
+export interface RuntimeLexiconPattern {
+  pattern: string;
+  regex: RegExp;
+  suggestion: string;
+}
+
+export interface RuntimeSurfaceLexiconViolation {
+  pattern: string;
+  match: string;
+  suggestion: string;
+  surface?: string;
+}
+
+/**
+ * 런타임 출력(API 응답 · 렌더링 표면 · PPTX/뉴스레터/카카오)에 절대 노출되면 안 되는
+ * 기술 오류/DB/내부 식별자 누출 패턴.
+ */
+export const RUNTIME_TECHNICAL_LEAK_PATTERNS: ReadonlyArray<RuntimeLexiconPattern> = [
+  {
+    pattern: 'PGRST\\d+',
+    regex: /PGRST\d+/,
+    suggestion: 'PostgREST 오류 코드를 사용자 안내 문구로 치환',
+  },
+  {
+    pattern: '\\bNaN\\b',
+    regex: /\bNaN\b/,
+    suggestion: '숫자 결측치 포맷터(확인 중 / —) 적용',
+  },
+  {
+    pattern: '\\bundefined\\b',
+    regex: /\bundefined\b/,
+    suggestion: '미정의 값 문자열 직렬화 차단',
+  },
+  {
+    pattern: 'SQLSTATE',
+    regex: /SQLSTATE/i,
+    suggestion: 'SQL 상태 코드를 친절한 한국어 오류 안내로 치환',
+  },
+  {
+    pattern: 'violates (?:foreign key|unique)',
+    regex: /violates (?:foreign key|unique)/i,
+    suggestion: 'DB 제약조건 오류 원문을 한국어 안내 문구로 치환',
+  },
+  {
+    pattern: 'TypeError:',
+    regex: /TypeError:/,
+    suggestion: '런타임 TypeError 스택/메시지 외부 노출 차단',
+  },
+  {
+    pattern: 'Cannot read propert',
+    regex: /Cannot read propert/i,
+    suggestion: '런타임 JS 예외 메시지 외부 노출 차단',
+  },
+];
+
+const RUNTIME_RAW_UUID_V4_PATTERN: RuntimeLexiconPattern = {
+  pattern: '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
+  regex: /\b[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i,
+  suggestion: '내부 UUID v4 식별자를 화면/오류 문구에서 제거',
+};
+
+/**
+ * 런타임 사용자 대면 표면에서 순화/치환이 필요한 CRE 약어 및 내부 전문 용어.
+ */
+export const RUNTIME_BANNED_CRE_JARGON_PATTERNS: ReadonlyArray<RuntimeLexiconPattern> = [
+  {
+    pattern: '캡레이트',
+    regex: /캡레이트/,
+    suggestion: '연 순수익률 (Cap Rate)',
+  },
+  {
+    pattern: '배당률',
+    regex: /배당률/,
+    suggestion: '연 수익률 / 자본환원율',
+  },
+  {
+    pattern: '\\bNOI\\b',
+    regex: /\bNOI\b/,
+    suggestion: '순영업소득 / 연 순수익',
+  },
+  {
+    pattern: '\\bLTV\\b',
+    regex: /\bLTV\b/,
+    suggestion: '감정가 대비 대출 비율 / 담보인정 한도',
+  },
+  {
+    pattern: '임대호가',
+    regex: /임대호가/,
+    suggestion: '월 임대료 / 임대 조건',
+  },
+  {
+    pattern: '건물 ID',
+    regex: /건물 ID/,
+    suggestion: '매물명 또는 대상 건물',
+  },
+];
+
+/**
+ * 런타임 렌더링 텍스트 및 API 에러 메시지를 스캔해
+ * BANNED_UI_TERMS + 기술적 오류 누출 + 비표준 CRE 약어(NOI/LTV/배당률/임대호가/건물 ID)를 탐지한다.
+ */
+export function scanRuntimeSurfaceLexicon(
+  text: string,
+  opts?: { surface?: string; allowUuid?: boolean },
+): Array<{ pattern: string; match: string; suggestion: string }> {
+  if (!text || !text.trim()) return [];
+
+  const results: Array<{ pattern: string; match: string; suggestion: string }> = [];
+  const seen = new Set<string>();
+
+  const pushMatch = (pattern: string, match: string, suggestion: string) => {
+    const key = `${pattern}::${match}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({ pattern, match, suggestion });
+  };
+
+  for (const { term, use } of BANNED_UI_TERMS) {
+    const flags = term.flags.includes('g') ? term.flags : `${term.flags}g`;
+    const re = new RegExp(term.source, flags);
+    for (const m of text.matchAll(re)) {
+      pushMatch(term.source, m[0], use);
+    }
+  }
+
+  for (const entry of RUNTIME_TECHNICAL_LEAK_PATTERNS) {
+    const flags = entry.regex.flags.includes('g')
+      ? entry.regex.flags
+      : `${entry.regex.flags}g`;
+    const re = new RegExp(entry.regex.source, flags);
+    for (const m of text.matchAll(re)) {
+      pushMatch(entry.pattern, m[0], entry.suggestion);
+    }
+  }
+
+  if (!opts?.allowUuid) {
+    const uuidRe = new RegExp(
+      RUNTIME_RAW_UUID_V4_PATTERN.regex.source,
+      `${RUNTIME_RAW_UUID_V4_PATTERN.regex.flags}g`,
+    );
+    for (const m of text.matchAll(uuidRe)) {
+      pushMatch(
+        RUNTIME_RAW_UUID_V4_PATTERN.pattern,
+        m[0],
+        RUNTIME_RAW_UUID_V4_PATTERN.suggestion,
+      );
+    }
+  }
+
+  for (const entry of RUNTIME_BANNED_CRE_JARGON_PATTERNS) {
+    const flags = entry.regex.flags.includes('g')
+      ? entry.regex.flags
+      : `${entry.regex.flags}g`;
+    const re = new RegExp(entry.regex.source, flags);
+    for (const m of text.matchAll(re)) {
+      // Avoid duplicate report if BANNED_UI_TERMS already recorded the exact same match
+      const alreadyReportedMatch = results.some((r) => r.match === m[0]);
+      if (!alreadyReportedMatch) {
+        pushMatch(entry.pattern, m[0], entry.suggestion);
+      }
+    }
+  }
+
+  return results;
+}

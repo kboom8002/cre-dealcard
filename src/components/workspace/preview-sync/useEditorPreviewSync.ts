@@ -25,10 +25,91 @@ export interface EditorUnitTarget<TTab extends string = string> {
   onCustomActivate?: () => void;
 }
 
+export interface EditorUnitValidationResult {
+  ok: boolean;
+  checkedCount: number;
+  missingEditorSelectors: string[];
+  missingFocusSelectors: string[];
+  hiddenSelectors: string[];
+}
+
+export function validateEditorUnitTargets<TTab extends string = string>(
+  units: Record<string, EditorUnitTarget<TTab>>,
+  opts?: { root?: ParentNode; activeTab?: TTab }
+): EditorUnitValidationResult {
+  const rootNode: ParentNode | null =
+    opts?.root ?? (typeof document !== "undefined" ? document : null);
+  const missingEditorSelectors: string[] = [];
+  const missingFocusSelectors: string[] = [];
+  const hiddenSelectors: string[] = [];
+  let checkedCount = 0;
+
+  if (!rootNode) {
+    return {
+      ok: true,
+      checkedCount: 0,
+      missingEditorSelectors,
+      missingFocusSelectors,
+      hiddenSelectors,
+    };
+  }
+
+  for (const unit of Object.values(units)) {
+    if (opts?.activeTab !== undefined && unit.tab && unit.tab !== opts.activeTab) {
+      continue;
+    }
+    checkedCount += 1;
+
+    const editorSel = unit.editorSelector?.trim() ?? "";
+    const editorEl = editorSel
+      ? rootNode.querySelector<HTMLElement>(editorSel)
+      : null;
+    if (!editorEl) {
+      missingEditorSelectors.push(editorSel || unit.unitId);
+    } else if (
+      !unit.onCustomActivate &&
+      editorEl.closest('.hidden, [aria-hidden="true"]')
+    ) {
+      if (!hiddenSelectors.includes(editorSel)) {
+        hiddenSelectors.push(editorSel);
+      }
+    }
+
+    if (unit.focusSelector !== undefined) {
+      const focusSel = unit.focusSelector.trim();
+      const focusEl = focusSel
+        ? rootNode.querySelector<HTMLElement>(focusSel)
+        : null;
+      if (!focusEl) {
+        missingFocusSelectors.push(focusSel || unit.unitId);
+      } else if (
+        !unit.onCustomActivate &&
+        focusEl.closest('.hidden, [aria-hidden="true"]')
+      ) {
+        if (!hiddenSelectors.includes(focusSel)) {
+          hiddenSelectors.push(focusSel);
+        }
+      }
+    }
+  }
+
+  return {
+    ok:
+      missingEditorSelectors.length === 0 &&
+      missingFocusSelectors.length === 0 &&
+      hiddenSelectors.length === 0,
+    checkedCount,
+    missingEditorSelectors,
+    missingFocusSelectors,
+    hiddenSelectors,
+  };
+}
+
 export interface UseEditorPreviewSyncOptions<TTab extends string = string> {
   units: Record<string, EditorUnitTarget<TTab>>;
   onSelectTab?: (tab: TTab) => void;
   previewRootSelector?: string;
+  onMissingTarget?: (unitId: string, target: EditorUnitTarget<TTab>) => void;
 }
 
 function applyPulseAndFocus(editorSelector: string, focusSelector?: string): boolean {
@@ -76,6 +157,7 @@ export function useEditorPreviewSync<TTab extends string = string>({
   units,
   onSelectTab,
   previewRootSelector = '[data-testid="workspace-col-preview"]',
+  onMissingTarget,
 }: UseEditorPreviewSyncOptions<TTab>) {
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ unitId: string; seq: number } | null>(null);
@@ -83,6 +165,10 @@ export function useEditorPreviewSync<TTab extends string = string>({
   useEffect(() => {
     unitsRef.current = units;
   }, [units]);
+  const onMissingTargetRef = useRef(onMissingTarget);
+  useEffect(() => {
+    onMissingTargetRef.current = onMissingTarget;
+  }, [onMissingTarget]);
 
   // Post-commit DOM focus & pulse: runs after tab switch and disclosure state updates commit
   useEffect(() => {
@@ -90,12 +176,27 @@ export function useEditorPreviewSync<TTab extends string = string>({
     const target = unitsRef.current[focusRequest.unitId];
     if (!target || target.onCustomActivate) return;
 
+    const notifyMissing = () => {
+      onMissingTargetRef.current?.(focusRequest.unitId, target);
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[useEditorPreviewSync] Target element not found for unit "${focusRequest.unitId}" (editorSelector="${target.editorSelector}", focusSelector="${target.focusSelector ?? ""}")`
+        );
+      }
+    };
+
     const ok = applyPulseAndFocus(target.editorSelector, target.focusSelector);
-    if (!ok && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      const id = window.requestAnimationFrame(() => {
-        applyPulseAndFocus(target.editorSelector, target.focusSelector);
-      });
-      return () => window.cancelAnimationFrame(id);
+    if (!ok) {
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        const id = window.requestAnimationFrame(() => {
+          const rafOk = applyPulseAndFocus(target.editorSelector, target.focusSelector);
+          if (!rafOk) {
+            notifyMissing();
+          }
+        });
+        return () => window.cancelAnimationFrame(id);
+      }
+      notifyMissing();
     }
   }, [focusRequest]);
 

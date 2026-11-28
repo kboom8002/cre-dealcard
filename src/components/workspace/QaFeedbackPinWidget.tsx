@@ -1034,7 +1034,7 @@ export function QaFeedbackPinWidget({
                 onClick={() => setSeverity(opt.id)}
                 className={`min-h-[44px] rounded-xl text-[15px] font-bold border transition cursor-pointer ${
                   severity === opt.id
-                    ? "bg-[#007AFF] text-white border-[#005FCC]"
+                    ? "bg-[#0055D4] text-white border-[#0040AA]"
                     : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
                 }`}
               >

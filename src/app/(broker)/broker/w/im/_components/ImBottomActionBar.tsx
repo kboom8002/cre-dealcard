@@ -79,7 +79,7 @@ export function ImBottomActionBar({
             onClick={onCopyShareLink}
             className={`w-full min-h-[44px] sm:min-h-[48px] xl:min-h-[44px] px-3 py-2 rounded-xl md:rounded-2xl xl:rounded-xl font-bold text-sm leading-tight break-keep text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer border ${
               isShareLinkCopied
-                ? "bg-[#059669] text-white border-[#059669]"
+                ? "bg-[#047857] text-white border-[#047857]"
                 : "bg-white text-[#1D1D1F] border-slate-300 hover:bg-slate-50"
             }`}
           >

@@ -2978,7 +2978,13 @@ function DealCardsWorkspaceInner() {
       liveUrl={dealCardLiveUrl}
       isPreGeneration={isDealCardPreGeneration}
       effectiveCard4={effectiveCard4}
-      dealId={liveCanonicalId || ""}
+      dealId={
+        liveCanonicalId ||
+        (activeItem as HydratedDealCardItem | null)?.buildingId ||
+        activeItem?.id ||
+        selectedId ||
+        undefined
+      }
       brokerProfile={brokerProfile}
       activeUnitId={activeDealCardUnitId}
       selectedMemoOnly={selectedMemoOnly}

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { PhoneActionButton } from "@/components/common/PhoneActionButton";
 import { formatKrPhoneInput } from "@/lib/format/phone";
+import { isTextInputElement } from "@/lib/ux/use-mobile-keyboard-safe-zone";
 
 interface Props {
   isOpen: boolean;
@@ -191,6 +192,19 @@ export function ContactGateModal({
     }
   };
 
+  const handleFormFocus = (e: React.FocusEvent<HTMLFormElement>) => {
+    if (
+      typeof window !== "undefined" &&
+      window.innerWidth < 900 &&
+      isTextInputElement(e.target)
+    ) {
+      (e.target as HTMLElement).scrollIntoView?.({
+        block: "center",
+        behavior: "smooth",
+      });
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
@@ -201,7 +215,7 @@ export function ContactGateModal({
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white border border-slate-300 rounded-2xl p-6 text-slate-900 shadow-2xl space-y-4 relative"
+        className="w-full max-w-md max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain bg-white border border-slate-300 rounded-2xl p-6 text-slate-900 shadow-2xl space-y-4 relative"
       >
         <button
           ref={closeBtnRef}
@@ -266,7 +280,7 @@ export function ContactGateModal({
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
+            <form onSubmit={handleSubmit} onFocus={handleFormFocus} className="space-y-3.5 pt-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label

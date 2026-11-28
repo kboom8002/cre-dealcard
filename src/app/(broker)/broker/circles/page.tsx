@@ -74,26 +74,26 @@ export default function BrokerCirclesPage() {
   }
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-28">
+    <main className="flex flex-col items-center min-h-screen bg-[#F5F5F7] text-[#1D1D1F] px-4 py-8 pb-28">
       <div className="w-full max-w-md mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pt-2">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-[26px] font-extrabold text-slate-100 tracking-tight">
+              <h1 className="text-[26px] font-extrabold text-[#1D1D1F] tracking-tight">
                 내 서클
               </h1>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30">
+              <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-[#8A4B00] border border-amber-200">
                 팀 AI 매칭
               </span>
             </div>
-            <p className="text-[15px] font-medium text-slate-400 mt-1">
+            <p className="text-[15px] font-medium text-[#515154] mt-1">
               신뢰하는 동료와 자산을 공유하고 AI 매칭을 실행합니다.
             </p>
           </div>
 
           <Link href="/broker/circles/new">
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1 shadow-md">
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-400 text-[#1D1D1F] font-bold gap-1 shadow-md">
               <Plus className="w-4 h-4" /> 개설
             </Button>
           </Link>
@@ -101,19 +101,19 @@ export default function BrokerCirclesPage() {
 
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
-          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3">
-            <h3 className="text-[15px] font-bold text-amber-300 flex items-center gap-2">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 space-y-3">
+            <h3 className="text-[15px] font-bold text-[#8A4B00] flex items-center gap-2">
               <Mail className="w-4 h-4" /> 초대 대기 중 ({pendingInvitations.length}건)
             </h3>
             <div className="space-y-2">
               {pendingInvitations.map((inv) => (
                 <div
                   key={inv.membership_id}
-                  className="bg-[#131b2e] border border-amber-500/30 p-3.5 rounded-xl flex items-center justify-between"
+                  className="ios-glass-card border-amber-200 p-3.5 rounded-xl flex items-center justify-between"
                 >
                   <div>
-                    <p className="text-[15px] font-bold text-slate-100">{inv.circle.name}</p>
-                    <p className="text-[13px] text-slate-400">
+                    <p className="text-[15px] font-bold text-[#1D1D1F]">{inv.circle.name}</p>
+                    <p className="text-sm text-[#515154]">
                       초대자: {inv.inviter?.display_name || "동료"} ({inv.inviter?.company || "소속"})
                     </p>
                   </div>
@@ -121,7 +121,7 @@ export default function BrokerCirclesPage() {
                     <Button
                       size="sm"
                       onClick={() => handleAcceptDecline(inv.circle.id, "accept")}
-                      className="bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 text-[13px] h-8"
+                      className="bg-amber-500 text-[#1D1D1F] font-bold hover:bg-amber-400 text-sm h-9"
                     >
                       수락
                     </Button>
@@ -129,7 +129,7 @@ export default function BrokerCirclesPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleAcceptDecline(inv.circle.id, "decline")}
-                      className="border-slate-700 text-slate-400 hover:bg-slate-800 text-[13px] h-8"
+                      className="border-slate-200 bg-white text-[#515154] hover:bg-slate-100 text-sm h-9"
                     >
                       거절
                     </Button>
@@ -141,8 +141,8 @@ export default function BrokerCirclesPage() {
         )}
 
         {/* Join by Code Form */}
-        <form onSubmit={handleJoinByCode} className="rounded-2xl border border-slate-800 bg-[#131b2e] p-4 space-y-2">
-          <label className="text-[13px] font-bold text-slate-300 flex items-center gap-1.5">
+        <form onSubmit={handleJoinByCode} className="ios-glass-card rounded-2xl p-4 space-y-2">
+          <label className="text-sm font-bold text-[#1D1D1F] flex items-center gap-1.5">
             🔑 초대 코드로 바로 가입
           </label>
           <div className="flex gap-2">
@@ -150,42 +150,42 @@ export default function BrokerCirclesPage() {
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value)}
               placeholder="예: a3f2k1"
-              className="bg-[#0f172a] border-slate-700 text-slate-100 placeholder:text-slate-500 h-10 text-[15px] uppercase font-mono"
+              className="bg-white border-slate-200 text-[#1D1D1F] placeholder:text-[#6E6E73] h-10 text-[15px] uppercase font-mono"
             />
             <Button
               type="submit"
               disabled={joining || !joinCode.trim()}
-              className="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold h-10 px-4 shrink-0"
+              className="bg-[#1D1D1F] hover:bg-[#3A3A3C] text-white font-bold h-10 px-4 shrink-0 text-sm"
             >
               {joining ? "가입 중..." : "가입하기"}
             </Button>
           </div>
-          {joinError && <p className="text-[13px] text-rose-400 mt-1">{joinError}</p>}
+          {joinError && <p className="text-sm text-[#C8102E] mt-1">{joinError}</p>}
         </form>
 
         {/* Circles List */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-slate-200 flex items-center gap-2">
-              <Users className="w-4 h-4 text-amber-400" /> 참여 중인 서클 ({circles.length})
+            <h2 className="text-[15px] font-bold text-[#1D1D1F] flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#8A4B00]" /> 참여 중인 서클 ({circles.length})
             </h2>
           </div>
 
           {loading ? (
-            <p className="text-[13px] text-slate-500 text-center py-8">서클 목록을 불러오고 있습니다...</p>
+            <p className="text-sm text-[#515154] text-center py-8">서클 목록을 불러오고 있습니다...</p>
           ) : circles.length === 0 ? (
-            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-800 bg-[#131b2e]/50 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-3xl">
+            <div className="ios-glass-card text-center py-12 rounded-2xl border-dashed border-slate-300 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-3xl">
                 🤝
               </div>
               <div>
-                <p className="text-[17px] font-bold text-slate-200">아직 가입된 서클이 없습니다</p>
-                <p className="text-[13px] text-slate-400 mt-1 max-w-xs mx-auto">
+                <p className="text-[17px] font-bold text-[#1D1D1F]">아직 가입된 서클이 없습니다</p>
+                <p className="text-sm text-[#515154] mt-1 max-w-xs mx-auto">
                   신뢰하는 중개사 동료들과 서클을 개설하고 매물·매수의향을 안전하게 교환하세요.
                 </p>
               </div>
               <Link href="/broker/circles/new">
-                <Button className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold gap-1 text-[15px]">
+                <Button className="bg-amber-500 hover:bg-amber-400 text-[#1D1D1F] font-bold gap-1 text-[15px]">
                   <Plus className="w-4 h-4" /> 첫 서클 만들기
                 </Button>
               </Link>
@@ -200,9 +200,9 @@ export default function BrokerCirclesPage() {
         </div>
 
         {/* Micro Notice */}
-        <div className="rounded-xl bg-slate-900/60 border border-slate-800/80 p-3.5 space-y-1 text-[12px] text-slate-400">
-          <p className="font-bold text-slate-300 flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> 보안 원칙
+        <div className="ios-glass-card rounded-xl p-3.5 space-y-1 text-sm text-[#515154]">
+          <p className="font-bold text-[#1D1D1F] flex items-center gap-1">
+            <ShieldCheck className="w-4 h-4 text-[#8A4B00]" /> 보안 원칙
           </p>
           <p>
             서클에 공유된 자산은 양측 중개사가 모두 승인하기 전까지 매수자 및 소유자의 정확한 신원이 비공개 처리됩니다.

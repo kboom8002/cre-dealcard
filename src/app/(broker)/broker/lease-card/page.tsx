@@ -49,17 +49,17 @@ export default function LeaseSpacesListPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen bg-[#0b0f19] text-slate-200 px-4 py-8 pb-24">
+    <main className="flex flex-col items-center min-h-screen bg-[#F5F5F7] text-[#1D1D1F] px-4 py-8 pb-24">
       <div className="w-full max-w-md mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pt-4">
           <div>
-            <h1 className="text-xl font-bold text-white">임대차 딜카드 관리</h1>
-            <p className="text-xs text-slate-400">보유 중인 비공개 임대 공간 및 조건 목록</p>
+            <h1 className="text-xl font-bold text-[#1D1D1F]">임대차 딜카드 관리</h1>
+            <p className="text-sm text-[#515154]">보유 중인 비공개 임대 공간 및 조건 목록</p>
           </div>
           <Link
             href="/broker/lease-card/new"
-            className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold rounded-xl px-4 py-2 text-xs transition-colors"
+            className="bg-[#0055D4] hover:bg-[#0040DD] text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors"
           >
             + 새 임대차
           </Link>
@@ -72,20 +72,20 @@ export default function LeaseSpacesListPage() {
             placeholder="공간 유형으로 검색 (예: office, retail)..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#111726] border border-slate-800 rounded-xl pl-9 pr-4 py-3 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-all"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm text-[#1D1D1F] placeholder:text-[#6E6E73] focus:outline-none focus:border-[#0055D4] transition-all"
           />
-          <span className="absolute left-3 top-3.5 text-slate-600 text-xs">🔍</span>
+          <span className="absolute left-3 top-3.5 text-[#515154] text-sm">🔍</span>
         </div>
 
         {/* List Content */}
         {loading ? (
-          <div className="flex justify-center py-12 text-primary">
+          <div className="flex justify-center py-12 text-[#0055D4]">
             <div className="relative w-6 h-6">
-              <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+              <div className="absolute inset-0 rounded-full border-2 border-[#0055D4]/20 border-t-[#0055D4] animate-spin" />
             </div>
           </div>
         ) : error ? (
-          <div className="text-center py-12 text-red-400 text-xs">⚠️ {error}</div>
+          <div className="text-center py-12 text-[#C8102E] text-sm font-medium">⚠️ {error}</div>
         ) : spaces.length > 0 ? (
           <div className="space-y-3">
             {spaces.map((space) => {
@@ -96,39 +96,39 @@ export default function LeaseSpacesListPage() {
                 <div
                   key={space.id}
                   onClick={() => router.push(`/broker/lease-card/${space.id}`)}
-                  className="bg-[#151c2c] border border-slate-800 hover:border-primary/30 rounded-2xl p-4 transition-all cursor-pointer space-y-2.5 active:scale-[0.99]"
+                  className="ios-glass-card hover:border-[#0055D4]/40 rounded-2xl p-4 transition-all cursor-pointer space-y-2.5 active:scale-[0.99]"
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h2 className="text-sm font-semibold text-white">
+                      <h2 className="text-base font-semibold text-[#1D1D1F]">
                         {space.building?.area_signal || "권역 미확인"}{" "}
                         {space.floor ? `${space.floor}` : "층 미상"}
                       </h2>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{typeLabel}</p>
+                      <p className="text-sm text-[#515154] mt-0.5">{typeLabel}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       {space.is_marketplace_listed && (
-                        <span className="shrink-0 text-[8px] bg-primary/20 text-primary border border-primary/30 rounded-full px-1.5 py-0.5 font-bold">
+                        <span className="shrink-0 text-sm bg-blue-50 text-[#1D4ED8] border border-blue-200 rounded-full px-2 py-0.5 font-bold">
                           MARKET
                         </span>
                       )}
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-sm text-[#515154]">
                         {new Date(space.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                  <div className="grid grid-cols-2 gap-2 text-sm text-[#515154]">
                     <div>
-                      <span className="text-slate-600 font-medium">임대 면적:</span> {space.area_sqm ? `${space.area_sqm}㎡ (${areaPy}평)` : "미확인"}
+                      <span className="text-[#515154] font-medium">임대 면적:</span> {space.area_sqm ? `${space.area_sqm}㎡ (${areaPy}평)` : "미확인"}
                     </div>
                     <div>
-                      <span className="text-slate-600 font-medium">매칭 고객:</span>{" "}
-                      <span className={space.match_count > 0 ? "text-primary font-bold" : "text-slate-400"}>
+                      <span className="text-[#515154] font-medium">매칭 고객:</span>{" "}
+                      <span className={space.match_count > 0 ? "text-[#0055D4] font-bold" : "text-[#515154]"}>
                         🎯 {space.match_count}명
                       </span>
                     </div>
-                    <div className="col-span-2 text-white font-semibold text-xs mt-1">
+                    <div className="col-span-2 text-[#1D1D1F] font-semibold text-sm mt-1">
                       보증금 {space.deposit || 0}만 / 월 {space.monthly_rent || 0}만
                     </div>
                   </div>
@@ -137,9 +137,9 @@ export default function LeaseSpacesListPage() {
             })}
           </div>
         ) : (
-          <div className="bg-[#121824] border border-slate-800 rounded-2xl p-8 text-center text-slate-500 space-y-2">
-            <p className="text-xs">등록된 임대차 딜카드가 없습니다.</p>
-            <p className="text-[10px]">새 카톡 메모를 분석하여 첫 임대차 딜카드를 만들어보세요!</p>
+          <div className="ios-glass-card rounded-2xl p-8 text-center text-[#515154] space-y-2">
+            <p className="text-sm font-medium text-[#1D1D1F]">등록된 임대차 딜카드가 없습니다.</p>
+            <p className="text-sm">새 카톡 메모를 분석하여 첫 임대차 딜카드를 만들어보세요!</p>
           </div>
         )}
       </div>

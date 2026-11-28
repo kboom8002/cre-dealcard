@@ -2,12 +2,7 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  BarChart3,
-  Copy,
-  Save,
-  Trash2,
-} from "lucide-react";
+import { BarChart3, Copy, Save, Trash2 } from "lucide-react";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { EditorHeaderActionButton } from "@/components/workspace/list/WorkspaceList";
 import {
@@ -27,38 +22,12 @@ import type { MagazineDraftSnapshot } from "@/components/broker/studio/MagazineQ
 import type { NewsletterTargetSegment } from "@/components/broker/studio/SendListSummaryBar";
 import type { BulkImportApiResult } from "@/components/workspace/inbox/ContactBulkImportModal";
 import type { MonthlyRegionKey } from "@/domain/magazine/monthly-stats-charts";
-import {
-  buildDefaultMonthlyGraphicPair,
-  mapPreferredRegionsToMonthlyKey,
-  type MonthlyChartPairId,
-} from "@/domain/magazine/monthly-stats-hydration";
+import { buildDefaultMonthlyGraphicPair, mapPreferredRegionsToMonthlyKey, type MonthlyChartPairId } from "@/domain/magazine/monthly-stats-hydration";
 import { normalizeReadableBriefingText } from "@/lib/magazine/simple-format";
-import {
-  clusterArticlesIntoFiveIssues,
-  formatMarketBriefingThreeBullets,
-  formatSingleLineTitle,
-  normalizeMarketBriefingPlain,
-  resolveUnitIssuesFromData,
-} from "@/domain/magazine/issue-clustering";
-import {
-  DEFAULT_PREFERRED_REGIONS,
-  DEFAULT_PREFERRED_CHANNELS,
-  normalizeBrokerPreferences,
-} from "@/domain/magazine/broker-preferences";
-import {
-  CURATED_CHANNEL_POOL,
-  TONE_STANCE_META,
-  resolveNewsChannel,
-  type NewsChannelId,
-  type NewsPoolItem,
-  type NewsletterToneStance,
-  type SpecificNewsChannelId,
-} from "@/domain/magazine/news-channels";
-import type {
-  AxiosUnitIssue,
-  MarketTemperature,
-  MonthlyRegionalChart,
-} from "@/domain/magazine/types";
+import { clusterArticlesIntoFiveIssues, formatMarketBriefingThreeBullets, formatSingleLineTitle, normalizeMarketBriefingPlain, resolveUnitIssuesFromData } from "@/domain/magazine/issue-clustering";
+import { DEFAULT_PREFERRED_REGIONS, DEFAULT_PREFERRED_CHANNELS, normalizeBrokerPreferences } from "@/domain/magazine/broker-preferences";
+import { CURATED_CHANNEL_POOL, TONE_STANCE_META, resolveNewsChannel, type NewsChannelId, type NewsPoolItem, type NewsletterToneStance, type SpecificNewsChannelId } from "@/domain/magazine/news-channels";
+import type { AxiosUnitIssue, MarketTemperature, MonthlyRegionalChart } from "@/domain/magazine/types";
 import { copyText, copyTextFromPromise, COPY_FAILED_MESSAGE } from "@/lib/ux/clipboard";
 import { EditorOutreachTab } from "@/components/magazine-editor/EditorOutreachTab";
 import { EditorAnalyticsTab } from "@/components/magazine-editor/EditorAnalyticsTab";
@@ -67,13 +36,7 @@ import { buildNewsletterKakaoGreeting } from "@/lib/magazine/kakao-greeting";
 import { shareKakaoFeed, getSiteOrigin } from "@/lib/kakao/share";
 import { kstParts, toKstDate, todayKst } from "@/lib/magazine/kst";
 import { buildOgImageUrl, resolvePublicBaseUrl } from "@/lib/magazine/share-urls";
-import {
-  NEWSLETTER_CADENCE_META,
-  deriveCadenceIssueMeta,
-  normalizeNewsletterCadence,
-  parseCadenceAnchor,
-  type NewsletterCadence,
-} from "@/lib/magazine/newsletter-cadence";
+import { NEWSLETTER_CADENCE_META, deriveCadenceIssueMeta, normalizeNewsletterCadence, parseCadenceAnchor, type NewsletterCadence } from "@/lib/magazine/newsletter-cadence";
 import type { HonestSaveState } from "@/lib/ux/lexicon";
 import {
   LEGACY_DRAFT_STORAGE_KEY, SLOT_DRAFT_PREFIX, appendTargetSegmentToUrl, buildApiErrorStatusBanner,
@@ -86,64 +49,22 @@ import {
   type LocalNewsletterDraft, type NewsletterStepKey, type SavedEditionSummary, type StatusBannerState,
 } from "./_components/magazine-workspace-types";
 import { EditionDeleteModal } from "./_components/EditionDeleteModal";
-import {
-  EditionListSidebar,
-  editionDisplayTitle,
-} from "./_components/EditionListSidebar";
+import { EditionListSidebar, editionDisplayTitle } from "./_components/EditionListSidebar";
 import { NewsletterTitleStepPanel } from "./_components/NewsletterTitleStepPanel";
 import { NewsletterContentStepPanel } from "./_components/NewsletterContentStepPanel";
-import {
-  NewsletterSendStepPanel,
-  type SendDeliveryMode,
-} from "./_components/NewsletterSendStepPanel";
-import {
-  NewsletterDeliveryReceiptsPanel,
-  type DeliveryReceiptRowItem,
-  type DistributionSummaryRowItem,
-} from "./_components/NewsletterDeliveryReceiptsPanel";
+import { NewsletterSendStepPanel, type SendDeliveryMode } from "./_components/NewsletterSendStepPanel";
+import { NewsletterDeliveryReceiptsPanel, type DeliveryReceiptRowItem, type DistributionSummaryRowItem } from "./_components/NewsletterDeliveryReceiptsPanel";
 import { type DistributeOutcomeCardData } from "./_components/distribute-result-helper";
-import {
-  MagazineStatusBanner,
-  NewsletterPreviewBody,
-  NewsletterPrimaryActionButton,
-} from "./_components/NewsletterPreviewSlot";
+import { MagazineStatusBanner, NewsletterPreviewBody, NewsletterPrimaryActionButton } from "./_components/NewsletterPreviewSlot";
 import { useNewsletterServerDraftSync } from "./_hooks/useNewsletterServerDraftSync";
 import {
-  buildIssueRequestBody,
-  buildLocalDraftStorageRecord,
-  buildPublishPatchBody,
-  buildSelectedDealSnapshots,
-  parseServerSaveSuccess,
-  resolveFallbackIssueIsoDate,
-  resolvePopulatedMonthlyCharts,
-  resolvePublishPatchSuccessUrl,
-  saveDraftRecordToSlots,
-  upsertSavedEditionSummary,
-  upsertBootstrappedDraftSummary,
-  applyServerDraftSyncedUpdate,
+  buildIssueRequestBody, buildLocalDraftStorageRecord, buildPublishPatchBody, buildSelectedDealSnapshots,
+  parseServerSaveSuccess, resolveFallbackIssueIsoDate, resolvePopulatedMonthlyCharts, resolvePublishPatchSuccessUrl,
+  saveDraftRecordToSlots, upsertSavedEditionSummary, upsertBootstrappedDraftSummary, applyServerDraftSyncedUpdate,
 } from "./_lib/edition-payload";
-import {
-  applyMonthlyChartFieldPatch,
-  buildClonedEditionState,
-  buildNewsletterEditorSyncUnits,
-  executeRemoteEditionRestore,
-  requestAiNewsClusterIssues,
-} from "./_lib/edition-helpers";
-import {
-  executeSendSelectedEdition,
-  patchEditionRegionFocusRequest,
-  scheduleRegionFocusPatch,
-  syncServerRegionFocusMap,
-} from "./_lib/edition-dispatch";
-import {
-  findScopedInitialDraftRecord,
-  markSlotSyncedOnServer,
-  mergeIncomingNewsPool,
-  parseHydratedDraftData,
-  purgeMismatchedLegacyDraftKeys,
-  resolveAppliedEditionFields,
-  writeExplicitNewSlotMarker,
-} from "./_lib/edition-bootstrap";
+import { applyMonthlyChartFieldPatch, buildClonedEditionState, buildNewsletterEditorSyncUnits, executeRemoteEditionRestore, requestAiNewsClusterIssues } from "./_lib/edition-helpers";
+import { executeSendSelectedEdition, patchEditionRegionFocusRequest, scheduleRegionFocusPatch, syncServerRegionFocusMap } from "./_lib/edition-dispatch";
+import { findScopedInitialDraftRecord, markSlotSyncedOnServer, mergeIncomingNewsPool, parseHydratedDraftData, purgeMismatchedLegacyDraftKeys, resolveAppliedEditionFields, writeExplicitNewSlotMarker } from "./_lib/edition-bootstrap";
 
 export {
   getPrimaryTabsForCadence,
@@ -151,6 +72,49 @@ export {
   type EditorPrimaryTabDef,
   type NewsletterStepKey,
 } from "./_components/magazine-workspace-types";
+
+export function mergeAddedDealId(
+  currentIds: string[],
+  addDealId: string,
+  availableDeals: Array<{ id: string; buildingId?: string | null; title?: string }>,
+  maxFeatured = 6,
+): {
+  nextIds: string[];
+  addedId: string | null;
+  alreadyIncluded: boolean;
+  matchedTitle?: string;
+} {
+  const clean = (addDealId ?? "").trim();
+  if (!clean) {
+    return { nextIds: currentIds, addedId: null, alreadyIncluded: false };
+  }
+  const matched = availableDeals.find(
+    (d) => d.id === clean || d.buildingId === clean,
+  );
+  const targetId = matched ? matched.id : clean;
+  const matchedTitle = matched?.title;
+
+  if (currentIds.includes(targetId)) {
+    return {
+      nextIds: currentIds,
+      addedId: targetId,
+      alreadyIncluded: true,
+      matchedTitle,
+    };
+  }
+
+  const nextIds =
+    currentIds.length >= maxFeatured
+      ? [targetId, ...currentIds.slice(0, maxFeatured - 1)]
+      : [...currentIds, targetId];
+
+  return {
+    nextIds,
+    addedId: targetId,
+    alreadyIncluded: false,
+    matchedTitle,
+  };
+}
 
 const STEP_TABS: readonly {
   key: NewsletterStepKey;
@@ -308,6 +272,9 @@ function MagazineEditorWorkspace() {
   const appliedInitialParamsRef = useRef<boolean>(false);
   const initialNewParamRef = useRef<boolean>(isNewParam);
   const hasHandledNewQueryRef = useRef<boolean>(isNewParam);
+  const handledAddDealIdRef = useRef<string | null>(null);
+  const selectedDealIdsRef = useRef<string[]>(selectedDealIds);
+  selectedDealIdsRef.current = selectedDealIds;
 
   const syncUrlParams = useCallback(
     (
@@ -1526,6 +1493,44 @@ function MagazineEditorWorkspace() {
       cancelled = true;
     };
   }, [isWorkspaceHydrated, searchParams]);
+
+  useEffect(() => {
+    if (!isWorkspaceHydrated) return;
+    const rawAddDealId = searchParams?.get?.("addDealId") ?? "";
+    const cleanAddDealId = rawAddDealId.trim();
+    if (!cleanAddDealId) {
+      handledAddDealIdRef.current = null;
+      return;
+    }
+    if (handledAddDealIdRef.current === cleanAddDealId) return;
+    handledAddDealIdRef.current = cleanAddDealId;
+
+    const res = mergeAddedDealId(selectedDealIdsRef.current, cleanAddDealId, deals);
+    if (!res.addedId) return;
+
+    setSelectedDealIds(res.nextIds);
+    persistLocalDraft({ selectedDealIds: res.nextIds });
+    setActiveStep("content");
+    setStatusBanner({
+      tone: "success",
+      message: res.alreadyIncluded
+        ? "✓ 해당 딜카드는 이미 이번 호 추천 매물에 포함되어 있습니다."
+        : "✓ 선택한 딜카드를 이번 호 추천 매물에 담았습니다.",
+    });
+
+    try {
+      const baseSearch =
+        searchParams?.toString?.() ||
+        (typeof window !== "undefined" ? window.location.search : "");
+      const params = new URLSearchParams(baseSearch);
+      params.delete("addDealId");
+      const qs = params.toString();
+      router?.replace?.(qs ? `${pathname}?${qs}` : pathname);
+    } catch {
+      // ignore router mock edge cases
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, isWorkspaceHydrated, deals]);
 
   useEffect(() => {
     if (!isNewParam) {

@@ -135,42 +135,42 @@ export default function PipelinePage() {
   ).length;
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
+    <main className="flex flex-col items-center min-h-screen bg-[#F5F5F7] text-[#1D1D1F] px-4 py-8 pb-24">
       <div className="w-full max-w-lg mx-auto space-y-5">
         {/* Header & KPI Dashboard */}
         <div className="pt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">딜 파이프라인</h1>
+            <h1 className="text-xl font-bold text-[#1D1D1F]">딜 파이프라인</h1>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center items-center">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">진행 중인 딜</p>
-              <p className="text-2xl font-bold text-primary">{activeCount}<span className="text-sm font-medium text-muted-foreground ml-1">건</span></p>
+            <div className="ios-glass-card rounded-xl p-4 flex flex-col justify-center items-center">
+              <p className="text-sm font-medium text-[#515154] uppercase tracking-wider mb-1">진행 중인 딜</p>
+              <p className="text-2xl font-bold text-[#0055D4]">{activeCount}<span className="text-sm font-medium text-[#515154] ml-1">건</span></p>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center items-center">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">총 누적 딜</p>
-              <p className="text-2xl font-bold text-foreground">{allDeals.length}<span className="text-sm font-medium text-muted-foreground ml-1">건</span></p>
+            <div className="ios-glass-card rounded-xl p-4 flex flex-col justify-center items-center">
+              <p className="text-sm font-medium text-[#515154] uppercase tracking-wider mb-1">총 누적 딜</p>
+              <p className="text-2xl font-bold text-[#1D1D1F]">{allDeals.length}<span className="text-sm font-medium text-[#515154] ml-1">건</span></p>
             </div>
           </div>
 
           {/* Visual Bar Chart */}
           {!loading && allDeals.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-              <h2 className="text-xs font-bold text-foreground mb-2">단계별 분포</h2>
+            <div className="ios-glass-card rounded-xl p-4 space-y-3">
+              <h2 className="text-sm font-bold text-[#1D1D1F] mb-2">단계별 분포</h2>
               <div className="space-y-2">
                 {stageGroups.filter(s => s.deals.length > 0).map(stage => {
                   const percentage = Math.max(5, (stage.deals.length / allDeals.length) * 100);
                   return (
                     <div key={stage.key} className="flex items-center gap-2">
-                      <div className="w-16 text-[10px] text-muted-foreground truncate">{stage.label}</div>
-                      <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                      <div className="w-20 text-sm text-[#515154] truncate">{stage.label}</div>
+                      <div className="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-primary/80 rounded-full transition-all duration-500" 
+                          className="h-full bg-[#0055D4] rounded-full transition-all duration-500" 
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
-                      <div className="w-6 text-right text-[10px] font-bold">{stage.deals.length}</div>
+                      <div className="w-8 text-right text-sm font-bold text-[#1D1D1F]">{stage.deals.length}</div>
                     </div>
                   );
                 })}
@@ -183,7 +183,7 @@ export default function PipelinePage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />
+              <div key={i} className="h-20 bg-slate-200/80 rounded-xl animate-pulse" />
             ))}
           </div>
         ) : (
@@ -195,16 +195,16 @@ export default function PipelinePage() {
               return (
                 <div
                   key={stage.key}
-                  className="rounded-xl border border-border bg-card overflow-hidden"
+                  className="ios-glass-card rounded-xl overflow-hidden"
                 >
                   {/* Stage Header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-muted/30 border-b border-border">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100/70 border-b border-slate-200">
                     <div className="flex items-center gap-2">
                       <span className="text-base">{stage.emoji}</span>
-                      <span className="text-sm font-semibold">{stage.label}</span>
+                      <span className="text-sm font-semibold text-[#1D1D1F]">{stage.label}</span>
                     </div>
-                    <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 rounded-full text-xs font-bold ${
-                      count > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                    <span className={`inline-flex items-center justify-center min-w-[1.75rem] h-6 px-2 rounded-full text-sm font-bold ${
+                      count > 0 ? 'bg-blue-50 text-[#0055D4]' : 'bg-slate-200/70 text-[#515154]'
                     }`}>
                       {count}
                     </span>
@@ -212,7 +212,7 @@ export default function PipelinePage() {
 
                   {/* Deal Cards in Stage */}
                   {count > 0 ? (
-                    <div className="divide-y divide-border">
+                    <div className="divide-y divide-slate-200">
                       {stage.deals.map((deal) => {
                         const holdDays = Math.floor(
                           (Date.now() - new Date(deal.entered_at).getTime()) / 86_400_000
@@ -223,28 +223,28 @@ export default function PipelinePage() {
                         const nextStages = getNextStages(currentStageKey).filter(s => s !== 'dead');
 
                         return (
-                          <div key={deal.id} className="flex flex-col sm:flex-row sm:items-center px-4 py-3 hover:bg-muted/10 transition-colors gap-3">
+                          <div key={deal.id} className="flex flex-col sm:flex-row sm:items-center px-4 py-3 hover:bg-slate-50/80 transition-colors gap-3">
                             <Link
                               href={`/broker/deal-card/${deal.building_ssot_lite_id}`}
                               className="flex-1 min-w-0"
                               id={`pipeline-deal-${deal.id}`}
                             >
                               <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium truncate text-foreground">
+                                <p className="text-sm font-medium truncate text-[#1D1D1F]">
                                   {deal.building_area} {deal.building_asset_type}
                                 </p>
                                 {isWarning && (
-                                  <span className="shrink-0 inline-flex items-center rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-1.5 py-0.5 text-[10px] font-medium">
+                                  <span className="shrink-0 inline-flex items-center rounded-full bg-red-50 text-[#C8102E] border border-red-200 px-2 py-0.5 text-sm font-medium">
                                     ⚠️ {holdDays}일
                                   </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-sm text-[#515154]">
                                   {deal.building_price}
                                 </span>
                                 {(deal.matched_buyer_count ?? 0) > 0 && (
-                                  <span className="text-[11px] text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded-sm">
+                                  <span className="text-sm text-[#0055D4] font-medium bg-blue-50 px-2 py-0.5 rounded-sm">
                                     매칭 {deal.matched_buyer_count}명
                                   </span>
                                 )}
@@ -252,8 +252,8 @@ export default function PipelinePage() {
                             </Link>
 
                             {/* Actions */}
-                            <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-none border-border">
-                              <span className="text-[10px] text-muted-foreground sm:hidden">
+                            <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-none border-slate-200">
+                              <span className="text-sm text-[#515154] sm:hidden">
                                 {holdDays}일 경과
                               </span>
                               
@@ -266,9 +266,9 @@ export default function PipelinePage() {
                                       fromStage: currentStageKey,
                                       toStage: 'buyer_meeting'
                                     })}
-                                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1 shadow-sm whitespace-nowrap"
+                                    className="text-sm font-bold px-3 py-1.5 rounded-md bg-[#0055D4] text-white hover:bg-[#0040DD] flex items-center gap-1 shadow-sm whitespace-nowrap"
                                   >
-                                    응대 수락 (리뷰) <ShieldCheck className="w-3 h-3" />
+                                    응대 수락 (리뷰) <ShieldCheck className="w-4 h-4" />
                                   </button>
                                 ) : (
                                   nextStages.map((nextStage: DealStage) => (
@@ -280,9 +280,9 @@ export default function PipelinePage() {
                                         fromStage: currentStageKey,
                                         toStage: nextStage
                                       })}
-                                      className="text-[11px] font-bold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 flex items-center gap-1 shadow-sm whitespace-nowrap"
+                                      className="text-sm font-bold px-3 py-1.5 rounded-md bg-[#1D1D1F] text-white hover:bg-[#3A3A3C] flex items-center gap-1 shadow-sm whitespace-nowrap"
                                     >
-                                      다음 단계 <ChevronRight className="w-3 h-3" />
+                                      다음 단계 <ChevronRight className="w-4 h-4" />
                                     </button>
                                   ))
                                 )}
@@ -294,7 +294,7 @@ export default function PipelinePage() {
                     </div>
                   ) : (
                     <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-[#515154]">
                         이 단계에 있는 딜이 없어요.
                       </p>
                     </div>

@@ -7,6 +7,7 @@ import { copyText } from "@/lib/ux/clipboard";
 import { formatListDate } from "@/lib/workspace/list-date";
 import {
   ALIMTALK_EARLY_ACCESS_NOTICE,
+  type BrokerInventoryDeal,
   type InboxAlimtalkTemplateId,
   type InboxEditorTabType,
   type InboxThreadItem,
@@ -66,6 +67,8 @@ export interface InboxEditorColumnProps {
   onCopyClientEmail?: (email: string) => void;
   onGenerateAiReply?: (thread: InboxThreadItem) => Promise<void> | void;
   onConvertAnonToClient?: (thread: InboxThreadItem) => void;
+  recommendedDeals?: BrokerInventoryDeal[];
+  onApplyRecommendedDeal?: (deal: BrokerInventoryDeal) => void;
   aiReplyLoading?: boolean;
   aiReplyCount?: number;
 }
@@ -103,6 +106,8 @@ export function InboxEditorColumn({
   onCopyClientEmail,
   onGenerateAiReply,
   onConvertAnonToClient,
+  recommendedDeals = [],
+  onApplyRecommendedDeal,
   aiReplyLoading = false,
   aiReplyCount = 0,
 }: InboxEditorColumnProps) {
@@ -217,7 +222,11 @@ export function InboxEditorColumn({
           )}
 
           {/* 선택된 고객 상단 컨텍스트 바 */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
+          <div
+            data-testid="inbox-editor-client-header"
+            tabIndex={-1}
+            className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs focus:outline-none"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -437,7 +446,7 @@ export function InboxEditorColumn({
                       data-testid="approve-gate-primary-btn"
                       disabled={Boolean(busyAction)}
                       onClick={() => onApproveAndSendIm(activeThread)}
-                      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                      className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
                     >
                       {busyAction === `approve:${activeThread.id}`
                         ? "승인 처리 중…"
@@ -503,7 +512,7 @@ export function InboxEditorColumn({
                     data-testid="inbox-todo-reapprove-btn"
                     disabled={Boolean(busyAction)}
                     onClick={() => onApproveAndSendIm(activeThread)}
-                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-800 disabled:opacity-50 cursor-pointer"
                   >
                     {busyAction === `approve:${activeThread.id}`
                       ? "승인 처리 중…"
@@ -634,6 +643,38 @@ export function InboxEditorColumn({
                     )}
                   </div>
                 )}
+
+              {recommendedDeals.length > 0 && (
+                <div
+                  data-testid="inbox-recommend-inventory-bar"
+                  className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3 space-y-2"
+                >
+                  <p className="text-sm font-extrabold text-[#1D1D1F]">
+                    보유 매물 중 조건 부합 딜카드·IM 추천
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {recommendedDeals.slice(0, 3).map((deal) => (
+                      <button
+                        key={deal.buildingId}
+                        type="button"
+                        data-testid={`inbox-recommend-deal-chip-${deal.buildingId}`}
+                        onClick={() => onApplyRecommendedDeal?.(deal)}
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-[#1D1D1F] transition hover:border-[#1D4ED8] hover:bg-blue-50/50 cursor-pointer text-left"
+                      >
+                        <span className="truncate max-w-[200px]">{deal.title}</span>
+                        {deal.priceBand && (
+                          <span className="text-sm font-semibold text-[#1D4ED8] shrink-0">
+                            · {deal.priceBand}
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-[#515154] shrink-0">
+                          ({deal.hasIm ? "IM" : "딜카드"})
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* STEP 2. 안내 문구 작성 (상황별 프리셋 + AI 맞춤 답장) */}
@@ -684,7 +725,7 @@ export function InboxEditorColumn({
                       onClick={() => onKakaoPresetChange?.(opt.kind)}
                       className={`min-h-[44px] rounded-[9px] px-2 py-1.5 text-sm font-semibold leading-snug break-keep text-center transition-all cursor-pointer ${
                         isSelected
-                          ? "ios-segmented-pill bg-white text-[#007AFF]"
+                          ? "ios-segmented-pill bg-white text-[#0055D4]"
                           : "bg-transparent text-[#3A3A3C] hover:text-[#1D1D1F]"
                       }`}
                     >

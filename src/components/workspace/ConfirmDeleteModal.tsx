@@ -136,7 +136,7 @@ export function ConfirmDeleteModal({
 
   const confirmBtnClass =
     tone === "primary"
-      ? "min-h-[44px] px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] disabled:opacity-45 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap"
+      ? "min-h-[44px] px-4 py-2 rounded-xl bg-[#0055D4] hover:bg-[#0044AA] disabled:opacity-45 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap"
       : "min-h-[44px] px-4 py-2 rounded-xl bg-[#D70015] hover:bg-[#B80012] disabled:opacity-45 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors cursor-pointer whitespace-nowrap";
 
   const handleSafeConfirm = () => {
